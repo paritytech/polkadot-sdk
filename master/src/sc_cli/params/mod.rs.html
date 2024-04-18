@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/cli/src/params/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/cli/src/params/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sc_cli" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sc_cli" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../sc_cli/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -401,7 +403,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">match </span>Ss58AddressFormatRegistry::try_from(x) {
 		<span class="prelude-val">Ok</span>(format_registry) =&gt; <span class="prelude-val">Ok</span>(format_registry.into()),
 		<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="prelude-val">Err</span>(<span class="macro">format!</span>(
-			<span class="string">&quot;Unable to parse variant. Known variants: {:?}&quot;</span>,
+			<span class="string">"Unable to parse variant. Known variants: {:?}"</span>,
 			Ss58AddressFormat::all_names()
 		)),
 	}
@@ -417,7 +419,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">fn </span>from_str(block_number: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Err&gt; {
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(pos) = block_number.chars().position(|d| !d.is_digit(<span class="number">10</span>)) {
-			<span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">&quot;Expected block number, found illegal digit at position: {}&quot;</span>, pos))
+			<span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">"Expected block number, found illegal digit at position: {}"</span>, pos))
 		} <span class="kw">else </span>{
 			<span class="prelude-val">Ok</span>(<span class="self">Self</span>(block_number.to_owned()))
 		}
@@ -434,7 +436,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>N: FromStr,
 		N::Err: std::fmt::Debug,
 	{
-		FromStr::from_str(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>).map_err(|e| <span class="macro">format!</span>(<span class="string">&quot;Failed to parse block number: {:?}&quot;</span>, e))
+		FromStr::from_str(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>).map_err(|e| <span class="macro">format!</span>(<span class="string">"Failed to parse block number: {:?}"</span>, e))
 	}
 }
 
@@ -446,10 +448,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span><span class="prelude-val">Err </span>= String;
 
 	<span class="kw">fn </span>from_str(block_number: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Err&gt; {
-		<span class="kw">if let </span><span class="prelude-val">Some</span>(rest) = block_number.strip_prefix(<span class="string">&quot;0x&quot;</span>) {
+		<span class="kw">if let </span><span class="prelude-val">Some</span>(rest) = block_number.strip_prefix(<span class="string">"0x"</span>) {
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(pos) = rest.chars().position(|c| !c.is_ascii_hexdigit()) {
 				<span class="prelude-val">Err</span>(<span class="macro">format!</span>(
-					<span class="string">&quot;Expected block hash, found illegal hex character at position: {}&quot;</span>,
+					<span class="string">"Expected block hash, found illegal hex character at position: {}"</span>,
 					<span class="number">2 </span>+ pos,
 				))
 			} <span class="kw">else </span>{
@@ -469,10 +471,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		NumberFor&lt;B&gt;: FromStr,
 		&lt;NumberFor&lt;B&gt; <span class="kw">as </span>FromStr&gt;::Err: std::fmt::Debug,
 	{
-		<span class="kw">if </span><span class="self">self</span>.<span class="number">0</span>.starts_with(<span class="string">&quot;0x&quot;</span>) {
+		<span class="kw">if </span><span class="self">self</span>.<span class="number">0</span>.starts_with(<span class="string">"0x"</span>) {
 			<span class="prelude-val">Ok</span>(BlockId::Hash(
 				FromStr::from_str(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>[<span class="number">2</span>..])
-					.map_err(|e| <span class="macro">format!</span>(<span class="string">&quot;Failed to parse block hash: {:?}&quot;</span>, e))<span class="question-mark">?</span>,
+					.map_err(|e| <span class="macro">format!</span>(<span class="string">"Failed to parse block hash: {:?}"</span>, e))<span class="question-mark">?</span>,
 			))
 		} <span class="kw">else </span>{
 			GenericNumber(<span class="self">self</span>.<span class="number">0</span>.clone()).parse().map(BlockId::Number)
@@ -484,7 +486,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[derive(Debug, Clone, Args)]
 </span><span class="kw">pub struct </span>CryptoSchemeFlag {
 	<span class="doccomment">/// cryptography scheme
-	</span><span class="attr">#[arg(long, value_name = <span class="string">&quot;SCHEME&quot;</span>, value_enum, ignore_case = <span class="bool-val">true</span>, default_value_t = CryptoScheme::Sr25519)]
+	</span><span class="attr">#[arg(long, value_name = <span class="string">"SCHEME"</span>, value_enum, ignore_case = <span class="bool-val">true</span>, default_value_t = CryptoScheme::Sr25519)]
 	</span><span class="kw">pub </span>scheme: CryptoScheme,
 }
 
@@ -492,7 +494,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[derive(Debug, Clone, Args)]
 </span><span class="kw">pub struct </span>OutputTypeFlag {
 	<span class="doccomment">/// output format
-	</span><span class="attr">#[arg(long, value_name = <span class="string">&quot;FORMAT&quot;</span>, value_enum, ignore_case = <span class="bool-val">true</span>, default_value_t = OutputType::Text)]
+	</span><span class="attr">#[arg(long, value_name = <span class="string">"FORMAT"</span>, value_enum, ignore_case = <span class="bool-val">true</span>, default_value_t = OutputType::Text)]
 	</span><span class="kw">pub </span>output_type: OutputType,
 }
 
@@ -501,9 +503,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub struct </span>NetworkSchemeFlag {
 	<span class="doccomment">/// network address format
 	</span><span class="attr">#[arg(
-		short = <span class="string">&#39;n&#39;</span>,
+		short = <span class="string">'n'</span>,
 		long,
-		value_name = <span class="string">&quot;NETWORK&quot;</span>,
+		value_name = <span class="string">"NETWORK"</span>,
 		ignore_case = <span class="bool-val">true</span>,
 		value_parser = parse_ss58_address_format,
 	)]
@@ -519,7 +521,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>parse_block_number() {
-		<span class="kw">let </span>block_number_or_hash = BlockNumberOrHash::from_str(<span class="string">&quot;1234&quot;</span>).unwrap();
+		<span class="kw">let </span>block_number_or_hash = BlockNumberOrHash::from_str(<span class="string">"1234"</span>).unwrap();
 		<span class="kw">let </span>parsed = block_number_or_hash.parse::&lt;Block&gt;().unwrap();
 		<span class="macro">assert_eq!</span>(BlockId::Number(<span class="number">1234</span>), parsed);
 	}
@@ -527,7 +529,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>parse_block_hash() {
 		<span class="kw">let </span>hash = sp_core::H256::default();
-		<span class="kw">let </span>hash_str = <span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, hash);
+		<span class="kw">let </span>hash_str = <span class="macro">format!</span>(<span class="string">"{:?}"</span>, hash);
 		<span class="kw">let </span>block_number_or_hash = BlockNumberOrHash::from_str(<span class="kw-2">&amp;</span>hash_str).unwrap();
 		<span class="kw">let </span>parsed = block_number_or_hash.parse::&lt;Block&gt;().unwrap();
 		<span class="macro">assert_eq!</span>(BlockId::Hash(hash), parsed);
@@ -536,16 +538,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>parse_block_hash_fails() {
 		<span class="macro">assert_eq!</span>(
-			<span class="string">&quot;Expected block hash, found illegal hex character at position: 2&quot;</span>,
-			BlockNumberOrHash::from_str(<span class="string">&quot;0xHello&quot;</span>).unwrap_err(),
+			<span class="string">"Expected block hash, found illegal hex character at position: 2"</span>,
+			BlockNumberOrHash::from_str(<span class="string">"0xHello"</span>).unwrap_err(),
 		);
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>parse_block_number_fails() {
 		<span class="macro">assert_eq!</span>(
-			<span class="string">&quot;Expected block number, found illegal digit at position: 3&quot;</span>,
-			BlockNumberOrHash::from_str(<span class="string">&quot;345Hello&quot;</span>).unwrap_err(),
+			<span class="string">"Expected block number, found illegal digit at position: 3"</span>,
+			BlockNumberOrHash::from_str(<span class="string">"345Hello"</span>).unwrap_err(),
 		);
 	}
 }

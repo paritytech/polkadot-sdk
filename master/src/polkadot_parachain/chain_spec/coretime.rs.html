@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `cumulus/polkadot-parachain/src/chain_spec/coretime.rs`."><title>coretime.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `cumulus/polkadot-parachain/src/chain_spec/coretime.rs`."><title>coretime.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_parachain" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_parachain" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../polkadot_parachain/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -543,7 +545,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			westend::CORETIME_WESTEND =&gt; <span class="prelude-val">Ok</span>(CoretimeRuntimeType::Westend),
 			westend::CORETIME_WESTEND_LOCAL =&gt; <span class="prelude-val">Ok</span>(CoretimeRuntimeType::WestendLocal),
 			westend::CORETIME_WESTEND_DEVELOPMENT =&gt; <span class="prelude-val">Ok</span>(CoretimeRuntimeType::WestendDevelopment),
-			<span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">&quot;Value &#39;{}&#39; is not configured yet&quot;</span>, value)),
+			<span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">"Value '{}' is not configured yet"</span>, value)),
 		}
 	}
 }
@@ -585,31 +587,31 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">pub const </span>CORETIME_PARA_ID: ParaId = ParaId::new(<span class="number">1005</span>);
 
 <span class="kw">impl </span>CoretimeRuntimeType {
-	<span class="kw">pub const </span>ID_PREFIX: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;coretime&quot;</span>;
+	<span class="kw">pub const </span>ID_PREFIX: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"coretime"</span>;
 
 	<span class="kw">pub fn </span>load_config(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>ChainSpec&gt;, String&gt; {
 		<span class="kw">match </span><span class="self">self </span>{
 			CoretimeRuntimeType::Kusama =&gt; <span class="prelude-val">Ok</span>(Box::new(GenericChainSpec::from_json_bytes(
-				<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">&quot;../../chain-specs/coretime-kusama.json&quot;</span>)[..],
+				<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">"../../chain-specs/coretime-kusama.json"</span>)[..],
 			)<span class="question-mark">?</span>)),
 			CoretimeRuntimeType::Polkadot =&gt;
-				<span class="macro">todo!</span>(<span class="string">&quot;Generate chain-spec: ../../chain-specs/coretime-polkadot.json&quot;</span>),
+				<span class="macro">todo!</span>(<span class="string">"Generate chain-spec: ../../chain-specs/coretime-polkadot.json"</span>),
 			CoretimeRuntimeType::Rococo =&gt; <span class="prelude-val">Ok</span>(Box::new(GenericChainSpec::from_json_bytes(
-				<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">&quot;../../chain-specs/coretime-rococo.json&quot;</span>)[..],
+				<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">"../../chain-specs/coretime-rococo.json"</span>)[..],
 			)<span class="question-mark">?</span>)),
 			CoretimeRuntimeType::RococoLocal =&gt;
-				<span class="prelude-val">Ok</span>(Box::new(rococo::local_config(<span class="kw-2">*</span><span class="self">self</span>, <span class="string">&quot;rococo-local&quot;</span>))),
+				<span class="prelude-val">Ok</span>(Box::new(rococo::local_config(<span class="kw-2">*</span><span class="self">self</span>, <span class="string">"rococo-local"</span>))),
 			CoretimeRuntimeType::RococoDevelopment =&gt;
-				<span class="prelude-val">Ok</span>(Box::new(rococo::local_config(<span class="kw-2">*</span><span class="self">self</span>, <span class="string">&quot;rococo-dev&quot;</span>))),
+				<span class="prelude-val">Ok</span>(Box::new(rococo::local_config(<span class="kw-2">*</span><span class="self">self</span>, <span class="string">"rococo-dev"</span>))),
 			CoretimeRuntimeType::Westend =&gt; <span class="prelude-val">Ok</span>(Box::new(GenericChainSpec::from_json_bytes(
-				<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">&quot;../../../parachains/chain-specs/coretime-westend.json&quot;</span>)[..],
+				<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">"../../../parachains/chain-specs/coretime-westend.json"</span>)[..],
 			)<span class="question-mark">?</span>)),
 			CoretimeRuntimeType::WestendLocal =&gt;
-				<span class="prelude-val">Ok</span>(Box::new(westend::local_config(<span class="kw-2">*</span><span class="self">self</span>, <span class="string">&quot;westend-local&quot;</span>))),
+				<span class="prelude-val">Ok</span>(Box::new(westend::local_config(<span class="kw-2">*</span><span class="self">self</span>, <span class="string">"westend-local"</span>))),
 			CoretimeRuntimeType::WestendDevelopment =&gt;
-				<span class="prelude-val">Ok</span>(Box::new(westend::local_config(<span class="kw-2">*</span><span class="self">self</span>, <span class="string">&quot;westend-dev&quot;</span>))),
+				<span class="prelude-val">Ok</span>(Box::new(westend::local_config(<span class="kw-2">*</span><span class="self">self</span>, <span class="string">"westend-dev"</span>))),
 			other =&gt; <span class="prelude-val">Err</span>(<span class="macro">std::format!</span>(
-				<span class="string">&quot;No default config present for {:?}, you should provide a chain-spec as json file!&quot;</span>,
+				<span class="string">"No default config present for {:?}, you should provide a chain-spec as json file!"</span>,
 				other
 			)),
 		}
@@ -619,9 +621,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Generate the name directly from the ChainType
 </span><span class="kw">pub fn </span>chain_type_name(chain_type: <span class="kw-2">&amp;</span>ChainType) -&gt; Cow&lt;str&gt; {
 	<span class="kw">match </span>chain_type {
-		ChainType::Development =&gt; <span class="string">&quot;Development&quot;</span>,
-		ChainType::Local =&gt; <span class="string">&quot;Local&quot;</span>,
-		ChainType::Live =&gt; <span class="string">&quot;Live&quot;</span>,
+		ChainType::Development =&gt; <span class="string">"Development"</span>,
+		ChainType::Local =&gt; <span class="string">"Local"</span>,
+		ChainType::Live =&gt; <span class="string">"Live"</span>,
 		ChainType::Custom(name) =&gt; name,
 	}
 	.into()
@@ -637,28 +639,28 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use </span>sc_chain_spec::ChainType;
 	<span class="kw">use </span>sp_core::sr25519;
 
-	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>CORETIME_ROCOCO: <span class="kw-2">&amp;</span>str = <span class="string">&quot;coretime-rococo&quot;</span>;
-	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>CORETIME_ROCOCO_LOCAL: <span class="kw-2">&amp;</span>str = <span class="string">&quot;coretime-rococo-local&quot;</span>;
-	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>CORETIME_ROCOCO_DEVELOPMENT: <span class="kw-2">&amp;</span>str = <span class="string">&quot;coretime-rococo-dev&quot;</span>;
+	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>CORETIME_ROCOCO: <span class="kw-2">&amp;</span>str = <span class="string">"coretime-rococo"</span>;
+	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>CORETIME_ROCOCO_LOCAL: <span class="kw-2">&amp;</span>str = <span class="string">"coretime-rococo-local"</span>;
+	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>CORETIME_ROCOCO_DEVELOPMENT: <span class="kw-2">&amp;</span>str = <span class="string">"coretime-rococo-dev"</span>;
 	<span class="kw">const </span>CORETIME_ROCOCO_ED: Balance = coretime_rococo_runtime::ExistentialDeposit::get();
 
 	<span class="kw">pub fn </span>local_config(runtime_type: CoretimeRuntimeType, relay_chain: <span class="kw-2">&amp;</span>str) -&gt; GenericChainSpec {
 		<span class="comment">// Rococo defaults
 		</span><span class="kw">let </span><span class="kw-2">mut </span>properties = sc_chain_spec::Properties::new();
-		properties.insert(<span class="string">&quot;ss58Format&quot;</span>.into(), <span class="number">42</span>.into());
-		properties.insert(<span class="string">&quot;tokenSymbol&quot;</span>.into(), <span class="string">&quot;ROC&quot;</span>.into());
-		properties.insert(<span class="string">&quot;tokenDecimals&quot;</span>.into(), <span class="number">12</span>.into());
+		properties.insert(<span class="string">"ss58Format"</span>.into(), <span class="number">42</span>.into());
+		properties.insert(<span class="string">"tokenSymbol"</span>.into(), <span class="string">"ROC"</span>.into());
+		properties.insert(<span class="string">"tokenDecimals"</span>.into(), <span class="number">12</span>.into());
 
 		<span class="kw">let </span>chain_type = runtime_type.into();
-		<span class="kw">let </span>chain_name = <span class="macro">format!</span>(<span class="string">&quot;Coretime Rococo {}&quot;</span>, chain_type_name(<span class="kw-2">&amp;</span>chain_type));
+		<span class="kw">let </span>chain_name = <span class="macro">format!</span>(<span class="string">"Coretime Rococo {}"</span>, chain_type_name(<span class="kw-2">&amp;</span>chain_type));
 		<span class="kw">let </span>para_id = <span class="kw">super</span>::CORETIME_PARA_ID;
 
 		<span class="kw">let </span>wasm_binary = <span class="kw">if </span><span class="macro">matches!</span>(chain_type, ChainType::Local | ChainType::Development) {
 			coretime_rococo_runtime::fast_runtime_binary::WASM_BINARY
-				.expect(<span class="string">&quot;WASM binary was not built, please build it!&quot;</span>)
+				.expect(<span class="string">"WASM binary was not built, please build it!"</span>)
 		} <span class="kw">else </span>{
 			coretime_rococo_runtime::WASM_BINARY
-				.expect(<span class="string">&quot;WASM binary was not built, please build it!&quot;</span>)
+				.expect(<span class="string">"WASM binary was not built, please build it!"</span>)
 		};
 
 		GenericChainSpec::builder(
@@ -671,14 +673,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		.with_genesis_config_patch(genesis(
 			<span class="comment">// initial collators.
 			</span><span class="macro">vec!</span>[(
-				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>),
-				get_collator_keys_from_seed::&lt;AuraId&gt;(<span class="string">&quot;Alice&quot;</span>),
+				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Alice"</span>),
+				get_collator_keys_from_seed::&lt;AuraId&gt;(<span class="string">"Alice"</span>),
 			)],
 			<span class="macro">vec!</span>[
-				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>),
-				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Bob&quot;</span>),
-				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice//stash&quot;</span>),
-				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Bob//stash&quot;</span>),
+				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Alice"</span>),
+				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Bob"</span>),
+				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Alice//stash"</span>),
+				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Bob//stash"</span>),
 			],
 			para_id,
 		))
@@ -692,18 +694,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		id: ParaId,
 	) -&gt; serde_json::Value {
 		<span class="macro">serde_json::json!</span>({
-			<span class="string">&quot;balances&quot;</span>: {
-				<span class="string">&quot;balances&quot;</span>: endowed_accounts.iter().cloned().map(|k| (k, CORETIME_ROCOCO_ED * <span class="number">4096</span>)).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
+			<span class="string">"balances"</span>: {
+				<span class="string">"balances"</span>: endowed_accounts.iter().cloned().map(|k| (k, CORETIME_ROCOCO_ED * <span class="number">4096</span>)).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
 			},
-			<span class="string">&quot;parachainInfo&quot;</span>: {
-				<span class="string">&quot;parachainId&quot;</span>: id,
+			<span class="string">"parachainInfo"</span>: {
+				<span class="string">"parachainId"</span>: id,
 			},
-			<span class="string">&quot;collatorSelection&quot;</span>: {
-				<span class="string">&quot;invulnerables&quot;</span>: invulnerables.iter().cloned().map(|(acc, <span class="kw">_</span>)| acc).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
-				<span class="string">&quot;candidacyBond&quot;</span>: CORETIME_ROCOCO_ED * <span class="number">16</span>,
+			<span class="string">"collatorSelection"</span>: {
+				<span class="string">"invulnerables"</span>: invulnerables.iter().cloned().map(|(acc, <span class="kw">_</span>)| acc).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
+				<span class="string">"candidacyBond"</span>: CORETIME_ROCOCO_ED * <span class="number">16</span>,
 			},
-			<span class="string">&quot;session&quot;</span>: {
-				<span class="string">&quot;keys&quot;</span>: invulnerables
+			<span class="string">"session"</span>: {
+				<span class="string">"keys"</span>: invulnerables
 					.into_iter()
 					.map(|(acc, aura)| {
 						(
@@ -714,11 +716,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					})
 					.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
 			},
-			<span class="string">&quot;polkadotXcm&quot;</span>: {
-				<span class="string">&quot;safeXcmVersion&quot;</span>: <span class="prelude-val">Some</span>(SAFE_XCM_VERSION),
+			<span class="string">"polkadotXcm"</span>: {
+				<span class="string">"safeXcmVersion"</span>: <span class="prelude-val">Some</span>(SAFE_XCM_VERSION),
 			},
-			<span class="string">&quot;sudo&quot;</span>: {
-				<span class="string">&quot;key&quot;</span>: <span class="prelude-val">Some</span>(get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>)),
+			<span class="string">"sudo"</span>: {
+				<span class="string">"key"</span>: <span class="prelude-val">Some</span>(get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Alice"</span>)),
 			},
 		})
 	}
@@ -733,25 +735,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use </span>parachains_common::{AccountId, AuraId, Balance};
 	<span class="kw">use </span>sp_core::sr25519;
 
-	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>CORETIME_WESTEND: <span class="kw-2">&amp;</span>str = <span class="string">&quot;coretime-westend&quot;</span>;
-	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>CORETIME_WESTEND_LOCAL: <span class="kw-2">&amp;</span>str = <span class="string">&quot;coretime-westend-local&quot;</span>;
-	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>CORETIME_WESTEND_DEVELOPMENT: <span class="kw-2">&amp;</span>str = <span class="string">&quot;coretime-westend-dev&quot;</span>;
+	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>CORETIME_WESTEND: <span class="kw-2">&amp;</span>str = <span class="string">"coretime-westend"</span>;
+	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>CORETIME_WESTEND_LOCAL: <span class="kw-2">&amp;</span>str = <span class="string">"coretime-westend-local"</span>;
+	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>CORETIME_WESTEND_DEVELOPMENT: <span class="kw-2">&amp;</span>str = <span class="string">"coretime-westend-dev"</span>;
 	<span class="kw">const </span>CORETIME_WESTEND_ED: Balance = coretime_westend_runtime::ExistentialDeposit::get();
 
 	<span class="kw">pub fn </span>local_config(runtime_type: CoretimeRuntimeType, relay_chain: <span class="kw-2">&amp;</span>str) -&gt; GenericChainSpec {
 		<span class="comment">// westend defaults
 		</span><span class="kw">let </span><span class="kw-2">mut </span>properties = sc_chain_spec::Properties::new();
-		properties.insert(<span class="string">&quot;ss58Format&quot;</span>.into(), <span class="number">42</span>.into());
-		properties.insert(<span class="string">&quot;tokenSymbol&quot;</span>.into(), <span class="string">&quot;WND&quot;</span>.into());
-		properties.insert(<span class="string">&quot;tokenDecimals&quot;</span>.into(), <span class="number">12</span>.into());
+		properties.insert(<span class="string">"ss58Format"</span>.into(), <span class="number">42</span>.into());
+		properties.insert(<span class="string">"tokenSymbol"</span>.into(), <span class="string">"WND"</span>.into());
+		properties.insert(<span class="string">"tokenDecimals"</span>.into(), <span class="number">12</span>.into());
 
 		<span class="kw">let </span>chain_type = runtime_type.into();
-		<span class="kw">let </span>chain_name = <span class="macro">format!</span>(<span class="string">&quot;Coretime Westend {}&quot;</span>, chain_type_name(<span class="kw-2">&amp;</span>chain_type));
+		<span class="kw">let </span>chain_name = <span class="macro">format!</span>(<span class="string">"Coretime Westend {}"</span>, chain_type_name(<span class="kw-2">&amp;</span>chain_type));
 		<span class="kw">let </span>para_id = <span class="kw">super</span>::CORETIME_PARA_ID;
 
 		GenericChainSpec::builder(
 			coretime_westend_runtime::WASM_BINARY
-				.expect(<span class="string">&quot;WASM binary was not built, please build it!&quot;</span>),
+				.expect(<span class="string">"WASM binary was not built, please build it!"</span>),
 			Extensions { relay_chain: relay_chain.to_string(), para_id: para_id.into() },
 		)
 		.with_name(<span class="kw-2">&amp;</span>chain_name)
@@ -760,14 +762,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		.with_genesis_config_patch(genesis(
 			<span class="comment">// initial collators.
 			</span><span class="macro">vec!</span>[(
-				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>),
-				get_collator_keys_from_seed::&lt;AuraId&gt;(<span class="string">&quot;Alice&quot;</span>),
+				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Alice"</span>),
+				get_collator_keys_from_seed::&lt;AuraId&gt;(<span class="string">"Alice"</span>),
 			)],
 			<span class="macro">vec!</span>[
-				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>),
-				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Bob&quot;</span>),
-				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice//stash&quot;</span>),
-				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Bob//stash&quot;</span>),
+				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Alice"</span>),
+				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Bob"</span>),
+				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Alice//stash"</span>),
+				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Bob//stash"</span>),
 			],
 			para_id,
 		))
@@ -781,18 +783,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		id: ParaId,
 	) -&gt; serde_json::Value {
 		<span class="macro">serde_json::json!</span>({
-			<span class="string">&quot;balances&quot;</span>: {
-				<span class="string">&quot;balances&quot;</span>: endowed_accounts.iter().cloned().map(|k| (k, CORETIME_WESTEND_ED * <span class="number">4096</span>)).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
+			<span class="string">"balances"</span>: {
+				<span class="string">"balances"</span>: endowed_accounts.iter().cloned().map(|k| (k, CORETIME_WESTEND_ED * <span class="number">4096</span>)).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
 			},
-			<span class="string">&quot;parachainInfo&quot;</span>: {
-				<span class="string">&quot;parachainId&quot;</span>: id,
+			<span class="string">"parachainInfo"</span>: {
+				<span class="string">"parachainId"</span>: id,
 			},
-			<span class="string">&quot;collatorSelection&quot;</span>: {
-				<span class="string">&quot;invulnerables&quot;</span>: invulnerables.iter().cloned().map(|(acc, <span class="kw">_</span>)| acc).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
-				<span class="string">&quot;candidacyBond&quot;</span>: CORETIME_WESTEND_ED * <span class="number">16</span>,
+			<span class="string">"collatorSelection"</span>: {
+				<span class="string">"invulnerables"</span>: invulnerables.iter().cloned().map(|(acc, <span class="kw">_</span>)| acc).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
+				<span class="string">"candidacyBond"</span>: CORETIME_WESTEND_ED * <span class="number">16</span>,
 			},
-			<span class="string">&quot;session&quot;</span>: {
-				<span class="string">&quot;keys&quot;</span>: invulnerables
+			<span class="string">"session"</span>: {
+				<span class="string">"keys"</span>: invulnerables
 					.into_iter()
 					.map(|(acc, aura)| {
 						(
@@ -803,21 +805,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					})
 					.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
 			},
-			<span class="string">&quot;polkadotXcm&quot;</span>: {
-				<span class="string">&quot;safeXcmVersion&quot;</span>: <span class="prelude-val">Some</span>(SAFE_XCM_VERSION),
+			<span class="string">"polkadotXcm"</span>: {
+				<span class="string">"safeXcmVersion"</span>: <span class="prelude-val">Some</span>(SAFE_XCM_VERSION),
 			}
 		})
 	}
 }
 
 <span class="kw">pub mod </span>kusama {
-	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>CORETIME_KUSAMA: <span class="kw-2">&amp;</span>str = <span class="string">&quot;coretime-kusama&quot;</span>;
-	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>CORETIME_KUSAMA_LOCAL: <span class="kw-2">&amp;</span>str = <span class="string">&quot;coretime-kusama-local&quot;</span>;
+	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>CORETIME_KUSAMA: <span class="kw-2">&amp;</span>str = <span class="string">"coretime-kusama"</span>;
+	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>CORETIME_KUSAMA_LOCAL: <span class="kw-2">&amp;</span>str = <span class="string">"coretime-kusama-local"</span>;
 }
 
 <span class="kw">pub mod </span>polkadot {
-	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>CORETIME_POLKADOT: <span class="kw-2">&amp;</span>str = <span class="string">&quot;coretime-polkadot&quot;</span>;
-	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>CORETIME_POLKADOT_LOCAL: <span class="kw-2">&amp;</span>str = <span class="string">&quot;coretime-polkadot-local&quot;</span>;
+	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>CORETIME_POLKADOT: <span class="kw-2">&amp;</span>str = <span class="string">"coretime-polkadot"</span>;
+	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>CORETIME_POLKADOT_LOCAL: <span class="kw-2">&amp;</span>str = <span class="string">"coretime-polkadot-local"</span>;
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 

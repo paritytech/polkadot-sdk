@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/service/src/chain_ops/import_blocks.rs`."><title>import_blocks.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/service/src/chain_ops/import_blocks.rs`."><title>import_blocks.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sc_service" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sc_service" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../sc_service/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -711,13 +713,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// Number of blocks we have decoded thus far.
 		</span>read_block_count: u64,
 		<span class="comment">// Stream to the data, used for decoding new blocks.
-		</span>reader: StreamDeserializer&lt;<span class="lifetime">&#39;static</span>, JsonIoRead&lt;R&gt;, SignedBlock&lt;B&gt;&gt;,
+		</span>reader: StreamDeserializer&lt;<span class="lifetime">'static</span>, JsonIoRead&lt;R&gt;, SignedBlock&lt;B&gt;&gt;,
 	},
 }
 
 <span class="kw">impl</span>&lt;R, B&gt; BlockIter&lt;R, B&gt;
 <span class="kw">where
-	</span>R: Read + <span class="lifetime">&#39;static</span>,
+	</span>R: Read + <span class="lifetime">'static</span>,
 	B: BlockT + MaybeSerializeDeserialize,
 {
 	<span class="kw">fn </span>new(input: R, binary: bool) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, String&gt; {
@@ -726,7 +728,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// If the file is encoded in binary format, it is expected to first specify the number
 			// of blocks that are going to be decoded. We read it and add it to our enum struct.
 			</span><span class="kw">let </span>num_expected_blocks: u64 = Decode::decode(<span class="kw-2">&amp;mut </span>reader)
-				.map_err(|e| <span class="macro">format!</span>(<span class="string">&quot;Failed to decode the number of blocks: {:?}&quot;</span>, e))<span class="question-mark">?</span>;
+				.map_err(|e| <span class="macro">format!</span>(<span class="string">"Failed to decode the number of blocks: {:?}"</span>, e))<span class="question-mark">?</span>;
 			<span class="prelude-val">Ok</span>(BlockIter::Binary { num_expected_blocks, read_block_count: <span class="number">0</span>, reader })
 		} <span class="kw">else </span>{
 			<span class="kw">let </span>stream_deser = Deserializer::from_reader(input).into_iter::&lt;SignedBlock&lt;B&gt;&gt;();
@@ -753,7 +755,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl</span>&lt;R, B&gt; Iterator <span class="kw">for </span>BlockIter&lt;R, B&gt;
 <span class="kw">where
-	</span>R: Read + <span class="lifetime">&#39;static</span>,
+	</span>R: Read + <span class="lifetime">'static</span>,
 	B: BlockT + MaybeSerializeDeserialize,
 {
 	<span class="kw">type </span>Item = <span class="prelude-ty">Result</span>&lt;SignedBlock&lt;B&gt;, String&gt;;
@@ -767,7 +769,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw-2">*</span>read_block_count += <span class="number">1</span>;
 					<span class="prelude-val">Some</span>(block_result)
 				} <span class="kw">else </span>{
-					<span class="comment">// `read_block_count` == `num_expected_blocks` so we&#39;ve read enough blocks.
+					<span class="comment">// `read_block_count` == `num_expected_blocks` so we've read enough blocks.
 					</span><span class="prelude-val">None
 				</span>}
 			},
@@ -787,7 +789,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	force: bool,
 ) <span class="kw">where
 	</span>TBl: BlockT + MaybeSerializeDeserialize,
-	TImpQu: <span class="lifetime">&#39;static </span>+ ImportQueue&lt;TBl&gt;,
+	TImpQu: <span class="lifetime">'static </span>+ ImportQueue&lt;TBl&gt;,
 {
 	<span class="kw">let </span>(header, extrinsics) = signed_block.block.deconstruct();
 	<span class="kw">let </span>hash = header.hash();
@@ -857,16 +859,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		};
 
 		<span class="kw">if let </span><span class="prelude-val">Ok</span>(diff) = TryInto::&lt;u128&gt;::try_into(diff) {
-			<span class="comment">// If the number of blocks can be converted to a regular integer, then it&#39;s easy: just
+			<span class="comment">// If the number of blocks can be converted to a regular integer, then it's easy: just
 			// do the math and turn it into a `f64`.
 			</span><span class="kw">let </span>speed = diff
 				.saturating_mul(<span class="number">10_000</span>)
 				.checked_div(u128::from(elapsed_ms))
 				.map_or(<span class="number">0.0</span>, |s| s <span class="kw">as </span>f64) /
 				<span class="number">10.0</span>;
-			<span class="macro">info!</span>(<span class="string">&quot;📦 Current best block: {} ({:4.1} bps)&quot;</span>, <span class="self">self</span>.best_number, speed);
+			<span class="macro">info!</span>(<span class="string">"📦 Current best block: {} ({:4.1} bps)"</span>, <span class="self">self</span>.best_number, speed);
 		} <span class="kw">else </span>{
-			<span class="comment">// If the number of blocks can&#39;t be converted to a regular integer, then we need a more
+			<span class="comment">// If the number of blocks can't be converted to a regular integer, then we need a more
 			// algebraic approach and we stay within the realm of integers.
 			</span><span class="kw">let </span>one_thousand = NumberFor::&lt;B&gt;::from(<span class="number">1_000u32</span>);
 			<span class="kw">let </span>elapsed =
@@ -876,7 +878,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.saturating_mul(one_thousand)
 				.checked_div(<span class="kw-2">&amp;</span>elapsed)
 				.unwrap_or_else(Zero::zero);
-			<span class="macro">info!</span>(<span class="string">&quot;📦 Current best block: {} ({} bps)&quot;</span>, <span class="self">self</span>.best_number, speed)
+			<span class="macro">info!</span>(<span class="string">"📦 Current best block: {} ({} bps)"</span>, <span class="self">self</span>.best_number, speed)
 		}
 	}
 
@@ -901,7 +903,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Different State that the `import_blocks` future could be in.
 </span><span class="kw">enum </span>ImportState&lt;R, B&gt;
 <span class="kw">where
-	</span>R: Read + <span class="lifetime">&#39;static</span>,
+	</span>R: Read + <span class="lifetime">'static</span>,
 	B: BlockT + MaybeSerializeDeserialize,
 {
 	<span class="doccomment">/// We are reading from the [`BlockIter`] structure, adding those blocks to the queue if
@@ -926,14 +928,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub fn </span>import_blocks&lt;B, IQ, C&gt;(
 	client: Arc&lt;C&gt;,
 	<span class="kw-2">mut </span>import_queue: IQ,
-	input: <span class="kw">impl </span>Read + Send + <span class="lifetime">&#39;static</span>,
+	input: <span class="kw">impl </span>Read + Send + <span class="lifetime">'static</span>,
 	force: bool,
 	binary: bool,
 ) -&gt; Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = <span class="prelude-ty">Result</span>&lt;(), Error&gt;&gt; + Send&gt;&gt;
 <span class="kw">where
-	</span>C: HeaderBackend&lt;B&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
-	B: BlockT + <span class="kw">for</span>&lt;<span class="lifetime">&#39;de</span>&gt; serde::Deserialize&lt;<span class="lifetime">&#39;de</span>&gt;,
-	IQ: ImportQueue&lt;B&gt; + <span class="lifetime">&#39;static</span>,
+	</span>C: HeaderBackend&lt;B&gt; + Send + Sync + <span class="lifetime">'static</span>,
+	B: BlockT + <span class="kw">for</span>&lt;<span class="lifetime">'de</span>&gt; serde::Deserialize&lt;<span class="lifetime">'de</span>&gt;,
+	IQ: ImportQueue&lt;B&gt; + <span class="lifetime">'static</span>,
 {
 	<span class="kw">struct </span>WaitLink {
 		imported_blocks: u64,
@@ -957,7 +959,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="kw">for </span>result <span class="kw">in </span>results {
 				<span class="kw">if let </span>(<span class="prelude-val">Err</span>(err), hash) = result {
-					<span class="macro">warn!</span>(<span class="string">&quot;There was an error importing block with hash {:?}: {}&quot;</span>, hash, err);
+					<span class="macro">warn!</span>(<span class="string">"There was an error importing block with hash {:?}: {}"</span>, hash, err);
 					<span class="self">self</span>.has_error = <span class="bool-val">true</span>;
 					<span class="kw">break
 				</span>}
@@ -971,7 +973,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>block_iter = <span class="kw">match </span>block_iter_res {
 		<span class="prelude-val">Ok</span>(block_iter) =&gt; block_iter,
 		<span class="prelude-val">Err</span>(e) =&gt; {
-			<span class="comment">// We&#39;ve encountered an error while creating the block iterator
+			<span class="comment">// We've encountered an error while creating the block iterator
 			// so we can just return a future that returns an error.
 			</span><span class="kw">return </span>future::ready(<span class="prelude-val">Err</span>(Error::Other(e))).boxed()
 		},
@@ -990,7 +992,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">let </span>import = future::poll_fn(<span class="kw">move </span>|cx| {
 		<span class="kw">let </span>client = <span class="kw-2">&amp;</span>client;
 		<span class="kw">let </span>queue = <span class="kw-2">&amp;mut </span>import_queue;
-		<span class="kw">match </span>state.take().expect(<span class="string">&quot;state should never be None; qed&quot;</span>) {
+		<span class="kw">match </span>state.take().expect(<span class="string">"state should never be None; qed"</span>) {
 			ImportState::Reading { <span class="kw-2">mut </span>block_iter } =&gt; {
 				<span class="kw">match </span>block_iter.next() {
 					<span class="prelude-val">None </span>=&gt; {
@@ -1025,7 +1027,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							},
 							<span class="prelude-val">Err</span>(e) =&gt;
 								<span class="kw">return </span>Poll::Ready(<span class="prelude-val">Err</span>(Error::Other(<span class="macro">format!</span>(
-									<span class="string">&quot;Error reading block #{}: {}&quot;</span>,
+									<span class="string">"Error reading block #{}: {}"</span>,
 									read_block_count, e
 								)))),
 						}
@@ -1066,12 +1068,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				read_block_count,
 				<span class="kw-2">mut </span>delay,
 			} =&gt; {
-				<span class="comment">// All the blocks have been added to the queue, which doesn&#39;t mean they
+				<span class="comment">// All the blocks have been added to the queue, which doesn't mean they
 				// have all been properly imported.
 				</span><span class="kw">if </span>importing_is_done(num_expected_blocks, read_block_count, link.imported_blocks) {
 					<span class="comment">// Importing is done, we can log the result and return.
 					</span><span class="macro">info!</span>(
-						<span class="string">&quot;🎉 Imported {} blocks. Best: #{}&quot;</span>,
+						<span class="string">"🎉 Imported {} blocks. Best: #{}"</span>,
 						read_block_count,
 						client.info().best_number
 					);
@@ -1109,7 +1111,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">if </span>link.has_error {
 			<span class="kw">return </span>Poll::Ready(<span class="prelude-val">Err</span>(Error::Other(<span class="macro">format!</span>(
-				<span class="string">&quot;Stopping after #{} blocks because of an error&quot;</span>,
+				<span class="string">"Stopping after #{} blocks because of an error"</span>,
 				link.imported_blocks
 			))))
 		}

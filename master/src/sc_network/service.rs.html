@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/network/src/service.rs`."><title>service.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/network/src/service.rs`."><title>service.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_network" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_network" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sc_network/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -2172,8 +2174,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Substrate network service. Handles network IO and manages connectivity.
-</span><span class="kw">pub struct </span>NetworkService&lt;B: BlockT + <span class="lifetime">&#39;static</span>, H: ExHashT&gt; {
-	<span class="doccomment">/// Number of peers we&#39;re connected to.
+</span><span class="kw">pub struct </span>NetworkService&lt;B: BlockT + <span class="lifetime">'static</span>, H: ExHashT&gt; {
+	<span class="doccomment">/// Number of peers we're connected to.
 	</span>num_connected: Arc&lt;AtomicUsize&gt;,
 	<span class="doccomment">/// The local external addresses.
 	</span>external_addresses: Arc&lt;Mutex&lt;HashSet&lt;Multiaddr&gt;&gt;&gt;,
@@ -2207,7 +2209,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[async_trait::async_trait]
 </span><span class="kw">impl</span>&lt;B, H&gt; NetworkBackend&lt;B, H&gt; <span class="kw">for </span>NetworkWorker&lt;B, H&gt;
 <span class="kw">where
-	</span>B: BlockT + <span class="lifetime">&#39;static</span>,
+	</span>B: BlockT + <span class="lifetime">'static</span>,
 	H: ExHashT,
 {
 	<span class="kw">type </span>NotificationProtocolConfig = NonDefaultSetConfig;
@@ -2291,7 +2293,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl</span>&lt;B, H&gt; NetworkWorker&lt;B, H&gt;
 <span class="kw">where
-	</span>B: BlockT + <span class="lifetime">&#39;static</span>,
+	</span>B: BlockT + <span class="lifetime">'static</span>,
 	H: ExHashT,
 {
 	<span class="doccomment">/// Creates the network service.
@@ -2325,8 +2327,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.filter(|reserved_node| {
 				<span class="kw">if </span>reserved_node.peer_id == local_peer_id.into() {
 					<span class="macro">warn!</span>(
-						target: <span class="string">&quot;sub-libp2p&quot;</span>,
-						<span class="string">&quot;Local peer ID used in reserved node, ignoring: {}&quot;</span>,
+						target: <span class="string">"sub-libp2p"</span>,
+						<span class="string">"Local peer ID used in reserved node, ignoring: {}"</span>,
 						reserved_node,
 					);
 					<span class="bool-val">false
@@ -2360,18 +2362,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw-2">&amp;</span>network_config.transport,
 		)<span class="question-mark">?</span>;
 
-		<span class="kw">let </span>(to_worker, from_service) = tracing_unbounded(<span class="string">&quot;mpsc_network_worker&quot;</span>, <span class="number">100_000</span>);
+		<span class="kw">let </span>(to_worker, from_service) = tracing_unbounded(<span class="string">"mpsc_network_worker"</span>, <span class="number">100_000</span>);
 
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(path) = <span class="kw-2">&amp;</span>network_config.net_config_path {
 			fs::create_dir_all(path)<span class="question-mark">?</span>;
 		}
 
 		<span class="macro">info!</span>(
-			target: <span class="string">&quot;sub-libp2p&quot;</span>,
-			<span class="string">&quot;🏷  Local node identity is: {}&quot;</span>,
+			target: <span class="string">"sub-libp2p"</span>,
+			<span class="string">"🏷  Local node identity is: {}"</span>,
 			local_peer_id.to_base58(),
 		);
-		<span class="macro">log::info!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;Running libp2p network backend&quot;</span>);
+		<span class="macro">log::info!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"Running libp2p network backend"</span>);
 
 		<span class="kw">let </span>(transport, bandwidth) = {
 			<span class="kw">let </span>config_mem = <span class="kw">match </span>network_config.transport {
@@ -2396,7 +2398,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					.iter()
 					.map(|cfg| usize::try_from(cfg.max_notification_size()).unwrap_or(usize::MAX));
 
-				<span class="comment">// A &quot;default&quot; max is added to cover all the other protocols: ping, identify,
+				<span class="comment">// A "default" max is added to cover all the other protocols: ping, identify,
 				// kademlia, block announces, and transactions.
 				</span><span class="kw">let </span>default_max = cmp::max(
 					<span class="number">1024 </span>* <span class="number">1024</span>,
@@ -2409,7 +2411,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					.chain(responses_max)
 					.chain(notifs_max)
 					.max()
-					.expect(<span class="string">&quot;iterator known to always yield at least one element; qed&quot;</span>)
+					.expect(<span class="string">"iterator known to always yield at least one element; qed"</span>)
 					.saturating_add(<span class="number">10</span>)
 			};
 
@@ -2422,7 +2424,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		};
 
 		<span class="kw">let </span>(to_notifications, from_protocol_controllers) =
-			tracing_unbounded(<span class="string">&quot;mpsc_protocol_controllers_to_notifications&quot;</span>, <span class="number">10_000</span>);
+			tracing_unbounded(<span class="string">"mpsc_protocol_controllers_to_notifications"</span>, <span class="number">10_000</span>);
 
 		<span class="comment">// We must prepend a hardcoded default peer set to notification protocols.
 		</span><span class="kw">let </span>all_peer_sets_iter = iter::once(<span class="kw-2">&amp;</span>network_config.default_peers_set)
@@ -2543,7 +2545,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// Build the swarm.
 		</span><span class="kw">let </span>(<span class="kw-2">mut </span>swarm, bandwidth): (Swarm&lt;Behaviour&lt;B&gt;&gt;, <span class="kw">_</span>) = {
 			<span class="kw">let </span>user_agent =
-				<span class="macro">format!</span>(<span class="string">&quot;{} ({})&quot;</span>, network_config.client_version, network_config.node_name);
+				<span class="macro">format!</span>(<span class="string">"{} ({})"</span>, network_config.client_version, network_config.node_name);
 
 			<span class="kw">let </span>discovery_config = {
 				<span class="kw">let </span><span class="kw-2">mut </span>config = DiscoveryConfig::new(local_public.to_peer_id());
@@ -2626,7 +2628,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						)),
 				)
 				.substream_upgrade_protocol_override(upgrade::Version::V1Lazy)
-				.notify_handler_buffer_size(NonZeroUsize::new(<span class="number">32</span>).expect(<span class="string">&quot;32 != 0; qed&quot;</span>))
+				.notify_handler_buffer_size(NonZeroUsize::new(<span class="number">32</span>).expect(<span class="string">"32 != 0; qed"</span>))
 				<span class="comment">// NOTE: 24 is somewhat arbitrary and should be tuned in the future if necessary.
 				// See &lt;https://github.com/paritytech/substrate/pull/6080&gt;
 				</span>.per_connection_event_buffer_size(<span class="number">24</span>)
@@ -2650,7 +2652,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// Listen on multiaddresses.
 		</span><span class="kw">for </span>addr <span class="kw">in </span><span class="kw-2">&amp;</span>network_config.listen_addresses {
 			<span class="kw">if let </span><span class="prelude-val">Err</span>(err) = Swarm::&lt;Behaviour&lt;B&gt;&gt;::listen_on(<span class="kw-2">&amp;mut </span>swarm, addr.clone()) {
-				<span class="macro">warn!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;Can&#39;t listen on {} because: {:?}&quot;</span>, addr, err)
+				<span class="macro">warn!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"Can't listen on {} because: {:?}"</span>, addr, err)
 			}
 		}
 
@@ -2717,7 +2719,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">self</span>.service.bandwidth.total_outbound()
 	}
 
-	<span class="doccomment">/// Returns the number of peers we&#39;re connected to.
+	<span class="doccomment">/// Returns the number of peers we're connected to.
 	</span><span class="kw">pub fn </span>num_connected_peers(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
 		<span class="self">self</span>.network_service.behaviour().user_protocol().num_sync_peers()
 	}
@@ -2748,7 +2750,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Get network state.
 	///
 	/// **Note**: Use this only for debugging. This API is unstable. There are warnings literally
-	/// everywhere about this. Please don&#39;t use this function to retrieve actual information.
+	/// everywhere about this. Please don't use this function to retrieve actual information.
 	</span><span class="kw">pub fn </span>network_state(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; NetworkState {
 		<span class="kw">let </span>swarm = <span class="kw-2">&amp;mut </span><span class="self">self</span>.network_service;
 		<span class="kw">let </span>open = swarm.behaviour_mut().user_protocol().open_peers().cloned().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
@@ -2766,7 +2768,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						) {
 						addrs.into_iter().collect()
 					} <span class="kw">else </span>{
-						<span class="macro">error!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;Was not able to get known addresses for {:?}&quot;</span>, peer_id);
+						<span class="macro">error!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"Was not able to get known addresses for {:?}"</span>, peer_id);
 						<span class="kw">return </span><span class="prelude-val">None
 					</span>};
 
@@ -2775,8 +2777,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					{
 						e.clone().into()
 					} <span class="kw">else </span>{
-						<span class="macro">error!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;Found state inconsistency between custom protocol \
-						and debug information about {:?}&quot;</span>, peer_id);
+						<span class="macro">error!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"Found state inconsistency between custom protocol \
+						and debug information about {:?}"</span>, peer_id);
 						<span class="kw">return </span><span class="prelude-val">None
 					</span>};
 
@@ -2817,7 +2819,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						) {
 						addrs.into_iter().collect()
 					} <span class="kw">else </span>{
-						<span class="macro">error!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;Was not able to get known addresses for {:?}&quot;</span>, peer_id);
+						<span class="macro">error!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"Was not able to get known addresses for {:?}"</span>, peer_id);
 						Default::default()
 					};
 
@@ -2852,7 +2854,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// TODO: Check what info we can include here.
 			//       Issue reference: https://github.com/paritytech/substrate/issues/14160.
 			</span>peerset: <span class="macro">serde_json::json!</span>(
-				<span class="string">&quot;Unimplemented. See https://github.com/paritytech/substrate/issues/14160.&quot;
+				<span class="string">"Unimplemented. See https://github.com/paritytech/substrate/issues/14160."
 			</span>),
 		}
 	}
@@ -2868,11 +2870,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;B: BlockT + <span class="lifetime">&#39;static</span>, H: ExHashT&gt; NetworkService&lt;B, H&gt; {
+<span class="kw">impl</span>&lt;B: BlockT + <span class="lifetime">'static</span>, H: ExHashT&gt; NetworkService&lt;B, H&gt; {
 	<span class="doccomment">/// Get network state.
 	///
 	/// **Note**: Use this only for debugging. This API is unstable. There are warnings literally
-	/// everywhere about this. Please don&#39;t use this function to retrieve actual information.
+	/// everywhere about this. Please don't use this function to retrieve actual information.
 	///
 	/// Returns an error if the `NetworkWorker` is no longer running.
 	</span><span class="kw">pub async fn </span>network_state(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;NetworkState, ()&gt; {
@@ -2902,14 +2904,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.map(|<span class="kw-2">mut </span>addr| {
 				<span class="kw">let </span>peer = <span class="kw">match </span>addr.pop() {
 					<span class="prelude-val">Some</span>(multiaddr::Protocol::P2p(key)) =&gt; PeerId::from_multihash(key)
-						.map_err(|<span class="kw">_</span>| <span class="string">&quot;Invalid PeerId format&quot;</span>.to_string())<span class="question-mark">?</span>,
-					<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;Missing PeerId from address&quot;</span>.to_string()),
+						.map_err(|<span class="kw">_</span>| <span class="string">"Invalid PeerId format"</span>.to_string())<span class="question-mark">?</span>,
+					<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Missing PeerId from address"</span>.to_string()),
 				};
 
 				<span class="comment">// Make sure the local peer ID is never added to the PSM
-				// or added as a &quot;known address&quot;, even if given.
+				// or added as a "known address", even if given.
 				</span><span class="kw">if </span>peer == <span class="self">self</span>.local_peer_id {
-					<span class="prelude-val">Err</span>(<span class="string">&quot;Local peer ID in peer set.&quot;</span>.to_string())
+					<span class="prelude-val">Err</span>(<span class="string">"Local peer ID in peer set."</span>.to_string())
 				} <span class="kw">else </span>{
 					<span class="prelude-val">Ok</span>((peer, addr))
 				}
@@ -2972,7 +2974,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl</span>&lt;B, H&gt; NetworkDHTProvider <span class="kw">for </span>NetworkService&lt;B, H&gt;
 <span class="kw">where
-	</span>B: BlockT + <span class="lifetime">&#39;static</span>,
+	</span>B: BlockT + <span class="lifetime">'static</span>,
 	H: ExHashT,
 {
 	<span class="doccomment">/// Start getting a value from the DHT.
@@ -2995,7 +2997,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[async_trait::async_trait]
 </span><span class="kw">impl</span>&lt;B, H&gt; NetworkStatusProvider <span class="kw">for </span>NetworkService&lt;B, H&gt;
 <span class="kw">where
-	</span>B: BlockT + <span class="lifetime">&#39;static</span>,
+	</span>B: BlockT + <span class="lifetime">'static</span>,
 	H: ExHashT,
 {
 	<span class="kw">async fn </span>status(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;NetworkStatus, ()&gt; {
@@ -3030,7 +3032,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[async_trait::async_trait]
 </span><span class="kw">impl</span>&lt;B, H&gt; NetworkPeers <span class="kw">for </span>NetworkService&lt;B, H&gt;
 <span class="kw">where
-	</span>B: BlockT + <span class="lifetime">&#39;static</span>,
+	</span>B: BlockT + <span class="lifetime">'static</span>,
 	H: ExHashT,
 {
 	<span class="kw">fn </span>set_authorized_peers(<span class="kw-2">&amp;</span><span class="self">self</span>, peers: HashSet&lt;sc_network_types::PeerId&gt;) {
@@ -3073,7 +3075,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>add_reserved_peer(<span class="kw-2">&amp;</span><span class="self">self</span>, peer: MultiaddrWithPeerId) -&gt; <span class="prelude-ty">Result</span>&lt;(), String&gt; {
 		<span class="comment">// Make sure the local peer ID is never added as a reserved peer.
 		</span><span class="kw">if </span>peer.peer_id == <span class="self">self</span>.local_peer_id.into() {
-			<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;Local peer ID cannot be added as a reserved peer.&quot;</span>.to_string())
+			<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Local peer ID cannot be added as a reserved peer."</span>.to_string())
 		}
 
 		<span class="kw">let _ </span>= <span class="self">self</span>.to_worker.unbounded_send(ServiceToWorkerMsg::AddKnownAddress(
@@ -3095,7 +3097,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		peers: HashSet&lt;Multiaddr&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), String&gt; {
 		<span class="kw">let </span><span class="prelude-val">Some</span>(set_id) = <span class="self">self</span>.notification_protocol_ids.get(<span class="kw-2">&amp;</span>protocol) <span class="kw">else </span>{
-			<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">&quot;Cannot set reserved peers for unknown protocol: {}&quot;</span>, protocol))
+			<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">"Cannot set reserved peers for unknown protocol: {}"</span>, protocol))
 		};
 
 		<span class="kw">let </span>peers_addrs = <span class="self">self</span>.split_multiaddr_and_peer_id(peers)<span class="question-mark">?</span>;
@@ -3106,7 +3108,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">for </span>(peer_id, addr) <span class="kw">in </span>peers_addrs.into_iter() {
 			<span class="comment">// Make sure the local peer ID is never added to the PSM.
 			</span><span class="kw">if </span>peer_id == <span class="self">self</span>.local_peer_id {
-				<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;Local peer ID cannot be added as a reserved peer.&quot;</span>.to_string())
+				<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Local peer ID cannot be added as a reserved peer."</span>.to_string())
 			}
 
 			peers.insert(peer_id.into());
@@ -3131,7 +3133,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), String&gt; {
 		<span class="kw">let </span><span class="prelude-val">Some</span>(set_id) = <span class="self">self</span>.notification_protocol_ids.get(<span class="kw-2">&amp;</span>protocol) <span class="kw">else </span>{
 			<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(
-				<span class="string">&quot;Cannot add peers to reserved set of unknown protocol: {}&quot;</span>,
+				<span class="string">"Cannot add peers to reserved set of unknown protocol: {}"</span>,
 				protocol
 			))
 		};
@@ -3141,7 +3143,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">for </span>(peer_id, addr) <span class="kw">in </span>peers.into_iter() {
 			<span class="comment">// Make sure the local peer ID is never added to the PSM.
 			</span><span class="kw">if </span>peer_id == <span class="self">self</span>.local_peer_id {
-				<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;Local peer ID cannot be added as a reserved peer.&quot;</span>.to_string())
+				<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Local peer ID cannot be added as a reserved peer."</span>.to_string())
 			}
 
 			<span class="kw">if </span>!addr.is_empty() {
@@ -3163,7 +3165,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), String&gt; {
 		<span class="kw">let </span><span class="prelude-val">Some</span>(set_id) = <span class="self">self</span>.notification_protocol_ids.get(<span class="kw-2">&amp;</span>protocol) <span class="kw">else </span>{
 			<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(
-				<span class="string">&quot;Cannot remove peers from reserved set of unknown protocol: {}&quot;</span>,
+				<span class="string">"Cannot remove peers from reserved set of unknown protocol: {}"</span>,
 				protocol
 			))
 		};
@@ -3187,7 +3189,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">match </span>Roles::decode_all(<span class="kw-2">&amp;mut &amp;</span>handshake[..]) {
 			<span class="prelude-val">Ok</span>(role) =&gt; <span class="prelude-val">Some</span>(role.into()),
 			<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
-				<span class="macro">log::debug!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;handshake doesn&#39;t contain peer role: {handshake:?}&quot;</span>);
+				<span class="macro">log::debug!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"handshake doesn't contain peer role: {handshake:?}"</span>);
 				<span class="self">self</span>.peer_store_handle.peer_role(<span class="kw-2">&amp;</span>(peer_id.into()))
 			},
 		}
@@ -3210,10 +3212,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl</span>&lt;B, H&gt; NetworkEventStream <span class="kw">for </span>NetworkService&lt;B, H&gt;
 <span class="kw">where
-	</span>B: BlockT + <span class="lifetime">&#39;static</span>,
+	</span>B: BlockT + <span class="lifetime">'static</span>,
 	H: ExHashT,
 {
-	<span class="kw">fn </span>event_stream(<span class="kw-2">&amp;</span><span class="self">self</span>, name: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str) -&gt; Pin&lt;Box&lt;<span class="kw">dyn </span>Stream&lt;Item = Event&gt; + Send&gt;&gt; {
+	<span class="kw">fn </span>event_stream(<span class="kw-2">&amp;</span><span class="self">self</span>, name: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str) -&gt; Pin&lt;Box&lt;<span class="kw">dyn </span>Stream&lt;Item = Event&gt; + Send&gt;&gt; {
 		<span class="kw">let </span>(tx, rx) = out_events::channel(name, <span class="number">100_000</span>);
 		<span class="kw">let _ </span>= <span class="self">self</span>.to_worker.unbounded_send(ServiceToWorkerMsg::EventStream(tx));
 		Box::pin(rx)
@@ -3223,7 +3225,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[async_trait::async_trait]
 </span><span class="kw">impl</span>&lt;B, H&gt; NetworkRequest <span class="kw">for </span>NetworkService&lt;B, H&gt;
 <span class="kw">where
-	</span>B: BlockT + <span class="lifetime">&#39;static</span>,
+	</span>B: BlockT + <span class="lifetime">'static</span>,
 	H: ExHashT,
 {
 	<span class="kw">async fn </span>request(
@@ -3242,7 +3244,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Ok</span>(v) =&gt; v,
 			<span class="comment">// The channel can only be closed if the network worker no longer exists. If the
 			// network worker no longer exists, then all connections to `target` are necessarily
-			// closed, and we legitimately report this situation as a &quot;ConnectionClosed&quot;.
+			// closed, and we legitimately report this situation as a "ConnectionClosed".
 			</span><span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="prelude-val">Err</span>(RequestFailure::Network(OutboundFailure::ConnectionClosed)),
 		}
 	}
@@ -3284,7 +3286,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">impl </span>NotificationSenderT <span class="kw">for </span>NotificationSender {
 	<span class="kw">async fn </span>ready(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>NotificationSenderReadyT + <span class="lifetime">&#39;_</span>&gt;, NotificationSenderError&gt; {
+	) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>NotificationSenderReadyT + <span class="lifetime">'_</span>&gt;, NotificationSenderError&gt; {
 		<span class="prelude-val">Ok</span>(Box::new(NotificationSenderReady {
 			ready: <span class="kw">match </span><span class="self">self</span>.sink.reserve_notification().<span class="kw">await </span>{
 				<span class="prelude-val">Ok</span>(r) =&gt; <span class="prelude-val">Some</span>(r),
@@ -3299,32 +3301,32 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Reserved slot in the notifications buffer, ready to accept data.
 </span><span class="attr">#[must_use]
-</span><span class="kw">pub struct </span>NotificationSenderReady&lt;<span class="lifetime">&#39;a</span>&gt; {
-	ready: <span class="prelude-ty">Option</span>&lt;Ready&lt;<span class="lifetime">&#39;a</span>&gt;&gt;,
+</span><span class="kw">pub struct </span>NotificationSenderReady&lt;<span class="lifetime">'a</span>&gt; {
+	ready: <span class="prelude-ty">Option</span>&lt;Ready&lt;<span class="lifetime">'a</span>&gt;&gt;,
 
 	<span class="doccomment">/// Target of the notification.
-	</span>peer_id: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>PeerId,
+	</span>peer_id: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>PeerId,
 
 	<span class="doccomment">/// Name of the protocol on the wire.
-	</span>protocol_name: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ProtocolName,
+	</span>protocol_name: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>ProtocolName,
 
 	<span class="doccomment">/// Field extracted from the [`Metrics`] struct and necessary to report the
 	/// notifications-related metrics.
 	</span>notification_size_metric: <span class="prelude-ty">Option</span>&lt;Histogram&gt;,
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; NotificationSenderReadyT <span class="kw">for </span>NotificationSenderReady&lt;<span class="lifetime">&#39;a</span>&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; NotificationSenderReadyT <span class="kw">for </span>NotificationSenderReady&lt;<span class="lifetime">'a</span>&gt; {
 	<span class="kw">fn </span>send(<span class="kw-2">&amp;mut </span><span class="self">self</span>, notification: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), NotificationSenderError&gt; {
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(notification_size_metric) = <span class="kw-2">&amp;</span><span class="self">self</span>.notification_size_metric {
 			notification_size_metric.observe(notification.len() <span class="kw">as </span>f64);
 		}
 
 		<span class="macro">trace!</span>(
-			target: <span class="string">&quot;sub-libp2p&quot;</span>,
-			<span class="string">&quot;External API =&gt; Notification({:?}, {}, {} bytes)&quot;</span>,
+			target: <span class="string">"sub-libp2p"</span>,
+			<span class="string">"External API =&gt; Notification({:?}, {}, {} bytes)"</span>,
 			<span class="self">self</span>.peer_id, <span class="self">self</span>.protocol_name, notification.len(),
 		);
-		<span class="macro">trace!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;Handler({:?}) &lt;= Async notification&quot;</span>, <span class="self">self</span>.peer_id);
+		<span class="macro">trace!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"Handler({:?}) &lt;= Async notification"</span>, <span class="self">self</span>.peer_id);
 
 		<span class="self">self</span>.ready
 			.take()
@@ -3362,10 +3364,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Main network worker. Must be polled in order for the network to advance.
 ///
 /// You are encouraged to poll this in a separate background thread or task.
-</span><span class="attr">#[must_use = <span class="string">&quot;The NetworkWorker must be polled in order for the network to advance&quot;</span>]
+</span><span class="attr">#[must_use = <span class="string">"The NetworkWorker must be polled in order for the network to advance"</span>]
 </span><span class="kw">pub struct </span>NetworkWorker&lt;B, H&gt;
 <span class="kw">where
-	</span>B: BlockT + <span class="lifetime">&#39;static</span>,
+	</span>B: BlockT + <span class="lifetime">'static</span>,
 	H: ExHashT,
 {
 	<span class="doccomment">/// Updated by the `NetworkWorker` and loaded by the `NetworkService`.
@@ -3382,7 +3384,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>event_streams: out_events::OutChannels,
 	<span class="doccomment">/// Prometheus network metrics.
 	</span>metrics: <span class="prelude-ty">Option</span>&lt;Metrics&gt;,
-	<span class="doccomment">/// The `PeerId`&#39;s of all boot nodes mapped to the registered addresses.
+	<span class="doccomment">/// The `PeerId`'s of all boot nodes mapped to the registered addresses.
 	</span>boot_node_ids: Arc&lt;HashMap&lt;PeerId, Vec&lt;Multiaddr&gt;&gt;&gt;,
 	<span class="doccomment">/// Boot nodes that we already have reported as invalid.
 	</span>reported_invalid_boot_nodes: HashSet&lt;PeerId&gt;,
@@ -3399,7 +3401,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl</span>&lt;B, H&gt; NetworkWorker&lt;B, H&gt;
 <span class="kw">where
-	</span>B: BlockT + <span class="lifetime">&#39;static</span>,
+	</span>B: BlockT + <span class="lifetime">'static</span>,
 	H: ExHashT,
 {
 	<span class="doccomment">/// Run the network.
@@ -3516,7 +3518,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="prelude-val">Err</span>(err) =&gt; {
 							<span class="kw">let </span>reason = <span class="kw">match </span>err {
 								ResponseFailure::Network(InboundFailure::Timeout) =&gt;
-									<span class="prelude-val">Some</span>(<span class="string">&quot;timeout&quot;</span>),
+									<span class="prelude-val">Some</span>(<span class="string">"timeout"</span>),
 								ResponseFailure::Network(InboundFailure::UnsupportedProtocols) =&gt;
 								<span class="comment">// `UnsupportedProtocols` is reported for every single
 								// inbound request whenever a request with an unsupported
@@ -3524,9 +3526,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 								// avoid confusions.
 									</span><span class="prelude-val">None</span>,
 								ResponseFailure::Network(InboundFailure::ResponseOmission) =&gt;
-									<span class="prelude-val">Some</span>(<span class="string">&quot;busy-omitted&quot;</span>),
+									<span class="prelude-val">Some</span>(<span class="string">"busy-omitted"</span>),
 								ResponseFailure::Network(InboundFailure::ConnectionClosed) =&gt;
-									<span class="prelude-val">Some</span>(<span class="string">&quot;connection-closed&quot;</span>),
+									<span class="prelude-val">Some</span>(<span class="string">"connection-closed"</span>),
 							};
 
 							<span class="kw">if let </span><span class="prelude-val">Some</span>(reason) = reason {
@@ -3555,17 +3557,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						},
 						<span class="prelude-val">Err</span>(err) =&gt; {
 							<span class="kw">let </span>reason = <span class="kw">match </span>err {
-								RequestFailure::NotConnected =&gt; <span class="string">&quot;not-connected&quot;</span>,
-								RequestFailure::UnknownProtocol =&gt; <span class="string">&quot;unknown-protocol&quot;</span>,
-								RequestFailure::Refused =&gt; <span class="string">&quot;refused&quot;</span>,
-								RequestFailure::Obsolete =&gt; <span class="string">&quot;obsolete&quot;</span>,
+								RequestFailure::NotConnected =&gt; <span class="string">"not-connected"</span>,
+								RequestFailure::UnknownProtocol =&gt; <span class="string">"unknown-protocol"</span>,
+								RequestFailure::Refused =&gt; <span class="string">"refused"</span>,
+								RequestFailure::Obsolete =&gt; <span class="string">"obsolete"</span>,
 								RequestFailure::Network(OutboundFailure::DialFailure) =&gt;
-									<span class="string">&quot;dial-failure&quot;</span>,
-								RequestFailure::Network(OutboundFailure::Timeout) =&gt; <span class="string">&quot;timeout&quot;</span>,
+									<span class="string">"dial-failure"</span>,
+								RequestFailure::Network(OutboundFailure::Timeout) =&gt; <span class="string">"timeout"</span>,
 								RequestFailure::Network(OutboundFailure::ConnectionClosed) =&gt;
-									<span class="string">&quot;connection-closed&quot;</span>,
+									<span class="string">"connection-closed"</span>,
 								RequestFailure::Network(OutboundFailure::UnsupportedProtocols) =&gt;
-									<span class="string">&quot;unsupported&quot;</span>,
+									<span class="string">"unsupported"</span>,
 							};
 
 							metrics
@@ -3589,8 +3591,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			}) =&gt; {
 				<span class="kw">if </span>listen_addrs.len() &gt; <span class="number">30 </span>{
 					<span class="macro">debug!</span>(
-						target: <span class="string">&quot;sub-libp2p&quot;</span>,
-						<span class="string">&quot;Node {:?} has reported more than 30 addresses; it is identified by {:?} and {:?}&quot;</span>,
+						target: <span class="string">"sub-libp2p"</span>,
+						<span class="string">"Node {:?} has reported more than 30 addresses; it is identified by {:?} and {:?}"</span>,
 						peer_id, protocol_version, agent_version
 					);
 					listen_addrs.truncate(<span class="number">30</span>);
@@ -3638,7 +3640,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				// connection being dropped, and as a result it would be preferable to notify
 				// the users of this fact by simulating the substream being closed then
 				// reopened.
-				// The code below doesn&#39;t compile because `role` is unknown. Propagating the
+				// The code below doesn't compile because `role` is unknown. Propagating the
 				// handshake of the secondary connections is quite an invasive change and
 				// would conflict with https://github.com/paritytech/substrate/issues/6403.
 				// Considering that dropping notifications is generally regarded as
@@ -3670,10 +3672,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			SwarmEvent::Behaviour(BehaviourOut::Dht(event, duration)) =&gt; {
 				<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="self">self</span>.metrics.as_ref() {
 					<span class="kw">let </span>query_type = <span class="kw">match </span>event {
-						DhtEvent::ValueFound(<span class="kw">_</span>) =&gt; <span class="string">&quot;value-found&quot;</span>,
-						DhtEvent::ValueNotFound(<span class="kw">_</span>) =&gt; <span class="string">&quot;value-not-found&quot;</span>,
-						DhtEvent::ValuePut(<span class="kw">_</span>) =&gt; <span class="string">&quot;value-put&quot;</span>,
-						DhtEvent::ValuePutFailed(<span class="kw">_</span>) =&gt; <span class="string">&quot;value-put-failed&quot;</span>,
+						DhtEvent::ValueFound(<span class="kw">_</span>) =&gt; <span class="string">"value-found"</span>,
+						DhtEvent::ValueNotFound(<span class="kw">_</span>) =&gt; <span class="string">"value-not-found"</span>,
+						DhtEvent::ValuePut(<span class="kw">_</span>) =&gt; <span class="string">"value-put"</span>,
+						DhtEvent::ValuePutFailed(<span class="kw">_</span>) =&gt; <span class="string">"value-put-failed"</span>,
 					};
 					metrics
 						.kademlia_query_duration
@@ -3694,15 +3696,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				..
 			} =&gt; {
 				<span class="kw">if let </span><span class="prelude-val">Some</span>(errors) = concurrent_dial_errors {
-					<span class="macro">debug!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;Libp2p =&gt; Connected({:?}) with errors: {:?}&quot;</span>, peer_id, errors);
+					<span class="macro">debug!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"Libp2p =&gt; Connected({:?}) with errors: {:?}"</span>, peer_id, errors);
 				} <span class="kw">else </span>{
-					<span class="macro">debug!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;Libp2p =&gt; Connected({:?})&quot;</span>, peer_id);
+					<span class="macro">debug!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"Libp2p =&gt; Connected({:?})"</span>, peer_id);
 				}
 
 				<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="self">self</span>.metrics.as_ref() {
 					<span class="kw">let </span>direction = <span class="kw">match </span>endpoint {
-						ConnectedPoint::Dialer { .. } =&gt; <span class="string">&quot;out&quot;</span>,
-						ConnectedPoint::Listener { .. } =&gt; <span class="string">&quot;in&quot;</span>,
+						ConnectedPoint::Dialer { .. } =&gt; <span class="string">"out"</span>,
+						ConnectedPoint::Listener { .. } =&gt; <span class="string">"in"</span>,
 					};
 					metrics.connections_opened_total.with_label_values(<span class="kw-2">&amp;</span>[direction]).inc();
 
@@ -3712,23 +3714,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				}
 			},
 			SwarmEvent::ConnectionClosed { peer_id, cause, endpoint, num_established } =&gt; {
-				<span class="macro">debug!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;Libp2p =&gt; Disconnected({:?}, {:?})&quot;</span>, peer_id, cause);
+				<span class="macro">debug!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"Libp2p =&gt; Disconnected({:?}, {:?})"</span>, peer_id, cause);
 				<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="self">self</span>.metrics.as_ref() {
 					<span class="kw">let </span>direction = <span class="kw">match </span>endpoint {
-						ConnectedPoint::Dialer { .. } =&gt; <span class="string">&quot;out&quot;</span>,
-						ConnectedPoint::Listener { .. } =&gt; <span class="string">&quot;in&quot;</span>,
+						ConnectedPoint::Dialer { .. } =&gt; <span class="string">"out"</span>,
+						ConnectedPoint::Listener { .. } =&gt; <span class="string">"in"</span>,
 					};
 					<span class="kw">let </span>reason = <span class="kw">match </span>cause {
-						<span class="prelude-val">Some</span>(ConnectionError::IO(<span class="kw">_</span>)) =&gt; <span class="string">&quot;transport-error&quot;</span>,
+						<span class="prelude-val">Some</span>(ConnectionError::IO(<span class="kw">_</span>)) =&gt; <span class="string">"transport-error"</span>,
 						<span class="prelude-val">Some</span>(ConnectionError::Handler(Either::Left(Either::Left(
 							Either::Right(Either::Left(PingFailure::Timeout)),
-						)))) =&gt; <span class="string">&quot;ping-timeout&quot;</span>,
+						)))) =&gt; <span class="string">"ping-timeout"</span>,
 						<span class="prelude-val">Some</span>(ConnectionError::Handler(Either::Left(Either::Left(
 							Either::Left(NotifsHandlerError::SyncNotificationsClogged),
-						)))) =&gt; <span class="string">&quot;sync-notifications-clogged&quot;</span>,
-						<span class="prelude-val">Some</span>(ConnectionError::Handler(<span class="kw">_</span>)) =&gt; <span class="string">&quot;protocol-error&quot;</span>,
-						<span class="prelude-val">Some</span>(ConnectionError::KeepAliveTimeout) =&gt; <span class="string">&quot;keep-alive-timeout&quot;</span>,
-						<span class="prelude-val">None </span>=&gt; <span class="string">&quot;actively-closed&quot;</span>,
+						)))) =&gt; <span class="string">"sync-notifications-clogged"</span>,
+						<span class="prelude-val">Some</span>(ConnectionError::Handler(<span class="kw">_</span>)) =&gt; <span class="string">"protocol-error"</span>,
+						<span class="prelude-val">Some</span>(ConnectionError::KeepAliveTimeout) =&gt; <span class="string">"keep-alive-timeout"</span>,
+						<span class="prelude-val">None </span>=&gt; <span class="string">"actively-closed"</span>,
 					};
 					metrics.connections_closed_total.with_label_values(<span class="kw-2">&amp;</span>[direction, reason]).inc();
 
@@ -3739,14 +3741,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				}
 			},
 			SwarmEvent::NewListenAddr { address, .. } =&gt; {
-				<span class="macro">trace!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;Libp2p =&gt; NewListenAddr({})&quot;</span>, address);
+				<span class="macro">trace!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"Libp2p =&gt; NewListenAddr({})"</span>, address);
 				<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="self">self</span>.metrics.as_ref() {
 					metrics.listeners_local_addresses.inc();
 				}
 				<span class="self">self</span>.listen_addresses.lock().insert(address.clone());
 			},
 			SwarmEvent::ExpiredListenAddr { address, .. } =&gt; {
-				<span class="macro">info!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;📪 No longer listening on {}&quot;</span>, address);
+				<span class="macro">info!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"📪 No longer listening on {}"</span>, address);
 				<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="self">self</span>.metrics.as_ref() {
 					metrics.listeners_local_addresses.dec();
 				}
@@ -3755,8 +3757,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			SwarmEvent::OutgoingConnectionError { peer_id, error } =&gt; {
 				<span class="kw">if let </span><span class="prelude-val">Some</span>(peer_id) = peer_id {
 					<span class="macro">trace!</span>(
-						target: <span class="string">&quot;sub-libp2p&quot;</span>,
-						<span class="string">&quot;Libp2p =&gt; Failed to reach {:?}: {}&quot;</span>,
+						target: <span class="string">"sub-libp2p"</span>,
+						<span class="string">"Libp2p =&gt; Failed to reach {:?}: {}"</span>,
 						peer_id, error,
 					);
 
@@ -3775,8 +3777,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 								// boot node.
 								</span><span class="kw">if </span>addresses.iter().any(|a| address_without_peer_id == <span class="kw-2">*</span>a) {
 									<span class="macro">warn!</span>(
-										<span class="string">&quot;💔 The bootnode you want to connect to at `{address}` provided a \
-										 different peer ID `{obtained}` than the one you expect `{peer_id}`.&quot;</span>,
+										<span class="string">"💔 The bootnode you want to connect to at `{address}` provided a \
+										 different peer ID `{obtained}` than the one you expect `{peer_id}`."</span>,
 									);
 
 									<span class="self">self</span>.reported_invalid_boot_nodes.insert(peer_id);
@@ -3791,15 +3793,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					</span><span class="kw">let </span>reason = <span class="kw">match </span>error {
 						DialError::Denied { cause } =&gt;
 							<span class="kw">if </span>cause.downcast::&lt;Exceeded&gt;().is_ok() {
-								<span class="prelude-val">Some</span>(<span class="string">&quot;limit-reached&quot;</span>)
+								<span class="prelude-val">Some</span>(<span class="string">"limit-reached"</span>)
 							} <span class="kw">else </span>{
 								<span class="prelude-val">None
 							</span>},
-						DialError::ConnectionLimit(<span class="kw">_</span>) =&gt; <span class="prelude-val">Some</span>(<span class="string">&quot;limit-reached&quot;</span>),
+						DialError::ConnectionLimit(<span class="kw">_</span>) =&gt; <span class="prelude-val">Some</span>(<span class="string">"limit-reached"</span>),
 						DialError::InvalidPeerId(<span class="kw">_</span>) |
 						DialError::WrongPeerId { .. } |
-						DialError::LocalPeerId { .. } =&gt; <span class="prelude-val">Some</span>(<span class="string">&quot;invalid-peer-id&quot;</span>),
-						DialError::Transport(<span class="kw">_</span>) =&gt; <span class="prelude-val">Some</span>(<span class="string">&quot;transport-error&quot;</span>),
+						DialError::LocalPeerId { .. } =&gt; <span class="prelude-val">Some</span>(<span class="string">"invalid-peer-id"</span>),
+						DialError::Transport(<span class="kw">_</span>) =&gt; <span class="prelude-val">Some</span>(<span class="string">"transport-error"</span>),
 						DialError::Banned |
 						DialError::NoAddresses |
 						DialError::DialPeerConditionFalse(<span class="kw">_</span>) |
@@ -3811,10 +3813,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				}
 			},
 			SwarmEvent::Dialing(peer_id) =&gt; {
-				<span class="macro">trace!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;Libp2p =&gt; Dialing({:?})&quot;</span>, peer_id)
+				<span class="macro">trace!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"Libp2p =&gt; Dialing({:?})"</span>, peer_id)
 			},
 			SwarmEvent::IncomingConnection { local_addr, send_back_addr } =&gt; {
-				<span class="macro">trace!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;Libp2p =&gt; IncomingConnection({},{}))&quot;</span>,
+				<span class="macro">trace!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"Libp2p =&gt; IncomingConnection({},{}))"</span>,
 					local_addr, send_back_addr);
 				<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="self">self</span>.metrics.as_ref() {
 					metrics.incoming_connections_total.inc();
@@ -3822,8 +3824,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			},
 			SwarmEvent::IncomingConnectionError { local_addr, send_back_addr, error } =&gt; {
 				<span class="macro">debug!</span>(
-					target: <span class="string">&quot;sub-libp2p&quot;</span>,
-					<span class="string">&quot;Libp2p =&gt; IncomingConnectionError({},{}): {}&quot;</span>,
+					target: <span class="string">"sub-libp2p"</span>,
+					<span class="string">"Libp2p =&gt; IncomingConnectionError({},{}): {}"</span>,
 					local_addr, send_back_addr, error,
 				);
 				<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="self">self</span>.metrics.as_ref() {
@@ -3831,14 +3833,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					</span><span class="kw">let </span>reason = <span class="kw">match </span>error {
 						ListenError::Denied { cause } =&gt;
 							<span class="kw">if </span>cause.downcast::&lt;Exceeded&gt;().is_ok() {
-								<span class="prelude-val">Some</span>(<span class="string">&quot;limit-reached&quot;</span>)
+								<span class="prelude-val">Some</span>(<span class="string">"limit-reached"</span>)
 							} <span class="kw">else </span>{
 								<span class="prelude-val">None
 							</span>},
-						ListenError::ConnectionLimit(<span class="kw">_</span>) =&gt; <span class="prelude-val">Some</span>(<span class="string">&quot;limit-reached&quot;</span>),
+						ListenError::ConnectionLimit(<span class="kw">_</span>) =&gt; <span class="prelude-val">Some</span>(<span class="string">"limit-reached"</span>),
 						ListenError::WrongPeerId { .. } | ListenError::LocalPeerId { .. } =&gt;
-							<span class="prelude-val">Some</span>(<span class="string">&quot;invalid-peer-id&quot;</span>),
-						ListenError::Transport(<span class="kw">_</span>) =&gt; <span class="prelude-val">Some</span>(<span class="string">&quot;transport-error&quot;</span>),
+							<span class="prelude-val">Some</span>(<span class="string">"invalid-peer-id"</span>),
+						ListenError::Transport(<span class="kw">_</span>) =&gt; <span class="prelude-val">Some</span>(<span class="string">"transport-error"</span>),
 						ListenError::Aborted =&gt; <span class="prelude-val">None</span>, <span class="comment">// ignore it
 					</span>};
 
@@ -3853,12 +3855,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="attr">#[allow(deprecated)]
 			</span>SwarmEvent::BannedPeer { peer_id, endpoint } =&gt; {
 				<span class="macro">debug!</span>(
-					target: <span class="string">&quot;sub-libp2p&quot;</span>,
-					<span class="string">&quot;Libp2p =&gt; BannedPeer({}). Connected via {:?}.&quot;</span>,
+					target: <span class="string">"sub-libp2p"</span>,
+					<span class="string">"Libp2p =&gt; BannedPeer({}). Connected via {:?}."</span>,
 					peer_id, endpoint,
 				);
 				<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="self">self</span>.metrics.as_ref() {
-					metrics.incoming_connections_errors_total.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">&quot;banned&quot;</span>]).inc();
+					metrics.incoming_connections_errors_total.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">"banned"</span>]).inc();
 				}
 			},
 			SwarmEvent::ListenerClosed { reason, addresses, .. } =&gt; {
@@ -3872,22 +3874,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				drop(listen_addresses);
 
 				<span class="kw">let </span>addrs =
-					addresses.into_iter().map(|a| a.to_string()).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;().join(<span class="string">&quot;, &quot;</span>);
+					addresses.into_iter().map(|a| a.to_string()).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;().join(<span class="string">", "</span>);
 				<span class="kw">match </span>reason {
 					<span class="prelude-val">Ok</span>(()) =&gt; <span class="macro">error!</span>(
-						target: <span class="string">&quot;sub-libp2p&quot;</span>,
-						<span class="string">&quot;📪 Libp2p listener ({}) closed gracefully&quot;</span>,
+						target: <span class="string">"sub-libp2p"</span>,
+						<span class="string">"📪 Libp2p listener ({}) closed gracefully"</span>,
 						addrs
 					),
 					<span class="prelude-val">Err</span>(e) =&gt; <span class="macro">error!</span>(
-						target: <span class="string">&quot;sub-libp2p&quot;</span>,
-						<span class="string">&quot;📪 Libp2p listener ({}) closed: {}&quot;</span>,
+						target: <span class="string">"sub-libp2p"</span>,
+						<span class="string">"📪 Libp2p listener ({}) closed: {}"</span>,
 						addrs, e
 					),
 				}
 			},
 			SwarmEvent::ListenerError { error, .. } =&gt; {
-				<span class="macro">debug!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;Libp2p =&gt; ListenerError: {}&quot;</span>, error);
+				<span class="macro">debug!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"Libp2p =&gt; ListenerError: {}"</span>, error);
 				<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="self">self</span>.metrics.as_ref() {
 					metrics.listeners_errors_total.inc();
 				}
@@ -3898,13 +3900,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl</span>&lt;B, H&gt; Unpin <span class="kw">for </span>NetworkWorker&lt;B, H&gt;
 <span class="kw">where
-	</span>B: BlockT + <span class="lifetime">&#39;static</span>,
+	</span>B: BlockT + <span class="lifetime">'static</span>,
 	H: ExHashT,
 {
 }
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>ensure_addresses_consistent_with_transport&lt;<span class="lifetime">&#39;a</span>&gt;(
-	addresses: <span class="kw">impl </span>Iterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Multiaddr&gt;,
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>ensure_addresses_consistent_with_transport&lt;<span class="lifetime">'a</span>&gt;(
+	addresses: <span class="kw">impl </span>Iterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Multiaddr&gt;,
 	transport: <span class="kw-2">&amp;</span>TransportConfig,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
 	<span class="kw">if </span><span class="macro">matches!</span>(transport, TransportConfig::MemoryOnly) {

@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/erasure-coding/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/erasure-coding/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_erasure_coding" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_erasure_coding" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../polkadot_erasure_coding/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -521,7 +523,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
 
-</span><span class="doccomment">//! As part of Polkadot&#39;s availability system, certain pieces of data
+</span><span class="doccomment">//! As part of Polkadot's availability system, certain pieces of data
 //! for each block are required to be kept available.
 //!
 //! The way we accomplish this is by erasure coding the data into n pieces
@@ -550,43 +552,43 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[derive(Debug, Clone, PartialEq, Error)]
 </span><span class="kw">pub enum </span>Error {
 	<span class="doccomment">/// Returned when there are too many validators.
-	</span><span class="attr">#[error(<span class="string">&quot;There are too many validators&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"There are too many validators"</span>)]
 	</span>TooManyValidators,
 	<span class="doccomment">/// Cannot encode something for zero or one validator
-	</span><span class="attr">#[error(<span class="string">&quot;Expected at least 2 validators&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"Expected at least 2 validators"</span>)]
 	</span>NotEnoughValidators,
 	<span class="doccomment">/// Cannot reconstruct: wrong number of validators.
-	</span><span class="attr">#[error(<span class="string">&quot;Validator count mismatches between encoding and decoding&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"Validator count mismatches between encoding and decoding"</span>)]
 	</span>WrongValidatorCount,
 	<span class="doccomment">/// Not enough chunks present.
-	</span><span class="attr">#[error(<span class="string">&quot;Not enough chunks to reconstruct message&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"Not enough chunks to reconstruct message"</span>)]
 	</span>NotEnoughChunks,
 	<span class="doccomment">/// Too many chunks present.
-	</span><span class="attr">#[error(<span class="string">&quot;Too many chunks present&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"Too many chunks present"</span>)]
 	</span>TooManyChunks,
 	<span class="doccomment">/// Chunks not of uniform length or the chunks are empty.
-	</span><span class="attr">#[error(<span class="string">&quot;Chunks are not uniform, mismatch in length or are zero sized&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"Chunks are not uniform, mismatch in length or are zero sized"</span>)]
 	</span>NonUniformChunks,
 	<span class="doccomment">/// An uneven byte-length of a shard is not valid for `GF(2^16)` encoding.
-	</span><span class="attr">#[error(<span class="string">&quot;Uneven length is not valid for field GF(2^16)&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"Uneven length is not valid for field GF(2^16)"</span>)]
 	</span>UnevenLength,
 	<span class="doccomment">/// Chunk index out of bounds.
-	</span><span class="attr">#[error(<span class="string">&quot;Chunk is out of bounds: {chunk_index} not included in 0..{n_validators}&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"Chunk is out of bounds: {chunk_index} not included in 0..{n_validators}"</span>)]
 	</span>ChunkIndexOutOfBounds { chunk_index: usize, n_validators: usize },
 	<span class="doccomment">/// Bad payload in reconstructed bytes.
-	</span><span class="attr">#[error(<span class="string">&quot;Reconstructed payload invalid&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"Reconstructed payload invalid"</span>)]
 	</span>BadPayload,
 	<span class="doccomment">/// Invalid branch proof.
-	</span><span class="attr">#[error(<span class="string">&quot;Invalid branch proof&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"Invalid branch proof"</span>)]
 	</span>InvalidBranchProof,
 	<span class="doccomment">/// Branch out of bounds.
-	</span><span class="attr">#[error(<span class="string">&quot;Branch is out of bounds&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"Branch is out of bounds"</span>)]
 	</span>BranchOutOfBounds,
 	<span class="doccomment">/// Unknown error
-	</span><span class="attr">#[error(<span class="string">&quot;An unknown error has appeared when reconstructing erasure code chunks&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"An unknown error has appeared when reconstructing erasure code chunks"</span>)]
 	</span>UnknownReconstruction,
 	<span class="doccomment">/// Unknown error
-	</span><span class="attr">#[error(<span class="string">&quot;An unknown error has appeared when deriving code parameters from validator count&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"An unknown error has appeared when deriving code parameters from validator count"</span>)]
 	</span>UnknownCodeParam,
 }
 
@@ -655,7 +657,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>shards = params
 		.make_encoder()
 		.encode::&lt;WrappedShard&gt;(<span class="kw-2">&amp;</span>encoded[..])
-		.expect(<span class="string">&quot;Payload non-empty, shard sizes are uniform, and validator numbers checked; qed&quot;</span>);
+		.expect(<span class="string">"Payload non-empty, shard sizes are uniform, and validator numbers checked; qed"</span>);
 
 	<span class="prelude-val">Ok</span>(shards.into_iter().map(|w: WrappedShard| w.into_inner()).collect())
 }
@@ -667,9 +669,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// are provided, recovery is not possible.
 ///
 /// Works only up to 65536 validators, and `n_validators` must be non-zero.
-</span><span class="kw">pub fn </span>reconstruct_v1&lt;<span class="lifetime">&#39;a</span>, I: <span class="lifetime">&#39;a</span>&gt;(n_validators: usize, chunks: I) -&gt; <span class="prelude-ty">Result</span>&lt;AvailableData, Error&gt;
+</span><span class="kw">pub fn </span>reconstruct_v1&lt;<span class="lifetime">'a</span>, I: <span class="lifetime">'a</span>&gt;(n_validators: usize, chunks: I) -&gt; <span class="prelude-ty">Result</span>&lt;AvailableData, Error&gt;
 <span class="kw">where
-	</span>I: IntoIterator&lt;Item = (<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8], usize)&gt;,
+	</span>I: IntoIterator&lt;Item = (<span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8], usize)&gt;,
 {
 	reconstruct(n_validators, chunks)
 }
@@ -681,9 +683,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// are provided, recovery is not possible.
 ///
 /// Works only up to 65536 validators, and `n_validators` must be non-zero.
-</span><span class="kw">pub fn </span>reconstruct&lt;<span class="lifetime">&#39;a</span>, I: <span class="lifetime">&#39;a</span>, T: Decode&gt;(n_validators: usize, chunks: I) -&gt; <span class="prelude-ty">Result</span>&lt;T, Error&gt;
+</span><span class="kw">pub fn </span>reconstruct&lt;<span class="lifetime">'a</span>, I: <span class="lifetime">'a</span>, T: Decode&gt;(n_validators: usize, chunks: I) -&gt; <span class="prelude-ty">Result</span>&lt;T, Error&gt;
 <span class="kw">where
-	</span>I: IntoIterator&lt;Item = (<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8], usize)&gt;,
+	</span>I: IntoIterator&lt;Item = (<span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8], usize)&gt;,
 {
 	<span class="kw">let </span>params = code_params(n_validators)<span class="question-mark">?</span>;
 	<span class="kw">let </span><span class="kw-2">mut </span>received_shards: Vec&lt;<span class="prelude-ty">Option</span>&lt;WrappedShard&gt;&gt; = <span class="macro">vec!</span>[<span class="prelude-val">None</span>; n_validators];
@@ -702,22 +704,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// An iterator that yields merkle branches and chunk data for all chunks to
 /// be sent to other validators.
-</span><span class="kw">pub struct </span>Branches&lt;<span class="lifetime">&#39;a</span>, I&gt; {
+</span><span class="kw">pub struct </span>Branches&lt;<span class="lifetime">'a</span>, I&gt; {
 	trie_storage: MemoryDB&lt;Blake2Hasher&gt;,
 	root: H256,
-	chunks: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[I],
+	chunks: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[I],
 	current_pos: usize,
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, I: AsRef&lt;[u8]&gt;&gt; Branches&lt;<span class="lifetime">&#39;a</span>, I&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, I: AsRef&lt;[u8]&gt;&gt; Branches&lt;<span class="lifetime">'a</span>, I&gt; {
 	<span class="doccomment">/// Get the trie root.
 	</span><span class="kw">pub fn </span>root(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; H256 {
 		<span class="self">self</span>.root
 	}
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, I: AsRef&lt;[u8]&gt;&gt; Iterator <span class="kw">for </span>Branches&lt;<span class="lifetime">&#39;a</span>, I&gt; {
-	<span class="kw">type </span>Item = (Proof, <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8]);
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, I: AsRef&lt;[u8]&gt;&gt; Iterator <span class="kw">for </span>Branches&lt;<span class="lifetime">'a</span>, I&gt; {
+	<span class="kw">type </span>Item = (Proof, <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8]);
 
 	<span class="kw">fn </span>next(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::Item&gt; {
 		<span class="kw">use </span>sp_trie::Recorder;
@@ -731,11 +733,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			(<span class="self">self</span>.current_pos <span class="kw">as </span>u32).using_encoded(|s| trie.get(s))
 		};
 
-		<span class="kw">match </span>res.expect(<span class="string">&quot;all nodes in trie present; qed&quot;</span>) {
+		<span class="kw">match </span>res.expect(<span class="string">"all nodes in trie present; qed"</span>) {
 			<span class="prelude-val">Some</span>(<span class="kw">_</span>) =&gt; {
 				<span class="kw">let </span>nodes: Vec&lt;Vec&lt;u8&gt;&gt; = recorder.drain().into_iter().map(|r| r.data).collect();
 				<span class="kw">let </span>chunk = <span class="self">self</span>.chunks.get(<span class="self">self</span>.current_pos).expect(
-					<span class="string">&quot;there is a one-to-one mapping of chunks to valid merkle branches; qed&quot;</span>,
+					<span class="string">"there is a one-to-one mapping of chunks to valid merkle branches; qed"</span>,
 				);
 				<span class="self">self</span>.current_pos += <span class="number">1</span>;
 				Proof::try_from(nodes).ok().map(|proof| (proof, chunk.as_ref()))
@@ -747,21 +749,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Construct a trie from chunks of an erasure-coded value. This returns the root hash and an
 /// iterator of merkle proofs, one for each validator.
-</span><span class="kw">pub fn </span>branches&lt;<span class="lifetime">&#39;a</span>, I: <span class="lifetime">&#39;a</span>&gt;(chunks: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[I]) -&gt; Branches&lt;<span class="lifetime">&#39;a</span>, I&gt;
+</span><span class="kw">pub fn </span>branches&lt;<span class="lifetime">'a</span>, I: <span class="lifetime">'a</span>&gt;(chunks: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[I]) -&gt; Branches&lt;<span class="lifetime">'a</span>, I&gt;
 <span class="kw">where
 	</span>I: AsRef&lt;[u8]&gt;,
 {
 	<span class="kw">let </span><span class="kw-2">mut </span>trie_storage: MemoryDB&lt;Blake2Hasher&gt; = MemoryDB::default();
 	<span class="kw">let </span><span class="kw-2">mut </span>root = H256::default();
 
-	<span class="comment">// construct trie mapping each chunk&#39;s index to its hash.
+	<span class="comment">// construct trie mapping each chunk's index to its hash.
 	</span>{
 		<span class="kw">let </span><span class="kw-2">mut </span>trie = TrieDBMutBuilder::new(<span class="kw-2">&amp;mut </span>trie_storage, <span class="kw-2">&amp;mut </span>root).build();
 		<span class="kw">for </span>(i, chunk) <span class="kw">in </span>chunks.as_ref().iter().enumerate() {
 			(i <span class="kw">as </span>u32).using_encoded(|encoded_index| {
 				<span class="kw">let </span>chunk_hash = BlakeTwo256::hash(chunk.as_ref());
 				trie.insert(encoded_index, chunk_hash.as_ref())
-					.expect(<span class="string">&quot;a fresh trie stored in memory cannot have errors loading nodes; qed&quot;</span>);
+					.expect(<span class="string">"a fresh trie stored in memory cannot have errors loading nodes; qed"</span>);
 			})
 		}
 	}

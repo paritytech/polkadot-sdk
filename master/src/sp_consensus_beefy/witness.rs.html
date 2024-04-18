@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/consensus/beefy/src/witness.rs`."><title>witness.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/consensus/beefy/src/witness.rs`."><title>witness.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_consensus_beefy" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_consensus_beefy" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sp_consensus_beefy/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -406,21 +408,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
 </span><span class="doccomment">//! Primitives for light, 2-phase interactive verification protocol.
 //!
-//! Instead of submitting full list of signatures, it&#39;s possible to submit first a witness
+//! Instead of submitting full list of signatures, it's possible to submit first a witness
 //! form of [SignedCommitment].
 //! This can later be verified by the client requesting only some (out of all) signatures for
 //! verification. This allows lowering the data and computation cost of verifying the
@@ -431,7 +433,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// A light form of [SignedCommitment].
 ///
-/// This is a light (&quot;witness&quot;) form of the signed commitment. Instead of containing full list of
+/// This is a light ("witness") form of the signed commitment. Instead of containing full list of
 /// signatures, which might be heavy and expensive to verify, it only contains a bit vector of
 /// validators which signed the original [SignedCommitment] and a merkle root of all signatures.
 ///
@@ -487,10 +489,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">use crate</span>::{ecdsa_crypto::Signature <span class="kw">as </span>EcdsaSignature, known_payloads, Payload};
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;bls-experimental&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"bls-experimental"</span>)]
 	</span><span class="kw">use </span><span class="kw">crate</span>::bls_crypto::Signature <span class="kw">as </span>BlsSignature;
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;bls-experimental&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"bls-experimental"</span>)]
 	</span><span class="kw">use </span>w3f_bls::{
 		single_pop_aggregator::SignatureAggregatorAssumingPoP, Message, SerializableToBytes,
 		Signed, TinyBLS377,
@@ -503,24 +505,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>TestEcdsaSignedCommitmentWitness =
 		SignedCommitmentWitness&lt;u128, Vec&lt;<span class="prelude-ty">Option</span>&lt;EcdsaSignature&gt;&gt;&gt;;
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;bls-experimental&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"bls-experimental"</span>)]
 	#[derive(Clone, Debug, PartialEq, codec::Encode, codec::Decode)]
 	</span><span class="kw">struct </span>EcdsaBlsSignaturePair(EcdsaSignature, BlsSignature);
 
 	<span class="comment">// types for commitment containing  bls signature along side ecdsa signature
-	</span><span class="attr">#[cfg(feature = <span class="string">&quot;bls-experimental&quot;</span>)]
+	</span><span class="attr">#[cfg(feature = <span class="string">"bls-experimental"</span>)]
 	</span><span class="kw">type </span>TestBlsSignedCommitment = SignedCommitment&lt;u128, EcdsaBlsSignaturePair&gt;;
-	<span class="attr">#[cfg(feature = <span class="string">&quot;bls-experimental&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"bls-experimental"</span>)]
 	</span><span class="kw">type </span>TestBlsSignedCommitmentWitness = SignedCommitmentWitness&lt;u128, Vec&lt;u8&gt;&gt;;
 
 	<span class="comment">// The mock signatures are equivalent to the ones produced by the BEEFY keystore
 	</span><span class="kw">fn </span>mock_ecdsa_signatures() -&gt; (EcdsaSignature, EcdsaSignature) {
-		<span class="kw">let </span>alice = sp_core::ecdsa::Pair::from_string(<span class="string">&quot;//Alice&quot;</span>, <span class="prelude-val">None</span>).unwrap();
+		<span class="kw">let </span>alice = sp_core::ecdsa::Pair::from_string(<span class="string">"//Alice"</span>, <span class="prelude-val">None</span>).unwrap();
 
-		<span class="kw">let </span>msg = keccak_256(<span class="string">b&quot;This is the first message&quot;</span>);
+		<span class="kw">let </span>msg = keccak_256(<span class="string">b"This is the first message"</span>);
 		<span class="kw">let </span>sig1 = alice.sign_prehashed(<span class="kw-2">&amp;</span>msg);
 
-		<span class="kw">let </span>msg = keccak_256(<span class="string">b&quot;This is the second message&quot;</span>);
+		<span class="kw">let </span>msg = keccak_256(<span class="string">b"This is the second message"</span>);
 		<span class="kw">let </span>sig2 = alice.sign_prehashed(<span class="kw-2">&amp;</span>msg);
 
 		(sig1.into(), sig2.into())
@@ -528,14 +530,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="comment">// Generates mock aggregatable bls signature for generating test commitment
 	// BLS signatures
-	</span><span class="attr">#[cfg(feature = <span class="string">&quot;bls-experimental&quot;</span>)]
+	</span><span class="attr">#[cfg(feature = <span class="string">"bls-experimental"</span>)]
 	</span><span class="kw">fn </span>mock_bls_signatures() -&gt; (BlsSignature, BlsSignature) {
-		<span class="kw">let </span>alice = sp_core::bls::Pair::from_string(<span class="string">&quot;//Alice&quot;</span>, <span class="prelude-val">None</span>).unwrap();
+		<span class="kw">let </span>alice = sp_core::bls::Pair::from_string(<span class="string">"//Alice"</span>, <span class="prelude-val">None</span>).unwrap();
 
-		<span class="kw">let </span>msg = <span class="string">b&quot;This is the first message&quot;</span>;
+		<span class="kw">let </span>msg = <span class="string">b"This is the first message"</span>;
 		<span class="kw">let </span>sig1 = alice.sign(msg);
 
-		<span class="kw">let </span>msg = <span class="string">b&quot;This is the second message&quot;</span>;
+		<span class="kw">let </span>msg = <span class="string">b"This is the second message"</span>;
 		<span class="kw">let </span>sig2 = alice.sign(msg);
 
 		(sig1.into(), sig2.into())
@@ -544,7 +546,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>ecdsa_signed_commitment() -&gt; TestEcdsaSignedCommitment {
 		<span class="kw">let </span>payload = Payload::from_single_entry(
 			known_payloads::MMR_ROOT_ID,
-			<span class="string">&quot;Hello World!&quot;</span>.as_bytes().to_vec(),
+			<span class="string">"Hello World!"</span>.as_bytes().to_vec(),
 		);
 		<span class="kw">let </span>commitment: TestCommitment =
 			Commitment { payload, block_number: <span class="number">5</span>, validator_set_id: <span class="number">0 </span>};
@@ -554,11 +556,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		SignedCommitment { commitment, signatures: <span class="macro">vec!</span>[<span class="prelude-val">None</span>, <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(sigs.<span class="number">0</span>), <span class="prelude-val">Some</span>(sigs.<span class="number">1</span>)] }
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;bls-experimental&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"bls-experimental"</span>)]
 	</span><span class="kw">fn </span>ecdsa_and_bls_signed_commitment() -&gt; TestBlsSignedCommitment {
 		<span class="kw">let </span>payload = Payload::from_single_entry(
 			known_payloads::MMR_ROOT_ID,
-			<span class="string">&quot;Hello World!&quot;</span>.as_bytes().to_vec(),
+			<span class="string">"Hello World!"</span>.as_bytes().to_vec(),
 		);
 		<span class="kw">let </span>commitment: TestCommitment =
 			Commitment { payload, block_number: <span class="number">5</span>, validator_set_id: <span class="number">0 </span>};
@@ -591,7 +593,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="attr">#[test]
-	#[cfg(feature = <span class="string">&quot;bls-experimental&quot;</span>)]
+	#[cfg(feature = <span class="string">"bls-experimental"</span>)]
 	</span><span class="kw">fn </span>should_convert_dually_signed_commitment_to_witness() {
 		<span class="comment">// given
 		</span><span class="kw">let </span>signed = ecdsa_and_bls_signed_commitment();
@@ -602,7 +604,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span>TestBlsSignedCommitmentWitness::from_signed::&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;(signed, |sigs| {
 				<span class="comment">// we are going to aggregate the signatures here
 				</span><span class="kw">let </span><span class="kw-2">mut </span>aggregatedsigs: SignatureAggregatorAssumingPoP&lt;TinyBLS377&gt; =
-					SignatureAggregatorAssumingPoP::new(Message::new(<span class="string">b&quot;&quot;</span>, <span class="string">b&quot;mock payload&quot;</span>));
+					SignatureAggregatorAssumingPoP::new(Message::new(<span class="string">b""</span>, <span class="string">b"mock payload"</span>));
 
 				<span class="kw">for </span>sig <span class="kw">in </span>sigs {
 					<span class="kw">match </span>sig {
@@ -620,7 +622,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				(<span class="kw-2">&amp;</span>aggregatedsigs).signature().to_bytes()
 			});
 
-		<span class="comment">// We can&#39;t use BlsSignature::try_from because it expected 112Bytes (CP (64) + BLS 48)
+		<span class="comment">// We can't use BlsSignature::try_from because it expected 112Bytes (CP (64) + BLS 48)
 		// single signature while we are having a BLS aggregated signature corresponding to no CP.
 		</span>w3f_bls::Signature::&lt;TinyBLS377&gt;::from_bytes(witness.signature_accumulator.as_slice())
 			.unwrap();
@@ -644,13 +646,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">assert_eq!</span>(
 			encoded,
 			array_bytes::hex2bytes_unchecked(
-				<span class="string">&quot;\
+				<span class="string">"\
 				046d683048656c6c6f20576f726c642105000000000000000000000000000000000000000000000010\
 				0000010110000001558455ad81279df0795cc985580e4fb75d72d948d1107b2ac80a09abed4da8480c\
 				746cc321f2319a5e99a830e314d10dd3cd68ce3dc0c33c86e99bcb7816f9ba01012d6e1f8105c337a8\
 				6cdd9aaacdc496577f3db8c55ef9e6fd48f2c5c05a2274707491635d8ba3df64f324575b7b2a34487b\
 				ca2324b6a0046395a71681be3d0c2a00\
-			&quot;
+			"
 			</span>)
 		);
 	}

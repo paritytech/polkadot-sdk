@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `cumulus/client/network/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `cumulus/client/network/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="cumulus_client_network" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="cumulus_client_network" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../cumulus_client_network/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -702,7 +704,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests;
 
-<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;sync::cumulus&quot;</span>;
+<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"sync::cumulus"</span>;
 
 <span class="kw">type </span>BoxedError = Box&lt;<span class="kw">dyn </span>std::error::Error + Send&gt;;
 
@@ -711,7 +713,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl </span>std::error::Error <span class="kw">for </span>BlockAnnounceError {}
 
 <span class="kw">impl </span>fmt::Display <span class="kw">for </span>BlockAnnounceError {
-	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; fmt::Result {
+	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; fmt::Result {
 		<span class="self">self</span>.<span class="number">0</span>.fmt(f)
 	}
 }
@@ -755,14 +757,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">if let </span>CompactStatement::Seconded(h) = <span class="self">self</span>.statement.unchecked_payload() {
 				h
 			} <span class="kw">else </span>{
-				<span class="macro">tracing::debug!</span>(target: LOG_TARGET, <span class="string">&quot;`CompactStatement` isn&#39;t the candidate variant!&quot;</span>,);
+				<span class="macro">tracing::debug!</span>(target: LOG_TARGET, <span class="string">"`CompactStatement` isn't the candidate variant!"</span>,);
 				<span class="kw">return </span><span class="prelude-val">Err</span>(Validation::Failure { disconnect: <span class="bool-val">true </span>})
 			};
 
 		<span class="kw">if </span><span class="kw-2">*</span>candidate_hash != <span class="self">self</span>.receipt.hash() {
 			<span class="macro">tracing::debug!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;Receipt candidate hash doesn&#39;t match candidate hash in statement&quot;</span>,
+				<span class="string">"Receipt candidate hash doesn't match candidate hash in statement"</span>,
 			);
 			<span class="kw">return </span><span class="prelude-val">Err</span>(Validation::Failure { disconnect: <span class="bool-val">true </span>})
 		}
@@ -770,7 +772,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if </span>HeadData(encoded_header).hash() != <span class="self">self</span>.receipt.descriptor.para_head {
 			<span class="macro">tracing::debug!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;Receipt para head hash doesn&#39;t match the hash of the header in the block announcement&quot;</span>,
+				<span class="string">"Receipt para head hash doesn't match the hash of the header in the block announcement"</span>,
 			);
 			<span class="kw">return </span><span class="prelude-val">Err</span>(Validation::Failure { disconnect: <span class="bool-val">true </span>})
 		}
@@ -786,14 +788,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		relay_chain_client: <span class="kw-2">&amp;</span>RCInterface,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;Validation, BlockAnnounceError&gt;
 	<span class="kw">where
-		</span>RCInterface: RelayChainInterface + <span class="lifetime">&#39;static</span>,
+		</span>RCInterface: RelayChainInterface + <span class="lifetime">'static</span>,
 	{
 		<span class="kw">let </span>validator_index = <span class="self">self</span>.statement.unchecked_validator_index();
 
 		<span class="kw">let </span>session_index =
 			<span class="kw">match </span>relay_chain_client.session_index_for_child(<span class="self">self</span>.relay_parent).<span class="kw">await </span>{
 				<span class="prelude-val">Ok</span>(r) =&gt; r,
-				<span class="prelude-val">Err</span>(e) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(BlockAnnounceError(<span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, e))),
+				<span class="prelude-val">Err</span>(e) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(BlockAnnounceError(<span class="macro">format!</span>(<span class="string">"{:?}"</span>, e))),
 			};
 
 		<span class="kw">let </span>signing_context = SigningContext { parent_hash: <span class="self">self</span>.relay_parent, session_index };
@@ -801,14 +803,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// Check that the signer is a legit validator.
 		</span><span class="kw">let </span>authorities = <span class="kw">match </span>relay_chain_client.validators(<span class="self">self</span>.relay_parent).<span class="kw">await </span>{
 			<span class="prelude-val">Ok</span>(r) =&gt; r,
-			<span class="prelude-val">Err</span>(e) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(BlockAnnounceError(<span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, e))),
+			<span class="prelude-val">Err</span>(e) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(BlockAnnounceError(<span class="macro">format!</span>(<span class="string">"{:?}"</span>, e))),
 		};
 		<span class="kw">let </span>signer = <span class="kw">match </span>authorities.get(validator_index.<span class="number">0 </span><span class="kw">as </span>usize) {
 			<span class="prelude-val">Some</span>(r) =&gt; r,
 			<span class="prelude-val">None </span>=&gt; {
 				<span class="macro">tracing::debug!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Block announcement justification signer is a validator index out of bound&quot;</span>,
+					<span class="string">"Block announcement justification signer is a validator index out of bound"</span>,
 				);
 
 				<span class="kw">return </span><span class="prelude-val">Ok</span>(Validation::Failure { disconnect: <span class="bool-val">true </span>})
@@ -819,7 +821,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">if </span><span class="self">self</span>.statement.try_into_checked(<span class="kw-2">&amp;</span>signing_context, signer).is_err() {
 			<span class="macro">tracing::debug!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;Block announcement justification signature is invalid.&quot;</span>,
+				<span class="string">"Block announcement justification signature is invalid."</span>,
 			);
 
 			<span class="kw">return </span><span class="prelude-val">Ok</span>(Validation::Failure { disconnect: <span class="bool-val">true </span>})
@@ -829,7 +831,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl </span>TryFrom&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;_ </span>CollationSecondedSignal&gt; <span class="kw">for </span>BlockAnnounceData {
+<span class="kw">impl </span>TryFrom&lt;<span class="kw-2">&amp;</span><span class="lifetime">'_ </span>CollationSecondedSignal&gt; <span class="kw">for </span>BlockAnnounceData {
 	<span class="kw">type </span>Error = ();
 
 	<span class="kw">fn </span>try_from(signal: <span class="kw-2">&amp;</span>CollationSecondedSignal) -&gt; <span class="prelude-ty">Result</span>&lt;BlockAnnounceData, ()&gt; {
@@ -848,7 +850,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// A type alias for the [`RequireSecondedInBlockAnnounce`] validator.
-</span><span class="attr">#[deprecated = <span class="string">&quot;This has been renamed to RequireSecondedInBlockAnnounce&quot;</span>]
+</span><span class="attr">#[deprecated = <span class="string">"This has been renamed to RequireSecondedInBlockAnnounce"</span>]
 </span><span class="kw">pub type </span>BlockAnnounceValidator&lt;Block, RCInterface&gt; =
 	RequireSecondedInBlockAnnounce&lt;Block, RCInterface&gt;;
 
@@ -861,7 +863,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// This block announce validator is required if the parachain is running
 /// with the relay chain provided consensus to make sure each node only
 /// imports a reasonable number of blocks per round. The relay chain provided
-/// consensus doesn&#39;t have any authorities and so it could happen that without
+/// consensus doesn't have any authorities and so it could happen that without
 /// this special block announce validator a node would need to import *millions*
 /// of blocks per round, which is clearly not doable.
 ///
@@ -869,7 +871,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// has received a [`Statement::Seconded`] for its `PoV`. This message tells the
 /// collator that its `PoV` was validated successfully by a parachain validator and
 /// that it is very likely that this `PoV` will be included in the relay chain. Every
-/// collator that doesn&#39;t receive the message for its `PoV` will not announce its block.
+/// collator that doesn't receive the message for its `PoV` will not announce its block.
 /// For more information on the block announcement, see [`WaitToAnnounce`].
 ///
 /// For each block announcement that is received, the generic block announcement validation
@@ -913,14 +915,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>validation_data = relay_chain_interface
 			.persisted_validation_data(hash, para_id, OccupiedCoreAssumption::TimedOut)
 			.<span class="kw">await
-			</span>.map_err(|e| Box::new(BlockAnnounceError(<span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, e))) <span class="kw">as </span>Box&lt;<span class="kw">_</span>&gt;)<span class="question-mark">?
+			</span>.map_err(|e| Box::new(BlockAnnounceError(<span class="macro">format!</span>(<span class="string">"{:?}"</span>, e))) <span class="kw">as </span>Box&lt;<span class="kw">_</span>&gt;)<span class="question-mark">?
 			</span>.ok_or_else(|| {
-				Box::new(BlockAnnounceError(<span class="string">&quot;Could not find parachain head in relay chain&quot;</span>.into()))
+				Box::new(BlockAnnounceError(<span class="string">"Could not find parachain head in relay chain"</span>.into()))
 					<span class="kw">as </span>Box&lt;<span class="kw">_</span>&gt;
 			})<span class="question-mark">?</span>;
 		<span class="kw">let </span>para_head =
 			Block::Header::decode(<span class="kw-2">&amp;mut &amp;</span>validation_data.parent_head.<span class="number">0</span>[..]).map_err(|e| {
-				Box::new(BlockAnnounceError(<span class="macro">format!</span>(<span class="string">&quot;Failed to decode parachain head: {:?}&quot;</span>, e)))
+				Box::new(BlockAnnounceError(<span class="macro">format!</span>(<span class="string">"Failed to decode parachain head: {:?}"</span>, e)))
 					<span class="kw">as </span>Box&lt;<span class="kw">_</span>&gt;
 			})<span class="question-mark">?</span>;
 
@@ -936,7 +938,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>candidate_receipt = relay_chain_interface
 			.candidate_pending_availability(hash, para_id)
 			.<span class="kw">await
-			</span>.map_err(|e| Box::new(BlockAnnounceError(<span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, e))) <span class="kw">as </span>Box&lt;<span class="kw">_</span>&gt;)<span class="question-mark">?</span>;
+			</span>.map_err(|e| Box::new(BlockAnnounceError(<span class="macro">format!</span>(<span class="string">"{:?}"</span>, e))) <span class="kw">as </span>Box&lt;<span class="kw">_</span>&gt;)<span class="question-mark">?</span>;
 
 		<span class="prelude-val">Ok</span>(candidate_receipt.map(|cr| cr.descriptor.para_head))
 	}
@@ -964,17 +966,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>};
 
 		<span class="kw">if </span>best_head == header {
-			<span class="macro">tracing::debug!</span>(target: LOG_TARGET, <span class="string">&quot;Announced block matches best block.&quot;</span>,);
+			<span class="macro">tracing::debug!</span>(target: LOG_TARGET, <span class="string">"Announced block matches best block."</span>,);
 
 			<span class="prelude-val">Ok</span>(Validation::Success { is_new_best: <span class="bool-val">true </span>})
 		} <span class="kw">else if </span><span class="prelude-val">Some</span>(HeadData(header.encode()).hash()) == backed_block().<span class="kw">await</span><span class="question-mark">? </span>{
-			<span class="macro">tracing::debug!</span>(target: LOG_TARGET, <span class="string">&quot;Announced block matches latest backed block.&quot;</span>,);
+			<span class="macro">tracing::debug!</span>(target: LOG_TARGET, <span class="string">"Announced block matches latest backed block."</span>,);
 
 			<span class="prelude-val">Ok</span>(Validation::Success { is_new_best: <span class="bool-val">true </span>})
 		} <span class="kw">else if </span>block_number &gt;= known_best_number {
 			<span class="macro">tracing::debug!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;Validation failed because a justification is needed if the block at the top of the chain.&quot;
+				<span class="string">"Validation failed because a justification is needed if the block at the top of the chain."
 			</span>);
 
 			<span class="prelude-val">Ok</span>(Validation::Failure { disconnect: <span class="bool-val">false </span>})
@@ -987,7 +989,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl</span>&lt;Block: BlockT, RCInterface&gt; BlockAnnounceValidatorT&lt;Block&gt;
 	<span class="kw">for </span>RequireSecondedInBlockAnnounce&lt;Block, RCInterface&gt;
 <span class="kw">where
-	</span>RCInterface: RelayChainInterface + Clone + <span class="lifetime">&#39;static</span>,
+	</span>RCInterface: RelayChainInterface + Clone + <span class="lifetime">'static</span>,
 {
 	<span class="kw">fn </span>validate(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
@@ -1005,7 +1007,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.is_major_syncing()
 				.<span class="kw">await
 				</span>.map_err(
-					|e| <span class="macro">tracing::error!</span>(target: LOG_TARGET, <span class="string">&quot;Unable to determine sync status. {}&quot;</span>, e),
+					|e| <span class="macro">tracing::error!</span>(target: LOG_TARGET, <span class="string">"Unable to determine sync status. {}"</span>, e),
 				)
 				.unwrap_or(<span class="bool-val">false</span>);
 
@@ -1021,7 +1023,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="prelude-val">Ok</span>(r) =&gt; r,
 				<span class="prelude-val">Err</span>(err) =&gt;
 					<span class="kw">return </span><span class="prelude-val">Err</span>(Box::new(BlockAnnounceError(<span class="macro">format!</span>(
-						<span class="string">&quot;Can not decode the `BlockAnnounceData`: {:?}&quot;</span>,
+						<span class="string">"Can not decode the `BlockAnnounceData`: {:?}"</span>,
 						err
 					))) <span class="kw">as </span>Box&lt;<span class="kw">_</span>&gt;),
 			};
@@ -1075,19 +1077,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>announce_block = <span class="self">self</span>.announce_block.clone();
 
 		<span class="self">self</span>.spawner.spawn(
-			<span class="string">&quot;cumulus-wait-to-announce&quot;</span>,
+			<span class="string">"cumulus-wait-to-announce"</span>,
 			<span class="prelude-val">None</span>,
 			<span class="kw">async move </span>{
 				<span class="macro">tracing::debug!</span>(
-					target: <span class="string">&quot;cumulus-network&quot;</span>,
-					<span class="string">&quot;waiting for announce block in a background task...&quot;</span>,
+					target: <span class="string">"cumulus-network"</span>,
+					<span class="string">"waiting for announce block in a background task..."</span>,
 				);
 
 				wait_to_announce::&lt;Block&gt;(block_hash, announce_block, signed_stmt_recv).<span class="kw">await</span>;
 
 				<span class="macro">tracing::debug!</span>(
-					target: <span class="string">&quot;cumulus-network&quot;</span>,
-					<span class="string">&quot;block announcement finished&quot;</span>,
+					target: <span class="string">"cumulus-network"</span>,
+					<span class="string">"block announcement finished"</span>,
 				);
 			}
 			.boxed(),
@@ -1104,9 +1106,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Ok</span>(s) =&gt; s,
 		<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
 			<span class="macro">tracing::debug!</span>(
-				target: <span class="string">&quot;cumulus-network&quot;</span>,
+				target: <span class="string">"cumulus-network"</span>,
 				block = <span class="question-mark">?</span>block_hash,
-				<span class="string">&quot;Wait to announce stopped, because sender was dropped.&quot;</span>,
+				<span class="string">"Wait to announce stopped, because sender was dropped."</span>,
 			);
 			<span class="kw">return
 		</span>},
@@ -1116,10 +1118,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		announce_block(block_hash, <span class="prelude-val">Some</span>(data.encode()));
 	} <span class="kw">else </span>{
 		<span class="macro">tracing::debug!</span>(
-			target: <span class="string">&quot;cumulus-network&quot;</span>,
+			target: <span class="string">"cumulus-network"</span>,
 			<span class="question-mark">?</span>signal,
 			block = <span class="question-mark">?</span>block_hash,
-			<span class="string">&quot;Received invalid statement while waiting to announce block.&quot;</span>,
+			<span class="string">"Received invalid statement while waiting to announce block."</span>,
 		);
 	}
 }
@@ -1134,7 +1136,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// announcements which come tagged with seconded messages.
 	///
 	/// This is useful for backwards compatibility when upgrading nodes: old nodes will continue
-	/// to broadcast announcements with seconded messages, so these announcements shouldn&#39;t be
+	/// to broadcast announcements with seconded messages, so these announcements shouldn't be
 	/// rejected and the peers not punished.
 	</span><span class="kw">pub fn </span>allow_seconded_messages() -&gt; <span class="self">Self </span>{
 		AssumeSybilResistance(<span class="bool-val">true</span>)

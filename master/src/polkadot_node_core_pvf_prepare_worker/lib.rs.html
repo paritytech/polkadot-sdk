@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/core/pvf/prepare-worker/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/core/pvf/prepare-worker/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_node_core_pvf_prepare_worker" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_node_core_pvf_prepare_worker" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../polkadot_node_core_pvf_prepare_worker/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -963,11 +965,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="comment">// NOTE: Initializing logging in e.g. tests will not have an effect in the workers, as they are
 //       separate spawned processes. Run with e.g. `RUST_LOG=parachain::pvf-prepare-worker=trace`.
-</span><span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;parachain::pvf-prepare-worker&quot;</span>;
+</span><span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"parachain::pvf-prepare-worker"</span>;
 
-<span class="attr">#[cfg(target_os = <span class="string">&quot;linux&quot;</span>)]
+<span class="attr">#[cfg(target_os = <span class="string">"linux"</span>)]
 </span><span class="kw">use </span><span class="kw">crate</span>::memory_stats::max_rss_stat::{extract_max_rss_stat, get_max_rss_thread};
-<span class="attr">#[cfg(any(target_os = <span class="string">&quot;linux&quot;</span>, feature = <span class="string">&quot;jemalloc-allocator&quot;</span>))]
+<span class="attr">#[cfg(any(target_os = <span class="string">"linux"</span>, feature = <span class="string">"jemalloc-allocator"</span>))]
 </span><span class="kw">use </span><span class="kw">crate</span>::memory_stats::memory_tracker::{get_memory_tracker_loop_stats, memory_tracker_loop};
 <span class="kw">use </span>libc;
 <span class="kw">use </span>nix::{
@@ -1012,12 +1014,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>tracking_allocator::TrackingAllocator;
 
-<span class="attr">#[cfg(any(target_os = <span class="string">&quot;linux&quot;</span>, feature = <span class="string">&quot;jemalloc-allocator&quot;</span>))]
+<span class="attr">#[cfg(any(target_os = <span class="string">"linux"</span>, feature = <span class="string">"jemalloc-allocator"</span>))]
 #[global_allocator]
 </span><span class="kw">static </span>ALLOC: TrackingAllocator&lt;tikv_jemallocator::Jemalloc&gt; =
 	TrackingAllocator(tikv_jemallocator::Jemalloc);
 
-<span class="attr">#[cfg(not(any(target_os = <span class="string">&quot;linux&quot;</span>, feature = <span class="string">&quot;jemalloc-allocator&quot;</span>)))]
+<span class="attr">#[cfg(not(any(target_os = <span class="string">"linux"</span>, feature = <span class="string">"jemalloc-allocator"</span>)))]
 #[global_allocator]
 </span><span class="kw">static </span>ALLOC: TrackingAllocator&lt;std::alloc::System&gt; = TrackingAllocator(std::alloc::System);
 
@@ -1054,7 +1056,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>pvf = PvfPrepData::decode(<span class="kw-2">&amp;mut &amp;</span>pvf[..]).map_err(|e| {
 		io::Error::new(
 			io::ErrorKind::Other,
-			<span class="macro">format!</span>(<span class="string">&quot;prepare pvf recv_request: failed to decode PvfPrepData: {}&quot;</span>, e),
+			<span class="macro">format!</span>(<span class="string">"prepare pvf recv_request: failed to decode PvfPrepData: {}"</span>, e),
 		)
 	})<span class="question-mark">?</span>;
 	<span class="prelude-val">Ok</span>(pvf)
@@ -1068,7 +1070,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">fn </span>start_memory_tracking(fd: RawFd, limit: <span class="prelude-ty">Option</span>&lt;isize&gt;) {
 	<span class="kw">unsafe </span>{
 		<span class="comment">// SAFETY: Inside the failure handler, the allocator is locked and no allocations or
-		// deallocations are possible. For Linux, that always holds for the code below, so it&#39;s
+		// deallocations are possible. For Linux, that always holds for the code below, so it's
 		// safe. For MacOS, that technically holds at the time of writing, but there are no future
 		// guarantees.
 		// The arguments of unsafe `libc` calls are valid, the payload validity is covered with
@@ -1076,7 +1078,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>ALLOC.start_tracking(
 			limit,
 			<span class="prelude-val">Some</span>(Box::new(<span class="kw">move </span>|| {
-				<span class="attr">#[cfg(target_os = <span class="string">&quot;linux&quot;</span>)]
+				<span class="attr">#[cfg(target_os = <span class="string">"linux"</span>)]
 				</span>{
 					<span class="comment">// Syscalls never allocate or deallocate, so this is safe.
 					</span>libc::syscall(libc::SYS_write, fd, OOM_PAYLOAD.as_ptr(), OOM_PAYLOAD.len());
@@ -1087,13 +1089,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						libc::syscall(libc::SYS_exit, <span class="number">1</span>);
 					}
 				}
-				<span class="attr">#[cfg(not(target_os = <span class="string">&quot;linux&quot;</span>))]
+				<span class="attr">#[cfg(not(target_os = <span class="string">"linux"</span>))]
 				</span>{
 					<span class="comment">// Syscalls are not available on MacOS, so we have to use `libc` wrappers.
-					// Technically, there may be allocations inside, although they shouldn&#39;t be
-					// there. In that case, we&#39;ll see deadlocks on MacOS after the OOM condition
+					// Technically, there may be allocations inside, although they shouldn't be
+					// there. In that case, we'll see deadlocks on MacOS after the OOM condition
 					// triggered. As we consider running a validator on MacOS unsafe, and this
-					// code is only run by a validator, it&#39;s a lesser evil.
+					// code is only run by a validator, it's a lesser evil.
 					</span>libc::write(fd, OOM_PAYLOAD.as_ptr().cast(), OOM_PAYLOAD.len());
 					libc::close(fd);
 					libc::_exit(<span class="number">1</span>);
@@ -1164,7 +1166,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					target: LOG_TARGET,
 					<span class="question-mark">?</span>worker_info,
 					<span class="question-mark">?</span>security_status,
-					<span class="string">&quot;worker: preparing artifact&quot;</span>,
+					<span class="string">"worker: preparing artifact"</span>,
 				);
 
 				<span class="kw">let </span>preparation_timeout = pvf.prep_timeout();
@@ -1176,7 +1178,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">let </span>usage_before = <span class="kw">match </span>nix::sys::resource::getrusage(UsageWho::RUSAGE_CHILDREN) {
 					<span class="prelude-val">Ok</span>(usage) =&gt; usage,
 					<span class="prelude-val">Err</span>(errno) =&gt; {
-						<span class="kw">let </span>result = <span class="prelude-val">Err</span>(error_from_errno(<span class="string">&quot;getrusage before&quot;</span>, errno));
+						<span class="kw">let </span>result = <span class="prelude-val">Err</span>(error_from_errno(<span class="string">"getrusage before"</span>, errno));
 						send_response(<span class="kw-2">&amp;mut </span>stream, result)<span class="question-mark">?</span>;
 						<span class="kw">continue
 					</span>},
@@ -1185,7 +1187,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">let </span>stream_fd = stream.as_raw_fd();
 
 				<span class="macro">cfg_if::cfg_if! </span>{
-					<span class="kw">if </span><span class="attr">#[cfg(target_os = <span class="string">&quot;linux&quot;</span>)] </span>{
+					<span class="kw">if </span><span class="attr">#[cfg(target_os = <span class="string">"linux"</span>)] </span>{
 						<span class="kw">let </span>result = <span class="kw">if </span>security_status.can_do_secure_clone {
 							handle_clone(
 								<span class="kw-2">&amp;</span>pvf,
@@ -1234,7 +1236,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="macro">gum::trace!</span>(
 					target: LOG_TARGET,
 					<span class="question-mark">?</span>worker_info,
-					<span class="string">&quot;worker: sending result to host: {:?}&quot;</span>,
+					<span class="string">"worker: sending result to host: {:?}"</span>,
 					result
 				);
 				send_response(<span class="kw-2">&amp;mut </span>stream, result)<span class="question-mark">?</span>;
@@ -1245,13 +1247,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">fn </span>prepare_artifact(pvf: PvfPrepData) -&gt; <span class="prelude-ty">Result</span>&lt;CompiledArtifact, PrepareError&gt; {
 	<span class="kw">let </span>blob = <span class="kw">match </span>prevalidate(<span class="kw-2">&amp;</span>pvf.code()) {
-		<span class="prelude-val">Err</span>(err) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(PrepareError::Prevalidation(<span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, err))),
+		<span class="prelude-val">Err</span>(err) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(PrepareError::Prevalidation(<span class="macro">format!</span>(<span class="string">"{:?}"</span>, err))),
 		<span class="prelude-val">Ok</span>(b) =&gt; b,
 	};
 
 	<span class="kw">match </span>prepare(blob, <span class="kw-2">&amp;</span>pvf.executor_params()) {
 		<span class="prelude-val">Ok</span>(compiled_artifact) =&gt; <span class="prelude-val">Ok</span>(CompiledArtifact::new(compiled_artifact)),
-		<span class="prelude-val">Err</span>(err) =&gt; <span class="prelude-val">Err</span>(PrepareError::Preparation(<span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, err))),
+		<span class="prelude-val">Err</span>(err) =&gt; <span class="prelude-val">Err</span>(PrepareError::Preparation(<span class="macro">format!</span>(<span class="string">"{:?}"</span>, err))),
 	}
 }
 
@@ -1264,7 +1266,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">let </span>result = <span class="kw">unsafe </span>{ create_runtime_from_artifact_bytes(artifact_bytes, executor_params) };
 	result
 		.map(|_runtime| ())
-		.map_err(|err| PrepareError::RuntimeConstruction(<span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, err)))
+		.map_err(|err| PrepareError::RuntimeConstruction(<span class="macro">format!</span>(<span class="string">"{:?}"</span>, err)))
 }
 
 <span class="attr">#[derive(Encode, Decode)]
@@ -1273,7 +1275,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	memory_stats: MemoryStats,
 }
 
-<span class="attr">#[cfg(target_os = <span class="string">&quot;linux&quot;</span>)]
+<span class="attr">#[cfg(target_os = <span class="string">"linux"</span>)]
 </span><span class="kw">fn </span>handle_clone(
 	pvf: <span class="kw-2">&amp;</span>PvfPrepData,
 	pipe_write_fd: i32,
@@ -1290,7 +1292,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use </span>polkadot_node_core_pvf_common::worker::security;
 
 	<span class="comment">// SAFETY: new process is spawned within a single threaded process. This invariant
-	// is enforced by tests. Stack size being specified to ensure child doesn&#39;t overflow
+	// is enforced by tests. Stack size being specified to ensure child doesn't overflow
 	</span><span class="kw">match unsafe </span>{
 		security::clone::clone_on_worker(
 			worker_info,
@@ -1317,7 +1319,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			usage_before,
 			preparation_timeout,
 		),
-		<span class="prelude-val">Err</span>(security::clone::Error::Clone(errno)) =&gt; <span class="prelude-val">Err</span>(error_from_errno(<span class="string">&quot;clone&quot;</span>, errno)),
+		<span class="prelude-val">Err</span>(security::clone::Error::Clone(errno)) =&gt; <span class="prelude-val">Err</span>(error_from_errno(<span class="string">"clone"</span>, errno)),
 	}
 }
 
@@ -1354,7 +1356,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			usage_before,
 			preparation_timeout,
 		),
-		<span class="prelude-val">Err</span>(errno) =&gt; <span class="prelude-val">Err</span>(error_from_errno(<span class="string">&quot;fork&quot;</span>, errno)),
+		<span class="prelude-val">Err</span>(errno) =&gt; <span class="prelude-val">Err</span>(error_from_errno(<span class="string">"fork"</span>, errno)),
 	}
 }
 
@@ -1379,22 +1381,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="comment">// SAFETY: pipe_writer is an open and owned file descriptor at this point.
 	</span><span class="kw">let </span><span class="kw-2">mut </span>pipe_write = <span class="kw">unsafe </span>{ PipeFd::from_raw_fd(pipe_write_fd) };
 
-	<span class="comment">// Drop the read end so we don&#39;t have too many FDs open.
+	<span class="comment">// Drop the read end so we don't have too many FDs open.
 	</span><span class="kw">if let </span><span class="prelude-val">Err</span>(errno) = nix::unistd::close(pipe_read_fd) {
 		send_child_response(
 			<span class="kw-2">&amp;mut </span>pipe_write,
-			JobResult::Err(error_from_errno(<span class="string">&quot;closing pipe&quot;</span>, errno)),
+			JobResult::Err(error_from_errno(<span class="string">"closing pipe"</span>, errno)),
 		);
 	}
 
 	<span class="comment">// Dropping the stream closes the underlying socket. We want to make sure
-	// that the sandboxed child can&#39;t get any kind of information from the
+	// that the sandboxed child can't get any kind of information from the
 	// outside world. The only IPC it should be able to do is sending its
 	// response over the pipe.
 	</span><span class="kw">if let </span><span class="prelude-val">Err</span>(errno) = nix::unistd::close(stream_fd) {
 		send_child_response(
 			<span class="kw-2">&amp;mut </span>pipe_write,
-			JobResult::Err(error_from_errno(<span class="string">&quot;error closing stream&quot;</span>, errno)),
+			JobResult::Err(error_from_errno(<span class="string">"error closing stream"</span>, errno)),
 		);
 	}
 
@@ -1404,16 +1406,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		%worker_job_pid,
 		<span class="question-mark">?</span>prepare_job_kind,
 		<span class="question-mark">?</span>preparation_timeout,
-		<span class="string">&quot;worker job: preparing artifact&quot;</span>,
+		<span class="string">"worker job: preparing artifact"</span>,
 	);
 
 	<span class="comment">// Conditional variable to notify us when a thread is done.
 	</span><span class="kw">let </span>condvar = thread::get_condvar();
 
 	<span class="comment">// Run the memory tracker in a regular, non-worker thread.
-	</span><span class="attr">#[cfg(any(target_os = <span class="string">&quot;linux&quot;</span>, feature = <span class="string">&quot;jemalloc-allocator&quot;</span>))]
+	</span><span class="attr">#[cfg(any(target_os = <span class="string">"linux"</span>, feature = <span class="string">"jemalloc-allocator"</span>))]
 	</span><span class="kw">let </span>condvar_memory = Arc::clone(<span class="kw-2">&amp;</span>condvar);
-	<span class="attr">#[cfg(any(target_os = <span class="string">&quot;linux&quot;</span>, feature = <span class="string">&quot;jemalloc-allocator&quot;</span>))]
+	<span class="attr">#[cfg(any(target_os = <span class="string">"linux"</span>, feature = <span class="string">"jemalloc-allocator"</span>))]
 	</span><span class="kw">let </span>memory_tracker_thread = std::thread::spawn(|| memory_tracker_loop(condvar_memory));
 
 	start_memory_tracking(
@@ -1423,7 +1425,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="macro">gum::warn!</span>(
 					LOG_TARGET,
 					%worker_job_pid,
-					<span class="string">&quot;Illegal pre-checking max memory value {} discarded&quot;</span>,
+					<span class="string">"Illegal pre-checking max memory value {} discarded"</span>,
 					v,
 				);
 				<span class="number">0
@@ -1436,7 +1438,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="comment">// Spawn a new thread that runs the CPU time monitor.
 	</span><span class="kw">let </span>(cpu_time_monitor_tx, cpu_time_monitor_rx) = channel::&lt;()&gt;();
 	<span class="kw">let </span>cpu_time_monitor_thread = thread::spawn_worker_thread(
-		<span class="string">&quot;cpu time monitor thread&quot;</span>,
+		<span class="string">"cpu time monitor thread"</span>,
 		<span class="kw">move </span>|| cpu_time_monitor_loop(cpu_time_start, preparation_timeout, cpu_time_monitor_rx),
 		Arc::clone(<span class="kw-2">&amp;</span>condvar),
 		WaitOutcome::TimedOut,
@@ -1446,13 +1448,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 
 	<span class="kw">let </span>prepare_thread = spawn_worker_thread(
-		<span class="string">&quot;prepare worker&quot;</span>,
+		<span class="string">"prepare worker"</span>,
 		<span class="kw">move </span>|| {
 			<span class="attr">#[allow(unused_mut)]
 			</span><span class="kw">let </span><span class="kw-2">mut </span>result = prepare_artifact(pvf);
 
 			<span class="comment">// Get the `ru_maxrss` stat. If supported, call getrusage for the thread.
-			</span><span class="attr">#[cfg(target_os = <span class="string">&quot;linux&quot;</span>)]
+			</span><span class="attr">#[cfg(target_os = <span class="string">"linux"</span>)]
 			</span><span class="kw">let </span><span class="kw-2">mut </span>result = result.map(|artifact| (artifact, get_max_rss_thread()));
 
 			<span class="comment">// If we are pre-checking, check for runtime construction errors.
@@ -1482,7 +1484,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">gum::debug!</span>(
 			target: LOG_TARGET,
 			%worker_job_pid,
-			<span class="string">&quot;prepare job peak allocation is {} bytes&quot;</span>,
+			<span class="string">"prepare job peak allocation is {} bytes"</span>,
 			peak,
 		);
 		peak
@@ -1501,7 +1503,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="prelude-val">Err</span>(err) =&gt; <span class="prelude-val">Err</span>(err),
 				<span class="prelude-val">Ok</span>(ok) =&gt; {
 					<span class="macro">cfg_if::cfg_if! </span>{
-						<span class="kw">if </span><span class="attr">#[cfg(target_os = <span class="string">&quot;linux&quot;</span>)] </span>{
+						<span class="kw">if </span><span class="attr">#[cfg(target_os = <span class="string">"linux"</span>)] </span>{
 							<span class="kw">let </span>(artifact, max_rss) = ok;
 						} <span class="kw">else </span>{
 							<span class="kw">let </span>artifact = ok;
@@ -1509,16 +1511,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					}
 
 					<span class="comment">// Stop the memory stats worker and get its observed memory stats.
-					</span><span class="attr">#[cfg(any(target_os = <span class="string">&quot;linux&quot;</span>, feature = <span class="string">&quot;jemalloc-allocator&quot;</span>))]
+					</span><span class="attr">#[cfg(any(target_os = <span class="string">"linux"</span>, feature = <span class="string">"jemalloc-allocator"</span>))]
 					</span><span class="kw">let </span>memory_tracker_stats = get_memory_tracker_loop_stats(memory_tracker_thread, process::id());
 
 					<span class="kw">let </span>memory_stats = MemoryStats {
-						<span class="attr">#[cfg(any(target_os = <span class="string">&quot;linux&quot;</span>, feature = <span class="string">&quot;jemalloc-allocator&quot;</span>))]
+						<span class="attr">#[cfg(any(target_os = <span class="string">"linux"</span>, feature = <span class="string">"jemalloc-allocator"</span>))]
 						</span>memory_tracker_stats,
-						<span class="attr">#[cfg(target_os = <span class="string">&quot;linux&quot;</span>)]
+						<span class="attr">#[cfg(target_os = <span class="string">"linux"</span>)]
 						</span>max_rss: extract_max_rss_stat(max_rss, process::id()),
 						<span class="comment">// Negative peak allocation values are legit; they are narrow
-						// corner cases and shouldn&#39;t affect overall statistics
+						// corner cases and shouldn't affect overall statistics
 						// significantly
 						</span>peak_tracked_alloc: <span class="kw">if </span>peak_alloc &gt; <span class="number">0 </span>{ peak_alloc <span class="kw">as </span>u64 } <span class="kw">else </span>{ <span class="number">0u64 </span>},
 					};
@@ -1532,11 +1534,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		// dropped and the thread will finish in the background.
 		</span>WaitOutcome::TimedOut =&gt; <span class="kw">match </span>cpu_time_monitor_thread.join() {
 			<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(_cpu_time_elapsed)) =&gt; <span class="prelude-val">Err</span>(PrepareError::TimedOut),
-			<span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>) =&gt; <span class="prelude-val">Err</span>(PrepareError::IoErr(<span class="string">&quot;error communicating over closed channel&quot;</span>.into())),
+			<span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>) =&gt; <span class="prelude-val">Err</span>(PrepareError::IoErr(<span class="string">"error communicating over closed channel"</span>.into())),
 			<span class="prelude-val">Err</span>(err) =&gt; <span class="prelude-val">Err</span>(PrepareError::IoErr(stringify_panic_payload(err))),
 		},
 		WaitOutcome::Pending =&gt;
-			<span class="macro">unreachable!</span>(<span class="string">&quot;we run wait_while until the outcome is no longer pending; qed&quot;</span>),
+			<span class="macro">unreachable!</span>(<span class="string">"we run wait_while until the outcome is no longer pending; qed"</span>),
 	};
 
 	send_child_response(<span class="kw-2">&amp;mut </span>pipe_write, result);
@@ -1564,13 +1566,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="comment">// the read end will wait until all write ends have been closed,
 	// this drop is necessary to avoid deadlock
 	</span><span class="kw">if let </span><span class="prelude-val">Err</span>(errno) = nix::unistd::close(pipe_write_fd) {
-		<span class="kw">return </span><span class="prelude-val">Err</span>(error_from_errno(<span class="string">&quot;closing pipe write fd&quot;</span>, errno));
+		<span class="kw">return </span><span class="prelude-val">Err</span>(error_from_errno(<span class="string">"closing pipe write fd"</span>, errno));
 	};
 
 	<span class="comment">// SAFETY: this is an open and owned file descriptor at this point.
 	</span><span class="kw">let </span><span class="kw-2">mut </span>pipe_read = <span class="kw">unsafe </span>{ PipeFd::from_raw_fd(pipe_read_fd) };
 
-	<span class="comment">// Read from the child. Don&#39;t decode unless the process exited normally, which we check later.
+	<span class="comment">// Read from the child. Don't decode unless the process exited normally, which we check later.
 	</span><span class="kw">let </span><span class="kw-2">mut </span>received_data = Vec::new();
 	pipe_read
 		.read_to_end(<span class="kw-2">&amp;mut </span>received_data)
@@ -1581,12 +1583,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		target: LOG_TARGET,
 		<span class="question-mark">?</span>worker_info,
 		%job_pid,
-		<span class="string">&quot;prepare worker received wait status from job: {:?}&quot;</span>,
+		<span class="string">"prepare worker received wait status from job: {:?}"</span>,
 		status,
 	);
 
 	<span class="kw">let </span>usage_after = nix::sys::resource::getrusage(UsageWho::RUSAGE_CHILDREN)
-		.map_err(|errno| error_from_errno(<span class="string">&quot;getrusage after&quot;</span>, errno))<span class="question-mark">?</span>;
+		.map_err(|errno| error_from_errno(<span class="string">"getrusage after"</span>, errno))<span class="question-mark">?</span>;
 
 	<span class="comment">// Using `getrusage` is needed to check whether child has timedout since we cannot rely on
 	// child to report its own time.
@@ -1599,7 +1601,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			target: LOG_TARGET,
 			<span class="question-mark">?</span>worker_info,
 			%job_pid,
-			<span class="string">&quot;prepare job took {}ms cpu time, exceeded prepare timeout {}ms&quot;</span>,
+			<span class="string">"prepare job took {}ms cpu time, exceeded prepare timeout {}ms"</span>,
 			cpu_tv.as_millis(),
 			timeout.as_millis(),
 		);
@@ -1618,7 +1620,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="comment">// The exit status should have been zero if no error occurred.
 					</span><span class="kw">if </span>exit_status != <span class="number">0 </span>{
 						<span class="kw">return </span><span class="prelude-val">Err</span>(PrepareError::JobError(<span class="macro">format!</span>(
-							<span class="string">&quot;unexpected exit status: {}&quot;</span>,
+							<span class="string">"unexpected exit status: {}"</span>,
 							exit_status
 						)))
 					}
@@ -1634,7 +1636,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						target: LOG_TARGET,
 						<span class="question-mark">?</span>worker_info,
 						%job_pid,
-						<span class="string">&quot;worker: writing artifact to {}&quot;</span>,
+						<span class="string">"worker: writing artifact to {}"</span>,
 						temp_artifact_dest.display(),
 					);
 					<span class="comment">// Write to the temp file created by the host.
@@ -1655,15 +1657,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		// The job gets SIGSYS on seccomp violations, but this signal may have been sent for some
 		// other reason, so we still need to check for seccomp violations elsewhere.
 		</span><span class="prelude-val">Ok</span>(WaitStatus::Signaled(_pid, signal, _core_dump)) =&gt; <span class="prelude-val">Err</span>(PrepareError::JobDied {
-			err: <span class="macro">format!</span>(<span class="string">&quot;received signal: {signal:?}&quot;</span>),
+			err: <span class="macro">format!</span>(<span class="string">"received signal: {signal:?}"</span>),
 			job_pid: job_pid.as_raw(),
 		}),
-		<span class="prelude-val">Err</span>(errno) =&gt; <span class="prelude-val">Err</span>(error_from_errno(<span class="string">&quot;waitpid&quot;</span>, errno)),
+		<span class="prelude-val">Err</span>(errno) =&gt; <span class="prelude-val">Err</span>(error_from_errno(<span class="string">"waitpid"</span>, errno)),
 
 		<span class="comment">// An attacker can make the child process return any exit status it wants. So we can treat
 		// all unexpected cases the same way.
 		</span><span class="prelude-val">Ok</span>(unexpected_wait_status) =&gt; <span class="prelude-val">Err</span>(PrepareError::JobDied {
-			err: <span class="macro">format!</span>(<span class="string">&quot;unexpected status from wait: {unexpected_wait_status:?}&quot;</span>),
+			err: <span class="macro">format!</span>(<span class="string">"unexpected status from wait: {unexpected_wait_status:?}"</span>),
 			job_pid: job_pid.as_raw(),
 		}),
 	}
@@ -1693,7 +1695,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	JobResult::decode(<span class="kw-2">&amp;mut </span>response_bytes.as_slice()).map_err(|e| {
 		io::Error::new(
 			io::ErrorKind::Other,
-			<span class="macro">format!</span>(<span class="string">&quot;prepare pvf recv_child_response: decode error: {:?}&quot;</span>, e),
+			<span class="macro">format!</span>(<span class="string">"prepare pvf recv_child_response: decode error: {:?}"</span>, e),
 		)
 	})
 }
@@ -1716,14 +1718,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">fn </span>error_from_errno(context: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str, errno: Errno) -&gt; PrepareError {
-	PrepareError::Kernel(<span class="macro">format!</span>(<span class="string">&quot;{}: {}: {}&quot;</span>, context, errno, io::Error::last_os_error()))
+<span class="kw">fn </span>error_from_errno(context: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str, errno: Errno) -&gt; PrepareError {
+	PrepareError::Kernel(<span class="macro">format!</span>(<span class="string">"{}: {}: {}"</span>, context, errno, io::Error::last_os_error()))
 }
 
 <span class="kw">type </span>JobResult = <span class="prelude-ty">Result</span>&lt;JobResponse, PrepareError&gt;;
 
 <span class="doccomment">/// Pre-encoded length-prefixed `JobResult::Err(PrepareError::OutOfMemory)`
-</span><span class="kw">const </span>OOM_PAYLOAD: <span class="kw-2">&amp;</span>[u8] = <span class="string">b&quot;\x02\x00\x00\x00\x00\x00\x00\x00\x01\x08&quot;</span>;
+</span><span class="kw">const </span>OOM_PAYLOAD: <span class="kw-2">&amp;</span>[u8] = <span class="string">b"\x02\x00\x00\x00\x00\x00\x00\x00\x01\x08"</span>;
 
 <span class="attr">#[test]
 </span><span class="kw">fn </span>pre_encoded_payloads() {

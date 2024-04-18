@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/network/sync/src/strategy.rs`."><title>strategy.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/network/sync/src/strategy.rs`."><title>strategy.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_network_sync" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_network_sync" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sc_network_sync/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -993,7 +995,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		+ ProofProvider&lt;B&gt;
 		+ Send
 		+ Sync
-		+ <span class="lifetime">&#39;static</span>,
+		+ <span class="lifetime">'static</span>,
 {
 	<span class="doccomment">/// Initialize a new syncing strategy.
 	</span><span class="kw">pub fn </span>new(
@@ -1003,7 +1005,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, ClientError&gt; {
 		<span class="kw">if let </span>SyncMode::Warp = config.mode {
 			<span class="kw">let </span>warp_sync_config = warp_sync_config
-				.expect(<span class="string">&quot;Warp sync configuration must be supplied in warp sync mode.&quot;</span>);
+				.expect(<span class="string">"Warp sync configuration must be supplied in warp sync mode."</span>);
 			<span class="kw">let </span>warp_sync = WarpSync::new(client.clone(), warp_sync_config);
 			<span class="prelude-val">Ok</span>(<span class="self">Self </span>{
 				config,
@@ -1067,7 +1069,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		} <span class="kw">else if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref mut </span>chain_sync) = <span class="self">self</span>.chain_sync {
 			chain_sync.on_validated_block_announce(is_best, peer_id, announce)
 		} <span class="kw">else </span>{
-			<span class="macro">error!</span>(target: LOG_TARGET, <span class="string">&quot;No syncing strategy is active.&quot;</span>);
+			<span class="macro">error!</span>(target: LOG_TARGET, <span class="string">"No syncing strategy is active."</span>);
 			<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
 			<span class="prelude-val">Some</span>((announce.header.hash(), <span class="kw-2">*</span>announce.header.number()))
 		};
@@ -1078,8 +1080,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			} <span class="kw">else </span>{
 				<span class="macro">debug!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Cannot update `peer_best_blocks` as peer {peer_id} is not known to `Strategy` \
-					 (already disconnected?)&quot;</span>,
+					<span class="string">"Cannot update `peer_best_blocks` as peer {peer_id} is not known to `Strategy` \
+					 (already disconnected?)"</span>,
 				);
 			}
 		}
@@ -1142,8 +1144,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		} <span class="kw">else </span>{
 			<span class="macro">error!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;`on_block_response()` called with unexpected key {key:?} \
-				 or corresponding strategy is not active.&quot;</span>,
+				<span class="string">"`on_block_response()` called with unexpected key {key:?} \
+				 or corresponding strategy is not active."</span>,
 			);
 			<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
 		}
@@ -1165,8 +1167,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		} <span class="kw">else </span>{
 			<span class="macro">error!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;`on_state_response()` called with unexpected key {key:?} \
-				 or corresponding strategy is not active.&quot;</span>,
+				<span class="string">"`on_state_response()` called with unexpected key {key:?} \
+				 or corresponding strategy is not active."</span>,
 			);
 			<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
 		}
@@ -1184,8 +1186,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		} <span class="kw">else </span>{
 			<span class="macro">error!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;`on_warp_proof_response()` called with unexpected key {key:?} \
-				 or warp strategy is not active&quot;</span>,
+				<span class="string">"`on_warp_proof_response()` called with unexpected key {key:?} \
+				 or warp strategy is not active"</span>,
 			);
 			<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
 		}
@@ -1228,7 +1230,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="self">self</span>.state.is_some() ||
 			<span class="kw">match </span><span class="self">self</span>.chain_sync {
 				<span class="prelude-val">Some</span>(<span class="kw-2">ref </span>s) =&gt; s.status().state.is_major_syncing(),
-				<span class="prelude-val">None </span>=&gt; <span class="macro">unreachable!</span>(<span class="string">&quot;At least one syncing strategy is active; qed&quot;</span>),
+				<span class="prelude-val">None </span>=&gt; <span class="macro">unreachable!</span>(<span class="string">"At least one syncing strategy is active; qed"</span>),
 			}
 	}
 
@@ -1248,7 +1250,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		} <span class="kw">else if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>chain_sync) = <span class="self">self</span>.chain_sync {
 			chain_sync.status()
 		} <span class="kw">else </span>{
-			<span class="macro">unreachable!</span>(<span class="string">&quot;At least one syncing strategy is always active; qed&quot;</span>)
+			<span class="macro">unreachable!</span>(<span class="string">"At least one syncing strategy is always active; qed"</span>)
 		}
 	}
 
@@ -1287,8 +1289,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					// that warp sync has already finished / was skipped.
 					</span><span class="macro">warn!</span>(
 						target: LOG_TARGET,
-						<span class="string">&quot;Discarding warp sync target, as warp sync was seemingly skipped due \
-						 to node being (partially) synced.&quot;</span>,
+						<span class="string">"Discarding warp sync target, as warp sync was seemingly skipped due \
+						 to node being (partially) synced."</span>,
 					);
 					<span class="prelude-val">Ok</span>(())
 				},
@@ -1296,7 +1298,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">_ </span>=&gt; {
 				<span class="macro">error!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Cannot set warp sync target block: not in warp sync mode.&quot;
+					<span class="string">"Cannot set warp sync target block: not in warp sync mode."
 				</span>);
 				<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
 				<span class="prelude-val">Err</span>(())
@@ -1304,7 +1306,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="doccomment">/// Get actions that should be performed by the owner on the strategy&#39;s behalf
+	<span class="doccomment">/// Get actions that should be performed by the owner on the strategy's behalf
 	</span><span class="attr">#[must_use]
 	</span><span class="kw">pub fn </span>actions(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;SyncingAction&lt;B&gt;&gt;, ClientError&gt; {
 		<span class="comment">// This function presumes that strategies are executed serially and must be refactored once
@@ -1316,7 +1318,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		} <span class="kw">else if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref mut </span>chain_sync) = <span class="self">self</span>.chain_sync {
 			chain_sync.actions().map(Into::into).collect()
 		} <span class="kw">else </span>{
-			<span class="macro">unreachable!</span>(<span class="string">&quot;At least one syncing strategy is always active; qed&quot;</span>)
+			<span class="macro">unreachable!</span>(<span class="string">"At least one syncing strategy is always active; qed"</span>)
 		};
 
 		<span class="kw">if </span>actions.iter().any(SyncingAction::is_finished) {
@@ -1334,7 +1336,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="prelude-val">Some</span>(res) =&gt; {
 					<span class="macro">info!</span>(
 						target: LOG_TARGET,
-						<span class="string">&quot;Warp sync is complete, continuing with state sync.&quot;
+						<span class="string">"Warp sync is complete, continuing with state sync."
 					</span>);
 					<span class="kw">let </span>state_sync = StateStrategy::new(
 						<span class="self">self</span>.client.clone(),
@@ -1354,7 +1356,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="prelude-val">None </span>=&gt; {
 					<span class="macro">error!</span>(
 						target: LOG_TARGET,
-						<span class="string">&quot;Warp sync failed. Continuing with full sync.&quot;
+						<span class="string">"Warp sync failed. Continuing with full sync."
 					</span>);
 					<span class="kw">let </span>chain_sync = <span class="kw">match </span>ChainSync::new(
 						chain_sync_mode(<span class="self">self</span>.config.mode),
@@ -1368,7 +1370,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					) {
 						<span class="prelude-val">Ok</span>(chain_sync) =&gt; chain_sync,
 						<span class="prelude-val">Err</span>(e) =&gt; {
-							<span class="macro">error!</span>(target: LOG_TARGET, <span class="string">&quot;Failed to start `ChainSync`.&quot;</span>);
+							<span class="macro">error!</span>(target: LOG_TARGET, <span class="string">"Failed to start `ChainSync`."</span>);
 							<span class="kw">return </span><span class="prelude-val">Err</span>(e)
 						},
 					};
@@ -1380,9 +1382,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			}
 		} <span class="kw">else if let </span><span class="prelude-val">Some</span>(state) = <span class="kw-2">&amp;</span><span class="self">self</span>.state {
 			<span class="kw">if </span>state.is_succeeded() {
-				<span class="macro">info!</span>(target: LOG_TARGET, <span class="string">&quot;State sync is complete, continuing with block sync.&quot;</span>);
+				<span class="macro">info!</span>(target: LOG_TARGET, <span class="string">"State sync is complete, continuing with block sync."</span>);
 			} <span class="kw">else </span>{
-				<span class="macro">error!</span>(target: LOG_TARGET, <span class="string">&quot;State sync failed. Falling back to full sync.&quot;</span>);
+				<span class="macro">error!</span>(target: LOG_TARGET, <span class="string">"State sync failed. Falling back to full sync."</span>);
 			}
 			<span class="kw">let </span>chain_sync = <span class="kw">match </span>ChainSync::new(
 				chain_sync_mode(<span class="self">self</span>.config.mode),
@@ -1396,7 +1398,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			) {
 				<span class="prelude-val">Ok</span>(chain_sync) =&gt; chain_sync,
 				<span class="prelude-val">Err</span>(e) =&gt; {
-					<span class="macro">error!</span>(target: LOG_TARGET, <span class="string">&quot;Failed to start `ChainSync`.&quot;</span>);
+					<span class="macro">error!</span>(target: LOG_TARGET, <span class="string">"Failed to start `ChainSync`."</span>);
 					<span class="kw">return </span><span class="prelude-val">Err</span>(e);
 				},
 			};
@@ -1405,7 +1407,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="self">self</span>.chain_sync = <span class="prelude-val">Some</span>(chain_sync);
 			<span class="prelude-val">Ok</span>(())
 		} <span class="kw">else </span>{
-			<span class="macro">unreachable!</span>(<span class="string">&quot;Only warp &amp; state strategies can finish; qed&quot;</span>)
+			<span class="macro">unreachable!</span>(<span class="string">"Only warp &amp; state strategies can finish; qed"</span>)
 		}
 	}
 }
@@ -1436,7 +1438,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.unwrap()
 			.block;
 		block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
-		<span class="kw">let </span>just = (<span class="kw-2">*</span><span class="string">b&quot;TEST&quot;</span>, Vec::new());
+		<span class="kw">let </span>just = (<span class="kw-2">*</span><span class="string">b"TEST"</span>, Vec::new());
 		client.finalize_block(block.hash(), <span class="prelude-val">Some</span>(just)).unwrap();
 		<span class="kw">let </span>target_block = BlockBuilderBuilder::new(<span class="kw-2">&amp;*</span>client)
 			.on_parent_block(client.chain_info().best_hash)
@@ -1463,7 +1465,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">assert!</span>(<span class="macro">matches!</span>(actions[<span class="number">0</span>], SyncingAction::Finished));
 		<span class="macro">assert!</span>(strategy.warp.is_none());
 
-		<span class="comment">// Try setting the target block. We mustn&#39;t crash.
+		<span class="comment">// Try setting the target block. We mustn't crash.
 		</span>strategy
 			.set_warp_sync_target_block_header(target_block.header().clone())
 			.unwrap();

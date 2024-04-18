@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `docs/sdk/src/guides/your_first_pallet/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `docs/sdk/src/guides/your_first_pallet/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="polkadot_sdk_docs" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../../theme.css"><link rel="icon" href="https://polkadot.network/favicon-32x32.png"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="polkadot_sdk_docs" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../../theme.css"><link rel="icon" href="https://polkadot.network/favicon-32x32.png"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../../polkadot_sdk_docs/index.html"><img src="https://europe1.discourse-cdn.com/standard21/uploads/polkadot2/original/1X/eb57081e2bb7c39e5fcb1a98b443e423fa4448ae.svg" alt="polkadot_sdk_docs"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../../polkadot_sdk_docs/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -941,13 +943,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!
 //! ### Shell Pallet
 //!
-//! Consider the following as a &quot;shell pallet&quot;. We continue building the rest of this pallet based
+//! Consider the following as a "shell pallet". We continue building the rest of this pallet based
 //! on this template.
 //!
 //! [`pallet::config`](frame::pallet_macros::config) and
 //! [`pallet::pallet`](frame::pallet_macros::pallet) are both mandatory parts of any pallet. Refer
 //! to the documentation of each to get an overview of what they do.
-</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;./src/guides/your_first_pallet/mod.rs&quot;</span>, shell_pallet)]
+</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">"./src/guides/your_first_pallet/mod.rs"</span>, shell_pallet)]
 </span><span class="doccomment">//!
 //! ### Storage
 //!
@@ -959,18 +961,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! &gt; For the rest of this guide, we will opt for a balance type of `u128`. For the sake of
 //! &gt; simplicity, we are hardcoding this type. In a real pallet is best practice to define it as a
 //! &gt; generic bounded type in the `Config` trait, and then specify it in the implementation.
-</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;./src/guides/your_first_pallet/mod.rs&quot;</span>, Balance)]
+</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">"./src/guides/your_first_pallet/mod.rs"</span>, Balance)]
 </span><span class="doccomment">//!
 //! The definition of these two storage items, based on [`frame::pallet_macros::storage`] details,
 //! is as follows:
-</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;./src/guides/your_first_pallet/mod.rs&quot;</span>, TotalIssuance)]
-#![doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;./src/guides/your_first_pallet/mod.rs&quot;</span>, Balances)]
+</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">"./src/guides/your_first_pallet/mod.rs"</span>, TotalIssuance)]
+#![doc = <span class="macro">docify::embed!</span>(<span class="string">"./src/guides/your_first_pallet/mod.rs"</span>, Balances)]
 </span><span class="doccomment">//!
 //! ### Dispatchables
 //!
 //! Next, we will define the dispatchable functions. As per [`frame::pallet_macros::call`], these
 //! will be defined as normal `fn`s attached to `struct Pallet`.
-</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;./src/guides/your_first_pallet/mod.rs&quot;</span>, impl_pallet)]
+</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">"./src/guides/your_first_pallet/mod.rs"</span>, impl_pallet)]
 </span><span class="doccomment">//!
 //! The logic of the functions is self-explanatory. Instead, we will focus on the FRAME-related
 //! details:
@@ -983,7 +985,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!   signature of the function: it takes a generic `T::RuntimeOrigin` and returns a
 //!   `Result&lt;T::AccountId, _&gt;`. So by the end of this function call, we know that this dispatchable
 //!   was signed by `who`.
-</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;../../substrate/frame/system/src/lib.rs&quot;</span>, ensure_signed)]
+</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">"../../substrate/frame/system/src/lib.rs"</span>, ensure_signed)]
 </span><span class="doccomment">//!
 //!
 //! - Where does `mutate`, `get` and `insert` and other storage APIs come from? All of them are
@@ -991,12 +993,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! into [`frame::prelude::StorageMap::insert`].
 //!
 //! - The return type of all dispatchable functions is [`frame::prelude::DispatchResult`]:
-</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;../../substrate/frame/support/src/dispatch.rs&quot;</span>, DispatchResult)]
+</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">"../../substrate/frame/support/src/dispatch.rs"</span>, DispatchResult)]
 </span><span class="doccomment">//!
 //! Which is more or less a normal Rust `Result`, with a custom [`frame::prelude::DispatchError`] as
-//! the `Err` variant. We won&#39;t cover this error in detail here, but importantly you should know
-//! that there is an `impl From&lt;&amp;&#39;static string&gt; for DispatchError` provided (see
-//! [here](`frame::prelude::DispatchError#impl-From&lt;%26&#39;static+str&gt;-for-DispatchError`)). Therefore,
+//! the `Err` variant. We won't cover this error in detail here, but importantly you should know
+//! that there is an `impl From&lt;&amp;'static string&gt; for DispatchError` provided (see
+//! [here](`frame::prelude::DispatchError#impl-From&lt;%26'static+str&gt;-for-DispatchError`)). Therefore,
 //! we can use basic string literals as our error type and `.into()` them into `DispatchError`.
 //!
 //! - Why are all `get` and `mutate` functions returning an `Option`? This is the default behavior
@@ -1006,28 +1008,28 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!
 //! ### Improving Errors
 //!
-//! How we handle error in the above snippets is fairly rudimentary. Let&#39;s look at how this can be
+//! How we handle error in the above snippets is fairly rudimentary. Let's look at how this can be
 //! improved. First, we can use [`frame::prelude::ensure`] to express the error slightly better.
 //! This macro will call `.into()` under the hood.
-</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;./src/guides/your_first_pallet/mod.rs&quot;</span>, transfer_better)]
+</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">"./src/guides/your_first_pallet/mod.rs"</span>, transfer_better)]
 </span><span class="doccomment">//!
 //! Moreover, you will learn in the [Defensive Programming
 //! section](crate::reference_docs::defensive_programming) that it is always recommended to use
 //! safe arithmetic operations in your runtime. By using [`frame::traits::CheckedSub`], we can not
 //! only take a step in that direction, but also improve the error handing and make it slightly more
 //! ergonomic.
-</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;./src/guides/your_first_pallet/mod.rs&quot;</span>, transfer_better_checked)]
+</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">"./src/guides/your_first_pallet/mod.rs"</span>, transfer_better_checked)]
 </span><span class="doccomment">//!
 //! This is more or less all the logic that there is this basic currency pallet!
 //!
 //! ### Your First (Test) Runtime
 //!
-//! Next, we create a &quot;test runtime&quot; in order to test our pallet. Recall from
+//! Next, we create a "test runtime" in order to test our pallet. Recall from
 //! [`crate::polkadot_sdk::frame_runtime`] that a runtime is a collection of pallets, expressed
 //! through [`frame::runtime::prelude::construct_runtime`]. All runtimes also have to include
 //! [`frame::prelude::frame_system`]. So we expect to see a runtime with two pallet, `frame_system`
 //! and the one we just wrote.
-</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;./src/guides/your_first_pallet/mod.rs&quot;</span>, runtime)]
+</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">"./src/guides/your_first_pallet/mod.rs"</span>, runtime)]
 </span><span class="doccomment">//!
 //! &gt; [`frame::pallet_macros::derive_impl`] is a FRAME feature that enables developers to have
 //! &gt; defaults for associated types.
@@ -1040,14 +1042,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!
 //! Crucially, a typical FRAME runtime contains a `struct Runtime`. The main role of this `struct`
 //! is to implement the `trait Config` of all pallets. That is, anywhere within your pallet code
-//! where you see `&lt;T: Config&gt;` (read: *&quot;some type `T` that implements `Config`&quot;*), in the runtime,
+//! where you see `&lt;T: Config&gt;` (read: *"some type `T` that implements `Config`"*), in the runtime,
 //! it can be replaced with `&lt;Runtime&gt;`, because `Runtime` implements `Config` of all pallets, as we
 //! see above.
 //!
-//! Another way to think about this is that within a pallet, a lot of types are &quot;unknown&quot; and, we
+//! Another way to think about this is that within a pallet, a lot of types are "unknown" and, we
 //! only know that they will be provided at some later point. For example, when you write
 //! `T::AccountId` (which is short for `&lt;T as frame_system::Config&gt;::AccountId`) in your pallet,
-//! you are in fact saying &quot;*Some type `AccountId` that will be known later*&quot;. That &quot;later&quot; is in
+//! you are in fact saying "*Some type `AccountId` that will be known later*". That "later" is in
 //! fact when you specify these types when you implement all `Config` traits for `Runtime`.
 //!
 //! As you see above, `frame_system::Config` is setting the `AccountId` to `u64`. Of course, a real
@@ -1064,10 +1066,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! to learn is that all of your pallet testing code should be wrapped in
 //! [`frame::testing_prelude::TestState`]. This is a type that provides access to an in-memory state
 //! to be used in our tests.
-</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;./src/guides/your_first_pallet/mod.rs&quot;</span>, first_test)]
+</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">"./src/guides/your_first_pallet/mod.rs"</span>, first_test)]
 </span><span class="doccomment">//!
 //! In the first test, we simply assert that there is no total issuance, and no balance associated
-//! with Alice&#39;s account. Then, we mint some balance into Alice&#39;s, and re-check.
+//! with Alice's account. Then, we mint some balance into Alice's, and re-check.
 //!
 //! As noted above, the `T::AccountId` is now `u64`. Moreover, `Runtime` is replacing `&lt;T: Config&gt;`.
 //! This is why for example you see `Balances::&lt;Runtime&gt;::get(..)`. Finally, notice that the
@@ -1083,22 +1085,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!
 //! Idiomatic FRAME pallets often use Builder pattern to define their initial state.
 //!
-//! &gt; The Polkadot Blockchain Academy&#39;s Rust entrance exam has a
+//! &gt; The Polkadot Blockchain Academy's Rust entrance exam has a
 //! &gt; [section](https://github.com/Polkadot-Blockchain-Academy/pba-qualifier-exam/blob/main/src/m_builder.rs)
 //! &gt; on this that you can use to learn the Builder Pattern.
 //!
-//! Let&#39;s see how we can implement a better test setup using this pattern. First, we define a
+//! Let's see how we can implement a better test setup using this pattern. First, we define a
 //! `struct StateBuilder`.
-</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;./src/guides/your_first_pallet/mod.rs&quot;</span>, StateBuilder)]
+</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">"./src/guides/your_first_pallet/mod.rs"</span>, StateBuilder)]
 </span><span class="doccomment">//!
 //! This struct is meant to contain the same list of accounts and balances that we want to have at
 //! the beginning of each block. We hardcoded this to `let accounts = vec![(ALICE, 100), (2, 100)];`
 //! so far. Then, if desired, we attach a default value for this struct.
-</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;./src/guides/your_first_pallet/mod.rs&quot;</span>, default_state_builder)]
+</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">"./src/guides/your_first_pallet/mod.rs"</span>, default_state_builder)]
 </span><span class="doccomment">//!
 //! Like any other builder pattern, we attach functions to the type to mutate its internal
 //! properties.
-</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;./src/guides/your_first_pallet/mod.rs&quot;</span>, impl_state_builder_add)]
+</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">"./src/guides/your_first_pallet/mod.rs"</span>, impl_state_builder_add)]
 </span><span class="doccomment">//!
 //!  Finally --the useful part-- we write our own custom `build_and_execute` function on
 //! this type. This function will do multiple things:
@@ -1110,30 +1112,30 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!    after each test. For example, in this test, we do some additional checking about the
 //!    correctness of the `TotalIssuance`. We leave it up to you as an exercise to learn why the
 //!    assertion should always hold, and how it is checked.
-</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;./src/guides/your_first_pallet/mod.rs&quot;</span>, impl_state_builder_build)]
+</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">"./src/guides/your_first_pallet/mod.rs"</span>, impl_state_builder_build)]
 </span><span class="doccomment">//!
 //! We can write tests that specifically check the initial state, and making sure our `StateBuilder`
 //! is working exactly as intended.
-</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;./src/guides/your_first_pallet/mod.rs&quot;</span>, state_builder_works)]
-#![doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;./src/guides/your_first_pallet/mod.rs&quot;</span>, state_builder_add_balance)]
+</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">"./src/guides/your_first_pallet/mod.rs"</span>, state_builder_works)]
+#![doc = <span class="macro">docify::embed!</span>(<span class="string">"./src/guides/your_first_pallet/mod.rs"</span>, state_builder_add_balance)]
 </span><span class="doccomment">//!
 //! ### More Tests
 //!
-//! Now that we have a more ergonomic test setup, let&#39;s see how a well written test for transfer and
+//! Now that we have a more ergonomic test setup, let's see how a well written test for transfer and
 //! mint would look like.
-</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;./src/guides/your_first_pallet/mod.rs&quot;</span>, transfer_works)]
-#![doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;./src/guides/your_first_pallet/mod.rs&quot;</span>, mint_works)]
+</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">"./src/guides/your_first_pallet/mod.rs"</span>, transfer_works)]
+#![doc = <span class="macro">docify::embed!</span>(<span class="string">"./src/guides/your_first_pallet/mod.rs"</span>, mint_works)]
 </span><span class="doccomment">//!
 //! It is always a good idea to build a mental model where you write *at least* one test for each
-//! &quot;success path&quot; of a dispatchable, and one test for each &quot;failure path&quot;, such as:
-</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;./src/guides/your_first_pallet/mod.rs&quot;</span>, transfer_from_non_existent_fails)]
+//! "success path" of a dispatchable, and one test for each "failure path", such as:
+</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">"./src/guides/your_first_pallet/mod.rs"</span>, transfer_from_non_existent_fails)]
 </span><span class="doccomment">//!
 //! We leave it up to you to write a test that triggers the `InsufficientBalance` error.
 //!
 //! ### Event and Error
 //!
 //! Our pallet is mainly missing two parts that are common in most FRAME pallets: Events, and
-//! Errors. First, let&#39;s understand what each is.
+//! Errors. First, let's understand what each is.
 //!
 //! - **Error**: The static string-based error scheme we used so far is good for readability, but it
 //!   has a few drawbacks. The biggest problem with strings are that they are not type safe, e.g. a
@@ -1155,12 +1157,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="comment">// TODO: both need to be improved a lot at the pallet-macro rust-doc level. Also my explanation
 // of event is probably not the best.
 </span><span class="doccomment">//!
-//! With the explanation out of the way, let&#39;s see how these components can be added. Both follow a
+//! With the explanation out of the way, let's see how these components can be added. Both follow a
 //! fairly familiar syntax: normal Rust enums, with extra
 //! [`#[frame::event]`](frame::pallet_macros::event) and
 //! [`#[frame::error]`](frame::pallet_macros::error) attributes attached.
-</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;./src/guides/your_first_pallet/mod.rs&quot;</span>, Event)]
-#![doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;./src/guides/your_first_pallet/mod.rs&quot;</span>, Error)]
+</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">"./src/guides/your_first_pallet/mod.rs"</span>, Event)]
+#![doc = <span class="macro">docify::embed!</span>(<span class="string">"./src/guides/your_first_pallet/mod.rs"</span>, Error)]
 </span><span class="doccomment">//!
 //! One slightly custom part of this is the [`#[pallet::generate_deposit(pub(super) fn
 //! deposit_event)]`](frame::pallet_macros::generate_deposit) part. Without going into too
@@ -1176,17 +1178,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! 2. But, doing this conversion and storing is too much to expect each pallet to define. FRAME
 //! provides a default way of storing events, and this is what
 //! [`pallet::generate_deposit`](frame::pallet_macros::generate_deposit) is doing.
-</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;./src/guides/your_first_pallet/mod.rs&quot;</span>, config_v2)]
+</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">"./src/guides/your_first_pallet/mod.rs"</span>, config_v2)]
 </span><span class="doccomment">//!
 //! &gt; These `Runtime*` types are better explained in
 //! &gt; [`crate::reference_docs::frame_runtime_types`].
 //!
 //! Then, we can rewrite the `transfer` dispatchable as such:
-</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;./src/guides/your_first_pallet/mod.rs&quot;</span>, transfer_v2)]
+</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">"./src/guides/your_first_pallet/mod.rs"</span>, transfer_v2)]
 </span><span class="doccomment">//!
 //! Then, notice how now we would need to provide this `type RuntimeEvent` in our test runtime
 //! setup.
-</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;./src/guides/your_first_pallet/mod.rs&quot;</span>, runtime_v2)]
+</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">"./src/guides/your_first_pallet/mod.rs"</span>, runtime_v2)]
 </span><span class="doccomment">//!
 //! In this snippet, the actual `RuntimeEvent` type (right hand side of `type RuntimeEvent =
 //! RuntimeEvent`) is generated by
@@ -1252,7 +1254,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			dest: T::AccountId,
 			amount: Balance,
 		) -&gt; DispatchResult {
-			<span class="comment">// ensure that this is a signed account, but we don&#39;t really check `_anyone`.
+			<span class="comment">// ensure that this is a signed account, but we don't really check `_anyone`.
 			</span><span class="kw">let </span>_anyone = ensure_signed(origin)<span class="question-mark">?</span>;
 
 			<span class="comment">// update the balances map. Notice how all `&lt;T: Config&gt;` remains as `&lt;T&gt;`.
@@ -1272,9 +1274,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>sender = ensure_signed(origin)<span class="question-mark">?</span>;
 
 			<span class="comment">// ensure sender has enough balance, and if so, calculate what is left after `amount`.
-			</span><span class="kw">let </span>sender_balance = Balances::&lt;T&gt;::get(<span class="kw-2">&amp;</span>sender).ok_or(<span class="string">&quot;NonExistentAccount&quot;</span>)<span class="question-mark">?</span>;
+			</span><span class="kw">let </span>sender_balance = Balances::&lt;T&gt;::get(<span class="kw-2">&amp;</span>sender).ok_or(<span class="string">"NonExistentAccount"</span>)<span class="question-mark">?</span>;
 			<span class="kw">if </span>sender_balance &lt; amount {
-				<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;InsufficientBalance&quot;</span>.into())
+				<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"InsufficientBalance"</span>.into())
 			}
 			<span class="kw">let </span>reminder = sender_balance - amount;
 
@@ -1296,8 +1298,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		) -&gt; DispatchResult {
 			<span class="kw">let </span>sender = ensure_signed(origin)<span class="question-mark">?</span>;
 
-			<span class="kw">let </span>sender_balance = Balances::&lt;T&gt;::get(<span class="kw-2">&amp;</span>sender).ok_or(<span class="string">&quot;NonExistentAccount&quot;</span>)<span class="question-mark">?</span>;
-			<span class="macro">ensure!</span>(sender_balance &gt;= amount, <span class="string">&quot;InsufficientBalance&quot;</span>);
+			<span class="kw">let </span>sender_balance = Balances::&lt;T&gt;::get(<span class="kw-2">&amp;</span>sender).ok_or(<span class="string">"NonExistentAccount"</span>)<span class="question-mark">?</span>;
+			<span class="macro">ensure!</span>(sender_balance &gt;= amount, <span class="string">"InsufficientBalance"</span>);
 			<span class="kw">let </span>reminder = sender_balance - amount;
 
 			<span class="comment">// .. snip
@@ -1313,8 +1315,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		) -&gt; DispatchResult {
 			<span class="kw">let </span>sender = ensure_signed(origin)<span class="question-mark">?</span>;
 
-			<span class="kw">let </span>sender_balance = Balances::&lt;T&gt;::get(<span class="kw-2">&amp;</span>sender).ok_or(<span class="string">&quot;NonExistentAccount&quot;</span>)<span class="question-mark">?</span>;
-			<span class="kw">let </span>reminder = sender_balance.checked_sub(amount).ok_or(<span class="string">&quot;InsufficientBalance&quot;</span>)<span class="question-mark">?</span>;
+			<span class="kw">let </span>sender_balance = Balances::&lt;T&gt;::get(<span class="kw-2">&amp;</span>sender).ok_or(<span class="string">"NonExistentAccount"</span>)<span class="question-mark">?</span>;
+			<span class="kw">let </span>reminder = sender_balance.checked_sub(amount).ok_or(<span class="string">"InsufficientBalance"</span>)<span class="question-mark">?</span>;
 
 			<span class="comment">// .. snip
 			</span><span class="prelude-val">Ok</span>(())
@@ -1424,11 +1426,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		#[test]
 		</span><span class="kw">fn </span>first_test() {
 			TestState::new_empty().execute_with(|| {
-				<span class="comment">// We expect Alice&#39;s account to have no funds.
+				<span class="comment">// We expect Alice's account to have no funds.
 				</span><span class="macro">assert_eq!</span>(Balances::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span>ALICE), <span class="prelude-val">None</span>);
 				<span class="macro">assert_eq!</span>(TotalIssuance::&lt;Runtime&gt;::get(), <span class="prelude-val">None</span>);
 
-				<span class="comment">// mint some funds into Alice&#39;s account.
+				<span class="comment">// mint some funds into Alice's account.
 				</span><span class="macro">assert_ok!</span>(Pallet::&lt;Runtime&gt;::mint_unsafe(
 					RuntimeOrigin::signed(ALICE),
 					ALICE,
@@ -1526,7 +1528,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="comment">// given the the initial state, when:
 				</span><span class="macro">assert_err!</span>(
 					Pallet::&lt;Runtime&gt;::transfer(RuntimeOrigin::signed(CHARLIE), ALICE, <span class="number">10</span>),
-					<span class="string">&quot;NonExistentAccount&quot;
+					<span class="string">"NonExistentAccount"
 				</span>);
 
 				<span class="comment">// then nothing has changed.

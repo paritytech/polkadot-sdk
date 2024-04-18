@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/service/test/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/service/test/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_service_test" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_service_test" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sc_service_test/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -786,7 +788,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">pub trait </span>TestNetNode: Clone + Future&lt;Output = <span class="prelude-ty">Result</span>&lt;(), Error&gt;&gt; + Send + <span class="lifetime">&#39;static </span>{
+<span class="kw">pub trait </span>TestNetNode: Clone + Future&lt;Output = <span class="prelude-ty">Result</span>&lt;(), Error&gt;&gt; + Send + <span class="lifetime">'static </span>{
 	<span class="kw">type </span>Block: BlockT;
 	<span class="kw">type </span>Backend: Backend&lt;<span class="self">Self</span>::Block&gt;;
 	<span class="kw">type </span>Executor: CallExecutor&lt;<span class="self">Self</span>::Block&gt; + Send + Sync;
@@ -856,10 +858,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">for </span>TestNetComponents&lt;TBl, TBackend, TExec, TRtApi, TExPool&gt;
 <span class="kw">where
 	</span>TBl: BlockT,
-	TBackend: sc_client_api::Backend&lt;TBl&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
-	TExec: CallExecutor&lt;TBl&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
-	TRtApi: Send + Sync + <span class="lifetime">&#39;static</span>,
-	TExPool: TransactionPool&lt;Block = TBl&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
+	TBackend: sc_client_api::Backend&lt;TBl&gt; + Send + Sync + <span class="lifetime">'static</span>,
+	TExec: CallExecutor&lt;TBl&gt; + Send + Sync + <span class="lifetime">'static</span>,
+	TRtApi: Send + Sync + <span class="lifetime">'static</span>,
+	TExPool: TransactionPool&lt;Block = TBl&gt; + Send + Sync + <span class="lifetime">'static</span>,
 {
 	<span class="kw">type </span>Block = TBl;
 	<span class="kw">type </span>Backend = TBackend;
@@ -886,12 +888,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl</span>&lt;G, E, F, U&gt; TestNet&lt;G, E, F, U&gt;
 <span class="kw">where
-	</span>F: Clone + Send + <span class="lifetime">&#39;static</span>,
-	U: Clone + Send + <span class="lifetime">&#39;static</span>,
+	</span>F: Clone + Send + <span class="lifetime">'static</span>,
+	U: Clone + Send + <span class="lifetime">'static</span>,
 {
 	<span class="kw">pub fn </span>run_until_all_full&lt;FP&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, full_predicate: FP)
 	<span class="kw">where
-		</span>FP: Send + Fn(usize, <span class="kw-2">&amp;</span>F) -&gt; bool + <span class="lifetime">&#39;static</span>,
+		</span>FP: Send + Fn(usize, <span class="kw-2">&amp;</span>F) -&gt; bool + <span class="lifetime">'static</span>,
 	{
 		<span class="kw">let </span>full_nodes = <span class="self">self</span>.full_nodes.clone();
 		<span class="kw">let </span>future = <span class="kw">async move </span>{
@@ -910,14 +912,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.block_on(<span class="kw">async move </span>{ time::timeout(MAX_WAIT_TIME, future).<span class="kw">await </span>})
 			.is_err()
 		{
-			<span class="macro">panic!</span>(<span class="string">&quot;Waited for too long&quot;</span>);
+			<span class="macro">panic!</span>(<span class="string">"Waited for too long"</span>);
 		}
 	}
 }
 
 <span class="kw">fn </span>node_config&lt;
-	G: RuntimeGenesis + <span class="lifetime">&#39;static</span>,
-	E: ChainSpecExtension + Clone + <span class="lifetime">&#39;static </span>+ Send + Sync,
+	G: RuntimeGenesis + <span class="lifetime">'static</span>,
+	E: ChainSpecExtension + Clone + <span class="lifetime">'static </span>+ Send + Sync,
 &gt;(
 	index: usize,
 	spec: <span class="kw-2">&amp;</span>GenericChainSpec&lt;G, E&gt;,
@@ -927,11 +929,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	base_port: u16,
 	root: <span class="kw-2">&amp;</span>TempDir,
 ) -&gt; Configuration {
-	<span class="kw">let </span>root = root.path().join(<span class="macro">format!</span>(<span class="string">&quot;node-{}&quot;</span>, index));
+	<span class="kw">let </span>root = root.path().join(<span class="macro">format!</span>(<span class="string">"node-{}"</span>, index));
 
 	<span class="kw">let </span><span class="kw-2">mut </span>network_config = NetworkConfiguration::new(
-		<span class="macro">format!</span>(<span class="string">&quot;Node {}&quot;</span>, index),
-		<span class="string">&quot;network/test/0.1&quot;</span>,
+		<span class="macro">format!</span>(<span class="string">"Node {}"</span>, index),
+		<span class="string">"network/test/0.1"</span>,
 		Default::default(),
 		<span class="prelude-val">None</span>,
 	);
@@ -948,14 +950,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		TransportConfig::Normal { enable_mdns: <span class="bool-val">false</span>, allow_private_ip: <span class="bool-val">true </span>};
 
 	Configuration {
-		impl_name: String::from(<span class="string">&quot;network-test-impl&quot;</span>),
-		impl_version: String::from(<span class="string">&quot;0.1&quot;</span>),
+		impl_name: String::from(<span class="string">"network-test-impl"</span>),
+		impl_version: String::from(<span class="string">"0.1"</span>),
 		role,
 		tokio_handle,
 		transaction_pool: Default::default(),
 		network: network_config,
-		keystore: KeystoreConfig::Path { path: root.join(<span class="string">&quot;key&quot;</span>), password: <span class="prelude-val">None </span>},
-		database: DatabaseSource::RocksDb { path: root.join(<span class="string">&quot;db&quot;</span>), cache_size: <span class="number">128 </span>},
+		keystore: KeystoreConfig::Path { path: root.join(<span class="string">"key"</span>), password: <span class="prelude-val">None </span>},
+		database: DatabaseSource::RocksDb { path: root.join(<span class="string">"db"</span>), cache_size: <span class="number">128 </span>},
 		trie_cache_maximum_size: <span class="prelude-val">Some</span>(<span class="number">16 </span>* <span class="number">1024 </span>* <span class="number">1024</span>),
 		state_pruning: Default::default(),
 		blocks_pruning: BlocksPruning::KeepFinalized,
@@ -995,8 +997,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl</span>&lt;G, E, F, U&gt; TestNet&lt;G, E, F, U&gt;
 <span class="kw">where
 	</span>F: TestNetNode,
-	E: ChainSpecExtension + Clone + <span class="lifetime">&#39;static </span>+ Send + Sync,
-	G: RuntimeGenesis + <span class="lifetime">&#39;static</span>,
+	E: ChainSpecExtension + Clone + <span class="lifetime">'static </span>+ Send + Sync,
+	G: RuntimeGenesis + <span class="lifetime">'static</span>,
 {
 	<span class="kw">fn </span>new(
 		temp: <span class="kw-2">&amp;</span>TempDir,
@@ -1007,7 +1009,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; TestNet&lt;G, E, F, U&gt; {
 		sp_tracing::try_init_simple();
 		fdlimit::raise_fd_limit().unwrap();
-		<span class="kw">let </span>runtime = Runtime::new().expect(<span class="string">&quot;Error creating tokio runtime&quot;</span>);
+		<span class="kw">let </span>runtime = Runtime::new().expect(<span class="string">"Error creating tokio runtime"</span>);
 		<span class="kw">let </span><span class="kw-2">mut </span>net = TestNet {
 			runtime,
 			authority_nodes: Default::default(),
@@ -1041,7 +1043,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				);
 				<span class="kw">let </span>addr = node_config.network.listen_addresses.first().unwrap().clone();
 				<span class="kw">let </span>(service, user_data) =
-					authority(node_config).expect(<span class="string">&quot;Error creating test node service&quot;</span>);
+					authority(node_config).expect(<span class="string">"Error creating test node service"</span>);
 
 				handle.spawn(service.clone().map_err(|<span class="kw">_</span>| ()));
 				<span class="kw">let </span>addr = MultiaddrWithPeerId {
@@ -1064,7 +1066,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				);
 				<span class="kw">let </span>addr = node_config.network.listen_addresses.first().unwrap().clone();
 				<span class="kw">let </span>(service, user_data) =
-					full(node_config).expect(<span class="string">&quot;Error creating test node service&quot;</span>);
+					full(node_config).expect(<span class="string">"Error creating test node service"</span>);
 
 				handle.spawn(service.clone().map_err(|<span class="kw">_</span>| ()));
 				<span class="kw">let </span>addr = MultiaddrWithPeerId {
@@ -1082,13 +1084,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	tempfile::Builder::new()
 		.prefix(prefix)
 		.tempdir()
-		.expect(<span class="string">&quot;Error creating test dir&quot;</span>)
+		.expect(<span class="string">"Error creating test dir"</span>)
 }
 
 <span class="kw">pub fn </span>connectivity&lt;G, E, Fb, F&gt;(spec: GenericChainSpec&lt;G, E&gt;, full_builder: Fb)
 <span class="kw">where
-	</span>E: ChainSpecExtension + Clone + <span class="lifetime">&#39;static </span>+ Send + Sync,
-	G: RuntimeGenesis + <span class="lifetime">&#39;static</span>,
+	</span>E: ChainSpecExtension + Clone + <span class="lifetime">'static </span>+ Send + Sync,
+	G: RuntimeGenesis + <span class="lifetime">'static</span>,
 	Fb: Fn(Configuration) -&gt; <span class="prelude-ty">Result</span>&lt;F, Error&gt;,
 	F: TestNetNode,
 {
@@ -1097,48 +1099,48 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>expected_full_connections = NUM_FULL_NODES - <span class="number">1</span>;
 
 	{
-		<span class="kw">let </span>temp = tempdir_with_prefix(<span class="string">&quot;substrate-connectivity-test&quot;</span>);
+		<span class="kw">let </span>temp = tempdir_with_prefix(<span class="string">"substrate-connectivity-test"</span>);
 		{
 			<span class="kw">let </span><span class="kw-2">mut </span>network = TestNet::new(
 				<span class="kw-2">&amp;</span>temp,
 				spec.clone(),
 				(<span class="number">0</span>..NUM_FULL_NODES).map(|<span class="kw">_</span>| |cfg| full_builder(cfg).map(|s| (s, ()))),
-				<span class="comment">// Note: this iterator is empty but we can&#39;t just use `iter::empty()`, otherwise
+				<span class="comment">// Note: this iterator is empty but we can't just use `iter::empty()`, otherwise
 				// the type of the closure cannot be inferred.
 				</span>(<span class="number">0</span>..<span class="number">0</span>).map(|<span class="kw">_</span>| (String::new(), { |cfg| full_builder(cfg).map(|s| (s, ())) })),
 				<span class="number">30400</span>,
 			);
-			<span class="macro">info!</span>(<span class="string">&quot;Checking star topology&quot;</span>);
+			<span class="macro">info!</span>(<span class="string">"Checking star topology"</span>);
 			<span class="kw">let </span>first_address = network.full_nodes[<span class="number">0</span>].<span class="number">3</span>.clone();
 			<span class="kw">for </span>(<span class="kw">_</span>, service, <span class="kw">_</span>, <span class="kw">_</span>) <span class="kw">in </span>network.full_nodes.iter().skip(<span class="number">1</span>) {
 				service
 					.network()
 					.add_reserved_peer(first_address.clone())
-					.expect(<span class="string">&quot;Error adding reserved peer&quot;</span>);
+					.expect(<span class="string">"Error adding reserved peer"</span>);
 			}
 
 			network.run_until_all_full(<span class="kw">move </span>|_index, service| {
 				<span class="kw">let </span>connected = service.network().sync_num_connected();
-				<span class="macro">debug!</span>(<span class="string">&quot;Got {}/{} full connections...&quot;</span>, connected, expected_full_connections);
+				<span class="macro">debug!</span>(<span class="string">"Got {}/{} full connections..."</span>, connected, expected_full_connections);
 				connected == expected_full_connections
 			});
 		};
 
-		temp.close().expect(<span class="string">&quot;Error removing temp dir&quot;</span>);
+		temp.close().expect(<span class="string">"Error removing temp dir"</span>);
 	}
 	{
-		<span class="kw">let </span>temp = tempdir_with_prefix(<span class="string">&quot;substrate-connectivity-test&quot;</span>);
+		<span class="kw">let </span>temp = tempdir_with_prefix(<span class="string">"substrate-connectivity-test"</span>);
 		{
 			<span class="kw">let </span><span class="kw-2">mut </span>network = TestNet::new(
 				<span class="kw-2">&amp;</span>temp,
 				spec,
 				(<span class="number">0</span>..NUM_FULL_NODES).map(|<span class="kw">_</span>| |cfg| full_builder(cfg).map(|s| (s, ()))),
-				<span class="comment">// Note: this iterator is empty but we can&#39;t just use `iter::empty()`, otherwise
+				<span class="comment">// Note: this iterator is empty but we can't just use `iter::empty()`, otherwise
 				// the type of the closure cannot be inferred.
 				</span>(<span class="number">0</span>..<span class="number">0</span>).map(|<span class="kw">_</span>| (String::new(), { |cfg| full_builder(cfg).map(|s| (s, ())) })),
 				<span class="number">30400</span>,
 			);
-			<span class="macro">info!</span>(<span class="string">&quot;Checking linked topology&quot;</span>);
+			<span class="macro">info!</span>(<span class="string">"Checking linked topology"</span>);
 			<span class="kw">let </span><span class="kw-2">mut </span>address = network.full_nodes[<span class="number">0</span>].<span class="number">3</span>.clone();
 			<span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..NUM_FULL_NODES {
 				<span class="kw">if </span>i != <span class="number">0 </span>{
@@ -1146,7 +1148,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						service
 							.network()
 							.add_reserved_peer(address)
-							.expect(<span class="string">&quot;Error adding reserved peer&quot;</span>);
+							.expect(<span class="string">"Error adding reserved peer"</span>);
 						address = node_id.clone();
 					}
 				}
@@ -1154,11 +1156,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			network.run_until_all_full(<span class="kw">move </span>|_index, service| {
 				<span class="kw">let </span>connected = service.network().sync_num_connected();
-				<span class="macro">debug!</span>(<span class="string">&quot;Got {}/{} full connections...&quot;</span>, connected, expected_full_connections);
+				<span class="macro">debug!</span>(<span class="string">"Got {}/{} full connections..."</span>, connected, expected_full_connections);
 				connected == expected_full_connections
 			});
 		}
-		temp.close().expect(<span class="string">&quot;Error removing temp dir&quot;</span>);
+		temp.close().expect(<span class="string">"Error removing temp dir"</span>);
 	}
 }
 
@@ -1172,28 +1174,28 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	F: TestNetNode,
 	B: FnMut(<span class="kw-2">&amp;</span>F, <span class="kw-2">&amp;mut </span>U),
 	ExF: FnMut(<span class="kw-2">&amp;</span>F, <span class="kw-2">&amp;</span>U) -&gt; &lt;F::Block <span class="kw">as </span>BlockT&gt;::Extrinsic,
-	U: Clone + Send + <span class="lifetime">&#39;static</span>,
-	E: ChainSpecExtension + Clone + <span class="lifetime">&#39;static </span>+ Send + Sync,
-	G: RuntimeGenesis + <span class="lifetime">&#39;static</span>,
+	U: Clone + Send + <span class="lifetime">'static</span>,
+	E: ChainSpecExtension + Clone + <span class="lifetime">'static </span>+ Send + Sync,
+	G: RuntimeGenesis + <span class="lifetime">'static</span>,
 {
 	<span class="kw">const </span>NUM_FULL_NODES: usize = <span class="number">10</span>;
 	<span class="kw">const </span>NUM_BLOCKS: usize = <span class="number">512</span>;
-	<span class="kw">let </span>temp = tempdir_with_prefix(<span class="string">&quot;substrate-sync-test&quot;</span>);
+	<span class="kw">let </span>temp = tempdir_with_prefix(<span class="string">"substrate-sync-test"</span>);
 	<span class="kw">let </span><span class="kw-2">mut </span>network = TestNet::new(
 		<span class="kw-2">&amp;</span>temp,
 		spec,
 		(<span class="number">0</span>..NUM_FULL_NODES).map(|<span class="kw">_</span>| |cfg| full_builder(cfg)),
-		<span class="comment">// Note: this iterator is empty but we can&#39;t just use `iter::empty()`, otherwise
+		<span class="comment">// Note: this iterator is empty but we can't just use `iter::empty()`, otherwise
 		// the type of the closure cannot be inferred.
 		</span>(<span class="number">0</span>..<span class="number">0</span>).map(|<span class="kw">_</span>| (String::new(), { |cfg| full_builder(cfg) })),
 		<span class="number">30500</span>,
 	);
-	<span class="macro">info!</span>(<span class="string">&quot;Checking block sync&quot;</span>);
+	<span class="macro">info!</span>(<span class="string">"Checking block sync"</span>);
 	<span class="kw">let </span>first_address = {
 		<span class="kw">let </span><span class="kw-2">&amp;mut </span>(<span class="kw">_</span>, <span class="kw-2">ref </span>first_service, <span class="kw-2">ref mut </span>first_user_data, <span class="kw">_</span>) = <span class="kw-2">&amp;mut </span>network.full_nodes[<span class="number">0</span>];
 		<span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..NUM_BLOCKS {
 			<span class="kw">if </span>i % <span class="number">128 </span>== <span class="number">0 </span>{
-				<span class="macro">info!</span>(<span class="string">&quot;Generating #{}&quot;</span>, i + <span class="number">1</span>);
+				<span class="macro">info!</span>(<span class="string">"Generating #{}"</span>, i + <span class="number">1</span>);
 			}
 
 			make_block_and_import(first_service, first_user_data);
@@ -1206,19 +1208,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		network.full_nodes[<span class="number">0</span>].<span class="number">3</span>.clone()
 	};
 
-	<span class="macro">info!</span>(<span class="string">&quot;Running sync&quot;</span>);
+	<span class="macro">info!</span>(<span class="string">"Running sync"</span>);
 	<span class="kw">for </span>(<span class="kw">_</span>, service, <span class="kw">_</span>, <span class="kw">_</span>) <span class="kw">in </span>network.full_nodes.iter().skip(<span class="number">1</span>) {
 		service
 			.network()
 			.add_reserved_peer(first_address.clone())
-			.expect(<span class="string">&quot;Error adding reserved peer&quot;</span>);
+			.expect(<span class="string">"Error adding reserved peer"</span>);
 	}
 
 	network.run_until_all_full(|_index, service| {
 		service.client().info().best_number == (NUM_BLOCKS <span class="kw">as </span>u32).into()
 	});
 
-	<span class="macro">info!</span>(<span class="string">&quot;Checking extrinsic propagation&quot;</span>);
+	<span class="macro">info!</span>(<span class="string">"Checking extrinsic propagation"</span>);
 	<span class="kw">let </span>first_service = network.full_nodes[<span class="number">0</span>].<span class="number">1</span>.clone();
 	<span class="kw">let </span>first_user_data = <span class="kw-2">&amp;</span>network.full_nodes[<span class="number">0</span>].<span class="number">2</span>;
 	<span class="kw">let </span>best_block = first_service.client().info().best_hash;
@@ -1228,7 +1230,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	futures::executor::block_on(
 		first_service.transaction_pool().submit_one(best_block, source, extrinsic),
 	)
-	.expect(<span class="string">&quot;failed to submit extrinsic&quot;</span>);
+	.expect(<span class="string">"failed to submit extrinsic"</span>);
 
 	network.run_until_all_full(|_index, service| service.transaction_pool().ready().count() == <span class="number">1</span>);
 }
@@ -1240,12 +1242,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ) <span class="kw">where
 	</span>Fb: Fn(Configuration) -&gt; <span class="prelude-ty">Result</span>&lt;F, Error&gt;,
 	F: TestNetNode,
-	E: ChainSpecExtension + Clone + <span class="lifetime">&#39;static </span>+ Send + Sync,
-	G: RuntimeGenesis + <span class="lifetime">&#39;static</span>,
+	E: ChainSpecExtension + Clone + <span class="lifetime">'static </span>+ Send + Sync,
+	G: RuntimeGenesis + <span class="lifetime">'static</span>,
 {
 	<span class="kw">const </span>NUM_FULL_NODES: usize = <span class="number">10</span>;
 	<span class="kw">const </span>NUM_BLOCKS: usize = <span class="number">10</span>; <span class="comment">// 10 * 2 sec block production time = ~20 seconds
-	</span><span class="kw">let </span>temp = tempdir_with_prefix(<span class="string">&quot;substrate-consensus-test&quot;</span>);
+	</span><span class="kw">let </span>temp = tempdir_with_prefix(<span class="string">"substrate-consensus-test"</span>);
 	<span class="kw">let </span><span class="kw-2">mut </span>network = TestNet::new(
 		<span class="kw-2">&amp;</span>temp,
 		spec,
@@ -1256,29 +1258,29 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="number">30600</span>,
 	);
 
-	<span class="macro">info!</span>(<span class="string">&quot;Checking consensus&quot;</span>);
+	<span class="macro">info!</span>(<span class="string">"Checking consensus"</span>);
 	<span class="kw">let </span>first_address = network.authority_nodes[<span class="number">0</span>].<span class="number">3</span>.clone();
 	<span class="kw">for </span>(<span class="kw">_</span>, service, <span class="kw">_</span>, <span class="kw">_</span>) <span class="kw">in </span>network.full_nodes.iter() {
 		service
 			.network()
 			.add_reserved_peer(first_address.clone())
-			.expect(<span class="string">&quot;Error adding reserved peer&quot;</span>);
+			.expect(<span class="string">"Error adding reserved peer"</span>);
 	}
 	<span class="kw">for </span>(<span class="kw">_</span>, service, <span class="kw">_</span>, <span class="kw">_</span>) <span class="kw">in </span>network.authority_nodes.iter().skip(<span class="number">1</span>) {
 		service
 			.network()
 			.add_reserved_peer(first_address.clone())
-			.expect(<span class="string">&quot;Error adding reserved peer&quot;</span>);
+			.expect(<span class="string">"Error adding reserved peer"</span>);
 	}
 	network.run_until_all_full(|_index, service| {
 		service.client().info().finalized_number &gt;= (NUM_BLOCKS <span class="kw">as </span>u32 / <span class="number">2</span>).into()
 	});
 
-	<span class="macro">info!</span>(<span class="string">&quot;Adding more peers&quot;</span>);
+	<span class="macro">info!</span>(<span class="string">"Adding more peers"</span>);
 	network.insert_nodes(
 		<span class="kw-2">&amp;</span>temp,
 		(<span class="number">0</span>..NUM_FULL_NODES / <span class="number">2</span>).map(|<span class="kw">_</span>| |cfg| full_builder(cfg).map(|s| (s, ()))),
-		<span class="comment">// Note: this iterator is empty but we can&#39;t just use `iter::empty()`, otherwise
+		<span class="comment">// Note: this iterator is empty but we can't just use `iter::empty()`, otherwise
 		// the type of the closure cannot be inferred.
 		</span>(<span class="number">0</span>..<span class="number">0</span>).map(|<span class="kw">_</span>| (String::new(), { |cfg| full_builder(cfg).map(|s| (s, ())) })),
 	);
@@ -1286,7 +1288,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		service
 			.network()
 			.add_reserved_peer(first_address.clone())
-			.expect(<span class="string">&quot;Error adding reserved peer&quot;</span>);
+			.expect(<span class="string">"Error adding reserved peer"</span>);
 	}
 
 	network.run_until_all_full(|_index, service| {

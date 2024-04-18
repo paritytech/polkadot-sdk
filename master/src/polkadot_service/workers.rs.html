@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/service/src/workers.rs`."><title>workers.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/service/src/workers.rs`."><title>workers.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_service" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_service" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../polkadot_service/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -687,13 +689,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Override the workers polkadot binary directory path, used for testing.
 </span><span class="attr">#[cfg(test)]
-</span><span class="kw">fn </span>workers_exe_path_override() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>Mutex&lt;<span class="prelude-ty">Option</span>&lt;PathBuf&gt;&gt; {
+</span><span class="kw">fn </span>workers_exe_path_override() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>Mutex&lt;<span class="prelude-ty">Option</span>&lt;PathBuf&gt;&gt; {
 	<span class="kw">static </span>OVERRIDE: OnceLock&lt;Mutex&lt;<span class="prelude-ty">Option</span>&lt;PathBuf&gt;&gt;&gt; = OnceLock::new();
 	OVERRIDE.get_or_init(|| Mutex::new(<span class="prelude-val">None</span>))
 }
 <span class="doccomment">/// Override the workers lib directory path, used for testing.
 </span><span class="attr">#[cfg(test)]
-</span><span class="kw">fn </span>workers_lib_path_override() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>Mutex&lt;<span class="prelude-ty">Option</span>&lt;PathBuf&gt;&gt; {
+</span><span class="kw">fn </span>workers_lib_path_override() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>Mutex&lt;<span class="prelude-ty">Option</span>&lt;PathBuf&gt;&gt; {
 	<span class="kw">static </span>OVERRIDE: OnceLock&lt;Mutex&lt;<span class="prelude-ty">Option</span>&lt;PathBuf&gt;&gt;&gt; = OnceLock::new();
 	OVERRIDE.get_or_init(|| Mutex::new(<span class="prelude-val">None</span>))
 }
@@ -703,11 +705,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// 1. Get the binaries from the workers path if it is passed in, or consider all possible
 /// locations on the filesystem in order and get all sets of paths at which the binaries exist.
 ///
-/// 2. If no paths exist, error out. We can&#39;t proceed without workers.
+/// 2. If no paths exist, error out. We can't proceed without workers.
 ///
 /// 3. Log a warning if more than one set of paths exists. Continue with the first set of paths.
 ///
-/// 4. Check if the returned paths are executable. If not it&#39;s evidence of a borked installation
+/// 4. Check if the returned paths are executable. If not it's evidence of a borked installation
 /// so error out.
 ///
 /// 5. Do the version check, if mismatch error out.
@@ -727,7 +729,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			workers_names,
 		})
 	} <span class="kw">else if </span>workers_paths.len() &gt; <span class="number">1 </span>{
-		<span class="macro">log::warn!</span>(<span class="string">&quot;multiple sets of worker binaries found ({:?})&quot;</span>, workers_paths,);
+		<span class="macro">log::warn!</span>(<span class="string">"multiple sets of worker binaries found ({:?})"</span>, workers_paths,);
 	}
 
 	<span class="kw">let </span>(prep_worker_path, exec_worker_path) = workers_paths.swap_remove(<span class="number">0</span>);
@@ -755,7 +757,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			})
 		}
 	} <span class="kw">else </span>{
-		<span class="macro">log::warn!</span>(<span class="string">&quot;Skipping node/worker version checks. This could result in incorrect behavior in PVF workers.&quot;</span>);
+		<span class="macro">log::warn!</span>(<span class="string">"Skipping node/worker version checks. This could result in incorrect behavior in PVF workers."</span>);
 	}
 
 	<span class="prelude-val">Ok</span>((prep_worker_path, exec_worker_path))
@@ -768,7 +770,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	workers_names: <span class="prelude-ty">Option</span>&lt;(String, String)&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;(PathBuf, PathBuf)&gt;, Error&gt; {
 	<span class="kw">if let </span><span class="prelude-val">Some</span>(path) = given_workers_path {
-		<span class="macro">log::trace!</span>(<span class="string">&quot;Using explicitly provided workers path {:?}&quot;</span>, path);
+		<span class="macro">log::trace!</span>(<span class="string">"Using explicitly provided workers path {:?}"</span>, path);
 
 		<span class="kw">if </span>path.is_executable() {
 			<span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="macro">vec!</span>[(path.clone(), path)])
@@ -798,19 +800,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// Add to set if both workers exist. Warn on partial installs.
 		</span><span class="kw">let </span>(prep_worker_exists, exec_worker_exists) = (prep_worker.exists(), exec_worker.exists());
 		<span class="kw">if </span>prep_worker_exists &amp;&amp; exec_worker_exists {
-			<span class="macro">log::trace!</span>(<span class="string">&quot;Worker binaries found at current exe path: {:?}&quot;</span>, exe_path);
+			<span class="macro">log::trace!</span>(<span class="string">"Worker binaries found at current exe path: {:?}"</span>, exe_path);
 			workers_paths.push((prep_worker, exec_worker));
 		} <span class="kw">else if </span>prep_worker_exists {
-			<span class="macro">log::warn!</span>(<span class="string">&quot;Worker binary found at {:?} but not {:?}&quot;</span>, prep_worker, exec_worker);
+			<span class="macro">log::warn!</span>(<span class="string">"Worker binary found at {:?} but not {:?}"</span>, prep_worker, exec_worker);
 		} <span class="kw">else if </span>exec_worker_exists {
-			<span class="macro">log::warn!</span>(<span class="string">&quot;Worker binary found at {:?} but not {:?}&quot;</span>, exec_worker, prep_worker);
+			<span class="macro">log::warn!</span>(<span class="string">"Worker binary found at {:?} but not {:?}"</span>, exec_worker, prep_worker);
 		}
 	}
 
 	<span class="comment">// Consider the /usr/lib/polkadot/ directory.
 	</span>{
 		<span class="attr">#[allow(unused_mut)]
-		</span><span class="kw">let </span><span class="kw-2">mut </span>lib_path = PathBuf::from(<span class="string">&quot;/usr/lib/polkadot&quot;</span>);
+		</span><span class="kw">let </span><span class="kw-2">mut </span>lib_path = PathBuf::from(<span class="string">"/usr/lib/polkadot"</span>);
 		<span class="attr">#[cfg(test)]
 		</span><span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>path_override) = <span class="kw-2">*</span>workers_lib_path_override().lock().unwrap() {
 			lib_path = path_override.clone();
@@ -821,12 +823,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// Add to set if both workers exist. Warn on partial installs.
 		</span><span class="kw">let </span>(prep_worker_exists, exec_worker_exists) = (prep_worker.exists(), exec_worker.exists());
 		<span class="kw">if </span>prep_worker_exists &amp;&amp; exec_worker_exists {
-			<span class="macro">log::trace!</span>(<span class="string">&quot;Worker binaries found at /usr/lib/polkadot&quot;</span>);
+			<span class="macro">log::trace!</span>(<span class="string">"Worker binaries found at /usr/lib/polkadot"</span>);
 			workers_paths.push((prep_worker, exec_worker));
 		} <span class="kw">else if </span>prep_worker_exists {
-			<span class="macro">log::warn!</span>(<span class="string">&quot;Worker binary found at {:?} but not {:?}&quot;</span>, prep_worker, exec_worker);
+			<span class="macro">log::warn!</span>(<span class="string">"Worker binary found at {:?} but not {:?}"</span>, prep_worker, exec_worker);
 		} <span class="kw">else if </span>exec_worker_exists {
-			<span class="macro">log::warn!</span>(<span class="string">&quot;Worker binary found at {:?} but not {:?}&quot;</span>, exec_worker, prep_worker);
+			<span class="macro">log::warn!</span>(<span class="string">"Worker binary found at {:?} but not {:?}"</span>, exec_worker, prep_worker);
 		}
 	}
 
@@ -870,7 +872,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use </span>serial_test::serial;
 	<span class="kw">use </span>std::{env::temp_dir, fs, os::unix::fs::PermissionsExt, path::Path};
 
-	<span class="kw">const </span>TEST_NODE_VERSION: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;v0.1.2&quot;</span>;
+	<span class="kw">const </span>TEST_NODE_VERSION: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"v0.1.2"</span>;
 
 	<span class="doccomment">/// Write a dummy executable to the path which satisfies the version check.
 	</span><span class="kw">fn </span>write_worker_exe(path: <span class="kw">impl </span>AsRef&lt;Path&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), Box&lt;<span class="kw">dyn </span>std::error::Error&gt;&gt; {
@@ -890,20 +892,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">fn </span>get_program(version: <span class="kw-2">&amp;</span>str) -&gt; String {
 		<span class="macro">format!</span>(
-			<span class="string">&quot;#!/bin/bash
+			<span class="string">"#!/bin/bash
 
 if [[ $# -ne 1 ]] ; then
-    echo \&quot;unexpected number of arguments: $#\&quot;
+    echo \"unexpected number of arguments: $#\"
     exit 1
 fi
 
-if [[ \&quot;$1\&quot; != \&quot;--version\&quot; ]] ; then
-    echo \&quot;unexpected argument: $1\&quot;
+if [[ \"$1\" != \"--version\" ]] ; then
+    echo \"unexpected argument: $1\"
     exit 1
 fi
 
 echo {}
-&quot;</span>,
+"</span>,
 			version
 		)
 	}
@@ -916,18 +918,18 @@ echo {}
 		<span class="comment">// Set up &lt;tmp&gt;/usr/lib/polkadot and &lt;tmp&gt;/usr/bin, both empty.
 
 		</span><span class="kw">let </span>tempdir = temp_dir();
-		<span class="kw">let </span>lib_path = tempdir.join(<span class="string">&quot;usr/lib/polkadot&quot;</span>);
+		<span class="kw">let </span>lib_path = tempdir.join(<span class="string">"usr/lib/polkadot"</span>);
 		<span class="kw">let _ </span>= fs::remove_dir_all(<span class="kw-2">&amp;</span>lib_path);
 		fs::create_dir_all(<span class="kw-2">&amp;</span>lib_path)<span class="question-mark">?</span>;
 		<span class="kw-2">*</span>workers_lib_path_override().lock()<span class="question-mark">? </span>= <span class="prelude-val">Some</span>(lib_path);
 
-		<span class="kw">let </span>exe_path = tempdir.join(<span class="string">&quot;usr/bin&quot;</span>);
+		<span class="kw">let </span>exe_path = tempdir.join(<span class="string">"usr/bin"</span>);
 		<span class="kw">let _ </span>= fs::remove_dir_all(<span class="kw-2">&amp;</span>exe_path);
 		fs::create_dir_all(<span class="kw-2">&amp;</span>exe_path)<span class="question-mark">?</span>;
 		<span class="kw-2">*</span>workers_exe_path_override().lock()<span class="question-mark">? </span>= <span class="prelude-val">Some</span>(exe_path.clone());
 
 		<span class="comment">// Set up custom path at &lt;tmp&gt;/usr/local/bin.
-		</span><span class="kw">let </span>custom_path = tempdir.join(<span class="string">&quot;usr/local/bin&quot;</span>);
+		</span><span class="kw">let </span>custom_path = tempdir.join(<span class="string">"usr/local/bin"</span>);
 		<span class="kw">let _ </span>= fs::remove_dir_all(<span class="kw-2">&amp;</span>custom_path);
 		fs::create_dir_all(<span class="kw-2">&amp;</span>custom_path)<span class="question-mark">?</span>;
 
@@ -938,7 +940,7 @@ echo {}
 	#[serial]
 	</span><span class="kw">fn </span>test_given_worker_path() {
 		with_temp_dir_structure(|tempdir, exe_path| {
-			<span class="kw">let </span>given_workers_path = tempdir.join(<span class="string">&quot;usr/local/bin&quot;</span>);
+			<span class="kw">let </span>given_workers_path = tempdir.join(<span class="string">"usr/local/bin"</span>);
 
 			<span class="comment">// Try with provided workers path that has missing binaries.
 			</span><span class="macro">assert_matches!</span>(
@@ -947,10 +949,10 @@ echo {}
 			);
 
 			<span class="comment">// Try with provided workers path that has non-executable binaries.
-			</span><span class="kw">let </span>prepare_worker_path = given_workers_path.join(<span class="string">&quot;polkadot-prepare-worker&quot;</span>);
+			</span><span class="kw">let </span>prepare_worker_path = given_workers_path.join(<span class="string">"polkadot-prepare-worker"</span>);
 			write_worker_exe(<span class="kw-2">&amp;</span>prepare_worker_path)<span class="question-mark">?</span>;
 			fs::set_permissions(<span class="kw-2">&amp;</span>prepare_worker_path, fs::Permissions::from_mode(<span class="number">0o644</span>))<span class="question-mark">?</span>;
-			<span class="kw">let </span>execute_worker_path = given_workers_path.join(<span class="string">&quot;polkadot-execute-worker&quot;</span>);
+			<span class="kw">let </span>execute_worker_path = given_workers_path.join(<span class="string">"polkadot-execute-worker"</span>);
 			write_worker_exe(<span class="kw-2">&amp;</span>execute_worker_path)<span class="question-mark">?</span>;
 			fs::set_permissions(<span class="kw-2">&amp;</span>execute_worker_path, fs::Permissions::from_mode(<span class="number">0o644</span>))<span class="question-mark">?</span>;
 			<span class="macro">assert_matches!</span>(
@@ -967,7 +969,7 @@ echo {}
 			);
 
 			<span class="comment">// Try with valid provided workers path that is a binary file.
-			</span><span class="kw">let </span>given_workers_path = tempdir.join(<span class="string">&quot;usr/local/bin/test-worker&quot;</span>);
+			</span><span class="kw">let </span>given_workers_path = tempdir.join(<span class="string">"usr/local/bin/test-worker"</span>);
 			write_worker_exe(<span class="kw-2">&amp;</span>given_workers_path)<span class="question-mark">?</span>;
 			<span class="macro">assert_matches!</span>(
 				determine_workers_paths(<span class="prelude-val">Some</span>(given_workers_path.clone()), <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(TEST_NODE_VERSION.into())),
@@ -990,7 +992,7 @@ echo {}
 			);
 
 			<span class="comment">// Try with only prep worker (at bin location).
-			</span><span class="kw">let </span>prepare_worker_path = tempdir.join(<span class="string">&quot;usr/bin/polkadot-prepare-worker&quot;</span>);
+			</span><span class="kw">let </span>prepare_worker_path = tempdir.join(<span class="string">"usr/bin/polkadot-prepare-worker"</span>);
 			write_worker_exe(<span class="kw-2">&amp;</span>prepare_worker_path)<span class="question-mark">?</span>;
 			<span class="macro">assert_matches!</span>(
 				determine_workers_paths(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(TEST_NODE_VERSION.into())),
@@ -999,7 +1001,7 @@ echo {}
 
 			<span class="comment">// Try with only exec worker (at bin location).
 			</span>fs::remove_file(<span class="kw-2">&amp;</span>prepare_worker_path)<span class="question-mark">?</span>;
-			<span class="kw">let </span>execute_worker_path = tempdir.join(<span class="string">&quot;usr/bin/polkadot-execute-worker&quot;</span>);
+			<span class="kw">let </span>execute_worker_path = tempdir.join(<span class="string">"usr/bin/polkadot-execute-worker"</span>);
 			write_worker_exe(<span class="kw-2">&amp;</span>execute_worker_path)<span class="question-mark">?</span>;
 			<span class="macro">assert_matches!</span>(
 				determine_workers_paths(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(TEST_NODE_VERSION.into())),
@@ -1008,7 +1010,7 @@ echo {}
 
 			<span class="comment">// Try with only prep worker (at lib location).
 			</span>fs::remove_file(<span class="kw-2">&amp;</span>execute_worker_path)<span class="question-mark">?</span>;
-			<span class="kw">let </span>prepare_worker_path = tempdir.join(<span class="string">&quot;usr/lib/polkadot/polkadot-prepare-worker&quot;</span>);
+			<span class="kw">let </span>prepare_worker_path = tempdir.join(<span class="string">"usr/lib/polkadot/polkadot-prepare-worker"</span>);
 			write_worker_exe(<span class="kw-2">&amp;</span>prepare_worker_path)<span class="question-mark">?</span>;
 			<span class="macro">assert_matches!</span>(
 				determine_workers_paths(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(TEST_NODE_VERSION.into())),
@@ -1017,7 +1019,7 @@ echo {}
 
 			<span class="comment">// Try with only exec worker (at lib location).
 			</span>fs::remove_file(<span class="kw-2">&amp;</span>prepare_worker_path)<span class="question-mark">?</span>;
-			<span class="kw">let </span>execute_worker_path = tempdir.join(<span class="string">&quot;usr/lib/polkadot/polkadot-execute-worker&quot;</span>);
+			<span class="kw">let </span>execute_worker_path = tempdir.join(<span class="string">"usr/lib/polkadot/polkadot-execute-worker"</span>);
 			write_worker_exe(execute_worker_path)<span class="question-mark">?</span>;
 			<span class="macro">assert_matches!</span>(
 				determine_workers_paths(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(TEST_NODE_VERSION.into())),
@@ -1033,16 +1035,16 @@ echo {}
 	#[serial]
 	</span><span class="kw">fn </span>should_find_workers_at_all_locations() {
 		with_temp_dir_structure(|tempdir, <span class="kw">_</span>| {
-				<span class="kw">let </span>prepare_worker_bin_path = tempdir.join(<span class="string">&quot;usr/bin/polkadot-prepare-worker&quot;</span>);
+				<span class="kw">let </span>prepare_worker_bin_path = tempdir.join(<span class="string">"usr/bin/polkadot-prepare-worker"</span>);
 				write_worker_exe(<span class="kw-2">&amp;</span>prepare_worker_bin_path)<span class="question-mark">?</span>;
 
-				<span class="kw">let </span>execute_worker_bin_path = tempdir.join(<span class="string">&quot;usr/bin/polkadot-execute-worker&quot;</span>);
+				<span class="kw">let </span>execute_worker_bin_path = tempdir.join(<span class="string">"usr/bin/polkadot-execute-worker"</span>);
 				write_worker_exe(<span class="kw-2">&amp;</span>execute_worker_bin_path)<span class="question-mark">?</span>;
 
-				<span class="kw">let </span>prepare_worker_lib_path = tempdir.join(<span class="string">&quot;usr/lib/polkadot/polkadot-prepare-worker&quot;</span>);
+				<span class="kw">let </span>prepare_worker_lib_path = tempdir.join(<span class="string">"usr/lib/polkadot/polkadot-prepare-worker"</span>);
 				write_worker_exe(<span class="kw-2">&amp;</span>prepare_worker_lib_path)<span class="question-mark">?</span>;
 
-				<span class="kw">let </span>execute_worker_lib_path = tempdir.join(<span class="string">&quot;usr/lib/polkadot/polkadot-execute-worker&quot;</span>);
+				<span class="kw">let </span>execute_worker_lib_path = tempdir.join(<span class="string">"usr/lib/polkadot/polkadot-execute-worker"</span>);
 				write_worker_exe(<span class="kw-2">&amp;</span>execute_worker_lib_path)<span class="question-mark">?</span>;
 
 				<span class="macro">assert_matches!</span>(
@@ -1059,18 +1061,18 @@ echo {}
 	#[serial]
 	</span><span class="kw">fn </span>should_find_workers_with_custom_names_at_all_locations() {
 		with_temp_dir_structure(|tempdir, <span class="kw">_</span>| {
-			<span class="kw">let </span>(prep_worker_name, exec_worker_name) = (<span class="string">&quot;test-prepare&quot;</span>, <span class="string">&quot;test-execute&quot;</span>);
+			<span class="kw">let </span>(prep_worker_name, exec_worker_name) = (<span class="string">"test-prepare"</span>, <span class="string">"test-execute"</span>);
 
-			<span class="kw">let </span>prepare_worker_bin_path = tempdir.join(<span class="string">&quot;usr/bin&quot;</span>).join(prep_worker_name);
+			<span class="kw">let </span>prepare_worker_bin_path = tempdir.join(<span class="string">"usr/bin"</span>).join(prep_worker_name);
 			write_worker_exe(<span class="kw-2">&amp;</span>prepare_worker_bin_path)<span class="question-mark">?</span>;
 
-			<span class="kw">let </span>execute_worker_bin_path = tempdir.join(<span class="string">&quot;usr/bin&quot;</span>).join(exec_worker_name);
+			<span class="kw">let </span>execute_worker_bin_path = tempdir.join(<span class="string">"usr/bin"</span>).join(exec_worker_name);
 			write_worker_exe(<span class="kw-2">&amp;</span>execute_worker_bin_path)<span class="question-mark">?</span>;
 
-			<span class="kw">let </span>prepare_worker_lib_path = tempdir.join(<span class="string">&quot;usr/lib/polkadot&quot;</span>).join(prep_worker_name);
+			<span class="kw">let </span>prepare_worker_lib_path = tempdir.join(<span class="string">"usr/lib/polkadot"</span>).join(prep_worker_name);
 			write_worker_exe(<span class="kw-2">&amp;</span>prepare_worker_lib_path)<span class="question-mark">?</span>;
 
-			<span class="kw">let </span>execute_worker_lib_path = tempdir.join(<span class="string">&quot;usr/lib/polkadot&quot;</span>).join(exec_worker_name);
+			<span class="kw">let </span>execute_worker_lib_path = tempdir.join(<span class="string">"usr/lib/polkadot"</span>).join(exec_worker_name);
 			write_worker_exe(<span class="kw-2">&amp;</span>execute_worker_lib_path)<span class="question-mark">?</span>;
 
 			<span class="macro">assert_matches!</span>(
@@ -1086,12 +1088,12 @@ echo {}
 	<span class="attr">#[test]
 	#[serial]
 	</span><span class="kw">fn </span>workers_version_mismatch_throws_error() {
-		<span class="kw">let </span>bad_version = <span class="string">&quot;v9.9.9.9&quot;</span>;
+		<span class="kw">let </span>bad_version = <span class="string">"v9.9.9.9"</span>;
 
 		with_temp_dir_structure(|tempdir, <span class="kw">_</span>| {
 			<span class="comment">// Workers at bin location return bad version.
-			</span><span class="kw">let </span>prepare_worker_bin_path = tempdir.join(<span class="string">&quot;usr/bin/polkadot-prepare-worker&quot;</span>);
-			<span class="kw">let </span>execute_worker_bin_path = tempdir.join(<span class="string">&quot;usr/bin/polkadot-execute-worker&quot;</span>);
+			</span><span class="kw">let </span>prepare_worker_bin_path = tempdir.join(<span class="string">"usr/bin/polkadot-prepare-worker"</span>);
+			<span class="kw">let </span>execute_worker_bin_path = tempdir.join(<span class="string">"usr/bin/polkadot-execute-worker"</span>);
 			write_worker_exe_invalid_version(<span class="kw-2">&amp;</span>prepare_worker_bin_path, bad_version)<span class="question-mark">?</span>;
 			write_worker_exe(<span class="kw-2">&amp;</span>execute_worker_bin_path)<span class="question-mark">?</span>;
 			<span class="macro">assert_matches!</span>(
@@ -1102,8 +1104,8 @@ echo {}
 			<span class="comment">// Workers at lib location return bad version.
 			</span>fs::remove_file(prepare_worker_bin_path)<span class="question-mark">?</span>;
 			fs::remove_file(execute_worker_bin_path)<span class="question-mark">?</span>;
-			<span class="kw">let </span>prepare_worker_lib_path = tempdir.join(<span class="string">&quot;usr/lib/polkadot/polkadot-prepare-worker&quot;</span>);
-			<span class="kw">let </span>execute_worker_lib_path = tempdir.join(<span class="string">&quot;usr/lib/polkadot/polkadot-execute-worker&quot;</span>);
+			<span class="kw">let </span>prepare_worker_lib_path = tempdir.join(<span class="string">"usr/lib/polkadot/polkadot-prepare-worker"</span>);
+			<span class="kw">let </span>execute_worker_lib_path = tempdir.join(<span class="string">"usr/lib/polkadot/polkadot-execute-worker"</span>);
 			write_worker_exe(<span class="kw-2">&amp;</span>prepare_worker_lib_path)<span class="question-mark">?</span>;
 			write_worker_exe_invalid_version(<span class="kw-2">&amp;</span>execute_worker_lib_path, bad_version)<span class="question-mark">?</span>;
 			<span class="macro">assert_matches!</span>(
@@ -1112,9 +1114,9 @@ echo {}
 			);
 
 			<span class="comment">// Workers at provided workers location return bad version.
-			</span><span class="kw">let </span>given_workers_path = tempdir.join(<span class="string">&quot;usr/local/bin&quot;</span>);
-			<span class="kw">let </span>prepare_worker_path = given_workers_path.join(<span class="string">&quot;polkadot-prepare-worker&quot;</span>);
-			<span class="kw">let </span>execute_worker_path = given_workers_path.join(<span class="string">&quot;polkadot-execute-worker&quot;</span>);
+			</span><span class="kw">let </span>given_workers_path = tempdir.join(<span class="string">"usr/local/bin"</span>);
+			<span class="kw">let </span>prepare_worker_path = given_workers_path.join(<span class="string">"polkadot-prepare-worker"</span>);
+			<span class="kw">let </span>execute_worker_path = given_workers_path.join(<span class="string">"polkadot-execute-worker"</span>);
 			write_worker_exe_invalid_version(<span class="kw-2">&amp;</span>prepare_worker_path, bad_version)<span class="question-mark">?</span>;
 			write_worker_exe_invalid_version(<span class="kw-2">&amp;</span>execute_worker_path, bad_version)<span class="question-mark">?</span>;
 			<span class="macro">assert_matches!</span>(
@@ -1123,7 +1125,7 @@ echo {}
 			);
 
 			<span class="comment">// Given worker binary returns bad version.
-			</span><span class="kw">let </span>given_workers_path = tempdir.join(<span class="string">&quot;usr/local/bin/test-worker&quot;</span>);
+			</span><span class="kw">let </span>given_workers_path = tempdir.join(<span class="string">"usr/local/bin/test-worker"</span>);
 			write_worker_exe_invalid_version(<span class="kw-2">&amp;</span>given_workers_path, bad_version)<span class="question-mark">?</span>;
 			<span class="macro">assert_matches!</span>(
 				determine_workers_paths(<span class="prelude-val">Some</span>(given_workers_path.clone()), <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(TEST_NODE_VERSION.into())),
@@ -1140,10 +1142,10 @@ echo {}
 	</span><span class="kw">fn </span>should_find_valid_workers() {
 		<span class="comment">// Test bin location.
 		</span>with_temp_dir_structure(|tempdir, <span class="kw">_</span>| {
-			<span class="kw">let </span>prepare_worker_bin_path = tempdir.join(<span class="string">&quot;usr/bin/polkadot-prepare-worker&quot;</span>);
+			<span class="kw">let </span>prepare_worker_bin_path = tempdir.join(<span class="string">"usr/bin/polkadot-prepare-worker"</span>);
 			write_worker_exe(<span class="kw-2">&amp;</span>prepare_worker_bin_path)<span class="question-mark">?</span>;
 
-			<span class="kw">let </span>execute_worker_bin_path = tempdir.join(<span class="string">&quot;usr/bin/polkadot-execute-worker&quot;</span>);
+			<span class="kw">let </span>execute_worker_bin_path = tempdir.join(<span class="string">"usr/bin/polkadot-execute-worker"</span>);
 			write_worker_exe(<span class="kw-2">&amp;</span>execute_worker_bin_path)<span class="question-mark">?</span>;
 
 			<span class="macro">assert_matches!</span>(
@@ -1157,10 +1159,10 @@ echo {}
 
 		<span class="comment">// Test lib location.
 		</span>with_temp_dir_structure(|tempdir, <span class="kw">_</span>| {
-			<span class="kw">let </span>prepare_worker_lib_path = tempdir.join(<span class="string">&quot;usr/lib/polkadot/polkadot-prepare-worker&quot;</span>);
+			<span class="kw">let </span>prepare_worker_lib_path = tempdir.join(<span class="string">"usr/lib/polkadot/polkadot-prepare-worker"</span>);
 			write_worker_exe(<span class="kw-2">&amp;</span>prepare_worker_lib_path)<span class="question-mark">?</span>;
 
-			<span class="kw">let </span>execute_worker_lib_path = tempdir.join(<span class="string">&quot;usr/lib/polkadot/polkadot-execute-worker&quot;</span>);
+			<span class="kw">let </span>execute_worker_lib_path = tempdir.join(<span class="string">"usr/lib/polkadot/polkadot-execute-worker"</span>);
 			write_worker_exe(<span class="kw-2">&amp;</span>execute_worker_lib_path)<span class="question-mark">?</span>;
 
 			<span class="macro">assert_matches!</span>(

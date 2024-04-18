@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/system/src/limits.rs`."><title>limits.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/system/src/limits.rs`."><title>limits.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="frame_system" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="frame_system" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../frame_system/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -602,14 +604,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -671,7 +673,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[derive(Default, RuntimeDebug)]
 </span><span class="kw">pub struct </span>ValidationErrors {
 	<span class="kw">pub </span>has_errors: bool,
-	<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 	</span><span class="kw">pub </span>errors: Vec&lt;String&gt;,
 }
 
@@ -679,7 +681,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	(<span class="macro-nonterminal">$cond </span>: expr, <span class="macro-nonterminal">$err </span>: expr, <span class="macro-nonterminal">$format </span>: expr $(, <span class="macro-nonterminal">$params</span>: expr )<span class="kw-2">*</span>$(,)<span class="kw-2">*</span>) =&gt; {
 		<span class="kw">if </span>!<span class="macro-nonterminal">$cond </span>{
 			<span class="macro-nonterminal">$err</span>.has_errors = <span class="bool-val">true</span>;
-			<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+			<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 			</span>{ <span class="macro-nonterminal">$err</span>.errors.push(<span class="macro">format!</span>(<span class="macro-nonterminal">$format </span>$(, <span class="kw-2">&amp;</span><span class="macro-nonterminal">$params </span>)<span class="kw-2">*</span>)); }
 		}
 	}
@@ -700,7 +702,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>base_extrinsic: Weight,
 	<span class="doccomment">/// Maximal weight of single extrinsic. Should NOT include `base_extrinsic` cost.
 	///
-	/// `None` indicates that this class of extrinsics doesn&#39;t have a limit.
+	/// `None` indicates that this class of extrinsics doesn't have a limit.
 	</span><span class="kw">pub </span>max_extrinsic: <span class="prelude-ty">Option</span>&lt;Weight&gt;,
 	<span class="doccomment">/// Block maximal total weight for all extrinsics of given class.
 	///
@@ -743,9 +745,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// ```
 ///
 /// The remaining capacity can be used to dispatch extrinsics. Note that each dispatch class
-/// is being tracked separately, but the sum can&#39;t exceed `max_block` (except for `reserved`).
+/// is being tracked separately, but the sum can't exceed `max_block` (except for `reserved`).
 /// Below you can see a picture representing full block with 3 extrinsics (two `Operational` and
-/// one `Normal`). Each class has it&#39;s own limit `max_total`, but also the sum cannot exceed
+/// one `Normal`). Each class has it's own limit `max_total`, but also the sum cannot exceed
 /// `max_block` value.
 ///
 /// ```text,ignore
@@ -759,13 +761,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// |NOM|                 |NOM|
 /// ```
 ///
-/// It should be obvious now that it&#39;s possible for one class to reach it&#39;s limit (say `Normal`),
+/// It should be obvious now that it's possible for one class to reach it's limit (say `Normal`),
 /// while the block has still capacity to process more transactions (`max_block` not reached,
 /// `Operational` transactions can still go in). Setting `max_total` to `None` disables the
 /// per-class limit. This is generally highly recommended for `Mandatory` dispatch class, while it
 /// can be dangerous for `Normal` class and should only be done with extra care and consideration.
 ///
-/// Often it&#39;s desirable for some class of transactions to be added to the block despite it being
+/// Often it's desirable for some class of transactions to be added to the block despite it being
 /// full. For instance one might want to prevent high-priority `Normal` transactions from pushing
 /// out lower-priority `Operational` transactions. In such cases you might add a `reserved` capacity
 /// for given class.
@@ -785,15 +787,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// ```
 ///
 /// In the above example, `Ext4-6` fill up the block almost up to `max_block`. `Ext7` would not fit
-/// if there wasn&#39;t the extra `reserved` space for `Operational` transactions. Note that `max_total`
-/// limit applies to `reserved` space as well (i.e. the sum of weights of `Ext7` &amp; `Ext8` mustn&#39;t
+/// if there wasn't the extra `reserved` space for `Operational` transactions. Note that `max_total`
+/// limit applies to `reserved` space as well (i.e. the sum of weights of `Ext7` &amp; `Ext8` mustn't
 /// exceed it). Setting `reserved` to `None` allows the extrinsics to always get into the block up
 /// to their `max_total` limit. If `max_total` is set to `None` as well, all extrinsics witch
 /// dispatchables of given class will always end up in the block (recommended for `Mandatory`
 /// dispatch class).
 ///
 /// As a consequence of `reserved` space, total consumed block weight might exceed `max_block`
-/// value, so this parameter should rather be thought of as &quot;target block weight&quot; than a hard limit.
+/// value, so this parameter should rather be thought of as "target block weight" than a hard limit.
 </span><span class="attr">#[derive(RuntimeDebug, Clone, codec::Encode, codec::Decode, TypeInfo)]
 </span><span class="kw">pub struct </span>BlockWeights {
 	<span class="doccomment">/// Base weight of block execution.
@@ -831,23 +833,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>max_for_class = or_max(weights.max_total);
 			<span class="kw">let </span>base_for_class = weights.base_extrinsic;
 			<span class="kw">let </span>reserved = or_max(weights.reserved);
-			<span class="comment">// Make sure that if total is set it&#39;s greater than base_block &amp;&amp;
+			<span class="comment">// Make sure that if total is set it's greater than base_block &amp;&amp;
 			// base_for_class
 			</span><span class="macro">error_assert!</span>(
 				(max_for_class.all_gt(<span class="self">self</span>.base_block) &amp;&amp; max_for_class.all_gt(base_for_class))
 				|| max_for_class == Weight::zero(),
 				<span class="kw-2">&amp;mut </span>error,
-				<span class="string">&quot;[{:?}] {:?} (total) has to be greater than {:?} (base block) &amp; {:?} (base extrinsic)&quot;</span>,
+				<span class="string">"[{:?}] {:?} (total) has to be greater than {:?} (base block) &amp; {:?} (base extrinsic)"</span>,
 				class, max_for_class, <span class="self">self</span>.base_block, base_for_class,
 			);
-			<span class="comment">// Max extrinsic can&#39;t be greater than max_for_class.
+			<span class="comment">// Max extrinsic can't be greater than max_for_class.
 			</span><span class="macro">error_assert!</span>(
 				weights
 					.max_extrinsic
 					.unwrap_or(Weight::zero())
 					.all_lte(max_for_class.saturating_sub(base_for_class)),
 				<span class="kw-2">&amp;mut </span>error,
-				<span class="string">&quot;[{:?}] {:?} (max_extrinsic) can&#39;t be greater than {:?} (max for class)&quot;</span>,
+				<span class="string">"[{:?}] {:?} (max_extrinsic) can't be greater than {:?} (max for class)"</span>,
 				class,
 				weights.max_extrinsic,
 				max_for_class.saturating_sub(base_for_class),
@@ -856,23 +858,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="macro">error_assert!</span>(
 				weights.max_extrinsic.unwrap_or_else(Weight::max_value).all_gt(Weight::zero()),
 				<span class="kw-2">&amp;mut </span>error,
-				<span class="string">&quot;[{:?}] {:?} (max_extrinsic) must not be 0. Check base cost and average initialization cost.&quot;</span>,
+				<span class="string">"[{:?}] {:?} (max_extrinsic) must not be 0. Check base cost and average initialization cost."</span>,
 				class, weights.max_extrinsic,
 			);
-			<span class="comment">// Make sure that if reserved is set it&#39;s greater than base_for_class.
+			<span class="comment">// Make sure that if reserved is set it's greater than base_for_class.
 			</span><span class="macro">error_assert!</span>(
 				reserved.all_gt(base_for_class) || reserved == Weight::zero(),
 				<span class="kw-2">&amp;mut </span>error,
-				<span class="string">&quot;[{:?}] {:?} (reserved) has to be greater than {:?} (base extrinsic) if set&quot;</span>,
+				<span class="string">"[{:?}] {:?} (reserved) has to be greater than {:?} (base extrinsic) if set"</span>,
 				class,
 				reserved,
 				base_for_class,
 			);
-			<span class="comment">// Make sure max block is greater than max_total if it&#39;s set.
+			<span class="comment">// Make sure max block is greater than max_total if it's set.
 			</span><span class="macro">error_assert!</span>(
 				<span class="self">self</span>.max_block.all_gte(weights.max_total.unwrap_or(Weight::zero())),
 				<span class="kw-2">&amp;mut </span>error,
-				<span class="string">&quot;[{:?}] {:?} (max block) has to be greater than {:?} (max for class)&quot;</span>,
+				<span class="string">"[{:?}] {:?} (max block) has to be greater than {:?} (max for class)"</span>,
 				class,
 				<span class="self">self</span>.max_block,
 				weights.max_total,
@@ -881,7 +883,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="macro">error_assert!</span>(
 				<span class="self">self</span>.max_block.all_gt(base_for_class + <span class="self">self</span>.base_block),
 				<span class="kw-2">&amp;mut </span>error,
-				<span class="string">&quot;[{:?}] {:?} (max block) must fit at least one extrinsic {:?} (base weight)&quot;</span>,
+				<span class="string">"[{:?}] {:?} (max block) must fit at least one extrinsic {:?} (base weight)"</span>,
 				class,
 				<span class="self">self</span>.max_block,
 				base_for_class + <span class="self">self</span>.base_block,
@@ -910,7 +912,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				weights.max_total = block_weight.into();
 			})
 			.build()
-			.expect(<span class="string">&quot;We only specify max_total and leave base values as defaults; qed&quot;</span>)
+			.expect(<span class="string">"We only specify max_total and leave base values as defaults; qed"</span>)
 	}
 
 	<span class="doccomment">/// Create a sensible default weights system given only expected maximal block weight and the
@@ -931,7 +933,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			})
 			.avg_block_initialization(Perbill::from_percent(<span class="number">10</span>))
 			.build()
-			.expect(<span class="string">&quot;Sensible defaults are tested to be valid; qed&quot;</span>)
+			.expect(<span class="string">"Sensible defaults are tested to be valid; qed"</span>)
 	}
 
 	<span class="doccomment">/// Start constructing new `BlockWeights` object.
@@ -976,7 +978,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// This value is used to derive maximal allowed extrinsic weight for each
 	/// class, based on the allowance.
 	///
-	/// This is to make sure that extrinsics don&#39;t stay forever in the pool,
+	/// This is to make sure that extrinsics don't stay forever in the pool,
 	/// because they could seemingly fit the block (since they are below `max_block`),
 	/// but the cost of calling `on_initialize` always prevents them from being included.
 	</span><span class="kw">pub fn </span>avg_block_initialization(<span class="kw-2">mut </span><span class="self">self</span>, init_cost: Perbill) -&gt; <span class="self">Self </span>{
@@ -1028,12 +1030,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>weights.validate()
 	}
 
-	<span class="doccomment">/// Construct the `BlockWeights` object or panic if it&#39;s invalid.
+	<span class="doccomment">/// Construct the `BlockWeights` object or panic if it's invalid.
 	///
 	/// This is a convenience method to be called whenever you construct a runtime.
 	</span><span class="kw">pub fn </span>build_or_panic(<span class="self">self</span>) -&gt; BlockWeights {
 		<span class="self">self</span>.build().expect(
-			<span class="string">&quot;Builder finished with `build_or_panic`; The panic is expected if runtime weights are not correct&quot;
+			<span class="string">"Builder finished with `build_or_panic`; The panic is expected if runtime weights are not correct"
 		</span>)
 	}
 }

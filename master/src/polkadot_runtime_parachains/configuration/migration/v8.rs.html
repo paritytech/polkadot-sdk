@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/runtime/parachains/src/configuration/migration/v8.rs`."><title>v8.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/runtime/parachains/src/configuration/migration/v8.rs`."><title>v8.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="polkadot_runtime_parachains" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="polkadot_runtime_parachains" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../../polkadot_runtime_parachains/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -730,33 +732,33 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">pub struct </span>MigrateToV8&lt;T&gt;(sp_std::marker::PhantomData&lt;T&gt;);
 <span class="kw">impl</span>&lt;T: Config&gt; OnRuntimeUpgrade <span class="kw">for </span>MigrateToV8&lt;T&gt; {
-	<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 	</span><span class="kw">fn </span>pre_upgrade() -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, sp_runtime::TryRuntimeError&gt; {
-		<span class="macro">log::trace!</span>(target: <span class="kw">crate</span>::configuration::LOG_TARGET, <span class="string">&quot;Running pre_upgrade() for HostConfiguration MigrateToV8&quot;</span>);
+		<span class="macro">log::trace!</span>(target: <span class="kw">crate</span>::configuration::LOG_TARGET, <span class="string">"Running pre_upgrade() for HostConfiguration MigrateToV8"</span>);
 		<span class="prelude-val">Ok</span>(Vec::new())
 	}
 
 	<span class="kw">fn </span>on_runtime_upgrade() -&gt; Weight {
-		<span class="macro">log::info!</span>(target: configuration::LOG_TARGET, <span class="string">&quot;HostConfiguration MigrateToV8 started&quot;</span>);
+		<span class="macro">log::info!</span>(target: configuration::LOG_TARGET, <span class="string">"HostConfiguration MigrateToV8 started"</span>);
 		<span class="kw">if </span>StorageVersion::get::&lt;Pallet&lt;T&gt;&gt;() == <span class="number">7 </span>{
 			<span class="kw">let </span>weight_consumed = migrate_to_v8::&lt;T&gt;();
 
-			<span class="macro">log::info!</span>(target: configuration::LOG_TARGET, <span class="string">&quot;HostConfiguration MigrateToV8 executed successfully&quot;</span>);
+			<span class="macro">log::info!</span>(target: configuration::LOG_TARGET, <span class="string">"HostConfiguration MigrateToV8 executed successfully"</span>);
 			StorageVersion::new(<span class="number">8</span>).put::&lt;Pallet&lt;T&gt;&gt;();
 
 			weight_consumed
 		} <span class="kw">else </span>{
-			<span class="macro">log::warn!</span>(target: configuration::LOG_TARGET, <span class="string">&quot;HostConfiguration MigrateToV8 should be removed.&quot;</span>);
+			<span class="macro">log::warn!</span>(target: configuration::LOG_TARGET, <span class="string">"HostConfiguration MigrateToV8 should be removed."</span>);
 			T::DbWeight::get().reads(<span class="number">1</span>)
 		}
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 	</span><span class="kw">fn </span>post_upgrade(_state: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), sp_runtime::TryRuntimeError&gt; {
-		<span class="macro">log::trace!</span>(target: <span class="kw">crate</span>::configuration::LOG_TARGET, <span class="string">&quot;Running post_upgrade() for HostConfiguration MigrateToV8&quot;</span>);
+		<span class="macro">log::trace!</span>(target: <span class="kw">crate</span>::configuration::LOG_TARGET, <span class="string">"Running post_upgrade() for HostConfiguration MigrateToV8"</span>);
 		<span class="macro">ensure!</span>(
 			StorageVersion::get::&lt;Pallet&lt;T&gt;&gt;() &gt;= <span class="number">8</span>,
-			<span class="string">&quot;Storage version should be &gt;= 8 after the migration&quot;
+			<span class="string">"Storage version should be &gt;= 8 after the migration"
 		</span>);
 
 		<span class="prelude-val">Ok</span>(())
@@ -820,7 +822,7 @@ on_demand_ttl                            : <span class="number">5u32</span>.into
 };
 
 	<span class="kw">let </span>v7 = v7::ActiveConfig::&lt;T&gt;::get()
-		.defensive_proof(<span class="string">&quot;Could not decode old config&quot;</span>)
+		.defensive_proof(<span class="string">"Could not decode old config"</span>)
 		.unwrap_or_default();
 	<span class="kw">let </span>v8 = translate(v7);
 	v8::ActiveConfig::&lt;T&gt;::set(<span class="prelude-val">Some</span>(v8));
@@ -847,7 +849,7 @@ on_demand_ttl                            : <span class="number">5u32</span>.into
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>v8_deserialized_from_actual_data() {
 		<span class="comment">// Example how to get new `raw_config`:
-		// We&#39;ll obtain the raw_config at a specified a block
+		// We'll obtain the raw_config at a specified a block
 		// Steps:
 		// 1. Go to Polkadot.js -&gt; Developer -&gt; Chain state -&gt; Storage: https://polkadot.js.org/apps/#/chainstate
 		// 2. Set these parameters:
@@ -859,15 +861,15 @@ on_demand_ttl                            : <span class="number">5u32</span>.into
 		//   2.3. Note the value of encoded storage key -&gt;
 		//        0x06de3d8a54d27e44a9d5ce189618f22db4b49d95320d9021994c850f25b8e385 for the
 		// referenced        block.
-		//   2.4. You&#39;ll also need the decoded values to update the test.
+		//   2.4. You'll also need the decoded values to update the test.
 		// 3. Go to Polkadot.js -&gt; Developer -&gt; Chain state -&gt; Raw storage
 		//   3.1 Enter the encoded storage key and you get the raw config.
 
-		// This exceeds the maximal line width length, but that&#39;s fine, since this is not code and
-		// doesn&#39;t need to be read and also leaving it as one line allows to easily copy it.
+		// This exceeds the maximal line width length, but that's fine, since this is not code and
+		// doesn't need to be read and also leaving it as one line allows to easily copy it.
 		</span><span class="kw">let </span>raw_config =
-	<span class="macro">hex_literal::hex!</span>[<span class="string">&quot;
-	0000300000800000080000000000100000c8000005000000050000000200000002000000000000000000000000005000000010000400000000000000000000000000000000000000000000000000000000000000000000000800000000200000040000000000100000b004000000000000000000001027000080b2e60e80c3c9018096980000000000000000000000000005000000140000000400000001000000010100000000060000006400000002000000190000000000000002000000020000000200000005000000&quot;
+	<span class="macro">hex_literal::hex!</span>[<span class="string">"
+	0000300000800000080000000000100000c8000005000000050000000200000002000000000000000000000000005000000010000400000000000000000000000000000000000000000000000000000000000000000000000800000000200000040000000000100000b004000000000000000000001027000080b2e60e80c3c9018096980000000000000000000000000005000000140000000400000001000000010100000000060000006400000002000000190000000000000002000000020000000200000005000000"
 	</span>];
 
 		<span class="kw">let </span>v8 =
@@ -966,8 +968,8 @@ on_demand_ttl                            : <span class="number">5u32</span>.into
 		});
 	}
 
-	<span class="comment">// Test that migration doesn&#39;t panic in case there&#39;re no pending configurations upgrades in
-	// pallet&#39;s storage.
+	<span class="comment">// Test that migration doesn't panic in case there're no pending configurations upgrades in
+	// pallet's storage.
 	</span><span class="attr">#[test]
 	</span><span class="kw">fn </span>test_migrate_to_v8_no_pending() {
 		<span class="kw">let </span>v7 = V7HostConfiguration::&lt;primitives::BlockNumber&gt;::default();
@@ -975,10 +977,10 @@ on_demand_ttl                            : <span class="number">5u32</span>.into
 		new_test_ext(Default::default()).execute_with(|| {
 			<span class="comment">// Implant the v6 version in the state.
 			</span>v7::ActiveConfig::&lt;Test&gt;::set(<span class="prelude-val">Some</span>(v7));
-			<span class="comment">// Ensure there&#39;re no pending configs.
+			<span class="comment">// Ensure there're no pending configs.
 			</span>v7::PendingConfigs::&lt;Test&gt;::set(<span class="prelude-val">None</span>);
 
-			<span class="comment">// Shouldn&#39;t fail.
+			<span class="comment">// Shouldn't fail.
 			</span>migrate_to_v8::&lt;Test&gt;();
 		});
 	}

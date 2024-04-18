@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/service/src/client/call_executor.rs`."><title>call_executor.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/service/src/client/call_executor.rs`."><title>call_executor.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sc_service" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sc_service" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../sc_service/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -664,7 +666,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl</span>&lt;Block: BlockT, B, E&gt; LocalCallExecutor&lt;Block, B, E&gt;
 <span class="kw">where
-	</span>E: CodeExecutor + RuntimeVersionOf + Clone + <span class="lifetime">&#39;static</span>,
+	</span>E: CodeExecutor + RuntimeVersionOf + Clone + <span class="lifetime">'static</span>,
 	B: backend::Backend&lt;Block&gt;,
 {
 	<span class="doccomment">/// Creates new instance of local call executor.
@@ -698,12 +700,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Check if local runtime code overrides are enabled and one is available
 	/// for the given `BlockId`. If yes, return it; otherwise return the same
 	/// `RuntimeCode` instance that was passed.
-	</span><span class="kw">fn </span>check_override&lt;<span class="lifetime">&#39;a</span>&gt;(
-		<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>,
-		onchain_code: RuntimeCode&lt;<span class="lifetime">&#39;a</span>&gt;,
+	</span><span class="kw">fn </span>check_override&lt;<span class="lifetime">'a</span>&gt;(
+		<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>,
+		onchain_code: RuntimeCode&lt;<span class="lifetime">'a</span>&gt;,
 		state: <span class="kw-2">&amp;</span>B::State,
 		hash: Block::Hash,
-	) -&gt; sp_blockchain::Result&lt;(RuntimeCode&lt;<span class="lifetime">&#39;a</span>&gt;, RuntimeVersion)&gt;
+	) -&gt; sp_blockchain::Result&lt;(RuntimeCode&lt;<span class="lifetime">'a</span>&gt;, RuntimeVersion)&gt;
 	<span class="kw">where
 		</span>Block: BlockT,
 		B: backend::Backend&lt;Block&gt;,
@@ -716,18 +718,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw-2">&amp;</span>on_chain_version.spec_name,
 			)
 		}) {
-			<span class="macro">log::debug!</span>(target: <span class="string">&quot;wasm_overrides&quot;</span>, <span class="string">&quot;using WASM override for block {}&quot;</span>, hash);
+			<span class="macro">log::debug!</span>(target: <span class="string">"wasm_overrides"</span>, <span class="string">"using WASM override for block {}"</span>, hash);
 			d
 		} <span class="kw">else if let </span><span class="prelude-val">Some</span>(s) =
 			<span class="self">self</span>.wasm_substitutes
 				.get(on_chain_version.spec_version, onchain_code.heap_pages, hash)
 		{
-			<span class="macro">log::debug!</span>(target: <span class="string">&quot;wasm_substitutes&quot;</span>, <span class="string">&quot;Using WASM substitute for block {:?}&quot;</span>, hash);
+			<span class="macro">log::debug!</span>(target: <span class="string">"wasm_substitutes"</span>, <span class="string">"Using WASM substitute for block {:?}"</span>, hash);
 			s
 		} <span class="kw">else </span>{
 			<span class="macro">log::debug!</span>(
-				target: <span class="string">&quot;wasm_overrides&quot;</span>,
-				<span class="string">&quot;Neither WASM override nor substitute available for block {hash}, using onchain code&quot;</span>,
+				target: <span class="string">"wasm_overrides"</span>,
+				<span class="string">"Neither WASM override nor substitute available for block {hash}, using onchain code"</span>,
 			);
 			(onchain_code, on_chain_version)
 		};
@@ -769,7 +771,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl</span>&lt;B, E, Block&gt; CallExecutor&lt;Block&gt; <span class="kw">for </span>LocalCallExecutor&lt;Block, B, E&gt;
 <span class="kw">where
 	</span>B: backend::Backend&lt;Block&gt;,
-	E: CodeExecutor + RuntimeVersionOf + Clone + <span class="lifetime">&#39;static</span>,
+	E: CodeExecutor + RuntimeVersionOf + Clone + <span class="lifetime">'static</span>,
 	Block: BlockT,
 {
 	<span class="kw">type </span>Error = E::Error;
@@ -934,7 +936,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl</span>&lt;Block, B, E&gt; sp_version::GetRuntimeVersionAt&lt;Block&gt; <span class="kw">for </span>LocalCallExecutor&lt;Block, B, E&gt;
 <span class="kw">where
 	</span>B: backend::Backend&lt;Block&gt;,
-	E: CodeExecutor + RuntimeVersionOf + Clone + <span class="lifetime">&#39;static</span>,
+	E: CodeExecutor + RuntimeVersionOf + Clone + <span class="lifetime">'static</span>,
 	Block: BlockT,
 {
 	<span class="kw">fn </span>runtime_version(<span class="kw-2">&amp;</span><span class="self">self</span>, at: Block::Hash) -&gt; <span class="prelude-ty">Result</span>&lt;sp_version::RuntimeVersion, String&gt; {
@@ -945,7 +947,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl</span>&lt;Block, B, E&gt; sp_version::GetNativeVersion <span class="kw">for </span>LocalCallExecutor&lt;Block, B, E&gt;
 <span class="kw">where
 	</span>B: backend::Backend&lt;Block&gt;,
-	E: CodeExecutor + sp_version::GetNativeVersion + Clone + <span class="lifetime">&#39;static</span>,
+	E: CodeExecutor + sp_version::GetNativeVersion + Clone + <span class="lifetime">'static</span>,
 	Block: BlockT,
 {
 	<span class="kw">fn </span>native_version(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>sp_version::NativeVersion {
@@ -999,7 +1001,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			backend.clone(),
 			executor.clone(),
 		)
-		.expect(<span class="string">&quot;Creates genesis block builder&quot;</span>);
+		.expect(<span class="string">"Creates genesis block builder"</span>);
 
 		<span class="comment">// client is used for the convenience of creating and inserting the genesis block.
 		</span><span class="kw">let </span>_client =
@@ -1012,7 +1014,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="prelude-val">None</span>,
 				client_config,
 			)
-			.expect(<span class="string">&quot;Creates a client&quot;</span>);
+			.expect(<span class="string">"Creates a client"</span>);
 
 		<span class="kw">let </span>call_executor = LocalCallExecutor {
 			backend: backend.clone(),
@@ -1036,7 +1038,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw-2">&amp;</span>backend.state_at(backend.blockchain().info().genesis_hash).unwrap(),
 				backend.blockchain().info().genesis_hash,
 			)
-			.expect(<span class="string">&quot;RuntimeCode override&quot;</span>)
+			.expect(<span class="string">"RuntimeCode override"</span>)
 			.<span class="number">0</span>;
 
 		<span class="macro">assert_eq!</span>(<span class="prelude-val">Some</span>(<span class="macro">vec!</span>[<span class="number">2</span>, <span class="number">2</span>, <span class="number">2</span>, <span class="number">2</span>, <span class="number">2</span>, <span class="number">2</span>, <span class="number">2</span>, <span class="number">2</span>]), check.fetch_runtime_code().map(Into::into));
@@ -1044,13 +1046,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>returns_runtime_version_from_substitute() {
-		<span class="kw">const </span>SUBSTITUTE_SPEC_NAME: <span class="kw-2">&amp;</span>str = <span class="string">&quot;substitute-spec-name-cool&quot;</span>;
+		<span class="kw">const </span>SUBSTITUTE_SPEC_NAME: <span class="kw-2">&amp;</span>str = <span class="string">"substitute-spec-name-cool"</span>;
 
 		<span class="kw">let </span>executor = executor();
 
 		<span class="kw">let </span>backend = Arc::new(in_mem::Backend::&lt;runtime::Block&gt;::new());
 
-		<span class="comment">// Let&#39;s only override the `spec_name` for our testing purposes.
+		<span class="comment">// Let's only override the `spec_name` for our testing purposes.
 		</span><span class="kw">let </span>substitute = sp_version::embed::embed_runtime_version(
 			<span class="kw-2">&amp;</span>substrate_test_runtime::WASM_BINARY_BLOATY.unwrap(),
 			sp_version::RuntimeVersion {
@@ -1071,7 +1073,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			backend.clone(),
 			executor.clone(),
 		)
-		.expect(<span class="string">&quot;Creates genesis block builder&quot;</span>);
+		.expect(<span class="string">"Creates genesis block builder"</span>);
 
 		<span class="comment">// client is used for the convenience of creating and inserting the genesis block.
 		</span><span class="kw">let </span>client =
@@ -1084,7 +1086,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="prelude-val">None</span>,
 				client_config,
 			)
-			.expect(<span class="string">&quot;Creates a client&quot;</span>);
+			.expect(<span class="string">"Creates a client"</span>);
 
 		<span class="kw">let </span>version = client.runtime_version_at(client.chain_info().genesis_hash).unwrap();
 

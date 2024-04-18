@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/runtime/parachains/src/scheduler.rs`."><title>scheduler.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/runtime/parachains/src/scheduler.rs`."><title>scheduler.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_runtime_parachains" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_runtime_parachains" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../polkadot_runtime_parachains/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -861,7 +863,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! - High or close to optimal throughput of parachains and parathreads. Work among validator groups
 //!   should be balanced.
 //!
-//! The Scheduler manages resource allocation using the concept of &quot;Availability Cores&quot;.
+//! The Scheduler manages resource allocation using the concept of "Availability Cores".
 //! There will be one availability core for each parachain, and a fixed number of cores
 //! used for multiplexing parathreads. Validators will be partitioned into groups, with the same
 //! number of groups as availability cores. Validator groups will be assigned to different
@@ -889,7 +891,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests;
 
-<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;runtime::parachains::scheduler&quot;</span>;
+<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"runtime::parachains::scheduler"</span>;
 
 <span class="kw">pub mod </span>migration;
 
@@ -919,7 +921,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="attr">#[pallet::storage]
 	</span><span class="kw">pub type </span>ValidatorGroups&lt;T&gt; = StorageValue&lt;<span class="kw">_</span>, Vec&lt;Vec&lt;ValidatorIndex&gt;&gt;, ValueQuery&gt;;
 
-	<span class="doccomment">/// One entry for each availability core. The i&#39;th parachain belongs to the i&#39;th core, with the
+	<span class="doccomment">/// One entry for each availability core. The i'th parachain belongs to the i'th core, with the
 	/// remaining cores all being on demand parachain multiplexers.
 	///
 	/// Bounded by the maximum of either of these two values:
@@ -954,9 +956,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Reasons a core might be freed.
 	</span><span class="attr">#[derive(Clone, Copy)]
 	</span><span class="kw">pub enum </span>FreedReason {
-		<span class="doccomment">/// The core&#39;s work concluded and the parablock assigned to it is considered available.
+		<span class="doccomment">/// The core's work concluded and the parablock assigned to it is considered available.
 		</span>Concluded,
-		<span class="doccomment">/// The core&#39;s work timed out.
+		<span class="doccomment">/// The core's work timed out.
 		</span>TimedOut,
 	}
 
@@ -1064,12 +1066,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>group_base_size = validators
 				.len()
 				.checked_div(n_cores <span class="kw">as </span>usize)
-				.defensive_proof(<span class="string">&quot;n_cores should not be 0&quot;</span>)
+				.defensive_proof(<span class="string">"n_cores should not be 0"</span>)
 				.unwrap_or(<span class="number">0</span>);
 			<span class="kw">let </span>n_larger_groups = validators
 				.len()
 				.checked_rem(n_cores <span class="kw">as </span>usize)
-				.defensive_proof(<span class="string">&quot;n_cores should not be 0&quot;</span>)
+				.defensive_proof(<span class="string">"n_cores should not be 0"</span>)
 				.unwrap_or(<span class="number">0</span>);
 
 			<span class="comment">// Groups contain indices into the validators from the session change notification,
@@ -1146,7 +1148,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; BTreeMap&lt;CoreIndex, PositionInClaimqueue&gt; {
 		<span class="kw">let </span><span class="kw-2">mut </span>availability_cores = AvailabilityCores::&lt;T&gt;::get();
 
-		<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;[occupied] now_occupied {:?}&quot;</span>, now_occupied);
+		<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"[occupied] now_occupied {:?}"</span>, now_occupied);
 
 		<span class="kw">let </span>pos_mapping: BTreeMap&lt;CoreIndex, PositionInClaimqueue&gt; = now_occupied
 			.iter()
@@ -1155,7 +1157,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="prelude-val">Err</span>(e) =&gt; {
 						<span class="macro">log::debug!</span>(
 							target: LOG_TARGET,
-							<span class="string">&quot;[occupied] error on remove_from_claimqueue {}&quot;</span>,
+							<span class="string">"[occupied] error on remove_from_claimqueue {}"</span>,
 							e
 						);
 						<span class="prelude-val">None
@@ -1178,7 +1180,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Iterates through every element in all claim queues and tries to add new assignments from the
-	/// `AssignmentProvider`. A claim is considered expired if it&#39;s `ttl` field is lower than the
+	/// `AssignmentProvider`. A claim is considered expired if it's `ttl` field is lower than the
 	/// current block height.
 	</span><span class="kw">fn </span>drop_expired_claims_from_claimqueue() {
 		<span class="kw">let </span>now = frame_system::Pallet::&lt;T&gt;::block_number();
@@ -1400,7 +1402,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>(<span class="kw-2">mut </span>concluded_paras, <span class="kw-2">mut </span>timedout_paras) = <span class="self">Self</span>::free_cores(just_freed_cores);
 
 		<span class="comment">// This can only happen on new sessions at which we move all assignments back to the
-		// provider. Hence, there&#39;s nothing we need to do here.
+		// provider. Hence, there's nothing we need to do here.
 		</span><span class="kw">if </span>ValidatorGroups::&lt;T&gt;::decode_len().map_or(<span class="bool-val">true</span>, |l| l == <span class="number">0</span>) {
 			<span class="kw">return
 		</span>}
@@ -1468,16 +1470,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>remove_from_claimqueue(
 		core_idx: CoreIndex,
 		para_id: ParaId,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;(PositionInClaimqueue, ParasEntryType&lt;T&gt;), <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; {
+	) -&gt; <span class="prelude-ty">Result</span>&lt;(PositionInClaimqueue, ParasEntryType&lt;T&gt;), <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
 		ClaimQueue::&lt;T&gt;::mutate(|cq| {
-			<span class="kw">let </span>core_claims = cq.get_mut(<span class="kw-2">&amp;</span>core_idx).ok_or(<span class="string">&quot;core_idx not found in lookahead&quot;</span>)<span class="question-mark">?</span>;
+			<span class="kw">let </span>core_claims = cq.get_mut(<span class="kw-2">&amp;</span>core_idx).ok_or(<span class="string">"core_idx not found in lookahead"</span>)<span class="question-mark">?</span>;
 
 			<span class="kw">let </span>pos = core_claims
 				.iter()
 				.position(|pe| pe.para_id() == para_id)
-				.ok_or(<span class="string">&quot;para id not found at core_idx lookahead&quot;</span>)<span class="question-mark">?</span>;
+				.ok_or(<span class="string">"para id not found at core_idx lookahead"</span>)<span class="question-mark">?</span>;
 
-			<span class="kw">let </span>pe = core_claims.remove(pos).ok_or(<span class="string">&quot;remove returned None&quot;</span>)<span class="question-mark">?</span>;
+			<span class="kw">let </span>pe = core_claims.remove(pos).ok_or(<span class="string">"remove returned None"</span>)<span class="question-mark">?</span>;
 
 			<span class="prelude-val">Ok</span>((pos <span class="kw">as </span>u32, pe))
 		})
@@ -1491,12 +1493,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.filter_map(|(core_idx, v)| v.front().map(|e| (core_idx, e.assignment.para_id())))
 	}
 
-	<span class="attr">#[cfg(any(feature = <span class="string">&quot;try-runtime&quot;</span>, test))]
+	<span class="attr">#[cfg(any(feature = <span class="string">"try-runtime"</span>, test))]
 	</span><span class="kw">fn </span>claimqueue_len() -&gt; usize {
 		ClaimQueue::&lt;T&gt;::get().iter().map(|la_vec| la_vec.<span class="number">1</span>.len()).sum()
 	}
 
-	<span class="attr">#[cfg(all(not(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>), test))]
+	<span class="attr">#[cfg(all(not(feature = <span class="string">"runtime-benchmarks"</span>), test))]
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>claimqueue_is_empty() -&gt; bool {
 		<span class="self">Self</span>::claimqueue_len() == <span class="number">0
 	</span>}

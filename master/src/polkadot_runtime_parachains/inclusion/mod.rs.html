@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/runtime/parachains/src/inclusion/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/runtime/parachains/src/inclusion/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_runtime_parachains" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_runtime_parachains" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../polkadot_runtime_parachains/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1488,6 +1490,29 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#1339" id="1339">1339</a>
 <a href="#1340" id="1340">1340</a>
 <a href="#1341" id="1341">1341</a>
+<a href="#1342" id="1342">1342</a>
+<a href="#1343" id="1343">1343</a>
+<a href="#1344" id="1344">1344</a>
+<a href="#1345" id="1345">1345</a>
+<a href="#1346" id="1346">1346</a>
+<a href="#1347" id="1347">1347</a>
+<a href="#1348" id="1348">1348</a>
+<a href="#1349" id="1349">1349</a>
+<a href="#1350" id="1350">1350</a>
+<a href="#1351" id="1351">1351</a>
+<a href="#1352" id="1352">1352</a>
+<a href="#1353" id="1353">1353</a>
+<a href="#1354" id="1354">1354</a>
+<a href="#1355" id="1355">1355</a>
+<a href="#1356" id="1356">1356</a>
+<a href="#1357" id="1357">1357</a>
+<a href="#1358" id="1358">1358</a>
+<a href="#1359" id="1359">1359</a>
+<a href="#1360" id="1360">1360</a>
+<a href="#1361" id="1361">1361</a>
+<a href="#1362" id="1362">1362</a>
+<a href="#1363" id="1363">1363</a>
+<a href="#1364" id="1364">1364</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -1536,7 +1561,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>scale_info::TypeInfo;
 <span class="kw">use </span>sp_runtime::{traits::One, DispatchError, SaturatedConversion, Saturating};
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">use </span>sp_std::fmt;
 <span class="kw">use </span>sp_std::{
 	collections::{btree_map::BTreeMap, btree_set::BTreeSet, vec_deque::VecDeque},
@@ -1548,7 +1573,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[cfg(test)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>tests;
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 </span><span class="kw">mod </span>benchmarking;
 
 <span class="kw">pub mod </span>migration;
@@ -1634,7 +1659,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw-2">&amp;</span><span class="self">self</span>.commitments
 	}
 
-	<span class="doccomment">/// Get the candidate&#39;s relay parent&#39;s number.
+	<span class="doccomment">/// Get the candidate's relay parent's number.
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>relay_parent_number(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; N
 	<span class="kw">where
 		</span>N: Clone,
@@ -1647,12 +1672,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">self</span>.backing_group
 	}
 
-	<span class="doccomment">/// Get the candidate&#39;s backers.
+	<span class="doccomment">/// Get the candidate's backers.
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>backers(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>BitVec&lt;u8, BitOrderLsb0&gt; {
 		<span class="kw-2">&amp;</span><span class="self">self</span>.backers
 	}
 
-	<span class="attr">#[cfg(any(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>, test))]
+	<span class="attr">#[cfg(any(feature = <span class="string">"runtime-benchmarks"</span>, test))]
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new(
 		core: CoreIndex,
 		hash: CandidateHash,
@@ -1743,7 +1768,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>Para(ParaId),
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 </span><span class="kw">impl </span>From&lt;u32&gt; <span class="kw">for </span>AggregateMessageOrigin {
 	<span class="kw">fn </span>from(n: u32) -&gt; <span class="self">Self </span>{
 		<span class="comment">// Some dummy for the benchmarks.
@@ -1815,11 +1840,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>PrematureCodeUpgrade,
 		<span class="doccomment">/// Output code is too large
 		</span>NewCodeTooLarge,
-		<span class="doccomment">/// The candidate&#39;s relay-parent was not allowed. Either it was
-		/// not recent enough or it didn&#39;t advance based on the last parachain block.
+		<span class="doccomment">/// The candidate's relay-parent was not allowed. Either it was
+		/// not recent enough or it didn't advance based on the last parachain block.
 		</span>DisallowedRelayParent,
-		<span class="doccomment">/// Failed to compute group index for the core: either it&#39;s out of bounds
-		/// or the relay parent doesn&#39;t belong to the current session.
+		<span class="doccomment">/// Failed to compute group index for the core: either it's out of bounds
+		/// or the relay parent doesn't belong to the current session.
 		</span>InvalidAssignment,
 		<span class="doccomment">/// Invalid group index in core assignment.
 		</span>InvalidGroupIndex,
@@ -1835,13 +1860,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>IncorrectDownwardMessageHandling,
 		<span class="doccomment">/// At least one upward message sent does not pass the acceptance criteria.
 		</span>InvalidUpwardMessages,
-		<span class="doccomment">/// The candidate didn&#39;t follow the rules of HRMP watermark advancement.
+		<span class="doccomment">/// The candidate didn't follow the rules of HRMP watermark advancement.
 		</span>HrmpWatermarkMishandling,
 		<span class="doccomment">/// The HRMP messages sent by the candidate is not valid.
 		</span>InvalidOutboundHrmp,
 		<span class="doccomment">/// The validation code hash of the candidate is not valid.
 		</span>InvalidValidationCodeHash,
-		<span class="doccomment">/// The `para_head` hash in the candidate descriptor doesn&#39;t match the hash of the actual
+		<span class="doccomment">/// The `para_head` hash in the candidate descriptor doesn't match the hash of the actual
 		/// para head in the commitments.
 		</span>ParaHeadMismatch,
 	}
@@ -1852,7 +1877,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// would otherwise have the exact same prefix which could cause undefined behaviour when doing
 	/// the migration.
 	</span><span class="attr">#[pallet::storage]
-	#[pallet::storage_prefix = <span class="string">&quot;V1&quot;</span>]
+	#[pallet::storage_prefix = <span class="string">"V1"</span>]
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>PendingAvailability&lt;T: Config&gt; = StorageMap&lt;
 		<span class="kw">_</span>,
 		Twox64Concat,
@@ -1864,25 +1889,48 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {}
 }
 
-<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;runtime::inclusion&quot;</span>;
+<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"runtime::inclusion"</span>;
 
-<span class="doccomment">/// The reason that a candidate&#39;s outputs were rejected for.
-</span><span class="attr">#[derive(derive_more::From)]
-#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(Debug))]
-</span><span class="kw">enum </span>AcceptanceCheckErr&lt;BlockNumber&gt; {
+<span class="doccomment">/// The reason that a candidate's outputs were rejected for.
+</span><span class="attr">#[cfg_attr(feature = <span class="string">"std"</span>, derive(Debug))]
+</span><span class="kw">enum </span>AcceptanceCheckErr {
 	HeadDataTooLarge,
 	<span class="doccomment">/// Code upgrades are not permitted at the current time.
 	</span>PrematureCodeUpgrade,
 	<span class="doccomment">/// The new runtime blob is too large.
 	</span>NewCodeTooLarge,
 	<span class="doccomment">/// The candidate violated this DMP acceptance criteria.
-	</span>ProcessedDownwardMessages(dmp::ProcessedDownwardMessagesAcceptanceErr),
+	</span>ProcessedDownwardMessages,
 	<span class="doccomment">/// The candidate violated this UMP acceptance criteria.
-	</span>UpwardMessages(UmpAcceptanceCheckErr),
+	</span>UpwardMessages,
 	<span class="doccomment">/// The candidate violated this HRMP watermark acceptance criteria.
-	</span>HrmpWatermark(hrmp::HrmpWatermarkAcceptanceErr&lt;BlockNumber&gt;),
+	</span>HrmpWatermark,
 	<span class="doccomment">/// The candidate violated this outbound HRMP acceptance criteria.
-	</span>OutboundHrmp(hrmp::OutboundHrmpAcceptanceErr),
+	</span>OutboundHrmp,
+}
+
+<span class="kw">impl </span>From&lt;dmp::ProcessedDownwardMessagesAcceptanceErr&gt; <span class="kw">for </span>AcceptanceCheckErr {
+	<span class="kw">fn </span>from(<span class="kw">_</span>: dmp::ProcessedDownwardMessagesAcceptanceErr) -&gt; <span class="self">Self </span>{
+		<span class="self">Self</span>::ProcessedDownwardMessages
+	}
+}
+
+<span class="kw">impl </span>From&lt;UmpAcceptanceCheckErr&gt; <span class="kw">for </span>AcceptanceCheckErr {
+	<span class="kw">fn </span>from(<span class="kw">_</span>: UmpAcceptanceCheckErr) -&gt; <span class="self">Self </span>{
+		<span class="self">Self</span>::UpwardMessages
+	}
+}
+
+<span class="kw">impl</span>&lt;BlockNumber&gt; From&lt;hrmp::HrmpWatermarkAcceptanceErr&lt;BlockNumber&gt;&gt; <span class="kw">for </span>AcceptanceCheckErr {
+	<span class="kw">fn </span>from(<span class="kw">_</span>: hrmp::HrmpWatermarkAcceptanceErr&lt;BlockNumber&gt;) -&gt; <span class="self">Self </span>{
+		<span class="self">Self</span>::HrmpWatermark
+	}
+}
+
+<span class="kw">impl </span>From&lt;hrmp::OutboundHrmpAcceptanceErr&gt; <span class="kw">for </span>AcceptanceCheckErr {
+	<span class="kw">fn </span>from(<span class="kw">_</span>: hrmp::OutboundHrmpAcceptanceErr) -&gt; <span class="self">Self </span>{
+		<span class="self">Self</span>::OutboundHrmp
+	}
 }
 
 <span class="doccomment">/// An error returned by [`Pallet::check_upward_messages`] that indicates a violation of one of
@@ -1901,32 +1949,32 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>IsOffboarding,
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">impl </span>fmt::Debug <span class="kw">for </span>UmpAcceptanceCheckErr {
 	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, fmt: <span class="kw-2">&amp;mut </span>fmt::Formatter) -&gt; fmt::Result {
 		<span class="kw">match </span><span class="kw-2">*</span><span class="self">self </span>{
 			UmpAcceptanceCheckErr::MoreMessagesThanPermitted { sent, permitted } =&gt; <span class="macro">write!</span>(
 				fmt,
-				<span class="string">&quot;more upward messages than permitted by config ({} &gt; {})&quot;</span>,
+				<span class="string">"more upward messages than permitted by config ({} &gt; {})"</span>,
 				sent, permitted,
 			),
 			UmpAcceptanceCheckErr::MessageSize { idx, msg_size, max_size } =&gt; <span class="macro">write!</span>(
 				fmt,
-				<span class="string">&quot;upward message idx {} larger than permitted by config ({} &gt; {})&quot;</span>,
+				<span class="string">"upward message idx {} larger than permitted by config ({} &gt; {})"</span>,
 				idx, msg_size, max_size,
 			),
 			UmpAcceptanceCheckErr::CapacityExceeded { count, limit } =&gt; <span class="macro">write!</span>(
 				fmt,
-				<span class="string">&quot;the ump queue would have more items than permitted by config ({} &gt; {})&quot;</span>,
+				<span class="string">"the ump queue would have more items than permitted by config ({} &gt; {})"</span>,
 				count, limit,
 			),
 			UmpAcceptanceCheckErr::TotalSizeExceeded { total_size, limit } =&gt; <span class="macro">write!</span>(
 				fmt,
-				<span class="string">&quot;the ump queue would have grown past the max size permitted by config ({} &gt; {})&quot;</span>,
+				<span class="string">"the ump queue would have grown past the max size permitted by config ({} &gt; {})"</span>,
 				total_size, limit,
 			),
 			UmpAcceptanceCheckErr::IsOffboarding =&gt; {
-				<span class="macro">write!</span>(fmt, <span class="string">&quot;upward message rejected because the para is off-boarding&quot;</span>)
+				<span class="macro">write!</span>(fmt, <span class="string">"upward message rejected because the para is off-boarding"</span>)
 			},
 		}
 	}
@@ -2007,7 +2055,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							<span class="kw">for </span>validator_index <span class="kw">in </span>validator_indices.iter() {
 								<span class="comment">// defensive check - this is constructed by loading the
 								// availability bitfield record, which is always `Some` if
-								// the core is occupied - that&#39;s why we&#39;re here.
+								// the core is occupied - that's why we're here.
 								</span><span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">mut </span>bit) =
 									candidate.availability_votes.get_mut(validator_index.<span class="number">0 </span><span class="kw">as </span>usize)
 								{
@@ -2016,18 +2064,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							}
 						}
 
-						<span class="comment">// We check for the candidate&#39;s availability even if we didn&#39;t get any new
+						<span class="comment">// We check for the candidate's availability even if we didn't get any new
 						// bitfields for its core, as it may have already been available at a
-						// previous block but wasn&#39;t enacted due to its predecessors not being
+						// previous block but wasn't enacted due to its predecessors not being
 						// available.
 						</span><span class="kw">if </span>candidate.availability_votes.count_ones() &gt;= threshold {
-							<span class="comment">// We can only enact a candidate if we&#39;ve enacted all of its
+							<span class="comment">// We can only enact a candidate if we've enacted all of its
 							// predecessors already.
 							</span><span class="kw">let </span>can_enact = <span class="kw">if </span>candidate_index == <span class="number">0 </span>{
 								last_enacted_index == <span class="prelude-val">None
 							</span>} <span class="kw">else </span>{
 								<span class="kw">let </span>prev_candidate_index = usize::try_from(candidate_index - <span class="number">1</span>)
-									.expect(<span class="string">&quot;Previous `if` would have caught a 0 candidate index.&quot;</span>);
+									.expect(<span class="string">"Previous `if` would have caught a 0 candidate index."</span>);
 								<span class="macro">matches!</span>(last_enacted_index, <span class="prelude-val">Some</span>(old_index) <span class="kw">if </span>old_index == prev_candidate_index)
 							};
 
@@ -2096,7 +2144,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">for </span>(para_id, para_candidates) <span class="kw">in </span>candidates {
 			<span class="kw">let </span><span class="kw-2">mut </span>latest_head_data = <span class="kw">match </span><span class="self">Self</span>::para_latest_head_data(para_id) {
 				<span class="prelude-val">None </span>=&gt; {
-					<span class="macro">defensive!</span>(<span class="string">&quot;Latest included head data for paraid {:?} is None&quot;</span>, para_id);
+					<span class="macro">defensive!</span>(<span class="string">"Latest included head data for paraid {:?} is None"</span>, para_id);
 					<span class="kw">continue
 				</span>},
 				<span class="prelude-val">Some</span>(latest_head_data) =&gt; latest_head_data,
@@ -2123,7 +2171,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.ok_or_else(|| {
 					<span class="macro">log::warn!</span>(
 						target: LOG_TARGET,
-						<span class="string">&quot;Failed to compute group index for candidate {:?}&quot;</span>,
+						<span class="string">"Failed to compute group index for candidate {:?}"</span>,
 						candidate_hash
 					);
 					Error::&lt;T&gt;::InvalidAssignment
@@ -2248,7 +2296,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.filter(|(<span class="kw">_</span>, signed)| <span class="kw-2">**</span>signed)
 			.zip(backed_candidate.validity_votes().iter().cloned())
 		{
-			<span class="kw">let </span>val_idx = group_vals.get(bit_idx).expect(<span class="string">&quot;this query succeeded above; qed&quot;</span>);
+			<span class="kw">let </span>val_idx = group_vals.get(bit_idx).expect(<span class="string">"this query succeeded above; qed"</span>);
 			backer_idx_and_attestation.push((<span class="kw-2">*</span>val_idx, attestation));
 
 			backers.set(val_idx.<span class="number">0 </span><span class="kw">as _</span>, <span class="bool-val">true</span>);
@@ -2281,7 +2329,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		{
 			<span class="macro">log::debug!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;Validation outputs checking for parachain `{}` failed&quot;</span>,
+				<span class="string">"Validation outputs checking for parachain `{}` failed"</span>,
 				u32::from(para_id),
 			);
 			<span class="bool-val">false
@@ -2321,7 +2369,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// initial weight is config read.
 		</span><span class="kw">let </span><span class="kw-2">mut </span>weight = T::DbWeight::get().reads_writes(<span class="number">1</span>, <span class="number">0</span>);
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(new_code) = commitments.new_validation_code {
-			<span class="comment">// Block number of candidate&#39;s inclusion.
+			<span class="comment">// Block number of candidate's inclusion.
 			</span><span class="kw">let </span>now = frame_system::Pallet::&lt;T&gt;::block_number();
 
 			weight.saturating_add(paras::Pallet::&lt;T&gt;::schedule_code_upgrade(
@@ -2422,7 +2470,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Ok</span>(())
 	}
 
-	<span class="doccomment">/// Enqueues `upward_messages` from a `para`&#39;s accepted candidate block.
+	<span class="doccomment">/// Enqueues `upward_messages` from a `para`'s accepted candidate block.
 	///
 	/// This function is infallible since the candidate was already accepted and we therefore need
 	/// to deal with the messages as given. Messages that are too long will be ignored since such
@@ -2433,7 +2481,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.filter_map(|d| {
 				BoundedSlice::try_from(<span class="kw-2">&amp;</span>d[..])
 					.map_err(|e| {
-						<span class="macro">defensive!</span>(<span class="string">&quot;Accepted candidate contains too long msg, len=&quot;</span>, d.len());
+						<span class="macro">defensive!</span>(<span class="string">"Accepted candidate contains too long msg, len="</span>, d.len());
 						e
 					})
 					.ok()
@@ -2442,10 +2490,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">Self</span>::receive_bounded_upward_messages(para, bounded)
 	}
 
-	<span class="doccomment">/// Enqueues storage-bounded `upward_messages` from a `para`&#39;s accepted candidate block.
+	<span class="doccomment">/// Enqueues storage-bounded `upward_messages` from a `para`'s accepted candidate block.
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>receive_bounded_upward_messages(
 		para: ParaId,
-		messages: Vec&lt;BoundedSlice&lt;<span class="lifetime">&#39;_</span>, u8, MaxUmpMessageLenOf&lt;T&gt;&gt;&gt;,
+		messages: Vec&lt;BoundedSlice&lt;<span class="lifetime">'_</span>, u8, MaxUmpMessageLenOf&lt;T&gt;&gt;&gt;,
 	) -&gt; Weight {
 		<span class="kw">let </span>count = messages.len() <span class="kw">as </span>u32;
 		<span class="kw">if </span>count == <span class="number">0 </span>{
@@ -2525,7 +2573,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">for </span>(index, candidate) <span class="kw">in </span>pending_candidates.iter().enumerate() {
 				<span class="kw">if </span>pred(candidate) {
 					earliest_dropped_idx = <span class="prelude-val">Some</span>(index);
-					<span class="comment">// Since we&#39;re looping the candidates in dependency order, we&#39;ve found the
+					<span class="comment">// Since we're looping the candidates in dependency order, we've found the
 					// earliest failed index for this paraid.
 					</span><span class="kw">break</span>;
 				}
@@ -2635,7 +2683,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	supermajority_threshold(n_validators)
 }
 
-<span class="kw">impl</span>&lt;BlockNumber&gt; AcceptanceCheckErr&lt;BlockNumber&gt; {
+<span class="kw">impl </span>AcceptanceCheckErr {
 	<span class="doccomment">/// Returns the same error so that it can be threaded through a needle of `DispatchError` and
 	/// ultimately returned from a `Dispatchable`.
 	</span><span class="kw">fn </span>strip_into_dispatch_err&lt;T: Config&gt;(<span class="self">self</span>) -&gt; Error&lt;T&gt; {
@@ -2644,10 +2692,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			HeadDataTooLarge =&gt; Error::&lt;T&gt;::HeadDataTooLarge,
 			PrematureCodeUpgrade =&gt; Error::&lt;T&gt;::PrematureCodeUpgrade,
 			NewCodeTooLarge =&gt; Error::&lt;T&gt;::NewCodeTooLarge,
-			ProcessedDownwardMessages(<span class="kw">_</span>) =&gt; Error::&lt;T&gt;::IncorrectDownwardMessageHandling,
-			UpwardMessages(<span class="kw">_</span>) =&gt; Error::&lt;T&gt;::InvalidUpwardMessages,
-			HrmpWatermark(<span class="kw">_</span>) =&gt; Error::&lt;T&gt;::HrmpWatermarkMishandling,
-			OutboundHrmp(<span class="kw">_</span>) =&gt; Error::&lt;T&gt;::InvalidOutboundHrmp,
+			ProcessedDownwardMessages =&gt; Error::&lt;T&gt;::IncorrectDownwardMessageHandling,
+			UpwardMessages =&gt; Error::&lt;T&gt;::InvalidUpwardMessages,
+			HrmpWatermark =&gt; Error::&lt;T&gt;::HrmpWatermarkMishandling,
+			OutboundHrmp =&gt; Error::&lt;T&gt;::InvalidOutboundHrmp,
 		}
 	}
 }
@@ -2755,7 +2803,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		) {
 			<span class="macro">log::debug!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;Validation outputs checking during inclusion of a candidate {:?} for parachain `{}` failed&quot;</span>,
+				<span class="string">"Validation outputs checking during inclusion of a candidate {:?} for parachain `{}` failed"</span>,
 				backed_candidate_receipt.hash(),
 				u32::from(para_id),
 			);
@@ -2790,7 +2838,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		upward_messages: <span class="kw-2">&amp;</span>[primitives::UpwardMessage],
 		hrmp_watermark: BlockNumberFor&lt;T&gt;,
 		horizontal_messages: <span class="kw-2">&amp;</span>[primitives::OutboundHrmpMessage&lt;ParaId&gt;],
-	) -&gt; <span class="prelude-ty">Result</span>&lt;(), AcceptanceCheckErr&lt;BlockNumberFor&lt;T&gt;&gt;&gt; {
+	) -&gt; <span class="prelude-ty">Result</span>&lt;(), AcceptanceCheckErr&gt; {
 		<span class="macro">ensure!</span>(
 			head_data.<span class="number">0</span>.len() &lt;= <span class="self">self</span>.config.max_head_data_size <span class="kw">as _</span>,
 			AcceptanceCheckErr::HeadDataTooLarge,

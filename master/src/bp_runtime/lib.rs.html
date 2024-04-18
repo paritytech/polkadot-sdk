@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `bridges/primitives/runtime/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `bridges/primitives/runtime/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="bp_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="bp_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../bp_runtime/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -711,7 +713,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! Primitives that may be used at (bridges) runtime level.
 
 </span><span class="attr">#![warn(missing_docs)]
-#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
+#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
 </span><span class="kw">use </span>codec::{Decode, Encode, FullCodec, MaxEncodedLen};
 <span class="kw">use </span>frame_support::{
@@ -740,7 +742,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">pub use </span>storage_types::BoundedStorageValue;
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">pub use </span>storage_proof::craft_valid_storage_proof;
 
 <span class="kw">pub mod </span>extensions;
@@ -905,7 +907,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// `frame_support::storage::generator::StorageMap::storage_map_final_key` for maps based
 /// on selected hasher.
 ///
-/// We&#39;re using it because to call `storage_map_final_key` directly, we need access to the runtime
+/// We're using it because to call `storage_map_final_key` directly, we need access to the runtime
 /// and pallet instance, which (sometimes) is impossible.
 </span><span class="kw">pub fn </span>storage_map_final_key&lt;H: StorageHasher&gt;(
 	pallet_prefix: <span class="kw-2">&amp;</span>str,
@@ -944,7 +946,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Can be use to access the runtime storage key of a `StorageMap`.
 </span><span class="kw">pub trait </span>StorageMapKeyProvider {
 	<span class="doccomment">/// The name of the variable that holds the `StorageMap`.
-	</span><span class="kw">const </span>MAP_NAME: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str;
+	</span><span class="kw">const </span>MAP_NAME: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str;
 
 	<span class="doccomment">/// The same as `StorageMap::Hasher1`.
 	</span><span class="kw">type </span>Hasher: StorageHasher;
@@ -956,7 +958,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// This is a copy of the
 	/// `frame_support::storage::generator::StorageMap::storage_map_final_key`.
 	///
-	/// We&#39;re using it because to call `storage_map_final_key` directly, we need access
+	/// We're using it because to call `storage_map_final_key` directly, we need access
 	/// to the runtime and pallet instance, which (sometimes) is impossible.
 	</span><span class="kw">fn </span>final_key(pallet_prefix: <span class="kw-2">&amp;</span>str, key: <span class="kw-2">&amp;</span><span class="self">Self</span>::Key) -&gt; StorageKey {
 		storage_map_final_key::&lt;<span class="self">Self</span>::Hasher&gt;(pallet_prefix, <span class="self">Self</span>::MAP_NAME, <span class="kw-2">&amp;</span>key.encode())
@@ -966,7 +968,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Can be use to access the runtime storage key of a `StorageDoubleMap`.
 </span><span class="kw">pub trait </span>StorageDoubleMapKeyProvider {
 	<span class="doccomment">/// The name of the variable that holds the `StorageDoubleMap`.
-	</span><span class="kw">const </span>MAP_NAME: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str;
+	</span><span class="kw">const </span>MAP_NAME: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str;
 
 	<span class="doccomment">/// The same as `StorageDoubleMap::Hasher1`.
 	</span><span class="kw">type </span>Hasher1: StorageHasher;
@@ -982,7 +984,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// This is a copy of the
 	/// `frame_support::storage::generator::StorageDoubleMap::storage_double_map_final_key`.
 	///
-	/// We&#39;re using it because to call `storage_double_map_final_key` directly, we need access
+	/// We're using it because to call `storage_double_map_final_key` directly, we need access
 	/// to the runtime and pallet instance, which (sometimes) is impossible.
 	</span><span class="kw">fn </span>final_key(pallet_prefix: <span class="kw-2">&amp;</span>str, key1: <span class="kw-2">&amp;</span><span class="self">Self</span>::Key1, key2: <span class="kw-2">&amp;</span><span class="self">Self</span>::Key2) -&gt; StorageKey {
 		<span class="kw">let </span>key1_hashed = <span class="self">Self</span>::Hasher1::hash(<span class="kw-2">&amp;</span>key1.encode());
@@ -1055,7 +1057,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Bridge module that has owner and operating mode
 </span><span class="kw">pub trait </span>OwnedBridgeModule&lt;T: frame_system::Config&gt; {
 	<span class="doccomment">/// The target that will be used when publishing logs related to this module.
-	</span><span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str;
+	</span><span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str;
 
 	<span class="doccomment">/// A storage entry that holds the module `Owner` account.
 	</span><span class="kw">type </span>OwnerStorage: StorageValue&lt;T::AccountId, Query = <span class="prelude-ty">Option</span>&lt;T::AccountId&gt;&gt;;
@@ -1094,11 +1096,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">match </span>maybe_owner {
 			<span class="prelude-val">Some</span>(owner) =&gt; {
 				<span class="self">Self</span>::OwnerStorage::put(<span class="kw-2">&amp;</span>owner);
-				<span class="macro">log::info!</span>(target: <span class="self">Self</span>::LOG_TARGET, <span class="string">&quot;Setting pallet Owner to: {:?}&quot;</span>, owner);
+				<span class="macro">log::info!</span>(target: <span class="self">Self</span>::LOG_TARGET, <span class="string">"Setting pallet Owner to: {:?}"</span>, owner);
 			},
 			<span class="prelude-val">None </span>=&gt; {
 				<span class="self">Self</span>::OwnerStorage::kill();
-				<span class="macro">log::info!</span>(target: <span class="self">Self</span>::LOG_TARGET, <span class="string">&quot;Removed Owner of pallet.&quot;</span>);
+				<span class="macro">log::info!</span>(target: <span class="self">Self</span>::LOG_TARGET, <span class="string">"Removed Owner of pallet."</span>);
 			},
 		}
 
@@ -1112,7 +1114,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; DispatchResult {
 		<span class="self">Self</span>::ensure_owner_or_root(origin)<span class="question-mark">?</span>;
 		<span class="self">Self</span>::OperatingModeStorage::put(operating_mode);
-		<span class="macro">log::info!</span>(target: <span class="self">Self</span>::LOG_TARGET, <span class="string">&quot;Setting operating mode to {:?}.&quot;</span>, operating_mode);
+		<span class="macro">log::info!</span>(target: <span class="self">Self</span>::LOG_TARGET, <span class="string">"Setting operating mode to {:?}."</span>, operating_mode);
 		<span class="prelude-val">Ok</span>(())
 	}
 }
@@ -1138,7 +1140,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Trait that provides a static `str`.
 </span><span class="kw">pub trait </span>StaticStrProvider {
 	<span class="doccomment">/// Static string.
-	</span><span class="kw">const </span>STR: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str;
+	</span><span class="kw">const </span>STR: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str;
 }
 
 <span class="doccomment">/// A macro that generates `StaticStrProvider` with the string set to its stringified argument.
@@ -1149,7 +1151,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">pub struct </span>[&lt;<span class="macro-nonterminal">Str $str</span>&gt;];
 
 			<span class="kw">impl </span><span class="macro-nonterminal">$crate::StaticStrProvider </span><span class="kw">for </span>[&lt;Str <span class="macro-nonterminal">$str</span>&gt;] {
-				<span class="kw">const </span>STR: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="macro">stringify!</span>(<span class="macro-nonterminal">$str</span>);
+				<span class="kw">const </span>STR: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="macro">stringify!</span>(<span class="macro-nonterminal">$str</span>);
 			}
 		}
 	};
@@ -1161,7 +1163,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub struct </span>StrippableError&lt;T&gt; {
 	_phantom_data: sp_std::marker::PhantomData&lt;T&gt;,
 	<span class="attr">#[codec(skip)]
-	#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+	#[cfg(feature = <span class="string">"std"</span>)]
 	</span>message: String,
 }
 
@@ -1169,21 +1171,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>from(_err: T) -&gt; <span class="self">Self </span>{
 		<span class="self">Self </span>{
 			_phantom_data: Default::default(),
-			<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
-			</span>message: <span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, _err),
+			<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
+			</span>message: <span class="macro">format!</span>(<span class="string">"{:?}"</span>, _err),
 		}
 	}
 }
 
 <span class="kw">impl</span>&lt;T&gt; Debug <span class="kw">for </span>StrippableError&lt;T&gt; {
-	<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
-	</span><span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; sp_std::fmt::Result {
+	<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
+	</span><span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; sp_std::fmt::Result {
 		f.write_str(<span class="kw-2">&amp;</span><span class="self">self</span>.message)
 	}
 
-	<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
-	</span><span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; sp_std::fmt::Result {
-		f.write_str(<span class="string">&quot;Stripped error&quot;</span>)
+	<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
+	</span><span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; sp_std::fmt::Result {
+		f.write_str(<span class="string">"Stripped error"</span>)
 	}
 }
 
@@ -1221,10 +1223,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>storage_value_key_works() {
 		<span class="macro">assert_eq!</span>(
-			storage_value_key(<span class="string">&quot;PalletTransactionPayment&quot;</span>, <span class="string">&quot;NextFeeMultiplier&quot;</span>),
+			storage_value_key(<span class="string">"PalletTransactionPayment"</span>, <span class="string">"NextFeeMultiplier"</span>),
 			StorageKey(
 				<span class="macro">hex_literal::hex!</span>(
-					<span class="string">&quot;f0e954dfcca51a255ab12c60c789256a3f2edf3bdf381debe331ab7446addfdc&quot;
+					<span class="string">"f0e954dfcca51a255ab12c60c789256a3f2edf3bdf381debe331ab7446addfdc"
 				</span>)
 				.to_vec()
 			),
@@ -1234,7 +1236,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>generate_static_str_provider_works() {
 		<span class="macro">generate_static_str_provider!</span>(Test);
-		<span class="macro">assert_eq!</span>(StrTest::STR, <span class="string">&quot;Test&quot;</span>);
+		<span class="macro">assert_eq!</span>(StrTest::STR, <span class="string">"Test"</span>);
 	}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

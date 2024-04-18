@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/core/src/ecdsa.rs`."><title>ecdsa.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/core/src/ecdsa.rs`."><title>ecdsa.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_core" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_core" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sp_core/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -784,14 +786,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -803,18 +805,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	SecretStringError, SignatureBytes,
 };
 
-<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
 </span><span class="kw">use </span>k256::ecdsa::{SigningKey <span class="kw">as </span>SecretKey, VerifyingKey};
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">use </span>secp256k1::{
 	ecdsa::{RecoverableSignature, RecoveryId},
 	Message, PublicKey, SecretKey, SECP256K1,
 };
-<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
 </span><span class="kw">use </span>sp_std::vec::Vec;
 
 <span class="doccomment">/// An identifier used to match public keys against ecdsa keys
-</span><span class="kw">pub const </span>CRYPTO_ID: CryptoTypeId = CryptoTypeId(<span class="kw-2">*</span><span class="string">b&quot;ecds&quot;</span>);
+</span><span class="kw">pub const </span>CRYPTO_ID: CryptoTypeId = CryptoTypeId(<span class="kw-2">*</span><span class="string">b"ecds"</span>);
 
 <span class="doccomment">/// The byte length of public key
 </span><span class="kw">pub const </span>PUBLIC_KEY_SERIALIZED_SIZE: usize = <span class="number">33</span>;
@@ -847,30 +849,30 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		} <span class="kw">else </span>{
 			full
 		};
-		<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+		<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 		</span><span class="kw">let </span>pubkey = PublicKey::from_slice(<span class="kw-2">&amp;</span>full);
-		<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+		<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
 		</span><span class="kw">let </span>pubkey = VerifyingKey::from_sec1_bytes(<span class="kw-2">&amp;</span>full);
 		pubkey.map(|k| k.into()).map_err(|<span class="kw">_</span>| ())
 	}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">impl </span>From&lt;PublicKey&gt; <span class="kw">for </span>Public {
 	<span class="kw">fn </span>from(pubkey: PublicKey) -&gt; <span class="self">Self </span>{
 		<span class="self">Self</span>::from(pubkey.serialize())
 	}
 }
 
-<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
 </span><span class="kw">impl </span>From&lt;VerifyingKey&gt; <span class="kw">for </span>Public {
 	<span class="kw">fn </span>from(pubkey: VerifyingKey) -&gt; <span class="self">Self </span>{
 		<span class="self">Self</span>::try_from(<span class="kw-2">&amp;</span>pubkey.to_sec1_bytes()[..])
-			.expect(<span class="string">&quot;Valid key is serializable to [u8; 33]. qed.&quot;</span>)
+			.expect(<span class="string">"Valid key is serializable to [u8; 33]. qed."</span>)
 	}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"full_crypto"</span>)]
 </span><span class="kw">impl </span>From&lt;Pair&gt; <span class="kw">for </span>Public {
 	<span class="kw">fn </span>from(x: Pair) -&gt; <span class="self">Self </span>{
 		x.public()
@@ -888,16 +890,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Recover the public key from this signature and a pre-hashed message.
 	</span><span class="kw">pub fn </span>recover_prehashed(<span class="kw-2">&amp;</span><span class="self">self</span>, message: <span class="kw-2">&amp;</span>[u8; <span class="number">32</span>]) -&gt; <span class="prelude-ty">Option</span>&lt;Public&gt; {
-		<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+		<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 		</span>{
 			<span class="kw">let </span>rid = RecoveryId::from_i32(<span class="self">self</span>.<span class="number">0</span>[<span class="number">64</span>] <span class="kw">as </span>i32).ok()<span class="question-mark">?</span>;
 			<span class="kw">let </span>sig = RecoverableSignature::from_compact(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>[..<span class="number">64</span>], rid).ok()<span class="question-mark">?</span>;
 			<span class="kw">let </span>message =
-				Message::from_digest_slice(message).expect(<span class="string">&quot;Message is a 32 bytes hash; qed&quot;</span>);
+				Message::from_digest_slice(message).expect(<span class="string">"Message is a 32 bytes hash; qed"</span>);
 			SECP256K1.recover_ecdsa(<span class="kw-2">&amp;</span>message, <span class="kw-2">&amp;</span>sig).ok().map(Public::from)
 		}
 
-		<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+		<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
 		</span>{
 			<span class="kw">let </span>rid = k256::ecdsa::RecoveryId::from_byte(<span class="self">self</span>.<span class="number">0</span>[<span class="number">64</span>])<span class="question-mark">?</span>;
 			<span class="kw">let </span>sig = k256::ecdsa::Signature::from_bytes((<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>[..<span class="number">64</span>]).into()).ok()<span class="question-mark">?</span>;
@@ -906,7 +908,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
 </span><span class="kw">impl </span>From&lt;(k256::ecdsa::Signature, k256::ecdsa::RecoveryId)&gt; <span class="kw">for </span>Signature {
 	<span class="kw">fn </span>from(recsig: (k256::ecdsa::Signature, k256::ecdsa::RecoveryId)) -&gt; Signature {
 		<span class="kw">let </span><span class="kw-2">mut </span>r = <span class="self">Self</span>::default();
@@ -916,7 +918,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">impl </span>From&lt;RecoverableSignature&gt; <span class="kw">for </span>Signature {
 	<span class="kw">fn </span>from(recsig: RecoverableSignature) -&gt; Signature {
 		<span class="kw">let </span><span class="kw-2">mut </span>r = <span class="self">Self</span>::default();
@@ -931,7 +933,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Derive a single hard junction.
 </span><span class="kw">fn </span>derive_hard_junction(secret_seed: <span class="kw-2">&amp;</span>Seed, cc: <span class="kw-2">&amp;</span>[u8; <span class="number">32</span>]) -&gt; Seed {
 	<span class="kw">use </span>codec::Encode;
-	(<span class="string">&quot;Secp256k1HDKD&quot;</span>, secret_seed, cc).using_encoded(sp_crypto_hashing::blake2_256)
+	(<span class="string">"Secp256k1HDKD"</span>, secret_seed, cc).using_encoded(sp_crypto_hashing::blake2_256)
 }
 
 <span class="doccomment">/// A key pair.
@@ -951,14 +953,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// You should never need to use this; generate(), generate_with_phrase
 	</span><span class="kw">fn </span>from_seed_slice(seed_slice: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;Pair, SecretStringError&gt; {
-		<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+		<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 		</span>{
 			<span class="kw">let </span>secret = SecretKey::from_slice(seed_slice)
 				.map_err(|<span class="kw">_</span>| SecretStringError::InvalidSeedLength)<span class="question-mark">?</span>;
 			<span class="prelude-val">Ok</span>(Pair { public: PublicKey::from_secret_key(<span class="kw-2">&amp;</span>SECP256K1, <span class="kw-2">&amp;</span>secret).into(), secret })
 		}
 
-		<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+		<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
 		</span>{
 			<span class="kw">let </span>secret = SecretKey::from_slice(seed_slice)
 				.map_err(|<span class="kw">_</span>| SecretStringError::InvalidSeedLength)<span class="question-mark">?</span>;
@@ -988,7 +990,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Sign a message.
-	</span><span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
+	</span><span class="attr">#[cfg(feature = <span class="string">"full_crypto"</span>)]
 	</span><span class="kw">fn </span>sign(<span class="kw-2">&amp;</span><span class="self">self</span>, message: <span class="kw-2">&amp;</span>[u8]) -&gt; Signature {
 		<span class="self">self</span>.sign_prehashed(<span class="kw-2">&amp;</span>sp_crypto_hashing::blake2_256(message))
 	}
@@ -1007,11 +1009,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl </span>Pair {
 	<span class="doccomment">/// Get the seed for this key.
 	</span><span class="kw">pub fn </span>seed(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Seed {
-		<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+		<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 		</span>{
 			<span class="self">self</span>.secret.secret_bytes()
 		}
-		<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+		<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
 		</span>{
 			<span class="self">self</span>.secret.to_bytes().into()
 		}
@@ -1019,10 +1021,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Exactly as `from_string` except that if no matches are found then, the the first 32
 	/// characters are taken (padded with spaces as necessary) and used as the MiniSecretKey.
-	</span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+	</span><span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 	</span><span class="kw">pub fn </span>from_legacy_string(s: <span class="kw-2">&amp;</span>str, password_override: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;) -&gt; Pair {
 		<span class="self">Self</span>::from_string(s, password_override).unwrap_or_else(|<span class="kw">_</span>| {
-			<span class="kw">let </span><span class="kw-2">mut </span>padded_seed: Seed = [<span class="string">b&#39; &#39;</span>; <span class="number">32</span>];
+			<span class="kw">let </span><span class="kw-2">mut </span>padded_seed: Seed = [<span class="string">b' '</span>; <span class="number">32</span>];
 			<span class="kw">let </span>len = s.len().min(<span class="number">32</span>);
 			padded_seed[..len].copy_from_slice(<span class="kw-2">&amp;</span>s.as_bytes()[..len]);
 			<span class="self">Self</span>::from_seed(<span class="kw-2">&amp;</span>padded_seed)
@@ -1030,22 +1032,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Sign a pre-hashed message
-	</span><span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
+	</span><span class="attr">#[cfg(feature = <span class="string">"full_crypto"</span>)]
 	</span><span class="kw">pub fn </span>sign_prehashed(<span class="kw-2">&amp;</span><span class="self">self</span>, message: <span class="kw-2">&amp;</span>[u8; <span class="number">32</span>]) -&gt; Signature {
-		<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+		<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 		</span>{
 			<span class="kw">let </span>message =
-				Message::from_digest_slice(message).expect(<span class="string">&quot;Message is a 32 bytes hash; qed&quot;</span>);
+				Message::from_digest_slice(message).expect(<span class="string">"Message is a 32 bytes hash; qed"</span>);
 			SECP256K1.sign_ecdsa_recoverable(<span class="kw-2">&amp;</span>message, <span class="kw-2">&amp;</span><span class="self">self</span>.secret).into()
 		}
 
-		<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+		<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
 		</span>{
 			<span class="comment">// Signing fails only if the `message` number of bytes is less than the field length
-			// (unfallible as we&#39;re using a fixed message length of 32).
+			// (unfallible as we're using a fixed message length of 32).
 			</span><span class="self">self</span>.secret
 				.sign_prehash_recoverable(message)
-				.expect(<span class="string">&quot;Signing can&#39;t fail when using 32 bytes message hash. qed.&quot;</span>)
+				.expect(<span class="string">"Signing can't fail when using 32 bytes message hash. qed."</span>)
 				.into()
 		}
 	}
@@ -1061,7 +1063,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Verify a signature on a message. Returns true if the signature is good.
 	/// Parses Signature using parse_overflowing_slice.
-	</span><span class="attr">#[deprecated(note = <span class="string">&quot;please use `verify` instead&quot;</span>)]
+	</span><span class="attr">#[deprecated(note = <span class="string">"please use `verify` instead"</span>)]
 	</span><span class="kw">pub fn </span>verify_deprecated&lt;M: AsRef&lt;[u8]&gt;&gt;(sig: <span class="kw-2">&amp;</span>Signature, message: M, pubkey: <span class="kw-2">&amp;</span>Public) -&gt; bool {
 		<span class="kw">let </span>message =
 			libsecp256k1::Message::parse(<span class="kw-2">&amp;</span>sp_crypto_hashing::blake2_256(message.as_ref()));
@@ -1083,12 +1085,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="comment">// The `secp256k1` backend doesn&#39;t implement cleanup for their private keys.
+<span class="comment">// The `secp256k1` backend doesn't implement cleanup for their private keys.
 // Currently we should take care of wiping the secret from memory.
 // NOTE: this solution is not effective when `Pair` is moved around memory.
 // The very same problem affects other cryptographic backends that are just using
 // `zeroize`for their secrets.
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+</span><span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">impl </span>Drop <span class="kw">for </span>Pair {
 	<span class="kw">fn </span>drop(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
 		<span class="self">self</span>.secret.non_secure_erase()
@@ -1119,8 +1121,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>default_phrase_should_be_used() {
 		<span class="macro">assert_eq!</span>(
-			Pair::from_string(<span class="string">&quot;//Alice///password&quot;</span>, <span class="prelude-val">None</span>).unwrap().public(),
-			Pair::from_string(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}//Alice&quot;</span>, DEV_PHRASE), <span class="prelude-val">Some</span>(<span class="string">&quot;password&quot;</span>))
+			Pair::from_string(<span class="string">"//Alice///password"</span>, <span class="prelude-val">None</span>).unwrap().public(),
+			Pair::from_string(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{}//Alice"</span>, DEV_PHRASE), <span class="prelude-val">Some</span>(<span class="string">"password"</span>))
 				.unwrap()
 				.public(),
 		);
@@ -1129,7 +1131,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>seed_and_derive_should_work() {
 		<span class="kw">let </span>seed = array_bytes::hex2array_unchecked(
-			<span class="string">&quot;9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60&quot;</span>,
+			<span class="string">"9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60"</span>,
 		);
 		<span class="kw">let </span>pair = Pair::from_seed(<span class="kw-2">&amp;</span>seed);
 		<span class="macro">assert_eq!</span>(pair.seed(), seed);
@@ -1138,7 +1140,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">assert_eq!</span>(
 			derived.<span class="number">0</span>.seed(),
 			array_bytes::hex2array_unchecked::&lt;<span class="kw">_</span>, <span class="number">32</span>&gt;(
-				<span class="string">&quot;b8eefc4937200a8382d00050e050ced2d4ab72cc2ef1b061477afb51564fdd61&quot;
+				<span class="string">"b8eefc4937200a8382d00050e050ced2d4ab72cc2ef1b061477afb51564fdd61"
 			</span>)
 		);
 	}
@@ -1146,17 +1148,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>test_vector_should_work() {
 		<span class="kw">let </span>pair = Pair::from_seed(<span class="kw-2">&amp;</span>array_bytes::hex2array_unchecked(
-			<span class="string">&quot;9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60&quot;</span>,
+			<span class="string">"9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60"</span>,
 		));
 		<span class="kw">let </span>public = pair.public();
 		<span class="macro">assert_eq!</span>(
 			public,
 			Public::from_full(
-				<span class="kw-2">&amp;</span>array_bytes::hex2bytes_unchecked(<span class="string">&quot;8db55b05db86c0b1786ca49f095d76344c9e6056b2f02701a7e7f3c20aabfd913ebbe148dd17c56551a52952371071a6c604b3f3abe8f2c8fa742158ea6dd7d4&quot;</span>),
+				<span class="kw-2">&amp;</span>array_bytes::hex2bytes_unchecked(<span class="string">"8db55b05db86c0b1786ca49f095d76344c9e6056b2f02701a7e7f3c20aabfd913ebbe148dd17c56551a52952371071a6c604b3f3abe8f2c8fa742158ea6dd7d4"</span>),
 			).unwrap(),
 		);
-		<span class="kw">let </span>message = <span class="string">b&quot;&quot;</span>;
-		<span class="kw">let </span>signature = array_bytes::hex2array_unchecked(<span class="string">&quot;3dde91174bd9359027be59a428b8146513df80a2a3c7eda2194f64de04a69ab97b753169e94db6ffd50921a2668a48b94ca11e3d32c1ff19cfe88890aa7e8f3c00&quot;</span>);
+		<span class="kw">let </span>message = <span class="string">b""</span>;
+		<span class="kw">let </span>signature = array_bytes::hex2array_unchecked(<span class="string">"3dde91174bd9359027be59a428b8146513df80a2a3c7eda2194f64de04a69ab97b753169e94db6ffd50921a2668a48b94ca11e3d32c1ff19cfe88890aa7e8f3c00"</span>);
 		<span class="kw">let </span>signature = Signature::from_raw(signature);
 		<span class="macro">assert!</span>(pair.sign(<span class="kw-2">&amp;</span>message[..]) == signature);
 		<span class="macro">assert!</span>(Pair::verify(<span class="kw-2">&amp;</span>signature, <span class="kw-2">&amp;</span>message[..], <span class="kw-2">&amp;</span>public));
@@ -1165,7 +1167,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>test_vector_by_string_should_work() {
 		<span class="kw">let </span>pair = Pair::from_string(
-			<span class="string">&quot;0x9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60&quot;</span>,
+			<span class="string">"0x9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60"</span>,
 			<span class="prelude-val">None</span>,
 		)
 		.unwrap();
@@ -1173,11 +1175,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">assert_eq!</span>(
 			public,
 			Public::from_full(
-				<span class="kw-2">&amp;</span>array_bytes::hex2bytes_unchecked(<span class="string">&quot;8db55b05db86c0b1786ca49f095d76344c9e6056b2f02701a7e7f3c20aabfd913ebbe148dd17c56551a52952371071a6c604b3f3abe8f2c8fa742158ea6dd7d4&quot;</span>),
+				<span class="kw-2">&amp;</span>array_bytes::hex2bytes_unchecked(<span class="string">"8db55b05db86c0b1786ca49f095d76344c9e6056b2f02701a7e7f3c20aabfd913ebbe148dd17c56551a52952371071a6c604b3f3abe8f2c8fa742158ea6dd7d4"</span>),
 			).unwrap(),
 		);
-		<span class="kw">let </span>message = <span class="string">b&quot;&quot;</span>;
-		<span class="kw">let </span>signature = array_bytes::hex2array_unchecked(<span class="string">&quot;3dde91174bd9359027be59a428b8146513df80a2a3c7eda2194f64de04a69ab97b753169e94db6ffd50921a2668a48b94ca11e3d32c1ff19cfe88890aa7e8f3c00&quot;</span>);
+		<span class="kw">let </span>message = <span class="string">b""</span>;
+		<span class="kw">let </span>signature = array_bytes::hex2array_unchecked(<span class="string">"3dde91174bd9359027be59a428b8146513df80a2a3c7eda2194f64de04a69ab97b753169e94db6ffd50921a2668a48b94ca11e3d32c1ff19cfe88890aa7e8f3c00"</span>);
 		<span class="kw">let </span>signature = Signature::from_raw(signature);
 		<span class="macro">assert!</span>(pair.sign(<span class="kw-2">&amp;</span>message[..]) == signature);
 		<span class="macro">assert!</span>(Pair::verify(<span class="kw-2">&amp;</span>signature, <span class="kw-2">&amp;</span>message[..], <span class="kw-2">&amp;</span>public));
@@ -1187,27 +1189,27 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>generated_pair_should_work() {
 		<span class="kw">let </span>(pair, <span class="kw">_</span>) = Pair::generate();
 		<span class="kw">let </span>public = pair.public();
-		<span class="kw">let </span>message = <span class="string">b&quot;Something important&quot;</span>;
+		<span class="kw">let </span>message = <span class="string">b"Something important"</span>;
 		<span class="kw">let </span>signature = pair.sign(<span class="kw-2">&amp;</span>message[..]);
 		<span class="macro">assert!</span>(Pair::verify(<span class="kw-2">&amp;</span>signature, <span class="kw-2">&amp;</span>message[..], <span class="kw-2">&amp;</span>public));
-		<span class="macro">assert!</span>(!Pair::verify(<span class="kw-2">&amp;</span>signature, <span class="string">b&quot;Something else&quot;</span>, <span class="kw-2">&amp;</span>public));
+		<span class="macro">assert!</span>(!Pair::verify(<span class="kw-2">&amp;</span>signature, <span class="string">b"Something else"</span>, <span class="kw-2">&amp;</span>public));
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>seeded_pair_should_work() {
-		<span class="kw">let </span>pair = Pair::from_seed(<span class="string">b&quot;12345678901234567890123456789012&quot;</span>);
+		<span class="kw">let </span>pair = Pair::from_seed(<span class="string">b"12345678901234567890123456789012"</span>);
 		<span class="kw">let </span>public = pair.public();
 		<span class="macro">assert_eq!</span>(
 			public,
 			Public::from_full(
-				<span class="kw-2">&amp;</span>array_bytes::hex2bytes_unchecked(<span class="string">&quot;5676109c54b9a16d271abeb4954316a40a32bcce023ac14c8e26e958aa68fba995840f3de562156558efbfdac3f16af0065e5f66795f4dd8262a228ef8c6d813&quot;</span>),
+				<span class="kw-2">&amp;</span>array_bytes::hex2bytes_unchecked(<span class="string">"5676109c54b9a16d271abeb4954316a40a32bcce023ac14c8e26e958aa68fba995840f3de562156558efbfdac3f16af0065e5f66795f4dd8262a228ef8c6d813"</span>),
 			).unwrap(),
 		);
-		<span class="kw">let </span>message = array_bytes::hex2bytes_unchecked(<span class="string">&quot;2f8c6129d816cf51c374bc7f08c3e63ed156cf78aefb4a6550d97b87997977ee00000000000000000200d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a4500000000000000&quot;</span>);
+		<span class="kw">let </span>message = array_bytes::hex2bytes_unchecked(<span class="string">"2f8c6129d816cf51c374bc7f08c3e63ed156cf78aefb4a6550d97b87997977ee00000000000000000200d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a4500000000000000"</span>);
 		<span class="kw">let </span>signature = pair.sign(<span class="kw-2">&amp;</span>message[..]);
-		<span class="macro">println!</span>(<span class="string">&quot;Correct signature: {:?}&quot;</span>, signature);
+		<span class="macro">println!</span>(<span class="string">"Correct signature: {:?}"</span>, signature);
 		<span class="macro">assert!</span>(Pair::verify(<span class="kw-2">&amp;</span>signature, <span class="kw-2">&amp;</span>message[..], <span class="kw-2">&amp;</span>public));
-		<span class="macro">assert!</span>(!Pair::verify(<span class="kw-2">&amp;</span>signature, <span class="string">&quot;Other message&quot;</span>, <span class="kw-2">&amp;</span>public));
+		<span class="macro">assert!</span>(!Pair::verify(<span class="kw-2">&amp;</span>signature, <span class="string">"Other message"</span>, <span class="kw-2">&amp;</span>public));
 	}
 
 	<span class="attr">#[test]
@@ -1220,8 +1222,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>generate_with_password_phrase_recovery_possible() {
-		<span class="kw">let </span>(pair1, phrase, <span class="kw">_</span>) = Pair::generate_with_phrase(<span class="prelude-val">Some</span>(<span class="string">&quot;password&quot;</span>));
-		<span class="kw">let </span>(pair2, <span class="kw">_</span>) = Pair::from_phrase(<span class="kw-2">&amp;</span>phrase, <span class="prelude-val">Some</span>(<span class="string">&quot;password&quot;</span>)).unwrap();
+		<span class="kw">let </span>(pair1, phrase, <span class="kw">_</span>) = Pair::generate_with_phrase(<span class="prelude-val">Some</span>(<span class="string">"password"</span>));
+		<span class="kw">let </span>(pair2, <span class="kw">_</span>) = Pair::from_phrase(<span class="kw-2">&amp;</span>phrase, <span class="prelude-val">Some</span>(<span class="string">"password"</span>)).unwrap();
 
 		<span class="macro">assert_eq!</span>(pair1.public(), pair2.public());
 	}
@@ -1229,22 +1231,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>generate_with_phrase_should_be_recoverable_with_from_string() {
 		<span class="kw">let </span>(pair, phrase, seed) = Pair::generate_with_phrase(<span class="prelude-val">None</span>);
-		<span class="kw">let </span>repair_seed = Pair::from_seed_slice(seed.as_ref()).expect(<span class="string">&quot;seed slice is valid&quot;</span>);
+		<span class="kw">let </span>repair_seed = Pair::from_seed_slice(seed.as_ref()).expect(<span class="string">"seed slice is valid"</span>);
 		<span class="macro">assert_eq!</span>(pair.public(), repair_seed.public());
 		<span class="macro">assert_eq!</span>(pair.secret, repair_seed.secret);
 		<span class="kw">let </span>(repair_phrase, reseed) =
-			Pair::from_phrase(phrase.as_ref(), <span class="prelude-val">None</span>).expect(<span class="string">&quot;seed slice is valid&quot;</span>);
+			Pair::from_phrase(phrase.as_ref(), <span class="prelude-val">None</span>).expect(<span class="string">"seed slice is valid"</span>);
 		<span class="macro">assert_eq!</span>(seed, reseed);
 		<span class="macro">assert_eq!</span>(pair.public(), repair_phrase.public());
 		<span class="macro">assert_eq!</span>(pair.secret, repair_phrase.secret);
-		<span class="kw">let </span>repair_string = Pair::from_string(phrase.as_str(), <span class="prelude-val">None</span>).expect(<span class="string">&quot;seed slice is valid&quot;</span>);
+		<span class="kw">let </span>repair_string = Pair::from_string(phrase.as_str(), <span class="prelude-val">None</span>).expect(<span class="string">"seed slice is valid"</span>);
 		<span class="macro">assert_eq!</span>(pair.public(), repair_string.public());
 		<span class="macro">assert_eq!</span>(pair.secret, repair_string.secret);
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>password_does_something() {
-		<span class="kw">let </span>(pair1, phrase, <span class="kw">_</span>) = Pair::generate_with_phrase(<span class="prelude-val">Some</span>(<span class="string">&quot;password&quot;</span>));
+		<span class="kw">let </span>(pair1, phrase, <span class="kw">_</span>) = Pair::generate_with_phrase(<span class="prelude-val">Some</span>(<span class="string">"password"</span>));
 		<span class="kw">let </span>(pair2, <span class="kw">_</span>) = Pair::from_phrase(<span class="kw-2">&amp;</span>phrase, <span class="prelude-val">None</span>).unwrap();
 
 		<span class="macro">assert_ne!</span>(pair1.public(), pair2.public());
@@ -1253,17 +1255,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>ss58check_roundtrip_works() {
-		<span class="kw">let </span>pair = Pair::from_seed(<span class="string">b&quot;12345678901234567890123456789012&quot;</span>);
+		<span class="kw">let </span>pair = Pair::from_seed(<span class="string">b"12345678901234567890123456789012"</span>);
 		<span class="kw">let </span>public = pair.public();
 		<span class="kw">let </span>s = public.to_ss58check();
-		<span class="macro">println!</span>(<span class="string">&quot;Correct: {}&quot;</span>, s);
+		<span class="macro">println!</span>(<span class="string">"Correct: {}"</span>, s);
 		<span class="kw">let </span>cmp = Public::from_ss58check(<span class="kw-2">&amp;</span>s).unwrap();
 		<span class="macro">assert_eq!</span>(cmp, public);
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>ss58check_format_check_works() {
-		<span class="kw">let </span>pair = Pair::from_seed(<span class="string">b&quot;12345678901234567890123456789012&quot;</span>);
+		<span class="kw">let </span>pair = Pair::from_seed(<span class="string">b"12345678901234567890123456789012"</span>);
 		<span class="kw">let </span>public = pair.public();
 		<span class="kw">let </span>format = Ss58AddressFormatRegistry::Reserved46Account.into();
 		<span class="kw">let </span>s = public.to_ss58check_with_version(format);
@@ -1272,7 +1274,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>ss58check_full_roundtrip_works() {
-		<span class="kw">let </span>pair = Pair::from_seed(<span class="string">b&quot;12345678901234567890123456789012&quot;</span>);
+		<span class="kw">let </span>pair = Pair::from_seed(<span class="string">b"12345678901234567890123456789012"</span>);
 		<span class="kw">let </span>public = pair.public();
 		<span class="kw">let </span>format = Ss58AddressFormatRegistry::PolkadotAccount.into();
 		<span class="kw">let </span>s = public.to_ss58check_with_version(format);
@@ -1291,40 +1293,40 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>ss58check_custom_format_works() {
 		<span class="comment">// We need to run this test in its own process to not interfere with other tests running in
 		// parallel and also relying on the ss58 version.
-		</span><span class="kw">if </span>std::env::var(<span class="string">&quot;RUN_CUSTOM_FORMAT_TEST&quot;</span>) == <span class="prelude-val">Ok</span>(<span class="string">&quot;1&quot;</span>.into()) {
+		</span><span class="kw">if </span>std::env::var(<span class="string">"RUN_CUSTOM_FORMAT_TEST"</span>) == <span class="prelude-val">Ok</span>(<span class="string">"1"</span>.into()) {
 			<span class="kw">use </span><span class="kw">crate</span>::crypto::Ss58AddressFormat;
 			<span class="comment">// temp save default format version
 			</span><span class="kw">let </span>default_format = <span class="kw">crate</span>::crypto::default_ss58_version();
-			<span class="comment">// set current ss58 version is custom &quot;200&quot; `Ss58AddressFormat::Custom(200)`
+			<span class="comment">// set current ss58 version is custom "200" `Ss58AddressFormat::Custom(200)`
 
 			</span>set_default_ss58_version(Ss58AddressFormat::custom(<span class="number">200</span>));
 			<span class="comment">// custom addr encoded by version 200
-			</span><span class="kw">let </span>addr = <span class="string">&quot;4pbsSkWcBaYoFHrKJZp5fDVUKbqSYD9dhZZGvpp3vQ5ysVs5ybV&quot;</span>;
+			</span><span class="kw">let </span>addr = <span class="string">"4pbsSkWcBaYoFHrKJZp5fDVUKbqSYD9dhZZGvpp3vQ5ysVs5ybV"</span>;
 			Public::from_ss58check(addr).unwrap();
 
 			set_default_ss58_version(default_format);
 			<span class="comment">// set current ss58 version to default version
-			</span><span class="kw">let </span>addr = <span class="string">&quot;KWAfgC2aRG5UVD6CpbPQXCx4YZZUhvWqqAJE6qcYc9Rtr6g5C&quot;</span>;
+			</span><span class="kw">let </span>addr = <span class="string">"KWAfgC2aRG5UVD6CpbPQXCx4YZZUhvWqqAJE6qcYc9Rtr6g5C"</span>;
 			Public::from_ss58check(addr).unwrap();
 
-			<span class="macro">println!</span>(<span class="string">&quot;CUSTOM_FORMAT_SUCCESSFUL&quot;</span>);
+			<span class="macro">println!</span>(<span class="string">"CUSTOM_FORMAT_SUCCESSFUL"</span>);
 		} <span class="kw">else </span>{
 			<span class="kw">let </span>executable = std::env::current_exe().unwrap();
 			<span class="kw">let </span>output = std::process::Command::new(executable)
-				.env(<span class="string">&quot;RUN_CUSTOM_FORMAT_TEST&quot;</span>, <span class="string">&quot;1&quot;</span>)
-				.args(<span class="kw-2">&amp;</span>[<span class="string">&quot;--nocapture&quot;</span>, <span class="string">&quot;ss58check_custom_format_works&quot;</span>])
+				.env(<span class="string">"RUN_CUSTOM_FORMAT_TEST"</span>, <span class="string">"1"</span>)
+				.args(<span class="kw-2">&amp;</span>[<span class="string">"--nocapture"</span>, <span class="string">"ss58check_custom_format_works"</span>])
 				.output()
 				.unwrap();
 
 			<span class="kw">let </span>output = String::from_utf8(output.stdout).unwrap();
-			<span class="macro">assert!</span>(output.contains(<span class="string">&quot;CUSTOM_FORMAT_SUCCESSFUL&quot;</span>));
+			<span class="macro">assert!</span>(output.contains(<span class="string">"CUSTOM_FORMAT_SUCCESSFUL"</span>));
 		}
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>signature_serialization_works() {
-		<span class="kw">let </span>pair = Pair::from_seed(<span class="string">b&quot;12345678901234567890123456789012&quot;</span>);
-		<span class="kw">let </span>message = <span class="string">b&quot;Something important&quot;</span>;
+		<span class="kw">let </span>pair = Pair::from_seed(<span class="string">b"12345678901234567890123456789012"</span>);
+		<span class="kw">let </span>message = <span class="string">b"Something important"</span>;
 		<span class="kw">let </span>signature = pair.sign(<span class="kw-2">&amp;</span>message[..]);
 		<span class="kw">let </span>serialized_signature = serde_json::to_string(<span class="kw-2">&amp;</span>signature).unwrap();
 		<span class="comment">// Signature is 65 bytes, so 130 chars + 2 quote chars
@@ -1338,30 +1340,30 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">fn </span>deserialize_signature(text: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;Signature, serde_json::error::Error&gt; {
 			serde_json::from_str(text)
 		}
-		<span class="macro">assert!</span>(deserialize_signature(<span class="string">&quot;Not valid json.&quot;</span>).is_err());
-		<span class="macro">assert!</span>(deserialize_signature(<span class="string">&quot;\&quot;Not an actual signature.\&quot;&quot;</span>).is_err());
+		<span class="macro">assert!</span>(deserialize_signature(<span class="string">"Not valid json."</span>).is_err());
+		<span class="macro">assert!</span>(deserialize_signature(<span class="string">"\"Not an actual signature.\""</span>).is_err());
 		<span class="comment">// Poorly-sized
-		</span><span class="macro">assert!</span>(deserialize_signature(<span class="string">&quot;\&quot;abc123\&quot;&quot;</span>).is_err());
+		</span><span class="macro">assert!</span>(deserialize_signature(<span class="string">"\"abc123\""</span>).is_err());
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>sign_prehashed_works() {
-		<span class="kw">let </span>(pair, <span class="kw">_</span>, <span class="kw">_</span>) = Pair::generate_with_phrase(<span class="prelude-val">Some</span>(<span class="string">&quot;password&quot;</span>));
+		<span class="kw">let </span>(pair, <span class="kw">_</span>, <span class="kw">_</span>) = Pair::generate_with_phrase(<span class="prelude-val">Some</span>(<span class="string">"password"</span>));
 
-		<span class="comment">// `msg` shouldn&#39;t be mangled
+		<span class="comment">// `msg` shouldn't be mangled
 		</span><span class="kw">let </span>msg = [<span class="number">0u8</span>; <span class="number">32</span>];
 		<span class="kw">let </span>sig1 = pair.sign_prehashed(<span class="kw-2">&amp;</span>msg);
 		<span class="kw">let </span>sig2: Signature = {
-			<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+			<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 			</span>{
 				<span class="kw">let </span>message = Message::from_digest_slice(<span class="kw-2">&amp;</span>msg).unwrap();
 				SECP256K1.sign_ecdsa_recoverable(<span class="kw-2">&amp;</span>message, <span class="kw-2">&amp;</span>pair.secret).into()
 			}
-			<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+			<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
 			</span>{
 				pair.secret
 					.sign_prehash_recoverable(<span class="kw-2">&amp;</span>msg)
-					.expect(<span class="string">&quot;signing may not fail (???). qed.&quot;</span>)
+					.expect(<span class="string">"signing may not fail (???). qed."</span>)
 					.into()
 			}
 		};
@@ -1372,7 +1374,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">assert_ne!</span>(sig1, sig2);
 
 		<span class="comment">// using pre-hashed `msg` works
-		</span><span class="kw">let </span>msg = <span class="string">b&quot;this should be hashed&quot;</span>;
+		</span><span class="kw">let </span>msg = <span class="string">b"this should be hashed"</span>;
 		<span class="kw">let </span>sig1 = pair.sign_prehashed(<span class="kw-2">&amp;</span>sp_crypto_hashing::blake2_256(msg));
 		<span class="kw">let </span>sig2 = pair.sign(msg);
 		<span class="macro">assert_eq!</span>(sig1, sig2);
@@ -1380,24 +1382,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>verify_prehashed_works() {
-		<span class="kw">let </span>(pair, <span class="kw">_</span>, <span class="kw">_</span>) = Pair::generate_with_phrase(<span class="prelude-val">Some</span>(<span class="string">&quot;password&quot;</span>));
+		<span class="kw">let </span>(pair, <span class="kw">_</span>, <span class="kw">_</span>) = Pair::generate_with_phrase(<span class="prelude-val">Some</span>(<span class="string">"password"</span>));
 
 		<span class="comment">// `msg` and `sig` match
-		</span><span class="kw">let </span>msg = sp_crypto_hashing::blake2_256(<span class="string">b&quot;this should be hashed&quot;</span>);
+		</span><span class="kw">let </span>msg = sp_crypto_hashing::blake2_256(<span class="string">b"this should be hashed"</span>);
 		<span class="kw">let </span>sig = pair.sign_prehashed(<span class="kw-2">&amp;</span>msg);
 		<span class="macro">assert!</span>(Pair::verify_prehashed(<span class="kw-2">&amp;</span>sig, <span class="kw-2">&amp;</span>msg, <span class="kw-2">&amp;</span>pair.public()));
 
-		<span class="comment">// `msg` and `sig` don&#39;t match
-		</span><span class="kw">let </span>msg = sp_crypto_hashing::blake2_256(<span class="string">b&quot;this is a different message&quot;</span>);
+		<span class="comment">// `msg` and `sig` don't match
+		</span><span class="kw">let </span>msg = sp_crypto_hashing::blake2_256(<span class="string">b"this is a different message"</span>);
 		<span class="macro">assert!</span>(!Pair::verify_prehashed(<span class="kw-2">&amp;</span>sig, <span class="kw-2">&amp;</span>msg, <span class="kw-2">&amp;</span>pair.public()));
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>recover_prehashed_works() {
-		<span class="kw">let </span>(pair, <span class="kw">_</span>, <span class="kw">_</span>) = Pair::generate_with_phrase(<span class="prelude-val">Some</span>(<span class="string">&quot;password&quot;</span>));
+		<span class="kw">let </span>(pair, <span class="kw">_</span>, <span class="kw">_</span>) = Pair::generate_with_phrase(<span class="prelude-val">Some</span>(<span class="string">"password"</span>));
 
 		<span class="comment">// recovered key matches signing key
-		</span><span class="kw">let </span>msg = sp_crypto_hashing::blake2_256(<span class="string">b&quot;this should be hashed&quot;</span>);
+		</span><span class="kw">let </span>msg = sp_crypto_hashing::blake2_256(<span class="string">b"this should be hashed"</span>);
 		<span class="kw">let </span>sig = pair.sign_prehashed(<span class="kw-2">&amp;</span>msg);
 		<span class="kw">let </span>key = sig.recover_prehashed(<span class="kw-2">&amp;</span>msg).unwrap();
 		<span class="macro">assert_eq!</span>(pair.public(), key);
@@ -1405,8 +1407,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// recovered key is useable
 		</span><span class="macro">assert!</span>(Pair::verify_prehashed(<span class="kw-2">&amp;</span>sig, <span class="kw-2">&amp;</span>msg, <span class="kw-2">&amp;</span>key));
 
-		<span class="comment">// recovered key and signing key don&#39;t match
-		</span><span class="kw">let </span>msg = sp_crypto_hashing::blake2_256(<span class="string">b&quot;this is a different message&quot;</span>);
+		<span class="comment">// recovered key and signing key don't match
+		</span><span class="kw">let </span>msg = sp_crypto_hashing::blake2_256(<span class="string">b"this is a different message"</span>);
 		<span class="kw">let </span>key = sig.recover_prehashed(<span class="kw-2">&amp;</span>msg).unwrap();
 		<span class="macro">assert_ne!</span>(pair.public(), key);
 	}

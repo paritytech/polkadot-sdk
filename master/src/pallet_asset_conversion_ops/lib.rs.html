@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/asset-conversion/ops/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/asset-conversion/ops/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_asset_conversion_ops" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_asset_conversion_ops" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../pallet_asset_conversion_ops/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -483,14 +485,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 //  http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -510,9 +512,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!   transferred, and liquidity is moved to the new accounts.
 
 </span><span class="attr">#![deny(missing_docs)]
-#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
+#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
-#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 </span><span class="kw">mod </span>benchmarking;
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>mock;
@@ -553,10 +555,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="doccomment">/// Overarching event type.
 		</span><span class="kw">type </span>RuntimeEvent: From&lt;Event&lt;<span class="self">Self</span>&gt;&gt; + IsType&lt;&lt;<span class="self">Self </span><span class="kw">as </span>frame_system::Config&gt;::RuntimeEvent&gt;;
 
-		<span class="doccomment">/// Type previously used to derive the account ID for a pool. Indicates that the pool&#39;s
+		<span class="doccomment">/// Type previously used to derive the account ID for a pool. Indicates that the pool's
 		/// liquidity assets are located at this account before the migration.
-		</span><span class="kw">type </span>PriorAccountIdConverter: <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; TryConvert&lt;
-			<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>(<span class="self">Self</span>::AssetKind, <span class="self">Self</span>::AssetKind),
+		</span><span class="kw">type </span>PriorAccountIdConverter: <span class="kw">for</span>&lt;<span class="lifetime">'a</span>&gt; TryConvert&lt;
+			<span class="kw-2">&amp;</span><span class="lifetime">'a </span>(<span class="self">Self</span>::AssetKind, <span class="self">Self</span>::AssetKind),
 			<span class="self">Self</span>::AccountId,
 		&gt;;
 
@@ -590,17 +592,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">type </span>WeightInfo: WeightInfo;
 	}
 
-	<span class="comment">// Pallet&#39;s events.
+	<span class="comment">// Pallet's events.
 	</span><span class="attr">#[pallet::event]
 	#[pallet::generate_deposit(<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>deposit_event)]
 	</span><span class="kw">pub enum </span>Event&lt;T: Config&gt; {
 		<span class="doccomment">/// Indicates that a pool has been migrated to the new account ID.
 		</span>MigratedToNewAccount {
-			<span class="doccomment">/// Pool&#39;s ID.
+			<span class="doccomment">/// Pool's ID.
 			</span>pool_id: T::PoolId,
-			<span class="doccomment">/// Pool&#39;s prior account ID.
+			<span class="doccomment">/// Pool's prior account ID.
 			</span>prior_account: T::AccountId,
-			<span class="doccomment">/// Pool&#39;s new account ID.
+			<span class="doccomment">/// Pool's new account ID.
 			</span>new_account: T::AccountId,
 		},
 	}
@@ -609,15 +611,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub enum </span>Error&lt;T&gt; {
 		<span class="doccomment">/// Provided asset pair is not supported for pool.
 		</span>InvalidAssetPair,
-		<span class="doccomment">/// The pool doesn&#39;t exist.
+		<span class="doccomment">/// The pool doesn't exist.
 		</span>PoolNotFound,
-		<span class="doccomment">/// Pool&#39;s balance cannot be zero.
+		<span class="doccomment">/// Pool's balance cannot be zero.
 		</span>ZeroBalance,
 		<span class="doccomment">/// Indicates a partial transfer of balance to the new account during a migration.
 		</span>PartialTransfer,
 	}
 
-	<span class="doccomment">/// Pallet&#39;s callable functions.
+	<span class="doccomment">/// Pallet's callable functions.
 	</span><span class="attr">#[pallet::call]
 	</span><span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
 		<span class="doccomment">/// Migrates an existing pool to a new account ID derivation method for a given asset pair.
@@ -652,10 +654,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">ensure!</span>(!lp_balance.is_zero(), Error::&lt;T&gt;::ZeroBalance);
 
 			<span class="comment">// Check if a deposit needs to be placed for the new account. If so, mint the
-			// required deposit amount to the depositor&#39;s account to ensure the deposit can be
+			// required deposit amount to the depositor's account to ensure the deposit can be
 			// provided. Once the deposit from the prior account is returned, the minted assets will
-			// be burned. Touching the new account is necessary because it&#39;s not possible to
-			// transfer assets to the new account if it&#39;s required. Additionally, the deposit cannot
+			// be burned. Touching the new account is necessary because it's not possible to
+			// transfer assets to the new account if it's required. Additionally, the deposit cannot
 			// be refunded from the prior account until its balance is zero.
 
 			</span><span class="kw">let </span>deposit_asset_ed = T::DepositAsset::minimum_balance();
@@ -778,7 +780,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
 		<span class="doccomment">/// Returns the prior and new account IDs for a given pool ID. The prior account ID comes
 		/// first in the tuple.
-		</span><span class="attr">#[cfg(not(any(test, feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)))]
+		</span><span class="attr">#[cfg(not(any(test, feature = <span class="string">"runtime-benchmarks"</span>)))]
 		</span><span class="kw">fn </span>addresses(pool_id: <span class="kw-2">&amp;</span>T::PoolId) -&gt; <span class="prelude-ty">Option</span>&lt;(T::AccountId, T::AccountId)&gt; {
 			<span class="kw">match </span>(
 				T::PriorAccountIdConverter::try_convert(pool_id),
@@ -794,10 +796,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		///
 		/// This function is intended for use only in test and benchmark environments. The prior
 		/// account ID represents the new account ID from [`Config::PoolLocator`], allowing the use
-		/// of the main pallet&#39;s calls to set up a pool with liquidity placed in that account and
+		/// of the main pallet's calls to set up a pool with liquidity placed in that account and
 		/// migrate it to another account, which in this case is the result of
 		/// [`Config::PriorAccountIdConverter`].
-		</span><span class="attr">#[cfg(any(test, feature = <span class="string">&quot;runtime-benchmarks&quot;</span>))]
+		</span><span class="attr">#[cfg(any(test, feature = <span class="string">"runtime-benchmarks"</span>))]
 		</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>addresses(pool_id: <span class="kw-2">&amp;</span>T::PoolId) -&gt; <span class="prelude-ty">Option</span>&lt;(T::AccountId, T::AccountId)&gt; {
 			<span class="kw">match </span>(
 				T::PoolLocator::address(pool_id),

@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/service/src/client/notification_pinning.rs`."><title>notification_pinning.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/service/src/client/notification_pinning.rs`."><title>notification_pinning.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sc_service" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sc_service" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../sc_service/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -537,7 +539,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>schnellru::Limiter;
 <span class="kw">use </span>sp_runtime::traits::Block <span class="kw">as </span>BlockT;
 
-<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;db::notification_pinning&quot;</span>;
+<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"db::notification_pinning"</span>;
 <span class="kw">const </span>NOTIFICATION_PINNING_LIMIT: usize = <span class="number">1024</span>;
 
 <span class="doccomment">/// A limiter which automatically unpins blocks that leave the data structure.
@@ -558,7 +560,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl</span>&lt;Block: BlockT, B: Backend&lt;Block&gt;&gt; Limiter&lt;Block::Hash, u32&gt;
 	<span class="kw">for </span>UnpinningByLengthLimiter&lt;Block, B&gt;
 {
-	<span class="kw">type </span>KeyToInsert&lt;<span class="lifetime">&#39;a</span>&gt; = Block::Hash;
+	<span class="kw">type </span>KeyToInsert&lt;<span class="lifetime">'a</span>&gt; = Block::Hash;
 	<span class="kw">type </span>LinkType = usize;
 
 	<span class="kw">fn </span>is_over_the_limit(<span class="kw-2">&amp;</span><span class="self">self</span>, length: usize) -&gt; bool {
@@ -568,10 +570,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>on_insert(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		_length: usize,
-		key: <span class="self">Self</span>::KeyToInsert&lt;<span class="lifetime">&#39;_</span>&gt;,
+		key: <span class="self">Self</span>::KeyToInsert&lt;<span class="lifetime">'_</span>&gt;,
 		value: u32,
 	) -&gt; <span class="prelude-ty">Option</span>&lt;(Block::Hash, u32)&gt; {
-		<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;Pinning block based on notification. hash = {key}&quot;</span>);
+		<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"Pinning block based on notification. hash = {key}"</span>);
 		<span class="kw">if </span><span class="self">self</span>.max_length &gt; <span class="number">0 </span>{
 			<span class="prelude-val">Some</span>((key, value))
 		} <span class="kw">else </span>{
@@ -598,7 +600,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">if </span><span class="kw-2">*</span>references &gt; <span class="number">0 </span>{
 			<span class="macro">log::warn!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;Notification block pinning limit reached. Unpinning block with hash = {key:?}&quot;
+				<span class="string">"Notification block pinning limit reached. Unpinning block with hash = {key:?}"
 			</span>);
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(backend) = <span class="self">self</span>.backend.upgrade() {
 				(<span class="number">0</span>..<span class="kw-2">*</span>references).for_each(|<span class="kw">_</span>| backend.unpin_block(<span class="kw-2">*</span>key));
@@ -606,7 +608,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		} <span class="kw">else </span>{
 			<span class="macro">log::trace!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;Unpinned block. hash = {key:?}&quot;</span>,
+				<span class="string">"Unpinned block. hash = {key:?}"</span>,
 			)
 		}
 	}
@@ -658,14 +660,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="self">self</span>.pinned_blocks.remove(<span class="kw-2">&amp;</span>hash);
 			}
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(backend) = <span class="self">self</span>.task_backend.upgrade() {
-				<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;Reducing pinning refcount for block hash = {hash:?}&quot;</span>);
+				<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"Reducing pinning refcount for block hash = {hash:?}"</span>);
 				backend.unpin_block(hash);
 			} <span class="kw">else </span>{
-				<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;Terminating unpin-worker, backend reference was dropped.&quot;</span>);
+				<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"Terminating unpin-worker, backend reference was dropped."</span>);
 				<span class="kw">return </span><span class="prelude-val">Err</span>(())
 			}
 		} <span class="kw">else </span>{
-			<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;Received unpin message for already unpinned block. hash = {hash:?}&quot;</span>);
+			<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"Received unpin message for already unpinned block. hash = {hash:?}"</span>);
 		}
 		<span class="prelude-val">Ok</span>(())
 	}
@@ -684,7 +686,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					</span>},
 			}
 		}
-		<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;Terminating unpin-worker, stream terminated.&quot;</span>)
+		<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"Terminating unpin-worker, stream terminated."</span>)
 	}
 }
 
@@ -723,7 +725,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>pinning_worker_handles_base_case() {
-		<span class="kw">let </span>(_tx, rx) = tracing_unbounded(<span class="string">&quot;testing&quot;</span>, <span class="number">1000</span>);
+		<span class="kw">let </span>(_tx, rx) = tracing_unbounded(<span class="string">"testing"</span>, <span class="number">1000</span>);
 
 		<span class="kw">let </span>backend = Arc::new(sc_client_api::in_mem::Backend::&lt;Block&gt;::new());
 
@@ -746,7 +748,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>pinning_worker_handles_multiple_pins() {
-		<span class="kw">let </span>(_tx, rx) = tracing_unbounded(<span class="string">&quot;testing&quot;</span>, <span class="number">1000</span>);
+		<span class="kw">let </span>(_tx, rx) = tracing_unbounded(<span class="string">"testing"</span>, <span class="number">1000</span>);
 
 		<span class="kw">let </span>backend = Arc::new(sc_client_api::in_mem::Backend::&lt;Block&gt;::new());
 
@@ -778,7 +780,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>pinning_worker_handles_too_many_unpins() {
-		<span class="kw">let </span>(_tx, rx) = tracing_unbounded(<span class="string">&quot;testing&quot;</span>, <span class="number">1000</span>);
+		<span class="kw">let </span>(_tx, rx) = tracing_unbounded(<span class="string">"testing"</span>, <span class="number">1000</span>);
 
 		<span class="kw">let </span>backend = Arc::new(sc_client_api::in_mem::Backend::&lt;Block&gt;::new());
 
@@ -809,7 +811,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>pinning_worker_should_evict_when_limit_reached() {
-		<span class="kw">let </span>(_tx, rx) = tracing_unbounded(<span class="string">&quot;testing&quot;</span>, <span class="number">1000</span>);
+		<span class="kw">let </span>(_tx, rx) = tracing_unbounded(<span class="string">"testing"</span>, <span class="number">1000</span>);
 
 		<span class="kw">let </span>backend = Arc::new(sc_client_api::in_mem::Backend::&lt;Block&gt;::new());
 

@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/identity/src/benchmarking.rs`."><title>benchmarking.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/identity/src/benchmarking.rs`."><title>benchmarking.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_identity" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_identity" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../pallet_identity/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -880,21 +882,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
 </span><span class="doccomment">//! Identity pallet benchmarking.
 
-</span><span class="attr">#![cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+</span><span class="attr">#![cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 
 </span><span class="kw">use super</span>::<span class="kw-2">*</span>;
 
@@ -935,13 +937,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="comment">// Adds `r` registrars to the Identity Pallet. These registrars will have set fees and fields.
-</span><span class="kw">fn </span>add_registrars&lt;T: Config&gt;(r: u32) -&gt; <span class="prelude-ty">Result</span>&lt;(), <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; {
+</span><span class="kw">fn </span>add_registrars&lt;T: Config&gt;(r: u32) -&gt; <span class="prelude-ty">Result</span>&lt;(), <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
 	<span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..r {
-		<span class="kw">let </span>registrar: T::AccountId = account(<span class="string">&quot;registrar&quot;</span>, i, SEED);
+		<span class="kw">let </span>registrar: T::AccountId = account(<span class="string">"registrar"</span>, i, SEED);
 		<span class="kw">let </span>registrar_lookup = T::Lookup::unlookup(registrar.clone());
 		<span class="kw">let _ </span>= T::Currency::make_free_balance_be(<span class="kw-2">&amp;</span>registrar, BalanceOf::&lt;T&gt;::max_value());
 		<span class="kw">let </span>registrar_origin = T::RegistrarOrigin::try_successful_origin()
-			.expect(<span class="string">&quot;RegistrarOrigin has no successful origin required for the benchmark&quot;</span>);
+			.expect(<span class="string">"RegistrarOrigin has no successful origin required for the benchmark"</span>);
 		Identity::&lt;T&gt;::add_registrar(registrar_origin, registrar_lookup)<span class="question-mark">?</span>;
 		Identity::&lt;T&gt;::set_fee(RawOrigin::Signed(registrar.clone()).into(), i, <span class="number">10u32</span>.into())<span class="question-mark">?</span>;
 		<span class="kw">let </span>fields = T::IdentityInformation::all_fields();
@@ -957,13 +959,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">fn </span>create_sub_accounts&lt;T: Config&gt;(
 	who: <span class="kw-2">&amp;</span>T::AccountId,
 	s: u32,
-) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;(T::AccountId, Data)&gt;, <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; {
+) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;(T::AccountId, Data)&gt;, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
 	<span class="kw">let </span><span class="kw-2">mut </span>subs = Vec::new();
 	<span class="kw">let </span>who_origin = RawOrigin::Signed(who.clone());
 	<span class="kw">let </span>data = Data::Raw(<span class="macro">vec!</span>[<span class="number">0</span>; <span class="number">32</span>].try_into().unwrap());
 
 	<span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..s {
-		<span class="kw">let </span>sub_account = account(<span class="string">&quot;sub&quot;</span>, i, SEED);
+		<span class="kw">let </span>sub_account = account(<span class="string">"sub"</span>, i, SEED);
 		subs.push((sub_account, data.clone()));
 	}
 
@@ -982,7 +984,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">fn </span>add_sub_accounts&lt;T: Config&gt;(
 	who: <span class="kw-2">&amp;</span>T::AccountId,
 	s: u32,
-) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;(T::AccountId, Data)&gt;, <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; {
+) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;(T::AccountId, Data)&gt;, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
 	<span class="kw">let </span>who_origin = RawOrigin::Signed(who.clone());
 	<span class="kw">let </span>subs = create_sub_accounts::&lt;T&gt;(who, s)<span class="question-mark">?</span>;
 
@@ -992,20 +994,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">fn </span>bench_suffix() -&gt; Vec&lt;u8&gt; {
-	<span class="string">b&quot;bench&quot;</span>.to_vec()
+	<span class="string">b"bench"</span>.to_vec()
 }
 
 <span class="kw">fn </span>bench_username() -&gt; Vec&lt;u8&gt; {
 	<span class="comment">// len = 24
-	</span><span class="string">b&quot;veryfastbenchmarkmachine&quot;</span>.to_vec()
+	</span><span class="string">b"veryfastbenchmarkmachine"</span>.to_vec()
 }
 
 <span class="kw">fn </span>bounded_username&lt;T: Config&gt;(username: Vec&lt;u8&gt;, suffix: Vec&lt;u8&gt;) -&gt; Username&lt;T&gt; {
 	<span class="kw">let </span><span class="kw-2">mut </span>full_username = Vec::with_capacity(username.len() + suffix.len() + <span class="number">1</span>);
 	full_username.extend(username);
-	full_username.extend(<span class="string">b&quot;.&quot;</span>);
+	full_username.extend(<span class="string">b"."</span>);
 	full_username.extend(suffix);
-	Username::&lt;T&gt;::try_from(full_username).expect(<span class="string">&quot;test usernames should fit within bounds&quot;</span>)
+	Username::&lt;T&gt;::try_from(full_username).expect(<span class="string">"test usernames should fit within bounds"</span>)
 }
 
 <span class="attr">#[benchmarks(
@@ -1019,15 +1021,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[benchmark]
 	</span><span class="kw">fn </span>add_registrar(r: Linear&lt;<span class="number">1</span>, { T::MaxRegistrars::get() - <span class="number">1 </span>}&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), BenchmarkError&gt; {
 		add_registrars::&lt;T&gt;(r)<span class="question-mark">?</span>;
-		<span class="macro">ensure!</span>(Registrars::&lt;T&gt;::get().len() <span class="kw">as </span>u32 == r, <span class="string">&quot;Registrars not set up correctly.&quot;</span>);
+		<span class="macro">ensure!</span>(Registrars::&lt;T&gt;::get().len() <span class="kw">as </span>u32 == r, <span class="string">"Registrars not set up correctly."</span>);
 		<span class="kw">let </span>origin =
 			T::RegistrarOrigin::try_successful_origin().map_err(|<span class="kw">_</span>| BenchmarkError::Weightless)<span class="question-mark">?</span>;
-		<span class="kw">let </span>account = T::Lookup::unlookup(account(<span class="string">&quot;registrar&quot;</span>, r + <span class="number">1</span>, SEED));
+		<span class="kw">let </span>account = T::Lookup::unlookup(account(<span class="string">"registrar"</span>, r + <span class="number">1</span>, SEED));
 
 		<span class="attr">#[extrinsic_call]
 		</span><span class="kw">_</span>(origin <span class="kw">as </span>T::RuntimeOrigin, account);
 
-		<span class="macro">ensure!</span>(Registrars::&lt;T&gt;::get().len() <span class="kw">as </span>u32 == r + <span class="number">1</span>, <span class="string">&quot;Registrars not added.&quot;</span>);
+		<span class="macro">ensure!</span>(Registrars::&lt;T&gt;::get().len() <span class="kw">as </span>u32 == r + <span class="number">1</span>, <span class="string">"Registrars not added."</span>);
 		<span class="prelude-val">Ok</span>(())
 	}
 
@@ -1047,7 +1049,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// User requests judgement from all the registrars, and they approve
 		</span><span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..r {
-			<span class="kw">let </span>registrar: T::AccountId = account(<span class="string">&quot;registrar&quot;</span>, i, SEED);
+			<span class="kw">let </span>registrar: T::AccountId = account(<span class="string">"registrar"</span>, i, SEED);
 			<span class="kw">let _ </span>= T::Lookup::unlookup(registrar.clone());
 			<span class="kw">let </span>balance_to_use = T::Currency::minimum_balance() * <span class="number">10u32</span>.into();
 			<span class="kw">let _ </span>= T::Currency::make_free_balance_be(<span class="kw-2">&amp;</span>registrar, balance_to_use);
@@ -1081,12 +1083,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// Create a new subs vec with sub accounts
 		</span><span class="kw">let </span>subs = create_sub_accounts::&lt;T&gt;(<span class="kw-2">&amp;</span>caller, s)<span class="question-mark">?</span>;
-		<span class="macro">ensure!</span>(SubsOf::&lt;T&gt;::get(<span class="kw-2">&amp;</span>caller).<span class="number">1</span>.len() == <span class="number">0</span>, <span class="string">&quot;Caller already has subs&quot;</span>);
+		<span class="macro">ensure!</span>(SubsOf::&lt;T&gt;::get(<span class="kw-2">&amp;</span>caller).<span class="number">1</span>.len() == <span class="number">0</span>, <span class="string">"Caller already has subs"</span>);
 
 		<span class="attr">#[extrinsic_call]
 		</span>set_subs(RawOrigin::Signed(caller.clone()), subs);
 
-		<span class="macro">ensure!</span>(SubsOf::&lt;T&gt;::get(<span class="kw-2">&amp;</span>caller).<span class="number">1</span>.len() <span class="kw">as </span>u32 == s, <span class="string">&quot;Subs not added&quot;</span>);
+		<span class="macro">ensure!</span>(SubsOf::&lt;T&gt;::get(<span class="kw-2">&amp;</span>caller).<span class="number">1</span>.len() <span class="kw">as </span>u32 == s, <span class="string">"Subs not added"</span>);
 		<span class="prelude-val">Ok</span>(())
 	}
 
@@ -1099,12 +1101,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// Remove all subs.
 		</span><span class="kw">let </span>subs = create_sub_accounts::&lt;T&gt;(<span class="kw-2">&amp;</span>caller, <span class="number">0</span>)<span class="question-mark">?</span>;
-		<span class="macro">ensure!</span>(SubsOf::&lt;T&gt;::get(<span class="kw-2">&amp;</span>caller).<span class="number">1</span>.len() <span class="kw">as </span>u32 == p, <span class="string">&quot;Caller does have subs&quot;</span>,);
+		<span class="macro">ensure!</span>(SubsOf::&lt;T&gt;::get(<span class="kw-2">&amp;</span>caller).<span class="number">1</span>.len() <span class="kw">as </span>u32 == p, <span class="string">"Caller does have subs"</span>,);
 
 		<span class="attr">#[extrinsic_call]
 		</span>set_subs(RawOrigin::Signed(caller.clone()), subs);
 
-		<span class="macro">ensure!</span>(SubsOf::&lt;T&gt;::get(<span class="kw-2">&amp;</span>caller).<span class="number">1</span>.len() == <span class="number">0</span>, <span class="string">&quot;Subs not removed&quot;</span>);
+		<span class="macro">ensure!</span>(SubsOf::&lt;T&gt;::get(<span class="kw-2">&amp;</span>caller).<span class="number">1</span>.len() == <span class="number">0</span>, <span class="string">"Subs not removed"</span>);
 		<span class="prelude-val">Ok</span>(())
 	}
 
@@ -1131,7 +1133,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// User requests judgement from all the registrars, and they approve
 		</span><span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..r {
-			<span class="kw">let </span>registrar: T::AccountId = account(<span class="string">&quot;registrar&quot;</span>, i, SEED);
+			<span class="kw">let </span>registrar: T::AccountId = account(<span class="string">"registrar"</span>, i, SEED);
 			<span class="kw">let </span>balance_to_use = T::Currency::minimum_balance() * <span class="number">10u32</span>.into();
 			<span class="kw">let _ </span>= T::Currency::make_free_balance_be(<span class="kw-2">&amp;</span>registrar, balance_to_use);
 
@@ -1145,12 +1147,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			)<span class="question-mark">?</span>;
 		}
 
-		<span class="macro">ensure!</span>(IdentityOf::&lt;T&gt;::contains_key(<span class="kw-2">&amp;</span>caller), <span class="string">&quot;Identity does not exist.&quot;</span>);
+		<span class="macro">ensure!</span>(IdentityOf::&lt;T&gt;::contains_key(<span class="kw-2">&amp;</span>caller), <span class="string">"Identity does not exist."</span>);
 
 		<span class="attr">#[extrinsic_call]
 		</span><span class="kw">_</span>(RawOrigin::Signed(caller.clone()));
 
-		<span class="macro">ensure!</span>(!IdentityOf::&lt;T&gt;::contains_key(<span class="kw-2">&amp;</span>caller), <span class="string">&quot;Identity not cleared.&quot;</span>);
+		<span class="macro">ensure!</span>(!IdentityOf::&lt;T&gt;::contains_key(<span class="kw-2">&amp;</span>caller), <span class="string">"Identity not cleared."</span>);
 		<span class="prelude-val">Ok</span>(())
 	}
 
@@ -1212,11 +1214,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		add_registrars::&lt;T&gt;(r)<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>registrar_origin = T::RegistrarOrigin::try_successful_origin()
-			.expect(<span class="string">&quot;RegistrarOrigin has no successful origin required for the benchmark&quot;</span>);
+			.expect(<span class="string">"RegistrarOrigin has no successful origin required for the benchmark"</span>);
 		Identity::&lt;T&gt;::add_registrar(registrar_origin, caller_lookup)<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>registrars = Registrars::&lt;T&gt;::get();
-		<span class="macro">ensure!</span>(registrars[r <span class="kw">as </span>usize].as_ref().unwrap().fee == <span class="number">0u32</span>.into(), <span class="string">&quot;Fee already set.&quot;</span>);
+		<span class="macro">ensure!</span>(registrars[r <span class="kw">as </span>usize].as_ref().unwrap().fee == <span class="number">0u32</span>.into(), <span class="string">"Fee already set."</span>);
 
 		<span class="attr">#[extrinsic_call]
 		</span><span class="kw">_</span>(RawOrigin::Signed(caller), r, <span class="number">100u32</span>.into());
@@ -1224,7 +1226,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>updated_registrars = Registrars::&lt;T&gt;::get();
 		<span class="macro">ensure!</span>(
 			updated_registrars[r <span class="kw">as </span>usize].as_ref().unwrap().fee == <span class="number">100u32</span>.into(),
-			<span class="string">&quot;Fee not changed.&quot;
+			<span class="string">"Fee not changed."
 		</span>);
 
 		<span class="prelude-val">Ok</span>(())
@@ -1239,21 +1241,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		add_registrars::&lt;T&gt;(r)<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>registrar_origin = T::RegistrarOrigin::try_successful_origin()
-			.expect(<span class="string">&quot;RegistrarOrigin has no successful origin required for the benchmark&quot;</span>);
+			.expect(<span class="string">"RegistrarOrigin has no successful origin required for the benchmark"</span>);
 		Identity::&lt;T&gt;::add_registrar(registrar_origin, caller_lookup)<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>registrars = Registrars::&lt;T&gt;::get();
-		<span class="macro">ensure!</span>(registrars[r <span class="kw">as </span>usize].as_ref().unwrap().account == caller, <span class="string">&quot;id not set.&quot;</span>);
+		<span class="macro">ensure!</span>(registrars[r <span class="kw">as </span>usize].as_ref().unwrap().account == caller, <span class="string">"id not set."</span>);
 
-		<span class="kw">let </span>new_account = T::Lookup::unlookup(account(<span class="string">&quot;new&quot;</span>, <span class="number">0</span>, SEED));
+		<span class="kw">let </span>new_account = T::Lookup::unlookup(account(<span class="string">"new"</span>, <span class="number">0</span>, SEED));
 
 		<span class="attr">#[extrinsic_call]
 		</span><span class="kw">_</span>(RawOrigin::Signed(caller), r, new_account);
 
 		<span class="kw">let </span>updated_registrars = Registrars::&lt;T&gt;::get();
 		<span class="macro">ensure!</span>(
-			updated_registrars[r <span class="kw">as </span>usize].as_ref().unwrap().account == account(<span class="string">&quot;new&quot;</span>, <span class="number">0</span>, SEED),
-			<span class="string">&quot;id not changed.&quot;
+			updated_registrars[r <span class="kw">as </span>usize].as_ref().unwrap().account == account(<span class="string">"new"</span>, <span class="number">0</span>, SEED),
+			<span class="string">"id not changed."
 		</span>);
 
 		<span class="prelude-val">Ok</span>(())
@@ -1268,13 +1270,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		add_registrars::&lt;T&gt;(r)<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>registrar_origin = T::RegistrarOrigin::try_successful_origin()
-			.expect(<span class="string">&quot;RegistrarOrigin has no successful origin required for the benchmark&quot;</span>);
+			.expect(<span class="string">"RegistrarOrigin has no successful origin required for the benchmark"</span>);
 		Identity::&lt;T&gt;::add_registrar(registrar_origin, caller_lookup)<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>registrars = Registrars::&lt;T&gt;::get();
 		<span class="macro">ensure!</span>(
 			registrars[r <span class="kw">as </span>usize].as_ref().unwrap().fields == Default::default(),
-			<span class="string">&quot;fields already set.&quot;
+			<span class="string">"fields already set."
 		</span>);
 		<span class="kw">let </span>fields = T::IdentityInformation::all_fields();
 
@@ -1284,7 +1286,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>updated_registrars = Registrars::&lt;T&gt;::get();
 		<span class="macro">ensure!</span>(
 			updated_registrars[r <span class="kw">as </span>usize].as_ref().unwrap().fields != Default::default(),
-			<span class="string">&quot;fields not set.&quot;
+			<span class="string">"fields not set."
 		</span>);
 
 		<span class="prelude-val">Ok</span>(())
@@ -1295,7 +1297,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		r: Linear&lt;<span class="number">1</span>, { T::MaxRegistrars::get() - <span class="number">1 </span>}&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), BenchmarkError&gt; {
 		<span class="comment">// The user
-		</span><span class="kw">let </span>user: T::AccountId = account(<span class="string">&quot;user&quot;</span>, r, SEED);
+		</span><span class="kw">let </span>user: T::AccountId = account(<span class="string">"user"</span>, r, SEED);
 		<span class="kw">let </span>user_origin =
 			&lt;T <span class="kw">as </span>frame_system::Config&gt;::RuntimeOrigin::from(RawOrigin::Signed(user.clone()));
 		<span class="kw">let </span>user_lookup = &lt;T::Lookup <span class="kw">as </span>StaticLookup&gt;::unlookup(user.clone());
@@ -1312,7 +1314,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		Identity::&lt;T&gt;::set_identity(user_origin.clone(), Box::new(info))<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>registrar_origin = T::RegistrarOrigin::try_successful_origin()
-			.expect(<span class="string">&quot;RegistrarOrigin has no successful origin required for the benchmark&quot;</span>);
+			.expect(<span class="string">"RegistrarOrigin has no successful origin required for the benchmark"</span>);
 		Identity::&lt;T&gt;::add_registrar(registrar_origin, caller_lookup)<span class="question-mark">?</span>;
 		Identity::&lt;T&gt;::request_judgement(user_origin, r, <span class="number">10u32</span>.into())<span class="question-mark">?</span>;
 
@@ -1333,7 +1335,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), BenchmarkError&gt; {
 		add_registrars::&lt;T&gt;(r)<span class="question-mark">?</span>;
 
-		<span class="kw">let </span>target: T::AccountId = account(<span class="string">&quot;target&quot;</span>, <span class="number">0</span>, SEED);
+		<span class="kw">let </span>target: T::AccountId = account(<span class="string">"target"</span>, <span class="number">0</span>, SEED);
 		<span class="kw">let </span>target_origin: &lt;T <span class="kw">as </span>frame_system::Config&gt;::RuntimeOrigin =
 			RawOrigin::Signed(target.clone()).into();
 		<span class="kw">let </span>target_lookup = T::Lookup::unlookup(target.clone());
@@ -1345,7 +1347,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// User requests judgement from all the registrars, and they approve
 		</span><span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..r {
-			<span class="kw">let </span>registrar: T::AccountId = account(<span class="string">&quot;registrar&quot;</span>, i, SEED);
+			<span class="kw">let </span>registrar: T::AccountId = account(<span class="string">"registrar"</span>, i, SEED);
 			<span class="kw">let </span>balance_to_use = T::Currency::minimum_balance() * <span class="number">10u32</span>.into();
 			<span class="kw">let _ </span>= T::Currency::make_free_balance_be(<span class="kw-2">&amp;</span>registrar, balance_to_use);
 
@@ -1359,7 +1361,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			)<span class="question-mark">?</span>;
 		}
 
-		<span class="macro">ensure!</span>(IdentityOf::&lt;T&gt;::contains_key(<span class="kw-2">&amp;</span>target), <span class="string">&quot;Identity not set&quot;</span>);
+		<span class="macro">ensure!</span>(IdentityOf::&lt;T&gt;::contains_key(<span class="kw-2">&amp;</span>target), <span class="string">"Identity not set"</span>);
 
 		<span class="kw">let </span>origin =
 			T::ForceOrigin::try_successful_origin().map_err(|<span class="kw">_</span>| BenchmarkError::Weightless)<span class="question-mark">?</span>;
@@ -1367,7 +1369,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="attr">#[extrinsic_call]
 		</span><span class="kw">_</span>(origin <span class="kw">as </span>T::RuntimeOrigin, target_lookup);
 
-		<span class="macro">ensure!</span>(!IdentityOf::&lt;T&gt;::contains_key(<span class="kw-2">&amp;</span>target), <span class="string">&quot;Identity not removed&quot;</span>);
+		<span class="macro">ensure!</span>(!IdentityOf::&lt;T&gt;::contains_key(<span class="kw-2">&amp;</span>target), <span class="string">"Identity not removed"</span>);
 
 		<span class="prelude-val">Ok</span>(())
 	}
@@ -1376,15 +1378,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>add_sub(s: Linear&lt;<span class="number">0</span>, { T::MaxSubAccounts::get() - <span class="number">1 </span>}&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), BenchmarkError&gt; {
 		<span class="kw">let </span>caller: T::AccountId = whitelisted_caller();
 		<span class="kw">let _ </span>= add_sub_accounts::&lt;T&gt;(<span class="kw-2">&amp;</span>caller, s)<span class="question-mark">?</span>;
-		<span class="kw">let </span>sub = account(<span class="string">&quot;new_sub&quot;</span>, <span class="number">0</span>, SEED);
+		<span class="kw">let </span>sub = account(<span class="string">"new_sub"</span>, <span class="number">0</span>, SEED);
 		<span class="kw">let </span>data = Data::Raw(<span class="macro">vec!</span>[<span class="number">0</span>; <span class="number">32</span>].try_into().unwrap());
 
-		<span class="macro">ensure!</span>(SubsOf::&lt;T&gt;::get(<span class="kw-2">&amp;</span>caller).<span class="number">1</span>.len() <span class="kw">as </span>u32 == s, <span class="string">&quot;Subs not set.&quot;</span>);
+		<span class="macro">ensure!</span>(SubsOf::&lt;T&gt;::get(<span class="kw-2">&amp;</span>caller).<span class="number">1</span>.len() <span class="kw">as </span>u32 == s, <span class="string">"Subs not set."</span>);
 
 		<span class="attr">#[extrinsic_call]
 		</span><span class="kw">_</span>(RawOrigin::Signed(caller.clone()), T::Lookup::unlookup(sub), data);
 
-		<span class="macro">ensure!</span>(SubsOf::&lt;T&gt;::get(<span class="kw-2">&amp;</span>caller).<span class="number">1</span>.len() <span class="kw">as </span>u32 == s + <span class="number">1</span>, <span class="string">&quot;Subs not added.&quot;</span>);
+		<span class="macro">ensure!</span>(SubsOf::&lt;T&gt;::get(<span class="kw-2">&amp;</span>caller).<span class="number">1</span>.len() <span class="kw">as </span>u32 == s + <span class="number">1</span>, <span class="string">"Subs not added."</span>);
 
 		<span class="prelude-val">Ok</span>(())
 	}
@@ -1395,12 +1397,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>(sub, <span class="kw">_</span>) = add_sub_accounts::&lt;T&gt;(<span class="kw-2">&amp;</span>caller, s)<span class="question-mark">?</span>.remove(<span class="number">0</span>);
 		<span class="kw">let </span>data = Data::Raw(<span class="macro">vec!</span>[<span class="number">1</span>; <span class="number">32</span>].try_into().unwrap());
 
-		<span class="macro">ensure!</span>(SuperOf::&lt;T&gt;::get(<span class="kw-2">&amp;</span>sub).unwrap().<span class="number">1 </span>!= data, <span class="string">&quot;data already set&quot;</span>);
+		<span class="macro">ensure!</span>(SuperOf::&lt;T&gt;::get(<span class="kw-2">&amp;</span>sub).unwrap().<span class="number">1 </span>!= data, <span class="string">"data already set"</span>);
 
 		<span class="attr">#[extrinsic_call]
 		</span><span class="kw">_</span>(RawOrigin::Signed(caller), T::Lookup::unlookup(sub.clone()), data.clone());
 
-		<span class="macro">ensure!</span>(SuperOf::&lt;T&gt;::get(<span class="kw-2">&amp;</span>sub).unwrap().<span class="number">1 </span>== data, <span class="string">&quot;data not set&quot;</span>);
+		<span class="macro">ensure!</span>(SuperOf::&lt;T&gt;::get(<span class="kw-2">&amp;</span>sub).unwrap().<span class="number">1 </span>== data, <span class="string">"data not set"</span>);
 
 		<span class="prelude-val">Ok</span>(())
 	}
@@ -1409,12 +1411,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>remove_sub(s: Linear&lt;<span class="number">1</span>, { T::MaxSubAccounts::get() }&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), BenchmarkError&gt; {
 		<span class="kw">let </span>caller: T::AccountId = whitelisted_caller();
 		<span class="kw">let </span>(sub, <span class="kw">_</span>) = add_sub_accounts::&lt;T&gt;(<span class="kw-2">&amp;</span>caller, s)<span class="question-mark">?</span>.remove(<span class="number">0</span>);
-		<span class="macro">ensure!</span>(SuperOf::&lt;T&gt;::contains_key(<span class="kw-2">&amp;</span>sub), <span class="string">&quot;Sub doesn&#39;t exists&quot;</span>);
+		<span class="macro">ensure!</span>(SuperOf::&lt;T&gt;::contains_key(<span class="kw-2">&amp;</span>sub), <span class="string">"Sub doesn't exists"</span>);
 
 		<span class="attr">#[extrinsic_call]
 		</span><span class="kw">_</span>(RawOrigin::Signed(caller), T::Lookup::unlookup(sub.clone()));
 
-		<span class="macro">ensure!</span>(!SuperOf::&lt;T&gt;::contains_key(<span class="kw-2">&amp;</span>sub), <span class="string">&quot;Sub not removed&quot;</span>);
+		<span class="macro">ensure!</span>(!SuperOf::&lt;T&gt;::contains_key(<span class="kw-2">&amp;</span>sub), <span class="string">"Sub not removed"</span>);
 
 		<span class="prelude-val">Ok</span>(())
 	}
@@ -1422,7 +1424,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[benchmark]
 	</span><span class="kw">fn </span>quit_sub(s: Linear&lt;<span class="number">0</span>, { T::MaxSubAccounts::get() - <span class="number">1 </span>}&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), BenchmarkError&gt; {
 		<span class="kw">let </span>caller: T::AccountId = whitelisted_caller();
-		<span class="kw">let </span>sup = account(<span class="string">&quot;super&quot;</span>, <span class="number">0</span>, SEED);
+		<span class="kw">let </span>sup = account(<span class="string">"super"</span>, <span class="number">0</span>, SEED);
 		<span class="kw">let _ </span>= add_sub_accounts::&lt;T&gt;(<span class="kw-2">&amp;</span>sup, s)<span class="question-mark">?</span>;
 		<span class="kw">let </span>sup_origin = RawOrigin::Signed(sup).into();
 		Identity::&lt;T&gt;::add_sub(
@@ -1430,12 +1432,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			T::Lookup::unlookup(caller.clone()),
 			Data::Raw(<span class="macro">vec!</span>[<span class="number">0</span>; <span class="number">32</span>].try_into().unwrap()),
 		)<span class="question-mark">?</span>;
-		<span class="macro">ensure!</span>(SuperOf::&lt;T&gt;::contains_key(<span class="kw-2">&amp;</span>caller), <span class="string">&quot;Sub doesn&#39;t exists&quot;</span>);
+		<span class="macro">ensure!</span>(SuperOf::&lt;T&gt;::contains_key(<span class="kw-2">&amp;</span>caller), <span class="string">"Sub doesn't exists"</span>);
 
 		<span class="attr">#[extrinsic_call]
 		</span><span class="kw">_</span>(RawOrigin::Signed(caller.clone()));
 
-		<span class="macro">ensure!</span>(!SuperOf::&lt;T&gt;::contains_key(<span class="kw-2">&amp;</span>caller), <span class="string">&quot;Sub not removed&quot;</span>);
+		<span class="macro">ensure!</span>(!SuperOf::&lt;T&gt;::contains_key(<span class="kw-2">&amp;</span>caller), <span class="string">"Sub not removed"</span>);
 
 		<span class="prelude-val">Ok</span>(())
 	}
@@ -1443,9 +1445,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[benchmark]
 	</span><span class="kw">fn </span>add_username_authority() -&gt; <span class="prelude-ty">Result</span>&lt;(), BenchmarkError&gt; {
 		<span class="kw">let </span>origin =
-			T::UsernameAuthorityOrigin::try_successful_origin().expect(<span class="string">&quot;can generate origin&quot;</span>);
+			T::UsernameAuthorityOrigin::try_successful_origin().expect(<span class="string">"can generate origin"</span>);
 
-		<span class="kw">let </span>authority: T::AccountId = account(<span class="string">&quot;authority&quot;</span>, <span class="number">0</span>, SEED);
+		<span class="kw">let </span>authority: T::AccountId = account(<span class="string">"authority"</span>, <span class="number">0</span>, SEED);
 		<span class="kw">let </span>authority_lookup = T::Lookup::unlookup(authority.clone());
 		<span class="kw">let </span>suffix = bench_suffix();
 		<span class="kw">let </span>allocation = <span class="number">10</span>;
@@ -1460,9 +1462,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[benchmark]
 	</span><span class="kw">fn </span>remove_username_authority() -&gt; <span class="prelude-ty">Result</span>&lt;(), BenchmarkError&gt; {
 		<span class="kw">let </span>origin =
-			T::UsernameAuthorityOrigin::try_successful_origin().expect(<span class="string">&quot;can generate origin&quot;</span>);
+			T::UsernameAuthorityOrigin::try_successful_origin().expect(<span class="string">"can generate origin"</span>);
 
-		<span class="kw">let </span>authority: T::AccountId = account(<span class="string">&quot;authority&quot;</span>, <span class="number">0</span>, SEED);
+		<span class="kw">let </span>authority: T::AccountId = account(<span class="string">"authority"</span>, <span class="number">0</span>, SEED);
 		<span class="kw">let </span>authority_lookup = T::Lookup::unlookup(authority.clone());
 		<span class="kw">let </span>suffix = bench_suffix();
 		<span class="kw">let </span>allocation = <span class="number">10</span>;
@@ -1485,8 +1487,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>set_username_for() -&gt; <span class="prelude-ty">Result</span>&lt;(), BenchmarkError&gt; {
 		<span class="comment">// Set up a username authority.
 		</span><span class="kw">let </span>auth_origin =
-			T::UsernameAuthorityOrigin::try_successful_origin().expect(<span class="string">&quot;can generate origin&quot;</span>);
-		<span class="kw">let </span>authority: T::AccountId = account(<span class="string">&quot;authority&quot;</span>, <span class="number">0</span>, SEED);
+			T::UsernameAuthorityOrigin::try_successful_origin().expect(<span class="string">"can generate origin"</span>);
+		<span class="kw">let </span>authority: T::AccountId = account(<span class="string">"authority"</span>, <span class="number">0</span>, SEED);
 		<span class="kw">let </span>authority_lookup = T::Lookup::unlookup(authority.clone());
 		<span class="kw">let </span>suffix = bench_suffix();
 		<span class="kw">let </span>allocation = <span class="number">10</span>;
@@ -1564,7 +1566,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>set_primary_username() -&gt; <span class="prelude-ty">Result</span>&lt;(), BenchmarkError&gt; {
 		<span class="kw">let </span>caller: T::AccountId = whitelisted_caller();
 		<span class="kw">let </span>first_username = bounded_username::&lt;T&gt;(bench_username(), bench_suffix());
-		<span class="kw">let </span>second_username = bounded_username::&lt;T&gt;(<span class="string">b&quot;slowbenchmark&quot;</span>.to_vec(), bench_suffix());
+		<span class="kw">let </span>second_username = bounded_username::&lt;T&gt;(<span class="string">b"slowbenchmark"</span>.to_vec(), bench_suffix());
 
 		<span class="comment">// First one will be set as primary. Second will not be.
 		</span>Identity::&lt;T&gt;::insert_username(<span class="kw-2">&amp;</span>caller, first_username);
@@ -1583,13 +1585,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>remove_dangling_username() -&gt; <span class="prelude-ty">Result</span>&lt;(), BenchmarkError&gt; {
 		<span class="kw">let </span>caller: T::AccountId = whitelisted_caller();
 		<span class="kw">let </span>first_username = bounded_username::&lt;T&gt;(bench_username(), bench_suffix());
-		<span class="kw">let </span>second_username = bounded_username::&lt;T&gt;(<span class="string">b&quot;slowbenchmark&quot;</span>.to_vec(), bench_suffix());
+		<span class="kw">let </span>second_username = bounded_username::&lt;T&gt;(<span class="string">b"slowbenchmark"</span>.to_vec(), bench_suffix());
 
 		<span class="comment">// First one will be set as primary. Second will not be.
 		</span>Identity::&lt;T&gt;::insert_username(<span class="kw-2">&amp;</span>caller, first_username);
 		Identity::&lt;T&gt;::insert_username(<span class="kw-2">&amp;</span>caller, second_username.clone());
 
-		<span class="comment">// User calls `clear_identity`, leaving their second username as &quot;dangling&quot;
+		<span class="comment">// User calls `clear_identity`, leaving their second username as "dangling"
 		</span>Identity::&lt;T&gt;::clear_identity(RawOrigin::Signed(caller.clone()).into())<span class="question-mark">?</span>;
 
 		<span class="attr">#[extrinsic_call]

@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `bridges/relays/utils/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `bridges/relays/utils/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="relay_utils" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="relay_utils" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../relay_utils/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -504,10 +506,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// transaction, or remove it from the pool.
 </span><span class="kw">pub const </span>STALL_TIMEOUT: Duration = Duration::from_secs(<span class="number">60 </span>* <span class="number">60</span>);
 
-<span class="doccomment">/// Max delay after connection-unrelated error happened before we&#39;ll try the
+<span class="doccomment">/// Max delay after connection-unrelated error happened before we'll try the
 /// same request again.
 </span><span class="kw">pub const </span>MAX_BACKOFF_INTERVAL: Duration = Duration::from_secs(<span class="number">60</span>);
-<span class="doccomment">/// Delay after connection-related error happened before we&#39;ll try
+<span class="doccomment">/// Delay after connection-related error happened before we'll try
 /// reconnection again.
 </span><span class="kw">pub const </span>CONNECTION_ERROR_DELAY: Duration = Duration::from_secs(<span class="number">10</span>);
 
@@ -518,7 +520,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Block number traits shared by all chains that relay is able to serve.
 </span><span class="kw">pub trait </span>BlockNumberBase:
-	<span class="lifetime">&#39;static
+	<span class="lifetime">'static
 	</span>+ From&lt;u32&gt;
 	+ UniqueSaturatedInto&lt;u64&gt;
 	+ Ord
@@ -540,7 +542,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl</span>&lt;T&gt; BlockNumberBase <span class="kw">for </span>T <span class="kw">where
-	</span>T: <span class="lifetime">&#39;static
+	</span>T: <span class="lifetime">'static
 		</span>+ From&lt;u32&gt;
 		+ UniqueSaturatedInto&lt;u64&gt;
 		+ Ord
@@ -609,17 +611,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Future associated with `TransactionTracker`, monitoring the transaction status.
-</span><span class="kw">pub type </span>TrackedTransactionFuture&lt;<span class="lifetime">&#39;a</span>, T&gt; =
-	BoxFuture&lt;<span class="lifetime">&#39;a</span>, TrackedTransactionStatus&lt;&lt;T <span class="kw">as </span>TransactionTracker&gt;::HeaderId&gt;&gt;;
+</span><span class="kw">pub type </span>TrackedTransactionFuture&lt;<span class="lifetime">'a</span>, T&gt; =
+	BoxFuture&lt;<span class="lifetime">'a</span>, TrackedTransactionStatus&lt;&lt;T <span class="kw">as </span>TransactionTracker&gt;::HeaderId&gt;&gt;;
 
 <span class="doccomment">/// Stringified error that may be either connection-related or not.
 </span><span class="attr">#[derive(Error, Debug)]
 </span><span class="kw">pub enum </span>StringifiedMaybeConnectionError {
 	<span class="doccomment">/// The error is connection-related error.
-	</span><span class="attr">#[error(<span class="string">&quot;{0}&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"{0}"</span>)]
 	</span>Connection(String),
 	<span class="doccomment">/// The error is connection-unrelated error.
-	</span><span class="attr">#[error(<span class="string">&quot;{0}&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"{0}"</span>)]
 	</span>NonConnection(String),
 }
 
@@ -655,19 +657,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Compact format of IDs vector.
 </span><span class="kw">pub fn </span>format_ids&lt;Id: std::fmt::Debug&gt;(<span class="kw-2">mut </span>ids: <span class="kw">impl </span>ExactSizeIterator&lt;Item = Id&gt;) -&gt; String {
-	<span class="kw">const </span>NTH_PROOF: <span class="kw-2">&amp;</span>str = <span class="string">&quot;we have checked len; qed&quot;</span>;
+	<span class="kw">const </span>NTH_PROOF: <span class="kw-2">&amp;</span>str = <span class="string">"we have checked len; qed"</span>;
 	<span class="kw">match </span>ids.len() {
-		<span class="number">0 </span>=&gt; <span class="string">&quot;&lt;nothing&gt;&quot;</span>.into(),
-		<span class="number">1 </span>=&gt; <span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, ids.next().expect(NTH_PROOF)),
+		<span class="number">0 </span>=&gt; <span class="string">"&lt;nothing&gt;"</span>.into(),
+		<span class="number">1 </span>=&gt; <span class="macro">format!</span>(<span class="string">"{:?}"</span>, ids.next().expect(NTH_PROOF)),
 		<span class="number">2 </span>=&gt; {
 			<span class="kw">let </span>id0 = ids.next().expect(NTH_PROOF);
 			<span class="kw">let </span>id1 = ids.next().expect(NTH_PROOF);
-			<span class="macro">format!</span>(<span class="string">&quot;[{id0:?}, {id1:?}]&quot;</span>)
+			<span class="macro">format!</span>(<span class="string">"[{id0:?}, {id1:?}]"</span>)
 		},
 		len =&gt; {
 			<span class="kw">let </span>id0 = ids.next().expect(NTH_PROOF);
 			<span class="kw">let </span>id_last = ids.last().expect(NTH_PROOF);
-			<span class="macro">format!</span>(<span class="string">&quot;{len}:[{id0:?} ... {id_last:?}]&quot;</span>)
+			<span class="macro">format!</span>(<span class="string">"{len}:[{id0:?} ... {id_last:?}]"</span>)
 		},
 	}
 }
@@ -758,8 +760,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		},
 		<span class="prelude-val">Err</span>(error) <span class="kw">if </span>error.is_connection_error() =&gt; {
 			<span class="macro">log::error!</span>(
-				target: <span class="string">&quot;bridge&quot;</span>,
-				<span class="string">&quot;{}: {:?}. Going to restart&quot;</span>,
+				target: <span class="string">"bridge"</span>,
+				<span class="string">"{}: {:?}. Going to restart"</span>,
 				error_pattern(),
 				error,
 			);
@@ -771,8 +773,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Err</span>(error) =&gt; {
 			<span class="kw">let </span>retry_delay = retry_backoff.next_backoff().unwrap_or(CONNECTION_ERROR_DELAY);
 			<span class="macro">log::error!</span>(
-				target: <span class="string">&quot;bridge&quot;</span>,
-				<span class="string">&quot;{}: {:?}. Retrying in {}&quot;</span>,
+				target: <span class="string">"bridge"</span>,
+				<span class="string">"{}: {:?}. Retrying in {}"</span>,
 				error_pattern(),
 				error,
 				retry_delay.as_secs_f64(),

@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/runtime-interface/proc-macro/src/utils.rs`."><title>utils.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/runtime-interface/proc-macro/src/utils.rs`."><title>utils.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_runtime_interface_proc_macro" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_runtime_interface_proc_macro" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sp_runtime_interface_proc_macro/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -524,14 +526,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -578,7 +580,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span><span class="kw-2">mut </span>item = item.clone();
 		<span class="kw">let </span><span class="kw-2">mut </span>should_trap_on_return = <span class="bool-val">false</span>;
 		item.attrs.retain(|attr| {
-			<span class="kw">if </span>attr.path().is_ident(<span class="string">&quot;trap_on_return&quot;</span>) {
+			<span class="kw">if </span>attr.path().is_ident(<span class="string">"trap_on_return"</span>) {
 				should_trap_on_return = <span class="bool-val">true</span>;
 				<span class="bool-val">false
 			</span>} <span class="kw">else </span>{
@@ -589,7 +591,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if </span>should_trap_on_return &amp;&amp; !<span class="macro">matches!</span>(item.sig.output, syn::ReturnType::Default) {
 			<span class="kw">return </span><span class="prelude-val">Err</span>(Error::new(
 				item.sig.ident.span(),
-				<span class="string">&quot;Methods marked as #[trap_on_return] cannot return anything&quot;</span>,
+				<span class="string">"Methods marked as #[trap_on_return] cannot return anything"</span>,
 			))
 		}
 
@@ -621,15 +623,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Returns the latest version of this runtime interface function plus the actual function
 	/// implementation.
 	///
-	/// This isn&#39;t required to be the latest version, because a runtime interface function can be
+	/// This isn't required to be the latest version, because a runtime interface function can be
 	/// annotated with `register_only` to ensure that the host exposes the host function but it
-	/// isn&#39;t used when compiling the runtime.
+	/// isn't used when compiling the runtime.
 	</span><span class="kw">pub fn </span>latest_version_to_call(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;(u32, <span class="kw-2">&amp;</span>RuntimeInterfaceFunction)&gt; {
 		<span class="self">self</span>.latest_version_to_call.map(|v| {
 			(
 			v,
 			<span class="self">self</span>.versions.get(<span class="kw-2">&amp;</span>v).expect(
-				<span class="string">&quot;If latest_version_to_call has a value, the key with this value is in the versions; qed&quot;</span>,
+				<span class="string">"If latest_version_to_call has a value, the key with this value is in the versions; qed"</span>,
 			),
 		)
 		})
@@ -638,10 +640,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Add a different version of the function.
 	</span><span class="kw">fn </span>add_version(<span class="kw-2">&amp;mut </span><span class="self">self</span>, version: VersionAttribute, trait_item: <span class="kw-2">&amp;</span>TraitItemFn) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(existing_item) = <span class="self">self</span>.versions.get(<span class="kw-2">&amp;</span>version.version) {
-			<span class="kw">let </span><span class="kw-2">mut </span>err = Error::new(trait_item.span(), <span class="string">&quot;Duplicated version attribute&quot;</span>);
+			<span class="kw">let </span><span class="kw-2">mut </span>err = Error::new(trait_item.span(), <span class="string">"Duplicated version attribute"</span>);
 			err.combine(Error::new(
 				existing_item.span(),
-				<span class="string">&quot;Previous version with the same number defined here&quot;</span>,
+				<span class="string">"Previous version with the same number defined here"</span>,
 			));
 
 			<span class="kw">return </span><span class="prelude-val">Err</span>(err)
@@ -683,7 +685,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Generates the include for the runtime-interface crate.
 </span><span class="kw">pub fn </span>generate_runtime_interface_include() -&gt; TokenStream {
-	<span class="kw">match </span>crate_name(<span class="string">&quot;sp-runtime-interface&quot;</span>) {
+	<span class="kw">match </span>crate_name(<span class="string">"sp-runtime-interface"</span>) {
 		<span class="prelude-val">Ok</span>(FoundCrate::Itself) =&gt; <span class="macro">quote!</span>(),
 		<span class="prelude-val">Ok</span>(FoundCrate::Name(crate_name)) =&gt; {
 			<span class="kw">let </span>crate_name = Ident::new(<span class="kw-2">&amp;</span>crate_name, Span::call_site());
@@ -701,7 +703,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Generates the access to the `sp-runtime-interface` crate.
 </span><span class="kw">pub fn </span>generate_crate_access() -&gt; TokenStream {
-	<span class="kw">if </span>env::var(<span class="string">&quot;CARGO_PKG_NAME&quot;</span>).unwrap() == <span class="string">&quot;sp-runtime-interface&quot; </span>{
+	<span class="kw">if </span>env::var(<span class="string">"CARGO_PKG_NAME"</span>).unwrap() == <span class="string">"sp-runtime-interface" </span>{
 		<span class="macro">quote!</span>(sp_runtime_interface)
 	} <span class="kw">else </span>{
 		<span class="macro">quote!</span>(proc_macro_runtime_interface)
@@ -710,24 +712,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Create the exchangeable host function identifier for the given function name.
 </span><span class="kw">pub fn </span>create_exchangeable_host_function_ident(name: <span class="kw-2">&amp;</span>Ident) -&gt; Ident {
-	Ident::new(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;host_{}&quot;</span>, name), Span::call_site())
+	Ident::new(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"host_{}"</span>, name), Span::call_site())
 }
 
 <span class="doccomment">/// Create the host function identifier for the given function name.
 </span><span class="kw">pub fn </span>create_host_function_ident(name: <span class="kw-2">&amp;</span>Ident, version: u32, trait_name: <span class="kw-2">&amp;</span>Ident) -&gt; Ident {
 	Ident::new(
-		<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;ext_{}_{}_version_{}&quot;</span>, trait_name.to_string().to_snake_case(), name, version),
+		<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"ext_{}_{}_version_{}"</span>, trait_name.to_string().to_snake_case(), name, version),
 		Span::call_site(),
 	)
 }
 
 <span class="doccomment">/// Create the host function identifier for the given function name.
 </span><span class="kw">pub fn </span>create_function_ident_with_version(name: <span class="kw-2">&amp;</span>Ident, version: u32) -&gt; Ident {
-	Ident::new(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}_version_{}&quot;</span>, name, version), Span::call_site())
+	Ident::new(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{}_version_{}"</span>, name, version), Span::call_site())
 }
 
 <span class="doccomment">/// Returns the function arguments of the given `Signature`, minus any `self` arguments.
-</span><span class="kw">pub fn </span>get_function_arguments(sig: <span class="kw-2">&amp;</span>Signature) -&gt; <span class="kw">impl </span>Iterator&lt;Item = PatType&gt; + <span class="lifetime">&#39;_ </span>{
+</span><span class="kw">pub fn </span>get_function_arguments(sig: <span class="kw-2">&amp;</span>Signature) -&gt; <span class="kw">impl </span>Iterator&lt;Item = PatType&gt; + <span class="lifetime">'_ </span>{
 	sig.inputs
 		.iter()
 		.filter_map(|a| <span class="kw">match </span>a {
@@ -739,7 +741,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span><span class="kw-2">mut </span>res = arg.clone();
 			<span class="kw">if let </span>Pat::Wild(wild) = <span class="kw-2">&amp;*</span>arg.pat {
 				<span class="kw">let </span>ident =
-					Ident::new(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;__runtime_interface_generated_{}_&quot;</span>, i), wild.span());
+					Ident::new(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"__runtime_interface_generated_{}_"</span>, i), wild.span());
 
 				res.pat = Box::new(<span class="macro">parse_quote!</span>( #ident ))
 			}
@@ -749,12 +751,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Returns the function argument names of the given `Signature`, minus any `self`.
-</span><span class="kw">pub fn </span>get_function_argument_names(sig: <span class="kw-2">&amp;</span>Signature) -&gt; <span class="kw">impl </span>Iterator&lt;Item = Box&lt;Pat&gt;&gt; + <span class="lifetime">&#39;_ </span>{
+</span><span class="kw">pub fn </span>get_function_argument_names(sig: <span class="kw-2">&amp;</span>Signature) -&gt; <span class="kw">impl </span>Iterator&lt;Item = Box&lt;Pat&gt;&gt; + <span class="lifetime">'_ </span>{
 	get_function_arguments(sig).map(|pt| pt.pat)
 }
 
 <span class="doccomment">/// Returns the function argument types of the given `Signature`, minus any `Self` type.
-</span><span class="kw">pub fn </span>get_function_argument_types(sig: <span class="kw-2">&amp;</span>Signature) -&gt; <span class="kw">impl </span>Iterator&lt;Item = Box&lt;Type&gt;&gt; + <span class="lifetime">&#39;_ </span>{
+</span><span class="kw">pub fn </span>get_function_argument_types(sig: <span class="kw-2">&amp;</span>Signature) -&gt; <span class="kw">impl </span>Iterator&lt;Item = Box&lt;Type&gt;&gt; + <span class="lifetime">'_ </span>{
 	get_function_arguments(sig).map(|pt| pt.ty)
 }
 
@@ -762,7 +764,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// is a reference, the underlying type without the ref is returned.
 </span><span class="kw">pub fn </span>get_function_argument_types_without_ref(
 	sig: <span class="kw-2">&amp;</span>Signature,
-) -&gt; <span class="kw">impl </span>Iterator&lt;Item = Box&lt;Type&gt;&gt; + <span class="lifetime">&#39;_ </span>{
+) -&gt; <span class="kw">impl </span>Iterator&lt;Item = Box&lt;Type&gt;&gt; + <span class="lifetime">'_ </span>{
 	get_function_arguments(sig).map(|pt| pt.ty).map(|ty| <span class="kw">match </span><span class="kw-2">*</span>ty {
 		Type::Reference(type_ref) =&gt; type_ref.elem,
 		<span class="kw">_ </span>=&gt; ty,
@@ -773,7 +775,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// is a reference, the underlying type without the ref is returned.
 </span><span class="kw">pub fn </span>get_function_argument_names_and_types_without_ref(
 	sig: <span class="kw-2">&amp;</span>Signature,
-) -&gt; <span class="kw">impl </span>Iterator&lt;Item = (Box&lt;Pat&gt;, Box&lt;Type&gt;)&gt; + <span class="lifetime">&#39;_ </span>{
+) -&gt; <span class="kw">impl </span>Iterator&lt;Item = (Box&lt;Pat&gt;, Box&lt;Type&gt;)&gt; + <span class="lifetime">'_ </span>{
 	get_function_arguments(sig).map(|pt| <span class="kw">match </span><span class="kw-2">*</span>pt.ty {
 		Type::Reference(type_ref) =&gt; (pt.pat, type_ref.elem),
 		<span class="kw">_ </span>=&gt; (pt.pat, pt.ty),
@@ -784,7 +786,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// argument is not a reference, `None` is returned.
 </span><span class="kw">pub fn </span>get_function_argument_types_ref_and_mut(
 	sig: <span class="kw-2">&amp;</span>Signature,
-) -&gt; <span class="kw">impl </span>Iterator&lt;Item = <span class="prelude-ty">Option</span>&lt;(token::And, <span class="prelude-ty">Option</span>&lt;token::Mut&gt;)&gt;&gt; + <span class="lifetime">&#39;_ </span>{
+) -&gt; <span class="kw">impl </span>Iterator&lt;Item = <span class="prelude-ty">Option</span>&lt;(token::And, <span class="prelude-ty">Option</span>&lt;token::Mut&gt;)&gt;&gt; + <span class="lifetime">'_ </span>{
 	get_function_arguments(sig).map(|pt| pt.ty).map(|ty| <span class="kw">match </span><span class="kw-2">*</span>ty {
 		Type::Reference(type_ref) =&gt; <span class="prelude-val">Some</span>((type_ref.and_token, type_ref.mutability)),
 		<span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
@@ -832,7 +834,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Some</span>(input.parse()<span class="question-mark">?</span>)
 		} <span class="kw">else </span>{
 			<span class="kw">if </span>!input.is_empty() {
-				<span class="kw">return </span><span class="prelude-val">Err</span>(Error::new(input.span(), <span class="string">&quot;Unexpected token, expected `,`.&quot;</span>))
+				<span class="kw">return </span><span class="prelude-val">Err</span>(Error::new(input.span(), <span class="string">"Unexpected token, expected `,`."</span>))
 			}
 
 			<span class="prelude-val">None
@@ -846,7 +848,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">fn </span>get_item_version(item: <span class="kw-2">&amp;</span>TraitItemFn) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;VersionAttribute&gt;&gt; {
 	item.attrs
 		.iter()
-		.find(|attr| attr.path().is_ident(<span class="string">&quot;version&quot;</span>))
+		.find(|attr| attr.path().is_ident(<span class="string">"version"</span>))
 		.map(|attr| attr.parse_args())
 		.transpose()
 }
@@ -860,7 +862,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>version = get_item_version(item)<span class="question-mark">?</span>.unwrap_or_default();
 
 		<span class="kw">if </span>version.version &lt; <span class="number">1 </span>{
-			<span class="kw">return </span><span class="prelude-val">Err</span>(Error::new(item.span(), <span class="string">&quot;Version needs to be at least `1`.&quot;</span>))
+			<span class="kw">return </span><span class="prelude-val">Err</span>(Error::new(item.span(), <span class="string">"Version needs to be at least `1`."</span>))
 		}
 
 		<span class="kw">match </span>functions.entry(name.clone()) {
@@ -880,7 +882,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">return </span><span class="prelude-val">Err</span>(Error::new(
 					item.span(),
 					<span class="macro">format!</span>(
-						<span class="string">&quot;Unexpected version attribute: missing version &#39;{}&#39; for this function&quot;</span>,
+						<span class="string">"Unexpected version attribute: missing version '{}' for this function"</span>,
 						next_expected
 					),
 				))

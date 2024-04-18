@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/test/service/src/chain_spec.rs`."><title>chain_spec.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/test/service/src/chain_spec.rs`."><title>chain_spec.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_test_service" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_test_service" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../polkadot_test_service/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -373,7 +375,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sp_runtime::Perbill;
 <span class="kw">use </span>test_runtime_constants::currency::DOTS;
 
-<span class="kw">const </span>DEFAULT_PROTOCOL_ID: <span class="kw-2">&amp;</span>str = <span class="string">&quot;dot&quot;</span>;
+<span class="kw">const </span>DEFAULT_PROTOCOL_ID: <span class="kw-2">&amp;</span>str = <span class="string">"dot"</span>;
 
 <span class="doccomment">/// The `ChainSpec` parameterized for polkadot test runtime.
 </span><span class="kw">pub type </span>PolkadotChainSpec = sc_service::GenericChainSpec&lt;(), Extensions&gt;;
@@ -381,21 +383,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Returns the properties for the [`PolkadotChainSpec`].
 </span><span class="kw">pub fn </span>polkadot_chain_spec_properties() -&gt; serde_json::map::Map&lt;String, serde_json::Value&gt; {
 	<span class="macro">serde_json::json!</span>({
-		<span class="string">&quot;tokenDecimals&quot;</span>: <span class="number">10</span>,
+		<span class="string">"tokenDecimals"</span>: <span class="number">10</span>,
 	})
 	.as_object()
-	.expect(<span class="string">&quot;Map given; qed&quot;</span>)
+	.expect(<span class="string">"Map given; qed"</span>)
 	.clone()
 }
 
 <span class="doccomment">/// Local testnet config (multivalidator Alice + Bob)
 </span><span class="kw">pub fn </span>polkadot_local_testnet_config() -&gt; PolkadotChainSpec {
 	PolkadotChainSpec::builder(
-		polkadot_test_runtime::WASM_BINARY.expect(<span class="string">&quot;Wasm binary must be built for testing&quot;</span>),
+		polkadot_test_runtime::WASM_BINARY.expect(<span class="string">"Wasm binary must be built for testing"</span>),
 		Default::default(),
 	)
-	.with_name(<span class="string">&quot;Local Testnet&quot;</span>)
-	.with_id(<span class="string">&quot;local_testnet&quot;</span>)
+	.with_name(<span class="string">"Local Testnet"</span>)
+	.with_id(<span class="string">"local_testnet"</span>)
 	.with_chain_type(ChainType::Local)
 	.with_genesis_config_patch(polkadot_local_testnet_genesis())
 	.with_protocol_id(DEFAULT_PROTOCOL_ID)
@@ -406,8 +408,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Local testnet genesis config (multivalidator Alice + Bob)
 </span><span class="kw">pub fn </span>polkadot_local_testnet_genesis() -&gt; serde_json::Value {
 	polkadot_testnet_genesis(
-		<span class="macro">vec!</span>[get_authority_keys_from_seed(<span class="string">&quot;Alice&quot;</span>), get_authority_keys_from_seed(<span class="string">&quot;Bob&quot;</span>)],
-		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>),
+		<span class="macro">vec!</span>[get_authority_keys_from_seed(<span class="string">"Alice"</span>), get_authority_keys_from_seed(<span class="string">"Bob"</span>)],
+		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Alice"</span>),
 		<span class="prelude-val">None</span>,
 	)
 }
@@ -417,7 +419,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	seed: <span class="kw-2">&amp;</span>str,
 ) -&gt; (AccountId, AccountId, BabeId, GrandpaId, ValidatorId, AssignmentId, AuthorityDiscoveryId) {
 	(
-		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}//stash&quot;</span>, seed)),
+		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{}//stash"</span>, seed)),
 		get_account_id_from_seed::&lt;sr25519::Public&gt;(seed),
 		get_from_seed::&lt;BabeId&gt;(seed),
 		get_from_seed::&lt;GrandpaId&gt;(seed),
@@ -429,18 +431,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">fn </span>testnet_accounts() -&gt; Vec&lt;AccountId&gt; {
 	<span class="macro">vec!</span>[
-		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>),
-		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Bob&quot;</span>),
-		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Charlie&quot;</span>),
-		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Dave&quot;</span>),
-		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Eve&quot;</span>),
-		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Ferdie&quot;</span>),
-		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice//stash&quot;</span>),
-		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Bob//stash&quot;</span>),
-		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Charlie//stash&quot;</span>),
-		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Dave//stash&quot;</span>),
-		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Eve//stash&quot;</span>),
-		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Ferdie//stash&quot;</span>),
+		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Alice"</span>),
+		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Bob"</span>),
+		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Charlie"</span>),
+		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Dave"</span>),
+		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Eve"</span>),
+		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Ferdie"</span>),
+		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Alice//stash"</span>),
+		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Bob//stash"</span>),
+		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Charlie//stash"</span>),
+		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Dave//stash"</span>),
+		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Eve//stash"</span>),
+		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Ferdie//stash"</span>),
 	]
 }
 
@@ -466,11 +468,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">const </span>STASH: u128 = <span class="number">100 </span>* DOTS;
 
 	<span class="macro">serde_json::json!</span>({
-		<span class="string">&quot;balances&quot;</span>: {
-			<span class="string">&quot;balances&quot;</span>: endowed_accounts.iter().map(|k| (k.clone(), ENDOWMENT)).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
+		<span class="string">"balances"</span>: {
+			<span class="string">"balances"</span>: endowed_accounts.iter().map(|k| (k.clone(), ENDOWMENT)).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
 		},
-		<span class="string">&quot;session&quot;</span>: {
-			<span class="string">&quot;keys&quot;</span>: initial_authorities
+		<span class="string">"session"</span>: {
+			<span class="string">"keys"</span>: initial_authorities
 				.iter()
 				.map(|x| {
 					(
@@ -487,23 +489,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				})
 				.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
 		},
-		<span class="string">&quot;staking&quot;</span>: {
-			<span class="string">&quot;minimumValidatorCount&quot;</span>: <span class="number">1</span>,
-			<span class="string">&quot;validatorCount&quot;</span>: <span class="number">2</span>,
-			<span class="string">&quot;stakers&quot;</span>: initial_authorities
+		<span class="string">"staking"</span>: {
+			<span class="string">"minimumValidatorCount"</span>: <span class="number">1</span>,
+			<span class="string">"validatorCount"</span>: <span class="number">2</span>,
+			<span class="string">"stakers"</span>: initial_authorities
 				.iter()
 				.map(|x| (x.<span class="number">0</span>.clone(), x.<span class="number">0</span>.clone(), STASH, runtime::StakerStatus::&lt;AccountId&gt;::Validator))
 				.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
-			<span class="string">&quot;invulnerables&quot;</span>: initial_authorities.iter().map(|x| x.<span class="number">0</span>.clone()).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
-			<span class="string">&quot;forceEra&quot;</span>: Forcing::NotForcing,
-			<span class="string">&quot;slashRewardFraction&quot;</span>: Perbill::from_percent(<span class="number">10</span>),
+			<span class="string">"invulnerables"</span>: initial_authorities.iter().map(|x| x.<span class="number">0</span>.clone()).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
+			<span class="string">"forceEra"</span>: Forcing::NotForcing,
+			<span class="string">"slashRewardFraction"</span>: Perbill::from_percent(<span class="number">10</span>),
 		},
-		<span class="string">&quot;babe&quot;</span>: {
-			<span class="string">&quot;epochConfig&quot;</span>: <span class="prelude-val">Some</span>(BABE_GENESIS_EPOCH_CONFIG),
+		<span class="string">"babe"</span>: {
+			<span class="string">"epochConfig"</span>: <span class="prelude-val">Some</span>(BABE_GENESIS_EPOCH_CONFIG),
 		},
-		<span class="string">&quot;sudo&quot;</span>: { <span class="string">&quot;key&quot;</span>: <span class="prelude-val">Some</span>(root_key) },
-		<span class="string">&quot;configuration&quot;</span>: {
-			<span class="string">&quot;config&quot;</span>: polkadot_runtime_parachains::configuration::HostConfiguration {
+		<span class="string">"sudo"</span>: { <span class="string">"key"</span>: <span class="prelude-val">Some</span>(root_key) },
+		<span class="string">"configuration"</span>: {
+			<span class="string">"config"</span>: polkadot_runtime_parachains::configuration::HostConfiguration {
 				validation_upgrade_cooldown: <span class="number">10u32</span>,
 				validation_upgrade_delay: <span class="number">5</span>,
 				code_retention_period: <span class="number">1200</span>,
@@ -532,7 +534,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl </span>IdentifyVariant <span class="kw">for </span>Box&lt;<span class="kw">dyn </span>ChainSpec&gt; {
 	<span class="kw">fn </span>is_test(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
-		<span class="self">self</span>.id().starts_with(<span class="string">&quot;test&quot;</span>)
+		<span class="self">self</span>.id().starts_with(<span class="string">"test"</span>)
 	}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

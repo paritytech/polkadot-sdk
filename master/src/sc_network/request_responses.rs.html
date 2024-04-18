@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/network/src/request_responses.rs`."><title>request_responses.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/network/src/request_responses.rs`."><title>request_responses.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_network" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_network" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sc_network/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1892,7 +1894,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! Collection of request-response protocols.
 //!
 //! The [`RequestResponsesBehaviour`] struct defined in this module provides support for zero or
-//! more so-called &quot;request-response&quot; protocols.
+//! more so-called "request-response" protocols.
 //!
 //! A request-response protocol works in the following way:
 //!
@@ -1904,7 +1906,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! - Requests have a certain time limit before they time out. This time includes the time it
 //! takes to send/receive the request and response.
 //!
-//! - If provided, a [&quot;requests processing&quot;](ProtocolConfig::inbound_queue) channel
+//! - If provided, a ["requests processing"](ProtocolConfig::inbound_queue) channel
 //! is used to handle incoming requests.
 
 </span><span class="kw">use crate</span>::{
@@ -1943,15 +1945,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[derive(Debug, thiserror::Error)]
 #[allow(missing_docs)]
 </span><span class="kw">pub enum </span>RequestFailure {
-	<span class="attr">#[error(<span class="string">&quot;We are not currently connected to the requested peer.&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"We are not currently connected to the requested peer."</span>)]
 	</span>NotConnected,
-	<span class="attr">#[error(<span class="string">&quot;Given protocol hasn&#39;t been registered.&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Given protocol hasn't been registered."</span>)]
 	</span>UnknownProtocol,
-	<span class="attr">#[error(<span class="string">&quot;Remote has closed the substream before answering, thereby signaling that it considers the request as valid, but refused to answer it.&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Remote has closed the substream before answering, thereby signaling that it considers the request as valid, but refused to answer it."</span>)]
 	</span>Refused,
-	<span class="attr">#[error(<span class="string">&quot;The remote replied, but the local node is no longer interested in the response.&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"The remote replied, but the local node is no longer interested in the response."</span>)]
 	</span>Obsolete,
-	<span class="attr">#[error(<span class="string">&quot;Problem on the network: {0}&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Problem on the network: {0}"</span>)]
 	</span>Network(OutboundFailure),
 }
 
@@ -2146,7 +2148,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// The multiple sub-protocols, by name.
 	///
 	/// Contains the underlying libp2p request-response [`Behaviour`], plus an optional
-	/// &quot;response builder&quot; used to build responses for incoming requests.
+	/// "response builder" used to build responses for incoming requests.
 	</span>protocols: HashMap&lt;
 		ProtocolName,
 		(Behaviour&lt;GenericCodec&gt;, <span class="prelude-ty">Option</span>&lt;async_channel::Sender&lt;IncomingRequest&gt;&gt;),
@@ -2232,7 +2234,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// If there is no established connection to the target peer, the behavior is determined by the
 	/// choice of `connect`.
 	///
-	/// An error is returned if the protocol doesn&#39;t match one that has been registered.
+	/// An error is returned if the protocol doesn't match one that has been registered.
 	</span><span class="kw">pub fn </span>send_request(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		target: <span class="kw-2">&amp;</span>PeerId,
@@ -2242,7 +2244,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		pending_response: oneshot::Sender&lt;<span class="prelude-ty">Result</span>&lt;(Vec&lt;u8&gt;, ProtocolName), RequestFailure&gt;&gt;,
 		connect: IfDisconnected,
 	) {
-		<span class="macro">log::trace!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;send request to {target} ({protocol_name:?}), {} bytes&quot;</span>, request.len());
+		<span class="macro">log::trace!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"send request to {target} ({protocol_name:?}), {} bytes"</span>, request.len());
 
 		<span class="kw">if let </span><span class="prelude-val">Some</span>((protocol, <span class="kw">_</span>)) = <span class="self">self</span>.protocols.get_mut(protocol_name.deref()) {
 			<span class="self">Self</span>::send_request_inner(
@@ -2257,9 +2259,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			)
 		} <span class="kw">else if </span>pending_response.send(<span class="prelude-val">Err</span>(RequestFailure::UnknownProtocol)).is_err() {
 			<span class="macro">log::debug!</span>(
-				target: <span class="string">&quot;sub-libp2p&quot;</span>,
-				<span class="string">&quot;Unknown protocol {:?}. At the same time local \
-				 node is no longer interested in the result.&quot;</span>,
+				target: <span class="string">"sub-libp2p"</span>,
+				<span class="string">"Unknown protocol {:?}. At the same time local \
+				 node is no longer interested in the result."</span>,
 				protocol_name,
 			);
 		}
@@ -2285,12 +2287,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					fallback_request,
 				},
 			);
-			<span class="macro">debug_assert!</span>(prev_req_id.is_none(), <span class="string">&quot;Expect request id to be unique.&quot;</span>);
+			<span class="macro">debug_assert!</span>(prev_req_id.is_none(), <span class="string">"Expect request id to be unique."</span>);
 		} <span class="kw">else if </span>pending_response.send(<span class="prelude-val">Err</span>(RequestFailure::NotConnected)).is_err() {
 			<span class="macro">log::debug!</span>(
-				target: <span class="string">&quot;sub-libp2p&quot;</span>,
-				<span class="string">&quot;Not connected to peer {:?}. At the same time local \
-				 node is no longer interested in the result.&quot;</span>,
+				target: <span class="string">"sub-libp2p"</span>,
+				<span class="string">"Not connected to peer {:?}. At the same time local \
+				 node is no longer interested in the result."</span>,
 				target,
 			);
 		}
@@ -2342,8 +2344,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		});
 
 		<span class="prelude-val">Ok</span>(MultiHandler::try_from_iter(iter).expect(
-			<span class="string">&quot;Protocols are in a HashMap and there can be at most one handler per protocol name, \
-			 which is the only possible error; qed&quot;</span>,
+			<span class="string">"Protocols are in a HashMap and there can be at most one handler per protocol name, \
+			 which is the only possible error; qed"</span>,
 		))
 	}
 
@@ -2365,8 +2367,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		});
 
 		<span class="prelude-val">Ok</span>(MultiHandler::try_from_iter(iter).expect(
-			<span class="string">&quot;Protocols are in a HashMap and there can be at most one handler per protocol name, \
-			 which is the only possible error; qed&quot;</span>,
+			<span class="string">"Protocols are in a HashMap and there can be at most one handler per protocol name, \
+			 which is the only possible error; qed"</span>,
 		))
 	}
 
@@ -2394,8 +2396,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						}));
 					} <span class="kw">else </span>{
 						<span class="macro">log::error!</span>(
-						  target: <span class="string">&quot;sub-libp2p&quot;</span>,
-						  <span class="string">&quot;on_swarm_event/connection_closed: no request-response instance registered for protocol {:?}&quot;</span>,
+						  target: <span class="string">"sub-libp2p"</span>,
+						  <span class="string">"on_swarm_event/connection_closed: no request-response instance registered for protocol {:?}"</span>,
 						  p_name,
 						)
 					}
@@ -2454,8 +2456,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">return </span>proto.on_connection_handler_event(peer_id, connection_id, event.<span class="number">1</span>)
 		} <span class="kw">else </span>{
 			<span class="macro">log::warn!</span>(
-				target: <span class="string">&quot;sub-libp2p&quot;</span>,
-				<span class="string">&quot;on_connection_handler_event: no request-response instance registered for protocol {:?}&quot;</span>,
+				target: <span class="string">"sub-libp2p"</span>,
+				<span class="string">"on_connection_handler_event: no request-response instance registered for protocol {:?}"</span>,
 				p_name
 			);
 		}
@@ -2466,7 +2468,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		cx: <span class="kw-2">&amp;mut </span>Context,
 		params: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>PollParameters,
 	) -&gt; Poll&lt;ToSwarm&lt;<span class="self">Self</span>::OutEvent, THandlerInEvent&lt;<span class="self">Self</span>&gt;&gt;&gt; {
-		<span class="lifetime">&#39;poll_all</span>: <span class="kw">loop </span>{
+		<span class="lifetime">'poll_all</span>: <span class="kw">loop </span>{
 			<span class="comment">// Poll to see if any response is ready to be sent back.
 			</span><span class="kw">while let </span>Poll::Ready(<span class="prelude-val">Some</span>(outcome)) = <span class="self">self</span>.pending_responses.poll_next_unpin(cx) {
 				<span class="kw">let </span>RequestProcessingOutcome {
@@ -2484,16 +2486,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 				<span class="kw">if let </span><span class="prelude-val">Ok</span>(payload) = result {
 					<span class="kw">if let </span><span class="prelude-val">Some</span>((protocol, <span class="kw">_</span>)) = <span class="self">self</span>.protocols.get_mut(<span class="kw-2">&amp;*</span>protocol_name) {
-						<span class="macro">log::trace!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;send response to {peer} ({protocol_name:?}), {} bytes&quot;</span>, payload.len());
+						<span class="macro">log::trace!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"send response to {peer} ({protocol_name:?}), {} bytes"</span>, payload.len());
 
 						<span class="kw">if </span>protocol.send_response(inner_channel, <span class="prelude-val">Ok</span>(payload)).is_err() {
 							<span class="comment">// Note: Failure is handled further below when receiving
 							// `InboundFailure` event from request-response [`Behaviour`].
 							</span><span class="macro">log::debug!</span>(
-								target: <span class="string">&quot;sub-libp2p&quot;</span>,
-								<span class="string">&quot;Failed to send response for {:?} on protocol {:?} due to a \
+								target: <span class="string">"sub-libp2p"</span>,
+								<span class="string">"Failed to send response for {:?} on protocol {:?} due to a \
 								 timeout or due to the connection to the peer being closed. \
-								 Dropping response&quot;</span>,
+								 Dropping response"</span>,
 								request_id, protocol_name,
 							);
 						} <span class="kw">else if let </span><span class="prelude-val">Some</span>(sent_feedback) = sent_feedback {
@@ -2515,7 +2517,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="comment">// Poll request-responses protocols.
 			</span><span class="kw">for </span>(protocol, (<span class="kw-2">ref mut </span>behaviour, <span class="kw-2">ref mut </span>resp_builder)) <span class="kw">in </span><span class="kw-2">&amp;mut </span><span class="self">self</span>.protocols {
-				<span class="lifetime">&#39;poll_protocol</span>: <span class="kw">while let </span>Poll::Ready(ev) = behaviour.poll(cx, params) {
+				<span class="lifetime">'poll_protocol</span>: <span class="kw">while let </span>Poll::Ready(ev) = behaviour.poll(cx, params) {
 					<span class="kw">let </span>ev = <span class="kw">match </span>ev {
 						<span class="comment">// Main events we are interested in.
 						</span>ToSwarm::GenerateEvent(ev) =&gt; ev,
@@ -2525,7 +2527,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						</span>ToSwarm::Dial { opts } =&gt; {
 							<span class="kw">if </span>opts.get_peer_id().is_none() {
 								<span class="macro">log::error!</span>(
-									<span class="string">&quot;The request-response isn&#39;t supposed to start dialing addresses&quot;
+									<span class="string">"The request-response isn't supposed to start dialing addresses"
 								</span>);
 							}
 							<span class="kw">return </span>Poll::Ready(ToSwarm::Dial { opts })
@@ -2555,17 +2557,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 							<span class="kw">if </span>reputation &lt; BANNED_THRESHOLD {
 								<span class="macro">log::debug!</span>(
-									target: <span class="string">&quot;sub-libp2p&quot;</span>,
-									<span class="string">&quot;Cannot handle requests from a node with a low reputation {}: {}&quot;</span>,
+									target: <span class="string">"sub-libp2p"</span>,
+									<span class="string">"Cannot handle requests from a node with a low reputation {}: {}"</span>,
 									peer,
 									reputation,
 								);
-								<span class="kw">continue </span><span class="lifetime">&#39;poll_protocol
+								<span class="kw">continue </span><span class="lifetime">'poll_protocol
 							</span>}
 
 							<span class="kw">let </span>(tx, rx) = oneshot::channel();
 
-							<span class="comment">// Submit the request to the &quot;response builder&quot; passed by the user at
+							<span class="comment">// Submit the request to the "response builder" passed by the user at
 							// initialization.
 							</span><span class="kw">if let </span><span class="prelude-val">Some</span>(resp_builder) = resp_builder {
 								<span class="comment">// If the response builder is too busy, silently drop `tx`. This
@@ -2580,7 +2582,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 									pending_response: tx,
 								});
 							} <span class="kw">else </span>{
-								<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>, <span class="string">&quot;Received message on outbound-only protocol.&quot;</span>);
+								<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>, <span class="string">"Received message on outbound-only protocol."</span>);
 							}
 
 							<span class="kw">let </span>protocol = protocol.clone();
@@ -2602,7 +2604,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 							<span class="comment">// This `continue` makes sure that `pending_responses` gets polled
 							// after we have added the new element.
-							</span><span class="kw">continue </span><span class="lifetime">&#39;poll_all
+							</span><span class="kw">continue </span><span class="lifetime">'poll_all
 						</span>},
 
 						<span class="comment">// Received a response from a remote to one of our requests.
@@ -2617,8 +2619,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							{
 								<span class="prelude-val">Some</span>(PendingRequest { started_at, response_tx, .. }) =&gt; {
 									<span class="macro">log::trace!</span>(
-										target: <span class="string">&quot;sub-libp2p&quot;</span>,
-										<span class="string">&quot;received response from {peer} ({protocol:?}), {} bytes&quot;</span>,
+										target: <span class="string">"sub-libp2p"</span>,
+										<span class="string">"received response from {peer} ({protocol:?}), {} bytes"</span>,
 										response.as_ref().map_or(<span class="number">0usize</span>, |response| response.len()),
 									);
 
@@ -2633,8 +2635,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 								},
 								<span class="prelude-val">None </span>=&gt; {
 									<span class="macro">log::warn!</span>(
-										target: <span class="string">&quot;sub-libp2p&quot;</span>,
-										<span class="string">&quot;Received `RequestResponseEvent::Message` with unexpected request id {:?}&quot;</span>,
+										target: <span class="string">"sub-libp2p"</span>,
+										<span class="string">"Received `RequestResponseEvent::Message` with unexpected request id {:?}"</span>,
 										request_id,
 									);
 									<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
@@ -2675,8 +2677,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 											fallback_request
 										{
 											<span class="macro">log::trace!</span>(
-												target: <span class="string">&quot;sub-libp2p&quot;</span>,
-												<span class="string">&quot;Request with id {:?} failed. Trying the fallback protocol. {}&quot;</span>,
+												target: <span class="string">"sub-libp2p"</span>,
+												<span class="string">"Request with id {:?} failed. Trying the fallback protocol. {}"</span>,
 												request_id,
 												fallback_protocol.deref()
 											);
@@ -2695,9 +2697,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 										.is_err()
 									{
 										<span class="macro">log::debug!</span>(
-											target: <span class="string">&quot;sub-libp2p&quot;</span>,
-											<span class="string">&quot;Request with id {:?} failed. At the same time local \
-											 node is no longer interested in the result.&quot;</span>,
+											target: <span class="string">"sub-libp2p"</span>,
+											<span class="string">"Request with id {:?} failed. At the same time local \
+											 node is no longer interested in the result."</span>,
 											request_id,
 										);
 									}
@@ -2705,8 +2707,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 								},
 								<span class="prelude-val">None </span>=&gt; {
 									<span class="macro">log::warn!</span>(
-										target: <span class="string">&quot;sub-libp2p&quot;</span>,
-										<span class="string">&quot;Received `RequestResponseEvent::Message` with unexpected request id {:?}&quot;</span>,
+										target: <span class="string">"sub-libp2p"</span>,
+										<span class="string">"Received `RequestResponseEvent::Message` with unexpected request id {:?}"</span>,
 										request_id,
 									);
 									<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
@@ -2747,11 +2749,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 								.remove(<span class="kw-2">&amp;</span>(protocol.clone(), request_id).into())
 								.map(|t| t.elapsed())
 								.expect(
-									<span class="string">&quot;Time is added for each inbound request on arrival and only \
+									<span class="string">"Time is added for each inbound request on arrival and only \
 									 removed on success (`ResponseSent`) or failure \
 									 (`InboundFailure`). One can not receive a success event for a \
 									 request that either never arrived, or that has previously \
-									 failed; qed.&quot;</span>,
+									 failed; qed."</span>,
 								);
 
 							<span class="kw">if let </span><span class="prelude-val">Some</span>(send_feedback) =
@@ -2785,7 +2787,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						pending_response,
 						<span class="comment">// We can error if not connected because the
 						// previous attempt would have tried to establish a
-						// connection already or errored and we wouldn&#39;t have gotten here.
+						// connection already or errored and we wouldn't have gotten here.
 						</span>IfDisconnected::ImmediateError,
 					);
 				}
@@ -2800,7 +2802,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[derive(Debug, thiserror::Error)]
 </span><span class="kw">pub enum </span>RegisterError {
 	<span class="doccomment">/// A protocol has been specified multiple times.
-	</span><span class="attr">#[error(<span class="string">&quot;{0}&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"{0}"</span>)]
 	</span>DuplicateProtocol(ProtocolName),
 }
 
@@ -2808,7 +2810,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[derive(Debug, thiserror::Error)]
 </span><span class="kw">pub enum </span>ResponseFailure {
 	<span class="doccomment">/// Problem on the network.
-	</span><span class="attr">#[error(<span class="string">&quot;Problem on the network: {0}&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"Problem on the network: {0}"</span>)]
 	</span>Network(InboundFailure),
 }
 
@@ -2842,7 +2844,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if </span>length &gt; usize::try_from(<span class="self">self</span>.max_request_size).unwrap_or(usize::MAX) {
 			<span class="kw">return </span><span class="prelude-val">Err</span>(io::Error::new(
 				io::ErrorKind::InvalidInput,
-				<span class="macro">format!</span>(<span class="string">&quot;Request size exceeds limit: {} &gt; {}&quot;</span>, length, <span class="self">self</span>.max_request_size),
+				<span class="macro">format!</span>(<span class="string">"Request size exceeds limit: {} &gt; {}"</span>, length, <span class="self">self</span>.max_request_size),
 			))
 		}
 
@@ -2877,7 +2879,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if </span>length &gt; usize::try_from(<span class="self">self</span>.max_response_size).unwrap_or(usize::MAX) {
 			<span class="kw">return </span><span class="prelude-val">Err</span>(io::Error::new(
 				io::ErrorKind::InvalidInput,
-				<span class="macro">format!</span>(<span class="string">&quot;Response size exceeds limit: {} &gt; {}&quot;</span>, length, <span class="self">self</span>.max_response_size),
+				<span class="macro">format!</span>(<span class="string">"Response size exceeds limit: {} &gt; {}"</span>, length, <span class="self">self</span>.max_response_size),
 			))
 		}
 
@@ -2984,7 +2986,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			TokioExecutor(runtime),
 		)
 		.build();
-		<span class="kw">let </span>listen_addr: Multiaddr = <span class="macro">format!</span>(<span class="string">&quot;/memory/{}&quot;</span>, rand::random::&lt;u64&gt;()).parse().unwrap();
+		<span class="kw">let </span>listen_addr: Multiaddr = <span class="macro">format!</span>(<span class="string">"/memory/{}"</span>, rand::random::&lt;u64&gt;()).parse().unwrap();
 
 		swarm.listen_on(listen_addr.clone()).unwrap();
 		(swarm, listen_addr)
@@ -2992,7 +2994,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>basic_request_response_works() {
-		<span class="kw">let </span>protocol_name = ProtocolName::from(<span class="string">&quot;/test/req-resp/1&quot;</span>);
+		<span class="kw">let </span>protocol_name = ProtocolName::from(<span class="string">"/test/req-resp/1"</span>);
 		<span class="kw">let </span><span class="kw-2">mut </span>pool = LocalPool::new();
 
 		<span class="comment">// Build swarms whose behaviour is [`RequestResponsesBehaviour`].
@@ -3005,9 +3007,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="kw">async move </span>{
 							<span class="kw">while let </span><span class="prelude-val">Some</span>(rq) = rx.next().<span class="kw">await </span>{
 								<span class="kw">let </span>(fb_tx, fb_rx) = oneshot::channel();
-								<span class="macro">assert_eq!</span>(rq.payload, <span class="string">b&quot;this is a request&quot;</span>);
+								<span class="macro">assert_eq!</span>(rq.payload, <span class="string">b"this is a request"</span>);
 								<span class="kw">let _ </span>= rq.pending_response.send(<span class="kw">super</span>::OutgoingResponse {
-									result: <span class="prelude-val">Ok</span>(<span class="string">b&quot;this is a response&quot;</span>.to_vec()),
+									result: <span class="prelude-val">Ok</span>(<span class="string">b"this is a response"</span>.to_vec()),
 									reputation_changes: Vec::new(),
 									sent_feedback: <span class="prelude-val">Some</span>(fb_tx),
 								});
@@ -3032,8 +3034,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			})
 			.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 
-		<span class="comment">// Ask `swarm[0]` to dial `swarm[1]`. There isn&#39;t any discovery mechanism in place in
-		// this test, so they wouldn&#39;t connect to each other.
+		<span class="comment">// Ask `swarm[0]` to dial `swarm[1]`. There isn't any discovery mechanism in place in
+		// this test, so they wouldn't connect to each other.
 		</span>{
 			<span class="kw">let </span>dial_addr = swarms[<span class="number">1</span>].<span class="number">1</span>.clone();
 			Swarm::dial(<span class="kw-2">&amp;mut </span>swarms[<span class="number">0</span>].<span class="number">0</span>, dial_addr).unwrap();
@@ -3070,7 +3072,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						swarm.behaviour_mut().send_request(
 							<span class="kw-2">&amp;</span>peer_id,
 							protocol_name.clone(),
-							<span class="string">b&quot;this is a request&quot;</span>.to_vec(),
+							<span class="string">b"this is a request"</span>.to_vec(),
 							<span class="prelude-val">None</span>,
 							sender,
 							IfDisconnected::ImmediateError,
@@ -3088,14 +3090,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="macro">assert_eq!</span>(
 				response_receiver.unwrap().<span class="kw">await</span>.unwrap().unwrap(),
-				(<span class="string">b&quot;this is a response&quot;</span>.to_vec(), protocol_name)
+				(<span class="string">b"this is a response"</span>.to_vec(), protocol_name)
 			);
 		});
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>max_response_size_exceeded() {
-		<span class="kw">let </span>protocol_name = ProtocolName::from(<span class="string">&quot;/test/req-resp/1&quot;</span>);
+		<span class="kw">let </span>protocol_name = ProtocolName::from(<span class="string">"/test/req-resp/1"</span>);
 		<span class="kw">let </span><span class="kw-2">mut </span>pool = LocalPool::new();
 
 		<span class="comment">// Build swarms whose behaviour is [`RequestResponsesBehaviour`].
@@ -3107,9 +3109,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					.spawn_obj(
 						<span class="kw">async move </span>{
 							<span class="kw">while let </span><span class="prelude-val">Some</span>(rq) = rx.next().<span class="kw">await </span>{
-								<span class="macro">assert_eq!</span>(rq.payload, <span class="string">b&quot;this is a request&quot;</span>);
+								<span class="macro">assert_eq!</span>(rq.payload, <span class="string">b"this is a request"</span>);
 								<span class="kw">let _ </span>= rq.pending_response.send(<span class="kw">super</span>::OutgoingResponse {
-									result: <span class="prelude-val">Ok</span>(<span class="string">b&quot;this response exceeds the limit&quot;</span>.to_vec()),
+									result: <span class="prelude-val">Ok</span>(<span class="string">b"this response exceeds the limit"</span>.to_vec()),
 									reputation_changes: Vec::new(),
 									sent_feedback: <span class="prelude-val">None</span>,
 								});
@@ -3133,8 +3135,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			})
 			.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 
-		<span class="comment">// Ask `swarm[0]` to dial `swarm[1]`. There isn&#39;t any discovery mechanism in place in
-		// this test, so they wouldn&#39;t connect to each other.
+		<span class="comment">// Ask `swarm[0]` to dial `swarm[1]`. There isn't any discovery mechanism in place in
+		// this test, so they wouldn't connect to each other.
 		</span>{
 			<span class="kw">let </span>dial_addr = swarms[<span class="number">1</span>].<span class="number">1</span>.clone();
 			Swarm::dial(<span class="kw-2">&amp;mut </span>swarms[<span class="number">0</span>].<span class="number">0</span>, dial_addr).unwrap();
@@ -3173,7 +3175,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						swarm.behaviour_mut().send_request(
 							<span class="kw-2">&amp;</span>peer_id,
 							protocol_name.clone(),
-							<span class="string">b&quot;this is a request&quot;</span>.to_vec(),
+							<span class="string">b"this is a request"</span>.to_vec(),
 							<span class="prelude-val">None</span>,
 							sender,
 							IfDisconnected::ImmediateError,
@@ -3208,8 +3210,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// See [`ProtocolRequestId`] for additional information.
 	</span><span class="attr">#[test]
 	</span><span class="kw">fn </span>request_id_collision() {
-		<span class="kw">let </span>protocol_name_1 = ProtocolName::from(<span class="string">&quot;/test/req-resp-1/1&quot;</span>);
-		<span class="kw">let </span>protocol_name_2 = ProtocolName::from(<span class="string">&quot;/test/req-resp-2/1&quot;</span>);
+		<span class="kw">let </span>protocol_name_1 = ProtocolName::from(<span class="string">"/test/req-resp-1/1"</span>);
+		<span class="kw">let </span>protocol_name_2 = ProtocolName::from(<span class="string">"/test/req-resp-2/1"</span>);
 		<span class="kw">let </span><span class="kw-2">mut </span>pool = LocalPool::new();
 
 		<span class="kw">let </span><span class="kw-2">mut </span>swarm_1 = {
@@ -3263,8 +3265,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			(swarm, rx_1, rx_2, listen_addr)
 		};
 
-		<span class="comment">// Ask swarm 1 to dial swarm 2. There isn&#39;t any discovery mechanism in place in this test,
-		// so they wouldn&#39;t connect to each other.
+		<span class="comment">// Ask swarm 1 to dial swarm 2. There isn't any discovery mechanism in place in this test,
+		// so they wouldn't connect to each other.
 		</span>swarm_1.dial(listen_add_2).unwrap();
 
 		<span class="comment">// Run swarm 2 in the background, receiving two requests.
@@ -3299,7 +3301,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						.unwrap()
 						.pending_response
 						.send(OutgoingResponse {
-							result: <span class="prelude-val">Ok</span>(<span class="string">b&quot;this is a response&quot;</span>.to_vec()),
+							result: <span class="prelude-val">Ok</span>(<span class="string">b"this is a response"</span>.to_vec()),
 							reputation_changes: Vec::new(),
 							sent_feedback: <span class="prelude-val">None</span>,
 						})
@@ -3308,7 +3310,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						.unwrap()
 						.pending_response
 						.send(OutgoingResponse {
-							result: <span class="prelude-val">Ok</span>(<span class="string">b&quot;this is a response&quot;</span>.to_vec()),
+							result: <span class="prelude-val">Ok</span>(<span class="string">b"this is a response"</span>.to_vec()),
 							reputation_changes: Vec::new(),
 							sent_feedback: <span class="prelude-val">None</span>,
 						})
@@ -3332,7 +3334,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						swarm_1.behaviour_mut().send_request(
 							<span class="kw-2">&amp;</span>peer_id,
 							protocol_name_1.clone(),
-							<span class="string">b&quot;this is a request&quot;</span>.to_vec(),
+							<span class="string">b"this is a request"</span>.to_vec(),
 							<span class="prelude-val">None</span>,
 							sender_1,
 							IfDisconnected::ImmediateError,
@@ -3340,7 +3342,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						swarm_1.behaviour_mut().send_request(
 							<span class="kw-2">&amp;</span>peer_id,
 							protocol_name_2.clone(),
-							<span class="string">b&quot;this is a request&quot;</span>.to_vec(),
+							<span class="string">b"this is a request"</span>.to_vec(),
 							<span class="prelude-val">None</span>,
 							sender_2,
 							IfDisconnected::ImmediateError,
@@ -3361,20 +3363,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>(response_receiver_1, response_receiver_2) = response_receivers.unwrap();
 			<span class="macro">assert_eq!</span>(
 				response_receiver_1.<span class="kw">await</span>.unwrap().unwrap(),
-				(<span class="string">b&quot;this is a response&quot;</span>.to_vec(), protocol_name_1)
+				(<span class="string">b"this is a response"</span>.to_vec(), protocol_name_1)
 			);
 			<span class="macro">assert_eq!</span>(
 				response_receiver_2.<span class="kw">await</span>.unwrap().unwrap(),
-				(<span class="string">b&quot;this is a response&quot;</span>.to_vec(), protocol_name_2)
+				(<span class="string">b"this is a response"</span>.to_vec(), protocol_name_2)
 			);
 		});
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>request_fallback() {
-		<span class="kw">let </span>protocol_name_1 = ProtocolName::from(<span class="string">&quot;/test/req-resp/2&quot;</span>);
-		<span class="kw">let </span>protocol_name_1_fallback = ProtocolName::from(<span class="string">&quot;/test/req-resp/1&quot;</span>);
-		<span class="kw">let </span>protocol_name_2 = ProtocolName::from(<span class="string">&quot;/test/another&quot;</span>);
+		<span class="kw">let </span>protocol_name_1 = ProtocolName::from(<span class="string">"/test/req-resp/2"</span>);
+		<span class="kw">let </span>protocol_name_1_fallback = ProtocolName::from(<span class="string">"/test/req-resp/1"</span>);
+		<span class="kw">let </span>protocol_name_2 = ProtocolName::from(<span class="string">"/test/another"</span>);
 		<span class="kw">let </span><span class="kw-2">mut </span>pool = LocalPool::new();
 
 		<span class="kw">let </span>protocol_config_1 = ProtocolConfig {
@@ -3419,10 +3421,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="kw">for _ in </span><span class="number">0</span>..<span class="number">2 </span>{
 							<span class="kw">if let </span><span class="prelude-val">Some</span>(rq) = rx_1.next().<span class="kw">await </span>{
 								<span class="kw">let </span>(fb_tx, fb_rx) = oneshot::channel();
-								<span class="macro">assert_eq!</span>(rq.payload, <span class="string">b&quot;request on protocol /test/req-resp/1&quot;</span>);
+								<span class="macro">assert_eq!</span>(rq.payload, <span class="string">b"request on protocol /test/req-resp/1"</span>);
 								<span class="kw">let _ </span>= rq.pending_response.send(<span class="kw">super</span>::OutgoingResponse {
 									result: <span class="prelude-val">Ok</span>(
-										<span class="string">b&quot;this is a response on protocol /test/req-resp/1&quot;</span>.to_vec()
+										<span class="string">b"this is a response on protocol /test/req-resp/1"</span>.to_vec()
 									),
 									reputation_changes: Vec::new(),
 									sent_feedback: <span class="prelude-val">Some</span>(fb_tx),
@@ -3433,9 +3435,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 						<span class="kw">if let </span><span class="prelude-val">Some</span>(rq) = rx_2.next().<span class="kw">await </span>{
 							<span class="kw">let </span>(fb_tx, fb_rx) = oneshot::channel();
-							<span class="macro">assert_eq!</span>(rq.payload, <span class="string">b&quot;request on protocol /test/other&quot;</span>);
+							<span class="macro">assert_eq!</span>(rq.payload, <span class="string">b"request on protocol /test/other"</span>);
 							<span class="kw">let _ </span>= rq.pending_response.send(<span class="kw">super</span>::OutgoingResponse {
-								result: <span class="prelude-val">Ok</span>(<span class="string">b&quot;this is a response on protocol /test/other&quot;</span>.to_vec()),
+								result: <span class="prelude-val">Ok</span>(<span class="string">b"this is a response on protocol /test/other"</span>.to_vec()),
 								reputation_changes: Vec::new(),
 								sent_feedback: <span class="prelude-val">Some</span>(fb_tx),
 							});
@@ -3493,9 +3495,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						swarm.behaviour_mut().send_request(
 							<span class="kw-2">&amp;</span>peer_id,
 							protocol_name_1.clone(),
-							<span class="string">b&quot;request on protocol /test/req-resp/2&quot;</span>.to_vec(),
+							<span class="string">b"request on protocol /test/req-resp/2"</span>.to_vec(),
 							<span class="prelude-val">Some</span>((
-								<span class="string">b&quot;request on protocol /test/req-resp/1&quot;</span>.to_vec(),
+								<span class="string">b"request on protocol /test/req-resp/1"</span>.to_vec(),
 								protocol_config_1_fallback.name.clone(),
 							)),
 							sender,
@@ -3513,7 +3515,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">assert_eq!</span>(
 				response_receiver.unwrap().<span class="kw">await</span>.unwrap().unwrap(),
 				(
-					<span class="string">b&quot;this is a response on protocol /test/req-resp/1&quot;</span>.to_vec(),
+					<span class="string">b"this is a response on protocol /test/req-resp/1"</span>.to_vec(),
 					protocol_name_1_fallback.clone()
 				)
 			);
@@ -3522,9 +3524,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			swarm.behaviour_mut().send_request(
 				older_peer_id.as_ref().unwrap(),
 				protocol_name_1_fallback.clone(),
-				<span class="string">b&quot;request on protocol /test/req-resp/1&quot;</span>.to_vec(),
+				<span class="string">b"request on protocol /test/req-resp/1"</span>.to_vec(),
 				<span class="prelude-val">Some</span>((
-					<span class="string">b&quot;dummy request, will fail if processed&quot;</span>.to_vec(),
+					<span class="string">b"dummy request, will fail if processed"</span>.to_vec(),
 					protocol_config_1_fallback.name.clone(),
 				)),
 				sender,
@@ -3542,7 +3544,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">assert_eq!</span>(
 				response_receiver.<span class="kw">await</span>.unwrap().unwrap(),
 				(
-					<span class="string">b&quot;this is a response on protocol /test/req-resp/1&quot;</span>.to_vec(),
+					<span class="string">b"this is a response on protocol /test/req-resp/1"</span>.to_vec(),
 					protocol_name_1_fallback.clone()
 				)
 			);
@@ -3551,7 +3553,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			swarm.behaviour_mut().send_request(
 				older_peer_id.as_ref().unwrap(),
 				protocol_name_1.clone(),
-				<span class="string">b&quot;request on protocol /test/req-resp-2&quot;</span>.to_vec(),
+				<span class="string">b"request on protocol /test/req-resp-2"</span>.to_vec(),
 				<span class="prelude-val">None</span>,
 				sender,
 				IfDisconnected::ImmediateError,
@@ -3574,7 +3576,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			swarm.behaviour_mut().send_request(
 				older_peer_id.as_ref().unwrap(),
 				protocol_name_2.clone(),
-				<span class="string">b&quot;request on protocol /test/other&quot;</span>.to_vec(),
+				<span class="string">b"request on protocol /test/other"</span>.to_vec(),
 				<span class="prelude-val">None</span>,
 				sender,
 				IfDisconnected::ImmediateError,
@@ -3590,7 +3592,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			}
 			<span class="macro">assert_eq!</span>(
 				response_receiver.<span class="kw">await</span>.unwrap().unwrap(),
-				(<span class="string">b&quot;this is a response on protocol /test/other&quot;</span>.to_vec(), protocol_name_2.clone())
+				(<span class="string">b"this is a response on protocol /test/other"</span>.to_vec(), protocol_name_2.clone())
 			);
 		});
 	}

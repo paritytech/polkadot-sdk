@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `cumulus/primitives/utility/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `cumulus/primitives/utility/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="cumulus_primitives_utility" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="cumulus_primitives_utility" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../cumulus_primitives_utility/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -988,7 +990,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! Helper datatypes for cumulus. This includes the [`ParentAsUmp`] routing type which will route
 //! messages into an [`UpwardMessageSender`] if the destination is `Parent`.
 
-</span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
+</span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
 </span><span class="kw">use </span>codec::Encode;
 <span class="kw">use </span>cumulus_primitives_core::{MessageSendError, UpwardMessageSender};
@@ -1019,7 +1021,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// the given UMP `UpwardMessageSender` implementation. Thus this essentially adapts an
 /// `UpwardMessageSender` trait impl into a `SendXcm` trait impl.
 ///
-/// NOTE: This is a pretty dumb &quot;just send it&quot; router; we will probably want to introduce queuing
+/// NOTE: This is a pretty dumb "just send it" router; we will probably want to introduce queuing
 /// to UMP eventually and when we do, the pallet which implements the queuing will be responsible
 /// for the `SendXcm` implementation.
 </span><span class="kw">pub struct </span>ParentAsUmp&lt;T, W, P&gt;(PhantomData&lt;(T, W, P)&gt;);
@@ -1110,9 +1112,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		payment: xcm_executor::AssetsInHolding,
 		context: <span class="kw-2">&amp;</span>XcmContext,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;xcm_executor::AssetsInHolding, XcmError&gt; {
-		<span class="macro">log::trace!</span>(target: <span class="string">&quot;xcm::weight&quot;</span>, <span class="string">&quot;TakeFirstAssetTrader::buy_weight weight: {:?}, payment: {:?}, context: {:?}&quot;</span>, weight, payment, context);
+		<span class="macro">log::trace!</span>(target: <span class="string">"xcm::weight"</span>, <span class="string">"TakeFirstAssetTrader::buy_weight weight: {:?}, payment: {:?}, context: {:?}"</span>, weight, payment, context);
 
-		<span class="comment">// Make sure we don&#39;t enter twice
+		<span class="comment">// Make sure we don't enter twice
 		</span><span class="kw">if </span><span class="self">self</span>.<span class="number">0</span>.is_some() {
 			<span class="kw">return </span><span class="prelude-val">Err</span>(XcmError::NotWithdrawable)
 		}
@@ -1160,7 +1162,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">fn </span>refund_weight(<span class="kw-2">&amp;mut </span><span class="self">self</span>, weight: Weight, context: <span class="kw-2">&amp;</span>XcmContext) -&gt; <span class="prelude-ty">Option</span>&lt;Asset&gt; {
-		<span class="macro">log::trace!</span>(target: <span class="string">&quot;xcm::weight&quot;</span>, <span class="string">&quot;TakeFirstAssetTrader::refund_weight weight: {:?}, context: {:?}&quot;</span>, weight, context);
+		<span class="macro">log::trace!</span>(target: <span class="string">"xcm::weight"</span>, <span class="string">"TakeFirstAssetTrader::refund_weight weight: {:?}, context: {:?}"</span>, weight, context);
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(AssetTraderRefunder {
 			<span class="kw-2">mut </span>weight_outstanding,
 			outstanding_concrete_asset: Asset { id, fun },
@@ -1235,7 +1237,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// XCM fee depositor to which we implement the `TakeRevenue` trait.
 /// It receives a `Transact` implemented argument and a 32 byte convertible `AccountId`, and the fee
-/// receiver account&#39;s `FungiblesMutateAdapter` should be identical to that implemented by
+/// receiver account's `FungiblesMutateAdapter` should be identical to that implemented by
 /// `WithdrawAsset`.
 </span><span class="kw">pub struct </span>XcmFeesTo32ByteAccount&lt;FungiblesMutateAdapter, AccountId, ReceiverAccount&gt;(
 	PhantomData&lt;(FungiblesMutateAdapter, AccountId, ReceiverAccount)&gt;,
@@ -1255,7 +1257,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			)
 			.is_ok();
 
-			<span class="macro">debug_assert!</span>(ok, <span class="string">&quot;`deposit_asset` cannot generally fail; qed&quot;</span>);
+			<span class="macro">debug_assert!</span>(ok, <span class="string">"`deposit_asset` cannot generally fail; qed"</span>);
 		}
 	}
 }
@@ -1277,8 +1279,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// the same `Target` asset through `SwapCredit`.
 ///
 /// ### Parameters:
-/// - `Target`: the asset into which the user&#39;s payment will be exchanged using `SwapCredit`.
-/// - `SwapCredit`: mechanism used for the exchange of the user&#39;s payment asset into the `Target`.
+/// - `Target`: the asset into which the user's payment will be exchanged using `SwapCredit`.
+/// - `SwapCredit`: mechanism used for the exchange of the user's payment asset into the `Target`.
 /// - `WeightToFee`: weight to the `Target` asset fee calculator.
 /// - `Fungibles`: registry of fungible assets.
 /// - `FungiblesAssetMatcher`: utility for mapping [`Asset`] to `Fungibles::AssetId` and
@@ -1356,8 +1358,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		_context: <span class="kw-2">&amp;</span>XcmContext,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;AssetsInHolding, XcmError&gt; {
 		<span class="macro">log::trace!</span>(
-			target: <span class="string">&quot;xcm::weight&quot;</span>,
-			<span class="string">&quot;SwapFirstAssetTrader::buy_weight weight: {:?}, payment: {:?}&quot;</span>,
+			target: <span class="string">"xcm::weight"</span>,
+			<span class="string">"SwapFirstAssetTrader::buy_weight weight: {:?}, payment: {:?}"</span>,
 			weight,
 			payment,
 		);
@@ -1375,7 +1377,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>credit_in = Fungibles::issue(fungibles_asset, balance);
 		<span class="kw">let </span>fee = WeightToFee::weight_to_fee(<span class="kw-2">&amp;</span>weight);
 
-		<span class="comment">// swap the user&#39;s asset for the `Target` asset.
+		<span class="comment">// swap the user's asset for the `Target` asset.
 		</span><span class="kw">let </span>(credit_out, credit_change) = SwapCredit::swap_tokens_for_exact_tokens(
 			<span class="macro">vec!</span>[swap_asset, Target::get()],
 			credit_in,
@@ -1391,7 +1393,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="comment">// error may occur if `total_fee.asset` differs from `credit_out.asset`, which does
 				// not apply in this context.
 				</span><span class="macro">defensive!</span>(
-					<span class="string">&quot;`total_fee.asset` must be equal to `credit_out.asset`&quot;</span>,
+					<span class="string">"`total_fee.asset` must be equal to `credit_out.asset`"</span>,
 					(<span class="self">self</span>.total_fee.asset(), credit_out.asset())
 				);
 				<span class="kw">return </span><span class="prelude-val">Err</span>(XcmError::FeesNotMet)
@@ -1407,8 +1409,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">fn </span>refund_weight(<span class="kw-2">&amp;mut </span><span class="self">self</span>, weight: Weight, _context: <span class="kw-2">&amp;</span>XcmContext) -&gt; <span class="prelude-ty">Option</span>&lt;Asset&gt; {
 		<span class="macro">log::trace!</span>(
-			target: <span class="string">&quot;xcm::weight&quot;</span>,
-			<span class="string">&quot;SwapFirstAssetTrader::refund_weight weight: {:?}, self.total_fee: {:?}&quot;</span>,
+			target: <span class="string">"xcm::weight"</span>,
+			<span class="string">"SwapFirstAssetTrader::refund_weight weight: {:?}, self.total_fee: {:?}"</span>,
 			weight,
 			<span class="self">self</span>.total_fee,
 		);
@@ -1445,7 +1447,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="comment">// error may occur if `total_fee.asset` differs from `refund.asset`, which does
 					// not apply in this context.
 					</span><span class="macro">defensive!</span>(
-						<span class="string">&quot;`total_fee.asset` must be equal to `refund.asset`&quot;</span>,
+						<span class="string">"`total_fee.asset` must be equal to `refund.asset`"</span>,
 						(<span class="self">self</span>.total_fee.asset(), refund.asset())
 					);
 				});
@@ -1585,7 +1587,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// another try with router chain with asserting sender
 		</span><span class="macro">assert_eq!</span>(
-			<span class="prelude-val">Err</span>(SendError::Transport(<span class="string">&quot;Other&quot;</span>)),
+			<span class="prelude-val">Err</span>(SendError::Transport(<span class="string">"Other"</span>)),
 			send_xcm::&lt;(
 				ParentAsUmp&lt;OtherErrorUpwardMessageSender, (), ()&gt;,
 				OkFixedXcmHashWithAssertingRequiredInputsSender
@@ -1736,12 +1738,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// Deposits estimated fee to the origin account (if needed).
 /// Allows triggering of additional logic for a specific `ParaId` (e.g. to open an HRMP channel) if
 /// needed.
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+</span><span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 </span><span class="kw">pub struct </span>ToParentDeliveryHelper&lt;XcmConfig, ExistentialDeposit, PriceForDelivery&gt;(
 	sp_std::marker::PhantomData&lt;(XcmConfig, ExistentialDeposit, PriceForDelivery)&gt;,
 );
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 </span><span class="kw">impl</span>&lt;
 		XcmConfig: xcm_executor::Config,
 		ExistentialDeposit: Get&lt;<span class="prelude-ty">Option</span>&lt;Asset&gt;&gt;,

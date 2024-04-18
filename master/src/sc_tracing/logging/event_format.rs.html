@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/tracing/src/logging/event_format.rs`."><title>event_format.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/tracing/src/logging/event_format.rs`."><title>event_format.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sc_tracing" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sc_tracing" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../sc_tracing/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -498,9 +500,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub struct </span>EventFormat&lt;T = FastLocalTime&gt; {
 	<span class="doccomment">/// Use the given timer for log message timestamps.
 	</span><span class="kw">pub </span>timer: T,
-	<span class="doccomment">/// Sets whether or not an event&#39;s target is displayed.
+	<span class="doccomment">/// Sets whether or not an event's target is displayed.
 	</span><span class="kw">pub </span>display_target: bool,
-	<span class="doccomment">/// Sets whether or not an event&#39;s level is displayed.
+	<span class="doccomment">/// Sets whether or not an event's level is displayed.
 	</span><span class="kw">pub </span>display_level: bool,
 	<span class="doccomment">/// Sets whether or not the name of the current thread is displayed when formatting events.
 	</span><span class="kw">pub </span>display_thread_name: bool,
@@ -517,15 +519,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="comment">// NOTE: the following code took inspiration from tracing-subscriber
 	//
 	//       https://github.com/tokio-rs/tracing/blob/2f59b32/tracing-subscriber/src/fmt/format/mod.rs#L449
-	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>format_event_custom&lt;<span class="lifetime">&#39;b</span>, <span class="lifetime">&#39;w</span>, S, N&gt;(
+	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>format_event_custom&lt;<span class="lifetime">'b</span>, <span class="lifetime">'w</span>, S, N&gt;(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		ctx: <span class="kw-2">&amp;</span>FmtContext&lt;<span class="lifetime">&#39;b</span>, S, N&gt;,
-		writer: format::Writer&lt;<span class="lifetime">&#39;w</span>&gt;,
+		ctx: <span class="kw-2">&amp;</span>FmtContext&lt;<span class="lifetime">'b</span>, S, N&gt;,
+		writer: format::Writer&lt;<span class="lifetime">'w</span>&gt;,
 		event: <span class="kw-2">&amp;</span>Event,
 	) -&gt; fmt::Result
 	<span class="kw">where
-		</span>S: Subscriber + <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; LookupSpan&lt;<span class="lifetime">&#39;a</span>&gt;,
-		N: <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; FormatFields&lt;<span class="lifetime">&#39;a</span>&gt; + <span class="lifetime">&#39;static</span>,
+		</span>S: Subscriber + <span class="kw">for</span>&lt;<span class="lifetime">'a</span>&gt; LookupSpan&lt;<span class="lifetime">'a</span>&gt;,
+		N: <span class="kw">for</span>&lt;<span class="lifetime">'a</span>&gt; FormatFields&lt;<span class="lifetime">'a</span>&gt; + <span class="lifetime">'static</span>,
 	{
 		<span class="kw">let </span><span class="kw-2">mut </span>writer = <span class="kw-2">&amp;mut </span>ControlCodeSanitizer::new(!<span class="self">self</span>.enable_color, writer);
 		<span class="kw">let </span>normalized_meta = event.normalized_metadata();
@@ -534,24 +536,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">if </span><span class="self">self</span>.display_level {
 			<span class="kw">let </span>fmt_level = FmtLevel::new(meta.level(), <span class="self">self</span>.enable_color);
-			<span class="macro">write!</span>(writer, <span class="string">&quot;{} &quot;</span>, fmt_level)<span class="question-mark">?</span>;
+			<span class="macro">write!</span>(writer, <span class="string">"{} "</span>, fmt_level)<span class="question-mark">?</span>;
 		}
 
 		<span class="kw">if </span><span class="self">self</span>.display_thread_name {
 			<span class="kw">let </span>current_thread = std::thread::current();
 			<span class="kw">match </span>current_thread.name() {
 				<span class="prelude-val">Some</span>(name) =&gt; {
-					<span class="macro">write!</span>(writer, <span class="string">&quot;{} &quot;</span>, FmtThreadName::new(name))<span class="question-mark">?</span>;
+					<span class="macro">write!</span>(writer, <span class="string">"{} "</span>, FmtThreadName::new(name))<span class="question-mark">?</span>;
 				},
 				<span class="comment">// fall-back to thread id when name is absent and ids are not enabled
 				</span><span class="prelude-val">None </span>=&gt; {
-					<span class="macro">write!</span>(writer, <span class="string">&quot;{:0&gt;2?} &quot;</span>, current_thread.id())<span class="question-mark">?</span>;
+					<span class="macro">write!</span>(writer, <span class="string">"{:0&gt;2?} "</span>, current_thread.id())<span class="question-mark">?</span>;
 				},
 			}
 		}
 
 		<span class="kw">if </span><span class="self">self</span>.display_target {
-			<span class="macro">write!</span>(writer, <span class="string">&quot;{}: &quot;</span>, meta.target())<span class="question-mark">?</span>;
+			<span class="macro">write!</span>(writer, <span class="string">"{}: "</span>, meta.target())<span class="question-mark">?</span>;
 		}
 
 		<span class="comment">// Custom code to display node name
@@ -559,13 +561,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">for </span>span <span class="kw">in </span>span.scope() {
 				<span class="kw">let </span>exts = span.extensions();
 				<span class="kw">if let </span><span class="prelude-val">Some</span>(prefix) = exts.get::&lt;<span class="kw">super</span>::layers::Prefix&gt;() {
-					<span class="macro">write!</span>(writer, <span class="string">&quot;{}&quot;</span>, prefix.as_str())<span class="question-mark">?</span>;
+					<span class="macro">write!</span>(writer, <span class="string">"{}"</span>, prefix.as_str())<span class="question-mark">?</span>;
 					<span class="kw">break
 				</span>}
 			}
 		}
 
-		<span class="comment">// The writer only sanitizes its output once it&#39;s flushed, so if we don&#39;t actually need
+		<span class="comment">// The writer only sanitizes its output once it's flushed, so if we don't actually need
 		// to sanitize everything we need to flush out what was already buffered as-is and only
 		// force-sanitize what follows.
 		</span><span class="kw">if </span>!writer.sanitize {
@@ -585,14 +587,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //       https://github.com/tokio-rs/tracing/blob/2f59b32/tracing-subscriber/src/fmt/format/mod.rs#L449
 </span><span class="kw">impl</span>&lt;S, N, T&gt; FormatEvent&lt;S, N&gt; <span class="kw">for </span>EventFormat&lt;T&gt;
 <span class="kw">where
-	</span>S: Subscriber + <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; LookupSpan&lt;<span class="lifetime">&#39;a</span>&gt;,
-	N: <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; FormatFields&lt;<span class="lifetime">&#39;a</span>&gt; + <span class="lifetime">&#39;static</span>,
+	</span>S: Subscriber + <span class="kw">for</span>&lt;<span class="lifetime">'a</span>&gt; LookupSpan&lt;<span class="lifetime">'a</span>&gt;,
+	N: <span class="kw">for</span>&lt;<span class="lifetime">'a</span>&gt; FormatFields&lt;<span class="lifetime">'a</span>&gt; + <span class="lifetime">'static</span>,
 	T: FormatTime,
 {
 	<span class="kw">fn </span>format_event(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		ctx: <span class="kw-2">&amp;</span>FmtContext&lt;S, N&gt;,
-		<span class="kw-2">mut </span>writer: format::Writer&lt;<span class="lifetime">&#39;_</span>&gt;,
+		<span class="kw-2">mut </span>writer: format::Writer&lt;<span class="lifetime">'_</span>&gt;,
 		event: <span class="kw-2">&amp;</span>Event,
 	) -&gt; fmt::Result {
 		<span class="kw">if </span><span class="self">self</span>.dup_to_stdout &amp;&amp;
@@ -604,7 +606,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>buf_writer = format::Writer::new(<span class="kw-2">&amp;mut </span>out);
 			<span class="self">self</span>.format_event_custom(ctx, buf_writer, event)<span class="question-mark">?</span>;
 			writer.write_str(<span class="kw-2">&amp;</span>out)<span class="question-mark">?</span>;
-			<span class="macro">print!</span>(<span class="string">&quot;{}&quot;</span>, out);
+			<span class="macro">print!</span>(<span class="string">"{}"</span>, out);
 			<span class="prelude-val">Ok</span>(())
 		} <span class="kw">else </span>{
 			<span class="self">self</span>.format_event_custom(ctx, writer, event)
@@ -612,32 +614,32 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">struct </span>FmtLevel&lt;<span class="lifetime">&#39;a</span>&gt; {
-	level: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Level,
+<span class="kw">struct </span>FmtLevel&lt;<span class="lifetime">'a</span>&gt; {
+	level: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Level,
 	ansi: bool,
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; FmtLevel&lt;<span class="lifetime">&#39;a</span>&gt; {
-	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new(level: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Level, ansi: bool) -&gt; <span class="self">Self </span>{
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; FmtLevel&lt;<span class="lifetime">'a</span>&gt; {
+	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new(level: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Level, ansi: bool) -&gt; <span class="self">Self </span>{
 		<span class="self">Self </span>{ level, ansi }
 	}
 }
 
-<span class="kw">const </span>TRACE_STR: <span class="kw-2">&amp;</span>str = <span class="string">&quot;TRACE&quot;</span>;
-<span class="kw">const </span>DEBUG_STR: <span class="kw-2">&amp;</span>str = <span class="string">&quot;DEBUG&quot;</span>;
-<span class="kw">const </span>INFO_STR: <span class="kw-2">&amp;</span>str = <span class="string">&quot; INFO&quot;</span>;
-<span class="kw">const </span>WARN_STR: <span class="kw-2">&amp;</span>str = <span class="string">&quot; WARN&quot;</span>;
-<span class="kw">const </span>ERROR_STR: <span class="kw-2">&amp;</span>str = <span class="string">&quot;ERROR&quot;</span>;
+<span class="kw">const </span>TRACE_STR: <span class="kw-2">&amp;</span>str = <span class="string">"TRACE"</span>;
+<span class="kw">const </span>DEBUG_STR: <span class="kw-2">&amp;</span>str = <span class="string">"DEBUG"</span>;
+<span class="kw">const </span>INFO_STR: <span class="kw-2">&amp;</span>str = <span class="string">" INFO"</span>;
+<span class="kw">const </span>WARN_STR: <span class="kw-2">&amp;</span>str = <span class="string">" WARN"</span>;
+<span class="kw">const </span>ERROR_STR: <span class="kw-2">&amp;</span>str = <span class="string">"ERROR"</span>;
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; fmt::Display <span class="kw">for </span>FmtLevel&lt;<span class="lifetime">&#39;a</span>&gt; {
-	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; fmt::Result {
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; fmt::Display <span class="kw">for </span>FmtLevel&lt;<span class="lifetime">'a</span>&gt; {
+	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; fmt::Result {
 		<span class="kw">if </span><span class="self">self</span>.ansi {
 			<span class="kw">match </span><span class="kw-2">*</span><span class="self">self</span>.level {
-				Level::TRACE =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;{}&quot;</span>, Colour::Purple.paint(TRACE_STR)),
-				Level::DEBUG =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;{}&quot;</span>, Colour::Blue.paint(DEBUG_STR)),
-				Level::INFO =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;{}&quot;</span>, Colour::Green.paint(INFO_STR)),
-				Level::WARN =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;{}&quot;</span>, Colour::Yellow.paint(WARN_STR)),
-				Level::ERROR =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;{}&quot;</span>, Colour::Red.paint(ERROR_STR)),
+				Level::TRACE =&gt; <span class="macro">write!</span>(f, <span class="string">"{}"</span>, Colour::Purple.paint(TRACE_STR)),
+				Level::DEBUG =&gt; <span class="macro">write!</span>(f, <span class="string">"{}"</span>, Colour::Blue.paint(DEBUG_STR)),
+				Level::INFO =&gt; <span class="macro">write!</span>(f, <span class="string">"{}"</span>, Colour::Green.paint(INFO_STR)),
+				Level::WARN =&gt; <span class="macro">write!</span>(f, <span class="string">"{}"</span>, Colour::Yellow.paint(WARN_STR)),
+				Level::ERROR =&gt; <span class="macro">write!</span>(f, <span class="string">"{}"</span>, Colour::Red.paint(ERROR_STR)),
 			}
 		} <span class="kw">else </span>{
 			<span class="kw">match </span><span class="kw-2">*</span><span class="self">self</span>.level {
@@ -651,12 +653,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">struct </span>FmtThreadName&lt;<span class="lifetime">&#39;a</span>&gt; {
-	name: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>str,
+<span class="kw">struct </span>FmtThreadName&lt;<span class="lifetime">'a</span>&gt; {
+	name: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>str,
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; FmtThreadName&lt;<span class="lifetime">&#39;a</span>&gt; {
-	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new(name: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>str) -&gt; <span class="self">Self </span>{
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; FmtThreadName&lt;<span class="lifetime">'a</span>&gt; {
+	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new(name: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>str) -&gt; <span class="self">Self </span>{
 		<span class="self">Self </span>{ name }
 	}
 }
@@ -664,14 +666,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="comment">// NOTE: the following code has been duplicated from tracing-subscriber
 //
 //       https://github.com/tokio-rs/tracing/blob/2f59b32/tracing-subscriber/src/fmt/format/mod.rs#L845
-</span><span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; fmt::Display <span class="kw">for </span>FmtThreadName&lt;<span class="lifetime">&#39;a</span>&gt; {
-	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; fmt::Result {
+</span><span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; fmt::Display <span class="kw">for </span>FmtThreadName&lt;<span class="lifetime">'a</span>&gt; {
+	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; fmt::Result {
 		<span class="kw">use </span>std::sync::atomic::{
 			AtomicUsize,
 			Ordering::{AcqRel, Acquire, Relaxed},
 		};
 
-		<span class="comment">// Track the longest thread name length we&#39;ve seen so far in an atomic,
+		<span class="comment">// Track the longest thread name length we've seen so far in an atomic,
 		// so that it can be updated by any thread.
 		</span><span class="kw">static </span>MAX_LEN: AtomicUsize = AtomicUsize::new(<span class="number">0</span>);
 		<span class="kw">let </span>len = <span class="self">self</span>.name.len();
@@ -685,15 +687,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="comment">// We successfully set the new max value
 				</span><span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; <span class="kw">break</span>,
 				<span class="comment">// Another thread set a new max value since we last observed
-				// it! It&#39;s possible that the new length is actually longer than
-				// ours, so we&#39;ll loop again and check whether our length is
-				// still the longest. If not, we&#39;ll just use the newer value.
+				// it! It's possible that the new length is actually longer than
+				// ours, so we'll loop again and check whether our length is
+				// still the longest. If not, we'll just use the newer value.
 				</span><span class="prelude-val">Err</span>(actual) =&gt; max_len = actual,
 			}
 		}
 
 		<span class="comment">// pad thread name using `max_len`
-		</span><span class="macro">write!</span>(f, <span class="string">&quot;{:&gt;width$}&quot;</span>, <span class="self">self</span>.name, width = max_len)
+		</span><span class="macro">write!</span>(f, <span class="string">"{:&gt;width$}"</span>, <span class="self">self</span>.name, width = max_len)
 	}
 }
 
@@ -707,7 +709,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>write&lt;T&gt;(
 		timer: T,
-		writer: <span class="kw-2">&amp;mut </span>format::Writer&lt;<span class="lifetime">&#39;_</span>&gt;,
+		writer: <span class="kw-2">&amp;mut </span>format::Writer&lt;<span class="lifetime">'_</span>&gt;,
 		with_ansi: bool,
 	) -&gt; fmt::Result
 	<span class="kw">where
@@ -715,13 +717,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	{
 		<span class="kw">if </span>with_ansi {
 			<span class="kw">let </span>style = Style::new().dimmed();
-			<span class="macro">write!</span>(writer, <span class="string">&quot;{}&quot;</span>, style.prefix())<span class="question-mark">?</span>;
+			<span class="macro">write!</span>(writer, <span class="string">"{}"</span>, style.prefix())<span class="question-mark">?</span>;
 			timer.format_time(writer)<span class="question-mark">?</span>;
-			<span class="macro">write!</span>(writer, <span class="string">&quot;{}&quot;</span>, style.suffix())<span class="question-mark">?</span>;
+			<span class="macro">write!</span>(writer, <span class="string">"{}"</span>, style.suffix())<span class="question-mark">?</span>;
 		} <span class="kw">else </span>{
 			timer.format_time(writer)<span class="question-mark">?</span>;
 		}
-		writer.write_char(<span class="string">&#39; &#39;</span>)<span class="question-mark">?</span>;
+		writer.write_char(<span class="string">' '</span>)<span class="question-mark">?</span>;
 		<span class="prelude-val">Ok</span>(())
 	}
 }
@@ -733,13 +735,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// It is required to call [`ControlCodeSanitizer::flush`] after all writes are done,
 /// because the content of these writes is buffered and will only be written to the
 /// `inner_writer` at that point.
-</span><span class="kw">struct </span>ControlCodeSanitizer&lt;<span class="lifetime">&#39;a</span>&gt; {
+</span><span class="kw">struct </span>ControlCodeSanitizer&lt;<span class="lifetime">'a</span>&gt; {
 	sanitize: bool,
 	buffer: String,
-	inner_writer: format::Writer&lt;<span class="lifetime">&#39;a</span>&gt;,
+	inner_writer: format::Writer&lt;<span class="lifetime">'a</span>&gt;,
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; fmt::Write <span class="kw">for </span>ControlCodeSanitizer&lt;<span class="lifetime">&#39;a</span>&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; fmt::Write <span class="kw">for </span>ControlCodeSanitizer&lt;<span class="lifetime">'a</span>&gt; {
 	<span class="kw">fn </span>write_str(<span class="kw-2">&amp;mut </span><span class="self">self</span>, buf: <span class="kw-2">&amp;</span>str) -&gt; fmt::Result {
 		<span class="self">self</span>.buffer.push_str(buf);
 		<span class="prelude-val">Ok</span>(())
@@ -749,7 +751,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="comment">// NOTE: When making any changes here make sure to also change this function in `sp-panic-handler`.
 </span><span class="kw">fn </span>strip_control_codes(input: <span class="kw-2">&amp;</span>str) -&gt; std::borrow::Cow&lt;str&gt; {
 	<span class="macro">lazy_static::lazy_static! </span>{
-		<span class="kw">static </span><span class="kw-2">ref </span>RE: Regex = Regex::new(<span class="string">r#&quot;(?x)
+		<span class="kw">static </span><span class="kw-2">ref </span>RE: Regex = Regex::new(<span class="string">r#"(?x)
 			\x1b\[[^m]+m|        # VT100 escape codes
 			[
 			  \x00-\x09\x0B-\x1F # ASCII control codes / Unicode C0 control codes, except \n
@@ -758,15 +760,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			  \u{202A}-\u{202E}  # Unicode left-to-right / right-to-left control characters
 			  \u{2066}-\u{2069}  # Same as above
 			]
-		&quot;#</span>).expect(<span class="string">&quot;regex parsing doesn&#39;t fail; qed&quot;</span>);
+		"#</span>).expect(<span class="string">"regex parsing doesn't fail; qed"</span>);
 	}
 
-	RE.replace_all(input, <span class="string">&quot;&quot;</span>)
+	RE.replace_all(input, <span class="string">""</span>)
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; ControlCodeSanitizer&lt;<span class="lifetime">&#39;a</span>&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; ControlCodeSanitizer&lt;<span class="lifetime">'a</span>&gt; {
 	<span class="doccomment">/// Creates a new instance.
-	</span><span class="kw">fn </span>new(sanitize: bool, inner_writer: format::Writer&lt;<span class="lifetime">&#39;a</span>&gt;) -&gt; <span class="self">Self </span>{
+	</span><span class="kw">fn </span>new(sanitize: bool, inner_writer: format::Writer&lt;<span class="lifetime">'a</span>&gt;) -&gt; <span class="self">Self </span>{
 		<span class="self">Self </span>{ sanitize, inner_writer, buffer: String::new() }
 	}
 

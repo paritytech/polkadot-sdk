@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/support/procedural/src/benchmark.rs`."><title>benchmark.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/support/procedural/src/benchmark.rs`."><title>benchmark.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="frame_support_procedural" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="frame_support_procedural" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../frame_support_procedural/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1359,14 +1361,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -1538,9 +1540,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl </span>ToString <span class="kw">for </span>PovEstimationMode {
 	<span class="kw">fn </span>to_string(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String {
 		<span class="kw">match </span><span class="self">self </span>{
-			PovEstimationMode::MaxEncodedLen =&gt; <span class="string">&quot;MaxEncodedLen&quot;</span>.into(),
-			PovEstimationMode::Measured =&gt; <span class="string">&quot;Measured&quot;</span>.into(),
-			PovEstimationMode::Ignored =&gt; <span class="string">&quot;Ignored&quot;</span>.into(),
+			PovEstimationMode::MaxEncodedLen =&gt; <span class="string">"MaxEncodedLen"</span>.into(),
+			PovEstimationMode::Measured =&gt; <span class="string">"Measured"</span>.into(),
+			PovEstimationMode::Ignored =&gt; <span class="string">"Ignored"</span>.into(),
 		}
 	}
 }
@@ -1566,19 +1568,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">match </span>arg {
 				BenchmarkAttr::Extra =&gt; {
 					<span class="kw">if </span>extra {
-						<span class="kw">return </span><span class="prelude-val">Err</span>(input.error(<span class="string">&quot;`extra` can only be specified once&quot;</span>))
+						<span class="kw">return </span><span class="prelude-val">Err</span>(input.error(<span class="string">"`extra` can only be specified once"</span>))
 					}
 					extra = <span class="bool-val">true</span>;
 				},
 				BenchmarkAttr::SkipMeta =&gt; {
 					<span class="kw">if </span>skip_meta {
-						<span class="kw">return </span><span class="prelude-val">Err</span>(input.error(<span class="string">&quot;`skip_meta` can only be specified once&quot;</span>))
+						<span class="kw">return </span><span class="prelude-val">Err</span>(input.error(<span class="string">"`skip_meta` can only be specified once"</span>))
 					}
 					skip_meta = <span class="bool-val">true</span>;
 				},
 				BenchmarkAttr::PoV(mode) =&gt; {
 					<span class="kw">if </span>pov_mode.is_some() {
-						<span class="kw">return </span><span class="prelude-val">Err</span>(input.error(<span class="string">&quot;`pov_mode` can only be specified once&quot;</span>))
+						<span class="kw">return </span><span class="prelude-val">Err</span>(input.error(<span class="string">"`pov_mode` can only be specified once"</span>))
 					}
 					pov_mode = <span class="prelude-val">Some</span>(mode);
 				},
@@ -1632,17 +1634,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Ensures that `ReturnType` is a `Result&lt;(), BenchmarkError&gt;`, if specified
 </span><span class="kw">fn </span>ensure_valid_return_type(item_fn: <span class="kw-2">&amp;</span>ItemFn) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
 	<span class="kw">if let </span>ReturnType::Type(<span class="kw">_</span>, typ) = <span class="kw-2">&amp;</span>item_fn.sig.output {
-		<span class="kw">let </span>non_unit = |span| <span class="kw">return </span><span class="prelude-val">Err</span>(Error::new(span, <span class="string">&quot;expected `()`&quot;</span>));
+		<span class="kw">let </span>non_unit = |span| <span class="kw">return </span><span class="prelude-val">Err</span>(Error::new(span, <span class="string">"expected `()`"</span>));
 		<span class="kw">let </span>Type::Path(TypePath { path, qself: <span class="kw">_ </span>}) = <span class="kw-2">&amp;**</span>typ <span class="kw">else </span>{
 			<span class="kw">return </span><span class="prelude-val">Err</span>(Error::new(
 					typ.span(),
-					<span class="string">&quot;Only `Result&lt;(), BenchmarkError&gt;` or a blank return type is allowed on benchmark function definitions&quot;</span>,
+					<span class="string">"Only `Result&lt;(), BenchmarkError&gt;` or a blank return type is allowed on benchmark function definitions"</span>,
 				))
 		};
 		<span class="kw">let </span>seg = path
 			.segments
 			.last()
-			.expect(<span class="string">&quot;to be parsed as a TypePath, it must have at least one segment; qed&quot;</span>);
+			.expect(<span class="string">"to be parsed as a TypePath, it must have at least one segment; qed"</span>);
 		<span class="kw">let </span>res: ResultDef = syn::parse2(seg.to_token_stream())<span class="question-mark">?</span>;
 		<span class="comment">// ensure T in Result&lt;T, E&gt; is ()
 		</span><span class="kw">let </span>Type::Tuple(tup) = res.unit <span class="kw">else </span>{ <span class="kw">return </span>non_unit(res.unit.span()) };
@@ -1653,7 +1655,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>seg = path
 			.segments
 			.last()
-			.expect(<span class="string">&quot;to be parsed as a TypePath, it must have at least one segment; qed&quot;</span>);
+			.expect(<span class="string">"to be parsed as a TypePath, it must have at least one segment; qed"</span>);
 		syn::parse2::&lt;keywords::BenchmarkError&gt;(seg.to_token_stream())<span class="question-mark">?</span>;
 	}
 	<span class="prelude-val">Ok</span>(())
@@ -1661,7 +1663,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Ensure that the passed statements do not contain any forbidden variable names
 </span><span class="kw">fn </span>ensure_no_forbidden_variable_names(stmts: <span class="kw-2">&amp;</span>[Stmt]) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-	<span class="kw">const </span>FORBIDDEN_VAR_NAMES: [<span class="kw-2">&amp;</span>str; <span class="number">2</span>] = [<span class="string">&quot;recording&quot;</span>, <span class="string">&quot;verify&quot;</span>];
+	<span class="kw">const </span>FORBIDDEN_VAR_NAMES: [<span class="kw-2">&amp;</span>str; <span class="number">2</span>] = [<span class="string">"recording"</span>, <span class="string">"verify"</span>];
 	<span class="kw">for </span>stmt <span class="kw">in </span>stmts {
 		<span class="kw">let </span>Stmt::Local(l) = stmt <span class="kw">else </span>{ <span class="kw">continue </span>};
 		<span class="kw">let </span>Pat::Ident(ident) = <span class="kw-2">&amp;</span>l.pat <span class="kw">else </span>{ <span class="kw">continue </span>};
@@ -1669,7 +1671,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">return </span><span class="prelude-val">Err</span>(Error::new(
 				ident.span(),
 				<span class="macro">format!</span>(
-					<span class="string">&quot;Variables {FORBIDDEN_VAR_NAMES:?} are reserved for benchmarking internals.&quot;</span>,
+					<span class="string">"Variables {FORBIDDEN_VAR_NAMES:?} are reserved for benchmarking internals."</span>,
 				),
 			));
 		}
@@ -1684,7 +1686,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>invalid_param = |span| {
 			<span class="kw">return </span><span class="prelude-val">Err</span>(Error::new(
 				span,
-				<span class="string">&quot;Invalid benchmark function param. A valid example would be `x: Linear&lt;5, 10&gt;`.&quot;</span>,
+				<span class="string">"Invalid benchmark function param. A valid example would be `x: Linear&lt;5, 10&gt;`."</span>,
 			))
 		};
 
@@ -1696,7 +1698,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>invalid_param_name = || {
 			<span class="kw">return </span><span class="prelude-val">Err</span>(Error::new(
 					var_span,
-					<span class="string">&quot;Benchmark parameter names must consist of a single lowercase letter (a-z) and no other characters.&quot;</span>,
+					<span class="string">"Benchmark parameter names must consist of a single lowercase letter (a-z) and no other characters."</span>,
 				));
 		};
 		<span class="kw">let </span>name = ident.ident.to_token_stream().to_string();
@@ -1724,7 +1726,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">fn </span>missing_call&lt;T&gt;(item_fn: <span class="kw-2">&amp;</span>ItemFn) -&gt; <span class="prelude-ty">Result</span>&lt;T&gt; {
 	<span class="kw">return </span><span class="prelude-val">Err</span>(Error::new(
 		item_fn.block.brace_token.span.join(),
-		<span class="string">&quot;No valid #[extrinsic_call] or #[block] annotation could be found in benchmark function body.&quot;
+		<span class="string">"No valid #[extrinsic_call] or #[block] annotation could be found in benchmark function body."
 	</span>));
 }
 
@@ -1746,7 +1748,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 					<span class="comment">// extract origin from expr_call
 					</span><span class="kw">let </span><span class="prelude-val">Some</span>(origin) = expr_call.args.first().cloned() <span class="kw">else </span>{
-						<span class="kw">return </span><span class="prelude-val">Some</span>(<span class="prelude-val">Err</span>(Error::new(expr_call.span(), <span class="string">&quot;Single-item extrinsic calls must specify their origin as the first argument.&quot;</span>)))
+						<span class="kw">return </span><span class="prelude-val">Some</span>(<span class="prelude-val">Err</span>(Error::new(expr_call.span(), <span class="string">"Single-item extrinsic calls must specify their origin as the first argument."</span>)))
 					};
 
 					<span class="prelude-val">Some</span>(<span class="prelude-val">Ok</span>((i, BenchmarkCallDef::ExtrinsicCall { origin, expr_call, attr_span: attr.span() })))
@@ -1773,7 +1775,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">_ </span>=&gt;
 			<span class="kw">return </span><span class="prelude-val">Err</span>(Error::new(
 				call_defs[<span class="number">1</span>].<span class="number">1</span>.attr_span(),
-				<span class="string">&quot;Only one #[extrinsic_call] or #[block] attribute is allowed per benchmark.&quot;</span>,
+				<span class="string">"Only one #[extrinsic_call] or #[block] attribute is allowed per benchmark."</span>,
 			)),
 	})
 }
@@ -1795,11 +1797,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				</span><span class="kw">if </span>i + <span class="number">1 </span>&gt;= item_fn.block.stmts.len() {
 					<span class="kw">return </span><span class="prelude-val">Err</span>(Error::new(
 						item_fn.block.span(),
-						<span class="string">&quot;Benchmark `#[block]` or `#[extrinsic_call]` item cannot be the \
+						<span class="string">"Benchmark `#[block]` or `#[extrinsic_call]` item cannot be the \
 						last statement of your benchmark function definition if you have \
 						defined a return type. You should return something compatible \
 						with Result&lt;(), BenchmarkError&gt; (i.e. `Ok(())`) as the last statement \
-						or change your signature to a blank return type.&quot;</span>,
+						or change your signature to a blank return type."</span>,
 					))
 				}
 				<span class="kw">let </span><span class="prelude-val">Some</span>(stmt) = item_fn.block.stmts.last() <span class="kw">else </span>{ <span class="kw">return </span>missing_call(item_fn) };
@@ -1832,7 +1834,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	tokens: TokenStream,
 	instance: bool,
 ) -&gt; syn::Result&lt;TokenStream&gt; {
-	<span class="kw">let </span>krate = generate_access_from_frame_or_crate(<span class="string">&quot;frame-benchmarking&quot;</span>)<span class="question-mark">?</span>;
+	<span class="kw">let </span>krate = generate_access_from_frame_or_crate(<span class="string">"frame-benchmarking"</span>)<span class="question-mark">?</span>;
 	<span class="comment">// gather module info
 	</span><span class="kw">let </span>module: ItemMod = syn::parse(tokens)<span class="question-mark">?</span>;
 	<span class="kw">let </span>mod_span = module.span();
@@ -1857,7 +1859,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">let </span><span class="kw-2">mut </span>pov_modes = Vec::new();
 
 	<span class="kw">let </span>(_brace, <span class="kw-2">mut </span>content) =
-		module.content.ok_or(syn::Error::new(mod_span, <span class="string">&quot;Module cannot be empty!&quot;</span>))<span class="question-mark">?</span>;
+		module.content.ok_or(syn::Error::new(mod_span, <span class="string">"Module cannot be empty!"</span>))<span class="question-mark">?</span>;
 
 	<span class="comment">// find all function defs marked with #[benchmark]
 	</span><span class="kw">let </span>benchmark_fn_metas = content.iter_mut().filter_map(|stmt| {
@@ -1897,11 +1899,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="comment">// We cannot expand strings here since it is no-std, but syn does not expand bytes.
 				</span><span class="kw">let </span>name = name.to_string();
 				<span class="kw">let </span>m = mode.root.to_string();
-				modes.push(<span class="macro">quote!</span>((<span class="string">&quot;ALL&quot;</span>.as_bytes().to_vec(), #m.as_bytes().to_vec())));
+				modes.push(<span class="macro">quote!</span>((<span class="string">"ALL"</span>.as_bytes().to_vec(), #m.as_bytes().to_vec())));
 
 				<span class="kw">for </span>attr <span class="kw">in </span>mode.per_key.iter() {
 					<span class="comment">// syn always puts spaces in quoted paths:
-					</span><span class="kw">let </span>key = attr.key.clone().into_token_stream().to_string().replace(<span class="string">&quot; &quot;</span>, <span class="string">&quot;&quot;</span>);
+					</span><span class="kw">let </span>key = attr.key.clone().into_token_stream().to_string().replace(<span class="string">" "</span>, <span class="string">""</span>);
 					<span class="kw">let </span>mode = attr.mode.to_string();
 					modes.push(<span class="macro">quote!</span>((#key.as_bytes().to_vec(), #mode.as_bytes().to_vec())));
 				}
@@ -1926,10 +1928,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	};
 	<span class="kw">let </span>type_impl_generics = <span class="kw">match </span>instance {
 		<span class="bool-val">false </span>=&gt; <span class="macro">quote!</span>(T: Config),
-		<span class="bool-val">true </span>=&gt; <span class="macro">quote!</span>(T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>),
+		<span class="bool-val">true </span>=&gt; <span class="macro">quote!</span>(T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>),
 	};
 
-	<span class="kw">let </span>frame_system = generate_access_from_frame_or_crate(<span class="string">&quot;frame-system&quot;</span>)<span class="question-mark">?</span>;
+	<span class="kw">let </span>frame_system = generate_access_from_frame_or_crate(<span class="string">"frame-system"</span>)<span class="question-mark">?</span>;
 
 	<span class="comment">// benchmark name variables
 	</span><span class="kw">let </span>benchmark_names_str: Vec&lt;String&gt; = benchmark_names.iter().map(|n| n.to_string()).collect();
@@ -1941,7 +1943,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span><span class="kw-2">mut </span>benchmarks_by_name_mappings: Vec&lt;TokenStream2&gt; = Vec::new();
 	<span class="kw">let </span>test_idents: Vec&lt;Ident&gt; = benchmark_names_str
 		.iter()
-		.map(|n| Ident::new(<span class="macro">format!</span>(<span class="string">&quot;test_benchmark_{}&quot;</span>, n).as_str(), Span::call_site()))
+		.map(|n| Ident::new(<span class="macro">format!</span>(<span class="string">"test_benchmark_{}"</span>, n).as_str(), Span::call_site()))
 		.collect();
 	<span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..benchmark_names.len() {
 		<span class="kw">let </span>name_ident = <span class="kw-2">&amp;</span>benchmark_names[i];
@@ -1963,7 +1965,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.path
 				.segments
 				.iter()
-				.any(|s| s.ident == <span class="string">&quot;impl_benchmark_test_suite&quot;</span>)
+				.any(|s| s.ident == <span class="string">"impl_benchmark_test_suite"</span>)
 			{
 				<span class="kw">return </span><span class="prelude-val">None</span>;
 			}
@@ -2026,7 +2028,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					}
 				}
 			}
-			<span class="attr">#[cfg(any(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>, test))]
+			<span class="attr">#[cfg(any(feature = <span class="string">"runtime-benchmarks"</span>, test))]
 			</span><span class="kw">impl</span>&lt;#type_impl_generics&gt; #krate::Benchmarking <span class="kw">for </span>Pallet&lt;#type_use_generics&gt;
 			<span class="kw">where </span>T: #frame_system::Config, #where_clause
 			{
@@ -2058,7 +2060,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="kw">let </span>selected_benchmark = <span class="kw">match </span>benchmark {
 							#(#selected_benchmark_mappings),
 							<span class="kw-2">*</span>,
-							<span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;all benchmarks should be selectable&quot;</span>)
+							<span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"all benchmarks should be selectable"</span>)
 						};
 						<span class="kw">let </span>components = &lt;SelectedBenchmark <span class="kw">as </span>#krate::BenchmarkingSetup&lt;#type_use_generics&gt;&gt;::components(<span class="kw-2">&amp;</span>selected_benchmark);
 						<span class="kw">let </span>name = benchmark.as_bytes().to_vec();
@@ -2079,11 +2081,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					verify: bool,
 					internal_repeats: u32,
 				) -&gt; <span class="prelude-ty">Result</span>&lt;#krate::__private::Vec&lt;#krate::BenchmarkResult&gt;, #krate::BenchmarkError&gt; {
-					<span class="kw">let </span>extrinsic = #krate::__private::str::from_utf8(extrinsic).map_err(|<span class="kw">_</span>| <span class="string">&quot;`extrinsic` is not a valid utf-8 string!&quot;</span>)<span class="question-mark">?</span>;
+					<span class="kw">let </span>extrinsic = #krate::__private::str::from_utf8(extrinsic).map_err(|<span class="kw">_</span>| <span class="string">"`extrinsic` is not a valid utf-8 string!"</span>)<span class="question-mark">?</span>;
 					<span class="kw">let </span>selected_benchmark = <span class="kw">match </span>extrinsic {
 						#(#selected_benchmark_mappings),
 						<span class="kw-2">*</span>,
-						<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;Could not find extrinsic.&quot;</span>.into()),
+						<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Could not find extrinsic."</span>.into()),
 					};
 					<span class="kw">let </span><span class="kw-2">mut </span>whitelist = whitelist.to_vec();
 					<span class="kw">let </span>whitelisted_caller_key = &lt;#frame_system::Account&lt;
@@ -2126,7 +2128,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							#krate::__private::storage::unhashed::get_raw(<span class="kw-2">&amp;</span>key.key);
 						}
 
-						<span class="comment">// Reset the read/write counter so we don&#39;t count operations in the setup process.
+						<span class="comment">// Reset the read/write counter so we don't count operations in the setup process.
 						</span>#krate::benchmarking::reset_read_write_count();
 					};
 
@@ -2137,8 +2139,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 						<span class="comment">// Time the extrinsic logic.
 						</span>#<span class="macro">krate::__private::log::trace!</span>(
-							target: <span class="string">&quot;benchmark&quot;</span>,
-							<span class="string">&quot;Start Benchmark: {} ({:?})&quot;</span>,
+							target: <span class="string">"benchmark"</span>,
+							<span class="string">"Start Benchmark: {} ({:?})"</span>,
 							extrinsic,
 							c
 						);
@@ -2147,19 +2149,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						&lt;SelectedBenchmark <span class="kw">as </span>#krate::BenchmarkingSetup&lt;#type_use_generics&gt;&gt;::instance(<span class="kw-2">&amp;</span>selected_benchmark, <span class="kw-2">&amp;mut </span>recording, c, verify)<span class="question-mark">?</span>;
 
 						<span class="comment">// Calculate the diff caused by the benchmark.
-						</span><span class="kw">let </span>elapsed_extrinsic = recording.elapsed_extrinsic().expect(<span class="string">&quot;elapsed time should be recorded&quot;</span>);
+						</span><span class="kw">let </span>elapsed_extrinsic = recording.elapsed_extrinsic().expect(<span class="string">"elapsed time should be recorded"</span>);
 						<span class="kw">let </span>diff_pov = recording.diff_pov().unwrap_or_default();
 
 						<span class="comment">// Commit the changes to get proper write count
 						</span>#krate::benchmarking::commit_db();
 						#<span class="macro">krate::__private::log::trace!</span>(
-							target: <span class="string">&quot;benchmark&quot;</span>,
-							<span class="string">&quot;End Benchmark: {} ns&quot;</span>, elapsed_extrinsic
+							target: <span class="string">"benchmark"</span>,
+							<span class="string">"End Benchmark: {} ns"</span>, elapsed_extrinsic
 						);
 						<span class="kw">let </span>read_write_count = #krate::benchmarking::read_write_count();
 						#<span class="macro">krate::__private::log::trace!</span>(
-							target: <span class="string">&quot;benchmark&quot;</span>,
-							<span class="string">&quot;Read/Write Count {:?}&quot;</span>, read_write_count
+							target: <span class="string">"benchmark"</span>,
+							<span class="string">"Read/Write Count {:?}"</span>, read_write_count
 						);
 
 						<span class="comment">// Time the storage root recalculation.
@@ -2170,7 +2172,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 						<span class="kw">let </span>skip_meta = [ #(#skip_meta_benchmark_names_str),* ];
 						<span class="kw">let </span>read_and_written_keys = <span class="kw">if </span>skip_meta.contains(<span class="kw-2">&amp;</span>extrinsic) {
-							#<span class="macro">krate::__private::vec!</span>[(<span class="string">b&quot;Skipped Metadata&quot;</span>.to_vec(), <span class="number">0</span>, <span class="number">0</span>, <span class="bool-val">false</span>)]
+							#<span class="macro">krate::__private::vec!</span>[(<span class="string">b"Skipped Metadata"</span>.to_vec(), <span class="number">0</span>, <span class="number">0</span>, <span class="bool-val">false</span>)]
 						} <span class="kw">else </span>{
 							#krate::benchmarking::get_read_and_written_keys()
 						};
@@ -2196,7 +2198,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="kw">impl</span>&lt;#type_impl_generics&gt; Pallet&lt;#type_use_generics&gt; <span class="kw">where </span>T: #frame_system::Config, #where_clause {
 				<span class="doccomment">/// Test a particular benchmark by name.
 				///
-				/// This isn&#39;t called `test_benchmark_by_name` just in case some end-user eventually
+				/// This isn't called `test_benchmark_by_name` just in case some end-user eventually
 				/// writes a benchmark, itself called `by_name`; the function would be shadowed in
 				/// that case.
 				///
@@ -2206,11 +2208,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				</span><span class="attr">#[allow(unused)]
 				</span><span class="kw">fn </span>test_bench_by_name(name: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;(), #krate::BenchmarkError&gt; {
 					<span class="kw">let </span>name = #krate::__private::str::from_utf8(name)
-						.map_err(|<span class="kw">_</span>| -&gt; #krate::BenchmarkError { <span class="string">&quot;`name` is not a valid utf8 string!&quot;</span>.into() })<span class="question-mark">?</span>;
+						.map_err(|<span class="kw">_</span>| -&gt; #krate::BenchmarkError { <span class="string">"`name` is not a valid utf8 string!"</span>.into() })<span class="question-mark">?</span>;
 					<span class="kw">match </span>name {
 						#(#benchmarks_by_name_mappings),
 						<span class="kw-2">*</span>,
-						<span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(<span class="string">&quot;Could not find test for requested benchmark.&quot;</span>.into()),
+						<span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(<span class="string">"Could not find test for requested benchmark."</span>.into()),
 					}
 				}
 			}
@@ -2260,11 +2262,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	where_clause: TokenStream2,
 ) -&gt; TokenStream2 {
 	<span class="comment">// set up variables needed during quoting
-	</span><span class="kw">let </span>krate = <span class="kw">match </span>generate_access_from_frame_or_crate(<span class="string">&quot;frame-benchmarking&quot;</span>) {
+	</span><span class="kw">let </span>krate = <span class="kw">match </span>generate_access_from_frame_or_crate(<span class="string">"frame-benchmarking"</span>) {
 		<span class="prelude-val">Ok</span>(ident) =&gt; ident,
 		<span class="prelude-val">Err</span>(err) =&gt; <span class="kw">return </span>err.to_compile_error().into(),
 	};
-	<span class="kw">let </span>frame_system = <span class="kw">match </span>generate_access_from_frame_or_crate(<span class="string">&quot;frame-system&quot;</span>) {
+	<span class="kw">let </span>frame_system = <span class="kw">match </span>generate_access_from_frame_or_crate(<span class="string">"frame-system"</span>) {
 		<span class="prelude-val">Ok</span>(path) =&gt; path,
 		<span class="prelude-val">Err</span>(err) =&gt; <span class="kw">return </span>err.to_compile_error().into(),
 	};
@@ -2274,7 +2276,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>verify_stmts = benchmark_def.verify_stmts;
 	<span class="kw">let </span>last_stmt = benchmark_def.last_stmt;
 	<span class="kw">let </span>test_ident =
-		Ident::new(<span class="macro">format!</span>(<span class="string">&quot;test_benchmark_{}&quot;</span>, name.to_string()).as_str(), Span::call_site());
+		Ident::new(<span class="macro">format!</span>(<span class="string">"test_benchmark_{}"</span>, name.to_string()).as_str(), Span::call_site());
 
 	<span class="comment">// unroll params (prepare for quoting)
 	</span><span class="kw">let </span>unrolled = UnrolledParams::from(<span class="kw-2">&amp;</span>benchmark_def.params);
@@ -2288,7 +2290,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">let </span>type_impl_generics = <span class="kw">match </span>is_instance {
 		<span class="bool-val">false </span>=&gt; <span class="macro">quote!</span>(T: Config),
-		<span class="bool-val">true </span>=&gt; <span class="macro">quote!</span>(T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>),
+		<span class="bool-val">true </span>=&gt; <span class="macro">quote!</span>(T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>),
 	};
 
 	<span class="comment">// used in the benchmarking impls
@@ -2319,7 +2321,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// determine call name (handles `_` and normal call syntax)
 			</span><span class="kw">let </span>expr_span = expr_call.span();
 			<span class="kw">let </span>call_err = || {
-				syn::Error::new(expr_span, <span class="string">&quot;Extrinsic call must be a function call or `_`&quot;</span>)
+				syn::Error::new(expr_span, <span class="string">"Extrinsic call must be a function call or `_`"</span>)
 					.to_compile_error()
 			};
 			<span class="kw">let </span>call_name = <span class="kw">match </span><span class="kw-2">*</span>expr_call.func {
@@ -2336,8 +2338,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">_ </span>=&gt; <span class="kw">return </span>call_err(),
 			};
 
-			<span class="comment">// modify extrinsic call to be prefixed with &quot;new_call_variant&quot;
-			</span><span class="kw">let </span>call_name = <span class="macro">format!</span>(<span class="string">&quot;new_call_variant_{}&quot;</span>, call_name);
+			<span class="comment">// modify extrinsic call to be prefixed with "new_call_variant"
+			</span><span class="kw">let </span>call_name = <span class="macro">format!</span>(<span class="string">"new_call_variant_{}"</span>, call_name);
 			<span class="kw">let </span><span class="kw-2">mut </span>punct: Punctuated&lt;PathSegment, PathSep&gt; = Punctuated::new();
 			punct.push(PathSegment {
 				arguments: PathArguments::None,
@@ -2355,7 +2357,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>post_call = <span class="macro">quote! </span>{
 				<span class="kw">let </span>__call_decoded = &lt;Call&lt;#type_use_generics&gt; <span class="kw">as </span>#codec::Decode&gt;
 					::decode(<span class="kw-2">&amp;mut &amp;</span>__benchmarked_call_encoded[..])
-					.expect(<span class="string">&quot;call is encoded above, encoding must be correct&quot;</span>);
+					.expect(<span class="string">"call is encoded above, encoding must be correct"</span>);
 				<span class="kw">let </span>__origin = #origin;
 				&lt;Call&lt;#type_use_generics&gt; <span class="kw">as </span>#traits::UnfilteredDispatchable&gt;::dispatch_bypass_filter(
 					__call_decoded,
@@ -2386,7 +2388,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="comment">// modify signature generics, ident, and inputs, e.g:
 	// before: `fn bench(u: Linear&lt;1, 100&gt;) -&gt; Result&lt;(), BenchmarkError&gt;`
-	// after: `fn _bench &lt;T: Config&lt;I&gt;, I: &#39;static&gt;(u: u32, verify: bool) -&gt; Result&lt;(),
+	// after: `fn _bench &lt;T: Config&lt;I&gt;, I: 'static&gt;(u: u32, verify: bool) -&gt; Result&lt;(),
 	// BenchmarkError&gt;`
 	</span><span class="kw">let </span><span class="kw-2">mut </span>sig = benchmark_def.fn_sig;
 	sig.generics = <span class="macro">parse_quote!</span>(&lt;#type_impl_generics&gt;);
@@ -2394,7 +2396,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		sig.generics.where_clause = <span class="macro">parse_quote!</span>(<span class="kw">where </span>#where_clause);
 	}
 	sig.ident =
-		Ident::new(<span class="macro">format!</span>(<span class="string">&quot;_{}&quot;</span>, name.to_token_stream().to_string()).as_str(), Span::call_site());
+		Ident::new(<span class="macro">format!</span>(<span class="string">"_{}"</span>, name.to_token_stream().to_string()).as_str(), Span::call_site());
 	<span class="kw">let </span><span class="kw-2">mut </span>fn_param_inputs: Vec&lt;TokenStream2&gt; =
 		param_names.iter().map(|name| <span class="macro">quote!</span>(#name: u32)).collect();
 	fn_param_inputs.push(<span class="macro">quote!</span>(verify: bool));
@@ -2457,7 +2459,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="comment">// prepare instance #param_names
 					</span><span class="kw">let </span>#param_names = components.iter()
 						.find(|<span class="kw-2">&amp;</span>c| c.<span class="number">0 </span>== #krate::BenchmarkParameter::#param_names)
-						.ok_or(<span class="string">&quot;Could not find component during benchmark preparation.&quot;</span>)<span class="question-mark">?
+						.ok_or(<span class="string">"Could not find component during benchmark preparation."</span>)<span class="question-mark">?
 						</span>.<span class="number">1</span>;
 				)*
 
@@ -2506,10 +2508,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">if </span>components.is_empty() {
 					execute_benchmark(Default::default())<span class="question-mark">?</span>;
 				} <span class="kw">else </span>{
-					<span class="kw">let </span>num_values: u32 = <span class="kw">if let </span><span class="prelude-val">Ok</span>(ev) = std::env::var(<span class="string">&quot;VALUES_PER_COMPONENT&quot;</span>) {
+					<span class="kw">let </span>num_values: u32 = <span class="kw">if let </span><span class="prelude-val">Ok</span>(ev) = std::env::var(<span class="string">"VALUES_PER_COMPONENT"</span>) {
 						ev.parse().map_err(|<span class="kw">_</span>| {
 							#krate::BenchmarkError::Stop(
-								<span class="string">&quot;Could not parse env var `VALUES_PER_COMPONENT` as u32.&quot;
+								<span class="string">"Could not parse env var `VALUES_PER_COMPONENT` as u32."
 							</span>)
 						})<span class="question-mark">?
 					</span>} <span class="kw">else </span>{
@@ -2517,7 +2519,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					</span>};
 
 					<span class="kw">if </span>num_values &lt; <span class="number">2 </span>{
-						<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;`VALUES_PER_COMPONENT` must be at least 2&quot;</span>.into());
+						<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"`VALUES_PER_COMPONENT` must be at least 2"</span>.into());
 					}
 
 					<span class="kw">for </span>(name, low, high) <span class="kw">in </span>components.clone().into_iter() {
@@ -2525,7 +2527,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						// and up to num_values-2 more equidistant values in between.
 						// For 0..10 and num_values=6 this would mean: [0, 2, 4, 6, 8, 10]
 						</span><span class="kw">if </span>high &lt; low {
-							<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;The start of a `ParamRange` must be less than or equal to the end&quot;</span>.into());
+							<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"The start of a `ParamRange` must be less than or equal to the end"</span>.into());
 						}
 
 						<span class="kw">let </span><span class="kw-2">mut </span>values = #<span class="macro">krate::__private::vec!</span>[low];

@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/core/provisioner/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/core/provisioner/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_node_core_provisioner" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_node_core_provisioner" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../polkadot_node_core_provisioner/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1149,10 +1151,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// How long to wait before proposing.
 </span><span class="kw">const </span>PRE_PROPOSE_TIMEOUT: std::time::Duration = core::time::Duration::from_millis(<span class="number">2000</span>);
-<span class="doccomment">/// Some timeout to ensure task won&#39;t hang around in the background forever on issues.
+<span class="doccomment">/// Some timeout to ensure task won't hang around in the background forever on issues.
 </span><span class="kw">const </span>SEND_INHERENT_DATA_TIMEOUT: std::time::Duration = core::time::Duration::from_millis(<span class="number">500</span>);
 
-<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;parachain::provisioner&quot;</span>;
+<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"parachain::provisioner"</span>;
 
 <span class="kw">const </span>PRIORITIZED_SELECTION_RUNTIME_VERSION_REQUIREMENT: u32 =
 	RuntimeApiRequest::DISPUTES_RUNTIME_REQUIREMENT;
@@ -1189,7 +1191,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl </span>PerRelayParent {
 	<span class="kw">fn </span>new(leaf: ActivatedLeaf, per_session: <span class="kw-2">&amp;</span>PerSession) -&gt; <span class="self">Self </span>{
-		<span class="kw">let </span>span = PerLeafSpan::new(leaf.span.clone(), <span class="string">&quot;provisioner&quot;</span>);
+		<span class="kw">let </span>span = PerLeafSpan::new(leaf.span.clone(), <span class="string">"provisioner"</span>);
 
 		<span class="self">Self </span>{
 			leaf,
@@ -1204,7 +1206,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">type </span>InherentDelays = FuturesUnordered&lt;BoxFuture&lt;<span class="lifetime">&#39;static</span>, Hash&gt;&gt;;
+<span class="kw">type </span>InherentDelays = FuturesUnordered&lt;BoxFuture&lt;<span class="lifetime">'static</span>, Hash&gt;&gt;;
 
 <span class="attr">#[overseer::subsystem(Provisioner, error=SubsystemError, prefix=<span class="self">self</span>::overseer)]
 </span><span class="kw">impl</span>&lt;Context&gt; ProvisionerSubsystem {
@@ -1212,11 +1214,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>future = <span class="kw">async move </span>{
 			run(ctx, <span class="self">self</span>.metrics)
 				.<span class="kw">await
-				</span>.map_err(|e| SubsystemError::with_origin(<span class="string">&quot;provisioner&quot;</span>, e))
+				</span>.map_err(|e| SubsystemError::with_origin(<span class="string">"provisioner"</span>, e))
 		}
 		.boxed();
 
-		SpawnedSubsystem { name: <span class="string">&quot;provisioner-subsystem&quot;</span>, future }
+		SpawnedSubsystem { name: <span class="string">"provisioner-subsystem"</span>, future }
 	}
 }
 
@@ -1274,7 +1276,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="macro">gum::trace!</span>(
 						target: LOG_TARGET,
 						relay_parent = <span class="question-mark">?</span>hash,
-						<span class="string">&quot;Inherent Data became ready&quot;
+						<span class="string">"Inherent Data became ready"
 					</span>);
 
 					<span class="kw">let </span>return_senders = std::mem::take(<span class="kw-2">&amp;mut </span>state.awaiting_inherent);
@@ -1294,7 +1296,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	per_session: <span class="kw-2">&amp;mut </span>LruMap&lt;SessionIndex, PerSession&gt;,
 	inherent_delays: <span class="kw-2">&amp;mut </span>InherentDelays,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
-	<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="string">&quot;Handle ActiveLeavesUpdate&quot;</span>);
+	<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="string">"Handle ActiveLeavesUpdate"</span>);
 	<span class="kw">for </span>deactivated <span class="kw">in </span><span class="kw-2">&amp;</span>update.deactivated {
 		per_relay_parent.remove(deactivated);
 	}
@@ -1320,9 +1322,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			);
 		}
 
-		<span class="kw">let </span>session_info = per_session.get(<span class="kw-2">&amp;</span>session_index).expect(<span class="string">&quot;Just inserted&quot;</span>);
+		<span class="kw">let </span>session_info = per_session.get(<span class="kw-2">&amp;</span>session_index).expect(<span class="string">"Just inserted"</span>);
 
-		<span class="macro">gum::trace!</span>(target: LOG_TARGET, leaf_hash=<span class="question-mark">?</span>leaf.hash, <span class="string">&quot;Adding delay&quot;</span>);
+		<span class="macro">gum::trace!</span>(target: LOG_TARGET, leaf_hash=<span class="question-mark">?</span>leaf.hash, <span class="string">"Adding delay"</span>);
 		<span class="kw">let </span>delay_fut = Delay::new(PRE_PROPOSE_TIMEOUT).map(<span class="kw">move </span>|<span class="kw">_</span>| leaf.hash).boxed();
 		per_relay_parent.insert(leaf.hash, PerRelayParent::new(leaf, session_info));
 		inherent_delays.push(delay_fut);
@@ -1340,18 +1342,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
 	<span class="kw">match </span>message {
 		ProvisionerMessage::RequestInherentData(relay_parent, return_sender) =&gt; {
-			<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>relay_parent, <span class="string">&quot;Inherent data got requested.&quot;</span>);
+			<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>relay_parent, <span class="string">"Inherent data got requested."</span>);
 
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(state) = per_relay_parent.get_mut(<span class="kw-2">&amp;</span>relay_parent) {
 				<span class="kw">if </span>state.is_inherent_ready {
-					<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>relay_parent, <span class="string">&quot;Calling send_inherent_data.&quot;</span>);
+					<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>relay_parent, <span class="string">"Calling send_inherent_data."</span>);
 					send_inherent_data_bg(ctx, <span class="kw-2">&amp;</span>state, <span class="macro">vec!</span>[return_sender], metrics.clone())
 						.<span class="kw">await</span><span class="question-mark">?</span>;
 				} <span class="kw">else </span>{
 					<span class="macro">gum::trace!</span>(
 						target: LOG_TARGET,
 						<span class="question-mark">?</span>relay_parent,
-						<span class="string">&quot;Queuing inherent data request (inherent data not yet ready).&quot;
+						<span class="string">"Queuing inherent data request (inherent data not yet ready)."
 					</span>);
 					state.awaiting_inherent.push(return_sender);
 				}
@@ -1359,10 +1361,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		},
 		ProvisionerMessage::ProvisionableData(relay_parent, data) =&gt; {
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(state) = per_relay_parent.get_mut(<span class="kw-2">&amp;</span>relay_parent) {
-				<span class="kw">let </span>span = state.span.child(<span class="string">&quot;provisionable-data&quot;</span>);
+				<span class="kw">let </span>span = state.span.child(<span class="string">"provisionable-data"</span>);
 				<span class="kw">let </span>_timer = metrics.time_provisionable_data();
 
-				<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>relay_parent, <span class="string">&quot;Received provisionable data.&quot;</span>);
+				<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>relay_parent, <span class="string">"Received provisionable data."</span>);
 
 				note_provisionable_data(state, <span class="kw-2">&amp;</span>span, data);
 			}
@@ -1384,7 +1386,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>backed_candidates = per_relay_parent.backed_candidates.clone();
 	<span class="kw">let </span>mode = per_relay_parent.prospective_parachains_mode;
 	<span class="kw">let </span>elastic_scaling_mvp = per_relay_parent.elastic_scaling_mvp;
-	<span class="kw">let </span>span = per_relay_parent.span.child(<span class="string">&quot;req-inherent-data&quot;</span>);
+	<span class="kw">let </span>span = per_relay_parent.span.child(<span class="string">"req-inherent-data"</span>);
 
 	<span class="kw">let </span><span class="kw-2">mut </span>sender = ctx.sender().clone();
 
@@ -1395,7 +1397,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">gum::trace!</span>(
 			target: LOG_TARGET,
 			relay_parent = <span class="question-mark">?</span>leaf.hash,
-			<span class="string">&quot;Sending inherent data in background.&quot;
+			<span class="string">"Sending inherent data in background."
 		</span>);
 
 		<span class="kw">let </span>send_result = send_inherent_data(
@@ -1420,10 +1422,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="macro">gum::debug!</span>(
 						target: LOG_TARGET,
 						err = <span class="question-mark">?</span>err,
-						<span class="string">&quot;Failed to assemble or send inherent data - block got likely obsoleted already.&quot;
+						<span class="string">"Failed to assemble or send inherent data - block got likely obsoleted already."
 					</span>);
 				} <span class="kw">else </span>{
-					<span class="macro">gum::warn!</span>(target: LOG_TARGET, err = <span class="question-mark">?</span>err, <span class="string">&quot;failed to assemble or send inherent data&quot;</span>);
+					<span class="macro">gum::warn!</span>(target: LOG_TARGET, err = <span class="question-mark">?</span>err, <span class="string">"failed to assemble or send inherent data"</span>);
 				}
 				metrics.on_inherent_data_request(<span class="prelude-val">Err</span>(()));
 			},
@@ -1433,14 +1435,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					target: LOG_TARGET,
 					signed_bitfield_count = signed_bitfields.len(),
 					leaf_hash = <span class="question-mark">?</span>leaf.hash,
-					<span class="string">&quot;inherent data sent successfully&quot;
+					<span class="string">"inherent data sent successfully"
 				</span>);
 				metrics.observe_inherent_data_bitfields_count(signed_bitfields.len());
 			},
 		}
 	};
 
-	ctx.spawn(<span class="string">&quot;send-inherent-data&quot;</span>, bg.boxed())
+	ctx.spawn(<span class="string">"send-inherent-data"</span>, bg.boxed())
 		.map_err(|<span class="kw">_</span>| Error::FailedToSpawnBackgroundTask)<span class="question-mark">?</span>;
 
 	<span class="prelude-val">Ok</span>(())
@@ -1460,10 +1462,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				target: LOG_TARGET,
 				<span class="question-mark">?</span>candidate_hash,
 				para = <span class="question-mark">?</span>backed_candidate.descriptor().para_id,
-				<span class="string">&quot;noted backed candidate&quot;</span>,
+				<span class="string">"noted backed candidate"</span>,
 			);
 			<span class="kw">let </span>_span = span
-				.child(<span class="string">&quot;provisionable-backed&quot;</span>)
+				.child(<span class="string">"provisionable-backed"</span>)
 				.with_candidate(candidate_hash)
 				.with_para_id(backed_candidate.descriptor().para_id);
 			per_relay_parent.backed_candidates.push(backed_candidate);
@@ -1477,9 +1479,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		// parablock candidate is included for the following reasons:
 		//
 		// 1. A dispute for a candidate triggered at any point before the candidate
-		// has been made available, including the backing stage, can&#39;t be
+		// has been made available, including the backing stage, can't be
 		// guaranteed to conclude. Non-concluding disputes are unacceptable.
-		// 2. Candidates which haven&#39;t been made available don&#39;t pose a security
+		// 2. Candidates which haven't been made available don't pose a security
 		// risk as they can not be included, approved, or finalized.
 		//
 		// Currently we rely on approval checkers to trigger disputes for bad
@@ -1507,7 +1509,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// includable when some bitfields are included. And we might have candidates
 /// that are not includable when certain bitfields are included.
 ///
-/// When we&#39;re choosing bitfields to include, the rule should be simple:
+/// When we're choosing bitfields to include, the rule should be simple:
 /// maximize availability. So basically, include all bitfields. And then
 /// choose a coherent set of candidates along with that.
 </span><span class="kw">async fn </span>send_inherent_data(
@@ -1523,7 +1525,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="macro">gum::trace!</span>(
 		target: LOG_TARGET,
 		relay_parent = <span class="question-mark">?</span>leaf.hash,
-		<span class="string">&quot;Requesting availability cores&quot;
+		<span class="string">"Requesting availability cores"
 	</span>);
 	<span class="kw">let </span>availability_cores = request_availability_cores(leaf.hash, from_job)
 		.<span class="kw">await
@@ -1533,7 +1535,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="macro">gum::trace!</span>(
 		target: LOG_TARGET,
 		relay_parent = <span class="question-mark">?</span>leaf.hash,
-		<span class="string">&quot;Selecting disputes&quot;
+		<span class="string">"Selecting disputes"
 	</span>);
 
 	<span class="macro">debug_assert!</span>(
@@ -1543,7 +1545,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			PRIORITIZED_SELECTION_RUNTIME_VERSION_REQUIREMENT,
 		)
 		.<span class="kw">await</span>,
-		<span class="string">&quot;randomized selection no longer supported, please upgrade your runtime!&quot;
+		<span class="string">"randomized selection no longer supported, please upgrade your runtime!"
 	</span>);
 
 	<span class="kw">let </span>disputes = disputes::prioritized_selection::select_disputes(from_job, metrics, leaf).<span class="kw">await</span>;
@@ -1551,7 +1553,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="macro">gum::trace!</span>(
 		target: LOG_TARGET,
 		relay_parent = <span class="question-mark">?</span>leaf.hash,
-		<span class="string">&quot;Selected disputes&quot;
+		<span class="string">"Selected disputes"
 	</span>);
 
 	<span class="kw">let </span>bitfields = select_availability_bitfields(<span class="kw-2">&amp;</span>availability_cores, bitfields, <span class="kw-2">&amp;</span>leaf.hash);
@@ -1559,7 +1561,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="macro">gum::trace!</span>(
 		target: LOG_TARGET,
 		relay_parent = <span class="question-mark">?</span>leaf.hash,
-		<span class="string">&quot;Selected bitfields&quot;
+		<span class="string">"Selected bitfields"
 	</span>);
 
 	<span class="kw">let </span>candidates = select_candidates(
@@ -1576,7 +1578,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="macro">gum::trace!</span>(
 		target: LOG_TARGET,
 		relay_parent = <span class="question-mark">?</span>leaf.hash,
-		<span class="string">&quot;Selected candidates&quot;
+		<span class="string">"Selected candidates"
 	</span>);
 
 	<span class="macro">gum::debug!</span>(
@@ -1586,7 +1588,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		bitfields_count = bitfields.len(),
 		candidates_count = candidates.len(),
 		leaf_hash = <span class="question-mark">?</span>leaf.hash,
-		<span class="string">&quot;inherent data prepared&quot;</span>,
+		<span class="string">"inherent data prepared"</span>,
 	);
 
 	<span class="kw">let </span>inherent_data =
@@ -1595,7 +1597,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="macro">gum::trace!</span>(
 		target: LOG_TARGET,
 		relay_parent = <span class="question-mark">?</span>leaf.hash,
-		<span class="string">&quot;Sending back inherent data to requesters.&quot;
+		<span class="string">"Sending back inherent data to requesters."
 	</span>);
 
 	<span class="kw">for </span>return_sender <span class="kw">in </span>return_senders {
@@ -1628,12 +1630,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		target: LOG_TARGET,
 		bitfields_count = bitfields.len(),
 		<span class="question-mark">?</span>leaf_hash,
-		<span class="string">&quot;bitfields count before selection&quot;
+		<span class="string">"bitfields count before selection"
 	</span>);
 
-	<span class="lifetime">&#39;a</span>: <span class="kw">for </span>bitfield <span class="kw">in </span>bitfields.iter().cloned() {
+	<span class="lifetime">'a</span>: <span class="kw">for </span>bitfield <span class="kw">in </span>bitfields.iter().cloned() {
 		<span class="kw">if </span>bitfield.payload().<span class="number">0</span>.len() != cores.len() {
-			<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="question-mark">?</span>leaf_hash, <span class="string">&quot;dropping bitfield due to length mismatch&quot;</span>);
+			<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="question-mark">?</span>leaf_hash, <span class="string">"dropping bitfield due to length mismatch"</span>);
 			<span class="kw">continue
 		</span>}
 
@@ -1646,7 +1648,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				target: LOG_TARGET,
 				val_idx = bitfield.validator_index().<span class="number">0</span>,
 				<span class="question-mark">?</span>leaf_hash,
-				<span class="string">&quot;dropping bitfield due to duplication - the better one is kept&quot;
+				<span class="string">"dropping bitfield due to duplication - the better one is kept"
 			</span>);
 			<span class="kw">continue
 		</span>}
@@ -1658,9 +1660,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					target: LOG_TARGET,
 					val_idx = bitfield.validator_index().<span class="number">0</span>,
 					<span class="question-mark">?</span>leaf_hash,
-					<span class="string">&quot;dropping invalid bitfield - bit is set for an unoccupied core&quot;
+					<span class="string">"dropping invalid bitfield - bit is set for an unoccupied core"
 				</span>);
-				<span class="kw">continue </span><span class="lifetime">&#39;a
+				<span class="kw">continue </span><span class="lifetime">'a
 			</span>}
 		}
 
@@ -1670,7 +1672,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="macro">gum::debug!</span>(
 		target: LOG_TARGET,
 		<span class="question-mark">?</span>leaf_hash,
-		<span class="string">&quot;selected {} of all {} bitfields (each bitfield is from a unique validator)&quot;</span>,
+		<span class="string">"selected {} of all {} bitfields (each bitfield is from a unique validator)"</span>,
 		selected.len(),
 		bitfields.len()
 	);
@@ -1697,7 +1699,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		target: LOG_TARGET,
 		leaf_hash=<span class="question-mark">?</span>relay_parent,
 		n_candidates = candidates.len(),
-		<span class="string">&quot;Candidate receipts (before selection)&quot;</span>,
+		<span class="string">"Candidate receipts (before selection)"</span>,
 	);
 
 	<span class="kw">for </span>(core_idx, core) <span class="kw">in </span>availability_cores.iter().enumerate() {
@@ -1761,7 +1763,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="question-mark">?</span>candidate_hash,
 				para = <span class="question-mark">?</span>candidate.descriptor.para_id,
 				core = core_idx,
-				<span class="string">&quot;Selected candidate receipt&quot;</span>,
+				<span class="string">"Selected candidate receipt"</span>,
 			);
 
 			selected_candidates.insert(
@@ -1788,7 +1790,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>block_number = get_block_number_under_construction(relay_parent, sender).<span class="kw">await</span><span class="question-mark">?</span>;
 
 	<span class="comment">// Record how many cores are scheduled for each paraid. Use a BTreeMap because
-	// we&#39;ll need to iterate through them.
+	// we'll need to iterate through them.
 	</span><span class="kw">let </span><span class="kw-2">mut </span>scheduled_cores_per_para: BTreeMap&lt;ParaId, usize&gt; = BTreeMap::new();
 	<span class="comment">// The on-chain ancestors of a para present in availability-cores.
 	</span><span class="kw">let </span><span class="kw-2">mut </span>ancestors: HashMap&lt;ParaId, Ancestors&gt; =
@@ -1821,7 +1823,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="comment">// Timed out before being available.
 
 					</span><span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>scheduled_core) = occupied_core.next_up_on_time_out {
-						<span class="comment">// Candidate&#39;s availability timed out, practically same as scheduled.
+						<span class="comment">// Candidate's availability timed out, practically same as scheduled.
 						</span><span class="kw-2">*</span>scheduled_cores_per_para.entry(scheduled_core.para_id).or_insert(<span class="number">0</span>) += <span class="number">1</span>;
 					}
 				} <span class="kw">else </span>{
@@ -1861,7 +1863,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				target: LOG_TARGET,
 				leaf_hash = <span class="question-mark">?</span>relay_parent,
 				<span class="question-mark">?</span>para_id,
-				<span class="string">&quot;No backable candidate returned by prospective parachains&quot;</span>,
+				<span class="string">"No backable candidate returned by prospective parachains"</span>,
 			);
 			<span class="kw">continue
 		</span>}
@@ -1885,7 +1887,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;BackedCandidate&gt;, Error&gt; {
 	<span class="macro">gum::trace!</span>(target: LOG_TARGET,
 		leaf_hash=<span class="question-mark">?</span>relay_parent,
-		<span class="string">&quot;before GetBackedCandidates&quot;</span>);
+		<span class="string">"before GetBackedCandidates"</span>);
 
 	<span class="kw">let </span>selected_candidates = <span class="kw">match </span>prospective_parachains_mode {
 		ProspectiveParachainsMode::Enabled { .. } =&gt;
@@ -1907,7 +1909,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			)
 			.<span class="kw">await</span><span class="question-mark">?</span>,
 	};
-	<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="question-mark">?</span>selected_candidates, <span class="string">&quot;Got backable candidates&quot;</span>);
+	<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="question-mark">?</span>selected_candidates, <span class="string">"Got backable candidates"</span>);
 
 	<span class="comment">// now get the backed candidates corresponding to these candidate receipts
 	</span><span class="kw">let </span>(tx, rx) = oneshot::channel();
@@ -1917,7 +1919,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	));
 	<span class="kw">let </span>candidates = rx.<span class="kw">await</span>.map_err(|err| Error::CanceledBackedCandidates(err))<span class="question-mark">?</span>;
 	<span class="macro">gum::trace!</span>(target: LOG_TARGET, leaf_hash=<span class="question-mark">?</span>relay_parent,
-				<span class="string">&quot;Got {} backed candidates&quot;</span>, candidates.len());
+				<span class="string">"Got {} backed candidates"</span>, candidates.len());
 
 	<span class="comment">// keep only one candidate with validation code.
 	</span><span class="kw">let </span><span class="kw-2">mut </span>with_validation_code = <span class="bool-val">false</span>;
@@ -1943,7 +1945,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		n_candidates = merged_candidates.len(),
 		n_cores = availability_cores.len(),
 		<span class="question-mark">?</span>relay_parent,
-		<span class="string">&quot;Selected backed candidates&quot;</span>,
+		<span class="string">"Selected backed candidates"</span>,
 	);
 
 	<span class="prelude-val">Ok</span>(merged_candidates)
@@ -2014,7 +2016,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					target: LOG_TARGET,
 					validator_idx = %validator_idx,
 					availability_len = %availability_len,
-					<span class="string">&quot;attempted to set a transverse bit at idx {} which is greater than bitfield size {}&quot;</span>,
+					<span class="string">"attempted to set a transverse bit at idx {} which is greater than bitfield size {}"</span>,
 					validator_idx,
 					availability_len,
 				);

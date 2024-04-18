@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/treasury/src/benchmarking.rs`."><title>benchmarking.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/treasury/src/benchmarking.rs`."><title>benchmarking.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_treasury" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_treasury" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../pallet_treasury/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -494,21 +496,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
 </span><span class="doccomment">//! Treasury pallet benchmarking.
 
-</span><span class="attr">#![cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+</span><span class="attr">#![cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 
 </span><span class="kw">use super</span>::{Pallet <span class="kw">as </span>Treasury, <span class="kw-2">*</span>};
 
@@ -526,7 +528,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>frame_system::RawOrigin;
 <span class="kw">use </span>sp_core::crypto::FromEntropy;
 
-<span class="doccomment">/// Trait describing factory functions for dispatchables&#39; parameters.
+<span class="doccomment">/// Trait describing factory functions for dispatchables' parameters.
 </span><span class="kw">pub trait </span>ArgumentsFactory&lt;AssetKind, Beneficiary&gt; {
 	<span class="doccomment">/// Factory function for an asset kind.
 	</span><span class="kw">fn </span>create_asset_kind(seed: u32) -&gt; AssetKind;
@@ -551,19 +553,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">const </span>SEED: u32 = <span class="number">0</span>;
 
 <span class="comment">// Create the pre-requisite information needed to create a treasury `propose_spend`.
-</span><span class="kw">fn </span>setup_proposal&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt;(
+</span><span class="kw">fn </span>setup_proposal&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt;(
 	u: u32,
 ) -&gt; (T::AccountId, BalanceOf&lt;T, I&gt;, AccountIdLookupOf&lt;T&gt;) {
-	<span class="kw">let </span>caller = account(<span class="string">&quot;caller&quot;</span>, u, SEED);
+	<span class="kw">let </span>caller = account(<span class="string">"caller"</span>, u, SEED);
 	<span class="kw">let </span>value: BalanceOf&lt;T, I&gt; = T::ProposalBondMinimum::get().saturating_mul(<span class="number">100u32</span>.into());
 	<span class="kw">let _ </span>= T::Currency::make_free_balance_be(<span class="kw-2">&amp;</span>caller, value);
-	<span class="kw">let </span>beneficiary = account(<span class="string">&quot;beneficiary&quot;</span>, u, SEED);
+	<span class="kw">let </span>beneficiary = account(<span class="string">"beneficiary"</span>, u, SEED);
 	<span class="kw">let </span>beneficiary_lookup = T::Lookup::unlookup(beneficiary);
 	(caller, value, beneficiary_lookup)
 }
 
 <span class="comment">// Create proposals that are approved for use in `on_initialize`.
-</span><span class="kw">fn </span>create_approved_proposals&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt;(n: u32) -&gt; <span class="prelude-ty">Result</span>&lt;(), <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; {
+</span><span class="kw">fn </span>create_approved_proposals&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt;(n: u32) -&gt; <span class="prelude-ty">Result</span>&lt;(), <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
 	<span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..n {
 		<span class="kw">let </span>(caller, value, lookup) = setup_proposal::&lt;T, I&gt;(i);
 		<span class="attr">#[allow(deprecated)]
@@ -571,22 +573,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>proposal_id = &lt;ProposalCount&lt;T, I&gt;&gt;::get() - <span class="number">1</span>;
 		Approvals::&lt;T, I&gt;::try_append(proposal_id).unwrap();
 	}
-	<span class="macro">ensure!</span>(&lt;Approvals&lt;T, I&gt;&gt;::get().len() == n <span class="kw">as </span>usize, <span class="string">&quot;Not all approved&quot;</span>);
+	<span class="macro">ensure!</span>(&lt;Approvals&lt;T, I&gt;&gt;::get().len() == n <span class="kw">as </span>usize, <span class="string">"Not all approved"</span>);
 	<span class="prelude-val">Ok</span>(())
 }
 
-<span class="kw">fn </span>setup_pot_account&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt;() {
+<span class="kw">fn </span>setup_pot_account&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt;() {
 	<span class="kw">let </span>pot_account = Treasury::&lt;T, I&gt;::account_id();
 	<span class="kw">let </span>value = T::Currency::minimum_balance().saturating_mul(<span class="number">1_000_000_000u32</span>.into());
 	<span class="kw">let _ </span>= T::Currency::make_free_balance_be(<span class="kw-2">&amp;</span>pot_account, value);
 }
 
-<span class="kw">fn </span>assert_last_event&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt;(generic_event: &lt;T <span class="kw">as </span>Config&lt;I&gt;&gt;::RuntimeEvent) {
+<span class="kw">fn </span>assert_last_event&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt;(generic_event: &lt;T <span class="kw">as </span>Config&lt;I&gt;&gt;::RuntimeEvent) {
 	frame_system::Pallet::&lt;T&gt;::assert_last_event(generic_event.into());
 }
 
 <span class="comment">// Create the arguments for the `spend` dispatchable.
-</span><span class="kw">fn </span>create_spend_arguments&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt;(
+</span><span class="kw">fn </span>create_spend_arguments&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt;(
 	seed: u32,
 ) -&gt; (T::AssetKind, AssetBalanceOf&lt;T, I&gt;, T::Beneficiary, BeneficiaryLookupOf&lt;T, I&gt;) {
 	<span class="kw">let </span>asset_kind = T::BenchmarkHelper::create_asset_kind(seed);
@@ -741,7 +743,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[benchmark]
 	</span><span class="kw">fn </span>payout() -&gt; <span class="prelude-ty">Result</span>&lt;(), BenchmarkError&gt; {
-		<span class="kw">let </span>origin = T::SpendOrigin::try_successful_origin().map_err(|<span class="kw">_</span>| <span class="string">&quot;No origin&quot;</span>)<span class="question-mark">?</span>;
+		<span class="kw">let </span>origin = T::SpendOrigin::try_successful_origin().map_err(|<span class="kw">_</span>| <span class="string">"No origin"</span>)<span class="question-mark">?</span>;
 		<span class="kw">let </span>(asset_kind, amount, beneficiary, beneficiary_lookup) =
 			create_spend_arguments::&lt;T, <span class="kw">_</span>&gt;(SEED);
 		T::BalanceConverter::ensure_successful(asset_kind.clone());
@@ -753,7 +755,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">None</span>,
 		)<span class="question-mark">?</span>;
 		T::Paymaster::ensure_successful(<span class="kw-2">&amp;</span>beneficiary, asset_kind, amount);
-		<span class="kw">let </span>caller: T::AccountId = account(<span class="string">&quot;caller&quot;</span>, <span class="number">0</span>, SEED);
+		<span class="kw">let </span>caller: T::AccountId = account(<span class="string">"caller"</span>, <span class="number">0</span>, SEED);
 
 		<span class="attr">#[extrinsic_call]
 		</span><span class="kw">_</span>(RawOrigin::Signed(caller.clone()), <span class="number">0u32</span>);
@@ -763,7 +765,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="macro">assert_ne!</span>(T::Paymaster::check_payment(id), PaymentStatus::Failure);
 				id
 			},
-			<span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;No payout attempt made&quot;</span>),
+			<span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"No payout attempt made"</span>),
 		};
 		assert_last_event::&lt;T, I&gt;(Event::Paid { index: <span class="number">0</span>, payment_id: id }.into());
 		<span class="macro">assert!</span>(Treasury::&lt;T, <span class="kw">_</span>&gt;::payout(RawOrigin::Signed(caller).into(), <span class="number">0u32</span>).is_err());
@@ -772,7 +774,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[benchmark]
 	</span><span class="kw">fn </span>check_status() -&gt; <span class="prelude-ty">Result</span>&lt;(), BenchmarkError&gt; {
-		<span class="kw">let </span>origin = T::SpendOrigin::try_successful_origin().map_err(|<span class="kw">_</span>| <span class="string">&quot;No origin&quot;</span>)<span class="question-mark">?</span>;
+		<span class="kw">let </span>origin = T::SpendOrigin::try_successful_origin().map_err(|<span class="kw">_</span>| <span class="string">"No origin"</span>)<span class="question-mark">?</span>;
 		<span class="kw">let </span>(asset_kind, amount, beneficiary, beneficiary_lookup) =
 			create_spend_arguments::&lt;T, <span class="kw">_</span>&gt;(SEED);
 		T::BalanceConverter::ensure_successful(asset_kind.clone());
@@ -784,13 +786,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">None</span>,
 		)<span class="question-mark">?</span>;
 		T::Paymaster::ensure_successful(<span class="kw-2">&amp;</span>beneficiary, asset_kind, amount);
-		<span class="kw">let </span>caller: T::AccountId = account(<span class="string">&quot;caller&quot;</span>, <span class="number">0</span>, SEED);
+		<span class="kw">let </span>caller: T::AccountId = account(<span class="string">"caller"</span>, <span class="number">0</span>, SEED);
 		Treasury::&lt;T, <span class="kw">_</span>&gt;::payout(RawOrigin::Signed(caller.clone()).into(), <span class="number">0u32</span>)<span class="question-mark">?</span>;
 		<span class="kw">match </span>Spends::&lt;T, I&gt;::get(<span class="number">0</span>).unwrap().status {
 			PaymentState::Attempted { id, .. } =&gt; {
 				T::Paymaster::ensure_concluded(id);
 			},
-			<span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;No payout attempt made&quot;</span>),
+			<span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"No payout attempt made"</span>),
 		};
 
 		<span class="attr">#[extrinsic_call]
@@ -804,7 +806,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[benchmark]
 	</span><span class="kw">fn </span>void_spend() -&gt; <span class="prelude-ty">Result</span>&lt;(), BenchmarkError&gt; {
-		<span class="kw">let </span>origin = T::SpendOrigin::try_successful_origin().map_err(|<span class="kw">_</span>| <span class="string">&quot;No origin&quot;</span>)<span class="question-mark">?</span>;
+		<span class="kw">let </span>origin = T::SpendOrigin::try_successful_origin().map_err(|<span class="kw">_</span>| <span class="string">"No origin"</span>)<span class="question-mark">?</span>;
 		<span class="kw">let </span>(asset_kind, amount, <span class="kw">_</span>, beneficiary_lookup) = create_spend_arguments::&lt;T, <span class="kw">_</span>&gt;(SEED);
 		T::BalanceConverter::ensure_successful(asset_kind.clone());
 		Treasury::&lt;T, <span class="kw">_</span>&gt;::spend(

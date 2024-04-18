@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/support/src/traits/misc.rs`."><title>misc.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/support/src/traits/misc.rs`."><title>misc.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="frame_support" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="frame_support" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../frame_support/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1647,19 +1649,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-</span><span class="doccomment">//! Smaller traits used in FRAME which don&#39;t need their own file.
+</span><span class="doccomment">//! Smaller traits used in FRAME which don't need their own file.
 
 </span><span class="kw">use </span><span class="kw">crate</span>::dispatch::{DispatchResult, Parameter};
 <span class="kw">use </span>codec::{CompactLen, Decode, DecodeLimit, Encode, EncodeLike, Input, MaxEncodedLen};
@@ -1677,9 +1679,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sp_std::{cmp::Ordering, prelude::<span class="kw-2">*</span>};
 
 <span class="attr">#[doc(hidden)]
-</span><span class="kw">pub const </span>DEFENSIVE_OP_PUBLIC_ERROR: <span class="kw-2">&amp;</span>str = <span class="string">&quot;a defensive failure has been triggered; please report the block number at https://github.com/paritytech/substrate/issues&quot;</span>;
+</span><span class="kw">pub const </span>DEFENSIVE_OP_PUBLIC_ERROR: <span class="kw-2">&amp;</span>str = <span class="string">"a defensive failure has been triggered; please report the block number at https://github.com/paritytech/substrate/issues"</span>;
 <span class="attr">#[doc(hidden)]
-</span><span class="kw">pub const </span>DEFENSIVE_OP_INTERNAL_ERROR: <span class="kw-2">&amp;</span>str = <span class="string">&quot;Defensive failure has been triggered!&quot;</span>;
+</span><span class="kw">pub const </span>DEFENSIVE_OP_INTERNAL_ERROR: <span class="kw-2">&amp;</span>str = <span class="string">"Defensive failure has been triggered!"</span>;
 
 <span class="doccomment">/// Trait to get the number of variants in any enum.
 </span><span class="kw">pub trait </span>VariantCount {
@@ -1706,30 +1708,30 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="macro">macro_rules! </span>defensive {
 	() =&gt; {
 		<span class="macro">frame_support::__private::log::error!</span>(
-			target: <span class="string">&quot;runtime::defensive&quot;</span>,
-			<span class="string">&quot;{}&quot;</span>,
+			target: <span class="string">"runtime::defensive"</span>,
+			<span class="string">"{}"</span>,
 			<span class="macro-nonterminal">$crate::traits::DEFENSIVE_OP_PUBLIC_ERROR
 		</span>);
-		<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>, <span class="string">&quot;{}&quot;</span>, <span class="macro-nonterminal">$crate::traits::DEFENSIVE_OP_INTERNAL_ERROR</span>);
+		<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>, <span class="string">"{}"</span>, <span class="macro-nonterminal">$crate::traits::DEFENSIVE_OP_INTERNAL_ERROR</span>);
 	};
 	(<span class="macro-nonterminal">$error</span>:expr $(,)<span class="question-mark">?</span>) =&gt; {
 		<span class="macro">frame_support::__private::log::error!</span>(
-			target: <span class="string">&quot;runtime::defensive&quot;</span>,
-			<span class="string">&quot;{}: {:?}&quot;</span>,
+			target: <span class="string">"runtime::defensive"</span>,
+			<span class="string">"{}: {:?}"</span>,
 			<span class="macro-nonterminal">$crate::traits::DEFENSIVE_OP_PUBLIC_ERROR</span>,
 			<span class="macro-nonterminal">$error
 		</span>);
-		<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>, <span class="string">&quot;{}: {:?}&quot;</span>, <span class="macro-nonterminal">$crate::traits::DEFENSIVE_OP_INTERNAL_ERROR</span>, <span class="macro-nonterminal">$error</span>);
+		<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>, <span class="string">"{}: {:?}"</span>, <span class="macro-nonterminal">$crate::traits::DEFENSIVE_OP_INTERNAL_ERROR</span>, <span class="macro-nonterminal">$error</span>);
 	};
 	(<span class="macro-nonterminal">$error</span>:expr, <span class="macro-nonterminal">$proof</span>:expr $(,)<span class="question-mark">?</span>) =&gt; {
 		<span class="macro">frame_support::__private::log::error!</span>(
-			target: <span class="string">&quot;runtime::defensive&quot;</span>,
-			<span class="string">&quot;{}: {:?}: {:?}&quot;</span>,
+			target: <span class="string">"runtime::defensive"</span>,
+			<span class="string">"{}: {:?}: {:?}"</span>,
 			<span class="macro-nonterminal">$crate::traits::DEFENSIVE_OP_PUBLIC_ERROR</span>,
 			<span class="macro-nonterminal">$error</span>,
 			<span class="macro-nonterminal">$proof</span>,
 		);
-		<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>, <span class="string">&quot;{}: {:?}: {:?}&quot;</span>, <span class="macro-nonterminal">$crate::traits::DEFENSIVE_OP_INTERNAL_ERROR</span>, <span class="macro-nonterminal">$error</span>, <span class="macro-nonterminal">$proof</span>);
+		<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>, <span class="string">"{}: {:?}: {:?}"</span>, <span class="macro-nonterminal">$crate::traits::DEFENSIVE_OP_INTERNAL_ERROR</span>, <span class="macro-nonterminal">$error</span>, <span class="macro-nonterminal">$proof</span>);
 	}
 }
 
@@ -1741,7 +1743,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// # Example
 ///
 /// ```should_panic
-/// frame_support::defensive_assert!(1 == 0, &quot;Must fail&quot;)
+/// frame_support::defensive_assert!(1 == 0, "Must fail")
 /// ```
 </span><span class="attr">#[macro_export]
 </span><span class="macro">macro_rules! </span>defensive_assert {
@@ -1804,7 +1806,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Same as [`Defensive::defensive`], but it takes a proof as input, and displays it if the
 	/// defensive operation has been triggered.
-	</span><span class="kw">fn </span>defensive_proof(<span class="self">self</span>, proof: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str) -&gt; <span class="self">Self</span>;
+	</span><span class="kw">fn </span>defensive_proof(<span class="self">self</span>, proof: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str) -&gt; <span class="self">Self</span>;
 }
 
 <span class="doccomment">/// Subset of methods similar to [`Defensive`] that can only work for a `Result`.
@@ -1888,7 +1890,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="kw">fn </span>defensive_proof(<span class="self">self</span>, proof: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str) -&gt; <span class="self">Self </span>{
+	<span class="kw">fn </span>defensive_proof(<span class="self">self</span>, proof: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str) -&gt; <span class="self">Self </span>{
 		<span class="kw">if </span><span class="self">self</span>.is_none() {
 			<span class="macro">defensive!</span>(proof);
 		}
@@ -1940,7 +1942,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="kw">fn </span>defensive_proof(<span class="self">self</span>, proof: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str) -&gt; <span class="self">Self </span>{
+	<span class="kw">fn </span>defensive_proof(<span class="self">self</span>, proof: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str) -&gt; <span class="self">Self </span>{
 		<span class="kw">match </span><span class="self">self </span>{
 			<span class="prelude-val">Ok</span>(inner) =&gt; <span class="prelude-val">Ok</span>(inner),
 			<span class="prelude-val">Err</span>(e) =&gt; {
@@ -2103,7 +2105,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>defensive_truncate_from(unbound: U) -&gt; <span class="self">Self </span>{
 		unbound.try_into().map_or_else(
 			|err| {
-				<span class="macro">defensive!</span>(<span class="string">&quot;DefensiveTruncateFrom truncating&quot;</span>);
+				<span class="macro">defensive!</span>(<span class="string">"DefensiveTruncateFrom truncating"</span>);
 				T::truncate_from(err)
 			},
 			|bound| bound,
@@ -2160,7 +2162,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if </span><span class="self">self </span>&lt;= other {
 			<span class="self">self
 		</span>} <span class="kw">else </span>{
-			<span class="macro">defensive!</span>(<span class="string">&quot;DefensiveMin&quot;</span>);
+			<span class="macro">defensive!</span>(<span class="string">"DefensiveMin"</span>);
 			other
 		}
 	}
@@ -2169,7 +2171,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if </span><span class="self">self </span>&lt; other {
 			<span class="self">self
 		</span>} <span class="kw">else </span>{
-			<span class="macro">defensive!</span>(<span class="string">&quot;DefensiveMin strict&quot;</span>);
+			<span class="macro">defensive!</span>(<span class="string">"DefensiveMin strict"</span>);
 			other
 		}
 	}
@@ -2224,7 +2226,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if </span><span class="self">self </span>&gt;= other {
 			<span class="self">self
 		</span>} <span class="kw">else </span>{
-			<span class="macro">defensive!</span>(<span class="string">&quot;DefensiveMax&quot;</span>);
+			<span class="macro">defensive!</span>(<span class="string">"DefensiveMax"</span>);
 			other
 		}
 	}
@@ -2233,7 +2235,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if </span><span class="self">self </span>&gt; other {
 			<span class="self">self
 		</span>} <span class="kw">else </span>{
-			<span class="macro">defensive!</span>(<span class="string">&quot;DefensiveMax strict&quot;</span>);
+			<span class="macro">defensive!</span>(<span class="string">"DefensiveMax strict"</span>);
 			other
 		}
 	}
@@ -2256,7 +2258,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// A type for which some values make sense to be able to drop without further consideration.
 </span><span class="kw">pub trait </span>TryDrop: Sized {
-	<span class="doccomment">/// Drop an instance cleanly. Only works if its value represents &quot;no-operation&quot;.
+	<span class="doccomment">/// Drop an instance cleanly. Only works if its value represents "no-operation".
 	</span><span class="kw">fn </span>try_drop(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), <span class="self">Self</span>&gt;;
 }
 
@@ -2339,18 +2341,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Handler for when a new account has been created.
-</span><span class="attr">#[cfg_attr(all(not(feature = <span class="string">&quot;tuples-96&quot;</span>), not(feature = <span class="string">&quot;tuples-128&quot;</span>)), impl_for_tuples(<span class="number">64</span>))]
-#[cfg_attr(all(feature = <span class="string">&quot;tuples-96&quot;</span>, not(feature = <span class="string">&quot;tuples-128&quot;</span>)), impl_for_tuples(<span class="number">96</span>))]
-#[cfg_attr(feature = <span class="string">&quot;tuples-128&quot;</span>, impl_for_tuples(<span class="number">128</span>))]
+</span><span class="attr">#[cfg_attr(all(not(feature = <span class="string">"tuples-96"</span>), not(feature = <span class="string">"tuples-128"</span>)), impl_for_tuples(<span class="number">64</span>))]
+#[cfg_attr(all(feature = <span class="string">"tuples-96"</span>, not(feature = <span class="string">"tuples-128"</span>)), impl_for_tuples(<span class="number">96</span>))]
+#[cfg_attr(feature = <span class="string">"tuples-128"</span>, impl_for_tuples(<span class="number">128</span>))]
 </span><span class="kw">pub trait </span>OnNewAccount&lt;AccountId&gt; {
 	<span class="doccomment">/// A new account `who` has been registered.
 	</span><span class="kw">fn </span>on_new_account(who: <span class="kw-2">&amp;</span>AccountId);
 }
 
 <span class="doccomment">/// The account with the given id was reaped.
-</span><span class="attr">#[cfg_attr(all(not(feature = <span class="string">&quot;tuples-96&quot;</span>), not(feature = <span class="string">&quot;tuples-128&quot;</span>)), impl_for_tuples(<span class="number">64</span>))]
-#[cfg_attr(all(feature = <span class="string">&quot;tuples-96&quot;</span>, not(feature = <span class="string">&quot;tuples-128&quot;</span>)), impl_for_tuples(<span class="number">96</span>))]
-#[cfg_attr(feature = <span class="string">&quot;tuples-128&quot;</span>, impl_for_tuples(<span class="number">128</span>))]
+</span><span class="attr">#[cfg_attr(all(not(feature = <span class="string">"tuples-96"</span>), not(feature = <span class="string">"tuples-128"</span>)), impl_for_tuples(<span class="number">64</span>))]
+#[cfg_attr(all(feature = <span class="string">"tuples-96"</span>, not(feature = <span class="string">"tuples-128"</span>)), impl_for_tuples(<span class="number">96</span>))]
+#[cfg_attr(feature = <span class="string">"tuples-128"</span>, impl_for_tuples(<span class="number">128</span>))]
 </span><span class="kw">pub trait </span>OnKilledAccount&lt;AccountId&gt; {
 	<span class="doccomment">/// The account with the given id was reaped.
 	</span><span class="kw">fn </span>on_killed_account(who: <span class="kw-2">&amp;</span>AccountId);
@@ -2421,7 +2423,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// you need access to these sub types.
 ///
 /// For example, in FRAME, this trait is implemented for the runtime `Call` enum. Pallets use this
-/// to check if a certain call is an instance of the local pallet&#39;s `Call` enum.
+/// to check if a certain call is an instance of the local pallet's `Call` enum.
 ///
 /// # Example
 ///
@@ -2452,9 +2454,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// }
 ///
 /// fn main() {
-///     let data = Test::String(&quot;test&quot;.into());
+///     let data = Test::String("test".into());
 ///
-///     assert_eq!(&quot;test&quot;, IsSubType::&lt;String&gt;::is_sub_type(&amp;data).unwrap().as_str());
+///     assert_eq!("test", IsSubType::&lt;String&gt;::is_sub_type(&amp;data).unwrap().as_str());
 /// }
 /// ```
 </span><span class="kw">pub trait </span>IsSubType&lt;T&gt; {
@@ -2474,7 +2476,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// # Panic
 	///
-	/// Panics when an extrinsics panics or the resulting header doesn&#39;t match the expected header.
+	/// Panics when an extrinsics panics or the resulting header doesn't match the expected header.
 	</span><span class="kw">fn </span>execute_block(block: Block);
 }
 
@@ -2508,9 +2510,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// but cannot preform any alterations. More specifically alterations are
 /// not forbidden, but they are not persisted in any way after the worker
 /// has finished.
-</span><span class="attr">#[cfg_attr(all(not(feature = <span class="string">&quot;tuples-96&quot;</span>), not(feature = <span class="string">&quot;tuples-128&quot;</span>)), impl_for_tuples(<span class="number">64</span>))]
-#[cfg_attr(all(feature = <span class="string">&quot;tuples-96&quot;</span>, not(feature = <span class="string">&quot;tuples-128&quot;</span>)), impl_for_tuples(<span class="number">96</span>))]
-#[cfg_attr(feature = <span class="string">&quot;tuples-128&quot;</span>, impl_for_tuples(<span class="number">128</span>))]
+</span><span class="attr">#[cfg_attr(all(not(feature = <span class="string">"tuples-96"</span>), not(feature = <span class="string">"tuples-128"</span>)), impl_for_tuples(<span class="number">64</span>))]
+#[cfg_attr(all(feature = <span class="string">"tuples-96"</span>, not(feature = <span class="string">"tuples-128"</span>)), impl_for_tuples(<span class="number">96</span>))]
+#[cfg_attr(feature = <span class="string">"tuples-128"</span>, impl_for_tuples(<span class="number">128</span>))]
 </span><span class="kw">pub trait </span>OffchainWorker&lt;BlockNumber&gt; {
 	<span class="doccomment">/// This function is being called after every block import (when fully synced).
 	///
@@ -2521,7 +2523,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>offchain_worker(_n: BlockNumber) {}
 }
 
-<span class="doccomment">/// Some amount of backing from a group. The precise definition of what it means to &quot;back&quot; something
+<span class="doccomment">/// Some amount of backing from a group. The precise definition of what it means to "back" something
 /// is left flexible.
 </span><span class="kw">pub struct </span>Backing {
 	<span class="doccomment">/// The number of members of the group that back some motion.
@@ -2530,7 +2532,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>eligible: u32,
 }
 
-<span class="doccomment">/// Retrieve the backing from an object&#39;s ref.
+<span class="doccomment">/// Retrieve the backing from an object's ref.
 </span><span class="kw">pub trait </span>GetBacking {
 	<span class="doccomment">/// Returns `Some` `Backing` if `self` represents a fractional/groupwise backing of some
 	/// implicit motion. `None` if it does not.
@@ -2563,7 +2565,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>call(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="self">Self</span>::Call;
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">impl</span>&lt;Call, Extra&gt; ExtrinsicCall <span class="kw">for </span>sp_runtime::testing::TestXt&lt;Call, Extra&gt;
 <span class="kw">where
 	</span>Call: codec::Codec + Sync + Send + TypeInfo,
@@ -2599,7 +2601,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="comment">// Useful for building mocks.
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+</span><span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">impl</span>&lt;Call, Balance: From&lt;u32&gt;, <span class="kw">const </span>T: u32&gt; EstimateCallFee&lt;Call, Balance&gt; <span class="kw">for </span>ConstU32&lt;T&gt; {
 	<span class="kw">fn </span>estimate_call_fee(<span class="kw">_</span>: <span class="kw-2">&amp;</span>Call, <span class="kw">_</span>: <span class="kw">crate</span>::dispatch::PostDispatchInfo) -&gt; Balance {
 		T.into()
@@ -2611,7 +2613,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// The encoding is the encoding of `T` prepended with the compact encoding of its size in bytes.
 /// Thus the encoded value can be decoded as a `Vec&lt;u8&gt;`.
 </span><span class="attr">#[derive(Debug, Eq, PartialEq, Default, Clone)]
-#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = <span class="string">"std"</span>, derive(serde::Serialize, serde::Deserialize))]
 </span><span class="kw">pub struct </span>WrapperOpaque&lt;T&gt;(<span class="kw">pub </span>T);
 
 <span class="kw">impl</span>&lt;T: Encode&gt; EncodeLike <span class="kw">for </span>WrapperOpaque&lt;T&gt; {}
@@ -2671,16 +2673,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;T: TypeInfo + <span class="lifetime">&#39;static</span>&gt; TypeInfo <span class="kw">for </span>WrapperOpaque&lt;T&gt; {
+<span class="kw">impl</span>&lt;T: TypeInfo + <span class="lifetime">'static</span>&gt; TypeInfo <span class="kw">for </span>WrapperOpaque&lt;T&gt; {
 	<span class="kw">type </span>Identity = <span class="self">Self</span>;
 	<span class="kw">fn </span>type_info() -&gt; Type {
 		Type::builder()
-			.path(Path::new(<span class="string">&quot;WrapperOpaque&quot;</span>, <span class="macro">module_path!</span>()))
-			.type_params(<span class="macro">vec!</span>[TypeParameter::new(<span class="string">&quot;T&quot;</span>, <span class="prelude-val">Some</span>(meta_type::&lt;T&gt;()))])
+			.path(Path::new(<span class="string">"WrapperOpaque"</span>, <span class="macro">module_path!</span>()))
+			.type_params(<span class="macro">vec!</span>[TypeParameter::new(<span class="string">"T"</span>, <span class="prelude-val">Some</span>(meta_type::&lt;T&gt;()))])
 			.composite(
 				Fields::unnamed()
 					.field(|f| f.compact::&lt;u32&gt;())
-					.field(|f| f.ty::&lt;T&gt;().type_name(<span class="string">&quot;T&quot;</span>)),
+					.field(|f| f.ty::&lt;T&gt;().type_name(<span class="string">"T"</span>)),
 			)
 	}
 }
@@ -2758,16 +2760,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;T: TypeInfo + <span class="lifetime">&#39;static</span>&gt; TypeInfo <span class="kw">for </span>WrapperKeepOpaque&lt;T&gt; {
+<span class="kw">impl</span>&lt;T: TypeInfo + <span class="lifetime">'static</span>&gt; TypeInfo <span class="kw">for </span>WrapperKeepOpaque&lt;T&gt; {
 	<span class="kw">type </span>Identity = <span class="self">Self</span>;
 	<span class="kw">fn </span>type_info() -&gt; Type {
 		Type::builder()
-			.path(Path::new(<span class="string">&quot;WrapperKeepOpaque&quot;</span>, <span class="macro">module_path!</span>()))
-			.type_params(<span class="macro">vec!</span>[TypeParameter::new(<span class="string">&quot;T&quot;</span>, <span class="prelude-val">Some</span>(meta_type::&lt;T&gt;()))])
+			.path(Path::new(<span class="string">"WrapperKeepOpaque"</span>, <span class="macro">module_path!</span>()))
+			.type_params(<span class="macro">vec!</span>[TypeParameter::new(<span class="string">"T"</span>, <span class="prelude-val">Some</span>(meta_type::&lt;T&gt;()))])
 			.composite(
 				Fields::unnamed()
 					.field(|f| f.compact::&lt;u32&gt;())
-					.field(|f| f.ty::&lt;T&gt;().type_name(<span class="string">&quot;T&quot;</span>)),
+					.field(|f| f.ty::&lt;T&gt;().type_name(<span class="string">"T"</span>)),
 			)
 	}
 }
@@ -2863,21 +2865,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>defensive_assert_works() {
 		<span class="macro">defensive_assert!</span>(<span class="bool-val">true</span>);
 		<span class="macro">defensive_assert!</span>(<span class="bool-val">true</span>,);
-		<span class="macro">defensive_assert!</span>(<span class="bool-val">true</span>, <span class="string">&quot;must work&quot;</span>);
-		<span class="macro">defensive_assert!</span>(<span class="bool-val">true</span>, <span class="string">&quot;must work&quot;</span>,);
+		<span class="macro">defensive_assert!</span>(<span class="bool-val">true</span>, <span class="string">"must work"</span>);
+		<span class="macro">defensive_assert!</span>(<span class="bool-val">true</span>, <span class="string">"must work"</span>,);
 	}
 
 	<span class="attr">#[test]
 	#[cfg(debug_assertions)]
-	#[should_panic(expected = <span class="string">&quot;Defensive failure has been triggered!: \&quot;1 == 0\&quot;: \&quot;Must fail\&quot;&quot;</span>)]
+	#[should_panic(expected = <span class="string">"Defensive failure has been triggered!: \"1 == 0\": \"Must fail\""</span>)]
 	</span><span class="kw">fn </span>defensive_assert_panics() {
-		<span class="macro">defensive_assert!</span>(<span class="number">1 </span>== <span class="number">0</span>, <span class="string">&quot;Must fail&quot;</span>);
+		<span class="macro">defensive_assert!</span>(<span class="number">1 </span>== <span class="number">0</span>, <span class="string">"Must fail"</span>);
 	}
 
 	<span class="attr">#[test]
 	#[cfg(not(debug_assertions))]
 	</span><span class="kw">fn </span>defensive_assert_does_not_panic() {
-		<span class="macro">defensive_assert!</span>(<span class="number">1 </span>== <span class="number">0</span>, <span class="string">&quot;Must fail&quot;</span>);
+		<span class="macro">defensive_assert!</span>(<span class="number">1 </span>== <span class="number">0</span>, <span class="string">"Must fail"</span>);
 	}
 
 	<span class="attr">#[test]
@@ -2894,7 +2896,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	#[cfg(debug_assertions)]
-	#[should_panic(expected = <span class="string">&quot;Defensive&quot;</span>)]
+	#[should_panic(expected = <span class="string">"Defensive"</span>)]
 	</span><span class="kw">fn </span>defensive_saturating_accrue_panics() {
 		<span class="kw">let </span><span class="kw-2">mut </span>v = u32::MAX;
 		v.defensive_saturating_accrue(<span class="number">1</span>); <span class="comment">// defensive failure
@@ -2914,7 +2916,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	#[cfg(debug_assertions)]
-	#[should_panic(expected = <span class="string">&quot;Defensive&quot;</span>)]
+	#[should_panic(expected = <span class="string">"Defensive"</span>)]
 	</span><span class="kw">fn </span>defensive_saturating_reduce_panics() {
 		<span class="kw">let </span><span class="kw-2">mut </span>v = <span class="number">0_u32</span>;
 		v.defensive_saturating_reduce(<span class="number">1</span>); <span class="comment">// defensive failure
@@ -2937,7 +2939,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	#[cfg(debug_assertions)]
-	#[should_panic(expected = <span class="string">&quot;Defensive&quot;</span>)]
+	#[should_panic(expected = <span class="string">"Defensive"</span>)]
 	</span><span class="kw">fn </span>defensive_saturating_inc_panics() {
 		<span class="kw">let </span><span class="kw-2">mut </span>v = u32::MAX;
 		v.defensive_saturating_inc(); <span class="comment">// defensive failure
@@ -2960,7 +2962,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	#[cfg(debug_assertions)]
-	#[should_panic(expected = <span class="string">&quot;Defensive&quot;</span>)]
+	#[should_panic(expected = <span class="string">"Defensive"</span>)]
 	</span><span class="kw">fn </span>defensive_saturating_dec_panics() {
 		<span class="kw">let </span><span class="kw-2">mut </span>v = <span class="number">0_u32</span>;
 		v.defensive_saturating_dec(); <span class="comment">// defensive failure
@@ -2985,7 +2987,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	#[cfg(debug_assertions)]
 	#[should_panic(
-		expected = <span class="string">&quot;Defensive failure has been triggered!: \&quot;DefensiveTruncateFrom truncating\&quot;&quot;
+		expected = <span class="string">"Defensive failure has been triggered!: \"DefensiveTruncateFrom truncating\""
 	</span>)]
 	</span><span class="kw">fn </span>defensive_truncating_from_vec_defensive_panics() {
 		<span class="kw">let </span>unbound = <span class="macro">vec!</span>[<span class="number">1u32</span>, <span class="number">2</span>];
@@ -2995,7 +2997,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	#[cfg(debug_assertions)]
 	#[should_panic(
-		expected = <span class="string">&quot;Defensive failure has been triggered!: \&quot;DefensiveTruncateFrom truncating\&quot;&quot;
+		expected = <span class="string">"Defensive failure has been triggered!: \"DefensiveTruncateFrom truncating\""
 	</span>)]
 	</span><span class="kw">fn </span>defensive_truncating_from_slice_defensive_panics() {
 		<span class="kw">let </span>unbound = <span class="kw-2">&amp;</span>[<span class="number">1u32</span>, <span class="number">2</span>];
@@ -3093,7 +3095,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	#[cfg(debug_assertions)]
-	#[should_panic(expected = <span class="string">&quot;Defensive failure has been triggered!: \&quot;DefensiveMin\&quot;&quot;</span>)]
+	#[should_panic(expected = <span class="string">"Defensive failure has been triggered!: \"DefensiveMin\""</span>)]
 	</span><span class="kw">fn </span>defensive_min_panics() {
 		<span class="number">10_u32</span>.defensive_min(<span class="number">9_u32</span>);
 	}
@@ -3106,7 +3108,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	#[cfg(debug_assertions)]
-	#[should_panic(expected = <span class="string">&quot;Defensive failure has been triggered!: \&quot;DefensiveMin strict\&quot;&quot;</span>)]
+	#[should_panic(expected = <span class="string">"Defensive failure has been triggered!: \"DefensiveMin strict\""</span>)]
 	</span><span class="kw">fn </span>defensive_strict_min_panics() {
 		<span class="number">9_u32</span>.defensive_strict_min(<span class="number">9_u32</span>);
 	}
@@ -3119,7 +3121,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	#[cfg(debug_assertions)]
-	#[should_panic(expected = <span class="string">&quot;Defensive failure has been triggered!: \&quot;DefensiveMax\&quot;&quot;</span>)]
+	#[should_panic(expected = <span class="string">"Defensive failure has been triggered!: \"DefensiveMax\""</span>)]
 	</span><span class="kw">fn </span>defensive_max_panics() {
 		<span class="number">9_u32</span>.defensive_max(<span class="number">10_u32</span>);
 	}
@@ -3132,7 +3134,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	#[cfg(debug_assertions)]
-	#[should_panic(expected = <span class="string">&quot;Defensive failure has been triggered!: \&quot;DefensiveMax strict\&quot;&quot;</span>)]
+	#[should_panic(expected = <span class="string">"Defensive failure has been triggered!: \"DefensiveMax strict\""</span>)]
 	</span><span class="kw">fn </span>defensive_strict_max_panics() {
 		<span class="number">9_u32</span>.defensive_strict_max(<span class="number">9_u32</span>);
 	}

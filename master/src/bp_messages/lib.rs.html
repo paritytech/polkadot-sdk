@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `bridges/primitives/messages/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `bridges/primitives/messages/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="bp_messages" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="bp_messages" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../bp_messages/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -733,7 +735,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! Primitives of messages module.
 
 </span><span class="attr">#![warn(missing_docs)]
-#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
+#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
 </span><span class="kw">use </span>bp_header_chain::HeaderChainError;
 <span class="kw">use </span>bp_runtime::{
@@ -761,7 +763,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// We assume that all chains that are bridging with this `ChainWithMessages` are using
 	/// the same name.
-	</span><span class="kw">const </span>WITH_CHAIN_MESSAGES_PALLET_NAME: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str;
+	</span><span class="kw">const </span>WITH_CHAIN_MESSAGES_PALLET_NAME: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str;
 
 	<span class="doccomment">/// Maximal number of unrewarded relayers in a single confirmation transaction at this
 	/// `ChainWithMessages`.
@@ -776,7 +778,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>T: Chain + UnderlyingChainProvider,
 	UnderlyingChainOf&lt;T&gt;: ChainWithMessages,
 {
-	<span class="kw">const </span>WITH_CHAIN_MESSAGES_PALLET_NAME: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str =
+	<span class="kw">const </span>WITH_CHAIN_MESSAGES_PALLET_NAME: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str =
 		UnderlyingChainOf::&lt;T&gt;::WITH_CHAIN_MESSAGES_PALLET_NAME;
 	<span class="kw">const </span>MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX: MessageNonce =
 		UnderlyingChainOf::&lt;T&gt;::MAX_UNREWARDED_RELAYERS_IN_CONFIRMATION_TX;
@@ -845,7 +847,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl </span>TypeId <span class="kw">for </span>LaneId {
-	<span class="kw">const </span>TYPE_ID: [u8; <span class="number">4</span>] = <span class="kw-2">*</span><span class="string">b&quot;blan&quot;</span>;
+	<span class="kw">const </span>TYPE_ID: [u8; <span class="number">4</span>] = <span class="kw-2">*</span><span class="string">b"blan"</span>;
 }
 
 <span class="doccomment">/// Message nonce. Valid messages will never have 0 nonce.
@@ -886,7 +888,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// It is guaranteed to have at most N entries, where N is configured at the module level.
 	/// If there are N entries in this vec, then:
-	/// 1) all incoming messages are rejected if they&#39;re missing corresponding
+	/// 1) all incoming messages are rejected if they're missing corresponding
 	/// `proof-of(outbound-lane.state)`; 2) all incoming messages are rejected if
 	/// `proof-of(outbound-lane.state).last_delivered_nonce` is    equal to
 	/// `self.last_confirmed_nonce`. Given what is said above, all nonces in this queue are in
@@ -982,7 +984,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// Runtime API guarantees that it will match the value, returned by
 	/// `target_chain::MessageDispatch::dispatch_weight`. This means that if the runtime
-	/// has failed to decode the message, it will be zero - that&#39;s because `undecodable`
+	/// has failed to decode the message, it will be zero - that's because `undecodable`
 	/// message cannot be dispatched.
 	</span><span class="kw">pub </span>dispatch_weight: Weight,
 }
@@ -1026,7 +1028,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Result of single message receival.
 </span><span class="attr">#[derive(RuntimeDebug, Encode, Decode, PartialEq, Eq, Clone, TypeInfo)]
 </span><span class="kw">pub enum </span>ReceptionResult&lt;DispatchLevelResult&gt; {
-	<span class="doccomment">/// Message has been received and dispatched. Note that we don&#39;t care whether dispatch has
+	<span class="doccomment">/// Message has been received and dispatched. Note that we don't care whether dispatch has
 	/// been successful or not - in both case message falls into this category.
 	///
 	/// The message dispatch result is also returned.
@@ -1113,7 +1115,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Outbound lane data.
 </span><span class="attr">#[derive(Encode, Decode, Clone, RuntimeDebug, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
 </span><span class="kw">pub struct </span>OutboundLaneData {
-	<span class="doccomment">/// Nonce of the oldest message that we haven&#39;t yet pruned. May point to not-yet-generated
+	<span class="doccomment">/// Nonce of the oldest message that we haven't yet pruned. May point to not-yet-generated
 	/// message if all sent messages are already pruned.
 	</span><span class="kw">pub </span>oldest_unpruned_nonce: MessageNonce,
 	<span class="doccomment">/// Nonce of the latest message, received by bridged chain.
@@ -1125,7 +1127,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl </span>Default <span class="kw">for </span>OutboundLaneData {
 	<span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
 		OutboundLaneData {
-			<span class="comment">// it is 1 because we&#39;re pruning everything in [oldest_unpruned_nonce;
+			<span class="comment">// it is 1 because we're pruning everything in [oldest_unpruned_nonce;
 			// latest_received_nonce]
 			</span>oldest_unpruned_nonce: <span class="number">1</span>,
 			latest_received_nonce: <span class="number">0</span>,
@@ -1184,7 +1186,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>receive_messages_delivery_proof {
 		<span class="doccomment">/// Messages delivery proof.
 		</span>proof: MessagesDeliveryProof,
-		<span class="doccomment">/// &quot;Digest&quot; of unrewarded relayers state at the bridged chain.
+		<span class="doccomment">/// "Digest" of unrewarded relayers state at the bridged chain.
 		</span>relayers_state: UnrewardedRelayersState,
 	},
 }
@@ -1200,7 +1202,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>InboundLaneStorage(StorageProofError),
 	<span class="doccomment">/// The declared message weight is incorrect.
 	</span>InvalidMessageWeight,
-	<span class="doccomment">/// Declared messages count doesn&#39;t match actual value.
+	<span class="doccomment">/// Declared messages count doesn't match actual value.
 	</span>MessagesCountMismatch,
 	<span class="doccomment">/// Error returned while reading/decoding message data from the storage proof.
 	</span>MessageStorage(StorageProofError),
@@ -1211,7 +1213,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Storage proof related error.
 	</span>StorageProof(StorageProofError),
 	<span class="doccomment">/// Custom error
-	</span>Other(<span class="attr">#[codec(skip)] </span><span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str),
+	</span>Other(<span class="attr">#[codec(skip)] </span><span class="kw-2">&amp;</span><span class="lifetime">'static </span>str),
 }
 
 <span class="attr">#[cfg(test)]
@@ -1261,7 +1263,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>difference = (expected_size.unwrap() <span class="kw">as </span>f64 - actual_size <span class="kw">as </span>f64).abs();
 			<span class="macro">assert!</span>(
 				difference / (std::cmp::min(actual_size, expected_size.unwrap()) <span class="kw">as </span>f64) &lt; <span class="number">0.1</span>,
-				<span class="string">&quot;Too large difference between actual ({actual_size}) and expected ({expected_size:?}) inbound lane data size. Test case: {relayer_entries}+{messages_count}&quot;</span>,
+				<span class="string">"Too large difference between actual ({actual_size}) and expected ({expected_size:?}) inbound lane data size. Test case: {relayer_entries}+{messages_count}"</span>,
 			);
 		}
 	}
@@ -1278,7 +1280,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>lane_id_debug_format_matches_inner_array_format() {
-		<span class="macro">assert_eq!</span>(<span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, LaneId([<span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>])), <span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, [<span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>]),);
+		<span class="macro">assert_eq!</span>(<span class="macro">format!</span>(<span class="string">"{:?}"</span>, LaneId([<span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>])), <span class="macro">format!</span>(<span class="string">"{:?}"</span>, [<span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>]),);
 	}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

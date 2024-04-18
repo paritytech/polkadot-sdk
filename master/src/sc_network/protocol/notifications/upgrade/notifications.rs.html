@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/network/src/protocol/notifications/upgrade/notifications.rs`."><title>notifications.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/network/src/protocol/notifications/upgrade/notifications.rs`."><title>notifications.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../../../" data-static-root-path="../../../../../static.files/" data-current-crate="sc_network" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../../../src-files.js"></script><script defer src="../../../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../../../" data-static-root-path="../../../../../static.files/" data-current-crate="sc_network" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../../../src-files.js"></script><script defer src="../../../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../../../sc_network/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -983,7 +985,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///   available), then it immediately closes the substream without sending back anything.
 /// - Node A can then send notifications to B, prefixed with a variable-length integer
 ///   indicating the length of the message.
-/// - Either node A or node B can signal that it doesn&#39;t want this notifications substream
+/// - Either node A or node B can signal that it doesn't want this notifications substream
 ///   anymore by closing its writing side. The other party should respond by also closing their
 ///   own writing side soon after.
 ///
@@ -1100,7 +1102,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl</span>&lt;TSubstream&gt; InboundUpgrade&lt;TSubstream&gt; <span class="kw">for </span>NotificationsIn
 <span class="kw">where
-	</span>TSubstream: AsyncRead + AsyncWrite + Unpin + Send + <span class="lifetime">&#39;static</span>,
+	</span>TSubstream: AsyncRead + AsyncWrite + Unpin + Send + <span class="lifetime">'static</span>,
 {
 	<span class="kw">type </span>Output = NotificationsInOpen&lt;TSubstream&gt;;
 	<span class="kw">type </span>Future = Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Output, <span class="self">Self</span>::Error&gt;&gt; + Send&gt;&gt;;
@@ -1146,7 +1148,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub struct </span>NotificationsInOpen&lt;TSubstream&gt; {
 	<span class="doccomment">/// Handshake sent by the remote.
 	</span><span class="kw">pub </span>handshake: Vec&lt;u8&gt;,
-	<span class="doccomment">/// If the negotiated name is not the &quot;main&quot; protocol name but a fallback, contains the
+	<span class="doccomment">/// If the negotiated name is not the "main" protocol name but a fallback, contains the
 	/// name of the negotiated fallback.
 	</span><span class="kw">pub </span>negotiated_fallback: <span class="prelude-ty">Option</span>&lt;ProtocolName&gt;,
 	<span class="doccomment">/// Implementation of `Stream` that allows receives messages from the substream.
@@ -1168,7 +1170,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Sends the handshake in order to inform the remote that we accept the substream.
 	</span><span class="kw">pub fn </span>send_handshake(<span class="kw-2">&amp;mut </span><span class="self">self</span>, message: <span class="kw">impl </span>Into&lt;Vec&lt;u8&gt;&gt;) {
 		<span class="kw">if </span>!<span class="macro">matches!</span>(<span class="self">self</span>.handshake, NotificationsInSubstreamHandshake::NotSent) {
-			<span class="macro">error!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;Tried to send handshake twice&quot;</span>);
+			<span class="macro">error!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"Tried to send handshake twice"</span>);
 			<span class="kw">return
 		</span>}
 
@@ -1307,7 +1309,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; <span class="self">Self </span>{
 		<span class="kw">let </span>initial_message = initial_message.into();
 		<span class="kw">if </span>initial_message.len() &gt; MAX_HANDSHAKE_SIZE {
-			<span class="macro">error!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;Outbound networking handshake is above allowed protocol limit&quot;</span>);
+			<span class="macro">error!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"Outbound networking handshake is above allowed protocol limit"</span>);
 		}
 
 		<span class="kw">let </span><span class="kw-2">mut </span>protocol_names = fallback_names;
@@ -1328,7 +1330,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl</span>&lt;TSubstream&gt; OutboundUpgrade&lt;TSubstream&gt; <span class="kw">for </span>NotificationsOut
 <span class="kw">where
-	</span>TSubstream: AsyncRead + AsyncWrite + Unpin + Send + <span class="lifetime">&#39;static</span>,
+	</span>TSubstream: AsyncRead + AsyncWrite + Unpin + Send + <span class="lifetime">'static</span>,
 {
 	<span class="kw">type </span>Output = NotificationsOutOpen&lt;TSubstream&gt;;
 	<span class="kw">type </span>Future = Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Output, <span class="self">Self</span>::Error&gt;&gt; + Send&gt;&gt;;
@@ -1372,7 +1374,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub struct </span>NotificationsOutOpen&lt;TSubstream&gt; {
 	<span class="doccomment">/// Handshake returned by the remote.
 	</span><span class="kw">pub </span>handshake: Vec&lt;u8&gt;,
-	<span class="doccomment">/// If the negotiated name is not the &quot;main&quot; protocol name but a fallback, contains the
+	<span class="doccomment">/// If the negotiated name is not the "main" protocol name but a fallback, contains the
 	/// name of the negotiated fallback.
 	</span><span class="kw">pub </span>negotiated_fallback: <span class="prelude-ty">Option</span>&lt;ProtocolName&gt;,
 	<span class="doccomment">/// Implementation of `Sink` that allows sending messages on the substream.
@@ -1401,13 +1403,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// `Sink::poll_flush` does not expose stream closed error until we write something into
 		// the stream, so the code below makes sure we detect that the substream was closed
-		// even if we don&#39;t write anything into it.
+		// even if we don't write anything into it.
 		</span><span class="kw">match </span>Stream::poll_next(this.socket.as_mut(), cx) {
 			Poll::Pending =&gt; {},
 			Poll::Ready(<span class="prelude-val">Some</span>(<span class="kw">_</span>)) =&gt; {
 				<span class="macro">error!</span>(
-					target: <span class="string">&quot;sub-libp2p&quot;</span>,
-					<span class="string">&quot;Unexpected incoming data in `NotificationsOutSubstream`&quot;</span>,
+					target: <span class="string">"sub-libp2p"</span>,
+					<span class="string">"Unexpected incoming data in `NotificationsOutSubstream`"</span>,
 				);
 			},
 			Poll::Ready(<span class="prelude-val">None</span>) =&gt; <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Err</span>(NotificationsOutError::Terminated)),
@@ -1430,7 +1432,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>Io(<span class="attr">#[from] </span>io::Error),
 
 	<span class="doccomment">/// Initial message or handshake was too large.
-	</span><span class="attr">#[error(<span class="string">&quot;Initial message or handshake was too large: {requested}&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"Initial message or handshake was too large: {requested}"</span>)]
 	</span>TooLarge {
 		<span class="doccomment">/// Size requested by the remote.
 		</span>requested: usize,
@@ -1449,7 +1451,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			unsigned_varint::io::ReadError::Io(err) =&gt; <span class="self">Self</span>::Io(err),
 			unsigned_varint::io::ReadError::Decode(err) =&gt; <span class="self">Self</span>::VarintDecode(err),
 			<span class="kw">_ </span>=&gt; {
-				<span class="macro">warn!</span>(<span class="string">&quot;Unrecognized varint decoding error&quot;</span>);
+				<span class="macro">warn!</span>(<span class="string">"Unrecognized varint decoding error"</span>);
 				<span class="self">Self</span>::Io(From::from(io::ErrorKind::InvalidData))
 			},
 		}
@@ -1462,7 +1464,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// I/O error on the substream.
 	</span><span class="attr">#[error(transparent)]
 	</span>Io(<span class="attr">#[from] </span>io::Error),
-	<span class="attr">#[error(<span class="string">&quot;substream was closed/reset&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"substream was closed/reset"</span>)]
 	</span>Terminated,
 }
 
@@ -1480,24 +1482,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[tokio::test]
 	</span><span class="kw">async fn </span>basic_works() {
-		<span class="kw">const </span>PROTO_NAME: <span class="kw-2">&amp;</span>str = <span class="string">&quot;/test/proto/1&quot;</span>;
+		<span class="kw">const </span>PROTO_NAME: <span class="kw-2">&amp;</span>str = <span class="string">"/test/proto/1"</span>;
 		<span class="kw">let </span>(listener_addr_tx, listener_addr_rx) = oneshot::channel();
 
 		<span class="kw">let </span>client = tokio::spawn(<span class="kw">async move </span>{
 			<span class="kw">let </span>socket = TcpStream::connect(listener_addr_rx.<span class="kw">await</span>.unwrap()).<span class="kw">await</span>.unwrap();
 			<span class="kw">let </span>NotificationsOutOpen { handshake, <span class="kw-2">mut </span>substream, .. } = upgrade::apply_outbound(
 				socket.compat(),
-				NotificationsOut::new(PROTO_NAME, Vec::new(), <span class="kw-2">&amp;</span><span class="string">b&quot;initial message&quot;</span>[..], <span class="number">1024 </span>* <span class="number">1024</span>),
+				NotificationsOut::new(PROTO_NAME, Vec::new(), <span class="kw-2">&amp;</span><span class="string">b"initial message"</span>[..], <span class="number">1024 </span>* <span class="number">1024</span>),
 				upgrade::Version::V1,
 			)
 			.<span class="kw">await
 			</span>.unwrap();
 
-			<span class="macro">assert_eq!</span>(handshake, <span class="string">b&quot;hello world&quot;</span>);
-			substream.send(<span class="string">b&quot;test message&quot;</span>.to_vec()).<span class="kw">await</span>.unwrap();
+			<span class="macro">assert_eq!</span>(handshake, <span class="string">b"hello world"</span>);
+			substream.send(<span class="string">b"test message"</span>.to_vec()).<span class="kw">await</span>.unwrap();
 		});
 
-		<span class="kw">let </span>listener = TcpListener::bind(<span class="string">&quot;127.0.0.1:0&quot;</span>).<span class="kw">await</span>.unwrap();
+		<span class="kw">let </span>listener = TcpListener::bind(<span class="string">"127.0.0.1:0"</span>).<span class="kw">await</span>.unwrap();
 		listener_addr_tx.send(listener.local_addr().unwrap()).unwrap();
 
 		<span class="kw">let </span>(socket, <span class="kw">_</span>) = listener.accept().<span class="kw">await</span>.unwrap();
@@ -1508,11 +1510,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		.<span class="kw">await
 		</span>.unwrap();
 
-		<span class="macro">assert_eq!</span>(handshake, <span class="string">b&quot;initial message&quot;</span>);
-		substream.send_handshake(<span class="kw-2">&amp;</span><span class="string">b&quot;hello world&quot;</span>[..]);
+		<span class="macro">assert_eq!</span>(handshake, <span class="string">b"initial message"</span>);
+		substream.send_handshake(<span class="kw-2">&amp;</span><span class="string">b"hello world"</span>[..]);
 
 		<span class="kw">let </span>msg = substream.next().<span class="kw">await</span>.unwrap().unwrap();
-		<span class="macro">assert_eq!</span>(msg.as_ref(), <span class="string">b&quot;test message&quot;</span>);
+		<span class="macro">assert_eq!</span>(msg.as_ref(), <span class="string">b"test message"</span>);
 
 		client.<span class="kw">await</span>.unwrap();
 	}
@@ -1521,7 +1523,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">async fn </span>empty_handshake() {
 		<span class="comment">// Check that everything still works when the handshake messages are empty.
 
-		</span><span class="kw">const </span>PROTO_NAME: <span class="kw-2">&amp;</span>str = <span class="string">&quot;/test/proto/1&quot;</span>;
+		</span><span class="kw">const </span>PROTO_NAME: <span class="kw-2">&amp;</span>str = <span class="string">"/test/proto/1"</span>;
 		<span class="kw">let </span>(listener_addr_tx, listener_addr_rx) = oneshot::channel();
 
 		<span class="kw">let </span>client = tokio::spawn(<span class="kw">async move </span>{
@@ -1538,7 +1540,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			substream.send(Default::default()).<span class="kw">await</span>.unwrap();
 		});
 
-		<span class="kw">let </span>listener = TcpListener::bind(<span class="string">&quot;127.0.0.1:0&quot;</span>).<span class="kw">await</span>.unwrap();
+		<span class="kw">let </span>listener = TcpListener::bind(<span class="string">"127.0.0.1:0"</span>).<span class="kw">await</span>.unwrap();
 		listener_addr_tx.send(listener.local_addr().unwrap()).unwrap();
 
 		<span class="kw">let </span>(socket, <span class="kw">_</span>) = listener.accept().<span class="kw">await</span>.unwrap();
@@ -1560,25 +1562,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[tokio::test]
 	</span><span class="kw">async fn </span>refused() {
-		<span class="kw">const </span>PROTO_NAME: <span class="kw-2">&amp;</span>str = <span class="string">&quot;/test/proto/1&quot;</span>;
+		<span class="kw">const </span>PROTO_NAME: <span class="kw-2">&amp;</span>str = <span class="string">"/test/proto/1"</span>;
 		<span class="kw">let </span>(listener_addr_tx, listener_addr_rx) = oneshot::channel();
 
 		<span class="kw">let </span>client = tokio::spawn(<span class="kw">async move </span>{
 			<span class="kw">let </span>socket = TcpStream::connect(listener_addr_rx.<span class="kw">await</span>.unwrap()).<span class="kw">await</span>.unwrap();
 			<span class="kw">let </span>outcome = upgrade::apply_outbound(
 				socket.compat(),
-				NotificationsOut::new(PROTO_NAME, Vec::new(), <span class="kw-2">&amp;</span><span class="string">b&quot;hello&quot;</span>[..], <span class="number">1024 </span>* <span class="number">1024</span>),
+				NotificationsOut::new(PROTO_NAME, Vec::new(), <span class="kw-2">&amp;</span><span class="string">b"hello"</span>[..], <span class="number">1024 </span>* <span class="number">1024</span>),
 				upgrade::Version::V1,
 			)
 			.<span class="kw">await</span>;
 
 			<span class="comment">// Despite the protocol negotiation being successfully conducted on the listener
-			// side, we have to receive an error here because the listener didn&#39;t send the
+			// side, we have to receive an error here because the listener didn't send the
 			// handshake.
 			</span><span class="macro">assert!</span>(outcome.is_err());
 		});
 
-		<span class="kw">let </span>listener = TcpListener::bind(<span class="string">&quot;127.0.0.1:0&quot;</span>).<span class="kw">await</span>.unwrap();
+		<span class="kw">let </span>listener = TcpListener::bind(<span class="string">"127.0.0.1:0"</span>).<span class="kw">await</span>.unwrap();
 		listener_addr_tx.send(listener.local_addr().unwrap()).unwrap();
 
 		<span class="kw">let </span>(socket, <span class="kw">_</span>) = listener.accept().<span class="kw">await</span>.unwrap();
@@ -1589,7 +1591,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		.<span class="kw">await
 		</span>.unwrap();
 
-		<span class="macro">assert_eq!</span>(handshake, <span class="string">b&quot;hello&quot;</span>);
+		<span class="macro">assert_eq!</span>(handshake, <span class="string">b"hello"</span>);
 
 		<span class="comment">// We successfully upgrade to the protocol, but then close the substream.
 		</span>drop(substream);
@@ -1599,7 +1601,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[tokio::test]
 	</span><span class="kw">async fn </span>large_initial_message_refused() {
-		<span class="kw">const </span>PROTO_NAME: <span class="kw-2">&amp;</span>str = <span class="string">&quot;/test/proto/1&quot;</span>;
+		<span class="kw">const </span>PROTO_NAME: <span class="kw-2">&amp;</span>str = <span class="string">"/test/proto/1"</span>;
 		<span class="kw">let </span>(listener_addr_tx, listener_addr_rx) = oneshot::channel();
 
 		<span class="kw">let </span>client = tokio::spawn(<span class="kw">async move </span>{
@@ -1619,7 +1621,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">assert!</span>(ret.is_err());
 		});
 
-		<span class="kw">let </span>listener = TcpListener::bind(<span class="string">&quot;127.0.0.1:0&quot;</span>).<span class="kw">await</span>.unwrap();
+		<span class="kw">let </span>listener = TcpListener::bind(<span class="string">"127.0.0.1:0"</span>).<span class="kw">await</span>.unwrap();
 		listener_addr_tx.send(listener.local_addr().unwrap()).unwrap();
 
 		<span class="kw">let </span>(socket, <span class="kw">_</span>) = listener.accept().<span class="kw">await</span>.unwrap();
@@ -1635,21 +1637,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[tokio::test]
 	</span><span class="kw">async fn </span>large_handshake_refused() {
-		<span class="kw">const </span>PROTO_NAME: <span class="kw-2">&amp;</span>str = <span class="string">&quot;/test/proto/1&quot;</span>;
+		<span class="kw">const </span>PROTO_NAME: <span class="kw-2">&amp;</span>str = <span class="string">"/test/proto/1"</span>;
 		<span class="kw">let </span>(listener_addr_tx, listener_addr_rx) = oneshot::channel();
 
 		<span class="kw">let </span>client = tokio::spawn(<span class="kw">async move </span>{
 			<span class="kw">let </span>socket = TcpStream::connect(listener_addr_rx.<span class="kw">await</span>.unwrap()).<span class="kw">await</span>.unwrap();
 			<span class="kw">let </span>ret = upgrade::apply_outbound(
 				socket.compat(),
-				NotificationsOut::new(PROTO_NAME, Vec::new(), <span class="kw-2">&amp;</span><span class="string">b&quot;initial message&quot;</span>[..], <span class="number">1024 </span>* <span class="number">1024</span>),
+				NotificationsOut::new(PROTO_NAME, Vec::new(), <span class="kw-2">&amp;</span><span class="string">b"initial message"</span>[..], <span class="number">1024 </span>* <span class="number">1024</span>),
 				upgrade::Version::V1,
 			)
 			.<span class="kw">await</span>;
 			<span class="macro">assert!</span>(ret.is_err());
 		});
 
-		<span class="kw">let </span>listener = TcpListener::bind(<span class="string">&quot;127.0.0.1:0&quot;</span>).<span class="kw">await</span>.unwrap();
+		<span class="kw">let </span>listener = TcpListener::bind(<span class="string">"127.0.0.1:0"</span>).<span class="kw">await</span>.unwrap();
 		listener_addr_tx.send(listener.local_addr().unwrap()).unwrap();
 
 		<span class="kw">let </span>(socket, <span class="kw">_</span>) = listener.accept().<span class="kw">await</span>.unwrap();
@@ -1659,7 +1661,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		)
 		.<span class="kw">await
 		</span>.unwrap();
-		<span class="macro">assert_eq!</span>(handshake, <span class="string">b&quot;initial message&quot;</span>);
+		<span class="macro">assert_eq!</span>(handshake, <span class="string">b"initial message"</span>);
 
 		<span class="comment">// We check that a handshake that is too large gets refused.
 		</span>substream.send_handshake((<span class="number">0</span>..<span class="number">32768</span>).map(|<span class="kw">_</span>| <span class="number">0</span>).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;());
@@ -1670,23 +1672,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[tokio::test]
 	</span><span class="kw">async fn </span>send_handshake_without_polling_for_incoming_data() {
-		<span class="kw">const </span>PROTO_NAME: <span class="kw-2">&amp;</span>str = <span class="string">&quot;/test/proto/1&quot;</span>;
+		<span class="kw">const </span>PROTO_NAME: <span class="kw-2">&amp;</span>str = <span class="string">"/test/proto/1"</span>;
 		<span class="kw">let </span>(listener_addr_tx, listener_addr_rx) = oneshot::channel();
 
 		<span class="kw">let </span>client = tokio::spawn(<span class="kw">async move </span>{
 			<span class="kw">let </span>socket = TcpStream::connect(listener_addr_rx.<span class="kw">await</span>.unwrap()).<span class="kw">await</span>.unwrap();
 			<span class="kw">let </span>NotificationsOutOpen { handshake, .. } = upgrade::apply_outbound(
 				socket.compat(),
-				NotificationsOut::new(PROTO_NAME, Vec::new(), <span class="kw-2">&amp;</span><span class="string">b&quot;initial message&quot;</span>[..], <span class="number">1024 </span>* <span class="number">1024</span>),
+				NotificationsOut::new(PROTO_NAME, Vec::new(), <span class="kw-2">&amp;</span><span class="string">b"initial message"</span>[..], <span class="number">1024 </span>* <span class="number">1024</span>),
 				upgrade::Version::V1,
 			)
 			.<span class="kw">await
 			</span>.unwrap();
 
-			<span class="macro">assert_eq!</span>(handshake, <span class="string">b&quot;hello world&quot;</span>);
+			<span class="macro">assert_eq!</span>(handshake, <span class="string">b"hello world"</span>);
 		});
 
-		<span class="kw">let </span>listener = TcpListener::bind(<span class="string">&quot;127.0.0.1:0&quot;</span>).<span class="kw">await</span>.unwrap();
+		<span class="kw">let </span>listener = TcpListener::bind(<span class="string">"127.0.0.1:0"</span>).<span class="kw">await</span>.unwrap();
 		listener_addr_tx.send(listener.local_addr().unwrap()).unwrap();
 
 		<span class="kw">let </span>(socket, <span class="kw">_</span>) = listener.accept().<span class="kw">await</span>.unwrap();
@@ -1697,8 +1699,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		.<span class="kw">await
 		</span>.unwrap();
 
-		<span class="macro">assert_eq!</span>(handshake, <span class="string">b&quot;initial message&quot;</span>);
-		substream.send_handshake(<span class="kw-2">&amp;</span><span class="string">b&quot;hello world&quot;</span>[..]);
+		<span class="macro">assert_eq!</span>(handshake, <span class="string">b"initial message"</span>);
+		substream.send_handshake(<span class="kw-2">&amp;</span><span class="string">b"hello world"</span>[..]);
 
 		<span class="comment">// Actually send the handshake.
 		</span>future::poll_fn(|cx| Pin::new(<span class="kw-2">&amp;mut </span>substream).poll_process(cx)).<span class="kw">await</span>.unwrap();
@@ -1708,20 +1710,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[tokio::test]
 	</span><span class="kw">async fn </span>can_detect_dropped_out_substream_without_writing_data() {
-		<span class="kw">const </span>PROTO_NAME: <span class="kw-2">&amp;</span>str = <span class="string">&quot;/test/proto/1&quot;</span>;
+		<span class="kw">const </span>PROTO_NAME: <span class="kw-2">&amp;</span>str = <span class="string">"/test/proto/1"</span>;
 		<span class="kw">let </span>(listener_addr_tx, listener_addr_rx) = oneshot::channel();
 
 		<span class="kw">let </span>client = tokio::spawn(<span class="kw">async move </span>{
 			<span class="kw">let </span>socket = TcpStream::connect(listener_addr_rx.<span class="kw">await</span>.unwrap()).<span class="kw">await</span>.unwrap();
 			<span class="kw">let </span>NotificationsOutOpen { handshake, <span class="kw-2">mut </span>substream, .. } = upgrade::apply_outbound(
 				socket.compat(),
-				NotificationsOut::new(PROTO_NAME, Vec::new(), <span class="kw-2">&amp;</span><span class="string">b&quot;initial message&quot;</span>[..], <span class="number">1024 </span>* <span class="number">1024</span>),
+				NotificationsOut::new(PROTO_NAME, Vec::new(), <span class="kw-2">&amp;</span><span class="string">b"initial message"</span>[..], <span class="number">1024 </span>* <span class="number">1024</span>),
 				upgrade::Version::V1,
 			)
 			.<span class="kw">await
 			</span>.unwrap();
 
-			<span class="macro">assert_eq!</span>(handshake, <span class="string">b&quot;hello world&quot;</span>);
+			<span class="macro">assert_eq!</span>(handshake, <span class="string">b"hello world"</span>);
 
 			future::poll_fn(|cx| <span class="kw">match </span>Pin::new(<span class="kw-2">&amp;mut </span>substream).poll_flush(cx) {
 				Poll::Pending =&gt; Poll::Pending,
@@ -1737,7 +1739,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.<span class="kw">await</span>;
 		});
 
-		<span class="kw">let </span>listener = TcpListener::bind(<span class="string">&quot;127.0.0.1:0&quot;</span>).<span class="kw">await</span>.unwrap();
+		<span class="kw">let </span>listener = TcpListener::bind(<span class="string">"127.0.0.1:0"</span>).<span class="kw">await</span>.unwrap();
 		listener_addr_tx.send(listener.local_addr().unwrap()).unwrap();
 
 		<span class="kw">let </span>(socket, <span class="kw">_</span>) = listener.accept().<span class="kw">await</span>.unwrap();
@@ -1748,10 +1750,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		.<span class="kw">await
 		</span>.unwrap();
 
-		<span class="macro">assert_eq!</span>(handshake, <span class="string">b&quot;initial message&quot;</span>);
+		<span class="macro">assert_eq!</span>(handshake, <span class="string">b"initial message"</span>);
 
 		<span class="comment">// Send the handhsake.
-		</span>substream.send_handshake(<span class="kw-2">&amp;</span><span class="string">b&quot;hello world&quot;</span>[..]);
+		</span>substream.send_handshake(<span class="kw-2">&amp;</span><span class="string">b"hello world"</span>[..]);
 		future::poll_fn(|cx| Pin::new(<span class="kw-2">&amp;mut </span>substream).poll_process(cx)).<span class="kw">await</span>.unwrap();
 
 		drop(substream);

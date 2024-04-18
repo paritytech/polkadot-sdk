@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/consensus/grandpa/src/communication/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/consensus/grandpa/src/communication/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sc_consensus_grandpa" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sc_consensus_grandpa" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../sc_consensus_grandpa/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1331,9 +1333,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use </span>sc_chain_spec::ChainSpec;
 	<span class="kw">use </span>sc_network::types::ProtocolName;
 
-	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>NAME: <span class="kw-2">&amp;</span>str = <span class="string">&quot;/grandpa/1&quot;</span>;
+	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>NAME: <span class="kw-2">&amp;</span>str = <span class="string">"/grandpa/1"</span>;
 	<span class="doccomment">/// Old names for the notifications protocol, used for backward compatibility.
-	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>LEGACY_NAMES: [<span class="kw-2">&amp;</span>str; <span class="number">1</span>] = [<span class="string">&quot;/paritytech/grandpa/1&quot;</span>];
+	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>LEGACY_NAMES: [<span class="kw-2">&amp;</span>str; <span class="number">1</span>] = [<span class="string">"/paritytech/grandpa/1"</span>];
 
 	<span class="doccomment">/// Name of the notifications protocol used by GRANDPA.
 	///
@@ -1344,48 +1346,48 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; ProtocolName {
 		<span class="kw">let </span>genesis_hash = genesis_hash.as_ref();
 		<span class="kw">let </span>chain_prefix = <span class="kw">match </span>chain_spec.fork_id() {
-			<span class="prelude-val">Some</span>(fork_id) =&gt; <span class="macro">format!</span>(<span class="string">&quot;/{}/{}&quot;</span>, array_bytes::bytes2hex(<span class="string">&quot;&quot;</span>, genesis_hash), fork_id),
-			<span class="prelude-val">None </span>=&gt; <span class="macro">format!</span>(<span class="string">&quot;/{}&quot;</span>, array_bytes::bytes2hex(<span class="string">&quot;&quot;</span>, genesis_hash)),
+			<span class="prelude-val">Some</span>(fork_id) =&gt; <span class="macro">format!</span>(<span class="string">"/{}/{}"</span>, array_bytes::bytes2hex(<span class="string">""</span>, genesis_hash), fork_id),
+			<span class="prelude-val">None </span>=&gt; <span class="macro">format!</span>(<span class="string">"/{}"</span>, array_bytes::bytes2hex(<span class="string">""</span>, genesis_hash)),
 		};
-		<span class="macro">format!</span>(<span class="string">&quot;{}{}&quot;</span>, chain_prefix, NAME).into()
+		<span class="macro">format!</span>(<span class="string">"{}{}"</span>, chain_prefix, NAME).into()
 	}
 }
 
 <span class="comment">// cost scalars for reporting peers.
 </span><span class="kw">mod </span>cost {
 	<span class="kw">use </span>sc_network::ReputationChange <span class="kw">as </span>Rep;
-	<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">const </span>PAST_REJECTION: Rep = Rep::new(-<span class="number">50</span>, <span class="string">&quot;Grandpa: Past message&quot;</span>);
-	<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">const </span>BAD_SIGNATURE: Rep = Rep::new(-<span class="number">100</span>, <span class="string">&quot;Grandpa: Bad signature&quot;</span>);
-	<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">const </span>MALFORMED_CATCH_UP: Rep = Rep::new(-<span class="number">1000</span>, <span class="string">&quot;Grandpa: Malformed cath-up&quot;</span>);
-	<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">const </span>MALFORMED_COMMIT: Rep = Rep::new(-<span class="number">1000</span>, <span class="string">&quot;Grandpa: Malformed commit&quot;</span>);
-	<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">const </span>FUTURE_MESSAGE: Rep = Rep::new(-<span class="number">500</span>, <span class="string">&quot;Grandpa: Future message&quot;</span>);
-	<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">const </span>UNKNOWN_VOTER: Rep = Rep::new(-<span class="number">150</span>, <span class="string">&quot;Grandpa: Unknown voter&quot;</span>);
+	<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">const </span>PAST_REJECTION: Rep = Rep::new(-<span class="number">50</span>, <span class="string">"Grandpa: Past message"</span>);
+	<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">const </span>BAD_SIGNATURE: Rep = Rep::new(-<span class="number">100</span>, <span class="string">"Grandpa: Bad signature"</span>);
+	<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">const </span>MALFORMED_CATCH_UP: Rep = Rep::new(-<span class="number">1000</span>, <span class="string">"Grandpa: Malformed cath-up"</span>);
+	<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">const </span>MALFORMED_COMMIT: Rep = Rep::new(-<span class="number">1000</span>, <span class="string">"Grandpa: Malformed commit"</span>);
+	<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">const </span>FUTURE_MESSAGE: Rep = Rep::new(-<span class="number">500</span>, <span class="string">"Grandpa: Future message"</span>);
+	<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">const </span>UNKNOWN_VOTER: Rep = Rep::new(-<span class="number">150</span>, <span class="string">"Grandpa: Unknown voter"</span>);
 
-	<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">const </span>INVALID_VIEW_CHANGE: Rep = Rep::new(-<span class="number">500</span>, <span class="string">&quot;Grandpa: Invalid view change&quot;</span>);
+	<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">const </span>INVALID_VIEW_CHANGE: Rep = Rep::new(-<span class="number">500</span>, <span class="string">"Grandpa: Invalid view change"</span>);
 	<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">const </span>DUPLICATE_NEIGHBOR_MESSAGE: Rep =
-		Rep::new(-<span class="number">500</span>, <span class="string">&quot;Grandpa: Duplicate neighbor message without grace period&quot;</span>);
+		Rep::new(-<span class="number">500</span>, <span class="string">"Grandpa: Duplicate neighbor message without grace period"</span>);
 	<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">const </span>PER_UNDECODABLE_BYTE: i32 = -<span class="number">5</span>;
 	<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">const </span>PER_SIGNATURE_CHECKED: i32 = -<span class="number">25</span>;
 	<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">const </span>PER_BLOCK_LOADED: i32 = -<span class="number">10</span>;
-	<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">const </span>INVALID_CATCH_UP: Rep = Rep::new(-<span class="number">5000</span>, <span class="string">&quot;Grandpa: Invalid catch-up&quot;</span>);
-	<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">const </span>INVALID_COMMIT: Rep = Rep::new(-<span class="number">5000</span>, <span class="string">&quot;Grandpa: Invalid commit&quot;</span>);
-	<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">const </span>OUT_OF_SCOPE_MESSAGE: Rep = Rep::new(-<span class="number">500</span>, <span class="string">&quot;Grandpa: Out-of-scope message&quot;</span>);
+	<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">const </span>INVALID_CATCH_UP: Rep = Rep::new(-<span class="number">5000</span>, <span class="string">"Grandpa: Invalid catch-up"</span>);
+	<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">const </span>INVALID_COMMIT: Rep = Rep::new(-<span class="number">5000</span>, <span class="string">"Grandpa: Invalid commit"</span>);
+	<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">const </span>OUT_OF_SCOPE_MESSAGE: Rep = Rep::new(-<span class="number">500</span>, <span class="string">"Grandpa: Out-of-scope message"</span>);
 	<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">const </span>CATCH_UP_REQUEST_TIMEOUT: Rep =
-		Rep::new(-<span class="number">200</span>, <span class="string">&quot;Grandpa: Catch-up request timeout&quot;</span>);
+		Rep::new(-<span class="number">200</span>, <span class="string">"Grandpa: Catch-up request timeout"</span>);
 
 	<span class="comment">// cost of answering a catch up request
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">const </span>CATCH_UP_REPLY: Rep = Rep::new(-<span class="number">200</span>, <span class="string">&quot;Grandpa: Catch-up reply&quot;</span>);
+	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">const </span>CATCH_UP_REPLY: Rep = Rep::new(-<span class="number">200</span>, <span class="string">"Grandpa: Catch-up reply"</span>);
 	<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">const </span>HONEST_OUT_OF_SCOPE_CATCH_UP: Rep =
-		Rep::new(-<span class="number">200</span>, <span class="string">&quot;Grandpa: Out-of-scope catch-up&quot;</span>);
+		Rep::new(-<span class="number">200</span>, <span class="string">"Grandpa: Out-of-scope catch-up"</span>);
 }
 
 <span class="comment">// benefit scalars for reporting peers.
 </span><span class="kw">mod </span>benefit {
 	<span class="kw">use </span>sc_network::ReputationChange <span class="kw">as </span>Rep;
-	<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">const </span>NEIGHBOR_MESSAGE: Rep = Rep::new(<span class="number">100</span>, <span class="string">&quot;Grandpa: Neighbor message&quot;</span>);
-	<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">const </span>ROUND_MESSAGE: Rep = Rep::new(<span class="number">100</span>, <span class="string">&quot;Grandpa: Round message&quot;</span>);
-	<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">const </span>BASIC_VALIDATED_CATCH_UP: Rep = Rep::new(<span class="number">200</span>, <span class="string">&quot;Grandpa: Catch-up message&quot;</span>);
-	<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">const </span>BASIC_VALIDATED_COMMIT: Rep = Rep::new(<span class="number">100</span>, <span class="string">&quot;Grandpa: Commit&quot;</span>);
+	<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">const </span>NEIGHBOR_MESSAGE: Rep = Rep::new(<span class="number">100</span>, <span class="string">"Grandpa: Neighbor message"</span>);
+	<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">const </span>ROUND_MESSAGE: Rep = Rep::new(<span class="number">100</span>, <span class="string">"Grandpa: Round message"</span>);
+	<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">const </span>BASIC_VALIDATED_CATCH_UP: Rep = Rep::new(<span class="number">200</span>, <span class="string">"Grandpa: Catch-up message"</span>);
+	<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">const </span>BASIC_VALIDATED_COMMIT: Rep = Rep::new(<span class="number">100</span>, <span class="string">"Grandpa: Commit"</span>);
 	<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">const </span>PER_EQUIVOCATION: i32 = <span class="number">10</span>;
 }
 
@@ -1419,12 +1421,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// A handle to the network.
 ///
 /// Something that provides the capabilities needed for the `gossip_network::Network` trait.
-</span><span class="kw">pub trait </span>Network&lt;Block: BlockT&gt;: GossipNetwork&lt;Block&gt; + Clone + Send + <span class="lifetime">&#39;static </span>{}
+</span><span class="kw">pub trait </span>Network&lt;Block: BlockT&gt;: GossipNetwork&lt;Block&gt; + Clone + Send + <span class="lifetime">'static </span>{}
 
 <span class="kw">impl</span>&lt;Block, T&gt; Network&lt;Block&gt; <span class="kw">for </span>T
 <span class="kw">where
 	</span>Block: BlockT,
-	T: GossipNetwork&lt;Block&gt; + Clone + Send + <span class="lifetime">&#39;static</span>,
+	T: GossipNetwork&lt;Block&gt; + Clone + Send + <span class="lifetime">'static</span>,
 {
 }
 
@@ -1437,7 +1439,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	+ SyncEventStream
 	+ Clone
 	+ Send
-	+ <span class="lifetime">&#39;static
+	+ <span class="lifetime">'static
 </span>{
 }
 
@@ -1449,18 +1451,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		+ SyncEventStream
 		+ Clone
 		+ Send
-		+ <span class="lifetime">&#39;static</span>,
+		+ <span class="lifetime">'static</span>,
 {
 }
 
 <span class="doccomment">/// Create a unique topic for a round and set-id combo.
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>round_topic&lt;B: BlockT&gt;(round: RoundNumber, set_id: SetIdNumber) -&gt; B::Hash {
-	&lt;&lt;B::Header <span class="kw">as </span>HeaderT&gt;::Hashing <span class="kw">as </span>HashT&gt;::hash(<span class="macro">format!</span>(<span class="string">&quot;{}-{}&quot;</span>, set_id, round).as_bytes())
+	&lt;&lt;B::Header <span class="kw">as </span>HeaderT&gt;::Hashing <span class="kw">as </span>HashT&gt;::hash(<span class="macro">format!</span>(<span class="string">"{}-{}"</span>, set_id, round).as_bytes())
 }
 
 <span class="doccomment">/// Create a unique topic for global messages on a set ID.
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>global_topic&lt;B: BlockT&gt;(set_id: SetIdNumber) -&gt; B::Hash {
-	&lt;&lt;B::Header <span class="kw">as </span>HeaderT&gt;::Hashing <span class="kw">as </span>HashT&gt;::hash(<span class="macro">format!</span>(<span class="string">&quot;{}-GLOBAL&quot;</span>, set_id).as_bytes())
+	&lt;&lt;B::Header <span class="kw">as </span>HeaderT&gt;::Hashing <span class="kw">as </span>HashT&gt;::hash(<span class="macro">format!</span>(<span class="string">"{}-GLOBAL"</span>, set_id).as_bytes())
 }
 
 <span class="doccomment">/// Bridge between the underlying network service, gossiping consensus messages and Grandpa
@@ -1497,7 +1499,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl</span>&lt;B: BlockT, N: Network&lt;B&gt;, S: Syncing&lt;B&gt;&gt; NetworkBridge&lt;B, N, S&gt; {
 	<span class="doccomment">/// Create a new NetworkBridge to the given NetworkService. Returns the service
 	/// handle.
-	/// On creation it will register previous rounds&#39; votes with the gossip
+	/// On creation it will register previous rounds' votes with the gossip
 	/// service taken from the VoterSetState.
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new(
 		service: N,
@@ -1523,7 +1525,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		)));
 
 		{
-			<span class="comment">// register all previous votes with the gossip service so that they&#39;re
+			<span class="comment">// register all previous votes with the gossip service so that they're
 			// available to peers potentially stuck on a previous round.
 			</span><span class="kw">let </span>completed = set_state.read().completed_rounds();
 			<span class="kw">let </span>(set_id, voters) = completed.set_info();
@@ -1547,7 +1549,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 				<span class="macro">trace!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Registered {} messages for topic {:?} (round: {}, set_id: {})&quot;</span>,
+					<span class="string">"Registered {} messages for topic {:?} (round: {}, set_id: {})"</span>,
 					round.votes.len(),
 					topic,
 					round.number,
@@ -1615,7 +1617,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="prelude-val">Err</span>(<span class="kw-2">ref </span>e) =&gt; {
 						<span class="macro">debug!</span>(
 							target: LOG_TARGET,
-							<span class="string">&quot;Skipping malformed message {:?}: {}&quot;</span>, notification, e
+							<span class="string">"Skipping malformed message {:?}: {}"</span>, notification, e
 						);
 						future::ready(<span class="prelude-val">None</span>)
 					},
@@ -1624,7 +1626,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						</span><span class="kw">if </span>!voters.contains(<span class="kw-2">&amp;</span>msg.message.id) {
 							<span class="macro">debug!</span>(
 								target: LOG_TARGET,
-								<span class="string">&quot;Skipping message from unknown voter {}&quot;</span>, msg.message.id
+								<span class="string">"Skipping message from unknown voter {}"</span>, msg.message.id
 							);
 							<span class="kw">return </span>future::ready(<span class="prelude-val">None</span>)
 						}
@@ -1635,30 +1637,30 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 									<span class="macro">telemetry!</span>(
 										telemetry;
 										CONSENSUS_INFO;
-										<span class="string">&quot;afg.received_propose&quot;</span>;
-										<span class="string">&quot;voter&quot; </span>=&gt; <span class="question-mark">?</span><span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, msg.message.id),
-										<span class="string">&quot;target_number&quot; </span>=&gt; <span class="question-mark">?</span>propose.target_number,
-										<span class="string">&quot;target_hash&quot; </span>=&gt; <span class="question-mark">?</span>propose.target_hash,
+										<span class="string">"afg.received_propose"</span>;
+										<span class="string">"voter" </span>=&gt; <span class="question-mark">?</span><span class="macro">format!</span>(<span class="string">"{}"</span>, msg.message.id),
+										<span class="string">"target_number" </span>=&gt; <span class="question-mark">?</span>propose.target_number,
+										<span class="string">"target_hash" </span>=&gt; <span class="question-mark">?</span>propose.target_hash,
 									);
 								},
 								Prevote(prevote) =&gt; {
 									<span class="macro">telemetry!</span>(
 										telemetry;
 										CONSENSUS_INFO;
-										<span class="string">&quot;afg.received_prevote&quot;</span>;
-										<span class="string">&quot;voter&quot; </span>=&gt; <span class="question-mark">?</span><span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, msg.message.id),
-										<span class="string">&quot;target_number&quot; </span>=&gt; <span class="question-mark">?</span>prevote.target_number,
-										<span class="string">&quot;target_hash&quot; </span>=&gt; <span class="question-mark">?</span>prevote.target_hash,
+										<span class="string">"afg.received_prevote"</span>;
+										<span class="string">"voter" </span>=&gt; <span class="question-mark">?</span><span class="macro">format!</span>(<span class="string">"{}"</span>, msg.message.id),
+										<span class="string">"target_number" </span>=&gt; <span class="question-mark">?</span>prevote.target_number,
+										<span class="string">"target_hash" </span>=&gt; <span class="question-mark">?</span>prevote.target_hash,
 									);
 								},
 								Precommit(precommit) =&gt; {
 									<span class="macro">telemetry!</span>(
 										telemetry;
 										CONSENSUS_INFO;
-										<span class="string">&quot;afg.received_precommit&quot;</span>;
-										<span class="string">&quot;voter&quot; </span>=&gt; <span class="question-mark">?</span><span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, msg.message.id),
-										<span class="string">&quot;target_number&quot; </span>=&gt; <span class="question-mark">?</span>precommit.target_number,
-										<span class="string">&quot;target_hash&quot; </span>=&gt; <span class="question-mark">?</span>precommit.target_hash,
+										<span class="string">"afg.received_precommit"</span>;
+										<span class="string">"voter" </span>=&gt; <span class="question-mark">?</span><span class="macro">format!</span>(<span class="string">"{}"</span>, msg.message.id),
+										<span class="string">"target_number" </span>=&gt; <span class="question-mark">?</span>precommit.target_number,
+										<span class="string">"target_hash" </span>=&gt; <span class="question-mark">?</span>precommit.target_hash,
 									);
 								},
 							};
@@ -1667,7 +1669,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						future::ready(<span class="prelude-val">Some</span>(msg.message))
 					},
 					<span class="kw">_ </span>=&gt; {
-						<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;Skipping unknown message type&quot;</span>);
+						<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"Skipping unknown message type"</span>);
 						future::ready(<span class="prelude-val">None</span>)
 					},
 				}
@@ -1762,7 +1764,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				},
 				Poll::Ready(<span class="prelude-val">None</span>) =&gt;
 					<span class="kw">return </span>Poll::Ready(<span class="prelude-val">Err</span>(Error::Network(
-						<span class="string">&quot;Neighbor packet worker stream closed.&quot;</span>.into(),
+						<span class="string">"Neighbor packet worker stream closed."</span>.into(),
 					))),
 				Poll::Pending =&gt; <span class="kw">break</span>,
 			}
@@ -1775,7 +1777,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				},
 				Poll::Ready(<span class="prelude-val">None</span>) =&gt;
 					<span class="kw">return </span>Poll::Ready(<span class="prelude-val">Err</span>(Error::Network(
-						<span class="string">&quot;Gossip validator report stream closed.&quot;</span>.into(),
+						<span class="string">"Gossip validator report stream closed."</span>.into(),
 					))),
 				Poll::Pending =&gt; <span class="kw">break</span>,
 			}
@@ -1783,7 +1785,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">match </span><span class="self">self</span>.gossip_engine.lock().poll_unpin(cx) {
 			Poll::Ready(()) =&gt;
-				<span class="kw">return </span>Poll::Ready(<span class="prelude-val">Err</span>(Error::Network(<span class="string">&quot;Gossip engine future finished.&quot;</span>.into()))),
+				<span class="kw">return </span>Poll::Ready(<span class="prelude-val">Err</span>(Error::Network(<span class="string">"Gossip engine future finished."</span>.into()))),
 			Poll::Pending =&gt; {},
 		}
 
@@ -1808,15 +1810,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		      voters: <span class="kw-2">&amp;</span>VoterSet&lt;AuthorityId&gt;| {
 			<span class="kw">if </span>voters.len().get() &lt;= TELEMETRY_VOTERS_LIMIT {
 				<span class="kw">let </span>precommits_signed_by: Vec&lt;String&gt; =
-					msg.message.auth_data.iter().map(<span class="kw">move </span>|(<span class="kw">_</span>, a)| <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, a)).collect();
+					msg.message.auth_data.iter().map(<span class="kw">move </span>|(<span class="kw">_</span>, a)| <span class="macro">format!</span>(<span class="string">"{}"</span>, a)).collect();
 
 				<span class="macro">telemetry!</span>(
 					telemetry;
 					CONSENSUS_INFO;
-					<span class="string">&quot;afg.received_commit&quot;</span>;
-					<span class="string">&quot;contains_precommits_signed_by&quot; </span>=&gt; <span class="question-mark">?</span>precommits_signed_by,
-					<span class="string">&quot;target_number&quot; </span>=&gt; <span class="question-mark">?</span>msg.message.target_number.clone(),
-					<span class="string">&quot;target_hash&quot; </span>=&gt; <span class="question-mark">?</span>msg.message.target_hash.clone(),
+					<span class="string">"afg.received_commit"</span>;
+					<span class="string">"contains_precommits_signed_by" </span>=&gt; <span class="question-mark">?</span>precommits_signed_by,
+					<span class="string">"target_number" </span>=&gt; <span class="question-mark">?</span>msg.message.target_number.clone(),
+					<span class="string">"target_hash" </span>=&gt; <span class="question-mark">?</span>msg.message.target_hash.clone(),
 				);
 			}
 
@@ -1912,7 +1914,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">if let </span><span class="prelude-val">Err</span>(<span class="kw-2">ref </span>e) = decoded {
 				<span class="macro">trace!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Skipping malformed commit message {:?}: {}&quot;</span>,
+					<span class="string">"Skipping malformed commit message {:?}: {}"</span>,
 					notification,
 					e
 				);
@@ -1926,7 +1928,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				GossipMessage::CatchUp(msg) =&gt;
 					process_catch_up(msg, notification, <span class="kw-2">&amp;</span>gossip_engine, <span class="kw-2">&amp;</span>gossip_validator, <span class="kw-2">&amp;</span>voters),
 				<span class="kw">_ </span>=&gt; {
-					<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;Skipping unknown message type&quot;</span>);
+					<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"Skipping unknown message type"</span>);
 					<span class="prelude-val">None
 				</span>},
 			})
@@ -1959,7 +1961,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// A sink for outgoing messages to the network. Any messages that are sent will
 /// be replaced, as appropriate, according to the given `HasVoted`.
 /// NOTE: The votes are stored unsigned, which means that the signatures need to
-/// be &quot;stable&quot;, i.e. we should end up with the exact same signed message if we
+/// be "stable", i.e. we should end up with the exact same signed message if we
 /// use the same raw message and key to sign. This is currently true for
 /// `ed25519` and `BLS` signatures (which we might use in the future), care must
 /// be taken when switching to different key types.
@@ -1981,7 +1983,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>poll_ready(<span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context) -&gt; Poll&lt;<span class="prelude-ty">Result</span>&lt;(), <span class="self">Self</span>::Error&gt;&gt; {
 		Sink::poll_ready(Pin::new(<span class="kw-2">&amp;mut </span><span class="self">self</span>.sender), cx).map(|elem| {
 			elem.map_err(|e| {
-				Error::Network(<span class="macro">format!</span>(<span class="string">&quot;Failed to poll_ready channel sender: {:?}&quot;</span>, e))
+				Error::Network(<span class="macro">format!</span>(<span class="string">"Failed to poll_ready channel sender: {:?}"</span>, e))
 			})
 		})
 	}
@@ -1990,7 +1992,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;,
 		<span class="kw-2">mut </span>msg: Message&lt;Block::Header&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), <span class="self">Self</span>::Error&gt; {
-		<span class="comment">// if we&#39;ve voted on this round previously under the same key, send that vote instead
+		<span class="comment">// if we've voted on this round previously under the same key, send that vote instead
 		</span><span class="kw">match </span><span class="kw-2">&amp;mut </span>msg {
 			finality_grandpa::Message::PrimaryPropose(<span class="kw-2">ref mut </span>vote) =&gt; {
 				<span class="kw">if let </span><span class="prelude-val">Some</span>(propose) = <span class="self">self</span>.has_voted.propose() {
@@ -2021,7 +2023,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			)
 			.ok_or_else(|| {
 				Error::Signing(<span class="macro">format!</span>(
-					<span class="string">&quot;Failed to sign GRANDPA vote for round {} targeting {:?}&quot;</span>,
+					<span class="string">"Failed to sign GRANDPA vote for round {} targeting {:?}"</span>,
 					<span class="self">self</span>.round, target_hash
 				))
 			})<span class="question-mark">?</span>;
@@ -2034,7 +2036,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="macro">debug!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;Announcing block {} to peers which we voted on in round {} in set {}&quot;</span>,
+				<span class="string">"Announcing block {} to peers which we voted on in round {} in set {}"</span>,
 				target_hash,
 				<span class="self">self</span>.round,
 				<span class="self">self</span>.set_id,
@@ -2043,8 +2045,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">telemetry!</span>(
 				<span class="self">self</span>.telemetry;
 				CONSENSUS_DEBUG;
-				<span class="string">&quot;afg.announcing_blocks_to_voted_peers&quot;</span>;
-				<span class="string">&quot;block&quot; </span>=&gt; <span class="question-mark">?</span>target_hash, <span class="string">&quot;round&quot; </span>=&gt; <span class="question-mark">?</span><span class="self">self</span>.round, <span class="string">&quot;set_id&quot; </span>=&gt; <span class="question-mark">?</span><span class="self">self</span>.set_id,
+				<span class="string">"afg.announcing_blocks_to_voted_peers"</span>;
+				<span class="string">"block" </span>=&gt; <span class="question-mark">?</span>target_hash, <span class="string">"round" </span>=&gt; <span class="question-mark">?</span><span class="self">self</span>.round, <span class="string">"set_id" </span>=&gt; <span class="question-mark">?</span><span class="self">self</span>.set_id,
 			);
 
 			<span class="comment">// announce the block we voted on to our peers.
@@ -2056,7 +2058,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="comment">// forward the message to the inner sender.
 			</span><span class="kw">return </span><span class="self">self</span>.sender.start_send(signed).map_err(|e| {
-				Error::Network(<span class="macro">format!</span>(<span class="string">&quot;Failed to start_send on channel sender: {:?}&quot;</span>, e))
+				Error::Network(<span class="macro">format!</span>(<span class="string">"Failed to start_send on channel sender: {:?}"</span>, e))
 			})
 		};
 
@@ -2070,7 +2072,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>poll_close(<span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context) -&gt; Poll&lt;<span class="prelude-ty">Result</span>&lt;(), <span class="self">Self</span>::Error&gt;&gt; {
 		Sink::poll_close(Pin::new(<span class="kw-2">&amp;mut </span><span class="self">self</span>.sender), cx).map(|elem| {
 			elem.map_err(|e| {
-				Error::Network(<span class="macro">format!</span>(<span class="string">&quot;Failed to poll_close channel sender: {:?}&quot;</span>, e))
+				Error::Network(<span class="macro">format!</span>(<span class="string">"Failed to poll_close channel sender: {:?}"</span>, e))
 			})
 		})
 	}
@@ -2098,7 +2100,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">return </span><span class="prelude-val">Err</span>(cost::MALFORMED_COMMIT)
 			}
 		} <span class="kw">else </span>{
-			<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;Skipping commit containing unknown voter {}&quot;</span>, id);
+			<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"Skipping commit containing unknown voter {}"</span>, id);
 			<span class="kw">return </span><span class="prelude-val">Err</span>(cost::MALFORMED_COMMIT)
 		}
 	}
@@ -2121,12 +2123,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			set_id.<span class="number">0</span>,
 			<span class="kw-2">&amp;mut </span>buf,
 		) {
-			<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;Bad commit message signature {}&quot;</span>, id);
+			<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"Bad commit message signature {}"</span>, id);
 			<span class="macro">telemetry!</span>(
 				telemetry;
 				CONSENSUS_DEBUG;
-				<span class="string">&quot;afg.bad_commit_msg_signature&quot;</span>;
-				<span class="string">&quot;id&quot; </span>=&gt; <span class="question-mark">?</span>id,
+				<span class="string">"afg.bad_commit_msg_signature"</span>;
+				<span class="string">"id" </span>=&gt; <span class="question-mark">?</span>id,
 			);
 			<span class="kw">let </span>cost = Misbehavior::BadCommitMessage {
 				signatures_checked: i <span class="kw">as </span>i32,
@@ -2155,9 +2157,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>full_threshold = (f + voters.total_weight()).<span class="number">0</span>;
 
 	<span class="comment">// check total weight is not out of range for a set of votes.
-	</span><span class="kw">fn </span>check_weight&lt;<span class="lifetime">&#39;a</span>&gt;(
-		voters: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>VoterSet&lt;AuthorityId&gt;,
-		votes: <span class="kw">impl </span>Iterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>AuthorityId&gt;,
+	</span><span class="kw">fn </span>check_weight&lt;<span class="lifetime">'a</span>&gt;(
+		voters: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>VoterSet&lt;AuthorityId&gt;,
+		votes: <span class="kw">impl </span>Iterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">'a </span>AuthorityId&gt;,
 		full_threshold: u64,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), ReputationChange&gt; {
 		<span class="kw">let </span><span class="kw-2">mut </span>total_weight = <span class="number">0</span>;
@@ -2171,7 +2173,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			} <span class="kw">else </span>{
 				<span class="macro">debug!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Skipping catch up message containing unknown voter {}&quot;</span>, id
+					<span class="string">"Skipping catch up message containing unknown voter {}"</span>, id
 				);
 				<span class="kw">return </span><span class="prelude-val">Err</span>(cost::MALFORMED_CATCH_UP)
 			}
@@ -2188,7 +2190,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	check_weight(voters, msg.precommits.iter().map(|vote| <span class="kw-2">&amp;</span>vote.id), full_threshold)<span class="question-mark">?</span>;
 
-	<span class="kw">fn </span>check_signatures&lt;<span class="lifetime">&#39;a</span>, B, I&gt;(
+	<span class="kw">fn </span>check_signatures&lt;<span class="lifetime">'a</span>, B, I&gt;(
 		messages: I,
 		round: RoundNumber,
 		set_id: SetIdNumber,
@@ -2198,7 +2200,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; <span class="prelude-ty">Result</span>&lt;usize, ReputationChange&gt;
 	<span class="kw">where
 		</span>B: BlockT,
-		I: Iterator&lt;Item = (Message&lt;B::Header&gt;, <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>AuthorityId, <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>AuthoritySignature)&gt;,
+		I: Iterator&lt;Item = (Message&lt;B::Header&gt;, <span class="kw-2">&amp;</span><span class="lifetime">'a </span>AuthorityId, <span class="kw-2">&amp;</span><span class="lifetime">'a </span>AuthoritySignature)&gt;,
 	{
 		<span class="kw">use </span><span class="kw">crate</span>::communication::gossip::Misbehavior;
 
@@ -2208,12 +2210,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">if </span>!sp_consensus_grandpa::check_message_signature_with_buffer(
 				<span class="kw-2">&amp;</span>msg, id, sig, round, set_id, buf,
 			) {
-				<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;Bad catch up message signature {}&quot;</span>, id);
+				<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"Bad catch up message signature {}"</span>, id);
 				<span class="macro">telemetry!</span>(
 					telemetry;
 					CONSENSUS_DEBUG;
-					<span class="string">&quot;afg.bad_catch_up_msg_signature&quot;</span>;
-					<span class="string">&quot;id&quot; </span>=&gt; <span class="question-mark">?</span>id,
+					<span class="string">"afg.bad_catch_up_msg_signature"</span>;
+					<span class="string">"id" </span>=&gt; <span class="question-mark">?</span>id,
 				);
 
 				<span class="kw">let </span>cost = Misbehavior::BadCatchUpMessage {
@@ -2313,9 +2315,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">telemetry!</span>(
 			<span class="self">self</span>.telemetry;
 			CONSENSUS_DEBUG;
-			<span class="string">&quot;afg.commit_issued&quot;</span>;
-			<span class="string">&quot;target_number&quot; </span>=&gt; <span class="question-mark">?</span>commit.target_number,
-			<span class="string">&quot;target_hash&quot; </span>=&gt; <span class="question-mark">?</span>commit.target_hash,
+			<span class="string">"afg.commit_issued"</span>;
+			<span class="string">"target_number" </span>=&gt; <span class="question-mark">?</span>commit.target_number,
+			<span class="string">"target_hash" </span>=&gt; <span class="question-mark">?</span>commit.target_hash,
 		);
 		<span class="kw">let </span>(precommits, auth_data) = commit
 			.precommits

@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/network/src/config.rs`."><title>config.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/network/src/config.rs`."><title>config.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_network" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_network" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sc_network/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1208,8 +1210,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[derive(Clone, PartialEq, Eq, Hash)]
 </span><span class="kw">pub struct </span>ProtocolId(smallvec::SmallVec&lt;[u8; <span class="number">6</span>]&gt;);
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; From&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>str&gt; <span class="kw">for </span>ProtocolId {
-	<span class="kw">fn </span>from(bytes: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>str) -&gt; ProtocolId {
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; From&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>str&gt; <span class="kw">for </span>ProtocolId {
+	<span class="kw">fn </span>from(bytes: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>str) -&gt; ProtocolId {
 		<span class="self">Self</span>(bytes.as_bytes().into())
 	}
 }
@@ -1217,7 +1219,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl </span>AsRef&lt;str&gt; <span class="kw">for </span>ProtocolId {
 	<span class="kw">fn </span>as_ref(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>str {
 		str::from_utf8(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>[..])
-			.expect(<span class="string">&quot;the only way to build a ProtocolId is through a UTF-8 String; qed&quot;</span>)
+			.expect(<span class="string">"the only way to build a ProtocolId is through a UTF-8 String; qed"</span>)
 	}
 }
 
@@ -1236,10 +1238,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// # use libp2p::{Multiaddr, PeerId};
 /// use sc_network::config::parse_str_addr;
 /// let (peer_id, addr) = parse_str_addr(
-/// 	&quot;/ip4/198.51.100.19/tcp/30333/p2p/QmSk5HQbn6LhUwDiNMseVUjuRYhEtYj4aUZ6WfWoGURpdV&quot;
+/// 	"/ip4/198.51.100.19/tcp/30333/p2p/QmSk5HQbn6LhUwDiNMseVUjuRYhEtYj4aUZ6WfWoGURpdV"
 /// ).unwrap();
-/// assert_eq!(peer_id, &quot;QmSk5HQbn6LhUwDiNMseVUjuRYhEtYj4aUZ6WfWoGURpdV&quot;.parse::&lt;PeerId&gt;().unwrap().into());
-/// assert_eq!(addr, &quot;/ip4/198.51.100.19/tcp/30333&quot;.parse::&lt;Multiaddr&gt;().unwrap());
+/// assert_eq!(peer_id, "QmSk5HQbn6LhUwDiNMseVUjuRYhEtYj4aUZ6WfWoGURpdV".parse::&lt;PeerId&gt;().unwrap().into());
+/// assert_eq!(addr, "/ip4/198.51.100.19/tcp/30333".parse::&lt;Multiaddr&gt;().unwrap());
 /// ```
 </span><span class="kw">pub fn </span>parse_str_addr(addr_str: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;(PeerId, Multiaddr), ParseErr&gt; {
 	<span class="kw">let </span>addr: Multiaddr = addr_str.parse()<span class="question-mark">?</span>;
@@ -1267,12 +1269,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// # use libp2p::{Multiaddr, PeerId};
 /// use sc_network::config::MultiaddrWithPeerId;
 /// let addr: MultiaddrWithPeerId =
-/// 	&quot;/ip4/198.51.100.19/tcp/30333/p2p/QmSk5HQbn6LhUwDiNMseVUjuRYhEtYj4aUZ6WfWoGURpdV&quot;.parse().unwrap();
-/// assert_eq!(addr.peer_id.to_base58(), &quot;QmSk5HQbn6LhUwDiNMseVUjuRYhEtYj4aUZ6WfWoGURpdV&quot;);
-/// assert_eq!(addr.multiaddr.to_string(), &quot;/ip4/198.51.100.19/tcp/30333&quot;);
+/// 	"/ip4/198.51.100.19/tcp/30333/p2p/QmSk5HQbn6LhUwDiNMseVUjuRYhEtYj4aUZ6WfWoGURpdV".parse().unwrap();
+/// assert_eq!(addr.peer_id.to_base58(), "QmSk5HQbn6LhUwDiNMseVUjuRYhEtYj4aUZ6WfWoGURpdV");
+/// assert_eq!(addr.multiaddr.to_string(), "/ip4/198.51.100.19/tcp/30333");
 /// ```
 </span><span class="attr">#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq)]
-#[serde(try_from = <span class="string">&quot;String&quot;</span>, into = <span class="string">&quot;String&quot;</span>)]
+#[serde(try_from = <span class="string">"String"</span>, into = <span class="string">"String"</span>)]
 </span><span class="kw">pub struct </span>MultiaddrWithPeerId {
 	<span class="doccomment">/// Address of the node.
 	</span><span class="kw">pub </span>multiaddr: Multiaddr,
@@ -1305,7 +1307,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl </span>From&lt;MultiaddrWithPeerId&gt; <span class="kw">for </span>String {
 	<span class="kw">fn </span>from(ma: MultiaddrWithPeerId) -&gt; String {
-		<span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, ma)
+		<span class="macro">format!</span>(<span class="string">"{}"</span>, ma)
 	}
 }
 
@@ -1328,17 +1330,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl </span>fmt::Display <span class="kw">for </span>ParseErr {
-	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; fmt::Result {
+	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; fmt::Result {
 		<span class="kw">match </span><span class="self">self </span>{
-			<span class="self">Self</span>::MultiaddrParse(err) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;{}&quot;</span>, err),
-			<span class="self">Self</span>::InvalidPeerId =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Peer id at the end of the address is invalid&quot;</span>),
-			<span class="self">Self</span>::PeerIdMissing =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Peer id is missing from the address&quot;</span>),
+			<span class="self">Self</span>::MultiaddrParse(err) =&gt; <span class="macro">write!</span>(f, <span class="string">"{}"</span>, err),
+			<span class="self">Self</span>::InvalidPeerId =&gt; <span class="macro">write!</span>(f, <span class="string">"Peer id at the end of the address is invalid"</span>),
+			<span class="self">Self</span>::PeerIdMissing =&gt; <span class="macro">write!</span>(f, <span class="string">"Peer id is missing from the address"</span>),
 		}
 	}
 }
 
 <span class="kw">impl </span>std::error::Error <span class="kw">for </span>ParseErr {
-	<span class="kw">fn </span>source(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>(<span class="kw">dyn </span>std::error::Error + <span class="lifetime">&#39;static</span>)&gt; {
+	<span class="kw">fn </span>source(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>(<span class="kw">dyn </span>std::error::Error + <span class="lifetime">'static</span>)&gt; {
 		<span class="kw">match </span><span class="self">self </span>{
 			<span class="self">Self</span>::MultiaddrParse(err) =&gt; <span class="prelude-val">Some</span>(err),
 			<span class="self">Self</span>::InvalidPeerId =&gt; <span class="prelude-val">None</span>,
@@ -1410,20 +1412,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Attempt to parse the peer mode from a string.
 	</span><span class="kw">pub fn </span>parse(s: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt; {
 		<span class="kw">match </span>s {
-			<span class="string">&quot;accept&quot; </span>=&gt; <span class="prelude-val">Some</span>(<span class="self">Self</span>::Accept),
-			<span class="string">&quot;deny&quot; </span>=&gt; <span class="prelude-val">Some</span>(<span class="self">Self</span>::Deny),
+			<span class="string">"accept" </span>=&gt; <span class="prelude-val">Some</span>(<span class="self">Self</span>::Accept),
+			<span class="string">"deny" </span>=&gt; <span class="prelude-val">Some</span>(<span class="self">Self</span>::Deny),
 			<span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
 		}
 	}
 
-	<span class="doccomment">/// If we are in &quot;reserved-only&quot; peer mode.
+	<span class="doccomment">/// If we are in "reserved-only" peer mode.
 	</span><span class="kw">pub fn </span>is_reserved_only(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
 		<span class="macro">matches!</span>(<span class="self">self</span>, NonReservedPeerMode::Deny)
 	}
 }
 
-<span class="doccomment">/// The configuration of a node&#39;s secret key, describing the type of key
-/// and how it is obtained. A node&#39;s identity keypair is the result of
+<span class="doccomment">/// The configuration of a node's secret key, describing the type of key
+/// and how it is obtained. A node's identity keypair is the result of
 /// the evaluation of the node key configuration.
 </span><span class="attr">#[derive(Clone, Debug)]
 </span><span class="kw">pub enum </span>NodeKeyConfig {
@@ -1458,9 +1460,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl</span>&lt;K&gt; fmt::Debug <span class="kw">for </span>Secret&lt;K&gt; {
 	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter) -&gt; fmt::Result {
 		<span class="kw">match </span><span class="self">self </span>{
-			<span class="self">Self</span>::Input(<span class="kw">_</span>) =&gt; f.debug_tuple(<span class="string">&quot;Secret::Input&quot;</span>).finish(),
-			<span class="self">Self</span>::File(path) =&gt; f.debug_tuple(<span class="string">&quot;Secret::File&quot;</span>).field(path).finish(),
-			<span class="self">Self</span>::New =&gt; f.debug_tuple(<span class="string">&quot;Secret::New&quot;</span>).finish(),
+			<span class="self">Self</span>::Input(<span class="kw">_</span>) =&gt; f.debug_tuple(<span class="string">"Secret::Input"</span>).finish(),
+			<span class="self">Self</span>::File(path) =&gt; f.debug_tuple(<span class="string">"Secret::File"</span>).field(path).finish(),
+			<span class="self">Self</span>::New =&gt; f.debug_tuple(<span class="string">"Secret::New"</span>).finish(),
 		}
 	}
 }
@@ -1510,9 +1512,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">fn </span>get_secret&lt;P, F, G, E, W, K&gt;(file: P, parse: F, generate: G, serialize: W) -&gt; io::Result&lt;K&gt;
 <span class="kw">where
 	</span>P: AsRef&lt;Path&gt;,
-	F: <span class="kw">for</span>&lt;<span class="lifetime">&#39;r</span>&gt; FnOnce(<span class="kw-2">&amp;</span><span class="lifetime">&#39;r </span><span class="kw-2">mut </span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;K, E&gt;,
+	F: <span class="kw">for</span>&lt;<span class="lifetime">'r</span>&gt; FnOnce(<span class="kw-2">&amp;</span><span class="lifetime">'r </span><span class="kw-2">mut </span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;K, E&gt;,
 	G: FnOnce() -&gt; K,
-	E: Error + Send + Sync + <span class="lifetime">&#39;static</span>,
+	E: Error + Send + Sync + <span class="lifetime">'static</span>,
 	W: Fn(<span class="kw-2">&amp;</span>K) -&gt; Vec&lt;u8&gt;,
 {
 	std::fs::read(<span class="kw-2">&amp;</span>file)
@@ -1567,13 +1569,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Maximum allowed number of incoming substreams related to this set.
 	</span><span class="kw">pub </span>in_peers: u32,
 
-	<span class="doccomment">/// Number of outgoing substreams related to this set that we&#39;re trying to maintain.
+	<span class="doccomment">/// Number of outgoing substreams related to this set that we're trying to maintain.
 	</span><span class="kw">pub </span>out_peers: u32,
 
 	<span class="doccomment">/// List of reserved node addresses.
 	</span><span class="kw">pub </span>reserved_nodes: Vec&lt;MultiaddrWithPeerId&gt;,
 
-	<span class="doccomment">/// Whether nodes that aren&#39;t in [`SetConfig::reserved_nodes`] are accepted or automatically
+	<span class="doccomment">/// Whether nodes that aren't in [`SetConfig::reserved_nodes`] are accepted or automatically
 	/// refused.
 	</span><span class="kw">pub </span>non_reserved_mode: NonReservedPeerMode,
 }
@@ -1589,7 +1591,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="doccomment">/// Extension to [`SetConfig`] for sets that aren&#39;t the default set.
+<span class="doccomment">/// Extension to [`SetConfig`] for sets that aren't the default set.
 ///
 /// &gt; **Note**: As new fields might be added in the future, please consider using the `new` method
 /// &gt;			and modifiers instead of creating this struct manually.
@@ -1598,11 +1600,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Name of the notifications protocols of this set. A substream on this set will be
 	/// considered established once this protocol is open.
 	///
-	/// &gt; **Note**: This field isn&#39;t present for the default set, as this is handled internally
+	/// &gt; **Note**: This field isn't present for the default set, as this is handled internally
 	/// &gt; by the networking code.
 	</span>protocol_name: ProtocolName,
 
-	<span class="doccomment">/// If the remote reports that it doesn&#39;t support the protocol indicated in the
+	<span class="doccomment">/// If the remote reports that it doesn't support the protocol indicated in the
 	/// `notifications_protocol` field, then each of these fallback names will be tried one by
 	/// one.
 	///
@@ -1734,7 +1736,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// List of initial node addresses
 	</span><span class="kw">pub </span>boot_nodes: Vec&lt;MultiaddrWithPeerId&gt;,
 
-	<span class="doccomment">/// The node key configuration, which determines the node&#39;s network identity keypair.
+	<span class="doccomment">/// The node key configuration, which determines the node's network identity keypair.
 	</span><span class="kw">pub </span>node_key: NodeKeyConfig,
 
 	<span class="doccomment">/// Configuration for the default set of nodes used for block syncing and transactions.
@@ -1799,9 +1801,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// It is recommended to leave this to `None`, and use a request-response protocol instead if
 	/// a large amount of data must be transferred. The reason why the value is configurable is
 	/// that some Substrate users mis-use notification protocols to send large amounts of data.
-	/// As such, this option isn&#39;t designed to stay and will likely get removed in the future.
+	/// As such, this option isn't designed to stay and will likely get removed in the future.
 	///
-	/// Note that configuring a value here isn&#39;t a modification of the Yamux protocol, but rather
+	/// Note that configuring a value here isn't a modification of the Yamux protocol, but rather
 	/// a modification of the way the implementation works. Different nodes with different
 	/// configured values remain compatible with each other.
 	</span><span class="kw">pub </span>yamux_window_size: <span class="prelude-ty">Option</span>&lt;u32&gt;,
@@ -1837,7 +1839,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			allow_non_globals_in_dht: <span class="bool-val">false</span>,
 			kademlia_disjoint_query_paths: <span class="bool-val">false</span>,
 			kademlia_replication_factor: NonZeroUsize::new(DEFAULT_KADEMLIA_REPLICATION_FACTOR)
-				.expect(<span class="string">&quot;value is a constant; constant is non-zero; qed.&quot;</span>),
+				.expect(<span class="string">"value is a constant; constant is non-zero; qed."</span>),
 			yamux_window_size: <span class="prelude-val">None</span>,
 			ipfs_server: <span class="bool-val">false</span>,
 			network_backend: NetworkBackendType::Libp2p,
@@ -1848,7 +1850,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// testing)
 	</span><span class="kw">pub fn </span>new_local() -&gt; NetworkConfiguration {
 		<span class="kw">let </span><span class="kw-2">mut </span>config =
-			NetworkConfiguration::new(<span class="string">&quot;test-node&quot;</span>, <span class="string">&quot;test-client&quot;</span>, Default::default(), <span class="prelude-val">None</span>);
+			NetworkConfiguration::new(<span class="string">"test-node"</span>, <span class="string">"test-client"</span>, Default::default(), <span class="prelude-val">None</span>);
 
 		config.listen_addresses =
 			<span class="macro">vec!</span>[iter::once(multiaddr::Protocol::Ip4(Ipv4Addr::new(<span class="number">127</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">1</span>)))
@@ -1863,7 +1865,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// testing)
 	</span><span class="kw">pub fn </span>new_memory() -&gt; NetworkConfiguration {
 		<span class="kw">let </span><span class="kw-2">mut </span>config =
-			NetworkConfiguration::new(<span class="string">&quot;test-node&quot;</span>, <span class="string">&quot;test-client&quot;</span>, Default::default(), <span class="prelude-val">None</span>);
+			NetworkConfiguration::new(<span class="string">"test-node"</span>, <span class="string">"test-client"</span>, Default::default(), <span class="prelude-val">None</span>);
 
 		config.listen_addresses =
 			<span class="macro">vec!</span>[iter::once(multiaddr::Protocol::Ip4(Ipv4Addr::new(<span class="number">127</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">1</span>)))
@@ -1910,7 +1912,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Full network configuration.
-</span><span class="kw">pub struct </span>FullNetworkConfiguration&lt;B: BlockT + <span class="lifetime">&#39;static</span>, H: ExHashT, N: NetworkBackend&lt;B, H&gt;&gt; {
+</span><span class="kw">pub struct </span>FullNetworkConfiguration&lt;B: BlockT + <span class="lifetime">'static</span>, H: ExHashT, N: NetworkBackend&lt;B, H&gt;&gt; {
 	<span class="doccomment">/// Installed notification protocols.
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) notification_protocols: Vec&lt;N::NotificationProtocolConfig&gt;,
 
@@ -1927,7 +1929,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>peer_store_handle: Arc&lt;<span class="kw">dyn </span>PeerStoreProvider&gt;,
 }
 
-<span class="kw">impl</span>&lt;B: BlockT + <span class="lifetime">&#39;static</span>, H: ExHashT, N: NetworkBackend&lt;B, H&gt;&gt; FullNetworkConfiguration&lt;B, H, N&gt; {
+<span class="kw">impl</span>&lt;B: BlockT + <span class="lifetime">'static</span>, H: ExHashT, N: NetworkBackend&lt;B, H&gt;&gt; FullNetworkConfiguration&lt;B, H, N&gt; {
 	<span class="doccomment">/// Create new [`FullNetworkConfiguration`].
 	</span><span class="kw">pub fn </span>new(network_config: <span class="kw-2">&amp;</span>NetworkConfiguration) -&gt; <span class="self">Self </span>{
 		<span class="kw">let </span>bootnodes = network_config.boot_nodes.iter().map(|bootnode| bootnode.peer_id).collect();
@@ -1967,13 +1969,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// `PeerStore` is created when `FullNetworkConfig` is initialized so that `PeerStoreHandle`s
 	/// can be passed onto notification protocols. `PeerStore` itself should be started only once
-	/// and since technically it&#39;s not a libp2p task, it should be started with `SpawnHandle` in
+	/// and since technically it's not a libp2p task, it should be started with `SpawnHandle` in
 	/// `builder.rs` instead of using the libp2p/litep2p executor in the networking backend. This
 	/// function consumes `PeerStore` and starts its event loop in the appropriate place.
 	</span><span class="kw">pub fn </span>take_peer_store(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; N::PeerStore {
 		<span class="self">self</span>.peer_store
 			.take()
-			.expect(<span class="string">&quot;`PeerStore` can only be taken once when it&#39;s started; qed&quot;</span>)
+			.expect(<span class="string">"`PeerStore` can only be taken once when it's started; qed"</span>)
 	}
 
 	<span class="doccomment">/// Verify addresses are consistent with enabled transports.
@@ -2082,7 +2084,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">fn </span>secret_bytes(kp: Keypair) -&gt; Vec&lt;u8&gt; {
 		kp.try_into_ed25519()
-			.expect(<span class="string">&quot;ed25519 keypair&quot;</span>)
+			.expect(<span class="string">"ed25519 keypair"</span>)
 			.secret()
 			.as_ref()
 			.iter()
@@ -2092,9 +2094,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>test_secret_file() {
-		<span class="kw">let </span>tmp = tempdir_with_prefix(<span class="string">&quot;x&quot;</span>);
+		<span class="kw">let </span>tmp = tempdir_with_prefix(<span class="string">"x"</span>);
 		std::fs::remove_dir(tmp.path()).unwrap(); <span class="comment">// should be recreated
-		</span><span class="kw">let </span>file = tmp.path().join(<span class="string">&quot;x&quot;</span>).to_path_buf();
+		</span><span class="kw">let </span>file = tmp.path().join(<span class="string">"x"</span>).to_path_buf();
 		<span class="kw">let </span>kp1 = NodeKeyConfig::Ed25519(Secret::File(file.clone())).into_keypair().unwrap();
 		<span class="kw">let </span>kp2 = NodeKeyConfig::Ed25519(Secret::File(file.clone())).into_keypair().unwrap();
 		<span class="macro">assert!</span>(file.is_file() &amp;&amp; secret_bytes(kp1) == secret_bytes(kp2))

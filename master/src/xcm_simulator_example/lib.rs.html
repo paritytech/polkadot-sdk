@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/xcm/xcm-simulator/example/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/xcm/xcm-simulator/example/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="xcm_simulator_example" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="xcm_simulator_example" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../xcm_simulator_example/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1094,7 +1096,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">assert_eq!</span>(
 				relay_chain::Balances::locks(<span class="kw-2">&amp;</span>child_account_id(<span class="number">2</span>)),
 				<span class="macro">vec!</span>[BalanceLock {
-					id: <span class="kw-2">*</span><span class="string">b&quot;py/xcmlk&quot;</span>,
+					id: <span class="kw-2">*</span><span class="string">b"py/xcmlk"</span>,
 					amount: locked_amount,
 					reasons: Reasons::All
 				}]
@@ -1126,7 +1128,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="macro">assert_eq!</span>(
 				relay_chain::Balances::locks(<span class="kw-2">&amp;</span>child_account_id(<span class="number">2</span>)),
 				<span class="macro">vec!</span>[BalanceLock {
-					id: <span class="kw-2">*</span><span class="string">b&quot;py/xcmlk&quot;</span>,
+					id: <span class="kw-2">*</span><span class="string">b"py/xcmlk"</span>,
 					amount: locked_amount - <span class="number">50</span>,
 					reasons: Reasons::All
 				}]
@@ -1169,7 +1171,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		MockNet::reset();
 
 		Relay::execute_with(|| {
-			<span class="comment">// Mint the NFT (1, 69) and give it to our &quot;parachain#1 alias&quot;.
+			<span class="comment">// Mint the NFT (1, 69) and give it to our "parachain#1 alias".
 			</span><span class="macro">assert_ok!</span>(relay_chain::Uniques::mint(
 				relay_chain::RuntimeOrigin::signed(ALICE),
 				<span class="number">1</span>,
@@ -1196,7 +1198,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			);
 			<span class="macro">assert_eq!</span>(parachain::Balances::reserved_balance(<span class="kw-2">&amp;</span>ALICE), <span class="number">0</span>);
 
-			<span class="comment">// IRL Alice would probably just execute this locally on the Relay-chain, but we can&#39;t
+			<span class="comment">// IRL Alice would probably just execute this locally on the Relay-chain, but we can't
 			// easily do that here since we only send between chains.
 			</span><span class="kw">let </span>message = Xcm(<span class="macro">vec!</span>[
 				WithdrawAsset((GeneralIndex(<span class="number">1</span>), <span class="number">69u32</span>).into()),
@@ -1226,7 +1228,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Scenario:
-	/// The relay-chain transfers an NFT into a parachain&#39;s sovereign account, who then mints a
+	/// The relay-chain transfers an NFT into a parachain's sovereign account, who then mints a
 	/// trustless-backed-derived locally.
 	///
 	/// Asserts that the parachain accounts are updated as expected.
@@ -1282,7 +1284,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">assert_ok!</span>(ParachainPalletXcm::send_xcm(alice, Parent, message));
 		});
 		ParaA::execute_with(|| {
-			<span class="macro">log::debug!</span>(target: <span class="string">&quot;xcm-executor&quot;</span>, <span class="string">&quot;Hello&quot;</span>);
+			<span class="macro">log::debug!</span>(target: <span class="string">"xcm-executor"</span>, <span class="string">"Hello"</span>);
 			<span class="macro">assert_eq!</span>(
 				parachain::ForeignUniques::owner((Parent, GeneralIndex(<span class="number">2</span>)).into(), <span class="number">69u32</span>.into()),
 				<span class="prelude-val">Some</span>(ALICE),
@@ -1297,7 +1299,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Scenario:
 	/// The relay-chain creates an asset class on a parachain and then Alice transfers her NFT into
-	/// that parachain&#39;s sovereign account, who then mints a trustless-backed-derivative locally.
+	/// that parachain's sovereign account, who then mints a trustless-backed-derivative locally.
 	///
 	/// Asserts that the parachain accounts are updated as expected.
 	</span><span class="attr">#[test]

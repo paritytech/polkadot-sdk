@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/support/procedural/src/construct_runtime/parse.rs`."><title>parse.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/support/procedural/src/construct_runtime/parse.rs`."><title>parse.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="frame_support_procedural" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="frame_support_procedural" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../frame_support_procedural/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -938,14 +940,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -1074,7 +1076,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			definitions.push(definition);
 			<span class="kw">if </span>!input.peek(<span class="macro">Token!</span>[,]) {
 				<span class="kw">if </span>!input.peek(token::Brace) {
-					<span class="kw">return </span><span class="prelude-val">Err</span>(input.error(<span class="string">&quot;Expected `,` or `{`&quot;</span>))
+					<span class="kw">return </span><span class="prelude-val">Err</span>(input.error(<span class="string">"Expected `,` or `{`"</span>))
 				}
 				<span class="kw">break
 			</span>}
@@ -1086,7 +1088,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			remove_kind(input, WhereKind::UncheckedExtrinsic, <span class="kw-2">&amp;mut </span>definitions)<span class="question-mark">?</span>.value;
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(WhereDefinition { <span class="kw-2">ref </span>kind_span, <span class="kw-2">ref </span>kind, .. }) = definitions.first() {
 			<span class="kw">let </span>msg = <span class="macro">format!</span>(
-				<span class="string">&quot;`{:?}` was declared above. Please use exactly one declaration for `{:?}`.&quot;</span>,
+				<span class="string">"`{:?}` was declared above. Please use exactly one declaration for `{:?}`."</span>,
 				kind, kind
 			);
 			<span class="kw">return </span><span class="prelude-val">Err</span>(Error::new(<span class="kw-2">*</span>kind_span, msg))
@@ -1191,7 +1193,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			!input.is_empty()
 		{
 			<span class="kw">return </span><span class="prelude-val">Err</span>(input.error(
-				<span class="string">&quot;Unexpected tokens, expected one of `::$ident` `::{`, `exclude_parts`, `use_parts`, `=`, `,`&quot;</span>,
+				<span class="string">"Unexpected tokens, expected one of `::$ident` `::{`, `exclude_parts`, `use_parts`, `=`, `,`"</span>,
 			));
 		} <span class="kw">else </span>{
 			<span class="prelude-val">None
@@ -1219,7 +1221,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			!input.is_empty()
 		{
 			<span class="kw">return </span><span class="prelude-val">Err</span>(input.error(
-				<span class="string">&quot;Unexpected tokens, expected one of `::{`, `exclude_parts`, `use_parts`, `=`, `,`&quot;</span>,
+				<span class="string">"Unexpected tokens, expected one of `::{`, `exclude_parts`, `use_parts`, `=`, `,`"</span>,
 			))
 		} <span class="kw">else </span>{
 			is_expanded.then_some(extra_parts)
@@ -1233,7 +1235,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let _</span>: keyword::use_parts = input.parse()<span class="question-mark">?</span>;
 			SpecifiedParts::Use(parse_pallet_parts_no_generic(input)<span class="question-mark">?</span>)
 		} <span class="kw">else if </span>!input.peek(<span class="macro">Token!</span>[=]) &amp;&amp; !input.peek(<span class="macro">Token!</span>[,]) &amp;&amp; !input.is_empty() {
-			<span class="kw">return </span><span class="prelude-val">Err</span>(input.error(<span class="string">&quot;Unexpected tokens, expected one of `exclude_parts`, `=`, `,`&quot;</span>))
+			<span class="kw">return </span><span class="prelude-val">Err</span>(input.error(<span class="string">"Unexpected tokens, expected one of `exclude_parts`, `=`, `,`"</span>))
 		} <span class="kw">else </span>{
 			SpecifiedParts::All
 		};
@@ -1245,7 +1247,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>index = index.base10_parse::&lt;u8&gt;()<span class="question-mark">?</span>;
 			<span class="prelude-val">Some</span>(index)
 		} <span class="kw">else if </span>!input.peek(<span class="macro">Token!</span>[,]) &amp;&amp; !input.is_empty() {
-			<span class="kw">return </span><span class="prelude-val">Err</span>(input.error(<span class="string">&quot;Unexpected tokens, expected one of `=`, `,`&quot;</span>))
+			<span class="kw">return </span><span class="prelude-val">Err</span>(input.error(<span class="string">"Unexpected tokens, expected one of `=`, `,`"</span>))
 		} <span class="kw">else </span>{
 			<span class="prelude-val">None
 		</span>};
@@ -1267,7 +1269,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">pub fn </span>module_name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String {
 		<span class="self">self</span>.inner.segments.iter().fold(String::new(), |<span class="kw-2">mut </span>acc, segment| {
 			<span class="kw">if </span>!acc.is_empty() {
-				acc.push_str(<span class="string">&quot;::&quot;</span>);
+				acc.push_str(<span class="string">"::"</span>);
 			}
 			acc.push_str(<span class="kw-2">&amp;</span>segment.ident.to_string());
 			acc
@@ -1307,7 +1309,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="doccomment">/// Parse [`PalletPart`]&#39;s from a braces enclosed list that is split by commas, e.g.
+<span class="doccomment">/// Parse [`PalletPart`]'s from a braces enclosed list that is split by commas, e.g.
 ///
 /// `{ Call, Event }`
 </span><span class="kw">fn </span>parse_pallet_parts(input: ParseStream) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;PalletPart&gt;&gt; {
@@ -1317,7 +1319,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">for </span>part <span class="kw">in </span>pallet_parts.content.inner.iter() {
 		<span class="kw">if </span>!resolved.insert(part.name()) {
 			<span class="kw">let </span>msg = <span class="macro">format!</span>(
-				<span class="string">&quot;`{}` was already declared before. Please remove the duplicate declaration&quot;</span>,
+				<span class="string">"`{}` was already declared before. Please remove the duplicate declaration"</span>,
 				part.name(),
 			);
 			<span class="kw">return </span><span class="prelude-val">Err</span>(Error::new(part.keyword.span(), msg))
@@ -1385,22 +1387,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl </span>PalletPartKeyword {
 	<span class="doccomment">/// Returns the name of `Self`.
-	</span><span class="kw">fn </span>name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str {
+	</span><span class="kw">fn </span>name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
 		<span class="kw">match </span><span class="self">self </span>{
-			<span class="self">Self</span>::Pallet(<span class="kw">_</span>) =&gt; <span class="string">&quot;Pallet&quot;</span>,
-			<span class="self">Self</span>::Call(<span class="kw">_</span>) =&gt; <span class="string">&quot;Call&quot;</span>,
-			<span class="self">Self</span>::Storage(<span class="kw">_</span>) =&gt; <span class="string">&quot;Storage&quot;</span>,
-			<span class="self">Self</span>::Event(<span class="kw">_</span>) =&gt; <span class="string">&quot;Event&quot;</span>,
-			<span class="self">Self</span>::Error(<span class="kw">_</span>) =&gt; <span class="string">&quot;Error&quot;</span>,
-			<span class="self">Self</span>::Config(<span class="kw">_</span>) =&gt; <span class="string">&quot;Config&quot;</span>,
-			<span class="self">Self</span>::Origin(<span class="kw">_</span>) =&gt; <span class="string">&quot;Origin&quot;</span>,
-			<span class="self">Self</span>::Inherent(<span class="kw">_</span>) =&gt; <span class="string">&quot;Inherent&quot;</span>,
-			<span class="self">Self</span>::ValidateUnsigned(<span class="kw">_</span>) =&gt; <span class="string">&quot;ValidateUnsigned&quot;</span>,
-			<span class="self">Self</span>::FreezeReason(<span class="kw">_</span>) =&gt; <span class="string">&quot;FreezeReason&quot;</span>,
-			<span class="self">Self</span>::HoldReason(<span class="kw">_</span>) =&gt; <span class="string">&quot;HoldReason&quot;</span>,
-			<span class="self">Self</span>::Task(<span class="kw">_</span>) =&gt; <span class="string">&quot;Task&quot;</span>,
-			<span class="self">Self</span>::LockId(<span class="kw">_</span>) =&gt; <span class="string">&quot;LockId&quot;</span>,
-			<span class="self">Self</span>::SlashReason(<span class="kw">_</span>) =&gt; <span class="string">&quot;SlashReason&quot;</span>,
+			<span class="self">Self</span>::Pallet(<span class="kw">_</span>) =&gt; <span class="string">"Pallet"</span>,
+			<span class="self">Self</span>::Call(<span class="kw">_</span>) =&gt; <span class="string">"Call"</span>,
+			<span class="self">Self</span>::Storage(<span class="kw">_</span>) =&gt; <span class="string">"Storage"</span>,
+			<span class="self">Self</span>::Event(<span class="kw">_</span>) =&gt; <span class="string">"Event"</span>,
+			<span class="self">Self</span>::Error(<span class="kw">_</span>) =&gt; <span class="string">"Error"</span>,
+			<span class="self">Self</span>::Config(<span class="kw">_</span>) =&gt; <span class="string">"Config"</span>,
+			<span class="self">Self</span>::Origin(<span class="kw">_</span>) =&gt; <span class="string">"Origin"</span>,
+			<span class="self">Self</span>::Inherent(<span class="kw">_</span>) =&gt; <span class="string">"Inherent"</span>,
+			<span class="self">Self</span>::ValidateUnsigned(<span class="kw">_</span>) =&gt; <span class="string">"ValidateUnsigned"</span>,
+			<span class="self">Self</span>::FreezeReason(<span class="kw">_</span>) =&gt; <span class="string">"FreezeReason"</span>,
+			<span class="self">Self</span>::HoldReason(<span class="kw">_</span>) =&gt; <span class="string">"HoldReason"</span>,
+			<span class="self">Self</span>::Task(<span class="kw">_</span>) =&gt; <span class="string">"Task"</span>,
+			<span class="self">Self</span>::LockId(<span class="kw">_</span>) =&gt; <span class="string">"LockId"</span>,
+			<span class="self">Self</span>::SlashReason(<span class="kw">_</span>) =&gt; <span class="string">"SlashReason"</span>,
 		}
 	}
 
@@ -1410,8 +1412,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Returns the names of all pallet parts that allow to have a generic argument.
-	</span><span class="kw">fn </span>all_generic_arg() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str] {
-		<span class="kw-2">&amp;</span>[<span class="string">&quot;Event&quot;</span>, <span class="string">&quot;Error&quot;</span>, <span class="string">&quot;Origin&quot;</span>, <span class="string">&quot;Config&quot;</span>, <span class="string">&quot;Task&quot;</span>]
+	</span><span class="kw">fn </span>all_generic_arg() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>[<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str] {
+		<span class="kw-2">&amp;</span>[<span class="string">"Event"</span>, <span class="string">"Error"</span>, <span class="string">"Origin"</span>, <span class="string">"Config"</span>, <span class="string">"Task"</span>]
 	}
 }
 
@@ -1450,8 +1452,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if </span>!generics.params.is_empty() &amp;&amp; !keyword.allows_generic() {
 			<span class="kw">let </span>valid_generics = PalletPart::format_names(PalletPartKeyword::all_generic_arg());
 			<span class="kw">let </span>msg = <span class="macro">format!</span>(
-				<span class="string">&quot;`{}` is not allowed to have generics. \
-				 Only the following pallets are allowed to have generics: {}.&quot;</span>,
+				<span class="string">"`{}` is not allowed to have generics. \
+				 Only the following pallets are allowed to have generics: {}."</span>,
 				keyword.name(),
 				valid_generics,
 			);
@@ -1463,13 +1465,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl </span>PalletPart {
-	<span class="kw">pub fn </span>format_names(names: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str]) -&gt; String {
-		<span class="kw">let </span>res: Vec&lt;<span class="kw">_</span>&gt; = names.iter().map(|s| <span class="macro">format!</span>(<span class="string">&quot;`{}`&quot;</span>, s)).collect();
-		res.join(<span class="string">&quot;, &quot;</span>)
+	<span class="kw">pub fn </span>format_names(names: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str]) -&gt; String {
+		<span class="kw">let </span>res: Vec&lt;<span class="kw">_</span>&gt; = names.iter().map(|s| <span class="macro">format!</span>(<span class="string">"`{}`"</span>, s)).collect();
+		res.join(<span class="string">", "</span>)
 	}
 
 	<span class="doccomment">/// The name of this pallet part.
-	</span><span class="kw">pub fn </span>name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str {
+	</span><span class="kw">pub fn </span>name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
 		<span class="self">self</span>.keyword.name()
 	}
 }
@@ -1483,7 +1485,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Ok</span>(definitions.remove(pos))
 	} <span class="kw">else </span>{
 		<span class="kw">let </span>msg = <span class="macro">format!</span>(
-			<span class="string">&quot;Missing associated type for `{:?}`. Add `{:?}` = ... to where section.&quot;</span>,
+			<span class="string">"Missing associated type for `{:?}`. Add `{:?}` = ... to where section."</span>,
 			kind, kind
 		);
 		<span class="prelude-val">Err</span>(input.error(msg))
@@ -1502,7 +1504,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="doccomment">/// Parse [`PalletPartNoGeneric`]&#39;s from a braces enclosed list that is split by commas, e.g.
+<span class="doccomment">/// Parse [`PalletPartNoGeneric`]'s from a braces enclosed list that is split by commas, e.g.
 ///
 /// `{ Call, Event }`
 </span><span class="kw">fn </span>parse_pallet_parts_no_generic(input: ParseStream) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;PalletPartNoGeneric&gt;&gt; {
@@ -1513,7 +1515,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">for </span>part <span class="kw">in </span>pallet_parts.content.inner.iter() {
 		<span class="kw">if </span>!resolved.insert(part.keyword.name()) {
 			<span class="kw">let </span>msg = <span class="macro">format!</span>(
-				<span class="string">&quot;`{}` was already declared before. Please remove the duplicate declaration&quot;</span>,
+				<span class="string">"`{}` was already declared before. Please remove the duplicate declaration"</span>,
 				part.keyword.name(),
 			);
 			<span class="kw">return </span><span class="prelude-val">Err</span>(Error::new(part.keyword.span(), msg))
@@ -1612,7 +1614,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>final_index = <span class="kw">match </span>pallet.index {
 				<span class="prelude-val">Some</span>(i) =&gt; i,
 				<span class="prelude-val">None </span>=&gt; last_index.map_or(<span class="prelude-val">Some</span>(<span class="number">0</span>), |i| i.checked_add(<span class="number">1</span>)).ok_or_else(|| {
-					<span class="kw">let </span>msg = <span class="string">&quot;Pallet index doesn&#39;t fit into u8, index is 256&quot;</span>;
+					<span class="kw">let </span>msg = <span class="string">"Pallet index doesn't fit into u8, index is 256"</span>;
 					syn::Error::new(pallet.name.span(), msg)
 				})<span class="question-mark">?</span>,
 			};
@@ -1621,7 +1623,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(used_pallet) = indices.insert(final_index, pallet.name.clone()) {
 				<span class="kw">let </span>msg = <span class="macro">format!</span>(
-					<span class="string">&quot;Pallet indices are conflicting: Both pallets {} and {} are at index {}&quot;</span>,
+					<span class="string">"Pallet indices are conflicting: Both pallets {} and {} are at index {}"</span>,
 					used_pallet, pallet.name, final_index,
 				);
 				<span class="kw">let </span><span class="kw-2">mut </span>err = syn::Error::new(used_pallet.span(), <span class="kw-2">&amp;</span>msg);
@@ -1630,14 +1632,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			}
 
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(used_pallet) = names.insert(pallet.name.clone(), pallet.name.span()) {
-				<span class="kw">let </span>msg = <span class="string">&quot;Two pallets with the same name!&quot;</span>;
+				<span class="kw">let </span>msg = <span class="string">"Two pallets with the same name!"</span>;
 
 				<span class="kw">let </span><span class="kw-2">mut </span>err = syn::Error::new(used_pallet, <span class="kw-2">&amp;</span>msg);
 				err.combine(syn::Error::new(pallet.name.span(), <span class="kw-2">&amp;</span>msg));
 				<span class="kw">return </span><span class="prelude-val">Err</span>(err)
 			}
 
-			<span class="kw">let </span><span class="kw-2">mut </span>pallet_parts = pallet.pallet_parts.expect(<span class="string">&quot;Checked above&quot;</span>);
+			<span class="kw">let </span><span class="kw-2">mut </span>pallet_parts = pallet.pallet_parts.expect(<span class="string">"Checked above"</span>);
 
 			<span class="kw">let </span>available_parts =
 				pallet_parts.iter().map(|part| part.keyword.name()).collect::&lt;HashSet&lt;<span class="kw">_</span>&gt;&gt;();
@@ -1648,15 +1650,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw">for </span>part <span class="kw">in </span>parts {
 						<span class="kw">if </span>!available_parts.contains(part.keyword.name()) {
 							<span class="kw">let </span>msg = <span class="macro">format!</span>(
-								<span class="string">&quot;Invalid pallet part specified, the pallet `{}` doesn&#39;t have the \
-								`{}` part. Available parts are: {}.&quot;</span>,
+								<span class="string">"Invalid pallet part specified, the pallet `{}` doesn't have the \
+								`{}` part. Available parts are: {}."</span>,
 								pallet.name,
 								part.keyword.name(),
 								pallet_parts.iter().fold(String::new(), |fold, part| {
 									<span class="kw">if </span>fold.is_empty() {
-										<span class="macro">format!</span>(<span class="string">&quot;`{}`&quot;</span>, part.keyword.name())
+										<span class="macro">format!</span>(<span class="string">"`{}`"</span>, part.keyword.name())
 									} <span class="kw">else </span>{
-										<span class="macro">format!</span>(<span class="string">&quot;{}, `{}`&quot;</span>, fold, part.keyword.name())
+										<span class="macro">format!</span>(<span class="string">"{}, `{}`"</span>, fold, part.keyword.name())
 									}
 								})
 							);
@@ -1683,14 +1685,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.attrs
 				.iter()
 				.map(|attr| {
-					<span class="kw">if </span>attr.path().segments.first().map_or(<span class="bool-val">false</span>, |s| s.ident != <span class="string">&quot;cfg&quot;</span>) {
-						<span class="kw">let </span>msg = <span class="string">&quot;Unsupported attribute, only #[cfg] is supported on pallet \
-						declarations in `construct_runtime`&quot;</span>;
+					<span class="kw">if </span>attr.path().segments.first().map_or(<span class="bool-val">false</span>, |s| s.ident != <span class="string">"cfg"</span>) {
+						<span class="kw">let </span>msg = <span class="string">"Unsupported attribute, only #[cfg] is supported on pallet \
+						declarations in `construct_runtime`"</span>;
 						<span class="kw">return </span><span class="prelude-val">Err</span>(syn::Error::new(attr.span(), msg))
 					}
 
 					attr.parse_args_with(|input: syn::parse::ParseStream| {
-						<span class="comment">// Required, otherwise the parse stream doesn&#39;t advance and will result in
+						<span class="comment">// Required, otherwise the parse stream doesn't advance and will result in
 						// an error.
 						</span><span class="kw">let </span>input = input.parse::&lt;proc_macro2::TokenStream&gt;()<span class="question-mark">?</span>;
 						cfg_expr::Expression::parse(<span class="kw-2">&amp;</span>input.to_string())

@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/utils/wasm-builder/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/utils/wasm-builder/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="substrate_wasm_builder" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="substrate_wasm_builder" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../substrate_wasm_builder/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -604,14 +606,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -649,12 +651,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! As the final step, you need to add the following to your project:
 //!
 //! ```ignore
-//! include!(concat!(env!(&quot;OUT_DIR&quot;), &quot;/wasm_binary.rs&quot;));
+//! include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 //! ```
 //!
 //! This will include the generated Wasm binary as two constants `WASM_BINARY` and
 //! `WASM_BINARY_BLOATY`. The former is a compact Wasm binary and the latter is the Wasm binary as
-//! being generated by the compiler. Both variables have `Option&lt;&amp;&#39;static [u8]&gt;` as type.
+//! being generated by the compiler. Both variables have `Option&lt;&amp;'static [u8]&gt;` as type.
 //!
 //! ### Feature
 //!
@@ -669,7 +671,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! By using environment variables, you can configure which Wasm binaries are built and how:
 //!
 //! - `SKIP_WASM_BUILD` - Skips building any Wasm binary. This is useful when only native should be
-//!   recompiled. If this is the first run and there doesn&#39;t exist a Wasm binary, this will set both
+//!   recompiled. If this is the first run and there doesn't exist a Wasm binary, this will set both
 //!   variables to `None`.
 //! - `WASM_BUILD_TYPE` - Sets the build type for building Wasm binaries. Supported values are
 //!   `release` or `debug`. By default the build type is equal to the build type used by the main
@@ -688,7 +690,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!   required as we walk up from the target directory until we find a `Cargo.toml`. If the target
 //!   directory is changed for the build, this environment variable can be used to point to the
 //!   actual workspace.
-//! - `WASM_BUILD_STD` - Sets whether the Rust&#39;s standard library crates will also be built. This is
+//! - `WASM_BUILD_STD` - Sets whether the Rust's standard library crates will also be built. This is
 //!   necessary to make sure the standard library crates only use the exact WASM feature set that
 //!   our executor supports. Enabled by default.
 //! - `CARGO_NET_OFFLINE` - If `true`, `--offline` will be passed to all processes launched to
@@ -730,50 +732,50 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">pub use </span>builder::{WasmBuilder, WasmBuilderSelectProject};
 
 <span class="doccomment">/// Environment variable that tells us to skip building the wasm binary.
-</span><span class="kw">const </span>SKIP_BUILD_ENV: <span class="kw-2">&amp;</span>str = <span class="string">&quot;SKIP_WASM_BUILD&quot;</span>;
+</span><span class="kw">const </span>SKIP_BUILD_ENV: <span class="kw-2">&amp;</span>str = <span class="string">"SKIP_WASM_BUILD"</span>;
 
 <span class="doccomment">/// Environment variable that tells us whether we should avoid network requests
-</span><span class="kw">const </span>OFFLINE: <span class="kw-2">&amp;</span>str = <span class="string">&quot;CARGO_NET_OFFLINE&quot;</span>;
+</span><span class="kw">const </span>OFFLINE: <span class="kw-2">&amp;</span>str = <span class="string">"CARGO_NET_OFFLINE"</span>;
 
 <span class="doccomment">/// Environment variable to force a certain build type when building the wasm binary.
-/// Expects &quot;debug&quot;, &quot;release&quot; or &quot;production&quot; as value.
+/// Expects "debug", "release" or "production" as value.
 ///
 /// When unset the WASM binary uses the same build type as the main cargo build with
 /// the exception of a debug build: In this case the wasm build defaults to `release` in
 /// order to avoid a slowdown when not explicitly requested.
-</span><span class="kw">const </span>WASM_BUILD_TYPE_ENV: <span class="kw-2">&amp;</span>str = <span class="string">&quot;WASM_BUILD_TYPE&quot;</span>;
+</span><span class="kw">const </span>WASM_BUILD_TYPE_ENV: <span class="kw-2">&amp;</span>str = <span class="string">"WASM_BUILD_TYPE"</span>;
 
 <span class="doccomment">/// Environment variable to extend the `RUSTFLAGS` variable given to the wasm build.
-</span><span class="kw">const </span>WASM_BUILD_RUSTFLAGS_ENV: <span class="kw-2">&amp;</span>str = <span class="string">&quot;WASM_BUILD_RUSTFLAGS&quot;</span>;
+</span><span class="kw">const </span>WASM_BUILD_RUSTFLAGS_ENV: <span class="kw-2">&amp;</span>str = <span class="string">"WASM_BUILD_RUSTFLAGS"</span>;
 
 <span class="doccomment">/// Environment variable to set the target directory to copy the final wasm binary.
 ///
 /// The directory needs to be an absolute path.
-</span><span class="kw">const </span>WASM_TARGET_DIRECTORY: <span class="kw-2">&amp;</span>str = <span class="string">&quot;WASM_TARGET_DIRECTORY&quot;</span>;
+</span><span class="kw">const </span>WASM_TARGET_DIRECTORY: <span class="kw-2">&amp;</span>str = <span class="string">"WASM_TARGET_DIRECTORY"</span>;
 
 <span class="doccomment">/// Environment variable to disable color output of the wasm build.
-</span><span class="kw">const </span>WASM_BUILD_NO_COLOR: <span class="kw-2">&amp;</span>str = <span class="string">&quot;WASM_BUILD_NO_COLOR&quot;</span>;
+</span><span class="kw">const </span>WASM_BUILD_NO_COLOR: <span class="kw-2">&amp;</span>str = <span class="string">"WASM_BUILD_NO_COLOR"</span>;
 
 <span class="doccomment">/// Environment variable to set the toolchain used to compile the wasm binary.
-</span><span class="kw">const </span>WASM_BUILD_TOOLCHAIN: <span class="kw-2">&amp;</span>str = <span class="string">&quot;WASM_BUILD_TOOLCHAIN&quot;</span>;
+</span><span class="kw">const </span>WASM_BUILD_TOOLCHAIN: <span class="kw-2">&amp;</span>str = <span class="string">"WASM_BUILD_TOOLCHAIN"</span>;
 
 <span class="doccomment">/// Environment variable that makes sure the WASM build is triggered.
-</span><span class="kw">const </span>FORCE_WASM_BUILD_ENV: <span class="kw-2">&amp;</span>str = <span class="string">&quot;FORCE_WASM_BUILD&quot;</span>;
+</span><span class="kw">const </span>FORCE_WASM_BUILD_ENV: <span class="kw-2">&amp;</span>str = <span class="string">"FORCE_WASM_BUILD"</span>;
 
 <span class="doccomment">/// Environment variable that hints the workspace we are building.
-</span><span class="kw">const </span>WASM_BUILD_WORKSPACE_HINT: <span class="kw-2">&amp;</span>str = <span class="string">&quot;WASM_BUILD_WORKSPACE_HINT&quot;</span>;
+</span><span class="kw">const </span>WASM_BUILD_WORKSPACE_HINT: <span class="kw-2">&amp;</span>str = <span class="string">"WASM_BUILD_WORKSPACE_HINT"</span>;
 
-<span class="doccomment">/// Environment variable to set whether we&#39;ll build `core`/`std`.
-</span><span class="kw">const </span>WASM_BUILD_STD: <span class="kw-2">&amp;</span>str = <span class="string">&quot;WASM_BUILD_STD&quot;</span>;
+<span class="doccomment">/// Environment variable to set whether we'll build `core`/`std`.
+</span><span class="kw">const </span>WASM_BUILD_STD: <span class="kw-2">&amp;</span>str = <span class="string">"WASM_BUILD_STD"</span>;
 
 <span class="doccomment">/// The target to use for the runtime. Valid values are `wasm` (default) or `riscv`.
-</span><span class="kw">const </span>RUNTIME_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;SUBSTRATE_RUNTIME_TARGET&quot;</span>;
+</span><span class="kw">const </span>RUNTIME_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"SUBSTRATE_RUNTIME_TARGET"</span>;
 
 <span class="doccomment">/// Write to the given `file` if the `content` is different.
 </span><span class="kw">fn </span>write_file_if_changed(file: <span class="kw">impl </span>AsRef&lt;Path&gt;, content: <span class="kw">impl </span>AsRef&lt;str&gt;) {
 	<span class="kw">if </span>fs::read_to_string(file.as_ref()).ok().as_deref() != <span class="prelude-val">Some</span>(content.as_ref()) {
 		fs::write(file.as_ref(), content.as_ref())
-			.unwrap_or_else(|<span class="kw">_</span>| <span class="macro">panic!</span>(<span class="string">&quot;Writing `{}` can not fail!&quot;</span>, file.as_ref().display()));
+			.unwrap_or_else(|<span class="kw">_</span>| <span class="macro">panic!</span>(<span class="string">"Writing `{}` can not fail!"</span>, file.as_ref().display()));
 	}
 }
 
@@ -784,7 +786,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">if </span>src_file != dst_file {
 		fs::copy(<span class="kw-2">&amp;</span>src, <span class="kw-2">&amp;</span>dst).unwrap_or_else(|<span class="kw">_</span>| {
-			<span class="macro">panic!</span>(<span class="string">&quot;Copying `{}` to `{}` can not fail; qed&quot;</span>, src.display(), dst.display())
+			<span class="macro">panic!</span>(<span class="string">"Copying `{}` to `{}` can not fail; qed"</span>, src.display(), dst.display())
 		});
 	}
 }
@@ -792,13 +794,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Get a cargo command that should be used to invoke the compilation.
 </span><span class="kw">fn </span>get_cargo_command(target: RuntimeTarget) -&gt; CargoCommand {
 	<span class="kw">let </span>env_cargo =
-		CargoCommand::new(<span class="kw-2">&amp;</span>env::var(<span class="string">&quot;CARGO&quot;</span>).expect(<span class="string">&quot;`CARGO` env variable is always set by cargo&quot;</span>));
-	<span class="kw">let </span>default_cargo = CargoCommand::new(<span class="string">&quot;cargo&quot;</span>);
+		CargoCommand::new(<span class="kw-2">&amp;</span>env::var(<span class="string">"CARGO"</span>).expect(<span class="string">"`CARGO` env variable is always set by cargo"</span>));
+	<span class="kw">let </span>default_cargo = CargoCommand::new(<span class="string">"cargo"</span>);
 	<span class="kw">let </span>wasm_toolchain = env::var(WASM_BUILD_TOOLCHAIN).ok();
 
 	<span class="comment">// First check if the user requested a specific toolchain
 	</span><span class="kw">if let </span><span class="prelude-val">Some</span>(cmd) =
-		wasm_toolchain.map(|t| CargoCommand::new_with_args(<span class="string">&quot;rustup&quot;</span>, <span class="kw-2">&amp;</span>[<span class="string">&quot;run&quot;</span>, <span class="kw-2">&amp;</span>t, <span class="string">&quot;cargo&quot;</span>]))
+		wasm_toolchain.map(|t| CargoCommand::new_with_args(<span class="string">"rustup"</span>, <span class="kw-2">&amp;</span>[<span class="string">"run"</span>, <span class="kw-2">&amp;</span>t, <span class="string">"cargo"</span>]))
 	{
 		cmd
 	} <span class="kw">else if </span>env_cargo.supports_substrate_runtime_env(target) {
@@ -818,14 +820,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// Stable versions are always favored over nightly versions even if the nightly versions are
 /// newer.
 </span><span class="kw">fn </span>get_rustup_command(target: RuntimeTarget) -&gt; <span class="prelude-ty">Option</span>&lt;CargoCommand&gt; {
-	<span class="kw">let </span>output = Command::new(<span class="string">&quot;rustup&quot;</span>).args(<span class="kw-2">&amp;</span>[<span class="string">&quot;toolchain&quot;</span>, <span class="string">&quot;list&quot;</span>]).output().ok()<span class="question-mark">?</span>.stdout;
+	<span class="kw">let </span>output = Command::new(<span class="string">"rustup"</span>).args(<span class="kw-2">&amp;</span>[<span class="string">"toolchain"</span>, <span class="string">"list"</span>]).output().ok()<span class="question-mark">?</span>.stdout;
 	<span class="kw">let </span>lines = output.as_slice().lines();
 
 	<span class="kw">let </span><span class="kw-2">mut </span>versions = Vec::new();
 	<span class="kw">for </span>line <span class="kw">in </span>lines.filter_map(|l| l.ok()) {
-		<span class="comment">// Split by a space to get rid of e.g. &quot; (default)&quot; at the end.
-		</span><span class="kw">let </span>rustup_version = line.split(<span class="string">&quot; &quot;</span>).next().unwrap();
-		<span class="kw">let </span>cmd = CargoCommand::new_with_args(<span class="string">&quot;rustup&quot;</span>, <span class="kw-2">&amp;</span>[<span class="string">&quot;run&quot;</span>, <span class="kw-2">&amp;</span>rustup_version, <span class="string">&quot;cargo&quot;</span>]);
+		<span class="comment">// Split by a space to get rid of e.g. " (default)" at the end.
+		</span><span class="kw">let </span>rustup_version = line.split(<span class="string">" "</span>).next().unwrap();
+		<span class="kw">let </span>cmd = CargoCommand::new_with_args(<span class="string">"rustup"</span>, <span class="kw-2">&amp;</span>[<span class="string">"run"</span>, <span class="kw-2">&amp;</span>rustup_version, <span class="string">"cargo"</span>]);
 
 		<span class="kw">if </span>!cmd.supports_substrate_runtime_env(target) {
 			<span class="kw">continue
@@ -841,7 +843,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>versions.sort_by_key(|v| v.<span class="number">0</span>);
 	<span class="kw">let </span>version = <span class="kw-2">&amp;</span>versions.last()<span class="question-mark">?</span>.<span class="number">1</span>;
 
-	<span class="prelude-val">Some</span>(CargoCommand::new_with_args(<span class="string">&quot;rustup&quot;</span>, <span class="kw-2">&amp;</span>[<span class="string">&quot;run&quot;</span>, <span class="kw-2">&amp;</span>version, <span class="string">&quot;cargo&quot;</span>]))
+	<span class="prelude-val">Some</span>(CargoCommand::new_with_args(<span class="string">"rustup"</span>, <span class="kw-2">&amp;</span>[<span class="string">"run"</span>, <span class="kw-2">&amp;</span>version, <span class="string">"cargo"</span>]))
 }
 
 <span class="doccomment">/// Wraps a specific command which represents a cargo invocation.
@@ -882,7 +884,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>extract_version(program: <span class="kw-2">&amp;</span>str, args: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>str]) -&gt; <span class="prelude-ty">Option</span>&lt;Version&gt; {
 		<span class="kw">let </span>version = Command::new(program)
 			.args(args)
-			.arg(<span class="string">&quot;--version&quot;</span>)
+			.arg(<span class="string">"--version"</span>)
 			.output()
 			.ok()
 			.and_then(|o| String::from_utf8(o.stdout).ok())<span class="question-mark">?</span>;
@@ -891,20 +893,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">fn </span>extract_target_list(program: <span class="kw-2">&amp;</span>str, args: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>str]) -&gt; <span class="prelude-ty">Option</span>&lt;BTreeSet&lt;String&gt;&gt; {
-		<span class="comment">// This is technically an unstable option, but we don&#39;t care because we only need this
+		<span class="comment">// This is technically an unstable option, but we don't care because we only need this
 		// to build RISC-V runtimes, and those currently require a specific nightly toolchain
-		// anyway, so it&#39;s totally fine for this to fail in other cases.
+		// anyway, so it's totally fine for this to fail in other cases.
 		</span><span class="kw">let </span>list = Command::new(program)
 			.args(args)
-			.args(<span class="kw-2">&amp;</span>[<span class="string">&quot;rustc&quot;</span>, <span class="string">&quot;-Z&quot;</span>, <span class="string">&quot;unstable-options&quot;</span>, <span class="string">&quot;--print&quot;</span>, <span class="string">&quot;target-list&quot;</span>])
-			<span class="comment">// Make sure if we&#39;re called from within a `build.rs` the host toolchain won&#39;t override
-			// a rustup toolchain we&#39;ve picked.
-			</span>.env_remove(<span class="string">&quot;RUSTC&quot;</span>)
+			.args(<span class="kw-2">&amp;</span>[<span class="string">"rustc"</span>, <span class="string">"-Z"</span>, <span class="string">"unstable-options"</span>, <span class="string">"--print"</span>, <span class="string">"target-list"</span>])
+			<span class="comment">// Make sure if we're called from within a `build.rs` the host toolchain won't override
+			// a rustup toolchain we've picked.
+			</span>.env_remove(<span class="string">"RUSTC"</span>)
 			.output()
 			.ok()
 			.and_then(|o| String::from_utf8(o.stdout).ok())<span class="question-mark">?</span>;
 
-		<span class="prelude-val">Some</span>(list.trim().split(<span class="string">&quot;\n&quot;</span>).map(ToString::to_string).collect())
+		<span class="prelude-val">Some</span>(list.trim().split(<span class="string">"\n"</span>).map(ToString::to_string).collect())
 	}
 
 	<span class="doccomment">/// Returns the version of this cargo command or `None` if it failed to extract the version.
@@ -915,7 +917,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Returns whether this version of the toolchain supports nightly features.
 	</span><span class="kw">fn </span>supports_nightly_features(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
 		<span class="self">self</span>.version.map_or(<span class="bool-val">false</span>, |version| version.is_nightly) ||
-			env::var(<span class="string">&quot;RUSTC_BOOTSTRAP&quot;</span>).is_ok()
+			env::var(<span class="string">"RUSTC_BOOTSTRAP"</span>).is_ok()
 	}
 
 	<span class="doccomment">/// Check if the supplied cargo command supports our runtime environment.
@@ -929,10 +931,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Check if the supplied cargo command supports our RISC-V runtime environment.
 	</span><span class="kw">fn </span>supports_substrate_runtime_env_riscv(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
 		<span class="kw">let </span><span class="prelude-val">Some</span>(target_list) = <span class="self">self</span>.target_list.as_ref() <span class="kw">else </span>{ <span class="kw">return </span><span class="bool-val">false </span>};
-		<span class="comment">// This is our custom target which currently doesn&#39;t exist on any upstream toolchain,
-		// so if it exists it&#39;s guaranteed to be our custom toolchain and have have everything
+		<span class="comment">// This is our custom target which currently doesn't exist on any upstream toolchain,
+		// so if it exists it's guaranteed to be our custom toolchain and have have everything
 		// we need, so any further version checks are unnecessary at this point.
-		</span>target_list.contains(<span class="string">&quot;riscv32ema-unknown-none-elf&quot;</span>)
+		</span>target_list.contains(<span class="string">"riscv32ema-unknown-none-elf"</span>)
 	}
 
 	<span class="doccomment">/// Check if the supplied cargo command supports our Substrate wasm environment.
@@ -943,9 +945,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>supports_substrate_runtime_env_wasm(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
 		<span class="comment">// `RUSTC_BOOTSTRAP` tells a stable compiler to behave like a nightly. So, when this env
 		// variable is set, we can assume that whatever rust compiler we have, it is a nightly
-		// compiler. For &quot;more&quot; information, see:
+		// compiler. For "more" information, see:
 		// https://github.com/rust-lang/rust/blob/fa0f7d0080d8e7e9eb20aa9cbf8013f96c81287f/src/libsyntax/feature_gate/check.rs#L891
-		</span><span class="kw">if </span>env::var(<span class="string">&quot;RUSTC_BOOTSTRAP&quot;</span>).is_ok() {
+		</span><span class="kw">if </span>env::var(<span class="string">"RUSTC_BOOTSTRAP"</span>).is_ok() {
 			<span class="kw">return </span><span class="bool-val">true
 		</span>}
 
@@ -990,14 +992,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">fn </span>get_bool_environment_variable(name: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Option</span>&lt;bool&gt; {
 	<span class="kw">let </span>value = env::var_os(name)<span class="question-mark">?</span>;
 
-	<span class="comment">// We&#39;re comparing `OsString`s here so we can&#39;t use a `match`.
-	</span><span class="kw">if </span>value == <span class="string">&quot;1&quot; </span>{
+	<span class="comment">// We're comparing `OsString`s here so we can't use a `match`.
+	</span><span class="kw">if </span>value == <span class="string">"1" </span>{
 		<span class="prelude-val">Some</span>(<span class="bool-val">true</span>)
-	} <span class="kw">else if </span>value == <span class="string">&quot;0&quot; </span>{
+	} <span class="kw">else if </span>value == <span class="string">"0" </span>{
 		<span class="prelude-val">Some</span>(<span class="bool-val">false</span>)
 	} <span class="kw">else </span>{
 		<span class="macro">build_helper::warning!</span>(
-			<span class="string">&quot;the &#39;{}&#39; environment variable has an invalid value; it must be either &#39;1&#39; or &#39;0&#39;&quot;</span>,
+			<span class="string">"the '{}' environment variable has an invalid value; it must be either '1' or '0'"</span>,
 			name
 		);
 		std::process::exit(<span class="number">1</span>);
@@ -1018,19 +1020,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl </span>RuntimeTarget {
-	<span class="kw">fn </span>rustc_target(<span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str {
+	<span class="kw">fn </span>rustc_target(<span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
 		<span class="kw">match </span><span class="self">self </span>{
-			RuntimeTarget::Wasm =&gt; <span class="string">&quot;wasm32-unknown-unknown&quot;</span>,
-			RuntimeTarget::Riscv =&gt; <span class="string">&quot;riscv32ema-unknown-none-elf&quot;</span>,
+			RuntimeTarget::Wasm =&gt; <span class="string">"wasm32-unknown-unknown"</span>,
+			RuntimeTarget::Riscv =&gt; <span class="string">"riscv32ema-unknown-none-elf"</span>,
 		}
 	}
 
-	<span class="kw">fn </span>build_subdirectory(<span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str {
+	<span class="kw">fn </span>build_subdirectory(<span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
 		<span class="comment">// Keep the build directories separate so that when switching between
-		// the targets we won&#39;t trigger unnecessary rebuilds.
+		// the targets we won't trigger unnecessary rebuilds.
 		</span><span class="kw">match </span><span class="self">self </span>{
-			RuntimeTarget::Wasm =&gt; <span class="string">&quot;wbuild&quot;</span>,
-			RuntimeTarget::Riscv =&gt; <span class="string">&quot;rbuild&quot;</span>,
+			RuntimeTarget::Wasm =&gt; <span class="string">"wbuild"</span>,
+			RuntimeTarget::Riscv =&gt; <span class="string">"rbuild"</span>,
 		}
 	}
 }
@@ -1040,13 +1042,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">return </span>RuntimeTarget::Wasm;
 	};
 
-	<span class="kw">if </span>value == <span class="string">&quot;wasm&quot; </span>{
+	<span class="kw">if </span>value == <span class="string">"wasm" </span>{
 		RuntimeTarget::Wasm
-	} <span class="kw">else if </span>value == <span class="string">&quot;riscv&quot; </span>{
+	} <span class="kw">else if </span>value == <span class="string">"riscv" </span>{
 		RuntimeTarget::Riscv
 	} <span class="kw">else </span>{
 		<span class="macro">build_helper::warning!</span>(
-			<span class="string">&quot;the &#39;{RUNTIME_TARGET}&#39; environment variable has an invalid value; it must be either &#39;wasm&#39; or &#39;riscv&#39;&quot;
+			<span class="string">"the '{RUNTIME_TARGET}' environment variable has an invalid value; it must be either 'wasm' or 'riscv'"
 		</span>);
 		std::process::exit(<span class="number">1</span>);
 	}

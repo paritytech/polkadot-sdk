@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/primitives/src/v7/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/primitives/src/v7/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_primitives" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_primitives" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../polkadot_primitives/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -2399,8 +2401,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 
 <span class="doccomment">/// The key type ID for a collator key.
-</span><span class="kw">pub const </span>COLLATOR_KEY_TYPE_ID: KeyTypeId = KeyTypeId(<span class="kw-2">*</span><span class="string">b&quot;coll&quot;</span>);
-<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;runtime::primitives&quot;</span>;
+</span><span class="kw">pub const </span>COLLATOR_KEY_TYPE_ID: KeyTypeId = KeyTypeId(<span class="kw-2">*</span><span class="string">b"coll"</span>);
+<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"runtime::primitives"</span>;
 
 <span class="kw">mod </span>collator_app {
 	<span class="kw">use </span>application_crypto::{app_crypto, sr25519};
@@ -2411,14 +2413,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub type </span>CollatorId = collator_app::Public;
 
 <span class="doccomment">/// A Parachain collator keypair.
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+</span><span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">pub type </span>CollatorPair = collator_app::Pair;
 
-<span class="doccomment">/// Signature on candidate&#39;s block data by a collator.
+<span class="doccomment">/// Signature on candidate's block data by a collator.
 </span><span class="kw">pub type </span>CollatorSignature = collator_app::Signature;
 
 <span class="doccomment">/// The key type ID for a parachain validator key.
-</span><span class="kw">pub const </span>PARACHAIN_KEY_TYPE_ID: KeyTypeId = KeyTypeId(<span class="kw-2">*</span><span class="string">b&quot;para&quot;</span>);
+</span><span class="kw">pub const </span>PARACHAIN_KEY_TYPE_ID: KeyTypeId = KeyTypeId(<span class="kw-2">*</span><span class="string">b"para"</span>);
 
 <span class="kw">mod </span>validator_app {
 	<span class="kw">use </span>application_crypto::{app_crypto, sr25519};
@@ -2440,7 +2442,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Index of the validator is used as a lightweight replacement of the `ValidatorId` when
 /// appropriate.
 </span><span class="attr">#[derive(Eq, Ord, PartialEq, PartialOrd, Copy, Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
-#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(Serialize, Deserialize, Hash))]
+#[cfg_attr(feature = <span class="string">"std"</span>, derive(Serialize, Deserialize, Hash))]
 </span><span class="kw">pub struct </span>ValidatorIndex(<span class="kw">pub </span>u32);
 
 <span class="comment">// We should really get https://github.com/paritytech/polkadot/issues/2403 going ..
@@ -2491,43 +2493,43 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// The storage item should be access as a `u64` encoded value.
 	</span><span class="kw">pub const </span>EPOCH_INDEX: <span class="kw-2">&amp;</span>[u8] =
-		<span class="kw-2">&amp;</span><span class="macro">hex!</span>[<span class="string">&quot;1cb6f36e027abb2091cfb5110ab5087f38316cbf8fa0da822a20ac1c55bf1be3&quot;</span>];
+		<span class="kw-2">&amp;</span><span class="macro">hex!</span>[<span class="string">"1cb6f36e027abb2091cfb5110ab5087f38316cbf8fa0da822a20ac1c55bf1be3"</span>];
 
 	<span class="doccomment">/// The current relay chain block randomness
 	///
 	/// The storage item should be accessed as a `schnorrkel::Randomness` encoded value.
 	</span><span class="kw">pub const </span>CURRENT_BLOCK_RANDOMNESS: <span class="kw-2">&amp;</span>[u8] =
-		<span class="kw-2">&amp;</span><span class="macro">hex!</span>[<span class="string">&quot;1cb6f36e027abb2091cfb5110ab5087fd077dfdb8adb10f78f10a5df8742c545&quot;</span>];
+		<span class="kw-2">&amp;</span><span class="macro">hex!</span>[<span class="string">"1cb6f36e027abb2091cfb5110ab5087fd077dfdb8adb10f78f10a5df8742c545"</span>];
 
 	<span class="doccomment">/// The randomness for one epoch ago
 	///
 	/// The storage item should be accessed as a `schnorrkel::Randomness` encoded value.
 	</span><span class="kw">pub const </span>ONE_EPOCH_AGO_RANDOMNESS: <span class="kw-2">&amp;</span>[u8] =
-		<span class="kw-2">&amp;</span><span class="macro">hex!</span>[<span class="string">&quot;1cb6f36e027abb2091cfb5110ab5087f7ce678799d3eff024253b90e84927cc6&quot;</span>];
+		<span class="kw-2">&amp;</span><span class="macro">hex!</span>[<span class="string">"1cb6f36e027abb2091cfb5110ab5087f7ce678799d3eff024253b90e84927cc6"</span>];
 
 	<span class="doccomment">/// The randomness for two epochs ago
 	///
 	/// The storage item should be accessed as a `schnorrkel::Randomness` encoded value.
 	</span><span class="kw">pub const </span>TWO_EPOCHS_AGO_RANDOMNESS: <span class="kw-2">&amp;</span>[u8] =
-		<span class="kw-2">&amp;</span><span class="macro">hex!</span>[<span class="string">&quot;1cb6f36e027abb2091cfb5110ab5087f7a414cb008e0e61e46722aa60abdd672&quot;</span>];
+		<span class="kw-2">&amp;</span><span class="macro">hex!</span>[<span class="string">"1cb6f36e027abb2091cfb5110ab5087f7a414cb008e0e61e46722aa60abdd672"</span>];
 
 	<span class="doccomment">/// The current slot number.
 	///
 	/// The storage entry should be accessed as a `Slot` encoded value.
 	</span><span class="kw">pub const </span>CURRENT_SLOT: <span class="kw-2">&amp;</span>[u8] =
-		<span class="kw-2">&amp;</span><span class="macro">hex!</span>[<span class="string">&quot;1cb6f36e027abb2091cfb5110ab5087f06155b3cd9a8c9e5e9a23fd5dc13a5ed&quot;</span>];
+		<span class="kw-2">&amp;</span><span class="macro">hex!</span>[<span class="string">"1cb6f36e027abb2091cfb5110ab5087f06155b3cd9a8c9e5e9a23fd5dc13a5ed"</span>];
 
 	<span class="doccomment">/// The currently active host configuration.
 	///
 	/// The storage entry should be accessed as an `AbridgedHostConfiguration` encoded value.
 	</span><span class="kw">pub const </span>ACTIVE_CONFIG: <span class="kw-2">&amp;</span>[u8] =
-		<span class="kw-2">&amp;</span><span class="macro">hex!</span>[<span class="string">&quot;06de3d8a54d27e44a9d5ce189618f22db4b49d95320d9021994c850f25b8e385&quot;</span>];
+		<span class="kw-2">&amp;</span><span class="macro">hex!</span>[<span class="string">"06de3d8a54d27e44a9d5ce189618f22db4b49d95320d9021994c850f25b8e385"</span>];
 
 	<span class="doccomment">/// Hash of the committed head data for a given registered para.
 	///
 	/// The storage entry stores wrapped `HeadData(Vec&lt;u8&gt;)`.
 	</span><span class="kw">pub fn </span>para_head(para_id: Id) -&gt; Vec&lt;u8&gt; {
-		<span class="kw">let </span>prefix = <span class="macro">hex!</span>[<span class="string">&quot;cd710b30bd2eab0352ddcc26417aa1941b3c252fcb29d88eff4f3de5de4476c3&quot;</span>];
+		<span class="kw">let </span>prefix = <span class="macro">hex!</span>[<span class="string">"cd710b30bd2eab0352ddcc26417aa1941b3c252fcb29d88eff4f3de5de4476c3"</span>];
 
 		para_id.using_encoded(|para_id: <span class="kw-2">&amp;</span>[u8]| {
 			prefix
@@ -2546,9 +2548,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// - `count: u32`, the number of messages currently in the queue for given para,
 	/// - `total_size: u32`, the total size of all messages in the queue.
-	</span><span class="attr">#[deprecated = <span class="string">&quot;Use `relay_dispatch_queue_remaining_capacity` instead&quot;</span>]
+	</span><span class="attr">#[deprecated = <span class="string">"Use `relay_dispatch_queue_remaining_capacity` instead"</span>]
 	</span><span class="kw">pub fn </span>relay_dispatch_queue_size(para_id: Id) -&gt; Vec&lt;u8&gt; {
-		<span class="kw">let </span>prefix = <span class="macro">hex!</span>[<span class="string">&quot;f5207f03cfdce586301014700e2c2593fad157e461d71fd4c1f936839a5f1f3e&quot;</span>];
+		<span class="kw">let </span>prefix = <span class="macro">hex!</span>[<span class="string">"f5207f03cfdce586301014700e2c2593fad157e461d71fd4c1f936839a5f1f3e"</span>];
 
 		para_id.using_encoded(|para_id: <span class="kw-2">&amp;</span>[u8]| {
 			prefix
@@ -2562,7 +2564,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Type safe version of `relay_dispatch_queue_size`.
-	</span><span class="attr">#[deprecated = <span class="string">&quot;Use `relay_dispatch_queue_remaining_capacity` instead&quot;</span>]
+	</span><span class="attr">#[deprecated = <span class="string">"Use `relay_dispatch_queue_remaining_capacity` instead"</span>]
 	</span><span class="kw">pub fn </span>relay_dispatch_queue_size_typed(para: Id) -&gt; WellKnownKey&lt;(u32, u32)&gt; {
 		<span class="attr">#[allow(deprecated)]
 		</span>relay_dispatch_queue_size(para).into()
@@ -2576,14 +2578,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// - `total_size: u32`, the total size of additional messages which may be enqueued for the
 	/// given para.
 	</span><span class="kw">pub fn </span>relay_dispatch_queue_remaining_capacity(para_id: Id) -&gt; WellKnownKey&lt;(u32, u32)&gt; {
-		(<span class="string">b&quot;:relay_dispatch_queue_remaining_capacity&quot;</span>, para_id).encode().into()
+		(<span class="string">b":relay_dispatch_queue_remaining_capacity"</span>, para_id).encode().into()
 	}
 
 	<span class="doccomment">/// The HRMP channel for the given identifier.
 	///
 	/// The storage entry should be accessed as an `AbridgedHrmpChannel` encoded value.
 	</span><span class="kw">pub fn </span>hrmp_channels(channel: HrmpChannelId) -&gt; Vec&lt;u8&gt; {
-		<span class="kw">let </span>prefix = <span class="macro">hex!</span>[<span class="string">&quot;6a0da05ca59913bc38a8630590f2627cb6604cff828a6e3f579ca6c59ace013d&quot;</span>];
+		<span class="kw">let </span>prefix = <span class="macro">hex!</span>[<span class="string">"6a0da05ca59913bc38a8630590f2627cb6604cff828a6e3f579ca6c59ace013d"</span>];
 
 		channel.using_encoded(|channel: <span class="kw-2">&amp;</span>[u8]| {
 			prefix
@@ -2600,7 +2602,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// The storage entry stores a `Vec&lt;ParaId&gt;`
 	</span><span class="kw">pub fn </span>hrmp_ingress_channel_index(para_id: Id) -&gt; Vec&lt;u8&gt; {
-		<span class="kw">let </span>prefix = <span class="macro">hex!</span>[<span class="string">&quot;6a0da05ca59913bc38a8630590f2627c1d3719f5b0b12c7105c073c507445948&quot;</span>];
+		<span class="kw">let </span>prefix = <span class="macro">hex!</span>[<span class="string">"6a0da05ca59913bc38a8630590f2627c1d3719f5b0b12c7105c073c507445948"</span>];
 
 		para_id.using_encoded(|para_id: <span class="kw-2">&amp;</span>[u8]| {
 			prefix
@@ -2617,7 +2619,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// The storage entry stores a `Vec&lt;ParaId&gt;`
 	</span><span class="kw">pub fn </span>hrmp_egress_channel_index(para_id: Id) -&gt; Vec&lt;u8&gt; {
-		<span class="kw">let </span>prefix = <span class="macro">hex!</span>[<span class="string">&quot;6a0da05ca59913bc38a8630590f2627cf12b746dcf32e843354583c9702cc020&quot;</span>];
+		<span class="kw">let </span>prefix = <span class="macro">hex!</span>[<span class="string">"6a0da05ca59913bc38a8630590f2627cf12b746dcf32e843354583c9702cc020"</span>];
 
 		para_id.using_encoded(|para_id: <span class="kw-2">&amp;</span>[u8]| {
 			prefix
@@ -2635,7 +2637,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// The storage entry stores a `Hash`. This is polkadot hash which is at the moment
 	/// `blake2b-256`.
 	</span><span class="kw">pub fn </span>dmq_mqc_head(para_id: Id) -&gt; Vec&lt;u8&gt; {
-		<span class="kw">let </span>prefix = <span class="macro">hex!</span>[<span class="string">&quot;63f78c98723ddc9073523ef3beefda0c4d7fefc408aac59dbfe80a72ac8e3ce5&quot;</span>];
+		<span class="kw">let </span>prefix = <span class="macro">hex!</span>[<span class="string">"63f78c98723ddc9073523ef3beefda0c4d7fefc408aac59dbfe80a72ac8e3ce5"</span>];
 
 		para_id.using_encoded(|para_id: <span class="kw-2">&amp;</span>[u8]| {
 			prefix
@@ -2653,7 +2655,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// The storage entry stores a value of `UpgradeGoAhead` type.
 	</span><span class="kw">pub fn </span>upgrade_go_ahead_signal(para_id: Id) -&gt; Vec&lt;u8&gt; {
-		<span class="kw">let </span>prefix = <span class="macro">hex!</span>[<span class="string">&quot;cd710b30bd2eab0352ddcc26417aa1949e94c040f5e73d9b7addd6cb603d15d3&quot;</span>];
+		<span class="kw">let </span>prefix = <span class="macro">hex!</span>[<span class="string">"cd710b30bd2eab0352ddcc26417aa1949e94c040f5e73d9b7addd6cb603d15d3"</span>];
 
 		para_id.using_encoded(|para_id: <span class="kw-2">&amp;</span>[u8]| {
 			prefix
@@ -2671,7 +2673,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// The storage entry stores a value of `UpgradeRestriction` type.
 	</span><span class="kw">pub fn </span>upgrade_restriction_signal(para_id: Id) -&gt; Vec&lt;u8&gt; {
-		<span class="kw">let </span>prefix = <span class="macro">hex!</span>[<span class="string">&quot;cd710b30bd2eab0352ddcc26417aa194f27bbb460270642b5bcaf032ea04d56a&quot;</span>];
+		<span class="kw">let </span>prefix = <span class="macro">hex!</span>[<span class="string">"cd710b30bd2eab0352ddcc26417aa194f27bbb460270642b5bcaf032ea04d56a"</span>];
 
 		para_id.using_encoded(|para_id: <span class="kw-2">&amp;</span>[u8]| {
 			prefix
@@ -2686,10 +2688,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Unique identifier for the Parachains Inherent
-</span><span class="kw">pub const </span>PARACHAINS_INHERENT_IDENTIFIER: InherentIdentifier = <span class="kw-2">*</span><span class="string">b&quot;parachn0&quot;</span>;
+</span><span class="kw">pub const </span>PARACHAINS_INHERENT_IDENTIFIER: InherentIdentifier = <span class="kw-2">*</span><span class="string">b"parachn0"</span>;
 
 <span class="doccomment">/// The key type ID for parachain assignment key.
-</span><span class="kw">pub const </span>ASSIGNMENT_KEY_TYPE_ID: KeyTypeId = KeyTypeId(<span class="kw-2">*</span><span class="string">b&quot;asgn&quot;</span>);
+</span><span class="kw">pub const </span>ASSIGNMENT_KEY_TYPE_ID: KeyTypeId = KeyTypeId(<span class="kw-2">*</span><span class="string">b"asgn"</span>);
 
 <span class="doccomment">/// Compressed or not the wasm blob can never be less than 9 bytes.
 </span><span class="kw">pub const </span>MIN_CODE_SIZE: u32 = <span class="number">9</span>;
@@ -2804,13 +2806,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// A unique descriptor of the candidate receipt.
 </span><span class="attr">#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
-#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(Hash))]
+#[cfg_attr(feature = <span class="string">"std"</span>, derive(Hash))]
 </span><span class="kw">pub struct </span>CandidateDescriptor&lt;H = Hash&gt; {
 	<span class="doccomment">/// The ID of the para this is a candidate for.
 	</span><span class="kw">pub </span>para_id: Id,
 	<span class="doccomment">/// The hash of the relay-chain block this is executed in the context of.
 	</span><span class="kw">pub </span>relay_parent: H,
-	<span class="doccomment">/// The collator&#39;s sr25519 public key.
+	<span class="doccomment">/// The collator's sr25519 public key.
 	</span><span class="kw">pub </span>collator: CollatorId,
 	<span class="doccomment">/// The blake2-256 hash of the persisted validation data. This is extra data derived from
 	/// relay-chain state which may vary based on bitfields included before the candidate.
@@ -2818,7 +2820,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>persisted_validation_data_hash: Hash,
 	<span class="doccomment">/// The blake2-256 hash of the PoV.
 	</span><span class="kw">pub </span>pov_hash: Hash,
-	<span class="doccomment">/// The root of a block&#39;s erasure encoding Merkle tree.
+	<span class="doccomment">/// The root of a block's erasure encoding Merkle tree.
 	</span><span class="kw">pub </span>erasure_root: Hash,
 	<span class="doccomment">/// Signature on blake2-256 of components of this receipt:
 	/// The parachain index, the relay parent, the validation data hash, and the `pov_hash`.
@@ -2870,7 +2872,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// A candidate-receipt with commitments directly included.
 </span><span class="attr">#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
-#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(Hash))]
+#[cfg_attr(feature = <span class="string">"std"</span>, derive(Hash))]
 </span><span class="kw">pub struct </span>CommittedCandidateReceipt&lt;H = Hash&gt; {
 	<span class="doccomment">/// The descriptor of the candidate.
 	</span><span class="kw">pub </span>descriptor: CandidateDescriptor&lt;H&gt;,
@@ -2953,7 +2955,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// constructed during inclusion for each candidate and therefore lies on the critical path of
 /// inclusion.
 </span><span class="attr">#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
-#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(Default))]
+#[cfg_attr(feature = <span class="string">"std"</span>, derive(Default))]
 </span><span class="kw">pub struct </span>PersistedValidationData&lt;H = Hash, N = BlockNumber&gt; {
 	<span class="doccomment">/// The parent head-data.
 	</span><span class="kw">pub </span>parent_head: HeadData,
@@ -2974,7 +2976,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Commitments made in a `CandidateReceipt`. Many of these are outputs of validation.
 </span><span class="attr">#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
-#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(Default, Hash))]
+#[cfg_attr(feature = <span class="string">"std"</span>, derive(Default, Hash))]
 </span><span class="kw">pub struct </span>CandidateCommitments&lt;N = BlockNumber&gt; {
 	<span class="doccomment">/// Messages destined to be interpreted by the Relay chain itself.
 	</span><span class="kw">pub </span>upward_messages: UpwardMessages,
@@ -3074,7 +3076,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>.validity_votes
 	}
 
-	<span class="doccomment">/// Compute this candidate&#39;s hash.
+	<span class="doccomment">/// Compute this candidate's hash.
 	</span><span class="kw">pub fn </span>hash(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; CandidateHash
 	<span class="kw">where
 		</span>H: Clone + Encode,
@@ -3082,7 +3084,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">self</span>.candidate.hash()
 	}
 
-	<span class="doccomment">/// Get this candidate&#39;s receipt.
+	<span class="doccomment">/// Get this candidate's receipt.
 	</span><span class="kw">pub fn </span>receipt(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; CandidateReceipt&lt;H&gt;
 	<span class="kw">where
 		</span>H: Clone,
@@ -3154,7 +3156,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">if </span>validator_indices.len() != group_len {
 		<span class="macro">log::debug!</span>(
 			target: LOG_TARGET,
-			<span class="string">&quot;Check candidate backing: indices mismatch: group_len = {} , indices_len = {}&quot;</span>,
+			<span class="string">"Check candidate backing: indices mismatch: group_len = {} , indices_len = {}"</span>,
 			group_len,
 			validator_indices.len(),
 		);
@@ -3164,7 +3166,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">if </span>validity_votes.len() &gt; group_len {
 		<span class="macro">log::debug!</span>(
 			target: LOG_TARGET,
-			<span class="string">&quot;Check candidate backing: Too many votes, expected: {}, found: {}&quot;</span>,
+			<span class="string">"Check candidate backing: Too many votes, expected: {}, found: {}"</span>,
 			group_len,
 			validity_votes.len(),
 		);
@@ -3187,7 +3189,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		} <span class="kw">else </span>{
 			<span class="macro">log::debug!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;Check candidate backing: Invalid signature. validator_id = {:?}, validator_index = {} &quot;</span>,
+				<span class="string">"Check candidate backing: Invalid signature. validator_id = {:?}, validator_index = {} "</span>,
 				validator_id,
 				val_in_group_idx,
 			);
@@ -3198,7 +3200,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">if </span>signed != validity_votes.len() {
 		<span class="macro">log::error!</span>(
 			target: LOG_TARGET,
-			<span class="string">&quot;Check candidate backing: Too many signatures, expected = {}, found = {}&quot;</span>,
+			<span class="string">"Check candidate backing: Too many signatures, expected = {}, found = {}"</span>,
 			validity_votes.len(),
 			signed,
 		);
@@ -3212,7 +3214,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[derive(
 	Encode, Decode, Default, PartialOrd, Ord, Eq, PartialEq, Clone, Copy, TypeInfo, RuntimeDebug,
 )]
-#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(Hash))]
+#[cfg_attr(feature = <span class="string">"std"</span>, derive(Hash))]
 </span><span class="kw">pub struct </span>CoreIndex(<span class="kw">pub </span>u32);
 
 <span class="kw">impl </span>From&lt;u32&gt; <span class="kw">for </span>CoreIndex {
@@ -3229,7 +3231,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// The unique (during session) index of a validator group.
 </span><span class="attr">#[derive(Encode, Decode, Default, Clone, Copy, Debug, PartialEq, Eq, TypeInfo, PartialOrd, Ord)]
-#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(Hash))]
+#[cfg_attr(feature = <span class="string">"std"</span>, derive(Hash))]
 </span><span class="kw">pub struct </span>GroupIndex(<span class="kw">pub </span>u32);
 
 <span class="kw">impl </span>From&lt;u32&gt; <span class="kw">for </span>GroupIndex {
@@ -3259,7 +3261,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// A helper data-type for tracking validator-group rotations.
 </span><span class="attr">#[derive(Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
-#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(PartialEq))]
+#[cfg_attr(feature = <span class="string">"std"</span>, derive(PartialEq))]
 </span><span class="kw">pub struct </span>GroupRotationInfo&lt;N = BlockNumber&gt; {
 	<span class="doccomment">/// The block number where the session started.
 	</span><span class="kw">pub </span>session_start_block: N,
@@ -3347,7 +3349,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Information about a core which is currently occupied.
 </span><span class="attr">#[derive(Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
-#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(PartialEq))]
+#[cfg_attr(feature = <span class="string">"std"</span>, derive(PartialEq))]
 </span><span class="kw">pub struct </span>OccupiedCore&lt;H = Hash, N = BlockNumber&gt; {
 	<span class="comment">// NOTE: this has no ParaId as it can be deduced from the candidate descriptor.
 	</span><span class="doccomment">/// If this core is freed by availability, this is the assignment that is next up on this
@@ -3382,7 +3384,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Information about a core which is currently occupied.
 </span><span class="attr">#[derive(Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
-#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(PartialEq))]
+#[cfg_attr(feature = <span class="string">"std"</span>, derive(PartialEq))]
 </span><span class="kw">pub struct </span>ScheduledCore {
 	<span class="doccomment">/// The ID of a para scheduled.
 	</span><span class="kw">pub </span>para_id: Id,
@@ -3394,7 +3396,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// The state of a particular availability core.
 </span><span class="attr">#[derive(Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
-#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(PartialEq))]
+#[cfg_attr(feature = <span class="string">"std"</span>, derive(PartialEq))]
 </span><span class="kw">pub enum </span>CoreState&lt;H = Hash, N = BlockNumber&gt; {
 	<span class="doccomment">/// The core is currently occupied.
 	</span><span class="attr">#[codec(index = <span class="number">0</span>)]
@@ -3419,7 +3421,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// This function is deprecated. `ClaimQueue` should be used to obtain the scheduled `ParaId`s
 	/// for each core.
 	</span><span class="attr">#[deprecated(
-		note = <span class="string">&quot;`para_id` will be removed. Use `ClaimQueue` to query the scheduled `para_id` instead.&quot;
+		note = <span class="string">"`para_id` will be removed. Use `ClaimQueue` to query the scheduled `para_id` instead."
 	</span>)]
 	</span><span class="kw">pub fn </span>para_id(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;Id&gt; {
 		<span class="kw">match </span><span class="self">self </span>{
@@ -3437,7 +3439,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// An assumption being made about the state of an occupied core.
 </span><span class="attr">#[derive(Clone, Copy, Encode, Decode, TypeInfo, RuntimeDebug)]
-#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(PartialEq, Eq, Hash))]
+#[cfg_attr(feature = <span class="string">"std"</span>, derive(PartialEq, Eq, Hash))]
 </span><span class="kw">pub enum </span>OccupiedCoreAssumption {
 	<span class="doccomment">/// The candidate occupying the core was made available and included to free the core.
 	</span><span class="attr">#[codec(index = <span class="number">0</span>)]
@@ -3452,7 +3454,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// An even concerning a candidate.
 </span><span class="attr">#[derive(Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
-#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(PartialEq))]
+#[cfg_attr(feature = <span class="string">"std"</span>, derive(PartialEq))]
 </span><span class="kw">pub enum </span>CandidateEvent&lt;H = Hash&gt; {
 	<span class="doccomment">/// This candidate receipt was backed in the most recent block.
 	/// This includes the core index the candidate is now occupying.
@@ -3471,7 +3473,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Scraped runtime backing votes and resolved disputes.
 </span><span class="attr">#[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
-#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(PartialEq))]
+#[cfg_attr(feature = <span class="string">"std"</span>, derive(PartialEq))]
 </span><span class="kw">pub struct </span>ScrapedOnChainVotes&lt;H: Encode + Decode = Hash&gt; {
 	<span class="doccomment">/// The session in which the block was included.
 	</span><span class="kw">pub </span>session: SessionIndex,
@@ -3492,7 +3494,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl </span>ApprovalVote {
 	<span class="doccomment">/// Yields the signing payload for this approval vote.
 	</span><span class="kw">pub fn </span>signing_payload(<span class="kw-2">&amp;</span><span class="self">self</span>, session_index: SessionIndex) -&gt; Vec&lt;u8&gt; {
-		<span class="kw">const </span>MAGIC: [u8; <span class="number">4</span>] = <span class="kw-2">*</span><span class="string">b&quot;APPR&quot;</span>;
+		<span class="kw">const </span>MAGIC: [u8; <span class="number">4</span>] = <span class="kw-2">*</span><span class="string">b"APPR"</span>;
 
 		(MAGIC, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>, session_index).encode()
 	}
@@ -3500,18 +3502,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// A vote of approval for multiple candidates.
 </span><span class="attr">#[derive(Clone, RuntimeDebug)]
-</span><span class="kw">pub struct </span>ApprovalVoteMultipleCandidates&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw">pub </span><span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[CandidateHash]);
+</span><span class="kw">pub struct </span>ApprovalVoteMultipleCandidates&lt;<span class="lifetime">'a</span>&gt;(<span class="kw">pub </span><span class="kw-2">&amp;</span><span class="lifetime">'a </span>[CandidateHash]);
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; ApprovalVoteMultipleCandidates&lt;<span class="lifetime">&#39;a</span>&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; ApprovalVoteMultipleCandidates&lt;<span class="lifetime">'a</span>&gt; {
 	<span class="doccomment">/// Yields the signing payload for this approval vote.
 	</span><span class="kw">pub fn </span>signing_payload(<span class="kw-2">&amp;</span><span class="self">self</span>, session_index: SessionIndex) -&gt; Vec&lt;u8&gt; {
-		<span class="kw">const </span>MAGIC: [u8; <span class="number">4</span>] = <span class="kw-2">*</span><span class="string">b&quot;APPR&quot;</span>;
+		<span class="kw">const </span>MAGIC: [u8; <span class="number">4</span>] = <span class="kw-2">*</span><span class="string">b"APPR"</span>;
 		<span class="comment">// Make this backwards compatible with `ApprovalVote` so if we have just on candidate the
 		// signature will look the same.
 		// This gives us the nice benefit that old nodes can still check signatures when len is 1
 		// and the new node can check the signature coming from old nodes.
 		</span><span class="kw">if </span><span class="self">self</span>.<span class="number">0</span>.len() == <span class="number">1 </span>{
-			(MAGIC, <span class="self">self</span>.<span class="number">0</span>.first().expect(<span class="string">&quot;QED: we just checked&quot;</span>), session_index).encode()
+			(MAGIC, <span class="self">self</span>.<span class="number">0</span>.first().expect(<span class="string">"QED: we just checked"</span>), session_index).encode()
 		} <span class="kw">else </span>{
 			(MAGIC, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>, session_index).encode()
 		}
@@ -3566,7 +3568,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Abridged version of `HostConfiguration` (from the `Configuration` parachains host runtime
 /// module) meant to be used by a parachain or PDK such as cumulus.
 </span><span class="attr">#[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
-#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(PartialEq))]
+#[cfg_attr(feature = <span class="string">"std"</span>, derive(PartialEq))]
 </span><span class="kw">pub struct </span>AbridgedHostConfiguration {
 	<span class="doccomment">/// The maximum validation code size, in bytes.
 	</span><span class="kw">pub </span>max_code_size: u32,
@@ -3601,7 +3603,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Abridged version of `HrmpChannel` (from the `Hrmp` parachains host runtime module) meant to be
 /// used by a parachain or PDK such as cumulus.
 </span><span class="attr">#[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
-#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(PartialEq))]
+#[cfg_attr(feature = <span class="string">"std"</span>, derive(PartialEq))]
 </span><span class="kw">pub struct </span>AbridgedHrmpChannel {
 	<span class="doccomment">/// The maximum number of messages that can be pending in the channel at once.
 	</span><span class="kw">pub </span>max_capacity: u32,
@@ -3659,7 +3661,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Consensus engine id for polkadot v1 consensus engine.
-</span><span class="kw">pub const </span>POLKADOT_ENGINE_ID: runtime_primitives::ConsensusEngineId = <span class="kw-2">*</span><span class="string">b&quot;POL1&quot;</span>;
+</span><span class="kw">pub const </span>POLKADOT_ENGINE_ID: runtime_primitives::ConsensusEngineId = <span class="kw-2">*</span><span class="string">b"POL1"</span>;
 
 <span class="doccomment">/// A consensus log item for polkadot validation. To be used with [`POLKADOT_ENGINE_ID`].
 </span><span class="attr">#[derive(Decode, Encode, Clone, PartialEq, Eq)]
@@ -3707,7 +3709,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// A statement about a candidate, to be used within the dispute resolution process.
 ///
-/// Statements are either in favor of the candidate&#39;s validity or against it.
+/// Statements are either in favor of the candidate's validity or against it.
 </span><span class="attr">#[derive(Encode, Decode, Clone, PartialEq, RuntimeDebug, TypeInfo)]
 </span><span class="kw">pub enum </span>DisputeStatement {
 	<span class="doccomment">/// A valid statement, of the given kind.
@@ -3817,7 +3819,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="attr">#[codec(index = <span class="number">3</span>)]
 	</span>ApprovalChecking,
 	<span class="doccomment">/// An approval vote from the new version.
-	/// We can&#39;t create this version until all nodes
+	/// We can't create this version until all nodes
 	/// have been updated to support it and max_approval_coalesce_count
 	/// is set to more than 1.
 	</span><span class="attr">#[codec(index = <span class="number">4</span>)]
@@ -3859,7 +3861,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl </span>ExplicitDisputeStatement {
 	<span class="doccomment">/// Produce the payload used for signing this type of statement.
 	</span><span class="kw">pub fn </span>signing_payload(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;u8&gt; {
-		<span class="kw">const </span>MAGIC: [u8; <span class="number">4</span>] = <span class="kw-2">*</span><span class="string">b&quot;DISP&quot;</span>;
+		<span class="kw">const </span>MAGIC: [u8; <span class="number">4</span>] = <span class="kw-2">*</span><span class="string">b"DISP"</span>;
 
 		(MAGIC, <span class="self">self</span>.valid, <span class="self">self</span>.candidate_hash, <span class="self">self</span>.session).encode()
 	}
@@ -4004,12 +4006,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>parent_hash: H,
 }
 
-<span class="kw">const </span>BACKING_STATEMENT_MAGIC: [u8; <span class="number">4</span>] = <span class="kw-2">*</span><span class="string">b&quot;BKNG&quot;</span>;
+<span class="kw">const </span>BACKING_STATEMENT_MAGIC: [u8; <span class="number">4</span>] = <span class="kw-2">*</span><span class="string">b"BKNG"</span>;
 
 <span class="doccomment">/// Statements that can be made about parachain candidates. These are the
 /// actual values that are signed.
 </span><span class="attr">#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, RuntimeDebug)]
-#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(Hash))]
+#[cfg_attr(feature = <span class="string">"std"</span>, derive(Hash))]
 </span><span class="kw">pub enum </span>CompactStatement {
 	<span class="doccomment">/// Proposal of a parachain candidate.
 	</span>Seconded(CandidateHash),
@@ -4068,7 +4070,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, parity_scale_codec::Error&gt; {
 		<span class="kw">let </span>maybe_magic = &lt;[u8; <span class="number">4</span>]&gt;::decode(input)<span class="question-mark">?</span>;
 		<span class="kw">if </span>maybe_magic != BACKING_STATEMENT_MAGIC {
-			<span class="kw">return </span><span class="prelude-val">Err</span>(parity_scale_codec::Error::from(<span class="string">&quot;invalid magic string&quot;</span>))
+			<span class="kw">return </span><span class="prelude-val">Err</span>(parity_scale_codec::Error::from(<span class="string">"invalid magic string"</span>))
 		}
 
 		<span class="prelude-val">Ok</span>(<span class="kw">match </span>CompactStatementInner::decode(input)<span class="question-mark">? </span>{
@@ -4080,7 +4082,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// `IndexedVec` struct indexed by type specific indices.
 </span><span class="attr">#[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
-#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(PartialEq))]
+#[cfg_attr(feature = <span class="string">"std"</span>, derive(PartialEq))]
 </span><span class="kw">pub struct </span>IndexedVec&lt;K, V&gt;(Vec&lt;V&gt;, PhantomData&lt;<span class="kw">fn</span>(K) -&gt; K&gt;);
 
 <span class="kw">impl</span>&lt;K, V&gt; Default <span class="kw">for </span>IndexedVec&lt;K, V&gt; {
@@ -4124,12 +4126,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Returns an iterator over the underlying vector.
-	</span><span class="kw">pub fn </span>iter(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Iter&lt;<span class="lifetime">&#39;_</span>, V&gt; {
+	</span><span class="kw">pub fn </span>iter(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Iter&lt;<span class="lifetime">'_</span>, V&gt; {
 		<span class="self">self</span>.<span class="number">0</span>.iter()
 	}
 
 	<span class="doccomment">/// Returns a mutable iterator over the underlying vector.
-	</span><span class="kw">pub fn </span>iter_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; IterMut&lt;<span class="lifetime">&#39;_</span>, V&gt; {
+	</span><span class="kw">pub fn </span>iter_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; IterMut&lt;<span class="lifetime">'_</span>, V&gt; {
 		<span class="self">self</span>.<span class="number">0</span>.iter_mut()
 	}
 
@@ -4170,7 +4172,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// NOTE: `SessionInfo` is frozen. Do not include new fields, consider creating a separate runtime
 /// API. Reasoning and further outlook [here](https://github.com/paritytech/polkadot/issues/6586).
 </span><span class="attr">#[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
-#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(PartialEq))]
+#[cfg_attr(feature = <span class="string">"std"</span>, derive(PartialEq))]
 </span><span class="kw">pub struct </span>SessionInfo {
 	<span class="comment">/****** New in v2 ****** */
 	</span><span class="doccomment">/// All the validators actively participating in parachain consensus.
@@ -4190,7 +4192,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// `SessionInfo::validators` will be limited to to `max_validators` when set.
 	</span><span class="kw">pub </span>validators: IndexedVec&lt;ValidatorIndex, ValidatorId&gt;,
-	<span class="doccomment">/// Validators&#39; authority discovery keys for the session in canonical ordering.
+	<span class="doccomment">/// Validators' authority discovery keys for the session in canonical ordering.
 	///
 	/// NOTE: The first `validators.len()` entries will match the corresponding validators in
 	/// `validators`, afterwards any remaining authorities can be found. This is any authorities
@@ -4247,7 +4249,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// It is expected that it will be signed by the validator at `validator_index` in the
 	/// `session_index`.
 	</span><span class="kw">pub fn </span>signing_payload(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;u8&gt; {
-		<span class="kw">const </span>MAGIC: [u8; <span class="number">4</span>] = <span class="kw-2">*</span><span class="string">b&quot;VCPC&quot;</span>; <span class="comment">// for &quot;validation code pre-checking&quot;
+		<span class="kw">const </span>MAGIC: [u8; <span class="number">4</span>] = <span class="kw-2">*</span><span class="string">b"VCPC"</span>; <span class="comment">// for "validation code pre-checking"
 		</span>(MAGIC, <span class="self">self</span>.accept, <span class="self">self</span>.subject, <span class="self">self</span>.session_index, <span class="self">self</span>.validator_index).encode()
 	}
 }
@@ -4353,9 +4355,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			},
 			commitments: CandidateCommitments {
 				head_data: HeadData(<span class="macro">vec!</span>[]),
-				upward_messages: <span class="macro">vec!</span>[].try_into().expect(<span class="string">&quot;empty vec fits within bounds&quot;</span>),
+				upward_messages: <span class="macro">vec!</span>[].try_into().expect(<span class="string">"empty vec fits within bounds"</span>),
 				new_validation_code: <span class="prelude-val">None</span>,
-				horizontal_messages: <span class="macro">vec!</span>[].try_into().expect(<span class="string">&quot;empty vec fits within bounds&quot;</span>),
+				horizontal_messages: <span class="macro">vec!</span>[].try_into().expect(<span class="string">"empty vec fits within bounds"</span>),
 				processed_downward_messages: <span class="number">0</span>,
 				hrmp_watermark: <span class="number">0_u32</span>,
 			},
@@ -4452,7 +4454,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">assert!</span>(core_index.is_none());
 
 		<span class="comment">// No core index supplied, ElasticScalingMVP is on. Still, decoding will be ok if backing
-		// group size is &lt;= 8, to give a chance to parachains that don&#39;t have multiple cores
+		// group size is &lt;= 8, to give a chance to parachains that don't have multiple cores
 		// assigned.
 		</span><span class="kw">let </span>(validator_indices, core_index) = candidate.validator_indices_and_core_index(<span class="bool-val">true</span>);
 		<span class="macro">assert_eq!</span>(validator_indices, initial_validator_indices.as_bitslice());

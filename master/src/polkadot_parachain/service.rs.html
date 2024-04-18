@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `cumulus/polkadot-parachain/src/service.rs`."><title>service.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `cumulus/polkadot-parachain/src/service.rs`."><title>service.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_parachain" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_parachain" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../polkadot_parachain/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1263,10 +1265,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">use </span>polkadot_primitives::CollatorPair;
 
-<span class="attr">#[cfg(not(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>))]
+<span class="attr">#[cfg(not(feature = <span class="string">"runtime-benchmarks"</span>))]
 </span><span class="kw">type </span>HostFunctions = cumulus_client_service::ParachainHostFunctions;
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 </span><span class="kw">type </span>HostFunctions = (
 	cumulus_client_service::ParachainHostFunctions,
 	frame_benchmarking::benchmarking::HostFunctions,
@@ -1291,14 +1293,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Starts a `ServiceBuilder` for a full service.
 ///
-/// Use this macro if you don&#39;t actually need the full service, but just the builder in order to
+/// Use this macro if you don't actually need the full service, but just the builder in order to
 /// be able to perform chain operations.
 </span><span class="kw">pub fn </span>new_partial&lt;RuntimeApi, BIQ&gt;(
 	config: <span class="kw-2">&amp;</span>Configuration,
 	build_import_queue: BIQ,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Service&lt;RuntimeApi&gt;, sc_service::Error&gt;
 <span class="kw">where
-	</span>RuntimeApi: ConstructRuntimeApi&lt;Block, ParachainClient&lt;RuntimeApi&gt;&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
+	</span>RuntimeApi: ConstructRuntimeApi&lt;Block, ParachainClient&lt;RuntimeApi&gt;&gt; + Send + Sync + <span class="lifetime">'static</span>,
 	RuntimeApi::RuntimeApi: sp_transaction_pool::runtime_api::TaggedTransactionQueue&lt;Block&gt;
 		+ sp_api::Metadata&lt;Block&gt;
 		+ sp_session::SessionKeys&lt;Block&gt;
@@ -1348,7 +1350,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>telemetry_worker_handle = telemetry.as_ref().map(|(worker, <span class="kw">_</span>)| worker.handle());
 
 	<span class="kw">let </span>telemetry = telemetry.map(|(worker, telemetry)| {
-		task_manager.spawn_handle().spawn(<span class="string">&quot;telemetry&quot;</span>, <span class="prelude-val">None</span>, worker.run());
+		task_manager.spawn_handle().spawn(<span class="string">"telemetry"</span>, <span class="prelude-val">None</span>, worker.run());
 		telemetry
 	});
 
@@ -1385,7 +1387,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Start a node with the given parachain `Configuration` and relay chain `Configuration`.
 ///
 /// This is the actual implementation that is abstract over the executor and the runtime api.
-</span><span class="attr">#[sc_tracing::logging::prefix_logs_with(<span class="string">&quot;Parachain&quot;</span>)]
+</span><span class="attr">#[sc_tracing::logging::prefix_logs_with(<span class="string">"Parachain"</span>)]
 </span><span class="kw">async fn </span>start_node_impl&lt;RuntimeApi, RB, BIQ, SC, Net&gt;(
 	parachain_config: Configuration,
 	polkadot_config: Configuration,
@@ -1398,7 +1400,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	hwbench: <span class="prelude-ty">Option</span>&lt;sc_sysinfo::HwBench&gt;,
 ) -&gt; sc_service::error::Result&lt;(TaskManager, Arc&lt;ParachainClient&lt;RuntimeApi&gt;&gt;)&gt;
 <span class="kw">where
-	</span>RuntimeApi: ConstructRuntimeApi&lt;Block, ParachainClient&lt;RuntimeApi&gt;&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
+	</span>RuntimeApi: ConstructRuntimeApi&lt;Block, ParachainClient&lt;RuntimeApi&gt;&gt; + Send + Sync + <span class="lifetime">'static</span>,
 	RuntimeApi::RuntimeApi: sp_transaction_pool::runtime_api::TaggedTransactionQueue&lt;Block&gt;
 		+ sp_api::Metadata&lt;Block&gt;
 		+ sp_session::SessionKeys&lt;Block&gt;
@@ -1414,7 +1416,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			Arc&lt;ParachainBackend&gt;,
 			Arc&lt;sc_transaction_pool::FullPool&lt;Block, ParachainClient&lt;RuntimeApi&gt;&gt;&gt;,
 		) -&gt; <span class="prelude-ty">Result</span>&lt;jsonrpsee::RpcModule&lt;()&gt;, sc_service::Error&gt;
-		+ <span class="lifetime">&#39;static</span>,
+		+ <span class="lifetime">'static</span>,
 	BIQ: FnOnce(
 		Arc&lt;ParachainClient&lt;RuntimeApi&gt;&gt;,
 		ParachainBlockImport&lt;RuntimeApi&gt;,
@@ -1520,7 +1522,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref mut </span>telemetry) = telemetry {
 			<span class="kw">let </span>telemetry_handle = telemetry.handle();
 			task_manager.spawn_handle().spawn(
-				<span class="string">&quot;telemetry_hwbench&quot;</span>,
+				<span class="string">"telemetry_hwbench"</span>,
 				<span class="prelude-val">None</span>,
 				sc_sysinfo::initialize_hwbench_telemetry(telemetry_handle, hwbench),
 			);
@@ -1568,7 +1570,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			params.keystore_container.keystore(),
 			relay_chain_slot_duration,
 			para_id,
-			collator_key.expect(<span class="string">&quot;Command line arguments do not allow this. qed&quot;</span>),
+			collator_key.expect(<span class="string">"Command line arguments do not allow this. qed"</span>),
 			overseer_handle,
 			announce_block,
 			backend.clone(),
@@ -1665,7 +1667,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	pool: Arc&lt;sc_transaction_pool::FullPool&lt;Block, ParachainClient&lt;RuntimeApi&gt;&gt;&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;jsonrpsee::RpcModule&lt;()&gt;, sc_service::Error&gt;
 <span class="kw">where
-	</span>RuntimeApi: ConstructRuntimeApi&lt;Block, ParachainClient&lt;RuntimeApi&gt;&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
+	</span>RuntimeApi: ConstructRuntimeApi&lt;Block, ParachainClient&lt;RuntimeApi&gt;&gt; + Send + Sync + <span class="lifetime">'static</span>,
 	RuntimeApi::RuntimeApi: sp_transaction_pool::runtime_api::TaggedTransactionQueue&lt;Block&gt;
 		+ sp_block_builder::BlockBuilder&lt;Block&gt;
 		+ pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi&lt;Block, Balance&gt;
@@ -1823,7 +1825,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	task_manager: <span class="kw-2">&amp;</span>TaskManager,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;sc_consensus::DefaultImportQueue&lt;Block&gt;, sc_service::Error&gt;
 <span class="kw">where
-	</span>RuntimeApi: ConstructRuntimeApi&lt;Block, ParachainClient&lt;RuntimeApi&gt;&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
+	</span>RuntimeApi: ConstructRuntimeApi&lt;Block, ParachainClient&lt;RuntimeApi&gt;&gt; + Send + Sync + <span class="lifetime">'static</span>,
 	RuntimeApi::RuntimeApi: sp_transaction_pool::runtime_api::TaggedTransactionQueue&lt;Block&gt;
 		+ sp_api::Metadata&lt;Block&gt;
 		+ sp_session::SessionKeys&lt;Block&gt;
@@ -1907,11 +1909,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span>}
 
 <span class="doccomment">/// Start a shell node which should later transition into an Aura powered parachain node. Asset Hub
-/// uses this because at genesis, Asset Hub was on the `shell` runtime which didn&#39;t have Aura and
+/// uses this because at genesis, Asset Hub was on the `shell` runtime which didn't have Aura and
 /// needs to sync and upgrade before it can run `AuraApi` functions.
 ///
 /// Uses the lookahead collator to support async backing.
-</span><span class="attr">#[sc_tracing::logging::prefix_logs_with(<span class="string">&quot;Parachain&quot;</span>)]
+</span><span class="attr">#[sc_tracing::logging::prefix_logs_with(<span class="string">"Parachain"</span>)]
 </span><span class="kw">pub async fn </span>start_asset_hub_lookahead_node&lt;
 	RuntimeApi,
 	AuraId: AppCrypto + Send + Codec + Sync,
@@ -1924,7 +1926,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	hwbench: <span class="prelude-ty">Option</span>&lt;sc_sysinfo::HwBench&gt;,
 ) -&gt; sc_service::error::Result&lt;(TaskManager, Arc&lt;ParachainClient&lt;RuntimeApi&gt;&gt;)&gt;
 <span class="kw">where
-	</span>RuntimeApi: ConstructRuntimeApi&lt;Block, ParachainClient&lt;RuntimeApi&gt;&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
+	</span>RuntimeApi: ConstructRuntimeApi&lt;Block, ParachainClient&lt;RuntimeApi&gt;&gt; + Send + Sync + <span class="lifetime">'static</span>,
 	RuntimeApi::RuntimeApi: sp_transaction_pool::runtime_api::TaggedTransactionQueue&lt;Block&gt;
 		+ sp_api::Metadata&lt;Block&gt;
 		+ sp_session::SessionKeys&lt;Block&gt;
@@ -1997,7 +1999,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="kw">match </span>&lt;Block <span class="kw">as </span>BlockT&gt;::Header::decode(<span class="kw-2">&amp;mut &amp;</span>pvd.parent_head.<span class="number">0</span>[..]) {
 							<span class="prelude-val">Ok</span>(header) =&gt; header.hash(),
 							<span class="prelude-val">Err</span>(e) =&gt; {
-								<span class="macro">log::error!</span>(<span class="string">&quot;Could not decode the head data: {e}&quot;</span>);
+								<span class="macro">log::error!</span>(<span class="string">"Could not decode the head data: {e}"</span>);
 								request.complete(<span class="prelude-val">None</span>);
 								<span class="kw">continue
 							</span>},
@@ -2046,7 +2048,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span>});
 
 			<span class="kw">let </span>spawner = task_manager.spawn_essential_handle();
-			spawner.spawn_essential(<span class="string">&quot;cumulus-asset-hub-collator&quot;</span>, <span class="prelude-val">None</span>, collation_future);
+			spawner.spawn_essential(<span class="string">"cumulus-asset-hub-collator"</span>, <span class="prelude-val">None</span>, collation_future);
 
 			<span class="prelude-val">Ok</span>(())
 		},
@@ -2100,7 +2102,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							).<span class="kw">await</span>;
 					<span class="kw">let </span>parachain_inherent = parachain_inherent.ok_or_else(|| {
 						Box::&lt;<span class="kw">dyn </span>std::error::Error + Send + Sync&gt;::from(
-							<span class="string">&quot;Failed to create parachain inherent&quot;</span>,
+							<span class="string">"Failed to create parachain inherent"</span>,
 						)
 					})<span class="question-mark">?</span>;
 					<span class="prelude-val">Ok</span>(parachain_inherent)
@@ -2182,13 +2184,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	};
 
 	<span class="kw">let </span>fut = aura::run::&lt;Block, &lt;AuraId <span class="kw">as </span>AppCrypto&gt;::Pair, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;(params);
-	task_manager.spawn_essential_handle().spawn(<span class="string">&quot;aura&quot;</span>, <span class="prelude-val">None</span>, fut);
+	task_manager.spawn_essential_handle().spawn(<span class="string">"aura"</span>, <span class="prelude-val">None</span>, fut);
 
 	<span class="prelude-val">Ok</span>(())
 }
 
 <span class="doccomment">/// Start an aura powered parachain node which uses the lookahead collator to support async backing.
-/// This node is basic in the sense that its runtime api doesn&#39;t include common contents such as
+/// This node is basic in the sense that its runtime api doesn't include common contents such as
 /// transaction payment. Used for aura glutton.
 </span><span class="kw">pub async fn </span>start_basic_lookahead_node&lt;Net: NetworkBackend&lt;Block, Hash&gt;&gt;(
 	parachain_config: Configuration,
@@ -2239,8 +2241,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	// will not take longer than expected to import its blocks.
 	</span><span class="kw">if let </span><span class="prelude-val">Err</span>(err) = frame_benchmarking_cli::SUBSTRATE_REFERENCE_HARDWARE.check_hardware(hwbench) {
 		<span class="macro">log::warn!</span>(
-			<span class="string">&quot;⚠️  The hardware does not meet the minimal requirements {} for role &#39;Authority&#39; find out more at:\n\
-			https://wiki.polkadot.network/docs/maintain-guides-how-to-validate-polkadot#reference-hardware&quot;</span>,
+			<span class="string">"⚠️  The hardware does not meet the minimal requirements {} for role 'Authority' find out more at:\n\
+			https://wiki.polkadot.network/docs/maintain-guides-how-to-validate-polkadot#reference-hardware"</span>,
 			err
 		);
 	}

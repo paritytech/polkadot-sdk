@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/runtime/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/runtime/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sp_runtime/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1314,14 +1316,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -1354,13 +1356,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!  validity of an extrinsic while still in the transaction-queue.
 
 </span><span class="attr">#![warn(missing_docs)]
-#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
+#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
 #[doc(hidden)]
 </span><span class="kw">pub use </span>codec;
 <span class="attr">#[doc(hidden)]
 </span><span class="kw">pub use </span>scale_info;
-<span class="attr">#[cfg(feature = <span class="string">&quot;serde&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"serde"</span>)]
 #[doc(hidden)]
 </span><span class="kw">pub use </span>serde;
 <span class="attr">#[doc(hidden)]
@@ -1375,7 +1377,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub use </span>sp_application_crypto <span class="kw">as </span>app_crypto;
 
 <span class="kw">pub use </span>sp_core::storage::StateVersion;
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">pub use </span>sp_core::storage::{Storage, StorageChild};
 
 <span class="kw">use </span>sp_core::{
@@ -1388,7 +1390,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">use </span>codec::{Decode, Encode, MaxEncodedLen};
 <span class="kw">use </span>scale_info::TypeInfo;
-<span class="attr">#[cfg(all(not(feature = <span class="string">&quot;std&quot;</span>), feature = <span class="string">&quot;serde&quot;</span>))]
+<span class="attr">#[cfg(all(not(feature = <span class="string">"std"</span>), feature = <span class="string">"serde"</span>))]
 </span><span class="kw">use </span>sp_std::alloc::format;
 
 <span class="kw">pub mod </span>curve;
@@ -1398,7 +1400,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">pub mod </span>offchain;
 <span class="kw">pub mod </span>runtime_logger;
 <span class="kw">mod </span>runtime_string;
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">pub mod </span>testing;
 <span class="kw">pub mod </span>traits;
 <span class="kw">pub mod </span>transaction_validity;
@@ -1408,18 +1410,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="comment">// Re-export Multiaddress
 </span><span class="kw">pub use </span>multiaddress::MultiAddress;
 
-<span class="doccomment">/// Re-export these since they&#39;re only &quot;kind of&quot; generic.
+<span class="doccomment">/// Re-export these since they're only "kind of" generic.
 </span><span class="kw">pub use </span>generic::{Digest, DigestItem};
 
 <span class="kw">pub use </span>sp_application_crypto::{BoundToRuntimeAppPublic, RuntimeAppPublic};
-<span class="doccomment">/// Re-export this since it&#39;s part of the API of this crate.
+<span class="doccomment">/// Re-export this since it's part of the API of this crate.
 </span><span class="kw">pub use </span>sp_core::{
 	bounded::{BoundedBTreeMap, BoundedBTreeSet, BoundedSlice, BoundedVec, WeakBoundedVec},
 	crypto::{key_types, AccountId32, CryptoType, CryptoTypeId, KeyTypeId},
 	TypeId,
 };
 <span class="doccomment">/// Re-export bounded_vec and bounded_btree_map macros only when std is enabled.
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+</span><span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">pub use </span>sp_core::{bounded_btree_map, bounded_vec};
 
 <span class="doccomment">/// Re-export `RuntimeDebug`, to avoid dependency clutter.
@@ -1442,11 +1444,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// In FRAME, this is the maximum encoded size of a pallet error type.
 </span><span class="kw">pub const </span>MAX_MODULE_ERROR_ENCODED_SIZE: usize = <span class="number">4</span>;
 
-<span class="doccomment">/// An abstraction over justification for a block&#39;s validity under a consensus algorithm.
+<span class="doccomment">/// An abstraction over justification for a block's validity under a consensus algorithm.
 ///
 /// Essentially a finality proof. The exact formulation will vary between consensus
 /// algorithms. In the case where there are multiple valid proofs, inclusion within
-/// the block itself would allow swapping justifications to change the block&#39;s hash
+/// the block itself would allow swapping justifications to change the block's hash
 /// (and thus fork the chain). Sending a `Justification` alongside a block instead
 /// bypasses this problem.
 ///
@@ -1460,7 +1462,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Collection of justifications for a given block, multiple justifications may
 /// be provided by different consensus engines for the same block.
-</span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;serde&quot;</span>, derive(Serialize, Deserialize))]
+</span><span class="attr">#[cfg_attr(feature = <span class="string">"serde"</span>, derive(Serialize, Deserialize))]
 #[derive(Debug, Clone, PartialEq, Eq, Encode, Decode)]
 </span><span class="kw">pub struct </span>Justifications(Vec&lt;Justification&gt;);
 
@@ -1517,11 +1519,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>traits::{Lazy, Verify};
 
 <span class="kw">use </span><span class="kw">crate</span>::traits::IdentifyAccount;
-<span class="attr">#[cfg(feature = <span class="string">&quot;serde&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"serde"</span>)]
 </span><span class="kw">pub use </span>serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 <span class="doccomment">/// Complex storage builder stuff.
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+</span><span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">pub trait </span>BuildStorage {
 	<span class="doccomment">/// Build the storage out of this builder.
 	</span><span class="kw">fn </span>build_storage(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;sp_core::storage::Storage, String&gt; {
@@ -1534,9 +1536,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Something that can build the genesis storage of a module.
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+</span><span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 #[deprecated(
-	note = <span class="string">&quot;`BuildModuleGenesisStorage` is planned to be removed in December 2023. Use `BuildStorage` instead of it.&quot;
+	note = <span class="string">"`BuildModuleGenesisStorage` is planned to be removed in December 2023. Use `BuildStorage` instead of it."
 </span>)]
 </span><span class="kw">pub trait </span>BuildModuleGenesisStorage&lt;T, I&gt;: Sized {
 	<span class="doccomment">/// Create the module genesis storage into the given `storage` and `child_storage`.
@@ -1546,7 +1548,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), String&gt;;
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">impl </span>BuildStorage <span class="kw">for </span>sp_core::storage::Storage {
 	<span class="kw">fn </span>assimilate_storage(<span class="kw-2">&amp;</span><span class="self">self</span>, storage: <span class="kw-2">&amp;mut </span>sp_core::storage::Storage) -&gt; <span class="prelude-ty">Result</span>&lt;(), String&gt; {
 		storage.top.extend(<span class="self">self</span>.top.iter().map(|(k, v)| (k.clone(), v.clone())));
@@ -1555,7 +1557,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(map) = storage.children_default.get_mut(<span class="kw-2">&amp;</span>k) {
 				map.data.extend(other_map.data.iter().map(|(k, v)| (k.clone(), v.clone())));
 				<span class="kw">if </span>!map.child_info.try_update(<span class="kw-2">&amp;</span>other_map.child_info) {
-					<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;Incompatible child info update&quot;</span>.to_string())
+					<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Incompatible child info update"</span>.to_string())
 				}
 			} <span class="kw">else </span>{
 				storage.children_default.insert(k, other_map.clone());
@@ -1565,10 +1567,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">impl </span>BuildStorage <span class="kw">for </span>() {
 	<span class="kw">fn </span>assimilate_storage(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw">_</span>: <span class="kw-2">&amp;mut </span>sp_core::storage::Storage) -&gt; <span class="prelude-ty">Result</span>&lt;(), String&gt; {
-		<span class="prelude-val">Err</span>(<span class="string">&quot;`assimilate_storage` not implemented for `()`&quot;</span>.into())
+		<span class="prelude-val">Err</span>(<span class="string">"`assimilate_storage` not implemented for `()`"</span>.into())
 	}
 }
 
@@ -1576,7 +1578,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub type </span>ConsensusEngineId = [u8; <span class="number">4</span>];
 
 <span class="doccomment">/// Signature verify that can work with any known signature types.
-</span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;serde&quot;</span>, derive(Serialize, Deserialize))]
+</span><span class="attr">#[cfg_attr(feature = <span class="string">"serde"</span>, derive(Serialize, Deserialize))]
 #[derive(Eq, PartialEq, Clone, Encode, Decode, MaxEncodedLen, RuntimeDebug, TypeInfo)]
 </span><span class="kw">pub enum </span>MultiSignature {
 	<span class="doccomment">/// An Ed25519 signature.
@@ -1640,7 +1642,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Public key for any known crypto algorithm.
 </span><span class="attr">#[derive(Eq, PartialEq, Ord, PartialOrd, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
-#[cfg_attr(feature = <span class="string">&quot;serde&quot;</span>, derive(Serialize, Deserialize))]
+#[cfg_attr(feature = <span class="string">"serde"</span>, derive(Serialize, Deserialize))]
 </span><span class="kw">pub enum </span>MultiSigner {
 	<span class="doccomment">/// An Ed25519 identity.
 	</span>Ed25519(ed25519::Public),
@@ -1661,7 +1663,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// NOTE: This implementations is required by `SimpleAddressDeterminer`,
-/// we convert the hash into some AccountId, it&#39;s fine to use any scheme.
+/// we convert the hash into some AccountId, it's fine to use any scheme.
 </span><span class="kw">impl</span>&lt;T: Into&lt;H256&gt;&gt; crypto::UncheckedFrom&lt;T&gt; <span class="kw">for </span>MultiSigner {
 	<span class="kw">fn </span>unchecked_from(x: T) -&gt; <span class="self">Self </span>{
 		ed25519::Public::unchecked_from(x.into()).into()
@@ -1740,13 +1742,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">impl </span>std::fmt::Display <span class="kw">for </span>MultiSigner {
 	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, fmt: <span class="kw-2">&amp;mut </span>std::fmt::Formatter) -&gt; std::fmt::Result {
 		<span class="kw">match </span><span class="kw-2">*</span><span class="self">self </span>{
-			<span class="self">Self</span>::Ed25519(<span class="kw-2">ref </span>who) =&gt; <span class="macro">write!</span>(fmt, <span class="string">&quot;ed25519: {}&quot;</span>, who),
-			<span class="self">Self</span>::Sr25519(<span class="kw-2">ref </span>who) =&gt; <span class="macro">write!</span>(fmt, <span class="string">&quot;sr25519: {}&quot;</span>, who),
-			<span class="self">Self</span>::Ecdsa(<span class="kw-2">ref </span>who) =&gt; <span class="macro">write!</span>(fmt, <span class="string">&quot;ecdsa: {}&quot;</span>, who),
+			<span class="self">Self</span>::Ed25519(<span class="kw-2">ref </span>who) =&gt; <span class="macro">write!</span>(fmt, <span class="string">"ed25519: {}"</span>, who),
+			<span class="self">Self</span>::Sr25519(<span class="kw-2">ref </span>who) =&gt; <span class="macro">write!</span>(fmt, <span class="string">"sr25519: {}"</span>, who),
+			<span class="self">Self</span>::Ecdsa(<span class="kw-2">ref </span>who) =&gt; <span class="macro">write!</span>(fmt, <span class="string">"ecdsa: {}"</span>, who),
 		}
 	}
 }
@@ -1778,7 +1780,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Signature verify that can work with any known signature types..
 </span><span class="attr">#[derive(Eq, PartialEq, Clone, Default, Encode, Decode, RuntimeDebug, TypeInfo)]
-#[cfg_attr(feature = <span class="string">&quot;serde&quot;</span>, derive(Serialize, Deserialize))]
+#[cfg_attr(feature = <span class="string">"serde"</span>, derive(Serialize, Deserialize))]
 </span><span class="kw">pub struct </span>AnySignature(H512);
 
 <span class="kw">impl </span>Verify <span class="kw">for </span>AnySignature {
@@ -1826,7 +1828,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Reason why a pallet call failed.
 </span><span class="attr">#[derive(Eq, Clone, Copy, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
-#[cfg_attr(feature = <span class="string">&quot;serde&quot;</span>, derive(Serialize, Deserialize))]
+#[cfg_attr(feature = <span class="string">"serde"</span>, derive(Serialize, Deserialize))]
 </span><span class="kw">pub struct </span>ModuleError {
 	<span class="doccomment">/// Module index, matching the metadata module index.
 	</span><span class="kw">pub </span>index: u8,
@@ -1834,8 +1836,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>error: [u8; MAX_MODULE_ERROR_ENCODED_SIZE],
 	<span class="doccomment">/// Optional error message.
 	</span><span class="attr">#[codec(skip)]
-	#[cfg_attr(feature = <span class="string">&quot;serde&quot;</span>, serde(skip_deserializing))]
-	</span><span class="kw">pub </span>message: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt;,
+	#[cfg_attr(feature = <span class="string">"serde"</span>, serde(skip_deserializing))]
+	</span><span class="kw">pub </span>message: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt;,
 }
 
 <span class="kw">impl </span>PartialEq <span class="kw">for </span>ModuleError {
@@ -1846,7 +1848,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Errors related to transactional storage layers.
 </span><span class="attr">#[derive(Eq, PartialEq, Clone, Copy, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
-#[cfg_attr(feature = <span class="string">&quot;serde&quot;</span>, derive(Serialize, Deserialize))]
+#[cfg_attr(feature = <span class="string">"serde"</span>, derive(Serialize, Deserialize))]
 </span><span class="kw">pub enum </span>TransactionalError {
 	<span class="doccomment">/// Too many transactional layers have been spawned.
 	</span>LimitReached,
@@ -1854,11 +1856,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>NoLayer,
 }
 
-<span class="kw">impl </span>From&lt;TransactionalError&gt; <span class="kw">for </span><span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str {
-	<span class="kw">fn </span>from(e: TransactionalError) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str {
+<span class="kw">impl </span>From&lt;TransactionalError&gt; <span class="kw">for </span><span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
+	<span class="kw">fn </span>from(e: TransactionalError) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
 		<span class="kw">match </span>e {
-			TransactionalError::LimitReached =&gt; <span class="string">&quot;Too many transactional layers have been spawned&quot;</span>,
-			TransactionalError::NoLayer =&gt; <span class="string">&quot;A transactional layer was expected, but does not exist&quot;</span>,
+			TransactionalError::LimitReached =&gt; <span class="string">"Too many transactional layers have been spawned"</span>,
+			TransactionalError::NoLayer =&gt; <span class="string">"A transactional layer was expected, but does not exist"</span>,
 		}
 	}
 }
@@ -1871,13 +1873,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Reason why a dispatch call failed.
 </span><span class="attr">#[derive(Eq, Clone, Copy, Encode, Decode, Debug, TypeInfo, PartialEq, MaxEncodedLen)]
-#[cfg_attr(feature = <span class="string">&quot;serde&quot;</span>, derive(Serialize, Deserialize))]
+#[cfg_attr(feature = <span class="string">"serde"</span>, derive(Serialize, Deserialize))]
 </span><span class="kw">pub enum </span>DispatchError {
 	<span class="doccomment">/// Some error occurred.
 	</span>Other(
 		<span class="attr">#[codec(skip)]
-		#[cfg_attr(feature = <span class="string">&quot;serde&quot;</span>, serde(skip_deserializing))]
-		</span><span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
+		#[cfg_attr(feature = <span class="string">"serde"</span>, serde(skip_deserializing))]
+		</span><span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
 	),
 	<span class="doccomment">/// Failed to lookup some data.
 	</span>CannotLookup,
@@ -1956,7 +1958,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Description of what went wrong when trying to complete an operation on a token.
 </span><span class="attr">#[derive(Eq, PartialEq, Clone, Copy, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
-#[cfg_attr(feature = <span class="string">&quot;serde&quot;</span>, derive(Serialize, Deserialize))]
+#[cfg_attr(feature = <span class="string">"serde"</span>, derive(Serialize, Deserialize))]
 </span><span class="kw">pub enum </span>TokenError {
 	<span class="doccomment">/// Funds are unavailable.
 	</span>FundsUnavailable,
@@ -1981,20 +1983,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>Blocked,
 }
 
-<span class="kw">impl </span>From&lt;TokenError&gt; <span class="kw">for </span><span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str {
-	<span class="kw">fn </span>from(e: TokenError) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str {
+<span class="kw">impl </span>From&lt;TokenError&gt; <span class="kw">for </span><span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
+	<span class="kw">fn </span>from(e: TokenError) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
 		<span class="kw">match </span>e {
-			TokenError::FundsUnavailable =&gt; <span class="string">&quot;Funds are unavailable&quot;</span>,
-			TokenError::OnlyProvider =&gt; <span class="string">&quot;Account that must exist would die&quot;</span>,
-			TokenError::BelowMinimum =&gt; <span class="string">&quot;Account cannot exist with the funds that would be given&quot;</span>,
-			TokenError::CannotCreate =&gt; <span class="string">&quot;Account cannot be created&quot;</span>,
-			TokenError::UnknownAsset =&gt; <span class="string">&quot;The asset in question is unknown&quot;</span>,
-			TokenError::Frozen =&gt; <span class="string">&quot;Funds exist but are frozen&quot;</span>,
-			TokenError::Unsupported =&gt; <span class="string">&quot;Operation is not supported by the asset&quot;</span>,
+			TokenError::FundsUnavailable =&gt; <span class="string">"Funds are unavailable"</span>,
+			TokenError::OnlyProvider =&gt; <span class="string">"Account that must exist would die"</span>,
+			TokenError::BelowMinimum =&gt; <span class="string">"Account cannot exist with the funds that would be given"</span>,
+			TokenError::CannotCreate =&gt; <span class="string">"Account cannot be created"</span>,
+			TokenError::UnknownAsset =&gt; <span class="string">"The asset in question is unknown"</span>,
+			TokenError::Frozen =&gt; <span class="string">"Funds exist but are frozen"</span>,
+			TokenError::Unsupported =&gt; <span class="string">"Operation is not supported by the asset"</span>,
 			TokenError::CannotCreateHold =&gt;
-				<span class="string">&quot;Account cannot be created for recording amount on hold&quot;</span>,
-			TokenError::NotExpendable =&gt; <span class="string">&quot;Account that is desired to remain would die&quot;</span>,
-			TokenError::Blocked =&gt; <span class="string">&quot;Account cannot receive the assets&quot;</span>,
+				<span class="string">"Account cannot be created for recording amount on hold"</span>,
+			TokenError::NotExpendable =&gt; <span class="string">"Account that is desired to remain would die"</span>,
+			TokenError::Blocked =&gt; <span class="string">"Account cannot receive the assets"</span>,
 		}
 	}
 }
@@ -2011,39 +2013,39 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl </span>From&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; <span class="kw">for </span>DispatchError {
-	<span class="kw">fn </span>from(err: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str) -&gt; DispatchError {
+<span class="kw">impl </span>From&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; <span class="kw">for </span>DispatchError {
+	<span class="kw">fn </span>from(err: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str) -&gt; DispatchError {
 		<span class="self">Self</span>::Other(err)
 	}
 }
 
-<span class="kw">impl </span>From&lt;DispatchError&gt; <span class="kw">for </span><span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str {
-	<span class="kw">fn </span>from(err: DispatchError) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str {
+<span class="kw">impl </span>From&lt;DispatchError&gt; <span class="kw">for </span><span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
+	<span class="kw">fn </span>from(err: DispatchError) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
 		<span class="kw">use </span>DispatchError::<span class="kw-2">*</span>;
 		<span class="kw">match </span>err {
 			Other(msg) =&gt; msg,
-			CannotLookup =&gt; <span class="string">&quot;Cannot lookup&quot;</span>,
-			BadOrigin =&gt; <span class="string">&quot;Bad origin&quot;</span>,
-			Module(ModuleError { message, .. }) =&gt; message.unwrap_or(<span class="string">&quot;Unknown module error&quot;</span>),
-			ConsumerRemaining =&gt; <span class="string">&quot;Consumer remaining&quot;</span>,
-			NoProviders =&gt; <span class="string">&quot;No providers&quot;</span>,
-			TooManyConsumers =&gt; <span class="string">&quot;Too many consumers&quot;</span>,
+			CannotLookup =&gt; <span class="string">"Cannot lookup"</span>,
+			BadOrigin =&gt; <span class="string">"Bad origin"</span>,
+			Module(ModuleError { message, .. }) =&gt; message.unwrap_or(<span class="string">"Unknown module error"</span>),
+			ConsumerRemaining =&gt; <span class="string">"Consumer remaining"</span>,
+			NoProviders =&gt; <span class="string">"No providers"</span>,
+			TooManyConsumers =&gt; <span class="string">"Too many consumers"</span>,
 			Token(e) =&gt; e.into(),
 			Arithmetic(e) =&gt; e.into(),
 			Transactional(e) =&gt; e.into(),
-			Exhausted =&gt; <span class="string">&quot;Resources exhausted&quot;</span>,
-			Corruption =&gt; <span class="string">&quot;State corrupt&quot;</span>,
-			Unavailable =&gt; <span class="string">&quot;Resource unavailable&quot;</span>,
-			RootNotAllowed =&gt; <span class="string">&quot;Root not allowed&quot;</span>,
+			Exhausted =&gt; <span class="string">"Resources exhausted"</span>,
+			Corruption =&gt; <span class="string">"State corrupt"</span>,
+			Unavailable =&gt; <span class="string">"Resource unavailable"</span>,
+			RootNotAllowed =&gt; <span class="string">"Root not allowed"</span>,
 		}
 	}
 }
 
-<span class="kw">impl</span>&lt;T&gt; From&lt;DispatchErrorWithPostInfo&lt;T&gt;&gt; <span class="kw">for </span><span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str
+<span class="kw">impl</span>&lt;T&gt; From&lt;DispatchErrorWithPostInfo&lt;T&gt;&gt; <span class="kw">for </span><span class="kw-2">&amp;</span><span class="lifetime">'static </span>str
 <span class="kw">where
 	</span>T: Eq + PartialEq + Clone + Copy + Encode + Decode + traits::Printable,
 {
-	<span class="kw">fn </span>from(err: DispatchErrorWithPostInfo&lt;T&gt;) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str {
+	<span class="kw">fn </span>from(err: DispatchErrorWithPostInfo&lt;T&gt;) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
 		err.error.into()
 	}
 }
@@ -2051,11 +2053,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl </span>traits::Printable <span class="kw">for </span>DispatchError {
 	<span class="kw">fn </span>print(<span class="kw-2">&amp;</span><span class="self">self</span>) {
 		<span class="kw">use </span>DispatchError::<span class="kw-2">*</span>;
-		<span class="string">&quot;DispatchError&quot;</span>.print();
+		<span class="string">"DispatchError"</span>.print();
 		<span class="kw">match </span><span class="self">self </span>{
 			Other(err) =&gt; err.print(),
-			CannotLookup =&gt; <span class="string">&quot;Cannot lookup&quot;</span>.print(),
-			BadOrigin =&gt; <span class="string">&quot;Bad origin&quot;</span>.print(),
+			CannotLookup =&gt; <span class="string">"Cannot lookup"</span>.print(),
+			BadOrigin =&gt; <span class="string">"Bad origin"</span>.print(),
 			Module(ModuleError { index, error, message }) =&gt; {
 				index.print();
 				error.print();
@@ -2063,25 +2065,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					msg.print();
 				}
 			},
-			ConsumerRemaining =&gt; <span class="string">&quot;Consumer remaining&quot;</span>.print(),
-			NoProviders =&gt; <span class="string">&quot;No providers&quot;</span>.print(),
-			TooManyConsumers =&gt; <span class="string">&quot;Too many consumers&quot;</span>.print(),
+			ConsumerRemaining =&gt; <span class="string">"Consumer remaining"</span>.print(),
+			NoProviders =&gt; <span class="string">"No providers"</span>.print(),
+			TooManyConsumers =&gt; <span class="string">"Too many consumers"</span>.print(),
 			Token(e) =&gt; {
-				<span class="string">&quot;Token error: &quot;</span>.print();
-				&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt;::from(<span class="kw-2">*</span>e).print();
+				<span class="string">"Token error: "</span>.print();
+				&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt;::from(<span class="kw-2">*</span>e).print();
 			},
 			Arithmetic(e) =&gt; {
-				<span class="string">&quot;Arithmetic error: &quot;</span>.print();
-				&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt;::from(<span class="kw-2">*</span>e).print();
+				<span class="string">"Arithmetic error: "</span>.print();
+				&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt;::from(<span class="kw-2">*</span>e).print();
 			},
 			Transactional(e) =&gt; {
-				<span class="string">&quot;Transactional error: &quot;</span>.print();
-				&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt;::from(<span class="kw-2">*</span>e).print();
+				<span class="string">"Transactional error: "</span>.print();
+				&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt;::from(<span class="kw-2">*</span>e).print();
 			},
-			Exhausted =&gt; <span class="string">&quot;Resources exhausted&quot;</span>.print(),
-			Corruption =&gt; <span class="string">&quot;State corrupt&quot;</span>.print(),
-			Unavailable =&gt; <span class="string">&quot;Resource unavailable&quot;</span>.print(),
-			RootNotAllowed =&gt; <span class="string">&quot;Root not allowed&quot;</span>.print(),
+			Exhausted =&gt; <span class="string">"Resources exhausted"</span>.print(),
+			Corruption =&gt; <span class="string">"State corrupt"</span>.print(),
+			Unavailable =&gt; <span class="string">"Resource unavailable"</span>.print(),
+			RootNotAllowed =&gt; <span class="string">"Root not allowed"</span>.print(),
 		}
 	}
 }
@@ -2092,7 +2094,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 {
 	<span class="kw">fn </span>print(<span class="kw-2">&amp;</span><span class="self">self</span>) {
 		<span class="self">self</span>.error.print();
-		<span class="string">&quot;PostInfo: &quot;</span>.print();
+		<span class="string">"PostInfo: "</span>.print();
 		<span class="self">self</span>.post_info.print();
 	}
 }
@@ -2101,7 +2103,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// In case of failure an error specific to the module is returned.
 ///
-/// Failure of the module call dispatching doesn&#39;t invalidate the extrinsic and it is still included
+/// Failure of the module call dispatching doesn't invalidate the extrinsic and it is still included
 /// in the block, therefore all state changes performed by the dispatched call are still persisted.
 ///
 /// For example, if the dispatching of an extrinsic involves inclusion fee payment then these
@@ -2121,11 +2123,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// Examples of reasons preventing inclusion in a block:
 /// - More block weight is required to process the extrinsic than is left in the block being built.
-///   This doesn&#39;t necessarily mean that the extrinsic is invalid, since it can still be included in
+///   This doesn't necessarily mean that the extrinsic is invalid, since it can still be included in
 ///   the next block if it has enough spare weight available.
-/// - The sender doesn&#39;t have enough funds to pay the transaction inclusion fee. Including such a
-///   transaction in the block doesn&#39;t make sense.
-/// - The extrinsic supplied a bad signature. This transaction won&#39;t become valid ever.
+/// - The sender doesn't have enough funds to pay the transaction inclusion fee. Including such a
+///   transaction in the block doesn't make sense.
+/// - The extrinsic supplied a bad signature. This transaction won't become valid ever.
 </span><span class="kw">pub type </span>ApplyExtrinsicResult =
 	<span class="prelude-ty">Result</span>&lt;DispatchOutcome, transaction_validity::TransactionValidityError&gt;;
 
@@ -2137,14 +2139,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub type </span>TryRuntimeError = DispatchError;
 
 <span class="doccomment">/// Verify a signature on an encoded value in a lazy manner. This can be
-/// an optimization if the signature scheme has an &quot;unsigned&quot; escape hash.
+/// an optimization if the signature scheme has an "unsigned" escape hash.
 </span><span class="kw">pub fn </span>verify_encoded_lazy&lt;V: Verify, T: codec::Encode&gt;(
 	sig: <span class="kw-2">&amp;</span>V,
 	item: <span class="kw-2">&amp;</span>T,
 	signer: <span class="kw-2">&amp;</span>&lt;V::Signer <span class="kw">as </span>IdentifyAccount&gt;::AccountId,
 ) -&gt; bool {
-	<span class="comment">// The `Lazy&lt;T&gt;` trait expresses something like `X: FnMut&lt;Output = for&lt;&#39;a&gt; &amp;&#39;a T&gt;`.
-	// unfortunately this is a lifetime relationship that can&#39;t
+	<span class="comment">// The `Lazy&lt;T&gt;` trait expresses something like `X: FnMut&lt;Output = for&lt;'a&gt; &amp;'a T&gt;`.
+	// unfortunately this is a lifetime relationship that can't
 	// be expressed without generic associated types, better unification of HRTBs in type position,
 	// and some kind of integration into the Fn* traits.
 	</span><span class="kw">struct </span>LazyEncode&lt;F&gt; {
@@ -2179,13 +2181,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// # }
 /// ```
 </span><span class="attr">#[macro_export]
-#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="macro">macro_rules! </span>assert_eq_error_rate {
 	(<span class="macro-nonterminal">$x</span>:expr, <span class="macro-nonterminal">$y</span>:expr, <span class="macro-nonterminal">$error</span>:expr $(,)<span class="question-mark">?</span>) =&gt; {
 		<span class="macro">assert!</span>(
 			(<span class="macro-nonterminal">$x </span>&gt;= <span class="macro-nonterminal">$crate::Saturating::saturating_sub</span>(<span class="macro-nonterminal">$y</span>, <span class="macro-nonterminal">$error</span>)) &amp;&amp;
 				(<span class="macro-nonterminal">$x </span>&lt;= <span class="macro-nonterminal">$crate::Saturating::saturating_add</span>(<span class="macro-nonterminal">$y</span>, <span class="macro-nonterminal">$error</span>)),
-			<span class="string">&quot;{:?} != {:?} (with error rate {:?})&quot;</span>,
+			<span class="string">"{:?} != {:?} (with error rate {:?})"</span>,
 			<span class="macro-nonterminal">$x</span>,
 			<span class="macro-nonterminal">$y</span>,
 			<span class="macro-nonterminal">$error</span>,
@@ -2196,12 +2198,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Same as [`assert_eq_error_rate`], but intended to be used with floating point number, or
 /// generally those who do not have over/underflow potentials.
 </span><span class="attr">#[macro_export]
-#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="macro">macro_rules! </span>assert_eq_error_rate_float {
 	(<span class="macro-nonterminal">$x</span>:expr, <span class="macro-nonterminal">$y</span>:expr, <span class="macro-nonterminal">$error</span>:expr $(,)<span class="question-mark">?</span>) =&gt; {
 		<span class="macro">assert!</span>(
 			(<span class="macro-nonterminal">$x </span>&gt;= <span class="macro-nonterminal">$y </span>- <span class="macro-nonterminal">$error</span>) &amp;&amp; (<span class="macro-nonterminal">$x </span>&lt;= <span class="macro-nonterminal">$y </span>+ <span class="macro-nonterminal">$error</span>),
-			<span class="string">&quot;{:?} != {:?} (with error rate {:?})&quot;</span>,
+			<span class="string">"{:?} != {:?} (with error rate {:?})"</span>,
 			<span class="macro-nonterminal">$x</span>,
 			<span class="macro-nonterminal">$y</span>,
 			<span class="macro-nonterminal">$error</span>,
@@ -2222,18 +2224,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl </span>sp_std::fmt::Debug <span class="kw">for </span>OpaqueExtrinsic {
-	<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 	</span><span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, fmt: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter) -&gt; sp_std::fmt::Result {
-		<span class="macro">write!</span>(fmt, <span class="string">&quot;{}&quot;</span>, sp_core::hexdisplay::HexDisplay::from(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>))
+		<span class="macro">write!</span>(fmt, <span class="string">"{}"</span>, sp_core::hexdisplay::HexDisplay::from(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>))
 	}
 
-	<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+	<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
 	</span><span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, _fmt: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter) -&gt; sp_std::fmt::Result {
 		<span class="prelude-val">Ok</span>(())
 	}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;serde&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"serde"</span>)]
 </span><span class="kw">impl </span>::serde::Serialize <span class="kw">for </span>OpaqueExtrinsic {
 	<span class="kw">fn </span>serialize&lt;S&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, seq: S) -&gt; <span class="prelude-ty">Result</span>&lt;S::Ok, S::Error&gt;
 	<span class="kw">where
@@ -2243,15 +2245,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;serde&quot;</span>)]
-</span><span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; ::serde::Deserialize&lt;<span class="lifetime">&#39;a</span>&gt; <span class="kw">for </span>OpaqueExtrinsic {
+<span class="attr">#[cfg(feature = <span class="string">"serde"</span>)]
+</span><span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; ::serde::Deserialize&lt;<span class="lifetime">'a</span>&gt; <span class="kw">for </span>OpaqueExtrinsic {
 	<span class="kw">fn </span>deserialize&lt;D&gt;(de: D) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, D::Error&gt;
 	<span class="kw">where
-		</span>D: ::serde::Deserializer&lt;<span class="lifetime">&#39;a</span>&gt;,
+		</span>D: ::serde::Deserializer&lt;<span class="lifetime">'a</span>&gt;,
 	{
 		<span class="kw">let </span>r = ::sp_core::bytes::deserialize(de)<span class="question-mark">?</span>;
 		Decode::decode(<span class="kw-2">&amp;mut &amp;</span>r[..])
-			.map_err(|e| ::serde::de::Error::custom(<span class="macro">format!</span>(<span class="string">&quot;Decode error: {}&quot;</span>, e)))
+			.map_err(|e| ::serde::de::Error::custom(<span class="macro">format!</span>(<span class="string">"Decode error: {}"</span>, e)))
 	}
 }
 
@@ -2276,11 +2278,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// ```rust
 /// # use sp_runtime::str_array;
-/// const MY_STR: [u8; 6] = str_array(&quot;data&quot;);
-/// assert_eq!(MY_STR, *b&quot;data\0\0&quot;);
+/// const MY_STR: [u8; 6] = str_array("data");
+/// assert_eq!(MY_STR, *b"data\0\0");
 /// ```
 </span><span class="kw">pub const fn </span>str_array&lt;<span class="kw">const </span>N: usize&gt;(s: <span class="kw-2">&amp;</span>str) -&gt; [u8; N] {
-	<span class="macro">debug_assert!</span>(s.len() &lt;= N, <span class="string">&quot;String literal doesn&#39;t fit in array&quot;</span>);
+	<span class="macro">debug_assert!</span>(s.len() &lt;= N, <span class="string">"String literal doesn't fit in array"</span>);
 	<span class="kw">let </span><span class="kw-2">mut </span>i = <span class="number">0</span>;
 	<span class="kw">let </span><span class="kw-2">mut </span>arr = [<span class="number">0</span>; N];
 	<span class="kw">let </span>s = s.as_bytes();
@@ -2332,7 +2334,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>opaque_extrinsic_serialization() {
 		<span class="kw">let </span>ex = <span class="kw">super</span>::OpaqueExtrinsic(<span class="macro">vec!</span>[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>]);
-		<span class="macro">assert_eq!</span>(serde_json::to_string(<span class="kw-2">&amp;</span>ex).unwrap(), <span class="string">&quot;\&quot;0x1001020304\&quot;&quot;</span>.to_owned());
+		<span class="macro">assert_eq!</span>(serde_json::to_string(<span class="kw-2">&amp;</span>ex).unwrap(), <span class="string">"\"0x1001020304\""</span>.to_owned());
 	}
 
 	<span class="attr">#[test]
@@ -2340,7 +2342,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>error = DispatchError::Module(ModuleError {
 			index: <span class="number">1</span>,
 			error: [<span class="number">2</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>],
-			message: <span class="prelude-val">Some</span>(<span class="string">&quot;error message&quot;</span>),
+			message: <span class="prelude-val">Some</span>(<span class="string">"error message"</span>),
 		});
 		<span class="kw">let </span>encoded = error.encode();
 		<span class="kw">let </span>decoded = DispatchError::decode(<span class="kw-2">&amp;mut &amp;</span>encoded[..]).unwrap();
@@ -2356,8 +2358,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">use </span>DispatchError::<span class="kw-2">*</span>;
 
 		<span class="kw">let </span>variants = <span class="macro">vec!</span>[
-			Other(<span class="string">&quot;foo&quot;</span>),
-			Other(<span class="string">&quot;bar&quot;</span>),
+			Other(<span class="string">"foo"</span>),
+			Other(<span class="string">"bar"</span>),
 			CannotLookup,
 			BadOrigin,
 			Module(ModuleError { index: <span class="number">1</span>, error: [<span class="number">1</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>], message: <span class="prelude-val">None </span>}),
@@ -2387,14 +2389,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// Ignores `message` field in `Module` variant.
 		</span><span class="macro">assert_eq!</span>(
-			Module(ModuleError { index: <span class="number">1</span>, error: [<span class="number">1</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>], message: <span class="prelude-val">Some</span>(<span class="string">&quot;foo&quot;</span>) }),
+			Module(ModuleError { index: <span class="number">1</span>, error: [<span class="number">1</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>], message: <span class="prelude-val">Some</span>(<span class="string">"foo"</span>) }),
 			Module(ModuleError { index: <span class="number">1</span>, error: [<span class="number">1</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>], message: <span class="prelude-val">None </span>}),
 		);
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>multi_signature_ecdsa_verify_works() {
-		<span class="kw">let </span>msg = <span class="kw-2">&amp;</span><span class="string">b&quot;test-message&quot;</span>[..];
+		<span class="kw">let </span>msg = <span class="kw-2">&amp;</span><span class="string">b"test-message"</span>[..];
 		<span class="kw">let </span>(pair, <span class="kw">_</span>) = ecdsa::Pair::generate();
 
 		<span class="kw">let </span>signature = pair.sign(<span class="kw-2">&amp;</span>msg);
@@ -2414,40 +2416,40 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">use </span>sp_state_machine::Backend;
 		<span class="kw">let </span><span class="kw-2">mut </span>ext = TestExternalities::default();
 
-		ext.insert(<span class="string">b&quot;a&quot;</span>.to_vec(), <span class="macro">vec!</span>[<span class="number">1u8</span>; <span class="number">33</span>]);
-		ext.insert(<span class="string">b&quot;b&quot;</span>.to_vec(), <span class="macro">vec!</span>[<span class="number">2u8</span>; <span class="number">33</span>]);
-		ext.insert(<span class="string">b&quot;c&quot;</span>.to_vec(), <span class="macro">vec!</span>[<span class="number">3u8</span>; <span class="number">33</span>]);
-		ext.insert(<span class="string">b&quot;d&quot;</span>.to_vec(), <span class="macro">vec!</span>[<span class="number">4u8</span>; <span class="number">33</span>]);
+		ext.insert(<span class="string">b"a"</span>.to_vec(), <span class="macro">vec!</span>[<span class="number">1u8</span>; <span class="number">33</span>]);
+		ext.insert(<span class="string">b"b"</span>.to_vec(), <span class="macro">vec!</span>[<span class="number">2u8</span>; <span class="number">33</span>]);
+		ext.insert(<span class="string">b"c"</span>.to_vec(), <span class="macro">vec!</span>[<span class="number">3u8</span>; <span class="number">33</span>]);
+		ext.insert(<span class="string">b"d"</span>.to_vec(), <span class="macro">vec!</span>[<span class="number">4u8</span>; <span class="number">33</span>]);
 
 		<span class="kw">let </span>pre_root = <span class="kw-2">*</span>ext.backend.root();
 		<span class="kw">let </span>(<span class="kw">_</span>, proof) = ext.execute_and_prove(|| {
-			sp_io::storage::get(<span class="string">b&quot;a&quot;</span>);
-			sp_io::storage::get(<span class="string">b&quot;b&quot;</span>);
-			sp_io::storage::get(<span class="string">b&quot;v&quot;</span>);
-			sp_io::storage::get(<span class="string">b&quot;d&quot;</span>);
+			sp_io::storage::get(<span class="string">b"a"</span>);
+			sp_io::storage::get(<span class="string">b"b"</span>);
+			sp_io::storage::get(<span class="string">b"v"</span>);
+			sp_io::storage::get(<span class="string">b"d"</span>);
 		});
 
 		<span class="kw">let </span>compact_proof = proof.clone().into_compact_proof::&lt;BlakeTwo256&gt;(pre_root).unwrap();
 		<span class="kw">let </span>compressed_proof = zstd::stream::encode_all(<span class="kw-2">&amp;</span>compact_proof.encode()[..], <span class="number">0</span>).unwrap();
 
-		<span class="comment">// just an example of how you&#39;d inspect the size of the proof.
-		</span><span class="macro">println!</span>(<span class="string">&quot;proof size: {:?}&quot;</span>, proof.encoded_size());
-		<span class="macro">println!</span>(<span class="string">&quot;compact proof size: {:?}&quot;</span>, compact_proof.encoded_size());
-		<span class="macro">println!</span>(<span class="string">&quot;zstd-compressed compact proof size: {:?}&quot;</span>, <span class="kw-2">&amp;</span>compressed_proof.len());
+		<span class="comment">// just an example of how you'd inspect the size of the proof.
+		</span><span class="macro">println!</span>(<span class="string">"proof size: {:?}"</span>, proof.encoded_size());
+		<span class="macro">println!</span>(<span class="string">"compact proof size: {:?}"</span>, compact_proof.encoded_size());
+		<span class="macro">println!</span>(<span class="string">"zstd-compressed compact proof size: {:?}"</span>, <span class="kw-2">&amp;</span>compressed_proof.len());
 
 		<span class="comment">// create a new trie-backed from the proof and make sure it contains everything
 		</span><span class="kw">let </span>proof_check = create_proof_check_backend::&lt;BlakeTwo256&gt;(pre_root, proof).unwrap();
-		<span class="macro">assert_eq!</span>(proof_check.storage(<span class="string">b&quot;a&quot;</span>,).unwrap().unwrap(), <span class="macro">vec!</span>[<span class="number">1u8</span>; <span class="number">33</span>]);
+		<span class="macro">assert_eq!</span>(proof_check.storage(<span class="string">b"a"</span>,).unwrap().unwrap(), <span class="macro">vec!</span>[<span class="number">1u8</span>; <span class="number">33</span>]);
 
 		<span class="kw">let _ </span>= ext.execute_and_prove(|| {
-			sp_io::storage::set(<span class="string">b&quot;a&quot;</span>, <span class="kw-2">&amp;</span><span class="macro">vec!</span>[<span class="number">1u8</span>; <span class="number">44</span>]);
+			sp_io::storage::set(<span class="string">b"a"</span>, <span class="kw-2">&amp;</span><span class="macro">vec!</span>[<span class="number">1u8</span>; <span class="number">44</span>]);
 		});
 
 		<span class="comment">// ensure that these changes are propagated to the backend.
 
 		</span>ext.execute_with(|| {
-			<span class="macro">assert_eq!</span>(sp_io::storage::get(<span class="string">b&quot;a&quot;</span>).unwrap(), <span class="macro">vec!</span>[<span class="number">1u8</span>; <span class="number">44</span>]);
-			<span class="macro">assert_eq!</span>(sp_io::storage::get(<span class="string">b&quot;b&quot;</span>).unwrap(), <span class="macro">vec!</span>[<span class="number">2u8</span>; <span class="number">33</span>]);
+			<span class="macro">assert_eq!</span>(sp_io::storage::get(<span class="string">b"a"</span>).unwrap(), <span class="macro">vec!</span>[<span class="number">1u8</span>; <span class="number">44</span>]);
+			<span class="macro">assert_eq!</span>(sp_io::storage::get(<span class="string">b"b"</span>).unwrap(), <span class="macro">vec!</span>[<span class="number">2u8</span>; <span class="number">33</span>]);
 		});
 	}
 }
@@ -2462,13 +2464,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	#[should_panic]
 	</span><span class="kw">fn </span>generate_feature_enabled_macro_panics() {
 		<span class="macro">sp_core::generate_feature_enabled_macro!</span>(if_test, test, $);
-		<span class="macro">if_test!</span>(<span class="macro">panic!</span>(<span class="string">&quot;This should panic&quot;</span>));
+		<span class="macro">if_test!</span>(<span class="macro">panic!</span>(<span class="string">"This should panic"</span>));
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>generate_feature_enabled_macro_works() {
 		<span class="macro">sp_core::generate_feature_enabled_macro!</span>(if_not_test, not(test), $);
-		<span class="macro">if_not_test!</span>(<span class="macro">panic!</span>(<span class="string">&quot;This should not panic&quot;</span>));
+		<span class="macro">if_not_test!</span>(<span class="macro">panic!</span>(<span class="string">"This should not panic"</span>));
 	}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

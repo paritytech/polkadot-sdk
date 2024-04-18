@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Generate a `#[pallet::storage]` alias outside of a pallet."><title>storage_alias in frame_support - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Generate a `#[pallet::storage]` alias outside of a pallet."><title>storage_alias in frame_support - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="frame_support" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="frame_support" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-4c98445ec4002617.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc attr"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../frame_support/index.html">frame_support</a><span class="version">28.0.0</span></h2></div><div class="sidebar-elems"></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Attribute Macro <a href="index.html">frame_support</a>::<wbr><a class="attr" href="#">storage_alias</a><button id="copy-path" title="Copy item path to clipboard"><img src="../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../src/frame_support_procedural/lib.rs.html#453">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>#[storage_alias]</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Generate a <a href="pallet_macros/attr.storage.html" title="attr frame_support::pallet_macros::storage"><code>#[pallet::storage]</code></a> alias outside of a pallet.</p>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc attr"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../frame_support/index.html">frame_support</a><span class="version">28.0.0</span></h2></div><div class="sidebar-elems"></div></nav><div class="sidebar-resizer"></div>
+    <main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../frame_support/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Attribute Macro <a href="index.html">frame_support</a>::<wbr><a class="attr" href="#">storage_alias</a><button id="copy-path" title="Copy item path to clipboard"><img src="../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../src/frame_support_procedural/lib.rs.html#453">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>#[storage_alias]</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Generate a <a href="pallet_macros/attr.storage.html" title="attr frame_support::pallet_macros::storage"><code>#[pallet::storage]</code></a> alias outside of a pallet.</p>
 <p>This storage alias works similarly to the <a href="pallet_macros/attr.storage.html" title="attr frame_support::pallet_macros::storage"><code>#[pallet::storage]</code></a>
 attribute macro. It supports <a href="storage/types/struct.StorageValue.html" title="struct frame_support::storage::types::StorageValue"><code>StorageValue</code></a>,
 <a href="storage/types/struct.StorageMap.html" title="struct frame_support::storage::types::StorageMap"><code>StorageMap</code></a>,
@@ -159,7 +160,7 @@ storage. <a href="pallet_macros/attr.storage.html" title="attr frame_support::pa
 declared in <a href="macro.construct_runtime.html" title="macro frame_support::construct_runtime"><code>construct_runtime!</code></a>.</p>
 <p>The flexibility around declaring the storage prefix makes this macro very useful for
 writing migrations etc.</p>
-<h2 id="examples"><a href="#examples">Examples</a></h2>
+<h2 id="examples"><a class="doc-anchor" href="#examples">§</a>Examples</h2>
 <p>There are different ways to declare the <code>prefix</code> to use. The <code>prefix</code> type can either be
 declared explicitly by passing it to the macro as an attribute or by letting the macro
 guess on what the <code>prefix</code> type is. The <code>prefix</code> is always passed as the first generic
@@ -183,7 +184,7 @@ type declaration works as with <a href="pallet_macros/attr.storage.html" title="
 		<span class="macro">assert_eq!</span>(<span class="number">1</span>, Value::get().unwrap());
 
 		<span class="comment">// The prefix is the one we declared above.
-		</span><span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span><span class="string">b&quot;Test&quot;</span>[..], Value::pallet_prefix());
+		</span><span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span><span class="string">b"Test"</span>[..], Value::pallet_prefix());
 	});
 }</code></pre></div>
 <ol start="2">
@@ -204,7 +205,7 @@ configured in    <a href="macro.construct_runtime.html" title="macro frame_suppo
 
 		<span class="comment">// The prefix is the pallet name. In this case the pallet name is `System` as declared in
 		// `construct_runtime!`.
-		</span><span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span><span class="string">b&quot;System&quot;</span>[..], Value::&lt;Runtime&gt;::pallet_prefix());
+		</span><span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span><span class="string">b"System"</span>[..], Value::&lt;Runtime&gt;::pallet_prefix());
 	});
 }</code></pre></div>
 <p>It requires that the given prefix type implements
@@ -218,23 +219,23 @@ to get the <code>prefix</code>:</li>
 <div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[test]
 </span><span class="kw">fn </span>dynamic_attribute() {
 	new_test_ext().execute_with(|| {
-		<span class="comment">// First let&#39;s declare our prefix.
+		<span class="comment">// First let's declare our prefix.
 		//
-		// It could be any type that, as long as it implements `Get&lt;&amp;&#39;static str&gt;`.
+		// It could be any type that, as long as it implements `Get&lt;&amp;'static str&gt;`.
 		</span><span class="macro">parameter_types! </span>{
-			<span class="kw">pub </span>Prefix: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;Hello&quot;</span>;
+			<span class="kw">pub </span>Prefix: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"Hello"</span>;
 		}
 
 		<span class="comment">// Declare the alias that will use the dynamic `Get` as prefix.
 		</span><span class="attr">#[<span class="kw">crate</span>::storage_alias(dynamic)]
-		</span><span class="kw">pub type </span>Value&lt;T: Get&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt;&gt; = StorageValue&lt;T, u32&gt;;
+		</span><span class="kw">pub type </span>Value&lt;T: Get&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt;&gt; = StorageValue&lt;T, u32&gt;;
 
 		<span class="comment">// Check that it works as expected.
 		</span>Value::&lt;Prefix&gt;::put(<span class="number">1</span>);
 		<span class="macro">assert_eq!</span>(<span class="number">1</span>, Value::&lt;Prefix&gt;::get().unwrap());
 
 		<span class="comment">// The prefix is the one we declared above.
-		</span><span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span><span class="string">b&quot;Hello&quot;</span>[..], Value::&lt;Prefix&gt;::pallet_prefix());
+		</span><span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span><span class="string">b"Hello"</span>[..], Value::&lt;Prefix&gt;::pallet_prefix());
 	});
 }</code></pre></div>
 <p>It requires that the given prefix type implements <a href="pallet_prelude/trait.Get.html" title="trait frame_support::pallet_prelude::Get"><code>Get&lt;'static str&gt;</code></a>.</p>
@@ -251,13 +252,13 @@ indication that it should use the pallet name as the <code>prefix</code>:</li>
 		</span><span class="attr">#[<span class="kw">crate</span>::storage_alias]
 		</span><span class="kw">pub type </span>Value = StorageValue&lt;Test, u32&gt;;
 
-		<span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span><span class="string">b&quot;Test&quot;</span>[..], Value::pallet_prefix());
+		<span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span><span class="string">b"Test"</span>[..], Value::pallet_prefix());
 
 		<span class="comment">// The macro will use the pallet name as prefix.
 		</span><span class="attr">#[<span class="kw">crate</span>::storage_alias]
 		</span><span class="kw">pub type </span>PalletValue&lt;T: Config&gt; = StorageValue&lt;Pallet&lt;T&gt;, u32&gt;;
 
-		<span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span><span class="string">b&quot;System&quot;</span>[..], PalletValue::&lt;Runtime&gt;::pallet_prefix());
+		<span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span><span class="string">b"System"</span>[..], PalletValue::&lt;Runtime&gt;::pallet_prefix());
 	});
 }</code></pre></div>
 <hr />

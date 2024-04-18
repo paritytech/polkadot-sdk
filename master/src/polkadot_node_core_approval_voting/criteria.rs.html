@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/core/approval-voting/src/criteria.rs`."><title>criteria.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/core/approval-voting/src/criteria.rs`."><title>criteria.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_node_core_approval_voting" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_node_core_approval_voting" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../polkadot_node_core_approval_voting/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1490,10 +1492,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	relay_vrf_story: RelayVRFStory,
 	sample: <span class="prelude-ty">Option</span>&lt;u32&gt;,
 ) -&gt; Transcript {
-	transcript.append_message(<span class="string">b&quot;RC-VRF&quot;</span>, <span class="kw-2">&amp;</span>relay_vrf_story.<span class="number">0</span>);
+	transcript.append_message(<span class="string">b"RC-VRF"</span>, <span class="kw-2">&amp;</span>relay_vrf_story.<span class="number">0</span>);
 
 	<span class="kw">if let </span><span class="prelude-val">Some</span>(sample) = sample {
-		sample.using_encoded(|s| transcript.append_message(<span class="string">b&quot;sample&quot;</span>, s));
+		sample.using_encoded(|s| transcript.append_message(<span class="string">b"sample"</span>, s));
 	}
 
 	transcript
@@ -1536,8 +1538,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Generates `num_samples` randomly from (0..max_cores) range
 ///
-/// Note! The algorithm can&#39;t change because validators on the other
-/// side won&#39;t be able to check the assignments until they update.
+/// Note! The algorithm can't change because validators on the other
+/// side won't be able to check the assignments until they update.
 /// This invariant is tested with `generate_samples_invariant`, so the
 /// tests will catch any subtle changes in the implementation of this function
 /// and its dependencies.
@@ -1552,7 +1554,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			n_cores = max_cores,
 			num_samples,
 			max_modulo_samples = MAX_MODULO_SAMPLES,
-			<span class="string">&quot;`num_samples` is greater than `MAX_MODULO_SAMPLES`&quot;</span>,
+			<span class="string">"`num_samples` is greater than `MAX_MODULO_SAMPLES`"</span>,
 		);
 	}
 
@@ -1562,7 +1564,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			n_cores = max_cores,
 			num_samples,
 			max_modulo_samples = MAX_MODULO_SAMPLES,
-			<span class="string">&quot;Suboptimal configuration `num_samples` should be less than `n_cores` / 2&quot;</span>,
+			<span class="string">"Suboptimal configuration `num_samples` should be less than `n_cores` / 2"</span>,
 		);
 	}
 
@@ -1583,8 +1585,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">fn </span>relay_vrf_delay_transcript(relay_vrf_story: RelayVRFStory, core_index: CoreIndex) -&gt; Transcript {
 	<span class="kw">let </span><span class="kw-2">mut </span>t = Transcript::new(approval_types::v1::RELAY_VRF_DELAY_CONTEXT);
-	t.append_message(<span class="string">b&quot;RC-VRF&quot;</span>, <span class="kw-2">&amp;</span>relay_vrf_story.<span class="number">0</span>);
-	core_index.<span class="number">0</span>.using_encoded(|s| t.append_message(<span class="string">b&quot;core&quot;</span>, s));
+	t.append_message(<span class="string">b"RC-VRF"</span>, <span class="kw-2">&amp;</span>relay_vrf_story.<span class="number">0</span>);
+	core_index.<span class="number">0</span>.using_encoded(|s| t.append_message(<span class="string">b"core"</span>, s));
 	t
 }
 
@@ -1605,7 +1607,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">fn </span>assigned_core_transcript(core_index: CoreIndex) -&gt; Transcript {
 	<span class="kw">let </span><span class="kw-2">mut </span>t = Transcript::new(approval_types::v1::ASSIGNED_CORE_CONTEXT);
-	core_index.<span class="number">0</span>.using_encoded(|s| t.append_message(<span class="string">b&quot;core&quot;</span>, s));
+	core_index.<span class="number">0</span>.using_encoded(|s| t.append_message(<span class="string">b"core"</span>, s));
 	t
 }
 
@@ -1626,8 +1628,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>n_delay_tranches: u32,
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; From&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>SessionInfo&gt; <span class="kw">for </span>Config {
-	<span class="kw">fn </span>from(s: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>SessionInfo) -&gt; <span class="self">Self </span>{
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; From&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>SessionInfo&gt; <span class="kw">for </span>Config {
+	<span class="kw">fn </span>from(s: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>SessionInfo) -&gt; <span class="self">Self </span>{
 		Config {
 			assignment_keys: s.assignment_keys.clone(),
 			validator_groups: s.validator_groups.clone(),
@@ -1657,7 +1659,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		config: <span class="kw-2">&amp;</span>Config,
 		relay_vrf_story: RelayVRFStory,
 		assignment: <span class="kw-2">&amp;</span>AssignmentCertV2,
-		<span class="comment">// Backing groups for each &quot;leaving core&quot;.
+		<span class="comment">// Backing groups for each "leaving core".
 		</span>backing_groups: Vec&lt;GroupIndex&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;DelayTranche, InvalidAssignment&gt;;
 }
@@ -1723,7 +1725,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			n_cores = config.n_cores,
 			has_assignment_keys = !config.assignment_keys.is_empty(),
 			has_validator_groups = !config.validator_groups.is_empty(),
-			<span class="string">&quot;Not producing assignments because config is degenerate&quot;</span>,
+			<span class="string">"Not producing assignments because config is degenerate"</span>,
 		);
 
 		<span class="kw">return </span>HashMap::new()
@@ -1737,7 +1739,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="prelude-val">Err</span>(sc_keystore::Error::Unavailable) =&gt; <span class="prelude-val">None</span>,
 				<span class="prelude-val">Err</span>(sc_keystore::Error::Io(e)) <span class="kw">if </span>e.kind() == std::io::ErrorKind::NotFound =&gt; <span class="prelude-val">None</span>,
 				<span class="prelude-val">Err</span>(e) =&gt; {
-					<span class="macro">gum::warn!</span>(target: LOG_TARGET, <span class="string">&quot;Encountered keystore error: {:?}&quot;</span>, e);
+					<span class="macro">gum::warn!</span>(target: LOG_TARGET, <span class="string">"Encountered keystore error: {:?}"</span>, e);
 					<span class="prelude-val">None
 				</span>},
 			}
@@ -1745,7 +1747,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">match </span>key {
 			<span class="prelude-val">None </span>=&gt; {
-				<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="string">&quot;No assignment key&quot;</span>);
+				<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="string">"No assignment key"</span>);
 				<span class="kw">return </span>HashMap::new()
 			},
 			<span class="prelude-val">Some</span>(k) =&gt; k,
@@ -1762,7 +1764,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="macro">gum::trace!</span>(
 		target: LOG_TARGET,
 		assignable_cores = leaving_cores.len(),
-		<span class="string">&quot;Assigning to candidates from different backing groups&quot;
+		<span class="string">"Assigning to candidates from different backing groups"
 	</span>);
 
 	<span class="kw">let </span>assignments_key: <span class="kw-2">&amp;</span>sp_application_crypto::sr25519::Pair = assignments_key.as_ref();
@@ -1832,7 +1834,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							<span class="question-mark">?</span>core,
 							<span class="question-mark">?</span>validator_index,
 							tranche = <span class="number">0</span>,
-							<span class="string">&quot;RelayVRFModulo Assignment.&quot;
+							<span class="string">"RelayVRFModulo Assignment."
 						</span>);
 
 						<span class="prelude-val">Some</span>(assigned_core_transcript(<span class="kw-2">*</span>core))
@@ -1867,7 +1869,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">fn </span>assigned_cores_transcript(core_bitfield: <span class="kw-2">&amp;</span>CoreBitfield) -&gt; Transcript {
 	<span class="kw">let </span><span class="kw-2">mut </span>t = Transcript::new(approval_types::v2::ASSIGNED_CORE_CONTEXT);
-	core_bitfield.using_encoded(|s| t.append_message(<span class="string">b&quot;cores&quot;</span>, s));
+	core_bitfield.using_encoded(|s| t.append_message(<span class="string">b"cores"</span>, s));
 	t
 }
 
@@ -1902,13 +1904,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="question-mark">?</span>assigned_cores,
 						<span class="question-mark">?</span>validator_index,
 						tranche = <span class="number">0</span>,
-						<span class="string">&quot;RelayVRFModuloCompact Assignment.&quot;
+						<span class="string">"RelayVRFModuloCompact Assignment."
 					</span>);
 
 					<span class="kw">let </span>assignment_bitfield: CoreBitfield = assigned_cores
 						.clone()
 						.try_into()
-						.expect(<span class="string">&quot;Just checked `!assigned_cores.is_empty()`; qed&quot;</span>);
+						.expect(<span class="string">"Just checked `!assigned_cores.is_empty()`; qed"</span>);
 
 					<span class="prelude-val">Some</span>(assigned_cores_transcript(<span class="kw-2">&amp;</span>assignment_bitfield))
 				} <span class="kw">else </span>{
@@ -1922,7 +1924,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>assignment_bitfield: CoreBitfield = assigned_cores
 			.clone()
 			.try_into()
-			.expect(<span class="string">&quot;Just checked `!assigned_cores.is_empty()`; qed&quot;</span>);
+			.expect(<span class="string">"Just checked `!assigned_cores.is_empty()`; qed"</span>);
 
 		<span class="kw">let </span>cert = AssignmentCertV2 {
 			kind: AssignmentCertKindV2::RelayVRFModuloCompact {
@@ -1992,7 +1994,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="question-mark">?</span>core,
 				<span class="question-mark">?</span>validator_index,
 				tranche,
-				<span class="string">&quot;RelayVRFDelay Assignment&quot;</span>,
+				<span class="string">"RelayVRFDelay Assignment"</span>,
 			);
 		}
 	}
@@ -2004,7 +2006,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl </span>std::fmt::Display <span class="kw">for </span>InvalidAssignment {
 	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter) -&gt; std::fmt::Result {
-		<span class="macro">write!</span>(f, <span class="string">&quot;Invalid Assignment: {:?}&quot;</span>, <span class="self">self</span>.<span class="number">0</span>)
+		<span class="macro">write!</span>(f, <span class="string">"Invalid Assignment: {:?}"</span>, <span class="self">self</span>.<span class="number">0</span>)
 	}
 }
 
@@ -2030,7 +2032,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Checks the crypto of an assignment cert. Failure conditions:
 ///   * Validator index out of bounds
 ///   * VRF signature check fails
-///   * VRF output doesn&#39;t match assigned cores
+///   * VRF output doesn't match assigned cores
 ///   * Core is not covered by extra data in signature
 ///   * Core index out of bounds
 ///   * Sample is out of bounds
@@ -2082,7 +2084,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>vrf_pre_output = <span class="kw-2">&amp;</span>assignment.vrf.pre_output;
 	<span class="kw">let </span>vrf_proof = <span class="kw-2">&amp;</span>assignment.vrf.proof;
 	<span class="kw">let </span>first_claimed_core_index =
-		claimed_core_indices.first_one().expect(<span class="string">&quot;Checked above; qed&quot;</span>) <span class="kw">as </span>u32;
+		claimed_core_indices.first_one().expect(<span class="string">"Checked above; qed"</span>) <span class="kw">as </span>u32;
 
 	<span class="kw">match </span><span class="kw-2">&amp;</span>assignment.kind {
 		AssignmentCertKindV2::RelayVRFModuloCompact { core_bitfield } =&gt; {
@@ -2117,7 +2119,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="question-mark">?</span>resulting_cores,
 						<span class="question-mark">?</span>claimed_core_indices,
 						vrf_modulo_cores = <span class="question-mark">?</span>resulting_cores,
-						<span class="string">&quot;Assignment claimed cores mismatch&quot;</span>,
+						<span class="string">"Assignment claimed cores mismatch"</span>,
 					);
 					<span class="kw">return </span><span class="prelude-val">Err</span>(InvalidAssignment(Reason::VRFModuloCoreIndexMismatch))
 				}
@@ -2135,7 +2137,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="macro">gum::warn!</span>(
 					target: LOG_TARGET,
 					<span class="question-mark">?</span>claimed_core_indices,
-					<span class="string">&quot;`RelayVRFModulo` assignment must always claim 1 core&quot;</span>,
+					<span class="string">"`RelayVRFModulo` assignment must always claim 1 core"</span>,
 				);
 				<span class="kw">return </span><span class="prelude-val">Err</span>(InvalidAssignment(Reason::InvalidArguments))
 			}
@@ -2158,7 +2160,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					target: LOG_TARGET,
 					<span class="question-mark">?</span>core,
 					<span class="question-mark">?</span>claimed_core_indices,
-					<span class="string">&quot;Assignment claimed cores mismatch&quot;</span>,
+					<span class="string">"Assignment claimed cores mismatch"</span>,
 				);
 				<span class="prelude-val">Err</span>(InvalidAssignment(Reason::VRFModuloCoreIndexMismatch))
 			}
@@ -2169,7 +2171,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="macro">gum::debug!</span>(
 					target: LOG_TARGET,
 					<span class="question-mark">?</span>claimed_core_indices,
-					<span class="string">&quot;`RelayVRFDelay` assignment must always claim 1 core&quot;</span>,
+					<span class="string">"`RelayVRFDelay` assignment must always claim 1 core"</span>,
 				);
 				<span class="kw">return </span><span class="prelude-val">Err</span>(InvalidAssignment(Reason::InvalidArguments))
 			}

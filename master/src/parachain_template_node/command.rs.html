@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `templates/parachain/node/src/command.rs`."><title>command.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `templates/parachain/node/src/command.rs`."><title>command.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="parachain_template_node" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="parachain_template_node" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../parachain_template_node/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -555,38 +557,38 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">fn </span>load_spec(id: <span class="kw-2">&amp;</span>str) -&gt; std::result::Result&lt;Box&lt;<span class="kw">dyn </span>ChainSpec&gt;, String&gt; {
 	<span class="prelude-val">Ok</span>(<span class="kw">match </span>id {
-		<span class="string">&quot;dev&quot; </span>=&gt; Box::new(chain_spec::development_config()),
-		<span class="string">&quot;template-rococo&quot; </span>=&gt; Box::new(chain_spec::local_testnet_config()),
-		<span class="string">&quot;&quot; </span>| <span class="string">&quot;local&quot; </span>=&gt; Box::new(chain_spec::local_testnet_config()),
+		<span class="string">"dev" </span>=&gt; Box::new(chain_spec::development_config()),
+		<span class="string">"template-rococo" </span>=&gt; Box::new(chain_spec::local_testnet_config()),
+		<span class="string">"" </span>| <span class="string">"local" </span>=&gt; Box::new(chain_spec::local_testnet_config()),
 		path =&gt; Box::new(chain_spec::ChainSpec::from_json_file(std::path::PathBuf::from(path))<span class="question-mark">?</span>),
 	})
 }
 
 <span class="kw">impl </span>SubstrateCli <span class="kw">for </span>Cli {
 	<span class="kw">fn </span>impl_name() -&gt; String {
-		<span class="string">&quot;Parachain Collator Template&quot;</span>.into()
+		<span class="string">"Parachain Collator Template"</span>.into()
 	}
 
 	<span class="kw">fn </span>impl_version() -&gt; String {
-		<span class="macro">env!</span>(<span class="string">&quot;SUBSTRATE_CLI_IMPL_VERSION&quot;</span>).into()
+		<span class="macro">env!</span>(<span class="string">"SUBSTRATE_CLI_IMPL_VERSION"</span>).into()
 	}
 
 	<span class="kw">fn </span>description() -&gt; String {
 		<span class="macro">format!</span>(
-			<span class="string">&quot;Parachain Collator Template\n\nThe command-line arguments provided first will be \
+			<span class="string">"Parachain Collator Template\n\nThe command-line arguments provided first will be \
 		passed to the parachain node, while the arguments provided after -- will be passed \
 		to the relay chain node.\n\n\
-		{} &lt;parachain-args&gt; -- &lt;relay-chain-args&gt;&quot;</span>,
+		{} &lt;parachain-args&gt; -- &lt;relay-chain-args&gt;"</span>,
 			<span class="self">Self</span>::executable_name()
 		)
 	}
 
 	<span class="kw">fn </span>author() -&gt; String {
-		<span class="macro">env!</span>(<span class="string">&quot;CARGO_PKG_AUTHORS&quot;</span>).into()
+		<span class="macro">env!</span>(<span class="string">"CARGO_PKG_AUTHORS"</span>).into()
 	}
 
 	<span class="kw">fn </span>support_url() -&gt; String {
-		<span class="string">&quot;https://github.com/paritytech/polkadot-sdk/issues/new&quot;</span>.into()
+		<span class="string">"https://github.com/paritytech/polkadot-sdk/issues/new"</span>.into()
 	}
 
 	<span class="kw">fn </span>copyright_start_year() -&gt; i32 {
@@ -600,29 +602,29 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl </span>SubstrateCli <span class="kw">for </span>RelayChainCli {
 	<span class="kw">fn </span>impl_name() -&gt; String {
-		<span class="string">&quot;Parachain Collator Template&quot;</span>.into()
+		<span class="string">"Parachain Collator Template"</span>.into()
 	}
 
 	<span class="kw">fn </span>impl_version() -&gt; String {
-		<span class="macro">env!</span>(<span class="string">&quot;SUBSTRATE_CLI_IMPL_VERSION&quot;</span>).into()
+		<span class="macro">env!</span>(<span class="string">"SUBSTRATE_CLI_IMPL_VERSION"</span>).into()
 	}
 
 	<span class="kw">fn </span>description() -&gt; String {
 		<span class="macro">format!</span>(
-			<span class="string">&quot;Parachain Collator Template\n\nThe command-line arguments provided first will be \
+			<span class="string">"Parachain Collator Template\n\nThe command-line arguments provided first will be \
 		passed to the parachain node, while the arguments provided after -- will be passed \
 		to the relay chain node.\n\n\
-		{} &lt;parachain-args&gt; -- &lt;relay-chain-args&gt;&quot;</span>,
+		{} &lt;parachain-args&gt; -- &lt;relay-chain-args&gt;"</span>,
 			<span class="self">Self</span>::executable_name()
 		)
 	}
 
 	<span class="kw">fn </span>author() -&gt; String {
-		<span class="macro">env!</span>(<span class="string">&quot;CARGO_PKG_AUTHORS&quot;</span>).into()
+		<span class="macro">env!</span>(<span class="string">"CARGO_PKG_AUTHORS"</span>).into()
 	}
 
 	<span class="kw">fn </span>support_url() -&gt; String {
-		<span class="string">&quot;https://github.com/paritytech/polkadot-sdk/issues/new&quot;</span>.into()
+		<span class="string">"https://github.com/paritytech/polkadot-sdk/issues/new"</span>.into()
 	}
 
 	<span class="kw">fn </span>copyright_start_year() -&gt; i32 {
@@ -693,7 +695,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw-2">&amp;</span>polkadot_cli,
 					config.tokio_handle.clone(),
 				)
-				.map_err(|err| <span class="macro">format!</span>(<span class="string">&quot;Relay chain argument error: {}&quot;</span>, err))<span class="question-mark">?</span>;
+				.map_err(|err| <span class="macro">format!</span>(<span class="string">"Relay chain argument error: {}"</span>, err))<span class="question-mark">?</span>;
 
 				cmd.run(config, polkadot_config)
 			})
@@ -718,26 +720,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// Switch on the concrete benchmark sub-command-
 			</span><span class="kw">match </span>cmd {
 				BenchmarkCmd::Pallet(cmd) =&gt;
-					<span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>) {
+					<span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">"runtime-benchmarks"</span>) {
 						runner.sync_run(|config| cmd.run_with_spec::&lt;sp_runtime::traits::HashingFor&lt;Block&gt;, ReclaimHostFunctions&gt;(<span class="prelude-val">Some</span>(config.chain_spec)))
 					} <span class="kw">else </span>{
-						<span class="prelude-val">Err</span>(<span class="string">&quot;Benchmarking wasn&#39;t enabled when building the node. \
-					You can enable it with `--features runtime-benchmarks`.&quot;
+						<span class="prelude-val">Err</span>(<span class="string">"Benchmarking wasn't enabled when building the node. \
+					You can enable it with `--features runtime-benchmarks`."
 							</span>.into())
 					},
 				BenchmarkCmd::Block(cmd) =&gt; runner.sync_run(|config| {
 					<span class="kw">let </span>partials = new_partial(<span class="kw-2">&amp;</span>config)<span class="question-mark">?</span>;
 					cmd.run(partials.client)
 				}),
-				<span class="attr">#[cfg(not(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>))]
+				<span class="attr">#[cfg(not(feature = <span class="string">"runtime-benchmarks"</span>))]
 				</span>BenchmarkCmd::Storage(<span class="kw">_</span>) =&gt;
 					<span class="kw">return </span><span class="prelude-val">Err</span>(sc_cli::Error::Input(
-						<span class="string">&quot;Compile with --features=runtime-benchmarks \
-						to enable storage benchmarks.&quot;
+						<span class="string">"Compile with --features=runtime-benchmarks \
+						to enable storage benchmarks."
 							</span>.into(),
 					)
 					.into()),
-				<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+				<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 				</span>BenchmarkCmd::Storage(cmd) =&gt; runner.sync_run(|config| {
 					<span class="kw">let </span>partials = new_partial(<span class="kw-2">&amp;</span>config)<span class="question-mark">?</span>;
 					<span class="kw">let </span>db = partials.backend.expose_db();
@@ -749,7 +751,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="comment">// NOTE: this allows the Client to leniently implement
 				// new benchmark commands without requiring a companion MR.
 				</span><span class="attr">#[allow(unreachable_patterns)]
-				</span><span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(<span class="string">&quot;Benchmarking sub-command unsupported&quot;</span>.into()),
+				</span><span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(<span class="string">"Benchmarking sub-command unsupported"</span>.into()),
 			}
 		},
 		<span class="prelude-val">None </span>=&gt; {
@@ -766,7 +768,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 				<span class="kw">let </span>para_id = chain_spec::Extensions::try_get(<span class="kw-2">&amp;*</span>config.chain_spec)
 					.map(|e| e.para_id)
-					.ok_or(<span class="string">&quot;Could not find parachain ID in chain-spec.&quot;</span>)<span class="question-mark">?</span>;
+					.ok_or(<span class="string">"Could not find parachain ID in chain-spec."</span>)<span class="question-mark">?</span>;
 
 				<span class="kw">let </span>polkadot_cli = RelayChainCli::new(
 					<span class="kw-2">&amp;</span>config,
@@ -778,9 +780,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">let </span>tokio_handle = config.tokio_handle.clone();
 				<span class="kw">let </span>polkadot_config =
 					SubstrateCli::create_configuration(<span class="kw-2">&amp;</span>polkadot_cli, <span class="kw-2">&amp;</span>polkadot_cli, tokio_handle)
-						.map_err(|err| <span class="macro">format!</span>(<span class="string">&quot;Relay chain argument error: {}&quot;</span>, err))<span class="question-mark">?</span>;
+						.map_err(|err| <span class="macro">format!</span>(<span class="string">"Relay chain argument error: {}"</span>, err))<span class="question-mark">?</span>;
 
-				<span class="macro">info!</span>(<span class="string">&quot;Is collating: {}&quot;</span>, <span class="kw">if </span>config.role.is_authority() { <span class="string">&quot;yes&quot; </span>} <span class="kw">else </span>{ <span class="string">&quot;no&quot; </span>});
+				<span class="macro">info!</span>(<span class="string">"Is collating: {}"</span>, <span class="kw">if </span>config.role.is_authority() { <span class="string">"yes" </span>} <span class="kw">else </span>{ <span class="string">"no" </span>});
 
 				<span class="kw">crate</span>::service::start_parachain_node(
 					config,
@@ -857,7 +859,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">where
 		</span>F: FnOnce(<span class="kw-2">&amp;mut </span>sc_cli::LoggerBuilder, <span class="kw-2">&amp;</span>sc_service::Configuration),
 	{
-		<span class="macro">unreachable!</span>(<span class="string">&quot;PolkadotCli is never initialized; qed&quot;</span>);
+		<span class="macro">unreachable!</span>(<span class="string">"PolkadotCli is never initialized; qed"</span>);
 	}
 
 	<span class="kw">fn </span>chain_id(<span class="kw-2">&amp;</span><span class="self">self</span>, is_dev: bool) -&gt; <span class="prelude-ty">Result</span>&lt;String&gt; {

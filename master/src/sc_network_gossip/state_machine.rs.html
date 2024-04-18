@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/network-gossip/src/state_machine.rs`."><title>state_machine.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/network-gossip/src/state_machine.rs`."><title>state_machine.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_network_gossip" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_network_gossip" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sc_network_gossip/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1121,10 +1123,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">mod </span>rep {
 	<span class="kw">use </span>sc_network::ReputationChange <span class="kw">as </span>Rep;
-	<span class="doccomment">/// Reputation change when a peer sends us a gossip message that we didn&#39;t know about.
-	</span><span class="kw">pub const </span>GOSSIP_SUCCESS: Rep = Rep::new(<span class="number">1 </span>&lt;&lt; <span class="number">4</span>, <span class="string">&quot;Successful gossip&quot;</span>);
+	<span class="doccomment">/// Reputation change when a peer sends us a gossip message that we didn't know about.
+	</span><span class="kw">pub const </span>GOSSIP_SUCCESS: Rep = Rep::new(<span class="number">1 </span>&lt;&lt; <span class="number">4</span>, <span class="string">"Successful gossip"</span>);
 	<span class="doccomment">/// Reputation change when a peer sends us a gossip message that we already knew about.
-	</span><span class="kw">pub const </span>DUPLICATE_GOSSIP: Rep = Rep::new(-(<span class="number">1 </span>&lt;&lt; <span class="number">2</span>), <span class="string">&quot;Duplicate gossip&quot;</span>);
+	</span><span class="kw">pub const </span>DUPLICATE_GOSSIP: Rep = Rep::new(-(<span class="number">1 </span>&lt;&lt; <span class="number">2</span>), <span class="string">"Duplicate gossip"</span>);
 }
 
 <span class="kw">struct </span>PeerConsensus&lt;H&gt; {
@@ -1148,12 +1150,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Local implementation of `ValidatorContext`.
-</span><span class="kw">struct </span>NetworkContext&lt;<span class="lifetime">&#39;g</span>, <span class="lifetime">&#39;p</span>, B: BlockT&gt; {
-	gossip: <span class="kw-2">&amp;</span><span class="lifetime">&#39;g </span><span class="kw-2">mut </span>ConsensusGossip&lt;B&gt;,
-	notification_service: <span class="kw-2">&amp;</span><span class="lifetime">&#39;p </span><span class="kw-2">mut </span>Box&lt;<span class="kw">dyn </span>NotificationService&gt;,
+</span><span class="kw">struct </span>NetworkContext&lt;<span class="lifetime">'g</span>, <span class="lifetime">'p</span>, B: BlockT&gt; {
+	gossip: <span class="kw-2">&amp;</span><span class="lifetime">'g </span><span class="kw-2">mut </span>ConsensusGossip&lt;B&gt;,
+	notification_service: <span class="kw-2">&amp;</span><span class="lifetime">'p </span><span class="kw-2">mut </span>Box&lt;<span class="kw">dyn </span>NotificationService&gt;,
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;g</span>, <span class="lifetime">&#39;p</span>, B: BlockT&gt; ValidatorContext&lt;B&gt; <span class="kw">for </span>NetworkContext&lt;<span class="lifetime">&#39;g</span>, <span class="lifetime">&#39;p</span>, B&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">'g</span>, <span class="lifetime">'p</span>, B: BlockT&gt; ValidatorContext&lt;B&gt; <span class="kw">for </span>NetworkContext&lt;<span class="lifetime">'g</span>, <span class="lifetime">'p</span>, B&gt; {
 	<span class="doccomment">/// Broadcast all messages with given topic to peers that do not have it yet.
 	</span><span class="kw">fn </span>broadcast_topic(<span class="kw-2">&amp;mut </span><span class="self">self</span>, topic: B::Hash, force: bool) {
 		<span class="self">self</span>.gossip.broadcast_topic(<span class="self">self</span>.notification_service, topic, force);
@@ -1175,7 +1177,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">fn </span>propagate&lt;<span class="lifetime">&#39;a</span>, B: BlockT, I&gt;(
+<span class="kw">fn </span>propagate&lt;<span class="lifetime">'a</span>, B: BlockT, I&gt;(
 	notification_service: <span class="kw-2">&amp;mut </span>Box&lt;<span class="kw">dyn </span>NotificationService&gt;,
 	protocol: ProtocolName,
 	messages: I,
@@ -1185,7 +1187,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 )
 <span class="comment">// (msg_hash, topic, message)
 </span><span class="kw">where
-	</span>I: Clone + IntoIterator&lt;Item = (<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>B::Hash, <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>B::Hash, <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Vec&lt;u8&gt;)&gt;,
+	</span>I: Clone + IntoIterator&lt;Item = (<span class="kw-2">&amp;</span><span class="lifetime">'a </span>B::Hash, <span class="kw-2">&amp;</span><span class="lifetime">'a </span>B::Hash, <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Vec&lt;u8&gt;)&gt;,
 {
 	<span class="kw">let </span><span class="kw-2">mut </span>message_allowed = validator.message_allowed();
 
@@ -1202,7 +1204,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw">if </span>peer.known_messages.contains(message_hash) {
 						MessageIntent::PeriodicRebroadcast
 					} <span class="kw">else </span>{
-						<span class="comment">// peer doesn&#39;t know message, so the logic should treat it as an
+						<span class="comment">// peer doesn't know message, so the logic should treat it as an
 						// initial broadcast.
 						</span>MessageIntent::Broadcast
 					}
@@ -1217,11 +1219,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			peer.known_messages.insert(<span class="kw-2">*</span>message_hash);
 
 			<span class="macro">tracing::trace!</span>(
-				target: <span class="string">&quot;gossip&quot;</span>,
+				target: <span class="string">"gossip"</span>,
 				to = %id,
 				%protocol,
 				<span class="question-mark">?</span>message,
-				<span class="string">&quot;Propagating message&quot;</span>,
+				<span class="string">"Propagating message"</span>,
 			);
 			notification_service.send_sync_notification(id, message.clone());
 		}
@@ -1249,7 +1251,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>metrics = <span class="kw">match </span>metrics_registry.map(Metrics::register) {
 			<span class="prelude-val">Some</span>(<span class="prelude-val">Ok</span>(metrics)) =&gt; <span class="prelude-val">Some</span>(metrics),
 			<span class="prelude-val">Some</span>(<span class="prelude-val">Err</span>(e)) =&gt; {
-				<span class="macro">tracing::debug!</span>(target: <span class="string">&quot;gossip&quot;</span>, <span class="string">&quot;Failed to register metrics: {:?}&quot;</span>, e);
+				<span class="macro">tracing::debug!</span>(target: <span class="string">"gossip"</span>, <span class="string">"Failed to register metrics: {:?}"</span>, e);
 				<span class="prelude-val">None
 			</span>},
 			<span class="prelude-val">None </span>=&gt; <span class="prelude-val">None</span>,
@@ -1274,11 +1276,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		role: ObservedRole,
 	) {
 		<span class="macro">tracing::trace!</span>(
-			target:<span class="string">&quot;gossip&quot;</span>,
+			target:<span class="string">"gossip"</span>,
 			%who,
 			protocol = %<span class="self">self</span>.protocol,
 			<span class="question-mark">?</span>role,
-			<span class="string">&quot;Registering peer&quot;</span>,
+			<span class="string">"Registering peer"</span>,
 		);
 		<span class="self">self</span>.peers.insert(who, PeerConsensus { known_messages: Default::default() });
 
@@ -1305,7 +1307,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Registers a message without propagating it to any peers. The message
 	/// becomes available to new peers or when the service is asked to gossip
-	/// the message&#39;s topic. No validation is performed on the message, if the
+	/// the message's topic. No validation is performed on the message, if the
 	/// message is already expired it should be dropped on the next garbage
 	/// collection.
 	</span><span class="kw">pub fn </span>register_message(<span class="kw-2">&amp;mut </span><span class="self">self</span>, topic: B::Hash, message: Vec&lt;u8&gt;) {
@@ -1392,9 +1394,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 
 		<span class="macro">tracing::trace!</span>(
-			target: <span class="string">&quot;gossip&quot;</span>,
+			target: <span class="string">"gossip"</span>,
 			protocol = %<span class="self">self</span>.protocol,
-			<span class="string">&quot;Cleaned up {} stale messages, {} left ({} known)&quot;</span>,
+			<span class="string">"Cleaned up {} stale messages, {} left ({} known)"</span>,
 			expired_messages,
 			<span class="self">self</span>.messages.len(),
 			known_messages.len(),
@@ -1406,7 +1408,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Get valid messages received in the past for a topic (might have expired meanwhile).
-	</span><span class="kw">pub fn </span>messages_for(<span class="kw-2">&amp;mut </span><span class="self">self</span>, topic: B::Hash) -&gt; <span class="kw">impl </span>Iterator&lt;Item = TopicNotification&gt; + <span class="lifetime">&#39;_ </span>{
+	</span><span class="kw">pub fn </span>messages_for(<span class="kw-2">&amp;mut </span><span class="self">self</span>, topic: B::Hash) -&gt; <span class="kw">impl </span>Iterator&lt;Item = TopicNotification&gt; + <span class="lifetime">'_ </span>{
 		<span class="self">self</span>.messages
 			.iter()
 			.filter(<span class="kw">move </span>|e| e.topic == topic)
@@ -1426,11 +1428,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">if </span>!messages.is_empty() {
 			<span class="macro">tracing::trace!</span>(
-				target: <span class="string">&quot;gossip&quot;</span>,
+				target: <span class="string">"gossip"</span>,
 				messages_num = %messages.len(),
 				%who,
 				protocol = %<span class="self">self</span>.protocol,
-				<span class="string">&quot;Received messages from peer&quot;</span>,
+				<span class="string">"Received messages from peer"</span>,
 			);
 		}
 
@@ -1439,13 +1441,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="kw">if </span><span class="self">self</span>.known_messages.get(<span class="kw-2">&amp;</span>message_hash).is_some() {
 				<span class="macro">tracing::trace!</span>(
-					target: <span class="string">&quot;gossip&quot;</span>,
+					target: <span class="string">"gossip"</span>,
 					%who,
 					protocol = %<span class="self">self</span>.protocol,
-					<span class="string">&quot;Ignored already known message&quot;</span>,
+					<span class="string">"Ignored already known message"</span>,
 				);
 
-				<span class="comment">// If the peer already send us the message once, let&#39;s report them.
+				<span class="comment">// If the peer already send us the message once, let's report them.
 				</span><span class="kw">if </span><span class="self">self
 					</span>.peers
 					.get_mut(<span class="kw-2">&amp;</span>who)
@@ -1468,10 +1470,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				ValidationResult::ProcessAndDiscard(topic) =&gt; (topic, <span class="bool-val">false</span>),
 				ValidationResult::Discard =&gt; {
 					<span class="macro">tracing::trace!</span>(
-						target: <span class="string">&quot;gossip&quot;</span>,
+						target: <span class="string">"gossip"</span>,
 						%who,
 						protocol = %<span class="self">self</span>.protocol,
-						<span class="string">&quot;Discard message from peer&quot;</span>,
+						<span class="string">"Discard message from peer"</span>,
 					);
 					<span class="kw">continue
 				</span>},
@@ -1481,10 +1483,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="prelude-val">Some</span>(peer) =&gt; peer,
 				<span class="prelude-val">None </span>=&gt; {
 					<span class="macro">tracing::error!</span>(
-						target: <span class="string">&quot;gossip&quot;</span>,
+						target: <span class="string">"gossip"</span>,
 						%who,
 						protocol = %<span class="self">self</span>.protocol,
-						<span class="string">&quot;Got message from unregistered peer&quot;</span>,
+						<span class="string">"Got message from unregistered peer"</span>,
 					);
 					<span class="kw">continue
 				</span>},
@@ -1529,11 +1531,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				peer.known_messages.insert(entry.message_hash);
 
 				<span class="macro">tracing::trace!</span>(
-					target: <span class="string">&quot;gossip&quot;</span>,
+					target: <span class="string">"gossip"</span>,
 					to = %who,
 					protocol = %<span class="self">self</span>.protocol,
 					<span class="question-mark">?</span>entry.message,
-					<span class="string">&quot;Sending topic message&quot;</span>,
+					<span class="string">"Sending topic message"</span>,
 				);
 				notification_service.send_sync_notification(who, entry.message.clone());
 			}
@@ -1577,11 +1579,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>message_hash = HashingFor::&lt;B&gt;::hash(<span class="kw-2">&amp;</span>message);
 
 		<span class="macro">tracing::trace!</span>(
-			target: <span class="string">&quot;gossip&quot;</span>,
+			target: <span class="string">"gossip"</span>,
 			to = %who,
 			protocol = %<span class="self">self</span>.protocol,
 			<span class="question-mark">?</span>message,
-			<span class="string">&quot;Sending direct message&quot;</span>,
+			<span class="string">"Sending direct message"</span>,
 		);
 
 		peer.known_messages.insert(message_hash);
@@ -1599,15 +1601,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Ok</span>(<span class="self">Self </span>{
 			registered_messages: register(
 				Counter::new(
-					<span class="string">&quot;substrate_network_gossip_registered_messages_total&quot;</span>,
-					<span class="string">&quot;Number of registered messages by the gossip service.&quot;</span>,
+					<span class="string">"substrate_network_gossip_registered_messages_total"</span>,
+					<span class="string">"Number of registered messages by the gossip service."</span>,
 				)<span class="question-mark">?</span>,
 				registry,
 			)<span class="question-mark">?</span>,
 			expired_messages: register(
 				Counter::new(
-					<span class="string">&quot;substrate_network_gossip_expired_messages_total&quot;</span>,
-					<span class="string">&quot;Number of expired messages by the gossip service.&quot;</span>,
+					<span class="string">"substrate_network_gossip_expired_messages_total"</span>,
+					<span class="string">"Number of expired messages by the gossip service."</span>,
 				)<span class="question-mark">?</span>,
 				registry,
 			)<span class="question-mark">?</span>,
@@ -1763,7 +1765,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">impl </span>NetworkEventStream <span class="kw">for </span>NoOpNetwork {
-		<span class="kw">fn </span>event_stream(<span class="kw-2">&amp;</span><span class="self">self</span>, _name: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str) -&gt; Pin&lt;Box&lt;<span class="kw">dyn </span>Stream&lt;Item = Event&gt; + Send&gt;&gt; {
+		<span class="kw">fn </span>event_stream(<span class="kw-2">&amp;</span><span class="self">self</span>, _name: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str) -&gt; Pin&lt;Box&lt;<span class="kw">dyn </span>Stream&lt;Item = Event&gt; + Send&gt;&gt; {
 			<span class="macro">unimplemented!</span>();
 		}
 	}
@@ -1855,14 +1857,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				}
 			}
 
-			<span class="kw">fn </span>message_expired&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>) -&gt; Box&lt;<span class="kw">dyn </span>FnMut(H256, <span class="kw-2">&amp;</span>[u8]) -&gt; bool + <span class="lifetime">&#39;a</span>&gt; {
+			<span class="kw">fn </span>message_expired&lt;<span class="lifetime">'a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>) -&gt; Box&lt;<span class="kw">dyn </span>FnMut(H256, <span class="kw-2">&amp;</span>[u8]) -&gt; bool + <span class="lifetime">'a</span>&gt; {
 				Box::new(<span class="kw">move </span>|_topic, data| data[<span class="number">0</span>] != <span class="number">1</span>)
 			}
 		}
 
 		<span class="kw">let </span>prev_hash = H256::random();
 		<span class="kw">let </span>best_hash = H256::random();
-		<span class="kw">let </span><span class="kw-2">mut </span>consensus = ConsensusGossip::&lt;Block&gt;::new(Arc::new(AllowAll), <span class="string">&quot;/foo&quot;</span>.into(), <span class="prelude-val">None</span>);
+		<span class="kw">let </span><span class="kw-2">mut </span>consensus = ConsensusGossip::&lt;Block&gt;::new(Arc::new(AllowAll), <span class="string">"/foo"</span>.into(), <span class="prelude-val">None</span>);
 		<span class="kw">let </span>m1_hash = H256::random();
 		<span class="kw">let </span>m2_hash = H256::random();
 		<span class="kw">let </span>m1 = <span class="macro">vec!</span>[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>];
@@ -1889,7 +1891,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>message_stream_include_those_sent_before_asking() {
-		<span class="kw">let </span><span class="kw-2">mut </span>consensus = ConsensusGossip::&lt;Block&gt;::new(Arc::new(AllowAll), <span class="string">&quot;/foo&quot;</span>.into(), <span class="prelude-val">None</span>);
+		<span class="kw">let </span><span class="kw-2">mut </span>consensus = ConsensusGossip::&lt;Block&gt;::new(Arc::new(AllowAll), <span class="string">"/foo"</span>.into(), <span class="prelude-val">None</span>);
 
 		<span class="comment">// Register message.
 		</span><span class="kw">let </span>message = <span class="macro">vec!</span>[<span class="number">4</span>, <span class="number">5</span>, <span class="number">6</span>];
@@ -1904,7 +1906,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>can_keep_multiple_messages_per_topic() {
-		<span class="kw">let </span><span class="kw-2">mut </span>consensus = ConsensusGossip::&lt;Block&gt;::new(Arc::new(AllowAll), <span class="string">&quot;/foo&quot;</span>.into(), <span class="prelude-val">None</span>);
+		<span class="kw">let </span><span class="kw-2">mut </span>consensus = ConsensusGossip::&lt;Block&gt;::new(Arc::new(AllowAll), <span class="string">"/foo"</span>.into(), <span class="prelude-val">None</span>);
 
 		<span class="kw">let </span>topic = [<span class="number">1</span>; <span class="number">32</span>].into();
 		<span class="kw">let </span>msg_a = <span class="macro">vec!</span>[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>];
@@ -1918,7 +1920,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>peer_is_removed_on_disconnect() {
-		<span class="kw">let </span><span class="kw-2">mut </span>consensus = ConsensusGossip::&lt;Block&gt;::new(Arc::new(AllowAll), <span class="string">&quot;/foo&quot;</span>.into(), <span class="prelude-val">None</span>);
+		<span class="kw">let </span><span class="kw-2">mut </span>consensus = ConsensusGossip::&lt;Block&gt;::new(Arc::new(AllowAll), <span class="string">"/foo"</span>.into(), <span class="prelude-val">None</span>);
 
 		<span class="kw">let </span><span class="kw-2">mut </span>notification_service: Box&lt;<span class="kw">dyn </span>NotificationService&gt; =
 			Box::new(NoOpNotificationService::default());
@@ -1935,7 +1937,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>on_incoming_ignores_discarded_messages() {
 		<span class="kw">let </span><span class="kw-2">mut </span>notification_service: Box&lt;<span class="kw">dyn </span>NotificationService&gt; =
 			Box::new(NoOpNotificationService::default());
-		<span class="kw">let </span>to_forward = ConsensusGossip::&lt;Block&gt;::new(Arc::new(DiscardAll), <span class="string">&quot;/foo&quot;</span>.into(), <span class="prelude-val">None</span>)
+		<span class="kw">let </span>to_forward = ConsensusGossip::&lt;Block&gt;::new(Arc::new(DiscardAll), <span class="string">"/foo"</span>.into(), <span class="prelude-val">None</span>)
 			.on_incoming(
 				<span class="kw-2">&amp;mut </span>NoOpNetwork::default(),
 				<span class="kw-2">&amp;mut </span>notification_service,
@@ -1945,7 +1947,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="macro">assert!</span>(
 			to_forward.is_empty(),
-			<span class="string">&quot;Expected `on_incoming` to ignore discarded message but got {:?}&quot;</span>,
+			<span class="string">"Expected `on_incoming` to ignore discarded message but got {:?}"</span>,
 			to_forward,
 		);
 	}
@@ -1957,7 +1959,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			Box::new(NoOpNotificationService::default());
 		<span class="kw">let </span>remote = PeerId::random();
 
-		<span class="kw">let </span>to_forward = ConsensusGossip::&lt;Block&gt;::new(Arc::new(AllowAll), <span class="string">&quot;/foo&quot;</span>.into(), <span class="prelude-val">None</span>)
+		<span class="kw">let </span>to_forward = ConsensusGossip::&lt;Block&gt;::new(Arc::new(AllowAll), <span class="string">"/foo"</span>.into(), <span class="prelude-val">None</span>)
 			.on_incoming(
 				<span class="kw-2">&amp;mut </span>network,
 				<span class="kw-2">&amp;mut </span>notification_service,
@@ -1968,7 +1970,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="macro">assert!</span>(
 			to_forward.is_empty(),
-			<span class="string">&quot;Expected `on_incoming` to ignore message from unregistered peer but got {:?}&quot;</span>,
+			<span class="string">"Expected `on_incoming` to ignore message from unregistered peer but got {:?}"</span>,
 			to_forward,
 		);
 	}
@@ -1977,7 +1979,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	// sending the gossip message as long as its the first time the peer send us this message.
 	</span><span class="attr">#[test]
 	</span><span class="kw">fn </span>do_not_report_peer_for_first_time_duplicate_gossip_message() {
-		<span class="kw">let </span><span class="kw-2">mut </span>consensus = ConsensusGossip::&lt;Block&gt;::new(Arc::new(AllowAll), <span class="string">&quot;/foo&quot;</span>.into(), <span class="prelude-val">None</span>);
+		<span class="kw">let </span><span class="kw-2">mut </span>consensus = ConsensusGossip::&lt;Block&gt;::new(Arc::new(AllowAll), <span class="string">"/foo"</span>.into(), <span class="prelude-val">None</span>);
 
 		<span class="kw">let </span><span class="kw-2">mut </span>network = NoOpNetwork::default();
 		<span class="kw">let </span><span class="kw-2">mut </span>notification_service: Box&lt;<span class="kw">dyn </span>NotificationService&gt; =

@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/bin/node/runtime/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/bin/node/runtime/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="kitchensink_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="kitchensink_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../kitchensink_runtime/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -3468,9 +3470,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="doccomment">//! The Substrate runtime. This can be compiled with `#[no_std]`, ready for Wasm.
 
-</span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
+</span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 </span><span class="comment">// `construct_runtime!` does a lot of recursion and requires us to increase the limits.
-</span><span class="attr">#![recursion_limit = <span class="string">&quot;1024&quot;</span>]
+</span><span class="attr">#![recursion_limit = <span class="string">"1024"</span>]
 
 </span><span class="kw">use </span>codec::{Decode, Encode, MaxEncodedLen};
 <span class="kw">use </span>frame_election_provider_support::{
@@ -3521,7 +3523,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>pallet_nfts::PalletFeatures;
 <span class="kw">use </span>pallet_nis::WithMaximumOf;
 <span class="kw">use </span>pallet_session::historical <span class="kw">as </span>pallet_session_historical;
-<span class="comment">// Can&#39;t use `FungibleAdapter` here until Treasury pallet migrates to fungibles
+<span class="comment">// Can't use `FungibleAdapter` here until Treasury pallet migrates to fungibles
 // &lt;https://github.com/paritytech/polkadot-sdk/issues/226&gt;
 </span><span class="attr">#[allow(deprecated)]
 </span><span class="kw">pub use </span>pallet_transaction_payment::{CurrencyAdapter, Multiplier, TargetedFeeAdjustment};
@@ -3549,25 +3551,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	RuntimeDebug,
 };
 <span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
-<span class="attr">#[cfg(any(feature = <span class="string">&quot;std&quot;</span>, test))]
+<span class="attr">#[cfg(any(feature = <span class="string">"std"</span>, test))]
 </span><span class="kw">use </span>sp_version::NativeVersion;
 <span class="kw">use </span>sp_version::RuntimeVersion;
 <span class="kw">use </span>static_assertions::const_assert;
 
-<span class="attr">#[cfg(any(feature = <span class="string">&quot;std&quot;</span>, test))]
+<span class="attr">#[cfg(any(feature = <span class="string">"std"</span>, test))]
 </span><span class="kw">pub use </span>frame_system::Call <span class="kw">as </span>SystemCall;
-<span class="attr">#[cfg(any(feature = <span class="string">&quot;std&quot;</span>, test))]
+<span class="attr">#[cfg(any(feature = <span class="string">"std"</span>, test))]
 </span><span class="kw">pub use </span>pallet_balances::Call <span class="kw">as </span>BalancesCall;
-<span class="attr">#[cfg(any(feature = <span class="string">&quot;std&quot;</span>, test))]
+<span class="attr">#[cfg(any(feature = <span class="string">"std"</span>, test))]
 </span><span class="kw">pub use </span>pallet_staking::StakerStatus;
-<span class="attr">#[cfg(any(feature = <span class="string">&quot;std&quot;</span>, test))]
+<span class="attr">#[cfg(any(feature = <span class="string">"std"</span>, test))]
 </span><span class="kw">pub use </span>pallet_sudo::Call <span class="kw">as </span>SudoCall;
-<span class="attr">#[cfg(any(feature = <span class="string">&quot;std&quot;</span>, test))]
+<span class="attr">#[cfg(any(feature = <span class="string">"std"</span>, test))]
 </span><span class="kw">pub use </span>sp_runtime::BuildStorage;
 
 <span class="doccomment">/// Implementations of some helper traits passed into runtime modules as associated types.
 </span><span class="kw">pub mod </span>impls;
-<span class="attr">#[cfg(not(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>))]
+<span class="attr">#[cfg(not(feature = <span class="string">"runtime-benchmarks"</span>))]
 </span><span class="kw">use </span>impls::AllianceIdentityVerifier;
 <span class="kw">use </span>impls::{AllianceProposalProvider, Author, CreditToBlockAuthor};
 
@@ -3583,8 +3585,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub mod </span>assets_api;
 
 <span class="comment">// Make the WASM binary available.
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
-</span><span class="macro">include!</span>(<span class="macro">concat!</span>(<span class="macro">env!</span>(<span class="string">&quot;OUT_DIR&quot;</span>), <span class="string">&quot;/wasm_binary.rs&quot;</span>));
+</span><span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
+</span><span class="macro">include!</span>(<span class="macro">concat!</span>(<span class="macro">env!</span>(<span class="string">"OUT_DIR"</span>), <span class="string">"/wasm_binary.rs"</span>));
 
 <span class="doccomment">/// Max size for serialized extrinsic params for this testing runtime.
 /// This is a quite arbitrary but empirically battle tested value.
@@ -3592,20 +3594,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub const </span>CALL_PARAMS_MAX_SIZE: usize = <span class="number">244</span>;
 
 <span class="doccomment">/// Wasm binary unwrapped. If built with `SKIP_WASM_BUILD`, the function panics.
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
-</span><span class="kw">pub fn </span>wasm_binary_unwrap() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8] {
+</span><span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
+</span><span class="kw">pub fn </span>wasm_binary_unwrap() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>[u8] {
 	WASM_BINARY.expect(
-		<span class="string">&quot;Development wasm binary is not available. This means the client is built with \
+		<span class="string">"Development wasm binary is not available. This means the client is built with \
 		 `SKIP_WASM_BUILD` flag and it is only usable for production chains. Please rebuild with \
-		 the flag disabled.&quot;</span>,
+		 the flag disabled."</span>,
 	)
 }
 
 <span class="doccomment">/// Runtime version.
 </span><span class="attr">#[sp_version::runtime_version]
 </span><span class="kw">pub const </span>VERSION: RuntimeVersion = RuntimeVersion {
-	spec_name: <span class="macro">create_runtime_str!</span>(<span class="string">&quot;node&quot;</span>),
-	impl_name: <span class="macro">create_runtime_str!</span>(<span class="string">&quot;substrate-node&quot;</span>),
+	spec_name: <span class="macro">create_runtime_str!</span>(<span class="string">"node"</span>),
+	impl_name: <span class="macro">create_runtime_str!</span>(<span class="string">"substrate-node"</span>),
 	authoring_version: <span class="number">10</span>,
 	<span class="comment">// Per convention: if the runtime behavior changes, increment spec_version
 	// and set impl_version to 0. If only runtime
@@ -3626,7 +3628,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	};
 
 <span class="doccomment">/// Native version.
-</span><span class="attr">#[cfg(any(feature = <span class="string">&quot;std&quot;</span>, test))]
+</span><span class="attr">#[cfg(any(feature = <span class="string">"std"</span>, test))]
 </span><span class="kw">pub fn </span>native_version() -&gt; NativeVersion {
 	NativeVersion { runtime_version: VERSION, can_author_with: Default::default() }
 }
@@ -3704,7 +3706,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">impl </span>Contains&lt;RuntimeCallNameOf&lt;Runtime&gt;&gt; <span class="kw">for </span>TxPauseWhitelistedCalls {
 	<span class="kw">fn </span>contains(full_name: <span class="kw-2">&amp;</span>RuntimeCallNameOf&lt;Runtime&gt;) -&gt; bool {
 		<span class="kw">match </span>(full_name.<span class="number">0</span>.as_slice(), full_name.<span class="number">1</span>.as_slice()) {
-			(<span class="string">b&quot;Balances&quot;</span>, <span class="string">b&quot;transfer_keep_alive&quot;</span>) =&gt; <span class="bool-val">true</span>,
+			(<span class="string">b"Balances"</span>, <span class="string">b"transfer_keep_alive"</span>) =&gt; <span class="bool-val">true</span>,
 			<span class="kw">_ </span>=&gt; <span class="bool-val">false</span>,
 		}
 	}
@@ -3898,9 +3900,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>RuntimeCall = RuntimeCall;
 	<span class="kw">type </span>MaximumWeight = MaximumSchedulerWeight;
 	<span class="kw">type </span>ScheduleOrigin = EnsureRoot&lt;AccountId&gt;;
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">type </span>MaxScheduledPerBlock = ConstU32&lt;<span class="number">512</span>&gt;;
-	<span class="attr">#[cfg(not(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>))]
+	<span class="attr">#[cfg(not(feature = <span class="string">"runtime-benchmarks"</span>))]
 	</span><span class="kw">type </span>MaxScheduledPerBlock = ConstU32&lt;<span class="number">50</span>&gt;;
 	<span class="kw">type </span>WeightInfo = pallet_scheduler::weights::SubstrateWeight&lt;Runtime&gt;;
 	<span class="kw">type </span>OriginPrivilegeCmp = EqualPrivilegeOnly;
@@ -4002,7 +4004,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">pub </span>MaximumMultiplier: Multiplier = Bounded::max_value();
 }
 
-<span class="comment">// Can&#39;t use `FungibleAdapter` here until Treasury pallet migrates to fungibles
+<span class="comment">// Can't use `FungibleAdapter` here until Treasury pallet migrates to fungibles
 // &lt;https://github.com/paritytech/polkadot-sdk/issues/226&gt;
 </span><span class="attr">#[allow(deprecated)]
 </span><span class="kw">impl </span>pallet_transaction_payment::Config <span class="kw">for </span>Runtime {
@@ -4088,7 +4090,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="macro">pallet_staking_reward_curve::build! </span>{
-	<span class="kw">const </span>REWARD_CURVE: PiecewiseLinear&lt;<span class="lifetime">&#39;static</span>&gt; = <span class="macro">curve!</span>(
+	<span class="kw">const </span>REWARD_CURVE: PiecewiseLinear&lt;<span class="lifetime">'static</span>&gt; = <span class="macro">curve!</span>(
 		min_inflation: <span class="number">0_025_000</span>,
 		max_inflation: <span class="number">0_100_000</span>,
 		ideal_stake: <span class="number">0_500_000</span>,
@@ -4102,7 +4104,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">pub const </span>SessionsPerEra: sp_staking::SessionIndex = <span class="number">6</span>;
 	<span class="kw">pub const </span>BondingDuration: sp_staking::EraIndex = <span class="number">24 </span>* <span class="number">28</span>;
 	<span class="kw">pub const </span>SlashDeferDuration: sp_staking::EraIndex = <span class="number">24 </span>* <span class="number">7</span>; <span class="comment">// 1/4 the bonding duration.
-	</span><span class="kw">pub const </span>RewardCurve: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>PiecewiseLinear&lt;<span class="lifetime">&#39;static</span>&gt; = <span class="kw-2">&amp;</span>REWARD_CURVE;
+	</span><span class="kw">pub const </span>RewardCurve: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>PiecewiseLinear&lt;<span class="lifetime">'static</span>&gt; = <span class="kw-2">&amp;</span>REWARD_CURVE;
 	<span class="kw">pub const </span>MaxNominators: u32 = <span class="number">64</span>;
 	<span class="kw">pub const </span>OffendingValidatorsThreshold: Perbill = Perbill::from_percent(<span class="number">17</span>);
 	<span class="kw">pub const </span>MaxControllersInDeprecationBatch: u32 = <span class="number">5900</span>;
@@ -4181,7 +4183,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub const </span>MultiPhaseUnsignedPriority: TransactionPriority = StakingUnsignedPriority::get() - <span class="number">1u64</span>;
 	<span class="kw">pub </span>MinerMaxWeight: Weight = RuntimeBlockWeights::get()
 		.get(DispatchClass::Normal)
-		.max_extrinsic.expect(<span class="string">&quot;Normal extrinsics have a weight limit configured; qed&quot;</span>)
+		.max_extrinsic.expect(<span class="string">"Normal extrinsics have a weight limit configured; qed"</span>)
 		.saturating_sub(BlockExecutionWeight::get());
 	<span class="comment">// Solution can occupy 90% of normal block size
 	</span><span class="kw">pub </span>MinerMaxLength: u32 = Perbill::from_rational(<span class="number">9u32</span>, <span class="number">10</span>) *
@@ -4243,7 +4245,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			max =&gt; {
 				<span class="kw">let </span>seed = sp_io::offchain::random_seed();
 				<span class="kw">let </span>random = &lt;u32&gt;::decode(<span class="kw-2">&amp;mut </span>TrailingZeroInput::new(<span class="kw-2">&amp;</span>seed))
-					.expect(<span class="string">&quot;input is padded with zeroes; qed&quot;</span>) %
+					.expect(<span class="string">"input is padded with zeroes; qed"</span>) %
 					max.saturating_add(<span class="number">1</span>);
 				random <span class="kw">as </span>usize
 			},
@@ -4277,7 +4279,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>MaxWinners = MaxActiveValidators;
 
 	<span class="comment">// The unsigned submissions have to respect the weight of the submit_unsigned call, thus their
-	// weight estimate function is wired to this call&#39;s weight.
+	// weight estimate function is wired to this call's weight.
 	</span><span class="kw">fn </span>solution_weight(v: u32, t: u32, a: u32, d: u32) -&gt; Weight {
 		&lt;
 			&lt;<span class="self">Self </span><span class="kw">as </span>pallet_election_provider_multi_phase::Config&gt;::WeightInfo
@@ -4319,7 +4321,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="macro">parameter_types! </span>{
-	<span class="kw">pub const </span>BagThresholds: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u64] = <span class="kw-2">&amp;</span>voter_bags::THRESHOLDS;
+	<span class="kw">pub const </span>BagThresholds: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>[u64] = <span class="kw-2">&amp;</span>voter_bags::THRESHOLDS;
 }
 
 <span class="kw">type </span>VoterBagsListInstance = pallet_bags_list::Instance1;
@@ -4335,7 +4337,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="macro">parameter_types! </span>{
 	<span class="kw">pub const </span>PostUnbondPoolsWindow: u32 = <span class="number">4</span>;
-	<span class="kw">pub const </span>NominationPoolsPalletId: PalletId = PalletId(<span class="kw-2">*</span><span class="string">b&quot;py/nopls&quot;</span>);
+	<span class="kw">pub const </span>NominationPoolsPalletId: PalletId = PalletId(<span class="kw-2">*</span><span class="string">b"py/nopls"</span>);
 	<span class="kw">pub const </span>MaxPointsToBalance: u8 = <span class="number">10</span>;
 }
 
@@ -4397,11 +4399,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl </span>pallet_referenda::TracksInfo&lt;Balance, BlockNumber&gt; <span class="kw">for </span>TracksInfo {
 	<span class="kw">type </span>Id = u16;
 	<span class="kw">type </span>RuntimeOrigin = &lt;RuntimeOrigin <span class="kw">as </span>frame_support::traits::OriginTrait&gt;::PalletsOrigin;
-	<span class="kw">fn </span>tracks() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[(<span class="self">Self</span>::Id, pallet_referenda::TrackInfo&lt;Balance, BlockNumber&gt;)] {
+	<span class="kw">fn </span>tracks() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>[(<span class="self">Self</span>::Id, pallet_referenda::TrackInfo&lt;Balance, BlockNumber&gt;)] {
 		<span class="kw">static </span>DATA: [(u16, pallet_referenda::TrackInfo&lt;Balance, BlockNumber&gt;); <span class="number">1</span>] = [(
 			<span class="number">0u16</span>,
 			pallet_referenda::TrackInfo {
-				name: <span class="string">&quot;root&quot;</span>,
+				name: <span class="string">"root"</span>,
 				max_deciding: <span class="number">1</span>,
 				decision_deposit: <span class="number">10</span>,
 				prepare_period: <span class="number">4</span>,
@@ -4487,7 +4489,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>MinRankOfClass = traits::Identity;
 	<span class="kw">type </span>VoteWeight = pallet_ranked_collective::Geometric;
 	<span class="kw">type </span>MemberSwappedHandler = (CoreFellowship, Salary);
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">type </span>BenchmarkSetup = (CoreFellowship, Salary);
 }
 
@@ -4594,7 +4596,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">pub const </span>MaxVotesPerVoter: u32 = <span class="number">16</span>;
 	<span class="kw">pub const </span>MaxVoters: u32 = <span class="number">512</span>;
 	<span class="kw">pub const </span>MaxCandidates: u32 = <span class="number">64</span>;
-	<span class="kw">pub const </span>ElectionsPhragmenPalletId: LockIdentifier = <span class="kw-2">*</span><span class="string">b&quot;phrelect&quot;</span>;
+	<span class="kw">pub const </span>ElectionsPhragmenPalletId: LockIdentifier = <span class="kw-2">*</span><span class="string">b"phrelect"</span>;
 }
 
 <span class="comment">// Make sure that there are no more than `MaxMembers` members elected via elections-phragmen.
@@ -4605,7 +4607,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>PalletId = ElectionsPhragmenPalletId;
 	<span class="kw">type </span>Currency = Balances;
 	<span class="kw">type </span>ChangeMembers = Council;
-	<span class="comment">// NOTE: this implies that council&#39;s genesis members cannot be set directly and must come from
+	<span class="comment">// NOTE: this implies that council's genesis members cannot be set directly and must come from
 	// this module.
 	</span><span class="kw">type </span>InitializeMembers = Council;
 	<span class="kw">type </span>CurrencyToVote = sp_staking::currency_to_vote::U128CurrencyToVote;
@@ -4669,7 +4671,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">pub const </span>TipFindersFee: Percent = Percent::from_percent(<span class="number">20</span>);
 	<span class="kw">pub const </span>TipReportDepositBase: Balance = <span class="number">1 </span>* DOLLARS;
 	<span class="kw">pub const </span>DataDepositPerByte: Balance = <span class="number">1 </span>* CENTS;
-	<span class="kw">pub const </span>TreasuryPalletId: PalletId = PalletId(<span class="kw-2">*</span><span class="string">b&quot;py/trsry&quot;</span>);
+	<span class="kw">pub const </span>TreasuryPalletId: PalletId = PalletId(<span class="kw-2">*</span><span class="string">b"py/trsry"</span>);
 	<span class="kw">pub const </span>MaximumReasonLength: u32 = <span class="number">300</span>;
 	<span class="kw">pub const </span>MaxApprovals: u32 = <span class="number">100</span>;
 	<span class="kw">pub const </span>MaxBalance: Balance = Balance::max_value();
@@ -4705,7 +4707,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>Paymaster = PayAssetFromAccount&lt;Assets, TreasuryAccount&gt;;
 	<span class="kw">type </span>BalanceConverter = AssetRate;
 	<span class="kw">type </span>PayoutPeriod = SpendPayoutPeriod;
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">type </span>BenchmarkHelper = ();
 }
 
@@ -4717,7 +4719,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>AssetKind = u32;
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
 	<span class="kw">type </span>WeightInfo = pallet_asset_rate::weights::SubstrateWeight&lt;Runtime&gt;;
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">type </span>BenchmarkHelper = ();
 }
 
@@ -4825,9 +4827,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>InstantiateOrigin = EnsureSigned&lt;<span class="self">Self</span>::AccountId&gt;;
 	<span class="kw">type </span>MaxDebugBufferLen = ConstU32&lt;{ <span class="number">2 </span>* <span class="number">1024 </span>* <span class="number">1024 </span>}&gt;;
 	<span class="kw">type </span>RuntimeHoldReason = RuntimeHoldReason;
-	<span class="attr">#[cfg(not(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>))]
+	<span class="attr">#[cfg(not(feature = <span class="string">"runtime-benchmarks"</span>))]
 	</span><span class="kw">type </span>Migrations = ();
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">type </span>Migrations = pallet_contracts::migration::codegen::BenchMigrations;
 	<span class="kw">type </span>MaxDelegateDependencies = ConstU32&lt;<span class="number">32</span>&gt;;
 	<span class="kw">type </span>CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
@@ -4888,7 +4890,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		);
 		<span class="kw">let </span>raw_payload = SignedPayload::new(call, extra)
 			.map_err(|e| {
-				<span class="macro">log::warn!</span>(<span class="string">&quot;Unable to create signed payload: {:?}&quot;</span>, e);
+				<span class="macro">log::warn!</span>(<span class="string">"Unable to create signed payload: {:?}"</span>, e);
 			})
 			.ok()<span class="question-mark">?</span>;
 		<span class="kw">let </span>signature = raw_payload.using_encoded(|payload| C::sign(payload, public))<span class="question-mark">?</span>;
@@ -5007,7 +5009,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">pub const </span>ChallengePeriod: BlockNumber = <span class="number">7 </span>* DAYS;
 	<span class="kw">pub const </span>MaxPayouts: u32 = <span class="number">10</span>;
 	<span class="kw">pub const </span>MaxBids: u32 = <span class="number">10</span>;
-	<span class="kw">pub const </span>SocietyPalletId: PalletId = PalletId(<span class="kw-2">*</span><span class="string">b&quot;py/socie&quot;</span>);
+	<span class="kw">pub const </span>SocietyPalletId: PalletId = PalletId(<span class="kw-2">*</span><span class="string">b"py/socie"</span>);
 }
 
 <span class="kw">impl </span>pallet_society::Config <span class="kw">for </span>Runtime {
@@ -5048,7 +5050,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl </span>pallet_mmr::Config <span class="kw">for </span>Runtime {
-	<span class="kw">const </span>INDEXING_PREFIX: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8] = <span class="string">b&quot;mmr&quot;</span>;
+	<span class="kw">const </span>INDEXING_PREFIX: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>[u8] = <span class="string">b"mmr"</span>;
 	<span class="kw">type </span>Hashing = Keccak256;
 	<span class="kw">type </span>LeafData = pallet_mmr::ParentNumberAndHash&lt;<span class="self">Self</span>&gt;;
 	<span class="kw">type </span>OnNewRoot = pallet_beefy_mmr::DepositBeefyDigest&lt;Runtime&gt;;
@@ -5068,7 +5070,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="macro">parameter_types! </span>{
-	<span class="kw">pub const </span>LotteryPalletId: PalletId = PalletId(<span class="kw-2">*</span><span class="string">b&quot;py/lotto&quot;</span>);
+	<span class="kw">pub const </span>LotteryPalletId: PalletId = PalletId(<span class="kw-2">*</span><span class="string">b"py/lotto"</span>);
 	<span class="kw">pub const </span>MaxCalls: u32 = <span class="number">10</span>;
 	<span class="kw">pub const </span>MaxGenerateRandom: u32 = <span class="number">10</span>;
 }
@@ -5113,7 +5115,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>CallbackHandle = ();
 	<span class="kw">type </span>WeightInfo = pallet_assets::weights::SubstrateWeight&lt;Runtime&gt;;
 	<span class="kw">type </span>RemoveItemsLimit = ConstU32&lt;<span class="number">1000</span>&gt;;
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">type </span>BenchmarkHelper = ();
 }
 
@@ -5140,12 +5142,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>WeightInfo = pallet_assets::weights::SubstrateWeight&lt;Runtime&gt;;
 	<span class="kw">type </span>RemoveItemsLimit = ConstU32&lt;<span class="number">1000</span>&gt;;
 	<span class="kw">type </span>CallbackHandle = ();
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">type </span>BenchmarkHelper = ();
 }
 
 <span class="macro">parameter_types! </span>{
-	<span class="kw">pub const </span>AssetConversionPalletId: PalletId = PalletId(<span class="kw-2">*</span><span class="string">b&quot;py/ascon&quot;</span>);
+	<span class="kw">pub const </span>AssetConversionPalletId: PalletId = PalletId(<span class="kw-2">*</span><span class="string">b"py/ascon"</span>);
 	<span class="kw">pub const </span>PoolSetupFee: Balance = <span class="number">1 </span>* DOLLARS; <span class="comment">// should be more or equal to the existential deposit
 	</span><span class="kw">pub const </span>MintMinLiquidity: Balance = <span class="number">100</span>;  <span class="comment">// 100 is good enough when the main currency has 10-12 decimals.
 	</span><span class="kw">pub const </span>LiquidityWithdrawalFee: Permill = Permill::from_percent(<span class="number">0</span>);
@@ -5183,7 +5185,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>WeightInfo = pallet_asset_conversion::weights::SubstrateWeight&lt;Runtime&gt;;
 	<span class="kw">type </span>MaxSwapPathLength = ConstU32&lt;<span class="number">4</span>&gt;;
 	<span class="kw">type </span>MintMinLiquidity = MintMinLiquidity;
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">type </span>BenchmarkHelper = ();
 }
 
@@ -5211,7 +5213,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">pub </span>MaxIntakeWeight: Weight = MAXIMUM_BLOCK_WEIGHT / <span class="number">10</span>;
 	<span class="kw">pub const </span>ThawThrottle: (Perquintill, BlockNumber) = (Perquintill::from_percent(<span class="number">25</span>), <span class="number">5</span>);
 	<span class="kw">pub </span>Target: Perquintill = Perquintill::zero();
-	<span class="kw">pub const </span>NisPalletId: PalletId = PalletId(<span class="kw-2">*</span><span class="string">b&quot;py/nis  &quot;</span>);
+	<span class="kw">pub const </span>NisPalletId: PalletId = PalletId(<span class="kw-2">*</span><span class="string">b"py/nis  "</span>);
 }
 
 <span class="kw">impl </span>pallet_nis::Config <span class="kw">for </span>Runtime {
@@ -5236,13 +5238,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>MaxIntakeWeight = MaxIntakeWeight;
 	<span class="kw">type </span>ThawThrottle = ThawThrottle;
 	<span class="kw">type </span>RuntimeHoldReason = RuntimeHoldReason;
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">type </span>BenchmarkSetup = SetupAsset;
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 </span><span class="kw">pub struct </span>SetupAsset;
-<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 </span><span class="kw">impl </span>pallet_nis::BenchmarkSetup <span class="kw">for </span>SetupAsset {
 	<span class="kw">fn </span>create_counterpart_asset() {
 		<span class="kw">let </span>owner = AccountId::from([<span class="number">0u8</span>; <span class="number">32</span>]);
@@ -5281,7 +5283,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>KeyLimit = ConstU32&lt;<span class="number">32</span>&gt;;
 	<span class="kw">type </span>ValueLimit = ConstU32&lt;<span class="number">64</span>&gt;;
 	<span class="kw">type </span>WeightInfo = pallet_uniques::weights::SubstrateWeight&lt;Runtime&gt;;
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">type </span>Helper = ();
 	<span class="kw">type </span>CreateOrigin = AsEnsureOriginWithArg&lt;EnsureSigned&lt;AccountId&gt;&gt;;
 	<span class="kw">type </span>Locker = ();
@@ -5323,9 +5325,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="macro">parameter_types! </span>{
-	<span class="kw">pub const </span>NftFractionalizationPalletId: PalletId = PalletId(<span class="kw-2">*</span><span class="string">b&quot;fraction&quot;</span>);
-	<span class="kw">pub </span>NewAssetSymbol: BoundedVec&lt;u8, StringLimit&gt; = (<span class="kw-2">*</span><span class="string">b&quot;FRAC&quot;</span>).to_vec().try_into().unwrap();
-	<span class="kw">pub </span>NewAssetName: BoundedVec&lt;u8, StringLimit&gt; = (<span class="kw-2">*</span><span class="string">b&quot;Frac&quot;</span>).to_vec().try_into().unwrap();
+	<span class="kw">pub const </span>NftFractionalizationPalletId: PalletId = PalletId(<span class="kw-2">*</span><span class="string">b"fraction"</span>);
+	<span class="kw">pub </span>NewAssetSymbol: BoundedVec&lt;u8, StringLimit&gt; = (<span class="kw-2">*</span><span class="string">b"FRAC"</span>).to_vec().try_into().unwrap();
+	<span class="kw">pub </span>NewAssetName: BoundedVec&lt;u8, StringLimit&gt; = (<span class="kw-2">*</span><span class="string">b"Frac"</span>).to_vec().try_into().unwrap();
 }
 
 <span class="kw">impl </span>pallet_nft_fractionalization::Config <span class="kw">for </span>Runtime {
@@ -5344,7 +5346,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>PalletId = NftFractionalizationPalletId;
 	<span class="kw">type </span>WeightInfo = pallet_nft_fractionalization::weights::SubstrateWeight&lt;Runtime&gt;;
 	<span class="kw">type </span>RuntimeHoldReason = RuntimeHoldReason;
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">type </span>BenchmarkHelper = ();
 }
 
@@ -5376,7 +5378,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>OffchainSignature = Signature;
 	<span class="kw">type </span>OffchainPublic = &lt;Signature <span class="kw">as </span>traits::Verify&gt;::Signer;
 	<span class="kw">type </span>WeightInfo = pallet_nfts::weights::SubstrateWeight&lt;Runtime&gt;;
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">type </span>Helper = ();
 	<span class="kw">type </span>CreateOrigin = AsEnsureOriginWithArg&lt;EnsureSigned&lt;AccountId&gt;&gt;;
 	<span class="kw">type </span>Locker = ();
@@ -5419,7 +5421,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>SignedDepositPerItem = MigrationSignedDepositPerItem;
 	<span class="kw">type </span>SignedDepositBase = MigrationSignedDepositBase;
 	<span class="comment">// Warning: this is not advised, as it might allow the chain to be temporarily DOS-ed.
-	// Preferably, if the chain&#39;s governance/maintenance team is planning on using a specific
+	// Preferably, if the chain's governance/maintenance team is planning on using a specific
 	// account for the migration, put it here to make sure only that account can trigger the signed
 	// migrations.
 	</span><span class="kw">type </span>SignedFilter = EnsureSigned&lt;<span class="self">Self</span>::AccountId&gt;;
@@ -5474,9 +5476,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>Slashed = Treasury;
 	<span class="kw">type </span>InitializeMembers = AllianceMotion;
 	<span class="kw">type </span>MembershipChanged = AllianceMotion;
-	<span class="attr">#[cfg(not(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>))]
+	<span class="attr">#[cfg(not(feature = <span class="string">"runtime-benchmarks"</span>))]
 	</span><span class="kw">type </span>IdentityVerifier = AllianceIdentityVerifier;
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">type </span>IdentityVerifier = ();
 	<span class="kw">type </span>ProposalProvider = AllianceProposalProvider;
 	<span class="kw">type </span>MaxProposals = AllianceMaxProposals;
@@ -5521,10 +5523,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl </span>pallet_migrations::Config <span class="kw">for </span>Runtime {
 	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
-	<span class="attr">#[cfg(not(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>))]
+	<span class="attr">#[cfg(not(feature = <span class="string">"runtime-benchmarks"</span>))]
 	</span><span class="kw">type </span>Migrations = ();
 	<span class="comment">// Benchmarks need mocked migrations to guarantee that they succeed.
-	</span><span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	</span><span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">type </span>Migrations = pallet_migrations::mock_helpers::MockedMigrations;
 	<span class="kw">type </span>CursorMaxLen = ConstU32&lt;<span class="number">65_536</span>&gt;;
 	<span class="kw">type </span>IdentifierMaxLen = ConstU32&lt;<span class="number">256</span>&gt;;
@@ -5535,7 +5537,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="macro">parameter_types! </span>{
-	<span class="kw">pub const </span>BrokerPalletId: PalletId = PalletId(<span class="kw-2">*</span><span class="string">b&quot;py/broke&quot;</span>);
+	<span class="kw">pub const </span>BrokerPalletId: PalletId = PalletId(<span class="kw-2">*</span><span class="string">b"py/broke"</span>);
 }
 
 <span class="kw">pub struct </span>IntoAuthor;
@@ -5571,7 +5573,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		CoretimeRevenue::set(<span class="kw-2">&amp;</span><span class="prelude-val">None</span>);
 		revenue
 	}
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">fn </span>ensure_notify_revenue_info(when: u32, revenue: <span class="self">Self</span>::Balance) {
 		CoretimeRevenue::set(<span class="kw-2">&amp;</span><span class="prelude-val">Some</span>((when, revenue)));
 	}
@@ -5647,7 +5649,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 </span><span class="kw">impl </span>Default <span class="kw">for </span>RuntimeParameters {
 	<span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
 		RuntimeParameters::Storage(dynamic_params::storage::Parameters::BaseDeposit(
@@ -5677,7 +5679,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">fn </span>try_successful_origin(_key: <span class="kw-2">&amp;</span>RuntimeParametersKey) -&gt; <span class="prelude-ty">Result</span>&lt;RuntimeOrigin, ()&gt; {
 		<span class="prelude-val">Ok</span>(RuntimeOrigin::root())
 	}
@@ -5834,7 +5836,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[runtime::pallet_index(<span class="number">41</span>)]
 	</span><span class="kw">pub type </span>Beefy = pallet_beefy;
 
-	<span class="comment">// MMR leaf construction must be after session in order to have a leaf&#39;s next_auth_set
+	<span class="comment">// MMR leaf construction must be after session in order to have a leaf's next_auth_set
 	// refer to block&lt;N&gt;. See issue polkadot-fellows/runtimes#160 for details.
 	</span><span class="attr">#[runtime::pallet_index(<span class="number">42</span>)]
 	</span><span class="kw">pub type </span>Mmr = pallet_mmr;
@@ -5997,7 +5999,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	Migrations,
 &gt;;
 
-<span class="comment">// We don&#39;t have a limit in the Relay Chain.
+<span class="comment">// We don't have a limit in the Relay Chain.
 </span><span class="kw">const </span>IDENTITY_MIGRATION_KEY_LIMIT: u64 = u64::MAX;
 
 <span class="comment">// All migrations executed on runtime upgrade as a nested tuple of types implementing
@@ -6041,7 +6043,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">pub type </span>Hashing = &lt;Runtime <span class="kw">as </span>pallet_mmr::Config&gt;::Hashing;
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 </span><span class="kw">mod </span>benches {
 	<span class="macro">frame_benchmarking::define_benchmarks!</span>(
 		[frame_benchmarking, BaselineBench::&lt;Runtime&gt;]
@@ -6605,10 +6607,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 	</span><span class="kw">impl </span>frame_try_runtime::TryRuntime&lt;Block&gt; <span class="kw">for </span>Runtime {
 		<span class="kw">fn </span>on_runtime_upgrade(checks: frame_try_runtime::UpgradeCheckSelect) -&gt; (Weight, Weight) {
-			<span class="comment">// NOTE: intentional unwrap: we don&#39;t want to propagate the error backwards, and want to
+			<span class="comment">// NOTE: intentional unwrap: we don't want to propagate the error backwards, and want to
 			// have a backtrace here. If any of the pre/post migration checks fail, we shall stop
 			// right here and right now.
 			</span><span class="kw">let </span>weight = Executive::try_runtime_upgrade(checks).unwrap();
@@ -6621,13 +6623,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			signature_check: bool,
 			select: frame_try_runtime::TryStateSelect
 		) -&gt; Weight {
-			<span class="comment">// NOTE: intentional unwrap: we don&#39;t want to propagate the error backwards, and want to
+			<span class="comment">// NOTE: intentional unwrap: we don't want to propagate the error backwards, and want to
 			// have a backtrace here.
 			</span>Executive::try_execute_block(block, state_root_check, signature_check, select).unwrap()
 		}
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">impl </span>frame_benchmarking::Benchmark&lt;Block&gt; <span class="kw">for </span>Runtime {
 		<span class="kw">fn </span>benchmark_metadata(extra: bool) -&gt; (
 			Vec&lt;frame_benchmarking::BenchmarkList&gt;,
@@ -6742,9 +6744,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>size = core::mem::size_of::&lt;RuntimeCall&gt;();
 		<span class="macro">assert!</span>(
 			size &lt;= CALL_PARAMS_MAX_SIZE,
-			<span class="string">&quot;size of RuntimeCall {} is more than {CALL_PARAMS_MAX_SIZE} bytes.
+			<span class="string">"size of RuntimeCall {} is more than {CALL_PARAMS_MAX_SIZE} bytes.
 			 Some calls have too big arguments, use Box to reduce the size of RuntimeCall.
-			 If the limit is too strong, maybe consider increase the limit.&quot;</span>,
+			 If the limit is too strong, maybe consider increase the limit."</span>,
 			size,
 		);
 	}

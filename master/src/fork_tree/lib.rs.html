@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/utils/fork-tree/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/utils/fork-tree/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="fork_tree" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="fork_tree" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../fork_tree/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1761,14 +1763,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -1797,12 +1799,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl</span>&lt;E: std::error::Error&gt; fmt::Display <span class="kw">for </span>Error&lt;E&gt; {
 	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter) -&gt; fmt::Result {
 		<span class="kw">let </span>message = <span class="kw">match </span><span class="kw-2">*</span><span class="self">self </span>{
-			Error::Duplicate =&gt; <span class="string">&quot;Hash already exists in Tree&quot;</span>.into(),
-			Error::UnfinalizedAncestor =&gt; <span class="string">&quot;Finalized descendent of Tree node without finalizing its ancestor(s) first&quot;</span>.into(),
-			Error::Revert =&gt; <span class="string">&quot;Tried to import or finalize node that is an ancestor of a previously finalized node&quot;</span>.into(),
-			Error::Client(<span class="kw-2">ref </span>err) =&gt; <span class="macro">format!</span>(<span class="string">&quot;Client error: {}&quot;</span>, err),
+			Error::Duplicate =&gt; <span class="string">"Hash already exists in Tree"</span>.into(),
+			Error::UnfinalizedAncestor =&gt; <span class="string">"Finalized descendent of Tree node without finalizing its ancestor(s) first"</span>.into(),
+			Error::Revert =&gt; <span class="string">"Tried to import or finalize node that is an ancestor of a previously finalized node"</span>.into(),
+			Error::Client(<span class="kw-2">ref </span>err) =&gt; <span class="macro">format!</span>(<span class="string">"Client error: {}"</span>, err),
 		};
-		<span class="macro">write!</span>(f, <span class="string">&quot;{}&quot;</span>, message)
+		<span class="macro">write!</span>(f, <span class="string">"{}"</span>, message)
 	}
 }
 
@@ -1841,7 +1843,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// branches are pruned. It also guarantees that nodes in the tree are finalized
 /// in order. Each node is uniquely identified by its hash but can be ordered by
 /// its number. In order to build the tree an external function must be provided
-/// when interacting with the tree to establish a node&#39;s ancestry.
+/// when interacting with the tree to establish a node's ancestry.
 </span><span class="attr">#[derive(Clone, Debug, Decode, Encode, PartialEq)]
 </span><span class="kw">pub struct </span>ForkTree&lt;H, N, V&gt; {
 	roots: Vec&lt;Node&lt;H, N, V&gt;&gt;,
@@ -1865,7 +1867,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// Most operations in the tree are performed with depth-first search
 	/// starting from the leftmost node at every level, since this tree is meant
 	/// to be used in a blockchain context, a good heuristic is that the node
-	/// we&#39;ll be looking for at any point will likely be in one of the deepest chains
+	/// we'll be looking for at any point will likely be in one of the deepest chains
 	/// (i.e. the longest ones).
 	</span><span class="kw">pub fn </span>rebalance(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
 		<span class="self">self</span>.roots.sort_by_key(|n| Reverse(n.max_depth()));
@@ -1919,7 +1921,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		children.push(Node { data, hash, number, children: Default::default() });
 
 		<span class="kw">if </span>children.len() == <span class="number">1 </span>{
-			<span class="comment">// Rebalance may be required only if we&#39;ve extended the branch depth.
+			<span class="comment">// Rebalance may be required only if we've extended the branch depth.
 			</span><span class="self">self</span>.rebalance();
 		}
 
@@ -2236,7 +2238,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">return </span><span class="prelude-val">Ok</span>(FinalizationResult::Changed(<span class="prelude-val">Some</span>(root)))
 		}
 
-		<span class="comment">// make sure we&#39;re not finalizing a descendent of any root
+		<span class="comment">// make sure we're not finalizing a descendent of any root
 		</span><span class="kw">for </span>root <span class="kw">in </span><span class="self">self</span>.roots.iter() {
 			<span class="kw">if </span>number &gt; root.number &amp;&amp; is_descendent_of(<span class="kw-2">&amp;</span>root.hash, hash)<span class="question-mark">? </span>{
 				<span class="kw">return </span><span class="prelude-val">Err</span>(Error::UnfinalizedAncestor)
@@ -2293,7 +2295,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// we need to:
 		// 1) remove all roots that are not ancestors AND not descendants of finalized block;
 		// 2) if node is descendant - just leave it;
-		// 3) if node is ancestor - &#39;open it&#39;
+		// 3) if node is ancestor - 'open it'
 		</span><span class="kw">let </span><span class="kw-2">mut </span>changed = <span class="bool-val">false</span>;
 		<span class="kw">let </span><span class="kw-2">mut </span>idx = <span class="number">0</span>;
 		<span class="kw">while </span>idx != <span class="self">self</span>.roots.len() {
@@ -2342,9 +2344,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Checks if any node in the tree is finalized by either finalizing the
-	/// node itself or a node&#39;s descendent that&#39;s not in the tree, guaranteeing
-	/// that the node being finalized isn&#39;t a descendent of (or equal to) any of
-	/// the node&#39;s children. Returns `Some(true)` if the node being finalized is
+	/// node itself or a node's descendent that's not in the tree, guaranteeing
+	/// that the node being finalized isn't a descendent of (or equal to) any of
+	/// the node's children. Returns `Some(true)` if the node being finalized is
 	/// a root, `Some(false)` if the node being finalized is not a root, and
 	/// `None` if no node in the tree is finalized. The given `predicate` is
 	/// checked on the prospective finalized root and must pass for finalization
@@ -2370,7 +2372,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// check if the given hash is equal or a descendent of any node in the
 		// tree, if we find a valid node that passes the predicate then we must
-		// ensure that we&#39;re not finalizing past any of its child nodes.
+		// ensure that we're not finalizing past any of its child nodes.
 		</span><span class="kw">for </span>node <span class="kw">in </span><span class="self">self</span>.node_iter() {
 			<span class="kw">if </span>predicate(<span class="kw-2">&amp;</span>node.data) &amp;&amp; (node.hash == <span class="kw-2">*</span>hash || is_descendent_of(<span class="kw-2">&amp;</span>node.hash, hash)<span class="question-mark">?</span>)
 			{
@@ -2390,8 +2392,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Finalize a root in the tree by either finalizing the node itself or a
-	/// node&#39;s descendent that&#39;s not in the tree, guaranteeing that the node
-	/// being finalized isn&#39;t a descendent of (or equal to) any of the root&#39;s
+	/// node's descendent that's not in the tree, guaranteeing that the node
+	/// being finalized isn't a descendent of (or equal to) any of the root's
 	/// children. The given `predicate` is checked on the prospective finalized
 	/// root and must pass for finalization to occur. The given function
 	/// `is_descendent_of` should return `true` if the second hash (target) is a
@@ -2416,7 +2418,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// check if the given hash is equal or a a descendent of any root, if we
 		// find a valid root that passes the predicate then we must ensure that
-		// we&#39;re not finalizing past any children node.
+		// we're not finalizing past any children node.
 		</span><span class="kw">let </span><span class="kw-2">mut </span>position = <span class="prelude-val">None</span>;
 		<span class="kw">for </span>(i, root) <span class="kw">in </span><span class="self">self</span>.roots.iter().enumerate() {
 			<span class="kw">if </span>predicate(<span class="kw-2">&amp;</span>root.data) &amp;&amp; (root.hash == <span class="kw-2">*</span>hash || is_descendent_of(<span class="kw-2">&amp;</span>root.hash, hash)<span class="question-mark">?</span>)
@@ -2444,7 +2446,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// Retain only roots that are descendants of the finalized block (this
 		// happens if the node has been properly finalized) or that are
 		// ancestors (or equal) to the finalized block (in this case the node
-		// wasn&#39;t finalized earlier presumably because the predicate didn&#39;t
+		// wasn't finalized earlier presumably because the predicate didn't
 		// pass).
 		</span><span class="kw">let </span><span class="kw-2">mut </span>changed = <span class="bool-val">false</span>;
 		<span class="kw">let </span>roots = std::mem::take(<span class="kw-2">&amp;mut </span><span class="self">self</span>.roots);
@@ -2560,17 +2562,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">struct </span>ForkTreeIterator&lt;<span class="lifetime">&#39;a</span>, H, N, V&gt; {
-	stack: Vec&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Node&lt;H, N, V&gt;&gt;,
+<span class="kw">struct </span>ForkTreeIterator&lt;<span class="lifetime">'a</span>, H, N, V&gt; {
+	stack: Vec&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>Node&lt;H, N, V&gt;&gt;,
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, H, N, V&gt; Iterator <span class="kw">for </span>ForkTreeIterator&lt;<span class="lifetime">&#39;a</span>, H, N, V&gt; {
-	<span class="kw">type </span>Item = <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Node&lt;H, N, V&gt;;
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, H, N, V&gt; Iterator <span class="kw">for </span>ForkTreeIterator&lt;<span class="lifetime">'a</span>, H, N, V&gt; {
+	<span class="kw">type </span>Item = <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Node&lt;H, N, V&gt;;
 
 	<span class="kw">fn </span>next(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::Item&gt; {
 		<span class="self">self</span>.stack.pop().map(|node| {
 			<span class="comment">// child nodes are stored ordered by max branch height (decreasing),
-			// we want to keep this ordering while iterating but since we&#39;re
+			// we want to keep this ordering while iterating but since we're
 			// using a stack for iterator state we need to reverse it.
 			</span><span class="self">self</span>.stack.extend(node.children.iter().rev());
 			node
@@ -2588,7 +2590,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>next(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::Item&gt; {
 		<span class="self">self</span>.stack.pop().map(|<span class="kw-2">mut </span>node| {
 			<span class="comment">// child nodes are stored ordered by max branch height (decreasing),
-			// we want to keep this ordering while iterating but since we&#39;re
+			// we want to keep this ordering while iterating but since we're
 			// using a stack for iterator state we need to reverse it.
 			</span><span class="kw">let </span>children = std::mem::take(<span class="kw-2">&amp;mut </span>node.children);
 
@@ -2609,14 +2611,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">impl </span>std::fmt::Display <span class="kw">for </span>TestError {
 		<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter) -&gt; std::fmt::Result {
-			<span class="macro">write!</span>(f, <span class="string">&quot;TestError&quot;</span>)
+			<span class="macro">write!</span>(f, <span class="string">"TestError"</span>)
 		}
 	}
 
 	<span class="kw">impl </span>std::error::Error <span class="kw">for </span>TestError {}
 
-	<span class="kw">fn </span>test_fork_tree&lt;<span class="lifetime">&#39;a</span>&gt;(
-	) -&gt; (ForkTree&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>str, u64, u32&gt;, <span class="kw">impl </span>Fn(&amp;&amp;str, &amp;&amp;str) -&gt; <span class="prelude-ty">Result</span>&lt;bool, TestError&gt;) {
+	<span class="kw">fn </span>test_fork_tree&lt;<span class="lifetime">'a</span>&gt;(
+	) -&gt; (ForkTree&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>str, u64, u32&gt;, <span class="kw">impl </span>Fn(&amp;&amp;str, &amp;&amp;str) -&gt; <span class="prelude-ty">Result</span>&lt;bool, TestError&gt;) {
 		<span class="kw">let </span><span class="kw-2">mut </span>tree = ForkTree::new();
 
 		<span class="attr">#[rustfmt::skip]
@@ -2634,50 +2636,50 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		//
 		// (where N is not a part of fork tree)
 		//
-		// NOTE: the tree will get automatically rebalance on import and won&#39;t be laid out like the
+		// NOTE: the tree will get automatically rebalance on import and won't be laid out like the
 		// diagram above. the children will be ordered by subtree depth and the longest branches
 		// will be on the leftmost side of the tree.
 		</span><span class="kw">let </span>is_descendent_of = |base: &amp;&amp;str, block: &amp;&amp;str| -&gt; <span class="prelude-ty">Result</span>&lt;bool, TestError&gt; {
-			<span class="kw">let </span>letters = <span class="macro">vec!</span>[<span class="string">&quot;B&quot;</span>, <span class="string">&quot;C&quot;</span>, <span class="string">&quot;D&quot;</span>, <span class="string">&quot;E&quot;</span>, <span class="string">&quot;F&quot;</span>, <span class="string">&quot;G&quot;</span>, <span class="string">&quot;H&quot;</span>, <span class="string">&quot;I&quot;</span>, <span class="string">&quot;J&quot;</span>, <span class="string">&quot;K&quot;</span>, <span class="string">&quot;L&quot;</span>, <span class="string">&quot;M&quot;</span>, <span class="string">&quot;N&quot;</span>, <span class="string">&quot;O&quot;</span>];
+			<span class="kw">let </span>letters = <span class="macro">vec!</span>[<span class="string">"B"</span>, <span class="string">"C"</span>, <span class="string">"D"</span>, <span class="string">"E"</span>, <span class="string">"F"</span>, <span class="string">"G"</span>, <span class="string">"H"</span>, <span class="string">"I"</span>, <span class="string">"J"</span>, <span class="string">"K"</span>, <span class="string">"L"</span>, <span class="string">"M"</span>, <span class="string">"N"</span>, <span class="string">"O"</span>];
 			<span class="comment">// This is a trick to have lowercase blocks be direct parents of their
 			// uppercase correspondent (A excluded)
 			</span><span class="kw">let </span>block = block.to_uppercase();
 			<span class="kw">match </span>(<span class="kw-2">*</span>base, block) {
-				(<span class="string">&quot;A&quot;</span>, b) =&gt; <span class="prelude-val">Ok</span>(letters.into_iter().any(|n| n == b)),
-				(<span class="string">&quot;B&quot; </span>| <span class="string">&quot;c&quot;</span>, b) =&gt; <span class="prelude-val">Ok</span>(b == <span class="string">&quot;C&quot; </span>|| b == <span class="string">&quot;D&quot; </span>|| b == <span class="string">&quot;E&quot;</span>),
-				(<span class="string">&quot;C&quot;</span>, b) =&gt; <span class="prelude-val">Ok</span>(b == <span class="string">&quot;D&quot; </span>|| b == <span class="string">&quot;E&quot;</span>),
-				(<span class="string">&quot;D&quot;</span>, b) =&gt; <span class="prelude-val">Ok</span>(b == <span class="string">&quot;E&quot;</span>),
-				(<span class="string">&quot;E&quot;</span>, <span class="kw">_</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="bool-val">false</span>),
-				(<span class="string">&quot;F&quot;</span>, b) =&gt;
-					<span class="prelude-val">Ok</span>(b == <span class="string">&quot;G&quot; </span>|| b == <span class="string">&quot;H&quot; </span>|| b == <span class="string">&quot;I&quot; </span>|| b == <span class="string">&quot;L&quot; </span>|| b == <span class="string">&quot;M&quot; </span>|| b == <span class="string">&quot;N&quot; </span>|| b == <span class="string">&quot;O&quot;</span>),
-				(<span class="string">&quot;G&quot;</span>, <span class="kw">_</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="bool-val">false</span>),
-				(<span class="string">&quot;H&quot;</span>, b) =&gt; <span class="prelude-val">Ok</span>(b == <span class="string">&quot;I&quot; </span>|| b == <span class="string">&quot;L&quot; </span>|| b == <span class="string">&quot;M&quot; </span>|| b == <span class="string">&quot;N&quot; </span>|| b == <span class="string">&quot;O&quot;</span>),
-				(<span class="string">&quot;I&quot;</span>, <span class="kw">_</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="bool-val">false</span>),
-				(<span class="string">&quot;J&quot;</span>, b) =&gt; <span class="prelude-val">Ok</span>(b == <span class="string">&quot;K&quot;</span>),
-				(<span class="string">&quot;K&quot;</span>, <span class="kw">_</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="bool-val">false</span>),
-				(<span class="string">&quot;L&quot;</span>, b) =&gt; <span class="prelude-val">Ok</span>(b == <span class="string">&quot;M&quot; </span>|| b == <span class="string">&quot;N&quot; </span>|| b == <span class="string">&quot;O&quot;</span>),
-				(<span class="string">&quot;m&quot;</span>, b) =&gt; <span class="prelude-val">Ok</span>(b == <span class="string">&quot;M&quot; </span>|| b == <span class="string">&quot;N&quot;</span>),
-				(<span class="string">&quot;M&quot;</span>, b) =&gt; <span class="prelude-val">Ok</span>(b == <span class="string">&quot;N&quot;</span>),
-				(<span class="string">&quot;O&quot;</span>, <span class="kw">_</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="bool-val">false</span>),
-				(<span class="string">&quot;0&quot;</span>, <span class="kw">_</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="bool-val">true</span>),
+				(<span class="string">"A"</span>, b) =&gt; <span class="prelude-val">Ok</span>(letters.into_iter().any(|n| n == b)),
+				(<span class="string">"B" </span>| <span class="string">"c"</span>, b) =&gt; <span class="prelude-val">Ok</span>(b == <span class="string">"C" </span>|| b == <span class="string">"D" </span>|| b == <span class="string">"E"</span>),
+				(<span class="string">"C"</span>, b) =&gt; <span class="prelude-val">Ok</span>(b == <span class="string">"D" </span>|| b == <span class="string">"E"</span>),
+				(<span class="string">"D"</span>, b) =&gt; <span class="prelude-val">Ok</span>(b == <span class="string">"E"</span>),
+				(<span class="string">"E"</span>, <span class="kw">_</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="bool-val">false</span>),
+				(<span class="string">"F"</span>, b) =&gt;
+					<span class="prelude-val">Ok</span>(b == <span class="string">"G" </span>|| b == <span class="string">"H" </span>|| b == <span class="string">"I" </span>|| b == <span class="string">"L" </span>|| b == <span class="string">"M" </span>|| b == <span class="string">"N" </span>|| b == <span class="string">"O"</span>),
+				(<span class="string">"G"</span>, <span class="kw">_</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="bool-val">false</span>),
+				(<span class="string">"H"</span>, b) =&gt; <span class="prelude-val">Ok</span>(b == <span class="string">"I" </span>|| b == <span class="string">"L" </span>|| b == <span class="string">"M" </span>|| b == <span class="string">"N" </span>|| b == <span class="string">"O"</span>),
+				(<span class="string">"I"</span>, <span class="kw">_</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="bool-val">false</span>),
+				(<span class="string">"J"</span>, b) =&gt; <span class="prelude-val">Ok</span>(b == <span class="string">"K"</span>),
+				(<span class="string">"K"</span>, <span class="kw">_</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="bool-val">false</span>),
+				(<span class="string">"L"</span>, b) =&gt; <span class="prelude-val">Ok</span>(b == <span class="string">"M" </span>|| b == <span class="string">"N" </span>|| b == <span class="string">"O"</span>),
+				(<span class="string">"m"</span>, b) =&gt; <span class="prelude-val">Ok</span>(b == <span class="string">"M" </span>|| b == <span class="string">"N"</span>),
+				(<span class="string">"M"</span>, b) =&gt; <span class="prelude-val">Ok</span>(b == <span class="string">"N"</span>),
+				(<span class="string">"O"</span>, <span class="kw">_</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="bool-val">false</span>),
+				(<span class="string">"0"</span>, <span class="kw">_</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="bool-val">true</span>),
 				<span class="kw">_ </span>=&gt; <span class="prelude-val">Ok</span>(<span class="bool-val">false</span>),
 			}
 		};
 
-		tree.import(<span class="string">&quot;A&quot;</span>, <span class="number">10</span>, <span class="number">1</span>, <span class="kw-2">&amp;</span>is_descendent_of).unwrap();
-		tree.import(<span class="string">&quot;B&quot;</span>, <span class="number">20</span>, <span class="number">2</span>, <span class="kw-2">&amp;</span>is_descendent_of).unwrap();
-		tree.import(<span class="string">&quot;C&quot;</span>, <span class="number">30</span>, <span class="number">3</span>, <span class="kw-2">&amp;</span>is_descendent_of).unwrap();
-		tree.import(<span class="string">&quot;D&quot;</span>, <span class="number">40</span>, <span class="number">4</span>, <span class="kw-2">&amp;</span>is_descendent_of).unwrap();
-		tree.import(<span class="string">&quot;E&quot;</span>, <span class="number">50</span>, <span class="number">5</span>, <span class="kw-2">&amp;</span>is_descendent_of).unwrap();
-		tree.import(<span class="string">&quot;F&quot;</span>, <span class="number">20</span>, <span class="number">2</span>, <span class="kw-2">&amp;</span>is_descendent_of).unwrap();
-		tree.import(<span class="string">&quot;G&quot;</span>, <span class="number">30</span>, <span class="number">3</span>, <span class="kw-2">&amp;</span>is_descendent_of).unwrap();
-		tree.import(<span class="string">&quot;H&quot;</span>, <span class="number">30</span>, <span class="number">3</span>, <span class="kw-2">&amp;</span>is_descendent_of).unwrap();
-		tree.import(<span class="string">&quot;I&quot;</span>, <span class="number">40</span>, <span class="number">4</span>, <span class="kw-2">&amp;</span>is_descendent_of).unwrap();
-		tree.import(<span class="string">&quot;L&quot;</span>, <span class="number">40</span>, <span class="number">4</span>, <span class="kw-2">&amp;</span>is_descendent_of).unwrap();
-		tree.import(<span class="string">&quot;M&quot;</span>, <span class="number">50</span>, <span class="number">5</span>, <span class="kw-2">&amp;</span>is_descendent_of).unwrap();
-		tree.import(<span class="string">&quot;O&quot;</span>, <span class="number">50</span>, <span class="number">5</span>, <span class="kw-2">&amp;</span>is_descendent_of).unwrap();
-		tree.import(<span class="string">&quot;J&quot;</span>, <span class="number">20</span>, <span class="number">2</span>, <span class="kw-2">&amp;</span>is_descendent_of).unwrap();
-		tree.import(<span class="string">&quot;K&quot;</span>, <span class="number">30</span>, <span class="number">3</span>, <span class="kw-2">&amp;</span>is_descendent_of).unwrap();
+		tree.import(<span class="string">"A"</span>, <span class="number">10</span>, <span class="number">1</span>, <span class="kw-2">&amp;</span>is_descendent_of).unwrap();
+		tree.import(<span class="string">"B"</span>, <span class="number">20</span>, <span class="number">2</span>, <span class="kw-2">&amp;</span>is_descendent_of).unwrap();
+		tree.import(<span class="string">"C"</span>, <span class="number">30</span>, <span class="number">3</span>, <span class="kw-2">&amp;</span>is_descendent_of).unwrap();
+		tree.import(<span class="string">"D"</span>, <span class="number">40</span>, <span class="number">4</span>, <span class="kw-2">&amp;</span>is_descendent_of).unwrap();
+		tree.import(<span class="string">"E"</span>, <span class="number">50</span>, <span class="number">5</span>, <span class="kw-2">&amp;</span>is_descendent_of).unwrap();
+		tree.import(<span class="string">"F"</span>, <span class="number">20</span>, <span class="number">2</span>, <span class="kw-2">&amp;</span>is_descendent_of).unwrap();
+		tree.import(<span class="string">"G"</span>, <span class="number">30</span>, <span class="number">3</span>, <span class="kw-2">&amp;</span>is_descendent_of).unwrap();
+		tree.import(<span class="string">"H"</span>, <span class="number">30</span>, <span class="number">3</span>, <span class="kw-2">&amp;</span>is_descendent_of).unwrap();
+		tree.import(<span class="string">"I"</span>, <span class="number">40</span>, <span class="number">4</span>, <span class="kw-2">&amp;</span>is_descendent_of).unwrap();
+		tree.import(<span class="string">"L"</span>, <span class="number">40</span>, <span class="number">4</span>, <span class="kw-2">&amp;</span>is_descendent_of).unwrap();
+		tree.import(<span class="string">"M"</span>, <span class="number">50</span>, <span class="number">5</span>, <span class="kw-2">&amp;</span>is_descendent_of).unwrap();
+		tree.import(<span class="string">"O"</span>, <span class="number">50</span>, <span class="number">5</span>, <span class="kw-2">&amp;</span>is_descendent_of).unwrap();
+		tree.import(<span class="string">"J"</span>, <span class="number">20</span>, <span class="number">2</span>, <span class="kw-2">&amp;</span>is_descendent_of).unwrap();
+		tree.import(<span class="string">"K"</span>, <span class="number">30</span>, <span class="number">3</span>, <span class="kw-2">&amp;</span>is_descendent_of).unwrap();
 
 		(tree, is_descendent_of)
 	}
@@ -2686,24 +2688,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>import_doesnt_revert() {
 		<span class="kw">let </span>(<span class="kw-2">mut </span>tree, is_descendent_of) = test_fork_tree();
 
-		tree.finalize_root(<span class="kw-2">&amp;</span><span class="string">&quot;A&quot;</span>);
+		tree.finalize_root(<span class="kw-2">&amp;</span><span class="string">"A"</span>);
 
 		<span class="macro">assert_eq!</span>(tree.best_finalized_number, <span class="prelude-val">Some</span>(<span class="number">10</span>));
 
-		<span class="macro">assert_eq!</span>(tree.import(<span class="string">&quot;A&quot;</span>, <span class="number">10</span>, <span class="number">1</span>, <span class="kw-2">&amp;</span>is_descendent_of), <span class="prelude-val">Err</span>(Error::Revert));
+		<span class="macro">assert_eq!</span>(tree.import(<span class="string">"A"</span>, <span class="number">10</span>, <span class="number">1</span>, <span class="kw-2">&amp;</span>is_descendent_of), <span class="prelude-val">Err</span>(Error::Revert));
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>import_doesnt_add_duplicates() {
 		<span class="kw">let </span>(<span class="kw-2">mut </span>tree, is_descendent_of) = test_fork_tree();
 
-		<span class="macro">assert_eq!</span>(tree.import(<span class="string">&quot;A&quot;</span>, <span class="number">10</span>, <span class="number">1</span>, <span class="kw-2">&amp;</span>is_descendent_of), <span class="prelude-val">Err</span>(Error::Duplicate));
+		<span class="macro">assert_eq!</span>(tree.import(<span class="string">"A"</span>, <span class="number">10</span>, <span class="number">1</span>, <span class="kw-2">&amp;</span>is_descendent_of), <span class="prelude-val">Err</span>(Error::Duplicate));
 
-		<span class="macro">assert_eq!</span>(tree.import(<span class="string">&quot;I&quot;</span>, <span class="number">40</span>, <span class="number">4</span>, <span class="kw-2">&amp;</span>is_descendent_of), <span class="prelude-val">Err</span>(Error::Duplicate));
+		<span class="macro">assert_eq!</span>(tree.import(<span class="string">"I"</span>, <span class="number">40</span>, <span class="number">4</span>, <span class="kw-2">&amp;</span>is_descendent_of), <span class="prelude-val">Err</span>(Error::Duplicate));
 
-		<span class="macro">assert_eq!</span>(tree.import(<span class="string">&quot;G&quot;</span>, <span class="number">30</span>, <span class="number">3</span>, <span class="kw-2">&amp;</span>is_descendent_of), <span class="prelude-val">Err</span>(Error::Duplicate));
+		<span class="macro">assert_eq!</span>(tree.import(<span class="string">"G"</span>, <span class="number">30</span>, <span class="number">3</span>, <span class="kw-2">&amp;</span>is_descendent_of), <span class="prelude-val">Err</span>(Error::Duplicate));
 
-		<span class="macro">assert_eq!</span>(tree.import(<span class="string">&quot;K&quot;</span>, <span class="number">30</span>, <span class="number">3</span>, <span class="kw-2">&amp;</span>is_descendent_of), <span class="prelude-val">Err</span>(Error::Duplicate));
+		<span class="macro">assert_eq!</span>(tree.import(<span class="string">"K"</span>, <span class="number">30</span>, <span class="number">3</span>, <span class="kw-2">&amp;</span>is_descendent_of), <span class="prelude-val">Err</span>(Error::Duplicate));
 	}
 
 	<span class="attr">#[test]
@@ -2711,14 +2713,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>finalize_a = || {
 			<span class="kw">let </span>(<span class="kw-2">mut </span>tree, ..) = test_fork_tree();
 
-			<span class="macro">assert_eq!</span>(tree.roots().map(|(h, n, <span class="kw">_</span>)| (<span class="kw-2">*</span>h, <span class="kw-2">*</span>n)).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(), <span class="macro">vec!</span>[(<span class="string">&quot;A&quot;</span>, <span class="number">10</span>)]);
+			<span class="macro">assert_eq!</span>(tree.roots().map(|(h, n, <span class="kw">_</span>)| (<span class="kw-2">*</span>h, <span class="kw-2">*</span>n)).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(), <span class="macro">vec!</span>[(<span class="string">"A"</span>, <span class="number">10</span>)]);
 
-			<span class="comment">// finalizing &quot;A&quot; opens up three possible forks
-			</span>tree.finalize_root(<span class="kw-2">&amp;</span><span class="string">&quot;A&quot;</span>);
+			<span class="comment">// finalizing "A" opens up three possible forks
+			</span>tree.finalize_root(<span class="kw-2">&amp;</span><span class="string">"A"</span>);
 
 			<span class="macro">assert_eq!</span>(
 				tree.roots().map(|(h, n, <span class="kw">_</span>)| (<span class="kw-2">*</span>h, <span class="kw-2">*</span>n)).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
-				<span class="macro">vec!</span>[(<span class="string">&quot;B&quot;</span>, <span class="number">20</span>), (<span class="string">&quot;F&quot;</span>, <span class="number">20</span>), (<span class="string">&quot;J&quot;</span>, <span class="number">20</span>)],
+				<span class="macro">vec!</span>[(<span class="string">"B"</span>, <span class="number">20</span>), (<span class="string">"F"</span>, <span class="number">20</span>), (<span class="string">"J"</span>, <span class="number">20</span>)],
 			);
 
 			tree
@@ -2727,10 +2729,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		{
 			<span class="kw">let </span><span class="kw-2">mut </span>tree = finalize_a();
 
-			<span class="comment">// finalizing &quot;B&quot; will progress on its fork and remove any other competing forks
-			</span>tree.finalize_root(<span class="kw-2">&amp;</span><span class="string">&quot;B&quot;</span>);
+			<span class="comment">// finalizing "B" will progress on its fork and remove any other competing forks
+			</span>tree.finalize_root(<span class="kw-2">&amp;</span><span class="string">"B"</span>);
 
-			<span class="macro">assert_eq!</span>(tree.roots().map(|(h, n, <span class="kw">_</span>)| (<span class="kw-2">*</span>h, <span class="kw-2">*</span>n)).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(), <span class="macro">vec!</span>[(<span class="string">&quot;C&quot;</span>, <span class="number">30</span>)],);
+			<span class="macro">assert_eq!</span>(tree.roots().map(|(h, n, <span class="kw">_</span>)| (<span class="kw-2">*</span>h, <span class="kw-2">*</span>n)).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(), <span class="macro">vec!</span>[(<span class="string">"C"</span>, <span class="number">30</span>)],);
 
 			<span class="comment">// all the other forks have been pruned
 			</span><span class="macro">assert!</span>(tree.roots.len() == <span class="number">1</span>);
@@ -2739,10 +2741,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		{
 			<span class="kw">let </span><span class="kw-2">mut </span>tree = finalize_a();
 
-			<span class="comment">// finalizing &quot;J&quot; will progress on its fork and remove any other competing forks
-			</span>tree.finalize_root(<span class="kw-2">&amp;</span><span class="string">&quot;J&quot;</span>);
+			<span class="comment">// finalizing "J" will progress on its fork and remove any other competing forks
+			</span>tree.finalize_root(<span class="kw-2">&amp;</span><span class="string">"J"</span>);
 
-			<span class="macro">assert_eq!</span>(tree.roots().map(|(h, n, <span class="kw">_</span>)| (<span class="kw-2">*</span>h, <span class="kw-2">*</span>n)).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(), <span class="macro">vec!</span>[(<span class="string">&quot;K&quot;</span>, <span class="number">30</span>)],);
+			<span class="macro">assert_eq!</span>(tree.roots().map(|(h, n, <span class="kw">_</span>)| (<span class="kw-2">*</span>h, <span class="kw-2">*</span>n)).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(), <span class="macro">vec!</span>[(<span class="string">"K"</span>, <span class="number">30</span>)],);
 
 			<span class="comment">// all the other forks have been pruned
 			</span><span class="macro">assert!</span>(tree.roots.len() == <span class="number">1</span>);
@@ -2755,49 +2757,49 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>original_roots = tree.roots.clone();
 
-		<span class="comment">// finalizing a block prior to any in the node doesn&#39;t change the tree
-		</span><span class="macro">assert_eq!</span>(tree.finalize(<span class="kw-2">&amp;</span><span class="string">&quot;0&quot;</span>, <span class="number">0</span>, <span class="kw-2">&amp;</span>is_descendent_of), <span class="prelude-val">Ok</span>(FinalizationResult::Unchanged));
+		<span class="comment">// finalizing a block prior to any in the node doesn't change the tree
+		</span><span class="macro">assert_eq!</span>(tree.finalize(<span class="kw-2">&amp;</span><span class="string">"0"</span>, <span class="number">0</span>, <span class="kw-2">&amp;</span>is_descendent_of), <span class="prelude-val">Ok</span>(FinalizationResult::Unchanged));
 
 		<span class="macro">assert_eq!</span>(tree.roots, original_roots);
 
-		<span class="comment">// finalizing &quot;A&quot; opens up three possible forks
+		<span class="comment">// finalizing "A" opens up three possible forks
 		</span><span class="macro">assert_eq!</span>(
-			tree.finalize(<span class="kw-2">&amp;</span><span class="string">&quot;A&quot;</span>, <span class="number">10</span>, <span class="kw-2">&amp;</span>is_descendent_of),
+			tree.finalize(<span class="kw-2">&amp;</span><span class="string">"A"</span>, <span class="number">10</span>, <span class="kw-2">&amp;</span>is_descendent_of),
 			<span class="prelude-val">Ok</span>(FinalizationResult::Changed(<span class="prelude-val">Some</span>(<span class="number">1</span>))),
 		);
 
 		<span class="macro">assert_eq!</span>(
 			tree.roots().map(|(h, n, <span class="kw">_</span>)| (<span class="kw-2">*</span>h, <span class="kw-2">*</span>n)).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
-			<span class="macro">vec!</span>[(<span class="string">&quot;B&quot;</span>, <span class="number">20</span>), (<span class="string">&quot;F&quot;</span>, <span class="number">20</span>), (<span class="string">&quot;J&quot;</span>, <span class="number">20</span>)],
+			<span class="macro">vec!</span>[(<span class="string">"B"</span>, <span class="number">20</span>), (<span class="string">"F"</span>, <span class="number">20</span>), (<span class="string">"J"</span>, <span class="number">20</span>)],
 		);
 
 		<span class="comment">// finalizing anything lower than what we observed will fail
 		</span><span class="macro">assert_eq!</span>(tree.best_finalized_number, <span class="prelude-val">Some</span>(<span class="number">10</span>));
 
-		<span class="macro">assert_eq!</span>(tree.finalize(<span class="kw-2">&amp;</span><span class="string">&quot;Z&quot;</span>, <span class="number">10</span>, <span class="kw-2">&amp;</span>is_descendent_of), <span class="prelude-val">Err</span>(Error::Revert));
+		<span class="macro">assert_eq!</span>(tree.finalize(<span class="kw-2">&amp;</span><span class="string">"Z"</span>, <span class="number">10</span>, <span class="kw-2">&amp;</span>is_descendent_of), <span class="prelude-val">Err</span>(Error::Revert));
 
 		<span class="comment">// trying to finalize a node without finalizing its ancestors first will fail
-		</span><span class="macro">assert_eq!</span>(tree.finalize(<span class="kw-2">&amp;</span><span class="string">&quot;H&quot;</span>, <span class="number">30</span>, <span class="kw-2">&amp;</span>is_descendent_of), <span class="prelude-val">Err</span>(Error::UnfinalizedAncestor));
+		</span><span class="macro">assert_eq!</span>(tree.finalize(<span class="kw-2">&amp;</span><span class="string">"H"</span>, <span class="number">30</span>, <span class="kw-2">&amp;</span>is_descendent_of), <span class="prelude-val">Err</span>(Error::UnfinalizedAncestor));
 
-		<span class="comment">// after finalizing &quot;F&quot; we can finalize &quot;H&quot;
+		<span class="comment">// after finalizing "F" we can finalize "H"
 		</span><span class="macro">assert_eq!</span>(
-			tree.finalize(<span class="kw-2">&amp;</span><span class="string">&quot;F&quot;</span>, <span class="number">20</span>, <span class="kw-2">&amp;</span>is_descendent_of),
+			tree.finalize(<span class="kw-2">&amp;</span><span class="string">"F"</span>, <span class="number">20</span>, <span class="kw-2">&amp;</span>is_descendent_of),
 			<span class="prelude-val">Ok</span>(FinalizationResult::Changed(<span class="prelude-val">Some</span>(<span class="number">2</span>))),
 		);
 
 		<span class="macro">assert_eq!</span>(
-			tree.finalize(<span class="kw-2">&amp;</span><span class="string">&quot;H&quot;</span>, <span class="number">30</span>, <span class="kw-2">&amp;</span>is_descendent_of),
+			tree.finalize(<span class="kw-2">&amp;</span><span class="string">"H"</span>, <span class="number">30</span>, <span class="kw-2">&amp;</span>is_descendent_of),
 			<span class="prelude-val">Ok</span>(FinalizationResult::Changed(<span class="prelude-val">Some</span>(<span class="number">3</span>))),
 		);
 
 		<span class="macro">assert_eq!</span>(
 			tree.roots().map(|(h, n, <span class="kw">_</span>)| (<span class="kw-2">*</span>h, <span class="kw-2">*</span>n)).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
-			<span class="macro">vec!</span>[(<span class="string">&quot;L&quot;</span>, <span class="number">40</span>), (<span class="string">&quot;I&quot;</span>, <span class="number">40</span>)],
+			<span class="macro">vec!</span>[(<span class="string">"L"</span>, <span class="number">40</span>), (<span class="string">"I"</span>, <span class="number">40</span>)],
 		);
 
-		<span class="comment">// finalizing a node from another fork that isn&#39;t part of the tree clears the tree
+		<span class="comment">// finalizing a node from another fork that isn't part of the tree clears the tree
 		</span><span class="macro">assert_eq!</span>(
-			tree.finalize(<span class="kw-2">&amp;</span><span class="string">&quot;Z&quot;</span>, <span class="number">50</span>, <span class="kw-2">&amp;</span>is_descendent_of),
+			tree.finalize(<span class="kw-2">&amp;</span><span class="string">"Z"</span>, <span class="number">50</span>, <span class="kw-2">&amp;</span>is_descendent_of),
 			<span class="prelude-val">Ok</span>(FinalizationResult::Changed(<span class="prelude-val">None</span>)),
 		);
 
@@ -2810,23 +2812,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>original_roots = tree.roots.clone();
 
-		<span class="comment">// finalizing a block prior to any in the node doesn&#39;t change the tree
+		<span class="comment">// finalizing a block prior to any in the node doesn't change the tree
 		</span><span class="macro">assert_eq!</span>(
-			tree.finalize_with_ancestors(<span class="kw-2">&amp;</span><span class="string">&quot;0&quot;</span>, <span class="number">0</span>, <span class="kw-2">&amp;</span>is_descendent_of),
+			tree.finalize_with_ancestors(<span class="kw-2">&amp;</span><span class="string">"0"</span>, <span class="number">0</span>, <span class="kw-2">&amp;</span>is_descendent_of),
 			<span class="prelude-val">Ok</span>(FinalizationResult::Unchanged),
 		);
 
 		<span class="macro">assert_eq!</span>(tree.roots, original_roots);
 
-		<span class="comment">// finalizing &quot;A&quot; opens up three possible forks
+		<span class="comment">// finalizing "A" opens up three possible forks
 		</span><span class="macro">assert_eq!</span>(
-			tree.finalize_with_ancestors(<span class="kw-2">&amp;</span><span class="string">&quot;A&quot;</span>, <span class="number">10</span>, <span class="kw-2">&amp;</span>is_descendent_of),
+			tree.finalize_with_ancestors(<span class="kw-2">&amp;</span><span class="string">"A"</span>, <span class="number">10</span>, <span class="kw-2">&amp;</span>is_descendent_of),
 			<span class="prelude-val">Ok</span>(FinalizationResult::Changed(<span class="prelude-val">Some</span>(<span class="number">1</span>))),
 		);
 
 		<span class="macro">assert_eq!</span>(
 			tree.roots().map(|(h, n, <span class="kw">_</span>)| (<span class="kw-2">*</span>h, <span class="kw-2">*</span>n)).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
-			<span class="macro">vec!</span>[(<span class="string">&quot;B&quot;</span>, <span class="number">20</span>), (<span class="string">&quot;F&quot;</span>, <span class="number">20</span>), (<span class="string">&quot;J&quot;</span>, <span class="number">20</span>)],
+			<span class="macro">vec!</span>[(<span class="string">"B"</span>, <span class="number">20</span>), (<span class="string">"F"</span>, <span class="number">20</span>), (<span class="string">"J"</span>, <span class="number">20</span>)],
 		);
 
 		<span class="comment">// finalizing H:
@@ -2834,13 +2836,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		// 2) opens root that is ancestor of H (F -&gt; G+H)
 		// 3) finalizes the just opened root H (H -&gt; I + L)
 		</span><span class="macro">assert_eq!</span>(
-			tree.finalize_with_ancestors(<span class="kw-2">&amp;</span><span class="string">&quot;H&quot;</span>, <span class="number">30</span>, <span class="kw-2">&amp;</span>is_descendent_of),
+			tree.finalize_with_ancestors(<span class="kw-2">&amp;</span><span class="string">"H"</span>, <span class="number">30</span>, <span class="kw-2">&amp;</span>is_descendent_of),
 			<span class="prelude-val">Ok</span>(FinalizationResult::Changed(<span class="prelude-val">Some</span>(<span class="number">3</span>))),
 		);
 
 		<span class="macro">assert_eq!</span>(
 			tree.roots().map(|(h, n, <span class="kw">_</span>)| (<span class="kw-2">*</span>h, <span class="kw-2">*</span>n)).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
-			<span class="macro">vec!</span>[(<span class="string">&quot;L&quot;</span>, <span class="number">40</span>), (<span class="string">&quot;I&quot;</span>, <span class="number">40</span>)],
+			<span class="macro">vec!</span>[(<span class="string">"L"</span>, <span class="number">40</span>), (<span class="string">"I"</span>, <span class="number">40</span>)],
 		);
 
 		<span class="macro">assert_eq!</span>(tree.best_finalized_number, <span class="prelude-val">Some</span>(<span class="number">30</span>));
@@ -2851,7 +2853,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		// 3) removes roots that are not ancestors/descendants of N (O)
 		// 4) opens root that is ancestor of N (M -&gt; {})
 		</span><span class="macro">assert_eq!</span>(
-			tree.finalize_with_ancestors(<span class="kw-2">&amp;</span><span class="string">&quot;N&quot;</span>, <span class="number">60</span>, <span class="kw-2">&amp;</span>is_descendent_of),
+			tree.finalize_with_ancestors(<span class="kw-2">&amp;</span><span class="string">"N"</span>, <span class="number">60</span>, <span class="kw-2">&amp;</span>is_descendent_of),
 			<span class="prelude-val">Ok</span>(FinalizationResult::Changed(<span class="prelude-val">None</span>)),
 		);
 
@@ -2879,24 +2881,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				//
 				// Nodes B, C, F and G  are not part of the tree.
 				</span><span class="kw">match </span>(<span class="kw-2">*</span>base, <span class="kw-2">*</span>block) {
-					(<span class="string">&quot;A0&quot;</span>, b) =&gt; <span class="prelude-val">Ok</span>(b == <span class="string">&quot;B&quot; </span>|| b == <span class="string">&quot;C&quot; </span>|| b == <span class="string">&quot;D&quot; </span>|| b == <span class="string">&quot;E&quot; </span>|| b == <span class="string">&quot;G&quot;</span>),
-					(<span class="string">&quot;A1&quot;</span>, <span class="kw">_</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="bool-val">false</span>),
-					(<span class="string">&quot;C&quot;</span>, b) =&gt; <span class="prelude-val">Ok</span>(b == <span class="string">&quot;D&quot;</span>),
-					(<span class="string">&quot;D&quot;</span>, b) =&gt; <span class="prelude-val">Ok</span>(b == <span class="string">&quot;E&quot; </span>|| b == <span class="string">&quot;F&quot; </span>|| b == <span class="string">&quot;G&quot;</span>),
-					(<span class="string">&quot;E&quot;</span>, b) =&gt; <span class="prelude-val">Ok</span>(b == <span class="string">&quot;F&quot;</span>),
+					(<span class="string">"A0"</span>, b) =&gt; <span class="prelude-val">Ok</span>(b == <span class="string">"B" </span>|| b == <span class="string">"C" </span>|| b == <span class="string">"D" </span>|| b == <span class="string">"E" </span>|| b == <span class="string">"G"</span>),
+					(<span class="string">"A1"</span>, <span class="kw">_</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="bool-val">false</span>),
+					(<span class="string">"C"</span>, b) =&gt; <span class="prelude-val">Ok</span>(b == <span class="string">"D"</span>),
+					(<span class="string">"D"</span>, b) =&gt; <span class="prelude-val">Ok</span>(b == <span class="string">"E" </span>|| b == <span class="string">"F" </span>|| b == <span class="string">"G"</span>),
+					(<span class="string">"E"</span>, b) =&gt; <span class="prelude-val">Ok</span>(b == <span class="string">"F"</span>),
 					<span class="kw">_ </span>=&gt; <span class="prelude-val">Ok</span>(<span class="bool-val">false</span>),
 				}
 			};
 
-			<span class="kw">let </span>is_root = tree.import(<span class="string">&quot;A0&quot;</span>, <span class="number">1</span>, Change { effective: <span class="number">5 </span>}, <span class="kw-2">&amp;</span>is_descendent_of).unwrap();
+			<span class="kw">let </span>is_root = tree.import(<span class="string">"A0"</span>, <span class="number">1</span>, Change { effective: <span class="number">5 </span>}, <span class="kw-2">&amp;</span>is_descendent_of).unwrap();
 			<span class="macro">assert!</span>(is_root);
-			<span class="kw">let </span>is_root = tree.import(<span class="string">&quot;A1&quot;</span>, <span class="number">1</span>, Change { effective: <span class="number">5 </span>}, <span class="kw-2">&amp;</span>is_descendent_of).unwrap();
+			<span class="kw">let </span>is_root = tree.import(<span class="string">"A1"</span>, <span class="number">1</span>, Change { effective: <span class="number">5 </span>}, <span class="kw-2">&amp;</span>is_descendent_of).unwrap();
 			<span class="macro">assert!</span>(is_root);
 			<span class="kw">let </span>is_root =
-				tree.import(<span class="string">&quot;D&quot;</span>, <span class="number">10</span>, Change { effective: <span class="number">10 </span>}, <span class="kw-2">&amp;</span>is_descendent_of).unwrap();
+				tree.import(<span class="string">"D"</span>, <span class="number">10</span>, Change { effective: <span class="number">10 </span>}, <span class="kw-2">&amp;</span>is_descendent_of).unwrap();
 			<span class="macro">assert!</span>(!is_root);
 			<span class="kw">let </span>is_root =
-				tree.import(<span class="string">&quot;E&quot;</span>, <span class="number">15</span>, Change { effective: <span class="number">50 </span>}, <span class="kw-2">&amp;</span>is_descendent_of).unwrap();
+				tree.import(<span class="string">"E"</span>, <span class="number">15</span>, Change { effective: <span class="number">50 </span>}, <span class="kw-2">&amp;</span>is_descendent_of).unwrap();
 			<span class="macro">assert!</span>(!is_root);
 
 			(tree, is_descendent_of)
@@ -2904,7 +2906,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="macro">assert_eq!</span>(
 			tree.finalizes_any_with_descendent_if(
-				<span class="kw-2">&amp;</span><span class="string">&quot;B&quot;</span>,
+				<span class="kw-2">&amp;</span><span class="string">"B"</span>,
 				<span class="number">2</span>,
 				<span class="kw-2">&amp;</span>is_descendent_of,
 				|c| c.effective &lt;= <span class="number">2</span>,
@@ -2912,40 +2914,40 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>),
 		);
 
-		<span class="comment">// finalizing &quot;D&quot; is not allowed since it is not a root.
+		<span class="comment">// finalizing "D" is not allowed since it is not a root.
 		</span><span class="macro">assert_eq!</span>(
-			tree.finalize_with_descendent_if(<span class="kw-2">&amp;</span><span class="string">&quot;D&quot;</span>, <span class="number">10</span>, <span class="kw-2">&amp;</span>is_descendent_of, |c| c.effective &lt;= <span class="number">10</span>),
+			tree.finalize_with_descendent_if(<span class="kw-2">&amp;</span><span class="string">"D"</span>, <span class="number">10</span>, <span class="kw-2">&amp;</span>is_descendent_of, |c| c.effective &lt;= <span class="number">10</span>),
 			<span class="prelude-val">Err</span>(Error::UnfinalizedAncestor)
 		);
 
-		<span class="comment">// finalizing &quot;D&quot; will finalize a block from the tree, but it can&#39;t be applied yet
+		<span class="comment">// finalizing "D" will finalize a block from the tree, but it can't be applied yet
 		// since it is not a root change.
 		</span><span class="macro">assert_eq!</span>(
-			tree.finalizes_any_with_descendent_if(<span class="kw-2">&amp;</span><span class="string">&quot;D&quot;</span>, <span class="number">10</span>, <span class="kw-2">&amp;</span>is_descendent_of, |c| c.effective ==
+			tree.finalizes_any_with_descendent_if(<span class="kw-2">&amp;</span><span class="string">"D"</span>, <span class="number">10</span>, <span class="kw-2">&amp;</span>is_descendent_of, |c| c.effective ==
 				<span class="number">10</span>),
 			<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(<span class="bool-val">false</span>)),
 		);
 
-		<span class="comment">// finalizing &quot;E&quot; is not allowed since there are not finalized ancestors.
+		<span class="comment">// finalizing "E" is not allowed since there are not finalized ancestors.
 		</span><span class="macro">assert_eq!</span>(
-			tree.finalizes_any_with_descendent_if(<span class="kw-2">&amp;</span><span class="string">&quot;E&quot;</span>, <span class="number">15</span>, <span class="kw-2">&amp;</span>is_descendent_of, |c| c.effective ==
+			tree.finalizes_any_with_descendent_if(<span class="kw-2">&amp;</span><span class="string">"E"</span>, <span class="number">15</span>, <span class="kw-2">&amp;</span>is_descendent_of, |c| c.effective ==
 				<span class="number">10</span>),
 			<span class="prelude-val">Err</span>(Error::UnfinalizedAncestor)
 		);
 
-		<span class="comment">// finalizing &quot;B&quot; doesn&#39;t finalize &quot;A0&quot; since the predicate doesn&#39;t pass,
-		// although it will clear out &quot;A1&quot; from the tree
+		<span class="comment">// finalizing "B" doesn't finalize "A0" since the predicate doesn't pass,
+		// although it will clear out "A1" from the tree
 		</span><span class="macro">assert_eq!</span>(
-			tree.finalize_with_descendent_if(<span class="kw-2">&amp;</span><span class="string">&quot;B&quot;</span>, <span class="number">2</span>, <span class="kw-2">&amp;</span>is_descendent_of, |c| c.effective &lt;= <span class="number">2</span>),
+			tree.finalize_with_descendent_if(<span class="kw-2">&amp;</span><span class="string">"B"</span>, <span class="number">2</span>, <span class="kw-2">&amp;</span>is_descendent_of, |c| c.effective &lt;= <span class="number">2</span>),
 			<span class="prelude-val">Ok</span>(FinalizationResult::Changed(<span class="prelude-val">None</span>)),
 		);
 
-		<span class="macro">assert_eq!</span>(tree.roots().map(|(h, n, <span class="kw">_</span>)| (<span class="kw-2">*</span>h, <span class="kw-2">*</span>n)).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(), <span class="macro">vec!</span>[(<span class="string">&quot;A0&quot;</span>, <span class="number">1</span>)],);
+		<span class="macro">assert_eq!</span>(tree.roots().map(|(h, n, <span class="kw">_</span>)| (<span class="kw-2">*</span>h, <span class="kw-2">*</span>n)).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(), <span class="macro">vec!</span>[(<span class="string">"A0"</span>, <span class="number">1</span>)],);
 
-		<span class="comment">// finalizing &quot;C&quot; will finalize the node &quot;A0&quot; and prune it out of the tree
+		<span class="comment">// finalizing "C" will finalize the node "A0" and prune it out of the tree
 		</span><span class="macro">assert_eq!</span>(
 			tree.finalizes_any_with_descendent_if(
-				<span class="kw-2">&amp;</span><span class="string">&quot;C&quot;</span>,
+				<span class="kw-2">&amp;</span><span class="string">"C"</span>,
 				<span class="number">5</span>,
 				<span class="kw-2">&amp;</span>is_descendent_of,
 				|c| c.effective &lt;= <span class="number">5</span>,
@@ -2954,32 +2956,32 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		);
 
 		<span class="macro">assert_eq!</span>(
-			tree.finalize_with_descendent_if(<span class="kw-2">&amp;</span><span class="string">&quot;C&quot;</span>, <span class="number">5</span>, <span class="kw-2">&amp;</span>is_descendent_of, |c| c.effective &lt;= <span class="number">5</span>),
+			tree.finalize_with_descendent_if(<span class="kw-2">&amp;</span><span class="string">"C"</span>, <span class="number">5</span>, <span class="kw-2">&amp;</span>is_descendent_of, |c| c.effective &lt;= <span class="number">5</span>),
 			<span class="prelude-val">Ok</span>(FinalizationResult::Changed(<span class="prelude-val">Some</span>(Change { effective: <span class="number">5 </span>}))),
 		);
 
-		<span class="macro">assert_eq!</span>(tree.roots().map(|(h, n, <span class="kw">_</span>)| (<span class="kw-2">*</span>h, <span class="kw-2">*</span>n)).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(), <span class="macro">vec!</span>[(<span class="string">&quot;D&quot;</span>, <span class="number">10</span>)],);
+		<span class="macro">assert_eq!</span>(tree.roots().map(|(h, n, <span class="kw">_</span>)| (<span class="kw-2">*</span>h, <span class="kw-2">*</span>n)).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(), <span class="macro">vec!</span>[(<span class="string">"D"</span>, <span class="number">10</span>)],);
 
-		<span class="comment">// finalizing &quot;F&quot; will fail since it would finalize past &quot;E&quot; without finalizing &quot;D&quot; first
+		<span class="comment">// finalizing "F" will fail since it would finalize past "E" without finalizing "D" first
 		</span><span class="macro">assert_eq!</span>(
-			tree.finalizes_any_with_descendent_if(<span class="kw-2">&amp;</span><span class="string">&quot;F&quot;</span>, <span class="number">100</span>, <span class="kw-2">&amp;</span>is_descendent_of, |c| c.effective &lt;=
+			tree.finalizes_any_with_descendent_if(<span class="kw-2">&amp;</span><span class="string">"F"</span>, <span class="number">100</span>, <span class="kw-2">&amp;</span>is_descendent_of, |c| c.effective &lt;=
 				<span class="number">100</span>,),
 			<span class="prelude-val">Err</span>(Error::UnfinalizedAncestor),
 		);
 
-		<span class="comment">// it will work with &quot;G&quot; though since it is not in the same branch as &quot;E&quot;
+		<span class="comment">// it will work with "G" though since it is not in the same branch as "E"
 		</span><span class="macro">assert_eq!</span>(
-			tree.finalizes_any_with_descendent_if(<span class="kw-2">&amp;</span><span class="string">&quot;G&quot;</span>, <span class="number">100</span>, <span class="kw-2">&amp;</span>is_descendent_of, |c| c.effective &lt;=
+			tree.finalizes_any_with_descendent_if(<span class="kw-2">&amp;</span><span class="string">"G"</span>, <span class="number">100</span>, <span class="kw-2">&amp;</span>is_descendent_of, |c| c.effective &lt;=
 				<span class="number">100</span>),
 			<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(<span class="bool-val">true</span>)),
 		);
 
 		<span class="macro">assert_eq!</span>(
-			tree.finalize_with_descendent_if(<span class="kw-2">&amp;</span><span class="string">&quot;G&quot;</span>, <span class="number">100</span>, <span class="kw-2">&amp;</span>is_descendent_of, |c| c.effective &lt;= <span class="number">100</span>),
+			tree.finalize_with_descendent_if(<span class="kw-2">&amp;</span><span class="string">"G"</span>, <span class="number">100</span>, <span class="kw-2">&amp;</span>is_descendent_of, |c| c.effective &lt;= <span class="number">100</span>),
 			<span class="prelude-val">Ok</span>(FinalizationResult::Changed(<span class="prelude-val">Some</span>(Change { effective: <span class="number">10 </span>}))),
 		);
 
-		<span class="comment">// &quot;E&quot; will be pruned out
+		<span class="comment">// "E" will be pruned out
 		</span><span class="macro">assert_eq!</span>(tree.roots().count(), <span class="number">0</span>);
 	}
 
@@ -2989,20 +2991,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">assert_eq!</span>(
 			tree.iter().map(|(h, n, <span class="kw">_</span>)| (<span class="kw-2">*</span>h, <span class="kw-2">*</span>n)).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
 			<span class="macro">vec!</span>[
-				(<span class="string">&quot;A&quot;</span>, <span class="number">10</span>),
-				(<span class="string">&quot;B&quot;</span>, <span class="number">20</span>),
-				(<span class="string">&quot;C&quot;</span>, <span class="number">30</span>),
-				(<span class="string">&quot;D&quot;</span>, <span class="number">40</span>),
-				(<span class="string">&quot;E&quot;</span>, <span class="number">50</span>),
-				(<span class="string">&quot;F&quot;</span>, <span class="number">20</span>),
-				(<span class="string">&quot;H&quot;</span>, <span class="number">30</span>),
-				(<span class="string">&quot;L&quot;</span>, <span class="number">40</span>),
-				(<span class="string">&quot;M&quot;</span>, <span class="number">50</span>),
-				(<span class="string">&quot;O&quot;</span>, <span class="number">50</span>),
-				(<span class="string">&quot;I&quot;</span>, <span class="number">40</span>),
-				(<span class="string">&quot;G&quot;</span>, <span class="number">30</span>),
-				(<span class="string">&quot;J&quot;</span>, <span class="number">20</span>),
-				(<span class="string">&quot;K&quot;</span>, <span class="number">30</span>),
+				(<span class="string">"A"</span>, <span class="number">10</span>),
+				(<span class="string">"B"</span>, <span class="number">20</span>),
+				(<span class="string">"C"</span>, <span class="number">30</span>),
+				(<span class="string">"D"</span>, <span class="number">40</span>),
+				(<span class="string">"E"</span>, <span class="number">50</span>),
+				(<span class="string">"F"</span>, <span class="number">20</span>),
+				(<span class="string">"H"</span>, <span class="number">30</span>),
+				(<span class="string">"L"</span>, <span class="number">40</span>),
+				(<span class="string">"M"</span>, <span class="number">50</span>),
+				(<span class="string">"O"</span>, <span class="number">50</span>),
+				(<span class="string">"I"</span>, <span class="number">40</span>),
+				(<span class="string">"G"</span>, <span class="number">30</span>),
+				(<span class="string">"J"</span>, <span class="number">20</span>),
+				(<span class="string">"K"</span>, <span class="number">30</span>),
 			],
 		);
 	}
@@ -3023,16 +3025,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			// search for the node should first check the predicate (which is cheaper) and
 			// only then call `is_descendent_of`
 			</span><span class="kw">let </span><span class="kw-2">mut </span>tree = ForkTree::new();
-			<span class="kw">let </span>letters = <span class="macro">vec!</span>[<span class="string">&quot;A&quot;</span>, <span class="string">&quot;B&quot;</span>, <span class="string">&quot;C&quot;</span>, <span class="string">&quot;D&quot;</span>, <span class="string">&quot;E&quot;</span>, <span class="string">&quot;F&quot;</span>, <span class="string">&quot;G&quot;</span>, <span class="string">&quot;H&quot;</span>, <span class="string">&quot;I&quot;</span>, <span class="string">&quot;J&quot;</span>, <span class="string">&quot;K&quot;</span>];
+			<span class="kw">let </span>letters = <span class="macro">vec!</span>[<span class="string">"A"</span>, <span class="string">"B"</span>, <span class="string">"C"</span>, <span class="string">"D"</span>, <span class="string">"E"</span>, <span class="string">"F"</span>, <span class="string">"G"</span>, <span class="string">"H"</span>, <span class="string">"I"</span>, <span class="string">"J"</span>, <span class="string">"K"</span>];
 
 			<span class="kw">for </span>(i, letter) <span class="kw">in </span>letters.iter().enumerate() {
 				tree.import::&lt;<span class="kw">_</span>, TestError&gt;(<span class="kw-2">*</span>letter, i, i, <span class="kw-2">&amp;</span>|<span class="kw">_</span>, <span class="kw">_</span>| <span class="prelude-val">Ok</span>(<span class="bool-val">true</span>)).unwrap();
 			}
 
-			<span class="comment">// &quot;L&quot; is a descendent of &quot;K&quot;, but the predicate will only pass for &quot;K&quot;,
+			<span class="comment">// "L" is a descendent of "K", but the predicate will only pass for "K",
 			// therefore only one call to `is_descendent_of` should be made
 			</span><span class="macro">assert_eq!</span>(
-				tree.finalizes_any_with_descendent_if(<span class="kw-2">&amp;</span><span class="string">&quot;L&quot;</span>, <span class="number">11</span>, <span class="kw-2">&amp;</span>is_descendent_of, |i| <span class="kw-2">*</span>i == <span class="number">10</span>,),
+				tree.finalizes_any_with_descendent_if(<span class="kw-2">&amp;</span><span class="string">"L"</span>, <span class="number">11</span>, <span class="kw-2">&amp;</span>is_descendent_of, |i| <span class="kw-2">*</span>i == <span class="number">10</span>,),
 				<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(<span class="bool-val">false</span>)),
 			);
 
@@ -3046,16 +3048,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			// The search for the root node should first check the predicate (which is cheaper)
 			// and only then call `is_descendent_of`
 			</span><span class="kw">let </span><span class="kw-2">mut </span>tree = ForkTree::new();
-			<span class="kw">let </span>letters = <span class="macro">vec!</span>[<span class="string">&quot;A&quot;</span>, <span class="string">&quot;B&quot;</span>, <span class="string">&quot;C&quot;</span>, <span class="string">&quot;D&quot;</span>, <span class="string">&quot;E&quot;</span>, <span class="string">&quot;F&quot;</span>, <span class="string">&quot;G&quot;</span>, <span class="string">&quot;H&quot;</span>, <span class="string">&quot;I&quot;</span>, <span class="string">&quot;J&quot;</span>, <span class="string">&quot;K&quot;</span>];
+			<span class="kw">let </span>letters = <span class="macro">vec!</span>[<span class="string">"A"</span>, <span class="string">"B"</span>, <span class="string">"C"</span>, <span class="string">"D"</span>, <span class="string">"E"</span>, <span class="string">"F"</span>, <span class="string">"G"</span>, <span class="string">"H"</span>, <span class="string">"I"</span>, <span class="string">"J"</span>, <span class="string">"K"</span>];
 
 			<span class="kw">for </span>(i, letter) <span class="kw">in </span>letters.iter().enumerate() {
 				tree.import::&lt;<span class="kw">_</span>, TestError&gt;(<span class="kw-2">*</span>letter, i, i, <span class="kw-2">&amp;</span>|<span class="kw">_</span>, <span class="kw">_</span>| <span class="prelude-val">Ok</span>(<span class="bool-val">false</span>)).unwrap();
 			}
 
-			<span class="comment">// &quot;L&quot; is a descendent of &quot;K&quot;, but the predicate will only pass for &quot;K&quot;,
+			<span class="comment">// "L" is a descendent of "K", but the predicate will only pass for "K",
 			// therefore only one call to `is_descendent_of` should be made
 			</span><span class="macro">assert_eq!</span>(
-				tree.finalize_with_descendent_if(<span class="kw-2">&amp;</span><span class="string">&quot;L&quot;</span>, <span class="number">11</span>, <span class="kw-2">&amp;</span>is_descendent_of, |i| <span class="kw-2">*</span>i == <span class="number">10</span>,),
+				tree.finalize_with_descendent_if(<span class="kw-2">&amp;</span><span class="string">"L"</span>, <span class="number">11</span>, <span class="kw-2">&amp;</span>is_descendent_of, |i| <span class="kw-2">*</span>i == <span class="number">10</span>,),
 				<span class="prelude-val">Ok</span>(FinalizationResult::Changed(<span class="prelude-val">Some</span>(<span class="number">10</span>))),
 			);
 
@@ -3069,9 +3071,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// Extend the single root fork-tree to also exercise the roots order during map.
 		</span><span class="kw">let </span>is_descendent_of = |<span class="kw">_</span>: &amp;&amp;str, <span class="kw">_</span>: &amp;&amp;str| -&gt; <span class="prelude-ty">Result</span>&lt;bool, TestError&gt; { <span class="prelude-val">Ok</span>(<span class="bool-val">false</span>) };
-		<span class="kw">let </span>is_root = tree.import(<span class="string">&quot;A1&quot;</span>, <span class="number">10</span>, <span class="number">1</span>, <span class="kw-2">&amp;</span>is_descendent_of).unwrap();
+		<span class="kw">let </span>is_root = tree.import(<span class="string">"A1"</span>, <span class="number">10</span>, <span class="number">1</span>, <span class="kw-2">&amp;</span>is_descendent_of).unwrap();
 		<span class="macro">assert!</span>(is_root);
-		<span class="kw">let </span>is_root = tree.import(<span class="string">&quot;A2&quot;</span>, <span class="number">10</span>, <span class="number">1</span>, <span class="kw-2">&amp;</span>is_descendent_of).unwrap();
+		<span class="kw">let </span>is_root = tree.import(<span class="string">"A2"</span>, <span class="number">10</span>, <span class="number">1</span>, <span class="kw-2">&amp;</span>is_descendent_of).unwrap();
 		<span class="macro">assert!</span>(is_root);
 
 		<span class="kw">let </span>old_tree = tree.clone();
@@ -3089,45 +3091,45 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>prune_works_for_in_tree_hashes() {
 		<span class="kw">let </span>(<span class="kw-2">mut </span>tree, is_descendent_of) = test_fork_tree();
 
-		<span class="kw">let </span>removed = tree.prune(<span class="kw-2">&amp;</span><span class="string">&quot;C&quot;</span>, <span class="kw-2">&amp;</span><span class="number">30</span>, <span class="kw-2">&amp;</span>is_descendent_of, <span class="kw-2">&amp;</span>|<span class="kw">_</span>| <span class="bool-val">true</span>).unwrap();
+		<span class="kw">let </span>removed = tree.prune(<span class="kw-2">&amp;</span><span class="string">"C"</span>, <span class="kw-2">&amp;</span><span class="number">30</span>, <span class="kw-2">&amp;</span>is_descendent_of, <span class="kw-2">&amp;</span>|<span class="kw">_</span>| <span class="bool-val">true</span>).unwrap();
 
-		<span class="macro">assert_eq!</span>(tree.roots.iter().map(|node| node.hash).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(), <span class="macro">vec!</span>[<span class="string">&quot;B&quot;</span>]);
+		<span class="macro">assert_eq!</span>(tree.roots.iter().map(|node| node.hash).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(), <span class="macro">vec!</span>[<span class="string">"B"</span>]);
 
 		<span class="macro">assert_eq!</span>(
 			tree.iter().map(|(hash, <span class="kw">_</span>, <span class="kw">_</span>)| <span class="kw-2">*</span>hash).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
-			<span class="macro">vec!</span>[<span class="string">&quot;B&quot;</span>, <span class="string">&quot;C&quot;</span>, <span class="string">&quot;D&quot;</span>, <span class="string">&quot;E&quot;</span>],
+			<span class="macro">vec!</span>[<span class="string">"B"</span>, <span class="string">"C"</span>, <span class="string">"D"</span>, <span class="string">"E"</span>],
 		);
 
 		<span class="macro">assert_eq!</span>(
 			removed.map(|(hash, <span class="kw">_</span>, <span class="kw">_</span>)| hash).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
-			<span class="macro">vec!</span>[<span class="string">&quot;A&quot;</span>, <span class="string">&quot;F&quot;</span>, <span class="string">&quot;H&quot;</span>, <span class="string">&quot;L&quot;</span>, <span class="string">&quot;M&quot;</span>, <span class="string">&quot;O&quot;</span>, <span class="string">&quot;I&quot;</span>, <span class="string">&quot;G&quot;</span>, <span class="string">&quot;J&quot;</span>, <span class="string">&quot;K&quot;</span>]
+			<span class="macro">vec!</span>[<span class="string">"A"</span>, <span class="string">"F"</span>, <span class="string">"H"</span>, <span class="string">"L"</span>, <span class="string">"M"</span>, <span class="string">"O"</span>, <span class="string">"I"</span>, <span class="string">"G"</span>, <span class="string">"J"</span>, <span class="string">"K"</span>]
 		);
 
-		<span class="kw">let </span>removed = tree.prune(<span class="kw-2">&amp;</span><span class="string">&quot;E&quot;</span>, <span class="kw-2">&amp;</span><span class="number">50</span>, <span class="kw-2">&amp;</span>is_descendent_of, <span class="kw-2">&amp;</span>|<span class="kw">_</span>| <span class="bool-val">true</span>).unwrap();
+		<span class="kw">let </span>removed = tree.prune(<span class="kw-2">&amp;</span><span class="string">"E"</span>, <span class="kw-2">&amp;</span><span class="number">50</span>, <span class="kw-2">&amp;</span>is_descendent_of, <span class="kw-2">&amp;</span>|<span class="kw">_</span>| <span class="bool-val">true</span>).unwrap();
 
-		<span class="macro">assert_eq!</span>(tree.roots.iter().map(|node| node.hash).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(), <span class="macro">vec!</span>[<span class="string">&quot;D&quot;</span>]);
+		<span class="macro">assert_eq!</span>(tree.roots.iter().map(|node| node.hash).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(), <span class="macro">vec!</span>[<span class="string">"D"</span>]);
 
-		<span class="macro">assert_eq!</span>(tree.iter().map(|(hash, <span class="kw">_</span>, <span class="kw">_</span>)| <span class="kw-2">*</span>hash).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(), <span class="macro">vec!</span>[<span class="string">&quot;D&quot;</span>, <span class="string">&quot;E&quot;</span>]);
+		<span class="macro">assert_eq!</span>(tree.iter().map(|(hash, <span class="kw">_</span>, <span class="kw">_</span>)| <span class="kw-2">*</span>hash).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(), <span class="macro">vec!</span>[<span class="string">"D"</span>, <span class="string">"E"</span>]);
 
-		<span class="macro">assert_eq!</span>(removed.map(|(hash, <span class="kw">_</span>, <span class="kw">_</span>)| hash).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(), <span class="macro">vec!</span>[<span class="string">&quot;B&quot;</span>, <span class="string">&quot;C&quot;</span>]);
+		<span class="macro">assert_eq!</span>(removed.map(|(hash, <span class="kw">_</span>, <span class="kw">_</span>)| hash).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(), <span class="macro">vec!</span>[<span class="string">"B"</span>, <span class="string">"C"</span>]);
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>prune_works_for_out_of_tree_hashes() {
 		<span class="kw">let </span>(<span class="kw-2">mut </span>tree, is_descendent_of) = test_fork_tree();
 
-		<span class="kw">let </span>removed = tree.prune(<span class="kw-2">&amp;</span><span class="string">&quot;c&quot;</span>, <span class="kw-2">&amp;</span><span class="number">25</span>, <span class="kw-2">&amp;</span>is_descendent_of, <span class="kw-2">&amp;</span>|<span class="kw">_</span>| <span class="bool-val">true</span>).unwrap();
+		<span class="kw">let </span>removed = tree.prune(<span class="kw-2">&amp;</span><span class="string">"c"</span>, <span class="kw-2">&amp;</span><span class="number">25</span>, <span class="kw-2">&amp;</span>is_descendent_of, <span class="kw-2">&amp;</span>|<span class="kw">_</span>| <span class="bool-val">true</span>).unwrap();
 
-		<span class="macro">assert_eq!</span>(tree.roots.iter().map(|node| node.hash).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(), <span class="macro">vec!</span>[<span class="string">&quot;B&quot;</span>]);
+		<span class="macro">assert_eq!</span>(tree.roots.iter().map(|node| node.hash).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(), <span class="macro">vec!</span>[<span class="string">"B"</span>]);
 
 		<span class="macro">assert_eq!</span>(
 			tree.iter().map(|(hash, <span class="kw">_</span>, <span class="kw">_</span>)| <span class="kw-2">*</span>hash).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
-			<span class="macro">vec!</span>[<span class="string">&quot;B&quot;</span>, <span class="string">&quot;C&quot;</span>, <span class="string">&quot;D&quot;</span>, <span class="string">&quot;E&quot;</span>],
+			<span class="macro">vec!</span>[<span class="string">"B"</span>, <span class="string">"C"</span>, <span class="string">"D"</span>, <span class="string">"E"</span>],
 		);
 
 		<span class="macro">assert_eq!</span>(
 			removed.map(|(hash, <span class="kw">_</span>, <span class="kw">_</span>)| hash).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
-			<span class="macro">vec!</span>[<span class="string">&quot;A&quot;</span>, <span class="string">&quot;F&quot;</span>, <span class="string">&quot;H&quot;</span>, <span class="string">&quot;L&quot;</span>, <span class="string">&quot;M&quot;</span>, <span class="string">&quot;O&quot;</span>, <span class="string">&quot;I&quot;</span>, <span class="string">&quot;G&quot;</span>, <span class="string">&quot;J&quot;</span>, <span class="string">&quot;K&quot;</span>]
+			<span class="macro">vec!</span>[<span class="string">"A"</span>, <span class="string">"F"</span>, <span class="string">"H"</span>, <span class="string">"L"</span>, <span class="string">"M"</span>, <span class="string">"O"</span>, <span class="string">"I"</span>, <span class="string">"G"</span>, <span class="string">"J"</span>, <span class="string">"K"</span>]
 		);
 	}
 
@@ -3136,15 +3138,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>(<span class="kw-2">mut </span>tree, is_descendent_of) = test_fork_tree();
 
 		<span class="comment">// This is to re-root the tree not at the immediate ancestor, but the one just before.
-		</span><span class="kw">let </span>removed = tree.prune(<span class="kw-2">&amp;</span><span class="string">&quot;m&quot;</span>, <span class="kw-2">&amp;</span><span class="number">45</span>, <span class="kw-2">&amp;</span>is_descendent_of, <span class="kw-2">&amp;</span>|height| <span class="kw-2">*</span>height == <span class="number">3</span>).unwrap();
+		</span><span class="kw">let </span>removed = tree.prune(<span class="kw-2">&amp;</span><span class="string">"m"</span>, <span class="kw-2">&amp;</span><span class="number">45</span>, <span class="kw-2">&amp;</span>is_descendent_of, <span class="kw-2">&amp;</span>|height| <span class="kw-2">*</span>height == <span class="number">3</span>).unwrap();
 
-		<span class="macro">assert_eq!</span>(tree.roots.iter().map(|node| node.hash).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(), <span class="macro">vec!</span>[<span class="string">&quot;H&quot;</span>]);
+		<span class="macro">assert_eq!</span>(tree.roots.iter().map(|node| node.hash).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(), <span class="macro">vec!</span>[<span class="string">"H"</span>]);
 
-		<span class="macro">assert_eq!</span>(tree.iter().map(|(hash, <span class="kw">_</span>, <span class="kw">_</span>)| <span class="kw-2">*</span>hash).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(), <span class="macro">vec!</span>[<span class="string">&quot;H&quot;</span>, <span class="string">&quot;L&quot;</span>, <span class="string">&quot;M&quot;</span>],);
+		<span class="macro">assert_eq!</span>(tree.iter().map(|(hash, <span class="kw">_</span>, <span class="kw">_</span>)| <span class="kw-2">*</span>hash).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(), <span class="macro">vec!</span>[<span class="string">"H"</span>, <span class="string">"L"</span>, <span class="string">"M"</span>],);
 
 		<span class="macro">assert_eq!</span>(
 			removed.map(|(hash, <span class="kw">_</span>, <span class="kw">_</span>)| hash).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
-			<span class="macro">vec!</span>[<span class="string">&quot;O&quot;</span>, <span class="string">&quot;I&quot;</span>, <span class="string">&quot;A&quot;</span>, <span class="string">&quot;B&quot;</span>, <span class="string">&quot;C&quot;</span>, <span class="string">&quot;D&quot;</span>, <span class="string">&quot;E&quot;</span>, <span class="string">&quot;F&quot;</span>, <span class="string">&quot;G&quot;</span>, <span class="string">&quot;J&quot;</span>, <span class="string">&quot;K&quot;</span>]
+			<span class="macro">vec!</span>[<span class="string">"O"</span>, <span class="string">"I"</span>, <span class="string">"A"</span>, <span class="string">"B"</span>, <span class="string">"C"</span>, <span class="string">"D"</span>, <span class="string">"E"</span>, <span class="string">"F"</span>, <span class="string">"G"</span>, <span class="string">"J"</span>, <span class="string">"K"</span>]
 		);
 	}
 
@@ -3152,18 +3154,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>prune_works_for_far_away_ancestor() {
 		<span class="kw">let </span>(<span class="kw-2">mut </span>tree, is_descendent_of) = test_fork_tree();
 
-		<span class="kw">let </span>removed = tree.prune(<span class="kw-2">&amp;</span><span class="string">&quot;m&quot;</span>, <span class="kw-2">&amp;</span><span class="number">45</span>, <span class="kw-2">&amp;</span>is_descendent_of, <span class="kw-2">&amp;</span>|height| <span class="kw-2">*</span>height == <span class="number">2</span>).unwrap();
+		<span class="kw">let </span>removed = tree.prune(<span class="kw-2">&amp;</span><span class="string">"m"</span>, <span class="kw-2">&amp;</span><span class="number">45</span>, <span class="kw-2">&amp;</span>is_descendent_of, <span class="kw-2">&amp;</span>|height| <span class="kw-2">*</span>height == <span class="number">2</span>).unwrap();
 
-		<span class="macro">assert_eq!</span>(tree.roots.iter().map(|node| node.hash).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(), <span class="macro">vec!</span>[<span class="string">&quot;F&quot;</span>]);
+		<span class="macro">assert_eq!</span>(tree.roots.iter().map(|node| node.hash).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(), <span class="macro">vec!</span>[<span class="string">"F"</span>]);
 
 		<span class="macro">assert_eq!</span>(
 			tree.iter().map(|(hash, <span class="kw">_</span>, <span class="kw">_</span>)| <span class="kw-2">*</span>hash).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
-			<span class="macro">vec!</span>[<span class="string">&quot;F&quot;</span>, <span class="string">&quot;H&quot;</span>, <span class="string">&quot;L&quot;</span>, <span class="string">&quot;M&quot;</span>],
+			<span class="macro">vec!</span>[<span class="string">"F"</span>, <span class="string">"H"</span>, <span class="string">"L"</span>, <span class="string">"M"</span>],
 		);
 
 		<span class="macro">assert_eq!</span>(
 			removed.map(|(hash, <span class="kw">_</span>, <span class="kw">_</span>)| hash).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
-			<span class="macro">vec!</span>[<span class="string">&quot;O&quot;</span>, <span class="string">&quot;I&quot;</span>, <span class="string">&quot;G&quot;</span>, <span class="string">&quot;A&quot;</span>, <span class="string">&quot;B&quot;</span>, <span class="string">&quot;C&quot;</span>, <span class="string">&quot;D&quot;</span>, <span class="string">&quot;E&quot;</span>, <span class="string">&quot;J&quot;</span>, <span class="string">&quot;K&quot;</span>]
+			<span class="macro">vec!</span>[<span class="string">"O"</span>, <span class="string">"I"</span>, <span class="string">"G"</span>, <span class="string">"A"</span>, <span class="string">"B"</span>, <span class="string">"C"</span>, <span class="string">"D"</span>, <span class="string">"E"</span>, <span class="string">"J"</span>, <span class="string">"K"</span>]
 		);
 	}
 
@@ -3177,23 +3179,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		//
 		</span><span class="kw">let </span>is_descendent_of = |base: &amp;&amp;str, block: &amp;&amp;str| -&gt; <span class="prelude-ty">Result</span>&lt;bool, TestError&gt; {
 			<span class="kw">match </span>(<span class="kw-2">*</span>base, <span class="kw-2">*</span>block) {
-				(<span class="string">&quot;A&quot;</span>, b) =&gt; <span class="prelude-val">Ok</span>(b == <span class="string">&quot;B&quot; </span>|| b == <span class="string">&quot;C&quot; </span>|| b == <span class="string">&quot;D&quot;</span>),
-				(<span class="string">&quot;B&quot;</span>, b) | (<span class="string">&quot;C&quot;</span>, b) =&gt; <span class="prelude-val">Ok</span>(b == <span class="string">&quot;D&quot;</span>),
-				(<span class="string">&quot;0&quot;</span>, <span class="kw">_</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="bool-val">true</span>),
+				(<span class="string">"A"</span>, b) =&gt; <span class="prelude-val">Ok</span>(b == <span class="string">"B" </span>|| b == <span class="string">"C" </span>|| b == <span class="string">"D"</span>),
+				(<span class="string">"B"</span>, b) | (<span class="string">"C"</span>, b) =&gt; <span class="prelude-val">Ok</span>(b == <span class="string">"D"</span>),
+				(<span class="string">"0"</span>, <span class="kw">_</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="bool-val">true</span>),
 				<span class="kw">_ </span>=&gt; <span class="prelude-val">Ok</span>(<span class="bool-val">false</span>),
 			}
 		};
 
-		tree.import(<span class="string">&quot;A&quot;</span>, <span class="number">1</span>, <span class="number">1</span>, <span class="kw-2">&amp;</span>is_descendent_of).unwrap();
-		tree.import(<span class="string">&quot;B&quot;</span>, <span class="number">2</span>, <span class="number">2</span>, <span class="kw-2">&amp;</span>is_descendent_of).unwrap();
-		tree.import(<span class="string">&quot;C&quot;</span>, <span class="number">2</span>, <span class="number">4</span>, <span class="kw-2">&amp;</span>is_descendent_of).unwrap();
+		tree.import(<span class="string">"A"</span>, <span class="number">1</span>, <span class="number">1</span>, <span class="kw-2">&amp;</span>is_descendent_of).unwrap();
+		tree.import(<span class="string">"B"</span>, <span class="number">2</span>, <span class="number">2</span>, <span class="kw-2">&amp;</span>is_descendent_of).unwrap();
+		tree.import(<span class="string">"C"</span>, <span class="number">2</span>, <span class="number">4</span>, <span class="kw-2">&amp;</span>is_descendent_of).unwrap();
 
 		<span class="comment">// when searching the tree we reach node `C`, but the
-		// predicate doesn&#39;t pass. we should backtrack to `B`, but not to `A`,
-		// since &quot;B&quot; fulfills the predicate.
-		</span><span class="kw">let </span>node = tree.find_node_where(<span class="kw-2">&amp;</span><span class="string">&quot;D&quot;</span>, <span class="kw-2">&amp;</span><span class="number">3</span>, <span class="kw-2">&amp;</span>is_descendent_of, <span class="kw-2">&amp;</span>|data| <span class="kw-2">*</span>data &lt; <span class="number">3</span>).unwrap();
+		// predicate doesn't pass. we should backtrack to `B`, but not to `A`,
+		// since "B" fulfills the predicate.
+		</span><span class="kw">let </span>node = tree.find_node_where(<span class="kw-2">&amp;</span><span class="string">"D"</span>, <span class="kw-2">&amp;</span><span class="number">3</span>, <span class="kw-2">&amp;</span>is_descendent_of, <span class="kw-2">&amp;</span>|data| <span class="kw-2">*</span>data &lt; <span class="number">3</span>).unwrap();
 
-		<span class="macro">assert_eq!</span>(node.unwrap().hash, <span class="string">&quot;B&quot;</span>);
+		<span class="macro">assert_eq!</span>(node.unwrap().hash, <span class="string">"B"</span>);
 	}
 
 	<span class="attr">#[test]
@@ -3205,25 +3207,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		// output below.
 		</span><span class="macro">assert_eq!</span>(
 			tree.iter().map(|(h, <span class="kw">_</span>, <span class="kw">_</span>)| <span class="kw-2">*</span>h).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
-			<span class="macro">vec!</span>[<span class="string">&quot;A&quot;</span>, <span class="string">&quot;B&quot;</span>, <span class="string">&quot;C&quot;</span>, <span class="string">&quot;D&quot;</span>, <span class="string">&quot;E&quot;</span>, <span class="string">&quot;F&quot;</span>, <span class="string">&quot;H&quot;</span>, <span class="string">&quot;L&quot;</span>, <span class="string">&quot;M&quot;</span>, <span class="string">&quot;O&quot;</span>, <span class="string">&quot;I&quot;</span>, <span class="string">&quot;G&quot;</span>, <span class="string">&quot;J&quot;</span>, <span class="string">&quot;K&quot;</span>],
+			<span class="macro">vec!</span>[<span class="string">"A"</span>, <span class="string">"B"</span>, <span class="string">"C"</span>, <span class="string">"D"</span>, <span class="string">"E"</span>, <span class="string">"F"</span>, <span class="string">"H"</span>, <span class="string">"L"</span>, <span class="string">"M"</span>, <span class="string">"O"</span>, <span class="string">"I"</span>, <span class="string">"G"</span>, <span class="string">"J"</span>, <span class="string">"K"</span>],
 		);
 
-		<span class="comment">// let&#39;s add a block &quot;P&quot; which is a descendent of block &quot;O&quot;
+		<span class="comment">// let's add a block "P" which is a descendent of block "O"
 		</span><span class="kw">let </span>is_descendent_of = |base: &amp;&amp;str, block: &amp;&amp;str| -&gt; <span class="prelude-ty">Result</span>&lt;bool, TestError&gt; {
 			<span class="kw">match </span>(<span class="kw-2">*</span>base, <span class="kw-2">*</span>block) {
-				(b, <span class="string">&quot;P&quot;</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="macro">vec!</span>[<span class="string">&quot;A&quot;</span>, <span class="string">&quot;F&quot;</span>, <span class="string">&quot;H&quot;</span>, <span class="string">&quot;L&quot;</span>, <span class="string">&quot;O&quot;</span>].into_iter().any(|n| n == b)),
+				(b, <span class="string">"P"</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="macro">vec!</span>[<span class="string">"A"</span>, <span class="string">"F"</span>, <span class="string">"H"</span>, <span class="string">"L"</span>, <span class="string">"O"</span>].into_iter().any(|n| n == b)),
 				<span class="kw">_ </span>=&gt; <span class="prelude-val">Ok</span>(<span class="bool-val">false</span>),
 			}
 		};
 
-		tree.import(<span class="string">&quot;P&quot;</span>, <span class="number">60</span>, <span class="number">6</span>, <span class="kw-2">&amp;</span>is_descendent_of).unwrap();
+		tree.import(<span class="string">"P"</span>, <span class="number">60</span>, <span class="number">6</span>, <span class="kw-2">&amp;</span>is_descendent_of).unwrap();
 
-		<span class="comment">// this should re-order the tree, since the branch &quot;A -&gt; B -&gt; C -&gt; D -&gt; E&quot; is no longer tied
-		// with 5 blocks depth. additionally &quot;O&quot; should be visited before &quot;M&quot; now, since it has one
-		// descendent &quot;P&quot; which makes that branch 6 blocks long.
+		<span class="comment">// this should re-order the tree, since the branch "A -&gt; B -&gt; C -&gt; D -&gt; E" is no longer tied
+		// with 5 blocks depth. additionally "O" should be visited before "M" now, since it has one
+		// descendent "P" which makes that branch 6 blocks long.
 		</span><span class="macro">assert_eq!</span>(
 			tree.iter().map(|(h, <span class="kw">_</span>, <span class="kw">_</span>)| <span class="kw-2">*</span>h).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
-			[<span class="string">&quot;A&quot;</span>, <span class="string">&quot;F&quot;</span>, <span class="string">&quot;H&quot;</span>, <span class="string">&quot;L&quot;</span>, <span class="string">&quot;O&quot;</span>, <span class="string">&quot;P&quot;</span>, <span class="string">&quot;M&quot;</span>, <span class="string">&quot;I&quot;</span>, <span class="string">&quot;G&quot;</span>, <span class="string">&quot;B&quot;</span>, <span class="string">&quot;C&quot;</span>, <span class="string">&quot;D&quot;</span>, <span class="string">&quot;E&quot;</span>, <span class="string">&quot;J&quot;</span>, <span class="string">&quot;K&quot;</span>]
+			[<span class="string">"A"</span>, <span class="string">"F"</span>, <span class="string">"H"</span>, <span class="string">"L"</span>, <span class="string">"O"</span>, <span class="string">"P"</span>, <span class="string">"M"</span>, <span class="string">"I"</span>, <span class="string">"G"</span>, <span class="string">"B"</span>, <span class="string">"C"</span>, <span class="string">"D"</span>, <span class="string">"E"</span>, <span class="string">"J"</span>, <span class="string">"K"</span>]
 		);
 	}
 
@@ -3232,22 +3234,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>(<span class="kw-2">mut </span>tree, <span class="kw">_</span>) = test_fork_tree();
 
 		<span class="kw">let </span>filter = |h: &amp;&amp;str, <span class="kw">_</span>: <span class="kw-2">&amp;</span>u64, <span class="kw">_</span>: <span class="kw-2">&amp;</span>u32| <span class="kw">match </span><span class="kw-2">*</span>h {
-			<span class="string">&quot;A&quot; </span>| <span class="string">&quot;B&quot; </span>| <span class="string">&quot;F&quot; </span>| <span class="string">&quot;G&quot; </span>=&gt; FilterAction::KeepNode,
-			<span class="string">&quot;C&quot; </span>=&gt; FilterAction::KeepTree,
-			<span class="string">&quot;H&quot; </span>| <span class="string">&quot;J&quot; </span>=&gt; FilterAction::Remove,
-			<span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;Unexpected filtering for node: {}&quot;</span>, <span class="kw-2">*</span>h),
+			<span class="string">"A" </span>| <span class="string">"B" </span>| <span class="string">"F" </span>| <span class="string">"G" </span>=&gt; FilterAction::KeepNode,
+			<span class="string">"C" </span>=&gt; FilterAction::KeepTree,
+			<span class="string">"H" </span>| <span class="string">"J" </span>=&gt; FilterAction::Remove,
+			<span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"Unexpected filtering for node: {}"</span>, <span class="kw-2">*</span>h),
 		};
 
 		<span class="kw">let </span>removed = tree.drain_filter(filter);
 
 		<span class="macro">assert_eq!</span>(
 			tree.iter().map(|(h, <span class="kw">_</span>, <span class="kw">_</span>)| <span class="kw-2">*</span>h).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
-			[<span class="string">&quot;A&quot;</span>, <span class="string">&quot;B&quot;</span>, <span class="string">&quot;C&quot;</span>, <span class="string">&quot;D&quot;</span>, <span class="string">&quot;E&quot;</span>, <span class="string">&quot;F&quot;</span>, <span class="string">&quot;G&quot;</span>]
+			[<span class="string">"A"</span>, <span class="string">"B"</span>, <span class="string">"C"</span>, <span class="string">"D"</span>, <span class="string">"E"</span>, <span class="string">"F"</span>, <span class="string">"G"</span>]
 		);
 
 		<span class="macro">assert_eq!</span>(
 			removed.map(|(h, <span class="kw">_</span>, <span class="kw">_</span>)| h).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
-			[<span class="string">&quot;H&quot;</span>, <span class="string">&quot;L&quot;</span>, <span class="string">&quot;M&quot;</span>, <span class="string">&quot;O&quot;</span>, <span class="string">&quot;I&quot;</span>, <span class="string">&quot;J&quot;</span>, <span class="string">&quot;K&quot;</span>]
+			[<span class="string">"H"</span>, <span class="string">"L"</span>, <span class="string">"M"</span>, <span class="string">"O"</span>, <span class="string">"I"</span>, <span class="string">"J"</span>, <span class="string">"K"</span>]
 		);
 	}
 
@@ -3256,19 +3258,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>(tree, is_descendent_of) = test_fork_tree();
 
 		<span class="kw">let </span>path = tree
-			.find_node_index_where(<span class="kw-2">&amp;</span><span class="string">&quot;D&quot;</span>, <span class="kw-2">&amp;</span><span class="number">40</span>, <span class="kw-2">&amp;</span>is_descendent_of, <span class="kw-2">&amp;</span>|<span class="kw">_</span>| <span class="bool-val">true</span>)
+			.find_node_index_where(<span class="kw-2">&amp;</span><span class="string">"D"</span>, <span class="kw-2">&amp;</span><span class="number">40</span>, <span class="kw-2">&amp;</span>is_descendent_of, <span class="kw-2">&amp;</span>|<span class="kw">_</span>| <span class="bool-val">true</span>)
 			.unwrap()
 			.unwrap();
 		<span class="macro">assert_eq!</span>(path, [<span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>]);
 
 		<span class="kw">let </span>path = tree
-			.find_node_index_where(<span class="kw-2">&amp;</span><span class="string">&quot;O&quot;</span>, <span class="kw-2">&amp;</span><span class="number">50</span>, <span class="kw-2">&amp;</span>is_descendent_of, <span class="kw-2">&amp;</span>|<span class="kw">_</span>| <span class="bool-val">true</span>)
+			.find_node_index_where(<span class="kw-2">&amp;</span><span class="string">"O"</span>, <span class="kw-2">&amp;</span><span class="number">50</span>, <span class="kw-2">&amp;</span>is_descendent_of, <span class="kw-2">&amp;</span>|<span class="kw">_</span>| <span class="bool-val">true</span>)
 			.unwrap()
 			.unwrap();
 		<span class="macro">assert_eq!</span>(path, [<span class="number">0</span>, <span class="number">1</span>, <span class="number">0</span>, <span class="number">0</span>]);
 
 		<span class="kw">let </span>path = tree
-			.find_node_index_where(<span class="kw-2">&amp;</span><span class="string">&quot;N&quot;</span>, <span class="kw-2">&amp;</span><span class="number">60</span>, <span class="kw-2">&amp;</span>is_descendent_of, <span class="kw-2">&amp;</span>|<span class="kw">_</span>| <span class="bool-val">true</span>)
+			.find_node_index_where(<span class="kw-2">&amp;</span><span class="string">"N"</span>, <span class="kw-2">&amp;</span><span class="number">60</span>, <span class="kw-2">&amp;</span>is_descendent_of, <span class="kw-2">&amp;</span>|<span class="kw">_</span>| <span class="bool-val">true</span>)
 			.unwrap()
 			.unwrap();
 		<span class="macro">assert_eq!</span>(path, [<span class="number">0</span>, <span class="number">1</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>]);
@@ -3277,44 +3279,44 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>find_node_index_with_predicate_works() {
 		<span class="kw">let </span>is_descendent_of = |parent: <span class="kw-2">&amp;</span>char, child: <span class="kw-2">&amp;</span>char| <span class="kw">match </span><span class="kw-2">*</span>parent {
-			<span class="string">&#39;A&#39; </span>=&gt; <span class="prelude-val">Ok</span>([<span class="string">&#39;B&#39;</span>, <span class="string">&#39;C&#39;</span>, <span class="string">&#39;D&#39;</span>, <span class="string">&#39;E&#39;</span>, <span class="string">&#39;F&#39;</span>].contains(child)),
-			<span class="string">&#39;B&#39; </span>=&gt; <span class="prelude-val">Ok</span>([<span class="string">&#39;C&#39;</span>, <span class="string">&#39;D&#39;</span>].contains(child)),
-			<span class="string">&#39;C&#39; </span>=&gt; <span class="prelude-val">Ok</span>([<span class="string">&#39;D&#39;</span>].contains(child)),
-			<span class="string">&#39;E&#39; </span>=&gt; <span class="prelude-val">Ok</span>([<span class="string">&#39;F&#39;</span>].contains(child)),
-			<span class="string">&#39;D&#39; </span>| <span class="string">&#39;F&#39; </span>=&gt; <span class="prelude-val">Ok</span>(<span class="bool-val">false</span>),
+			<span class="string">'A' </span>=&gt; <span class="prelude-val">Ok</span>([<span class="string">'B'</span>, <span class="string">'C'</span>, <span class="string">'D'</span>, <span class="string">'E'</span>, <span class="string">'F'</span>].contains(child)),
+			<span class="string">'B' </span>=&gt; <span class="prelude-val">Ok</span>([<span class="string">'C'</span>, <span class="string">'D'</span>].contains(child)),
+			<span class="string">'C' </span>=&gt; <span class="prelude-val">Ok</span>([<span class="string">'D'</span>].contains(child)),
+			<span class="string">'E' </span>=&gt; <span class="prelude-val">Ok</span>([<span class="string">'F'</span>].contains(child)),
+			<span class="string">'D' </span>| <span class="string">'F' </span>=&gt; <span class="prelude-val">Ok</span>(<span class="bool-val">false</span>),
 			<span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(TestError),
 		};
 
 		<span class="comment">// A(t) --- B(f) --- C(t) --- D(f)
 		//      \-- E(t) --- F(f)
 		</span><span class="kw">let </span><span class="kw-2">mut </span>tree: ForkTree&lt;char, u8, bool&gt; = ForkTree::new();
-		tree.import(<span class="string">&#39;A&#39;</span>, <span class="number">1</span>, <span class="bool-val">true</span>, <span class="kw-2">&amp;</span>is_descendent_of).unwrap();
-		tree.import(<span class="string">&#39;B&#39;</span>, <span class="number">2</span>, <span class="bool-val">false</span>, <span class="kw-2">&amp;</span>is_descendent_of).unwrap();
-		tree.import(<span class="string">&#39;C&#39;</span>, <span class="number">3</span>, <span class="bool-val">true</span>, <span class="kw-2">&amp;</span>is_descendent_of).unwrap();
-		tree.import(<span class="string">&#39;D&#39;</span>, <span class="number">4</span>, <span class="bool-val">false</span>, <span class="kw-2">&amp;</span>is_descendent_of).unwrap();
+		tree.import(<span class="string">'A'</span>, <span class="number">1</span>, <span class="bool-val">true</span>, <span class="kw-2">&amp;</span>is_descendent_of).unwrap();
+		tree.import(<span class="string">'B'</span>, <span class="number">2</span>, <span class="bool-val">false</span>, <span class="kw-2">&amp;</span>is_descendent_of).unwrap();
+		tree.import(<span class="string">'C'</span>, <span class="number">3</span>, <span class="bool-val">true</span>, <span class="kw-2">&amp;</span>is_descendent_of).unwrap();
+		tree.import(<span class="string">'D'</span>, <span class="number">4</span>, <span class="bool-val">false</span>, <span class="kw-2">&amp;</span>is_descendent_of).unwrap();
 
-		tree.import(<span class="string">&#39;E&#39;</span>, <span class="number">2</span>, <span class="bool-val">true</span>, <span class="kw-2">&amp;</span>is_descendent_of).unwrap();
-		tree.import(<span class="string">&#39;F&#39;</span>, <span class="number">3</span>, <span class="bool-val">false</span>, <span class="kw-2">&amp;</span>is_descendent_of).unwrap();
+		tree.import(<span class="string">'E'</span>, <span class="number">2</span>, <span class="bool-val">true</span>, <span class="kw-2">&amp;</span>is_descendent_of).unwrap();
+		tree.import(<span class="string">'F'</span>, <span class="number">3</span>, <span class="bool-val">false</span>, <span class="kw-2">&amp;</span>is_descendent_of).unwrap();
 
 		<span class="kw">let </span>path = tree
-			.find_node_index_where(<span class="kw-2">&amp;</span><span class="string">&#39;D&#39;</span>, <span class="kw-2">&amp;</span><span class="number">4</span>, <span class="kw-2">&amp;</span>is_descendent_of, <span class="kw-2">&amp;</span>|<span class="kw-2">&amp;</span>value| !value)
+			.find_node_index_where(<span class="kw-2">&amp;</span><span class="string">'D'</span>, <span class="kw-2">&amp;</span><span class="number">4</span>, <span class="kw-2">&amp;</span>is_descendent_of, <span class="kw-2">&amp;</span>|<span class="kw-2">&amp;</span>value| !value)
 			.unwrap()
 			.unwrap();
 		<span class="macro">assert_eq!</span>(path, [<span class="number">0</span>, <span class="number">0</span>]);
 
 		<span class="kw">let </span>path = tree
-			.find_node_index_where(<span class="kw-2">&amp;</span><span class="string">&#39;D&#39;</span>, <span class="kw-2">&amp;</span><span class="number">4</span>, <span class="kw-2">&amp;</span>is_descendent_of, <span class="kw-2">&amp;</span>|<span class="kw-2">&amp;</span>value| value)
+			.find_node_index_where(<span class="kw-2">&amp;</span><span class="string">'D'</span>, <span class="kw-2">&amp;</span><span class="number">4</span>, <span class="kw-2">&amp;</span>is_descendent_of, <span class="kw-2">&amp;</span>|<span class="kw-2">&amp;</span>value| value)
 			.unwrap()
 			.unwrap();
 		<span class="macro">assert_eq!</span>(path, [<span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>]);
 
 		<span class="kw">let </span>path = tree
-			.find_node_index_where(<span class="kw-2">&amp;</span><span class="string">&#39;F&#39;</span>, <span class="kw-2">&amp;</span><span class="number">3</span>, <span class="kw-2">&amp;</span>is_descendent_of, <span class="kw-2">&amp;</span>|<span class="kw-2">&amp;</span>value| !value)
+			.find_node_index_where(<span class="kw-2">&amp;</span><span class="string">'F'</span>, <span class="kw-2">&amp;</span><span class="number">3</span>, <span class="kw-2">&amp;</span>is_descendent_of, <span class="kw-2">&amp;</span>|<span class="kw-2">&amp;</span>value| !value)
 			.unwrap();
 		<span class="macro">assert_eq!</span>(path, <span class="prelude-val">None</span>);
 
 		<span class="kw">let </span>path = tree
-			.find_node_index_where(<span class="kw-2">&amp;</span><span class="string">&#39;F&#39;</span>, <span class="kw-2">&amp;</span><span class="number">3</span>, <span class="kw-2">&amp;</span>is_descendent_of, <span class="kw-2">&amp;</span>|<span class="kw-2">&amp;</span>value| value)
+			.find_node_index_where(<span class="kw-2">&amp;</span><span class="string">'F'</span>, <span class="kw-2">&amp;</span><span class="number">3</span>, <span class="kw-2">&amp;</span>is_descendent_of, <span class="kw-2">&amp;</span>|<span class="kw-2">&amp;</span>value| value)
 			.unwrap()
 			.unwrap();
 		<span class="macro">assert_eq!</span>(path, [<span class="number">0</span>, <span class="number">1</span>]);
@@ -3324,17 +3326,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>find_node_works() {
 		<span class="kw">let </span>(tree, is_descendent_of) = test_fork_tree();
 
-		<span class="kw">let </span>node = tree.find_node_where(<span class="kw-2">&amp;</span><span class="string">&quot;B&quot;</span>, <span class="kw-2">&amp;</span><span class="number">20</span>, <span class="kw-2">&amp;</span>is_descendent_of, <span class="kw-2">&amp;</span>|<span class="kw">_</span>| <span class="bool-val">true</span>).unwrap().unwrap();
-		<span class="macro">assert_eq!</span>((node.hash, node.number), (<span class="string">&quot;A&quot;</span>, <span class="number">10</span>));
+		<span class="kw">let </span>node = tree.find_node_where(<span class="kw-2">&amp;</span><span class="string">"B"</span>, <span class="kw-2">&amp;</span><span class="number">20</span>, <span class="kw-2">&amp;</span>is_descendent_of, <span class="kw-2">&amp;</span>|<span class="kw">_</span>| <span class="bool-val">true</span>).unwrap().unwrap();
+		<span class="macro">assert_eq!</span>((node.hash, node.number), (<span class="string">"A"</span>, <span class="number">10</span>));
 
-		<span class="kw">let </span>node = tree.find_node_where(<span class="kw-2">&amp;</span><span class="string">&quot;D&quot;</span>, <span class="kw-2">&amp;</span><span class="number">40</span>, <span class="kw-2">&amp;</span>is_descendent_of, <span class="kw-2">&amp;</span>|<span class="kw">_</span>| <span class="bool-val">true</span>).unwrap().unwrap();
-		<span class="macro">assert_eq!</span>((node.hash, node.number), (<span class="string">&quot;C&quot;</span>, <span class="number">30</span>));
+		<span class="kw">let </span>node = tree.find_node_where(<span class="kw-2">&amp;</span><span class="string">"D"</span>, <span class="kw-2">&amp;</span><span class="number">40</span>, <span class="kw-2">&amp;</span>is_descendent_of, <span class="kw-2">&amp;</span>|<span class="kw">_</span>| <span class="bool-val">true</span>).unwrap().unwrap();
+		<span class="macro">assert_eq!</span>((node.hash, node.number), (<span class="string">"C"</span>, <span class="number">30</span>));
 
-		<span class="kw">let </span>node = tree.find_node_where(<span class="kw-2">&amp;</span><span class="string">&quot;O&quot;</span>, <span class="kw-2">&amp;</span><span class="number">50</span>, <span class="kw-2">&amp;</span>is_descendent_of, <span class="kw-2">&amp;</span>|<span class="kw">_</span>| <span class="bool-val">true</span>).unwrap().unwrap();
-		<span class="macro">assert_eq!</span>((node.hash, node.number), (<span class="string">&quot;L&quot;</span>, <span class="number">40</span>));
+		<span class="kw">let </span>node = tree.find_node_where(<span class="kw-2">&amp;</span><span class="string">"O"</span>, <span class="kw-2">&amp;</span><span class="number">50</span>, <span class="kw-2">&amp;</span>is_descendent_of, <span class="kw-2">&amp;</span>|<span class="kw">_</span>| <span class="bool-val">true</span>).unwrap().unwrap();
+		<span class="macro">assert_eq!</span>((node.hash, node.number), (<span class="string">"L"</span>, <span class="number">40</span>));
 
-		<span class="kw">let </span>node = tree.find_node_where(<span class="kw-2">&amp;</span><span class="string">&quot;N&quot;</span>, <span class="kw-2">&amp;</span><span class="number">60</span>, <span class="kw-2">&amp;</span>is_descendent_of, <span class="kw-2">&amp;</span>|<span class="kw">_</span>| <span class="bool-val">true</span>).unwrap().unwrap();
-		<span class="macro">assert_eq!</span>((node.hash, node.number), (<span class="string">&quot;M&quot;</span>, <span class="number">50</span>));
+		<span class="kw">let </span>node = tree.find_node_where(<span class="kw-2">&amp;</span><span class="string">"N"</span>, <span class="kw-2">&amp;</span><span class="number">60</span>, <span class="kw-2">&amp;</span>is_descendent_of, <span class="kw-2">&amp;</span>|<span class="kw">_</span>| <span class="bool-val">true</span>).unwrap().unwrap();
+		<span class="macro">assert_eq!</span>((node.hash, node.number), (<span class="string">"M"</span>, <span class="number">50</span>));
 	}
 
 	<span class="attr">#[test]
@@ -3344,24 +3346,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// Test for the post-order DFS traversal requirement as specified by the
 		// `find_node_index_where` and `import` comments.
 		</span><span class="kw">let </span>is_descendent_of_for_post_order = |parent: &amp;&amp;str, child: &amp;&amp;str| <span class="kw">match </span><span class="kw-2">*</span>parent {
-			<span class="string">&quot;A&quot; </span>=&gt; <span class="prelude-val">Err</span>(TestError),
-			<span class="string">&quot;K&quot; </span><span class="kw">if </span><span class="kw-2">*</span>child == <span class="string">&quot;Z&quot; </span>=&gt; <span class="prelude-val">Ok</span>(<span class="bool-val">true</span>),
+			<span class="string">"A" </span>=&gt; <span class="prelude-val">Err</span>(TestError),
+			<span class="string">"K" </span><span class="kw">if </span><span class="kw-2">*</span>child == <span class="string">"Z" </span>=&gt; <span class="prelude-val">Ok</span>(<span class="bool-val">true</span>),
 			<span class="kw">_ </span>=&gt; is_descendent_of(parent, child),
 		};
 
 		<span class="comment">// Post order traversal requirement for `find_node_index_where`
 		</span><span class="kw">let </span>path = tree
-			.find_node_index_where(<span class="kw-2">&amp;</span><span class="string">&quot;N&quot;</span>, <span class="kw-2">&amp;</span><span class="number">60</span>, <span class="kw-2">&amp;</span>is_descendent_of_for_post_order, <span class="kw-2">&amp;</span>|<span class="kw">_</span>| <span class="bool-val">true</span>)
+			.find_node_index_where(<span class="kw-2">&amp;</span><span class="string">"N"</span>, <span class="kw-2">&amp;</span><span class="number">60</span>, <span class="kw-2">&amp;</span>is_descendent_of_for_post_order, <span class="kw-2">&amp;</span>|<span class="kw">_</span>| <span class="bool-val">true</span>)
 			.unwrap()
 			.unwrap();
 		<span class="macro">assert_eq!</span>(path, [<span class="number">0</span>, <span class="number">1</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>]);
 
 		<span class="comment">// Post order traversal requirement for `import`
-		</span><span class="kw">let </span>res = tree.import(<span class="kw-2">&amp;</span><span class="string">&quot;Z&quot;</span>, <span class="number">100</span>, <span class="number">10</span>, <span class="kw-2">&amp;</span>is_descendent_of_for_post_order);
+		</span><span class="kw">let </span>res = tree.import(<span class="kw-2">&amp;</span><span class="string">"Z"</span>, <span class="number">100</span>, <span class="number">10</span>, <span class="kw-2">&amp;</span>is_descendent_of_for_post_order);
 		<span class="macro">assert_eq!</span>(res, <span class="prelude-val">Ok</span>(<span class="bool-val">false</span>));
 		<span class="macro">assert_eq!</span>(
 			tree.iter().map(|node| <span class="kw-2">*</span>node.<span class="number">0</span>).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
-			<span class="macro">vec!</span>[<span class="string">&quot;A&quot;</span>, <span class="string">&quot;B&quot;</span>, <span class="string">&quot;C&quot;</span>, <span class="string">&quot;D&quot;</span>, <span class="string">&quot;E&quot;</span>, <span class="string">&quot;F&quot;</span>, <span class="string">&quot;H&quot;</span>, <span class="string">&quot;L&quot;</span>, <span class="string">&quot;M&quot;</span>, <span class="string">&quot;O&quot;</span>, <span class="string">&quot;I&quot;</span>, <span class="string">&quot;G&quot;</span>, <span class="string">&quot;J&quot;</span>, <span class="string">&quot;K&quot;</span>, <span class="string">&quot;Z&quot;</span>],
+			<span class="macro">vec!</span>[<span class="string">"A"</span>, <span class="string">"B"</span>, <span class="string">"C"</span>, <span class="string">"D"</span>, <span class="string">"E"</span>, <span class="string">"F"</span>, <span class="string">"H"</span>, <span class="string">"L"</span>, <span class="string">"M"</span>, <span class="string">"O"</span>, <span class="string">"I"</span>, <span class="string">"G"</span>, <span class="string">"J"</span>, <span class="string">"K"</span>, <span class="string">"Z"</span>],
 		);
 	}
 }

@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/primitives/src/v7/executor_params.rs`."><title>executor_params.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/primitives/src/v7/executor_params.rs`."><title>executor_params.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_primitives" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_primitives" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../polkadot_primitives/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -601,11 +603,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[derive(Debug)]
 </span><span class="kw">pub enum </span>ExecutorParamError {
 	<span class="doccomment">/// A param is duplicated.
-	</span>DuplicatedParam(<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str),
+	</span>DuplicatedParam(<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str),
 	<span class="doccomment">/// A param value exceeds its limitation.
-	</span>OutsideLimit(<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str),
+	</span>OutsideLimit(<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str),
 	<span class="doccomment">/// Two param values are incompatible or senseless when put together.
-	</span>IncompatibleValues(<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str, <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str),
+	</span>IncompatibleValues(<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str),
 }
 
 <span class="doccomment">/// Unit type wrapper around [`type@Hash`] that represents an execution parameter set hash.
@@ -622,19 +624,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl </span>sp_std::fmt::Display <span class="kw">for </span>ExecutorParamsHash {
-	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; sp_std::fmt::Result {
+	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; sp_std::fmt::Result {
 		<span class="self">self</span>.<span class="number">0</span>.fmt(f)
 	}
 }
 
 <span class="kw">impl </span>sp_std::fmt::Debug <span class="kw">for </span>ExecutorParamsHash {
-	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; sp_std::fmt::Result {
-		<span class="macro">write!</span>(f, <span class="string">&quot;{:?}&quot;</span>, <span class="self">self</span>.<span class="number">0</span>)
+	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; sp_std::fmt::Result {
+		<span class="macro">write!</span>(f, <span class="string">"{:?}"</span>, <span class="self">self</span>.<span class="number">0</span>)
 	}
 }
 
 <span class="kw">impl </span>sp_std::fmt::LowerHex <span class="kw">for </span>ExecutorParamsHash {
-	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; sp_std::fmt::Result {
+	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; sp_std::fmt::Result {
 		sp_std::fmt::LowerHex::fmt(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>, f)
 	}
 }
@@ -644,7 +646,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// abstract as possible.
 </span><span class="comment">// ADR: For mandatory entries, mandatoriness should be enforced in code rather than separating them
 // into individual fields of the structure. Thus, complex migrations shall be avoided when adding
-// new entries and removing old ones. At the moment, there&#39;s no mandatory parameters defined. If
+// new entries and removing old ones. At the moment, there's no mandatory parameters defined. If
 // they show up, they must be clearly documented as mandatory ones.
 </span><span class="attr">#[derive(
 	Clone, Debug, Default, Encode, Decode, PartialEq, Eq, TypeInfo, Serialize, Deserialize,
@@ -726,19 +728,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">for </span>param <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0 </span>{
 			<span class="comment">// should ensure to be unique
 			</span><span class="kw">let </span>param_ident = <span class="kw">match </span><span class="kw-2">*</span>param {
-				MaxMemoryPages(<span class="kw">_</span>) =&gt; <span class="string">&quot;MaxMemoryPages&quot;</span>,
-				StackLogicalMax(<span class="kw">_</span>) =&gt; <span class="string">&quot;StackLogicalMax&quot;</span>,
-				StackNativeMax(<span class="kw">_</span>) =&gt; <span class="string">&quot;StackNativeMax&quot;</span>,
-				PrecheckingMaxMemory(<span class="kw">_</span>) =&gt; <span class="string">&quot;PrecheckingMaxMemory&quot;</span>,
+				MaxMemoryPages(<span class="kw">_</span>) =&gt; <span class="string">"MaxMemoryPages"</span>,
+				StackLogicalMax(<span class="kw">_</span>) =&gt; <span class="string">"StackLogicalMax"</span>,
+				StackNativeMax(<span class="kw">_</span>) =&gt; <span class="string">"StackNativeMax"</span>,
+				PrecheckingMaxMemory(<span class="kw">_</span>) =&gt; <span class="string">"PrecheckingMaxMemory"</span>,
 				PvfPrepTimeout(kind, <span class="kw">_</span>) =&gt; <span class="kw">match </span>kind {
-					PvfPrepKind::Precheck =&gt; <span class="string">&quot;PvfPrepKind::Precheck&quot;</span>,
-					PvfPrepKind::Prepare =&gt; <span class="string">&quot;PvfPrepKind::Prepare&quot;</span>,
+					PvfPrepKind::Precheck =&gt; <span class="string">"PvfPrepKind::Precheck"</span>,
+					PvfPrepKind::Prepare =&gt; <span class="string">"PvfPrepKind::Prepare"</span>,
 				},
 				PvfExecTimeout(kind, <span class="kw">_</span>) =&gt; <span class="kw">match </span>kind {
-					PvfExecKind::Backing =&gt; <span class="string">&quot;PvfExecKind::Backing&quot;</span>,
-					PvfExecKind::Approval =&gt; <span class="string">&quot;PvfExecKind::Approval&quot;</span>,
+					PvfExecKind::Backing =&gt; <span class="string">"PvfExecKind::Backing"</span>,
+					PvfExecKind::Approval =&gt; <span class="string">"PvfExecKind::Approval"</span>,
 				},
-				WasmExtBulkMemory =&gt; <span class="string">&quot;WasmExtBulkMemory&quot;</span>,
+				WasmExtBulkMemory =&gt; <span class="string">"WasmExtBulkMemory"</span>,
 			};
 
 			<span class="kw">match </span><span class="kw-2">*</span>param {
@@ -777,32 +779,32 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 
 		<span class="kw">if let </span>(<span class="prelude-val">Some</span>(lm), <span class="prelude-val">Some</span>(nm)) = (
-			seen.get(<span class="string">&quot;StackLogicalMax&quot;</span>).or(<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>(DEFAULT_LOGICAL_STACK_MAX <span class="kw">as </span>u64))),
-			seen.get(<span class="string">&quot;StackNativeMax&quot;</span>).or(<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>(DEFAULT_NATIVE_STACK_MAX <span class="kw">as </span>u64))),
+			seen.get(<span class="string">"StackLogicalMax"</span>).or(<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>(DEFAULT_LOGICAL_STACK_MAX <span class="kw">as </span>u64))),
+			seen.get(<span class="string">"StackNativeMax"</span>).or(<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>(DEFAULT_NATIVE_STACK_MAX <span class="kw">as </span>u64))),
 		) {
 			<span class="kw">if </span><span class="kw-2">*</span>nm &lt; <span class="number">128 </span>* <span class="kw-2">*</span>lm {
-				<span class="kw">return </span><span class="prelude-val">Err</span>(IncompatibleValues(<span class="string">&quot;StackLogicalMax&quot;</span>, <span class="string">&quot;StackNativeMax&quot;</span>))
+				<span class="kw">return </span><span class="prelude-val">Err</span>(IncompatibleValues(<span class="string">"StackLogicalMax"</span>, <span class="string">"StackNativeMax"</span>))
 			}
 		}
 
 		<span class="kw">if let </span>(<span class="prelude-val">Some</span>(precheck), <span class="prelude-val">Some</span>(lenient)) = (
-			seen.get(<span class="string">&quot;PvfPrepKind::Precheck&quot;</span>)
+			seen.get(<span class="string">"PvfPrepKind::Precheck"</span>)
 				.or(<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>DEFAULT_PRECHECK_PREPARATION_TIMEOUT_MS)),
-			seen.get(<span class="string">&quot;PvfPrepKind::Prepare&quot;</span>)
+			seen.get(<span class="string">"PvfPrepKind::Prepare"</span>)
 				.or(<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>DEFAULT_LENIENT_PREPARATION_TIMEOUT_MS)),
 		) {
 			<span class="kw">if </span><span class="kw-2">*</span>precheck &gt;= <span class="kw-2">*</span>lenient {
-				<span class="kw">return </span><span class="prelude-val">Err</span>(IncompatibleValues(<span class="string">&quot;PvfPrepKind::Precheck&quot;</span>, <span class="string">&quot;PvfPrepKind::Prepare&quot;</span>))
+				<span class="kw">return </span><span class="prelude-val">Err</span>(IncompatibleValues(<span class="string">"PvfPrepKind::Precheck"</span>, <span class="string">"PvfPrepKind::Prepare"</span>))
 			}
 		}
 
 		<span class="kw">if let </span>(<span class="prelude-val">Some</span>(backing), <span class="prelude-val">Some</span>(approval)) = (
-			seen.get(<span class="string">&quot;PvfExecKind::Backing&quot;</span>).or(<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>DEFAULT_BACKING_EXECUTION_TIMEOUT_MS)),
-			seen.get(<span class="string">&quot;PvfExecKind::Approval&quot;</span>)
+			seen.get(<span class="string">"PvfExecKind::Backing"</span>).or(<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>DEFAULT_BACKING_EXECUTION_TIMEOUT_MS)),
+			seen.get(<span class="string">"PvfExecKind::Approval"</span>)
 				.or(<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>DEFAULT_APPROVAL_EXECUTION_TIMEOUT_MS)),
 		) {
 			<span class="kw">if </span><span class="kw-2">*</span>backing &gt;= <span class="kw-2">*</span>approval {
-				<span class="kw">return </span><span class="prelude-val">Err</span>(IncompatibleValues(<span class="string">&quot;PvfExecKind::Backing&quot;</span>, <span class="string">&quot;PvfExecKind::Approval&quot;</span>))
+				<span class="kw">return </span><span class="prelude-val">Err</span>(IncompatibleValues(<span class="string">"PvfExecKind::Backing"</span>, <span class="string">"PvfExecKind::Approval"</span>))
 			}
 		}
 

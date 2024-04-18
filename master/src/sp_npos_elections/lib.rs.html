@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/npos-elections/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/npos-elections/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_npos_elections" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_npos_elections" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sp_npos_elections/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -733,13 +735,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;); you may not use this file except
+// Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
 // in compliance with the License. You may obtain a copy of the License at
 //
 //  http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software distributed under the License
-// is distributed on an &quot;AS IS&quot; BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+// is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
 // or implied. See the License for the specific language governing permissions and limitations under
 // the License.
 
@@ -753,7 +755,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!   executed faster but it can achieve a constant factor approximation of the maximin problem,
 //!   similar to that of the MMS algorithm.
 //! - [`balance`]: Implements the star balancing algorithm. This iterative process can push a
-//!   solution toward being more &quot;balanced&quot;, which in turn can increase its score.
+//!   solution toward being more "balanced", which in turn can increase its score.
 //!
 //! ### Terminology
 //!
@@ -802,7 +804,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!
 //! More information can be found at: &lt;https://arxiv.org/abs/2004.12990&gt;
 
-</span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
+</span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
 </span><span class="kw">extern crate </span>alloc;
 
@@ -810,7 +812,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>codec::{Decode, Encode, MaxEncodedLen};
 <span class="kw">use </span>core::{cell::RefCell, cmp::Ordering};
 <span class="kw">use </span>scale_info::TypeInfo;
-<span class="attr">#[cfg(feature = <span class="string">&quot;serde&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"serde"</span>)]
 </span><span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>sp_arithmetic::{traits::Zero, Normalizable, PerThing, Rational128, ThresholdOrd};
 <span class="kw">use </span>sp_core::{bounded::BoundedVec, RuntimeDebug};
@@ -845,14 +847,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// While going from solution indices to ratio, the weight of all the edges has gone above the
 	/// total.
 	</span>SolutionWeightOverflow,
-	<span class="doccomment">/// The solution type has a voter who&#39;s number of targets is out of bound.
+	<span class="doccomment">/// The solution type has a voter who's number of targets is out of bound.
 	</span>SolutionTargetOverflow,
 	<span class="doccomment">/// One of the index functions returned none.
 	</span>SolutionInvalidIndex,
 	<span class="doccomment">/// One of the page indices was invalid.
 	</span>SolutionInvalidPageIndex,
 	<span class="doccomment">/// An error occurred in some arithmetic operation.
-	</span>ArithmeticError(<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str),
+	</span>ArithmeticError(<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str),
 	<span class="doccomment">/// The data provided to create support map was invalid.
 	</span>InvalidSupportEdge,
 	<span class="doccomment">/// The number of voters is bigger than the `MaxVoters` bound.
@@ -866,7 +868,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// A type in which performing operations on vote weights are safe.
 </span><span class="kw">pub type </span>ExtendedBalance = u128;
 
-<span class="doccomment">/// The score of an election. This is the main measure of an election&#39;s quality.
+<span class="doccomment">/// The score of an election. This is the main measure of an election's quality.
 ///
 /// By definition, the order of significance in [`ElectionScore`] is:
 ///
@@ -874,7 +876,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// 2. `sum_stake`.
 /// 3. `sum_stake_squared`.
 </span><span class="attr">#[derive(Clone, Copy, PartialEq, Eq, Encode, Decode, MaxEncodedLen, TypeInfo, Debug, Default)]
-#[cfg_attr(feature = <span class="string">&quot;serde&quot;</span>, derive(Serialize, Deserialize))]
+#[cfg_attr(feature = <span class="string">"serde"</span>, derive(Serialize, Deserialize))]
 </span><span class="kw">pub struct </span>ElectionScore {
 	<span class="doccomment">/// The minimal winner, in terms of total backing stake.
 	///
@@ -966,7 +968,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// Used differently in seq-phragmen and max-score.
 	</span>score: Rational128,
-	<span class="doccomment">/// Approval stake of the candidate. Merely the sum of all the voter&#39;s stake who approve this
+	<span class="doccomment">/// Approval stake of the candidate. Merely the sum of all the voter's stake who approve this
 	/// candidate.
 	</span>approval_stake: ExtendedBalance,
 	<span class="doccomment">/// The final stake of this candidate. Will be equal to a subset of approval stake.
@@ -1008,10 +1010,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">impl</span>&lt;A: IdentifierT&gt; core::fmt::Debug <span class="kw">for </span>Edge&lt;A&gt; {
-	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; core::fmt::Result {
-		<span class="macro">write!</span>(f, <span class="string">&quot;Edge({:?}, weight = {:?})&quot;</span>, <span class="self">self</span>.who, <span class="self">self</span>.weight)
+	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; core::fmt::Result {
+		<span class="macro">write!</span>(f, <span class="string">"Edge({:?}, weight = {:?})"</span>, <span class="self">self</span>.who, <span class="self">self</span>.weight)
 	}
 }
 
@@ -1028,10 +1030,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>load: Rational128,
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">impl</span>&lt;A: IdentifierT&gt; std::fmt::Debug <span class="kw">for </span>Voter&lt;A&gt; {
-	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
-		<span class="macro">write!</span>(f, <span class="string">&quot;Voter({:?}, budget = {}, edges = {:?})&quot;</span>, <span class="self">self</span>.who, <span class="self">self</span>.budget, <span class="self">self</span>.edges)
+	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; std::fmt::Result {
+		<span class="macro">write!</span>(f, <span class="string">"Voter({:?}, budget = {}, edges = {:?})"</span>, <span class="self">self</span>.who, <span class="self">self</span>.budget, <span class="self">self</span>.edges)
 	}
 }
 
@@ -1093,7 +1095,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// This will return only if the internal `normalize` fails. This can happen if the sum of the
 	/// weights exceeds `ExtendedBalance::max_value()`.
-	</span><span class="kw">pub fn </span>try_normalize(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; {
+	</span><span class="kw">pub fn </span>try_normalize(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
 		<span class="kw">let </span>edge_weights = <span class="self">self</span>.edges.iter().map(|e| e.weight).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 		edge_weights.normalize(<span class="self">self</span>.budget).map(|normalized| {
 			<span class="comment">// here we count on the fact that normalize does not change the order.
@@ -1109,7 +1111,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Same as [`Self::try_normalize`] but the normalization is only limited between elected edges.
-	</span><span class="kw">pub fn </span>try_normalize_elected(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; {
+	</span><span class="kw">pub fn </span>try_normalize_elected(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
 		<span class="kw">let </span>elected_edge_weights = <span class="self">self
 			</span>.edges
 			.iter()
@@ -1134,7 +1136,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		})
 	}
 
-	<span class="doccomment">/// This voter&#39;s budget.
+	<span class="doccomment">/// This voter's budget.
 	</span><span class="attr">#[inline]
 	</span><span class="kw">pub fn </span>budget(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; ExtendedBalance {
 		<span class="self">self</span>.budget
@@ -1160,7 +1162,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// This, at the current version, resembles the `Exposure` defined in the Staking pallet, yet they
 /// do not necessarily have to be the same.
 </span><span class="attr">#[derive(RuntimeDebug, Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
-#[cfg_attr(feature = <span class="string">&quot;serde&quot;</span>, derive(Serialize, Deserialize))]
+#[cfg_attr(feature = <span class="string">"serde"</span>, derive(Serialize, Deserialize))]
 </span><span class="kw">pub struct </span>Support&lt;AccountId&gt; {
 	<span class="doccomment">/// Total support.
 	</span><span class="kw">pub </span>total: ExtendedBalance,
@@ -1297,7 +1299,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						load: Default::default(),
 						weight: Default::default(),
 					});
-				} <span class="comment">// else {} would be wrong votes. We don&#39;t really care about it.
+				} <span class="comment">// else {} would be wrong votes. We don't really care about it.
 			</span>}
 			<span class="kw">if </span>edges.is_empty() {
 				<span class="prelude-val">None

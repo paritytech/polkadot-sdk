@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `cumulus/client/pov-recovery/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `cumulus/client/pov-recovery/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="cumulus_client_pov_recovery" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="cumulus_client_pov_recovery" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../cumulus_client_pov_recovery/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -830,9 +832,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! A parachain needs to build PoVs that are send to the relay chain to progress. These PoVs are
 //! erasure encoded and one piece of it is stored by each relay chain validator. As the relay chain
 //! decides on which PoV per parachain to include and thus, to progress the parachain it can happen
-//! that the block corresponding to this PoV isn&#39;t propagated in the parachain network. This can
+//! that the block corresponding to this PoV isn't propagated in the parachain network. This can
 //! have several reasons, either a malicious collator that managed to include its own PoV and
-//! doesn&#39;t want to share it with the rest of the network or maybe a collator went down before it
+//! doesn't want to share it with the rest of the network or maybe a collator went down before it
 //! could distribute the block in the network. When something like this happens we can use the PoV
 //! recovery algorithm implemented in this crate to recover a PoV and to propagate it with the rest
 //! of the network.
@@ -889,7 +891,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">mod </span>active_candidate_recovery;
 <span class="kw">use </span>active_candidate_recovery::ActiveCandidateRecovery;
 
-<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;cumulus-pov-recovery&quot;</span>;
+<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"cumulus-pov-recovery"</span>;
 
 <span class="doccomment">/// Test-friendly wrapper trait for the overseer handle.
 /// Can be used to simulate failing recovery requests.
@@ -898,7 +900,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">async fn </span>send_recovery_msg(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		message: AvailabilityRecoveryMessage,
-		origin: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
+		origin: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
 	);
 }
 
@@ -907,7 +909,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">async fn </span>send_recovery_msg(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		message: AvailabilityRecoveryMessage,
-		origin: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
+		origin: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
 	) {
 		<span class="self">self</span>.send_msg(message, origin).<span class="kw">await</span>;
 	}
@@ -987,7 +989,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">tracing::debug!</span>(
 			target: LOG_TARGET,
 			block_hash = <span class="question-mark">?</span>hash,
-			<span class="string">&quot;Adding block to queue and adding new recovery slot in {:?} sec&quot;</span>,
+			<span class="string">"Adding block to queue and adding new recovery slot in {:?} sec"</span>,
 			delay.as_secs(),
 		);
 		<span class="self">self</span>.recovery_queue.push_back(hash);
@@ -1008,7 +1010,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				} <span class="kw">else </span>{
 					<span class="macro">tracing::error!</span>(
 						target: LOG_TARGET,
-						<span class="string">&quot;Recovery was signaled, but no candidate hash available. This is a bug.&quot;
+						<span class="string">"Recovery was signaled, but no candidate hash available. This is a bug."
 					</span>);
 				};
 			}
@@ -1086,7 +1088,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="macro">tracing::warn!</span>(
 					target: LOG_TARGET,
 					error = <span class="question-mark">?</span>e,
-					<span class="string">&quot;Failed to decode parachain header from pending candidate&quot;</span>,
+					<span class="string">"Failed to decode parachain header from pending candidate"</span>,
 				);
 				<span class="kw">return
 			</span>},
@@ -1102,7 +1104,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">return
 		</span>}
 
-		<span class="macro">tracing::debug!</span>(target: LOG_TARGET, block_hash = <span class="question-mark">?</span>hash, <span class="string">&quot;Adding outstanding candidate&quot;</span>);
+		<span class="macro">tracing::debug!</span>(target: LOG_TARGET, block_hash = <span class="question-mark">?</span>hash, <span class="string">"Adding outstanding candidate"</span>);
 		<span class="self">self</span>.candidates.insert(
 			hash,
 			Candidate {
@@ -1136,7 +1138,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">async fn </span>recover_candidate(<span class="kw-2">&amp;mut </span><span class="self">self</span>, block_hash: Block::Hash) {
 		<span class="kw">match </span><span class="self">self</span>.candidates.get(<span class="kw-2">&amp;</span>block_hash) {
 			<span class="prelude-val">Some</span>(candidate) <span class="kw">if </span>candidate.waiting_recovery =&gt; {
-				<span class="macro">tracing::debug!</span>(target: LOG_TARGET, <span class="question-mark">?</span>block_hash, <span class="string">&quot;Issuing recovery request&quot;</span>);
+				<span class="macro">tracing::debug!</span>(target: LOG_TARGET, <span class="question-mark">?</span>block_hash, <span class="string">"Issuing recovery request"</span>);
 				<span class="self">self</span>.active_candidate_recovery.recover_candidate(block_hash, candidate).<span class="kw">await</span>;
 			},
 			<span class="kw">_ </span>=&gt; (),
@@ -1165,14 +1167,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			},
 			<span class="prelude-val">None </span>=&gt;
 				<span class="kw">if </span><span class="self">self</span>.candidates_in_retry.insert(block_hash) {
-					<span class="macro">tracing::debug!</span>(target: LOG_TARGET, <span class="question-mark">?</span>block_hash, <span class="string">&quot;Recovery failed, retrying.&quot;</span>);
+					<span class="macro">tracing::debug!</span>(target: LOG_TARGET, <span class="question-mark">?</span>block_hash, <span class="string">"Recovery failed, retrying."</span>);
 					<span class="self">self</span>.candidate_recovery_queue.push_recovery(block_hash);
 					<span class="kw">return
 				</span>} <span class="kw">else </span>{
 					<span class="macro">tracing::warn!</span>(
 						target: LOG_TARGET,
 						<span class="question-mark">?</span>block_hash,
-						<span class="string">&quot;Unable to recover block after retry.&quot;</span>,
+						<span class="string">"Unable to recover block after retry."</span>,
 					);
 					<span class="self">self</span>.candidates_in_retry.remove(<span class="kw-2">&amp;</span>block_hash);
 					<span class="self">self</span>.reset_candidate(block_hash);
@@ -1184,7 +1186,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">match </span>sp_maybe_compressed_blob::decompress(<span class="kw-2">&amp;</span>pov.block_data.<span class="number">0</span>, POV_BOMB_LIMIT) {
 				<span class="prelude-val">Ok</span>(r) =&gt; r,
 				<span class="prelude-val">Err</span>(error) =&gt; {
-					<span class="macro">tracing::debug!</span>(target: LOG_TARGET, <span class="question-mark">?</span>error, <span class="string">&quot;Failed to decompress PoV&quot;</span>);
+					<span class="macro">tracing::debug!</span>(target: LOG_TARGET, <span class="question-mark">?</span>error, <span class="string">"Failed to decompress PoV"</span>);
 
 					<span class="self">self</span>.reset_candidate(block_hash);
 					<span class="kw">return
@@ -1197,7 +1199,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="macro">tracing::warn!</span>(
 					target: LOG_TARGET,
 					<span class="question-mark">?</span>error,
-					<span class="string">&quot;Failed to decode parachain block data from recovered PoV&quot;</span>,
+					<span class="string">"Failed to decode parachain block data from recovered PoV"</span>,
 				);
 
 				<span class="self">self</span>.reset_candidate(block_hash);
@@ -1222,7 +1224,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						parent_hash = <span class="question-mark">?</span>parent,
 						parent_scheduled_for_recovery,
 						waiting_blocks = <span class="self">self</span>.waiting_for_parent.len(),
-						<span class="string">&quot;Waiting for recovery of parent.&quot;</span>,
+						<span class="string">"Waiting for recovery of parent."</span>,
 					);
 
 					<span class="self">self</span>.waiting_for_parent.entry(parent).or_default().push(block);
@@ -1232,7 +1234,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						target: LOG_TARGET,
 						<span class="question-mark">?</span>block_hash,
 						parent_hash = <span class="question-mark">?</span>parent,
-						<span class="string">&quot;Parent not found while trying to import recovered block.&quot;</span>,
+						<span class="string">"Parent not found while trying to import recovered block."</span>,
 					);
 
 					<span class="self">self</span>.reset_candidate(block_hash);
@@ -1244,13 +1246,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					target: LOG_TARGET,
 					block_hash = <span class="question-mark">?</span>parent,
 					<span class="question-mark">?</span>error,
-					<span class="string">&quot;Error while checking block status&quot;</span>,
+					<span class="string">"Error while checking block status"</span>,
 				);
 
 				<span class="self">self</span>.reset_candidate(block_hash);
 				<span class="kw">return
 			</span>},
-			<span class="comment">// Any other status is fine to &quot;ignore/accept&quot;
+			<span class="comment">// Any other status is fine to "ignore/accept"
 			</span><span class="kw">_ </span>=&gt; (),
 		}
 
@@ -1263,7 +1265,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>import_block(<span class="kw-2">&amp;mut </span><span class="self">self</span>, block: Block) {
 		<span class="kw">let </span><span class="kw-2">mut </span>blocks = VecDeque::new();
 
-		<span class="macro">tracing::debug!</span>(target: LOG_TARGET, block_hash = <span class="question-mark">?</span>block.hash(), <span class="string">&quot;Importing block retrieved using pov_recovery&quot;</span>);
+		<span class="macro">tracing::debug!</span>(target: LOG_TARGET, block_hash = <span class="question-mark">?</span>block.hash(), <span class="string">"Importing block retrieved using pov_recovery"</span>);
 		blocks.push_back(block);
 
 		<span class="kw">let </span><span class="kw-2">mut </span>incoming_blocks = Vec::new();
@@ -1306,7 +1308,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="macro">tracing::debug!</span>(
 						target: LOG_TARGET,
 						block_hash = <span class="question-mark">?</span>hash,
-						<span class="string">&quot;Could not recover. Block was never announced as candidate&quot;
+						<span class="string">"Could not recover. Block was never announced as candidate"
 					</span>);
 					<span class="kw">return
 				</span>},
@@ -1323,7 +1325,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						target: LOG_TARGET,
 						error = <span class="question-mark">?</span>e,
 						block_hash = <span class="question-mark">?</span>hash,
-						<span class="string">&quot;Failed to get block status&quot;</span>,
+						<span class="string">"Failed to get block status"</span>,
 					);
 					<span class="kw">for </span>hash <span class="kw">in </span>to_recover {
 						<span class="self">self</span>.clear_waiting_recovery(<span class="kw-2">&amp;</span>hash);
@@ -1357,7 +1359,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>{
 			<span class="prelude-val">Ok</span>(pending_candidate_stream) =&gt; pending_candidate_stream.fuse(),
 			<span class="prelude-val">Err</span>(err) =&gt; {
-				<span class="macro">tracing::error!</span>(target: LOG_TARGET, error = <span class="question-mark">?</span>err, <span class="string">&quot;Unable to retrieve pending candidate stream.&quot;</span>);
+				<span class="macro">tracing::error!</span>(target: LOG_TARGET, error = <span class="question-mark">?</span>err, <span class="string">"Unable to retrieve pending candidate stream."</span>);
 				<span class="kw">return
 			</span>},
 		};
@@ -1369,7 +1371,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw">if let </span><span class="prelude-val">Some</span>((receipt, session_index)) = pending_candidate {
 						<span class="self">self</span>.handle_pending_candidate(receipt, session_index);
 					} <span class="kw">else </span>{
-						<span class="macro">tracing::debug!</span>(target: LOG_TARGET, <span class="string">&quot;Pending candidates stream ended&quot;</span>);
+						<span class="macro">tracing::debug!</span>(target: LOG_TARGET, <span class="string">"Pending candidates stream ended"</span>);
 						<span class="kw">return</span>;
 					}
 				},
@@ -1377,7 +1379,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw">if let </span><span class="prelude-val">Some</span>(req) = recovery_req {
 						<span class="self">self</span>.recover(req);
 					} <span class="kw">else </span>{
-						<span class="macro">tracing::debug!</span>(target: LOG_TARGET, <span class="string">&quot;Recovery channel stream ended&quot;</span>);
+						<span class="macro">tracing::debug!</span>(target: LOG_TARGET, <span class="string">"Recovery channel stream ended"</span>);
 						<span class="kw">return</span>;
 					}
 				},
@@ -1390,13 +1392,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						// in the import queue.
 						</span><span class="kw">if let </span><span class="prelude-val">Some</span>(waiting_blocks) = <span class="self">self</span>.waiting_for_parent.remove(<span class="kw-2">&amp;</span>imported.hash) {
 							<span class="kw">for </span>block <span class="kw">in </span>waiting_blocks {
-								<span class="macro">tracing::debug!</span>(target: LOG_TARGET, block_hash = <span class="question-mark">?</span>block.hash(), resolved_parent = <span class="question-mark">?</span>imported.hash, <span class="string">&quot;Found new waiting child block during import, queuing.&quot;</span>);
+								<span class="macro">tracing::debug!</span>(target: LOG_TARGET, block_hash = <span class="question-mark">?</span>block.hash(), resolved_parent = <span class="question-mark">?</span>imported.hash, <span class="string">"Found new waiting child block during import, queuing."</span>);
 								<span class="self">self</span>.import_block(block);
 							}
 						};
 
 					} <span class="kw">else </span>{
-						<span class="macro">tracing::debug!</span>(target: LOG_TARGET,	<span class="string">&quot;Imported blocks stream ended&quot;</span>);
+						<span class="macro">tracing::debug!</span>(target: LOG_TARGET,	<span class="string">"Imported blocks stream ended"</span>);
 						<span class="kw">return</span>;
 					}
 				},
@@ -1404,7 +1406,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw">if let </span><span class="prelude-val">Some</span>(finalized) = finalized {
 						<span class="self">self</span>.handle_block_finalized(<span class="kw-2">*</span>finalized.header.number());
 					} <span class="kw">else </span>{
-						<span class="macro">tracing::debug!</span>(target: LOG_TARGET,	<span class="string">&quot;Finalized blocks stream ended&quot;</span>);
+						<span class="macro">tracing::debug!</span>(target: LOG_TARGET,	<span class="string">"Finalized blocks stream ended"</span>);
 						<span class="kw">return</span>;
 					}
 				},
@@ -1438,7 +1440,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="macro">tracing::debug!</span>(
 					target: LOG_TARGET,
 					relay_hash = <span class="question-mark">?</span>hash,
-					<span class="string">&quot;Skipping candidate due to sync.&quot;</span>,
+					<span class="string">"Skipping candidate due to sync."</span>,
 				);
 				<span class="kw">return </span><span class="prelude-val">None
 			</span>}
@@ -1450,7 +1452,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="macro">tracing::error!</span>(
 						target: LOG_TARGET,
 						error = <span class="question-mark">?</span>e,
-						<span class="string">&quot;Failed to fetch pending candidates.&quot;</span>,
+						<span class="string">"Failed to fetch pending candidates."</span>,
 					)
 				});
 			<span class="kw">let </span>session_index_result =
@@ -1458,7 +1460,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="macro">tracing::error!</span>(
 						target: LOG_TARGET,
 						error = <span class="question-mark">?</span>e,
-						<span class="string">&quot;Failed to fetch session index.&quot;</span>,
+						<span class="string">"Failed to fetch session index."</span>,
 					)
 				});
 

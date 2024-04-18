@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/benchmarking/src/v1.rs`."><title>v1.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/benchmarking/src/v1.rs`."><title>v1.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="frame_benchmarking" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="frame_benchmarking" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../frame_benchmarking/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -2131,14 +2133,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -2162,10 +2164,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// Works around the idea of complexity parameters, named by a single letter (which is usually
 /// upper cased in complexity notation but is lower-cased for use in this macro).
 ///
-/// Complexity parameters (&quot;parameters&quot;) have a range which is a `u32` pair. Every time a benchmark
+/// Complexity parameters ("parameters") have a range which is a `u32` pair. Every time a benchmark
 /// is prepared and run, this parameter takes a concrete value within the range. There is an
 /// associated instancing block, which is a single expression that is evaluated during
-/// preparation. It may use `?` (`i.e. `return Err(...)`) to bail with a string error. Here&#39;s a
+/// preparation. It may use `?` (`i.e. `return Err(...)`) to bail with a string error. Here's a
 /// few examples:
 ///
 /// ```ignore
@@ -2185,7 +2187,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// Note that due to parsing restrictions, if the `from` expression is not a single token (i.e. a
 /// literal or constant), then it must be parenthesized.
 ///
-/// The macro allows for a number of &quot;arms&quot;, each representing an individual benchmark. Using the
+/// The macro allows for a number of "arms", each representing an individual benchmark. Using the
 /// simple syntax, the associated dispatchable function maps 1:1 with the benchmark and the name of
 /// the benchmark is the same as that of the associated function. However, extended syntax allows
 /// for arbitrary expressions to be evaluated in a benchmark (including for example,
@@ -2207,7 +2209,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///   // first dispatchable: foo; this is a user dispatchable and operates on a `u8` vector of
 ///   // size `l`
 ///   foo {
-///     let caller = account::&lt;T&gt;(b&quot;caller&quot;, 0, benchmarks_seed);
+///     let caller = account::&lt;T&gt;(b"caller", 0, benchmarks_seed);
 ///     let l in 1 .. MAX_LENGTH =&gt; initialize_l(l);
 ///   }: _(RuntimeOrigin::Signed(caller), vec![0u8; l])
 ///
@@ -2218,25 +2220,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///     let l in 1 .. MAX_LENGTH =&gt; initialize_l(l);
 ///   }: bar(RuntimeOrigin::Root, vec![0u8; l])
 ///
-///   // third dispatchable: baz; this is a user dispatchable. It isn&#39;t dependent on length like the
+///   // third dispatchable: baz; this is a user dispatchable. It isn't dependent on length like the
 ///   // other two but has its own complexity `c` that needs setting up. It uses `caller` (in the
 ///   // pre-instancing block) within the code block. This is only allowed in the param instancers
 ///   // of arms.
 ///   baz1 {
-///     let caller = account::&lt;T&gt;(b&quot;caller&quot;, 0, benchmarks_seed);
+///     let caller = account::&lt;T&gt;(b"caller", 0, benchmarks_seed);
 ///     let c = 0 .. 10 =&gt; setup_c(&amp;caller, c);
 ///   }: baz(RuntimeOrigin::Signed(caller))
 ///
 ///   // this is a second benchmark of the baz dispatchable with a different setup.
 ///   baz2 {
-///     let caller = account::&lt;T&gt;(b&quot;caller&quot;, 0, benchmarks_seed);
+///     let caller = account::&lt;T&gt;(b"caller", 0, benchmarks_seed);
 ///     let c = 0 .. 10 =&gt; setup_c_in_some_other_way(&amp;caller, c);
 ///   }: baz(RuntimeOrigin::Signed(caller))
 ///
-///   // You may optionally specify the origin type if it can&#39;t be determined automatically like
+///   // You may optionally specify the origin type if it can't be determined automatically like
 ///   // this.
 ///   baz3 {
-///     let caller = account::&lt;T&gt;(b&quot;caller&quot;, 0, benchmarks_seed);
+///     let caller = account::&lt;T&gt;(b"caller", 0, benchmarks_seed);
 ///     let l in 1 .. MAX_LENGTH =&gt; initialize_l(l);
 ///   }: baz&lt;T::RuntimeOrigin&gt;(RuntimeOrigin::Signed(caller), vec![0u8; l])
 ///
@@ -2276,7 +2278,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// }: {
 /// 	m.sort();
 /// } verify {
-/// 	ensure!(m[0] == 0, &quot;You forgot to sort!&quot;)
+/// 	ensure!(m[0] == 0, "You forgot to sort!")
 /// }
 /// ```
 ///
@@ -2290,9 +2292,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// fn test_benchmarks() {
 ///   new_test_ext().execute_with(|| {
 ///     assert_ok!(Pallet::&lt;Test&gt;::test_benchmark_dummy());
-///     assert_err!(Pallet::&lt;Test&gt;::test_benchmark_other_name(), &quot;Bad origin&quot;);
+///     assert_err!(Pallet::&lt;Test&gt;::test_benchmark_other_name(), "Bad origin");
 ///     assert_ok!(Pallet::&lt;Test&gt;::test_benchmark_sort_vector());
-///     assert_err!(Pallet::&lt;Test&gt;::test_benchmark_broken_benchmark(), &quot;You forgot to sort!&quot;);
+///     assert_err!(Pallet::&lt;Test&gt;::test_benchmark_broken_benchmark(), "You forgot to sort!");
 ///   });
 /// }
 /// ```
@@ -2345,7 +2347,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) =&gt; {
 		<span class="macro-nonterminal">$</span><span class="macro">crate::benchmarks_iter!</span>(
 			{ }
-			{ <span class="macro-nonterminal">I</span>: <span class="lifetime">&#39;static </span>}
+			{ <span class="macro-nonterminal">I</span>: <span class="lifetime">'static </span>}
 			{ }
 			( )
 			( )
@@ -2582,7 +2584,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						Call&lt;T $(, <span class="macro-nonterminal">$instance </span>)<span class="question-mark">?</span>&gt;
 						<span class="kw">as </span><span class="macro-nonterminal">$crate::__private::codec::Decode
 					</span>&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>__benchmarked_call_encoded[..])
-						.expect(<span class="string">&quot;call is encoded above, encoding must be correct&quot;</span>);
+						.expect(<span class="string">"call is encoded above, encoding must be correct"</span>);
 					<span class="kw">let </span>__origin = <span class="macro-nonterminal">$</span><span class="macro">crate::to_origin!</span>(<span class="macro-nonterminal">$origin </span>$(, <span class="macro-nonterminal">$origin_type</span>)<span class="question-mark">?</span>);
 					&lt;Call&lt;T $(, <span class="macro-nonterminal">$instance</span>)<span class="question-mark">? </span>&gt; <span class="kw">as </span><span class="macro-nonterminal">$crate::__private::traits::UnfilteredDispatchable
 						</span>&gt;::dispatch_bypass_filter(__call_decoded, __origin)<span class="question-mark">?</span>;
@@ -2666,7 +2668,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span>$(, $( <span class="macro-nonterminal">$args </span>)* )<span class="question-mark">?
 		</span>);
 	};
-	<span class="comment">// iteration-exit arm which doesn&#39;t generate a #[test] function for all cases.
+	<span class="comment">// iteration-exit arm which doesn't generate a #[test] function for all cases.
 	</span>(
 		{ }
 		{ $( <span class="macro-nonterminal">$instance</span>:ident: <span class="macro-nonterminal">$instance_bound</span>:tt )<span class="question-mark">? </span>}
@@ -2922,7 +2924,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="comment">// Prepare instance
 					</span><span class="kw">let </span><span class="macro-nonterminal">$param </span>= components.iter()
 						.find(|<span class="kw-2">&amp;</span>c| c.<span class="number">0 </span>== <span class="macro-nonterminal">$crate::BenchmarkParameter</span>::<span class="macro-nonterminal">$param</span>)
-						.ok_or(<span class="string">&quot;Could not find component in benchmark preparation.&quot;</span>)<span class="question-mark">?
+						.ok_or(<span class="string">"Could not find component in benchmark preparation."</span>)<span class="question-mark">?
 						</span>.<span class="number">1</span>;
 				)*
 				$(
@@ -2981,7 +2983,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="kw">let </span>disabled = <span class="macro-nonterminal">$</span><span class="macro">crate::__private::vec!</span>[ $( <span class="macro">stringify!</span>(<span class="macro-nonterminal">$names_extra</span>).as_ref() ),* ];
 						<span class="kw">if </span>disabled.contains(<span class="kw-2">&amp;</span><span class="macro">stringify!</span>(<span class="macro-nonterminal">$name</span>)) {
 							<span class="macro-nonterminal">$</span><span class="macro">crate::__private::log::debug!</span>(
-								<span class="string">&quot;extra benchmark skipped - {}&quot;</span>,
+								<span class="string">"extra benchmark skipped - {}"</span>,
 								<span class="macro">stringify!</span>(<span class="macro-nonterminal">$name</span>),
 							);
 							<span class="kw">return </span>();
@@ -2994,31 +2996,31 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="macro-nonterminal">$module</span>::&lt;<span class="macro-nonterminal">$test</span>&gt;::[&lt; test_benchmark_ <span class="macro-nonterminal">$name </span>&gt;] ()
 					}) {
 						<span class="prelude-val">Err</span>(err) =&gt; {
-							<span class="macro">panic!</span>(<span class="string">&quot;{}: {:?}&quot;</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$name</span>), err);
+							<span class="macro">panic!</span>(<span class="string">"{}: {:?}"</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$name</span>), err);
 						},
 						<span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(err)) =&gt; {
 							<span class="kw">match </span>err {
 								<span class="macro-nonterminal">$crate::BenchmarkError::Stop</span>(err) =&gt; {
-									<span class="macro">panic!</span>(<span class="string">&quot;{}: {:?}&quot;</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$name</span>), err);
+									<span class="macro">panic!</span>(<span class="string">"{}: {:?}"</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$name</span>), err);
 								},
 								<span class="macro-nonterminal">$crate::BenchmarkError::Override</span>(<span class="kw">_</span>) =&gt; {
 									<span class="comment">// This is still considered a success condition.
 									</span><span class="macro-nonterminal">$</span><span class="macro">crate::__private::log::error!</span>(
-										<span class="string">&quot;benchmark error overridden - {}&quot;</span>,
+										<span class="string">"benchmark error overridden - {}"</span>,
 										<span class="macro">stringify!</span>(<span class="macro-nonterminal">$name</span>),
 									);
 								},
 								<span class="macro-nonterminal">$crate::BenchmarkError::Skip </span>=&gt; {
 									<span class="comment">// This is considered a success condition.
 									</span><span class="macro-nonterminal">$</span><span class="macro">crate::__private::log::debug!</span>(
-										<span class="string">&quot;benchmark skipped - {}&quot;</span>,
+										<span class="string">"benchmark skipped - {}"</span>,
 										<span class="macro">stringify!</span>(<span class="macro-nonterminal">$name</span>),
 									);
 								},
 								<span class="macro-nonterminal">$crate::BenchmarkError::Weightless </span>=&gt; {
 									<span class="comment">// This is considered a success condition.
 									</span><span class="macro-nonterminal">$</span><span class="macro">crate::__private::log::debug!</span>(
-										<span class="string">&quot;benchmark weightless skipped - {}&quot;</span>,
+										<span class="string">"benchmark weightless skipped - {}"</span>,
 										<span class="macro">stringify!</span>(<span class="macro-nonterminal">$name</span>),
 									);
 								}
@@ -3118,7 +3120,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		( $( <span class="macro-nonterminal">$pov_name</span>:ident: $( <span class="macro-nonterminal">$storage</span>:path = <span class="macro-nonterminal">$pov_mode</span>:ident )<span class="kw-2">*</span>; )* )
 	) =&gt; {
 		<span class="comment">// We only need to implement benchmarks for the runtime-benchmarks feature or testing.
-		</span><span class="attr">#[cfg(any(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>, test))]
+		</span><span class="attr">#[cfg(any(feature = <span class="string">"runtime-benchmarks"</span>, test))]
 		</span><span class="kw">impl</span>&lt;T: Config $(&lt;<span class="macro-nonterminal">$instance</span>&gt;, <span class="macro-nonterminal">$instance</span>: <span class="macro-nonterminal">$instance_bound </span>)<span class="question-mark">? </span>&gt;
 			<span class="macro-nonterminal">$crate::Benchmarking </span><span class="kw">for </span>Pallet&lt;T $(, <span class="macro-nonterminal">$instance</span>)<span class="question-mark">? </span>&gt;
 			<span class="kw">where </span>T: frame_system::Config, $( <span class="macro-nonterminal">$where_clause </span>)*
@@ -3144,7 +3146,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				all_names.into_iter().map(|benchmark| {
 					<span class="kw">let </span>selected_benchmark = <span class="kw">match </span>benchmark {
 						$( <span class="macro">stringify!</span>(<span class="macro-nonterminal">$name</span>) =&gt; SelectedBenchmark::<span class="macro-nonterminal">$name</span>, )*
-						<span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;all benchmarks should be selectable&quot;</span>),
+						<span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"all benchmarks should be selectable"</span>),
 					};
 					<span class="kw">let </span>name = benchmark.as_bytes().to_vec();
 					<span class="kw">let </span>components = &lt;
@@ -3168,10 +3170,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="macro-nonterminal">$crate::__private::Vec</span>&lt;<span class="macro-nonterminal">$crate::BenchmarkResult</span>&gt;, <span class="macro-nonterminal">$crate::BenchmarkError</span>&gt; {
 				<span class="comment">// Map the input to the selected benchmark.
 				</span><span class="kw">let </span>extrinsic = <span class="macro-nonterminal">$crate::__private::str::from_utf8</span>(extrinsic)
-					.map_err(|<span class="kw">_</span>| <span class="string">&quot;`extrinsic` is not a valid utf8 string!&quot;</span>)<span class="question-mark">?</span>;
+					.map_err(|<span class="kw">_</span>| <span class="string">"`extrinsic` is not a valid utf8 string!"</span>)<span class="question-mark">?</span>;
 				<span class="kw">let </span>selected_benchmark = <span class="kw">match </span>extrinsic {
 					$( <span class="macro">stringify!</span>(<span class="macro-nonterminal">$name</span>) =&gt; SelectedBenchmark::<span class="macro-nonterminal">$name</span>, )*
-					<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;Could not find extrinsic.&quot;</span>.into()),
+					<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Could not find extrinsic."</span>.into()),
 				};
 
 				<span class="comment">// Add whitelist to DB including whitelisted caller
@@ -3216,7 +3218,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="macro-nonterminal">$crate::__private::storage::unhashed::get_raw</span>(<span class="kw-2">&amp;</span>key.key);
 					}
 
-					<span class="comment">// Reset the read/write counter so we don&#39;t count operations in the setup process.
+					<span class="comment">// Reset the read/write counter so we don't count operations in the setup process.
 					</span><span class="macro-nonterminal">$crate::benchmarking::reset_read_write_count</span>();
 				};
 
@@ -3227,8 +3229,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 					<span class="comment">// Time the extrinsic logic.
 					</span><span class="macro-nonterminal">$</span><span class="macro">crate::__private::log::trace!</span>(
-						<span class="macro-nonterminal">target</span>: <span class="string">&quot;benchmark&quot;</span>,
-						<span class="string">&quot;Start Benchmark: {} ({:?}) verify {}&quot;</span>,
+						<span class="macro-nonterminal">target</span>: <span class="string">"benchmark"</span>,
+						<span class="string">"Start Benchmark: {} ({:?}) verify {}"</span>,
 						extrinsic,
 						c,
 						verify
@@ -3240,23 +3242,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					&lt;SelectedBenchmark <span class="kw">as </span><span class="macro-nonterminal">$crate::BenchmarkingSetup</span>&lt;T $(, <span class="macro-nonterminal">$instance</span>)<span class="question-mark">?</span>&gt;&gt;::instance(<span class="kw-2">&amp;</span>selected_benchmark, <span class="kw-2">&amp;mut </span>recording, c, verify)<span class="question-mark">?</span>;
 
 					<span class="comment">// Calculate the diff caused by the benchmark.
-					</span><span class="kw">let </span>elapsed_extrinsic = recording.elapsed_extrinsic().expect(<span class="string">&quot;elapsed time should be recorded&quot;</span>);
+					</span><span class="kw">let </span>elapsed_extrinsic = recording.elapsed_extrinsic().expect(<span class="string">"elapsed time should be recorded"</span>);
 					<span class="kw">let </span>diff_pov = recording.diff_pov().unwrap_or_default();
 
 					<span class="comment">// Commit the changes to get proper write count
 					</span><span class="macro-nonterminal">$crate::benchmarking::commit_db</span>();
 					<span class="macro-nonterminal">$</span><span class="macro">crate::__private::log::trace!</span>(
-						<span class="macro-nonterminal">target</span>: <span class="string">&quot;benchmark&quot;</span>,
-						<span class="string">&quot;End Benchmark: {} ns&quot;</span>, elapsed_extrinsic
+						<span class="macro-nonterminal">target</span>: <span class="string">"benchmark"</span>,
+						<span class="string">"End Benchmark: {} ns"</span>, elapsed_extrinsic
 					);
 					<span class="kw">let </span>read_write_count = <span class="macro-nonterminal">$crate::benchmarking::read_write_count</span>();
 					<span class="macro-nonterminal">$</span><span class="macro">crate::__private::log::trace!</span>(
-						<span class="macro-nonterminal">target</span>: <span class="string">&quot;benchmark&quot;</span>,
-						<span class="string">&quot;Read/Write Count {:?}&quot;</span>, read_write_count
+						<span class="macro-nonterminal">target</span>: <span class="string">"benchmark"</span>,
+						<span class="string">"Read/Write Count {:?}"</span>, read_write_count
 					);
 					<span class="macro-nonterminal">$</span><span class="macro">crate::__private::log::trace!</span>(
-						<span class="macro-nonterminal">target</span>: <span class="string">&quot;benchmark&quot;</span>,
-						<span class="string">&quot;Proof sizes: before {:?} after {:?} diff {}&quot;</span>, recording.start_pov(), recording.end_pov(), <span class="kw-2">&amp;</span>diff_pov
+						<span class="macro-nonterminal">target</span>: <span class="string">"benchmark"</span>,
+						<span class="string">"Proof sizes: before {:?} after {:?} diff {}"</span>, recording.start_pov(), recording.end_pov(), <span class="kw-2">&amp;</span>diff_pov
 					);
 
 					<span class="comment">// Time the storage root recalculation.
@@ -3267,7 +3269,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 					<span class="kw">let </span>skip_meta = [ $( <span class="macro">stringify!</span>(<span class="macro-nonterminal">$name_skip_meta</span>).as_ref() ),* ];
 					<span class="kw">let </span>read_and_written_keys = <span class="kw">if </span>skip_meta.contains(<span class="kw-2">&amp;</span>extrinsic) {
-						<span class="macro-nonterminal">$</span><span class="macro">crate::__private::vec!</span>[(<span class="string">b&quot;Skipped Metadata&quot;</span>.<span class="macro-nonterminal">to_vec</span>(), <span class="number">0</span>, <span class="number">0</span>, <span class="bool-val">false</span>)]
+						<span class="macro-nonterminal">$</span><span class="macro">crate::__private::vec!</span>[(<span class="string">b"Skipped Metadata"</span>.<span class="macro-nonterminal">to_vec</span>(), <span class="number">0</span>, <span class="number">0</span>, <span class="bool-val">false</span>)]
 					} <span class="kw">else </span>{
 						<span class="macro-nonterminal">$crate::benchmarking::get_read_and_written_keys</span>()
 					};
@@ -3296,7 +3298,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		{
 			<span class="doccomment">/// Test a particular benchmark by name.
 			///
-			/// This isn&#39;t called `test_benchmark_by_name` just in case some end-user eventually
+			/// This isn't called `test_benchmark_by_name` just in case some end-user eventually
 			/// writes a benchmark, itself called `by_name`; the function would be shadowed in
 			/// that case.
 			///
@@ -3306,12 +3308,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="attr">#[allow(unused)]
 			</span><span class="kw">fn </span>test_bench_by_name(name: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;(), <span class="macro-nonterminal">$crate::BenchmarkError</span>&gt; {
 				<span class="kw">let </span>name = <span class="macro-nonterminal">$crate::__private::str::from_utf8</span>(name)
-					.map_err(|<span class="kw">_</span>| -&gt; <span class="macro-nonterminal">$crate::BenchmarkError </span>{ <span class="string">&quot;`name` is not a valid utf8 string!&quot;</span>.into() })<span class="question-mark">?</span>;
+					.map_err(|<span class="kw">_</span>| -&gt; <span class="macro-nonterminal">$crate::BenchmarkError </span>{ <span class="string">"`name` is not a valid utf8 string!"</span>.into() })<span class="question-mark">?</span>;
 				<span class="kw">match </span>name {
 					$( <span class="macro">stringify!</span>(<span class="macro-nonterminal">$name</span>) =&gt; {
 						<span class="macro-nonterminal">$</span><span class="macro">crate::__private::paste::paste! </span>{ <span class="macro-nonterminal">Self</span>::[&lt; test_benchmark_ <span class="macro-nonterminal">$name </span>&gt;]() }
 					} )*
-					<span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(<span class="string">&quot;Could not find test for requested benchmark.&quot;</span>.into()),
+					<span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(<span class="string">"Could not find test for requested benchmark."</span>.into()),
 				}
 			}
 		}
@@ -3364,10 +3366,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw">if </span>components.is_empty() {
 						execute_benchmark(Default::default())<span class="question-mark">?</span>;
 					} <span class="kw">else </span>{
-						<span class="kw">let </span>num_values: u32 = <span class="kw">if let </span><span class="prelude-val">Ok</span>(ev) = std::env::var(<span class="string">&quot;VALUES_PER_COMPONENT&quot;</span>) {
+						<span class="kw">let </span>num_values: u32 = <span class="kw">if let </span><span class="prelude-val">Ok</span>(ev) = std::env::var(<span class="string">"VALUES_PER_COMPONENT"</span>) {
 							ev.parse().map_err(|<span class="kw">_</span>| {
 								<span class="macro-nonterminal">$crate::BenchmarkError::Stop</span>(
-									<span class="string">&quot;Could not parse env var `VALUES_PER_COMPONENT` as u32.&quot;
+									<span class="string">"Could not parse env var `VALUES_PER_COMPONENT` as u32."
 								</span>)
 							})<span class="question-mark">?
 						</span>} <span class="kw">else </span>{
@@ -3375,7 +3377,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						</span>};
 
 						<span class="kw">if </span>num_values &lt; <span class="number">2 </span>{
-							<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;`VALUES_PER_COMPONENT` must be at least 2&quot;</span>.into());
+							<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"`VALUES_PER_COMPONENT` must be at least 2"</span>.into());
 						}
 
 						<span class="kw">for </span>(name, low, high) <span class="kw">in </span>components.clone().into_iter() {
@@ -3417,7 +3419,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	};
 }
 
-<span class="doccomment">/// This creates a test suite which runs the module&#39;s benchmarks.
+<span class="doccomment">/// This creates a test suite which runs the module's benchmarks.
 ///
 /// When called in `pallet_example_basic` as
 ///
@@ -3489,7 +3491,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// ## Arguments
 ///
-/// The first argument, `module`, must be the path to this crate&#39;s module.
+/// The first argument, `module`, must be the path to this crate's module.
 ///
 /// The second argument, `new_test_ext`, must be a function call which returns either a
 /// `sp_io::TestExternalities`, or some other type with a similar interface.
@@ -3509,7 +3511,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// There is an optional fourth argument, with keyword syntax: `benchmarks_path =
 /// path_to_benchmarks_invocation`. In the typical case in which this macro is in the same module as
-/// the `benchmarks!` invocation, you don&#39;t need to supply this. However, if the
+/// the `benchmarks!` invocation, you don't need to supply this. However, if the
 /// `impl_benchmark_test_suite!` invocation is in a different module than the `benchmarks!`
 /// invocation, then you should provide the path to the module containing the `benchmarks!`
 /// invocation:
@@ -3546,14 +3548,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="comment">// ## Notes (not for rustdoc)
 //
 // The biggest challenge for this macro is communicating the actual test functions to be run. We
-// can&#39;t just build an array of function pointers to each test function and iterate over it, because
-// the test functions are parameterized by the `Test` type. That&#39;s incompatible with
+// can't just build an array of function pointers to each test function and iterate over it, because
+// the test functions are parameterized by the `Test` type. That's incompatible with
 // monomorphization: if it were legal, then even if the compiler detected and monomorphized the
 // functions into only the types of the callers, which implementation would the function pointer
 // point to? There would need to be some kind of syntax for selecting the destination of the pointer
 // according to a generic argument, and in general it would be a huge mess and not worth it.
 //
-// Instead, we&#39;re going to steal a trick from `fn run_benchmark`: generate a function which is
+// Instead, we're going to steal a trick from `fn run_benchmark`: generate a function which is
 // itself parametrized by `Test`, which accepts a `&amp;[u8]` parameter containing the name of the
 // benchmark, and dispatches based on that to the appropriate real test implementation. Then, we can
 // just iterate over the `Benchmarking::benchmarks` list to run the actual implementations.
@@ -3589,7 +3591,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	( <span class="macro-nonterminal">$_bench</span>:ident: <span class="macro-nonterminal">$_car</span>:path = Ignored ; ) =&gt; { };
 	( <span class="macro-nonterminal">$bench</span>:ident: <span class="macro-nonterminal">$_car</span>:path = Ignored $( <span class="macro-nonterminal">$storage</span>:path = <span class="macro-nonterminal">$_pov_mode</span>:ident )+; ) =&gt; {
 		<span class="macro">compile_error!</span>(
-			<span class="macro">concat!</span>(<span class="macro">concat!</span>(<span class="string">&quot;`pov_mode = Ignored` is exclusive. Please remove the attribute from keys: &quot;</span>, $( <span class="macro">stringify!</span>(<span class="macro-nonterminal">$storage</span>) )+), <span class="string">&quot; on benchmark &#39;&quot;</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$bench</span>), <span class="string">&quot;&#39;&quot;</span>));
+			<span class="macro">concat!</span>(<span class="macro">concat!</span>(<span class="string">"`pov_mode = Ignored` is exclusive. Please remove the attribute from keys: "</span>, $( <span class="macro">stringify!</span>(<span class="macro-nonterminal">$storage</span>) )+), <span class="string">" on benchmark '"</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$bench</span>), <span class="string">"'"</span>));
 	};
 	( <span class="macro-nonterminal">$bench</span>:ident: <span class="macro-nonterminal">$car</span>:path = Measured $( <span class="macro-nonterminal">$storage</span>:path = <span class="macro-nonterminal">$pov_mode</span>:ident )<span class="kw-2">*</span>; ) =&gt; {
 		<span class="macro-nonterminal">$</span><span class="macro">crate::validate_pov_mode!</span>(
@@ -3603,7 +3605,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	};
 	( <span class="macro-nonterminal">$bench</span>:ident: <span class="macro-nonterminal">$key</span>:path = <span class="macro-nonterminal">$unknown</span>:ident $( <span class="macro-nonterminal">$_storage</span>:path = <span class="macro-nonterminal">$_pov_mode</span>:ident )<span class="kw-2">*</span>; ) =&gt; {
 		<span class="macro">compile_error!</span>(
-			<span class="macro">concat!</span>(<span class="string">&quot;Unknown pov_mode &#39;&quot;</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$unknown</span>) ,<span class="string">&quot;&#39; for benchmark &#39;&quot;</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$bench</span>), <span class="string">&quot;&#39; on key &#39;&quot;</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$key</span>), <span class="string">&quot;&#39;. Must be one of: Ignored, Measured, MaxEncodedLen&quot;</span>)
+			<span class="macro">concat!</span>(<span class="string">"Unknown pov_mode '"</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$unknown</span>) ,<span class="string">"' for benchmark '"</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$bench</span>), <span class="string">"' on key '"</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$key</span>), <span class="string">"'. Must be one of: Ignored, Measured, MaxEncodedLen"</span>)
 		);
 	};
 }
@@ -3792,7 +3794,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw">use </span><span class="macro-nonterminal">$crate::Benchmarking</span>;
 
 					<span class="kw">let </span><span class="kw-2">mut </span>anything_failed = <span class="bool-val">false</span>;
-					<span class="macro">println!</span>(<span class="string">&quot;failing benchmark tests:&quot;</span>);
+					<span class="macro">println!</span>(<span class="string">"failing benchmark tests:"</span>);
 					<span class="kw">for </span>benchmark_metadata <span class="kw">in </span><span class="macro-nonterminal">$bench_module</span>::&lt;<span class="macro-nonterminal">$test</span>&gt;::benchmarks(<span class="macro-nonterminal">$extra</span>) {
 						<span class="kw">let </span>benchmark_name = <span class="kw-2">&amp;</span>benchmark_metadata.name;
 						<span class="kw">match </span>std::panic::catch_unwind(|| {
@@ -3800,9 +3802,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						}) {
 							<span class="prelude-val">Err</span>(err) =&gt; {
 								<span class="macro">println!</span>(
-									<span class="string">&quot;{}: {:?}&quot;</span>,
+									<span class="string">"{}: {:?}"</span>,
 									<span class="macro-nonterminal">$crate::__private::str::from_utf8</span>(benchmark_name)
-										.expect(<span class="string">&quot;benchmark name is always a valid string!&quot;</span>),
+										.expect(<span class="string">"benchmark name is always a valid string!"</span>),
 									err,
 								);
 								anything_failed = <span class="bool-val">true</span>;
@@ -3811,9 +3813,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 								<span class="kw">match </span>err {
 									<span class="macro-nonterminal">$crate::BenchmarkError::Stop</span>(err) =&gt; {
 										<span class="macro">println!</span>(
-											<span class="string">&quot;{}: {:?}&quot;</span>,
+											<span class="string">"{}: {:?}"</span>,
 											<span class="macro-nonterminal">$crate::__private::str::from_utf8</span>(benchmark_name)
-												.expect(<span class="string">&quot;benchmark name is always a valid string!&quot;</span>),
+												.expect(<span class="string">"benchmark name is always a valid string!"</span>),
 											err,
 										);
 										anything_failed = <span class="bool-val">true</span>;
@@ -3821,25 +3823,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 									<span class="macro-nonterminal">$crate::BenchmarkError::Override</span>(<span class="kw">_</span>) =&gt; {
 										<span class="comment">// This is still considered a success condition.
 										</span><span class="macro-nonterminal">$</span><span class="macro">crate::__private::log::error!</span>(
-											<span class="string">&quot;WARNING: benchmark error overridden - {}&quot;</span>,
+											<span class="string">"WARNING: benchmark error overridden - {}"</span>,
 												<span class="macro-nonterminal">$crate::__private::str::from_utf8</span>(benchmark_name)
-													.expect(<span class="string">&quot;benchmark name is always a valid string!&quot;</span>),
+													.expect(<span class="string">"benchmark name is always a valid string!"</span>),
 											);
 									},
 									<span class="macro-nonterminal">$crate::BenchmarkError::Skip </span>=&gt; {
 										<span class="comment">// This is considered a success condition.
 										</span><span class="macro-nonterminal">$</span><span class="macro">crate::__private::log::error!</span>(
-											<span class="string">&quot;WARNING: benchmark error skipped - {}&quot;</span>,
+											<span class="string">"WARNING: benchmark error skipped - {}"</span>,
 											<span class="macro-nonterminal">$crate::__private::str::from_utf8</span>(benchmark_name)
-												.expect(<span class="string">&quot;benchmark name is always a valid string!&quot;</span>),
+												.expect(<span class="string">"benchmark name is always a valid string!"</span>),
 										);
 									}
 									<span class="macro-nonterminal">$crate::BenchmarkError::Weightless </span>=&gt; {
 										<span class="comment">// This is considered a success condition.
 										</span><span class="macro-nonterminal">$</span><span class="macro">crate::__private::log::error!</span>(
-											<span class="string">&quot;WARNING: benchmark weightless skipped - {}&quot;</span>,
+											<span class="string">"WARNING: benchmark weightless skipped - {}"</span>,
 											<span class="macro-nonterminal">$crate::__private::str::from_utf8</span>(benchmark_name)
-												.expect(<span class="string">&quot;benchmark name is always a valid string!&quot;</span>),
+												.expect(<span class="string">"benchmark name is always a valid string!"</span>),
 										);
 									}
 								}
@@ -3864,15 +3866,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	error_message: <span class="kw-2">&amp;</span>str,
 ) -&gt; sp_runtime::RuntimeString {
 	<span class="macro">sp_runtime::format_runtime_string!</span>(
-		<span class="string">&quot;\n* Pallet: {}\n\
+		<span class="string">"\n* Pallet: {}\n\
 		* Benchmark: {}\n\
 		* Components: {:?}\n\
 		* Verify: {:?}\n\
-		* Error message: {}&quot;</span>,
+		* Error message: {}"</span>,
 		sp_std::str::from_utf8(instance_string)
-			.expect(<span class="string">&quot;it&#39;s all just strings ran through the wasm interface. qed&quot;</span>),
+			.expect(<span class="string">"it's all just strings ran through the wasm interface. qed"</span>),
 		sp_std::str::from_utf8(benchmark)
-			.expect(<span class="string">&quot;it&#39;s all just strings ran through the wasm interface. qed&quot;</span>),
+			.expect(<span class="string">"it's all just strings ran through the wasm interface. qed"</span>),
 		components,
 		verify,
 		error_message,
@@ -3897,13 +3899,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// use sp_storage::TrackedStorageKey;
 /// let whitelist: Vec&lt;TrackedStorageKey&gt; = vec![
 /// 	// Block Number
-/// 	array_bytes::hex_into_unchecked(&quot;26aa394eea5630e07c48ae0c9558cef702a5c1b19ab7a04f536c519aca4983ac&quot;),
+/// 	array_bytes::hex_into_unchecked("26aa394eea5630e07c48ae0c9558cef702a5c1b19ab7a04f536c519aca4983ac"),
 /// 	// Total Issuance
-/// 	array_bytes::hex_into_unchecked(&quot;c2261276cc9d1f8598ea4b6a74b15c2f57c875e4cff74148e4628f264b974c80&quot;),
+/// 	array_bytes::hex_into_unchecked("c2261276cc9d1f8598ea4b6a74b15c2f57c875e4cff74148e4628f264b974c80"),
 /// 	// Execution Phase
-/// 	array_bytes::hex_into_unchecked(&quot;26aa394eea5630e07c48ae0c9558cef7ff553b5a9862a516939d82b3d3d8661a&quot;),
+/// 	array_bytes::hex_into_unchecked("26aa394eea5630e07c48ae0c9558cef7ff553b5a9862a516939d82b3d3d8661a"),
 /// 	// Event Count
-/// 	array_bytes::hex_into_unchecked(&quot;26aa394eea5630e07c48ae0c9558cef70a98fdbe9ce6c55837576c60c7af3850&quot;),
+/// 	array_bytes::hex_into_unchecked("26aa394eea5630e07c48ae0c9558cef70a98fdbe9ce6c55837576c60c7af3850"),
 /// ];
 /// ```
 ///
@@ -3968,11 +3970,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="prelude-val">Err</span>(<span class="macro-nonterminal">$crate::BenchmarkError::Override</span>(<span class="kw-2">mut </span>result)) =&gt; {
 					<span class="comment">// Insert override warning as the first storage key.
 					</span><span class="macro-nonterminal">$</span><span class="macro">crate::__private::log::error!</span>(
-						<span class="string">&quot;WARNING: benchmark error overridden - {}&quot;</span>,
+						<span class="string">"WARNING: benchmark error overridden - {}"</span>,
 						<span class="macro-nonterminal">$crate::__private::str::from_utf8</span>(benchmark)
-							.expect(<span class="string">&quot;benchmark name is always a valid string!&quot;</span>)
+							.expect(<span class="string">"benchmark name is always a valid string!"</span>)
 					);
-					result.keys.insert(<span class="number">0</span>, (<span class="string">b&quot;Benchmark Override&quot;</span>.to_vec(), <span class="number">0</span>, <span class="number">0</span>, <span class="bool-val">false</span>));
+					result.keys.insert(<span class="number">0</span>, (<span class="string">b"Benchmark Override"</span>.to_vec(), <span class="number">0</span>, <span class="number">0</span>, <span class="bool-val">false</span>));
 					<span class="prelude-val">Some</span>(<span class="macro-nonterminal">$</span><span class="macro">crate::__private::vec!</span>[<span class="macro-nonterminal">result</span>])
 				},
 				<span class="prelude-val">Err</span>(<span class="macro-nonterminal">$crate::BenchmarkError::Stop</span>(e)) =&gt; {
@@ -3987,17 +3989,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				},
 				<span class="prelude-val">Err</span>(<span class="macro-nonterminal">$crate::BenchmarkError::Skip</span>) =&gt; {
 					<span class="macro-nonterminal">$</span><span class="macro">crate::__private::log::error!</span>(
-						<span class="string">&quot;WARNING: benchmark error skipped - {}&quot;</span>,
+						<span class="string">"WARNING: benchmark error skipped - {}"</span>,
 						<span class="macro-nonterminal">$crate::__private::str::from_utf8</span>(benchmark)
-							.expect(<span class="string">&quot;benchmark name is always a valid string!&quot;</span>)
+							.expect(<span class="string">"benchmark name is always a valid string!"</span>)
 					);
 					<span class="prelude-val">None
 				</span>},
 				<span class="prelude-val">Err</span>(<span class="macro-nonterminal">$crate::BenchmarkError::Weightless</span>) =&gt; {
 					<span class="macro-nonterminal">$</span><span class="macro">crate::__private::log::error!</span>(
-						<span class="string">&quot;WARNING: benchmark weightless skipped - {}&quot;</span>,
+						<span class="string">"WARNING: benchmark weightless skipped - {}"</span>,
 						<span class="macro-nonterminal">$crate::__private::str::from_utf8</span>(benchmark)
-							.expect(<span class="string">&quot;benchmark name is always a valid string!&quot;</span>)
+							.expect(<span class="string">"benchmark name is always a valid string!"</span>)
 					);
 					<span class="prelude-val">Some</span>(<span class="macro-nonterminal">$</span><span class="macro">crate::__private::vec!</span>[<span class="macro-nonterminal">$crate::BenchmarkResult </span>{
 						components: selected_components.clone(),

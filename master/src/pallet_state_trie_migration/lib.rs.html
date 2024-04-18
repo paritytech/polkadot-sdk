@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/state-trie-migration/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/state-trie-migration/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_state_trie_migration" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_state_trie_migration" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../pallet_state_trie_migration/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1985,14 +1987,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -2035,19 +2037,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! Initially, this pallet does not contain any auto migration. They must be manually enabled by the
 //! `ControlOrigin`.
 
-</span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
+</span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
 </span><span class="kw">pub use </span>pallet::<span class="kw-2">*</span>;
 <span class="kw">pub mod </span>weights;
 
-<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;runtime::state-trie-migration&quot;</span>;
+<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"runtime::state-trie-migration"</span>;
 
 <span class="attr">#[macro_export]
 </span><span class="macro">macro_rules! </span>log {
 	(<span class="macro-nonterminal">$level</span>:tt, <span class="macro-nonterminal">$patter</span>:expr $(, <span class="macro-nonterminal">$values</span>:expr)* $(,)<span class="question-mark">?</span>) =&gt; {
 		log::<span class="macro-nonterminal">$</span><span class="macro">level!</span>(
 			<span class="macro-nonterminal">target</span>: <span class="kw">crate</span>::LOG_TARGET,
-			<span class="macro">concat!</span>(<span class="string">&quot;[{:?}] 🤖 &quot;</span>, <span class="macro-nonterminal">$patter</span>), frame_system::Pallet::&lt;T&gt;::block_number() $(, <span class="macro-nonterminal">$values</span>)*
+			<span class="macro">concat!</span>(<span class="string">"[{:?}] 🤖 "</span>, <span class="macro-nonterminal">$patter</span>), frame_system::Pallet::&lt;T&gt;::block_number() $(, <span class="macro-nonterminal">$values</span>)*
 		)
 	};
 }
@@ -2157,26 +2159,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">impl</span>&lt;Size: Get&lt;u32&gt;&gt; sp_std::fmt::Debug <span class="kw">for </span>Progress&lt;Size&gt; {
-		<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; sp_std::fmt::Result {
+		<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; sp_std::fmt::Result {
 			<span class="kw">match </span><span class="self">self </span>{
-				Progress::ToStart =&gt; f.write_str(<span class="string">&quot;To start&quot;</span>),
-				Progress::LastKey(key) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Last: {:?}&quot;</span>, HexDisplay::from(key.deref())),
-				Progress::Complete =&gt; f.write_str(<span class="string">&quot;Complete&quot;</span>),
+				Progress::ToStart =&gt; f.write_str(<span class="string">"To start"</span>),
+				Progress::LastKey(key) =&gt; <span class="macro">write!</span>(f, <span class="string">"Last: {:?}"</span>, HexDisplay::from(key.deref())),
+				Progress::Complete =&gt; f.write_str(<span class="string">"Complete"</span>),
 			}
 		}
 	}
 
 	<span class="kw">impl</span>&lt;T: Config&gt; sp_std::fmt::Debug <span class="kw">for </span>MigrationTask&lt;T&gt; {
-		<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; sp_std::fmt::Result {
-			f.debug_struct(<span class="string">&quot;MigrationTask&quot;</span>)
-				.field(<span class="string">&quot;top&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.progress_top)
-				.field(<span class="string">&quot;child&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.progress_child)
-				.field(<span class="string">&quot;dyn_top_items&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.dyn_top_items)
-				.field(<span class="string">&quot;dyn_child_items&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.dyn_child_items)
-				.field(<span class="string">&quot;dyn_size&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.dyn_size)
-				.field(<span class="string">&quot;size&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.size)
-				.field(<span class="string">&quot;top_items&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.top_items)
-				.field(<span class="string">&quot;child_items&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.child_items)
+		<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; sp_std::fmt::Result {
+			f.debug_struct(<span class="string">"MigrationTask"</span>)
+				.field(<span class="string">"top"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.progress_top)
+				.field(<span class="string">"child"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.progress_child)
+				.field(<span class="string">"dyn_top_items"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.dyn_top_items)
+				.field(<span class="string">"dyn_child_items"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.dyn_child_items)
+				.field(<span class="string">"dyn_size"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.dyn_size)
+				.field(<span class="string">"size"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.size)
+				.field(<span class="string">"top_items"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.top_items)
+				.field(<span class="string">"child_items"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.child_items)
 				.finish()
 		}
 	}
@@ -2203,7 +2205,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">matches!</span>(<span class="self">self</span>.progress_top, Progress::Complete)
 		}
 
-		<span class="doccomment">/// Check if there&#39;s any work left, or if we have exhausted the limits already.
+		<span class="doccomment">/// Check if there's any work left, or if we have exhausted the limits already.
 		</span><span class="kw">fn </span>exhausted(<span class="kw-2">&amp;</span><span class="self">self</span>, limits: MigrationLimits) -&gt; bool {
 			<span class="self">self</span>.dyn_total_items() &gt;= limits.item || <span class="self">self</span>.dyn_size &gt;= limits.size
 		}
@@ -2225,17 +2227,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 			limits: MigrationLimits,
 		) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&lt;T&gt;&gt; {
-			<span class="macro">log!</span>(debug, <span class="string">&quot;running migrations on top of {:?} until {:?}&quot;</span>, <span class="self">self</span>, limits);
+			<span class="macro">log!</span>(debug, <span class="string">"running migrations on top of {:?} until {:?}"</span>, <span class="self">self</span>, limits);
 
 			<span class="kw">if </span>limits.item.is_zero() || limits.size.is_zero() {
 				<span class="comment">// handle this minor edge case, else we would call `migrate_tick` at least once.
-				</span><span class="macro">log!</span>(warn, <span class="string">&quot;limits are zero. stopping&quot;</span>);
+				</span><span class="macro">log!</span>(warn, <span class="string">"limits are zero. stopping"</span>);
 				<span class="kw">return </span><span class="prelude-val">Ok</span>(())
 			}
 
 			<span class="kw">while </span>!<span class="self">self</span>.exhausted(limits) &amp;&amp; !<span class="self">self</span>.finished() {
 				<span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.migrate_tick() {
-					<span class="macro">log!</span>(error, <span class="string">&quot;migrate_until_exhaustion failed: {:?}&quot;</span>, e);
+					<span class="macro">log!</span>(error, <span class="string">"migrate_until_exhaustion failed: {:?}"</span>, e);
 					<span class="kw">return </span><span class="prelude-val">Err</span>(e)
 				}
 			}
@@ -2244,7 +2246,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="self">self</span>.size = <span class="self">self</span>.size.saturating_add(<span class="self">self</span>.dyn_size);
 			<span class="self">self</span>.child_items = <span class="self">self</span>.child_items.saturating_add(<span class="self">self</span>.dyn_child_items);
 			<span class="self">self</span>.top_items = <span class="self">self</span>.top_items.saturating_add(<span class="self">self</span>.dyn_top_items);
-			<span class="macro">log!</span>(debug, <span class="string">&quot;finished with {:?}&quot;</span>, <span class="self">self</span>);
+			<span class="macro">log!</span>(debug, <span class="string">"finished with {:?}"</span>, <span class="self">self</span>);
 			<span class="prelude-val">Ok</span>(())
 		}
 
@@ -2255,7 +2257,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">match </span>(<span class="kw-2">&amp;</span><span class="self">self</span>.progress_top, <span class="kw-2">&amp;</span><span class="self">self</span>.progress_child) {
 				(Progress::ToStart, <span class="kw">_</span>) =&gt; <span class="self">self</span>.migrate_top(),
 				(Progress::LastKey(<span class="kw">_</span>), Progress::LastKey(<span class="kw">_</span>)) =&gt; {
-					<span class="comment">// we&#39;re in the middle of doing work on a child tree.
+					<span class="comment">// we're in the middle of doing work on a child tree.
 					</span><span class="self">self</span>.migrate_child()
 				},
 				(Progress::LastKey(top_key), Progress::ToStart) =&gt; {
@@ -2275,7 +2277,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					}
 				},
 				(Progress::LastKey(<span class="kw">_</span>), Progress::Complete) =&gt; {
-					<span class="comment">// we&#39;re done with migrating a child-root.
+					<span class="comment">// we're done with migrating a child-root.
 					</span><span class="self">self</span>.migrate_top()<span class="question-mark">?</span>;
 					<span class="self">self</span>.progress_child = Progress::ToStart;
 					<span class="prelude-val">Ok</span>(())
@@ -2312,7 +2314,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				},
 				<span class="kw">_ </span>=&gt; {
 					<span class="comment">// defensive: there must be an ongoing top migration.
-					</span><span class="macro">frame_support::defensive!</span>(<span class="string">&quot;cannot migrate child key.&quot;</span>);
+					</span><span class="macro">frame_support::defensive!</span>(<span class="string">"cannot migrate child key."</span>);
 					<span class="kw">return </span><span class="prelude-val">Ok</span>(())
 				},
 			};
@@ -2328,7 +2330,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="self">self</span>.dyn_child_items.saturating_inc();
 			}
 
-			<span class="macro">log!</span>(trace, <span class="string">&quot;migrated a child key, next_child_key: {:?}&quot;</span>, maybe_current_child);
+			<span class="macro">log!</span>(trace, <span class="string">"migrated a child key, next_child_key: {:?}"</span>, maybe_current_child);
 			<span class="self">self</span>.progress_child = <span class="kw">match </span>maybe_current_child {
 				<span class="prelude-val">Some</span>(last_child) =&gt; Progress::LastKey(last_child),
 				<span class="prelude-val">None </span>=&gt; Progress::Complete,
@@ -2354,7 +2356,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				</span>Progress::ToStart =&gt; <span class="prelude-val">Some</span>(Default::default()),
 				Progress::Complete =&gt; {
 					<span class="comment">// defensive: there must be an ongoing top migration.
-					</span><span class="macro">frame_support::defensive!</span>(<span class="string">&quot;cannot migrate top key.&quot;</span>);
+					</span><span class="macro">frame_support::defensive!</span>(<span class="string">"cannot migrate top key."</span>);
 					<span class="kw">return </span><span class="prelude-val">Ok</span>(())
 				},
 			};
@@ -2370,7 +2372,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="self">self</span>.dyn_top_items.saturating_inc();
 			}
 
-			<span class="macro">log!</span>(trace, <span class="string">&quot;migrated a top key, next_top_key = {:?}&quot;</span>, maybe_current_top);
+			<span class="macro">log!</span>(trace, <span class="string">"migrated a top key, next_top_key = {:?}"</span>, maybe_current_top);
 			<span class="self">self</span>.progress_top = <span class="kw">match </span>maybe_current_top {
 				<span class="prelude-val">Some</span>(last_top) =&gt; Progress::LastKey(last_top),
 				<span class="prelude-val">None </span>=&gt; Progress::Complete,
@@ -2758,7 +2760,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			);
 
 			<span class="kw">let </span><span class="kw-2">mut </span>dyn_size = <span class="number">0u32</span>;
-			<span class="kw">let </span>transformed_child_key = <span class="self">Self</span>::transform_child_key(<span class="kw-2">&amp;</span>root).ok_or(<span class="string">&quot;bad child key&quot;</span>)<span class="question-mark">?</span>;
+			<span class="kw">let </span>transformed_child_key = <span class="self">Self</span>::transform_child_key(<span class="kw-2">&amp;</span>root).ok_or(<span class="string">"bad child key"</span>)<span class="question-mark">?</span>;
 			<span class="kw">for </span>child_key <span class="kw">in </span><span class="kw-2">&amp;</span>child_keys {
 				<span class="kw">if let </span><span class="prelude-val">Some</span>(data) = child_io::get(transformed_child_key, child_key) {
 					dyn_size = dyn_size.saturating_add(data.len() <span class="kw">as </span>u32);
@@ -2838,7 +2840,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 				<span class="macro">log!</span>(
 					info,
-					<span class="string">&quot;migrated {} top keys, {} child keys, and a total of {} bytes.&quot;</span>,
+					<span class="string">"migrated {} top keys, {} child keys, and a total of {} bytes."</span>,
 					task.dyn_top_items,
 					task.dyn_child_items,
 					task.dyn_size,
@@ -2877,12 +2879,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="doccomment">/// Put a stop to all ongoing migrations and logs an error.
 		</span><span class="kw">fn </span>halt(error: Error&lt;T&gt;) {
-			<span class="macro">log!</span>(error, <span class="string">&quot;migration halted due to: {:?}&quot;</span>, error);
+			<span class="macro">log!</span>(error, <span class="string">"migration halted due to: {:?}"</span>, error);
 			AutoLimits::&lt;T&gt;::kill();
 			<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::Halted { error });
 		}
 
-		<span class="doccomment">/// Convert a child root key, aka. &quot;Child-bearing top key&quot; into the proper format.
+		<span class="doccomment">/// Convert a child root key, aka. "Child-bearing top key" into the proper format.
 		</span><span class="kw">fn </span>transform_child_key(root: <span class="kw-2">&amp;</span>Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>[u8]&gt; {
 			<span class="kw">use </span>sp_core::storage::{ChildType, PrefixedStorageKey};
 			<span class="kw">match </span>ChildType::from_prefixed_key(PrefixedStorageKey::new_ref(root)) {
@@ -2904,8 +2906,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 
 		<span class="doccomment">/// Convert a child root to be in the default child-tree.
-		</span><span class="attr">#[cfg(any(test, feature = <span class="string">&quot;runtime-benchmarks&quot;</span>))]
-		</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>childify(root: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str) -&gt; Vec&lt;u8&gt; {
+		</span><span class="attr">#[cfg(any(test, feature = <span class="string">"runtime-benchmarks"</span>))]
+		</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>childify(root: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str) -&gt; Vec&lt;u8&gt; {
 			<span class="kw">let </span><span class="kw-2">mut </span>string = DEFAULT_CHILD_STORAGE_KEY_PREFIX.to_vec();
 			string.extend_from_slice(root.as_ref());
 			string
@@ -2934,7 +2936,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 </span><span class="kw">mod </span>benchmarks {
 	<span class="kw">use super</span>::{pallet::Pallet <span class="kw">as </span>StateTrieMigration, <span class="kw-2">*</span>};
 	<span class="kw">use </span>frame_support::traits::fungible::{Inspect, Mutate};
@@ -2942,7 +2944,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="comment">// The size of the key seemingly makes no difference in the read/write time, so we make it
 	// constant.
-	</span><span class="kw">const </span>KEY: <span class="kw-2">&amp;</span>[u8] = <span class="string">b&quot;key&quot;</span>;
+	</span><span class="kw">const </span>KEY: <span class="kw-2">&amp;</span>[u8] = <span class="string">b"key"</span>;
 
 	<span class="kw">fn </span>set_balance_for_deposit&lt;T: Config&gt;(caller: <span class="kw-2">&amp;</span>T::AccountId, item: u32) -&gt; BalanceOf&lt;T&gt; {
 		<span class="kw">let </span>deposit = StateTrieMigration::&lt;T&gt;::calculate_deposit_for(item);
@@ -3002,12 +3004,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>stash = set_balance_for_deposit::&lt;T&gt;(<span class="kw-2">&amp;</span>caller, null.item);
 			<span class="comment">// for tests, we need to make sure there is _something_ in storage that is being
 			// migrated.
-			</span>sp_io::storage::set(<span class="string">b&quot;foo&quot;</span>, <span class="macro">vec!</span>[<span class="number">1u8</span>;<span class="number">33</span>].as_ref());
+			</span>sp_io::storage::set(<span class="string">b"foo"</span>, <span class="macro">vec!</span>[<span class="number">1u8</span>;<span class="number">33</span>].as_ref());
 		}: {
 			<span class="macro">assert!</span>(
 				StateTrieMigration::&lt;T&gt;::migrate_custom_top(
 					frame_system::RawOrigin::Signed(caller.clone()).into(),
-					<span class="macro">vec!</span>[<span class="string">b&quot;foo&quot;</span>.to_vec()],
+					<span class="macro">vec!</span>[<span class="string">b"foo"</span>.to_vec()],
 					<span class="number">1</span>,
 				).is_ok()
 			);
@@ -3044,13 +3046,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>stash = set_balance_for_deposit::&lt;T&gt;(<span class="kw-2">&amp;</span>caller, <span class="number">1</span>);
 			<span class="comment">// for tests, we need to make sure there is _something_ in storage that is being
 			// migrated.
-			</span>sp_io::default_child_storage::set(<span class="string">b&quot;top&quot;</span>, <span class="string">b&quot;foo&quot;</span>, <span class="macro">vec!</span>[<span class="number">1u8</span>;<span class="number">33</span>].as_ref());
+			</span>sp_io::default_child_storage::set(<span class="string">b"top"</span>, <span class="string">b"foo"</span>, <span class="macro">vec!</span>[<span class="number">1u8</span>;<span class="number">33</span>].as_ref());
 		}: {
 			<span class="macro">assert!</span>(
 				StateTrieMigration::&lt;T&gt;::migrate_custom_child(
 					frame_system::RawOrigin::Signed(caller.clone()).into(),
-					StateTrieMigration::&lt;T&gt;::childify(<span class="string">&quot;top&quot;</span>),
-					<span class="macro">vec!</span>[<span class="string">b&quot;foo&quot;</span>.to_vec()],
+					StateTrieMigration::&lt;T&gt;::childify(<span class="string">"top"</span>),
+					<span class="macro">vec!</span>[<span class="string">b"foo"</span>.to_vec()],
 					<span class="number">1</span>,
 				).is_ok()
 			)
@@ -3179,43 +3181,43 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>minimum_size = sp_core::storage::TRIE_VALUE_NODE_THRESHOLD <span class="kw">as </span>usize + <span class="number">1</span>;
 		<span class="kw">let </span><span class="kw-2">mut </span>custom_storage = sp_core::storage::Storage {
 			top: <span class="macro">vec!</span>[
-				(<span class="string">b&quot;key1&quot;</span>.to_vec(), <span class="macro">vec!</span>[<span class="number">1u8</span>; minimum_size + <span class="number">1</span>]), <span class="comment">// 6b657931
-				</span>(<span class="string">b&quot;key2&quot;</span>.to_vec(), <span class="macro">vec!</span>[<span class="number">1u8</span>; minimum_size + <span class="number">2</span>]), <span class="comment">// 6b657931
-				</span>(<span class="string">b&quot;key3&quot;</span>.to_vec(), <span class="macro">vec!</span>[<span class="number">1u8</span>; minimum_size + <span class="number">3</span>]), <span class="comment">// 6b657931
-				</span>(<span class="string">b&quot;key4&quot;</span>.to_vec(), <span class="macro">vec!</span>[<span class="number">1u8</span>; minimum_size + <span class="number">4</span>]), <span class="comment">// 6b657931
-				</span>(<span class="string">b&quot;key5&quot;</span>.to_vec(), <span class="macro">vec!</span>[<span class="number">1u8</span>; minimum_size + <span class="number">5</span>]), <span class="comment">// 6b657932
-				</span>(<span class="string">b&quot;key6&quot;</span>.to_vec(), <span class="macro">vec!</span>[<span class="number">1u8</span>; minimum_size + <span class="number">6</span>]), <span class="comment">// 6b657934
-				</span>(<span class="string">b&quot;key7&quot;</span>.to_vec(), <span class="macro">vec!</span>[<span class="number">1u8</span>; minimum_size + <span class="number">7</span>]), <span class="comment">// 6b657934
-				</span>(<span class="string">b&quot;key8&quot;</span>.to_vec(), <span class="macro">vec!</span>[<span class="number">1u8</span>; minimum_size + <span class="number">8</span>]), <span class="comment">// 6b657934
-				</span>(<span class="string">b&quot;key9&quot;</span>.to_vec(), <span class="macro">vec!</span>[<span class="number">1u8</span>; minimum_size + <span class="number">9</span>]), <span class="comment">// 6b657934
-				</span>(<span class="string">b&quot;CODE&quot;</span>.to_vec(), <span class="macro">vec!</span>[<span class="number">1u8</span>; minimum_size + <span class="number">100</span>]), <span class="comment">// 434f4445
+				(<span class="string">b"key1"</span>.to_vec(), <span class="macro">vec!</span>[<span class="number">1u8</span>; minimum_size + <span class="number">1</span>]), <span class="comment">// 6b657931
+				</span>(<span class="string">b"key2"</span>.to_vec(), <span class="macro">vec!</span>[<span class="number">1u8</span>; minimum_size + <span class="number">2</span>]), <span class="comment">// 6b657931
+				</span>(<span class="string">b"key3"</span>.to_vec(), <span class="macro">vec!</span>[<span class="number">1u8</span>; minimum_size + <span class="number">3</span>]), <span class="comment">// 6b657931
+				</span>(<span class="string">b"key4"</span>.to_vec(), <span class="macro">vec!</span>[<span class="number">1u8</span>; minimum_size + <span class="number">4</span>]), <span class="comment">// 6b657931
+				</span>(<span class="string">b"key5"</span>.to_vec(), <span class="macro">vec!</span>[<span class="number">1u8</span>; minimum_size + <span class="number">5</span>]), <span class="comment">// 6b657932
+				</span>(<span class="string">b"key6"</span>.to_vec(), <span class="macro">vec!</span>[<span class="number">1u8</span>; minimum_size + <span class="number">6</span>]), <span class="comment">// 6b657934
+				</span>(<span class="string">b"key7"</span>.to_vec(), <span class="macro">vec!</span>[<span class="number">1u8</span>; minimum_size + <span class="number">7</span>]), <span class="comment">// 6b657934
+				</span>(<span class="string">b"key8"</span>.to_vec(), <span class="macro">vec!</span>[<span class="number">1u8</span>; minimum_size + <span class="number">8</span>]), <span class="comment">// 6b657934
+				</span>(<span class="string">b"key9"</span>.to_vec(), <span class="macro">vec!</span>[<span class="number">1u8</span>; minimum_size + <span class="number">9</span>]), <span class="comment">// 6b657934
+				</span>(<span class="string">b"CODE"</span>.to_vec(), <span class="macro">vec!</span>[<span class="number">1u8</span>; minimum_size + <span class="number">100</span>]), <span class="comment">// 434f4445
 			</span>]
 			.into_iter()
 			.chain(custom_keys.unwrap_or_default())
 			.collect(),
 			children_default: <span class="macro">vec!</span>[
 				(
-					<span class="string">b&quot;chk1&quot;</span>.to_vec(), <span class="comment">// 63686b31
+					<span class="string">b"chk1"</span>.to_vec(), <span class="comment">// 63686b31
 					</span>StorageChild {
 						data: <span class="macro">vec!</span>[
-							(<span class="string">b&quot;key1&quot;</span>.to_vec(), <span class="macro">vec!</span>[<span class="number">1u8</span>; <span class="number">55</span>]),
-							(<span class="string">b&quot;key2&quot;</span>.to_vec(), <span class="macro">vec!</span>[<span class="number">2u8</span>; <span class="number">66</span>]),
+							(<span class="string">b"key1"</span>.to_vec(), <span class="macro">vec!</span>[<span class="number">1u8</span>; <span class="number">55</span>]),
+							(<span class="string">b"key2"</span>.to_vec(), <span class="macro">vec!</span>[<span class="number">2u8</span>; <span class="number">66</span>]),
 						]
 						.into_iter()
 						.collect(),
-						child_info: ChildInfo::new_default(<span class="string">b&quot;chk1&quot;</span>),
+						child_info: ChildInfo::new_default(<span class="string">b"chk1"</span>),
 					},
 				),
 				(
-					<span class="string">b&quot;chk2&quot;</span>.to_vec(),
+					<span class="string">b"chk2"</span>.to_vec(),
 					StorageChild {
 						data: <span class="macro">vec!</span>[
-							(<span class="string">b&quot;key1&quot;</span>.to_vec(), <span class="macro">vec!</span>[<span class="number">1u8</span>; <span class="number">54</span>]),
-							(<span class="string">b&quot;key2&quot;</span>.to_vec(), <span class="macro">vec!</span>[<span class="number">2u8</span>; <span class="number">64</span>]),
+							(<span class="string">b"key1"</span>.to_vec(), <span class="macro">vec!</span>[<span class="number">1u8</span>; <span class="number">54</span>]),
+							(<span class="string">b"key2"</span>.to_vec(), <span class="macro">vec!</span>[<span class="number">2u8</span>; <span class="number">64</span>]),
 						]
 						.into_iter()
 						.collect(),
-						child_info: ChildInfo::new_default(<span class="string">b&quot;chk2&quot;</span>),
+						child_info: ChildInfo::new_default(<span class="string">b"chk2"</span>),
 					},
 				),
 			]
@@ -3254,7 +3256,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>run_to_block(n: u32) -&gt; (H256, Weight) {
 		<span class="kw">let </span><span class="kw-2">mut </span>root = Default::default();
 		<span class="kw">let </span><span class="kw-2">mut </span>weight_sum = Weight::zero();
-		<span class="macro">log::trace!</span>(target: LOG_TARGET, <span class="string">&quot;running from {:?} to {:?}&quot;</span>, System::block_number(), n);
+		<span class="macro">log::trace!</span>(target: LOG_TARGET, <span class="string">"running from {:?} to {:?}"</span>, System::block_number(), n);
 		<span class="kw">while </span>System::block_number() &lt; n {
 			System::set_block_number(System::block_number() + <span class="number">1</span>);
 			System::on_initialize(System::block_number());
@@ -3383,7 +3385,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>detects_value_in_first_child_key() {
 		<span class="kw">let </span>limit = MigrationLimits { item: <span class="number">1</span>, size: <span class="number">1000 </span>};
-		<span class="kw">let </span>initial_child = <span class="prelude-val">Some</span>(<span class="macro">vec!</span>[(<span class="string">b&quot;chk1&quot;</span>.to_vec(), <span class="macro">vec!</span>[], <span class="macro">vec!</span>[<span class="number">66u8</span>; <span class="number">77</span>])]);
+		<span class="kw">let </span>initial_child = <span class="prelude-val">Some</span>(<span class="macro">vec!</span>[(<span class="string">b"chk1"</span>.to_vec(), <span class="macro">vec!</span>[], <span class="macro">vec!</span>[<span class="number">66u8</span>; <span class="number">77</span>])]);
 		<span class="kw">let </span><span class="kw-2">mut </span>ext = new_test_ext(StateVersion::V0, <span class="bool-val">false</span>, <span class="prelude-val">None</span>, initial_child.clone());
 
 		<span class="kw">let </span>root_upgraded = ext.execute_with(|| {
@@ -3412,7 +3414,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="macro">assert_eq!</span>(AutoLimits::&lt;Test&gt;::get(), <span class="prelude-val">None</span>);
 				<span class="macro">assert_eq!</span>(MigrationProcess::&lt;Test&gt;::get(), Default::default());
 
-				<span class="comment">// nothing happens if we don&#39;t set the limits.
+				<span class="comment">// nothing happens if we don't set the limits.
 				</span><span class="kw">let _ </span>= run_to_block(from);
 				<span class="macro">assert_eq!</span>(MigrationProcess::&lt;Test&gt;::get(), Default::default());
 
@@ -3461,7 +3463,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// Allow signed migrations.
 			</span>SignedMigrationMaxLimits::&lt;Test&gt;::put(MigrationLimits { size: <span class="number">1024</span>, item: <span class="number">5 </span>});
 
-			<span class="comment">// can&#39;t submit if limit is too high.
+			<span class="comment">// can't submit if limit is too high.
 			</span><span class="macro">frame_support::assert_err!</span>(
 				StateTrieMigration::continue_migrate(
 					RuntimeOrigin::signed(<span class="number">1</span>),
@@ -3472,7 +3474,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				Error::&lt;Test&gt;::MaxSignedLimits,
 			);
 
-			<span class="comment">// can&#39;t submit if poor.
+			<span class="comment">// can't submit if poor.
 			</span><span class="macro">frame_support::assert_err!</span>(
 				StateTrieMigration::continue_migrate(
 					RuntimeOrigin::signed(<span class="number">2</span>),
@@ -3483,7 +3485,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				Error::&lt;Test&gt;::NotEnoughFunds,
 			);
 
-			<span class="comment">// can&#39;t submit with bad witness.
+			<span class="comment">// can't submit with bad witness.
 			</span><span class="macro">frame_support::assert_err_ignore_postinfo!</span>(
 				StateTrieMigration::continue_migrate(
 					RuntimeOrigin::signed(<span class="number">1</span>),
@@ -3539,7 +3541,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				StateTrieMigration::signed_migration_max_limits().unwrap(),
 			));
 
-			<span class="comment">// can&#39;t submit with `real_size_upper` &lt; `task.dyn_size` expect slashing
+			<span class="comment">// can't submit with `real_size_upper` &lt; `task.dyn_size` expect slashing
 			</span><span class="macro">frame_support::assert_ok!</span>(StateTrieMigration::continue_migrate(
 				RuntimeOrigin::signed(<span class="number">1</span>),
 				StateTrieMigration::signed_migration_max_limits().unwrap(),
@@ -3562,7 +3564,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		new_test_ext(StateVersion::V0, <span class="bool-val">true</span>, <span class="prelude-val">None</span>, <span class="prelude-val">None</span>).execute_with(|| {
 			<span class="macro">frame_support::assert_ok!</span>(StateTrieMigration::migrate_custom_top(
 				RuntimeOrigin::signed(<span class="number">1</span>),
-				<span class="macro">vec!</span>[<span class="string">b&quot;key1&quot;</span>.to_vec(), <span class="string">b&quot;key2&quot;</span>.to_vec(), <span class="string">b&quot;key3&quot;</span>.to_vec()],
+				<span class="macro">vec!</span>[<span class="string">b"key1"</span>.to_vec(), <span class="string">b"key2"</span>.to_vec(), <span class="string">b"key3"</span>.to_vec()],
 				correct_witness,
 			));
 
@@ -3575,7 +3577,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// works if the witness is an overestimate
 			</span><span class="macro">frame_support::assert_ok!</span>(StateTrieMigration::migrate_custom_top(
 				RuntimeOrigin::signed(<span class="number">1</span>),
-				<span class="macro">vec!</span>[<span class="string">b&quot;key1&quot;</span>.to_vec(), <span class="string">b&quot;key2&quot;</span>.to_vec(), <span class="string">b&quot;key3&quot;</span>.to_vec()],
+				<span class="macro">vec!</span>[<span class="string">b"key1"</span>.to_vec(), <span class="string">b"key2"</span>.to_vec(), <span class="string">b"key3"</span>.to_vec()],
 				correct_witness + <span class="number">99</span>,
 			));
 
@@ -3587,10 +3589,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		new_test_ext(StateVersion::V0, <span class="bool-val">true</span>, <span class="prelude-val">None</span>, <span class="prelude-val">None</span>).execute_with(|| {
 			<span class="macro">assert_eq!</span>(Balances::free_balance(<span class="kw-2">&amp;</span><span class="number">1</span>), <span class="number">1000</span>);
 
-			<span class="comment">// note that we don&#39;t expect this to be a noop -- we do slash.
+			<span class="comment">// note that we don't expect this to be a noop -- we do slash.
 			</span><span class="macro">frame_support::assert_ok!</span>(StateTrieMigration::migrate_custom_top(
 				RuntimeOrigin::signed(<span class="number">1</span>),
-				<span class="macro">vec!</span>[<span class="string">b&quot;key1&quot;</span>.to_vec(), <span class="string">b&quot;key2&quot;</span>.to_vec(), <span class="string">b&quot;key3&quot;</span>.to_vec()],
+				<span class="macro">vec!</span>[<span class="string">b"key1"</span>.to_vec(), <span class="string">b"key2"</span>.to_vec(), <span class="string">b"key3"</span>.to_vec()],
 				correct_witness - <span class="number">1</span>,
 			),);
 
@@ -3608,8 +3610,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		new_test_ext(StateVersion::V0, <span class="bool-val">true</span>, <span class="prelude-val">None</span>, <span class="prelude-val">None</span>).execute_with(|| {
 			<span class="macro">frame_support::assert_ok!</span>(StateTrieMigration::migrate_custom_child(
 				RuntimeOrigin::signed(<span class="number">1</span>),
-				StateTrieMigration::childify(<span class="string">&quot;chk1&quot;</span>),
-				<span class="macro">vec!</span>[<span class="string">b&quot;key1&quot;</span>.to_vec(), <span class="string">b&quot;key2&quot;</span>.to_vec()],
+				StateTrieMigration::childify(<span class="string">"chk1"</span>),
+				<span class="macro">vec!</span>[<span class="string">b"key1"</span>.to_vec(), <span class="string">b"key2"</span>.to_vec()],
 				<span class="number">55 </span>+ <span class="number">66</span>,
 			));
 
@@ -3621,11 +3623,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		new_test_ext(StateVersion::V0, <span class="bool-val">true</span>, <span class="prelude-val">None</span>, <span class="prelude-val">None</span>).execute_with(|| {
 			<span class="macro">assert_eq!</span>(Balances::free_balance(<span class="kw-2">&amp;</span><span class="number">1</span>), <span class="number">1000</span>);
 
-			<span class="comment">// note that we don&#39;t expect this to be a noop -- we do slash.
+			<span class="comment">// note that we don't expect this to be a noop -- we do slash.
 			</span><span class="macro">frame_support::assert_ok!</span>(StateTrieMigration::migrate_custom_child(
 				RuntimeOrigin::signed(<span class="number">1</span>),
-				StateTrieMigration::childify(<span class="string">&quot;chk1&quot;</span>),
-				<span class="macro">vec!</span>[<span class="string">b&quot;key1&quot;</span>.to_vec(), <span class="string">b&quot;key2&quot;</span>.to_vec()],
+				StateTrieMigration::childify(<span class="string">"chk1"</span>),
+				<span class="macro">vec!</span>[<span class="string">b"key1"</span>.to_vec(), <span class="string">b"key2"</span>.to_vec()],
 				<span class="number">999999</span>, <span class="comment">// wrong witness
 			</span>));
 
@@ -3640,7 +3642,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Exported set of tests to be called against different runtimes.
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;remote-test&quot;</span>)]
+</span><span class="attr">#[cfg(feature = <span class="string">"remote-test"</span>)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>remote_tests {
 	<span class="kw">use crate</span>::{AutoLimits, MigrationLimits, Pallet <span class="kw">as </span>StateTrieMigration, LOG_TARGET};
 	<span class="kw">use </span>codec::Encode;
@@ -3709,12 +3711,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			substrate_state_trie_migration_rpc::migration_status(<span class="kw-2">&amp;</span>ext.as_backend()).unwrap();
 		<span class="macro">assert!</span>(
 			status.top_remaining_to_migrate &gt; <span class="number">0</span>,
-			<span class="string">&quot;no node needs migrating, this probably means that state was initialized with `StateVersion::V1`&quot;</span>,
+			<span class="string">"no node needs migrating, this probably means that state was initialized with `StateVersion::V1`"</span>,
 		);
 
 		<span class="macro">log::info!</span>(
 			target: LOG_TARGET,
-			<span class="string">&quot;initial check: top_left: {}, child_left: {}, total_top {}, total_child {}&quot;</span>,
+			<span class="string">"initial check: top_left: {}, child_left: {}, total_top {}, total_child {}"</span>,
 			status.top_remaining_to_migrate.separate_with_commas(),
 			status.child_remaining_to_migrate.separate_with_commas(),
 			status.total_top.separate_with_commas(),
@@ -3737,7 +3739,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				proof.clone().into_compact_proof::&lt;HashingFor&lt;Block&gt;&gt;(last_state_root).unwrap();
 			<span class="macro">log::info!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;proceeded to #{}, weight: [{} / {}], proof: [{} / {} / {}]&quot;</span>,
+				<span class="string">"proceeded to #{}, weight: [{} / {}], proof: [{} / {} / {}]"</span>,
 				now,
 				weight.separate_with_commas(),
 				&lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::BlockWeights::get()
@@ -3760,7 +3762,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		ext.execute_with(|| {
 			<span class="macro">log::info!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;finished on_initialize migration in {} block, final state of the task: {:?}&quot;</span>,
+				<span class="string">"finished on_initialize migration in {} block, final state of the task: {:?}"</span>,
 				duration,
 				StateTrieMigration::&lt;Runtime&gt;::migration_process(),
 			)
@@ -3773,7 +3775,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="attr">#[cfg(all(test, feature = <span class="string">&quot;remote-test&quot;</span>))]
+<span class="attr">#[cfg(all(test, feature = <span class="string">"remote-test"</span>))]
 </span><span class="kw">mod </span>remote_tests_local {
 	<span class="kw">use super</span>::{
 		mock::{RuntimeCall <span class="kw">as </span>MockCall, <span class="kw-2">*</span>},
@@ -3790,8 +3792,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[tokio::test]
 	</span><span class="kw">async fn </span>on_initialize_migration() {
-		<span class="kw">let </span>snap: SnapshotConfig = env_var(<span class="string">&quot;SNAP&quot;</span>).expect(<span class="string">&quot;Need SNAP env var&quot;</span>).into();
-		<span class="kw">let </span>ws_api = env_var(<span class="string">&quot;WS_API&quot;</span>).expect(<span class="string">&quot;Need WS_API env var&quot;</span>).into();
+		<span class="kw">let </span>snap: SnapshotConfig = env_var(<span class="string">"SNAP"</span>).expect(<span class="string">"Need SNAP env var"</span>).into();
+		<span class="kw">let </span>ws_api = env_var(<span class="string">"WS_API"</span>).expect(<span class="string">"Need WS_API env var"</span>).into();
 
 		sp_tracing::try_init_simple();
 		<span class="kw">let </span>mode = Mode::OfflineOrElseOnline(

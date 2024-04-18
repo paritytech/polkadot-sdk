@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/core/pvf/common/src/worker/security/change_root.rs`."><title>change_root.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/core/pvf/common/src/worker/security/change_root.rs`."><title>change_root.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="polkadot_node_core_pvf_common" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="polkadot_node_core_pvf_common" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../../polkadot_node_core_pvf_common/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -339,11 +341,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="attr">#[derive(thiserror::Error, Debug)]
 </span><span class="kw">pub enum </span>Error {
-	<span class="attr">#[error(<span class="string">&quot;{0}&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"{0}"</span>)]
 	</span>OsErrWithContext(String),
 	<span class="attr">#[error(transparent)]
 	</span>Io(<span class="attr">#[from] </span>io::Error),
-	<span class="attr">#[error(<span class="string">&quot;assertion failed: {0}&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"assertion failed: {0}"</span>)]
 	</span>AssertionFailed(String),
 }
 
@@ -352,12 +354,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Try to enable for the given kind of worker.
 ///
 /// NOTE: This should not be called in a multi-threaded context. `unshare(2)`:
-///       &quot;CLONE_NEWUSER requires that the calling process is not threaded.&quot;
+///       "CLONE_NEWUSER requires that the calling process is not threaded."
 </span><span class="kw">pub fn </span>enable_for_worker(worker_info: <span class="kw-2">&amp;</span>WorkerInfo) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
 	<span class="macro">gum::trace!</span>(
 		target: LOG_TARGET,
 		<span class="question-mark">?</span>worker_info,
-		<span class="string">&quot;enabling change-root&quot;</span>,
+		<span class="string">"enabling change-root"</span>,
 	);
 
 	try_restrict(worker_info)
@@ -367,7 +369,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// enabled on the current Linux environment.
 ///
 /// NOTE: This should not be called in a multi-threaded context. `unshare(2)`:
-///       &quot;CLONE_NEWUSER requires that the calling process is not threaded.&quot;
+///       "CLONE_NEWUSER requires that the calling process is not threaded."
 </span><span class="kw">pub fn </span>check_can_fully_enable(tempdir: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
 	<span class="kw">let </span>worker_dir_path = tempdir.to_owned();
 	try_restrict(<span class="kw-2">&amp;</span>WorkerInfo {
@@ -381,48 +383,48 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Unshare the user namespace and change root to be the worker directory.
 ///
 /// NOTE: This should not be called in a multi-threaded context. `unshare(2)`:
-///       &quot;CLONE_NEWUSER requires that the calling process is not threaded.&quot;
+///       "CLONE_NEWUSER requires that the calling process is not threaded."
 </span><span class="kw">fn </span>try_restrict(worker_info: <span class="kw-2">&amp;</span>WorkerInfo) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
 	<span class="comment">// TODO: Remove this once this is stable: https://github.com/rust-lang/rust/issues/105723
 	</span><span class="macro">macro_rules! </span>cstr_ptr {
 		(<span class="macro-nonterminal">$e</span>:expr) =&gt; {
-			<span class="macro">concat!</span>(<span class="macro-nonterminal">$e</span>, <span class="string">&quot;\0&quot;</span>).as_ptr().cast::&lt;core::ffi::c_char&gt;()
+			<span class="macro">concat!</span>(<span class="macro-nonterminal">$e</span>, <span class="string">"\0"</span>).as_ptr().cast::&lt;core::ffi::c_char&gt;()
 		};
 	}
 
 	<span class="kw">let </span>worker_dir_path_c = CString::new(worker_info.worker_dir_path.as_os_str().as_bytes())
-		.expect(<span class="string">&quot;on unix; the path will never contain 0 bytes; qed&quot;</span>);
+		.expect(<span class="string">"on unix; the path will never contain 0 bytes; qed"</span>);
 
 	<span class="comment">// Wrapper around all the work to prevent repetitive error handling.
 	//
 	// # Errors
 	//
-	// It&#39;s the caller&#39;s responsibility to call `Error::last_os_error`. Note that that alone does
+	// It's the caller's responsibility to call `Error::last_os_error`. Note that that alone does
 	// not give the context of which call failed, so we return a &amp;str error.
-	</span>|| -&gt; std::result::Result&lt;(), <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; {
+	</span>|| -&gt; std::result::Result&lt;(), <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
 		<span class="comment">// SAFETY: We pass null-terminated C strings and use the APIs as documented. In fact, steps
 		//         (2) and (3) are adapted from the example in pivot_root(2), with the additional
-		//         change described in the `pivot_root(&quot;.&quot;, &quot;.&quot;)` section.
+		//         change described in the `pivot_root(".", ".")` section.
 		</span><span class="kw">unsafe </span>{
 			<span class="comment">// 1. `unshare` the user and the mount namespaces.
 			</span><span class="kw">if </span>libc::unshare(libc::CLONE_NEWUSER | libc::CLONE_NEWNS) &lt; <span class="number">0 </span>{
-				<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;unshare user and mount namespaces&quot;</span>)
+				<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"unshare user and mount namespaces"</span>)
 			}
 
 			<span class="comment">// 2. Setup mounts.
 			//
-			// Ensure that new root and its parent mount don&#39;t have shared propagation (which would
+			// Ensure that new root and its parent mount don't have shared propagation (which would
 			// cause pivot_root() to return an error), and prevent propagation of mount events to
 			// the initial mount namespace.
 			</span><span class="kw">if </span>libc::mount(
 				ptr::null(),
-				<span class="macro">cstr_ptr!</span>(<span class="string">&quot;/&quot;</span>),
+				<span class="macro">cstr_ptr!</span>(<span class="string">"/"</span>),
 				ptr::null(),
 				libc::MS_REC | libc::MS_PRIVATE,
 				ptr::null(),
 			) &lt; <span class="number">0
 			</span>{
-				<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;mount MS_PRIVATE&quot;</span>)
+				<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"mount MS_PRIVATE"</span>)
 			}
 			<span class="comment">// Ensure that the new root is a mount point.
 			</span><span class="kw">let </span>additional_flags =
@@ -442,18 +444,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				ptr::null(), <span class="comment">// ignored when MS_BIND is used
 			</span>) &lt; <span class="number">0
 			</span>{
-				<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;mount MS_BIND&quot;</span>)
+				<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"mount MS_BIND"</span>)
 			}
 
 			<span class="comment">// 3. `pivot_root` to the artifact directory.
 			</span><span class="kw">if </span>libc::chdir(worker_dir_path_c.as_ptr()) &lt; <span class="number">0 </span>{
-				<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;chdir to worker dir path&quot;</span>)
+				<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"chdir to worker dir path"</span>)
 			}
-			<span class="kw">if </span>libc::syscall(libc::SYS_pivot_root, <span class="macro">cstr_ptr!</span>(<span class="string">&quot;.&quot;</span>), <span class="macro">cstr_ptr!</span>(<span class="string">&quot;.&quot;</span>)) &lt; <span class="number">0 </span>{
-				<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;pivot_root&quot;</span>)
+			<span class="kw">if </span>libc::syscall(libc::SYS_pivot_root, <span class="macro">cstr_ptr!</span>(<span class="string">"."</span>), <span class="macro">cstr_ptr!</span>(<span class="string">"."</span>)) &lt; <span class="number">0 </span>{
+				<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"pivot_root"</span>)
 			}
-			<span class="kw">if </span>libc::umount2(<span class="macro">cstr_ptr!</span>(<span class="string">&quot;.&quot;</span>), libc::MNT_DETACH) &lt; <span class="number">0 </span>{
-				<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;umount the old root mount point&quot;</span>)
+			<span class="kw">if </span>libc::umount2(<span class="macro">cstr_ptr!</span>(<span class="string">"."</span>), libc::MNT_DETACH) &lt; <span class="number">0 </span>{
+				<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"umount the old root mount point"</span>)
 			}
 		}
 
@@ -461,17 +463,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}()
 	.map_err(|err_ctx| {
 		<span class="kw">let </span>err = io::Error::last_os_error();
-		Error::OsErrWithContext(<span class="macro">format!</span>(<span class="string">&quot;{}: {}&quot;</span>, err_ctx, err))
+		Error::OsErrWithContext(<span class="macro">format!</span>(<span class="string">"{}: {}"</span>, err_ctx, err))
 	})<span class="question-mark">?</span>;
 
 	<span class="comment">// Do some assertions.
-	</span><span class="kw">if </span>env::current_dir()<span class="question-mark">? </span>!= Path::new(<span class="string">&quot;/&quot;</span>) {
-		<span class="kw">return </span><span class="prelude-val">Err</span>(Error::AssertionFailed(<span class="string">&quot;expected current dir after pivot_root to be `/`&quot;</span>.into()))
+	</span><span class="kw">if </span>env::current_dir()<span class="question-mark">? </span>!= Path::new(<span class="string">"/"</span>) {
+		<span class="kw">return </span><span class="prelude-val">Err</span>(Error::AssertionFailed(<span class="string">"expected current dir after pivot_root to be `/`"</span>.into()))
 	}
-	env::set_current_dir(<span class="string">&quot;..&quot;</span>)<span class="question-mark">?</span>;
-	<span class="kw">if </span>env::current_dir()<span class="question-mark">? </span>!= Path::new(<span class="string">&quot;/&quot;</span>) {
+	env::set_current_dir(<span class="string">".."</span>)<span class="question-mark">?</span>;
+	<span class="kw">if </span>env::current_dir()<span class="question-mark">? </span>!= Path::new(<span class="string">"/"</span>) {
 		<span class="kw">return </span><span class="prelude-val">Err</span>(Error::AssertionFailed(
-			<span class="string">&quot;expected not to be able to break out of new root by doing `..`&quot;</span>.into(),
+			<span class="string">"expected not to be able to break out of new root by doing `..`"</span>.into(),
 		))
 	}
 

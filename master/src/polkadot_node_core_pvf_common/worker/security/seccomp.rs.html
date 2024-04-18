@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/core/pvf/common/src/worker/security/seccomp.rs`."><title>seccomp.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/core/pvf/common/src/worker/security/seccomp.rs`."><title>seccomp.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="polkadot_node_core_pvf_common" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="polkadot_node_core_pvf_common" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../../polkadot_node_core_pvf_common/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -370,18 +372,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! `io_uring` is just a way of issuing system calls in an async manner, and there is nothing
 //! stopping wasmtime from legitimately using it. Fortunately, at the moment it does not. Generally,
 //! not many applications use `io_uring` in production yet, because of the numerous kernel CVEs
-//! discovered. It&#39;s still under a lot of development. Android outright banned `io_uring` for these
+//! discovered. It's still under a lot of development. Android outright banned `io_uring` for these
 //! reasons.
 //!
-//! Considering `io_uring`&#39;s status discussed above, and that it very likely would get detected
+//! Considering `io_uring`'s status discussed above, and that it very likely would get detected
 //! either by our [static analysis](https://github.com/paritytech/polkadot-sdk/pull/1663) or by
 //! testing, we think it is safe to block it.
 //!
 //! ## Consensus analysis
 //!
-//! If execution hits an edge case code path unique to a given machine, it&#39;s already taken a
+//! If execution hits an edge case code path unique to a given machine, it's already taken a
 //! non-deterministic branch anyway. After all, we just care that the majority of validators reach
-//! the same result and preserve consensus. So worst-case scenario, there&#39;s a dispute, and we can
+//! the same result and preserve consensus. So worst-case scenario, there's a dispute, and we can
 //! always admit fault and refund the wrong validator. On the other hand, if all validators take the
 //! code path that results in a seccomp violation, then they would all vote against the current
 //! candidate, which is also fine. The violation would get logged (in big scary letters) and
@@ -402,7 +404,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!
 //! 5. Or, it triggers on only a few validators causing a dispute (more likely but not as bad)
 //!
-//! Considering how many things would have to go wrong here, we believe it&#39;s safe to block
+//! Considering how many things would have to go wrong here, we believe it's safe to block
 //! `io_uring`.
 //!
 //! # Action on syscall violations
@@ -421,7 +423,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// The action to take on caught syscalls.
 </span><span class="attr">#[cfg(not(test))]
 </span><span class="kw">const </span>CAUGHT_ACTION: SeccompAction = SeccompAction::KillProcess;
-<span class="doccomment">/// Don&#39;t kill the process when testing.
+<span class="doccomment">/// Don't kill the process when testing.
 </span><span class="attr">#[cfg(test)]
 </span><span class="kw">const </span>CAUGHT_ACTION: SeccompAction = SeccompAction::Errno(libc::EACCES <span class="kw">as </span>u32);
 
@@ -431,7 +433,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>Seccomp(<span class="attr">#[from] </span>seccompiler::Error),
 	<span class="attr">#[error(transparent)]
 	</span>Backend(<span class="attr">#[from] </span>seccompiler::BackendError),
-	<span class="attr">#[error(<span class="string">&quot;A panic occurred in try_restrict: {0}&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"A panic occurred in try_restrict: {0}"</span>)]
 	</span>Panic(String),
 }
 
@@ -442,7 +444,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="macro">gum::trace!</span>(
 		target: LOG_TARGET,
 		<span class="question-mark">?</span>worker_info,
-		<span class="string">&quot;enabling seccomp&quot;</span>,
+		<span class="string">"enabling seccomp"</span>,
 	);
 
 	try_restrict()
@@ -507,16 +509,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>handle = thread::spawn(|| {
 			<span class="comment">// Open a socket, this should succeed before seccomp is applied.
-			</span>TcpListener::bind(<span class="string">&quot;127.0.0.1:0&quot;</span>).unwrap();
+			</span>TcpListener::bind(<span class="string">"127.0.0.1:0"</span>).unwrap();
 
 			<span class="kw">let </span>status = try_restrict();
 			<span class="kw">if </span>!<span class="macro">matches!</span>(status, <span class="prelude-val">Ok</span>(())) {
-				<span class="macro">panic!</span>(<span class="string">&quot;Ruleset should be enforced since we checked if seccomp is enabled&quot;</span>);
+				<span class="macro">panic!</span>(<span class="string">"Ruleset should be enforced since we checked if seccomp is enabled"</span>);
 			}
 
 			<span class="comment">// Try to open a socket after seccomp.
 			</span><span class="macro">assert!</span>(<span class="macro">matches!</span>(
-				TcpListener::bind(<span class="string">&quot;127.0.0.1:0&quot;</span>),
+				TcpListener::bind(<span class="string">"127.0.0.1:0"</span>),
 				<span class="prelude-val">Err</span>(err) <span class="kw">if </span><span class="macro">matches!</span>(err.kind(), ErrorKind::PermissionDenied)
 			));
 

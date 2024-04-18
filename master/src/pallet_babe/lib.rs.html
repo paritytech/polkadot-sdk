@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/babe/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/babe/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_babe" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_babe" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../pallet_babe/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1215,14 +1217,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -1230,7 +1232,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! Consensus extension module for BABE consensus. Collects on-chain randomness
 //! from VRF outputs and manages epoch transitions.
 
-</span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
+</span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 #![warn(unused_must_use, unsafe_code, unused_variables, unused_must_use)]
 
 </span><span class="kw">use </span>codec::{Decode, Encode};
@@ -1260,17 +1262,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">pub use </span>sp_consensus_babe::AuthorityId;
 
-<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;runtime::babe&quot;</span>;
+<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"runtime::babe"</span>;
 
 <span class="kw">mod </span>default_weights;
 <span class="kw">mod </span>equivocation;
 <span class="kw">mod </span>randomness;
 
-<span class="attr">#[cfg(any(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>, test))]
+<span class="attr">#[cfg(any(feature = <span class="string">"runtime-benchmarks"</span>, test))]
 </span><span class="kw">mod </span>benchmarking;
-<span class="attr">#[cfg(all(feature = <span class="string">&quot;std&quot;</span>, test))]
+<span class="attr">#[cfg(all(feature = <span class="string">"std"</span>, test))]
 </span><span class="kw">mod </span>mock;
-<span class="attr">#[cfg(all(feature = <span class="string">&quot;std&quot;</span>, test))]
+<span class="attr">#[cfg(all(feature = <span class="string">"std"</span>, test))]
 </span><span class="kw">mod </span>tests;
 
 <span class="kw">pub use </span>equivocation::{EquivocationOffence, EquivocationReportSystem};
@@ -1354,7 +1356,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">type </span>EpochChangeTrigger: EpochChangeTrigger;
 
 		<span class="doccomment">/// A way to check whether a given validator is disabled and should not be authoring blocks.
-		/// Blocks authored by a disabled validator will lead to a panic as part of this module&#39;s
+		/// Blocks authored by a disabled validator will lead to a panic as part of this module's
 		/// initialization.
 		</span><span class="kw">type </span>DisabledValidators: DisabledValidators;
 
@@ -1430,8 +1432,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// (like everything else on-chain) it is public. For example, it can be
 	/// used where a number is needed that cannot have been chosen by an
 	/// adversary, for purposes such as public-coin zero-knowledge proofs.
-	</span><span class="comment">// NOTE: the following fields don&#39;t use the constants to define the
-	// array size because the metadata API currently doesn&#39;t resolve the
+	</span><span class="comment">// NOTE: the following fields don't use the constants to define the
+	// array size because the metadata API currently doesn't resolve the
 	// variable to its underlying value.
 	</span><span class="attr">#[pallet::storage]
 	#[pallet::getter(<span class="kw">fn </span>randomness)]
@@ -1482,7 +1484,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>Initialized&lt;T&gt; = StorageValue&lt;<span class="kw">_</span>, <span class="prelude-ty">Option</span>&lt;PreDigest&gt;&gt;;
 
 	<span class="doccomment">/// This field should always be populated during block processing unless
-	/// secondary plain slots are enabled (which don&#39;t contain a VRF output).
+	/// secondary plain slots are enabled (which don't contain a VRF output).
 	///
 	/// It is set in `on_finalize`, before it will contain the value from the last block.
 	</span><span class="attr">#[pallet::storage]
@@ -1560,7 +1562,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="doccomment">/// Block finalization
 		</span><span class="kw">fn </span>on_finalize(_now: BlockNumberFor&lt;T&gt;) {
 			<span class="comment">// at the end of the block, we can safely include the new VRF output
-			// from this block into the under-construction randomness. If we&#39;ve determined
+			// from this block into the under-construction randomness. If we've determined
 			// that this block was the first in a new epoch, the changeover logic has
 			// already occurred at this point, so the under-construction randomness
 			// will only contain outputs from the right epoch.
@@ -1569,7 +1571,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 				<span class="kw">if </span>T::DisabledValidators::is_disabled(authority_index) {
 					<span class="macro">panic!</span>(
-						<span class="string">&quot;Validator with index {:?} is disabled and should not be attempting to author blocks.&quot;</span>,
+						<span class="string">"Validator with index {:?} is disabled and should not be attempting to author blocks."</span>,
 						authority_index,
 					);
 				}
@@ -1586,7 +1588,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							);
 
 							<span class="comment">// NOTE: this is verified by the client when importing the block, before
-							// execution. We don&#39;t run the verification again here to avoid slowing
+							// execution. We don't run the verification again here to avoid slowing
 							// down the runtime.
 							</span><span class="macro">debug_assert!</span>({
 								<span class="kw">use </span>sp_core::crypto::VrfPublic;
@@ -1611,7 +1613,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				}
 			}
 
-			<span class="comment">// remove temporary &quot;environment&quot; entry from storage
+			<span class="comment">// remove temporary "environment" entry from storage
 			</span>Lateness::&lt;T&gt;::kill();
 		}
 	}
@@ -1705,9 +1707,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl</span>&lt;T: Config&gt; FindAuthor&lt;u32&gt; <span class="kw">for </span>Pallet&lt;T&gt; {
-	<span class="kw">fn </span>find_author&lt;<span class="lifetime">&#39;a</span>, I&gt;(digests: I) -&gt; <span class="prelude-ty">Option</span>&lt;u32&gt;
+	<span class="kw">fn </span>find_author&lt;<span class="lifetime">'a</span>, I&gt;(digests: I) -&gt; <span class="prelude-ty">Option</span>&lt;u32&gt;
 	<span class="kw">where
-		</span>I: <span class="lifetime">&#39;a </span>+ IntoIterator&lt;Item = (ConsensusEngineId, <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8])&gt;,
+		</span>I: <span class="lifetime">'a </span>+ IntoIterator&lt;Item = (ConsensusEngineId, <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8])&gt;,
 	{
 		<span class="kw">for </span>(id, <span class="kw-2">mut </span>data) <span class="kw">in </span>digests.into_iter() {
 			<span class="kw">if </span>id == BABE_ENGINE_ID {
@@ -1729,8 +1731,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl</span>&lt;T: Config&gt; pallet_session::ShouldEndSession&lt;BlockNumberFor&lt;T&gt;&gt; <span class="kw">for </span>Pallet&lt;T&gt; {
 	<span class="kw">fn </span>should_end_session(now: BlockNumberFor&lt;T&gt;) -&gt; bool {
 		<span class="comment">// it might be (and it is in current implementation) that session module is calling
-		// `should_end_session` from it&#39;s own `on_initialize` handler, in which case it&#39;s
-		// possible that babe&#39;s own `on_initialize` has not run yet, so let&#39;s ensure that we
+		// `should_end_session` from it's own `on_initialize` handler, in which case it's
+		// possible that babe's own `on_initialize` has not run yet, so let's ensure that we
 		// have initialized the pallet and updated the current slot.
 		</span><span class="self">Self</span>::initialize(now);
 		<span class="self">Self</span>::should_epoch_change(now)
@@ -1749,13 +1751,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// Assumes that initialization has already taken place.
 	</span><span class="kw">pub fn </span>should_epoch_change(now: BlockNumberFor&lt;T&gt;) -&gt; bool {
 		<span class="comment">// The epoch has technically ended during the passage of time
-		// between this block and the last, but we have to &quot;end&quot; the epoch now,
+		// between this block and the last, but we have to "end" the epoch now,
 		// since there is no earlier possible block we could have done it.
 		//
 		// The exception is for block 1: the genesis has slot 0, so we treat
 		// epoch 0 as having started at the slot of block 1. We want to use
 		// the same randomness and validator set as signalled in the genesis,
-		// so we don&#39;t rotate the epoch.
+		// so we don't rotate the epoch.
 		</span>now != One::one() &amp;&amp; {
 			<span class="kw">let </span>diff = CurrentSlot::&lt;T&gt;::get().saturating_sub(<span class="self">Self</span>::current_epoch_start());
 			<span class="kw-2">*</span>diff &gt;= T::EpochDuration::get()
@@ -1792,7 +1794,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// Typically, this is not handled directly by the user, but by higher-level validator-set
 	/// manager logic like `pallet-session`.
 	///
-	/// This doesn&#39;t do anything if `authorities` is empty.
+	/// This doesn't do anything if `authorities` is empty.
 	</span><span class="kw">pub fn </span>enact_epoch_change(
 		authorities: WeakBoundedVec&lt;(AuthorityId, BabeAuthorityWeight), T::MaxAuthorities&gt;,
 		next_authorities: WeakBoundedVec&lt;(AuthorityId, BabeAuthorityWeight), T::MaxAuthorities&gt;,
@@ -1803,7 +1805,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="macro">debug_assert!</span>(<span class="self">Self</span>::initialized().is_some());
 
 		<span class="kw">if </span>authorities.is_empty() {
-			<span class="macro">log::warn!</span>(target: LOG_TARGET, <span class="string">&quot;Ignoring empty epoch change.&quot;</span>);
+			<span class="macro">log::warn!</span>(target: LOG_TARGET, <span class="string">"Ignoring empty epoch change."</span>);
 			<span class="kw">return
 		</span>}
 
@@ -1830,7 +1832,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw">if </span>epoch_index &lt; session_index <span class="kw">as </span>u64 {
 						<span class="macro">log::warn!</span>(
 							target: LOG_TARGET,
-							<span class="string">&quot;Current epoch index {} is lower than session index {}.&quot;</span>,
+							<span class="string">"Current epoch index {} is lower than session index {}."</span>,
 							epoch_index,
 							session_index,
 						);
@@ -1839,9 +1841,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					</span>}
 
 					<span class="kw">if </span>skipped_epochs.is_full() {
-						<span class="comment">// NOTE: this is O(n) but we currently don&#39;t have a bounded `VecDeque`.
+						<span class="comment">// NOTE: this is O(n) but we currently don't have a bounded `VecDeque`.
 						// this vector is bounded to a small number of elements so performance
-						// shouldn&#39;t be an issue.
+						// shouldn't be an issue.
 						</span>skipped_epochs.remove(<span class="number">0</span>);
 					}
 
@@ -1856,7 +1858,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// Update epoch randomness.
 		</span><span class="kw">let </span>next_epoch_index = epoch_index
 			.checked_add(<span class="number">1</span>)
-			.expect(<span class="string">&quot;epoch indices will never reach 2^64 before the death of the universe; qed&quot;</span>);
+			.expect(<span class="string">"epoch indices will never reach 2^64 before the death of the universe; qed"</span>);
 
 		<span class="comment">// Returns randomness for the current epoch and computes the *next*
 		// epoch randomness.
@@ -1916,7 +1918,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			authorities: <span class="self">Self</span>::authorities().into_inner(),
 			randomness: <span class="self">Self</span>::randomness(),
 			config: EpochConfig::&lt;T&gt;::get()
-				.expect(<span class="string">&quot;EpochConfig is initialized in genesis; we never `take` or `kill` it; qed&quot;</span>),
+				.expect(<span class="string">"EpochConfig is initialized in genesis; we never `take` or `kill` it; qed"</span>),
 		}
 	}
 
@@ -1924,8 +1926,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// announced).
 	</span><span class="kw">pub fn </span>next_epoch() -&gt; Epoch {
 		<span class="kw">let </span>next_epoch_index = EpochIndex::&lt;T&gt;::get().checked_add(<span class="number">1</span>).expect(
-			<span class="string">&quot;epoch index is u64; it is always only incremented by one; \
-			 if u64 is not enough we should crash for safety; qed.&quot;</span>,
+			<span class="string">"epoch index is u64; it is always only incremented by one; \
+			 if u64 is not enough we should crash for safety; qed."</span>,
 		);
 
 		<span class="kw">let </span>start_slot = sp_consensus_babe::epoch_start_slot(
@@ -1942,7 +1944,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			randomness: NextRandomness::&lt;T&gt;::get(),
 			config: NextEpochConfig::&lt;T&gt;::get().unwrap_or_else(|| {
 				EpochConfig::&lt;T&gt;::get().expect(
-					<span class="string">&quot;EpochConfig is initialized in genesis; we never `take` or `kill` it; qed&quot;</span>,
+					<span class="string">"EpochConfig is initialized in genesis; we never `take` or `kill` it; qed"</span>,
 				)
 			}),
 		}
@@ -1966,7 +1968,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				BoundedVec::&lt;<span class="kw">_</span>, ConstU32&lt;UNDER_CONSTRUCTION_SEGMENT_LENGTH&gt;&gt;::try_from(<span class="macro">vec!</span>[
 					<span class="kw-2">*</span>randomness,
 				])
-				.expect(<span class="string">&quot;UNDER_CONSTRUCTION_SEGMENT_LENGTH &gt;= 1&quot;</span>);
+				.expect(<span class="string">"UNDER_CONSTRUCTION_SEGMENT_LENGTH &gt;= 1"</span>);
 			UnderConstruction::&lt;T&gt;::insert(<span class="kw-2">&amp;</span>segment_idx, bounded_randomness);
 			SegmentIndex::&lt;T&gt;::put(<span class="kw-2">&amp;</span>segment_idx);
 		}
@@ -1974,10 +1976,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">fn </span>initialize_genesis_authorities(authorities: <span class="kw-2">&amp;</span>[(AuthorityId, BabeAuthorityWeight)]) {
 		<span class="kw">if </span>!authorities.is_empty() {
-			<span class="macro">assert!</span>(Authorities::&lt;T&gt;::get().is_empty(), <span class="string">&quot;Authorities are already initialized!&quot;</span>);
+			<span class="macro">assert!</span>(Authorities::&lt;T&gt;::get().is_empty(), <span class="string">"Authorities are already initialized!"</span>);
 			<span class="kw">let </span>bounded_authorities =
 				WeakBoundedVec::&lt;<span class="kw">_</span>, T::MaxAuthorities&gt;::try_from(authorities.to_vec())
-					.expect(<span class="string">&quot;Initial number of authorities should be lower than T::MaxAuthorities&quot;</span>);
+					.expect(<span class="string">"Initial number of authorities should be lower than T::MaxAuthorities"</span>);
 			Authorities::&lt;T&gt;::put(<span class="kw-2">&amp;</span>bounded_authorities);
 			NextAuthorities::&lt;T&gt;::put(<span class="kw-2">&amp;</span>bounded_authorities);
 		}
@@ -1988,7 +1990,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">debug_assert_ne!</span>(<span class="kw-2">*</span>GenesisSlot::&lt;T&gt;::get(), <span class="number">0</span>);
 
 		<span class="comment">// deposit a log because this is the first block in epoch #0
-		// we use the same values as genesis because we haven&#39;t collected any
+		// we use the same values as genesis because we haven't collected any
 		// randomness yet.
 		</span><span class="kw">let </span>next = NextEpochDescriptor {
 			authorities: <span class="self">Self</span>::authorities().into_inner(),
@@ -2000,7 +2002,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">fn </span>initialize(now: BlockNumberFor&lt;T&gt;) {
 		<span class="comment">// since `initialize` can be called twice (e.g. if session module is present)
-		// let&#39;s ensure that we only do the initialization once per block
+		// let's ensure that we only do the initialization once per block
 		</span><span class="kw">let </span>initialized = <span class="self">Self</span>::initialized().is_some();
 		<span class="kw">if </span>initialized {
 			<span class="kw">return
@@ -2069,25 +2071,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// This function is only well defined for epochs that actually existed,
 	/// e.g. if we skipped from epoch 10 to 20 then a call for epoch 15 (which
-	/// didn&#39;t exist) will return an incorrect session index.
+	/// didn't exist) will return an incorrect session index.
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>session_index_for_epoch(epoch_index: u64) -&gt; SessionIndex {
 		<span class="kw">let </span>skipped_epochs = SkippedEpochs::&lt;T&gt;::get();
 		<span class="kw">match </span>skipped_epochs.binary_search_by_key(<span class="kw-2">&amp;</span>epoch_index, |(epoch_index, <span class="kw">_</span>)| <span class="kw-2">*</span>epoch_index) {
 			<span class="comment">// we have an exact match so we just return the given session index
 			</span><span class="prelude-val">Ok</span>(index) =&gt; skipped_epochs[index].<span class="number">1</span>,
-			<span class="comment">// we haven&#39;t found any skipped epoch before the given epoch,
+			<span class="comment">// we haven't found any skipped epoch before the given epoch,
 			// so the epoch index and session index should match
 			</span><span class="prelude-val">Err</span>(<span class="number">0</span>) =&gt; epoch_index.saturated_into::&lt;u32&gt;(),
 			<span class="comment">// we have found a skipped epoch before the given epoch
 			</span><span class="prelude-val">Err</span>(index) =&gt; {
 				<span class="comment">// the element before the given index should give us the skipped epoch
-				// that&#39;s closest to the one we&#39;re trying to find the session index for
+				// that's closest to the one we're trying to find the session index for
 				</span><span class="kw">let </span>closest_skipped_epoch = skipped_epochs[index - <span class="number">1</span>];
 
 				<span class="comment">// calculate the number of skipped epochs at this point by checking the difference
 				// between the epoch and session indices. epoch index should always be greater or
 				// equal to session index, this is because epochs can be skipped whereas sessions
-				// can&#39;t (this is enforced when pushing into `SkippedEpochs`)
+				// can't (this is enforced when pushing into `SkippedEpochs`)
 				</span><span class="kw">let </span>skipped_epochs = closest_skipped_epoch.<span class="number">0 </span>- closest_skipped_epoch.<span class="number">1 </span><span class="kw">as </span>u64;
 				epoch_index.saturating_sub(skipped_epochs).saturated_into::&lt;u32&gt;()
 			},
@@ -2109,7 +2111,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl</span>&lt;T: Config&gt; OnTimestampSet&lt;T::Moment&gt; <span class="kw">for </span>Pallet&lt;T&gt; {
 	<span class="kw">fn </span>on_timestamp_set(moment: T::Moment) {
 		<span class="kw">let </span>slot_duration = <span class="self">Self</span>::slot_duration();
-		<span class="macro">assert!</span>(!slot_duration.is_zero(), <span class="string">&quot;Babe slot duration cannot be zero.&quot;</span>);
+		<span class="macro">assert!</span>(!slot_duration.is_zero(), <span class="string">"Babe slot duration cannot be zero."</span>);
 
 		<span class="kw">let </span>timestamp_slot = moment / slot_duration;
 		<span class="kw">let </span>timestamp_slot = Slot::from(timestamp_slot.saturated_into::&lt;u64&gt;());
@@ -2117,7 +2119,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">assert_eq!</span>(
 			CurrentSlot::&lt;T&gt;::get(),
 			timestamp_slot,
-			<span class="string">&quot;Timestamp slot must match `CurrentSlot`&quot;
+			<span class="string">"Timestamp slot must match `CurrentSlot`"
 		</span>);
 	}
 }
@@ -2166,24 +2168,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 {
 	<span class="kw">type </span>Key = AuthorityId;
 
-	<span class="kw">fn </span>on_genesis_session&lt;<span class="lifetime">&#39;a</span>, I: <span class="lifetime">&#39;a</span>&gt;(validators: I)
+	<span class="kw">fn </span>on_genesis_session&lt;<span class="lifetime">'a</span>, I: <span class="lifetime">'a</span>&gt;(validators: I)
 	<span class="kw">where
-		</span>I: Iterator&lt;Item = (<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>T::AccountId, AuthorityId)&gt;,
+		</span>I: Iterator&lt;Item = (<span class="kw-2">&amp;</span><span class="lifetime">'a </span>T::AccountId, AuthorityId)&gt;,
 	{
 		<span class="kw">let </span>authorities = validators.map(|(<span class="kw">_</span>, k)| (k, <span class="number">1</span>)).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 		<span class="self">Self</span>::initialize_genesis_authorities(<span class="kw-2">&amp;</span>authorities);
 	}
 
-	<span class="kw">fn </span>on_new_session&lt;<span class="lifetime">&#39;a</span>, I: <span class="lifetime">&#39;a</span>&gt;(_changed: bool, validators: I, queued_validators: I)
+	<span class="kw">fn </span>on_new_session&lt;<span class="lifetime">'a</span>, I: <span class="lifetime">'a</span>&gt;(_changed: bool, validators: I, queued_validators: I)
 	<span class="kw">where
-		</span>I: Iterator&lt;Item = (<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>T::AccountId, AuthorityId)&gt;,
+		</span>I: Iterator&lt;Item = (<span class="kw-2">&amp;</span><span class="lifetime">'a </span>T::AccountId, AuthorityId)&gt;,
 	{
 		<span class="kw">let </span>authorities = validators.map(|(_account, k)| (k, <span class="number">1</span>)).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 		<span class="kw">let </span>bounded_authorities = WeakBoundedVec::&lt;<span class="kw">_</span>, T::MaxAuthorities&gt;::force_from(
 			authorities,
 			<span class="prelude-val">Some</span>(
-				<span class="string">&quot;Warning: The session has more validators than expected. \
-				A runtime configuration adjustment may be needed.&quot;</span>,
+				<span class="string">"Warning: The session has more validators than expected. \
+				A runtime configuration adjustment may be needed."</span>,
 			),
 		);
 
@@ -2191,8 +2193,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>next_bounded_authorities = WeakBoundedVec::&lt;<span class="kw">_</span>, T::MaxAuthorities&gt;::force_from(
 			next_authorities,
 			<span class="prelude-val">Some</span>(
-				<span class="string">&quot;Warning: The session has more queued validators than expected. \
-				A runtime configuration adjustment may be needed.&quot;</span>,
+				<span class="string">"Warning: The session has more queued validators than expected. \
+				A runtime configuration adjustment may be needed."</span>,
 			),
 		);
 
@@ -2233,15 +2235,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Something that can return the storage prefix of the `Babe` pallet.
 	</span><span class="kw">pub trait </span>BabePalletPrefix: Config {
-		<span class="kw">fn </span>pallet_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str;
+		<span class="kw">fn </span>pallet_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str;
 	}
 
 	<span class="kw">struct </span>__OldNextEpochConfig&lt;T&gt;(sp_std::marker::PhantomData&lt;T&gt;);
 	<span class="kw">impl</span>&lt;T: BabePalletPrefix&gt; frame_support::traits::StorageInstance <span class="kw">for </span>__OldNextEpochConfig&lt;T&gt; {
-		<span class="kw">fn </span>pallet_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str {
+		<span class="kw">fn </span>pallet_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
 			T::pallet_prefix()
 		}
-		<span class="kw">const </span>STORAGE_PREFIX: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;NextEpochConfig&quot;</span>;
+		<span class="kw">const </span>STORAGE_PREFIX: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"NextEpochConfig"</span>;
 	}
 
 	<span class="kw">type </span>OldNextEpochConfig&lt;T&gt; =

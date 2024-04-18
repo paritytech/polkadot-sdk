@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/overseer/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/overseer/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_overseer" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_overseer" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../polkadot_overseer/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1117,7 +1119,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! # Overseer
 //!
 //! `overseer` implements the Overseer architecture described in the
-//! [implementers&#39; guide][overseer-page].
+//! [implementers' guide][overseer-page].
 //! For the motivations behind implementing the overseer itself you should
 //! check out that guide, documentation in this crate will be mostly discussing
 //! technical stuff.
@@ -1129,14 +1131,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! at this moment there are no foolproof guards against other ways of communication.
 //!
 //! The `Overseer` is instantiated with a pre-defined set of `Subsystems` that
-//! share the same behavior from `Overseer`&#39;s point of view.
+//! share the same behavior from `Overseer`'s point of view.
 //!
 //! ```text
 //!                              +-----------------------------+
 //!                              |         Overseer            |
 //!                              +-----------------------------+
 //!
-//!             ................|  Overseer &quot;holds&quot; these and uses |..............
+//!             ................|  Overseer "holds" these and uses |..............
 //!             .                  them to (re)start things                      .
 //!             .                                                                .
 //!             .  +-------------------+                +---------------------+  .
@@ -1147,7 +1149,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!                         |                                       |
 //!                       start()                                 start()
 //!                         V                                       V
-//!             ..................| Overseer &quot;runs&quot; these |.......................
+//!             ..................| Overseer "runs" these |.......................
 //!             .  +--------------------+               +---------------------+  .
 //!             .  | SubsystemInstance1 |               | SubsystemInstance2  |  .
 //!             .  +--------------------+               +---------------------+  .
@@ -1211,7 +1213,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	SubsystemSender, TimeoutExt, ToOrchestra, TrySendError,
 };
 
-<span class="attr">#[cfg(any(target_os = <span class="string">&quot;linux&quot;</span>, feature = <span class="string">&quot;jemalloc-allocator&quot;</span>))]
+<span class="attr">#[cfg(any(target_os = <span class="string">"linux"</span>, feature = <span class="string">"jemalloc-allocator"</span>))]
 </span><span class="kw">mod </span>memory_stats;
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests;
@@ -1236,17 +1238,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl</span>&lt;S: SpawnNamed + Clone + Send + Sync&gt; <span class="kw">crate</span>::gen::Spawner <span class="kw">for </span>SpawnGlue&lt;S&gt; {
 	<span class="kw">fn </span>spawn_blocking(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		name: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
-		group: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt;,
-		future: futures::future::BoxFuture&lt;<span class="lifetime">&#39;static</span>, ()&gt;,
+		name: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
+		group: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt;,
+		future: futures::future::BoxFuture&lt;<span class="lifetime">'static</span>, ()&gt;,
 	) {
 		SpawnNamed::spawn_blocking(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>, name, group, future)
 	}
 	<span class="kw">fn </span>spawn(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		name: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
-		group: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt;,
-		future: futures::future::BoxFuture&lt;<span class="lifetime">&#39;static</span>, ()&gt;,
+		name: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
+		group: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt;,
+		future: futures::future::BoxFuture&lt;<span class="lifetime">'static</span>, ()&gt;,
 	) {
 		SpawnNamed::spawn(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>, name, group, future)
 	}
@@ -1288,14 +1290,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>}
 
 	<span class="doccomment">/// Send some message to one of the `Subsystem`s.
-	</span><span class="kw">pub async fn </span>send_msg(<span class="kw-2">&amp;mut </span><span class="self">self</span>, msg: <span class="kw">impl </span>Into&lt;AllMessages&gt;, origin: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str) {
+	</span><span class="kw">pub async fn </span>send_msg(<span class="kw-2">&amp;mut </span><span class="self">self</span>, msg: <span class="kw">impl </span>Into&lt;AllMessages&gt;, origin: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str) {
 		<span class="self">self</span>.send_and_log_error(Event::MsgToSubsystem { msg: msg.into(), origin }).<span class="kw">await
 	</span>}
 
 	<span class="doccomment">/// Send a message not providing an origin.
 	</span><span class="attr">#[inline(always)]
 	</span><span class="kw">pub async fn </span>send_msg_anon(<span class="kw-2">&amp;mut </span><span class="self">self</span>, msg: <span class="kw">impl </span>Into&lt;AllMessages&gt;) {
-		<span class="self">self</span>.send_msg(msg, <span class="string">&quot;&quot;</span>).<span class="kw">await
+		<span class="self">self</span>.send_msg(msg, <span class="string">""</span>).<span class="kw">await
 	</span>}
 
 	<span class="doccomment">/// Inform the `Overseer` that some block was finalized.
@@ -1306,9 +1308,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Wait for a block with the given hash to be in the active-leaves set.
 	///
 	/// The response channel responds if the hash was activated and is closed if the hash was
-	/// deactivated. Note that due the fact the overseer doesn&#39;t store the whole active-leaves set,
+	/// deactivated. Note that due the fact the overseer doesn't store the whole active-leaves set,
 	/// only deltas, the response channel may never return if the hash was deactivated before this
-	/// call. In this case, it&#39;s the caller&#39;s responsibility to ensure a timeout is set.
+	/// call. In this case, it's the caller's responsibility to ensure a timeout is set.
 	</span><span class="kw">pub async fn </span>wait_for_activation(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		hash: Hash,
@@ -1329,7 +1331,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Most basic operation, to stop a server.
 	</span><span class="kw">async fn </span>send_and_log_error(<span class="kw-2">&amp;mut </span><span class="self">self</span>, event: Event) {
 		<span class="kw">if </span><span class="self">self</span>.<span class="number">0</span>.send(event).<span class="kw">await</span>.is_err() {
-			<span class="macro">gum::info!</span>(target: LOG_TARGET, <span class="string">&quot;Failed to send an event to Overseer&quot;</span>);
+			<span class="macro">gum::info!</span>(target: LOG_TARGET, <span class="string">"Failed to send an event to Overseer"</span>);
 		}
 	}
 }
@@ -1346,7 +1348,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>hash: Hash,
 	<span class="doccomment">/// Hash of the parent block.
 	</span><span class="kw">pub </span>parent_hash: Hash,
-	<span class="doccomment">/// Block&#39;s number.
+	<span class="doccomment">/// Block's number.
 	</span><span class="kw">pub </span>number: BlockNumber,
 	<span class="doccomment">/// A handle to unpin the block on drop.
 	</span><span class="kw">pub </span>unpin_handle: UnpinHandle,
@@ -1392,7 +1394,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="doccomment">/// The actual message.
 		</span>msg: AllMessages,
 		<span class="doccomment">/// The originating subsystem name.
-		</span>origin: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
+		</span>origin: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
 	},
 	<span class="doccomment">/// A request from the outer world.
 	</span>ExternalRequest(ExternalRequest),
@@ -1517,7 +1519,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///         mut ctx: Ctx,
 ///     ) -&gt; SpawnedSubsystem&lt;SubsystemError&gt; {
 ///         SpawnedSubsystem {
-///             name: &quot;validation-subsystem&quot;,
+///             name: "validation-subsystem",
 ///             future: Box::pin(async move {
 ///                 loop {
 ///                     Delay::new(Duration::from_secs(1)).await;
@@ -1736,7 +1738,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Stores the [`jaeger::Span`] per active leaf.
 	</span><span class="kw">pub </span>span_per_active_leaf: HashMap&lt;Hash, Arc&lt;jaeger::Span&gt;&gt;,
 
-	<span class="doccomment">/// The set of the &quot;active leaves&quot;.
+	<span class="doccomment">/// The set of the "active leaves".
 	</span><span class="kw">pub </span>active_leaves: HashMap&lt;Hash, BlockNumber&gt;,
 
 	<span class="doccomment">/// An implementation for checking whether a header supports parachain consensus.
@@ -1757,10 +1759,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 {
 	<span class="kw">struct </span>ExtractNameAndMeters;
 
-	<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, T: <span class="lifetime">&#39;a</span>&gt; MapSubsystem&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>OrchestratedSubsystem&lt;T&gt;&gt; <span class="kw">for </span>ExtractNameAndMeters {
-		<span class="kw">type </span>Output = <span class="prelude-ty">Option</span>&lt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str, SubsystemMeters)&gt;;
+	<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, T: <span class="lifetime">'a</span>&gt; MapSubsystem&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>OrchestratedSubsystem&lt;T&gt;&gt; <span class="kw">for </span>ExtractNameAndMeters {
+		<span class="kw">type </span>Output = <span class="prelude-ty">Option</span>&lt;(<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str, SubsystemMeters)&gt;;
 
-		<span class="kw">fn </span>map_subsystem(<span class="kw-2">&amp;</span><span class="self">self</span>, subsystem: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>OrchestratedSubsystem&lt;T&gt;) -&gt; <span class="self">Self</span>::Output {
+		<span class="kw">fn </span>map_subsystem(<span class="kw-2">&amp;</span><span class="self">self</span>, subsystem: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>OrchestratedSubsystem&lt;T&gt;) -&gt; <span class="self">Self</span>::Output {
 			subsystem
 				.instance
 				.as_ref()
@@ -1769,7 +1771,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 	<span class="kw">let </span>subsystem_meters = overseer.map_subsystems(ExtractNameAndMeters);
 
-	<span class="attr">#[cfg(any(target_os = <span class="string">&quot;linux&quot;</span>, feature = <span class="string">&quot;jemalloc-allocator&quot;</span>))]
+	<span class="attr">#[cfg(any(target_os = <span class="string">"linux"</span>, feature = <span class="string">"jemalloc-allocator"</span>))]
 	</span><span class="kw">let </span>collect_memory_stats: Box&lt;<span class="kw">dyn </span>Fn(<span class="kw-2">&amp;</span>OverseerMetrics) + Send&gt; =
 		<span class="kw">match </span>memory_stats::MemoryAllocationTracker::new() {
 			<span class="prelude-val">Ok</span>(memory_stats) =&gt;
@@ -1777,25 +1779,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="prelude-val">Ok</span>(memory_stats_snapshot) =&gt; {
 						<span class="macro">gum::trace!</span>(
 							target: LOG_TARGET,
-							<span class="string">&quot;memory_stats: {:?}&quot;</span>,
+							<span class="string">"memory_stats: {:?}"</span>,
 							<span class="kw-2">&amp;</span>memory_stats_snapshot
 						);
 						metrics.memory_stats_snapshot(memory_stats_snapshot);
 					},
 					<span class="prelude-val">Err</span>(e) =&gt;
-						<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="string">&quot;Failed to obtain memory stats: {:?}&quot;</span>, e),
+						<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="string">"Failed to obtain memory stats: {:?}"</span>, e),
 				}),
 			<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
 				<span class="macro">gum::debug!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Memory allocation tracking is not supported by the allocator.&quot;</span>,
+					<span class="string">"Memory allocation tracking is not supported by the allocator."</span>,
 				);
 
 				Box::new(|<span class="kw">_</span>| {})
 			},
 		};
 
-	<span class="attr">#[cfg(not(any(target_os = <span class="string">&quot;linux&quot;</span>, feature = <span class="string">&quot;jemalloc-allocator&quot;</span>)))]
+	<span class="attr">#[cfg(not(any(target_os = <span class="string">"linux"</span>, feature = <span class="string">"jemalloc-allocator"</span>)))]
 	</span><span class="kw">let </span>collect_memory_stats: Box&lt;<span class="kw">dyn </span>Fn(<span class="kw-2">&amp;</span>OverseerMetrics) + Send&gt; = Box::new(|<span class="kw">_</span>| {});
 
 	<span class="kw">let </span>metronome = Metronome::new(std::time::Duration::from_millis(<span class="number">950</span>)).for_each(<span class="kw">move </span>|<span class="kw">_</span>| {
@@ -1816,7 +1818,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 	overseer
 		.spawner()
-		.spawn(<span class="string">&quot;metrics-metronome&quot;</span>, <span class="prelude-val">Some</span>(<span class="string">&quot;overseer&quot;</span>), Box::pin(metronome));
+		.spawn(<span class="string">"metrics-metronome"</span>, <span class="prelude-val">Some</span>(<span class="string">"overseer"</span>), Box::pin(metronome));
 
 	<span class="prelude-val">Ok</span>(())
 }
@@ -1836,7 +1838,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// Logging any errors.
 	</span><span class="kw">pub async fn </span>run(<span class="self">self</span>) {
 		<span class="kw">if let </span><span class="prelude-val">Err</span>(err) = <span class="self">self</span>.run_inner().<span class="kw">await </span>{
-			<span class="macro">gum::error!</span>(target: LOG_TARGET, <span class="question-mark">?</span>err, <span class="string">&quot;Overseer exited with error&quot;</span>);
+			<span class="macro">gum::error!</span>(target: LOG_TARGET, <span class="question-mark">?</span>err, <span class="string">"Overseer exited with error"</span>);
 		}
 	}
 
@@ -1881,7 +1883,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="macro">gum::error!</span>(
 						target: LOG_TARGET,
 						subsystem = <span class="question-mark">?</span>res,
-						<span class="string">&quot;subsystem finished unexpectedly&quot;</span>,
+						<span class="string">"subsystem finished unexpectedly"</span>,
 					);
 					<span class="self">self</span>.stop().<span class="kw">await</span>;
 					<span class="kw">return </span>res;
@@ -1927,7 +1929,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span><span class="kw-2">mut </span>update = ActiveLeavesUpdate::default();
 
 		<span class="self">self</span>.active_leaves.retain(|h, n| {
-			<span class="comment">// prune all orphaned leaves, but don&#39;t prune
+			<span class="comment">// prune all orphaned leaves, but don't prune
 			// the finalized block if it is itself a leaf.
 			</span><span class="kw">if </span><span class="kw-2">*</span>n &lt;= block.number &amp;&amp; <span class="kw-2">*</span>h != block.hash {
 				update.deactivated.push(<span class="kw-2">*</span>h);
@@ -1944,7 +1946,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">self</span>.broadcast_signal(OverseerSignal::BlockFinalized(block.hash, block.number))
 			.<span class="kw">await</span><span class="question-mark">?</span>;
 
-		<span class="comment">// If there are no leaves being deactivated, we don&#39;t need to send an update.
+		<span class="comment">// If there are no leaves being deactivated, we don't need to send an update.
 		//
 		// Our peers will be informed about our finalized block the next time we
 		// activating/deactivating some leaf.
@@ -1955,7 +1957,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Ok</span>(())
 	}
 
-	<span class="doccomment">/// Handles a header activation. If the header&#39;s state doesn&#39;t support the parachains API,
+	<span class="doccomment">/// Handles a header activation. If the header's state doesn't support the parachains API,
 	/// this returns `None`.
 	</span><span class="kw">async fn </span>on_head_activated(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
@@ -1971,15 +1973,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">gum::trace!</span>(
 				target: LOG_TARGET,
 				relay_parent = <span class="question-mark">?</span>hash,
-				<span class="string">&quot;Leaf got activated, notifying external listeners&quot;
+				<span class="string">"Leaf got activated, notifying external listeners"
 			</span>);
 			<span class="kw">for </span>listener <span class="kw">in </span>listeners {
-				<span class="comment">// it&#39;s fine if the listener is no longer interested
+				<span class="comment">// it's fine if the listener is no longer interested
 				</span><span class="kw">let _ </span>= listener.send(<span class="prelude-val">Ok</span>(()));
 			}
 		}
 
-		<span class="kw">let </span><span class="kw-2">mut </span>span = jaeger::Span::new(<span class="kw-2">*</span>hash, <span class="string">&quot;leaf-activated&quot;</span>);
+		<span class="kw">let </span><span class="kw-2">mut </span>span = jaeger::Span::new(<span class="kw-2">*</span>hash, <span class="string">"leaf-activated"</span>);
 
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(parent_span) = parent_hash.and_then(|h| <span class="self">self</span>.span_per_active_leaf.get(<span class="kw-2">&amp;</span>h)) {
 			span.add_follows_from(parent_span);
@@ -2012,15 +2014,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="macro">gum::trace!</span>(
 						target: LOG_TARGET,
 						relay_parent = <span class="question-mark">?</span>hash,
-						<span class="string">&quot;Leaf was already ready - answering `WaitForActivation`&quot;
+						<span class="string">"Leaf was already ready - answering `WaitForActivation`"
 					</span>);
-					<span class="comment">// it&#39;s fine if the listener is no longer interested
+					<span class="comment">// it's fine if the listener is no longer interested
 					</span><span class="kw">let _ </span>= response_channel.send(<span class="prelude-val">Ok</span>(()));
 				} <span class="kw">else </span>{
 					<span class="macro">gum::trace!</span>(
 						target: LOG_TARGET,
 						relay_parent = <span class="question-mark">?</span>hash,
-						<span class="string">&quot;Leaf not yet ready - queuing `WaitForActivation` sender&quot;
+						<span class="string">"Leaf not yet ready - queuing `WaitForActivation` sender"
 					</span>);
 					<span class="self">self</span>.activation_external_listeners
 						.entry(hash)
@@ -2033,18 +2035,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">fn </span>spawn_job(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
-		task_name: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
-		subsystem_name: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt;,
-		j: BoxFuture&lt;<span class="lifetime">&#39;static</span>, ()&gt;,
+		task_name: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
+		subsystem_name: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt;,
+		j: BoxFuture&lt;<span class="lifetime">'static</span>, ()&gt;,
 	) {
 		<span class="self">self</span>.spawner.spawn(task_name, subsystem_name, j);
 	}
 
 	<span class="kw">fn </span>spawn_blocking_job(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
-		task_name: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
-		subsystem_name: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt;,
-		j: BoxFuture&lt;<span class="lifetime">&#39;static</span>, ()&gt;,
+		task_name: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
+		subsystem_name: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt;,
+		j: BoxFuture&lt;<span class="lifetime">'static</span>, ()&gt;,
 	) {
 		<span class="self">self</span>.spawner.spawn_blocking(task_name, subsystem_name, j);
 	}

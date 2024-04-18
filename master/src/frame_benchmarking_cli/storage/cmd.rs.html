@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/utils/frame/benchmarking-cli/src/storage/cmd.rs`."><title>cmd.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/utils/frame/benchmarking-cli/src/storage/cmd.rs`."><title>cmd.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="frame_benchmarking_cli" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="frame_benchmarking_cli" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../frame_benchmarking_cli/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -385,14 +387,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -463,14 +465,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Add a header to the generated weight output file.
 	///
 	/// Good for adding LICENSE headers.
-	</span><span class="attr">#[arg(long, value_name = <span class="string">&quot;PATH&quot;</span>)]
+	</span><span class="attr">#[arg(long, value_name = <span class="string">"PATH"</span>)]
 	</span><span class="kw">pub </span>header: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
 
-	<span class="doccomment">/// Path to write the raw &#39;read&#39; results in JSON format to. Can be a file or directory.
+	<span class="doccomment">/// Path to write the raw 'read' results in JSON format to. Can be a file or directory.
 	</span><span class="attr">#[arg(long)]
 	</span><span class="kw">pub </span>json_read_path: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
 
-	<span class="doccomment">/// Path to write the raw &#39;write&#39; results in JSON format to. Can be a file or directory.
+	<span class="doccomment">/// Path to write the raw 'write' results in JSON format to. Can be a file or directory.
 	</span><span class="attr">#[arg(long)]
 	</span><span class="kw">pub </span>json_write_path: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
 
@@ -486,7 +488,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Trie cache size in bytes.
 	///
 	/// Providing `0` will disable the cache.
-	</span><span class="attr">#[arg(long, value_name = <span class="string">&quot;Bytes&quot;</span>, default_value_t = <span class="number">67108864</span>)]
+	</span><span class="attr">#[arg(long, value_name = <span class="string">"Bytes"</span>, default_value_t = <span class="number">67108864</span>)]
 	</span><span class="kw">pub </span>trie_cache_size: usize,
 
 	<span class="doccomment">/// Enable the Trie cache.
@@ -524,10 +526,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="self">self</span>.bench_warmup(<span class="kw-2">&amp;</span>client)<span class="question-mark">?</span>;
 			<span class="kw">let </span>record = <span class="self">self</span>.bench_read(client.clone())<span class="question-mark">?</span>;
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(path) = <span class="kw-2">&amp;</span><span class="self">self</span>.params.json_read_path {
-				record.save_json(<span class="kw-2">&amp;</span>cfg, path, <span class="string">&quot;read&quot;</span>)<span class="question-mark">?</span>;
+				record.save_json(<span class="kw-2">&amp;</span>cfg, path, <span class="string">"read"</span>)<span class="question-mark">?</span>;
 			}
 			<span class="kw">let </span>stats = record.calculate_stats()<span class="question-mark">?</span>;
-			<span class="macro">info!</span>(<span class="string">&quot;Time summary [ns]:\n{:?}\nValue size summary:\n{:?}&quot;</span>, stats.<span class="number">0</span>, stats.<span class="number">1</span>);
+			<span class="macro">info!</span>(<span class="string">"Time summary [ns]:\n{:?}\nValue size summary:\n{:?}"</span>, stats.<span class="number">0</span>, stats.<span class="number">1</span>);
 			template.set_stats(<span class="prelude-val">Some</span>(stats), <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
 		}
 
@@ -535,10 +537,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="self">self</span>.bench_warmup(<span class="kw-2">&amp;</span>client)<span class="question-mark">?</span>;
 			<span class="kw">let </span>record = <span class="self">self</span>.bench_write(client, db, storage)<span class="question-mark">?</span>;
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(path) = <span class="kw-2">&amp;</span><span class="self">self</span>.params.json_write_path {
-				record.save_json(<span class="kw-2">&amp;</span>cfg, path, <span class="string">&quot;write&quot;</span>)<span class="question-mark">?</span>;
+				record.save_json(<span class="kw-2">&amp;</span>cfg, path, <span class="string">"write"</span>)<span class="question-mark">?</span>;
 			}
 			<span class="kw">let </span>stats = record.calculate_stats()<span class="question-mark">?</span>;
-			<span class="macro">info!</span>(<span class="string">&quot;Time summary [ns]:\n{:?}\nValue size summary:\n{:?}&quot;</span>, stats.<span class="number">0</span>, stats.<span class="number">1</span>);
+			<span class="macro">info!</span>(<span class="string">"Time summary [ns]:\n{:?}\nValue size summary:\n{:?}"</span>, stats.<span class="number">0</span>, stats.<span class="number">1</span>);
 			template.set_stats(<span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(stats))<span class="question-mark">?</span>;
 		}
 
@@ -550,7 +552,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">match </span><span class="self">self</span>.params.state_version {
 			<span class="number">0 </span>=&gt; StateVersion::V0,
 			<span class="number">1 </span>=&gt; StateVersion::V1,
-			<span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(<span class="string">&quot;Clap set to only allow 0 and 1&quot;</span>),
+			<span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(<span class="string">"Clap set to only allow 0 and 1"</span>),
 		}
 	}
 
@@ -578,12 +580,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		keys.shuffle(<span class="kw-2">&amp;mut </span>rng);
 
 		<span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..<span class="self">self</span>.params.warmups {
-			<span class="macro">info!</span>(<span class="string">&quot;Warmup round {}/{}&quot;</span>, i + <span class="number">1</span>, <span class="self">self</span>.params.warmups);
+			<span class="macro">info!</span>(<span class="string">"Warmup round {}/{}"</span>, i + <span class="number">1</span>, <span class="self">self</span>.params.warmups);
 			<span class="kw">for </span>key <span class="kw">in </span>keys.as_slice() {
 				<span class="kw">let _ </span>= client
 					.storage(hash, <span class="kw-2">&amp;</span>key)
-					.expect(<span class="string">&quot;Checked above to exist&quot;</span>)
-					.ok_or(<span class="string">&quot;Value unexpectedly empty&quot;</span>);
+					.expect(<span class="string">"Checked above to exist"</span>)
+					.ok_or(<span class="string">"Value unexpectedly empty"</span>);
 			}
 		}
 

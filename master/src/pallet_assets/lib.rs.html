@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/assets/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/assets/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_assets" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_assets" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../pallet_assets/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1878,14 +1880,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -1911,7 +1913,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! * Asset Transferal
 //! * Asset Freezing
 //! * Asset Destruction (Burning)
-//! * Delegated Asset Transfers (&quot;Approval API&quot;)
+//! * Delegated Asset Transfers ("Approval API")
 //!
 //! To use it in your runtime, you need to implement the assets [`Config`].
 //!
@@ -1940,7 +1942,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! * **Approval**: The act of allowing an account the permission to transfer some balance of asset
 //!   from the approving account into some third-party destination account.
 //! * **Sufficiency**: The idea of a minimum-balance of an asset being sufficient to allow the
-//!   account&#39;s existence on the system without requiring any other existential-deposit.
+//!   account's existence on the system without requiring any other existential-deposit.
 //!
 //! ### Goals
 //!
@@ -1951,7 +1953,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! * Allow accounts to be delegated the ability to transfer assets without otherwise existing
 //!   on-chain (*approvals*).
 //! * Move assets between accounts.
-//! * Update an asset class&#39;s total supply.
+//! * Update an asset class's total supply.
 //! * Allow administrative activities by specially privileged accounts including freezing account
 //!   balances and minting/burning assets.
 //!
@@ -1960,14 +1962,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! ### Permissionless Functions
 //!
 //! * `create`: Creates a new asset class, taking the required deposit.
-//! * `transfer`: Transfer sender&#39;s assets to another account.
-//! * `transfer_keep_alive`: Transfer sender&#39;s assets to another account, keeping the sender alive.
+//! * `transfer`: Transfer sender's assets to another account.
+//! * `transfer_keep_alive`: Transfer sender's assets to another account, keeping the sender alive.
 //! * `approve_transfer`: Create or increase an delegated transfer.
 //! * `cancel_approval`: Rescind a previous approval.
-//! * `transfer_approved`: Transfer third-party&#39;s assets to another account.
+//! * `transfer_approved`: Transfer third-party's assets to another account.
 //! * `touch`: Create an asset account for non-provider assets. Caller must place a deposit.
-//! * `refund`: Return the deposit (if any) of the caller&#39;s asset account or a consumer reference
-//!   (if any) of the caller&#39;s account.
+//! * `refund`: Return the deposit (if any) of the caller's asset account or a consumer reference
+//!   (if any) of the caller's account.
 //! * `refund_other`: Return the deposit (if any) of a specified asset account.
 //!
 //! ### Permissioned Functions
@@ -1975,25 +1977,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! * `force_create`: Creates a new asset class without taking any deposit.
 //! * `force_set_metadata`: Set the metadata of an asset class.
 //! * `force_clear_metadata`: Remove the metadata of an asset class.
-//! * `force_asset_status`: Alter an asset class&#39;s attributes.
+//! * `force_asset_status`: Alter an asset class's attributes.
 //! * `force_cancel_approval`: Rescind a previous approval.
 //!
 //! ### Privileged Functions
 //!
-//! * `destroy`: Destroys an entire asset class; called by the asset class&#39;s Owner.
-//! * `mint`: Increases the asset balance of an account; called by the asset class&#39;s Issuer.
-//! * `burn`: Decreases the asset balance of an account; called by the asset class&#39;s Admin.
-//! * `force_transfer`: Transfers between arbitrary accounts; called by the asset class&#39;s Admin.
-//! * `freeze`: Disallows further `transfer`s from an account; called by the asset class&#39;s Freezer.
-//! * `thaw`: Allows further `transfer`s to and from an account; called by the asset class&#39;s Admin.
-//! * `transfer_ownership`: Changes an asset class&#39;s Owner; called by the asset class&#39;s Owner.
-//! * `set_team`: Changes an asset class&#39;s Admin, Freezer and Issuer; called by the asset class&#39;s
+//! * `destroy`: Destroys an entire asset class; called by the asset class's Owner.
+//! * `mint`: Increases the asset balance of an account; called by the asset class's Issuer.
+//! * `burn`: Decreases the asset balance of an account; called by the asset class's Admin.
+//! * `force_transfer`: Transfers between arbitrary accounts; called by the asset class's Admin.
+//! * `freeze`: Disallows further `transfer`s from an account; called by the asset class's Freezer.
+//! * `thaw`: Allows further `transfer`s to and from an account; called by the asset class's Admin.
+//! * `transfer_ownership`: Changes an asset class's Owner; called by the asset class's Owner.
+//! * `set_team`: Changes an asset class's Admin, Freezer and Issuer; called by the asset class's
 //!   Owner.
-//! * `set_metadata`: Set the metadata of an asset class; called by the asset class&#39;s Owner.
-//! * `clear_metadata`: Remove the metadata of an asset class; called by the asset class&#39;s Owner.
+//! * `set_metadata`: Set the metadata of an asset class; called by the asset class's Owner.
+//! * `clear_metadata`: Remove the metadata of an asset class; called by the asset class's Owner.
 //! * `touch_other`: Create an asset account for specified account. Caller must place a deposit;
-//!   called by the asset class&#39;s Freezer or Admin.
-//! * `block`: Disallows further `transfer`s to and from an account; called by the asset class&#39;s
+//!   called by the asset class's Freezer or Admin.
+//! * `block`: Disallows further `transfer`s to and from an account; called by the asset class's
 //!   Freezer.
 //!
 //! Please refer to the [`Call`] enum and its associated variants for documentation on each
@@ -2021,11 +2023,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="comment">// This recursion limit is needed because we have too many benchmarks and benchmarking will fail if
 // we add more without this limit.
-</span><span class="attr">#![recursion_limit = <span class="string">&quot;1024&quot;</span>]
-</span><span class="comment">// Ensure we&#39;re `no_std` when compiling for Wasm.
-</span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
+</span><span class="attr">#![recursion_limit = <span class="string">"1024"</span>]
+</span><span class="comment">// Ensure we're `no_std` when compiling for Wasm.
+</span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
-#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 </span><span class="kw">pub mod </span>benchmarking;
 <span class="kw">pub mod </span>migration;
 <span class="attr">#[cfg(test)]
@@ -2066,7 +2068,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">pub use </span>weights::WeightInfo;
 
 <span class="kw">type </span>AccountIdLookupOf&lt;T&gt; = &lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::Lookup <span class="kw">as </span>StaticLookup&gt;::Source;
-<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;runtime::assets&quot;</span>;
+<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"runtime::assets"</span>;
 
 <span class="doccomment">/// Trait with callbacks that are executed after successful asset creation or destruction.
 </span><span class="kw">pub trait </span>AssetsCallback&lt;AssetId, AccountId&gt; {
@@ -2100,11 +2102,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	#[pallet::storage_version(STORAGE_VERSION)]
 	</span><span class="kw">pub struct </span>Pallet&lt;T, I = ()&gt;(<span class="kw">_</span>);
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">pub trait </span>BenchmarkHelper&lt;AssetIdParameter&gt; {
 		<span class="kw">fn </span>create_asset_id_parameter(id: u32) -&gt; AssetIdParameter;
 	}
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">impl</span>&lt;AssetIdParameter: From&lt;u32&gt;&gt; BenchmarkHelper&lt;AssetIdParameter&gt; <span class="kw">for </span>() {
 		<span class="kw">fn </span>create_asset_id_parameter(id: u32) -&gt; AssetIdParameter {
 			id.into()
@@ -2137,14 +2139,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">type </span>Extra = ();
 			<span class="kw">type </span>CallbackHandle = ();
 			<span class="kw">type </span>WeightInfo = ();
-			<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+			<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 			</span><span class="kw">type </span>BenchmarkHelper = ();
 		}
 	}
 
 	<span class="attr">#[pallet::config(with_default)]
 	</span><span class="doccomment">/// The module configuration trait.
-	</span><span class="kw">pub trait </span>Config&lt;I: <span class="lifetime">&#39;static </span>= ()&gt;: frame_system::Config {
+	</span><span class="kw">pub trait </span>Config&lt;I: <span class="lifetime">'static </span>= ()&gt;: frame_system::Config {
 		<span class="doccomment">/// The overarching event type.
 		</span><span class="attr">#[pallet::no_default_bounds]
 		</span><span class="kw">type </span>RuntimeEvent: From&lt;Event&lt;<span class="self">Self</span>, I&gt;&gt;
@@ -2232,7 +2234,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="attr">#[pallet::no_default]
 		</span><span class="kw">type </span>Freezer: FrozenBalance&lt;<span class="self">Self</span>::AssetId, <span class="self">Self</span>::AccountId, <span class="self">Self</span>::Balance&gt;;
 
-		<span class="doccomment">/// Additional data to be stored with an account&#39;s asset balance.
+		<span class="doccomment">/// Additional data to be stored with an account's asset balance.
 		</span><span class="kw">type </span>Extra: Member + Parameter + Default + MaxEncodedLen;
 
 		<span class="doccomment">/// Callback methods for asset state change (e.g. asset created or destroyed)
@@ -2242,13 +2244,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">type </span>WeightInfo: WeightInfo;
 
 		<span class="doccomment">/// Helper trait for benchmarks.
-		</span><span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+		</span><span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 		</span><span class="kw">type </span>BenchmarkHelper: BenchmarkHelper&lt;<span class="self">Self</span>::AssetIdParameter&gt;;
 	}
 
 	<span class="attr">#[pallet::storage]
 	</span><span class="doccomment">/// Details of an asset.
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>Asset&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; = StorageMap&lt;
+	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>Asset&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; = StorageMap&lt;
 		<span class="kw">_</span>,
 		Blake2_128Concat,
 		T::AssetId,
@@ -2257,7 +2259,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[pallet::storage]
 	</span><span class="doccomment">/// The holdings of a specific account for a specific asset.
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>Account&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; = StorageDoubleMap&lt;
+	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>Account&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; = StorageDoubleMap&lt;
 		<span class="kw">_</span>,
 		Blake2_128Concat,
 		T::AssetId,
@@ -2270,7 +2272,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="doccomment">/// Approved balance transfers. First balance is the amount approved for transfer. Second
 	/// is the amount of `T::Currency` reserved for storing this.
 	/// First key is the asset ID, second key is the owner and third key is the delegate.
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>Approvals&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; = StorageNMap&lt;
+	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>Approvals&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; = StorageNMap&lt;
 		<span class="kw">_</span>,
 		(
 			NMapKey&lt;Blake2_128Concat, T::AssetId&gt;,
@@ -2282,7 +2284,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[pallet::storage]
 	</span><span class="doccomment">/// Metadata of an asset.
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>Metadata&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; = StorageMap&lt;
+	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>Metadata&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; = StorageMap&lt;
 		<span class="kw">_</span>,
 		Blake2_128Concat,
 		T::AssetId,
@@ -2292,7 +2294,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
-	</span><span class="kw">pub struct </span>GenesisConfig&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; {
+	</span><span class="kw">pub struct </span>GenesisConfig&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; {
 		<span class="doccomment">/// Genesis assets: id, owner, is_sufficient, min_balance
 		</span><span class="kw">pub </span>assets: Vec&lt;(T::AssetId, T::AccountId, bool, T::Balance)&gt;,
 		<span class="doccomment">/// Genesis metadata: id, name, symbol, decimals
@@ -2302,11 +2304,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="attr">#[pallet::genesis_build]
-	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; BuildGenesisConfig <span class="kw">for </span>GenesisConfig&lt;T, I&gt; {
+	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; BuildGenesisConfig <span class="kw">for </span>GenesisConfig&lt;T, I&gt; {
 		<span class="kw">fn </span>build(<span class="kw-2">&amp;</span><span class="self">self</span>) {
 			<span class="kw">for </span>(id, owner, is_sufficient, min_balance) <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.assets {
-				<span class="macro">assert!</span>(!Asset::&lt;T, I&gt;::contains_key(id), <span class="string">&quot;Asset id already in use&quot;</span>);
-				<span class="macro">assert!</span>(!min_balance.is_zero(), <span class="string">&quot;Min balance should not be zero&quot;</span>);
+				<span class="macro">assert!</span>(!Asset::&lt;T, I&gt;::contains_key(id), <span class="string">"Asset id already in use"</span>);
+				<span class="macro">assert!</span>(!min_balance.is_zero(), <span class="string">"Min balance should not be zero"</span>);
 				Asset::&lt;T, I&gt;::insert(
 					id,
 					AssetDetails {
@@ -2327,12 +2329,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			}
 
 			<span class="kw">for </span>(id, name, symbol, decimals) <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.metadata {
-				<span class="macro">assert!</span>(Asset::&lt;T, I&gt;::contains_key(id), <span class="string">&quot;Asset does not exist&quot;</span>);
+				<span class="macro">assert!</span>(Asset::&lt;T, I&gt;::contains_key(id), <span class="string">"Asset does not exist"</span>);
 
 				<span class="kw">let </span>bounded_name: BoundedVec&lt;u8, T::StringLimit&gt; =
-					name.clone().try_into().expect(<span class="string">&quot;asset name is too long&quot;</span>);
+					name.clone().try_into().expect(<span class="string">"asset name is too long"</span>);
 				<span class="kw">let </span>bounded_symbol: BoundedVec&lt;u8, T::StringLimit&gt; =
-					symbol.clone().try_into().expect(<span class="string">&quot;asset symbol is too long&quot;</span>);
+					symbol.clone().try_into().expect(<span class="string">"asset symbol is too long"</span>);
 
 				<span class="kw">let </span>metadata = AssetMetadata {
 					deposit: Zero::zero(),
@@ -2352,7 +2354,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					|details| -&gt; DispatchResult {
 						<span class="macro">debug_assert!</span>(
 							details.supply.checked_add(<span class="kw-2">&amp;</span>amount).is_some(),
-							<span class="string">&quot;checked in prep; qed&quot;
+							<span class="string">"checked in prep; qed"
 						</span>);
 						details.supply = details.supply.saturating_add(<span class="kw-2">*</span>amount);
 						<span class="prelude-val">Ok</span>(())
@@ -2365,7 +2367,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[pallet::event]
 	#[pallet::generate_deposit(<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>deposit_event)]
-	</span><span class="kw">pub enum </span>Event&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; {
+	</span><span class="kw">pub enum </span>Event&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; {
 		<span class="doccomment">/// Some asset class was created.
 		</span>Created { asset_id: T::AssetId, creator: T::AccountId, owner: T::AccountId },
 		<span class="doccomment">/// Some assets were issued.
@@ -2478,7 +2480,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>WouldDie,
 		<span class="doccomment">/// The asset-account already exists.
 		</span>AlreadyExists,
-		<span class="doccomment">/// The asset-account doesn&#39;t have an associated deposit.
+		<span class="doccomment">/// The asset-account doesn't have an associated deposit.
 		</span>NoDeposit,
 		<span class="doccomment">/// The operation would result in funds being burned.
 		</span>WouldBurn,
@@ -2496,7 +2498,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="attr">#[pallet::call(weight(&lt;T <span class="kw">as </span>Config&lt;I&gt;&gt;::WeightInfo))]
-	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; Pallet&lt;T, I&gt; {
+	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Pallet&lt;T, I&gt; {
 		<span class="doccomment">/// Issue a new class of fungible assets from a public origin.
 		///
 		/// This new asset class has no assets initially and its owner is the origin.
@@ -2509,9 +2511,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		/// - `id`: The identifier of the new asset. This must not be currently in use to identify
 		/// an existing asset.
 		/// - `admin`: The admin of this class of assets. The admin is the initial address of each
-		/// member of the asset class&#39;s admin team.
+		/// member of the asset class's admin team.
 		/// - `min_balance`: The minimum balance of this new asset that any single account must
-		/// have. If an account&#39;s balance is reduced below this, then it collapses to zero.
+		/// have. If an account's balance is reduced below this, then it collapses to zero.
 		///
 		/// Emits `Created` event when successful.
 		///
@@ -2574,7 +2576,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		/// over this asset, but may later change and configure the permissions using
 		/// `transfer_ownership` and `set_team`.
 		/// - `min_balance`: The minimum balance of this new asset that any single account must
-		/// have. If an account&#39;s balance is reduced below this, then it collapses to zero.
+		/// have. If an account's balance is reduced below this, then it collapses to zero.
 		///
 		/// Emits `ForceCreated` event when successful.
 		///
@@ -2598,7 +2600,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		/// `start_destroy` is the first in a series of extrinsics that should be called, to allow
 		/// destruction of an asset class.
 		///
-		/// The origin must conform to `ForceOrigin` or must be `Signed` by the asset&#39;s `owner`.
+		/// The origin must conform to `ForceOrigin` or must be `Signed` by the asset's `owner`.
 		///
 		/// - `id`: The identifier of the asset to be destroyed. This must identify an existing
 		///   asset.
@@ -2713,7 +2715,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		///
 		/// - `id`: The identifier of the asset to have some amount burned.
 		/// - `who`: The account to be debited from.
-		/// - `amount`: The maximum amount by which `who`&#39;s balance should be reduced.
+		/// - `amount`: The maximum amount by which `who`'s balance should be reduced.
 		///
 		/// Emits `Burned` with the actual amount burned. If this takes the balance to below the
 		/// minimum for the asset, then the amount burned is increased to take it to zero.
@@ -2742,8 +2744,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		///
 		/// - `id`: The identifier of the asset to have some amount transferred.
 		/// - `target`: The account to be credited.
-		/// - `amount`: The amount by which the sender&#39;s balance of assets should be reduced and
-		/// `target`&#39;s balance increased. The amount actually transferred may be slightly greater in
+		/// - `amount`: The amount by which the sender's balance of assets should be reduced and
+		/// `target`'s balance increased. The amount actually transferred may be slightly greater in
 		/// the case that the transfer would otherwise take the sender balance above zero but below
 		/// the minimum balance. Must be greater than zero.
 		///
@@ -2775,8 +2777,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		///
 		/// - `id`: The identifier of the asset to have some amount transferred.
 		/// - `target`: The account to be credited.
-		/// - `amount`: The amount by which the sender&#39;s balance of assets should be reduced and
-		/// `target`&#39;s balance increased. The amount actually transferred may be slightly greater in
+		/// - `amount`: The amount by which the sender's balance of assets should be reduced and
+		/// `target`'s balance increased. The amount actually transferred may be slightly greater in
 		/// the case that the transfer would otherwise take the sender balance above zero but below
 		/// the minimum balance. Must be greater than zero.
 		///
@@ -2809,8 +2811,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		/// - `id`: The identifier of the asset to have some amount transferred.
 		/// - `source`: The account to be debited.
 		/// - `dest`: The account to be credited.
-		/// - `amount`: The amount by which the `source`&#39;s balance of assets should be reduced and
-		/// `dest`&#39;s balance increased. The amount actually transferred may be slightly greater in
+		/// - `amount`: The amount by which the `source`'s balance of assets should be reduced and
+		/// `dest`'s balance increased. The amount actually transferred may be slightly greater in
 		/// the case that the transfer would otherwise take the `source` balance above zero but
 		/// below the minimum balance. Must be greater than zero.
 		///
@@ -3198,7 +3200,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		/// - `admin`: The new Admin of this asset.
 		/// - `freezer`: The new Freezer of this asset.
 		/// - `min_balance`: The minimum balance of this new asset that any single account must
-		/// have. If an account&#39;s balance is reduced below this, then it collapses to zero.
+		/// have. If an account's balance is reduced below this, then it collapses to zero.
 		/// - `is_sufficient`: Whether a non-zero balance of this asset is deposit of sufficient
 		/// value to account for the state bloat associated with its balance storage. If set to
 		/// `true`, then non-zero balances may be stored without a `consumer` reference (and thus
@@ -3432,7 +3434,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="doccomment">/// Sets the minimum balance of an asset.
 		///
-		/// Only works if there aren&#39;t any accounts that are holding the asset or if
+		/// Only works if there aren't any accounts that are holding the asset or if
 		/// the new value of `min_balance` is less than the old one.
 		///
 		/// Origin must be Signed and the sender has to be the Owner of the
@@ -3455,12 +3457,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">ensure!</span>(origin == details.owner, Error::&lt;T, I&gt;::NoPermission);
 
 			<span class="kw">let </span>old_min_balance = details.min_balance;
-			<span class="comment">// If the asset is marked as sufficient it won&#39;t be allowed to
+			<span class="comment">// If the asset is marked as sufficient it won't be allowed to
 			// change the min_balance.
 			</span><span class="macro">ensure!</span>(!details.is_sufficient, Error::&lt;T, I&gt;::NoPermission);
 
 			<span class="comment">// Ensure that either the new min_balance is less than old
-			// min_balance or there aren&#39;t any accounts holding the asset.
+			// min_balance or there aren't any accounts holding the asset.
 			</span><span class="macro">ensure!</span>(
 				min_balance &lt; old_min_balance || details.accounts == <span class="number">0</span>,
 				Error::&lt;T, I&gt;::NoPermission
@@ -3526,7 +3528,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		///
 		/// Origin must be Signed and the sender should be the Freezer of the asset `id`.
 		///
-		/// - `id`: The identifier of the account&#39;s asset.
+		/// - `id`: The identifier of the account's asset.
 		/// - `who`: The account to be unblocked.
 		///
 		/// Emits `Blocked`.
@@ -3563,7 +3565,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Implements [`AccountTouch`] trait.
 	/// Note that a depositor can be any account, without any specific privilege.
 	/// This implementation is supposed to be used only for creation of system accounts.
-	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; AccountTouch&lt;T::AssetId, T::AccountId&gt; <span class="kw">for </span>Pallet&lt;T, I&gt; {
+	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; AccountTouch&lt;T::AssetId, T::AccountId&gt; <span class="kw">for </span>Pallet&lt;T, I&gt; {
 		<span class="kw">type </span>Balance = DepositBalanceOf&lt;T, I&gt;;
 
 		<span class="kw">fn </span>deposit_required(<span class="kw">_</span>: T::AssetId) -&gt; <span class="self">Self</span>::Balance {
@@ -3590,7 +3592,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Implements [`ContainsPair`] trait for a pair of asset and account IDs.
-	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; ContainsPair&lt;T::AssetId, T::AccountId&gt; <span class="kw">for </span>Pallet&lt;T, I&gt; {
+	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; ContainsPair&lt;T::AssetId, T::AccountId&gt; <span class="kw">for </span>Pallet&lt;T, I&gt; {
 		<span class="doccomment">/// Check if an account with the given asset ID and account address exists.
 		</span><span class="kw">fn </span>contains(asset: <span class="kw-2">&amp;</span>T::AssetId, who: <span class="kw-2">&amp;</span>T::AccountId) -&gt; bool {
 			Account::&lt;T, I&gt;::contains_key(asset, who)
@@ -3598,7 +3600,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="macro">sp_core::generate_feature_enabled_macro!</span>(runtime_benchmarks_enabled, feature = <span class="string">&quot;runtime-benchmarks&quot;</span>, $);
+<span class="macro">sp_core::generate_feature_enabled_macro!</span>(runtime_benchmarks_enabled, feature = <span class="string">"runtime-benchmarks"</span>, $);
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

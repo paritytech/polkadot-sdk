@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `cumulus/pallets/collator-selection/src/benchmarking.rs`."><title>benchmarking.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `cumulus/pallets/collator-selection/src/benchmarking.rs`."><title>benchmarking.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_collator_selection" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_collator_selection" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../pallet_collator_selection/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -605,21 +607,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
 </span><span class="doccomment">//! Benchmarking setup for pallet-collator-selection
 
-</span><span class="attr">#![cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+</span><span class="attr">#![cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 
 </span><span class="kw">use super</span>::<span class="kw-2">*</span>;
 
@@ -647,7 +649,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">fn </span>create_funded_user&lt;T: Config&gt;(
-	string: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
+	string: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
 	n: u32,
 	balance_factor: u32,
 ) -&gt; T::AccountId {
@@ -675,7 +677,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">fn </span>validator&lt;T: Config + session::Config&gt;(c: u32) -&gt; (T::AccountId, &lt;T <span class="kw">as </span>session::Config&gt;::Keys) {
-	(create_funded_user::&lt;T&gt;(<span class="string">&quot;candidate&quot;</span>, c, <span class="number">1000</span>), keys::&lt;T&gt;(c))
+	(create_funded_user::&lt;T&gt;(<span class="string">"candidate"</span>, c, <span class="number">1000</span>), keys::&lt;T&gt;(c))
 }
 
 <span class="kw">fn </span>register_validators&lt;T: Config + session::Config&gt;(count: u32) -&gt; Vec&lt;T::AccountId&gt; {
@@ -689,8 +691,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">fn </span>register_candidates&lt;T: Config&gt;(count: u32) {
-	<span class="kw">let </span>candidates = (<span class="number">0</span>..count).map(|c| account(<span class="string">&quot;candidate&quot;</span>, c, SEED)).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
-	<span class="macro">assert!</span>(CandidacyBond::&lt;T&gt;::get() &gt; <span class="number">0u32</span>.into(), <span class="string">&quot;Bond cannot be zero!&quot;</span>);
+	<span class="kw">let </span>candidates = (<span class="number">0</span>..count).map(|c| account(<span class="string">"candidate"</span>, c, SEED)).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+	<span class="macro">assert!</span>(CandidacyBond::&lt;T&gt;::get() &gt; <span class="number">0u32</span>.into(), <span class="string">"Bond cannot be zero!"</span>);
 
 	<span class="kw">for </span>who <span class="kw">in </span>candidates {
 		T::Currency::make_free_balance_be(<span class="kw-2">&amp;</span>who, CandidacyBond::&lt;T&gt;::get() * <span class="number">3u32</span>.into());
@@ -751,7 +753,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		DesiredCandidates::&lt;T&gt;::put(c);
 		<span class="comment">// get accounts and keys for the `c` candidates
 		</span><span class="kw">let </span><span class="kw-2">mut </span>candidates = (<span class="number">0</span>..c).map(|cc| validator::&lt;T&gt;(cc)).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
-		<span class="comment">// add one more to the list. should not be in `b` (invulnerables) because it&#39;s the account
+		<span class="comment">// add one more to the list. should not be in `b` (invulnerables) because it's the account
 		// we will _add_ to invulnerables. we want it to be in `candidates` because we need the
 		// weight associated with removing it.
 		</span><span class="kw">let </span>(new_invulnerable, new_invulnerable_keys) = validator::&lt;T&gt;(b.max(c) + <span class="number">1</span>);
@@ -968,7 +970,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw-2">&amp;</span>&lt;CollatorSelection&lt;T&gt;&gt;::account_id(),
 			T::Currency::minimum_balance() * <span class="number">4u32</span>.into(),
 		);
-		<span class="kw">let </span>author = account(<span class="string">&quot;author&quot;</span>, <span class="number">0</span>, SEED);
+		<span class="kw">let </span>author = account(<span class="string">"author"</span>, <span class="number">0</span>, SEED);
 		<span class="kw">let </span>new_block: BlockNumberFor&lt;T&gt; = <span class="number">10u32</span>.into();
 
 		frame_system::Pallet::&lt;T&gt;::set_block_number(new_block);
@@ -1042,7 +1044,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		} <span class="kw">else if </span>c &gt; r &amp;&amp; non_removals &lt; min_candidates {
 			<span class="comment">// candidates &gt; removals and remaining candidates would be less than min candidates
 			// =&gt; remaining candidates should equal min candidates, i.e. some were removed up to
-			//    the minimum, but then any more were &quot;forced&quot; to stay in candidates.
+			//    the minimum, but then any more were "forced" to stay in candidates.
 			</span><span class="kw">let </span>current_length: u32 = CandidateList::&lt;T&gt;::decode_len()
 				.unwrap_or_default()
 				.try_into()
@@ -1050,7 +1052,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">assert!</span>(min_candidates == current_length);
 		} <span class="kw">else </span>{
 			<span class="comment">// removals &gt;= candidates, non removals must == 0
-			// can&#39;t remove more than exist
+			// can't remove more than exist
 			</span><span class="macro">assert!</span>(CandidateList::&lt;T&gt;::decode_len().unwrap_or_default() == pre_length);
 		}
 	}

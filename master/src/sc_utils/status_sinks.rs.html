@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/utils/src/status_sinks.rs`."><title>status_sinks.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/utils/src/status_sinks.rs`."><title>status_sinks.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_utils" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_utils" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sc_utils/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -425,7 +427,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl</span>&lt;T&gt; StatusSinks&lt;T&gt; {
 	<span class="doccomment">/// Builds a new empty collection.
 	</span><span class="kw">pub fn </span>new() -&gt; StatusSinks&lt;T&gt; {
-		<span class="kw">let </span>(entries_tx, entries_rx) = tracing_unbounded(<span class="string">&quot;status-sinks-entries&quot;</span>, <span class="number">100_000</span>);
+		<span class="kw">let </span>(entries_tx, entries_rx) = tracing_unbounded(<span class="string">"status-sinks-entries"</span>, <span class="number">100_000</span>);
 
 		StatusSinks {
 			inner: Mutex::new(Inner { entries: stream::FuturesUnordered::new(), entries_rx }),
@@ -447,14 +449,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Waits until one of the sinks is ready, then returns an object that can be used to send
 	/// an element on said sink.
 	///
-	/// If the object isn&#39;t used to send an element, the slot is skipped.
-	</span><span class="kw">pub async fn </span>next(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; ReadySinkEvent&lt;<span class="lifetime">&#39;_</span>, T&gt; {
+	/// If the object isn't used to send an element, the slot is skipped.
+	</span><span class="kw">pub async fn </span>next(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; ReadySinkEvent&lt;<span class="lifetime">'_</span>, T&gt; {
 		<span class="comment">// This is only ever locked by `next`, which means that one `next` at a time can run.
 		</span><span class="kw">let </span><span class="kw-2">mut </span>inner = <span class="self">self</span>.inner.lock().<span class="kw">await</span>;
 		<span class="kw">let </span>inner = <span class="kw-2">&amp;mut *</span>inner;
 
 		<span class="kw">loop </span>{
-			<span class="comment">// Future that produces the next ready entry in `entries`, or doesn&#39;t produce anything
+			<span class="comment">// Future that produces the next ready entry in `entries`, or doesn't produce anything
 			// if the list is empty.
 			</span><span class="kw">let </span>next_ready_entry = {
 				<span class="kw">let </span>entries = <span class="kw-2">&amp;mut </span>inner.entries;
@@ -489,19 +491,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// One of the sinks is ready.
 </span><span class="attr">#[must_use]
-</span><span class="kw">pub struct </span>ReadySinkEvent&lt;<span class="lifetime">&#39;a</span>, T&gt; {
-	sinks: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>StatusSinks&lt;T&gt;,
+</span><span class="kw">pub struct </span>ReadySinkEvent&lt;<span class="lifetime">'a</span>, T&gt; {
+	sinks: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>StatusSinks&lt;T&gt;,
 	sender: <span class="prelude-ty">Option</span>&lt;TracingUnboundedSender&lt;T&gt;&gt;,
 	interval: Duration,
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, T&gt; ReadySinkEvent&lt;<span class="lifetime">&#39;a</span>, T&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, T&gt; ReadySinkEvent&lt;<span class="lifetime">'a</span>, T&gt; {
 	<span class="doccomment">/// Sends an element on the sender.
 	</span><span class="kw">pub fn </span>send(<span class="kw-2">mut </span><span class="self">self</span>, element: T) {
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(sender) = <span class="self">self</span>.sender.take() {
 			<span class="kw">if </span>sender.unbounded_send(element).is_ok() {
 				<span class="kw">let _ </span>= <span class="self">self</span>.sinks.entries_tx.unbounded_send(YieldAfter {
-					<span class="comment">// Note that since there&#39;s a small delay between the moment a task is
+					<span class="comment">// Note that since there's a small delay between the moment a task is
 					// woken up and the moment it is polled, the period is actually not
 					// `interval` but `interval + &lt;delay&gt;`. We ignore this problem in
 					// practice.
@@ -514,7 +516,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, T&gt; Drop <span class="kw">for </span>ReadySinkEvent&lt;<span class="lifetime">&#39;a</span>, T&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, T&gt; Drop <span class="kw">for </span>ReadySinkEvent&lt;<span class="lifetime">'a</span>, T&gt; {
 	<span class="kw">fn </span>drop(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(sender) = <span class="self">self</span>.sender.take() {
 			<span class="kw">if </span>sender.is_closed() {
@@ -542,7 +544,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">let </span>sender = this
 					.sender
 					.take()
-					.expect(<span class="string">&quot;sender is always Some unless the future is finished; qed&quot;</span>);
+					.expect(<span class="string">"sender is always Some unless the future is finished; qed"</span>);
 				Poll::Ready((sender, this.interval))
 			},
 		}
@@ -558,12 +560,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>works() {
-		<span class="comment">// We&#39;re not testing that the `StatusSink` properly enforces an order in the intervals, as
+		<span class="comment">// We're not testing that the `StatusSink` properly enforces an order in the intervals, as
 		// this easily causes test failures on busy CPUs.
 
 		</span><span class="kw">let </span>status_sinks = StatusSinks::new();
 
-		<span class="kw">let </span>(tx, rx) = tracing_unbounded(<span class="string">&quot;test&quot;</span>, <span class="number">100_000</span>);
+		<span class="kw">let </span>(tx, rx) = tracing_unbounded(<span class="string">"test"</span>, <span class="number">100_000</span>);
 		status_sinks.push(Duration::from_millis(<span class="number">100</span>), tx);
 
 		<span class="kw">let </span><span class="kw-2">mut </span>val_order = <span class="number">5</span>;

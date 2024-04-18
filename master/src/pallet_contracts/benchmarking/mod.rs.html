@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/contracts/src/benchmarking/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/contracts/src/benchmarking/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="pallet_contracts" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="pallet_contracts" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../pallet_contracts/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -3133,20 +3135,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
 </span><span class="doccomment">//! Benchmarks for the contracts pallet
-</span><span class="attr">#![cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+</span><span class="attr">#![cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 
 </span><span class="kw">mod </span>call_builder;
 <span class="kw">mod </span>code;
@@ -3209,7 +3211,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	&lt;BalanceOf&lt;T&gt; <span class="kw">as </span>HasCompact&gt;::Type: Clone + Eq + PartialEq + Debug + TypeInfo + Encode,
 {
 	<span class="doccomment">/// Create new contract and use a default account id as instantiator.
-	</span><span class="kw">fn </span>new(module: WasmModule&lt;T&gt;, data: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;Contract&lt;T&gt;, <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; {
+	</span><span class="kw">fn </span>new(module: WasmModule&lt;T&gt;, data: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;Contract&lt;T&gt;, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
 		<span class="self">Self</span>::with_index(<span class="number">0</span>, module, data)
 	}
 
@@ -3218,8 +3220,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		index: u32,
 		module: WasmModule&lt;T&gt;,
 		data: Vec&lt;u8&gt;,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;Contract&lt;T&gt;, <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; {
-		<span class="self">Self</span>::with_caller(account(<span class="string">&quot;instantiator&quot;</span>, index, <span class="number">0</span>), module, data)
+	) -&gt; <span class="prelude-ty">Result</span>&lt;Contract&lt;T&gt;, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
+		<span class="self">Self</span>::with_caller(account(<span class="string">"instantiator"</span>, index, <span class="number">0</span>), module, data)
 	}
 
 	<span class="doccomment">/// Create new contract and use the supplied `caller` as instantiator.
@@ -3227,7 +3229,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		caller: T::AccountId,
 		module: WasmModule&lt;T&gt;,
 		data: Vec&lt;u8&gt;,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;Contract&lt;T&gt;, <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; {
+	) -&gt; <span class="prelude-ty">Result</span>&lt;Contract&lt;T&gt;, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
 		<span class="kw">let </span>value = Pallet::&lt;T&gt;::min_balance();
 		T::Currency::set_balance(<span class="kw-2">&amp;</span>caller, caller_funding::&lt;T&gt;());
 		<span class="kw">let </span>salt = <span class="macro">vec!</span>[<span class="number">0xff</span>];
@@ -3257,39 +3259,39 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		code: WasmModule&lt;T&gt;,
 		stor_num: u32,
 		stor_size: u32,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; {
+	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
 		<span class="kw">let </span>contract = Contract::&lt;T&gt;::new(code, <span class="macro">vec!</span>[])<span class="question-mark">?</span>;
 		<span class="kw">let </span>storage_items = (<span class="number">0</span>..stor_num)
 			.map(|i| {
 				<span class="kw">let </span>hash = T::Hashing::hash_of(<span class="kw-2">&amp;</span>i)
 					.as_ref()
 					.try_into()
-					.map_err(|<span class="kw">_</span>| <span class="string">&quot;Hash too big for storage key&quot;</span>)<span class="question-mark">?</span>;
+					.map_err(|<span class="kw">_</span>| <span class="string">"Hash too big for storage key"</span>)<span class="question-mark">?</span>;
 				<span class="prelude-val">Ok</span>((hash, <span class="macro">vec!</span>[<span class="number">42u8</span>; stor_size <span class="kw">as </span>usize]))
 			})
-			.collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt;&gt;()<span class="question-mark">?</span>;
+			.collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt;&gt;()<span class="question-mark">?</span>;
 		contract.store(<span class="kw-2">&amp;</span>storage_items)<span class="question-mark">?</span>;
 		<span class="prelude-val">Ok</span>(contract)
 	}
 
 	<span class="doccomment">/// Store the supplied storage items into this contracts storage.
-	</span><span class="kw">fn </span>store(<span class="kw-2">&amp;</span><span class="self">self</span>, items: <span class="kw-2">&amp;</span>Vec&lt;([u8; <span class="number">32</span>], Vec&lt;u8&gt;)&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; {
+	</span><span class="kw">fn </span>store(<span class="kw-2">&amp;</span><span class="self">self</span>, items: <span class="kw-2">&amp;</span>Vec&lt;([u8; <span class="number">32</span>], Vec&lt;u8&gt;)&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
 		<span class="kw">let </span>info = <span class="self">self</span>.info()<span class="question-mark">?</span>;
 		<span class="kw">for </span>item <span class="kw">in </span>items {
 			info.write(<span class="kw-2">&amp;</span>Key::Fix(item.<span class="number">0</span>), <span class="prelude-val">Some</span>(item.<span class="number">1</span>.clone()), <span class="prelude-val">None</span>, <span class="bool-val">false</span>)
-				.map_err(|<span class="kw">_</span>| <span class="string">&quot;Failed to write storage to restoration dest&quot;</span>)<span class="question-mark">?</span>;
+				.map_err(|<span class="kw">_</span>| <span class="string">"Failed to write storage to restoration dest"</span>)<span class="question-mark">?</span>;
 		}
 		&lt;ContractInfoOf&lt;T&gt;&gt;::insert(<span class="kw-2">&amp;</span><span class="self">self</span>.account_id, info);
 		<span class="prelude-val">Ok</span>(())
 	}
 
 	<span class="doccomment">/// Get the `ContractInfo` of the `addr` or an error if it no longer exists.
-	</span><span class="kw">fn </span>address_info(addr: <span class="kw-2">&amp;</span>T::AccountId) -&gt; <span class="prelude-ty">Result</span>&lt;ContractInfo&lt;T&gt;, <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; {
-		ContractInfoOf::&lt;T&gt;::get(addr).ok_or(<span class="string">&quot;Expected contract to exist at this point.&quot;</span>)
+	</span><span class="kw">fn </span>address_info(addr: <span class="kw-2">&amp;</span>T::AccountId) -&gt; <span class="prelude-ty">Result</span>&lt;ContractInfo&lt;T&gt;, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
+		ContractInfoOf::&lt;T&gt;::get(addr).ok_or(<span class="string">"Expected contract to exist at this point."</span>)
 	}
 
 	<span class="doccomment">/// Get the `ContractInfo` of this contract or an error if it no longer exists.
-	</span><span class="kw">fn </span>info(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;ContractInfo&lt;T&gt;, <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; {
+	</span><span class="kw">fn </span>info(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;ContractInfo&lt;T&gt;, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
 		<span class="self">Self</span>::address_info(<span class="kw-2">&amp;</span><span class="self">self</span>.account_id)
 	}
 
@@ -3311,7 +3313,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// The funding that each account that either calls or instantiates contracts is funded with.
 </span><span class="kw">fn </span>caller_funding&lt;T: Config&gt;() -&gt; BalanceOf&lt;T&gt; {
-	<span class="comment">// Minting can overflow, so we can&#39;t abuse of the funding. This value happens to be big enough,
+	<span class="comment">// Minting can overflow, so we can't abuse of the funding. This value happens to be big enough,
 	// but not too big to make the total supply overflow.
 	</span>BalanceOf::&lt;T&gt;::max_value() / <span class="number">10_000u32</span>.into()
 }
@@ -3383,7 +3385,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Ok</span>(())
 	}
 
-	<span class="comment">// This benchmarks the v11 migration step (Don&#39;t rely on reserved balances keeping an account
+	<span class="comment">// This benchmarks the v11 migration step (Don't rely on reserved balances keeping an account
 	// alive).
 	</span><span class="attr">#[benchmark(pov_mode = Measured)]
 	</span><span class="kw">fn </span>v11_migration_step(k: Linear&lt;<span class="number">0</span>, <span class="number">1024</span>&gt;) {
@@ -3403,7 +3405,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>v12_migration_step(c: Linear&lt;<span class="number">0</span>, { T::MaxCodeLen::get() }&gt;) {
 		v12::store_old_dummy_code::&lt;T, pallet_balances::Pallet&lt;T&gt;&gt;(
 			c <span class="kw">as </span>usize,
-			account::&lt;T::AccountId&gt;(<span class="string">&quot;account&quot;</span>, <span class="number">0</span>, <span class="number">0</span>),
+			account::&lt;T::AccountId&gt;(<span class="string">"account"</span>, <span class="number">0</span>, <span class="number">0</span>),
 		);
 		<span class="kw">let </span><span class="kw-2">mut </span>m = v12::Migration::&lt;T, pallet_balances::Pallet&lt;T&gt;&gt;::default();
 
@@ -3429,11 +3431,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Ok</span>(())
 	}
 
-	<span class="comment">// This benchmarks the v14 migration step (Move code owners&#39; reserved balance to be held
+	<span class="comment">// This benchmarks the v14 migration step (Move code owners' reserved balance to be held
 	// instead).
 	</span><span class="attr">#[benchmark(pov_mode = Measured)]
 	</span><span class="kw">fn </span>v14_migration_step() {
-		<span class="kw">let </span>account = account::&lt;T::AccountId&gt;(<span class="string">&quot;account&quot;</span>, <span class="number">0</span>, <span class="number">0</span>);
+		<span class="kw">let </span>account = account::&lt;T::AccountId&gt;(<span class="string">"account"</span>, <span class="number">0</span>, <span class="number">0</span>);
 		T::Currency::set_balance(<span class="kw-2">&amp;</span>account, caller_funding::&lt;T&gt;());
 		v14::store_dummy_code::&lt;T, pallet_balances::Pallet&lt;T&gt;&gt;(account);
 		<span class="kw">let </span><span class="kw-2">mut </span>m = v14::Migration::&lt;T, pallet_balances::Pallet&lt;T&gt;&gt;::default();
@@ -3576,7 +3578,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	// It creates a maximum number of metering blocks per byte.
 	// The size of the salt influences the runtime because is is hashed in order to
 	// determine the contract address. All code is generated to the `call` function so that
-	// we don&#39;t benchmark the actual execution of this code but merely what it takes to load
+	// we don't benchmark the actual execution of this code but merely what it takes to load
 	// a code of that size into the sandbox.
 	//
 	// `c`: Size of the code in bytes.
@@ -3647,7 +3649,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="comment">// We just call a dummy contract to measure the overhead of the call extrinsic.
 	// The size of the data has no influence on the costs of this extrinsic as long as the contract
-	// won&#39;t call `seal_input` in its constructor to copy the data to contract memory.
+	// won't call `seal_input` in its constructor to copy the data to contract memory.
 	// The dummy contract used here does not do this. The costs for the data copy is billed as
 	// part of `seal_input`. The costs for invoking a contract of a specific size are not part
 	// of this benchmark because we cannot know the size of the contract when issuing a call
@@ -3752,7 +3754,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[benchmark(pov_mode = Measured)]
 	</span><span class="kw">fn </span>seal_caller(r: Linear&lt;<span class="number">0</span>, API_BENCHMARK_RUNS&gt;) {
-		<span class="macro">call_builder!</span>(func, WasmModule::getter(<span class="string">&quot;seal0&quot;</span>, <span class="string">&quot;seal_caller&quot;</span>, r));
+		<span class="macro">call_builder!</span>(func, WasmModule::getter(<span class="string">"seal0"</span>, <span class="string">"seal_caller"</span>, r));
 
 		<span class="kw">let </span>res;
 		<span class="attr">#[block]
@@ -3764,14 +3766,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[benchmark(pov_mode = Measured)]
 	</span><span class="kw">fn </span>seal_is_contract(r: Linear&lt;<span class="number">0</span>, API_BENCHMARK_RUNS&gt;) {
-		<span class="kw">let </span>accounts = (<span class="number">0</span>..r).map(|n| account::&lt;T::AccountId&gt;(<span class="string">&quot;account&quot;</span>, n, <span class="number">0</span>)).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+		<span class="kw">let </span>accounts = (<span class="number">0</span>..r).map(|n| account::&lt;T::AccountId&gt;(<span class="string">"account"</span>, n, <span class="number">0</span>)).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 		<span class="kw">let </span>account_len = accounts.get(<span class="number">0</span>).map(|i| i.encode().len()).unwrap_or(<span class="number">0</span>);
 		<span class="kw">let </span>accounts_bytes = accounts.iter().flat_map(|a| a.encode()).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 		<span class="kw">let </span>code = WasmModule::&lt;T&gt;::from(ModuleDefinition {
 			memory: <span class="prelude-val">Some</span>(ImportedMemory::max::&lt;T&gt;()),
 			imported_functions: <span class="macro">vec!</span>[ImportedFunction {
-				module: <span class="string">&quot;seal0&quot;</span>,
-				name: <span class="string">&quot;seal_is_contract&quot;</span>,
+				module: <span class="string">"seal0"</span>,
+				name: <span class="string">"seal_is_contract"</span>,
 				params: <span class="macro">vec!</span>[ValueType::I32],
 				return_type: <span class="prelude-val">Some</span>(ValueType::I32),
 			}],
@@ -3803,14 +3805,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[benchmark(pov_mode = Measured)]
 	</span><span class="kw">fn </span>seal_code_hash(r: Linear&lt;<span class="number">0</span>, API_BENCHMARK_RUNS&gt;) {
-		<span class="kw">let </span>accounts = (<span class="number">0</span>..r).map(|n| account::&lt;T::AccountId&gt;(<span class="string">&quot;account&quot;</span>, n, <span class="number">0</span>)).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+		<span class="kw">let </span>accounts = (<span class="number">0</span>..r).map(|n| account::&lt;T::AccountId&gt;(<span class="string">"account"</span>, n, <span class="number">0</span>)).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 		<span class="kw">let </span>account_len = accounts.get(<span class="number">0</span>).map(|i| i.encode().len()).unwrap_or(<span class="number">0</span>);
 		<span class="kw">let </span>accounts_bytes = accounts.iter().flat_map(|a| a.encode()).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 		<span class="kw">let </span>code = WasmModule::&lt;T&gt;::from(ModuleDefinition {
 			memory: <span class="prelude-val">Some</span>(ImportedMemory::max::&lt;T&gt;()),
 			imported_functions: <span class="macro">vec!</span>[ImportedFunction {
-				module: <span class="string">&quot;seal0&quot;</span>,
-				name: <span class="string">&quot;seal_code_hash&quot;</span>,
+				module: <span class="string">"seal0"</span>,
+				name: <span class="string">"seal_code_hash"</span>,
 				params: <span class="macro">vec!</span>[ValueType::I32, ValueType::I32, ValueType::I32],
 				return_type: <span class="prelude-val">Some</span>(ValueType::I32),
 			}],
@@ -3850,7 +3852,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[benchmark(pov_mode = Measured)]
 	</span><span class="kw">fn </span>seal_own_code_hash(r: Linear&lt;<span class="number">0</span>, API_BENCHMARK_RUNS&gt;) {
-		<span class="macro">call_builder!</span>(func, WasmModule::getter(<span class="string">&quot;seal0&quot;</span>, <span class="string">&quot;seal_own_code_hash&quot;</span>, r));
+		<span class="macro">call_builder!</span>(func, WasmModule::getter(<span class="string">"seal0"</span>, <span class="string">"seal_own_code_hash"</span>, r));
 
 		<span class="kw">let </span>res;
 		<span class="attr">#[block]
@@ -3865,8 +3867,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>code = WasmModule::&lt;T&gt;::from(ModuleDefinition {
 			memory: <span class="prelude-val">Some</span>(ImportedMemory::max::&lt;T&gt;()),
 			imported_functions: <span class="macro">vec!</span>[ImportedFunction {
-				module: <span class="string">&quot;seal0&quot;</span>,
-				name: <span class="string">&quot;seal_caller_is_origin&quot;</span>,
+				module: <span class="string">"seal0"</span>,
+				name: <span class="string">"seal_caller_is_origin"</span>,
 				params: <span class="macro">vec!</span>[],
 				return_type: <span class="prelude-val">Some</span>(ValueType::I32),
 			}],
@@ -3888,8 +3890,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>code = WasmModule::&lt;T&gt;::from(ModuleDefinition {
 			memory: <span class="prelude-val">Some</span>(ImportedMemory::max::&lt;T&gt;()),
 			imported_functions: <span class="macro">vec!</span>[ImportedFunction {
-				module: <span class="string">&quot;seal0&quot;</span>,
-				name: <span class="string">&quot;caller_is_root&quot;</span>,
+				module: <span class="string">"seal0"</span>,
+				name: <span class="string">"caller_is_root"</span>,
 				params: <span class="macro">vec!</span>[],
 				return_type: <span class="prelude-val">Some</span>(ValueType::I32),
 			}],
@@ -3910,7 +3912,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[benchmark(pov_mode = Measured)]
 	</span><span class="kw">fn </span>seal_address(r: Linear&lt;<span class="number">0</span>, API_BENCHMARK_RUNS&gt;) {
-		<span class="macro">call_builder!</span>(func, WasmModule::getter(<span class="string">&quot;seal0&quot;</span>, <span class="string">&quot;seal_address&quot;</span>, r));
+		<span class="macro">call_builder!</span>(func, WasmModule::getter(<span class="string">"seal0"</span>, <span class="string">"seal_address"</span>, r));
 
 		<span class="kw">let </span>res;
 		<span class="attr">#[block]
@@ -3922,7 +3924,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[benchmark(pov_mode = Measured)]
 	</span><span class="kw">fn </span>seal_gas_left(r: Linear&lt;<span class="number">0</span>, API_BENCHMARK_RUNS&gt;) {
-		<span class="macro">call_builder!</span>(func, WasmModule::getter(<span class="string">&quot;seal1&quot;</span>, <span class="string">&quot;gas_left&quot;</span>, r));
+		<span class="macro">call_builder!</span>(func, WasmModule::getter(<span class="string">"seal1"</span>, <span class="string">"gas_left"</span>, r));
 
 		<span class="kw">let </span>res;
 		<span class="attr">#[block]
@@ -3934,7 +3936,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[benchmark(pov_mode = Measured)]
 	</span><span class="kw">fn </span>seal_balance(r: Linear&lt;<span class="number">0</span>, API_BENCHMARK_RUNS&gt;) {
-		<span class="macro">call_builder!</span>(func, WasmModule::getter(<span class="string">&quot;seal0&quot;</span>, <span class="string">&quot;seal_balance&quot;</span>, r));
+		<span class="macro">call_builder!</span>(func, WasmModule::getter(<span class="string">"seal0"</span>, <span class="string">"seal_balance"</span>, r));
 
 		<span class="kw">let </span>res;
 		<span class="attr">#[block]
@@ -3946,7 +3948,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[benchmark(pov_mode = Measured)]
 	</span><span class="kw">fn </span>seal_value_transferred(r: Linear&lt;<span class="number">0</span>, API_BENCHMARK_RUNS&gt;) {
-		<span class="macro">call_builder!</span>(func, WasmModule::getter(<span class="string">&quot;seal0&quot;</span>, <span class="string">&quot;seal_value_transferred&quot;</span>, r));
+		<span class="macro">call_builder!</span>(func, WasmModule::getter(<span class="string">"seal0"</span>, <span class="string">"seal_value_transferred"</span>, r));
 
 		<span class="kw">let </span>res;
 		<span class="attr">#[block]
@@ -3958,7 +3960,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[benchmark(pov_mode = Measured)]
 	</span><span class="kw">fn </span>seal_minimum_balance(r: Linear&lt;<span class="number">0</span>, API_BENCHMARK_RUNS&gt;) {
-		<span class="macro">call_builder!</span>(func, WasmModule::getter(<span class="string">&quot;seal0&quot;</span>, <span class="string">&quot;seal_minimum_balance&quot;</span>, r));
+		<span class="macro">call_builder!</span>(func, WasmModule::getter(<span class="string">"seal0"</span>, <span class="string">"seal_minimum_balance"</span>, r));
 
 		<span class="kw">let </span>res;
 		<span class="attr">#[block]
@@ -3970,7 +3972,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[benchmark(pov_mode = Measured)]
 	</span><span class="kw">fn </span>seal_block_number(r: Linear&lt;<span class="number">0</span>, API_BENCHMARK_RUNS&gt;) {
-		<span class="macro">call_builder!</span>(func, WasmModule::getter(<span class="string">&quot;seal0&quot;</span>, <span class="string">&quot;seal_block_number&quot;</span>, r));
+		<span class="macro">call_builder!</span>(func, WasmModule::getter(<span class="string">"seal0"</span>, <span class="string">"seal_block_number"</span>, r));
 
 		<span class="kw">let </span>res;
 		<span class="attr">#[block]
@@ -3982,7 +3984,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[benchmark(pov_mode = Measured)]
 	</span><span class="kw">fn </span>seal_now(r: Linear&lt;<span class="number">0</span>, API_BENCHMARK_RUNS&gt;) {
-		<span class="macro">call_builder!</span>(func, WasmModule::getter(<span class="string">&quot;seal0&quot;</span>, <span class="string">&quot;seal_now&quot;</span>, r));
+		<span class="macro">call_builder!</span>(func, WasmModule::getter(<span class="string">"seal0"</span>, <span class="string">"seal_now"</span>, r));
 
 		<span class="kw">let </span>res;
 		<span class="attr">#[block]
@@ -3998,8 +4000,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>code = WasmModule::&lt;T&gt;::from(ModuleDefinition {
 			memory: <span class="prelude-val">Some</span>(ImportedMemory::max::&lt;T&gt;()),
 			imported_functions: <span class="macro">vec!</span>[ImportedFunction {
-				module: <span class="string">&quot;seal1&quot;</span>,
-				name: <span class="string">&quot;weight_to_fee&quot;</span>,
+				module: <span class="string">"seal1"</span>,
+				name: <span class="string">"weight_to_fee"</span>,
 				params: <span class="macro">vec!</span>[ValueType::I64, ValueType::I64, ValueType::I32, ValueType::I32],
 				return_type: <span class="prelude-val">None</span>,
 			}],
@@ -4034,8 +4036,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>code = WasmModule::&lt;T&gt;::from(ModuleDefinition {
 			memory: <span class="prelude-val">Some</span>(ImportedMemory::max::&lt;T&gt;()),
 			imported_functions: <span class="macro">vec!</span>[ImportedFunction {
-				module: <span class="string">&quot;seal0&quot;</span>,
-				name: <span class="string">&quot;seal_input&quot;</span>,
+				module: <span class="string">"seal0"</span>,
+				name: <span class="string">"seal_input"</span>,
 				params: <span class="macro">vec!</span>[ValueType::I32, ValueType::I32],
 				return_type: <span class="prelude-val">None</span>,
 			}],
@@ -4069,8 +4071,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>code = WasmModule::&lt;T&gt;::from(ModuleDefinition {
 			memory: <span class="prelude-val">Some</span>(ImportedMemory::max::&lt;T&gt;()),
 			imported_functions: <span class="macro">vec!</span>[ImportedFunction {
-				module: <span class="string">&quot;seal0&quot;</span>,
-				name: <span class="string">&quot;seal_input&quot;</span>,
+				module: <span class="string">"seal0"</span>,
+				name: <span class="string">"seal_input"</span>,
 				params: <span class="macro">vec!</span>[ValueType::I32, ValueType::I32],
 				return_type: <span class="prelude-val">None</span>,
 			}],
@@ -4102,8 +4104,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>code = WasmModule::&lt;T&gt;::from(ModuleDefinition {
 			memory: <span class="prelude-val">Some</span>(ImportedMemory::max::&lt;T&gt;()),
 			imported_functions: <span class="macro">vec!</span>[ImportedFunction {
-				module: <span class="string">&quot;seal0&quot;</span>,
-				name: <span class="string">&quot;seal_return&quot;</span>,
+				module: <span class="string">"seal0"</span>,
+				name: <span class="string">"seal_return"</span>,
 				params: <span class="macro">vec!</span>[ValueType::I32, ValueType::I32, ValueType::I32],
 				return_type: <span class="prelude-val">None</span>,
 			}],
@@ -4133,8 +4135,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>code = WasmModule::&lt;T&gt;::from(ModuleDefinition {
 			memory: <span class="prelude-val">Some</span>(ImportedMemory::max::&lt;T&gt;()),
 			imported_functions: <span class="macro">vec!</span>[ImportedFunction {
-				module: <span class="string">&quot;seal0&quot;</span>,
-				name: <span class="string">&quot;seal_return&quot;</span>,
+				module: <span class="string">"seal0"</span>,
+				name: <span class="string">"seal_return"</span>,
 				params: <span class="macro">vec!</span>[ValueType::I32, ValueType::I32, ValueType::I32],
 				return_type: <span class="prelude-val">None</span>,
 			}],
@@ -4160,7 +4162,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="comment">// The same argument as for `seal_return` is true here.
 	</span><span class="attr">#[benchmark(pov_mode = Measured)]
 	</span><span class="kw">fn </span>seal_terminate(r: Linear&lt;<span class="number">0</span>, <span class="number">1</span>&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), BenchmarkError&gt; {
-		<span class="kw">let </span>beneficiary = account::&lt;T::AccountId&gt;(<span class="string">&quot;beneficiary&quot;</span>, <span class="number">0</span>, <span class="number">0</span>);
+		<span class="kw">let </span>beneficiary = account::&lt;T::AccountId&gt;(<span class="string">"beneficiary"</span>, <span class="number">0</span>, <span class="number">0</span>);
 		<span class="kw">let </span>beneficiary_bytes = beneficiary.encode();
 		<span class="kw">let </span>beneficiary_len = beneficiary_bytes.len();
 		<span class="kw">let </span>caller = whitelisted_caller();
@@ -4174,7 +4176,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				Contracts::&lt;T&gt;::store_code_raw(new_code.code, caller.clone())<span class="question-mark">?</span>;
 				<span class="prelude-val">Ok</span>(new_code.hash)
 			})
-			.collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt;&gt;()<span class="question-mark">?</span>;
+			.collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt;&gt;()<span class="question-mark">?</span>;
 		<span class="kw">let </span>code_hash_len = code_hashes.get(<span class="number">0</span>).map(|x| x.encode().len()).unwrap_or(<span class="number">0</span>);
 		<span class="kw">let </span>code_hashes_bytes = code_hashes.iter().flat_map(|x| x.encode()).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 
@@ -4182,14 +4184,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			memory: <span class="prelude-val">Some</span>(ImportedMemory::max::&lt;T&gt;()),
 			imported_functions: <span class="macro">vec!</span>[
 				ImportedFunction {
-					module: <span class="string">&quot;seal0&quot;</span>,
-					name: <span class="string">&quot;seal_terminate&quot;</span>,
+					module: <span class="string">"seal0"</span>,
+					name: <span class="string">"seal_terminate"</span>,
 					params: <span class="macro">vec!</span>[ValueType::I32, ValueType::I32],
 					return_type: <span class="prelude-val">None</span>,
 				},
 				ImportedFunction {
-					module: <span class="string">&quot;seal0&quot;</span>,
-					name: <span class="string">&quot;lock_delegate_dependency&quot;</span>,
+					module: <span class="string">"seal0"</span>,
+					name: <span class="string">"lock_delegate_dependency"</span>,
 					params: <span class="macro">vec!</span>[ValueType::I32],
 					return_type: <span class="prelude-val">None</span>,
 				},
@@ -4266,8 +4268,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>code = WasmModule::&lt;T&gt;::from(ModuleDefinition {
 			memory: <span class="prelude-val">Some</span>(ImportedMemory::max::&lt;T&gt;()),
 			imported_functions: <span class="macro">vec!</span>[ImportedFunction {
-				module: <span class="string">&quot;seal0&quot;</span>,
-				name: <span class="string">&quot;seal_random&quot;</span>,
+				module: <span class="string">"seal0"</span>,
+				name: <span class="string">"seal_random"</span>,
 				params: <span class="macro">vec!</span>[ValueType::I32, ValueType::I32, ValueType::I32, ValueType::I32],
 				return_type: <span class="prelude-val">None</span>,
 			}],
@@ -4305,8 +4307,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>code = WasmModule::&lt;T&gt;::from(ModuleDefinition {
 			memory: <span class="prelude-val">Some</span>(ImportedMemory::max::&lt;T&gt;()),
 			imported_functions: <span class="macro">vec!</span>[ImportedFunction {
-				module: <span class="string">&quot;seal0&quot;</span>,
-				name: <span class="string">&quot;seal_deposit_event&quot;</span>,
+				module: <span class="string">"seal0"</span>,
+				name: <span class="string">"seal_deposit_event"</span>,
 				params: <span class="macro">vec!</span>[ValueType::I32, ValueType::I32, ValueType::I32, ValueType::I32],
 				return_type: <span class="prelude-val">None</span>,
 			}],
@@ -4346,8 +4348,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>code = WasmModule::&lt;T&gt;::from(ModuleDefinition {
 			memory: <span class="prelude-val">Some</span>(ImportedMemory::max::&lt;T&gt;()),
 			imported_functions: <span class="macro">vec!</span>[ImportedFunction {
-				module: <span class="string">&quot;seal0&quot;</span>,
-				name: <span class="string">&quot;seal_deposit_event&quot;</span>,
+				module: <span class="string">"seal0"</span>,
+				name: <span class="string">"seal_deposit_event"</span>,
 				params: <span class="macro">vec!</span>[ValueType::I32, ValueType::I32, ValueType::I32, ValueType::I32],
 				return_type: <span class="prelude-val">None</span>,
 			}],
@@ -4381,8 +4383,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>code = WasmModule::&lt;T&gt;::from(ModuleDefinition {
 			memory: <span class="prelude-val">Some</span>(ImportedMemory { min_pages: <span class="number">1</span>, max_pages: <span class="number">1 </span>}),
 			imported_functions: <span class="macro">vec!</span>[ImportedFunction {
-				module: <span class="string">&quot;seal0&quot;</span>,
-				name: <span class="string">&quot;seal_debug_message&quot;</span>,
+				module: <span class="string">"seal0"</span>,
+				name: <span class="string">"seal_debug_message"</span>,
 				params: <span class="macro">vec!</span>[ValueType::I32, ValueType::I32],
 				return_type: <span class="prelude-val">Some</span>(ValueType::I32),
 			}],
@@ -4435,8 +4437,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				max_pages: T::Schedule::get().limits.memory_pages,
 			}),
 			imported_functions: <span class="macro">vec!</span>[ImportedFunction {
-				module: <span class="string">&quot;seal0&quot;</span>,
-				name: <span class="string">&quot;seal_debug_message&quot;</span>,
+				module: <span class="string">"seal0"</span>,
+				name: <span class="string">"seal_debug_message"</span>,
 				params: <span class="macro">vec!</span>[ValueType::I32, ValueType::I32],
 				return_type: <span class="prelude-val">Some</span>(ValueType::I32),
 			}],
@@ -4489,8 +4491,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>code = WasmModule::&lt;T&gt;::from(ModuleDefinition {
 			memory: <span class="prelude-val">Some</span>(ImportedMemory::max::&lt;T&gt;()),
 			imported_functions: <span class="macro">vec!</span>[ImportedFunction {
-				module: <span class="string">&quot;seal2&quot;</span>,
-				name: <span class="string">&quot;set_storage&quot;</span>,
+				module: <span class="string">"seal2"</span>,
+				name: <span class="string">"set_storage"</span>,
 				params: <span class="macro">vec!</span>[ValueType::I32, ValueType::I32, ValueType::I32, ValueType::I32],
 				return_type: <span class="prelude-val">Some</span>(ValueType::I32),
 			}],
@@ -4513,12 +4515,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>info = instance.info()<span class="question-mark">?</span>;
 		<span class="kw">for </span>key <span class="kw">in </span>keys {
 			info.write(
-				<span class="kw-2">&amp;</span>Key::&lt;T&gt;::try_from_var(key).map_err(|<span class="kw">_</span>| <span class="string">&quot;Key has wrong length&quot;</span>)<span class="question-mark">?</span>,
+				<span class="kw-2">&amp;</span>Key::&lt;T&gt;::try_from_var(key).map_err(|<span class="kw">_</span>| <span class="string">"Key has wrong length"</span>)<span class="question-mark">?</span>,
 				<span class="prelude-val">Some</span>(<span class="macro">vec!</span>[]),
 				<span class="prelude-val">None</span>,
 				<span class="bool-val">false</span>,
 			)
-			.map_err(|<span class="kw">_</span>| <span class="string">&quot;Failed to write to storage during setup.&quot;</span>)<span class="question-mark">?</span>;
+			.map_err(|<span class="kw">_</span>| <span class="string">"Failed to write to storage during setup."</span>)<span class="question-mark">?</span>;
 		}
 
 		<span class="kw">let </span>res;
@@ -4539,8 +4541,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>code = WasmModule::&lt;T&gt;::from(ModuleDefinition {
 			memory: <span class="prelude-val">Some</span>(ImportedMemory::max::&lt;T&gt;()),
 			imported_functions: <span class="macro">vec!</span>[ImportedFunction {
-				module: <span class="string">&quot;seal2&quot;</span>,
-				name: <span class="string">&quot;set_storage&quot;</span>,
+				module: <span class="string">"seal2"</span>,
+				name: <span class="string">"set_storage"</span>,
 				params: <span class="macro">vec!</span>[ValueType::I32, ValueType::I32, ValueType::I32, ValueType::I32],
 				return_type: <span class="prelude-val">Some</span>(ValueType::I32),
 			}],
@@ -4559,12 +4561,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">call_builder!</span>(func, instance, code);
 		<span class="kw">let </span>info = instance.info()<span class="question-mark">?</span>;
 		info.write(
-			<span class="kw-2">&amp;</span>Key::&lt;T&gt;::try_from_var(key).map_err(|<span class="kw">_</span>| <span class="string">&quot;Key has wrong length&quot;</span>)<span class="question-mark">?</span>,
+			<span class="kw-2">&amp;</span>Key::&lt;T&gt;::try_from_var(key).map_err(|<span class="kw">_</span>| <span class="string">"Key has wrong length"</span>)<span class="question-mark">?</span>,
 			<span class="prelude-val">Some</span>(<span class="macro">vec!</span>[]),
 			<span class="prelude-val">None</span>,
 			<span class="bool-val">false</span>,
 		)
-		.map_err(|<span class="kw">_</span>| <span class="string">&quot;Failed to write to storage during setup.&quot;</span>)<span class="question-mark">?</span>;
+		.map_err(|<span class="kw">_</span>| <span class="string">"Failed to write to storage during setup."</span>)<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>res;
 		<span class="attr">#[block]
@@ -4584,8 +4586,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>code = WasmModule::&lt;T&gt;::from(ModuleDefinition {
 			memory: <span class="prelude-val">Some</span>(ImportedMemory::max::&lt;T&gt;()),
 			imported_functions: <span class="macro">vec!</span>[ImportedFunction {
-				module: <span class="string">&quot;seal2&quot;</span>,
-				name: <span class="string">&quot;set_storage&quot;</span>,
+				module: <span class="string">"seal2"</span>,
+				name: <span class="string">"set_storage"</span>,
 				params: <span class="macro">vec!</span>[ValueType::I32, ValueType::I32, ValueType::I32, ValueType::I32],
 				return_type: <span class="prelude-val">Some</span>(ValueType::I32),
 			}],
@@ -4605,12 +4607,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">call_builder!</span>(func, instance, code);
 		<span class="kw">let </span>info = instance.info()<span class="question-mark">?</span>;
 		info.write(
-			<span class="kw-2">&amp;</span>Key::&lt;T&gt;::try_from_var(key).map_err(|<span class="kw">_</span>| <span class="string">&quot;Key has wrong length&quot;</span>)<span class="question-mark">?</span>,
+			<span class="kw-2">&amp;</span>Key::&lt;T&gt;::try_from_var(key).map_err(|<span class="kw">_</span>| <span class="string">"Key has wrong length"</span>)<span class="question-mark">?</span>,
 			<span class="prelude-val">Some</span>(<span class="macro">vec!</span>[<span class="number">42u8</span>; n <span class="kw">as </span>usize]),
 			<span class="prelude-val">None</span>,
 			<span class="bool-val">false</span>,
 		)
-		.map_err(|<span class="kw">_</span>| <span class="string">&quot;Failed to write to storage during setup.&quot;</span>)<span class="question-mark">?</span>;
+		.map_err(|<span class="kw">_</span>| <span class="string">"Failed to write to storage during setup."</span>)<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>res;
 		<span class="attr">#[block]
@@ -4639,8 +4641,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>code = WasmModule::&lt;T&gt;::from(ModuleDefinition {
 			memory: <span class="prelude-val">Some</span>(ImportedMemory::max::&lt;T&gt;()),
 			imported_functions: <span class="macro">vec!</span>[ImportedFunction {
-				module: <span class="string">&quot;seal1&quot;</span>,
-				name: <span class="string">&quot;clear_storage&quot;</span>,
+				module: <span class="string">"seal1"</span>,
+				name: <span class="string">"clear_storage"</span>,
 				params: <span class="macro">vec!</span>[ValueType::I32, ValueType::I32],
 				return_type: <span class="prelude-val">Some</span>(ValueType::I32),
 			}],
@@ -4660,12 +4662,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>info = instance.info()<span class="question-mark">?</span>;
 		<span class="kw">for </span>key <span class="kw">in </span>keys {
 			info.write(
-				<span class="kw-2">&amp;</span>Key::&lt;T&gt;::try_from_var(key).map_err(|<span class="kw">_</span>| <span class="string">&quot;Key has wrong length&quot;</span>)<span class="question-mark">?</span>,
+				<span class="kw-2">&amp;</span>Key::&lt;T&gt;::try_from_var(key).map_err(|<span class="kw">_</span>| <span class="string">"Key has wrong length"</span>)<span class="question-mark">?</span>,
 				<span class="prelude-val">Some</span>(<span class="macro">vec!</span>[]),
 				<span class="prelude-val">None</span>,
 				<span class="bool-val">false</span>,
 			)
-			.map_err(|<span class="kw">_</span>| <span class="string">&quot;Failed to write to storage during setup.&quot;</span>)<span class="question-mark">?</span>;
+			.map_err(|<span class="kw">_</span>| <span class="string">"Failed to write to storage during setup."</span>)<span class="question-mark">?</span>;
 		}
 		&lt;ContractInfoOf&lt;T&gt;&gt;::insert(<span class="kw-2">&amp;</span>instance.account_id, info);
 
@@ -4687,8 +4689,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>code = WasmModule::&lt;T&gt;::from(ModuleDefinition {
 			memory: <span class="prelude-val">Some</span>(ImportedMemory::max::&lt;T&gt;()),
 			imported_functions: <span class="macro">vec!</span>[ImportedFunction {
-				module: <span class="string">&quot;seal1&quot;</span>,
-				name: <span class="string">&quot;clear_storage&quot;</span>,
+				module: <span class="string">"seal1"</span>,
+				name: <span class="string">"clear_storage"</span>,
 				params: <span class="macro">vec!</span>[ValueType::I32, ValueType::I32],
 				return_type: <span class="prelude-val">Some</span>(ValueType::I32),
 			}],
@@ -4705,12 +4707,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">call_builder!</span>(func, instance, code);
 		<span class="kw">let </span>info = instance.info()<span class="question-mark">?</span>;
 		info.write(
-			<span class="kw-2">&amp;</span>Key::&lt;T&gt;::try_from_var(key).map_err(|<span class="kw">_</span>| <span class="string">&quot;Key has wrong length&quot;</span>)<span class="question-mark">?</span>,
+			<span class="kw-2">&amp;</span>Key::&lt;T&gt;::try_from_var(key).map_err(|<span class="kw">_</span>| <span class="string">"Key has wrong length"</span>)<span class="question-mark">?</span>,
 			<span class="prelude-val">Some</span>(<span class="macro">vec!</span>[<span class="number">42u8</span>; n <span class="kw">as </span>usize]),
 			<span class="prelude-val">None</span>,
 			<span class="bool-val">false</span>,
 		)
-		.map_err(|<span class="kw">_</span>| <span class="string">&quot;Failed to write to storage during setup.&quot;</span>)<span class="question-mark">?</span>;
+		.map_err(|<span class="kw">_</span>| <span class="string">"Failed to write to storage during setup."</span>)<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>res;
 		<span class="attr">#[block]
@@ -4737,8 +4739,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>code = WasmModule::&lt;T&gt;::from(ModuleDefinition {
 			memory: <span class="prelude-val">Some</span>(ImportedMemory::max::&lt;T&gt;()),
 			imported_functions: <span class="macro">vec!</span>[ImportedFunction {
-				module: <span class="string">&quot;seal1&quot;</span>,
-				name: <span class="string">&quot;get_storage&quot;</span>,
+				module: <span class="string">"seal1"</span>,
+				name: <span class="string">"get_storage"</span>,
 				params: <span class="macro">vec!</span>[ValueType::I32, ValueType::I32, ValueType::I32, ValueType::I32],
 				return_type: <span class="prelude-val">Some</span>(ValueType::I32),
 			}],
@@ -4766,12 +4768,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>info = instance.info()<span class="question-mark">?</span>;
 		<span class="kw">for </span>key <span class="kw">in </span>keys {
 			info.write(
-				<span class="kw-2">&amp;</span>Key::&lt;T&gt;::try_from_var(key).map_err(|<span class="kw">_</span>| <span class="string">&quot;Key has wrong length&quot;</span>)<span class="question-mark">?</span>,
+				<span class="kw-2">&amp;</span>Key::&lt;T&gt;::try_from_var(key).map_err(|<span class="kw">_</span>| <span class="string">"Key has wrong length"</span>)<span class="question-mark">?</span>,
 				<span class="prelude-val">Some</span>(<span class="macro">vec!</span>[]),
 				<span class="prelude-val">None</span>,
 				<span class="bool-val">false</span>,
 			)
-			.map_err(|<span class="kw">_</span>| <span class="string">&quot;Failed to write to storage during setup.&quot;</span>)<span class="question-mark">?</span>;
+			.map_err(|<span class="kw">_</span>| <span class="string">"Failed to write to storage during setup."</span>)<span class="question-mark">?</span>;
 		}
 		&lt;ContractInfoOf&lt;T&gt;&gt;::insert(<span class="kw-2">&amp;</span>instance.account_id, info);
 
@@ -4793,8 +4795,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>code = WasmModule::&lt;T&gt;::from(ModuleDefinition {
 			memory: <span class="prelude-val">Some</span>(ImportedMemory::max::&lt;T&gt;()),
 			imported_functions: <span class="macro">vec!</span>[ImportedFunction {
-				module: <span class="string">&quot;seal1&quot;</span>,
-				name: <span class="string">&quot;get_storage&quot;</span>,
+				module: <span class="string">"seal1"</span>,
+				name: <span class="string">"get_storage"</span>,
 				params: <span class="macro">vec!</span>[ValueType::I32, ValueType::I32, ValueType::I32, ValueType::I32],
 				return_type: <span class="prelude-val">Some</span>(ValueType::I32),
 			}],
@@ -4819,12 +4821,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">call_builder!</span>(func, instance, code);
 		<span class="kw">let </span>info = instance.info()<span class="question-mark">?</span>;
 		info.write(
-			<span class="kw-2">&amp;</span>Key::&lt;T&gt;::try_from_var(key).map_err(|<span class="kw">_</span>| <span class="string">&quot;Key has wrong length&quot;</span>)<span class="question-mark">?</span>,
+			<span class="kw-2">&amp;</span>Key::&lt;T&gt;::try_from_var(key).map_err(|<span class="kw">_</span>| <span class="string">"Key has wrong length"</span>)<span class="question-mark">?</span>,
 			<span class="prelude-val">Some</span>(<span class="macro">vec!</span>[<span class="number">42u8</span>; n <span class="kw">as </span>usize]),
 			<span class="prelude-val">None</span>,
 			<span class="bool-val">false</span>,
 		)
-		.map_err(|<span class="kw">_</span>| <span class="string">&quot;Failed to write to storage during setup.&quot;</span>)<span class="question-mark">?</span>;
+		.map_err(|<span class="kw">_</span>| <span class="string">"Failed to write to storage during setup."</span>)<span class="question-mark">?</span>;
 		&lt;ContractInfoOf&lt;T&gt;&gt;::insert(<span class="kw-2">&amp;</span>instance.account_id, info);
 
 		<span class="kw">let </span>res;
@@ -4854,8 +4856,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>code = WasmModule::&lt;T&gt;::from(ModuleDefinition {
 			memory: <span class="prelude-val">Some</span>(ImportedMemory::max::&lt;T&gt;()),
 			imported_functions: <span class="macro">vec!</span>[ImportedFunction {
-				module: <span class="string">&quot;seal1&quot;</span>,
-				name: <span class="string">&quot;contains_storage&quot;</span>,
+				module: <span class="string">"seal1"</span>,
+				name: <span class="string">"contains_storage"</span>,
 				params: <span class="macro">vec!</span>[ValueType::I32, ValueType::I32],
 				return_type: <span class="prelude-val">Some</span>(ValueType::I32),
 			}],
@@ -4875,12 +4877,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>info = instance.info()<span class="question-mark">?</span>;
 		<span class="kw">for </span>key <span class="kw">in </span>keys {
 			info.write(
-				<span class="kw-2">&amp;</span>Key::&lt;T&gt;::try_from_var(key).map_err(|<span class="kw">_</span>| <span class="string">&quot;Key has wrong length&quot;</span>)<span class="question-mark">?</span>,
+				<span class="kw-2">&amp;</span>Key::&lt;T&gt;::try_from_var(key).map_err(|<span class="kw">_</span>| <span class="string">"Key has wrong length"</span>)<span class="question-mark">?</span>,
 				<span class="prelude-val">Some</span>(<span class="macro">vec!</span>[]),
 				<span class="prelude-val">None</span>,
 				<span class="bool-val">false</span>,
 			)
-			.map_err(|<span class="kw">_</span>| <span class="string">&quot;Failed to write to storage during setup.&quot;</span>)<span class="question-mark">?</span>;
+			.map_err(|<span class="kw">_</span>| <span class="string">"Failed to write to storage during setup."</span>)<span class="question-mark">?</span>;
 		}
 		&lt;ContractInfoOf&lt;T&gt;&gt;::insert(<span class="kw-2">&amp;</span>instance.account_id, info);
 
@@ -4902,8 +4904,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>code = WasmModule::&lt;T&gt;::from(ModuleDefinition {
 			memory: <span class="prelude-val">Some</span>(ImportedMemory::max::&lt;T&gt;()),
 			imported_functions: <span class="macro">vec!</span>[ImportedFunction {
-				module: <span class="string">&quot;seal1&quot;</span>,
-				name: <span class="string">&quot;contains_storage&quot;</span>,
+				module: <span class="string">"seal1"</span>,
+				name: <span class="string">"contains_storage"</span>,
 				params: <span class="macro">vec!</span>[ValueType::I32, ValueType::I32],
 				return_type: <span class="prelude-val">Some</span>(ValueType::I32),
 			}],
@@ -4920,12 +4922,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">call_builder!</span>(func, instance, code);
 		<span class="kw">let </span>info = instance.info()<span class="question-mark">?</span>;
 		info.write(
-			<span class="kw-2">&amp;</span>Key::&lt;T&gt;::try_from_var(key).map_err(|<span class="kw">_</span>| <span class="string">&quot;Key has wrong length&quot;</span>)<span class="question-mark">?</span>,
+			<span class="kw-2">&amp;</span>Key::&lt;T&gt;::try_from_var(key).map_err(|<span class="kw">_</span>| <span class="string">"Key has wrong length"</span>)<span class="question-mark">?</span>,
 			<span class="prelude-val">Some</span>(<span class="macro">vec!</span>[<span class="number">42u8</span>; n <span class="kw">as </span>usize]),
 			<span class="prelude-val">None</span>,
 			<span class="bool-val">false</span>,
 		)
-		.map_err(|<span class="kw">_</span>| <span class="string">&quot;Failed to write to storage during setup.&quot;</span>)<span class="question-mark">?</span>;
+		.map_err(|<span class="kw">_</span>| <span class="string">"Failed to write to storage during setup."</span>)<span class="question-mark">?</span>;
 		&lt;ContractInfoOf&lt;T&gt;&gt;::insert(<span class="kw-2">&amp;</span>instance.account_id, info);
 
 		<span class="kw">let </span>res;
@@ -4952,8 +4954,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>code = WasmModule::&lt;T&gt;::from(ModuleDefinition {
 			memory: <span class="prelude-val">Some</span>(ImportedMemory::max::&lt;T&gt;()),
 			imported_functions: <span class="macro">vec!</span>[ImportedFunction {
-				module: <span class="string">&quot;seal0&quot;</span>,
-				name: <span class="string">&quot;take_storage&quot;</span>,
+				module: <span class="string">"seal0"</span>,
+				name: <span class="string">"take_storage"</span>,
 				params: <span class="macro">vec!</span>[ValueType::I32, ValueType::I32, ValueType::I32, ValueType::I32],
 				return_type: <span class="prelude-val">Some</span>(ValueType::I32),
 			}],
@@ -4981,12 +4983,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>info = instance.info()<span class="question-mark">?</span>;
 		<span class="kw">for </span>key <span class="kw">in </span>keys {
 			info.write(
-				<span class="kw-2">&amp;</span>Key::&lt;T&gt;::try_from_var(key).map_err(|<span class="kw">_</span>| <span class="string">&quot;Key has wrong length&quot;</span>)<span class="question-mark">?</span>,
+				<span class="kw-2">&amp;</span>Key::&lt;T&gt;::try_from_var(key).map_err(|<span class="kw">_</span>| <span class="string">"Key has wrong length"</span>)<span class="question-mark">?</span>,
 				<span class="prelude-val">Some</span>(<span class="macro">vec!</span>[]),
 				<span class="prelude-val">None</span>,
 				<span class="bool-val">false</span>,
 			)
-			.map_err(|<span class="kw">_</span>| <span class="string">&quot;Failed to write to storage during setup.&quot;</span>)<span class="question-mark">?</span>;
+			.map_err(|<span class="kw">_</span>| <span class="string">"Failed to write to storage during setup."</span>)<span class="question-mark">?</span>;
 		}
 		&lt;ContractInfoOf&lt;T&gt;&gt;::insert(<span class="kw-2">&amp;</span>instance.account_id, info);
 
@@ -5008,8 +5010,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>code = WasmModule::&lt;T&gt;::from(ModuleDefinition {
 			memory: <span class="prelude-val">Some</span>(ImportedMemory::max::&lt;T&gt;()),
 			imported_functions: <span class="macro">vec!</span>[ImportedFunction {
-				module: <span class="string">&quot;seal0&quot;</span>,
-				name: <span class="string">&quot;take_storage&quot;</span>,
+				module: <span class="string">"seal0"</span>,
+				name: <span class="string">"take_storage"</span>,
 				params: <span class="macro">vec!</span>[ValueType::I32, ValueType::I32, ValueType::I32, ValueType::I32],
 				return_type: <span class="prelude-val">Some</span>(ValueType::I32),
 			}],
@@ -5034,12 +5036,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">call_builder!</span>(func, instance, code);
 		<span class="kw">let </span>info = instance.info()<span class="question-mark">?</span>;
 		info.write(
-			<span class="kw-2">&amp;</span>Key::&lt;T&gt;::try_from_var(key).map_err(|<span class="kw">_</span>| <span class="string">&quot;Key has wrong length&quot;</span>)<span class="question-mark">?</span>,
+			<span class="kw-2">&amp;</span>Key::&lt;T&gt;::try_from_var(key).map_err(|<span class="kw">_</span>| <span class="string">"Key has wrong length"</span>)<span class="question-mark">?</span>,
 			<span class="prelude-val">Some</span>(<span class="macro">vec!</span>[<span class="number">42u8</span>; n <span class="kw">as </span>usize]),
 			<span class="prelude-val">None</span>,
 			<span class="bool-val">false</span>,
 		)
-		.map_err(|<span class="kw">_</span>| <span class="string">&quot;Failed to write to storage during setup.&quot;</span>)<span class="question-mark">?</span>;
+		.map_err(|<span class="kw">_</span>| <span class="string">"Failed to write to storage during setup."</span>)<span class="question-mark">?</span>;
 		&lt;ContractInfoOf&lt;T&gt;&gt;::insert(<span class="kw-2">&amp;</span>instance.account_id, info);
 
 		<span class="kw">let </span>res;
@@ -5055,7 +5057,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="attr">#[benchmark(pov_mode = Measured)]
 	</span><span class="kw">fn </span>seal_transfer(r: Linear&lt;<span class="number">0</span>, API_BENCHMARK_RUNS&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), BenchmarkError&gt; {
 		<span class="kw">let </span>accounts =
-			(<span class="number">0</span>..r).map(|i| account::&lt;T::AccountId&gt;(<span class="string">&quot;receiver&quot;</span>, i, <span class="number">0</span>)).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+			(<span class="number">0</span>..r).map(|i| account::&lt;T::AccountId&gt;(<span class="string">"receiver"</span>, i, <span class="number">0</span>)).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 		<span class="kw">let </span>account_len = accounts.get(<span class="number">0</span>).map(|i| i.encode().len()).unwrap_or(<span class="number">0</span>);
 		<span class="kw">let </span>account_bytes = accounts.iter().flat_map(|x| x.encode()).collect();
 		<span class="kw">let </span>value = Pallet::&lt;T&gt;::min_balance();
@@ -5065,8 +5067,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>code = WasmModule::&lt;T&gt;::from(ModuleDefinition {
 			memory: <span class="prelude-val">Some</span>(ImportedMemory::max::&lt;T&gt;()),
 			imported_functions: <span class="macro">vec!</span>[ImportedFunction {
-				module: <span class="string">&quot;seal0&quot;</span>,
-				name: <span class="string">&quot;seal_transfer&quot;</span>,
+				module: <span class="string">"seal0"</span>,
+				name: <span class="string">"seal_transfer"</span>,
 				params: <span class="macro">vec!</span>[ValueType::I32, ValueType::I32, ValueType::I32, ValueType::I32],
 				return_type: <span class="prelude-val">Some</span>(ValueType::I32),
 			}],
@@ -5134,8 +5136,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>code = WasmModule::&lt;T&gt;::from(ModuleDefinition {
 			memory: <span class="prelude-val">Some</span>(ImportedMemory::max::&lt;T&gt;()),
 			imported_functions: <span class="macro">vec!</span>[ImportedFunction {
-				module: <span class="string">&quot;seal2&quot;</span>,
-				name: <span class="string">&quot;call&quot;</span>,
+				module: <span class="string">"seal2"</span>,
+				name: <span class="string">"call"</span>,
 				params: <span class="macro">vec!</span>[
 					ValueType::I32,
 					ValueType::I32,
@@ -5198,7 +5200,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				Contracts::&lt;T&gt;::store_code_raw(code.code, caller)<span class="question-mark">?</span>;
 				<span class="prelude-val">Ok</span>(code.hash)
 			})
-			.collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt;&gt;()<span class="question-mark">?</span>;
+			.collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt;&gt;()<span class="question-mark">?</span>;
 		<span class="kw">let </span>hash_len = hashes.get(<span class="number">0</span>).map(|x| x.encode().len()).unwrap_or(<span class="number">0</span>);
 		<span class="kw">let </span>hashes_bytes = hashes.iter().flat_map(|x| x.encode()).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 		<span class="kw">let </span>hashes_offset = <span class="number">0</span>;
@@ -5206,8 +5208,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>code = WasmModule::&lt;T&gt;::from(ModuleDefinition {
 			memory: <span class="prelude-val">Some</span>(ImportedMemory::max::&lt;T&gt;()),
 			imported_functions: <span class="macro">vec!</span>[ImportedFunction {
-				module: <span class="string">&quot;seal0&quot;</span>,
-				name: <span class="string">&quot;seal_delegate_call&quot;</span>,
+				module: <span class="string">"seal0"</span>,
+				name: <span class="string">"seal_delegate_call"</span>,
 				params: <span class="macro">vec!</span>[
 					ValueType::I32,
 					ValueType::I32,
@@ -5257,8 +5259,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>code = WasmModule::&lt;T&gt;::from(ModuleDefinition {
 			memory: <span class="prelude-val">Some</span>(ImportedMemory::max::&lt;T&gt;()),
 			imported_functions: <span class="macro">vec!</span>[ImportedFunction {
-				module: <span class="string">&quot;seal1&quot;</span>,
-				name: <span class="string">&quot;seal_call&quot;</span>,
+				module: <span class="string">"seal1"</span>,
+				name: <span class="string">"seal_call"</span>,
 				params: <span class="macro">vec!</span>[
 					ValueType::I32,
 					ValueType::I32,
@@ -5325,7 +5327,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				Contracts::&lt;T&gt;::store_code_raw(code.code, caller)<span class="question-mark">?</span>;
 				<span class="prelude-val">Ok</span>(code.hash)
 			})
-			.collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt;&gt;()<span class="question-mark">?</span>;
+			.collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt;&gt;()<span class="question-mark">?</span>;
 		<span class="kw">let </span>hash_len = hashes.get(<span class="number">0</span>).map(|x| x.encode().len()).unwrap_or(<span class="number">0</span>);
 		<span class="kw">let </span>hashes_bytes = hashes.iter().flat_map(|x| x.encode()).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 		<span class="kw">let </span>hashes_len = <span class="kw-2">&amp;</span>hashes_bytes.len();
@@ -5341,8 +5343,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>code = WasmModule::&lt;T&gt;::from(ModuleDefinition {
 			memory: <span class="prelude-val">Some</span>(ImportedMemory::max::&lt;T&gt;()),
 			imported_functions: <span class="macro">vec!</span>[ImportedFunction {
-				module: <span class="string">&quot;seal2&quot;</span>,
-				name: <span class="string">&quot;instantiate&quot;</span>,
+				module: <span class="string">"seal2"</span>,
+				name: <span class="string">"instantiate"</span>,
 				params: <span class="macro">vec!</span>[
 					ValueType::I32,
 					ValueType::I64,
@@ -5375,7 +5377,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					</span>Regular(Instruction::I64Const(<span class="number">0</span>)),              <span class="comment">// ref_time weight
 					</span>Regular(Instruction::I64Const(<span class="number">0</span>)),              <span class="comment">// proof_size weight
 					</span>Regular(Instruction::I32Const(SENTINEL <span class="kw">as </span>i32)), <span class="comment">/* deposit limit ptr: use
-					                                                 * parent&#39;s limit */
+					                                                 * parent's limit */
 					</span>Regular(Instruction::I32Const(<span class="number">0</span>)),                      <span class="comment">// value_ptr
 					</span>Regular(Instruction::I32Const(<span class="number">0</span>)),                      <span class="comment">// input_data_ptr
 					</span>Regular(Instruction::I32Const(<span class="number">0</span>)),                      <span class="comment">// input_data_len
@@ -5401,7 +5403,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">for </span>addr <span class="kw">in </span><span class="kw-2">&amp;</span>addresses {
 			<span class="kw">if </span>ContractInfoOf::&lt;T&gt;::get(<span class="kw-2">&amp;</span>addr).is_some() {
-				<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;Expected that contract does not exist at this point.&quot;</span>.into());
+				<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Expected that contract does not exist at this point."</span>.into());
 			}
 		}
 
@@ -5412,7 +5414,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 		<span class="macro">assert_eq!</span>(res.did_revert(), <span class="bool-val">false</span>);
 		<span class="kw">for </span>addr <span class="kw">in </span><span class="kw-2">&amp;</span>addresses {
-			ContractInfoOf::&lt;T&gt;::get(<span class="kw-2">&amp;</span>addr).ok_or(<span class="string">&quot;Contract should have been instantiated&quot;</span>)<span class="question-mark">?</span>;
+			ContractInfoOf::&lt;T&gt;::get(<span class="kw-2">&amp;</span>addr).ok_or(<span class="string">"Contract should have been instantiated"</span>)<span class="question-mark">?</span>;
 		}
 		<span class="prelude-val">Ok</span>(())
 	}
@@ -5435,8 +5437,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>code = WasmModule::&lt;T&gt;::from(ModuleDefinition {
 			memory: <span class="prelude-val">Some</span>(ImportedMemory::max::&lt;T&gt;()),
 			imported_functions: <span class="macro">vec!</span>[ImportedFunction {
-				module: <span class="string">&quot;seal1&quot;</span>,
-				name: <span class="string">&quot;seal_instantiate&quot;</span>,
+				module: <span class="string">"seal1"</span>,
+				name: <span class="string">"seal_instantiate"</span>,
 				params: <span class="macro">vec!</span>[
 					ValueType::I32,
 					ValueType::I64,
@@ -5495,7 +5497,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="comment">// Only the overhead of calling the function itself with minimal arguments.
 	</span><span class="attr">#[benchmark(pov_mode = Measured)]
 	</span><span class="kw">fn </span>seal_hash_sha2_256(r: Linear&lt;<span class="number">0</span>, API_BENCHMARK_RUNS&gt;) {
-		<span class="macro">call_builder!</span>(func, WasmModule::hasher(<span class="string">&quot;seal_hash_sha2_256&quot;</span>, r, <span class="number">0</span>));
+		<span class="macro">call_builder!</span>(func, WasmModule::hasher(<span class="string">"seal_hash_sha2_256"</span>, r, <span class="number">0</span>));
 
 		<span class="kw">let </span>res;
 		<span class="attr">#[block]
@@ -5508,7 +5510,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="comment">// `n`: Input to hash in bytes
 	</span><span class="attr">#[benchmark(pov_mode = Measured)]
 	</span><span class="kw">fn </span>seal_hash_sha2_256_per_byte(n: Linear&lt;<span class="number">0</span>, { code::max_pages::&lt;T&gt;() * <span class="number">64 </span>* <span class="number">1024 </span>}&gt;) {
-		<span class="macro">call_builder!</span>(func, WasmModule::hasher(<span class="string">&quot;seal_hash_sha2_256&quot;</span>, <span class="number">1</span>, n));
+		<span class="macro">call_builder!</span>(func, WasmModule::hasher(<span class="string">"seal_hash_sha2_256"</span>, <span class="number">1</span>, n));
 
 		<span class="kw">let </span>res;
 		<span class="attr">#[block]
@@ -5521,7 +5523,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="comment">// Only the overhead of calling the function itself with minimal arguments.
 	</span><span class="attr">#[benchmark(pov_mode = Measured)]
 	</span><span class="kw">fn </span>seal_hash_keccak_256(r: Linear&lt;<span class="number">0</span>, API_BENCHMARK_RUNS&gt;) {
-		<span class="macro">call_builder!</span>(func, WasmModule::hasher(<span class="string">&quot;seal_hash_keccak_256&quot;</span>, r, <span class="number">0</span>));
+		<span class="macro">call_builder!</span>(func, WasmModule::hasher(<span class="string">"seal_hash_keccak_256"</span>, r, <span class="number">0</span>));
 
 		<span class="kw">let </span>res;
 		<span class="attr">#[block]
@@ -5534,7 +5536,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="comment">// `n`: Input to hash in bytes
 	</span><span class="attr">#[benchmark(pov_mode = Measured)]
 	</span><span class="kw">fn </span>seal_hash_keccak_256_per_byte(n: Linear&lt;<span class="number">0</span>, { code::max_pages::&lt;T&gt;() * <span class="number">64 </span>* <span class="number">1024 </span>}&gt;) {
-		<span class="macro">call_builder!</span>(func, WasmModule::hasher(<span class="string">&quot;seal_hash_keccak_256&quot;</span>, <span class="number">1</span>, n));
+		<span class="macro">call_builder!</span>(func, WasmModule::hasher(<span class="string">"seal_hash_keccak_256"</span>, <span class="number">1</span>, n));
 
 		<span class="kw">let </span>res;
 		<span class="attr">#[block]
@@ -5547,7 +5549,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="comment">// Only the overhead of calling the function itself with minimal arguments.
 	</span><span class="attr">#[benchmark(pov_mode = Measured)]
 	</span><span class="kw">fn </span>seal_hash_blake2_256(r: Linear&lt;<span class="number">0</span>, API_BENCHMARK_RUNS&gt;) {
-		<span class="macro">call_builder!</span>(func, WasmModule::hasher(<span class="string">&quot;seal_hash_blake2_256&quot;</span>, r, <span class="number">0</span>));
+		<span class="macro">call_builder!</span>(func, WasmModule::hasher(<span class="string">"seal_hash_blake2_256"</span>, r, <span class="number">0</span>));
 
 		<span class="kw">let </span>res;
 		<span class="attr">#[block]
@@ -5560,7 +5562,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="comment">// `n`: Input to hash in bytes
 	</span><span class="attr">#[benchmark(pov_mode = Measured)]
 	</span><span class="kw">fn </span>seal_hash_blake2_256_per_byte(n: Linear&lt;<span class="number">0</span>, { code::max_pages::&lt;T&gt;() * <span class="number">64 </span>* <span class="number">1024 </span>}&gt;) {
-		<span class="macro">call_builder!</span>(func, WasmModule::hasher(<span class="string">&quot;seal_hash_blake2_256&quot;</span>, <span class="number">1</span>, n));
+		<span class="macro">call_builder!</span>(func, WasmModule::hasher(<span class="string">"seal_hash_blake2_256"</span>, <span class="number">1</span>, n));
 
 		<span class="kw">let </span>res;
 		<span class="attr">#[block]
@@ -5573,7 +5575,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="comment">// Only the overhead of calling the function itself with minimal arguments.
 	</span><span class="attr">#[benchmark(pov_mode = Measured)]
 	</span><span class="kw">fn </span>seal_hash_blake2_128(r: Linear&lt;<span class="number">0</span>, API_BENCHMARK_RUNS&gt;) {
-		<span class="macro">call_builder!</span>(func, WasmModule::hasher(<span class="string">&quot;seal_hash_blake2_128&quot;</span>, r, <span class="number">0</span>));
+		<span class="macro">call_builder!</span>(func, WasmModule::hasher(<span class="string">"seal_hash_blake2_128"</span>, r, <span class="number">0</span>));
 
 		<span class="kw">let </span>res;
 		<span class="attr">#[block]
@@ -5586,7 +5588,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="comment">// `n`: Input to hash in bytes
 	</span><span class="attr">#[benchmark(pov_mode = Measured)]
 	</span><span class="kw">fn </span>seal_hash_blake2_128_per_byte(n: Linear&lt;<span class="number">0</span>, { code::max_pages::&lt;T&gt;() * <span class="number">64 </span>* <span class="number">1024 </span>}&gt;) {
-		<span class="macro">call_builder!</span>(func, WasmModule::hasher(<span class="string">&quot;seal_hash_blake2_128&quot;</span>, <span class="number">1</span>, n));
+		<span class="macro">call_builder!</span>(func, WasmModule::hasher(<span class="string">"seal_hash_blake2_128"</span>, <span class="number">1</span>, n));
 
 		<span class="kw">let </span>res;
 		<span class="attr">#[block]
@@ -5605,17 +5607,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>message = (<span class="number">0</span>..n).zip((<span class="number">32u8</span>..<span class="number">127u8</span>).cycle()).map(|(<span class="kw">_</span>, c)| c).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 		<span class="kw">let </span>message_len = message.len() <span class="kw">as </span>i32;
 
-		<span class="kw">let </span>key_type = sp_core::crypto::KeyTypeId(<span class="kw-2">*</span><span class="string">b&quot;code&quot;</span>);
+		<span class="kw">let </span>key_type = sp_core::crypto::KeyTypeId(<span class="kw-2">*</span><span class="string">b"code"</span>);
 		<span class="kw">let </span>pub_key = sp_io::crypto::sr25519_generate(key_type, <span class="prelude-val">None</span>);
 		<span class="kw">let </span>sig =
-			sp_io::crypto::sr25519_sign(key_type, <span class="kw-2">&amp;</span>pub_key, <span class="kw-2">&amp;</span>message).expect(<span class="string">&quot;Generates signature&quot;</span>);
+			sp_io::crypto::sr25519_sign(key_type, <span class="kw-2">&amp;</span>pub_key, <span class="kw-2">&amp;</span>message).expect(<span class="string">"Generates signature"</span>);
 		<span class="kw">let </span>sig = AsRef::&lt;[u8; <span class="number">64</span>]&gt;::as_ref(<span class="kw-2">&amp;</span>sig).to_vec();
 
 		<span class="kw">let </span>code = WasmModule::&lt;T&gt;::from(ModuleDefinition {
 			memory: <span class="prelude-val">Some</span>(ImportedMemory::max::&lt;T&gt;()),
 			imported_functions: <span class="macro">vec!</span>[ImportedFunction {
-				module: <span class="string">&quot;seal0&quot;</span>,
-				name: <span class="string">&quot;sr25519_verify&quot;</span>,
+				module: <span class="string">"seal0"</span>,
+				name: <span class="string">"sr25519_verify"</span>,
 				params: <span class="macro">vec!</span>[ValueType::I32, ValueType::I32, ValueType::I32, ValueType::I32],
 				return_type: <span class="prelude-val">Some</span>(ValueType::I32),
 			}],
@@ -5648,20 +5650,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="comment">// Only calling the function itself with valid arguments.
-	// It generates different private keys and signatures for the message &quot;Hello world&quot;.
+	// It generates different private keys and signatures for the message "Hello world".
 	// This is a slow call: We reduce the number of runs.
 	</span><span class="attr">#[benchmark(pov_mode = Measured)]
 	</span><span class="kw">fn </span>seal_sr25519_verify(
 		r: Linear&lt;<span class="number">0</span>, { API_BENCHMARK_RUNS / <span class="number">10 </span>}&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), BenchmarkError&gt; {
-		<span class="kw">let </span>message = <span class="string">b&quot;Hello world&quot;</span>.to_vec();
+		<span class="kw">let </span>message = <span class="string">b"Hello world"</span>.to_vec();
 		<span class="kw">let </span>message_len = message.len() <span class="kw">as </span>i32;
-		<span class="kw">let </span>key_type = sp_core::crypto::KeyTypeId(<span class="kw-2">*</span><span class="string">b&quot;code&quot;</span>);
+		<span class="kw">let </span>key_type = sp_core::crypto::KeyTypeId(<span class="kw-2">*</span><span class="string">b"code"</span>);
 		<span class="kw">let </span>sig_params = (<span class="number">0</span>..r)
 			.flat_map(|<span class="kw">_</span>| {
 				<span class="kw">let </span>pub_key = sp_io::crypto::sr25519_generate(key_type, <span class="prelude-val">None</span>);
 				<span class="kw">let </span>sig = sp_io::crypto::sr25519_sign(key_type, <span class="kw-2">&amp;</span>pub_key, <span class="kw-2">&amp;</span>message)
-					.expect(<span class="string">&quot;Generates signature&quot;</span>);
+					.expect(<span class="string">"Generates signature"</span>);
 				<span class="kw">let </span>data: [u8; <span class="number">96</span>] = [AsRef::&lt;[u8]&gt;::as_ref(<span class="kw-2">&amp;</span>sig), AsRef::&lt;[u8]&gt;::as_ref(<span class="kw-2">&amp;</span>pub_key)]
 					.concat()
 					.try_into()
@@ -5674,8 +5676,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>code = WasmModule::&lt;T&gt;::from(ModuleDefinition {
 			memory: <span class="prelude-val">Some</span>(ImportedMemory::max::&lt;T&gt;()),
 			imported_functions: <span class="macro">vec!</span>[ImportedFunction {
-				module: <span class="string">&quot;seal0&quot;</span>,
-				name: <span class="string">&quot;sr25519_verify&quot;</span>,
+				module: <span class="string">"seal0"</span>,
+				name: <span class="string">"sr25519_verify"</span>,
 				params: <span class="macro">vec!</span>[ValueType::I32, ValueType::I32, ValueType::I32, ValueType::I32],
 				return_type: <span class="prelude-val">Some</span>(ValueType::I32),
 			}],
@@ -5708,17 +5710,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="comment">// Only calling the function itself with valid arguments.
-	// It generates different private keys and signatures for the message &quot;Hello world&quot;.
+	// It generates different private keys and signatures for the message "Hello world".
 	// This is a slow call: We reduce the number of runs.
 	</span><span class="attr">#[benchmark(pov_mode = Measured)]
 	</span><span class="kw">fn </span>seal_ecdsa_recover(r: Linear&lt;<span class="number">0</span>, { API_BENCHMARK_RUNS / <span class="number">10 </span>}&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), BenchmarkError&gt; {
-		<span class="kw">let </span>message_hash = sp_io::hashing::blake2_256(<span class="string">&quot;Hello world&quot;</span>.as_bytes());
-		<span class="kw">let </span>key_type = sp_core::crypto::KeyTypeId(<span class="kw-2">*</span><span class="string">b&quot;code&quot;</span>);
+		<span class="kw">let </span>message_hash = sp_io::hashing::blake2_256(<span class="string">"Hello world"</span>.as_bytes());
+		<span class="kw">let </span>key_type = sp_core::crypto::KeyTypeId(<span class="kw-2">*</span><span class="string">b"code"</span>);
 		<span class="kw">let </span>signatures = (<span class="number">0</span>..r)
 			.map(|<span class="kw">_</span>| {
 				<span class="kw">let </span>pub_key = sp_io::crypto::ecdsa_generate(key_type, <span class="prelude-val">None</span>);
 				<span class="kw">let </span>sig = sp_io::crypto::ecdsa_sign_prehashed(key_type, <span class="kw-2">&amp;</span>pub_key, <span class="kw-2">&amp;</span>message_hash)
-					.expect(<span class="string">&quot;Generates signature&quot;</span>);
+					.expect(<span class="string">"Generates signature"</span>);
 				AsRef::&lt;[u8; <span class="number">65</span>]&gt;::as_ref(<span class="kw-2">&amp;</span>sig).to_vec()
 			})
 			.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
@@ -5728,8 +5730,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>code = WasmModule::&lt;T&gt;::from(ModuleDefinition {
 			memory: <span class="prelude-val">Some</span>(ImportedMemory::max::&lt;T&gt;()),
 			imported_functions: <span class="macro">vec!</span>[ImportedFunction {
-				module: <span class="string">&quot;seal0&quot;</span>,
-				name: <span class="string">&quot;seal_ecdsa_recover&quot;</span>,
+				module: <span class="string">"seal0"</span>,
+				name: <span class="string">"seal_ecdsa_recover"</span>,
 				params: <span class="macro">vec!</span>[ValueType::I32, ValueType::I32, ValueType::I32],
 				return_type: <span class="prelude-val">Some</span>(ValueType::I32),
 			}],
@@ -5767,7 +5769,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>seal_ecdsa_to_eth_address(
 		r: Linear&lt;<span class="number">0</span>, { API_BENCHMARK_RUNS / <span class="number">10 </span>}&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), BenchmarkError&gt; {
-		<span class="kw">let </span>key_type = sp_core::crypto::KeyTypeId(<span class="kw-2">*</span><span class="string">b&quot;code&quot;</span>);
+		<span class="kw">let </span>key_type = sp_core::crypto::KeyTypeId(<span class="kw-2">*</span><span class="string">b"code"</span>);
 		<span class="kw">let </span>pub_keys_bytes = (<span class="number">0</span>..r)
 			.flat_map(|<span class="kw">_</span>| sp_io::crypto::ecdsa_generate(key_type, <span class="prelude-val">None</span>).<span class="number">0</span>)
 			.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
@@ -5775,8 +5777,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>code = WasmModule::&lt;T&gt;::from(ModuleDefinition {
 			memory: <span class="prelude-val">Some</span>(ImportedMemory::max::&lt;T&gt;()),
 			imported_functions: <span class="macro">vec!</span>[ImportedFunction {
-				module: <span class="string">&quot;seal0&quot;</span>,
-				name: <span class="string">&quot;seal_ecdsa_to_eth_address&quot;</span>,
+				module: <span class="string">"seal0"</span>,
+				name: <span class="string">"seal_ecdsa_to_eth_address"</span>,
 				params: <span class="macro">vec!</span>[ValueType::I32, ValueType::I32],
 				return_type: <span class="prelude-val">Some</span>(ValueType::I32),
 			}],
@@ -5813,15 +5815,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				Contracts::&lt;T&gt;::store_code_raw(new_code.code, caller)<span class="question-mark">?</span>;
 				<span class="prelude-val">Ok</span>(new_code.hash)
 			})
-			.collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt;&gt;()<span class="question-mark">?</span>;
+			.collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt;&gt;()<span class="question-mark">?</span>;
 		<span class="kw">let </span>code_hash_len = code_hashes.get(<span class="number">0</span>).map(|x| x.encode().len()).unwrap_or(<span class="number">0</span>);
 		<span class="kw">let </span>code_hashes_bytes = code_hashes.iter().flat_map(|x| x.encode()).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 
 		<span class="kw">let </span>code = WasmModule::&lt;T&gt;::from(ModuleDefinition {
 			memory: <span class="prelude-val">Some</span>(ImportedMemory::max::&lt;T&gt;()),
 			imported_functions: <span class="macro">vec!</span>[ImportedFunction {
-				module: <span class="string">&quot;seal0&quot;</span>,
-				name: <span class="string">&quot;seal_set_code_hash&quot;</span>,
+				module: <span class="string">"seal0"</span>,
+				name: <span class="string">"seal_set_code_hash"</span>,
 				params: <span class="macro">vec!</span>[ValueType::I32],
 				return_type: <span class="prelude-val">Some</span>(ValueType::I32),
 			}],
@@ -5859,15 +5861,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				Contracts::&lt;T&gt;::store_code_raw(new_code.code, caller)<span class="question-mark">?</span>;
 				<span class="prelude-val">Ok</span>(new_code.hash)
 			})
-			.collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt;&gt;()<span class="question-mark">?</span>;
+			.collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt;&gt;()<span class="question-mark">?</span>;
 		<span class="kw">let </span>code_hash_len = code_hashes.get(<span class="number">0</span>).map(|x| x.encode().len()).unwrap_or(<span class="number">0</span>);
 		<span class="kw">let </span>code_hashes_bytes = code_hashes.iter().flat_map(|x| x.encode()).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 
 		<span class="kw">let </span>code = WasmModule::&lt;T&gt;::from(ModuleDefinition {
 			memory: <span class="prelude-val">Some</span>(ImportedMemory::max::&lt;T&gt;()),
 			imported_functions: <span class="macro">vec!</span>[ImportedFunction {
-				module: <span class="string">&quot;seal0&quot;</span>,
-				name: <span class="string">&quot;lock_delegate_dependency&quot;</span>,
+				module: <span class="string">"seal0"</span>,
+				name: <span class="string">"lock_delegate_dependency"</span>,
 				params: <span class="macro">vec!</span>[ValueType::I32],
 				return_type: <span class="prelude-val">None</span>,
 			}],
@@ -5904,7 +5906,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				Contracts::&lt;T&gt;::store_code_raw(new_code.code, caller)<span class="question-mark">?</span>;
 				<span class="prelude-val">Ok</span>(new_code.hash)
 			})
-			.collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt;&gt;()<span class="question-mark">?</span>;
+			.collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt;&gt;()<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>code_hash_len = code_hashes.get(<span class="number">0</span>).map(|x| x.encode().len()).unwrap_or(<span class="number">0</span>);
 		<span class="kw">let </span>code_hashes_bytes = code_hashes.iter().flat_map(|x| x.encode()).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
@@ -5913,14 +5915,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			memory: <span class="prelude-val">Some</span>(ImportedMemory::max::&lt;T&gt;()),
 			imported_functions: <span class="macro">vec!</span>[
 				ImportedFunction {
-					module: <span class="string">&quot;seal0&quot;</span>,
-					name: <span class="string">&quot;unlock_delegate_dependency&quot;</span>,
+					module: <span class="string">"seal0"</span>,
+					name: <span class="string">"unlock_delegate_dependency"</span>,
 					params: <span class="macro">vec!</span>[ValueType::I32],
 					return_type: <span class="prelude-val">None</span>,
 				},
 				ImportedFunction {
-					module: <span class="string">&quot;seal0&quot;</span>,
-					name: <span class="string">&quot;lock_delegate_dependency&quot;</span>,
+					module: <span class="string">"seal0"</span>,
+					name: <span class="string">"lock_delegate_dependency"</span>,
 					params: <span class="macro">vec!</span>[ValueType::I32],
 					return_type: <span class="prelude-val">None</span>,
 				},
@@ -5958,8 +5960,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>code = WasmModule::&lt;T&gt;::from(ModuleDefinition {
 			memory: <span class="prelude-val">Some</span>(ImportedMemory::max::&lt;T&gt;()),
 			imported_functions: <span class="macro">vec!</span>[ImportedFunction {
-				module: <span class="string">&quot;seal0&quot;</span>,
-				name: <span class="string">&quot;reentrance_count&quot;</span>,
+				module: <span class="string">"seal0"</span>,
+				name: <span class="string">"reentrance_count"</span>,
 				params: <span class="macro">vec!</span>[],
 				return_type: <span class="prelude-val">Some</span>(ValueType::I32),
 			}],
@@ -5986,8 +5988,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>code = WasmModule::&lt;T&gt;::from(ModuleDefinition {
 			memory: <span class="prelude-val">Some</span>(ImportedMemory::max::&lt;T&gt;()),
 			imported_functions: <span class="macro">vec!</span>[ImportedFunction {
-				module: <span class="string">&quot;seal0&quot;</span>,
-				name: <span class="string">&quot;account_reentrance_count&quot;</span>,
+				module: <span class="string">"seal0"</span>,
+				name: <span class="string">"account_reentrance_count"</span>,
 				params: <span class="macro">vec!</span>[ValueType::I32],
 				return_type: <span class="prelude-val">Some</span>(ValueType::I32),
 			}],
@@ -6018,8 +6020,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>code = WasmModule::&lt;T&gt;::from(ModuleDefinition {
 			memory: <span class="prelude-val">Some</span>(ImportedMemory::max::&lt;T&gt;()),
 			imported_functions: <span class="macro">vec!</span>[ImportedFunction {
-				module: <span class="string">&quot;seal0&quot;</span>,
-				name: <span class="string">&quot;instantiation_nonce&quot;</span>,
+				module: <span class="string">"seal0"</span>,
+				name: <span class="string">"instantiation_nonce"</span>,
 				params: <span class="macro">vec!</span>[],
 				return_type: <span class="prelude-val">Some</span>(ValueType::I64),
 			}],
@@ -6091,12 +6093,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>(weight_per_key, key_budget) =
 			ContractInfo::&lt;T&gt;::deletion_budget(<span class="kw-2">&amp;mut </span>WeightMeter::with_limit(max_weight));
 		<span class="kw">let </span>schedule = T::Schedule::get();
-		<span class="macro">log::info!</span>(target: LOG_TARGET, <span class="string">&quot;
+		<span class="macro">log::info!</span>(target: LOG_TARGET, <span class="string">"
 		{schedule:#?}
 		###############################################
 		Lazy deletion weight per key: {weight_per_key}
 		Lazy deletion keys per block: {key_budget}
-		&quot;</span>);
+		"</span>);
 		<span class="attr">#[block]
 		</span>{}
 

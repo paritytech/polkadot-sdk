@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/runtime/src/transaction_validity.rs`."><title>transaction_validity.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/runtime/src/transaction_validity.rs`."><title>transaction_validity.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sp_runtime/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -627,14 +629,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -652,7 +654,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub type </span>TransactionPriority = u64;
 
 <span class="doccomment">/// Minimum number of blocks a transaction will remain valid for.
-/// `TransactionLongevity::max_value()` means &quot;forever&quot;.
+/// `TransactionLongevity::max_value()` means "forever".
 </span><span class="kw">pub type </span>TransactionLongevity = u64;
 
 <span class="doccomment">/// Tag for a transaction. No two transactions with the same tag should be placed on-chain.
@@ -660,7 +662,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// An invalid transaction validity.
 </span><span class="attr">#[derive(Clone, PartialEq, Eq, Encode, Decode, Copy, RuntimeDebug, TypeInfo)]
-#[cfg_attr(feature = <span class="string">&quot;serde&quot;</span>, derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = <span class="string">"serde"</span>, derive(serde::Serialize, serde::Deserialize))]
 </span><span class="kw">pub enum </span>InvalidTransaction {
 	<span class="doccomment">/// The call of the transaction is not expected.
 	</span>Call,
@@ -670,7 +672,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>Future,
 	<span class="doccomment">/// General error to do with the transaction being outdated (e.g. nonce too low).
 	</span>Stale,
-	<span class="doccomment">/// General error to do with the transaction&#39;s proofs (e.g. signature).
+	<span class="doccomment">/// General error to do with the transaction's proofs (e.g. signature).
 	///
 	/// # Possible causes
 	///
@@ -720,30 +722,30 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl </span>From&lt;InvalidTransaction&gt; <span class="kw">for </span><span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str {
-	<span class="kw">fn </span>from(invalid: InvalidTransaction) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str {
+<span class="kw">impl </span>From&lt;InvalidTransaction&gt; <span class="kw">for </span><span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
+	<span class="kw">fn </span>from(invalid: InvalidTransaction) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
 		<span class="kw">match </span>invalid {
-			InvalidTransaction::Call =&gt; <span class="string">&quot;Transaction call is not expected&quot;</span>,
-			InvalidTransaction::Future =&gt; <span class="string">&quot;Transaction will be valid in the future&quot;</span>,
-			InvalidTransaction::Stale =&gt; <span class="string">&quot;Transaction is outdated&quot;</span>,
-			InvalidTransaction::BadProof =&gt; <span class="string">&quot;Transaction has a bad signature&quot;</span>,
-			InvalidTransaction::AncientBirthBlock =&gt; <span class="string">&quot;Transaction has an ancient birth block&quot;</span>,
-			InvalidTransaction::ExhaustsResources =&gt; <span class="string">&quot;Transaction would exhaust the block limits&quot;</span>,
+			InvalidTransaction::Call =&gt; <span class="string">"Transaction call is not expected"</span>,
+			InvalidTransaction::Future =&gt; <span class="string">"Transaction will be valid in the future"</span>,
+			InvalidTransaction::Stale =&gt; <span class="string">"Transaction is outdated"</span>,
+			InvalidTransaction::BadProof =&gt; <span class="string">"Transaction has a bad signature"</span>,
+			InvalidTransaction::AncientBirthBlock =&gt; <span class="string">"Transaction has an ancient birth block"</span>,
+			InvalidTransaction::ExhaustsResources =&gt; <span class="string">"Transaction would exhaust the block limits"</span>,
 			InvalidTransaction::Payment =&gt;
-				<span class="string">&quot;Inability to pay some fees (e.g. account balance too low)&quot;</span>,
+				<span class="string">"Inability to pay some fees (e.g. account balance too low)"</span>,
 			InvalidTransaction::BadMandatory =&gt;
-				<span class="string">&quot;A call was labelled as mandatory, but resulted in an Error.&quot;</span>,
+				<span class="string">"A call was labelled as mandatory, but resulted in an Error."</span>,
 			InvalidTransaction::MandatoryValidation =&gt;
-				<span class="string">&quot;Transaction dispatch is mandatory; transactions must not be validated.&quot;</span>,
-			InvalidTransaction::Custom(<span class="kw">_</span>) =&gt; <span class="string">&quot;InvalidTransaction custom error&quot;</span>,
-			InvalidTransaction::BadSigner =&gt; <span class="string">&quot;Invalid signing address&quot;</span>,
+				<span class="string">"Transaction dispatch is mandatory; transactions must not be validated."</span>,
+			InvalidTransaction::Custom(<span class="kw">_</span>) =&gt; <span class="string">"InvalidTransaction custom error"</span>,
+			InvalidTransaction::BadSigner =&gt; <span class="string">"Invalid signing address"</span>,
 		}
 	}
 }
 
 <span class="doccomment">/// An unknown transaction validity.
 </span><span class="attr">#[derive(Clone, PartialEq, Eq, Encode, Decode, Copy, RuntimeDebug, TypeInfo)]
-#[cfg_attr(feature = <span class="string">&quot;serde&quot;</span>, derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = <span class="string">"serde"</span>, derive(serde::Serialize, serde::Deserialize))]
 </span><span class="kw">pub enum </span>UnknownTransaction {
 	<span class="doccomment">/// Could not lookup some information that is required to validate the transaction.
 	</span>CannotLookup,
@@ -753,25 +755,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>Custom(u8),
 }
 
-<span class="kw">impl </span>From&lt;UnknownTransaction&gt; <span class="kw">for </span><span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str {
-	<span class="kw">fn </span>from(unknown: UnknownTransaction) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str {
+<span class="kw">impl </span>From&lt;UnknownTransaction&gt; <span class="kw">for </span><span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
+	<span class="kw">fn </span>from(unknown: UnknownTransaction) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
 		<span class="kw">match </span>unknown {
 			UnknownTransaction::CannotLookup =&gt;
-				<span class="string">&quot;Could not lookup information required to validate the transaction&quot;</span>,
+				<span class="string">"Could not lookup information required to validate the transaction"</span>,
 			UnknownTransaction::NoUnsignedValidator =&gt;
-				<span class="string">&quot;Could not find an unsigned validator for the unsigned transaction&quot;</span>,
-			UnknownTransaction::Custom(<span class="kw">_</span>) =&gt; <span class="string">&quot;UnknownTransaction custom error&quot;</span>,
+				<span class="string">"Could not find an unsigned validator for the unsigned transaction"</span>,
+			UnknownTransaction::Custom(<span class="kw">_</span>) =&gt; <span class="string">"UnknownTransaction custom error"</span>,
 		}
 	}
 }
 
 <span class="doccomment">/// Errors that can occur while checking the validity of a transaction.
 </span><span class="attr">#[derive(Clone, PartialEq, Eq, Encode, Decode, Copy, RuntimeDebug, TypeInfo)]
-#[cfg_attr(feature = <span class="string">&quot;serde&quot;</span>, derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = <span class="string">"serde"</span>, derive(serde::Serialize, serde::Deserialize))]
 </span><span class="kw">pub enum </span>TransactionValidityError {
 	<span class="doccomment">/// The transaction is invalid.
 	</span>Invalid(InvalidTransaction),
-	<span class="doccomment">/// Transaction validity can&#39;t be determined.
+	<span class="doccomment">/// Transaction validity can't be determined.
 	</span>Unknown(UnknownTransaction),
 }
 
@@ -794,8 +796,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl </span>From&lt;TransactionValidityError&gt; <span class="kw">for </span><span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str {
-	<span class="kw">fn </span>from(err: TransactionValidityError) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str {
+<span class="kw">impl </span>From&lt;TransactionValidityError&gt; <span class="kw">for </span><span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
+	<span class="kw">fn </span>from(err: TransactionValidityError) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
 		<span class="kw">match </span>err {
 			TransactionValidityError::Invalid(invalid) =&gt; invalid.into(),
 			TransactionValidityError::Unknown(unknown) =&gt; unknown.into(),
@@ -815,22 +817,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">impl </span>std::error::Error <span class="kw">for </span>TransactionValidityError {
-	<span class="kw">fn </span>source(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>(<span class="kw">dyn </span>std::error::Error + <span class="lifetime">&#39;static</span>)&gt; {
+	<span class="kw">fn </span>source(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>(<span class="kw">dyn </span>std::error::Error + <span class="lifetime">'static</span>)&gt; {
 		<span class="prelude-val">None
 	</span>}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">impl </span>std::fmt::Display <span class="kw">for </span>TransactionValidityError {
-	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
-		<span class="kw">let </span>s: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = (<span class="kw-2">*</span><span class="self">self</span>).into();
-		<span class="macro">write!</span>(f, <span class="string">&quot;{}&quot;</span>, s)
+	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; std::fmt::Result {
+		<span class="kw">let </span>s: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = (<span class="kw-2">*</span><span class="self">self</span>).into();
+		<span class="macro">write!</span>(f, <span class="string">"{}"</span>, s)
 	}
 }
 
-<span class="doccomment">/// Information on a transaction&#39;s validity and, if valid, on how it relates to other transactions.
+<span class="doccomment">/// Information on a transaction's validity and, if valid, on how it relates to other transactions.
 </span><span class="kw">pub type </span>TransactionValidity = <span class="prelude-ty">Result</span>&lt;ValidTransaction, TransactionValidityError&gt;;
 
 <span class="kw">impl </span>From&lt;InvalidTransaction&gt; <span class="kw">for </span>TransactionValidity {
@@ -854,8 +856,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub enum </span>TransactionSource {
 	<span class="doccomment">/// Transaction is already included in block.
 	///
-	/// This means that we can&#39;t really tell where the transaction is coming from,
-	/// since it&#39;s already in the received block. Note that the custom validation logic
+	/// This means that we can't really tell where the transaction is coming from,
+	/// since it's already in the received block. Note that the custom validation logic
 	/// using either `Local` or `External` should most likely just allow `InBlock`
 	/// transactions as well.
 	</span>InBlock,
@@ -869,7 +871,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Transaction has been received externally.
 	///
-	/// This means the transaction has been received from (usually) &quot;untrusted&quot; source,
+	/// This means the transaction has been received from (usually) "untrusted" source,
 	/// for instance received over the network or RPC.
 	</span>External,
 }
@@ -922,9 +924,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl </span>ValidTransaction {
 	<span class="doccomment">/// Initiate `ValidTransaction` builder object with a particular prefix for tags.
 	///
-	/// To avoid conflicts between different parts in runtime it&#39;s recommended to build `requires`
+	/// To avoid conflicts between different parts in runtime it's recommended to build `requires`
 	/// and `provides` tags with a unique prefix.
-	</span><span class="kw">pub fn </span>with_tag_prefix(prefix: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str) -&gt; ValidTransactionBuilder {
+	</span><span class="kw">pub fn </span>with_tag_prefix(prefix: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str) -&gt; ValidTransactionBuilder {
 		ValidTransactionBuilder { prefix: <span class="prelude-val">Some</span>(prefix), validity: Default::default() }
 	}
 
@@ -955,7 +957,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// prefixing `requires` and `provides` tags to avoid conflicts.
 </span><span class="attr">#[derive(Default, Clone, RuntimeDebug)]
 </span><span class="kw">pub struct </span>ValidTransactionBuilder {
-	prefix: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt;,
+	prefix: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt;,
 	validity: ValidTransaction,
 }
 
@@ -975,8 +977,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Set the longevity of a transaction.
 	///
 	/// By default the transaction will be considered valid forever and will not be revalidated
-	/// by the transaction pool. It&#39;s recommended though to set the longevity to a finite value
-	/// though. If unsure, it&#39;s also reasonable to expose this parameter via module configuration
+	/// by the transaction pool. It's recommended though to set the longevity to a finite value
+	/// though. If unsure, it's also reasonable to expose this parameter via module configuration
 	/// and let the runtime decide.
 	</span><span class="kw">pub fn </span>longevity(<span class="kw-2">mut </span><span class="self">self</span>, longevity: TransactionLongevity) -&gt; <span class="self">Self </span>{
 		<span class="self">self</span>.validity.longevity = longevity;
@@ -996,7 +998,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Add a `TransactionTag` to the set of required tags.
 	///
 	/// The tag will be encoded and prefixed with module prefix (if any).
-	/// If you&#39;d rather add a raw `require` tag, consider using `#combine_with` method.
+	/// If you'd rather add a raw `require` tag, consider using `#combine_with` method.
 	</span><span class="kw">pub fn </span>and_requires(<span class="kw-2">mut </span><span class="self">self</span>, tag: <span class="kw">impl </span>Encode) -&gt; <span class="self">Self </span>{
 		<span class="self">self</span>.validity.requires.push(<span class="kw">match </span><span class="self">self</span>.prefix.as_ref() {
 			<span class="prelude-val">Some</span>(prefix) =&gt; (prefix, tag).encode(),
@@ -1008,7 +1010,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Add a `TransactionTag` to the set of provided tags.
 	///
 	/// The tag will be encoded and prefixed with module prefix (if any).
-	/// If you&#39;d rather add a raw `require` tag, consider using `#combine_with` method.
+	/// If you'd rather add a raw `require` tag, consider using `#combine_with` method.
 	</span><span class="kw">pub fn </span>and_provides(<span class="kw-2">mut </span><span class="self">self</span>, tag: <span class="kw">impl </span>Encode) -&gt; <span class="self">Self </span>{
 		<span class="self">self</span>.validity.provides.push(<span class="kw">match </span><span class="self">self</span>.prefix.as_ref() {
 			<span class="prelude-val">Some</span>(prefix) =&gt; (prefix, tag).encode(),
@@ -1074,7 +1076,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>builder_should_prefix_the_tags() {
-		<span class="kw">const </span>PREFIX: <span class="kw-2">&amp;</span>str = <span class="string">&quot;test&quot;</span>;
+		<span class="kw">const </span>PREFIX: <span class="kw-2">&amp;</span>str = <span class="string">"test"</span>;
 		<span class="kw">let </span>a: ValidTransaction = ValidTransaction::with_tag_prefix(PREFIX)
 			.and_requires(<span class="number">1</span>)
 			.and_requires(<span class="number">2</span>)

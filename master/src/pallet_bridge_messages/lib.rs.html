@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `bridges/modules/messages/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `bridges/modules/messages/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_bridge_messages" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_bridge_messages" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../pallet_bridge_messages/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -2300,7 +2302,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! or some benchmarks assumptions are broken for your runtime.
 
 </span><span class="attr">#![warn(missing_docs)]
-#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
+#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
 </span><span class="kw">pub use </span>inbound_lane::StoredInboundLaneData;
 <span class="kw">pub use </span>outbound_lane::StoredMessagePayload;
@@ -2342,7 +2344,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">pub mod </span>weights;
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 </span><span class="kw">pub mod </span>benchmarking;
 
 <span class="attr">#[cfg(test)]
@@ -2351,7 +2353,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">pub use </span>pallet::<span class="kw-2">*</span>;
 
 <span class="doccomment">/// The target that will be used when publishing logs related to this pallet.
-</span><span class="kw">pub const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;runtime::bridge-messages&quot;</span>;
+</span><span class="kw">pub const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"runtime::bridge-messages"</span>;
 
 <span class="attr">#[frame_support::pallet]
 </span><span class="kw">pub mod </span>pallet {
@@ -2362,13 +2364,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use </span>frame_system::pallet_prelude::<span class="kw-2">*</span>;
 
 	<span class="attr">#[pallet::config]
-	</span><span class="kw">pub trait </span>Config&lt;I: <span class="lifetime">&#39;static </span>= ()&gt;: frame_system::Config {
+	</span><span class="kw">pub trait </span>Config&lt;I: <span class="lifetime">'static </span>= ()&gt;: frame_system::Config {
 		<span class="comment">// General types
 
 		</span><span class="doccomment">/// The overarching event type.
 		</span><span class="kw">type </span>RuntimeEvent: From&lt;Event&lt;<span class="self">Self</span>, I&gt;&gt;
 			+ IsType&lt;&lt;<span class="self">Self </span><span class="kw">as </span>frame_system::Config&gt;::RuntimeEvent&gt;;
-		<span class="doccomment">/// Benchmarks results from runtime we&#39;re plugged into.
+		<span class="doccomment">/// Benchmarks results from runtime we're plugged into.
 		</span><span class="kw">type </span>WeightInfo: WeightInfoExt;
 
 		<span class="doccomment">/// Gets the chain id value from the instance.
@@ -2376,18 +2378,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">type </span>BridgedChainId: Get&lt;ChainId&gt;;
 
 		<span class="doccomment">/// Get all active outbound lanes that the message pallet is serving.
-		</span><span class="kw">type </span>ActiveOutboundLanes: Get&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[LaneId]&gt;;
+		</span><span class="kw">type </span>ActiveOutboundLanes: Get&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>[LaneId]&gt;;
 		<span class="doccomment">/// Maximal number of unrewarded relayer entries at inbound lane. Unrewarded means that the
-		/// relayer has delivered messages, but either confirmations haven&#39;t been delivered back to
-		/// the source chain, or we haven&#39;t received reward confirmations yet.
+		/// relayer has delivered messages, but either confirmations haven't been delivered back to
+		/// the source chain, or we haven't received reward confirmations yet.
 		///
 		/// This constant limits maximal number of entries in the `InboundLaneData::relayers`. Keep
 		/// in mind that the same relayer account may take several (non-consecutive) entries in this
 		/// set.
 		</span><span class="kw">type </span>MaxUnrewardedRelayerEntriesAtInboundLane: Get&lt;MessageNonce&gt;;
 		<span class="doccomment">/// Maximal number of unconfirmed messages at inbound lane. Unconfirmed means that the
-		/// message has been delivered, but either confirmations haven&#39;t been delivered back to the
-		/// source chain, or we haven&#39;t received reward confirmations for these messages yet.
+		/// message has been delivered, but either confirmations haven't been delivered back to the
+		/// source chain, or we haven't received reward confirmations for these messages yet.
 		///
 		/// This constant limits difference between last message from last entry of the
 		/// `InboundLaneData::relayers` and first message at the first entry.
@@ -2445,20 +2447,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[pallet::pallet]
 	</span><span class="kw">pub struct </span>Pallet&lt;T, I = ()&gt;(PhantomData&lt;(T, I)&gt;);
 
-	<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; OwnedBridgeModule&lt;T&gt; <span class="kw">for </span>Pallet&lt;T, I&gt; {
-		<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = LOG_TARGET;
+	<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; OwnedBridgeModule&lt;T&gt; <span class="kw">for </span>Pallet&lt;T, I&gt; {
+		<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = LOG_TARGET;
 		<span class="kw">type </span>OwnerStorage = PalletOwner&lt;T, I&gt;;
 		<span class="kw">type </span>OperatingMode = MessagesOperatingMode;
 		<span class="kw">type </span>OperatingModeStorage = PalletOperatingMode&lt;T, I&gt;;
 	}
 
 	<span class="attr">#[pallet::hooks]
-	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; Hooks&lt;BlockNumberFor&lt;T&gt;&gt; <span class="kw">for </span>Pallet&lt;T, I&gt;
+	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Hooks&lt;BlockNumberFor&lt;T&gt;&gt; <span class="kw">for </span>Pallet&lt;T, I&gt;
 	<span class="kw">where
 		</span>u32: TryFrom&lt;BlockNumberFor&lt;T&gt;&gt;,
 	{
 		<span class="kw">fn </span>on_idle(_block: BlockNumberFor&lt;T&gt;, remaining_weight: Weight) -&gt; Weight {
-			<span class="comment">// we&#39;ll need at least to read outbound lane state, kill a message and update lane state
+			<span class="comment">// we'll need at least to read outbound lane state, kill a message and update lane state
 			</span><span class="kw">let </span>db_weight = T::DbWeight::get();
 			<span class="kw">if </span>!remaining_weight.all_gte(db_weight.reads_writes(<span class="number">1</span>, <span class="number">2</span>)) {
 				<span class="kw">return </span>Weight::zero()
@@ -2478,7 +2480,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// first db read - outbound lane state
 			</span><span class="kw">let </span><span class="kw-2">mut </span>active_lane = outbound_lane::&lt;T, I&gt;(active_lane_id);
 			<span class="kw">let </span><span class="kw-2">mut </span>used_weight = db_weight.reads(<span class="number">1</span>);
-			<span class="comment">// and here we&#39;ll have writes
+			<span class="comment">// and here we'll have writes
 			</span>used_weight += active_lane.prune_messages(db_weight, remaining_weight - used_weight);
 
 			<span class="comment">// we already checked we have enough `remaining_weight` to cover this `used_weight`
@@ -2487,7 +2489,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="attr">#[pallet::call]
-	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; Pallet&lt;T, I&gt; {
+	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Pallet&lt;T, I&gt; {
 		<span class="doccomment">/// Change `PalletOwner`.
 		///
 		/// May only be called either by root, or by `PalletOwner`.
@@ -2548,7 +2550,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				Error::&lt;T, I&gt;::TooManyMessagesInTheProof
 			);
 
-			<span class="comment">// if message dispatcher is currently inactive, we won&#39;t accept any messages
+			<span class="comment">// if message dispatcher is currently inactive, we won't accept any messages
 			</span><span class="macro">ensure!</span>(T::MessageDispatch::is_active(), Error::&lt;T, I&gt;::MessageDispatchInactive);
 
 			<span class="comment">// why do we need to know the weight of this (`receive_messages_proof`) call? Because
@@ -2559,7 +2561,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			//
 			// ActualWeight = DeclaredWeight - Message.DispatchWeight
 			//
-			// The DeclaredWeight is exactly what&#39;s computed here. Unfortunately it is impossible
+			// The DeclaredWeight is exactly what's computed here. Unfortunately it is impossible
 			// to get pre-computed value (and it has been already computed by the executive).
 			</span><span class="kw">let </span>declared_weight = T::WeightInfo::receive_messages_proof_weight(
 				<span class="kw-2">&amp;</span>proof,
@@ -2574,7 +2576,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				T::InboundPayload,
 			&gt;(proof, messages_count)
 			.map_err(|err| {
-				<span class="macro">log::trace!</span>(target: LOG_TARGET, <span class="string">&quot;Rejecting invalid messages proof: {:?}&quot;</span>, err,);
+				<span class="macro">log::trace!</span>(target: LOG_TARGET, <span class="string">"Rejecting invalid messages proof: {:?}"</span>, err,);
 
 				Error::&lt;T, I&gt;::InvalidMessagesProof
 			})<span class="question-mark">?</span>;
@@ -2599,7 +2601,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw">if let </span><span class="prelude-val">Some</span>(updated_latest_confirmed_nonce) = updated_latest_confirmed_nonce {
 						<span class="macro">log::trace!</span>(
 							target: LOG_TARGET,
-							<span class="string">&quot;Received lane {:?} state update: latest_confirmed_nonce={}. Unrewarded relayers: {:?}&quot;</span>,
+							<span class="string">"Received lane {:?} state update: latest_confirmed_nonce={}. Unrewarded relayers: {:?}"</span>,
 							lane_id,
 							updated_latest_confirmed_nonce,
 							UnrewardedRelayersState::from(<span class="kw-2">&amp;</span>lane.storage_mut().get_or_init_data()),
@@ -2614,13 +2616,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					total_messages += <span class="number">1</span>;
 
 					<span class="comment">// ensure that relayer has declared enough weight for dispatching next message
-					// on this lane. We can&#39;t dispatch lane messages out-of-order, so if declared
-					// weight is not enough, let&#39;s move to next lane
+					// on this lane. We can't dispatch lane messages out-of-order, so if declared
+					// weight is not enough, let's move to next lane
 					</span><span class="kw">let </span>message_dispatch_weight = T::MessageDispatch::dispatch_weight(<span class="kw-2">&amp;mut </span>message);
 					<span class="kw">if </span>message_dispatch_weight.any_gt(dispatch_weight_left) {
 						<span class="macro">log::trace!</span>(
 							target: LOG_TARGET,
-							<span class="string">&quot;Cannot dispatch any more messages on lane {:?}. Weight: declared={}, left={}&quot;</span>,
+							<span class="string">"Cannot dispatch any more messages on lane {:?}. Weight: declared={}, left={}"</span>,
 							lane_id,
 							message_dispatch_weight,
 							dispatch_weight_left,
@@ -2635,7 +2637,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						message.data,
 					);
 
-					<span class="comment">// note that we&#39;re returning unspent weight to relayer even if message has been
+					<span class="comment">// note that we're returning unspent weight to relayer even if message has been
 					// rejected by the lane. This allows relayers to submit spam transactions with
 					// e.g. the same set of already delivered messages over and over again, without
 					// losing funds for messages dispatch. But keep in mind that relayer pays base
@@ -2660,7 +2662,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				messages_received_status.push(lane_messages_received_status);
 			}
 
-			<span class="comment">// let&#39;s now deal with relayer payments
+			<span class="comment">// let's now deal with relayer payments
 			</span>T::DeliveryPayments::pay_reward(
 				relayer_id_at_this_chain,
 				total_messages,
@@ -2670,7 +2672,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="macro">log::debug!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;Received messages: total={}, valid={}. Weight used: {}/{}.&quot;</span>,
+				<span class="string">"Received messages: total={}, valid={}. Weight used: {}/{}."</span>,
 				total_messages,
 				valid_messages,
 				actual_weight,
@@ -2701,7 +2703,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.map_err(|err| {
 					<span class="macro">log::trace!</span>(
 						target: LOG_TARGET,
-						<span class="string">&quot;Rejecting invalid messages delivery proof: {:?}&quot;</span>,
+						<span class="string">"Rejecting invalid messages delivery proof: {:?}"</span>,
 						err,
 					);
 
@@ -2724,7 +2726,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.map_err(Error::&lt;T, I&gt;::ReceptionConfirmation)<span class="question-mark">?</span>;
 
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(confirmed_messages) = confirmed_messages {
-				<span class="comment">// emit &#39;delivered&#39; event
+				<span class="comment">// emit 'delivered' event
 				</span><span class="kw">let </span>received_range = confirmed_messages.begin..=confirmed_messages.end;
 				<span class="self">Self</span>::deposit_event(Event::MessagesDelivered {
 					lane_id,
@@ -2752,7 +2754,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="macro">log::trace!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;Received messages delivery proof up to (and including) {} at lane {:?}&quot;</span>,
+				<span class="string">"Received messages delivery proof up to (and including) {} at lane {:?}"</span>,
 				last_delivered_nonce,
 				lane_id,
 			);
@@ -2777,7 +2779,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[pallet::event]
 	#[pallet::generate_deposit(<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>deposit_event)]
-	</span><span class="kw">pub enum </span>Event&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; {
+	</span><span class="kw">pub enum </span>Event&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; {
 		<span class="doccomment">/// Message has been accepted and is waiting to be delivered.
 		</span>MessageAccepted {
 			<span class="doccomment">/// Lane, which has accepted the message.
@@ -2842,24 +2844,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// flag directly or call the `halt_operations`).
 	</span><span class="attr">#[pallet::storage]
 	#[pallet::getter(<span class="kw">fn </span>module_owner)]
-	</span><span class="kw">pub type </span>PalletOwner&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; = StorageValue&lt;<span class="kw">_</span>, T::AccountId&gt;;
+	</span><span class="kw">pub type </span>PalletOwner&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; = StorageValue&lt;<span class="kw">_</span>, T::AccountId&gt;;
 
 	<span class="doccomment">/// The current operating mode of the pallet.
 	///
 	/// Depending on the mode either all, some, or no transactions will be allowed.
 	</span><span class="attr">#[pallet::storage]
 	#[pallet::getter(<span class="kw">fn </span>operating_mode)]
-	</span><span class="kw">pub type </span>PalletOperatingMode&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; =
+	</span><span class="kw">pub type </span>PalletOperatingMode&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; =
 		StorageValue&lt;<span class="kw">_</span>, MessagesOperatingMode, ValueQuery&gt;;
 
 	<span class="doccomment">/// Map of lane id =&gt; inbound lane data.
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub type </span>InboundLanes&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; =
+	</span><span class="kw">pub type </span>InboundLanes&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; =
 		StorageMap&lt;<span class="kw">_</span>, Blake2_128Concat, LaneId, StoredInboundLaneData&lt;T, I&gt;, ValueQuery&gt;;
 
 	<span class="doccomment">/// Map of lane id =&gt; outbound lane data.
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub type </span>OutboundLanes&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; = StorageMap&lt;
+	</span><span class="kw">pub type </span>OutboundLanes&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; = StorageMap&lt;
 		Hasher = Blake2_128Concat,
 		Key = LaneId,
 		Value = OutboundLaneData,
@@ -2875,10 +2877,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// a storage map using `sp_io::unhashed` storage functions, but then benchmarks are not
 	/// accounting its `proof_size`, so it is missing from the final weights. So we need to make it
 	/// a map inside some pallet. We could use a simply value instead of map here, because
-	/// in `v1` we&#39;ll only have a single lane. But in the case of adding another lane before `v2`,
-	/// it&#39;ll be easier to deal with the isolated storage map instead.
+	/// in `v1` we'll only have a single lane. But in the case of adding another lane before `v2`,
+	/// it'll be easier to deal with the isolated storage map instead.
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub type </span>OutboundLanesCongestedSignals&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; = StorageMap&lt;
+	</span><span class="kw">pub type </span>OutboundLanesCongestedSignals&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; = StorageMap&lt;
 		Hasher = Blake2_128Concat,
 		Key = LaneId,
 		Value = bool,
@@ -2889,12 +2891,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// All queued outbound messages.
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub type </span>OutboundMessages&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; =
+	</span><span class="kw">pub type </span>OutboundMessages&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; =
 		StorageMap&lt;<span class="kw">_</span>, Blake2_128Concat, MessageKey, StoredMessagePayload&lt;T, I&gt;&gt;;
 
 	<span class="attr">#[pallet::genesis_config]
 	#[derive(DefaultNoBound)]
-	</span><span class="kw">pub struct </span>GenesisConfig&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; {
+	</span><span class="kw">pub struct </span>GenesisConfig&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; {
 		<span class="doccomment">/// Initial pallet operating mode.
 		</span><span class="kw">pub </span>operating_mode: MessagesOperatingMode,
 		<span class="doccomment">/// Initial pallet owner.
@@ -2904,7 +2906,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="attr">#[pallet::genesis_build]
-	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; BuildGenesisConfig <span class="kw">for </span>GenesisConfig&lt;T, I&gt; {
+	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; BuildGenesisConfig <span class="kw">for </span>GenesisConfig&lt;T, I&gt; {
 		<span class="kw">fn </span>build(<span class="kw-2">&amp;</span><span class="self">self</span>) {
 			PalletOperatingMode::&lt;T, I&gt;::put(<span class="self">self</span>.operating_mode);
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>owner) = <span class="self">self</span>.owner {
@@ -2913,7 +2915,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; Pallet&lt;T, I&gt; {
+	<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Pallet&lt;T, I&gt; {
 		<span class="doccomment">/// Get stored data of the outbound message with given nonce.
 		</span><span class="kw">pub fn </span>outbound_message_data(lane: LaneId, nonce: MessageNonce) -&gt; <span class="prelude-ty">Option</span>&lt;MessagePayload&gt; {
 			OutboundMessages::&lt;T, I&gt;::get(MessageKey { lane_id: lane, nonce }).map(Into::into)
@@ -2948,7 +2950,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Get-parameter that returns number of active outbound lanes that the pallet maintains.
 	</span><span class="kw">pub struct </span>MaybeOutboundLanesCount&lt;T, I&gt;(PhantomData&lt;(T, I)&gt;);
 
-	<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; Get&lt;<span class="prelude-ty">Option</span>&lt;u32&gt;&gt; <span class="kw">for </span>MaybeOutboundLanesCount&lt;T, I&gt; {
+	<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Get&lt;<span class="prelude-ty">Option</span>&lt;u32&gt;&gt; <span class="kw">for </span>MaybeOutboundLanesCount&lt;T, I&gt; {
 		<span class="kw">fn </span>get() -&gt; <span class="prelude-ty">Option</span>&lt;u32&gt; {
 			<span class="prelude-val">Some</span>(T::ActiveOutboundLanes::get().len() <span class="kw">as </span>u32)
 		}
@@ -2958,7 +2960,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Structure, containing a validated message payload and all the info required
 /// to send it on the bridge.
 </span><span class="attr">#[derive(Debug, PartialEq, Eq)]
-</span><span class="kw">pub struct </span>SendMessageArgs&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; {
+</span><span class="kw">pub struct </span>SendMessageArgs&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; {
 	lane_id: LaneId,
 	payload: StoredMessagePayload&lt;T, I&gt;,
 }
@@ -2966,7 +2968,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl</span>&lt;T, I&gt; bp_messages::source_chain::MessagesBridge&lt;T::OutboundPayload&gt; <span class="kw">for </span>Pallet&lt;T, I&gt;
 <span class="kw">where
 	</span>T: Config&lt;I&gt;,
-	I: <span class="lifetime">&#39;static</span>,
+	I: <span class="lifetime">'static</span>,
 {
 	<span class="kw">type </span>Error = Error&lt;T, I&gt;;
 	<span class="kw">type </span>SendMessageArgs = SendMessageArgs&lt;T, I&gt;;
@@ -2977,14 +2979,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; <span class="prelude-ty">Result</span>&lt;SendMessageArgs&lt;T, I&gt;, <span class="self">Self</span>::Error&gt; {
 		ensure_normal_operating_mode::&lt;T, I&gt;()<span class="question-mark">?</span>;
 
-		<span class="comment">// let&#39;s check if outbound lane is active
+		<span class="comment">// let's check if outbound lane is active
 		</span><span class="macro">ensure!</span>(T::ActiveOutboundLanes::get().contains(<span class="kw-2">&amp;</span>lane), Error::&lt;T, I&gt;::InactiveOutboundLane);
 
-		<span class="comment">// let&#39;s first check if message can be delivered to target chain
+		<span class="comment">// let's first check if message can be delivered to target chain
 		</span>T::TargetHeaderChain::verify_message(message).map_err(|err| {
 			<span class="macro">log::trace!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;Message to lane {:?} is rejected by target chain: {:?}&quot;</span>,
+				<span class="string">"Message to lane {:?} is rejected by target chain: {:?}"</span>,
 				lane,
 				err,
 			);
@@ -3011,7 +3013,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="macro">log::trace!</span>(
 			target: LOG_TARGET,
-			<span class="string">&quot;Accepted message {} to lane {:?}. Message size: {:?}&quot;</span>,
+			<span class="string">"Accepted message {} to lane {:?}. Message size: {:?}"</span>,
 			nonce,
 			args.lane_id,
 			message_len,
@@ -3024,7 +3026,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Ensure that the pallet is in normal operational mode.
-</span><span class="kw">fn </span>ensure_normal_operating_mode&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt;() -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&lt;T, I&gt;&gt; {
+</span><span class="kw">fn </span>ensure_normal_operating_mode&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt;() -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&lt;T, I&gt;&gt; {
 	<span class="kw">if </span>PalletOperatingMode::&lt;T, I&gt;::get() ==
 		MessagesOperatingMode::Basic(BasicOperatingMode::Normal)
 	{
@@ -3035,34 +3037,34 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Creates new inbound lane object, backed by runtime storage.
-</span><span class="kw">fn </span>inbound_lane&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt;(
+</span><span class="kw">fn </span>inbound_lane&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt;(
 	lane_id: LaneId,
 ) -&gt; InboundLane&lt;RuntimeInboundLaneStorage&lt;T, I&gt;&gt; {
 	InboundLane::new(RuntimeInboundLaneStorage::from_lane_id(lane_id))
 }
 
 <span class="doccomment">/// Creates new outbound lane object, backed by runtime storage.
-</span><span class="kw">fn </span>outbound_lane&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt;(
+</span><span class="kw">fn </span>outbound_lane&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt;(
 	lane_id: LaneId,
 ) -&gt; OutboundLane&lt;RuntimeOutboundLaneStorage&lt;T, I&gt;&gt; {
 	OutboundLane::new(RuntimeOutboundLaneStorage { lane_id, _phantom: Default::default() })
 }
 
 <span class="doccomment">/// Runtime inbound lane storage.
-</span><span class="kw">struct </span>RuntimeInboundLaneStorage&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; {
+</span><span class="kw">struct </span>RuntimeInboundLaneStorage&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; {
 	lane_id: LaneId,
 	cached_data: <span class="prelude-ty">Option</span>&lt;InboundLaneData&lt;T::InboundRelayer&gt;&gt;,
 	_phantom: PhantomData&lt;I&gt;,
 }
 
-<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; RuntimeInboundLaneStorage&lt;T, I&gt; {
+<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; RuntimeInboundLaneStorage&lt;T, I&gt; {
 	<span class="doccomment">/// Creates new runtime inbound lane storage.
 	</span><span class="kw">fn </span>from_lane_id(lane_id: LaneId) -&gt; RuntimeInboundLaneStorage&lt;T, I&gt; {
 		RuntimeInboundLaneStorage { lane_id, cached_data: <span class="prelude-val">None</span>, _phantom: Default::default() }
 	}
 }
 
-<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; RuntimeInboundLaneStorage&lt;T, I&gt; {
+<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; RuntimeInboundLaneStorage&lt;T, I&gt; {
 	<span class="doccomment">/// Returns number of bytes that may be subtracted from the PoV component of
 	/// `receive_messages_proof` call, because the actual inbound lane state is smaller than the
 	/// maximal configured.
@@ -3081,7 +3083,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>}
 }
 
-<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; InboundLaneStorage <span class="kw">for </span>RuntimeInboundLaneStorage&lt;T, I&gt; {
+<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; InboundLaneStorage <span class="kw">for </span>RuntimeInboundLaneStorage&lt;T, I&gt; {
 	<span class="kw">type </span>Relayer = T::InboundRelayer;
 
 	<span class="kw">fn </span>id(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; LaneId {
@@ -3120,7 +3122,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	_phantom: PhantomData&lt;(T, I)&gt;,
 }
 
-<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; OutboundLaneStorage <span class="kw">for </span>RuntimeOutboundLaneStorage&lt;T, I&gt; {
+<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; OutboundLaneStorage <span class="kw">for </span>RuntimeOutboundLaneStorage&lt;T, I&gt; {
 	<span class="kw">type </span>StoredMessagePayload = StoredMessagePayload&lt;T, I&gt;;
 
 	<span class="kw">fn </span>id(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; LaneId {
@@ -3218,7 +3220,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>message_nonce = outbound_lane.data().latest_generated_nonce + <span class="number">1</span>;
 		<span class="kw">let </span>prev_enqueued_messages = outbound_lane.data().queued_messages().saturating_len();
 		<span class="kw">let </span>valid_message = Pallet::&lt;TestRuntime, ()&gt;::validate_message(lane_id, <span class="kw-2">&amp;</span>REGULAR_PAYLOAD)
-			.expect(<span class="string">&quot;validate_message has failed&quot;</span>);
+			.expect(<span class="string">"validate_message has failed"</span>);
 		<span class="kw">let </span>artifacts = Pallet::&lt;TestRuntime, ()&gt;::send_message(valid_message);
 		<span class="macro">assert_eq!</span>(artifacts.enqueued_messages, prev_enqueued_messages + <span class="number">1</span>);
 
@@ -3380,7 +3382,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>send_message_rejects_too_large_message() {
 		run_test(|| {
 			<span class="kw">let </span><span class="kw-2">mut </span>message_payload = message_payload(<span class="number">1</span>, <span class="number">0</span>);
-			<span class="comment">// the payload isn&#39;t simply extra, so it&#39;ll definitely overflow
+			<span class="comment">// the payload isn't simply extra, so it'll definitely overflow
 			// `MAX_OUTBOUND_PAYLOAD_SIZE` if we add `MAX_OUTBOUND_PAYLOAD_SIZE` bytes to extra
 			</span>message_payload
 				.extra
@@ -3392,7 +3394,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				),
 			);
 
-			<span class="comment">// let&#39;s check that we&#39;re able to send `MAX_OUTBOUND_PAYLOAD_SIZE` messages
+			<span class="comment">// let's check that we're able to send `MAX_OUTBOUND_PAYLOAD_SIZE` messages
 			</span><span class="kw">while </span>message_payload.encoded_size() <span class="kw">as </span>u32 &gt; MAX_OUTBOUND_PAYLOAD_SIZE {
 				message_payload.extra.pop();
 			}
@@ -3400,7 +3402,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="kw">let </span>valid_message =
 				Pallet::&lt;TestRuntime, ()&gt;::validate_message(TEST_LANE_ID, <span class="kw-2">&amp;</span>message_payload)
-					.expect(<span class="string">&quot;validate_message has failed&quot;</span>);
+					.expect(<span class="string">"validate_message has failed"</span>);
 			Pallet::&lt;TestRuntime, ()&gt;::send_message(valid_message);
 		})
 	}
@@ -3852,9 +3854,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					messages_count,
 					REGULAR_PAYLOAD.declared_weight,
 				)
-				.expect(<span class="string">&quot;delivery has failed&quot;</span>);
+				.expect(<span class="string">"delivery has failed"</span>);
 				<span class="kw">let </span>post_dispatch_weight =
-					result.actual_weight.expect(<span class="string">&quot;receive_messages_proof always returns Some&quot;</span>);
+					result.actual_weight.expect(<span class="string">"receive_messages_proof always returns Some"</span>);
 
 				<span class="comment">// message delivery transactions are never free
 				</span><span class="macro">assert_eq!</span>(result.pays_fee, Pays::Yes);
@@ -3882,7 +3884,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				pre.ref_time() - REGULAR_PAYLOAD.declared_weight.ref_time()
 			);
 
-			<span class="comment">// when there&#39;s no unspent weight
+			<span class="comment">// when there's no unspent weight
 			</span><span class="kw">let </span>(pre, post) = submit_with_unspent_weight(<span class="number">4</span>, <span class="number">0</span>);
 			<span class="macro">assert_eq!</span>(post.ref_time(), pre.ref_time());
 
@@ -3897,7 +3899,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		run_test(|| {
 			<span class="kw">let </span>max_entries = <span class="kw">crate</span>::mock::MaxUnrewardedRelayerEntriesAtInboundLane::get() <span class="kw">as </span>usize;
 
-			<span class="comment">// if there&#39;s maximal number of unrewarded relayer entries at the inbound lane, then
+			<span class="comment">// if there's maximal number of unrewarded relayer entries at the inbound lane, then
 			// `proof_size` is unchanged in post-dispatch weight
 			</span><span class="kw">let </span>proof: TestMessagesProof = <span class="prelude-val">Ok</span>(<span class="macro">vec!</span>[message(<span class="number">101</span>, REGULAR_PAYLOAD)]).into();
 			<span class="kw">let </span>messages_count = <span class="number">1</span>;
@@ -3963,7 +3965,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.unwrap();
 			<span class="macro">assert!</span>(
 				post_dispatch_weight.proof_size() &lt; pre_dispatch_weight.proof_size(),
-				<span class="string">&quot;Expected post-dispatch PoV {} to be less than pre-dispatch PoV {}&quot;</span>,
+				<span class="string">"Expected post-dispatch PoV {} to be less than pre-dispatch PoV {}"</span>,
 				post_dispatch_weight.proof_size(),
 				pre_dispatch_weight.proof_size(),
 			);
@@ -4039,7 +4041,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// 1) InboundLaneData declares that the `last_confirmed_nonce` is 1;
 			// 2) InboundLaneData has no entries =&gt; `InboundLaneData::last_delivered_nonce()`
 			//    returns `last_confirmed_nonce`;
-			// 3) it means that we&#39;re going to confirm delivery of messages 1..=1;
+			// 3) it means that we're going to confirm delivery of messages 1..=1;
 			// 4) so the number of declared messages (see `UnrewardedRelayersState`) is `0` and
 			//    number of actually confirmed messages is `1`.
 			</span><span class="macro">assert_noop!</span>(
@@ -4062,7 +4064,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>storage_keys_computed_properly() {
 		<span class="macro">assert_eq!</span>(
 			PalletOperatingMode::&lt;TestRuntime&gt;::storage_value_final_key().to_vec(),
-			bp_messages::storage_keys::operating_mode_key(<span class="string">&quot;Messages&quot;</span>).<span class="number">0</span>,
+			bp_messages::storage_keys::operating_mode_key(<span class="string">"Messages"</span>).<span class="number">0</span>,
 		);
 
 		<span class="macro">assert_eq!</span>(
@@ -4070,17 +4072,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				lane_id: TEST_LANE_ID,
 				nonce: <span class="number">42
 			</span>}),
-			bp_messages::storage_keys::message_key(<span class="string">&quot;Messages&quot;</span>, <span class="kw-2">&amp;</span>TEST_LANE_ID, <span class="number">42</span>).<span class="number">0</span>,
+			bp_messages::storage_keys::message_key(<span class="string">"Messages"</span>, <span class="kw-2">&amp;</span>TEST_LANE_ID, <span class="number">42</span>).<span class="number">0</span>,
 		);
 
 		<span class="macro">assert_eq!</span>(
 			OutboundLanes::&lt;TestRuntime&gt;::storage_map_final_key(TEST_LANE_ID),
-			bp_messages::storage_keys::outbound_lane_data_key(<span class="string">&quot;Messages&quot;</span>, <span class="kw-2">&amp;</span>TEST_LANE_ID).<span class="number">0</span>,
+			bp_messages::storage_keys::outbound_lane_data_key(<span class="string">"Messages"</span>, <span class="kw-2">&amp;</span>TEST_LANE_ID).<span class="number">0</span>,
 		);
 
 		<span class="macro">assert_eq!</span>(
 			InboundLanes::&lt;TestRuntime&gt;::storage_map_final_key(TEST_LANE_ID),
-			bp_messages::storage_keys::inbound_lane_data_key(<span class="string">&quot;Messages&quot;</span>, <span class="kw-2">&amp;</span>TEST_LANE_ID).<span class="number">0</span>,
+			bp_messages::storage_keys::inbound_lane_data_key(<span class="string">"Messages"</span>, <span class="kw-2">&amp;</span>TEST_LANE_ID).<span class="number">0</span>,
 		);
 	}
 

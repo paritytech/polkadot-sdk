@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/support/procedural/src/pallet/expand/storage.rs`."><title>storage.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/support/procedural/src/pallet/expand/storage.rs`."><title>storage.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="frame_support_procedural" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="frame_support_procedural" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../../frame_support_procedural/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1071,14 +1073,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -1101,14 +1103,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// prefix_ident is used for the prefix struct to be given to storage as first generic param.
 </span><span class="kw">fn </span>prefix_ident(storage: <span class="kw-2">&amp;</span>StorageDef) -&gt; syn::Ident {
 	<span class="kw">let </span>storage_ident = <span class="kw-2">&amp;</span>storage.ident;
-	syn::Ident::new(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;_GeneratedPrefixForStorage{}&quot;</span>, storage_ident), storage_ident.span())
+	syn::Ident::new(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"_GeneratedPrefixForStorage{}"</span>, storage_ident), storage_ident.span())
 }
 
 <span class="doccomment">/// Generate the counter_prefix_ident related to the storage.
 /// counter_prefix_ident is used for the prefix struct to be given to counted storage map.
 </span><span class="kw">fn </span>counter_prefix_ident(storage_ident: <span class="kw-2">&amp;</span>syn::Ident) -&gt; syn::Ident {
 	syn::Ident::new(
-		<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;_GeneratedCounterPrefixForStorage{}&quot;</span>, storage_ident),
+		<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"_GeneratedCounterPrefixForStorage{}"</span>, storage_ident),
 		storage_ident.span(),
 	)
 }
@@ -1124,7 +1126,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>prefix = storage_def.prefix();
 	<span class="kw">let </span>dup_err = syn::Error::new(
 		storage_def.prefix_span(),
-		<span class="macro">format!</span>(<span class="string">&quot;Duplicate storage prefixes found for `{}`&quot;</span>, prefix),
+		<span class="macro">format!</span>(<span class="string">"Duplicate storage prefixes found for `{}`"</span>, prefix),
 	);
 
 	<span class="kw">if let </span><span class="prelude-val">Some</span>(other_dup_err) = used_prefixes.insert(prefix.clone(), dup_err.clone()) {
@@ -1138,8 +1140,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>counter_dup_err = syn::Error::new(
 			storage_def.prefix_span(),
 			<span class="macro">format!</span>(
-				<span class="string">&quot;Duplicate storage prefixes found for `{}`, used for counter associated to \
-				counted storage map&quot;</span>,
+				<span class="string">"Duplicate storage prefixes found for `{}`, used for counter associated to \
+				counted storage map"</span>,
 				counter_prefix,
 			),
 		);
@@ -1178,23 +1180,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span><span class="kw-2">mut </span>on_empty_struct_metadata = Vec::new();
 
 	<span class="kw">for </span>storage_def <span class="kw">in </span>def.storages.iter_mut() {
-		<span class="kw">let </span>item = <span class="kw-2">&amp;mut </span>def.item.content.as_mut().expect(<span class="string">&quot;Checked by def&quot;</span>).<span class="number">1</span>[storage_def.index];
+		<span class="kw">let </span>item = <span class="kw-2">&amp;mut </span>def.item.content.as_mut().expect(<span class="string">"Checked by def"</span>).<span class="number">1</span>[storage_def.index];
 
 		<span class="kw">let </span>typ_item = <span class="kw">match </span>item {
 			syn::Item::Type(t) =&gt; t,
-			<span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(<span class="string">&quot;Checked by def&quot;</span>),
+			<span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(<span class="string">"Checked by def"</span>),
 		};
 
 		typ_item.attrs.push(<span class="macro">syn::parse_quote!</span>(<span class="attr">#[allow(type_alias_bounds)]</span>));
 
 		<span class="kw">let </span>typ_path = <span class="kw">match </span><span class="kw-2">&amp;mut *</span>typ_item.ty {
 			syn::Type::Path(p) =&gt; p,
-			<span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(<span class="string">&quot;Checked by def&quot;</span>),
+			<span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(<span class="string">"Checked by def"</span>),
 		};
 
 		<span class="kw">let </span>args = <span class="kw">match </span><span class="kw-2">&amp;mut </span>typ_path.path.segments[<span class="number">0</span>].arguments {
 			syn::PathArguments::AngleBracketed(args) =&gt; args,
-			<span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(<span class="string">&quot;Checked by def&quot;</span>),
+			<span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(<span class="string">"Checked by def"</span>),
 		};
 
 		<span class="kw">let </span>prefix_ident = prefix_ident(storage_def);
@@ -1211,7 +1213,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				storage_def.query_kind.as_ref()
 			{
 				<span class="kw">let </span>on_empty_ident =
-					<span class="macro">quote::format_ident!</span>(<span class="string">&quot;__Frame_Internal_Get{}Result&quot;</span>, storage_def.ident);
+					<span class="macro">quote::format_ident!</span>(<span class="string">"__Frame_Internal_Get{}Result"</span>, storage_def.ident);
 				on_empty_struct_metadata.push(ResultOnEmptyStructMetadata {
 					name: on_empty_ident.clone(),
 					visibility: storage_def.vis.clone(),
@@ -1242,8 +1244,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					}
 				} <span class="kw">else </span>{
 					<span class="kw">let </span>msg = <span class="macro">format!</span>(
-						<span class="string">&quot;Invalid pallet::storage, unexpected type for query, expected ResultQuery \
-						with 1 type parameter, found `{}`&quot;</span>,
+						<span class="string">"Invalid pallet::storage, unexpected type for query, expected ResultQuery \
+						with 1 type parameter, found `{}`"</span>,
 						query_type.to_token_stream().to_string()
 					);
 					<span class="kw">return </span><span class="prelude-val">Err</span>(syn::Error::new(query_type.span(), msg))
@@ -1381,25 +1383,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="comment">// expand the docs with a new line showing the storage type (value, map, double map, etc), and
 	// the key/value type(s).
 	</span><span class="kw">let </span><span class="kw-2">mut </span>push_string_literal = |doc_line: <span class="kw-2">&amp;</span>str, storage: <span class="kw-2">&amp;mut </span>StorageDef| {
-		<span class="kw">let </span>item = <span class="kw-2">&amp;mut </span>def.item.content.as_mut().expect(<span class="string">&quot;Checked by def&quot;</span>).<span class="number">1</span>[storage.index];
+		<span class="kw">let </span>item = <span class="kw-2">&amp;mut </span>def.item.content.as_mut().expect(<span class="string">"Checked by def"</span>).<span class="number">1</span>[storage.index];
 		<span class="kw">let </span>typ_item = <span class="kw">match </span>item {
 			syn::Item::Type(t) =&gt; t,
-			<span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(<span class="string">&quot;Checked by def&quot;</span>),
+			<span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(<span class="string">"Checked by def"</span>),
 		};
-		typ_item.attrs.push(<span class="macro">syn::parse_quote!</span>(<span class="attr">#[doc = <span class="string">&quot;&quot;</span>]</span>));
+		typ_item.attrs.push(<span class="macro">syn::parse_quote!</span>(<span class="attr">#[doc = <span class="string">""</span>]</span>));
 		typ_item.attrs.push(<span class="macro">syn::parse_quote!</span>(<span class="attr">#[doc = #doc_line]</span>));
 	};
 	def.storages.iter_mut().for_each(|storage| <span class="kw">match </span><span class="kw-2">&amp;</span>storage.metadata {
 		Metadata::Value { value } =&gt; {
 			<span class="kw">let </span>doc_line = <span class="macro">format!</span>(
-				<span class="string">&quot;Storage type is [`StorageValue`] with value type `{}`.&quot;</span>,
+				<span class="string">"Storage type is [`StorageValue`] with value type `{}`."</span>,
 				value.to_token_stream()
 			);
 			push_string_literal(<span class="kw-2">&amp;</span>doc_line, storage);
 		},
 		Metadata::Map { key, value } =&gt; {
 			<span class="kw">let </span>doc_line = <span class="macro">format!</span>(
-				<span class="string">&quot;Storage type is [`StorageMap`] with key type `{}` and value type `{}`.&quot;</span>,
+				<span class="string">"Storage type is [`StorageMap`] with key type `{}` and value type `{}`."</span>,
 				key.to_token_stream(),
 				value.to_token_stream()
 			);
@@ -1407,7 +1409,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		},
 		Metadata::DoubleMap { key1, key2, value } =&gt; {
 			<span class="kw">let </span>doc_line = <span class="macro">format!</span>(
-				<span class="string">&quot;Storage type is [`StorageDoubleMap`] with key1 type {}, key2 type {} and value type {}.&quot;</span>,
+				<span class="string">"Storage type is [`StorageDoubleMap`] with key1 type {}, key2 type {} and value type {}."</span>,
 				key1.to_token_stream(),
 				key2.to_token_stream(),
 				value.to_token_stream()
@@ -1416,29 +1418,29 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		},
 		Metadata::NMap { keys, value, .. } =&gt; {
 			<span class="kw">let </span>doc_line = <span class="macro">format!</span>(
-				<span class="string">&quot;Storage type is [`StorageNMap`] with keys type ({}) and value type {}.&quot;</span>,
+				<span class="string">"Storage type is [`StorageNMap`] with keys type ({}) and value type {}."</span>,
 				keys.iter()
 					.map(|k| k.to_token_stream().to_string())
 					.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
-					.join(<span class="string">&quot;, &quot;</span>),
+					.join(<span class="string">", "</span>),
 				value.to_token_stream()
 			);
 			push_string_literal(<span class="kw-2">&amp;</span>doc_line, storage);
 		},
 		Metadata::CountedNMap { keys, value, .. } =&gt; {
 			<span class="kw">let </span>doc_line = <span class="macro">format!</span>(
-				<span class="string">&quot;Storage type is [`CountedStorageNMap`] with keys type ({}) and value type {}.&quot;</span>,
+				<span class="string">"Storage type is [`CountedStorageNMap`] with keys type ({}) and value type {}."</span>,
 				keys.iter()
 					.map(|k| k.to_token_stream().to_string())
 					.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
-					.join(<span class="string">&quot;, &quot;</span>),
+					.join(<span class="string">", "</span>),
 				value.to_token_stream()
 			);
 			push_string_literal(<span class="kw-2">&amp;</span>doc_line, storage);
 		},
 		Metadata::CountedMap { key, value } =&gt; {
 			<span class="kw">let </span>doc_line = <span class="macro">format!</span>(
-				<span class="string">&quot;Storage type is [`CountedStorageMap`] with key type {} and value type {}.&quot;</span>,
+				<span class="string">"Storage type is [`CountedStorageMap`] with key type {} and value type {}."</span>,
 				key.to_token_stream(),
 				value.to_token_stream()
 			);
@@ -1479,7 +1481,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">let </span>entries_builder = def.storages.iter().map(|storage| {
 		<span class="kw">let </span>no_docs = <span class="macro">vec!</span>[];
-		<span class="kw">let </span>docs = <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">&quot;no-metadata-docs&quot;</span>) { <span class="kw-2">&amp;</span>no_docs } <span class="kw">else </span>{ <span class="kw-2">&amp;</span>storage.docs };
+		<span class="kw">let </span>docs = <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">"no-metadata-docs"</span>) { <span class="kw-2">&amp;</span>no_docs } <span class="kw">else </span>{ <span class="kw-2">&amp;</span>storage.docs };
 
 		<span class="kw">let </span>ident = <span class="kw-2">&amp;</span>storage.ident;
 		<span class="kw">let </span>gen = <span class="kw-2">&amp;</span>def.type_use_generics(storage.attr_span);
@@ -1518,14 +1520,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			// We can not just copy the docs from a non-public type as it may links to internal
 			// types which makes the compiler very unhappy :(
 			</span><span class="kw">let </span>getter_doc_line = <span class="kw">if </span><span class="macro">matches!</span>(storage.vis, syn::Visibility::Public(<span class="kw">_</span>)) {
-				<span class="macro">format!</span>(<span class="string">&quot;An auto-generated getter for [`{}`].&quot;</span>, storage.ident)
+				<span class="macro">format!</span>(<span class="string">"An auto-generated getter for [`{}`]."</span>, storage.ident)
 			} <span class="kw">else </span>{
-				<span class="macro">format!</span>(<span class="string">&quot;An auto-generated getter for `{}`.&quot;</span>, storage.ident)
+				<span class="macro">format!</span>(<span class="string">"An auto-generated getter for `{}`."</span>, storage.ident)
 			};
 
 			<span class="kw">match </span><span class="kw-2">&amp;</span>storage.metadata {
 				Metadata::Value { value } =&gt; {
-					<span class="kw">let </span>query = <span class="kw">match </span>storage.query_kind.as_ref().expect(<span class="string">&quot;Checked by def&quot;</span>) {
+					<span class="kw">let </span>query = <span class="kw">match </span>storage.query_kind.as_ref().expect(<span class="string">"Checked by def"</span>) {
 						QueryKind::OptionQuery =&gt; <span class="macro">quote::quote_spanned!</span>(storage.attr_span =&gt;
 							<span class="prelude-ty">Option</span>&lt;#value&gt;
 						),
@@ -1549,7 +1551,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					)
 				},
 				Metadata::Map { key, value } =&gt; {
-					<span class="kw">let </span>query = <span class="kw">match </span>storage.query_kind.as_ref().expect(<span class="string">&quot;Checked by def&quot;</span>) {
+					<span class="kw">let </span>query = <span class="kw">match </span>storage.query_kind.as_ref().expect(<span class="string">"Checked by def"</span>) {
 						QueryKind::OptionQuery =&gt; <span class="macro">quote::quote_spanned!</span>(storage.attr_span =&gt;
 							<span class="prelude-ty">Option</span>&lt;#value&gt;
 						),
@@ -1575,7 +1577,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					)
 				},
 				Metadata::CountedMap { key, value } =&gt; {
-					<span class="kw">let </span>query = <span class="kw">match </span>storage.query_kind.as_ref().expect(<span class="string">&quot;Checked by def&quot;</span>) {
+					<span class="kw">let </span>query = <span class="kw">match </span>storage.query_kind.as_ref().expect(<span class="string">"Checked by def"</span>) {
 						QueryKind::OptionQuery =&gt; <span class="macro">quote::quote_spanned!</span>(storage.attr_span =&gt;
 							<span class="prelude-ty">Option</span>&lt;#value&gt;
 						),
@@ -1593,15 +1595,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							</span><span class="kw">pub fn </span>#getter&lt;KArg&gt;(k: KArg) -&gt; #query <span class="kw">where
 								</span>KArg: #frame_support::__private::codec::EncodeLike&lt;#key&gt;,
 							{
-								<span class="comment">// NOTE: we can&#39;t use any trait here because CountedStorageMap
-								// doesn&#39;t implement any.
+								<span class="comment">// NOTE: we can't use any trait here because CountedStorageMap
+								// doesn't implement any.
 								</span>&lt;#full_ident&gt;::get(k)
 							}
 						}
 					)
 				},
 				Metadata::DoubleMap { key1, key2, value } =&gt; {
-					<span class="kw">let </span>query = <span class="kw">match </span>storage.query_kind.as_ref().expect(<span class="string">&quot;Checked by def&quot;</span>) {
+					<span class="kw">let </span>query = <span class="kw">match </span>storage.query_kind.as_ref().expect(<span class="string">"Checked by def"</span>) {
 						QueryKind::OptionQuery =&gt; <span class="macro">quote::quote_spanned!</span>(storage.attr_span =&gt;
 							<span class="prelude-ty">Option</span>&lt;#value&gt;
 						),
@@ -1629,7 +1631,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					)
 				},
 				Metadata::NMap { keygen, value, .. } =&gt; {
-					<span class="kw">let </span>query = <span class="kw">match </span>storage.query_kind.as_ref().expect(<span class="string">&quot;Checked by def&quot;</span>) {
+					<span class="kw">let </span>query = <span class="kw">match </span>storage.query_kind.as_ref().expect(<span class="string">"Checked by def"</span>) {
 						QueryKind::OptionQuery =&gt; <span class="macro">quote::quote_spanned!</span>(storage.attr_span =&gt;
 							<span class="prelude-ty">Option</span>&lt;#value&gt;
 						),
@@ -1660,7 +1662,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					)
 				},
 				Metadata::CountedNMap { keygen, value, .. } =&gt; {
-					<span class="kw">let </span>query = <span class="kw">match </span>storage.query_kind.as_ref().expect(<span class="string">&quot;Checked by def&quot;</span>) {
+					<span class="kw">let </span>query = <span class="kw">match </span>storage.query_kind.as_ref().expect(<span class="string">"Checked by def"</span>) {
 						QueryKind::OptionQuery =&gt; <span class="macro">quote::quote_spanned!</span>(storage.attr_span =&gt;
 							<span class="prelude-ty">Option</span>&lt;#value&gt;
 						),
@@ -1682,8 +1684,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 								&gt;
 									+ #frame_support::storage::types::TupleToEncodedIter,
 							{
-								<span class="comment">// NOTE: we can&#39;t use any trait here because CountedStorageNMap
-								// doesn&#39;t implement any.
+								<span class="comment">// NOTE: we can't use any trait here because CountedStorageNMap
+								// doesn't implement any.
 								</span>&lt;#full_ident&gt;::get(key)
 							}
 						}
@@ -1721,12 +1723,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="kw">for </span>#counter_prefix_struct_ident&lt;#type_use_gen&gt;
 						#config_where_clause
 					{
-						<span class="kw">fn </span>pallet_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str {
+						<span class="kw">fn </span>pallet_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
 							&lt;
 								&lt;T <span class="kw">as </span>#frame_system::Config&gt;::PalletInfo
 								<span class="kw">as </span>#frame_support::traits::PalletInfo
 							&gt;::name::&lt;Pallet&lt;#type_use_gen&gt;&gt;()
-								.expect(<span class="string">&quot;No name found for the pallet in the runtime! This usually means that the pallet wasn&#39;t added to `construct_runtime!`.&quot;</span>)
+								.expect(<span class="string">"No name found for the pallet in the runtime! This usually means that the pallet wasn't added to `construct_runtime!`."</span>)
 						}
 
 						<span class="kw">fn </span>pallet_prefix_hash() -&gt; [u8; <span class="number">16</span>] {
@@ -1734,10 +1736,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 								&lt;T <span class="kw">as </span>#frame_system::Config&gt;::PalletInfo
 								<span class="kw">as </span>#frame_support::traits::PalletInfo
 							&gt;::name_hash::&lt;Pallet&lt;#type_use_gen&gt;&gt;()
-								.expect(<span class="string">&quot;No name_hash found for the pallet in the runtime! This usually means that the pallet wasn&#39;t added to `construct_runtime!`.&quot;</span>)
+								.expect(<span class="string">"No name_hash found for the pallet in the runtime! This usually means that the pallet wasn't added to `construct_runtime!`."</span>)
 						}
 
-						<span class="kw">const </span>STORAGE_PREFIX: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = #counter_prefix_struct_const;
+						<span class="kw">const </span>STORAGE_PREFIX: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = #counter_prefix_struct_const;
 						<span class="kw">fn </span>storage_prefix_hash() -&gt; [u8; <span class="number">16</span>] {
 							#storage_prefix_hash
 						}
@@ -1766,21 +1768,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="kw">for </span>#counter_prefix_struct_ident&lt;#type_use_gen&gt;
 						#config_where_clause
 					{
-						<span class="kw">fn </span>pallet_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str {
+						<span class="kw">fn </span>pallet_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
 							&lt;
 								&lt;T <span class="kw">as </span>#frame_system::Config&gt;::PalletInfo
 								<span class="kw">as </span>#frame_support::traits::PalletInfo
 							&gt;::name::&lt;Pallet&lt;#type_use_gen&gt;&gt;()
-								.expect(<span class="string">&quot;No name found for the pallet in the runtime! This usually means that the pallet wasn&#39;t added to `construct_runtime!`.&quot;</span>)
+								.expect(<span class="string">"No name found for the pallet in the runtime! This usually means that the pallet wasn't added to `construct_runtime!`."</span>)
 						}
 						<span class="kw">fn </span>pallet_prefix_hash() -&gt; [u8; <span class="number">16</span>] {
 							&lt;
 								&lt;T <span class="kw">as </span>#frame_system::Config&gt;::PalletInfo
 								<span class="kw">as </span>#frame_support::traits::PalletInfo
 							&gt;::name_hash::&lt;Pallet&lt;#type_use_gen&gt;&gt;()
-								.expect(<span class="string">&quot;No name_hash found for the pallet in the runtime! This usually means that the pallet wasn&#39;t added to `construct_runtime!`.&quot;</span>)
+								.expect(<span class="string">"No name_hash found for the pallet in the runtime! This usually means that the pallet wasn't added to `construct_runtime!`."</span>)
 						}
-						<span class="kw">const </span>STORAGE_PREFIX: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = #counter_prefix_struct_const;
+						<span class="kw">const </span>STORAGE_PREFIX: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = #counter_prefix_struct_const;
 						<span class="kw">fn </span>storage_prefix_hash() -&gt; [u8; <span class="number">16</span>] {
 							#storage_prefix_hash
 						}
@@ -1811,12 +1813,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">for </span>#prefix_struct_ident&lt;#type_use_gen&gt;
 				#config_where_clause
 			{
-				<span class="kw">fn </span>pallet_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str {
+				<span class="kw">fn </span>pallet_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
 					&lt;
 						&lt;T <span class="kw">as </span>#frame_system::Config&gt;::PalletInfo
 						<span class="kw">as </span>#frame_support::traits::PalletInfo
 					&gt;::name::&lt;Pallet&lt;#type_use_gen&gt;&gt;()
-						.expect(<span class="string">&quot;No name found for the pallet in the runtime! This usually means that the pallet wasn&#39;t added to `construct_runtime!`.&quot;</span>)
+						.expect(<span class="string">"No name found for the pallet in the runtime! This usually means that the pallet wasn't added to `construct_runtime!`."</span>)
 				}
 
 				<span class="kw">fn </span>pallet_prefix_hash() -&gt; [u8; <span class="number">16</span>] {
@@ -1824,10 +1826,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						&lt;T <span class="kw">as </span>#frame_system::Config&gt;::PalletInfo
 						<span class="kw">as </span>#frame_support::traits::PalletInfo
 					&gt;::name_hash::&lt;Pallet&lt;#type_use_gen&gt;&gt;()
-						.expect(<span class="string">&quot;No name_hash found for the pallet in the runtime! This usually means that the pallet wasn&#39;t added to `construct_runtime!`.&quot;</span>)
+						.expect(<span class="string">"No name_hash found for the pallet in the runtime! This usually means that the pallet wasn't added to `construct_runtime!`."</span>)
 				}
 
-				<span class="kw">const </span>STORAGE_PREFIX: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = #prefix_struct_const;
+				<span class="kw">const </span>STORAGE_PREFIX: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = #prefix_struct_const;
 				<span class="kw">fn </span>storage_prefix_hash() -&gt; [u8; <span class="number">16</span>] {
 					#storage_prefix_hash
 				}
@@ -1858,9 +1860,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 								..
 							})) =&gt; {
 								<span class="kw">let </span>maybe_config =
-									segments.first().map_or(<span class="bool-val">false</span>, |seg| seg.ident == <span class="string">&quot;T&quot;</span>);
+									segments.first().map_or(<span class="bool-val">false</span>, |seg| seg.ident == <span class="string">"T"</span>);
 								<span class="kw">let </span>maybe_instance =
-									segments.first().map_or(<span class="bool-val">false</span>, |seg| seg.ident == <span class="string">&quot;I&quot;</span>);
+									segments.first().map_or(<span class="bool-val">false</span>, |seg| seg.ident == <span class="string">"I"</span>);
 
 								(has_config || maybe_config, has_instance || maybe_instance)
 							},
@@ -1902,8 +1904,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.storages
 			.iter()
 			.filter_map(|storage| {
-				<span class="comment">// A little hacky; don&#39;t generate for cfg gated storages to not get compile errors
-				// when building &quot;frame-feature-testing&quot; gated storages in the &quot;frame-support-test&quot;
+				<span class="comment">// A little hacky; don't generate for cfg gated storages to not get compile errors
+				// when building "frame-feature-testing" gated storages in the "frame-support-test"
 				// crate.
 				</span><span class="kw">if </span>storage.try_decode &amp;&amp; storage.cfg_attrs.is_empty() {
 					<span class="kw">let </span>ident = <span class="kw-2">&amp;</span>storage.ident;
@@ -1917,24 +1919,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		storage_names.sort_by_cached_key(|ident| ident.to_string());
 
 		<span class="macro">quote::quote!</span>(
-			<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+			<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 			</span><span class="kw">impl</span>&lt;#type_impl_gen&gt; #frame_support::traits::TryDecodeEntireStorage
 			<span class="kw">for </span>#pallet_ident&lt;#type_use_gen&gt; #completed_where_clause
 			{
 				<span class="kw">fn </span>try_decode_entire_state() -&gt; <span class="prelude-ty">Result</span>&lt;usize, #frame_support::__private::sp_std::vec::Vec&lt;#frame_support::traits::TryDecodeEntireStorageError&gt;&gt; {
 					<span class="kw">let </span>pallet_name = &lt;&lt;T <span class="kw">as </span>#frame_system::Config&gt;::PalletInfo	<span class="kw">as </span>frame_support::traits::PalletInfo&gt;
 						::name::&lt;#pallet_ident&lt;#type_use_gen&gt;&gt;()
-						.expect(<span class="string">&quot;Every active pallet has a name in the runtime; qed&quot;</span>);
+						.expect(<span class="string">"Every active pallet has a name in the runtime; qed"</span>);
 
-					#<span class="macro">frame_support::__private::log::debug!</span>(target: <span class="string">&quot;runtime::try-decode-state&quot;</span>, <span class="string">&quot;trying to decode pallet: {pallet_name}&quot;</span>);
+					#<span class="macro">frame_support::__private::log::debug!</span>(target: <span class="string">"runtime::try-decode-state"</span>, <span class="string">"trying to decode pallet: {pallet_name}"</span>);
 
 					<span class="comment">// NOTE: for now, we have to exclude storage items that are feature gated.
 					</span><span class="kw">let </span><span class="kw-2">mut </span>errors = #frame_support::__private::sp_std::vec::Vec::new();
 					<span class="kw">let </span><span class="kw-2">mut </span>decoded = <span class="number">0usize</span>;
 
 					#(
-						#<span class="macro">frame_support::__private::log::debug!</span>(target: <span class="string">&quot;runtime::try-decode-state&quot;</span>, <span class="string">&quot;trying to decode storage: \
-						{pallet_name}::{}&quot;</span>, <span class="macro">stringify!</span>(#storage_names));
+						#<span class="macro">frame_support::__private::log::debug!</span>(target: <span class="string">"runtime::try-decode-state"</span>, <span class="string">"trying to decode storage: \
+						{pallet_name}::{}"</span>, <span class="macro">stringify!</span>(#storage_names));
 
 						<span class="kw">match </span>&lt;#storage_names <span class="kw">as </span>#frame_support::traits::TryDecodeEntireStorage&gt;::try_decode_entire_state() {
 							<span class="prelude-val">Ok</span>(count) =&gt; {
@@ -1967,7 +1969,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						&lt;T <span class="kw">as </span>#frame_system::Config&gt;::PalletInfo <span class="kw">as
 						</span>#frame_support::traits::PalletInfo
 					&gt;::name::&lt;#pallet_ident&lt;#type_use_gen&gt;&gt;()
-						.expect(<span class="string">&quot;No name found for the pallet in the runtime! This usually means that the pallet wasn&#39;t added to `construct_runtime!`.&quot;</span>),
+						.expect(<span class="string">"No name found for the pallet in the runtime! This usually means that the pallet wasn't added to `construct_runtime!`."</span>),
 					entries: {
 						<span class="attr">#[allow(unused_mut)]
 						</span><span class="kw">let </span><span class="kw-2">mut </span>entries = #<span class="macro">frame_support::__private::sp_std::vec!</span>[];

@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/consensus/beefy/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/consensus/beefy/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_consensus_beefy" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_consensus_beefy" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sp_consensus_beefy/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -711,19 +713,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-</span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
+</span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 #![warn(missing_docs)]
 
 </span><span class="doccomment">//! Primitives for BEEFY protocol.
@@ -733,8 +735,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!
 //! BEEFY is a gadget that runs alongside another finality gadget (for instance GRANDPA).
 //! For simplicity (and the initially intended use case) the documentation says GRANDPA in places
-//! where a more abstract &quot;Finality Gadget&quot; term could be used, but there is no reason why BEEFY
-//! wouldn&#39;t run with some other finality scheme.
+//! where a more abstract "Finality Gadget" term could be used, but there is no reason why BEEFY
+//! wouldn't run with some other finality scheme.
 //! BEEFY validator set is supposed to be tracking the Finality Gadget validator set, but note that
 //! it will use a different set of keys. For Polkadot use case we plan to use `secp256k1` for BEEFY,
 //! while GRANDPA uses `ed25519`.
@@ -748,7 +750,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">pub mod </span>witness;
 
 <span class="doccomment">/// Test utilities
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+</span><span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">pub mod </span>test_utils;
 
 <span class="kw">pub use </span>commitment::{Commitment, SignedCommitment, VersionedFinalityProof};
@@ -846,7 +848,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// Your code should use the above types as concrete types for all crypto related
 /// functionality.
 
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;bls-experimental&quot;</span>)]
+</span><span class="attr">#[cfg(feature = <span class="string">"bls-experimental"</span>)]
 </span><span class="kw">pub mod </span>bls_crypto {
 	<span class="kw">use super</span>::{AuthorityIdBound, BeefyAuthorityId, Hash, RuntimeAppPublic, KEY_TYPE};
 	<span class="kw">use </span>sp_application_crypto::{app_crypto, bls377};
@@ -868,7 +870,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// `w3f-bls` library uses IETF hashing standard and as such does not expose
 			// a choice of hash-to-field function.
 			// We are directly calling into the library to avoid introducing new host call.
-			// and because BeefyAuthorityId::verify is being called in the runtime so we don&#39;t have
+			// and because BeefyAuthorityId::verify is being called in the runtime so we don't have
 
 			</span>BlsPair::verify(signature.as_inner_ref(), msg, <span class="self">self</span>.as_inner_ref())
 		}
@@ -886,7 +888,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// Your code should use the above types as concrete types for all crypto related
 /// functionality.
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;bls-experimental&quot;</span>)]
+</span><span class="attr">#[cfg(feature = <span class="string">"bls-experimental"</span>)]
 </span><span class="kw">pub mod </span>ecdsa_bls_crypto {
 	<span class="kw">use super</span>::{AuthorityIdBound, BeefyAuthorityId, Hash, RuntimeAppPublic, KEY_TYPE};
 	<span class="kw">use </span>sp_application_crypto::{app_crypto, ecdsa_bls377};
@@ -909,7 +911,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// We can not simply call
 			// `EcdsaBlsPair::verify(signature.as_inner_ref(), msg, self.as_inner_ref())`
 			// because that invokes ECDSA default verification which performs Blake2b hash
-			// which we don&#39;t want. This is because ECDSA signatures are meant to be verified
+			// which we don't want. This is because ECDSA signatures are meant to be verified
 			// on Ethereum network where Keccak hasher is significantly cheaper than Blake2b.
 			// See Figure 3 of [OnSc21](https://www.scitepress.org/Papers/2021/106066/106066.pdf)
 			// for comparison.
@@ -925,7 +927,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// The `ConsensusEngineId` of BEEFY.
-</span><span class="kw">pub const </span>BEEFY_ENGINE_ID: sp_runtime::ConsensusEngineId = <span class="kw-2">*</span><span class="string">b&quot;BEEF&quot;</span>;
+</span><span class="kw">pub const </span>BEEFY_ENGINE_ID: sp_runtime::ConsensusEngineId = <span class="kw-2">*</span><span class="string">b"BEEF"</span>;
 
 <span class="doccomment">/// Authority set id starts with zero at BEEFY pallet genesis.
 </span><span class="kw">pub const </span>GENESIS_AUTHORITY_SET_ID: u64 = <span class="number">0</span>;
@@ -1181,7 +1183,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// Empty set not allowed.
 		</span><span class="macro">assert_eq!</span>(ValidatorSet::&lt;Public&gt;::new(<span class="macro">vec!</span>[], <span class="number">0</span>), <span class="prelude-val">None</span>);
 
-		<span class="kw">let </span>alice = ecdsa::Pair::from_string(<span class="string">&quot;//Alice&quot;</span>, <span class="prelude-val">None</span>).unwrap();
+		<span class="kw">let </span>alice = ecdsa::Pair::from_string(<span class="string">"//Alice"</span>, <span class="prelude-val">None</span>).unwrap();
 		<span class="kw">let </span>set_id = <span class="number">0</span>;
 		<span class="kw">let </span>validators = ValidatorSet::&lt;Public&gt;::new(<span class="macro">vec!</span>[alice.public()], set_id).unwrap();
 
@@ -1191,7 +1193,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>ecdsa_beefy_verify_works() {
-		<span class="kw">let </span>msg = <span class="kw-2">&amp;</span><span class="string">b&quot;test-message&quot;</span>[..];
+		<span class="kw">let </span>msg = <span class="kw-2">&amp;</span><span class="string">b"test-message"</span>[..];
 		<span class="kw">let </span>(pair, <span class="kw">_</span>) = ecdsa_crypto::Pair::generate();
 
 		<span class="kw">let </span>keccak_256_signature: ecdsa_crypto::Signature =
@@ -1215,7 +1217,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			msg
 		));
 
-		<span class="comment">// Other public key doesn&#39;t work
+		<span class="comment">// Other public key doesn't work
 		</span><span class="kw">let </span>(other_pair, <span class="kw">_</span>) = ecdsa_crypto::Pair::generate();
 		<span class="macro">assert!</span>(!BeefyAuthorityId::&lt;Keccak256&gt;::verify(
 			<span class="kw-2">&amp;</span>other_pair.public(),
@@ -1230,9 +1232,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="attr">#[test]
-	#[cfg(feature = <span class="string">&quot;bls-experimental&quot;</span>)]
+	#[cfg(feature = <span class="string">"bls-experimental"</span>)]
 	</span><span class="kw">fn </span>bls_beefy_verify_works() {
-		<span class="kw">let </span>msg = <span class="kw-2">&amp;</span><span class="string">b&quot;test-message&quot;</span>[..];
+		<span class="kw">let </span>msg = <span class="kw-2">&amp;</span><span class="string">b"test-message"</span>[..];
 		<span class="kw">let </span>(pair, <span class="kw">_</span>) = bls_crypto::Pair::generate();
 
 		<span class="kw">let </span>signature: bls_crypto::Signature = pair.as_inner_ref().sign(<span class="kw-2">&amp;</span>msg).into();
@@ -1240,15 +1242,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// Verification works if same hashing function is used when signing and verifying.
 		</span><span class="macro">assert!</span>(BeefyAuthorityId::&lt;Keccak256&gt;::verify(<span class="kw-2">&amp;</span>pair.public(), <span class="kw-2">&amp;</span>signature, msg));
 
-		<span class="comment">// Other public key doesn&#39;t work
+		<span class="comment">// Other public key doesn't work
 		</span><span class="kw">let </span>(other_pair, <span class="kw">_</span>) = bls_crypto::Pair::generate();
 		<span class="macro">assert!</span>(!BeefyAuthorityId::&lt;Keccak256&gt;::verify(<span class="kw-2">&amp;</span>other_pair.public(), <span class="kw-2">&amp;</span>signature, msg,));
 	}
 
 	<span class="attr">#[test]
-	#[cfg(feature = <span class="string">&quot;bls-experimental&quot;</span>)]
+	#[cfg(feature = <span class="string">"bls-experimental"</span>)]
 	</span><span class="kw">fn </span>ecdsa_bls_beefy_verify_works() {
-		<span class="kw">let </span>msg = <span class="kw-2">&amp;</span><span class="string">b&quot;test-message&quot;</span>[..];
+		<span class="kw">let </span>msg = <span class="kw-2">&amp;</span><span class="string">b"test-message"</span>[..];
 		<span class="kw">let </span>(pair, <span class="kw">_</span>) = ecdsa_bls_crypto::Pair::generate();
 
 		<span class="kw">let </span>signature: ecdsa_bls_crypto::Signature =
@@ -1257,10 +1259,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// Verification works if same hashing function is used when signing and verifying.
 		</span><span class="macro">assert!</span>(BeefyAuthorityId::&lt;Keccak256&gt;::verify(<span class="kw-2">&amp;</span>pair.public(), <span class="kw-2">&amp;</span>signature, msg));
 
-		<span class="comment">// Verification doesn&#39;t work if we verify function provided by pair_crypto implementation
+		<span class="comment">// Verification doesn't work if we verify function provided by pair_crypto implementation
 		</span><span class="macro">assert!</span>(!ecdsa_bls_crypto::Pair::verify(<span class="kw-2">&amp;</span>signature, msg, <span class="kw-2">&amp;</span>pair.public()));
 
-		<span class="comment">// Other public key doesn&#39;t work
+		<span class="comment">// Other public key doesn't work
 		</span><span class="kw">let </span>(other_pair, <span class="kw">_</span>) = ecdsa_bls_crypto::Pair::generate();
 		<span class="macro">assert!</span>(!BeefyAuthorityId::&lt;Keccak256&gt;::verify(<span class="kw-2">&amp;</span>other_pair.public(), <span class="kw-2">&amp;</span>signature, msg,));
 	}

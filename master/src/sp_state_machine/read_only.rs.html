@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/state-machine/src/read_only.rs`."><title>read_only.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/state-machine/src/read_only.rs`."><title>read_only.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_state_machine" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_state_machine" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sp_state_machine/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -396,14 +398,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -450,18 +452,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// To be used in test for state inspection. Will panic if something writes
 /// to the storage.
 </span><span class="attr">#[derive(Debug)]
-</span><span class="kw">pub struct </span>ReadOnlyExternalities&lt;<span class="lifetime">&#39;a</span>, H: Hasher, B: <span class="lifetime">&#39;a </span>+ Backend&lt;H&gt;&gt; {
-	backend: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>B,
+</span><span class="kw">pub struct </span>ReadOnlyExternalities&lt;<span class="lifetime">'a</span>, H: Hasher, B: <span class="lifetime">'a </span>+ Backend&lt;H&gt;&gt; {
+	backend: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>B,
 	_phantom: PhantomData&lt;H&gt;,
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, H: Hasher, B: <span class="lifetime">&#39;a </span>+ Backend&lt;H&gt;&gt; From&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>B&gt; <span class="kw">for </span>ReadOnlyExternalities&lt;<span class="lifetime">&#39;a</span>, H, B&gt; {
-	<span class="kw">fn </span>from(backend: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>B) -&gt; <span class="self">Self </span>{
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, H: Hasher, B: <span class="lifetime">'a </span>+ Backend&lt;H&gt;&gt; From&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>B&gt; <span class="kw">for </span>ReadOnlyExternalities&lt;<span class="lifetime">'a</span>, H, B&gt; {
+	<span class="kw">fn </span>from(backend: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>B) -&gt; <span class="self">Self </span>{
 		ReadOnlyExternalities { backend, _phantom: PhantomData }
 	}
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, H: Hasher, B: <span class="lifetime">&#39;a </span>+ Backend&lt;H&gt;&gt; ReadOnlyExternalities&lt;<span class="lifetime">&#39;a</span>, H, B&gt;
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, H: Hasher, B: <span class="lifetime">'a </span>+ Backend&lt;H&gt;&gt; ReadOnlyExternalities&lt;<span class="lifetime">'a</span>, H, B&gt;
 <span class="kw">where
 	</span>H::Out: Encode,
 {
@@ -473,54 +475,54 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, H: Hasher, B: <span class="lifetime">&#39;a </span>+ Backend&lt;H&gt;&gt; Externalities <span class="kw">for </span>ReadOnlyExternalities&lt;<span class="lifetime">&#39;a</span>, H, B&gt;
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, H: Hasher, B: <span class="lifetime">'a </span>+ Backend&lt;H&gt;&gt; Externalities <span class="kw">for </span>ReadOnlyExternalities&lt;<span class="lifetime">'a</span>, H, B&gt;
 <span class="kw">where
 	</span>H::Out: Encode,
 {
 	<span class="kw">fn </span>set_offchain_storage(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _key: <span class="kw-2">&amp;</span>[u8], _value: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>[u8]&gt;) {
-		<span class="macro">panic!</span>(<span class="string">&quot;Should not be used in read-only externalities!&quot;</span>)
+		<span class="macro">panic!</span>(<span class="string">"Should not be used in read-only externalities!"</span>)
 	}
 
 	<span class="kw">fn </span>storage(<span class="kw-2">&amp;</span><span class="self">self</span>, key: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Option</span>&lt;StorageValue&gt; {
 		<span class="self">self</span>.backend
 			.storage(key)
-			.expect(<span class="string">&quot;Backed failed for storage in ReadOnlyExternalities&quot;</span>)
+			.expect(<span class="string">"Backed failed for storage in ReadOnlyExternalities"</span>)
 	}
 
 	<span class="kw">fn </span>storage_hash(<span class="kw-2">&amp;</span><span class="self">self</span>, key: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt; {
 		<span class="self">self</span>.backend
 			.storage_hash(key)
-			.expect(<span class="string">&quot;Backed failed for storage_hash in ReadOnlyExternalities&quot;</span>)
+			.expect(<span class="string">"Backed failed for storage_hash in ReadOnlyExternalities"</span>)
 			.map(|h| h.encode())
 	}
 
 	<span class="kw">fn </span>child_storage(<span class="kw-2">&amp;</span><span class="self">self</span>, child_info: <span class="kw-2">&amp;</span>ChildInfo, key: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Option</span>&lt;StorageValue&gt; {
 		<span class="self">self</span>.backend
 			.child_storage(child_info, key)
-			.expect(<span class="string">&quot;Backed failed for child_storage in ReadOnlyExternalities&quot;</span>)
+			.expect(<span class="string">"Backed failed for child_storage in ReadOnlyExternalities"</span>)
 	}
 
 	<span class="kw">fn </span>child_storage_hash(<span class="kw-2">&amp;</span><span class="self">self</span>, child_info: <span class="kw-2">&amp;</span>ChildInfo, key: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt; {
 		<span class="self">self</span>.backend
 			.child_storage_hash(child_info, key)
-			.expect(<span class="string">&quot;Backed failed for child_storage_hash in ReadOnlyExternalities&quot;</span>)
+			.expect(<span class="string">"Backed failed for child_storage_hash in ReadOnlyExternalities"</span>)
 			.map(|h| h.encode())
 	}
 
 	<span class="kw">fn </span>next_storage_key(<span class="kw-2">&amp;</span><span class="self">self</span>, key: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Option</span>&lt;StorageKey&gt; {
 		<span class="self">self</span>.backend
 			.next_storage_key(key)
-			.expect(<span class="string">&quot;Backed failed for next_storage_key in ReadOnlyExternalities&quot;</span>)
+			.expect(<span class="string">"Backed failed for next_storage_key in ReadOnlyExternalities"</span>)
 	}
 
 	<span class="kw">fn </span>next_child_storage_key(<span class="kw-2">&amp;</span><span class="self">self</span>, child_info: <span class="kw-2">&amp;</span>ChildInfo, key: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Option</span>&lt;StorageKey&gt; {
 		<span class="self">self</span>.backend
 			.next_child_storage_key(child_info, key)
-			.expect(<span class="string">&quot;Backed failed for next_child_storage_key in ReadOnlyExternalities&quot;</span>)
+			.expect(<span class="string">"Backed failed for next_child_storage_key in ReadOnlyExternalities"</span>)
 	}
 
 	<span class="kw">fn </span>place_storage(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _key: StorageKey, _maybe_value: <span class="prelude-ty">Option</span>&lt;StorageValue&gt;) {
-		<span class="macro">unimplemented!</span>(<span class="string">&quot;place_storage not supported in ReadOnlyExternalities&quot;</span>)
+		<span class="macro">unimplemented!</span>(<span class="string">"place_storage not supported in ReadOnlyExternalities"</span>)
 	}
 
 	<span class="kw">fn </span>place_child_storage(
@@ -529,7 +531,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		_key: StorageKey,
 		_value: <span class="prelude-ty">Option</span>&lt;StorageValue&gt;,
 	) {
-		<span class="macro">unimplemented!</span>(<span class="string">&quot;place_child_storage not supported in ReadOnlyExternalities&quot;</span>)
+		<span class="macro">unimplemented!</span>(<span class="string">"place_child_storage not supported in ReadOnlyExternalities"</span>)
 	}
 
 	<span class="kw">fn </span>kill_child_storage(
@@ -538,7 +540,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		_maybe_limit: <span class="prelude-ty">Option</span>&lt;u32&gt;,
 		_maybe_cursor: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>[u8]&gt;,
 	) -&gt; MultiRemovalResults {
-		<span class="macro">unimplemented!</span>(<span class="string">&quot;kill_child_storage is not supported in ReadOnlyExternalities&quot;</span>)
+		<span class="macro">unimplemented!</span>(<span class="string">"kill_child_storage is not supported in ReadOnlyExternalities"</span>)
 	}
 
 	<span class="kw">fn </span>clear_prefix(
@@ -547,7 +549,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		_maybe_limit: <span class="prelude-ty">Option</span>&lt;u32&gt;,
 		_maybe_cursor: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>[u8]&gt;,
 	) -&gt; MultiRemovalResults {
-		<span class="macro">unimplemented!</span>(<span class="string">&quot;clear_prefix is not supported in ReadOnlyExternalities&quot;</span>)
+		<span class="macro">unimplemented!</span>(<span class="string">"clear_prefix is not supported in ReadOnlyExternalities"</span>)
 	}
 
 	<span class="kw">fn </span>clear_child_prefix(
@@ -557,15 +559,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		_maybe_limit: <span class="prelude-ty">Option</span>&lt;u32&gt;,
 		_maybe_cursor: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>[u8]&gt;,
 	) -&gt; MultiRemovalResults {
-		<span class="macro">unimplemented!</span>(<span class="string">&quot;clear_child_prefix is not supported in ReadOnlyExternalities&quot;</span>)
+		<span class="macro">unimplemented!</span>(<span class="string">"clear_child_prefix is not supported in ReadOnlyExternalities"</span>)
 	}
 
 	<span class="kw">fn </span>storage_append(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _key: Vec&lt;u8&gt;, _value: Vec&lt;u8&gt;) {
-		<span class="macro">unimplemented!</span>(<span class="string">&quot;storage_append is not supported in ReadOnlyExternalities&quot;</span>)
+		<span class="macro">unimplemented!</span>(<span class="string">"storage_append is not supported in ReadOnlyExternalities"</span>)
 	}
 
 	<span class="kw">fn </span>storage_root(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _state_version: StateVersion) -&gt; Vec&lt;u8&gt; {
-		<span class="macro">unimplemented!</span>(<span class="string">&quot;storage_root is not supported in ReadOnlyExternalities&quot;</span>)
+		<span class="macro">unimplemented!</span>(<span class="string">"storage_root is not supported in ReadOnlyExternalities"</span>)
 	}
 
 	<span class="kw">fn </span>child_storage_root(
@@ -573,19 +575,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		_child_info: <span class="kw-2">&amp;</span>ChildInfo,
 		_state_version: StateVersion,
 	) -&gt; Vec&lt;u8&gt; {
-		<span class="macro">unimplemented!</span>(<span class="string">&quot;child_storage_root is not supported in ReadOnlyExternalities&quot;</span>)
+		<span class="macro">unimplemented!</span>(<span class="string">"child_storage_root is not supported in ReadOnlyExternalities"</span>)
 	}
 
 	<span class="kw">fn </span>storage_start_transaction(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
-		<span class="macro">unimplemented!</span>(<span class="string">&quot;Transactions are not supported by ReadOnlyExternalities&quot;</span>);
+		<span class="macro">unimplemented!</span>(<span class="string">"Transactions are not supported by ReadOnlyExternalities"</span>);
 	}
 
 	<span class="kw">fn </span>storage_rollback_transaction(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), ()&gt; {
-		<span class="macro">unimplemented!</span>(<span class="string">&quot;Transactions are not supported by ReadOnlyExternalities&quot;</span>);
+		<span class="macro">unimplemented!</span>(<span class="string">"Transactions are not supported by ReadOnlyExternalities"</span>);
 	}
 
 	<span class="kw">fn </span>storage_commit_transaction(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), ()&gt; {
-		<span class="macro">unimplemented!</span>(<span class="string">&quot;Transactions are not supported by ReadOnlyExternalities&quot;</span>);
+		<span class="macro">unimplemented!</span>(<span class="string">"Transactions are not supported by ReadOnlyExternalities"</span>);
 	}
 
 	<span class="kw">fn </span>wipe(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {}
@@ -593,31 +595,31 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>commit(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {}
 
 	<span class="kw">fn </span>read_write_count(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; (u32, u32, u32, u32) {
-		<span class="macro">unimplemented!</span>(<span class="string">&quot;read_write_count is not supported in ReadOnlyExternalities&quot;</span>)
+		<span class="macro">unimplemented!</span>(<span class="string">"read_write_count is not supported in ReadOnlyExternalities"</span>)
 	}
 
 	<span class="kw">fn </span>reset_read_write_count(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
-		<span class="macro">unimplemented!</span>(<span class="string">&quot;reset_read_write_count is not supported in ReadOnlyExternalities&quot;</span>)
+		<span class="macro">unimplemented!</span>(<span class="string">"reset_read_write_count is not supported in ReadOnlyExternalities"</span>)
 	}
 
 	<span class="kw">fn </span>get_whitelist(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;TrackedStorageKey&gt; {
-		<span class="macro">unimplemented!</span>(<span class="string">&quot;get_whitelist is not supported in ReadOnlyExternalities&quot;</span>)
+		<span class="macro">unimplemented!</span>(<span class="string">"get_whitelist is not supported in ReadOnlyExternalities"</span>)
 	}
 
 	<span class="kw">fn </span>set_whitelist(<span class="kw-2">&amp;mut </span><span class="self">self</span>, <span class="kw">_</span>: Vec&lt;TrackedStorageKey&gt;) {
-		<span class="macro">unimplemented!</span>(<span class="string">&quot;set_whitelist is not supported in ReadOnlyExternalities&quot;</span>)
+		<span class="macro">unimplemented!</span>(<span class="string">"set_whitelist is not supported in ReadOnlyExternalities"</span>)
 	}
 
 	<span class="kw">fn </span>get_read_and_written_keys(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;(Vec&lt;u8&gt;, u32, u32, bool)&gt; {
-		<span class="macro">unimplemented!</span>(<span class="string">&quot;get_read_and_written_keys is not supported in ReadOnlyExternalities&quot;</span>)
+		<span class="macro">unimplemented!</span>(<span class="string">"get_read_and_written_keys is not supported in ReadOnlyExternalities"</span>)
 	}
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, H: Hasher, B: <span class="lifetime">&#39;a </span>+ Backend&lt;H&gt;&gt; sp_externalities::ExtensionStore
-	<span class="kw">for </span>ReadOnlyExternalities&lt;<span class="lifetime">&#39;a</span>, H, B&gt;
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, H: Hasher, B: <span class="lifetime">'a </span>+ Backend&lt;H&gt;&gt; sp_externalities::ExtensionStore
+	<span class="kw">for </span>ReadOnlyExternalities&lt;<span class="lifetime">'a</span>, H, B&gt;
 {
 	<span class="kw">fn </span>extension_by_type_id(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _type_id: TypeId) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;mut </span><span class="kw">dyn </span>Any&gt; {
-		<span class="macro">unimplemented!</span>(<span class="string">&quot;extension_by_type_id is not supported in ReadOnlyExternalities&quot;</span>)
+		<span class="macro">unimplemented!</span>(<span class="string">"extension_by_type_id is not supported in ReadOnlyExternalities"</span>)
 	}
 
 	<span class="kw">fn </span>register_extension_with_type_id(
@@ -625,14 +627,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		_type_id: TypeId,
 		_extension: Box&lt;<span class="kw">dyn </span>sp_externalities::Extension&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), sp_externalities::Error&gt; {
-		<span class="macro">unimplemented!</span>(<span class="string">&quot;register_extension_with_type_id is not supported in ReadOnlyExternalities&quot;</span>)
+		<span class="macro">unimplemented!</span>(<span class="string">"register_extension_with_type_id is not supported in ReadOnlyExternalities"</span>)
 	}
 
 	<span class="kw">fn </span>deregister_extension_by_type_id(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		_type_id: TypeId,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), sp_externalities::Error&gt; {
-		<span class="macro">unimplemented!</span>(<span class="string">&quot;deregister_extension_by_type_id is not supported in ReadOnlyExternalities&quot;</span>)
+		<span class="macro">unimplemented!</span>(<span class="string">"deregister_extension_by_type_id is not supported in ReadOnlyExternalities"</span>)
 	}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

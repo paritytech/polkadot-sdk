@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/xcm/xcm-builder/src/location_conversion.rs`."><title>location_conversion.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/xcm/xcm-builder/src/location_conversion.rs`."><title>location_conversion.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="staging_xcm_builder" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="staging_xcm_builder" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../staging_xcm_builder/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1216,7 +1218,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl </span>DescribeLocation <span class="kw">for </span>DescribePalletTerminal {
 	<span class="kw">fn </span>describe_location(l: <span class="kw-2">&amp;</span>Location) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt; {
 		<span class="kw">match </span>l.unpack() {
-			(<span class="number">0</span>, [PalletInstance(i)]) =&gt; <span class="prelude-val">Some</span>((<span class="string">b&quot;Pallet&quot;</span>, Compact::&lt;u32&gt;::from(<span class="kw-2">*</span>i <span class="kw">as </span>u32)).encode()),
+			(<span class="number">0</span>, [PalletInstance(i)]) =&gt; <span class="prelude-val">Some</span>((<span class="string">b"Pallet"</span>, Compact::&lt;u32&gt;::from(<span class="kw-2">*</span>i <span class="kw">as </span>u32)).encode()),
 			<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">None</span>,
 		}
 	}
@@ -1226,7 +1228,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl </span>DescribeLocation <span class="kw">for </span>DescribeAccountId32Terminal {
 	<span class="kw">fn </span>describe_location(l: <span class="kw-2">&amp;</span>Location) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt; {
 		<span class="kw">match </span>l.unpack() {
-			(<span class="number">0</span>, [AccountId32 { id, .. }]) =&gt; <span class="prelude-val">Some</span>((<span class="string">b&quot;AccountId32&quot;</span>, id).encode()),
+			(<span class="number">0</span>, [AccountId32 { id, .. }]) =&gt; <span class="prelude-val">Some</span>((<span class="string">b"AccountId32"</span>, id).encode()),
 			<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">None</span>,
 		}
 	}
@@ -1236,7 +1238,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl </span>DescribeLocation <span class="kw">for </span>DescribeAccountKey20Terminal {
 	<span class="kw">fn </span>describe_location(l: <span class="kw-2">&amp;</span>Location) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt; {
 		<span class="kw">match </span>l.unpack() {
-			(<span class="number">0</span>, [AccountKey20 { key, .. }]) =&gt; <span class="prelude-val">Some</span>((<span class="string">b&quot;AccountKey20&quot;</span>, key).encode()),
+			(<span class="number">0</span>, [AccountKey20 { key, .. }]) =&gt; <span class="prelude-val">Some</span>((<span class="string">b"AccountKey20"</span>, key).encode()),
 			<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">None</span>,
 		}
 	}
@@ -1250,7 +1252,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>describe_location(location: <span class="kw-2">&amp;</span>Location) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt; {
 		<span class="kw">match </span>location.unpack() {
 			(<span class="number">0</span>, [Plurality { id: BodyId::Treasury, part: BodyPart::Voice }]) =&gt;
-				<span class="prelude-val">Some</span>((<span class="string">b&quot;Treasury&quot;</span>, <span class="string">b&quot;Voice&quot;</span>).encode()),
+				<span class="prelude-val">Some</span>((<span class="string">b"Treasury"</span>, <span class="string">b"Voice"</span>).encode()),
 			<span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
 		}
 	}
@@ -1262,7 +1264,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl </span>DescribeLocation <span class="kw">for </span>DescribeBodyTerminal {
 	<span class="kw">fn </span>describe_location(l: <span class="kw-2">&amp;</span>Location) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt; {
 		<span class="kw">match </span>l.unpack() {
-			(<span class="number">0</span>, [Plurality { id, part }]) =&gt; <span class="prelude-val">Some</span>((<span class="string">b&quot;Body&quot;</span>, id, part).encode()),
+			(<span class="number">0</span>, [Plurality { id, part }]) =&gt; <span class="prelude-val">Some</span>((<span class="string">b"Body"</span>, id, part).encode()),
 			<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">None</span>,
 		}
 	}
@@ -1284,18 +1286,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			(<span class="number">0</span>, <span class="prelude-val">Some</span>(Parachain(index))) =&gt; {
 				<span class="kw">let </span>tail = l.clone().split_first_interior().<span class="number">0</span>;
 				<span class="kw">let </span>interior = Suffix::describe_location(<span class="kw-2">&amp;</span>tail.into())<span class="question-mark">?</span>;
-				<span class="prelude-val">Some</span>((<span class="string">b&quot;ChildChain&quot;</span>, Compact::&lt;u32&gt;::from(<span class="kw-2">*</span>index), interior).encode())
+				<span class="prelude-val">Some</span>((<span class="string">b"ChildChain"</span>, Compact::&lt;u32&gt;::from(<span class="kw-2">*</span>index), interior).encode())
 			},
 			(<span class="number">1</span>, <span class="prelude-val">Some</span>(Parachain(index))) =&gt; {
 				<span class="kw">let </span>tail_junctions = l.interior().clone().split_first().<span class="number">0</span>;
 				<span class="kw">let </span>tail = Location::new(<span class="number">0</span>, tail_junctions);
 				<span class="kw">let </span>interior = Suffix::describe_location(<span class="kw-2">&amp;</span>tail)<span class="question-mark">?</span>;
-				<span class="prelude-val">Some</span>((<span class="string">b&quot;SiblingChain&quot;</span>, Compact::&lt;u32&gt;::from(<span class="kw-2">*</span>index), interior).encode())
+				<span class="prelude-val">Some</span>((<span class="string">b"SiblingChain"</span>, Compact::&lt;u32&gt;::from(<span class="kw-2">*</span>index), interior).encode())
 			},
 			(<span class="number">1</span>, <span class="kw">_</span>) =&gt; {
 				<span class="kw">let </span>tail = l.interior().clone().into();
 				<span class="kw">let </span>interior = Suffix::describe_location(<span class="kw-2">&amp;</span>tail)<span class="question-mark">?</span>;
-				<span class="prelude-val">Some</span>((<span class="string">b&quot;ParentChain&quot;</span>, interior).encode())
+				<span class="prelude-val">Some</span>((<span class="string">b"ParentChain"</span>, interior).encode())
 			},
 			<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">None</span>,
 		}
@@ -1345,15 +1347,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Prefix for generating alias account for accounts coming
 /// from chains that use 32 byte long representations.
-</span><span class="kw">pub const </span>FOREIGN_CHAIN_PREFIX_PARA_32: [u8; <span class="number">37</span>] = <span class="kw-2">*</span><span class="string">b&quot;ForeignChainAliasAccountPrefix_Para32&quot;</span>;
+</span><span class="kw">pub const </span>FOREIGN_CHAIN_PREFIX_PARA_32: [u8; <span class="number">37</span>] = <span class="kw-2">*</span><span class="string">b"ForeignChainAliasAccountPrefix_Para32"</span>;
 
 <span class="doccomment">/// Prefix for generating alias account for accounts coming
 /// from chains that use 20 byte long representations.
-</span><span class="kw">pub const </span>FOREIGN_CHAIN_PREFIX_PARA_20: [u8; <span class="number">37</span>] = <span class="kw-2">*</span><span class="string">b&quot;ForeignChainAliasAccountPrefix_Para20&quot;</span>;
+</span><span class="kw">pub const </span>FOREIGN_CHAIN_PREFIX_PARA_20: [u8; <span class="number">37</span>] = <span class="kw-2">*</span><span class="string">b"ForeignChainAliasAccountPrefix_Para20"</span>;
 
 <span class="doccomment">/// Prefix for generating alias account for accounts coming
 /// from the relay chain using 32 byte long representations.
-</span><span class="kw">pub const </span>FOREIGN_CHAIN_PREFIX_RELAY: [u8; <span class="number">36</span>] = <span class="kw-2">*</span><span class="string">b&quot;ForeignChainAliasAccountPrefix_Relay&quot;</span>;
+</span><span class="kw">pub const </span>FOREIGN_CHAIN_PREFIX_RELAY: [u8; <span class="number">36</span>] = <span class="kw-2">*</span><span class="string">b"ForeignChainAliasAccountPrefix_Relay"</span>;
 
 <span class="kw">impl </span>LegacyDescribeForeignChainAccount {
 	<span class="kw">fn </span>from_para_32(para_id: <span class="kw-2">&amp;</span>u32, id: <span class="kw-2">&amp;</span>[u8; <span class="number">32</span>], parents: u8) -&gt; Vec&lt;u8&gt; {
@@ -1389,7 +1391,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// ### Old documentation
 ///
 /// This converter will for a given `AccountId32`/`AccountKey20`
-/// always generate the same &quot;remote&quot; account for a specific
+/// always generate the same "remote" account for a specific
 /// sending chain.
 /// I.e. the user gets the same remote account
 /// on every consuming para-chain and relay chain.
@@ -1421,7 +1423,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// Note that the alias accounts have overlaps but never on the same
 /// chain when the sender comes from different chains.
-</span><span class="attr">#[deprecated = <span class="string">&quot;Use `HashedDescription&lt;AccountId, LegacyDescribeForeignChainAccount&gt;` instead&quot;</span>]
+</span><span class="attr">#[deprecated = <span class="string">"Use `HashedDescription&lt;AccountId, LegacyDescribeForeignChainAccount&gt;` instead"</span>]
 </span><span class="kw">pub type </span>ForeignChainAliasAccount&lt;AccountId&gt; =
 	HashedDescription&lt;AccountId, LegacyDescribeForeignChainAccount&gt;;
 
@@ -1430,7 +1432,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	ConvertLocation&lt;AccountId&gt; <span class="kw">for </span>Account32Hash&lt;Network, AccountId&gt;
 {
 	<span class="kw">fn </span>convert_location(location: <span class="kw-2">&amp;</span>Location) -&gt; <span class="prelude-ty">Option</span>&lt;AccountId&gt; {
-		<span class="prelude-val">Some</span>((<span class="string">&quot;multiloc&quot;</span>, location).using_encoded(blake2_256).into())
+		<span class="prelude-val">Some</span>((<span class="string">"multiloc"</span>, location).using_encoded(blake2_256).into())
 	}
 }
 
@@ -1441,9 +1443,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>convert_location(location: <span class="kw-2">&amp;</span>Location) -&gt; <span class="prelude-ty">Option</span>&lt;AccountId&gt; {
 		<span class="kw">if </span>location.contains_parents_only(<span class="number">1</span>) {
 			<span class="prelude-val">Some</span>(
-				<span class="string">b&quot;Parent&quot;
+				<span class="string">b"Parent"
 					</span>.using_encoded(|b| AccountId::decode(<span class="kw-2">&amp;mut </span>TrailingZeroInput::new(b)))
-					.expect(<span class="string">&quot;infinite length input; no invalid inputs for type; qed&quot;</span>),
+					.expect(<span class="string">"infinite length input; no invalid inputs for type; qed"</span>),
 			)
 		} <span class="kw">else </span>{
 			<span class="prelude-val">None
@@ -1509,10 +1511,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Conversion implementation which converts from a `[u8; 32]`-based `AccountId` into a
 /// `Location` consisting solely of a `AccountId32` junction with a fixed value for its
-/// network (provided by `Network`) and the `AccountId`&#39;s `[u8; 32]` datum for the `id`.
+/// network (provided by `Network`) and the `AccountId`'s `[u8; 32]` datum for the `id`.
 </span><span class="kw">pub struct </span>AliasesIntoAccountId32&lt;Network, AccountId&gt;(PhantomData&lt;(Network, AccountId)&gt;);
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, Network: Get&lt;<span class="prelude-ty">Option</span>&lt;NetworkId&gt;&gt;, AccountId: Clone + Into&lt;[u8; <span class="number">32</span>]&gt; + Clone&gt;
-	TryConvert&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>AccountId, Location&gt; <span class="kw">for </span>AliasesIntoAccountId32&lt;Network, AccountId&gt;
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, Network: Get&lt;<span class="prelude-ty">Option</span>&lt;NetworkId&gt;&gt;, AccountId: Clone + Into&lt;[u8; <span class="number">32</span>]&gt; + Clone&gt;
+	TryConvert&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>AccountId, Location&gt; <span class="kw">for </span>AliasesIntoAccountId32&lt;Network, AccountId&gt;
 {
 	<span class="kw">fn </span>try_convert(who: <span class="kw-2">&amp;</span>AccountId) -&gt; <span class="prelude-ty">Result</span>&lt;Location, <span class="kw-2">&amp;</span>AccountId&gt; {
 		<span class="prelude-val">Ok</span>(AccountId32 { network: Network::get(), id: who.clone().into() }.into())
@@ -1551,8 +1553,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>convert_location(location: <span class="kw-2">&amp;</span>Location) -&gt; <span class="prelude-ty">Option</span>&lt;AccountId&gt; {
 		<span class="kw">let </span>universal_source = UniversalLocation::get();
 		<span class="macro">log::trace!</span>(
-			target: <span class="string">&quot;xcm::location_conversion&quot;</span>,
-			<span class="string">&quot;GlobalConsensusConvertsFor universal_source: {:?}, location: {:?}&quot;</span>,
+			target: <span class="string">"xcm::location_conversion"</span>,
+			<span class="string">"GlobalConsensusConvertsFor universal_source: {:?}, location: {:?}"</span>,
 			universal_source, location,
 		);
 		<span class="kw">let </span>(remote_network, remote_location) =
@@ -1566,7 +1568,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 <span class="kw">impl</span>&lt;UniversalLocation, AccountId&gt; GlobalConsensusConvertsFor&lt;UniversalLocation, AccountId&gt; {
 	<span class="kw">fn </span>from_params(network: <span class="kw-2">&amp;</span>NetworkId) -&gt; [u8; <span class="number">32</span>] {
-		(<span class="string">b&quot;glblcnsnss_&quot;</span>, network).using_encoded(blake2_256)
+		(<span class="string">b"glblcnsnss_"</span>, network).using_encoded(blake2_256)
 	}
 }
 
@@ -1594,8 +1596,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>convert_location(location: <span class="kw-2">&amp;</span>Location) -&gt; <span class="prelude-ty">Option</span>&lt;AccountId&gt; {
 		<span class="kw">let </span>universal_source = UniversalLocation::get();
 		<span class="macro">log::trace!</span>(
-			target: <span class="string">&quot;xcm::location_conversion&quot;</span>,
-			<span class="string">&quot;GlobalConsensusParachainConvertsFor universal_source: {:?}, location: {:?}&quot;</span>,
+			target: <span class="string">"xcm::location_conversion"</span>,
+			<span class="string">"GlobalConsensusParachainConvertsFor universal_source: {:?}, location: {:?}"</span>,
 			universal_source, location,
 		);
 		<span class="kw">let </span>devolved = ensure_is_remote(universal_source, location.clone()).ok()<span class="question-mark">?</span>;
@@ -1612,7 +1614,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	GlobalConsensusParachainConvertsFor&lt;UniversalLocation, AccountId&gt;
 {
 	<span class="kw">fn </span>from_params(network: <span class="kw-2">&amp;</span>NetworkId, para_id: <span class="kw-2">&amp;</span>u32) -&gt; [u8; <span class="number">32</span>] {
-		(<span class="string">b&quot;glblcnsnss/prchn_&quot;</span>, network, para_id).using_encoded(blake2_256)
+		(<span class="string">b"glblcnsnss/prchn_"</span>, network, para_id).using_encoded(blake2_256)
 	}
 }
 
@@ -1707,8 +1709,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">pub </span>UniversalLocationInNetwork1: InteriorLocation = [GlobalConsensus(ByGenesis([<span class="number">1</span>; <span class="number">32</span>])), Parachain(<span class="number">1234</span>)].into();
 			<span class="kw">pub </span>UniversalLocationInNetwork2: InteriorLocation = [GlobalConsensus(ByGenesis([<span class="number">2</span>; <span class="number">32</span>])), Parachain(<span class="number">1234</span>)].into();
 		}
-		<span class="kw">let </span>network_1 = UniversalLocationInNetwork1::get().global_consensus().expect(<span class="string">&quot;NetworkId&quot;</span>);
-		<span class="kw">let </span>network_2 = UniversalLocationInNetwork2::get().global_consensus().expect(<span class="string">&quot;NetworkId&quot;</span>);
+		<span class="kw">let </span>network_1 = UniversalLocationInNetwork1::get().global_consensus().expect(<span class="string">"NetworkId"</span>);
+		<span class="kw">let </span>network_2 = UniversalLocationInNetwork2::get().global_consensus().expect(<span class="string">"NetworkId"</span>);
 		<span class="kw">let </span>network_3 = ByGenesis([<span class="number">3</span>; <span class="number">32</span>]);
 		<span class="kw">let </span>network_4 = ByGenesis([<span class="number">4</span>; <span class="number">32</span>]);
 		<span class="kw">let </span>network_5 = ByGenesis([<span class="number">5</span>; <span class="number">32</span>]);
@@ -1736,7 +1738,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="prelude-val">Some</span>(account) =&gt; {
 					<span class="macro">assert_eq!</span>(
 						<span class="bool-val">true</span>, expected_result,
-						<span class="string">&quot;expected_result: {}, but conversion passed: {:?}, location: {:?}&quot;</span>,
+						<span class="string">"expected_result: {}, but conversion passed: {:?}, location: {:?}"</span>,
 						expected_result, account, location
 					);
 					<span class="kw">match </span>location.unpack() {
@@ -1744,15 +1746,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							<span class="macro">assert_eq!</span>(
 								account,
 								GlobalConsensusConvertsFor::&lt;UniversalLocationInNetwork1, [u8; <span class="number">32</span>]&gt;::from_params(network),
-								<span class="string">&quot;expected_result: {}, but conversion passed: {:?}, location: {:?}&quot;</span>, expected_result, account, location
+								<span class="string">"expected_result: {}, but conversion passed: {:?}, location: {:?}"</span>, expected_result, account, location
 							),
-						<span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;expected_result: {}, conversion passed: {:?}, but Location does not match expected pattern, location: {:?}&quot;</span>, expected_result, account, location)
+						<span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"expected_result: {}, conversion passed: {:?}, but Location does not match expected pattern, location: {:?}"</span>, expected_result, account, location)
 					}
 				},
 				<span class="prelude-val">None </span>=&gt; {
 					<span class="macro">assert_eq!</span>(
 						<span class="bool-val">false</span>, expected_result,
-						<span class="string">&quot;expected_result: {} - but conversion failed, location: {:?}&quot;</span>,
+						<span class="string">"expected_result: {} - but conversion failed, location: {:?}"</span>,
 						expected_result, location
 					);
 				},
@@ -1764,32 +1766,32 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			GlobalConsensusConvertsFor::&lt;UniversalLocationInNetwork1, [u8; <span class="number">32</span>]&gt;::convert_location(
 				<span class="kw-2">&amp;</span>Location::new(<span class="number">2</span>, [GlobalConsensus(network_3)]),
 			)
-			.expect(<span class="string">&quot;conversion is ok&quot;</span>);
+			.expect(<span class="string">"conversion is ok"</span>);
 		<span class="kw">let </span>res_2_gc_network_3 =
 			GlobalConsensusConvertsFor::&lt;UniversalLocationInNetwork2, [u8; <span class="number">32</span>]&gt;::convert_location(
 				<span class="kw-2">&amp;</span>Location::new(<span class="number">2</span>, [GlobalConsensus(network_3)]),
 			)
-			.expect(<span class="string">&quot;conversion is ok&quot;</span>);
+			.expect(<span class="string">"conversion is ok"</span>);
 		<span class="kw">let </span>res_1_gc_network_4 =
 			GlobalConsensusConvertsFor::&lt;UniversalLocationInNetwork1, [u8; <span class="number">32</span>]&gt;::convert_location(
 				<span class="kw-2">&amp;</span>Location::new(<span class="number">2</span>, [GlobalConsensus(network_4)]),
 			)
-			.expect(<span class="string">&quot;conversion is ok&quot;</span>);
+			.expect(<span class="string">"conversion is ok"</span>);
 		<span class="kw">let </span>res_2_gc_network_4 =
 			GlobalConsensusConvertsFor::&lt;UniversalLocationInNetwork2, [u8; <span class="number">32</span>]&gt;::convert_location(
 				<span class="kw-2">&amp;</span>Location::new(<span class="number">2</span>, [GlobalConsensus(network_4)]),
 			)
-			.expect(<span class="string">&quot;conversion is ok&quot;</span>);
+			.expect(<span class="string">"conversion is ok"</span>);
 		<span class="kw">let </span>res_1_gc_network_5 =
 			GlobalConsensusConvertsFor::&lt;UniversalLocationInNetwork1, [u8; <span class="number">32</span>]&gt;::convert_location(
 				<span class="kw-2">&amp;</span>Location::new(<span class="number">2</span>, [GlobalConsensus(network_5)]),
 			)
-			.expect(<span class="string">&quot;conversion is ok&quot;</span>);
+			.expect(<span class="string">"conversion is ok"</span>);
 		<span class="kw">let </span>res_2_gc_network_5 =
 			GlobalConsensusConvertsFor::&lt;UniversalLocationInNetwork2, [u8; <span class="number">32</span>]&gt;::convert_location(
 				<span class="kw-2">&amp;</span>Location::new(<span class="number">2</span>, [GlobalConsensus(network_5)]),
 			)
-			.expect(<span class="string">&quot;conversion is ok&quot;</span>);
+			.expect(<span class="string">"conversion is ok"</span>);
 
 		<span class="macro">assert_ne!</span>(res_1_gc_network_3, res_1_gc_network_4);
 		<span class="macro">assert_ne!</span>(res_1_gc_network_4, res_1_gc_network_5);
@@ -1838,7 +1840,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="prelude-val">Some</span>(account) =&gt; {
 					<span class="macro">assert_eq!</span>(
 						<span class="bool-val">true</span>, expected_result,
-						<span class="string">&quot;expected_result: {}, but conversion passed: {:?}, location: {:?}&quot;</span>,
+						<span class="string">"expected_result: {}, but conversion passed: {:?}, location: {:?}"</span>,
 						expected_result, account, location
 					);
 					<span class="kw">match </span>location.unpack() {
@@ -1846,19 +1848,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							<span class="macro">assert_eq!</span>(
 								account,
 								GlobalConsensusParachainConvertsFor::&lt;UniversalLocation, [u8; <span class="number">32</span>]&gt;::from_params(network, para_id),
-								<span class="string">&quot;expected_result: {}, but conversion passed: {:?}, location: {:?}&quot;</span>, expected_result, account, location
+								<span class="string">"expected_result: {}, but conversion passed: {:?}, location: {:?}"</span>, expected_result, account, location
 							),
 						<span class="kw">_ </span>=&gt; <span class="macro">assert_eq!</span>(
 							<span class="bool-val">true</span>,
 							expected_result,
-							<span class="string">&quot;expected_result: {}, conversion passed: {:?}, but Location does not match expected pattern, location: {:?}&quot;</span>, expected_result, account, location
+							<span class="string">"expected_result: {}, conversion passed: {:?}, but Location does not match expected pattern, location: {:?}"</span>, expected_result, account, location
 						)
 					}
 				},
 				<span class="prelude-val">None </span>=&gt; {
 					<span class="macro">assert_eq!</span>(
 						<span class="bool-val">false</span>, expected_result,
-						<span class="string">&quot;expected_result: {} - but conversion failed, location: {:?}&quot;</span>,
+						<span class="string">"expected_result: {} - but conversion failed, location: {:?}"</span>,
 						expected_result, location
 					);
 				},
@@ -1870,22 +1872,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			GlobalConsensusParachainConvertsFor::&lt;UniversalLocation, [u8; <span class="number">32</span>]&gt;::convert_location(
 				<span class="kw-2">&amp;</span>Location::new(<span class="number">2</span>, [GlobalConsensus(ByGenesis([<span class="number">3</span>; <span class="number">32</span>])), Parachain(<span class="number">1000</span>)]),
 			)
-			.expect(<span class="string">&quot;conversion is ok&quot;</span>);
+			.expect(<span class="string">"conversion is ok"</span>);
 		<span class="kw">let </span>res_gc_a_p1001 =
 			GlobalConsensusParachainConvertsFor::&lt;UniversalLocation, [u8; <span class="number">32</span>]&gt;::convert_location(
 				<span class="kw-2">&amp;</span>Location::new(<span class="number">2</span>, [GlobalConsensus(ByGenesis([<span class="number">3</span>; <span class="number">32</span>])), Parachain(<span class="number">1001</span>)]),
 			)
-			.expect(<span class="string">&quot;conversion is ok&quot;</span>);
+			.expect(<span class="string">"conversion is ok"</span>);
 		<span class="kw">let </span>res_gc_b_p1000 =
 			GlobalConsensusParachainConvertsFor::&lt;UniversalLocation, [u8; <span class="number">32</span>]&gt;::convert_location(
 				<span class="kw-2">&amp;</span>Location::new(<span class="number">2</span>, [GlobalConsensus(ByGenesis([<span class="number">4</span>; <span class="number">32</span>])), Parachain(<span class="number">1000</span>)]),
 			)
-			.expect(<span class="string">&quot;conversion is ok&quot;</span>);
+			.expect(<span class="string">"conversion is ok"</span>);
 		<span class="kw">let </span>res_gc_b_p1001 =
 			GlobalConsensusParachainConvertsFor::&lt;UniversalLocation, [u8; <span class="number">32</span>]&gt;::convert_location(
 				<span class="kw-2">&amp;</span>Location::new(<span class="number">2</span>, [GlobalConsensus(ByGenesis([<span class="number">4</span>; <span class="number">32</span>])), Parachain(<span class="number">1001</span>)]),
 			)
-			.expect(<span class="string">&quot;conversion is ok&quot;</span>);
+			.expect(<span class="string">"conversion is ok"</span>);
 		<span class="macro">assert_ne!</span>(res_gc_a_p1000, res_gc_a_p1001);
 		<span class="macro">assert_ne!</span>(res_gc_a_p1000, res_gc_b_p1000);
 		<span class="macro">assert_ne!</span>(res_gc_a_p1000, res_gc_b_p1001);

@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/support/procedural/src/storage_alias.rs`."><title>storage_alias.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/support/procedural/src/storage_alias.rs`."><title>storage_alias.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="frame_support_procedural" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="frame_support_procedural" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../frame_support_procedural/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -828,14 +830,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -874,12 +876,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">fn </span>contains_ident(<span class="kw-2">&amp;</span><span class="self">self</span>, ident: <span class="kw-2">&amp;</span>Ident) -&gt; bool {
-		<span class="kw">struct </span>ContainsIdent&lt;<span class="lifetime">&#39;a</span>&gt; {
-			ident: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Ident,
+		<span class="kw">struct </span>ContainsIdent&lt;<span class="lifetime">'a</span>&gt; {
+			ident: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Ident,
 			found: bool,
 		}
-		<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;ast</span>&gt; Visit&lt;<span class="lifetime">&#39;ast</span>&gt; <span class="kw">for </span>ContainsIdent&lt;<span class="lifetime">&#39;a</span>&gt; {
-			<span class="kw">fn </span>visit_ident(<span class="kw-2">&amp;mut </span><span class="self">self</span>, i: <span class="kw-2">&amp;</span><span class="lifetime">&#39;ast </span>Ident) {
+		<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, <span class="lifetime">'ast</span>&gt; Visit&lt;<span class="lifetime">'ast</span>&gt; <span class="kw">for </span>ContainsIdent&lt;<span class="lifetime">'a</span>&gt; {
+			<span class="kw">fn </span>visit_ident(<span class="kw-2">&amp;mut </span><span class="self">self</span>, i: <span class="kw-2">&amp;</span><span class="lifetime">'ast </span>Ident) {
 				<span class="kw">if </span>i == <span class="self">self</span>.ident {
 					<span class="self">self</span>.found = <span class="bool-val">true</span>;
 				}
@@ -912,7 +914,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl </span>Parse <span class="kw">for </span>SimpleGenerics {
-	<span class="kw">fn </span>parse(input: ParseStream&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>&gt; {
+	<span class="kw">fn </span>parse(input: ParseStream&lt;<span class="lifetime">'_</span>&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>&gt; {
 		<span class="prelude-val">Ok</span>(<span class="self">Self </span>{
 			lt_token: input.parse()<span class="question-mark">?</span>,
 			params: Punctuated::parse_separated_nonempty(input)<span class="question-mark">?</span>,
@@ -943,7 +945,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="macro">syn::custom_keyword!</span>(verbatim);
 	<span class="comment">// The input type is a pallet and its pallet name should be used as the prefix.
 	</span><span class="macro">syn::custom_keyword!</span>(pallet_name);
-	<span class="comment">// The input type implements `Get&lt;&#39;static str&gt;` and this `str` should be used as the prefix.
+	<span class="comment">// The input type implements `Get&lt;'static str&gt;` and this `str` should be used as the prefix.
 	</span><span class="macro">syn::custom_keyword!</span>(dynamic);
 }
 
@@ -1058,8 +1060,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">let </span>query_type = query_type.as_ref().map(|(c, t)| <span class="macro">quote!</span>(#c #t));
 				<span class="kw">let </span>map_type = Ident::new(
 					<span class="kw">match </span><span class="self">self </span>{
-						<span class="self">Self</span>::Map { .. } =&gt; <span class="string">&quot;StorageMap&quot;</span>,
-						<span class="kw">_ </span>=&gt; <span class="string">&quot;CountedStorageMap&quot;</span>,
+						<span class="self">Self</span>::Map { .. } =&gt; <span class="string">"StorageMap"</span>,
+						<span class="kw">_ </span>=&gt; <span class="string">"CountedStorageMap"</span>,
 					},
 					Span::call_site(),
 				);
@@ -1129,10 +1131,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl </span>Parse <span class="kw">for </span>StorageType {
-	<span class="kw">fn </span>parse(input: ParseStream&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>&gt; {
+	<span class="kw">fn </span>parse(input: ParseStream&lt;<span class="lifetime">'_</span>&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>&gt; {
 		<span class="kw">let </span>lookahead = input.lookahead1();
 
-		<span class="kw">let </span>parse_query_type = |input: ParseStream&lt;<span class="lifetime">&#39;_</span>&gt;| -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;(<span class="macro">Token!</span>[,], Type)&gt;&gt; {
+		<span class="kw">let </span>parse_query_type = |input: ParseStream&lt;<span class="lifetime">'_</span>&gt;| -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;(<span class="macro">Token!</span>[,], Type)&gt;&gt; {
 			<span class="kw">if </span>input.peek(<span class="macro">Token!</span>[,]) &amp;&amp; !input.peek2(<span class="macro">Token!</span>[&gt;]) {
 				<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>((input.parse()<span class="question-mark">?</span>, input.parse()<span class="question-mark">?</span>)))
 			} <span class="kw">else </span>{
@@ -1235,7 +1237,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl </span>Parse <span class="kw">for </span>Input {
-	<span class="kw">fn </span>parse(input: ParseStream&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>&gt; {
+	<span class="kw">fn </span>parse(input: ParseStream&lt;<span class="lifetime">'_</span>&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>&gt; {
 		<span class="kw">let </span>attributes = input.call(Attribute::parse_outer)<span class="question-mark">?</span>;
 		<span class="kw">let </span>visibility = input.parse()<span class="question-mark">?</span>;
 		<span class="kw">let </span>_type = input.parse()<span class="question-mark">?</span>;
@@ -1293,14 +1295,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// implement `PalletInfoAccess` which specifies the proper name. This
 	/// name is then used as the prefix.
 	</span>PalletName,
-	<span class="doccomment">/// Uses the provided type implementing `Get&lt;&#39;static str&gt;` to determine the prefix.
+	<span class="doccomment">/// Uses the provided type implementing `Get&lt;'static str&gt;` to determine the prefix.
 	</span>Dynamic,
 }
 
 <span class="doccomment">/// Implementation of the `storage_alias` attribute macro.
 </span><span class="kw">pub fn </span>storage_alias(attributes: TokenStream, input: TokenStream) -&gt; <span class="prelude-ty">Result</span>&lt;TokenStream&gt; {
 	<span class="kw">let </span>input = syn::parse2::&lt;Input&gt;(input)<span class="question-mark">?</span>;
-	<span class="kw">let </span>crate_ = generate_access_from_frame_or_crate(<span class="string">&quot;frame-support&quot;</span>)<span class="question-mark">?</span>;
+	<span class="kw">let </span>crate_ = generate_access_from_frame_or_crate(<span class="string">"frame-support"</span>)<span class="question-mark">?</span>;
 
 	<span class="kw">let </span>prefix_type = <span class="kw">if </span>attributes.is_empty() {
 		PrefixType::Compatibility
@@ -1311,7 +1313,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	} <span class="kw">else if </span>syn::parse2::&lt;prefix_types::dynamic&gt;(attributes.clone()).is_ok() {
 		PrefixType::Dynamic
 	} <span class="kw">else </span>{
-		<span class="kw">return </span><span class="prelude-val">Err</span>(Error::new(attributes.span(), <span class="string">&quot;Unknown attributes&quot;</span>))
+		<span class="kw">return </span><span class="prelude-val">Err</span>(Error::new(attributes.span(), <span class="string">"Unknown attributes"</span>))
 	};
 
 	<span class="kw">let </span>storage_instance = generate_storage_instance(
@@ -1362,7 +1364,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	prefix_type: PrefixType,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;StorageInstance&gt; {
 	<span class="kw">if let </span>Type::Infer(<span class="kw">_</span>) = prefix {
-		<span class="kw">return </span><span class="prelude-val">Err</span>(Error::new(prefix.span(), <span class="string">&quot;`_` is not allowed as prefix by `storage_alias`.&quot;</span>))
+		<span class="kw">return </span><span class="prelude-val">Err</span>(Error::new(prefix.span(), <span class="string">"`_` is not allowed as prefix by `storage_alias`."</span>))
 	}
 
 	<span class="kw">let </span>impl_generics_used_by_prefix = storage_generics
@@ -1394,7 +1396,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			} <span class="kw">else </span>{
 				<span class="kw">return </span><span class="prelude-val">Err</span>(Error::new_spanned(
 					prefix,
-					<span class="string">&quot;If there are no generics, the prefix is only allowed to be an identifier.&quot;</span>,
+					<span class="string">"If there are no generics, the prefix is only allowed to be an identifier."</span>,
 				))
 			},
 		PrefixType::Verbatim =&gt; {
@@ -1403,7 +1405,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="prelude-val">None </span>=&gt;
 					<span class="kw">return </span><span class="prelude-val">Err</span>(Error::new_spanned(
 						prefix,
-						<span class="string">&quot;Prefix type `verbatim` requires that the prefix is an ident.&quot;</span>,
+						<span class="string">"Prefix type `verbatim` requires that the prefix is an ident."</span>,
 					)),
 			};
 
@@ -1437,7 +1439,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">let </span>where_clause = storage_where_clause.map(|w| <span class="macro">quote!</span>(#w)).unwrap_or_default();
 
-	<span class="kw">let </span>name_str = <span class="macro">format!</span>(<span class="string">&quot;{}_Storage_Instance&quot;</span>, storage_name);
+	<span class="kw">let </span>name_str = <span class="macro">format!</span>(<span class="string">"{}_Storage_Instance"</span>, storage_name);
 	<span class="kw">let </span>name = Ident::new(<span class="kw-2">&amp;</span>name_str, Span::call_site());
 	<span class="kw">let </span>storage_name_str = storage_name.to_string();
 
@@ -1454,11 +1456,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">impl</span>&lt;#impl_generics&gt; #crate_::traits::StorageInstance
 				<span class="kw">for </span>#counter_name&lt; #type_generics &gt; #where_clause
 			{
-				<span class="kw">fn </span>pallet_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str {
+				<span class="kw">fn </span>pallet_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
 					#pallet_prefix
 				}
 
-				<span class="kw">const </span>STORAGE_PREFIX: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = #counter_storage_name_str;
+				<span class="kw">const </span>STORAGE_PREFIX: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = #counter_storage_name_str;
 				<span class="kw">fn </span>storage_prefix_hash() -&gt; [u8; <span class="number">16</span>] {
 					#storage_prefix_hash
 				}
@@ -1484,11 +1486,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">impl</span>&lt;#impl_generics&gt; #crate_::traits::StorageInstance
 			<span class="kw">for </span>#name&lt; #type_generics &gt; #where_clause
 		{
-			<span class="kw">fn </span>pallet_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str {
+			<span class="kw">fn </span>pallet_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
 				#pallet_prefix
 			}
 
-			<span class="kw">const </span>STORAGE_PREFIX: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = #storage_name_str;
+			<span class="kw">const </span>STORAGE_PREFIX: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = #storage_name_str;
 			<span class="kw">fn </span>storage_prefix_hash() -&gt; [u8; <span class="number">16</span>] {
 				#storage_prefix_hash
 			}

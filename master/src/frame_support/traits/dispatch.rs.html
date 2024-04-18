@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/support/src/traits/dispatch.rs`."><title>dispatch.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/support/src/traits/dispatch.rs`."><title>dispatch.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="frame_support" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="frame_support" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../frame_support/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -775,14 +777,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -842,7 +844,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// is impossible.
 	///
 	/// ** Should be used for benchmarking only!!! **
-	</span><span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	</span><span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">fn </span>try_successful_origin() -&gt; <span class="prelude-ty">Result</span>&lt;OuterOrigin, ()&gt;;
 }
 
@@ -924,7 +926,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">fn </span>try_successful_origin() -&gt; <span class="prelude-ty">Result</span>&lt;OuterOrigin, ()&gt; {
 		<span class="prelude-val">Ok</span>(Origin::get())
 	}
@@ -947,7 +949,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// is impossible.
 	///
 	/// ** Should be used for benchmarking only!!! **
-	</span><span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	</span><span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">fn </span>try_successful_origin(a: <span class="kw-2">&amp;</span>Argument) -&gt; <span class="prelude-ty">Result</span>&lt;OuterOrigin, ()&gt;;
 }
 
@@ -958,11 +960,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// The argument is ignored, much like in [AsEnsureOriginWithArg].
 </span><span class="attr">#[macro_export]
 </span><span class="macro">macro_rules! </span>impl_ensure_origin_with_arg_ignoring_arg {
-	( <span class="kw">impl </span>&lt; { O: .., I: <span class="lifetime">&#39;static</span>, $( <span class="macro-nonterminal">$bound</span>:tt )* }&gt; EnsureOriginWithArg&lt;O, <span class="macro-nonterminal">$t_param</span>:ty&gt; <span class="kw">for </span><span class="macro-nonterminal">$name</span>:ty {} ) =&gt; {
+	( <span class="kw">impl </span>&lt; { O: .., I: <span class="lifetime">'static</span>, $( <span class="macro-nonterminal">$bound</span>:tt )* }&gt; EnsureOriginWithArg&lt;O, <span class="macro-nonterminal">$t_param</span>:ty&gt; <span class="kw">for </span><span class="macro-nonterminal">$name</span>:ty {} ) =&gt; {
 		<span class="macro">impl_ensure_origin_with_arg_ignoring_arg! </span>{
 			<span class="kw">impl </span>&lt;{
 				O: Into&lt;<span class="prelude-ty">Result</span>&lt;RawOrigin&lt;AccountId, I&gt;, O&gt;&gt; + From&lt;RawOrigin&lt;AccountId, I&gt;&gt;,
-				I: <span class="lifetime">&#39;static</span>,
+				I: <span class="lifetime">'static</span>,
 				$( <span class="macro-nonterminal">$bound </span>)*
 			}&gt; EnsureOriginWithArg&lt;O, <span class="macro-nonterminal">$t_param</span>&gt; <span class="kw">for </span><span class="macro-nonterminal">$name </span>{}
 		}
@@ -981,7 +983,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">fn </span>try_origin(o: <span class="macro-nonterminal">$o_param</span>, <span class="kw">_</span>: <span class="kw-2">&amp;</span><span class="macro-nonterminal">$t_param</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Success, <span class="macro-nonterminal">$o_param</span>&gt; {
 				&lt;<span class="self">Self </span><span class="kw">as </span>EnsureOrigin&lt;<span class="macro-nonterminal">$o_param</span>&gt;&gt;::try_origin(o)
 			}
-			<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+			<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 			</span><span class="kw">fn </span>try_successful_origin(<span class="kw">_</span>: <span class="kw-2">&amp;</span><span class="macro-nonterminal">$t_param</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="macro-nonterminal">$o_param</span>, ()&gt; {
 				&lt;<span class="self">Self </span><span class="kw">as </span>EnsureOrigin&lt;<span class="macro-nonterminal">$o_param</span>&gt;&gt;::try_successful_origin()
 			}
@@ -996,7 +998,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>try_origin(o: OO) -&gt; <span class="prelude-ty">Result</span>&lt;Success, OO&gt; {
 		<span class="prelude-val">Err</span>(o)
 	}
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">fn </span>try_successful_origin() -&gt; <span class="prelude-ty">Result</span>&lt;OO, ()&gt; {
 		<span class="prelude-val">Err</span>(())
 	}
@@ -1027,7 +1029,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Returns an outer origin capable of passing `try_origin` check.
 	///
 	/// ** Should be used for benchmarking only!!! **
-	</span><span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	</span><span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">fn </span>try_successful_origin(<span class="kw">_</span>: <span class="kw-2">&amp;</span>Argument) -&gt; <span class="prelude-ty">Result</span>&lt;OuterOrigin, ()&gt; {
 		EO::try_successful_origin()
 	}
@@ -1043,7 +1045,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>try_origin(o: O) -&gt; <span class="prelude-ty">Result</span>&lt;Mutator::Outcome, O&gt; {
 		<span class="prelude-val">Ok</span>(Mutator::morph(Original::try_origin(o)<span class="question-mark">?</span>))
 	}
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">fn </span>try_successful_origin() -&gt; <span class="prelude-ty">Result</span>&lt;O, ()&gt; {
 		Original::try_successful_origin()
 	}
@@ -1055,7 +1057,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>try_origin(o: O, a: <span class="kw-2">&amp;</span>A) -&gt; <span class="prelude-ty">Result</span>&lt;Mutator::Outcome, O&gt; {
 		<span class="prelude-val">Ok</span>(Mutator::morph(Original::try_origin(o, a)<span class="question-mark">?</span>))
 	}
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">fn </span>try_successful_origin(a: <span class="kw-2">&amp;</span>A) -&gt; <span class="prelude-ty">Result</span>&lt;O, ()&gt; {
 		Original::try_successful_origin(a)
 	}
@@ -1076,7 +1078,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>orig = o.clone();
 		Mutator::try_morph(Original::try_origin(o)<span class="question-mark">?</span>).map_err(|()| orig)
 	}
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">fn </span>try_successful_origin() -&gt; <span class="prelude-ty">Result</span>&lt;O, ()&gt; {
 		Original::try_successful_origin()
 	}
@@ -1089,7 +1091,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>orig = o.clone();
 		Mutator::try_morph(Original::try_origin(o, a)<span class="question-mark">?</span>).map_err(|()| orig)
 	}
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">fn </span>try_successful_origin(a: <span class="kw-2">&amp;</span>A) -&gt; <span class="prelude-ty">Result</span>&lt;O, ()&gt; {
 		Original::try_successful_origin(a)
 	}
@@ -1101,8 +1103,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl</span>&lt;
 		O,
 		A,
-		Morph: <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; TryMorph&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>A&gt;,
-		Inner: <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; EnsureOriginWithArg&lt;O, &lt;Morph <span class="kw">as </span>TryMorph&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>A&gt;&gt;::Outcome, Success = Success&gt;,
+		Morph: <span class="kw">for</span>&lt;<span class="lifetime">'a</span>&gt; TryMorph&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>A&gt;,
+		Inner: <span class="kw">for</span>&lt;<span class="lifetime">'a</span>&gt; EnsureOriginWithArg&lt;O, &lt;Morph <span class="kw">as </span>TryMorph&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>A&gt;&gt;::Outcome, Success = Success&gt;,
 		Success,
 	&gt; EnsureOriginWithArg&lt;O, A&gt; <span class="kw">for </span>TryWithMorphedArg&lt;O, A, Morph, Inner, Success&gt;
 {
@@ -1113,13 +1115,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(o),
 		}
 	}
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">fn </span>try_successful_origin(a: <span class="kw-2">&amp;</span>A) -&gt; <span class="prelude-ty">Result</span>&lt;O, ()&gt; {
 		Inner::try_successful_origin(<span class="kw-2">&amp;</span>Morph::try_morph(a).map_err(|<span class="kw">_</span>| ())<span class="question-mark">?</span>)
 	}
 }
 
-<span class="doccomment">/// &quot;OR gate&quot; implementation of `EnsureOrigin` allowing for different `Success` types for `L`
+<span class="doccomment">/// "OR gate" implementation of `EnsureOrigin` allowing for different `Success` types for `L`
 /// and `R`, with them combined using an `Either` type.
 ///
 /// Origin check will pass if `L` or `R` origin check passes. `L` is tested first.
@@ -1135,7 +1137,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.map_or_else(|o| R::try_origin(o).map(Either::Right), |o| <span class="prelude-val">Ok</span>(Either::Left(o)))
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">fn </span>try_successful_origin() -&gt; <span class="prelude-ty">Result</span>&lt;OuterOrigin, ()&gt; {
 		L::try_successful_origin().or_else(|()| R::try_successful_origin())
 	}
@@ -1153,22 +1155,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.map_or_else(|o| R::try_origin(o, a).map(Either::Right), |o| <span class="prelude-val">Ok</span>(Either::Left(o)))
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">fn </span>try_successful_origin(a: <span class="kw-2">&amp;</span>Argument) -&gt; <span class="prelude-ty">Result</span>&lt;OuterOrigin, ()&gt; {
 		L::try_successful_origin(a).or_else(|()| R::try_successful_origin(a))
 	}
 }
 
-<span class="doccomment">/// &quot;OR gate&quot; implementation of `EnsureOrigin` allowing for different `Success` types for `L`
+<span class="doccomment">/// "OR gate" implementation of `EnsureOrigin` allowing for different `Success` types for `L`
 /// and `R`, with them combined using an `Either` type.
 ///
 /// Origin check will pass if `L` or `R` origin check passes. `L` is tested first.
 ///
 /// Successful origin is derived from the left side.
-</span><span class="attr">#[deprecated = <span class="string">&quot;Use `EitherOfDiverse` instead&quot;</span>]
+</span><span class="attr">#[deprecated = <span class="string">"Use `EitherOfDiverse` instead"</span>]
 </span><span class="kw">pub type </span>EnsureOneOf&lt;L, R&gt; = EitherOfDiverse&lt;L, R&gt;;
 
-<span class="doccomment">/// &quot;OR gate&quot; implementation of `EnsureOrigin`, `Success` type for both `L` and `R` must
+<span class="doccomment">/// "OR gate" implementation of `EnsureOrigin`, `Success` type for both `L` and `R` must
 /// be equal.
 ///
 /// Origin check will pass if `L` or `R` origin check passes. `L` is tested first.
@@ -1186,7 +1188,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		L::try_origin(o).or_else(|o| R::try_origin(o))
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">fn </span>try_successful_origin() -&gt; <span class="prelude-ty">Result</span>&lt;OuterOrigin, ()&gt; {
 		L::try_successful_origin().or_else(|()| R::try_successful_origin())
 	}
@@ -1203,7 +1205,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		L::try_origin(o, a).or_else(|o| R::try_origin(o, a))
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">fn </span>try_successful_origin(a: <span class="kw-2">&amp;</span>Argument) -&gt; <span class="prelude-ty">Result</span>&lt;OuterOrigin, ()&gt; {
 		L::try_successful_origin(a).or_else(|()| R::try_successful_origin(a))
 	}
@@ -1221,7 +1223,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>dispatch_bypass_filter(<span class="self">self</span>, origin: <span class="self">Self</span>::RuntimeOrigin) -&gt; DispatchResultWithPostInfo;
 }
 
-<span class="doccomment">/// The trait implemented by the overarching enumeration of the different pallets&#39; origins.
+<span class="doccomment">/// The trait implemented by the overarching enumeration of the different pallets' origins.
 /// Unlike `OriginTrait` impls, this does not include any kind of dispatch/call filter. Also, this
 /// trait is more flexible in terms of how it can be used: it is a `Parameter` and `Member`, so it
 /// can be used as dispatchable parameters as well as in storage items.
@@ -1260,7 +1262,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">type </span>AccountId;
 
 	<span class="doccomment">/// Add a filter to the origin.
-	</span><span class="kw">fn </span>add_filter(<span class="kw-2">&amp;mut </span><span class="self">self</span>, filter: <span class="kw">impl </span>Fn(<span class="kw-2">&amp;</span><span class="self">Self</span>::Call) -&gt; bool + <span class="lifetime">&#39;static</span>);
+	</span><span class="kw">fn </span>add_filter(<span class="kw-2">&amp;mut </span><span class="self">self</span>, filter: <span class="kw">impl </span>Fn(<span class="kw-2">&amp;</span><span class="self">Self</span>::Call) -&gt; bool + <span class="lifetime">'static</span>);
 
 	<span class="doccomment">/// Reset origin filters to default one, i.e `frame_system::1fig::BaseCallFilter`.
 	</span><span class="kw">fn </span>reset_filter(<span class="kw-2">&amp;mut </span><span class="self">self</span>);
@@ -1296,7 +1298,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>signed(by: <span class="self">Self</span>::AccountId) -&gt; <span class="self">Self</span>;
 
 	<span class="doccomment">/// Extract the signer from the message if it is a `Signed` origin.
-	</span><span class="attr">#[deprecated = <span class="string">&quot;Use `into_signer` instead&quot;</span>]
+	</span><span class="attr">#[deprecated = <span class="string">"Use `into_signer` instead"</span>]
 	</span><span class="kw">fn </span>as_signed(<span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::AccountId&gt; {
 		<span class="self">self</span>.into_signer()
 	}
@@ -1312,7 +1314,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		})
 	}
 
-	<span class="doccomment">/// Extract a reference to the system origin, if that&#39;s what the caller is.
+	<span class="doccomment">/// Extract a reference to the system origin, if that's what the caller is.
 	</span><span class="kw">fn </span>as_system_ref(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>RawOrigin&lt;<span class="self">Self</span>::AccountId&gt;&gt; {
 		<span class="self">self</span>.caller().as_system_ref()
 	}
@@ -1332,7 +1334,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">fn </span>try_origin(<span class="kw">_</span>: ()) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Success, ()&gt; {
 			<span class="prelude-val">Ok</span>(V::get())
 		}
-		<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+		<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 		</span><span class="kw">fn </span>try_successful_origin() -&gt; <span class="prelude-ty">Result</span>&lt;(), ()&gt; {
 			<span class="prelude-val">Ok</span>(())
 		}
@@ -1343,7 +1345,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">fn </span>try_origin(<span class="kw">_</span>: ()) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Success, ()&gt; {
 			<span class="prelude-val">Err</span>(())
 		}
-		<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+		<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 		</span><span class="kw">fn </span>try_successful_origin() -&gt; <span class="prelude-ty">Result</span>&lt;(), ()&gt; {
 			<span class="prelude-val">Err</span>(())
 		}

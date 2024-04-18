@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/consensus/slots/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/consensus/slots/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_consensus_slots" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_consensus_slots" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sc_consensus_slots/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1440,7 +1442,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	time::{Duration, Instant},
 };
 
-<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;slots&quot;</span>;
+<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"slots"</span>;
 
 <span class="doccomment">/// The changes that need to applied to the storage to create the state for a block.
 ///
@@ -1475,7 +1477,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[async_trait::async_trait]
 </span><span class="kw">pub trait </span>SimpleSlotWorker&lt;B: BlockT&gt; {
 	<span class="doccomment">/// A handle to a `BlockImport`.
-	</span><span class="kw">type </span>BlockImport: BlockImport&lt;B&gt; + Send + <span class="lifetime">&#39;static</span>;
+	</span><span class="kw">type </span>BlockImport: BlockImport&lt;B&gt; + Send + <span class="lifetime">'static</span>;
 
 	<span class="doccomment">/// A handle to a `SyncOracle`.
 	</span><span class="kw">type </span>SyncOracle: SyncOracle;
@@ -1488,19 +1490,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">type </span>CreateProposer: Future&lt;Output = <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Proposer, sp_consensus::Error&gt;&gt;
 		+ Send
 		+ Unpin
-		+ <span class="lifetime">&#39;static</span>;
+		+ <span class="lifetime">'static</span>;
 
 	<span class="doccomment">/// The type of proposer to use to build blocks.
 	</span><span class="kw">type </span>Proposer: Proposer&lt;B&gt; + Send;
 
 	<span class="doccomment">/// Data associated with a slot claim.
-	</span><span class="kw">type </span>Claim: Send + Sync + <span class="lifetime">&#39;static</span>;
+	</span><span class="kw">type </span>Claim: Send + Sync + <span class="lifetime">'static</span>;
 
 	<span class="doccomment">/// Auxiliary data necessary for authoring.
-	</span><span class="kw">type </span>AuxData: Send + Sync + <span class="lifetime">&#39;static</span>;
+	</span><span class="kw">type </span>AuxData: Send + Sync + <span class="lifetime">'static</span>;
 
 	<span class="doccomment">/// The logging target to use when logging messages.
-	</span><span class="kw">fn </span>logging_target(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str;
+	</span><span class="kw">fn </span>logging_target(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str;
 
 	<span class="doccomment">/// A handle to a `BlockImport`.
 	</span><span class="kw">fn </span>block_import(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self</span>::BlockImport;
@@ -1609,26 +1611,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>{
 			Either::Left((<span class="prelude-val">Ok</span>(p), <span class="kw">_</span>)) =&gt; p,
 			Either::Left((<span class="prelude-val">Err</span>(err), <span class="kw">_</span>)) =&gt; {
-				<span class="macro">warn!</span>(target: log_target, <span class="string">&quot;Proposing failed: {}&quot;</span>, err);
+				<span class="macro">warn!</span>(target: log_target, <span class="string">"Proposing failed: {}"</span>, err);
 
 				<span class="kw">return </span><span class="prelude-val">None
 			</span>},
 			Either::Right(<span class="kw">_</span>) =&gt; {
 				<span class="macro">info!</span>(
 					target: log_target,
-					<span class="string">&quot;⌛️ Discarding proposal for slot {}; block production took too long&quot;</span>, slot,
+					<span class="string">"⌛️ Discarding proposal for slot {}; block production took too long"</span>, slot,
 				);
 				<span class="comment">// If the node was compiled with debug, tell the user to use release optimizations.
-				</span><span class="attr">#[cfg(build_type = <span class="string">&quot;debug&quot;</span>)]
+				</span><span class="attr">#[cfg(build_type = <span class="string">"debug"</span>)]
 				</span><span class="macro">info!</span>(
 					target: log_target,
-					<span class="string">&quot;👉 Recompile your node in `--release` mode to mitigate this problem.&quot;</span>,
+					<span class="string">"👉 Recompile your node in `--release` mode to mitigate this problem."</span>,
 				);
 				<span class="macro">telemetry!</span>(
 					telemetry;
 					CONSENSUS_INFO;
-					<span class="string">&quot;slots.discarding_proposal_took_too_long&quot;</span>;
-					<span class="string">&quot;slot&quot; </span>=&gt; <span class="kw-2">*</span>slot,
+					<span class="string">"slots.discarding_proposal_took_too_long"</span>;
+					<span class="string">"slot" </span>=&gt; <span class="kw-2">*</span>slot,
 				);
 
 				<span class="kw">return </span><span class="prelude-val">None
@@ -1652,7 +1654,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			Either::Right((<span class="prelude-val">Err</span>(err), <span class="kw">_</span>)) =&gt; {
 				<span class="macro">warn!</span>(
 					target: logging_target,
-					<span class="string">&quot;Unable to create inherent data for block {:?}: {}&quot;</span>,
+					<span class="string">"Unable to create inherent data for block {:?}: {}"</span>,
 					slot_info.chain_head.hash(),
 					err,
 				);
@@ -1662,7 +1664,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			Either::Left(<span class="kw">_</span>) =&gt; {
 				<span class="macro">warn!</span>(
 					target: logging_target,
-					<span class="string">&quot;Creating inherent data took more time than we had left for slot {} for block {:?}.&quot;</span>,
+					<span class="string">"Creating inherent data took more time than we had left for slot {} for block {:?}."</span>,
 					slot_info.slot,
 					slot_info.chain_head.hash(),
 				);
@@ -1691,7 +1693,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>end_proposing_at = <span class="kw">if </span>proposing_remaining_duration == Duration::default() {
 			<span class="macro">debug!</span>(
 				target: logging_target,
-				<span class="string">&quot;Skipping proposal slot {} since there&#39;s no time left to propose&quot;</span>, slot,
+				<span class="string">"Skipping proposal slot {} since there's no time left to propose"</span>, slot,
 			);
 
 			<span class="kw">return </span><span class="prelude-val">None
@@ -1704,7 +1706,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Err</span>(err) =&gt; {
 				<span class="macro">warn!</span>(
 					target: logging_target,
-					<span class="string">&quot;Unable to fetch auxiliary data for block {:?}: {}&quot;</span>,
+					<span class="string">"Unable to fetch auxiliary data for block {:?}: {}"</span>,
 					slot_info.chain_head.hash(),
 					err,
 				);
@@ -1712,9 +1714,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="macro">telemetry!</span>(
 					telemetry;
 					CONSENSUS_WARN;
-					<span class="string">&quot;slots.unable_fetching_authorities&quot;</span>;
-					<span class="string">&quot;slot&quot; </span>=&gt; <span class="question-mark">?</span>slot_info.chain_head.hash(),
-					<span class="string">&quot;err&quot; </span>=&gt; <span class="question-mark">?</span>err,
+					<span class="string">"slots.unable_fetching_authorities"</span>;
+					<span class="string">"slot" </span>=&gt; <span class="question-mark">?</span>slot_info.chain_head.hash(),
+					<span class="string">"err" </span>=&gt; <span class="question-mark">?</span>err,
 				);
 
 				<span class="kw">return </span><span class="prelude-val">None
@@ -1729,12 +1731,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="self">self</span>.sync_oracle().is_offline() &amp;&amp;
 			authorities_len.map(|a| a &gt; <span class="number">1</span>).unwrap_or(<span class="bool-val">false</span>)
 		{
-			<span class="macro">debug!</span>(target: logging_target, <span class="string">&quot;Skipping proposal slot. Waiting for the network.&quot;</span>);
+			<span class="macro">debug!</span>(target: logging_target, <span class="string">"Skipping proposal slot. Waiting for the network."</span>);
 			<span class="macro">telemetry!</span>(
 				telemetry;
 				CONSENSUS_DEBUG;
-				<span class="string">&quot;slots.skipping_proposal_slot&quot;</span>;
-				<span class="string">&quot;authorities_len&quot; </span>=&gt; authorities_len,
+				<span class="string">"slots.skipping_proposal_slot"</span>;
+				<span class="string">"authorities_len" </span>=&gt; authorities_len,
 			);
 
 			<span class="kw">return </span><span class="prelude-val">None
@@ -1746,21 +1748,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">return </span><span class="prelude-val">None
 		</span>}
 
-		<span class="macro">debug!</span>(target: logging_target, <span class="string">&quot;Starting authorship at slot: {slot}&quot;</span>);
+		<span class="macro">debug!</span>(target: logging_target, <span class="string">"Starting authorship at slot: {slot}"</span>);
 
-		<span class="macro">telemetry!</span>(telemetry; CONSENSUS_DEBUG; <span class="string">&quot;slots.starting_authorship&quot;</span>; <span class="string">&quot;slot_num&quot; </span>=&gt; slot);
+		<span class="macro">telemetry!</span>(telemetry; CONSENSUS_DEBUG; <span class="string">"slots.starting_authorship"</span>; <span class="string">"slot_num" </span>=&gt; slot);
 
 		<span class="kw">let </span>proposer = <span class="kw">match </span><span class="self">self</span>.proposer(<span class="kw-2">&amp;</span>slot_info.chain_head).<span class="kw">await </span>{
 			<span class="prelude-val">Ok</span>(p) =&gt; p,
 			<span class="prelude-val">Err</span>(err) =&gt; {
-				<span class="macro">warn!</span>(target: logging_target, <span class="string">&quot;Unable to author block in slot {slot:?}: {err}&quot;</span>);
+				<span class="macro">warn!</span>(target: logging_target, <span class="string">"Unable to author block in slot {slot:?}: {err}"</span>);
 
 				<span class="macro">telemetry!</span>(
 					telemetry;
 					CONSENSUS_WARN;
-					<span class="string">&quot;slots.unable_authoring_block&quot;</span>;
-					<span class="string">&quot;slot&quot; </span>=&gt; <span class="kw-2">*</span>slot,
-					<span class="string">&quot;err&quot; </span>=&gt; <span class="question-mark">?</span>err
+					<span class="string">"slots.unable_authoring_block"</span>;
+					<span class="string">"slot" </span>=&gt; <span class="kw-2">*</span>slot,
+					<span class="string">"err" </span>=&gt; <span class="question-mark">?</span>err
 				);
 
 				<span class="kw">return </span><span class="prelude-val">None
@@ -1788,7 +1790,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>{
 			<span class="prelude-val">Ok</span>(bi) =&gt; bi,
 			<span class="prelude-val">Err</span>(err) =&gt; {
-				<span class="macro">warn!</span>(target: logging_target, <span class="string">&quot;Failed to create block import params: {}&quot;</span>, err);
+				<span class="macro">warn!</span>(target: logging_target, <span class="string">"Failed to create block import params: {}"</span>, err);
 
 				<span class="kw">return </span><span class="prelude-val">None
 			</span>},
@@ -1796,7 +1798,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="macro">info!</span>(
 			target: logging_target,
-			<span class="string">&quot;🔖 Pre-sealed block for proposal at {}. Hash now {:?}, previously {:?}.&quot;</span>,
+			<span class="string">"🔖 Pre-sealed block for proposal at {}. Hash now {:?}, previously {:?}."</span>,
 			header_num,
 			block_import_params.post_hash(),
 			header_hash,
@@ -1805,10 +1807,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">telemetry!</span>(
 			telemetry;
 			CONSENSUS_INFO;
-			<span class="string">&quot;slots.pre_sealed_block&quot;</span>;
-			<span class="string">&quot;header_num&quot; </span>=&gt; <span class="question-mark">?</span>header_num,
-			<span class="string">&quot;hash_now&quot; </span>=&gt; <span class="question-mark">?</span>block_import_params.post_hash(),
-			<span class="string">&quot;hash_previously&quot; </span>=&gt; <span class="question-mark">?</span>header_hash,
+			<span class="string">"slots.pre_sealed_block"</span>;
+			<span class="string">"header_num" </span>=&gt; <span class="question-mark">?</span>header_num,
+			<span class="string">"hash_now" </span>=&gt; <span class="question-mark">?</span>block_import_params.post_hash(),
+			<span class="string">"hash_previously" </span>=&gt; <span class="question-mark">?</span>header_hash,
 		);
 
 		<span class="kw">let </span>header = block_import_params.post_header();
@@ -1823,15 +1825,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Err</span>(err) =&gt; {
 				<span class="macro">warn!</span>(
 					target: logging_target,
-					<span class="string">&quot;Error with block built on {:?}: {}&quot;</span>, parent_hash, err,
+					<span class="string">"Error with block built on {:?}: {}"</span>, parent_hash, err,
 				);
 
 				<span class="macro">telemetry!</span>(
 					telemetry;
 					CONSENSUS_WARN;
-					<span class="string">&quot;slots.err_with_block_built_on&quot;</span>;
-					<span class="string">&quot;hash&quot; </span>=&gt; <span class="question-mark">?</span>parent_hash,
-					<span class="string">&quot;err&quot; </span>=&gt; <span class="question-mark">?</span>err,
+					<span class="string">"slots.err_with_block_built_on"</span>;
+					<span class="string">"hash" </span>=&gt; <span class="question-mark">?</span>parent_hash,
+					<span class="string">"err" </span>=&gt; <span class="question-mark">?</span>err,
 				);
 			},
 		}
@@ -1906,7 +1908,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	C: SelectChain&lt;B&gt;,
 	W: SlotWorker&lt;B, Proof&gt;,
 	SO: SyncOracle + Send,
-	CIDP: CreateInherentDataProviders&lt;B, ()&gt; + Send + <span class="lifetime">&#39;static</span>,
+	CIDP: CreateInherentDataProviders&lt;B, ()&gt; + Send + <span class="lifetime">'static</span>,
 	CIDP::InherentDataProviders: InherentDataProviderExt + Send,
 {
 	<span class="kw">let </span><span class="kw-2">mut </span>slots = Slots::new(slot_duration.as_duration(), create_inherent_data_providers, client);
@@ -1915,7 +1917,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>slot_info = slots.next_slot().<span class="kw">await</span>;
 
 		<span class="kw">if </span>sync_oracle.is_major_syncing() {
-			<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;Skipping proposal slot due to sync.&quot;</span>);
+			<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"Skipping proposal slot due to sync."</span>);
 			<span class="kw">continue
 		</span>}
 
@@ -1963,10 +1965,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl </span>SlotLenienceType {
-	<span class="kw">fn </span>as_str(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str {
+	<span class="kw">fn </span>as_str(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
 		<span class="kw">match </span><span class="self">self </span>{
-			SlotLenienceType::Linear =&gt; <span class="string">&quot;linear&quot;</span>,
-			SlotLenienceType::Exponential =&gt; <span class="string">&quot;exponential&quot;</span>,
+			SlotLenienceType::Linear =&gt; <span class="string">"linear"</span>,
+			SlotLenienceType::Exponential =&gt; <span class="string">"exponential"</span>,
 		}
 	}
 }
@@ -1994,7 +1996,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">let </span>proposing_duration = std::cmp::min(slot_remaining, proposing_duration);
 
-	<span class="comment">// If parent is genesis block, we don&#39;t require any lenience factor.
+	<span class="comment">// If parent is genesis block, we don't require any lenience factor.
 	</span><span class="kw">if </span>slot_info.chain_head.number().is_zero() {
 		<span class="kw">return </span>proposing_duration
 	}
@@ -2014,7 +2016,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			proposing_duration + slot_lenience.mul_f32(block_proposal_slot_portion.get());
 
 		<span class="comment">// if we defined a maximum portion of the slot for proposal then we must make sure the
-		// lenience doesn&#39;t go over it
+		// lenience doesn't go over it
 		</span><span class="kw">let </span>lenient_proposing_duration =
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(max_block_proposal_slot_portion) = max_block_proposal_slot_portion {
 				std::cmp::min(
@@ -2027,7 +2029,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="macro">debug!</span>(
 			target: log_target,
-			<span class="string">&quot;No block for {} slots. Applying {} lenience, total proposing duration: {}ms&quot;</span>,
+			<span class="string">"No block for {} slots. Applying {} lenience, total proposing duration: {}ms"</span>,
 			slot_info.slot.saturating_sub(parent_slot + <span class="number">1</span>),
 			slot_lenience_type.as_str(),
 			lenient_proposing_duration.as_millis(),
@@ -2169,15 +2171,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			unfinalized_block_length.saturating_sub(<span class="self">self</span>.unfinalized_slack) / <span class="self">self</span>.authoring_bias;
 		<span class="kw">let </span>interval = interval.min(<span class="self">self</span>.max_interval);
 
-		<span class="comment">// We&#39;re doing arithmetic between block and slot numbers.
+		<span class="comment">// We're doing arithmetic between block and slot numbers.
 		</span><span class="kw">let </span>interval: u64 = interval.unique_saturated_into();
 
-		<span class="comment">// If interval is nonzero we backoff if the current slot isn&#39;t far enough ahead of the chain
+		<span class="comment">// If interval is nonzero we backoff if the current slot isn't far enough ahead of the chain
 		// head.
 		</span><span class="kw">if </span><span class="kw-2">*</span>slot_now &lt;= <span class="kw-2">*</span>chain_head_slot + interval {
 			<span class="macro">info!</span>(
 				target: logging_target,
-				<span class="string">&quot;Backing off claiming new slot for block authorship: finality is lagging.&quot;</span>,
+				<span class="string">"Backing off claiming new slot for block authorship: finality is lagging."</span>,
 			);
 			<span class="bool-val">true
 		</span>} <span class="kw">else </span>{
@@ -2277,7 +2279,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw-2">&amp;</span>SlotProportion(<span class="number">0.25</span>),
 				<span class="prelude-val">None</span>,
 				SlotLenienceType::Linear,
-				<span class="string">&quot;test&quot;</span>,
+				<span class="string">"test"</span>,
 			),
 			SLOT_DURATION.mul_f32(<span class="number">0.25 </span>* <span class="number">2.0</span>),
 		);
@@ -2292,7 +2294,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw-2">&amp;</span>SlotProportion(<span class="number">0.25</span>),
 				<span class="prelude-val">Some</span>(SlotProportion(<span class="number">0.9</span>)).as_ref(),
 				SlotLenienceType::Exponential,
-				<span class="string">&quot;test&quot;</span>,
+				<span class="string">"test"</span>,
 			),
 			SLOT_DURATION.mul_f32(<span class="number">0.9</span>),
 		);
@@ -2339,12 +2341,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					head_slot.into(),
 					finalized_number,
 					s.into(),
-					<span class="string">&quot;slots&quot;</span>,
+					<span class="string">"slots"</span>,
 				)
 			})
 			.collect();
 
-		<span class="comment">// Should always be false, since the head isn&#39;t advancing
+		<span class="comment">// Should always be false, since the head isn't advancing
 		</span><span class="kw">let </span>expected: Vec&lt;bool&gt; = (slot_now..<span class="number">1000</span>).map(|<span class="kw">_</span>| <span class="bool-val">false</span>).collect();
 		<span class="macro">assert_eq!</span>(should_backoff, expected);
 	}
@@ -2369,7 +2371,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					head_slot.into(),
 					finalized_number,
 					s.into(),
-					<span class="string">&quot;slots&quot;</span>,
+					<span class="string">"slots"</span>,
 				);
 				<span class="comment">// Chain is still advancing (by someone else)
 				</span>head_number += <span class="number">1</span>;
@@ -2412,7 +2414,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					head_slot.into(),
 					finalized_number,
 					s.into(),
-					<span class="string">&quot;slots&quot;</span>,
+					<span class="string">"slots"</span>,
 				)
 			})
 			.collect();
@@ -2441,7 +2443,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				head_state.head_slot.into(),
 				finalized_number,
 				head_state.slot_now.into(),
-				<span class="string">&quot;slots&quot;</span>,
+				<span class="string">"slots"</span>,
 			)
 		};
 
@@ -2504,7 +2506,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				head_state.head_slot.into(),
 				finalized_number,
 				head_state.slot_now.into(),
-				<span class="string">&quot;slots&quot;</span>,
+				<span class="string">"slots"</span>,
 			)
 		};
 
@@ -2560,7 +2562,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				head_state.head_slot.into(),
 				finalized_number,
 				head_state.slot_now.into(),
-				<span class="string">&quot;slots&quot;</span>,
+				<span class="string">"slots"</span>,
 			)
 		};
 

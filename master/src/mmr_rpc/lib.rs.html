@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/merkle-mountain-range/rpc/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/merkle-mountain-range/rpc/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="mmr_rpc" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="mmr_rpc" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../mmr_rpc/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -507,14 +509,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -550,7 +552,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Retrieved MMR leaves and their proof.
 </span><span class="attr">#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
-#[serde(rename_all = <span class="string">&quot;camelCase&quot;</span>)]
+#[serde(rename_all = <span class="string">"camelCase"</span>)]
 </span><span class="kw">pub struct </span>LeavesProof&lt;BlockHash&gt; {
 	<span class="doccomment">/// Block hash the proof was generated for.
 	</span><span class="kw">pub </span>block_hash: BlockHash,
@@ -580,7 +582,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[rpc(client, server)]
 </span><span class="kw">pub trait </span>MmrApi&lt;BlockHash, BlockNumber, MmrHash&gt; {
 	<span class="doccomment">/// Get the MMR root hash for the current best block.
-	</span><span class="attr">#[method(name = <span class="string">&quot;mmr_root&quot;</span>)]
+	</span><span class="attr">#[method(name = <span class="string">"mmr_root"</span>)]
 	</span><span class="kw">fn </span>mmr_root(<span class="kw-2">&amp;</span><span class="self">self</span>, at: <span class="prelude-ty">Option</span>&lt;BlockHash&gt;) -&gt; RpcResult&lt;MmrHash&gt;;
 
 	<span class="doccomment">/// Generate an MMR proof for the given `block_numbers`.
@@ -591,10 +593,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// `block_numbers` for the function to succeed.
 	///
 	/// Optionally via `at`, a block hash at which the runtime should be queried can be specified.
-	/// Optionally via `best_known_block_number`, the proof can be generated using the MMR&#39;s state
+	/// Optionally via `best_known_block_number`, the proof can be generated using the MMR's state
 	/// at a specific best block. Note that if `best_known_block_number` is provided, then also
-	/// specifying the block hash via `at` isn&#39;t super-useful here, unless you&#39;re generating proof
-	/// using non-finalized blocks where there are several competing forks. That&#39;s because MMR state
+	/// specifying the block hash via `at` isn't super-useful here, unless you're generating proof
+	/// using non-finalized blocks where there are several competing forks. That's because MMR state
 	/// will be fixed to the state with `best_known_block_number`, which already points to
 	/// some historical block.
 	///
@@ -602,7 +604,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// the leaves). Both parameters are SCALE-encoded.
 	/// The order of entries in the `leaves` field of the returned struct
 	/// is the same as the order of the entries in `block_numbers` supplied
-	</span><span class="attr">#[method(name = <span class="string">&quot;mmr_generateProof&quot;</span>)]
+	</span><span class="attr">#[method(name = <span class="string">"mmr_generateProof"</span>)]
 	</span><span class="kw">fn </span>generate_proof(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		block_numbers: Vec&lt;BlockNumber&gt;,
@@ -616,7 +618,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// an MMR proof.
 	///
 	/// Returns `true` if the proof is valid, else returns the verification error.
-	</span><span class="attr">#[method(name = <span class="string">&quot;mmr_verifyProof&quot;</span>)]
+	</span><span class="attr">#[method(name = <span class="string">"mmr_verifyProof"</span>)]
 	</span><span class="kw">fn </span>verify_proof(<span class="kw-2">&amp;</span><span class="self">self</span>, proof: LeavesProof&lt;BlockHash&gt;) -&gt; RpcResult&lt;bool&gt;;
 
 	<span class="doccomment">/// Verify an MMR `proof` statelessly given an `mmr_root`.
@@ -625,7 +627,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// an MMR proof against a provided MMR root.
 	///
 	/// Returns `true` if the proof is valid, else returns the verification error.
-	</span><span class="attr">#[method(name = <span class="string">&quot;mmr_verifyProofStateless&quot;</span>)]
+	</span><span class="attr">#[method(name = <span class="string">"mmr_verifyProofStateless"</span>)]
 	</span><span class="kw">fn </span>verify_proof_stateless(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		mmr_root: MmrHash,
@@ -652,10 +654,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">for </span>Mmr&lt;Client, (Block, MmrHash), S&gt;
 <span class="kw">where
 	</span>Block: BlockT,
-	Client: Send + Sync + <span class="lifetime">&#39;static </span>+ ProvideRuntimeApi&lt;Block&gt; + HeaderBackend&lt;Block&gt;,
+	Client: Send + Sync + <span class="lifetime">'static </span>+ ProvideRuntimeApi&lt;Block&gt; + HeaderBackend&lt;Block&gt;,
 	Client::Api: MmrRuntimeApi&lt;Block, MmrHash, NumberFor&lt;Block&gt;&gt;,
-	MmrHash: Codec + Send + Sync + <span class="lifetime">&#39;static</span>,
-	S: OffchainStorage + <span class="lifetime">&#39;static</span>,
+	MmrHash: Codec + Send + Sync + <span class="lifetime">'static</span>,
+	S: OffchainStorage + <span class="lifetime">'static</span>,
 {
 	<span class="kw">fn </span>mmr_root(<span class="kw-2">&amp;</span><span class="self">self</span>, at: <span class="prelude-ty">Option</span>&lt;&lt;Block <span class="kw">as </span>BlockT&gt;::Hash&gt;) -&gt; RpcResult&lt;MmrHash&gt; {
 		<span class="kw">let </span>block_hash = at.unwrap_or_else(||
@@ -737,12 +739,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">_ </span>=&gt; <span class="number">0</span>,
 		};
 
-	ErrorObject::owned(error_code, err.to_string(), <span class="prelude-val">Some</span>(<span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, err)))
+	ErrorObject::owned(error_code, err.to_string(), <span class="prelude-val">Some</span>(<span class="macro">format!</span>(<span class="string">"{:?}"</span>, err)))
 }
 
 <span class="doccomment">/// Converts a runtime trap into a [`CallError`].
 </span><span class="kw">fn </span>runtime_error_into_rpc_error(err: <span class="kw">impl </span>std::fmt::Debug) -&gt; ErrorObjectOwned {
-	ErrorObject::owned(RUNTIME_ERROR, <span class="string">&quot;Runtime trapped&quot;</span>, <span class="prelude-val">Some</span>(<span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, err)))
+	ErrorObject::owned(RUNTIME_ERROR, <span class="string">"Runtime trapped"</span>, <span class="prelude-val">Some</span>(<span class="macro">format!</span>(<span class="string">"{:?}"</span>, err)))
 }
 
 <span class="kw">fn </span>invalid_params(e: <span class="kw">impl </span>std::error::Error) -&gt; ErrorObjectOwned {
@@ -776,7 +778,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// then
 		</span><span class="macro">assert_eq!</span>(
 			actual,
-			<span class="string">r#&quot;{&quot;blockHash&quot;:&quot;0x0000000000000000000000000000000000000000000000000000000000000000&quot;,&quot;leaves&quot;:&quot;0x041001020304&quot;,&quot;proof&quot;:&quot;0x04010000000000000009000000000000000801010101010101010101010101010101010101010101010101010101010101010202020202020202020202020202020202020202020202020202020202020202&quot;}&quot;#
+			<span class="string">r#"{"blockHash":"0x0000000000000000000000000000000000000000000000000000000000000000","leaves":"0x041001020304","proof":"0x04010000000000000009000000000000000801010101010101010101010101010101010101010101010101010101010101010202020202020202020202020202020202020202020202020202020202020202"}"#
 		</span>);
 	}
 
@@ -799,7 +801,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// then
 		</span><span class="macro">assert_eq!</span>(
 			actual,
-			<span class="string">r#&quot;{&quot;blockHash&quot;:&quot;0x0000000000000000000000000000000000000000000000000000000000000000&quot;,&quot;leaves&quot;:&quot;0x0810010203041002020304&quot;,&quot;proof&quot;:&quot;0x080100000000000000020000000000000009000000000000000801010101010101010101010101010101010101010101010101010101010101010202020202020202020202020202020202020202020202020202020202020202&quot;}&quot;#
+			<span class="string">r#"{"blockHash":"0x0000000000000000000000000000000000000000000000000000000000000000","leaves":"0x0810010203041002020304","proof":"0x080100000000000000020000000000000009000000000000000801010101010101010101010101010101010101010101010101010101010101010202020202020202020202020202020202020202020202020202020202020202"}"#
 		</span>);
 	}
 
@@ -820,11 +822,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		};
 
 		<span class="comment">// when
-		</span><span class="kw">let </span>actual: LeavesProof&lt;H256&gt; = serde_json::from_str(<span class="string">r#&quot;{
-			&quot;blockHash&quot;:&quot;0x0000000000000000000000000000000000000000000000000000000000000000&quot;,
-			&quot;leaves&quot;:&quot;0x041001020304&quot;,
-			&quot;proof&quot;:&quot;0x04010000000000000009000000000000000801010101010101010101010101010101010101010101010101010101010101010202020202020202020202020202020202020202020202020202020202020202&quot;
-		}&quot;#</span>).unwrap();
+		</span><span class="kw">let </span>actual: LeavesProof&lt;H256&gt; = serde_json::from_str(<span class="string">r#"{
+			"blockHash":"0x0000000000000000000000000000000000000000000000000000000000000000",
+			"leaves":"0x041001020304",
+			"proof":"0x04010000000000000009000000000000000801010101010101010101010101010101010101010101010101010101010101010202020202020202020202020202020202020202020202020202020202020202"
+		}"#</span>).unwrap();
 
 		<span class="comment">// then
 		</span><span class="macro">assert_eq!</span>(actual, expected);
@@ -847,11 +849,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		};
 
 		<span class="comment">// when
-		</span><span class="kw">let </span>actual: LeavesProof&lt;H256&gt; = serde_json::from_str(<span class="string">r#&quot;{
-			&quot;blockHash&quot;:&quot;0x0000000000000000000000000000000000000000000000000000000000000000&quot;,
-			&quot;leaves&quot;:&quot;0x0810010203041002020304&quot;,
-			&quot;proof&quot;:&quot;0x080100000000000000020000000000000009000000000000000801010101010101010101010101010101010101010101010101010101010101010202020202020202020202020202020202020202020202020202020202020202&quot;
-		}&quot;#</span>).unwrap();
+		</span><span class="kw">let </span>actual: LeavesProof&lt;H256&gt; = serde_json::from_str(<span class="string">r#"{
+			"blockHash":"0x0000000000000000000000000000000000000000000000000000000000000000",
+			"leaves":"0x0810010203041002020304",
+			"proof":"0x080100000000000000020000000000000009000000000000000801010101010101010101010101010101010101010101010101010101010101010202020202020202020202020202020202020202020202020202020202020202"
+		}"#</span>).unwrap();
 
 		<span class="comment">// then
 		</span><span class="macro">assert_eq!</span>(actual, expected);

@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/consensus/grandpa/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/consensus/grandpa/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_consensus_grandpa" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_consensus_grandpa" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sp_consensus_grandpa/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -689,31 +691,31 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
 </span><span class="doccomment">//! Primitives for GRANDPA integration, suitable for WASM compilation.
 
-</span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
+</span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
 </span><span class="kw">extern crate </span>alloc;
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;serde&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"serde"</span>)]
 </span><span class="kw">use </span>serde::Serialize;
 
 <span class="kw">use </span>alloc::vec::Vec;
 <span class="kw">use </span>codec::{Codec, Decode, Encode};
 <span class="kw">use </span>scale_info::TypeInfo;
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">use </span>sp_keystore::KeystorePtr;
 <span class="kw">use </span>sp_runtime::{
 	traits::{Header <span class="kw">as </span>HeaderT, NumberFor},
@@ -721,9 +723,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 
 <span class="doccomment">/// The log target to be used by client code.
-</span><span class="kw">pub const </span>CLIENT_LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;grandpa&quot;</span>;
+</span><span class="kw">pub const </span>CLIENT_LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"grandpa"</span>;
 <span class="doccomment">/// The log target to be used by runtime code.
-</span><span class="kw">pub const </span>RUNTIME_LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;runtime::grandpa&quot;</span>;
+</span><span class="kw">pub const </span>RUNTIME_LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"runtime::grandpa"</span>;
 
 <span class="doccomment">/// Key type for GRANDPA module.
 </span><span class="kw">pub const </span>KEY_TYPE: sp_core::crypto::KeyTypeId = sp_application_crypto::key_types::GRANDPA;
@@ -745,7 +747,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub type </span>AuthoritySignature = app::Signature;
 
 <span class="doccomment">/// The `ConsensusEngineId` of GRANDPA.
-</span><span class="kw">pub const </span>GRANDPA_ENGINE_ID: ConsensusEngineId = <span class="kw-2">*</span><span class="string">b&quot;FRNK&quot;</span>;
+</span><span class="kw">pub const </span>GRANDPA_ENGINE_ID: ConsensusEngineId = <span class="kw-2">*</span><span class="string">b"FRNK"</span>;
 
 <span class="doccomment">/// The weight of an authority.
 </span><span class="kw">pub type </span>AuthorityWeight = u64;
@@ -773,22 +775,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	AuthorityId,
 &gt;;
 
-<span class="doccomment">/// A primary propose message for this chain&#39;s block type.
+<span class="doccomment">/// A primary propose message for this chain's block type.
 </span><span class="kw">pub type </span>PrimaryPropose&lt;Header&gt; =
 	grandpa::PrimaryPropose&lt;&lt;Header <span class="kw">as </span>HeaderT&gt;::Hash, &lt;Header <span class="kw">as </span>HeaderT&gt;::Number&gt;;
-<span class="doccomment">/// A prevote message for this chain&#39;s block type.
+<span class="doccomment">/// A prevote message for this chain's block type.
 </span><span class="kw">pub type </span>Prevote&lt;Header&gt; = grandpa::Prevote&lt;&lt;Header <span class="kw">as </span>HeaderT&gt;::Hash, &lt;Header <span class="kw">as </span>HeaderT&gt;::Number&gt;;
-<span class="doccomment">/// A precommit message for this chain&#39;s block type.
+<span class="doccomment">/// A precommit message for this chain's block type.
 </span><span class="kw">pub type </span>Precommit&lt;Header&gt; =
 	grandpa::Precommit&lt;&lt;Header <span class="kw">as </span>HeaderT&gt;::Hash, &lt;Header <span class="kw">as </span>HeaderT&gt;::Number&gt;;
-<span class="doccomment">/// A catch up message for this chain&#39;s block type.
+<span class="doccomment">/// A catch up message for this chain's block type.
 </span><span class="kw">pub type </span>CatchUp&lt;Header&gt; = grandpa::CatchUp&lt;
 	&lt;Header <span class="kw">as </span>HeaderT&gt;::Hash,
 	&lt;Header <span class="kw">as </span>HeaderT&gt;::Number,
 	AuthoritySignature,
 	AuthorityId,
 &gt;;
-<span class="doccomment">/// A commit message for this chain&#39;s block type.
+<span class="doccomment">/// A commit message for this chain's block type.
 </span><span class="kw">pub type </span>Commit&lt;Header&gt; = grandpa::Commit&lt;
 	&lt;Header <span class="kw">as </span>HeaderT&gt;::Hash,
 	&lt;Header <span class="kw">as </span>HeaderT&gt;::Number,
@@ -796,7 +798,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	AuthorityId,
 &gt;;
 
-<span class="doccomment">/// A compact commit message for this chain&#39;s block type.
+<span class="doccomment">/// A compact commit message for this chain's block type.
 </span><span class="kw">pub type </span>CompactCommit&lt;Header&gt; = grandpa::CompactCommit&lt;
 	&lt;Header <span class="kw">as </span>HeaderT&gt;::Hash,
 	&lt;Header <span class="kw">as </span>HeaderT&gt;::Number,
@@ -807,13 +809,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// A GRANDPA justification for block finality, it includes a commit message and
 /// an ancestry proof including all headers routing all precommit target blocks
 /// to the commit target block. Due to the current voting strategy the precommit
-/// targets should be the same as the commit target, since honest voters don&#39;t
+/// targets should be the same as the commit target, since honest voters don't
 /// vote past authority set change blocks.
 ///
 /// This is meant to be stored in the db and passed around the network to other
 /// nodes, and are used by syncing nodes to prove authority set handoffs.
 </span><span class="attr">#[derive(Clone, Encode, Decode, PartialEq, Eq, TypeInfo)]
-#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(Debug))]
+#[cfg_attr(feature = <span class="string">"std"</span>, derive(Debug))]
 </span><span class="kw">pub struct </span>GrandpaJustification&lt;Header: HeaderT&gt; {
 	<span class="kw">pub </span>round: u64,
 	<span class="kw">pub </span>commit: Commit&lt;Header&gt;,
@@ -822,7 +824,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// A scheduled change of authority set.
 </span><span class="attr">#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
-#[cfg_attr(feature = <span class="string">&quot;serde&quot;</span>, derive(Serialize))]
+#[cfg_attr(feature = <span class="string">"serde"</span>, derive(Serialize))]
 </span><span class="kw">pub struct </span>ScheduledChange&lt;N&gt; {
 	<span class="doccomment">/// The new authorities after the change, along with their respective weights.
 	</span><span class="kw">pub </span>next_authorities: AuthorityList,
@@ -832,7 +834,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// An consensus log item for GRANDPA.
 </span><span class="attr">#[derive(Decode, Encode, PartialEq, Eq, Clone, RuntimeDebug)]
-#[cfg_attr(feature = <span class="string">&quot;serde&quot;</span>, derive(Serialize))]
+#[cfg_attr(feature = <span class="string">"serde"</span>, derive(Serialize))]
 </span><span class="kw">pub enum </span>ConsensusLog&lt;N: Codec&gt; {
 	<span class="doccomment">/// Schedule an authority set change.
 	///
@@ -1010,7 +1012,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>H: Clone + Encode + PartialEq,
 	N: Clone + Encode + PartialEq,
 {
-	<span class="comment">// NOTE: the bare `Prevote` and `Precommit` types don&#39;t share any trait,
+	<span class="comment">// NOTE: the bare `Prevote` and `Precommit` types don't share any trait,
 	// this is implemented as a macro to avoid duplication.
 	</span><span class="macro">macro_rules! </span>check {
 		( <span class="macro-nonterminal">$equivocation</span>:expr, <span class="macro-nonterminal">$message</span>:expr ) =&gt; {
@@ -1111,16 +1113,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>valid = id.verify(<span class="kw-2">&amp;</span>buf, signature);
 
 	<span class="kw">if </span>!valid {
-		<span class="kw">let </span>log_target = <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">&quot;std&quot;</span>) { CLIENT_LOG_TARGET } <span class="kw">else </span>{ RUNTIME_LOG_TARGET };
+		<span class="kw">let </span>log_target = <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">"std"</span>) { CLIENT_LOG_TARGET } <span class="kw">else </span>{ RUNTIME_LOG_TARGET };
 
-		<span class="macro">log::debug!</span>(target: log_target, <span class="string">&quot;Bad signature on message from {:?}&quot;</span>, id);
+		<span class="macro">log::debug!</span>(target: log_target, <span class="string">"Bad signature on message from {:?}"</span>, id);
 	}
 
 	valid
 }
 
 <span class="doccomment">/// Localizes the message to the given set and round and signs the payload.
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+</span><span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">pub fn </span>sign_message&lt;H, N&gt;(
 	keystore: KeystorePtr,
 	message: grandpa::Message&lt;H, N&gt;,

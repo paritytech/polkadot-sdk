@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/rpc-api/src/author/error.rs`."><title>error.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/rpc-api/src/author/error.rs`."><title>error.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sc_rpc_api" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sc_rpc_api" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../sc_rpc_api/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -363,25 +365,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[derive(Debug, thiserror::Error)]
 </span><span class="kw">pub enum </span>Error {
 	<span class="doccomment">/// Client error.
-	</span><span class="attr">#[error(<span class="string">&quot;Client error: {}&quot;</span>, .<span class="number">0</span>)]
+	</span><span class="attr">#[error(<span class="string">"Client error: {}"</span>, .<span class="number">0</span>)]
 	</span>Client(Box&lt;<span class="kw">dyn </span>std::error::Error + Send + Sync&gt;),
 	<span class="doccomment">/// Transaction pool error,
-	</span><span class="attr">#[error(<span class="string">&quot;Transaction pool error: {}&quot;</span>, .<span class="number">0</span>)]
+	</span><span class="attr">#[error(<span class="string">"Transaction pool error: {}"</span>, .<span class="number">0</span>)]
 	</span>Pool(<span class="attr">#[from] </span>sc_transaction_pool_api::error::Error),
 	<span class="doccomment">/// Verification error
-	</span><span class="attr">#[error(<span class="string">&quot;Extrinsic verification error: {}&quot;</span>, .<span class="number">0</span>)]
+	</span><span class="attr">#[error(<span class="string">"Extrinsic verification error: {}"</span>, .<span class="number">0</span>)]
 	</span>Verification(Box&lt;<span class="kw">dyn </span>std::error::Error + Send + Sync&gt;),
 	<span class="doccomment">/// Incorrect extrinsic format.
-	</span><span class="attr">#[error(<span class="string">&quot;Invalid extrinsic format: {}&quot;</span>, .<span class="number">0</span>)]
+	</span><span class="attr">#[error(<span class="string">"Invalid extrinsic format: {}"</span>, .<span class="number">0</span>)]
 	</span>BadFormat(<span class="attr">#[from] </span>codec::Error),
 	<span class="doccomment">/// Key type ID has an unknown format.
-	</span><span class="attr">#[error(<span class="string">&quot;Invalid key type ID format (should be of length four)&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"Invalid key type ID format (should be of length four)"</span>)]
 	</span>BadKeyType,
-	<span class="doccomment">/// Some random issue with the key store. Shouldn&#39;t happen.
-	</span><span class="attr">#[error(<span class="string">&quot;The key store is unavailable&quot;</span>)]
+	<span class="doccomment">/// Some random issue with the key store. Shouldn't happen.
+	</span><span class="attr">#[error(<span class="string">"The key store is unavailable"</span>)]
 	</span>KeystoreUnavailable,
 	<span class="doccomment">/// Invalid session keys encoding.
-	</span><span class="attr">#[error(<span class="string">&quot;Session keys are not encoded correctly&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"Session keys are not encoded correctly"</span>)]
 	</span>InvalidSessionKeys,
 	<span class="doccomment">/// Call to an unsafe RPC was denied.
 	</span><span class="attr">#[error(transparent)]
@@ -412,7 +414,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// The transaction was not included to the pool since it is unactionable,
 /// it is not propagable and the local node does not author blocks.
 </span><span class="kw">const </span>POOL_UNACTIONABLE: i32 = POOL_INVALID_TX + <span class="number">8</span>;
-<span class="doccomment">/// Transaction does not provide any tags, so the pool can&#39;t identify it.
+<span class="doccomment">/// Transaction does not provide any tags, so the pool can't identify it.
 </span><span class="kw">const </span>POOL_NO_TAGS: i32 = POOL_INVALID_TX + <span class="number">9</span>;
 <span class="doccomment">/// Invalid block ID.
 </span><span class="kw">const </span>POOL_INVALID_BLOCK_ID: i32 = POOL_INVALID_TX + <span class="number">10</span>;
@@ -428,85 +430,85 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">match </span>e {
 			Error::BadFormat(e) =&gt; ErrorObject::owned(
 				BAD_FORMAT,
-				<span class="macro">format!</span>(<span class="string">&quot;Extrinsic has invalid format: {}&quot;</span>, e),
+				<span class="macro">format!</span>(<span class="string">"Extrinsic has invalid format: {}"</span>, e),
 				<span class="prelude-val">None</span>::&lt;()&gt;,
 			),
 			Error::Verification(e) =&gt; ErrorObject::owned(
 				VERIFICATION_ERROR,
-				<span class="macro">format!</span>(<span class="string">&quot;Verification Error: {}&quot;</span>, e),
-				<span class="prelude-val">Some</span>(<span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, e)),
+				<span class="macro">format!</span>(<span class="string">"Verification Error: {}"</span>, e),
+				<span class="prelude-val">Some</span>(<span class="macro">format!</span>(<span class="string">"{:?}"</span>, e)),
 			),
 			Error::Pool(PoolError::InvalidTransaction(InvalidTransaction::Custom(e))) =&gt; {
 				ErrorObject::owned(
 					POOL_INVALID_TX,
-					<span class="string">&quot;Invalid Transaction&quot;</span>,
-					<span class="prelude-val">Some</span>(<span class="macro">format!</span>(<span class="string">&quot;Custom error: {}&quot;</span>, e)),
+					<span class="string">"Invalid Transaction"</span>,
+					<span class="prelude-val">Some</span>(<span class="macro">format!</span>(<span class="string">"Custom error: {}"</span>, e)),
 				)
 			},
 			Error::Pool(PoolError::InvalidTransaction(e)) =&gt; {
 				<span class="kw">let </span>msg: <span class="kw-2">&amp;</span>str = e.into();
 				ErrorObject::owned(
 					POOL_INVALID_TX,
-					<span class="string">&quot;Invalid Transaction&quot;</span>,
+					<span class="string">"Invalid Transaction"</span>,
 					<span class="prelude-val">Some</span>(msg),
 				)
 			},
 			Error::Pool(PoolError::UnknownTransaction(e)) =&gt; {
 				ErrorObject::owned(
 					POOL_UNKNOWN_VALIDITY,
-					<span class="string">&quot;Unknown Transaction Validity&quot;</span>,
-					<span class="prelude-val">Some</span>(<span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, e)),
+					<span class="string">"Unknown Transaction Validity"</span>,
+					<span class="prelude-val">Some</span>(<span class="macro">format!</span>(<span class="string">"{:?}"</span>, e)),
 				)
 			},
 			Error::Pool(PoolError::TemporarilyBanned) =&gt;
 				ErrorObject::owned(
 				POOL_TEMPORARILY_BANNED,
-				<span class="string">&quot;Transaction is temporarily banned&quot;</span>,
+				<span class="string">"Transaction is temporarily banned"</span>,
 				<span class="prelude-val">None</span>::&lt;()&gt;,
 			),
 			Error::Pool(PoolError::AlreadyImported(hash)) =&gt;
 				ErrorObject::owned(
 				POOL_ALREADY_IMPORTED,
-				<span class="string">&quot;Transaction Already Imported&quot;</span>,
-				<span class="prelude-val">Some</span>(<span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, hash)),
+				<span class="string">"Transaction Already Imported"</span>,
+				<span class="prelude-val">Some</span>(<span class="macro">format!</span>(<span class="string">"{:?}"</span>, hash)),
 			),
 			Error::Pool(PoolError::TooLowPriority { old, new }) =&gt; ErrorObject::owned(
 				POOL_TOO_LOW_PRIORITY,
-				<span class="macro">format!</span>(<span class="string">&quot;Priority is too low: ({} vs {})&quot;</span>, old, new),
-				<span class="prelude-val">Some</span>(<span class="string">&quot;The transaction has too low priority to replace another transaction already in the pool.&quot;</span>)
+				<span class="macro">format!</span>(<span class="string">"Priority is too low: ({} vs {})"</span>, old, new),
+				<span class="prelude-val">Some</span>(<span class="string">"The transaction has too low priority to replace another transaction already in the pool."</span>)
 			),
 			Error::Pool(PoolError::CycleDetected) =&gt;
 				ErrorObject::owned(
 				POOL_CYCLE_DETECTED,
-				<span class="string">&quot;Cycle Detected&quot;</span>,
+				<span class="string">"Cycle Detected"</span>,
 				<span class="prelude-val">None</span>::&lt;()&gt;
 			),
 			Error::Pool(PoolError::ImmediatelyDropped) =&gt; ErrorObject::owned(
 				POOL_IMMEDIATELY_DROPPED,
-				<span class="string">&quot;Immediately Dropped&quot;</span>,
-				<span class="prelude-val">Some</span>(<span class="string">&quot;The transaction couldn&#39;t enter the pool because of the limit&quot;</span>),
+				<span class="string">"Immediately Dropped"</span>,
+				<span class="prelude-val">Some</span>(<span class="string">"The transaction couldn't enter the pool because of the limit"</span>),
 			),
 			Error::Pool(PoolError::Unactionable) =&gt; ErrorObject::owned(
 				POOL_UNACTIONABLE,
-				<span class="string">&quot;Unactionable&quot;</span>,
-				<span class="prelude-val">Some</span>(<span class="string">&quot;The transaction is unactionable since it is not propagable and \
-				the local node does not author blocks&quot;</span>)
+				<span class="string">"Unactionable"</span>,
+				<span class="prelude-val">Some</span>(<span class="string">"The transaction is unactionable since it is not propagable and \
+				the local node does not author blocks"</span>)
 			),
 			Error::Pool(PoolError::NoTagsProvided) =&gt; ErrorObject::owned(
 				POOL_NO_TAGS,
-				<span class="string">&quot;No tags provided&quot;</span>,
-				<span class="prelude-val">Some</span>(<span class="string">&quot;Transaction does not provide any tags, so the pool can&#39;t identify it&quot;</span>)
+				<span class="string">"No tags provided"</span>,
+				<span class="prelude-val">Some</span>(<span class="string">"Transaction does not provide any tags, so the pool can't identify it"</span>)
 			),
 			Error::Pool(PoolError::InvalidBlockId(<span class="kw">_</span>)) =&gt;
 				ErrorObject::owned(
 				POOL_INVALID_BLOCK_ID,
-				<span class="string">&quot;The provided block ID is not valid&quot;</span>,
+				<span class="string">"The provided block ID is not valid"</span>,
 				<span class="prelude-val">None</span>::&lt;()&gt;
 			),
 			Error::Pool(PoolError::RejectedFutureTransaction) =&gt; {
 				ErrorObject::owned(
 					POOL_FUTURE_TX,
-					<span class="string">&quot;The pool is not accepting future transactions&quot;</span>,
+					<span class="string">"The pool is not accepting future transactions"</span>,
 					<span class="prelude-val">None</span>::&lt;()&gt;,
 				)
 			},

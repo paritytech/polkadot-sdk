@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/core/av-store/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/core/av-store/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_node_core_av_store" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_node_core_av_store" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../polkadot_node_core_av_store/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1556,7 +1558,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="doccomment">//! Implements a `AvailabilityStoreSubsystem`.
 
-</span><span class="attr">#![recursion_limit = <span class="string">&quot;256&quot;</span>]
+</span><span class="attr">#![recursion_limit = <span class="string">"256"</span>]
 #![warn(missing_docs)]
 
 </span><span class="kw">use </span>std::{
@@ -1597,19 +1599,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests;
 
-<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;parachain::availability-store&quot;</span>;
+<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"parachain::availability-store"</span>;
 
 <span class="doccomment">/// The following constants are used under normal conditions:
 
-</span><span class="kw">const </span>AVAILABLE_PREFIX: <span class="kw-2">&amp;</span>[u8; <span class="number">9</span>] = <span class="string">b&quot;available&quot;</span>;
-<span class="kw">const </span>CHUNK_PREFIX: <span class="kw-2">&amp;</span>[u8; <span class="number">5</span>] = <span class="string">b&quot;chunk&quot;</span>;
-<span class="kw">const </span>META_PREFIX: <span class="kw-2">&amp;</span>[u8; <span class="number">4</span>] = <span class="string">b&quot;meta&quot;</span>;
-<span class="kw">const </span>UNFINALIZED_PREFIX: <span class="kw-2">&amp;</span>[u8; <span class="number">11</span>] = <span class="string">b&quot;unfinalized&quot;</span>;
-<span class="kw">const </span>PRUNE_BY_TIME_PREFIX: <span class="kw-2">&amp;</span>[u8; <span class="number">13</span>] = <span class="string">b&quot;prune_by_time&quot;</span>;
+</span><span class="kw">const </span>AVAILABLE_PREFIX: <span class="kw-2">&amp;</span>[u8; <span class="number">9</span>] = <span class="string">b"available"</span>;
+<span class="kw">const </span>CHUNK_PREFIX: <span class="kw-2">&amp;</span>[u8; <span class="number">5</span>] = <span class="string">b"chunk"</span>;
+<span class="kw">const </span>META_PREFIX: <span class="kw-2">&amp;</span>[u8; <span class="number">4</span>] = <span class="string">b"meta"</span>;
+<span class="kw">const </span>UNFINALIZED_PREFIX: <span class="kw-2">&amp;</span>[u8; <span class="number">11</span>] = <span class="string">b"unfinalized"</span>;
+<span class="kw">const </span>PRUNE_BY_TIME_PREFIX: <span class="kw-2">&amp;</span>[u8; <span class="number">13</span>] = <span class="string">b"prune_by_time"</span>;
 
 <span class="comment">// We have some keys we want to map to empty values because existence of the key is enough. We use
-// this because rocksdb doesn&#39;t support empty values.
-</span><span class="kw">const </span>TOMBSTONE_VALUE: <span class="kw-2">&amp;</span>[u8] = <span class="string">b&quot; &quot;</span>;
+// this because rocksdb doesn't support empty values.
+</span><span class="kw">const </span>TOMBSTONE_VALUE: <span class="kw-2">&amp;</span>[u8] = <span class="string">b" "</span>;
 
 <span class="doccomment">/// Unavailable blocks are kept for 1 hour.
 </span><span class="kw">const </span>KEEP_UNAVAILABLE_FOR: Duration = Duration::from_secs(<span class="number">60 </span>* <span class="number">60</span>);
@@ -1711,7 +1713,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		},
 		<span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>),
 		<span class="prelude-val">Err</span>(err) =&gt; {
-			<span class="macro">gum::warn!</span>(target: LOG_TARGET, <span class="question-mark">?</span>err, <span class="string">&quot;Error reading from the availability store&quot;</span>);
+			<span class="macro">gum::warn!</span>(target: LOG_TARGET, <span class="question-mark">?</span>err, <span class="string">"Error reading from the availability store"</span>);
 			<span class="prelude-val">Err</span>(err.into())
 		},
 	}
@@ -1866,7 +1868,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">fn </span>decode_unfinalized_key(s: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;(BlockNumber, Hash, CandidateHash), CodecError&gt; {
 	<span class="kw">if </span>!s.starts_with(UNFINALIZED_PREFIX) {
-		<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;missing magic string&quot;</span>.into())
+		<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"missing magic string"</span>.into())
 	}
 
 	&lt;(BEBlockNumber, Hash, CandidateHash)&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>s[UNFINALIZED_PREFIX.len()..])
@@ -1875,7 +1877,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">fn </span>decode_pruning_key(s: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;(Duration, CandidateHash), CodecError&gt; {
 	<span class="kw">if </span>!s.starts_with(PRUNE_BY_TIME_PREFIX) {
-		<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;missing magic string&quot;</span>.into())
+		<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"missing magic string"</span>.into())
 	}
 
 	&lt;(BETimestamp, CandidateHash)&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>s[PRUNE_BY_TIME_PREFIX.len()..])
@@ -1903,7 +1905,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[error(transparent)]
 	</span>Subsystem(<span class="attr">#[from] </span>SubsystemError),
 
-	<span class="attr">#[error(<span class="string">&quot;Context signal channel closed&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Context signal channel closed"</span>)]
 	</span>ContextChannelClosed,
 
 	<span class="attr">#[error(transparent)]
@@ -1912,10 +1914,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[error(transparent)]
 	</span>Codec(<span class="attr">#[from] </span>CodecError),
 
-	<span class="attr">#[error(<span class="string">&quot;Custom databases are not supported&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Custom databases are not supported"</span>)]
 	</span>CustomDatabase,
 
-	<span class="attr">#[error(<span class="string">&quot;Erasure root does not match expected one&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Erasure root does not match expected one"</span>)]
 	</span>InvalidErasureRoot,
 }
 
@@ -1937,11 +1939,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl </span>Error {
 	<span class="kw">fn </span>trace(<span class="kw-2">&amp;</span><span class="self">self</span>) {
 		<span class="kw">match </span><span class="self">self </span>{
-			<span class="comment">// don&#39;t spam the log with spurious errors
+			<span class="comment">// don't spam the log with spurious errors
 			</span><span class="self">Self</span>::RuntimeApi(<span class="kw">_</span>) | <span class="self">Self</span>::Oneshot(<span class="kw">_</span>) =&gt; {
 				<span class="macro">gum::debug!</span>(target: LOG_TARGET, err = <span class="question-mark">?</span><span class="self">self</span>)
 			},
-			<span class="comment">// it&#39;s worth reporting otherwise
+			<span class="comment">// it's worth reporting otherwise
 			</span><span class="kw">_ </span>=&gt; <span class="macro">gum::warn!</span>(target: LOG_TARGET, err = <span class="question-mark">?</span><span class="self">self</span>),
 		}
 	}
@@ -2084,14 +2086,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>start(<span class="self">self</span>, ctx: Context) -&gt; SpawnedSubsystem {
 		<span class="kw">let </span>future = run::&lt;Context&gt;(<span class="self">self</span>, ctx).map(|<span class="kw">_</span>| <span class="prelude-val">Ok</span>(())).boxed();
 
-		SpawnedSubsystem { name: <span class="string">&quot;availability-store-subsystem&quot;</span>, future }
+		SpawnedSubsystem { name: <span class="string">"availability-store-subsystem"</span>, future }
 	}
 }
 
 <span class="attr">#[overseer::contextbounds(AvailabilityStore, prefix = <span class="self">self</span>::overseer)]
 </span><span class="kw">async fn </span>run&lt;Context&gt;(<span class="kw-2">mut </span>subsystem: AvailabilityStoreSubsystem, <span class="kw-2">mut </span>ctx: Context) {
 	<span class="kw">let </span><span class="kw-2">mut </span>next_pruning = Delay::new(subsystem.pruning_config.pruning_interval).fuse();
-	<span class="comment">// Pruning interval is in the order of minutes so we shouldn&#39;t have more than one task running
+	<span class="comment">// Pruning interval is in the order of minutes so we shouldn't have more than one task running
 	// at one moment in time, so 10 should be more than enough.
 	</span><span class="kw">let </span>(<span class="kw-2">mut </span>pruning_result_tx, <span class="kw-2">mut </span>pruning_result_rx) = channel(<span class="number">10</span>);
 	<span class="kw">loop </span>{
@@ -2110,7 +2112,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				</span>}
 			},
 			<span class="prelude-val">Ok</span>(<span class="bool-val">true</span>) =&gt; {
-				<span class="macro">gum::info!</span>(target: LOG_TARGET, <span class="string">&quot;received `Conclude` signal, exiting&quot;</span>);
+				<span class="macro">gum::info!</span>(target: LOG_TARGET, <span class="string">"received `Conclude` signal, exiting"</span>);
 				<span class="kw">break
 			</span>},
 			<span class="prelude-val">Ok</span>(<span class="bool-val">false</span>) =&gt; <span class="kw">continue</span>,
@@ -2144,13 +2146,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw">let </span>_timer = subsystem.metrics.time_process_block_finalized();
 
 					<span class="kw">if </span>!subsystem.known_blocks.is_known(<span class="kw-2">&amp;</span>hash) {
-						<span class="comment">// If we haven&#39;t processed this block yet,
+						<span class="comment">// If we haven't processed this block yet,
 						// make sure we write the metadata about the
 						// candidates backed in this finalized block.
-						// Otherwise, we won&#39;t be able to store our chunk
+						// Otherwise, we won't be able to store our chunk
 						// for these candidates.
 						</span><span class="kw">if </span>!subsystem.sync_oracle.is_major_syncing() {
-							<span class="comment">// If we&#39;re major syncing, processing finalized
+							<span class="comment">// If we're major syncing, processing finalized
 							// blocks might take quite a very long time
 							// and make the subsystem unresponsive.
 							</span>process_block_activated(ctx, subsystem, hash).<span class="kw">await</span><span class="question-mark">?</span>;
@@ -2172,7 +2174,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			}
 		}
 		<span class="kw">_ </span>= next_pruning =&gt; {
-			<span class="comment">// It&#39;s important to set the delay before calling `prune_all` because an error in `prune_all`
+			<span class="comment">// It's important to set the delay before calling `prune_all` because an error in `prune_all`
 			// could lead to the delay not being set again. Then we would never prune anything anymore.
 			</span><span class="kw-2">*</span>next_pruning = Delay::new(subsystem.pruning_config.pruning_interval).fuse();
 			start_prune_all(ctx, subsystem, pruning_result_tx.clone()).<span class="kw">await</span><span class="question-mark">?</span>;
@@ -2190,7 +2192,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="comment">// Start prune-all on a separate thread, so that in the case when the operation takes
-// longer than expected we don&#39;t keep the whole subsystem blocked.
+// longer than expected we don't keep the whole subsystem blocked.
 // See: https://github.com/paritytech/polkadot/issues/7237 for more details.
 </span><span class="attr">#[overseer::contextbounds(AvailabilityStore, prefix = <span class="self">self</span>::overseer)]
 </span><span class="kw">async fn </span>start_prune_all&lt;Context&gt;(
@@ -2204,16 +2206,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>time_now = subsystem.clock.now()<span class="question-mark">?</span>;
 
 	ctx.spawn_blocking(
-		<span class="string">&quot;av-store-prunning&quot;</span>,
+		<span class="string">"av-store-prunning"</span>,
 		Box::pin(<span class="kw">async move </span>{
 			<span class="kw">let </span>_timer = metrics.time_pruning();
 
-			<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="string">&quot;Prunning started&quot;</span>);
+			<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="string">"Prunning started"</span>);
 			<span class="kw">let </span>result = prune_all(<span class="kw-2">&amp;</span>db, <span class="kw-2">&amp;</span>config, time_now);
 
 			<span class="kw">if let </span><span class="prelude-val">Err</span>(err) = pruning_result_tx.send(result).<span class="kw">await </span>{
 				<span class="comment">// This usually means that the node is closing down, log it just in case
-				</span><span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="question-mark">?</span>err, <span class="string">&quot;Failed to send prune_all result&quot;</span>,);
+				</span><span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="question-mark">?</span>err, <span class="string">"Failed to send prune_all result"</span>,);
 			}
 		}),
 	)<span class="question-mark">?</span>;
@@ -2251,7 +2253,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="comment">// determine_new_blocks is descending in block height
 	</span><span class="kw">for </span>(hash, header) <span class="kw">in </span>new_blocks.into_iter().rev() {
-		<span class="comment">// it&#39;s important to commit the db transactions for a head before the next one is processed
+		<span class="comment">// it's important to commit the db transactions for a head before the next one is processed
 		// alternatively, we could utilize the OverlayBackend from approval-voting
 		</span><span class="kw">let </span><span class="kw-2">mut </span>tx = DBTransaction::new();
 		process_new_head(
@@ -2331,7 +2333,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
 	<span class="kw">let </span>candidate_hash = candidate.hash();
 
-	<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="question-mark">?</span>candidate_hash, <span class="string">&quot;Candidate backed&quot;</span>);
+	<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="question-mark">?</span>candidate_hash, <span class="string">"Candidate backed"</span>);
 
 	<span class="kw">if </span>load_meta(db, config, <span class="kw-2">&amp;</span>candidate_hash)<span class="question-mark">?</span>.is_none() {
 		<span class="kw">let </span>meta = CandidateMeta {
@@ -2361,18 +2363,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">match </span>load_meta(db, config, <span class="kw-2">&amp;</span>candidate_hash)<span class="question-mark">? </span>{
 		<span class="prelude-val">None </span>=&gt; {
-			<span class="comment">// This is alarming. We&#39;ve observed a block being included without ever seeing it
+			<span class="comment">// This is alarming. We've observed a block being included without ever seeing it
 			// backed. Warn and ignore.
 			</span><span class="macro">gum::warn!</span>(
 				target: LOG_TARGET,
 				<span class="question-mark">?</span>candidate_hash,
-				<span class="string">&quot;Candidate included without being backed?&quot;</span>,
+				<span class="string">"Candidate included without being backed?"</span>,
 			);
 		},
 		<span class="prelude-val">Some</span>(<span class="kw-2">mut </span>meta) =&gt; {
 			<span class="kw">let </span>be_block = (BEBlockNumber(block.<span class="number">0</span>), block.<span class="number">1</span>);
 
-			<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="question-mark">?</span>candidate_hash, <span class="string">&quot;Candidate included&quot;</span>);
+			<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="question-mark">?</span>candidate_hash, <span class="string">"Candidate included"</span>);
 
 			meta.state = <span class="kw">match </span>meta.state {
 				State::Unavailable(at) =&gt; {
@@ -2415,7 +2417,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	(<span class="macro-nonterminal">$iter</span>:ident) =&gt; {
 		<span class="kw">match </span><span class="macro-nonterminal">$iter</span>.peek() {
 			<span class="prelude-val">Some</span>(<span class="prelude-val">Ok</span>((k, <span class="kw">_</span>))) =&gt; <span class="prelude-val">Ok</span>(decode_unfinalized_key(<span class="kw-2">&amp;</span>k[..]).ok().map(|(b, <span class="kw">_</span>, <span class="kw">_</span>)| b)),
-			<span class="prelude-val">Some</span>(<span class="prelude-val">Err</span>(<span class="kw">_</span>)) =&gt; <span class="prelude-val">Err</span>(<span class="macro-nonterminal">$iter</span>.next().expect(<span class="string">&quot;peek returned Some(Err); qed&quot;</span>).unwrap_err()),
+			<span class="prelude-val">Some</span>(<span class="prelude-val">Err</span>(<span class="kw">_</span>)) =&gt; <span class="prelude-val">Err</span>(<span class="macro-nonterminal">$iter</span>.next().expect(<span class="string">"peek returned Some(Err); qed"</span>).unwrap_err()),
 			<span class="prelude-val">None </span>=&gt; <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>),
 		}
 	};
@@ -2435,7 +2437,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span><span class="kw-2">mut </span>db_transaction = DBTransaction::new();
 		<span class="kw">let </span>(start_prefix, end_prefix) = finalized_block_range(finalized_number);
 
-		<span class="comment">// We have to do some juggling here of the `iter` to make sure it doesn&#39;t cross the `.await`
+		<span class="comment">// We have to do some juggling here of the `iter` to make sure it doesn't cross the `.await`
 		// boundary as it is not `Send`. That is why we create the iterator once within this loop,
 		// drop it, do an asynchronous request, and then instantiate the exact same iterator again.
 		</span><span class="kw">let </span>batch_num = {
@@ -2468,7 +2470,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						target: LOG_TARGET,
 						batch_num,
 						<span class="question-mark">?</span>err,
-						<span class="string">&quot;Failed to retrieve finalized block number.&quot;</span>,
+						<span class="string">"Failed to retrieve finalized block number."</span>,
 					);
 
 					<span class="kw">break
@@ -2476,8 +2478,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>) =&gt; {
 					<span class="macro">gum::warn!</span>(
 						target: LOG_TARGET,
-						<span class="string">&quot;Availability store was informed that block #{} is finalized, \
-						but chain API has no finalized hash.&quot;</span>,
+						<span class="string">"Availability store was informed that block #{} is finalized, \
+						but chain API has no finalized hash."</span>,
 						batch_num,
 					);
 
@@ -2495,14 +2497,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>batch = load_all_at_finalized_height(iter, batch_num, batch_finalized_hash)<span class="question-mark">?</span>;
 
-		<span class="comment">// Now that we&#39;ve iterated over the entire batch at this finalized height,
+		<span class="comment">// Now that we've iterated over the entire batch at this finalized height,
 		// update the meta.
 
 		</span>delete_unfinalized_height(<span class="kw-2">&amp;mut </span>db_transaction, <span class="kw-2">&amp;</span>subsystem.config, batch_num);
 
 		update_blocks_at_finalized_height(<span class="kw-2">&amp;</span>subsystem, <span class="kw-2">&amp;mut </span>db_transaction, batch, batch_num, now)<span class="question-mark">?</span>;
 
-		<span class="comment">// We need to write at the end of the loop so the prefix iterator doesn&#39;t pick up the same
+		<span class="comment">// We need to write at the end of the loop so the prefix iterator doesn't pick up the same
 		// values again in the next iteration. Another unfortunate effect of having to re-initialize
 		// the iterator.
 		</span>subsystem.db.write(db_transaction)<span class="question-mark">?</span>;
@@ -2529,9 +2531,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="kw">_ </span>=&gt; {},
 		}
 
-		<span class="kw">let </span>(k, _v) = iter.next().expect(<span class="string">&quot;`peek` used to check non-empty; qed&quot;</span>)<span class="question-mark">?</span>;
+		<span class="kw">let </span>(k, _v) = iter.next().expect(<span class="string">"`peek` used to check non-empty; qed"</span>)<span class="question-mark">?</span>;
 		<span class="kw">let </span>(<span class="kw">_</span>, block_hash, candidate_hash) =
-			decode_unfinalized_key(<span class="kw-2">&amp;</span>k[..]).expect(<span class="string">&quot;`peek_num` checks validity of key; qed&quot;</span>);
+			decode_unfinalized_key(<span class="kw-2">&amp;</span>k[..]).expect(<span class="string">"`peek_num` checks validity of key; qed"</span>);
 
 		<span class="kw">if </span>block_hash == finalized_hash {
 			candidates.insert(candidate_hash, <span class="bool-val">true</span>);
@@ -2555,7 +2557,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">None </span>=&gt; {
 				<span class="macro">gum::warn!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Dangling candidate metadata for {}&quot;</span>,
+					<span class="string">"Dangling candidate metadata for {}"</span>,
 					candidate_hash,
 				);
 
@@ -2565,7 +2567,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		};
 
 		<span class="kw">if </span>is_finalized {
-			<span class="comment">// Clear everything else related to this block. We&#39;re finalized now!
+			<span class="comment">// Clear everything else related to this block. We're finalized now!
 			</span><span class="kw">match </span>meta.state {
 				State::Finalized(<span class="kw">_</span>) =&gt; <span class="kw">continue</span>, <span class="comment">// sanity
 				</span>State::Unavailable(at) =&gt; {
@@ -2608,7 +2610,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="comment">// Clear out everything at this height.
 					</span>blocks.retain(|(n, <span class="kw">_</span>)| n.<span class="number">0 </span>!= block_number);
 
-					<span class="comment">// If empty, we need to go back to being unavailable as we aren&#39;t
+					<span class="comment">// If empty, we need to go back to being unavailable as we aren't
 					// aware of any blocks this is included in.
 					</span><span class="kw">if </span>blocks.is_empty() {
 						<span class="kw">let </span>at_d: Duration = at.into();
@@ -2693,7 +2695,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 									target: LOG_TARGET,
 									<span class="question-mark">?</span>candidate,
 									index,
-									<span class="string">&quot;No chunk found for set bit in meta&quot;
+									<span class="string">"No chunk found for set bit in meta"
 								</span>);
 							},
 						}
@@ -2779,7 +2781,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">let </span><span class="kw-2">mut </span>meta = <span class="kw">match </span>load_meta(db, config, <span class="kw-2">&amp;</span>candidate_hash)<span class="question-mark">? </span>{
 		<span class="prelude-val">Some</span>(m) =&gt; m,
-		<span class="prelude-val">None </span>=&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="bool-val">false</span>), <span class="comment">// we weren&#39;t informed of this candidate by import events.
+		<span class="prelude-val">None </span>=&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="bool-val">false</span>), <span class="comment">// we weren't informed of this candidate by import events.
 	</span>};
 
 	<span class="kw">match </span>meta.chunks_stored.get(chunk.index.<span class="number">0 </span><span class="kw">as </span>usize).map(|b| <span class="kw-2">*</span>b) {
@@ -2797,7 +2799,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		target: LOG_TARGET,
 		<span class="question-mark">?</span>candidate_hash,
 		chunk_index = %chunk.index.<span class="number">0</span>,
-		<span class="string">&quot;Stored chunk index for candidate.&quot;</span>,
+		<span class="string">"Stored chunk index for candidate."</span>,
 	);
 
 	db.write(tx)<span class="question-mark">?</span>;
@@ -2837,7 +2839,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		},
 	};
 
-	<span class="kw">let </span>erasure_span = jaeger::Span::new(candidate_hash, <span class="string">&quot;erasure-coding&quot;</span>)
+	<span class="kw">let </span>erasure_span = jaeger::Span::new(candidate_hash, <span class="string">"erasure-coding"</span>)
 		.with_candidate(candidate_hash)
 		.with_pov(<span class="kw-2">&amp;</span>available_data.pov);
 
@@ -2872,7 +2874,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	subsystem.db.write(tx)<span class="question-mark">?</span>;
 
-	<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="question-mark">?</span>candidate_hash, <span class="string">&quot;Stored data and chunks&quot;</span>);
+	<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="question-mark">?</span>candidate_hash, <span class="string">"Stored data and chunks"</span>);
 
 	<span class="prelude-val">Ok</span>(())
 }
@@ -2910,7 +2912,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				}
 			}
 
-			<span class="comment">// delete unfinalized block references. Pruning references don&#39;t need to be
+			<span class="comment">// delete unfinalized block references. Pruning references don't need to be
 			// manually taken care of as we are deleting them as we go in the outer loop.
 			</span><span class="kw">if let </span>State::Unfinalized(<span class="kw">_</span>, blocks) = meta.state {
 				<span class="kw">for </span>(block_number, block_hash) <span class="kw">in </span>blocks {

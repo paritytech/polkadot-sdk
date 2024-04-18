@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/transaction-pool/src/graph/validated_pool.rs`."><title>validated_pool.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/transaction-pool/src/graph/validated_pool.rs`."><title>validated_pool.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sc_transaction_pool" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sc_transaction_pool" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../sc_transaction_pool/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -864,9 +866,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>Valid(base::Transaction&lt;Hash, Ex&gt;),
 	<span class="doccomment">/// Transaction that is invalid.
 	</span>Invalid(Hash, Error),
-	<span class="doccomment">/// Transaction which validity can&#39;t be determined.
+	<span class="doccomment">/// Transaction which validity can't be determined.
 	///
-	/// We&#39;re notifying watchers about failure, if &#39;unknown&#39; transaction is submitted.
+	/// We're notifying watchers about failure, if 'unknown' transaction is submitted.
 	</span>Unknown(Hash, Error),
 }
 
@@ -1014,7 +1016,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							<span class="kw">if </span>e.is_full() {
 								<span class="macro">log::warn!</span>(
 									target: LOG_TARGET,
-									<span class="string">&quot;[{:?}] Trying to notify an import but the channel is full&quot;</span>,
+									<span class="string">"[{:?}] Trying to notify an import but the channel is full"</span>,
 									hash,
 								);
 								<span class="bool-val">true
@@ -1044,13 +1046,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>ready_limit = <span class="kw-2">&amp;</span><span class="self">self</span>.options.ready;
 		<span class="kw">let </span>future_limit = <span class="kw-2">&amp;</span><span class="self">self</span>.options.future;
 
-		<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;Pool Status: {:?}&quot;</span>, status);
+		<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"Pool Status: {:?}"</span>, status);
 		<span class="kw">if </span>ready_limit.is_exceeded(status.ready, status.ready_bytes) ||
 			future_limit.is_exceeded(status.future, status.future_bytes)
 		{
 			<span class="macro">log::debug!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;Enforcing limits ({}/{}kB ready, {}/{}kB future&quot;</span>,
+				<span class="string">"Enforcing limits ({}/{}kB ready, {}/{}kB future"</span>,
 				ready_limit.count,
 				ready_limit.total_bytes / <span class="number">1024</span>,
 				future_limit.count,
@@ -1070,7 +1072,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				removed
 			};
 			<span class="kw">if </span>!removed.is_empty() {
-				<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;Enforcing limits: {} dropped&quot;</span>, removed.len());
+				<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"Enforcing limits: {} dropped"</span>, removed.len());
 			}
 
 			<span class="comment">// run notifications
@@ -1096,7 +1098,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">let </span>watcher = <span class="self">self</span>.listener.write().create_watcher(hash);
 				<span class="self">self</span>.submit(std::iter::once(ValidatedTransaction::Valid(tx)))
 					.pop()
-					.expect(<span class="string">&quot;One extrinsic passed; one result returned; qed&quot;</span>)
+					.expect(<span class="string">"One extrinsic passed; one result returned; qed"</span>)
 					.map(|<span class="kw">_</span>| watcher)
 			},
 			ValidatedTransaction::Invalid(hash, err) =&gt; {
@@ -1140,7 +1142,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					.keys()
 					.next()
 					.cloned()
-					.expect(<span class="string">&quot;transactions is not empty; qed&quot;</span>);
+					.expect(<span class="string">"transactions is not empty; qed"</span>);
 
 				<span class="comment">// note we are not considering tx with hash invalid here - we just want
 				// to remove it along with dependent transactions and `remove_subtree()`
@@ -1152,7 +1154,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw">let </span>tx_to_resubmit = <span class="kw">if let </span><span class="prelude-val">Some</span>(updated_tx) = updated_transaction {
 						updated_tx
 					} <span class="kw">else </span>{
-						<span class="comment">// in most cases we&#39;ll end up in successful `try_unwrap`, but if not
+						<span class="comment">// in most cases we'll end up in successful `try_unwrap`, but if not
 						// we still need to reinsert transaction back to the pool =&gt; duplicate call
 						</span><span class="kw">let </span>transaction = <span class="kw">match </span>Arc::try_unwrap(removed_tx) {
 							<span class="prelude-val">Ok</span>(transaction) =&gt; transaction,
@@ -1164,14 +1166,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					initial_statuses.insert(removed_hash, Status::Ready);
 					txs_to_resubmit.push((removed_hash, tx_to_resubmit));
 				}
-				<span class="comment">// make sure to remove the hash even if it&#39;s not present in the pool any more.
+				<span class="comment">// make sure to remove the hash even if it's not present in the pool any more.
 				</span>updated_transactions.remove(<span class="kw-2">&amp;</span>hash);
 			}
 
-			<span class="comment">// if we&#39;re rejecting future transactions, then insertion order matters here:
+			<span class="comment">// if we're rejecting future transactions, then insertion order matters here:
 			// if tx1 depends on tx2, then if tx1 is inserted before tx2, then it goes
 			// to the future queue and gets rejected immediately
-			// =&gt; let&#39;s temporary stop rejection and clear future queue before return
+			// =&gt; let's temporary stop rejection and clear future queue before return
 			</span>pool.with_futures_enabled(|pool, reject_future_transactions| {
 				<span class="comment">// now resubmit all removed transactions back to the pool
 				</span><span class="kw">let </span><span class="kw-2">mut </span>final_statuses = HashMap::new();
@@ -1198,11 +1200,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							<span class="prelude-val">Err</span>(err) =&gt; {
 								<span class="comment">// we do not want to fail if single transaction import has failed
 								// nor we do want to propagate this error, because it could tx
-								// unknown to caller =&gt; let&#39;s just notify listeners (and issue debug
+								// unknown to caller =&gt; let's just notify listeners (and issue debug
 								// message)
 								</span><span class="macro">log::warn!</span>(
 									target: LOG_TARGET,
-									<span class="string">&quot;[{:?}] Removing invalid transaction from update: {}&quot;</span>,
+									<span class="string">"[{:?}] Removing invalid transaction from update: {}"</span>,
 									hash,
 									err,
 								);
@@ -1216,7 +1218,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					}
 				}
 
-				<span class="comment">// if the pool is configured to reject future transactions, let&#39;s clear the future
+				<span class="comment">// if the pool is configured to reject future transactions, let's clear the future
 				// queue, updating final statuses as required
 				</span><span class="kw">if </span>reject_future_transactions {
 					<span class="kw">for </span>future_tx <span class="kw">in </span>pool.clear_future() {
@@ -1228,7 +1230,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			})
 		};
 
-		<span class="comment">// and now let&#39;s notify listeners about status changes
+		<span class="comment">// and now let's notify listeners about status changes
 		</span><span class="kw">let </span><span class="kw-2">mut </span>listener = <span class="self">self</span>.listener.write();
 		<span class="kw">for </span>(hash, final_status) <span class="kw">in </span>final_statuses {
 			<span class="kw">let </span>initial_status = initial_statuses.remove(<span class="kw-2">&amp;</span>hash);
@@ -1323,12 +1325,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>header_hash = <span class="self">self
 			</span>.api
 			.block_id_to_hash(at)<span class="question-mark">?
-			</span>.ok_or_else(|| error::Error::InvalidBlockId(<span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, at)))<span class="question-mark">?</span>;
+			</span>.ok_or_else(|| error::Error::InvalidBlockId(<span class="macro">format!</span>(<span class="string">"{:?}"</span>, at)))<span class="question-mark">?</span>;
 		<span class="kw">let </span><span class="kw-2">mut </span>listener = <span class="self">self</span>.listener.write();
 		<span class="kw">let </span><span class="kw-2">mut </span>set = HashSet::with_capacity(hashes.size_hint().<span class="number">0</span>);
 		<span class="kw">for </span>h <span class="kw">in </span>hashes {
 			<span class="comment">// `hashes` has possibly duplicate hashes.
-			// we&#39;d like to send out the `InBlock` notification only once.
+			// we'd like to send out the `InBlock` notification only once.
 			</span><span class="kw">if </span>!set.contains(<span class="kw-2">&amp;</span>h) {
 				listener.pruned(header_hash, <span class="kw-2">&amp;</span>h);
 				set.insert(h);
@@ -1346,7 +1348,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>block_number = <span class="self">self
 			</span>.api
 			.block_id_to_number(at)<span class="question-mark">?
-			</span>.ok_or_else(|| error::Error::InvalidBlockId(<span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, at)))<span class="question-mark">?
+			</span>.ok_or_else(|| error::Error::InvalidBlockId(<span class="macro">format!</span>(<span class="string">"{:?}"</span>, at)))<span class="question-mark">?
 			</span>.saturated_into::&lt;u64&gt;();
 		<span class="kw">let </span>now = Instant::now();
 		<span class="kw">let </span>to_remove = {
@@ -1411,14 +1413,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">return </span><span class="macro">vec!</span>[]
 		}
 
-		<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;Removing invalid transactions: {:?}&quot;</span>, hashes);
+		<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"Removing invalid transactions: {:?}"</span>, hashes);
 
 		<span class="comment">// temporarily ban invalid transactions
 		</span><span class="self">self</span>.rotator.ban(<span class="kw-2">&amp;</span>Instant::now(), hashes.iter().cloned());
 
 		<span class="kw">let </span>invalid = <span class="self">self</span>.pool.write().remove_subtree(hashes);
 
-		<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;Removed invalid transactions: {:?}&quot;</span>, invalid);
+		<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"Removed invalid transactions: {:?}"</span>, invalid);
 
 		<span class="kw">let </span><span class="kw-2">mut </span>listener = <span class="self">self</span>.listener.write();
 		<span class="kw">for </span>tx <span class="kw">in </span><span class="kw-2">&amp;</span>invalid {
@@ -1447,7 +1449,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub async fn </span>on_block_finalized(<span class="kw-2">&amp;</span><span class="self">self</span>, block_hash: BlockHash&lt;B&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), B::Error&gt; {
 		<span class="macro">log::trace!</span>(
 			target: LOG_TARGET,
-			<span class="string">&quot;Attempting to notify watchers of finalization for {}&quot;</span>,
+			<span class="string">"Attempting to notify watchers of finalization for {}"</span>,
 			block_hash,
 		);
 		<span class="self">self</span>.listener.write().finalized(block_hash);

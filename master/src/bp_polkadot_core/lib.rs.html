@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `bridges/primitives/polkadot-core/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `bridges/primitives/polkadot-core/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="bp_polkadot_core" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="bp_polkadot_core" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../bp_polkadot_core/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -550,7 +552,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! Primitives of the Polkadot-like chains.
 
 </span><span class="attr">#![warn(missing_docs)]
-#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
+#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
 </span><span class="kw">use </span>bp_messages::MessageNonce;
 <span class="kw">use </span>bp_runtime::{
@@ -580,7 +582,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>sp_std::prelude::Vec;
 
-<span class="comment">// Re-export&#39;s to avoid extra substrate dependencies in chain-specific crates.
+<span class="comment">// Re-export's to avoid extra substrate dependencies in chain-specific crates.
 </span><span class="kw">pub use </span>frame_support::{weights::constants::ExtrinsicBaseWeight, Parameter};
 <span class="kw">pub use </span>sp_runtime::{traits::Convert, Perbill};
 
@@ -590,9 +592,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// Ideally, we would set it to the value of `MaxAuthorities` constant from bridged runtime
 /// configurations. But right now it is set to the `100_000`, which makes PoV size for
-/// our bridge hub parachains huge. So let&#39;s stick to the real-world value here.
+/// our bridge hub parachains huge. So let's stick to the real-world value here.
 ///
-/// Right now both Kusama and Polkadot aim to have around 1000 validators. Let&#39;s be safe here and
+/// Right now both Kusama and Polkadot aim to have around 1000 validators. Let's be safe here and
 /// take a bit more here.
 </span><span class="kw">pub const </span>MAX_AUTHORITIES_COUNT: u32 = <span class="number">1_256</span>;
 
@@ -602,7 +604,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// This value comes from recent (December, 2023) Kusama and Polkadot headers. There are no
 /// justifications with any additional headers in votes ancestry, so reasonable headers may
-/// be set to zero. But we assume that there may be small GRANDPA lags, so we&#39;re leaving some
+/// be set to zero. But we assume that there may be small GRANDPA lags, so we're leaving some
 /// reserve here.
 </span><span class="kw">pub const </span>REASONABLE_HEADERS_IN_JUSTIFICATION_ANCESTRY: u32 = <span class="number">2</span>;
 
@@ -612,7 +614,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// See [`bp-header-chain::ChainWithGrandpa`] for more details.
 ///
 /// This value comes from recent (December, 2023) Kusama headers. Most of headers are `327` bytes
-/// there, but let&#39;s have some reserve and make it 1024.
+/// there, but let's have some reserve and make it 1024.
 </span><span class="kw">pub const </span>AVERAGE_HEADER_SIZE: u32 = <span class="number">1024</span>;
 
 <span class="doccomment">/// Approximate maximal header size on Polkadot-like chains.
@@ -620,14 +622,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// See [`bp-header-chain::ChainWithGrandpa`] for more details.
 ///
 /// This value comes from recent (December, 2023) Kusama headers. Maximal header is a mandatory
-/// header. In its SCALE-encoded form it is `113407` bytes. Let&#39;s have some reserve here.
+/// header. In its SCALE-encoded form it is `113407` bytes. Let's have some reserve here.
 </span><span class="kw">pub const </span>MAX_MANDATORY_HEADER_SIZE: u32 = <span class="number">120 </span>* <span class="number">1024</span>;
 
 <span class="doccomment">/// Number of extra bytes (excluding size of storage value itself) of storage proof, built at
 /// Polkadot-like chain. This mostly depends on number of entries in the storage trie.
 /// Some reserve is reserved to account future chain growth.
 ///
-/// To compute this value, we&#39;ve synced Kusama chain blocks [0; 6545733] to see if there were
+/// To compute this value, we've synced Kusama chain blocks [0; 6545733] to see if there were
 /// any significant changes of the storage proof size (NO):
 ///
 /// - at block 3072 the storage proof size overhead was 579 bytes;
@@ -638,19 +640,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// The number of storage entries at the block 6546170 was 351207 and number of trie nodes in
 /// the storage proof was 5 (log(16, 351207) ~ 4.6).
 ///
-/// So the assumption is that the storage proof size overhead won&#39;t be larger than 1024 in the
-/// nearest future. If it&#39;ll ever break this barrier, then we&#39;ll need to update this constant
+/// So the assumption is that the storage proof size overhead won't be larger than 1024 in the
+/// nearest future. If it'll ever break this barrier, then we'll need to update this constant
 /// at next runtime upgrade.
 </span><span class="kw">pub const </span>EXTRA_STORAGE_PROOF_SIZE: u32 = <span class="number">1024</span>;
 
 <span class="doccomment">/// All Polkadot-like chains allow normal extrinsics to fill block up to 75 percent.
 ///
-/// This is a copy-paste from the Polkadot repo&#39;s `polkadot-runtime-common` crate.
+/// This is a copy-paste from the Polkadot repo's `polkadot-runtime-common` crate.
 </span><span class="kw">const </span>NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(<span class="number">75</span>);
 
 <span class="doccomment">/// All Polkadot-like chains allow 2 seconds of compute with a 6-second average block time.
 ///
-/// This is a copy-paste from the Polkadot repo&#39;s `polkadot-runtime-common` crate.
+/// This is a copy-paste from the Polkadot repo's `polkadot-runtime-common` crate.
 </span><span class="kw">pub const </span>MAXIMUM_BLOCK_WEIGHT: Weight =
 	Weight::from_parts(WEIGHT_REF_TIME_PER_SECOND.saturating_mul(<span class="number">2</span>), u64::MAX);
 
@@ -658,20 +660,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// average, hence a single extrinsic will not be allowed to consume more than
 /// `AvailableBlockRatio - 1 percent`.
 ///
-/// This is a copy-paste from the Polkadot repo&#39;s `polkadot-runtime-common` crate.
+/// This is a copy-paste from the Polkadot repo's `polkadot-runtime-common` crate.
 </span><span class="kw">pub const </span>AVERAGE_ON_INITIALIZE_RATIO: Perbill = Perbill::from_percent(<span class="number">1</span>);
 
 <span class="macro">parameter_types! </span>{
 	<span class="doccomment">/// All Polkadot-like chains have maximal block size set to 5MB.
 	///
-	/// This is a copy-paste from the Polkadot repo&#39;s `polkadot-runtime-common` crate.
+	/// This is a copy-paste from the Polkadot repo's `polkadot-runtime-common` crate.
 	</span><span class="kw">pub </span>BlockLength: limits::BlockLength = limits::BlockLength::max_with_normal_ratio(
 		<span class="number">5 </span>* <span class="number">1024 </span>* <span class="number">1024</span>,
 		NORMAL_DISPATCH_RATIO,
 	);
 	<span class="doccomment">/// All Polkadot-like chains have the same block weights.
 	///
-	/// This is a copy-paste from the Polkadot repo&#39;s `polkadot-runtime-common` crate.
+	/// This is a copy-paste from the Polkadot repo's `polkadot-runtime-common` crate.
 	</span><span class="kw">pub </span>BlockWeights: limits::BlockWeights = limits::BlockWeights::builder()
 		.base_block(BlockExecutionWeight::get())
 		.for_class(DispatchClass::all(), |weights| {
@@ -783,23 +785,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Provides a storage key for account data.
 ///
-/// We need to use this approach when we don&#39;t have access to the runtime.
+/// We need to use this approach when we don't have access to the runtime.
 /// The equivalent command to invoke in case full `Runtime` is known is this:
 /// `let key = frame_system::Account::&lt;Runtime&gt;::storage_map_final_key(&amp;account_id);`
 </span><span class="kw">pub struct </span>AccountInfoStorageMapKeyProvider;
 
 <span class="kw">impl </span>StorageMapKeyProvider <span class="kw">for </span>AccountInfoStorageMapKeyProvider {
-	<span class="kw">const </span>MAP_NAME: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;Account&quot;</span>;
+	<span class="kw">const </span>MAP_NAME: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"Account"</span>;
 	<span class="kw">type </span>Hasher = Blake2_128Concat;
 	<span class="kw">type </span>Key = AccountId;
-	<span class="comment">// This should actually be `AccountInfo`, but we don&#39;t use this property in order to decode the
+	<span class="comment">// This should actually be `AccountInfo`, but we don't use this property in order to decode the
 	// data. So we use `Vec&lt;u8&gt;` as if we would work with encoded data.
 	</span><span class="kw">type </span>Value = Vec&lt;u8&gt;;
 }
 
 <span class="kw">impl </span>AccountInfoStorageMapKeyProvider {
 	<span class="doccomment">/// Name of the system pallet.
-	</span><span class="kw">const </span>PALLET_NAME: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;System&quot;</span>;
+	</span><span class="kw">const </span>PALLET_NAME: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"System"</span>;
 
 	<span class="doccomment">/// Return storage key for given account data.
 	</span><span class="kw">pub fn </span>final_key(id: <span class="kw-2">&amp;</span>AccountId) -&gt; StorageKey {
@@ -912,7 +914,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		]
 		.into();
 		<span class="kw">let </span>key = AccountInfoStorageMapKeyProvider::final_key(<span class="kw-2">&amp;</span>acc);
-		<span class="macro">assert_eq!</span>(hex::encode(key), <span class="string">&quot;26aa394eea5630e07c48ae0c9558cef7b99d880ec681799c0cf30e8886371da92dccd599abfe1920a1cff8a7358231430102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20&quot;</span>);
+		<span class="macro">assert_eq!</span>(hex::encode(key), <span class="string">"26aa394eea5630e07c48ae0c9558cef7b99d880ec681799c0cf30e8886371da92dccd599abfe1920a1cff8a7358231430102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20"</span>);
 	}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/rpc/src/utils.rs`."><title>utils.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/rpc/src/utils.rs`."><title>utils.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_rpc" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_rpc" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sc_rpc/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -441,14 +443,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Feed items to the subscription from the underlying stream.
 ///
 /// This is bounded because the underlying streams in substrate are
-/// unbounded and if the subscription can&#39;t keep with stream it can
+/// unbounded and if the subscription can't keep with stream it can
 /// cause the buffer to become very large and consume lots of memory.
 ///
 /// In such cases the subscription is dropped.
 </span><span class="kw">pub async fn </span>pipe_from_stream&lt;S, T&gt;(pending: PendingSubscriptionSink, <span class="kw-2">mut </span>stream: S)
 <span class="kw">where
-	</span>S: Stream&lt;Item = T&gt; + Unpin + Send + <span class="lifetime">&#39;static</span>,
-	T: Serialize + Send + <span class="lifetime">&#39;static</span>,
+	</span>S: Stream&lt;Item = T&gt; + Unpin + Send + <span class="lifetime">'static</span>,
+	T: Serialize + Send + <span class="lifetime">'static</span>,
 {
 	<span class="kw">let </span><span class="kw-2">mut </span>buf = BoundedVecDeque::new();
 	<span class="kw">let </span>accept_fut = pending.accept();
@@ -463,7 +465,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			Either::Left((<span class="prelude-val">Ok</span>(sink), <span class="kw">_</span>)) =&gt; <span class="kw">break </span>sink,
 			Either::Right((<span class="prelude-val">Some</span>(msg), f)) =&gt; {
 				<span class="kw">if </span>buf.push_back(msg).is_err() {
-					<span class="macro">log::warn!</span>(target: <span class="string">&quot;rpc&quot;</span>, <span class="string">&quot;Subscription::accept failed buffer limit={} exceeded; dropping subscription&quot;</span>, buf.max_cap);
+					<span class="macro">log::warn!</span>(target: <span class="string">"rpc"</span>, <span class="string">"Subscription::accept failed buffer limit={} exceeded; dropping subscription"</span>, buf.max_cap);
 					<span class="kw">return
 				</span>}
 				accept_fut = f;
@@ -481,8 +483,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw-2">mut </span>stream: S,
 	<span class="kw-2">mut </span>buf: BoundedVecDeque&lt;T&gt;,
 ) <span class="kw">where
-	</span>S: Stream&lt;Item = T&gt; + Unpin + Send + <span class="lifetime">&#39;static</span>,
-	T: Serialize + Send + <span class="lifetime">&#39;static</span>,
+	</span>S: Stream&lt;Item = T&gt; + Unpin + Send + <span class="lifetime">'static</span>,
+	T: Serialize + Send + <span class="lifetime">'static</span>,
 {
 	<span class="kw">let </span><span class="kw-2">mut </span>next_fut = Box::pin(Fuse::terminated());
 	<span class="kw">let </span><span class="kw-2">mut </span>next_item = stream.next();
@@ -509,8 +511,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span>Either::Right((Either::Right((<span class="prelude-val">Some</span>(v), n)), c)) =&gt; {
 				<span class="kw">if </span>buf.push_back(v).is_err() {
 					<span class="macro">log::warn!</span>(
-						target: <span class="string">&quot;rpc&quot;</span>,
-						<span class="string">&quot;Subscription buffer limit={} exceeded for subscription={} conn_id={}; dropping subscription&quot;</span>,
+						target: <span class="string">"rpc"</span>,
+						<span class="string">"Subscription buffer limit={} exceeded for subscription={} conn_id={}; dropping subscription"</span>,
 						buf.max_cap,
 						sink.method_name(),
 						sink.connection_id()
@@ -522,7 +524,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				closed = c;
 				next_item = stream.next();
 			},
-			<span class="comment">// Stream &quot;finished&quot;.
+			<span class="comment">// Stream "finished".
 			//
 			// Process remaining items and terminate.
 			</span>Either::Right((Either::Right((<span class="prelude-val">None</span>, pending_fut)), <span class="kw">_</span>)) =&gt; {
@@ -552,15 +554,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// This function panics `Serialize` fails and it is treated a bug.
 </span><span class="kw">pub fn </span>to_sub_message(sink: <span class="kw-2">&amp;</span>SubscriptionSink, result: <span class="kw-2">&amp;</span><span class="kw">impl </span>Serialize) -&gt; SubscriptionMessage {
 	SubscriptionMessage::new(sink.method_name(), sink.subscription_id(), result)
-		.expect(<span class="string">&quot;Serialize infallible; qed&quot;</span>)
+		.expect(<span class="string">"Serialize infallible; qed"</span>)
 }
 
 <span class="doccomment">/// Helper for spawning non-blocking rpc subscription task.
 </span><span class="kw">pub fn </span>spawn_subscription_task(
 	executor: <span class="kw-2">&amp;</span>SubscriptionTaskExecutor,
-	fut: <span class="kw">impl </span>Future&lt;Output = ()&gt; + Send + <span class="lifetime">&#39;static</span>,
+	fut: <span class="kw">impl </span>Future&lt;Output = ()&gt; + Send + <span class="lifetime">'static</span>,
 ) {
-	executor.spawn(<span class="string">&quot;substrate-rpc-subscription&quot;</span>, <span class="prelude-val">Some</span>(<span class="string">&quot;rpc&quot;</span>), fut.boxed());
+	executor.spawn(<span class="string">"substrate-rpc-subscription"</span>, <span class="prelude-val">Some</span>(<span class="string">"rpc"</span>), fut.boxed());
 }
 
 <span class="attr">#[cfg(test)]
@@ -572,14 +574,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">async fn </span>subscribe() -&gt; Subscription {
 		<span class="kw">let </span><span class="kw-2">mut </span>module = RpcModule::new(());
 		module
-			.register_subscription(<span class="string">&quot;sub&quot;</span>, <span class="string">&quot;my_sub&quot;</span>, <span class="string">&quot;unsub&quot;</span>, |<span class="kw">_</span>, pending, <span class="kw">_</span>| <span class="kw">async move </span>{
+			.register_subscription(<span class="string">"sub"</span>, <span class="string">"my_sub"</span>, <span class="string">"unsub"</span>, |<span class="kw">_</span>, pending, <span class="kw">_</span>| <span class="kw">async move </span>{
 				<span class="kw">let </span>stream = futures::stream::iter([<span class="number">0</span>; <span class="number">16</span>]);
 				pipe_from_stream(pending, stream).<span class="kw">await</span>;
 				<span class="prelude-val">Ok</span>(())
 			})
 			.unwrap();
 
-		module.subscribe(<span class="string">&quot;sub&quot;</span>, EmptyServerParams::new(), <span class="number">1</span>).<span class="kw">await</span>.unwrap()
+		module.subscribe(<span class="string">"sub"</span>, EmptyServerParams::new(), <span class="number">1</span>).<span class="kw">await</span>.unwrap()
 	}
 
 	<span class="attr">#[tokio::test]
@@ -600,7 +602,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span><span class="kw-2">mut </span>module = RpcModule::new(tx);
 		module
-			.register_subscription(<span class="string">&quot;sub&quot;</span>, <span class="string">&quot;my_sub&quot;</span>, <span class="string">&quot;unsub&quot;</span>, |<span class="kw">_</span>, pending, ctx| <span class="kw">async move </span>{
+			.register_subscription(<span class="string">"sub"</span>, <span class="string">"my_sub"</span>, <span class="string">"unsub"</span>, |<span class="kw">_</span>, pending, ctx| <span class="kw">async move </span>{
 				<span class="kw">let </span>stream = futures::stream::iter([<span class="number">0</span>; <span class="number">32</span>]);
 				pipe_from_stream(pending, stream).<span class="kw">await</span>;
 				<span class="kw">_ </span>= ctx.unbounded_send(());
@@ -608,7 +610,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			})
 			.unwrap();
 
-		<span class="kw">let </span><span class="kw-2">mut </span>sub = module.subscribe(<span class="string">&quot;sub&quot;</span>, EmptyServerParams::new(), <span class="number">1</span>).<span class="kw">await</span>.unwrap();
+		<span class="kw">let </span><span class="kw-2">mut </span>sub = module.subscribe(<span class="string">"sub"</span>, EmptyServerParams::new(), <span class="number">1</span>).<span class="kw">await</span>.unwrap();
 
 		<span class="comment">// When the 17th item arrives the subscription is dropped
 		</span><span class="kw">_ </span>= rx.next().<span class="kw">await</span>.unwrap();

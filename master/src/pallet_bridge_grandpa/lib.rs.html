@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `bridges/modules/grandpa/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `bridges/modules/grandpa/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_bridge_grandpa" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_bridge_grandpa" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../pallet_bridge_grandpa/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1709,7 +1711,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! re-initialize the bridge and track the right fork.
 
 </span><span class="attr">#![warn(missing_docs)]
-#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
+#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
 </span><span class="kw">pub use </span>storage_types::StoredAuthoritySet;
 
@@ -1734,7 +1736,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Module, containing weights for this pallet.
 </span><span class="kw">pub mod </span>weights;
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 </span><span class="kw">pub mod </span>benchmarking;
 
 <span class="comment">// Re-export in crate namespace for `construct_runtime!`
@@ -1743,7 +1745,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">pub use </span>weights::WeightInfo;
 
 <span class="doccomment">/// The target that will be used when publishing logs related to this pallet.
-</span><span class="kw">pub const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;runtime::bridge-grandpa&quot;</span>;
+</span><span class="kw">pub const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"runtime::bridge-grandpa"</span>;
 
 <span class="doccomment">/// Bridged chain from the pallet configuration.
 </span><span class="kw">pub type </span>BridgedChain&lt;T, I&gt; = &lt;T <span class="kw">as </span>Config&lt;I&gt;&gt;::BridgedChain;
@@ -1769,7 +1771,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use </span>frame_system::pallet_prelude::<span class="kw-2">*</span>;
 
 	<span class="attr">#[pallet::config]
-	</span><span class="kw">pub trait </span>Config&lt;I: <span class="lifetime">&#39;static </span>= ()&gt;: frame_system::Config {
+	</span><span class="kw">pub trait </span>Config&lt;I: <span class="lifetime">'static </span>= ()&gt;: frame_system::Config {
 		<span class="doccomment">/// The overarching event type.
 		</span><span class="kw">type </span>RuntimeEvent: From&lt;Event&lt;<span class="self">Self</span>, I&gt;&gt;
 			+ IsType&lt;&lt;<span class="self">Self </span><span class="kw">as </span>frame_system::Config&gt;::RuntimeEvent&gt;;
@@ -1777,7 +1779,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="doccomment">/// The chain we are bridging to here.
 		</span><span class="kw">type </span>BridgedChain: ChainWithGrandpa;
 
-		<span class="doccomment">/// Maximal number of &quot;free&quot; mandatory header transactions per block.
+		<span class="doccomment">/// Maximal number of "free" mandatory header transactions per block.
 		///
 		/// To be able to track the bridged chain, the pallet requires all headers that are
 		/// changing GRANDPA authorities set at the bridged chain (we call them mandatory).
@@ -1793,7 +1795,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		///
 		/// The setting is there to prevent growing the on-chain state indefinitely. Note
 		/// the setting does not relate to block numbers - we will simply keep as much items
-		/// in the storage, so it doesn&#39;t guarantee any fixed timeframe for finality headers.
+		/// in the storage, so it doesn't guarantee any fixed timeframe for finality headers.
 		///
 		/// Incautious change of this constant may lead to orphan entries in the runtime storage.
 		</span><span class="attr">#[pallet::constant]
@@ -1807,7 +1809,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub struct </span>Pallet&lt;T, I = ()&gt;(PhantomData&lt;(T, I)&gt;);
 
 	<span class="attr">#[pallet::hooks]
-	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; Hooks&lt;BlockNumberFor&lt;T&gt;&gt; <span class="kw">for </span>Pallet&lt;T, I&gt; {
+	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Hooks&lt;BlockNumberFor&lt;T&gt;&gt; <span class="kw">for </span>Pallet&lt;T, I&gt; {
 		<span class="kw">fn </span>on_initialize(_n: BlockNumberFor&lt;T&gt;) -&gt; Weight {
 			FreeMandatoryHeadersRemaining::&lt;T, I&gt;::put(T::MaxFreeMandatoryHeadersPerBlock::get());
 			Weight::zero()
@@ -1818,15 +1820,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; OwnedBridgeModule&lt;T&gt; <span class="kw">for </span>Pallet&lt;T, I&gt; {
-		<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = LOG_TARGET;
+	<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; OwnedBridgeModule&lt;T&gt; <span class="kw">for </span>Pallet&lt;T, I&gt; {
+		<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = LOG_TARGET;
 		<span class="kw">type </span>OwnerStorage = PalletOwner&lt;T, I&gt;;
 		<span class="kw">type </span>OperatingMode = BasicOperatingMode;
 		<span class="kw">type </span>OperatingModeStorage = PalletOperatingMode&lt;T, I&gt;;
 	}
 
 	<span class="attr">#[pallet::call]
-	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; Pallet&lt;T, I&gt; {
+	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Pallet&lt;T, I&gt; {
 		<span class="doccomment">/// This call is deprecated and will be removed around May 2024. Use the
 		/// `submit_finality_proof_ex` instead. Semantically, this call is an equivalent of the
 		/// `submit_finality_proof_ex` call without current authority set id check.
@@ -1837,7 +1839,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		))]
 		#[allow(deprecated)]
 		#[deprecated(
-			note = <span class="string">&quot;`submit_finality_proof` will be removed in May 2024. Use `submit_finality_proof_ex` instead.&quot;
+			note = <span class="string">"`submit_finality_proof` will be removed in May 2024. Use `submit_finality_proof_ex` instead."
 		</span>)]
 		</span><span class="kw">pub fn </span>submit_finality_proof(
 			origin: OriginFor&lt;T&gt;,
@@ -1849,7 +1851,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				finality_target,
 				justification,
 				<span class="comment">// the `submit_finality_proof_ex` also reads this value, but it is done from the
-				// cache, so we don&#39;t treat it as an additional db access
+				// cache, so we don't treat it as an additional db access
 				</span>&lt;CurrentAuthoritySet&lt;T, I&gt;&gt;::get().set_id,
 			)
 		}
@@ -1877,7 +1879,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="macro">log::info!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;Pallet has been initialized with the following parameters: {:?}&quot;</span>,
+				<span class="string">"Pallet has been initialized with the following parameters: {:?}"</span>,
 				init_data
 			);
 
@@ -1943,7 +1945,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>(hash, number) = (finality_target.hash(), <span class="kw-2">*</span>finality_target.number());
 			<span class="macro">log::trace!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;Going to try and finalize header {:?}&quot;</span>,
+				<span class="string">"Going to try and finalize header {:?}"</span>,
 				finality_target
 			);
 
@@ -1960,9 +1962,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>maybe_new_authority_set =
 				try_enact_authority_change::&lt;T, I&gt;(<span class="kw-2">&amp;</span>finality_target, set_id)<span class="question-mark">?</span>;
 			<span class="kw">let </span>may_refund_call_fee = maybe_new_authority_set.is_some() &amp;&amp;
-				<span class="comment">// if we have seen too many mandatory headers in this block, we don&#39;t want to refund
+				<span class="comment">// if we have seen too many mandatory headers in this block, we don't want to refund
 				</span><span class="self">Self</span>::free_mandatory_headers_remaining() &gt; <span class="number">0 </span>&amp;&amp;
-				<span class="comment">// if arguments out of expected bounds, we don&#39;t want to refund
+				<span class="comment">// if arguments out of expected bounds, we don't want to refund
 				</span>submit_finality_proof_info_from_args::&lt;T, I&gt;(<span class="kw-2">&amp;</span>finality_target, <span class="kw-2">&amp;</span>justification, <span class="prelude-val">Some</span>(current_set_id))
 					.fits_limits();
 			<span class="kw">if </span>may_refund_call_fee {
@@ -1973,14 +1975,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			insert_header::&lt;T, I&gt;(<span class="kw-2">*</span>finality_target, hash);
 			<span class="macro">log::info!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;Successfully imported finalized header with hash {:?}!&quot;</span>,
+				<span class="string">"Successfully imported finalized header with hash {:?}!"</span>,
 				hash
 			);
 
-			<span class="comment">// mandatory header is a header that changes authorities set. The pallet can&#39;t go
+			<span class="comment">// mandatory header is a header that changes authorities set. The pallet can't go
 			// further without importing this header. So every bridge MUST import mandatory headers.
 			//
-			// We don&#39;t want to charge extra costs for mandatory operations. So relayer is not
+			// We don't want to charge extra costs for mandatory operations. So relayer is not
 			// paying fee for mandatory headers import transactions.
 			//
 			// If size/weight of the call is exceeds our estimated limits, the relayer still needs
@@ -1989,7 +1991,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="comment">// the proof size component of the call weight assumes that there are
 			// `MaxBridgedAuthorities` in the `CurrentAuthoritySet` (we use `MaxEncodedLen`
-			// estimation). But if their number is lower, then we may &quot;refund&quot; some `proof_size`,
+			// estimation). But if their number is lower, then we may "refund" some `proof_size`,
 			// making proof smaller and leaving block space to other useful transactions
 			</span><span class="kw">let </span>pre_dispatch_weight = T::WeightInfo::submit_finality_proof(
 				justification.commit.precommits.len().saturated_into(),
@@ -2023,23 +2025,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="attr">#[pallet::storage]
 	#[pallet::whitelist_storage]
 	#[pallet::getter(<span class="kw">fn </span>free_mandatory_headers_remaining)]
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>FreeMandatoryHeadersRemaining&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; =
+	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>FreeMandatoryHeadersRemaining&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; =
 		StorageValue&lt;<span class="kw">_</span>, u32, ValueQuery&gt;;
 
 	<span class="doccomment">/// Hash of the header used to bootstrap the pallet.
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>InitialHash&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; =
+	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>InitialHash&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; =
 		StorageValue&lt;<span class="kw">_</span>, BridgedBlockHash&lt;T, I&gt;, ValueQuery&gt;;
 
 	<span class="doccomment">/// Hash of the best finalized header.
 	</span><span class="attr">#[pallet::storage]
 	#[pallet::getter(<span class="kw">fn </span>best_finalized)]
-	</span><span class="kw">pub type </span>BestFinalized&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; =
+	</span><span class="kw">pub type </span>BestFinalized&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; =
 		StorageValue&lt;<span class="kw">_</span>, BridgedBlockId&lt;T, I&gt;, OptionQuery&gt;;
 
 	<span class="doccomment">/// A ring buffer of imported hashes. Ordered by the insertion time.
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>ImportedHashes&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; = StorageMap&lt;
+	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>ImportedHashes&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; = StorageMap&lt;
 		Hasher = Identity,
 		Key = u32,
 		Value = BridgedBlockHash&lt;T, I&gt;,
@@ -2050,12 +2052,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Current ring buffer position.
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>ImportedHashesPointer&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; =
+	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>ImportedHashesPointer&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; =
 		StorageValue&lt;<span class="kw">_</span>, u32, ValueQuery&gt;;
 
 	<span class="doccomment">/// Relevant fields of imported headers.
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub type </span>ImportedHeaders&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; = StorageMap&lt;
+	</span><span class="kw">pub type </span>ImportedHeaders&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; = StorageMap&lt;
 		Hasher = Identity,
 		Key = BridgedBlockHash&lt;T, I&gt;,
 		Value = BridgedStoredHeaderData&lt;T, I&gt;,
@@ -2066,7 +2068,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// The current GRANDPA Authority set.
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub type </span>CurrentAuthoritySet&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; =
+	</span><span class="kw">pub type </span>CurrentAuthoritySet&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; =
 		StorageValue&lt;<span class="kw">_</span>, StoredAuthoritySet&lt;T, I&gt;, ValueQuery&gt;;
 
 	<span class="doccomment">/// Optional pallet owner.
@@ -2076,19 +2078,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// runtime methods may still be used to do that (i.e. democracy::referendum to update halt
 	/// flag directly or call the `halt_operations`).
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub type </span>PalletOwner&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; =
+	</span><span class="kw">pub type </span>PalletOwner&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; =
 		StorageValue&lt;<span class="kw">_</span>, T::AccountId, OptionQuery&gt;;
 
 	<span class="doccomment">/// The current operating mode of the pallet.
 	///
 	/// Depending on the mode either all, or no transactions will be allowed.
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub type </span>PalletOperatingMode&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; =
+	</span><span class="kw">pub type </span>PalletOperatingMode&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; =
 		StorageValue&lt;<span class="kw">_</span>, BasicOperatingMode, ValueQuery&gt;;
 
 	<span class="attr">#[pallet::genesis_config]
 	#[derive(DefaultNoBound)]
-	</span><span class="kw">pub struct </span>GenesisConfig&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; {
+	</span><span class="kw">pub struct </span>GenesisConfig&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; {
 		<span class="doccomment">/// Optional module owner account.
 		</span><span class="kw">pub </span>owner: <span class="prelude-ty">Option</span>&lt;T::AccountId&gt;,
 		<span class="doccomment">/// Optional module initialization data.
@@ -2096,16 +2098,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="attr">#[pallet::genesis_build]
-	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; BuildGenesisConfig <span class="kw">for </span>GenesisConfig&lt;T, I&gt; {
+	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; BuildGenesisConfig <span class="kw">for </span>GenesisConfig&lt;T, I&gt; {
 		<span class="kw">fn </span>build(<span class="kw-2">&amp;</span><span class="self">self</span>) {
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>owner) = <span class="self">self</span>.owner {
 				&lt;PalletOwner&lt;T, I&gt;&gt;::put(owner);
 			}
 
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(init_data) = <span class="self">self</span>.init_data.clone() {
-				initialize_bridge::&lt;T, I&gt;(init_data).expect(<span class="string">&quot;genesis config is correct; qed&quot;</span>);
+				initialize_bridge::&lt;T, I&gt;(init_data).expect(<span class="string">"genesis config is correct; qed"</span>);
 			} <span class="kw">else </span>{
-				<span class="comment">// Since the bridge hasn&#39;t been initialized we shouldn&#39;t allow anyone to perform
+				<span class="comment">// Since the bridge hasn't been initialized we shouldn't allow anyone to perform
 				// transactions.
 				</span>&lt;PalletOperatingMode&lt;T, I&gt;&gt;::put(BasicOperatingMode::Halted);
 			}
@@ -2114,7 +2116,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[pallet::event]
 	#[pallet::generate_deposit(<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>deposit_event)]
-	</span><span class="kw">pub enum </span>Event&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; {
+	</span><span class="kw">pub enum </span>Event&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; {
 		<span class="doccomment">/// Best finalized chain header has been updated to the header with given number and hash.
 		</span>UpdatedBestFinalizedHeader {
 			<span class="doccomment">/// Number of the new best finalized header.
@@ -2146,7 +2148,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>TooManyAuthoritiesInSet,
 		<span class="doccomment">/// Error generated by the `OwnedBridgeModule` trait.
 		</span>BridgeModule(bp_runtime::OwnedBridgeModuleError),
-		<span class="doccomment">/// The `current_set_id` argument of the `submit_finality_proof_ex` doesn&#39;t match
+		<span class="doccomment">/// The `current_set_id` argument of the `submit_finality_proof_ex` doesn't match
 		/// the id of the current set, known to the pallet.
 		</span>InvalidAuthoritySetId,
 	}
@@ -2158,11 +2160,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// since these types of changes are indicative of abnormal behavior from GRANDPA.
 	///
 	/// Returned value will indicate if a change was enacted or not.
-	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>try_enact_authority_change&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt;(
+	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>try_enact_authority_change&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt;(
 		header: <span class="kw-2">&amp;</span>BridgedHeader&lt;T, I&gt;,
 		current_set_id: sp_consensus_grandpa::SetId,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;AuthoritySet&gt;, DispatchError&gt; {
-		<span class="comment">// We don&#39;t support forced changes - at that point governance intervention is required.
+		<span class="comment">// We don't support forced changes - at that point governance intervention is required.
 		</span><span class="macro">ensure!</span>(
 			GrandpaConsensusLogReader::&lt;BridgedBlockNumber&lt;T, I&gt;&gt;::find_forced_change(
 				header.digest()
@@ -2175,7 +2177,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			GrandpaConsensusLogReader::&lt;BridgedBlockNumber&lt;T, I&gt;&gt;::find_scheduled_change(
 				header.digest(),
 			) {
-			<span class="comment">// GRANDPA only includes a `delay` for forced changes, so this isn&#39;t valid.
+			<span class="comment">// GRANDPA only includes a `delay` for forced changes, so this isn't valid.
 			</span><span class="macro">ensure!</span>(change.delay == Zero::zero(), &lt;Error&lt;T, I&gt;&gt;::UnsupportedScheduledChange);
 
 			<span class="comment">// TODO [#788]: Stop manually increasing the `set_id` here.
@@ -2193,7 +2195,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="macro">log::info!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;Transitioned from authority set {} to {}! New authorities are: {:?}&quot;</span>,
+				<span class="string">"Transitioned from authority set {} to {}! New authorities are: {:?}"</span>,
 				current_set_id,
 				current_set_id + <span class="number">1</span>,
 				next_authorities,
@@ -2211,7 +2213,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// If successful it returns the decoded GRANDPA justification so we can refund any weight which
 	/// was overcharged in the initial call.
-	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>verify_justification&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt;(
+	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>verify_justification&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt;(
 		justification: <span class="kw-2">&amp;</span>GrandpaJustification&lt;BridgedHeader&lt;T, I&gt;&gt;,
 		hash: BridgedBlockHash&lt;T, I&gt;,
 		number: BridgedBlockNumber&lt;T, I&gt;,
@@ -2227,7 +2229,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		.map_err(|e| {
 			<span class="macro">log::error!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;Received invalid justification for {:?}: {:?}&quot;</span>,
+				<span class="string">"Received invalid justification for {:?}: {:?}"</span>,
 				hash,
 				e,
 			);
@@ -2239,7 +2241,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// Note this function solely takes care of updating the storage and pruning old entries,
 	/// but does not verify the validity of such import.
-	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>insert_header&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt;(
+	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>insert_header&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt;(
 		header: BridgedHeader&lt;T, I&gt;,
 		hash: BridgedBlockHash&lt;T, I&gt;,
 	) {
@@ -2252,14 +2254,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// Update ring buffer pointer and remove old header.
 		</span>&lt;ImportedHashesPointer&lt;T, I&gt;&gt;::put((index + <span class="number">1</span>) % T::HeadersToKeep::get());
 		<span class="kw">if let </span><span class="prelude-val">Ok</span>(hash) = pruning {
-			<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;Pruning old header: {:?}.&quot;</span>, hash);
+			<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"Pruning old header: {:?}."</span>, hash);
 			&lt;ImportedHeaders&lt;T, I&gt;&gt;::remove(hash);
 		}
 	}
 
 	<span class="doccomment">/// Since this writes to storage with no real checks this should only be used in functions that
 	/// were called by a trusted origin.
-	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>initialize_bridge&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt;(
+	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>initialize_bridge&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt;(
 		init_params: <span class="kw">super</span>::InitializationData&lt;BridgedHeader&lt;T, I&gt;&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&lt;T, I&gt;&gt; {
 		<span class="kw">let </span><span class="kw">super</span>::InitializationData { header, authority_list, set_id, operating_mode } =
@@ -2269,7 +2271,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.map_err(|e| {
 				<span class="macro">log::error!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Failed to initialize bridge. Number of authorities in the set {} is larger than the configured value {}&quot;</span>,
+					<span class="string">"Failed to initialize bridge. Number of authorities in the set {} is larger than the configured value {}"</span>,
 					authority_set_length,
 					T::BridgedChain::MAX_AUTHORITIES_COUNT,
 				);
@@ -2293,7 +2295,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub struct </span>MaybeHeadersToKeep&lt;T, I&gt;(PhantomData&lt;(T, I)&gt;);
 
 	<span class="comment">// this implementation is required to use the struct as `MaxValues`
-	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; Get&lt;<span class="prelude-ty">Option</span>&lt;u32&gt;&gt; <span class="kw">for </span>MaybeHeadersToKeep&lt;T, I&gt; {
+	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Get&lt;<span class="prelude-ty">Option</span>&lt;u32&gt;&gt; <span class="kw">for </span>MaybeHeadersToKeep&lt;T, I&gt; {
 		<span class="kw">fn </span>get() -&gt; <span class="prelude-ty">Option</span>&lt;u32&gt; {
 			<span class="prelude-val">Some</span>(T::HeadersToKeep::get())
 		}
@@ -2304,15 +2306,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// The function makes sure that the new insertion will cause the pruning of some old header.
 	///
 	/// Returns parent header for the new header.
-	</span><span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
-	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>bootstrap_bridge&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt;(
+	</span><span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
+	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>bootstrap_bridge&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt;(
 		init_params: <span class="kw">super</span>::InitializationData&lt;BridgedHeader&lt;T, I&gt;&gt;,
 	) -&gt; BridgedHeader&lt;T, I&gt; {
 		<span class="kw">let </span>start_header = init_params.header.clone();
-		initialize_bridge::&lt;T, I&gt;(init_params).expect(<span class="string">&quot;benchmarks are correct&quot;</span>);
+		initialize_bridge::&lt;T, I&gt;(init_params).expect(<span class="string">"benchmarks are correct"</span>);
 
 		<span class="comment">// the most obvious way to cause pruning during next insertion would be to insert
-		// `HeadersToKeep` headers. But it&#39;ll make our benchmarks slow. So we will just play with
+		// `HeadersToKeep` headers. But it'll make our benchmarks slow. So we will just play with
 		// our pruning ring-buffer.
 		</span><span class="macro">assert_eq!</span>(ImportedHashesPointer::&lt;T, I&gt;::get(), <span class="number">1</span>);
 		ImportedHashesPointer::&lt;T, I&gt;::put(<span class="number">0</span>);
@@ -2321,7 +2323,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; Pallet&lt;T, I&gt;
+<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Pallet&lt;T, I&gt;
 <span class="kw">where
 	</span>&lt;T <span class="kw">as </span>frame_system::Config&gt;::RuntimeEvent: TryInto&lt;Event&lt;T, I&gt;&gt;,
 {
@@ -2343,7 +2345,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Bridge GRANDPA pallet as header chain.
 </span><span class="kw">pub type </span>GrandpaChainHeaders&lt;T, I&gt; = Pallet&lt;T, I&gt;;
 
-<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; HeaderChain&lt;BridgedChain&lt;T, I&gt;&gt; <span class="kw">for </span>GrandpaChainHeaders&lt;T, I&gt; {
+<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; HeaderChain&lt;BridgedChain&lt;T, I&gt;&gt; <span class="kw">for </span>GrandpaChainHeaders&lt;T, I&gt; {
 	<span class="kw">fn </span>finalized_header_state_root(
 		header_hash: HashOf&lt;BridgedChain&lt;T, I&gt;&gt;,
 	) -&gt; <span class="prelude-ty">Option</span>&lt;HashOf&lt;BridgedChain&lt;T, I&gt;&gt;&gt; {
@@ -2352,16 +2354,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// (Re)initialize bridge with given header for using it in `pallet-bridge-messages` benchmarks.
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
-</span><span class="kw">pub fn </span>initialize_for_benchmarks&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt;(header: BridgedHeader&lt;T, I&gt;) {
+</span><span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
+</span><span class="kw">pub fn </span>initialize_for_benchmarks&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt;(header: BridgedHeader&lt;T, I&gt;) {
 	initialize_bridge::&lt;T, I&gt;(InitializationData {
 		header: Box::new(header),
-		authority_list: sp_std::vec::Vec::new(), <span class="comment">/* we don&#39;t verify any proofs in external
+		authority_list: sp_std::vec::Vec::new(), <span class="comment">/* we don't verify any proofs in external
 		                                          * benchmarks */
 		</span>set_id: <span class="number">0</span>,
 		operating_mode: bp_runtime::BasicOperatingMode::Normal,
 	})
-	.expect(<span class="string">&quot;only used from benchmarks; benchmarks are correct; qed&quot;</span>);
+	.expect(<span class="string">"only used from benchmarks; benchmarks are correct; qed"</span>);
 }
 
 <span class="attr">#[cfg(test)]
@@ -2450,7 +2452,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		set_id: u64,
 	) -&gt; frame_support::dispatch::DispatchResultWithPostInfo {
 		<span class="kw">let </span><span class="kw-2">mut </span>header = test_header(number.into());
-		<span class="comment">// to ease tests that are using `submit_mandatory_finality_proof`, we&#39;ll be using the
+		<span class="comment">// to ease tests that are using `submit_mandatory_finality_proof`, we'll be using the
 		// same set for all sessions
 		</span><span class="kw">let </span>consensus_log =
 			ConsensusLog::&lt;TestNumber&gt;::ScheduledChange(sp_consensus_grandpa::ScheduledChange {
@@ -2633,7 +2635,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">assert!</span>(actual_proof_size &gt; <span class="number">0</span>);
 			<span class="macro">assert!</span>(
 				actual_proof_size &lt; pre_dispatch_proof_size,
-				<span class="string">&quot;Actual proof size {actual_proof_size} must be less than the pre-dispatch {pre_dispatch_proof_size}&quot;</span>,
+				<span class="string">"Actual proof size {actual_proof_size} must be less than the pre-dispatch {pre_dispatch_proof_size}"</span>,
 			);
 
 			<span class="kw">let </span>header = test_header(<span class="number">1</span>);
@@ -2778,7 +2780,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// Create a valid justification for the header
 			</span><span class="kw">let </span>justification = make_default_justification(<span class="kw-2">&amp;</span>header);
 
-			<span class="comment">// Let&#39;s import our test header
+			<span class="comment">// Let's import our test header
 			</span><span class="kw">let </span>result = Pallet::&lt;TestRuntime&gt;::submit_finality_proof_ex(
 				RuntimeOrigin::signed(<span class="number">1</span>),
 				Box::new(header.clone()),
@@ -2834,7 +2836,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		run_test(|| {
 			initialize_substrate_bridge();
 
-			<span class="comment">// let&#39;s prepare a huge authorities change header, which is definitely above size limits
+			<span class="comment">// let's prepare a huge authorities change header, which is definitely above size limits
 			</span><span class="kw">let </span><span class="kw-2">mut </span>header = test_header(<span class="number">2</span>);
 			header.digest = change_log(<span class="number">0</span>);
 			header.digest.push(DigestItem::Other(<span class="macro">vec!</span>[<span class="number">42u8</span>; <span class="number">1024 </span>* <span class="number">1024</span>]));
@@ -2862,7 +2864,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		run_test(|| {
 			initialize_substrate_bridge();
 
-			<span class="comment">// let&#39;s prepare a huge authorities change header, which is definitely above weight
+			<span class="comment">// let's prepare a huge authorities change header, which is definitely above weight
 			// limits
 			</span><span class="kw">let </span><span class="kw-2">mut </span>header = test_header(<span class="number">2</span>);
 			header.digest = change_log(<span class="number">0</span>);
@@ -2895,7 +2897,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			initialize_substrate_bridge();
 
 			<span class="comment">// Need to update the header digest to indicate that our header signals an authority set
-			// change. However, the change doesn&#39;t happen until the next block.
+			// change. However, the change doesn't happen until the next block.
 			</span><span class="kw">let </span><span class="kw-2">mut </span>header = test_header(<span class="number">2</span>);
 			header.digest = change_log(<span class="number">1</span>);
 
@@ -2947,7 +2949,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			initialize_substrate_bridge();
 
 			<span class="comment">// Need to update the header digest to indicate that our header signals an authority set
-			// change. However, the change doesn&#39;t happen until the next block.
+			// change. However, the change doesn't happen until the next block.
 			</span><span class="kw">let </span><span class="kw-2">mut </span>header = test_header(<span class="number">2</span>);
 			header.digest = many_authorities_log();
 
@@ -3002,13 +3004,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			initialize_substrate_bridge();
 
 			<span class="kw">let </span>result = submit_mandatory_finality_proof(<span class="number">1</span>, <span class="number">1</span>);
-			<span class="macro">assert_eq!</span>(result.expect(<span class="string">&quot;call failed&quot;</span>).pays_fee, Pays::No);
+			<span class="macro">assert_eq!</span>(result.expect(<span class="string">"call failed"</span>).pays_fee, Pays::No);
 
 			<span class="kw">let </span>result = submit_mandatory_finality_proof(<span class="number">2</span>, <span class="number">2</span>);
-			<span class="macro">assert_eq!</span>(result.expect(<span class="string">&quot;call failed&quot;</span>).pays_fee, Pays::No);
+			<span class="macro">assert_eq!</span>(result.expect(<span class="string">"call failed"</span>).pays_fee, Pays::No);
 
 			<span class="kw">let </span>result = submit_mandatory_finality_proof(<span class="number">3</span>, <span class="number">3</span>);
-			<span class="macro">assert_eq!</span>(result.expect(<span class="string">&quot;call failed&quot;</span>).pays_fee, Pays::Yes);
+			<span class="macro">assert_eq!</span>(result.expect(<span class="string">"call failed"</span>).pays_fee, Pays::Yes);
 		})
 	}
 
@@ -3037,13 +3039,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="comment">// Can still submit free mandatory headers afterwards
 			</span><span class="kw">let </span>result = submit_mandatory_finality_proof(<span class="number">1</span>, <span class="number">1</span>);
-			<span class="macro">assert_eq!</span>(result.expect(<span class="string">&quot;call failed&quot;</span>).pays_fee, Pays::No);
+			<span class="macro">assert_eq!</span>(result.expect(<span class="string">"call failed"</span>).pays_fee, Pays::No);
 
 			<span class="kw">let </span>result = submit_mandatory_finality_proof(<span class="number">2</span>, <span class="number">2</span>);
-			<span class="macro">assert_eq!</span>(result.expect(<span class="string">&quot;call failed&quot;</span>).pays_fee, Pays::No);
+			<span class="macro">assert_eq!</span>(result.expect(<span class="string">"call failed"</span>).pays_fee, Pays::No);
 
 			<span class="kw">let </span>result = submit_mandatory_finality_proof(<span class="number">3</span>, <span class="number">3</span>);
-			<span class="macro">assert_eq!</span>(result.expect(<span class="string">&quot;call failed&quot;</span>).pays_fee, Pays::Yes);
+			<span class="macro">assert_eq!</span>(result.expect(<span class="string">"call failed"</span>).pays_fee, Pays::Yes);
 		})
 	}
 
@@ -3053,24 +3055,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			initialize_substrate_bridge();
 
 			<span class="kw">let </span>result = submit_mandatory_finality_proof(<span class="number">1</span>, <span class="number">1</span>);
-			<span class="macro">assert_eq!</span>(result.expect(<span class="string">&quot;call failed&quot;</span>).pays_fee, Pays::No);
+			<span class="macro">assert_eq!</span>(result.expect(<span class="string">"call failed"</span>).pays_fee, Pays::No);
 
 			<span class="kw">let </span>result = submit_mandatory_finality_proof(<span class="number">2</span>, <span class="number">2</span>);
-			<span class="macro">assert_eq!</span>(result.expect(<span class="string">&quot;call failed&quot;</span>).pays_fee, Pays::No);
+			<span class="macro">assert_eq!</span>(result.expect(<span class="string">"call failed"</span>).pays_fee, Pays::No);
 
 			<span class="kw">let </span>result = submit_mandatory_finality_proof(<span class="number">3</span>, <span class="number">3</span>);
-			<span class="macro">assert_eq!</span>(result.expect(<span class="string">&quot;call failed&quot;</span>).pays_fee, Pays::Yes);
+			<span class="macro">assert_eq!</span>(result.expect(<span class="string">"call failed"</span>).pays_fee, Pays::Yes);
 
 			next_block();
 
 			<span class="kw">let </span>result = submit_mandatory_finality_proof(<span class="number">4</span>, <span class="number">4</span>);
-			<span class="macro">assert_eq!</span>(result.expect(<span class="string">&quot;call failed&quot;</span>).pays_fee, Pays::No);
+			<span class="macro">assert_eq!</span>(result.expect(<span class="string">"call failed"</span>).pays_fee, Pays::No);
 
 			<span class="kw">let </span>result = submit_mandatory_finality_proof(<span class="number">5</span>, <span class="number">5</span>);
-			<span class="macro">assert_eq!</span>(result.expect(<span class="string">&quot;call failed&quot;</span>).pays_fee, Pays::No);
+			<span class="macro">assert_eq!</span>(result.expect(<span class="string">"call failed"</span>).pays_fee, Pays::No);
 
 			<span class="kw">let </span>result = submit_mandatory_finality_proof(<span class="number">6</span>, <span class="number">6</span>);
-			<span class="macro">assert_eq!</span>(result.expect(<span class="string">&quot;call failed&quot;</span>).pays_fee, Pays::Yes);
+			<span class="macro">assert_eq!</span>(result.expect(<span class="string">"call failed"</span>).pays_fee, Pays::Yes);
 		})
 	}
 
@@ -3080,22 +3082,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			initialize_substrate_bridge();
 
 			<span class="kw">let </span>result = submit_finality_proof(<span class="number">1</span>);
-			<span class="macro">assert_eq!</span>(result.expect(<span class="string">&quot;call failed&quot;</span>).pays_fee, Pays::Yes);
+			<span class="macro">assert_eq!</span>(result.expect(<span class="string">"call failed"</span>).pays_fee, Pays::Yes);
 
 			<span class="kw">let </span>result = submit_mandatory_finality_proof(<span class="number">2</span>, <span class="number">1</span>);
-			<span class="macro">assert_eq!</span>(result.expect(<span class="string">&quot;call failed&quot;</span>).pays_fee, Pays::No);
+			<span class="macro">assert_eq!</span>(result.expect(<span class="string">"call failed"</span>).pays_fee, Pays::No);
 
 			<span class="kw">let </span>result = submit_finality_proof_with_set_id(<span class="number">3</span>, <span class="number">2</span>);
-			<span class="macro">assert_eq!</span>(result.expect(<span class="string">&quot;call failed&quot;</span>).pays_fee, Pays::Yes);
+			<span class="macro">assert_eq!</span>(result.expect(<span class="string">"call failed"</span>).pays_fee, Pays::Yes);
 
 			<span class="kw">let </span>result = submit_mandatory_finality_proof(<span class="number">4</span>, <span class="number">2</span>);
-			<span class="macro">assert_eq!</span>(result.expect(<span class="string">&quot;call failed&quot;</span>).pays_fee, Pays::No);
+			<span class="macro">assert_eq!</span>(result.expect(<span class="string">"call failed"</span>).pays_fee, Pays::No);
 
 			<span class="kw">let </span>result = submit_finality_proof_with_set_id(<span class="number">5</span>, <span class="number">3</span>);
-			<span class="macro">assert_eq!</span>(result.expect(<span class="string">&quot;call failed&quot;</span>).pays_fee, Pays::Yes);
+			<span class="macro">assert_eq!</span>(result.expect(<span class="string">"call failed"</span>).pays_fee, Pays::Yes);
 
 			<span class="kw">let </span>result = submit_mandatory_finality_proof(<span class="number">6</span>, <span class="number">3</span>);
-			<span class="macro">assert_eq!</span>(result.expect(<span class="string">&quot;call failed&quot;</span>).pays_fee, Pays::Yes);
+			<span class="macro">assert_eq!</span>(result.expect(<span class="string">"call failed"</span>).pays_fee, Pays::Yes);
 		})
 	}
 
@@ -3120,7 +3122,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="macro">assert!</span>(
 				!ImportedHeaders::&lt;TestRuntime, ()&gt;::contains_key(first_header_hash),
-				<span class="string">&quot;First header should be pruned.&quot;</span>,
+				<span class="string">"First header should be pruned."</span>,
 			);
 		})
 	}
@@ -3129,17 +3131,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>storage_keys_computed_properly() {
 		<span class="macro">assert_eq!</span>(
 			PalletOperatingMode::&lt;TestRuntime&gt;::storage_value_final_key().to_vec(),
-			bp_header_chain::storage_keys::pallet_operating_mode_key(<span class="string">&quot;Grandpa&quot;</span>).<span class="number">0</span>,
+			bp_header_chain::storage_keys::pallet_operating_mode_key(<span class="string">"Grandpa"</span>).<span class="number">0</span>,
 		);
 
 		<span class="macro">assert_eq!</span>(
 			CurrentAuthoritySet::&lt;TestRuntime&gt;::storage_value_final_key().to_vec(),
-			bp_header_chain::storage_keys::current_authority_set_key(<span class="string">&quot;Grandpa&quot;</span>).<span class="number">0</span>,
+			bp_header_chain::storage_keys::current_authority_set_key(<span class="string">"Grandpa"</span>).<span class="number">0</span>,
 		);
 
 		<span class="macro">assert_eq!</span>(
 			BestFinalized::&lt;TestRuntime&gt;::storage_value_final_key().to_vec(),
-			bp_header_chain::storage_keys::best_finalized_key(<span class="string">&quot;Grandpa&quot;</span>).<span class="number">0</span>,
+			bp_header_chain::storage_keys::best_finalized_key(<span class="string">"Grandpa"</span>).<span class="number">0</span>,
 		);
 	}
 

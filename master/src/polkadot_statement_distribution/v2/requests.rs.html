@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/network/statement-distribution/src/v2/requests.rs`."><title>requests.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/network/statement-distribution/src/v2/requests.rs`."><title>requests.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_statement_distribution" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_statement_distribution" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../polkadot_statement_distribution/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1460,9 +1462,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!
 //! 1. We use `RequestManager::get_or_insert().get_mut()` to add and mutate [`RequestedCandidate`]s,
 //!    either setting the
-//! priority or adding a peer we know has the candidate. We currently prioritize &quot;cluster&quot;
+//! priority or adding a peer we know has the candidate. We currently prioritize "cluster"
 //! candidates (those from our own group, although the cluster mechanism could be made to include
-//! multiple groups in the future) over &quot;grid&quot; candidates (those from other groups).
+//! multiple groups in the future) over "grid" candidates (those from other groups).
 //!
 //! 2. The main loop of the module will invoke [`RequestManager::next_request`] in a loop until it
 //!    returns `None`,
@@ -1520,7 +1522,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>relay_parent: Hash,
 	<span class="doccomment">/// The hash of the candidate.
 	</span><span class="kw">pub </span>candidate_hash: CandidateHash,
-	<span class="doccomment">/// The index of the group claiming to be assigned to the candidate&#39;s
+	<span class="doccomment">/// The index of the group claiming to be assigned to the candidate's
 	/// para.
 	</span><span class="kw">pub </span>group_index: GroupIndex,
 }
@@ -1573,14 +1575,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// An entry for manipulating a requested candidate.
-</span><span class="kw">pub struct </span>Entry&lt;<span class="lifetime">&#39;a</span>&gt; {
+</span><span class="kw">pub struct </span>Entry&lt;<span class="lifetime">'a</span>&gt; {
 	prev_index: usize,
 	identifier: CandidateIdentifier,
-	by_priority: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>Vec&lt;(Priority, CandidateIdentifier)&gt;,
-	requested: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>RequestedCandidate,
+	by_priority: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>Vec&lt;(Priority, CandidateIdentifier)&gt;,
+	requested: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>RequestedCandidate,
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; Entry&lt;<span class="lifetime">&#39;a</span>&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; Entry&lt;<span class="lifetime">'a</span>&gt; {
 	<span class="doccomment">/// Add a peer to the set of known peers.
 	</span><span class="kw">pub fn </span>add_peer(<span class="kw-2">&amp;mut </span><span class="self">self</span>, peer: PeerId) {
 		<span class="kw">if </span>!<span class="self">self</span>.requested.known_by.contains(<span class="kw-2">&amp;</span>peer) {
@@ -1621,7 +1623,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Gets an [`Entry`] for mutating a request and inserts it if the
-	/// manager doesn&#39;t store this request already.
+	/// manager doesn't store this request already.
 	</span><span class="kw">pub fn </span>get_or_insert(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		relay_parent: Hash,
@@ -1661,7 +1663,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.binary_search(<span class="kw-2">&amp;</span>(candidate.priority.clone(), identifier.clone()))
 			{
 				<span class="prelude-val">Ok</span>(i) =&gt; i,
-				<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="macro">unreachable!</span>(<span class="string">&quot;requested candidates always have a priority entry; qed&quot;</span>),
+				<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="macro">unreachable!</span>(<span class="string">"requested candidates always have a priority entry; qed"</span>),
 			}
 		};
 
@@ -1707,14 +1709,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					}
 				},
 				<span class="comment">// We can expect to encounter vacant entries, but only if nodes are misbehaving and
-				// we don&#39;t use a deduplicating collection; there are no issues from ignoring it.
+				// we don't use a deduplicating collection; there are no issues from ignoring it.
 				</span>HEntry::Vacant(<span class="kw">_</span>) =&gt; (),
 			}
 		}
 
 		<span class="macro">gum::debug!</span>(
 			target: LOG_TARGET,
-			<span class="string">&quot;Requests remaining after cleanup: {}&quot;</span>,
+			<span class="string">"Requests remaining after cleanup: {}"</span>,
 			<span class="self">self</span>.by_priority.len(),
 		);
 	}
@@ -1786,7 +1788,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="macro">gum::error!</span>(
 						target: LOG_TARGET,
 						identifier = <span class="question-mark">?</span>id,
-						<span class="string">&quot;Missing entry for priority queue member&quot;</span>,
+						<span class="string">"Missing entry for priority queue member"</span>,
 					);
 
 					<span class="kw">continue
@@ -1820,7 +1822,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				target: <span class="kw">crate</span>::LOG_TARGET,
 				candidate_hash = <span class="question-mark">?</span>id.candidate_hash,
 				peer = <span class="question-mark">?</span>target,
-				<span class="string">&quot;Issuing candidate request&quot;
+				<span class="string">"Issuing candidate request"
 			</span>);
 
 			<span class="kw">let </span>(request, response_fut) = OutgoingRequest::new(
@@ -1866,7 +1868,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// A manager for pending responses.
 </span><span class="kw">pub struct </span>ResponseManager {
-	pending_responses: FuturesUnordered&lt;BoxFuture&lt;<span class="lifetime">&#39;static</span>, TaggedResponse&gt;&gt;,
+	pending_responses: FuturesUnordered&lt;BoxFuture&lt;<span class="lifetime">'static</span>, TaggedResponse&gt;&gt;,
 }
 
 <span class="kw">impl </span>ResponseManager {
@@ -1887,7 +1889,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">self</span>.pending_responses.len()
 	}
 
-	<span class="kw">fn </span>push(<span class="kw-2">&amp;mut </span><span class="self">self</span>, response: BoxFuture&lt;<span class="lifetime">&#39;static</span>, TaggedResponse&gt;) {
+	<span class="kw">fn </span>push(<span class="kw-2">&amp;mut </span><span class="self">self</span>, response: BoxFuture&lt;<span class="lifetime">'static</span>, TaggedResponse&gt;) {
 		<span class="self">self</span>.pending_responses.push(response);
 	}
 }
@@ -2021,7 +2023,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.binary_search(<span class="kw-2">&amp;</span>(entry.priority.clone(), identifier.clone()))
 		{
 			<span class="prelude-val">Ok</span>(i) =&gt; i,
-			<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="macro">unreachable!</span>(<span class="string">&quot;requested candidates always have a priority entry; qed&quot;</span>),
+			<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="macro">unreachable!</span>(<span class="string">"requested candidates always have a priority entry; qed"</span>),
 		};
 
 		<span class="comment">// Set the next retry time before clearing the `in_flight` flag.
@@ -2043,7 +2045,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					target: LOG_TARGET,
 					err = <span class="question-mark">?</span>e,
 					peer = <span class="question-mark">?</span>requested_peer,
-					<span class="string">&quot;Improperly encoded response&quot;
+					<span class="string">"Improperly encoded response"
 				</span>);
 
 				<span class="kw">return </span>ResponseValidationOutput {
@@ -2057,7 +2059,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					target: LOG_TARGET,
 					err = <span class="question-mark">?</span>e,
 					peer = <span class="question-mark">?</span>requested_peer,
-					<span class="string">&quot;Request error&quot;
+					<span class="string">"Request error"
 				</span>);
 				<span class="kw">return </span>ResponseValidationOutput {
 					requested_peer,
@@ -2107,7 +2109,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">gum::error!</span>(
 			target: LOG_TARGET,
 			group_len = group.len(),
-			<span class="string">&quot;Logic bug: group size != sent bitmask len&quot;
+			<span class="string">"Logic bug: group size != sent bitmask len"
 		</span>);
 
 		<span class="comment">// resize and attempt to continue.

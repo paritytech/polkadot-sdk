@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/offchain/src/api/http.rs`."><title>http.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/offchain/src/api/http.rs`."><title>http.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sc_offchain" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sc_offchain" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../sc_offchain/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1303,7 +1305,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! HTTP-related methods available to offchain workers.
 //!
 //! The reason for this design is driven by the fact that HTTP requests should continue running
-//! (i.e.: the socket should continue being processed) in the background even if the runtime isn&#39;t
+//! (i.e.: the socket should continue being processed) in the background even if the runtime isn't
 //! actively calling any function.
 
 </span><span class="kw">use </span><span class="kw">crate</span>::api::timestamp;
@@ -1323,7 +1325,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	task::{Context, Poll},
 };
 
-<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;offchain-worker::http&quot;</span>;
+<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"offchain-worker::http"</span>;
 
 <span class="doccomment">/// Wrapper struct used for keeping the hyper_rustls client running.
 </span><span class="attr">#[derive(Clone)]
@@ -1345,8 +1347,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Creates a pair of [`HttpApi`] and [`HttpWorker`].
 </span><span class="kw">pub fn </span>http(shared_client: SharedClient) -&gt; (HttpApi, HttpWorker) {
-	<span class="kw">let </span>(to_worker, from_api) = tracing_unbounded(<span class="string">&quot;mpsc_ocw_to_worker&quot;</span>, <span class="number">100_000</span>);
-	<span class="kw">let </span>(to_api, from_worker) = tracing_unbounded(<span class="string">&quot;mpsc_ocw_to_api&quot;</span>, <span class="number">100_000</span>);
+	<span class="kw">let </span>(to_worker, from_api) = tracing_unbounded(<span class="string">"mpsc_ocw_to_worker"</span>, <span class="number">100_000</span>);
+	<span class="kw">let </span>(to_api, from_worker) = tracing_unbounded(<span class="string">"mpsc_ocw_to_api"</span>, <span class="number">100_000</span>);
 
 	<span class="kw">let </span>api = HttpApi {
 		to_worker,
@@ -1383,7 +1385,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">enum </span>HttpApiRequest {
 	<span class="doccomment">/// The request object is being constructed locally and not started yet.
 	</span>NotDispatched(hyper::Request&lt;hyper::Body&gt;, hyper::body::Sender),
-	<span class="doccomment">/// The request has been dispatched and we&#39;re in the process of sending out the body (if the
+	<span class="doccomment">/// The request has been dispatched and we're in the process of sending out the body (if the
 	/// field is `Some`) or waiting for a response (if the field is `None`).
 	</span>Dispatched(<span class="prelude-ty">Option</span>&lt;hyper::body::Sender&gt;),
 	<span class="doccomment">/// Received a response.
@@ -1396,7 +1398,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// A request within `HttpApi` that has received a response.
 </span><span class="kw">struct </span>HttpApiRequestRp {
-	<span class="doccomment">/// We might still be writing the request&#39;s body when the response comes.
+	<span class="doccomment">/// We might still be writing the request's body when the response comes.
 	/// This field allows to continue writing that body.
 	</span>sending_body: <span class="prelude-ty">Option</span>&lt;hyper::body::Sender&gt;,
 	<span class="doccomment">/// Status code of the response.
@@ -1419,7 +1421,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Mimics the corresponding method in the offchain API.
 	</span><span class="kw">pub fn </span>request_start(<span class="kw-2">&amp;mut </span><span class="self">self</span>, method: <span class="kw-2">&amp;</span>str, uri: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;HttpRequestId, ()&gt; {
 		<span class="comment">// Start by building the prototype of the request.
-		// We do this first so that we don&#39;t touch anything in `self` if building the prototype
+		// We do this first so that we don't touch anything in `self` if building the prototype
 		// fails.
 		</span><span class="kw">let </span>(body_sender, body) = hyper::Body::channel();
 		<span class="kw">let </span><span class="kw-2">mut </span>request = hyper::Request::new(body);
@@ -1433,7 +1435,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">None </span>=&gt; {
 				<span class="macro">tracing::error!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Overflow in offchain worker HTTP request ID assignment&quot;
+					<span class="string">"Overflow in offchain worker HTTP request ID assignment"
 				</span>);
 				<span class="kw">return </span><span class="prelude-val">Err</span>(())
 			},
@@ -1446,7 +1448,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			id = %new_id.<span class="number">0</span>,
 			%method,
 			%uri,
-			<span class="string">&quot;Requested started&quot;</span>,
+			<span class="string">"Requested started"</span>,
 		);
 
 		<span class="prelude-val">Ok</span>(new_id)
@@ -1466,11 +1468,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>header_name = hyper::header::HeaderName::try_from(name).map_err(drop)<span class="question-mark">?</span>;
 		<span class="kw">let </span>header_value = hyper::header::HeaderValue::try_from(value).map_err(drop)<span class="question-mark">?</span>;
-		<span class="comment">// Note that we&#39;re always appending headers and never replacing old values.
-		// We assume here that the user knows what they&#39;re doing.
+		<span class="comment">// Note that we're always appending headers and never replacing old values.
+		// We assume here that the user knows what they're doing.
 		</span>request.headers_mut().append(header_name, header_value);
 
-		<span class="macro">tracing::debug!</span>(target: LOG_TARGET, id = %request_id.<span class="number">0</span>, %name, %value, <span class="string">&quot;Added header to request&quot;</span>);
+		<span class="macro">tracing::debug!</span>(target: LOG_TARGET, id = %request_id.<span class="number">0</span>, %name, %value, <span class="string">"Added header to request"</span>);
 
 		<span class="prelude-val">Ok</span>(())
 	}
@@ -1483,13 +1485,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		deadline: <span class="prelude-ty">Option</span>&lt;Timestamp&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), HttpError&gt; {
 		<span class="comment">// Extract the request from the list.
-		// Don&#39;t forget to add it back if necessary when returning.
+		// Don't forget to add it back if necessary when returning.
 		</span><span class="kw">let </span><span class="kw-2">mut </span>request = <span class="self">self</span>.requests.remove(<span class="kw-2">&amp;</span>request_id).ok_or(HttpError::Invalid)<span class="question-mark">?</span>;
 
 		<span class="kw">let </span><span class="kw-2">mut </span>deadline = timestamp::deadline_to_future(deadline);
 		<span class="comment">// Closure that writes data to a sender, taking the deadline into account. Can return `Ok`
 		// (if the body has been written), or `DeadlineReached`, or `IoError`.
-		// If `IoError` is returned, don&#39;t forget to remove the request from the list.
+		// If `IoError` is returned, don't forget to remove the request from the list.
 		</span><span class="kw">let </span><span class="kw-2">mut </span>poll_sender = <span class="kw">move </span>|sender: <span class="kw-2">&amp;mut </span>hyper::body::Sender| -&gt; <span class="prelude-ty">Result</span>&lt;(), HttpError&gt; {
 			<span class="kw">let </span><span class="kw-2">mut </span>when_ready = future::maybe_done(future::poll_fn(|cx| sender.poll_ready(cx)));
 			futures::executor::block_on(future::select(<span class="kw-2">&amp;mut </span>when_ready, <span class="kw-2">&amp;mut </span>deadline));
@@ -1506,7 +1508,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				sender.send_data(hyper::body::Bytes::from(chunk.to_owned())),
 			)
 			.map_err(|<span class="kw">_</span>| {
-				<span class="macro">tracing::error!</span>(target: <span class="string">&quot;offchain-worker::http&quot;</span>, <span class="string">&quot;HTTP sender refused data despite being ready&quot;</span>);
+				<span class="macro">tracing::error!</span>(target: <span class="string">"offchain-worker::http"</span>, <span class="string">"HTTP sender refused data despite being ready"</span>);
 				HttpError::IoError
 			})
 		};
@@ -1514,7 +1516,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">loop </span>{
 			request = <span class="kw">match </span>request {
 				HttpApiRequest::NotDispatched(request, sender) =&gt; {
-					<span class="macro">tracing::debug!</span>(target: LOG_TARGET, id = %request_id.<span class="number">0</span>, <span class="string">&quot;Added new body chunk&quot;</span>);
+					<span class="macro">tracing::debug!</span>(target: LOG_TARGET, id = %request_id.<span class="number">0</span>, <span class="string">"Added new body chunk"</span>);
 					<span class="comment">// If the request is not dispatched yet, dispatch it and loop again.
 					</span><span class="kw">let _ </span>= <span class="self">self
 						</span>.to_worker
@@ -1526,18 +1528,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw">if </span>!chunk.is_empty() {
 						<span class="kw">match </span>poll_sender(<span class="kw-2">&amp;mut </span>sender) {
 							<span class="prelude-val">Err</span>(HttpError::IoError) =&gt; {
-								<span class="macro">tracing::debug!</span>(target: LOG_TARGET, id = %request_id.<span class="number">0</span>, <span class="string">&quot;Encountered io error while trying to add new chunk to body&quot;</span>);
+								<span class="macro">tracing::debug!</span>(target: LOG_TARGET, id = %request_id.<span class="number">0</span>, <span class="string">"Encountered io error while trying to add new chunk to body"</span>);
 								<span class="kw">return </span><span class="prelude-val">Err</span>(HttpError::IoError)
 							},
 							other =&gt; {
-								<span class="macro">tracing::debug!</span>(target: LOG_TARGET, id = %request_id.<span class="number">0</span>, res = <span class="question-mark">?</span>other, <span class="string">&quot;Added chunk to body&quot;</span>);
+								<span class="macro">tracing::debug!</span>(target: LOG_TARGET, id = %request_id.<span class="number">0</span>, res = <span class="question-mark">?</span>other, <span class="string">"Added chunk to body"</span>);
 								<span class="self">self</span>.requests
 									.insert(request_id, HttpApiRequest::Dispatched(<span class="prelude-val">Some</span>(sender)));
 								<span class="kw">return </span>other
 							},
 						}
 					} <span class="kw">else </span>{
-						<span class="macro">tracing::debug!</span>(target: LOG_TARGET, id = %request_id.<span class="number">0</span>, <span class="string">&quot;Finished writing body&quot;</span>);
+						<span class="macro">tracing::debug!</span>(target: LOG_TARGET, id = %request_id.<span class="number">0</span>, <span class="string">"Finished writing body"</span>);
 
 						<span class="comment">// Writing an empty body is a hint that we should stop writing. Dropping
 						// the sender.
@@ -1554,21 +1556,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							response
 								.sending_body
 								.as_mut()
-								.expect(<span class="string">&quot;Can only enter this match branch if Some; qed&quot;</span>),
+								.expect(<span class="string">"Can only enter this match branch if Some; qed"</span>),
 						) {
 							<span class="prelude-val">Err</span>(HttpError::IoError) =&gt; {
-								<span class="macro">tracing::debug!</span>(target: LOG_TARGET, id = %request_id.<span class="number">0</span>, <span class="string">&quot;Encountered io error while trying to add new chunk to body&quot;</span>);
+								<span class="macro">tracing::debug!</span>(target: LOG_TARGET, id = %request_id.<span class="number">0</span>, <span class="string">"Encountered io error while trying to add new chunk to body"</span>);
 								<span class="kw">return </span><span class="prelude-val">Err</span>(HttpError::IoError)
 							},
 							other =&gt; {
-								<span class="macro">tracing::debug!</span>(target: LOG_TARGET, id = %request_id.<span class="number">0</span>, res = <span class="question-mark">?</span>other, <span class="string">&quot;Added chunk to body&quot;</span>);
+								<span class="macro">tracing::debug!</span>(target: LOG_TARGET, id = %request_id.<span class="number">0</span>, res = <span class="question-mark">?</span>other, <span class="string">"Added chunk to body"</span>);
 								<span class="self">self</span>.requests
 									.insert(request_id, HttpApiRequest::Response(response));
 								<span class="kw">return </span>other
 							},
 						}
 					} <span class="kw">else </span>{
-						<span class="macro">tracing::debug!</span>(target: LOG_TARGET, id = %request_id.<span class="number">0</span>, <span class="string">&quot;Finished writing body&quot;</span>);
+						<span class="macro">tracing::debug!</span>(target: LOG_TARGET, id = %request_id.<span class="number">0</span>, <span class="string">"Finished writing body"</span>);
 
 						<span class="comment">// Writing an empty body is a hint that we should stop writing. Dropping
 						// the sender.
@@ -1584,7 +1586,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				},
 
 				HttpApiRequest::Fail(error) =&gt; {
-					<span class="macro">tracing::debug!</span>(target: LOG_TARGET, id = %request_id.<span class="number">0</span>, <span class="question-mark">?</span>error, <span class="string">&quot;Request failed&quot;</span>);
+					<span class="macro">tracing::debug!</span>(target: LOG_TARGET, id = %request_id.<span class="number">0</span>, <span class="question-mark">?</span>error, <span class="string">"Request failed"</span>);
 
 					<span class="comment">// If the request has already failed, return without putting back the request
 					// in the list.
@@ -1593,7 +1595,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 				v @ HttpApiRequest::Dispatched(<span class="prelude-val">None</span>) |
 				v @ HttpApiRequest::Response(HttpApiRequestRp { sending_body: <span class="prelude-val">None</span>, .. }) =&gt; {
-					<span class="macro">tracing::debug!</span>(target: LOG_TARGET, id = %request_id.<span class="number">0</span>, <span class="string">&quot;Body sending already finished&quot;</span>);
+					<span class="macro">tracing::debug!</span>(target: LOG_TARGET, id = %request_id.<span class="number">0</span>, <span class="string">"Body sending already finished"</span>);
 
 					<span class="comment">// We have already finished sending this body.
 					</span><span class="self">self</span>.requests.insert(request_id, v);
@@ -1610,7 +1612,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		deadline: <span class="prelude-ty">Option</span>&lt;Timestamp&gt;,
 	) -&gt; Vec&lt;HttpRequestStatus&gt; {
 		<span class="comment">// First of all, dispatch all the non-dispatched requests and drop all senders so that the
-		// user can&#39;t write anymore data.
+		// user can't write anymore data.
 		</span><span class="kw">for </span>id <span class="kw">in </span>ids {
 			<span class="kw">match </span><span class="self">self</span>.requests.get_mut(id) {
 				<span class="prelude-val">Some</span>(HttpApiRequest::NotDispatched(<span class="kw">_</span>, <span class="kw">_</span>)) =&gt; {},
@@ -1624,7 +1626,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="kw">let </span>(request, _sender) = <span class="kw">match </span><span class="self">self</span>.requests.remove(id) {
 				<span class="prelude-val">Some</span>(HttpApiRequest::NotDispatched(rq, s)) =&gt; (rq, s),
-				<span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(<span class="string">&quot;we checked for NotDispatched above; qed&quot;</span>),
+				<span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(<span class="string">"we checked for NotDispatched above; qed"</span>),
 			};
 
 			<span class="kw">let _ </span>= <span class="self">self</span>.to_worker.unbounded_send(ApiToWorker::Dispatch { id: <span class="kw-2">*</span>id, request });
@@ -1645,7 +1647,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					output.push(<span class="kw">match </span><span class="self">self</span>.requests.get(id) {
 						<span class="prelude-val">None </span>=&gt; HttpRequestStatus::Invalid,
 						<span class="prelude-val">Some</span>(HttpApiRequest::NotDispatched(<span class="kw">_</span>, <span class="kw">_</span>)) =&gt; <span class="macro">unreachable!</span>(
-							<span class="string">&quot;we replaced all the NotDispatched with Dispatched earlier; qed&quot;
+							<span class="string">"we replaced all the NotDispatched with Dispatched earlier; qed"
 						</span>),
 						<span class="prelude-val">Some</span>(HttpApiRequest::Dispatched(<span class="kw">_</span>)) =&gt; {
 							must_wait_more = <span class="bool-val">true</span>;
@@ -1664,7 +1666,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw">if let </span>future::MaybeDone::Done(<span class="kw">_</span>) = deadline { <span class="bool-val">true </span>} <span class="kw">else </span>{ !must_wait_more };
 
 				<span class="kw">if </span>is_done {
-					<span class="comment">// Requests in &quot;fail&quot; mode are purged before returning.
+					<span class="comment">// Requests in "fail" mode are purged before returning.
 					</span><span class="macro">debug_assert_eq!</span>(output.len(), ids.len());
 					<span class="kw">for </span>n <span class="kw">in </span>(<span class="number">0</span>..ids.len()).rev() {
 						<span class="kw">match </span>output[n] {
@@ -1672,13 +1674,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 								<span class="self">self</span>.requests.remove(<span class="kw-2">&amp;</span>ids[n]);
 							},
 							HttpRequestStatus::Invalid =&gt; {
-								<span class="macro">tracing::debug!</span>(target: LOG_TARGET, id = %ids[n].<span class="number">0</span>, <span class="string">&quot;Unknown request&quot;</span>);
+								<span class="macro">tracing::debug!</span>(target: LOG_TARGET, id = %ids[n].<span class="number">0</span>, <span class="string">"Unknown request"</span>);
 							},
 							HttpRequestStatus::DeadlineReached =&gt; {
-								<span class="macro">tracing::debug!</span>(target: LOG_TARGET, id = %ids[n].<span class="number">0</span>, <span class="string">&quot;Deadline reached&quot;</span>);
+								<span class="macro">tracing::debug!</span>(target: LOG_TARGET, id = %ids[n].<span class="number">0</span>, <span class="string">"Deadline reached"</span>);
 							},
 							HttpRequestStatus::Finished(<span class="kw">_</span>) =&gt; {
-								<span class="macro">tracing::debug!</span>(target: LOG_TARGET, id = %ids[n].<span class="number">0</span>, <span class="string">&quot;Request finished&quot;</span>);
+								<span class="macro">tracing::debug!</span>(target: LOG_TARGET, id = %ids[n].<span class="number">0</span>, <span class="string">"Request finished"</span>);
 							},
 						}
 					}
@@ -1717,24 +1719,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						},
 						<span class="prelude-val">None </span>=&gt; {}, <span class="comment">// can happen if we detected an IO error when sending the body
 						</span><span class="kw">_ </span>=&gt; {
-							<span class="macro">tracing::error!</span>(target: <span class="string">&quot;offchain-worker::http&quot;</span>, <span class="string">&quot;State mismatch between the API and worker&quot;</span>)
+							<span class="macro">tracing::error!</span>(target: <span class="string">"offchain-worker::http"</span>, <span class="string">"State mismatch between the API and worker"</span>)
 						},
 					}
 				},
 
 				<span class="prelude-val">Some</span>(WorkerToApi::Fail { id, error }) =&gt; <span class="kw">match </span><span class="self">self</span>.requests.remove(<span class="kw-2">&amp;</span>id) {
 					<span class="prelude-val">Some</span>(HttpApiRequest::Dispatched(<span class="kw">_</span>)) =&gt; {
-						<span class="macro">tracing::debug!</span>(target: LOG_TARGET, id = %id.<span class="number">0</span>, <span class="question-mark">?</span>error, <span class="string">&quot;Request failed&quot;</span>);
+						<span class="macro">tracing::debug!</span>(target: LOG_TARGET, id = %id.<span class="number">0</span>, <span class="question-mark">?</span>error, <span class="string">"Request failed"</span>);
 						<span class="self">self</span>.requests.insert(id, HttpApiRequest::Fail(error));
 					},
 					<span class="prelude-val">None </span>=&gt; {}, <span class="comment">// can happen if we detected an IO error when sending the body
 					</span><span class="kw">_ </span>=&gt; {
-						<span class="macro">tracing::error!</span>(target: <span class="string">&quot;offchain-worker::http&quot;</span>, <span class="string">&quot;State mismatch between the API and worker&quot;</span>)
+						<span class="macro">tracing::error!</span>(target: <span class="string">"offchain-worker::http"</span>, <span class="string">"State mismatch between the API and worker"</span>)
 					},
 				},
 
 				<span class="prelude-val">None </span>=&gt; {
-					<span class="macro">tracing::error!</span>(target: <span class="string">&quot;offchain-worker::http&quot;</span>, <span class="string">&quot;Worker has crashed&quot;</span>);
+					<span class="macro">tracing::error!</span>(target: <span class="string">"offchain-worker::http"</span>, <span class="string">"Worker has crashed"</span>);
 					<span class="kw">return </span>ids.iter().map(|<span class="kw">_</span>| HttpRequestStatus::IoError).collect()
 				},
 			}
@@ -1772,14 +1774,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">let </span><span class="kw-2">mut </span>response = <span class="kw">match </span><span class="self">self</span>.requests.remove(<span class="kw-2">&amp;</span>request_id) {
 			<span class="prelude-val">Some</span>(HttpApiRequest::Response(r)) =&gt; r,
 			<span class="comment">// Because we called `response_wait` above, we know that the deadline has been reached
-			// and we still haven&#39;t received a response.
+			// and we still haven't received a response.
 			</span><span class="prelude-val">Some</span>(rq @ HttpApiRequest::Dispatched(<span class="kw">_</span>)) =&gt; {
 				<span class="self">self</span>.requests.insert(request_id, rq);
 				<span class="kw">return </span><span class="prelude-val">Err</span>(HttpError::DeadlineReached)
 			},
 			<span class="comment">// The request has failed.
 			</span><span class="prelude-val">Some</span>(HttpApiRequest::Fail { .. }) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(HttpError::IoError),
-			<span class="comment">// Request hasn&#39;t been dispatched yet; reading the body is invalid.
+			<span class="comment">// Request hasn't been dispatched yet; reading the body is invalid.
 			</span><span class="prelude-val">Some</span>(rq @ HttpApiRequest::NotDispatched(<span class="kw">_</span>, <span class="kw">_</span>)) =&gt; {
 				<span class="self">self</span>.requests.insert(request_id, rq);
 				<span class="kw">return </span><span class="prelude-val">Err</span>(HttpError::Invalid)
@@ -1806,8 +1808,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="kw">return </span><span class="prelude-val">Ok</span>(n)
 					},
 					<span class="prelude-val">Err</span>(err) =&gt; {
-						<span class="comment">// This code should never be reached unless there&#39;s a logic error somewhere.
-						</span><span class="macro">tracing::error!</span>(target: <span class="string">&quot;offchain-worker::http&quot;</span>, <span class="string">&quot;Failed to read from current read chunk: {:?}&quot;</span>, err);
+						<span class="comment">// This code should never be reached unless there's a logic error somewhere.
+						</span><span class="macro">tracing::error!</span>(target: <span class="string">"offchain-worker::http"</span>, <span class="string">"Failed to read from current read chunk: {:?}"</span>, err);
 						<span class="kw">return </span><span class="prelude-val">Err</span>(HttpError::IoError)
 					},
 				}
@@ -1845,14 +1847,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter) -&gt; fmt::Result {
 		<span class="kw">match </span><span class="self">self </span>{
 			HttpApiRequest::NotDispatched(<span class="kw">_</span>, <span class="kw">_</span>) =&gt;
-				f.debug_tuple(<span class="string">&quot;HttpApiRequest::NotDispatched&quot;</span>).finish(),
-			HttpApiRequest::Dispatched(<span class="kw">_</span>) =&gt; f.debug_tuple(<span class="string">&quot;HttpApiRequest::Dispatched&quot;</span>).finish(),
+				f.debug_tuple(<span class="string">"HttpApiRequest::NotDispatched"</span>).finish(),
+			HttpApiRequest::Dispatched(<span class="kw">_</span>) =&gt; f.debug_tuple(<span class="string">"HttpApiRequest::Dispatched"</span>).finish(),
 			HttpApiRequest::Response(HttpApiRequestRp { status_code, headers, .. }) =&gt; f
-				.debug_tuple(<span class="string">&quot;HttpApiRequest::Response&quot;</span>)
+				.debug_tuple(<span class="string">"HttpApiRequest::Response"</span>)
 				.field(status_code)
 				.field(headers)
 				.finish(),
-			HttpApiRequest::Fail(err) =&gt; f.debug_tuple(<span class="string">&quot;HttpApiRequest::Fail&quot;</span>).field(err).finish(),
+			HttpApiRequest::Fail(err) =&gt; f.debug_tuple(<span class="string">"HttpApiRequest::Fail"</span>).field(err).finish(),
 		}
 	}
 }
@@ -1880,7 +1882,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>headers: hyper::HeaderMap,
 		<span class="doccomment">/// Body of the response, as a channel of `Chunk` objects.
 		/// We send the body back through a channel instead of returning the hyper `Body` object
-		/// because we don&#39;t want the `HttpApi` to have to drive the reading.
+		/// because we don't want the `HttpApi` to have to drive the reading.
 		/// Instead, reading an item from the channel will notify the worker task, which will push
 		/// the next item.
 		/// Can also be used to send an error, in case an error happened on the HTTP socket. After
@@ -1927,7 +1929,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>poll(<span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context) -&gt; Poll&lt;<span class="self">Self</span>::Output&gt; {
 		<span class="comment">// Reminder: this is continuously run in the background.
 
-		// We use a `me` variable because the compiler isn&#39;t smart enough to allow borrowing
+		// We use a `me` variable because the compiler isn't smart enough to allow borrowing
 		// multiple fields at once through a `Deref`.
 		</span><span class="kw">let </span>me = <span class="kw-2">&amp;mut *</span><span class="self">self</span>;
 
@@ -1945,7 +1947,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						Poll::Ready(<span class="prelude-val">Ok</span>(response)) =&gt; response,
 						Poll::Ready(<span class="prelude-val">Err</span>(error)) =&gt; {
 							<span class="kw">let _ </span>= me.to_api.unbounded_send(WorkerToApi::Fail { id, error });
-							<span class="kw">continue </span><span class="comment">// don&#39;t insert the request back
+							<span class="kw">continue </span><span class="comment">// don't insert the request back
 						</span>},
 					};
 
@@ -1971,7 +1973,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					// a new chunk.
 					</span><span class="kw">match </span>tx.poll_ready(cx) {
 						Poll::Ready(<span class="prelude-val">Ok</span>(())) =&gt; {},
-						Poll::Ready(<span class="prelude-val">Err</span>(<span class="kw">_</span>)) =&gt; <span class="kw">continue</span>, <span class="comment">// don&#39;t insert the request back
+						Poll::Ready(<span class="prelude-val">Err</span>(<span class="kw">_</span>)) =&gt; <span class="kw">continue</span>, <span class="comment">// don't insert the request back
 						</span>Poll::Pending =&gt; {
 							me.requests.push((id, HttpWorkerRequest::ReadBody { body, tx }));
 							<span class="kw">continue
@@ -1987,9 +1989,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						</span>},
 						Poll::Ready(<span class="prelude-val">Some</span>(<span class="prelude-val">Err</span>(err))) =&gt; {
 							<span class="kw">let _ </span>= tx.start_send(<span class="prelude-val">Err</span>(err));
-							<span class="comment">// don&#39;t insert the request back
+							<span class="comment">// don't insert the request back
 						</span>},
-						Poll::Ready(<span class="prelude-val">None</span>) =&gt; {}, <span class="comment">// EOF; don&#39;t insert the request back
+						Poll::Ready(<span class="prelude-val">None</span>) =&gt; {}, <span class="comment">// EOF; don't insert the request back
 						</span>Poll::Pending =&gt; {
 							me.requests.push((id, HttpWorkerRequest::ReadBody { body, tx }));
 						},
@@ -2024,9 +2026,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter) -&gt; fmt::Result {
 		<span class="kw">match </span><span class="self">self </span>{
 			HttpWorkerRequest::Dispatched(<span class="kw">_</span>) =&gt;
-				f.debug_tuple(<span class="string">&quot;HttpWorkerRequest::Dispatched&quot;</span>).finish(),
+				f.debug_tuple(<span class="string">"HttpWorkerRequest::Dispatched"</span>).finish(),
 			HttpWorkerRequest::ReadBody { .. } =&gt;
-				f.debug_tuple(<span class="string">&quot;HttpWorkerRequest::Response&quot;</span>).finish(),
+				f.debug_tuple(<span class="string">"HttpWorkerRequest::Response"</span>).finish(),
 		}
 	}
 }
@@ -2053,7 +2055,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	// server that runs in the background as well.
 	</span><span class="macro">macro_rules! </span>build_api_server {
 		() =&gt; {
-			<span class="macro">build_api_server!</span>(hyper::Response::new(hyper::Body::from(<span class="string">&quot;Hello World!&quot;</span>)))
+			<span class="macro">build_api_server!</span>(hyper::Response::new(hyper::Body::from(<span class="string">"Hello World!"</span>)))
 		};
 		( <span class="macro-nonterminal">$response</span>:expr ) =&gt; {{
 			<span class="kw">let </span>hyper_client = SHARED_CLIENT.clone();
@@ -2064,7 +2066,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">let </span>rt = tokio::runtime::Runtime::new().unwrap();
 				<span class="kw">let </span>worker = rt.spawn(worker);
 				<span class="kw">let </span>server = rt.spawn(<span class="kw">async move </span>{
-					<span class="kw">let </span>server = hyper::Server::bind(<span class="kw-2">&amp;</span><span class="string">&quot;127.0.0.1:0&quot;</span>.parse().unwrap()).serve(
+					<span class="kw">let </span>server = hyper::Server::bind(<span class="kw-2">&amp;</span><span class="string">"127.0.0.1:0"</span>.parse().unwrap()).serve(
 						hyper::service::make_service_fn(|<span class="kw">_</span>| <span class="kw">async move </span>{
 							<span class="prelude-val">Ok</span>::&lt;<span class="kw">_</span>, Infallible&gt;(hyper::service::service_fn(
 								<span class="kw">move </span>|req: hyper::Request&lt;hyper::Body&gt;| <span class="kw">async move </span>{
@@ -2094,20 +2096,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		</span><span class="kw">let </span>(<span class="kw-2">mut </span>api, addr) = <span class="macro">build_api_server!</span>();
 
-		<span class="kw">let </span>id = api.request_start(<span class="string">&quot;POST&quot;</span>, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;http://{}&quot;</span>, addr)).unwrap();
+		<span class="kw">let </span>id = api.request_start(<span class="string">"POST"</span>, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"http://{}"</span>, addr)).unwrap();
 		api.request_write_body(id, <span class="kw-2">&amp;</span>[], <span class="prelude-val">Some</span>(deadline)).unwrap();
 
 		<span class="kw">match </span>api.response_wait(<span class="kw-2">&amp;</span>[id], <span class="prelude-val">Some</span>(deadline))[<span class="number">0</span>] {
 			HttpRequestStatus::Finished(<span class="number">200</span>) =&gt; {},
-			v =&gt; <span class="macro">panic!</span>(<span class="string">&quot;Connecting to localhost failed: {:?}&quot;</span>, v),
+			v =&gt; <span class="macro">panic!</span>(<span class="string">"Connecting to localhost failed: {:?}"</span>, v),
 		}
 
 		<span class="kw">let </span>headers = api.response_headers(id);
-		<span class="macro">assert!</span>(headers.iter().any(|(h, <span class="kw">_</span>)| h.eq_ignore_ascii_case(<span class="string">b&quot;Date&quot;</span>)));
+		<span class="macro">assert!</span>(headers.iter().any(|(h, <span class="kw">_</span>)| h.eq_ignore_ascii_case(<span class="string">b"Date"</span>)));
 
 		<span class="kw">let </span><span class="kw-2">mut </span>buf = <span class="macro">vec!</span>[<span class="number">0</span>; <span class="number">2048</span>];
 		<span class="kw">let </span>n = api.response_read_body(id, <span class="kw-2">&amp;mut </span>buf, <span class="prelude-val">Some</span>(deadline)).unwrap();
-		<span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span>buf[..n], <span class="string">b&quot;Hello World!&quot;</span>);
+		<span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span>buf[..n], <span class="string">b"Hello World!"</span>);
 	}
 
 	<span class="attr">#[test]
@@ -2118,35 +2120,35 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		</span><span class="kw">let </span>(<span class="kw-2">mut </span>api, addr) = <span class="macro">build_api_server!</span>(hyper::Response::builder()
 			.version(hyper::Version::HTTP_2)
-			.body(hyper::Body::from(<span class="string">&quot;Hello World!&quot;</span>))
+			.body(hyper::Body::from(<span class="string">"Hello World!"</span>))
 			.unwrap());
 
-		<span class="kw">let </span>id = api.request_start(<span class="string">&quot;POST&quot;</span>, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;http://{}&quot;</span>, addr)).unwrap();
+		<span class="kw">let </span>id = api.request_start(<span class="string">"POST"</span>, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"http://{}"</span>, addr)).unwrap();
 		api.request_write_body(id, <span class="kw-2">&amp;</span>[], <span class="prelude-val">Some</span>(deadline)).unwrap();
 
 		<span class="kw">match </span>api.response_wait(<span class="kw-2">&amp;</span>[id], <span class="prelude-val">Some</span>(deadline))[<span class="number">0</span>] {
 			HttpRequestStatus::Finished(<span class="number">200</span>) =&gt; {},
-			v =&gt; <span class="macro">panic!</span>(<span class="string">&quot;Connecting to localhost failed: {:?}&quot;</span>, v),
+			v =&gt; <span class="macro">panic!</span>(<span class="string">"Connecting to localhost failed: {:?}"</span>, v),
 		}
 
 		<span class="kw">let </span>headers = api.response_headers(id);
-		<span class="macro">assert!</span>(headers.iter().any(|(h, <span class="kw">_</span>)| h.eq_ignore_ascii_case(<span class="string">b&quot;Date&quot;</span>)));
+		<span class="macro">assert!</span>(headers.iter().any(|(h, <span class="kw">_</span>)| h.eq_ignore_ascii_case(<span class="string">b"Date"</span>)));
 
 		<span class="kw">let </span><span class="kw-2">mut </span>buf = <span class="macro">vec!</span>[<span class="number">0</span>; <span class="number">2048</span>];
 		<span class="kw">let </span>n = api.response_read_body(id, <span class="kw-2">&amp;mut </span>buf, <span class="prelude-val">Some</span>(deadline)).unwrap();
-		<span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span>buf[..n], <span class="string">b&quot;Hello World!&quot;</span>);
+		<span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span>buf[..n], <span class="string">b"Hello World!"</span>);
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>request_start_invalid_call() {
 		<span class="kw">let </span>(<span class="kw-2">mut </span>api, addr) = <span class="macro">build_api_server!</span>();
 
-		<span class="kw">match </span>api.request_start(<span class="string">&quot;\0&quot;</span>, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;http://{}&quot;</span>, addr)) {
+		<span class="kw">match </span>api.request_start(<span class="string">"\0"</span>, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"http://{}"</span>, addr)) {
 			<span class="prelude-val">Err</span>(()) =&gt; {},
 			<span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; <span class="macro">panic!</span>(),
 		};
 
-		<span class="kw">match </span>api.request_start(<span class="string">&quot;GET&quot;</span>, <span class="string">&quot;http://\0localhost&quot;</span>) {
+		<span class="kw">match </span>api.request_start(<span class="string">"GET"</span>, <span class="string">"http://\0localhost"</span>) {
 			<span class="prelude-val">Err</span>(()) =&gt; {},
 			<span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; <span class="macro">panic!</span>(),
 		};
@@ -2156,41 +2158,41 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>request_add_header_invalid_call() {
 		<span class="kw">let </span>(<span class="kw-2">mut </span>api, addr) = <span class="macro">build_api_server!</span>();
 
-		<span class="kw">match </span>api.request_add_header(HttpRequestId(<span class="number">0xdead</span>), <span class="string">&quot;Foo&quot;</span>, <span class="string">&quot;bar&quot;</span>) {
+		<span class="kw">match </span>api.request_add_header(HttpRequestId(<span class="number">0xdead</span>), <span class="string">"Foo"</span>, <span class="string">"bar"</span>) {
 			<span class="prelude-val">Err</span>(()) =&gt; {},
 			<span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; <span class="macro">panic!</span>(),
 		};
 
-		<span class="kw">let </span>id = api.request_start(<span class="string">&quot;GET&quot;</span>, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;http://{}&quot;</span>, addr)).unwrap();
-		<span class="kw">match </span>api.request_add_header(id, <span class="string">&quot;\0&quot;</span>, <span class="string">&quot;bar&quot;</span>) {
+		<span class="kw">let </span>id = api.request_start(<span class="string">"GET"</span>, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"http://{}"</span>, addr)).unwrap();
+		<span class="kw">match </span>api.request_add_header(id, <span class="string">"\0"</span>, <span class="string">"bar"</span>) {
 			<span class="prelude-val">Err</span>(()) =&gt; {},
 			<span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; <span class="macro">panic!</span>(),
 		};
 
-		<span class="kw">let </span>id = api.request_start(<span class="string">&quot;POST&quot;</span>, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;http://{}&quot;</span>, addr)).unwrap();
-		<span class="kw">match </span>api.request_add_header(id, <span class="string">&quot;Foo&quot;</span>, <span class="string">&quot;\0&quot;</span>) {
+		<span class="kw">let </span>id = api.request_start(<span class="string">"POST"</span>, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"http://{}"</span>, addr)).unwrap();
+		<span class="kw">match </span>api.request_add_header(id, <span class="string">"Foo"</span>, <span class="string">"\0"</span>) {
 			<span class="prelude-val">Err</span>(()) =&gt; {},
 			<span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; <span class="macro">panic!</span>(),
 		};
 
-		<span class="kw">let </span>id = api.request_start(<span class="string">&quot;POST&quot;</span>, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;http://{}&quot;</span>, addr)).unwrap();
-		api.request_add_header(id, <span class="string">&quot;Foo&quot;</span>, <span class="string">&quot;Bar&quot;</span>).unwrap();
+		<span class="kw">let </span>id = api.request_start(<span class="string">"POST"</span>, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"http://{}"</span>, addr)).unwrap();
+		api.request_add_header(id, <span class="string">"Foo"</span>, <span class="string">"Bar"</span>).unwrap();
 		api.request_write_body(id, <span class="kw-2">&amp;</span>[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>], <span class="prelude-val">None</span>).unwrap();
-		<span class="kw">match </span>api.request_add_header(id, <span class="string">&quot;Foo2&quot;</span>, <span class="string">&quot;Bar&quot;</span>) {
+		<span class="kw">match </span>api.request_add_header(id, <span class="string">"Foo2"</span>, <span class="string">"Bar"</span>) {
 			<span class="prelude-val">Err</span>(()) =&gt; {},
 			<span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; <span class="macro">panic!</span>(),
 		};
 
-		<span class="kw">let </span>id = api.request_start(<span class="string">&quot;GET&quot;</span>, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;http://{}&quot;</span>, addr)).unwrap();
+		<span class="kw">let </span>id = api.request_start(<span class="string">"GET"</span>, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"http://{}"</span>, addr)).unwrap();
 		api.response_headers(id);
-		<span class="kw">match </span>api.request_add_header(id, <span class="string">&quot;Foo2&quot;</span>, <span class="string">&quot;Bar&quot;</span>) {
+		<span class="kw">match </span>api.request_add_header(id, <span class="string">"Foo2"</span>, <span class="string">"Bar"</span>) {
 			<span class="prelude-val">Err</span>(()) =&gt; {},
 			<span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; <span class="macro">panic!</span>(),
 		};
 
-		<span class="kw">let </span>id = api.request_start(<span class="string">&quot;GET&quot;</span>, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;http://{}&quot;</span>, addr)).unwrap();
+		<span class="kw">let </span>id = api.request_start(<span class="string">"GET"</span>, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"http://{}"</span>, addr)).unwrap();
 		api.response_read_body(id, <span class="kw-2">&amp;mut </span>[], <span class="prelude-val">None</span>).unwrap();
-		<span class="kw">match </span>api.request_add_header(id, <span class="string">&quot;Foo2&quot;</span>, <span class="string">&quot;Bar&quot;</span>) {
+		<span class="kw">match </span>api.request_add_header(id, <span class="string">"Foo2"</span>, <span class="string">"Bar"</span>) {
 			<span class="prelude-val">Err</span>(()) =&gt; {},
 			<span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; <span class="macro">panic!</span>(),
 		};
@@ -2210,7 +2212,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(),
 		};
 
-		<span class="kw">let </span>id = api.request_start(<span class="string">&quot;POST&quot;</span>, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;http://{}&quot;</span>, addr)).unwrap();
+		<span class="kw">let </span>id = api.request_start(<span class="string">"POST"</span>, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"http://{}"</span>, addr)).unwrap();
 		api.request_write_body(id, <span class="kw-2">&amp;</span>[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>], <span class="prelude-val">None</span>).unwrap();
 		api.request_write_body(id, <span class="kw-2">&amp;</span>[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>], <span class="prelude-val">None</span>).unwrap();
 		api.request_write_body(id, <span class="kw-2">&amp;</span>[], <span class="prelude-val">None</span>).unwrap();
@@ -2219,7 +2221,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(),
 		};
 
-		<span class="kw">let </span>id = api.request_start(<span class="string">&quot;POST&quot;</span>, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;http://{}&quot;</span>, addr)).unwrap();
+		<span class="kw">let </span>id = api.request_start(<span class="string">"POST"</span>, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"http://{}"</span>, addr)).unwrap();
 		api.request_write_body(id, <span class="kw-2">&amp;</span>[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>], <span class="prelude-val">None</span>).unwrap();
 		api.request_write_body(id, <span class="kw-2">&amp;</span>[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>], <span class="prelude-val">None</span>).unwrap();
 		api.request_write_body(id, <span class="kw-2">&amp;</span>[], <span class="prelude-val">None</span>).unwrap();
@@ -2228,7 +2230,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(),
 		};
 
-		<span class="kw">let </span>id = api.request_start(<span class="string">&quot;POST&quot;</span>, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;http://{}&quot;</span>, addr)).unwrap();
+		<span class="kw">let </span>id = api.request_start(<span class="string">"POST"</span>, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"http://{}"</span>, addr)).unwrap();
 		api.request_write_body(id, <span class="kw-2">&amp;</span>[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>], <span class="prelude-val">None</span>).unwrap();
 		api.response_wait(<span class="kw-2">&amp;</span>[id], <span class="prelude-val">None</span>);
 		<span class="kw">match </span>api.request_write_body(id, <span class="kw-2">&amp;</span>[], <span class="prelude-val">None</span>) {
@@ -2236,7 +2238,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(),
 		};
 
-		<span class="kw">let </span>id = api.request_start(<span class="string">&quot;POST&quot;</span>, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;http://{}&quot;</span>, addr)).unwrap();
+		<span class="kw">let </span>id = api.request_start(<span class="string">"POST"</span>, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"http://{}"</span>, addr)).unwrap();
 		api.request_write_body(id, <span class="kw-2">&amp;</span>[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>], <span class="prelude-val">None</span>).unwrap();
 		api.response_wait(<span class="kw-2">&amp;</span>[id], <span class="prelude-val">None</span>);
 		<span class="kw">match </span>api.request_write_body(id, <span class="kw-2">&amp;</span>[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>], <span class="prelude-val">None</span>) {
@@ -2244,28 +2246,28 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(),
 		};
 
-		<span class="kw">let </span>id = api.request_start(<span class="string">&quot;POST&quot;</span>, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;http://{}&quot;</span>, addr)).unwrap();
+		<span class="kw">let </span>id = api.request_start(<span class="string">"POST"</span>, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"http://{}"</span>, addr)).unwrap();
 		api.response_headers(id);
 		<span class="kw">match </span>api.request_write_body(id, <span class="kw-2">&amp;</span>[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>], <span class="prelude-val">None</span>) {
 			<span class="prelude-val">Err</span>(HttpError::Invalid) =&gt; {},
 			<span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(),
 		};
 
-		<span class="kw">let </span>id = api.request_start(<span class="string">&quot;GET&quot;</span>, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;http://{}&quot;</span>, addr)).unwrap();
+		<span class="kw">let </span>id = api.request_start(<span class="string">"GET"</span>, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"http://{}"</span>, addr)).unwrap();
 		api.response_headers(id);
 		<span class="kw">match </span>api.request_write_body(id, <span class="kw-2">&amp;</span>[], <span class="prelude-val">None</span>) {
 			<span class="prelude-val">Err</span>(HttpError::Invalid) =&gt; {},
 			<span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(),
 		};
 
-		<span class="kw">let </span>id = api.request_start(<span class="string">&quot;POST&quot;</span>, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;http://{}&quot;</span>, addr)).unwrap();
+		<span class="kw">let </span>id = api.request_start(<span class="string">"POST"</span>, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"http://{}"</span>, addr)).unwrap();
 		api.response_read_body(id, <span class="kw-2">&amp;mut </span>[], <span class="prelude-val">None</span>).unwrap();
 		<span class="kw">match </span>api.request_write_body(id, <span class="kw-2">&amp;</span>[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>], <span class="prelude-val">None</span>) {
 			<span class="prelude-val">Err</span>(HttpError::Invalid) =&gt; {},
 			<span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(),
 		};
 
-		<span class="kw">let </span>id = api.request_start(<span class="string">&quot;POST&quot;</span>, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;http://{}&quot;</span>, addr)).unwrap();
+		<span class="kw">let </span>id = api.request_start(<span class="string">"POST"</span>, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"http://{}"</span>, addr)).unwrap();
 		api.response_read_body(id, <span class="kw-2">&amp;mut </span>[], <span class="prelude-val">None</span>).unwrap();
 		<span class="kw">match </span>api.request_write_body(id, <span class="kw-2">&amp;</span>[], <span class="prelude-val">None</span>) {
 			<span class="prelude-val">Err</span>(HttpError::Invalid) =&gt; {},
@@ -2278,20 +2280,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>(<span class="kw-2">mut </span>api, addr) = <span class="macro">build_api_server!</span>();
 		<span class="macro">assert_eq!</span>(api.response_headers(HttpRequestId(<span class="number">0xdead</span>)), <span class="kw-2">&amp;</span>[]);
 
-		<span class="kw">let </span>id = api.request_start(<span class="string">&quot;POST&quot;</span>, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;http://{}&quot;</span>, addr)).unwrap();
+		<span class="kw">let </span>id = api.request_start(<span class="string">"POST"</span>, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"http://{}"</span>, addr)).unwrap();
 		<span class="macro">assert_eq!</span>(api.response_headers(id), <span class="kw-2">&amp;</span>[]);
 
-		<span class="kw">let </span>id = api.request_start(<span class="string">&quot;POST&quot;</span>, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;http://{}&quot;</span>, addr)).unwrap();
+		<span class="kw">let </span>id = api.request_start(<span class="string">"POST"</span>, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"http://{}"</span>, addr)).unwrap();
 		api.request_write_body(id, <span class="kw-2">&amp;</span>[], <span class="prelude-val">None</span>).unwrap();
 		<span class="kw">while </span>api.response_headers(id).is_empty() {
 			std::thread::sleep(std::time::Duration::from_millis(<span class="number">100</span>));
 		}
 
-		<span class="kw">let </span>id = api.request_start(<span class="string">&quot;GET&quot;</span>, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;http://{}&quot;</span>, addr)).unwrap();
+		<span class="kw">let </span>id = api.request_start(<span class="string">"GET"</span>, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"http://{}"</span>, addr)).unwrap();
 		api.response_wait(<span class="kw-2">&amp;</span>[id], <span class="prelude-val">None</span>);
 		<span class="macro">assert_ne!</span>(api.response_headers(id), <span class="kw-2">&amp;</span>[]);
 
-		<span class="kw">let </span>id = api.request_start(<span class="string">&quot;GET&quot;</span>, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;http://{}&quot;</span>, addr)).unwrap();
+		<span class="kw">let </span>id = api.request_start(<span class="string">"GET"</span>, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"http://{}"</span>, addr)).unwrap();
 		<span class="kw">let </span><span class="kw-2">mut </span>buf = [<span class="number">0</span>; <span class="number">128</span>];
 		<span class="kw">while </span>api.response_read_body(id, <span class="kw-2">&amp;mut </span>buf, <span class="prelude-val">None</span>).unwrap() != <span class="number">0 </span>{}
 		<span class="macro">assert_eq!</span>(api.response_headers(id), <span class="kw-2">&amp;</span>[]);
@@ -2301,18 +2303,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>response_header_invalid_call() {
 		<span class="kw">let </span>(<span class="kw-2">mut </span>api, addr) = <span class="macro">build_api_server!</span>();
 
-		<span class="kw">let </span>id = api.request_start(<span class="string">&quot;POST&quot;</span>, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;http://{}&quot;</span>, addr)).unwrap();
+		<span class="kw">let </span>id = api.request_start(<span class="string">"POST"</span>, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"http://{}"</span>, addr)).unwrap();
 		<span class="macro">assert_eq!</span>(api.response_headers(id), <span class="kw-2">&amp;</span>[]);
 
-		<span class="kw">let </span>id = api.request_start(<span class="string">&quot;POST&quot;</span>, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;http://{}&quot;</span>, addr)).unwrap();
-		api.request_add_header(id, <span class="string">&quot;Foo&quot;</span>, <span class="string">&quot;Bar&quot;</span>).unwrap();
+		<span class="kw">let </span>id = api.request_start(<span class="string">"POST"</span>, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"http://{}"</span>, addr)).unwrap();
+		api.request_add_header(id, <span class="string">"Foo"</span>, <span class="string">"Bar"</span>).unwrap();
 		<span class="macro">assert_eq!</span>(api.response_headers(id), <span class="kw-2">&amp;</span>[]);
 
-		<span class="kw">let </span>id = api.request_start(<span class="string">&quot;GET&quot;</span>, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;http://{}&quot;</span>, addr)).unwrap();
-		api.request_add_header(id, <span class="string">&quot;Foo&quot;</span>, <span class="string">&quot;Bar&quot;</span>).unwrap();
+		<span class="kw">let </span>id = api.request_start(<span class="string">"GET"</span>, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"http://{}"</span>, addr)).unwrap();
+		api.request_add_header(id, <span class="string">"Foo"</span>, <span class="string">"Bar"</span>).unwrap();
 		api.request_write_body(id, <span class="kw-2">&amp;</span>[], <span class="prelude-val">None</span>).unwrap();
 		<span class="comment">// Note: this test actually sends out the request, and is supposed to test a situation
-		// where we haven&#39;t received any response yet. This test can theoretically fail if the
+		// where we haven't received any response yet. This test can theoretically fail if the
 		// HTTP response comes back faster than the kernel schedules our thread, but that is highly
 		// unlikely.
 		</span><span class="macro">assert_eq!</span>(api.response_headers(id), <span class="kw-2">&amp;</span>[]);
@@ -2328,7 +2330,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(),
 		}
 
-		<span class="kw">let </span>id = api.request_start(<span class="string">&quot;GET&quot;</span>, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;http://{}&quot;</span>, addr)).unwrap();
+		<span class="kw">let </span>id = api.request_start(<span class="string">"GET"</span>, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"http://{}"</span>, addr)).unwrap();
 		<span class="kw">while </span>api.response_read_body(id, <span class="kw-2">&amp;mut </span>buf, <span class="prelude-val">None</span>).unwrap() != <span class="number">0 </span>{}
 		<span class="kw">match </span>api.response_read_body(id, <span class="kw-2">&amp;mut </span>buf, <span class="prelude-val">None</span>) {
 			<span class="prelude-val">Err</span>(HttpError::Invalid) =&gt; {},
@@ -2339,18 +2341,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>fuzzing() {
 		<span class="comment">// Uses the API in random ways to try to trigger panics.
-		// Doesn&#39;t test some paths, such as waiting for multiple requests. Also doesn&#39;t test what
+		// Doesn't test some paths, such as waiting for multiple requests. Also doesn't test what
 		// happens if the server force-closes our socket.
 
 		</span><span class="kw">let </span>(<span class="kw-2">mut </span>api, addr) = <span class="macro">build_api_server!</span>();
 
 		<span class="kw">for _ in </span><span class="number">0</span>..<span class="number">50 </span>{
-			<span class="kw">let </span>id = api.request_start(<span class="string">&quot;POST&quot;</span>, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;http://{}&quot;</span>, addr)).unwrap();
+			<span class="kw">let </span>id = api.request_start(<span class="string">"POST"</span>, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"http://{}"</span>, addr)).unwrap();
 
 			<span class="kw">for _ in </span><span class="number">0</span>..<span class="number">250 </span>{
 				<span class="kw">match </span>rand::random::&lt;u8&gt;() % <span class="number">6 </span>{
 					<span class="number">0 </span>=&gt; {
-						<span class="kw">let _ </span>= api.request_add_header(id, <span class="string">&quot;Foo&quot;</span>, <span class="string">&quot;Bar&quot;</span>);
+						<span class="kw">let _ </span>= api.request_add_header(id, <span class="string">"Foo"</span>, <span class="string">"Bar"</span>);
 					},
 					<span class="number">1 </span>=&gt; {
 						<span class="kw">let _ </span>= api.request_write_body(id, <span class="kw-2">&amp;</span>[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>], <span class="prelude-val">None</span>);
@@ -2388,7 +2390,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			});
 		}
 
-		<span class="comment">// Check that the http client wasn&#39;t initialized, because it wasn&#39;t used.
+		<span class="comment">// Check that the http client wasn't initialized, because it wasn't used.
 		</span><span class="macro">assert!</span>(Lazy::into_value(Arc::try_unwrap(shared_client.<span class="number">0</span>).unwrap()).is_err());
 
 		<span class="kw">let </span>shared_client = SharedClient::new();
@@ -2396,7 +2398,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		{
 			<span class="kw">let </span>mock = Arc::new(TestNetwork());
 			<span class="kw">let </span>(<span class="kw-2">mut </span>api, async_api) = AsyncApi::new(mock, <span class="bool-val">false</span>, shared_client.clone());
-			<span class="kw">let </span>id = api.http_request_start(<span class="string">&quot;lol&quot;</span>, <span class="string">&quot;nope&quot;</span>, <span class="kw-2">&amp;</span>[]).unwrap();
+			<span class="kw">let </span>id = api.http_request_start(<span class="string">"lol"</span>, <span class="string">"nope"</span>, <span class="kw-2">&amp;</span>[]).unwrap();
 			api.http_request_write_body(id, <span class="kw-2">&amp;</span>[], <span class="prelude-val">None</span>).unwrap();
 			futures::executor::block_on(<span class="kw">async move </span>{
 				<span class="macro">assert!</span>(<span class="macro">futures::poll!</span>(async_api.process()).is_pending());

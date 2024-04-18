@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/tracing/src/types.rs`."><title>types.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/tracing/src/types.rs`."><title>types.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_tracing" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_tracing" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sp_tracing/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -821,14 +823,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -893,26 +895,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl </span>core::fmt::Debug <span class="kw">for </span>WasmValue {
 	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter) -&gt; core::fmt::Result {
 		<span class="kw">match </span><span class="self">self </span>{
-			WasmValue::U8(<span class="kw-2">ref </span>i) =&gt; f.write_fmt(<span class="macro">format_args!</span>(<span class="string">&quot;{}_u8&quot;</span>, i)),
-			WasmValue::I8(<span class="kw-2">ref </span>i) =&gt; f.write_fmt(<span class="macro">format_args!</span>(<span class="string">&quot;{}_i8&quot;</span>, i)),
-			WasmValue::U32(<span class="kw-2">ref </span>i) =&gt; f.write_fmt(<span class="macro">format_args!</span>(<span class="string">&quot;{}_u32&quot;</span>, i)),
-			WasmValue::I32(<span class="kw-2">ref </span>i) =&gt; f.write_fmt(<span class="macro">format_args!</span>(<span class="string">&quot;{}_i32&quot;</span>, i)),
-			WasmValue::I64(<span class="kw-2">ref </span>i) =&gt; f.write_fmt(<span class="macro">format_args!</span>(<span class="string">&quot;{}_i64&quot;</span>, i)),
-			WasmValue::U64(<span class="kw-2">ref </span>i) =&gt; f.write_fmt(<span class="macro">format_args!</span>(<span class="string">&quot;{}_u64&quot;</span>, i)),
-			WasmValue::Bool(<span class="kw-2">ref </span>i) =&gt; f.write_fmt(<span class="macro">format_args!</span>(<span class="string">&quot;{}_bool&quot;</span>, i)),
+			WasmValue::U8(<span class="kw-2">ref </span>i) =&gt; f.write_fmt(<span class="macro">format_args!</span>(<span class="string">"{}_u8"</span>, i)),
+			WasmValue::I8(<span class="kw-2">ref </span>i) =&gt; f.write_fmt(<span class="macro">format_args!</span>(<span class="string">"{}_i8"</span>, i)),
+			WasmValue::U32(<span class="kw-2">ref </span>i) =&gt; f.write_fmt(<span class="macro">format_args!</span>(<span class="string">"{}_u32"</span>, i)),
+			WasmValue::I32(<span class="kw-2">ref </span>i) =&gt; f.write_fmt(<span class="macro">format_args!</span>(<span class="string">"{}_i32"</span>, i)),
+			WasmValue::I64(<span class="kw-2">ref </span>i) =&gt; f.write_fmt(<span class="macro">format_args!</span>(<span class="string">"{}_i64"</span>, i)),
+			WasmValue::U64(<span class="kw-2">ref </span>i) =&gt; f.write_fmt(<span class="macro">format_args!</span>(<span class="string">"{}_u64"</span>, i)),
+			WasmValue::Bool(<span class="kw-2">ref </span>i) =&gt; f.write_fmt(<span class="macro">format_args!</span>(<span class="string">"{}_bool"</span>, i)),
 			WasmValue::Formatted(<span class="kw-2">ref </span>i) | WasmValue::Str(<span class="kw-2">ref </span>i) =&gt; {
 				<span class="kw">if let </span><span class="prelude-val">Ok</span>(v) = core::str::from_utf8(i) {
-					f.write_fmt(<span class="macro">format_args!</span>(<span class="string">&quot;{}&quot;</span>, v))
+					f.write_fmt(<span class="macro">format_args!</span>(<span class="string">"{}"</span>, v))
 				} <span class="kw">else </span>{
-					f.write_fmt(<span class="macro">format_args!</span>(<span class="string">&quot;{:?}&quot;</span>, i))
+					f.write_fmt(<span class="macro">format_args!</span>(<span class="string">"{:?}"</span>, i))
 				}
 			},
 			WasmValue::Encoded(<span class="kw-2">ref </span>v) =&gt; {
-				f.write_str(<span class="string">&quot;Scale(&quot;</span>)<span class="question-mark">?</span>;
+				f.write_str(<span class="string">"Scale("</span>)<span class="question-mark">?</span>;
 				<span class="kw">for </span>byte <span class="kw">in </span>v {
-					f.write_fmt(<span class="macro">format_args!</span>(<span class="string">&quot;{:02x}&quot;</span>, byte))<span class="question-mark">?</span>;
+					f.write_fmt(<span class="macro">format_args!</span>(<span class="string">"{:02x}"</span>, byte))<span class="question-mark">?</span>;
 				}
-				f.write_str(<span class="string">&quot;)&quot;</span>)
+				f.write_str(<span class="string">")"</span>)
 			},
 		}
 	}
@@ -948,10 +950,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl </span>From&lt;core::fmt::Arguments&lt;<span class="lifetime">&#39;_</span>&gt;&gt; <span class="kw">for </span>WasmValue {
-	<span class="kw">fn </span>from(inp: core::fmt::Arguments&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; WasmValue {
+<span class="kw">impl </span>From&lt;core::fmt::Arguments&lt;<span class="lifetime">'_</span>&gt;&gt; <span class="kw">for </span>WasmValue {
+	<span class="kw">fn </span>from(inp: core::fmt::Arguments&lt;<span class="lifetime">'_</span>&gt;) -&gt; WasmValue {
 		<span class="kw">let </span><span class="kw-2">mut </span>buf = alloc::string::String::default();
-		core::fmt::write(<span class="kw-2">&amp;mut </span>buf, inp).expect(<span class="string">&quot;Writing of arguments doesn&#39;t fail&quot;</span>);
+		core::fmt::write(<span class="kw-2">&amp;mut </span>buf, inp).expect(<span class="string">"Writing of arguments doesn't fail"</span>);
 		WasmValue::Formatted(buf.into_bytes())
 	}
 }
@@ -1000,7 +1002,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// The name of a field provided as the argument name when constructing an
 /// `event!` or `span!`.
-/// Generally generated automatically via `stringify` from an `&#39;static &amp;str`.
+/// Generally generated automatically via `stringify` from an `'static &amp;str`.
 /// Likely print-able.
 </span><span class="attr">#[derive(Encode, Decode, Clone)]
 </span><span class="kw">pub struct </span>WasmFieldName(Vec&lt;u8&gt;);
@@ -1008,10 +1010,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl </span>core::fmt::Debug <span class="kw">for </span>WasmFieldName {
 	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter) -&gt; core::fmt::Result {
 		<span class="kw">if let </span><span class="prelude-val">Ok</span>(v) = core::str::from_utf8(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>) {
-			f.write_fmt(<span class="macro">format_args!</span>(<span class="string">&quot;{}&quot;</span>, v))
+			f.write_fmt(<span class="macro">format_args!</span>(<span class="string">"{}"</span>, v))
 		} <span class="kw">else </span>{
 			<span class="kw">for </span>byte <span class="kw">in </span><span class="self">self</span>.<span class="number">0</span>.iter() {
-				f.write_fmt(<span class="macro">format_args!</span>(<span class="string">&quot;{:02x}&quot;</span>, byte))<span class="question-mark">?</span>;
+				f.write_fmt(<span class="macro">format_args!</span>(<span class="string">"{:02x}"</span>, byte))<span class="question-mark">?</span>;
 			}
 			<span class="prelude-val">Ok</span>(())
 		}
@@ -1036,7 +1038,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl </span>WasmFields {
 	<span class="doccomment">/// Iterate over the fields
-	</span><span class="kw">pub fn </span>iter(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; core::slice::Iter&lt;<span class="lifetime">&#39;_</span>, WasmFieldName&gt; {
+	</span><span class="kw">pub fn </span>iter(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; core::slice::Iter&lt;<span class="lifetime">'_</span>, WasmFieldName&gt; {
 		<span class="self">self</span>.<span class="number">0</span>.iter()
 	}
 }
@@ -1073,7 +1075,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl </span>core::fmt::Debug <span class="kw">for </span>WasmValuesSet {
 	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter) -&gt; core::fmt::Result {
-		<span class="kw">let </span><span class="kw-2">mut </span>wrt = f.debug_struct(<span class="string">&quot;&quot;</span>);
+		<span class="kw">let </span><span class="kw-2">mut </span>wrt = f.debug_struct(<span class="string">""</span>);
 		<span class="kw">let </span><span class="kw-2">mut </span>non_str = <span class="bool-val">false</span>;
 		<span class="kw">for </span>(f, v) <span class="kw">in </span><span class="self">self</span>.<span class="number">0</span>.iter() {
 			<span class="kw">if let </span><span class="prelude-val">Ok</span>(s) = core::str::from_utf8(<span class="kw-2">&amp;</span>f.<span class="number">0</span>) {
@@ -1089,7 +1091,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// FIXME: replace with using `finish_non_exhaustive()` once stable
 		//        https://github.com/rust-lang/rust/issues/67364
 		</span><span class="kw">if </span>non_str {
-			wrt.field(<span class="string">&quot;..&quot;</span>, <span class="kw-2">&amp;</span><span class="string">&quot;..&quot;</span>);
+			wrt.field(<span class="string">".."</span>, <span class="kw-2">&amp;</span><span class="string">".."</span>);
 		}
 
 		wrt.finish()
@@ -1123,7 +1125,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl </span>tracing_core::field::Visit <span class="kw">for </span>WasmValuesSet {
 	<span class="kw">fn </span>record_debug(<span class="kw-2">&amp;mut </span><span class="self">self</span>, field: <span class="kw-2">&amp;</span>tracing_core::field::Field, value: <span class="kw-2">&amp;</span><span class="kw">dyn </span>Debug) {
 		<span class="self">self</span>.<span class="number">0
-			</span>.push((field.name().into(), <span class="prelude-val">Some</span>(WasmValue::from(<span class="macro">format_args!</span>(<span class="string">&quot;{:?}&quot;</span>, value)))))
+			</span>.push((field.name().into(), <span class="prelude-val">Some</span>(WasmValue::from(<span class="macro">format_args!</span>(<span class="string">"{:?}"</span>, value)))))
 	}
 	<span class="kw">fn </span>record_i64(<span class="kw-2">&amp;mut </span><span class="self">self</span>, field: <span class="kw-2">&amp;</span>tracing_core::field::Field, value: i64) {
 		<span class="self">self</span>.<span class="number">0</span>.push((field.name().into(), <span class="prelude-val">Some</span>(WasmValue::from(value))))
@@ -1142,17 +1144,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// `span!` or `event!` call on the wasm-side.
 </span><span class="attr">#[derive(Encode, Decode, Clone)]
 </span><span class="kw">pub struct </span>WasmMetadata {
-	<span class="doccomment">/// The name given to `event!`/`span!`, `&amp;&#39;static str` converted to bytes
+	<span class="doccomment">/// The name given to `event!`/`span!`, `&amp;'static str` converted to bytes
 	</span><span class="kw">pub </span>name: Vec&lt;u8&gt;,
-	<span class="doccomment">/// The given target to `event!`/`span!` – or module-name, `&amp;&#39;static str` converted to bytes
+	<span class="doccomment">/// The given target to `event!`/`span!` – or module-name, `&amp;'static str` converted to bytes
 	</span><span class="kw">pub </span>target: Vec&lt;u8&gt;,
 	<span class="doccomment">/// The level of this entry
 	</span><span class="kw">pub </span>level: WasmLevel,
-	<span class="doccomment">/// The file this was emitted from – useful for debugging;  `&amp;&#39;static str` converted to bytes
+	<span class="doccomment">/// The file this was emitted from – useful for debugging;  `&amp;'static str` converted to bytes
 	</span><span class="kw">pub </span>file: Vec&lt;u8&gt;,
 	<span class="doccomment">/// The specific line number in the file – useful for debugging
 	</span><span class="kw">pub </span>line: u32,
-	<span class="doccomment">/// The module path;  `&amp;&#39;static str` converted to bytes
+	<span class="doccomment">/// The module path;  `&amp;'static str` converted to bytes
 	</span><span class="kw">pub </span>module_path: Vec&lt;u8&gt;,
 	<span class="doccomment">/// Whether this is a call  to `span!` or `event!`
 	</span><span class="kw">pub </span>is_span: bool,
@@ -1160,8 +1162,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>fields: WasmFields,
 }
 
-<span class="kw">impl </span>From&lt;<span class="kw-2">&amp;</span>tracing_core::Metadata&lt;<span class="lifetime">&#39;_</span>&gt;&gt; <span class="kw">for </span>WasmMetadata {
-	<span class="kw">fn </span>from(wm: <span class="kw-2">&amp;</span>tracing_core::Metadata&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; WasmMetadata {
+<span class="kw">impl </span>From&lt;<span class="kw-2">&amp;</span>tracing_core::Metadata&lt;<span class="lifetime">'_</span>&gt;&gt; <span class="kw">for </span>WasmMetadata {
+	<span class="kw">fn </span>from(wm: <span class="kw-2">&amp;</span>tracing_core::Metadata&lt;<span class="lifetime">'_</span>&gt;) -&gt; WasmMetadata {
 		WasmMetadata {
 			name: wm.name().as_bytes().to_vec(),
 			target: wm.target().as_bytes().to_vec(),
@@ -1176,23 +1178,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl </span>core::fmt::Debug <span class="kw">for </span>WasmMetadata {
-	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; core::fmt::Result {
-		f.debug_struct(<span class="string">&quot;WasmMetadata&quot;</span>)
-			.field(<span class="string">&quot;name&quot;</span>, <span class="kw-2">&amp;</span>decode_field(<span class="kw-2">&amp;</span><span class="self">self</span>.name))
-			.field(<span class="string">&quot;target&quot;</span>, <span class="kw-2">&amp;</span>decode_field(<span class="kw-2">&amp;</span><span class="self">self</span>.target))
-			.field(<span class="string">&quot;level&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.level)
-			.field(<span class="string">&quot;file&quot;</span>, <span class="kw-2">&amp;</span>decode_field(<span class="kw-2">&amp;</span><span class="self">self</span>.file))
-			.field(<span class="string">&quot;line&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.line)
-			.field(<span class="string">&quot;module_path&quot;</span>, <span class="kw-2">&amp;</span>decode_field(<span class="kw-2">&amp;</span><span class="self">self</span>.module_path))
-			.field(<span class="string">&quot;is_span&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.is_span)
-			.field(<span class="string">&quot;fields&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.fields)
+	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; core::fmt::Result {
+		f.debug_struct(<span class="string">"WasmMetadata"</span>)
+			.field(<span class="string">"name"</span>, <span class="kw-2">&amp;</span>decode_field(<span class="kw-2">&amp;</span><span class="self">self</span>.name))
+			.field(<span class="string">"target"</span>, <span class="kw-2">&amp;</span>decode_field(<span class="kw-2">&amp;</span><span class="self">self</span>.target))
+			.field(<span class="string">"level"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.level)
+			.field(<span class="string">"file"</span>, <span class="kw-2">&amp;</span>decode_field(<span class="kw-2">&amp;</span><span class="self">self</span>.file))
+			.field(<span class="string">"line"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.line)
+			.field(<span class="string">"module_path"</span>, <span class="kw-2">&amp;</span>decode_field(<span class="kw-2">&amp;</span><span class="self">self</span>.module_path))
+			.field(<span class="string">"is_span"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.is_span)
+			.field(<span class="string">"fields"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.fields)
 			.finish()
 	}
 }
 
 <span class="kw">impl </span>core::default::Default <span class="kw">for </span>WasmMetadata {
 	<span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
-		<span class="kw">let </span>target = <span class="string">&quot;default&quot;</span>.as_bytes().to_vec();
+		<span class="kw">let </span>target = <span class="string">"default"</span>.as_bytes().to_vec();
 		WasmMetadata {
 			target,
 			name: Default::default(),
@@ -1221,8 +1223,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>fields: WasmValuesSet,
 }
 
-<span class="kw">impl </span>From&lt;<span class="kw-2">&amp;</span>tracing_core::Event&lt;<span class="lifetime">&#39;_</span>&gt;&gt; <span class="kw">for </span>WasmEntryAttributes {
-	<span class="kw">fn </span>from(evt: <span class="kw-2">&amp;</span>tracing_core::Event&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; WasmEntryAttributes {
+<span class="kw">impl </span>From&lt;<span class="kw-2">&amp;</span>tracing_core::Event&lt;<span class="lifetime">'_</span>&gt;&gt; <span class="kw">for </span>WasmEntryAttributes {
+	<span class="kw">fn </span>from(evt: <span class="kw-2">&amp;</span>tracing_core::Event&lt;<span class="lifetime">'_</span>&gt;) -&gt; WasmEntryAttributes {
 		<span class="kw">let </span><span class="kw-2">mut </span>fields = WasmValuesSet(Vec::new());
 		evt.record(<span class="kw-2">&amp;mut </span>fields);
 		WasmEntryAttributes {
@@ -1233,8 +1235,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl </span>From&lt;<span class="kw-2">&amp;</span>tracing_core::span::Attributes&lt;<span class="lifetime">&#39;_</span>&gt;&gt; <span class="kw">for </span>WasmEntryAttributes {
-	<span class="kw">fn </span>from(attrs: <span class="kw-2">&amp;</span>tracing_core::span::Attributes&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; WasmEntryAttributes {
+<span class="kw">impl </span>From&lt;<span class="kw-2">&amp;</span>tracing_core::span::Attributes&lt;<span class="lifetime">'_</span>&gt;&gt; <span class="kw">for </span>WasmEntryAttributes {
+	<span class="kw">fn </span>from(attrs: <span class="kw-2">&amp;</span>tracing_core::span::Attributes&lt;<span class="lifetime">'_</span>&gt;) -&gt; WasmEntryAttributes {
 		<span class="kw">let </span><span class="kw-2">mut </span>fields = WasmValuesSet(Vec::new());
 		attrs.record(<span class="kw-2">&amp;mut </span>fields);
 		WasmEntryAttributes {
@@ -1255,7 +1257,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">mod </span>std_features {
 
 	<span class="kw">use </span>tracing_core::callsite;
@@ -1272,14 +1274,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 	<span class="kw">static </span>CALLSITE: WasmCallsite = WasmCallsite;
 	<span class="doccomment">/// The identifier we are using to inject the wasm events in the generic `tracing` system
-	</span><span class="kw">pub static </span>WASM_TRACE_IDENTIFIER: <span class="kw-2">&amp;</span>str = <span class="string">&quot;wasm_tracing&quot;</span>;
+	</span><span class="kw">pub static </span>WASM_TRACE_IDENTIFIER: <span class="kw-2">&amp;</span>str = <span class="string">"wasm_tracing"</span>;
 	<span class="doccomment">/// The fieldname for the wasm-originated name
-	</span><span class="kw">pub static </span>WASM_NAME_KEY: <span class="kw-2">&amp;</span>str = <span class="string">&quot;name&quot;</span>;
+	</span><span class="kw">pub static </span>WASM_NAME_KEY: <span class="kw-2">&amp;</span>str = <span class="string">"name"</span>;
 	<span class="doccomment">/// The fieldname for the wasm-originated target
-	</span><span class="kw">pub static </span>WASM_TARGET_KEY: <span class="kw-2">&amp;</span>str = <span class="string">&quot;target&quot;</span>;
+	</span><span class="kw">pub static </span>WASM_TARGET_KEY: <span class="kw-2">&amp;</span>str = <span class="string">"target"</span>;
 	<span class="doccomment">/// The the list of all static field names we construct from the given metadata
 	</span><span class="kw">pub static </span>GENERIC_FIELDS: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>str] =
-		<span class="kw-2">&amp;</span>[WASM_TARGET_KEY, WASM_NAME_KEY, <span class="string">&quot;file&quot;</span>, <span class="string">&quot;line&quot;</span>, <span class="string">&quot;module_path&quot;</span>, <span class="string">&quot;params&quot;</span>];
+		<span class="kw-2">&amp;</span>[WASM_TARGET_KEY, WASM_NAME_KEY, <span class="string">"file"</span>, <span class="string">"line"</span>, <span class="string">"module_path"</span>, <span class="string">"params"</span>];
 
 	<span class="comment">// Implementation Note:
 	// the original `tracing` crate generates these static metadata entries at every `span!` and
@@ -1287,7 +1289,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	// emitting of wasm events we need these static metadata entries to inject into that system. We
 	// then provide generic `From`-implementations picking the right metadata to refer to.
 
-	</span><span class="kw">static </span>SPAN_ERROR_METADATA: tracing_core::Metadata&lt;<span class="lifetime">&#39;static</span>&gt; = tracing::Metadata::new(
+	</span><span class="kw">static </span>SPAN_ERROR_METADATA: tracing_core::Metadata&lt;<span class="lifetime">'static</span>&gt; = tracing::Metadata::new(
 		WASM_TRACE_IDENTIFIER,
 		WASM_TRACE_IDENTIFIER,
 		tracing::Level::ERROR,
@@ -1301,7 +1303,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		tracing_core::metadata::Kind::SPAN,
 	);
 
-	<span class="kw">static </span>SPAN_WARN_METADATA: tracing_core::Metadata&lt;<span class="lifetime">&#39;static</span>&gt; = tracing::Metadata::new(
+	<span class="kw">static </span>SPAN_WARN_METADATA: tracing_core::Metadata&lt;<span class="lifetime">'static</span>&gt; = tracing::Metadata::new(
 		WASM_TRACE_IDENTIFIER,
 		WASM_TRACE_IDENTIFIER,
 		tracing::Level::WARN,
@@ -1314,7 +1316,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		),
 		tracing_core::metadata::Kind::SPAN,
 	);
-	<span class="kw">static </span>SPAN_INFO_METADATA: tracing_core::Metadata&lt;<span class="lifetime">&#39;static</span>&gt; = tracing::Metadata::new(
+	<span class="kw">static </span>SPAN_INFO_METADATA: tracing_core::Metadata&lt;<span class="lifetime">'static</span>&gt; = tracing::Metadata::new(
 		WASM_TRACE_IDENTIFIER,
 		WASM_TRACE_IDENTIFIER,
 		tracing::Level::INFO,
@@ -1328,7 +1330,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		tracing_core::metadata::Kind::SPAN,
 	);
 
-	<span class="kw">static </span>SPAN_DEBUG_METADATA: tracing_core::Metadata&lt;<span class="lifetime">&#39;static</span>&gt; = tracing::Metadata::new(
+	<span class="kw">static </span>SPAN_DEBUG_METADATA: tracing_core::Metadata&lt;<span class="lifetime">'static</span>&gt; = tracing::Metadata::new(
 		WASM_TRACE_IDENTIFIER,
 		WASM_TRACE_IDENTIFIER,
 		tracing::Level::DEBUG,
@@ -1342,7 +1344,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		tracing_core::metadata::Kind::SPAN,
 	);
 
-	<span class="kw">static </span>SPAN_TRACE_METADATA: tracing_core::Metadata&lt;<span class="lifetime">&#39;static</span>&gt; = tracing::Metadata::new(
+	<span class="kw">static </span>SPAN_TRACE_METADATA: tracing_core::Metadata&lt;<span class="lifetime">'static</span>&gt; = tracing::Metadata::new(
 		WASM_TRACE_IDENTIFIER,
 		WASM_TRACE_IDENTIFIER,
 		tracing::Level::TRACE,
@@ -1356,7 +1358,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		tracing_core::metadata::Kind::SPAN,
 	);
 
-	<span class="kw">static </span>EVENT_ERROR_METADATA: tracing_core::Metadata&lt;<span class="lifetime">&#39;static</span>&gt; = tracing::Metadata::new(
+	<span class="kw">static </span>EVENT_ERROR_METADATA: tracing_core::Metadata&lt;<span class="lifetime">'static</span>&gt; = tracing::Metadata::new(
 		WASM_TRACE_IDENTIFIER,
 		WASM_TRACE_IDENTIFIER,
 		tracing::Level::ERROR,
@@ -1370,7 +1372,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		tracing_core::metadata::Kind::EVENT,
 	);
 
-	<span class="kw">static </span>EVENT_WARN_METADATA: tracing_core::Metadata&lt;<span class="lifetime">&#39;static</span>&gt; = tracing::Metadata::new(
+	<span class="kw">static </span>EVENT_WARN_METADATA: tracing_core::Metadata&lt;<span class="lifetime">'static</span>&gt; = tracing::Metadata::new(
 		WASM_TRACE_IDENTIFIER,
 		WASM_TRACE_IDENTIFIER,
 		tracing::Level::WARN,
@@ -1384,7 +1386,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		tracing_core::metadata::Kind::EVENT,
 	);
 
-	<span class="kw">static </span>EVENT_INFO_METADATA: tracing_core::Metadata&lt;<span class="lifetime">&#39;static</span>&gt; = tracing::Metadata::new(
+	<span class="kw">static </span>EVENT_INFO_METADATA: tracing_core::Metadata&lt;<span class="lifetime">'static</span>&gt; = tracing::Metadata::new(
 		WASM_TRACE_IDENTIFIER,
 		WASM_TRACE_IDENTIFIER,
 		tracing::Level::INFO,
@@ -1398,7 +1400,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		tracing_core::metadata::Kind::EVENT,
 	);
 
-	<span class="kw">static </span>EVENT_DEBUG_METADATA: tracing_core::Metadata&lt;<span class="lifetime">&#39;static</span>&gt; = tracing::Metadata::new(
+	<span class="kw">static </span>EVENT_DEBUG_METADATA: tracing_core::Metadata&lt;<span class="lifetime">'static</span>&gt; = tracing::Metadata::new(
 		WASM_TRACE_IDENTIFIER,
 		WASM_TRACE_IDENTIFIER,
 		tracing::Level::DEBUG,
@@ -1412,7 +1414,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		tracing_core::metadata::Kind::EVENT,
 	);
 
-	<span class="kw">static </span>EVENT_TRACE_METADATA: tracing_core::Metadata&lt;<span class="lifetime">&#39;static</span>&gt; = tracing::Metadata::new(
+	<span class="kw">static </span>EVENT_TRACE_METADATA: tracing_core::Metadata&lt;<span class="lifetime">'static</span>&gt; = tracing::Metadata::new(
 		WASM_TRACE_IDENTIFIER,
 		WASM_TRACE_IDENTIFIER,
 		tracing::Level::TRACE,
@@ -1426,10 +1428,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		tracing_core::metadata::Kind::EVENT,
 	);
 
-	<span class="comment">// FIXME: this could be done a lot in 0.2 if they opt for using `Cow&lt;str,&#39;static&gt;` instead
+	<span class="comment">// FIXME: this could be done a lot in 0.2 if they opt for using `Cow&lt;str,'static&gt;` instead
 	// 			https://github.com/paritytech/substrate/issues/7134
-	</span><span class="kw">impl </span>From&lt;<span class="kw-2">&amp;</span><span class="kw">crate</span>::WasmMetadata&gt; <span class="kw">for </span><span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>tracing_core::Metadata&lt;<span class="lifetime">&#39;static</span>&gt; {
-		<span class="kw">fn </span>from(wm: <span class="kw-2">&amp;</span><span class="kw">crate</span>::WasmMetadata) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>tracing_core::Metadata&lt;<span class="lifetime">&#39;static</span>&gt; {
+	</span><span class="kw">impl </span>From&lt;<span class="kw-2">&amp;</span><span class="kw">crate</span>::WasmMetadata&gt; <span class="kw">for </span><span class="kw-2">&amp;</span><span class="lifetime">'static </span>tracing_core::Metadata&lt;<span class="lifetime">'static</span>&gt; {
+		<span class="kw">fn </span>from(wm: <span class="kw-2">&amp;</span><span class="kw">crate</span>::WasmMetadata) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>tracing_core::Metadata&lt;<span class="lifetime">'static</span>&gt; {
 			<span class="kw">match </span>(<span class="kw-2">&amp;</span>wm.level, wm.is_span) {
 				(<span class="kw-2">&amp;</span><span class="kw">crate</span>::WasmLevel::ERROR, <span class="bool-val">true</span>) =&gt; <span class="kw-2">&amp;</span>SPAN_ERROR_METADATA,
 				(<span class="kw-2">&amp;</span><span class="kw">crate</span>::WasmLevel::WARN, <span class="bool-val">true</span>) =&gt; <span class="kw-2">&amp;</span>SPAN_WARN_METADATA,
@@ -1453,7 +1455,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>line = a.metadata.line;
 			<span class="kw">let </span>module_path = std::str::from_utf8(<span class="kw-2">&amp;</span>a.metadata.module_path).unwrap_or_default();
 			<span class="kw">let </span>params = a.fields;
-			<span class="kw">let </span>metadata: <span class="kw-2">&amp;</span>tracing_core::metadata::Metadata&lt;<span class="lifetime">&#39;static</span>&gt; = (<span class="kw-2">&amp;</span>a.metadata).into();
+			<span class="kw">let </span>metadata: <span class="kw-2">&amp;</span>tracing_core::metadata::Metadata&lt;<span class="lifetime">'static</span>&gt; = (<span class="kw-2">&amp;</span>a.metadata).into();
 
 			tracing::span::Span::child_of(
 				a.parent_id.map(tracing_core::span::Id::from_u64),
@@ -1472,7 +1474,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>line = <span class="self">self</span>.metadata.line;
 			<span class="kw">let </span>module_path = std::str::from_utf8(<span class="kw-2">&amp;</span><span class="self">self</span>.metadata.module_path).unwrap_or_default();
 			<span class="kw">let </span>params = <span class="self">self</span>.fields;
-			<span class="kw">let </span>metadata: <span class="kw-2">&amp;</span>tracing_core::metadata::Metadata&lt;<span class="lifetime">&#39;static</span>&gt; = (<span class="kw-2">&amp;</span><span class="self">self</span>.metadata).into();
+			<span class="kw">let </span>metadata: <span class="kw-2">&amp;</span>tracing_core::metadata::Metadata&lt;<span class="lifetime">'static</span>&gt; = (<span class="kw-2">&amp;</span><span class="self">self</span>.metadata).into();
 
 			tracing_core::Event::child_of(
 				<span class="self">self</span>.parent_id.map(tracing_core::span::Id::from_u64),
@@ -1483,7 +1485,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">pub use </span>std_features::<span class="kw-2">*</span>;
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 

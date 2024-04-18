@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/nomination-pools/src/migration.rs`."><title>migration.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/nomination-pools/src/migration.rs`."><title>migration.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_nomination_pools" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_nomination_pools" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../pallet_nomination_pools/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1185,14 +1187,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -1202,7 +1204,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>frame_support::traits::{OnRuntimeUpgrade, UncheckedOnRuntimeUpgrade};
 <span class="kw">use </span>sp_std::{collections::btree_map::BTreeMap, vec::Vec};
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 </span><span class="kw">use </span>sp_runtime::TryRuntimeError;
 
 <span class="doccomment">/// Exports for versioned migration `type`s for this pallet.
@@ -1244,7 +1246,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Checks and updates `TotalValueLocked` if out of sync.
 	</span><span class="kw">pub struct </span>TotalValueLockedSync&lt;T&gt;(sp_std::marker::PhantomData&lt;T&gt;);
 	<span class="kw">impl</span>&lt;T: Config&gt; OnRuntimeUpgrade <span class="kw">for </span>TotalValueLockedSync&lt;T&gt; {
-		<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+		<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 		</span><span class="kw">fn </span>pre_upgrade() -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, TryRuntimeError&gt; {
 			<span class="prelude-val">Ok</span>(Vec::new())
 		}
@@ -1262,7 +1264,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 				<span class="macro">log!</span>(
 					info,
-					<span class="string">&quot;on-chain TVL was out of sync, update. Old: {:?}, new: {:?}&quot;</span>,
+					<span class="string">"on-chain TVL was out of sync, update. Old: {:?}, new: {:?}"</span>,
 					onchain_tvl,
 					tvl
 				);
@@ -1270,7 +1272,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="comment">// writes: onchain version + set total value locked.
 				</span><span class="number">2
 			</span>} <span class="kw">else </span>{
-				<span class="macro">log!</span>(info, <span class="string">&quot;on-chain TVL was OK: {:?}&quot;</span>, tvl);
+				<span class="macro">log!</span>(info, <span class="string">"on-chain TVL was OK: {:?}"</span>, tvl);
 
 				<span class="comment">// writes: onchain version write.
 				</span><span class="number">1
@@ -1284,7 +1286,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.reads_writes(migrated.saturating_mul(<span class="number">2</span>).saturating_add(<span class="number">2</span>).into(), writes)
 		}
 
-		<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+		<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 		</span><span class="kw">fn </span>post_upgrade(<span class="kw">_</span>: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
 			<span class="prelude-val">Ok</span>(())
 		}
@@ -1315,7 +1317,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">pub struct </span>VersionUncheckedMigrateV7ToV8&lt;T&gt;(sp_std::marker::PhantomData&lt;T&gt;);
 	<span class="kw">impl</span>&lt;T: Config&gt; UncheckedOnRuntimeUpgrade <span class="kw">for </span>VersionUncheckedMigrateV7ToV8&lt;T&gt; {
-		<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+		<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 		</span><span class="kw">fn </span>pre_upgrade() -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, TryRuntimeError&gt; {
 			<span class="prelude-val">Ok</span>(Vec::new())
 		}
@@ -1329,13 +1331,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			T::DbWeight::get().reads_writes(translated, translated + <span class="number">1</span>)
 		}
 
-		<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+		<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 		</span><span class="kw">fn </span>post_upgrade(<span class="kw">_</span>: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
 			<span class="comment">// Check new `claim_permission` field is present.
 			</span><span class="macro">ensure!</span>(
 				BondedPools::&lt;T&gt;::iter()
 					.all(|(<span class="kw">_</span>, inner)| inner.commission.claim_permission.is_none()),
-				<span class="string">&quot;`claim_permission` value has not been set correctly.&quot;
+				<span class="string">"`claim_permission` value has not been set correctly."
 			</span>);
 			<span class="prelude-val">Ok</span>(())
 		}
@@ -1372,7 +1374,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[allow(dead_code)]
 	#[derive(RuntimeDebugNoBound)]
-	#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(Clone, PartialEq))]
+	#[cfg_attr(feature = <span class="string">"std"</span>, derive(Clone, PartialEq))]
 	</span><span class="kw">pub struct </span>V7BondedPool&lt;T: Config&gt; {
 		<span class="doccomment">/// The identifier of the pool.
 		</span>id: PoolId,
@@ -1402,7 +1404,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			TotalValueLocked::&lt;T&gt;::set(tvl);
 
-			<span class="macro">log!</span>(info, <span class="string">&quot;Upgraded {} pools with a TVL of {:?}&quot;</span>, migrated, tvl);
+			<span class="macro">log!</span>(info, <span class="string">"Upgraded {} pools with a TVL of {:?}"</span>, migrated, tvl);
 
 			<span class="comment">// reads: migrated * (BondedPools +  Staking::total_stake) + count + onchain
 			// version
@@ -1411,19 +1413,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span>T::DbWeight::get().reads_writes(migrated.saturating_mul(<span class="number">2</span>).saturating_add(<span class="number">2</span>).into(), <span class="number">2</span>)
 		}
 
-		<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+		<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 		</span><span class="kw">fn </span>pre_upgrade() -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, TryRuntimeError&gt; {
 			<span class="prelude-val">Ok</span>(Vec::new())
 		}
 
-		<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+		<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 		</span><span class="kw">fn </span>post_upgrade(_data: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
 			<span class="comment">// check that the `TotalValueLocked` written is actually the sum of `total_stake` of the
 			// `BondedPools``
 			</span><span class="kw">let </span>tvl: BalanceOf&lt;T&gt; = helpers::calculate_tvl_by_total_stake::&lt;T&gt;();
 			<span class="macro">ensure!</span>(
 				TotalValueLocked::&lt;T&gt;::get() == tvl,
-				<span class="string">&quot;TVL written is not equal to `Staking::total_stake` of all `BondedPools`.&quot;
+				<span class="string">"TVL written is not equal to `Staking::total_stake` of all `BondedPools`."
 			</span>);
 
 			<span class="comment">// calculate the sum of `total_balance` of all `PoolMember` as the upper bound for the
@@ -1435,12 +1437,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="macro">ensure!</span>(
 				TotalValueLocked::&lt;T&gt;::get() &lt;= total_balance_members,
-				<span class="string">&quot;TVL is greater than the balance of all PoolMembers.&quot;
+				<span class="string">"TVL is greater than the balance of all PoolMembers."
 			</span>);
 
 			<span class="macro">ensure!</span>(
 				Pallet::&lt;T&gt;::on_chain_storage_version() &gt;= <span class="number">7</span>,
-				<span class="string">&quot;nomination-pools::migration::v7: wrong storage version&quot;
+				<span class="string">"nomination-pools::migration::v7: wrong storage version"
 			</span>);
 
 			<span class="prelude-val">Ok</span>(())
@@ -1459,7 +1461,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">fn </span>freeze_ed(pool_id: PoolId) -&gt; <span class="prelude-ty">Result</span>&lt;(), ()&gt; {
 			<span class="kw">let </span>reward_acc = Pallet::&lt;T&gt;::create_reward_account(pool_id);
 			Pallet::&lt;T&gt;::freeze_pool_deposit(<span class="kw-2">&amp;</span>reward_acc).map_err(|e| {
-				<span class="macro">log!</span>(error, <span class="string">&quot;Failed to freeze ED for pool {} with error: {:?}&quot;</span>, pool_id, e);
+				<span class="macro">log!</span>(error, <span class="string">"Failed to freeze ED for pool {} with error: {:?}"</span>, pool_id, e);
 				()
 			})
 		}
@@ -1478,9 +1480,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			});
 
 			<span class="kw">if </span>fail &gt; <span class="number">0 </span>{
-				<span class="macro">log!</span>(error, <span class="string">&quot;Failed to freeze ED for {} pools&quot;</span>, fail);
+				<span class="macro">log!</span>(error, <span class="string">"Failed to freeze ED for {} pools"</span>, fail);
 			} <span class="kw">else </span>{
-				<span class="macro">log!</span>(info, <span class="string">&quot;Freezing ED succeeded for {} pools&quot;</span>, success);
+				<span class="macro">log!</span>(info, <span class="string">"Freezing ED succeeded for {} pools"</span>, success);
 			}
 
 			<span class="kw">let </span>total = success.saturating_add(fail);
@@ -1490,7 +1492,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span>T::DbWeight::get().reads_writes(<span class="number">3u64</span>.saturating_mul(total), <span class="number">2u64</span>.saturating_mul(total))
 		}
 
-		<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+		<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 		</span><span class="kw">fn </span>post_upgrade(_data: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
 			<span class="comment">// there should be no ED imbalances anymore..
 			</span>Pallet::&lt;T&gt;::check_ed_imbalance()
@@ -1529,7 +1531,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="macro">log!</span>(
 				info,
-				<span class="string">&quot;Running migration with in-code storage version {:?} / onchain {:?}&quot;</span>,
+				<span class="string">"Running migration with in-code storage version {:?} / onchain {:?}"</span>,
 				in_code,
 				onchain
 			);
@@ -1542,60 +1544,60 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				});
 
 				in_code.put::&lt;Pallet&lt;T&gt;&gt;();
-				<span class="macro">log!</span>(info, <span class="string">&quot;Upgraded {} pools, storage to version {:?}&quot;</span>, translated, in_code);
+				<span class="macro">log!</span>(info, <span class="string">"Upgraded {} pools, storage to version {:?}"</span>, translated, in_code);
 
 				<span class="comment">// reads: translated + onchain version.
 				// writes: translated + current.put.
 				</span>T::DbWeight::get().reads_writes(translated + <span class="number">1</span>, translated + <span class="number">1</span>)
 			} <span class="kw">else </span>{
-				<span class="macro">log!</span>(info, <span class="string">&quot;Migration did not execute. This probably should be removed&quot;</span>);
+				<span class="macro">log!</span>(info, <span class="string">"Migration did not execute. This probably should be removed"</span>);
 				T::DbWeight::get().reads(<span class="number">1</span>)
 			}
 		}
 
-		<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+		<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 		</span><span class="kw">fn </span>pre_upgrade() -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, TryRuntimeError&gt; {
 			<span class="kw">let </span>rpool_keys = RewardPools::&lt;T&gt;::iter_keys().count();
 			<span class="kw">let </span>rpool_values = RewardPools::&lt;T&gt;::iter_values().count();
 			<span class="kw">if </span>rpool_keys != rpool_values {
-				<span class="macro">log!</span>(info, <span class="string">&quot;🔥 There are {} undecodable RewardPools in storage. This migration will try to correct them. keys: {}, values: {}&quot;</span>, rpool_keys.saturating_sub(rpool_values), rpool_keys, rpool_values);
+				<span class="macro">log!</span>(info, <span class="string">"🔥 There are {} undecodable RewardPools in storage. This migration will try to correct them. keys: {}, values: {}"</span>, rpool_keys.saturating_sub(rpool_values), rpool_keys, rpool_values);
 			}
 
 			<span class="macro">ensure!</span>(
 				PoolMembers::&lt;T&gt;::iter_keys().count() == PoolMembers::&lt;T&gt;::iter_values().count(),
-				<span class="string">&quot;There are undecodable PoolMembers in storage. This migration will not fix that.&quot;
+				<span class="string">"There are undecodable PoolMembers in storage. This migration will not fix that."
 			</span>);
 			<span class="macro">ensure!</span>(
 				BondedPools::&lt;T&gt;::iter_keys().count() == BondedPools::&lt;T&gt;::iter_values().count(),
-				<span class="string">&quot;There are undecodable BondedPools in storage. This migration will not fix that.&quot;
+				<span class="string">"There are undecodable BondedPools in storage. This migration will not fix that."
 			</span>);
 			<span class="macro">ensure!</span>(
 				SubPoolsStorage::&lt;T&gt;::iter_keys().count() ==
 					SubPoolsStorage::&lt;T&gt;::iter_values().count(),
-				<span class="string">&quot;There are undecodable SubPools in storage. This migration will not fix that.&quot;
+				<span class="string">"There are undecodable SubPools in storage. This migration will not fix that."
 			</span>);
 			<span class="macro">ensure!</span>(
 				Metadata::&lt;T&gt;::iter_keys().count() == Metadata::&lt;T&gt;::iter_values().count(),
-				<span class="string">&quot;There are undecodable Metadata in storage. This migration will not fix that.&quot;
+				<span class="string">"There are undecodable Metadata in storage. This migration will not fix that."
 			</span>);
 
 			<span class="prelude-val">Ok</span>((rpool_values <span class="kw">as </span>u64).encode())
 		}
 
-		<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+		<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 		</span><span class="kw">fn </span>post_upgrade(data: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
 			<span class="kw">let </span>old_rpool_values: u64 = Decode::decode(<span class="kw-2">&amp;mut &amp;</span>data[..]).unwrap();
 			<span class="kw">let </span>rpool_keys = RewardPools::&lt;T&gt;::iter_keys().count() <span class="kw">as </span>u64;
 			<span class="kw">let </span>rpool_values = RewardPools::&lt;T&gt;::iter_values().count() <span class="kw">as </span>u64;
 			<span class="macro">ensure!</span>(
 				rpool_keys == rpool_values,
-				<span class="string">&quot;There are STILL undecodable RewardPools - migration failed&quot;
+				<span class="string">"There are STILL undecodable RewardPools - migration failed"
 			</span>);
 
 			<span class="kw">if </span>old_rpool_values != rpool_values {
 				<span class="macro">log!</span>(
 					info,
-					<span class="string">&quot;🎉 Fixed {} undecodable RewardPools.&quot;</span>,
+					<span class="string">"🎉 Fixed {} undecodable RewardPools."</span>,
 					rpool_values.saturating_sub(old_rpool_values)
 				);
 			}
@@ -1608,30 +1610,30 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					Zero::zero() &amp;&amp; reward_pool
 					.total_commission_claimed &gt;=
 					Zero::zero()),
-				<span class="string">&quot;a commission value has been incorrectly set&quot;
+				<span class="string">"a commission value has been incorrectly set"
 			</span>);
 			<span class="macro">ensure!</span>(
 				Pallet::&lt;T&gt;::on_chain_storage_version() &gt;= <span class="number">5</span>,
-				<span class="string">&quot;nomination-pools::migration::v5: wrong storage version&quot;
+				<span class="string">"nomination-pools::migration::v5: wrong storage version"
 			</span>);
 
 			<span class="comment">// These should not have been touched - just in case.
 			</span><span class="macro">ensure!</span>(
 				PoolMembers::&lt;T&gt;::iter_keys().count() == PoolMembers::&lt;T&gt;::iter_values().count(),
-				<span class="string">&quot;There are undecodable PoolMembers in storage.&quot;
+				<span class="string">"There are undecodable PoolMembers in storage."
 			</span>);
 			<span class="macro">ensure!</span>(
 				BondedPools::&lt;T&gt;::iter_keys().count() == BondedPools::&lt;T&gt;::iter_values().count(),
-				<span class="string">&quot;There are undecodable BondedPools in storage.&quot;
+				<span class="string">"There are undecodable BondedPools in storage."
 			</span>);
 			<span class="macro">ensure!</span>(
 				SubPoolsStorage::&lt;T&gt;::iter_keys().count() ==
 					SubPoolsStorage::&lt;T&gt;::iter_values().count(),
-				<span class="string">&quot;There are undecodable SubPools in storage.&quot;
+				<span class="string">"There are undecodable SubPools in storage."
 			</span>);
 			<span class="macro">ensure!</span>(
 				Metadata::&lt;T&gt;::iter_keys().count() == Metadata::&lt;T&gt;::iter_values().count(),
-				<span class="string">&quot;There are undecodable Metadata in storage.&quot;
+				<span class="string">"There are undecodable Metadata in storage."
 			</span>);
 
 			<span class="prelude-val">Ok</span>(())
@@ -1674,7 +1676,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// This migration adds a `commission` field to every `BondedPoolInner`, if
 	/// any.
 	</span><span class="attr">#[deprecated(
-		note = <span class="string">&quot;To avoid mangled storage please use `MigrateV3ToV5` instead. See: github.com/paritytech/substrate/pull/13715&quot;
+		note = <span class="string">"To avoid mangled storage please use `MigrateV3ToV5` instead. See: github.com/paritytech/substrate/pull/13715"
 	</span>)]
 	</span><span class="kw">pub struct </span>MigrateToV4&lt;T, U&gt;(sp_std::marker::PhantomData&lt;(T, U)&gt;);
 	<span class="attr">#[allow(deprecated)]
@@ -1685,18 +1687,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="macro">log!</span>(
 				info,
-				<span class="string">&quot;Running migration with in-code storage version {:?} / onchain {:?}&quot;</span>,
+				<span class="string">"Running migration with in-code storage version {:?} / onchain {:?}"</span>,
 				current,
 				onchain
 			);
 
 			<span class="kw">if </span>onchain == <span class="number">3 </span>{
-				<span class="macro">log!</span>(warn, <span class="string">&quot;Please run MigrateToV5 immediately after this migration. See github.com/paritytech/substrate/pull/13715&quot;</span>);
+				<span class="macro">log!</span>(warn, <span class="string">"Please run MigrateToV5 immediately after this migration. See github.com/paritytech/substrate/pull/13715"</span>);
 				<span class="kw">let </span>initial_global_max_commission = U::get();
 				GlobalMaxCommission::&lt;T&gt;::set(<span class="prelude-val">Some</span>(initial_global_max_commission));
 				<span class="macro">log!</span>(
 					info,
-					<span class="string">&quot;Set initial global max commission to {:?}.&quot;</span>,
+					<span class="string">"Set initial global max commission to {:?}."</span>,
 					initial_global_max_commission
 				);
 
@@ -1707,23 +1709,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				});
 
 				StorageVersion::new(<span class="number">4</span>).put::&lt;Pallet&lt;T&gt;&gt;();
-				<span class="macro">log!</span>(info, <span class="string">&quot;Upgraded {} pools, storage to version {:?}&quot;</span>, translated, current);
+				<span class="macro">log!</span>(info, <span class="string">"Upgraded {} pools, storage to version {:?}"</span>, translated, current);
 
 				<span class="comment">// reads: translated + onchain version.
 				// writes: translated + current.put + initial global commission.
 				</span>T::DbWeight::get().reads_writes(translated + <span class="number">1</span>, translated + <span class="number">2</span>)
 			} <span class="kw">else </span>{
-				<span class="macro">log!</span>(info, <span class="string">&quot;Migration did not execute. This probably should be removed&quot;</span>);
+				<span class="macro">log!</span>(info, <span class="string">"Migration did not execute. This probably should be removed"</span>);
 				T::DbWeight::get().reads(<span class="number">1</span>)
 			}
 		}
 
-		<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+		<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 		</span><span class="kw">fn </span>pre_upgrade() -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, TryRuntimeError&gt; {
 			<span class="prelude-val">Ok</span>(Vec::new())
 		}
 
-		<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+		<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 		</span><span class="kw">fn </span>post_upgrade(<span class="kw">_</span>: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
 			<span class="comment">// ensure all BondedPools items now contain an `inner.commission: Commission` field.
 			</span><span class="macro">ensure!</span>(
@@ -1739,15 +1741,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="comment">// Check throttle_from
 					</span>(inner.commission.throttle_from.is_none() ||
 					inner.commission.throttle_from.is_some())),
-				<span class="string">&quot;a commission value has not been set correctly&quot;
+				<span class="string">"a commission value has not been set correctly"
 			</span>);
 			<span class="macro">ensure!</span>(
 				GlobalMaxCommission::&lt;T&gt;::get() == <span class="prelude-val">Some</span>(U::get()),
-				<span class="string">&quot;global maximum commission error&quot;
+				<span class="string">"global maximum commission error"
 			</span>);
 			<span class="macro">ensure!</span>(
 				Pallet::&lt;T&gt;::on_chain_storage_version() &gt;= <span class="number">4</span>,
-				<span class="string">&quot;nomination-pools::migration::v4: wrong storage version&quot;
+				<span class="string">"nomination-pools::migration::v4: wrong storage version"
 			</span>);
 			<span class="prelude-val">Ok</span>(())
 		}
@@ -1767,7 +1769,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">if </span>onchain == <span class="number">2 </span>{
 				<span class="macro">log!</span>(
 					info,
-					<span class="string">&quot;Running migration with in-code storage version {:?} / onchain {:?}&quot;</span>,
+					<span class="string">"Running migration with in-code storage version {:?} / onchain {:?}"</span>,
 					current,
 					onchain
 				);
@@ -1792,25 +1794,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				</span><span class="kw">let </span>total_writes = metadata_removed + <span class="number">1</span>;
 				T::DbWeight::get().reads_writes(total_reads, total_writes)
 			} <span class="kw">else </span>{
-				<span class="macro">log!</span>(info, <span class="string">&quot;MigrateToV3 should be removed&quot;</span>);
+				<span class="macro">log!</span>(info, <span class="string">"MigrateToV3 should be removed"</span>);
 				T::DbWeight::get().reads(<span class="number">1</span>)
 			}
 		}
 
-		<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+		<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 		</span><span class="kw">fn </span>pre_upgrade() -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, TryRuntimeError&gt; {
 			<span class="prelude-val">Ok</span>(Vec::new())
 		}
 
-		<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+		<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 		</span><span class="kw">fn </span>post_upgrade(<span class="kw">_</span>: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
 			<span class="macro">ensure!</span>(
 				Metadata::&lt;T&gt;::iter_keys().all(|id| BondedPools::&lt;T&gt;::contains_key(<span class="kw-2">&amp;</span>id)),
-				<span class="string">&quot;not all of the stale metadata has been removed&quot;
+				<span class="string">"not all of the stale metadata has been removed"
 			</span>);
 			<span class="macro">ensure!</span>(
 				Pallet::&lt;T&gt;::on_chain_storage_version() &gt;= <span class="number">3</span>,
-				<span class="string">&quot;nomination-pools::migration::v3: wrong storage version&quot;
+				<span class="string">"nomination-pools::migration::v3: wrong storage version"
 			</span>);
 			<span class="prelude-val">Ok</span>(())
 		}
@@ -1929,14 +1931,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					</span><span class="kw">let </span>members = <span class="kw">match </span>temp_members.get(<span class="kw-2">&amp;</span>id) {
 						<span class="prelude-val">Some</span>(x) =&gt; x,
 						<span class="prelude-val">None </span>=&gt; {
-							<span class="macro">log!</span>(error, <span class="string">&quot;pool {} has no member! deleting it..&quot;</span>, id);
+							<span class="macro">log!</span>(error, <span class="string">"pool {} has no member! deleting it.."</span>, id);
 							<span class="kw">return </span><span class="prelude-val">None
 						</span>},
 					};
 					<span class="kw">let </span>bonded_pool = <span class="kw">match </span>BondedPools::&lt;T&gt;::get(id) {
 						<span class="prelude-val">Some</span>(x) =&gt; x,
 						<span class="prelude-val">None </span>=&gt; {
-							<span class="macro">log!</span>(error, <span class="string">&quot;pool {} has no bonded pool! deleting it..&quot;</span>, id);
+							<span class="macro">log!</span>(error, <span class="string">"pool {} has no bonded pool! deleting it.."</span>, id);
 							<span class="kw">return </span><span class="prelude-val">None
 						</span>},
 					};
@@ -1951,7 +1953,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							<span class="kw">let </span>bonded_pool = <span class="kw">match </span>BondedPool::&lt;T&gt;::get(id) {
 								<span class="prelude-val">Some</span>(x) =&gt; x,
 								<span class="prelude-val">None </span>=&gt; {
-									<span class="macro">log!</span>(error, <span class="string">&quot;pool {} for member {:?} does not exist!&quot;</span>, id, who);
+									<span class="macro">log!</span>(error, <span class="string">"pool {} for member {:?} does not exist!"</span>, id, who);
 									<span class="kw">return </span><span class="prelude-val">None
 								</span>},
 							};
@@ -1962,7 +1964,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 							<span class="macro">log!</span>(
 								debug,
-								<span class="string">&quot;{:?} has {:?} ({:?}) of pool {} with total reward of {:?}&quot;</span>,
+								<span class="string">"{:?} has {:?} ({:?}) of pool {} with total reward of {:?}"</span>,
 								who,
 								portion,
 								last_claim,
@@ -1985,7 +1987,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							);
 
 							<span class="kw">if let </span><span class="prelude-val">Err</span>(reason) = outcome {
-								<span class="macro">log!</span>(warn, <span class="string">&quot;last reward claim failed due to {:?}&quot;</span>, reason,);
+								<span class="macro">log!</span>(warn, <span class="string">"last reward claim failed due to {:?}"</span>, reason,);
 							} <span class="kw">else </span>{
 								sum_paid_out = sum_paid_out.saturating_add(last_claim);
 							}
@@ -2008,7 +2010,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							leftover,
 							Preservation::Preserve,
 						);
-						<span class="macro">log!</span>(warn, <span class="string">&quot;paying {:?} leftover to the depositor: {:?}&quot;</span>, leftover, o);
+						<span class="macro">log!</span>(warn, <span class="string">"paying {:?} leftover to the depositor: {:?}"</span>, leftover, o);
 					}
 
 					<span class="comment">// finally, migrate the reward pool.
@@ -2026,7 +2028,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="macro">log!</span>(
 				info,
-				<span class="string">&quot;Upgraded {} members, {} reward pools, TVL {:?} TPL {:?}, storage to version {:?}&quot;</span>,
+				<span class="string">"Upgraded {} members, {} reward pools, TVL {:?} TPL {:?}, storage to version {:?}"</span>,
 				members_translated,
 				reward_pools_translated,
 				total_value_locked,
@@ -2046,7 +2048,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="macro">log!</span>(
 				info,
-				<span class="string">&quot;Running migration with in-code storage version {:?} / onchain {:?}&quot;</span>,
+				<span class="string">"Running migration with in-code storage version {:?} / onchain {:?}"</span>,
 				current,
 				onchain
 			);
@@ -2054,19 +2056,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">if </span>current == <span class="number">2 </span>&amp;&amp; onchain == <span class="number">1 </span>{
 				<span class="self">Self</span>::run(current)
 			} <span class="kw">else </span>{
-				<span class="macro">log!</span>(info, <span class="string">&quot;MigrateToV2 did not executed. This probably should be removed&quot;</span>);
+				<span class="macro">log!</span>(info, <span class="string">"MigrateToV2 did not executed. This probably should be removed"</span>);
 				T::DbWeight::get().reads(<span class="number">1</span>)
 			}
 		}
 
-		<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+		<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 		</span><span class="kw">fn </span>pre_upgrade() -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, TryRuntimeError&gt; {
 			<span class="comment">// all reward accounts must have more than ED.
 			</span>RewardPools::&lt;T&gt;::iter().try_for_each(|(id, <span class="kw">_</span>)| -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
 				<span class="macro">ensure!</span>(
 					&lt;T::Currency <span class="kw">as </span>frame_support::traits::fungible::Inspect&lt;T::AccountId&gt;&gt;::balance(<span class="kw-2">&amp;</span>Pallet::&lt;T&gt;::create_reward_account(id)) &gt;=
 						T::Currency::minimum_balance(),
-					<span class="string">&quot;Reward accounts must have greater balance than ED.&quot;
+					<span class="string">"Reward accounts must have greater balance than ED."
 				</span>);
 				<span class="prelude-val">Ok</span>(())
 			})<span class="question-mark">?</span>;
@@ -2074,22 +2076,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Ok</span>(Vec::new())
 		}
 
-		<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+		<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 		</span><span class="kw">fn </span>post_upgrade(<span class="kw">_</span>: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
 			<span class="comment">// new version must be set.
 			</span><span class="macro">ensure!</span>(
 				Pallet::&lt;T&gt;::on_chain_storage_version() == <span class="number">2</span>,
-				<span class="string">&quot;The onchain version must be updated after the migration.&quot;
+				<span class="string">"The onchain version must be updated after the migration."
 			</span>);
 
 			<span class="comment">// no reward or bonded pool has been skipped.
 			</span><span class="macro">ensure!</span>(
 				RewardPools::&lt;T&gt;::iter().count() <span class="kw">as </span>u32 == RewardPools::&lt;T&gt;::count(),
-				<span class="string">&quot;The count of reward pools must remain the same after the migration.&quot;
+				<span class="string">"The count of reward pools must remain the same after the migration."
 			</span>);
 			<span class="macro">ensure!</span>(
 				BondedPools::&lt;T&gt;::iter().count() <span class="kw">as </span>u32 == BondedPools::&lt;T&gt;::count(),
-				<span class="string">&quot;The count of reward pools must remain the same after the migration.&quot;
+				<span class="string">"The count of reward pools must remain the same after the migration."
 			</span>);
 
 			<span class="comment">// all reward pools must have exactly ED in them. This means no reward can be claimed,
@@ -2097,12 +2099,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span>RewardPools::&lt;T&gt;::iter().try_for_each(|(id, <span class="kw">_</span>)| -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
 				<span class="macro">ensure!</span>(
 					RewardPool::&lt;T&gt;::current_balance(id) == Zero::zero(),
-					<span class="string">&quot;Reward pool balance must be zero.&quot;</span>,
+					<span class="string">"Reward pool balance must be zero."</span>,
 				);
 				<span class="prelude-val">Ok</span>(())
 			})<span class="question-mark">?</span>;
 
-			<span class="macro">log!</span>(info, <span class="string">&quot;post upgrade hook for MigrateToV2 executed.&quot;</span>);
+			<span class="macro">log!</span>(info, <span class="string">"post upgrade hook for MigrateToV2 executed."</span>);
 			<span class="prelude-val">Ok</span>(())
 		}
 	}
@@ -2163,7 +2165,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="macro">log!</span>(
 				info,
-				<span class="string">&quot;Running migration with in-code storage version {:?} / onchain {:?}&quot;</span>,
+				<span class="string">"Running migration with in-code storage version {:?} / onchain {:?}"</span>,
 				current,
 				onchain
 			);
@@ -2178,21 +2180,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 				current.put::&lt;Pallet&lt;T&gt;&gt;();
 
-				<span class="macro">log!</span>(info, <span class="string">&quot;Upgraded {} pools, storage to version {:?}&quot;</span>, translated, current);
+				<span class="macro">log!</span>(info, <span class="string">"Upgraded {} pools, storage to version {:?}"</span>, translated, current);
 
 				T::DbWeight::get().reads_writes(translated + <span class="number">1</span>, translated + <span class="number">1</span>)
 			} <span class="kw">else </span>{
-				<span class="macro">log!</span>(info, <span class="string">&quot;Migration did not executed. This probably should be removed&quot;</span>);
+				<span class="macro">log!</span>(info, <span class="string">"Migration did not executed. This probably should be removed"</span>);
 				T::DbWeight::get().reads(<span class="number">1</span>)
 			}
 		}
 
-		<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+		<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 		</span><span class="kw">fn </span>post_upgrade(<span class="kw">_</span>: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
 			<span class="comment">// new version must be set.
 			</span><span class="macro">ensure!</span>(
 				Pallet::&lt;T&gt;::on_chain_storage_version() == <span class="number">1</span>,
-				<span class="string">&quot;The onchain version must be updated after the migration.&quot;
+				<span class="string">"The onchain version must be updated after the migration."
 			</span>);
 			Pallet::&lt;T&gt;::try_state(frame_system::Pallet::&lt;T&gt;::block_number())<span class="question-mark">?</span>;
 			<span class="prelude-val">Ok</span>(())

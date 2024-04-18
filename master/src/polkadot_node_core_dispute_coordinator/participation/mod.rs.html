@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/core/dispute-coordinator/src/participation/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/core/dispute-coordinator/src/participation/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_node_core_dispute_coordinator" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_node_core_dispute_coordinator" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../polkadot_node_core_dispute_coordinator/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -789,7 +791,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; FatalResult&lt;ParticipationStatement&gt; {
 		<span class="kw">let </span>WorkerMessage(statement) = msg;
 		<span class="self">self</span>.running_participations.remove(<span class="kw-2">&amp;</span>statement.candidate_hash);
-		<span class="kw">let </span>recent_block = <span class="self">self</span>.recent_block.expect(<span class="string">&quot;We never ever reset recent_block to `None` and we already received a result, so it must have been set before. qed.&quot;</span>);
+		<span class="kw">let </span>recent_block = <span class="self">self</span>.recent_block.expect(<span class="string">"We never ever reset recent_block to `None` and we already received a result, so it must have been set before. qed."</span>);
 		<span class="self">self</span>.dequeue_until_capacity(ctx, recent_block.<span class="number">1</span>).<span class="kw">await</span><span class="question-mark">?</span>;
 		<span class="prelude-val">Ok</span>(statement)
 	}
@@ -820,7 +822,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Moving any request concerning the given candidates from best-effort to
-	/// priority, ignoring any candidates that don&#39;t have any queued participation requests.
+	/// priority, ignoring any candidates that don't have any queued participation requests.
 	</span><span class="kw">pub async fn </span>bump_to_priority_for_candidates&lt;Context&gt;(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		ctx: <span class="kw-2">&amp;mut </span>Context,
@@ -859,14 +861,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			target: LOG_TARGET,
 			candidate_hash = <span class="question-mark">?</span>req.candidate_hash(),
 			session = req.session(),
-			<span class="string">&quot;Forking participation&quot;
+			<span class="string">"Forking participation"
 		</span>);
 
 		<span class="kw">let </span>participation_timer = <span class="self">self</span>.metrics.time_participation();
 		<span class="kw">if </span><span class="self">self</span>.running_participations.insert(<span class="kw-2">*</span>req.candidate_hash()) {
 			<span class="kw">let </span>sender = ctx.sender().clone();
 			ctx.spawn(
-				<span class="string">&quot;participation-worker&quot;</span>,
+				<span class="string">"participation-worker"</span>,
 				participate(
 					<span class="self">self</span>.worker_sender.clone(),
 					sender,
@@ -908,7 +910,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Err</span>(oneshot::Canceled) =&gt; {
 			<span class="macro">gum::warn!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;`Oneshot` got cancelled when recovering available data {:?}&quot;</span>,
+				<span class="string">"`Oneshot` got cancelled when recovering available data {:?}"</span>,
 				req.candidate_hash(),
 			);
 			send_result(<span class="kw-2">&amp;mut </span>result_sender, req, ParticipationOutcome::Error).<span class="kw">await</span>;
@@ -920,9 +922,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				target: LOG_TARGET,
 				candidate_hash = <span class="question-mark">?</span>req.candidate_hash(),
 				session = req.session(),
-				<span class="string">&quot;Invalid availability data during participation&quot;
+				<span class="string">"Invalid availability data during participation"
 			</span>);
-			<span class="comment">// the available data was recovered but it is invalid, therefore we&#39;ll
+			<span class="comment">// the available data was recovered but it is invalid, therefore we'll
 			// vote negatively for the candidate dispute
 			</span>send_result(<span class="kw-2">&amp;mut </span>result_sender, req, ParticipationOutcome::Invalid).<span class="kw">await</span>;
 			<span class="kw">return
@@ -932,7 +934,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				target: LOG_TARGET,
 				candidate_hash = <span class="question-mark">?</span>req.candidate_hash(),
 				session = req.session(),
-				<span class="string">&quot;Can&#39;t fetch availability data in participation&quot;
+				<span class="string">"Can't fetch availability data in participation"
 			</span>);
 			send_result(<span class="kw-2">&amp;mut </span>result_sender, req, ParticipationOutcome::Unavailable).<span class="kw">await</span>;
 			<span class="kw">return
@@ -952,7 +954,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>) =&gt; {
 			<span class="macro">gum::warn!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;Validation code unavailable for code hash {:?} in the state of block {:?}&quot;</span>,
+				<span class="string">"Validation code unavailable for code hash {:?} in the state of block {:?}"</span>,
 				req.candidate_receipt().descriptor.validation_code_hash,
 				block_hash,
 			);
@@ -961,7 +963,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">return
 		</span>},
 		<span class="prelude-val">Err</span>(err) =&gt; {
-			<span class="macro">gum::warn!</span>(target: LOG_TARGET, <span class="question-mark">?</span>err, <span class="string">&quot;Error when fetching validation code.&quot;</span>);
+			<span class="macro">gum::warn!</span>(target: LOG_TARGET, <span class="question-mark">?</span>err, <span class="string">"Error when fetching validation code."</span>);
 			send_result(<span class="kw-2">&amp;mut </span>result_sender, req, ParticipationOutcome::Error).<span class="kw">await</span>;
 			<span class="kw">return
 		</span>},
@@ -992,7 +994,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Err</span>(oneshot::Canceled) =&gt; {
 			<span class="macro">gum::warn!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;`Oneshot` got cancelled when validating candidate {:?}&quot;</span>,
+				<span class="string">"`Oneshot` got cancelled when validating candidate {:?}"</span>,
 				req.candidate_hash(),
 			);
 			send_result(<span class="kw-2">&amp;mut </span>result_sender, req, ParticipationOutcome::Error).<span class="kw">await</span>;
@@ -1001,7 +1003,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(err)) =&gt; {
 			<span class="macro">gum::warn!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;Candidate {:?} validation failed with: {:?}&quot;</span>,
+				<span class="string">"Candidate {:?} validation failed with: {:?}"</span>,
 				req.candidate_hash(),
 				err,
 			);
@@ -1012,7 +1014,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(ValidationResult::Invalid(invalid))) =&gt; {
 			<span class="macro">gum::warn!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;Candidate {:?} considered invalid: {:?}&quot;</span>,
+				<span class="string">"Candidate {:?} considered invalid: {:?}"</span>,
 				req.candidate_hash(),
 				invalid,
 			);
@@ -1035,7 +1037,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">gum::error!</span>(
 			target: LOG_TARGET,
 			<span class="question-mark">?</span>err,
-			<span class="string">&quot;Sending back participation result failed. Dispute coordinator not working properly!&quot;
+			<span class="string">"Sending back participation result failed. Dispute coordinator not working properly!"
 		</span>);
 	}
 }

@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/scheduler/src/migration.rs`."><title>migration.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/scheduler/src/migration.rs`."><title>migration.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_scheduler" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_scheduler" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../pallet_scheduler/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -715,14 +717,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -733,11 +735,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>frame_support::traits::OnRuntimeUpgrade;
 <span class="kw">use </span>frame_system::pallet_prelude::BlockNumberFor;
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 </span><span class="kw">use </span>sp_runtime::TryRuntimeError;
 
 <span class="doccomment">/// The log target.
-</span><span class="kw">const </span>TARGET: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;runtime::scheduler::migration&quot;</span>;
+</span><span class="kw">const </span>TARGET: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"runtime::scheduler::migration"</span>;
 
 <span class="kw">pub mod </span>v1 {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
@@ -796,9 +798,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub struct </span>MigrateToV4&lt;T&gt;(core::marker::PhantomData&lt;T&gt;);
 
 	<span class="kw">impl</span>&lt;T: Config&gt; OnRuntimeUpgrade <span class="kw">for </span>MigrateToV4&lt;T&gt; {
-		<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+		<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 		</span><span class="kw">fn </span>pre_upgrade() -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, TryRuntimeError&gt; {
-			<span class="macro">ensure!</span>(StorageVersion::get::&lt;Pallet&lt;T&gt;&gt;() == <span class="number">3</span>, <span class="string">&quot;Can only upgrade from version 3&quot;</span>);
+			<span class="macro">ensure!</span>(StorageVersion::get::&lt;Pallet&lt;T&gt;&gt;() == <span class="number">3</span>, <span class="string">"Can only upgrade from version 3"</span>);
 
 			<span class="kw">let </span>agendas = Agenda::&lt;T&gt;::iter_keys().count() <span class="kw">as </span>u32;
 			<span class="kw">let </span>decodable_agendas = Agenda::&lt;T&gt;::iter_values().count() <span class="kw">as </span>u32;
@@ -807,12 +809,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				// in an Agenda that are not valid anymore with the new runtime.
 				</span><span class="macro">log::error!</span>(
 					target: TARGET,
-					<span class="string">&quot;Can only decode {} of {} agendas - others will be dropped&quot;</span>,
+					<span class="string">"Can only decode {} of {} agendas - others will be dropped"</span>,
 					decodable_agendas,
 					agendas
 				);
 			}
-			<span class="macro">log::info!</span>(target: TARGET, <span class="string">&quot;Trying to migrate {} agendas...&quot;</span>, decodable_agendas);
+			<span class="macro">log::info!</span>(target: TARGET, <span class="string">"Trying to migrate {} agendas..."</span>, decodable_agendas);
 
 			<span class="comment">// Check that no agenda overflows `MaxScheduledPerBlock`.
 			</span><span class="kw">let </span>max_scheduled_per_block = T::MaxScheduledPerBlock::get() <span class="kw">as </span>usize;
@@ -820,12 +822,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">if </span>agenda.iter().cloned().flatten().count() &gt; max_scheduled_per_block {
 					<span class="macro">log::error!</span>(
 						target: TARGET,
-						<span class="string">&quot;Would truncate agenda of block {:?} from {} items to {} items.&quot;</span>,
+						<span class="string">"Would truncate agenda of block {:?} from {} items to {} items."</span>,
 						block_number,
 						agenda.len(),
 						max_scheduled_per_block,
 					);
-					<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;Agenda would overflow `MaxScheduledPerBlock`.&quot;</span>.into())
+					<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Agenda would overflow `MaxScheduledPerBlock`."</span>.into())
 				}
 			}
 			<span class="comment">// Check that bounding the calls will not overflow `MAX_LENGTH`.
@@ -838,11 +840,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							<span class="kw">if </span>l &gt; max_length {
 								<span class="macro">log::error!</span>(
 									target: TARGET,
-									<span class="string">&quot;Call in agenda of block {:?} is too large: {} byte&quot;</span>,
+									<span class="string">"Call in agenda of block {:?} is too large: {} byte"</span>,
 									block_number,
 									l,
 								);
-								<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;Call is too large.&quot;</span>.into())
+								<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Call is too large."</span>.into())
 							}
 						},
 						<span class="kw">_ </span>=&gt; (),
@@ -858,8 +860,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">if </span>version != <span class="number">3 </span>{
 				<span class="macro">log::warn!</span>(
 					target: TARGET,
-					<span class="string">&quot;skipping v3 to v4 migration: executed on wrong storage version.\
-				Expected version 3, found {:?}&quot;</span>,
+					<span class="string">"skipping v3 to v4 migration: executed on wrong storage version.\
+				Expected version 3, found {:?}"</span>,
 					version,
 				);
 				<span class="kw">return </span>T::DbWeight::get().reads(<span class="number">1</span>)
@@ -868,29 +870,29 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">crate</span>::Pallet::&lt;T&gt;::migrate_v3_to_v4()
 		}
 
-		<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+		<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 		</span><span class="kw">fn </span>post_upgrade(state: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
-			<span class="macro">ensure!</span>(StorageVersion::get::&lt;Pallet&lt;T&gt;&gt;() == <span class="number">4</span>, <span class="string">&quot;Must upgrade&quot;</span>);
+			<span class="macro">ensure!</span>(StorageVersion::get::&lt;Pallet&lt;T&gt;&gt;() == <span class="number">4</span>, <span class="string">"Must upgrade"</span>);
 
 			<span class="comment">// Check that everything decoded fine.
 			</span><span class="kw">for </span>k <span class="kw">in </span><span class="kw">crate</span>::Agenda::&lt;T&gt;::iter_keys() {
-				<span class="macro">ensure!</span>(<span class="kw">crate</span>::Agenda::&lt;T&gt;::try_get(k).is_ok(), <span class="string">&quot;Cannot decode V4 Agenda&quot;</span>);
+				<span class="macro">ensure!</span>(<span class="kw">crate</span>::Agenda::&lt;T&gt;::try_get(k).is_ok(), <span class="string">"Cannot decode V4 Agenda"</span>);
 			}
 
 			<span class="kw">let </span>old_agendas: u32 =
-				Decode::decode(<span class="kw-2">&amp;mut &amp;</span>state[..]).expect(<span class="string">&quot;pre_upgrade provides a valid state; qed&quot;</span>);
+				Decode::decode(<span class="kw-2">&amp;mut &amp;</span>state[..]).expect(<span class="string">"pre_upgrade provides a valid state; qed"</span>);
 			<span class="kw">let </span>new_agendas = <span class="kw">crate</span>::Agenda::&lt;T&gt;::iter_keys().count() <span class="kw">as </span>u32;
 			<span class="kw">if </span>old_agendas != new_agendas {
 				<span class="comment">// This is not necessarily an error, but can happen when there are Calls
 				// in an Agenda that are not valid anymore in the new runtime.
 				</span><span class="macro">log::error!</span>(
 					target: TARGET,
-					<span class="string">&quot;Did not migrate all Agendas. Previous {}, Now {}&quot;</span>,
+					<span class="string">"Did not migrate all Agendas. Previous {}, Now {}"</span>,
 					old_agendas,
 					new_agendas,
 				);
 			} <span class="kw">else </span>{
-				<span class="macro">log::info!</span>(target: TARGET, <span class="string">&quot;Migrated {} agendas.&quot;</span>, new_agendas);
+				<span class="macro">log::info!</span>(target: TARGET, <span class="string">"Migrated {} agendas."</span>, new_agendas);
 			}
 
 			<span class="prelude-val">Ok</span>(())
@@ -909,12 +911,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub struct </span>CleanupAgendas&lt;T&gt;(core::marker::PhantomData&lt;T&gt;);
 
 	<span class="kw">impl</span>&lt;T: Config&gt; OnRuntimeUpgrade <span class="kw">for </span>CleanupAgendas&lt;T&gt; {
-		<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+		<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 		</span><span class="kw">fn </span>pre_upgrade() -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, TryRuntimeError&gt; {
 			<span class="macro">assert_eq!</span>(
 				StorageVersion::get::&lt;Pallet&lt;T&gt;&gt;(),
 				<span class="number">4</span>,
-				<span class="string">&quot;Can only cleanup agendas of the V4 scheduler&quot;
+				<span class="string">"Can only cleanup agendas of the V4 scheduler"
 			</span>);
 
 			<span class="kw">let </span>agendas = Agenda::&lt;T&gt;::iter_keys().count();
@@ -922,7 +924,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				Agenda::&lt;T&gt;::iter_values().filter(|a| a.iter().any(|s| s.is_some())).count();
 			<span class="macro">log::info!</span>(
 				target: TARGET,
-				<span class="string">&quot;There are {} total and {} non-empty agendas&quot;</span>,
+				<span class="string">"There are {} total and {} non-empty agendas"</span>,
 				agendas,
 				non_empty_agendas
 			);
@@ -933,7 +935,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">fn </span>on_runtime_upgrade() -&gt; Weight {
 			<span class="kw">let </span>version = StorageVersion::get::&lt;Pallet&lt;T&gt;&gt;();
 			<span class="kw">if </span>version != <span class="number">4 </span>{
-				<span class="macro">log::warn!</span>(target: TARGET, <span class="string">&quot;Skipping CleanupAgendas migration since it was run on the wrong version: {:?} != 4&quot;</span>, version);
+				<span class="macro">log::warn!</span>(target: TARGET, <span class="string">"Skipping CleanupAgendas migration since it was run on the wrong version: {:?} != 4"</span>, version);
 				<span class="kw">return </span>T::DbWeight::get().reads(<span class="number">1</span>)
 			}
 
@@ -948,7 +950,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">match </span>all_schedules.checked_sub(suffix_none_schedules) {
 					<span class="prelude-val">Some</span>(<span class="number">0</span>) =&gt; {
 						<span class="macro">log::info!</span>(
-							<span class="string">&quot;Deleting None-only agenda {:?} with {} entries&quot;</span>,
+							<span class="string">"Deleting None-only agenda {:?} with {} entries"</span>,
 							k,
 							all_schedules
 						);
@@ -957,7 +959,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					},
 					<span class="prelude-val">Some</span>(ne) <span class="kw">if </span>ne &gt; <span class="number">0 </span>=&gt; {
 						<span class="macro">log::info!</span>(
-							<span class="string">&quot;Removing {} schedules of {} from agenda {:?}, now {:?}&quot;</span>,
+							<span class="string">"Removing {} schedules of {} from agenda {:?}, now {:?}"</span>,
 							suffix_none_schedules,
 							all_schedules,
 							ne,
@@ -969,43 +971,43 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					},
 					<span class="prelude-val">Some</span>(<span class="kw">_</span>) =&gt; {
 						<span class="macro">frame_support::defensive!</span>(
-							<span class="comment">// Bad but let&#39;s not panic.
-							</span><span class="string">&quot;Cannot have more None suffix schedules that schedules in total&quot;
+							<span class="comment">// Bad but let's not panic.
+							</span><span class="string">"Cannot have more None suffix schedules that schedules in total"
 						</span>);
 					},
 					<span class="prelude-val">None </span>=&gt; {
-						<span class="macro">log::info!</span>(<span class="string">&quot;Agenda {:?} does not have any None suffix schedules&quot;</span>, k);
+						<span class="macro">log::info!</span>(<span class="string">"Agenda {:?} does not have any None suffix schedules"</span>, k);
 					},
 				}
 			}
 
-			<span class="comment">// We don&#39;t modify the pallet version.
+			<span class="comment">// We don't modify the pallet version.
 
 			</span>T::DbWeight::get().reads_writes(<span class="number">1 </span>+ keys.len().saturating_mul(<span class="number">2</span>) <span class="kw">as </span>u64, writes)
 		}
 
-		<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+		<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 		</span><span class="kw">fn </span>post_upgrade(state: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
-			<span class="macro">ensure!</span>(StorageVersion::get::&lt;Pallet&lt;T&gt;&gt;() == <span class="number">4</span>, <span class="string">&quot;Version must not change&quot;</span>);
+			<span class="macro">ensure!</span>(StorageVersion::get::&lt;Pallet&lt;T&gt;&gt;() == <span class="number">4</span>, <span class="string">"Version must not change"</span>);
 
 			<span class="kw">let </span>(old_agendas, non_empty_agendas): (u32, u32) =
-				Decode::decode(<span class="kw-2">&amp;mut </span>state.as_ref()).expect(<span class="string">&quot;Must decode pre_upgrade state&quot;</span>);
+				Decode::decode(<span class="kw-2">&amp;mut </span>state.as_ref()).expect(<span class="string">"Must decode pre_upgrade state"</span>);
 			<span class="kw">let </span>new_agendas = Agenda::&lt;T&gt;::iter_keys().count() <span class="kw">as </span>u32;
 
 			<span class="kw">match </span>old_agendas.checked_sub(new_agendas) {
 				<span class="prelude-val">Some</span>(<span class="number">0</span>) =&gt; <span class="macro">log::warn!</span>(
 					target: TARGET,
-					<span class="string">&quot;Did not clean up any agendas. v4::CleanupAgendas can be removed.&quot;
+					<span class="string">"Did not clean up any agendas. v4::CleanupAgendas can be removed."
 				</span>),
 				<span class="prelude-val">Some</span>(n) =&gt; {
-					<span class="macro">log::info!</span>(target: TARGET, <span class="string">&quot;Cleaned up {} agendas, now {}&quot;</span>, n, new_agendas)
+					<span class="macro">log::info!</span>(target: TARGET, <span class="string">"Cleaned up {} agendas, now {}"</span>, n, new_agendas)
 				},
 				<span class="prelude-val">None </span>=&gt; <span class="macro">unreachable!</span>(
-					<span class="string">&quot;Number of agendas cannot increase, old {} new {}&quot;</span>,
+					<span class="string">"Number of agendas cannot increase, old {} new {}"</span>,
 					old_agendas, new_agendas
 				),
 			}
-			<span class="macro">ensure!</span>(new_agendas == non_empty_agendas, <span class="string">&quot;Expected to keep all non-empty agendas&quot;</span>);
+			<span class="macro">ensure!</span>(new_agendas == non_empty_agendas, <span class="string">"Expected to keep all non-empty agendas"</span>);
 
 			<span class="prelude-val">Ok</span>(())
 		}
@@ -1013,7 +1015,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="attr">#[cfg(test)]
-#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+#[cfg(feature = <span class="string">"try-runtime"</span>)]
 </span><span class="kw">mod </span>test {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use </span><span class="kw">crate</span>::mock::<span class="kw-2">*</span>;
@@ -1080,7 +1082,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						_phantom: PhantomData::&lt;u64&gt;::default(),
 					}),
 				];
-				frame_support::migration::put_storage_value(<span class="string">b&quot;Scheduler&quot;</span>, <span class="string">b&quot;Agenda&quot;</span>, <span class="kw-2">&amp;</span>k, old);
+				frame_support::migration::put_storage_value(<span class="string">b"Scheduler"</span>, <span class="string">b"Agenda"</span>, <span class="kw-2">&amp;</span>k, old);
 			}
 
 			<span class="kw">let </span>state = v3::MigrateToV4::&lt;Test&gt;::pre_upgrade().unwrap();
@@ -1162,7 +1164,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">for </span>(outer, (i, j)) <span class="kw">in </span>x.iter().zip(expected.iter()).enumerate() {
 				<span class="macro">assert_eq!</span>(i.<span class="number">0</span>, j.<span class="number">0</span>);
 				<span class="kw">for </span>(inner, (x, y)) <span class="kw">in </span>i.<span class="number">1</span>.iter().zip(j.<span class="number">1</span>.iter()).enumerate() {
-					<span class="macro">assert_eq!</span>(x, y, <span class="string">&quot;at index: outer {} inner {}&quot;</span>, outer, inner);
+					<span class="macro">assert_eq!</span>(x, y, <span class="string">"at index: outer {} inner {}"</span>, outer, inner);
 				}
 			}
 			<span class="macro">assert_eq_uvec!</span>(x, expected);
@@ -1192,11 +1194,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				origin: root(),
 				_phantom: PhantomData::&lt;u64&gt;::default(),
 			})];
-			frame_support::migration::put_storage_value(<span class="string">b&quot;Scheduler&quot;</span>, <span class="string">b&quot;Agenda&quot;</span>, <span class="kw-2">&amp;</span>k, old);
+			frame_support::migration::put_storage_value(<span class="string">b"Scheduler"</span>, <span class="string">b"Agenda"</span>, <span class="kw-2">&amp;</span>k, old);
 
 			<span class="comment">// The pre_upgrade hook fails:
 			</span><span class="kw">let </span>err = v3::MigrateToV4::&lt;Test&gt;::pre_upgrade().unwrap_err();
-			<span class="macro">assert_eq!</span>(DispatchError::from(<span class="string">&quot;Call is too large.&quot;</span>), err);
+			<span class="macro">assert_eq!</span>(DispatchError::from(<span class="string">"Call is too large."</span>), err);
 			<span class="comment">// But the migration itself works:
 			</span><span class="kw">let </span>_w = v3::MigrateToV4::&lt;Test&gt;::on_runtime_upgrade();
 
@@ -1258,11 +1260,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">match </span>test.<span class="number">1</span>.clone() {
 					<span class="prelude-val">None </span>=&gt; <span class="macro">assert!</span>(
 						!Agenda::&lt;Test&gt;::contains_key(i <span class="kw">as </span>u64),
-						<span class="string">&quot;Agenda {} should be removed&quot;</span>,
+						<span class="string">"Agenda {} should be removed"</span>,
 						i
 					),
 					<span class="prelude-val">Some</span>(new) =&gt; {
-						<span class="macro">assert_eq!</span>(Agenda::&lt;Test&gt;::get(i <span class="kw">as </span>u64), new, <span class="string">&quot;Agenda wrong {}&quot;</span>, i)
+						<span class="macro">assert_eq!</span>(Agenda::&lt;Test&gt;::get(i <span class="kw">as </span>u64), new, <span class="string">"Agenda wrong {}"</span>, i)
 					},
 				}
 			}

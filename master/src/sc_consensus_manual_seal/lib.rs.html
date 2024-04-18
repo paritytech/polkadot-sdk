@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/consensus/manual-seal/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/consensus/manual-seal/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_consensus_manual_seal" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_consensus_manual_seal" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sc_consensus_manual_seal/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1006,10 +1008,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sc_transaction_pool_api::TransactionPool;
 <span class="kw">use </span>sp_api::ProvideRuntimeApi;
 
-<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;manual-seal&quot;</span>;
+<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"manual-seal"</span>;
 
 <span class="doccomment">/// The `ConsensusEngineId` of Manual Seal.
-</span><span class="kw">pub const </span>MANUAL_SEAL_ENGINE_ID: ConsensusEngineId = [<span class="string">b&#39;m&#39;</span>, <span class="string">b&#39;a&#39;</span>, <span class="string">b&#39;n&#39;</span>, <span class="string">b&#39;l&#39;</span>];
+</span><span class="kw">pub const </span>MANUAL_SEAL_ENGINE_ID: ConsensusEngineId = [<span class="string">b'm'</span>, <span class="string">b'a'</span>, <span class="string">b'n'</span>, <span class="string">b'l'</span>];
 
 <span class="doccomment">/// The verifier for the manual seal engine; instantly finalizes.
 </span><span class="kw">struct </span>ManualSealVerifier;
@@ -1115,17 +1117,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		create_inherent_data_providers,
 	}: ManualSealParams&lt;B, BI, E, C, TP, SC, CS, CIDP, P&gt;,
 ) <span class="kw">where
-	</span>B: BlockT + <span class="lifetime">&#39;static</span>,
-	BI: BlockImport&lt;B, Error = sp_consensus::Error&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
-	C: HeaderBackend&lt;B&gt; + Finalizer&lt;B, CB&gt; + ProvideRuntimeApi&lt;B&gt; + <span class="lifetime">&#39;static</span>,
-	CB: ClientBackend&lt;B&gt; + <span class="lifetime">&#39;static</span>,
-	E: Environment&lt;B&gt; + <span class="lifetime">&#39;static</span>,
+	</span>B: BlockT + <span class="lifetime">'static</span>,
+	BI: BlockImport&lt;B, Error = sp_consensus::Error&gt; + Send + Sync + <span class="lifetime">'static</span>,
+	C: HeaderBackend&lt;B&gt; + Finalizer&lt;B, CB&gt; + ProvideRuntimeApi&lt;B&gt; + <span class="lifetime">'static</span>,
+	CB: ClientBackend&lt;B&gt; + <span class="lifetime">'static</span>,
+	E: Environment&lt;B&gt; + <span class="lifetime">'static</span>,
 	E::Proposer: Proposer&lt;B, Proof = P&gt;,
-	CS: Stream&lt;Item = EngineCommand&lt;&lt;B <span class="kw">as </span>BlockT&gt;::Hash&gt;&gt; + Unpin + <span class="lifetime">&#39;static</span>,
-	SC: SelectChain&lt;B&gt; + <span class="lifetime">&#39;static</span>,
+	CS: Stream&lt;Item = EngineCommand&lt;&lt;B <span class="kw">as </span>BlockT&gt;::Hash&gt;&gt; + Unpin + <span class="lifetime">'static</span>,
+	SC: SelectChain&lt;B&gt; + <span class="lifetime">'static</span>,
 	TP: TransactionPool&lt;Block = B&gt;,
 	CIDP: CreateInherentDataProviders&lt;B, ()&gt;,
-	P: codec::Encode + Send + Sync + <span class="lifetime">&#39;static</span>,
+	P: codec::Encode + Send + Sync + <span class="lifetime">'static</span>,
 {
 	<span class="kw">while let </span><span class="prelude-val">Some</span>(command) = commands_stream.next().<span class="kw">await </span>{
 		<span class="kw">match </span>command {
@@ -1174,16 +1176,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		create_inherent_data_providers,
 	}: InstantSealParams&lt;B, BI, E, C, TP, SC, CIDP, P&gt;,
 ) <span class="kw">where
-	</span>B: BlockT + <span class="lifetime">&#39;static</span>,
-	BI: BlockImport&lt;B, Error = sp_consensus::Error&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
-	C: HeaderBackend&lt;B&gt; + Finalizer&lt;B, CB&gt; + ProvideRuntimeApi&lt;B&gt; + <span class="lifetime">&#39;static</span>,
-	CB: ClientBackend&lt;B&gt; + <span class="lifetime">&#39;static</span>,
-	E: Environment&lt;B&gt; + <span class="lifetime">&#39;static</span>,
+	</span>B: BlockT + <span class="lifetime">'static</span>,
+	BI: BlockImport&lt;B, Error = sp_consensus::Error&gt; + Send + Sync + <span class="lifetime">'static</span>,
+	C: HeaderBackend&lt;B&gt; + Finalizer&lt;B, CB&gt; + ProvideRuntimeApi&lt;B&gt; + <span class="lifetime">'static</span>,
+	CB: ClientBackend&lt;B&gt; + <span class="lifetime">'static</span>,
+	E: Environment&lt;B&gt; + <span class="lifetime">'static</span>,
 	E::Proposer: Proposer&lt;B, Proof = P&gt;,
-	SC: SelectChain&lt;B&gt; + <span class="lifetime">&#39;static</span>,
+	SC: SelectChain&lt;B&gt; + <span class="lifetime">'static</span>,
 	TP: TransactionPool&lt;Block = B&gt;,
 	CIDP: CreateInherentDataProviders&lt;B, ()&gt;,
-	P: codec::Encode + Send + Sync + <span class="lifetime">&#39;static</span>,
+	P: codec::Encode + Send + Sync + <span class="lifetime">'static</span>,
 {
 	<span class="comment">// instant-seal creates blocks as soon as transactions are imported
 	// into the transaction pool.
@@ -1211,7 +1213,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// instant-seal creates a new block for every transaction imported into
 /// the transaction pool.
 ///
-/// This function will finalize the block immediately as well. If you don&#39;t
+/// This function will finalize the block immediately as well. If you don't
 /// want this behavior use `run_instant_seal` instead.
 </span><span class="kw">pub async fn </span>run_instant_seal_and_finalize&lt;B, BI, CB, E, C, TP, SC, CIDP, P&gt;(
 	InstantSealParams {
@@ -1224,16 +1226,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		create_inherent_data_providers,
 	}: InstantSealParams&lt;B, BI, E, C, TP, SC, CIDP, P&gt;,
 ) <span class="kw">where
-	</span>B: BlockT + <span class="lifetime">&#39;static</span>,
-	BI: BlockImport&lt;B, Error = sp_consensus::Error&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
-	C: HeaderBackend&lt;B&gt; + Finalizer&lt;B, CB&gt; + ProvideRuntimeApi&lt;B&gt; + <span class="lifetime">&#39;static</span>,
-	CB: ClientBackend&lt;B&gt; + <span class="lifetime">&#39;static</span>,
-	E: Environment&lt;B&gt; + <span class="lifetime">&#39;static</span>,
+	</span>B: BlockT + <span class="lifetime">'static</span>,
+	BI: BlockImport&lt;B, Error = sp_consensus::Error&gt; + Send + Sync + <span class="lifetime">'static</span>,
+	C: HeaderBackend&lt;B&gt; + Finalizer&lt;B, CB&gt; + ProvideRuntimeApi&lt;B&gt; + <span class="lifetime">'static</span>,
+	CB: ClientBackend&lt;B&gt; + <span class="lifetime">'static</span>,
+	E: Environment&lt;B&gt; + <span class="lifetime">'static</span>,
 	E::Proposer: Proposer&lt;B, Proof = P&gt;,
-	SC: SelectChain&lt;B&gt; + <span class="lifetime">&#39;static</span>,
+	SC: SelectChain&lt;B&gt; + <span class="lifetime">'static</span>,
 	TP: TransactionPool&lt;Block = B&gt;,
 	CIDP: CreateInherentDataProviders&lt;B, ()&gt;,
-	P: codec::Encode + Send + Sync + <span class="lifetime">&#39;static</span>,
+	P: codec::Encode + Send + Sync + <span class="lifetime">'static</span>,
 {
 	<span class="comment">// Creates and finalizes blocks as soon as transactions are imported
 	// into the transaction pool.
@@ -1267,9 +1269,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub async fn </span>run_delayed_finalize&lt;B, CB, C, S&gt;(
 	DelayedFinalizeParams { client, spawn_handle, delay_sec }: DelayedFinalizeParams&lt;C, S&gt;,
 ) <span class="kw">where
-	</span>B: BlockT + <span class="lifetime">&#39;static</span>,
-	CB: ClientBackend&lt;B&gt; + <span class="lifetime">&#39;static</span>,
-	C: HeaderBackend&lt;B&gt; + Finalizer&lt;B, CB&gt; + ProvideRuntimeApi&lt;B&gt; + BlockchainEvents&lt;B&gt; + <span class="lifetime">&#39;static</span>,
+	</span>B: BlockT + <span class="lifetime">'static</span>,
+	CB: ClientBackend&lt;B&gt; + <span class="lifetime">'static</span>,
+	C: HeaderBackend&lt;B&gt; + Finalizer&lt;B, CB&gt; + ProvideRuntimeApi&lt;B&gt; + BlockchainEvents&lt;B&gt; + <span class="lifetime">'static</span>,
 	S: SpawnNamed,
 {
 	<span class="kw">let </span><span class="kw-2">mut </span>block_import_stream = client.import_notification_stream();
@@ -1278,7 +1280,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>delay = Delay::new(Duration::from_secs(delay_sec));
 		<span class="kw">let </span>cloned_client = client.clone();
 		spawn_handle.spawn(
-			<span class="string">&quot;delayed-finalize&quot;</span>,
+			<span class="string">"delayed-finalize"</span>,
 			<span class="prelude-val">None</span>,
 			Box::pin(<span class="kw">async move </span>{
 				delay.<span class="kw">await</span>;
@@ -1371,7 +1373,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span><span class="kw-2">mut </span>sender = Arc::new(<span class="prelude-val">Some</span>(sender));
 		<span class="kw">let </span>commands_stream =
 			pool.pool().validated_pool().import_notification_stream().map(<span class="kw">move </span>|<span class="kw">_</span>| {
-				<span class="comment">// we&#39;re only going to submit one tx so this fn will only be called once.
+				<span class="comment">// we're only going to submit one tx so this fn will only be called once.
 				</span><span class="kw">let </span>mut_sender = Arc::get_mut(<span class="kw-2">&amp;mut </span>sender).unwrap();
 				<span class="kw">let </span>sender = std::mem::take(mut_sender);
 				EngineCommand::SealNewBlock {
@@ -1414,7 +1416,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				proof_size: <span class="number">0
 			</span>}
 		);
-		<span class="comment">// assert that there&#39;s a new block in the db.
+		<span class="comment">// assert that there's a new block in the db.
 		</span><span class="macro">assert!</span>(client.header(created_block.hash).unwrap().is_some());
 		<span class="macro">assert_eq!</span>(client.header(created_block.hash).unwrap().unwrap().number, <span class="number">1</span>)
 	}
@@ -1448,7 +1450,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span><span class="kw-2">mut </span>sender = Arc::new(<span class="prelude-val">Some</span>(sender));
 		<span class="kw">let </span>commands_stream =
 			pool.pool().validated_pool().import_notification_stream().map(<span class="kw">move </span>|<span class="kw">_</span>| {
-				<span class="comment">// we&#39;re only going to submit one tx so this fn will only be called once.
+				<span class="comment">// we're only going to submit one tx so this fn will only be called once.
 				</span><span class="kw">let </span>mut_sender = Arc::get_mut(<span class="kw-2">&amp;mut </span>sender).unwrap();
 				<span class="kw">let </span>sender = std::mem::take(mut_sender);
 				EngineCommand::SealNewBlock {
@@ -1502,7 +1504,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				proof_size: created_block.proof_size
 			}
 		);
-		<span class="comment">// assert that there&#39;s a new block in the db.
+		<span class="comment">// assert that there's a new block in the db.
 		</span><span class="macro">assert!</span>(client.header(created_block.hash).unwrap().is_some());
 		<span class="macro">assert_eq!</span>(client.header(created_block.hash).unwrap().unwrap().number, <span class="number">1</span>);
 
@@ -1578,7 +1580,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				proof_size: <span class="number">0
 			</span>}
 		);
-		<span class="comment">// assert that there&#39;s a new block in the db.
+		<span class="comment">// assert that there's a new block in the db.
 		</span><span class="kw">let </span>header = client.header(created_block.hash).unwrap().unwrap();
 		<span class="kw">let </span>(tx, rx) = futures::channel::oneshot::channel();
 		sink.send(EngineCommand::FinalizeBlock {
@@ -1666,7 +1668,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="macro">assert!</span>(pool.submit_one(created_block.hash, SOURCE, uxt(Alice, <span class="number">1</span>)).<span class="kw">await</span>.is_ok());
 
-		<span class="kw">let </span>header = client.header(created_block.hash).expect(<span class="string">&quot;db error&quot;</span>).expect(<span class="string">&quot;imported above&quot;</span>);
+		<span class="kw">let </span>header = client.header(created_block.hash).expect(<span class="string">"db error"</span>).expect(<span class="string">"imported above"</span>);
 		<span class="macro">assert_eq!</span>(header.number, <span class="number">1</span>);
 		pool.maintain(sc_transaction_pool_api::ChainEvent::NewBestBlock {
 			hash: header.hash(),
@@ -1684,7 +1686,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			})
 			.<span class="kw">await
 			</span>.is_ok());
-		<span class="macro">assert_matches::assert_matches!</span>(rx1.<span class="kw">await</span>.expect(<span class="string">&quot;should be no error receiving&quot;</span>), <span class="prelude-val">Ok</span>(<span class="kw">_</span>));
+		<span class="macro">assert_matches::assert_matches!</span>(rx1.<span class="kw">await</span>.expect(<span class="string">"should be no error receiving"</span>), <span class="prelude-val">Ok</span>(<span class="kw">_</span>));
 
 		<span class="macro">assert!</span>(pool.submit_one(created_block.hash, SOURCE, uxt(Bob, <span class="number">0</span>)).<span class="kw">await</span>.is_ok());
 		<span class="kw">let </span>(tx2, rx2) = futures::channel::oneshot::channel();

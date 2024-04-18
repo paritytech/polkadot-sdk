@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/service/src/relay_chain_selection.rs`."><title>relay_chain_selection.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/service/src/relay_chain_selection.rs`."><title>relay_chain_selection.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_service" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_service" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../polkadot_service/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -759,7 +761,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!
 //! To learn more about chain-selection rules for Relay Chains, please see the
 //! documentation on [chain-selection][chain-selection-guide]
-//! in the implementers&#39; guide.
+//! in the implementers' guide.
 //!
 //! This is mostly a wrapper around a subsystem which implements the
 //! chain-selection rule, which leaves the code to be very simple.
@@ -770,7 +772,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!
 //! [chain-selection-guide]: https://paritytech.github.io/polkadot-sdk/book/protocol-chain-selection.html
 
-</span><span class="attr">#![cfg(feature = <span class="string">&quot;full-node&quot;</span>)]
+</span><span class="attr">#![cfg(feature = <span class="string">"full-node"</span>)]
 
 </span><span class="kw">use super</span>::{HeaderProvider, HeaderProviderProvider};
 <span class="kw">use </span>consensus_common::{Error <span class="kw">as </span>ConsensusError, SelectChain};
@@ -795,7 +797,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // and `MAX_BATCH_SCRAPE_ANCESTORS` in `dispute-coordinator`.
 </span><span class="kw">const </span>MAX_FINALITY_LAG: polkadot_primitives::BlockNumber = PRIMITIVES_MAX_FINALITY_LAG;
 
-<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;parachain::chain-selection&quot;</span>;
+<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"parachain::chain-selection"</span>;
 
 <span class="doccomment">/// Prometheus metrics for chain-selection.
 </span><span class="attr">#[derive(Debug, Default, Clone)]
@@ -813,8 +815,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			approval_checking_finality_lag: prometheus::register(
 				prometheus::Gauge::with_opts(
 					prometheus::Opts::new(
-						<span class="string">&quot;polkadot_parachain_approval_checking_finality_lag&quot;</span>,
-						<span class="string">&quot;How far behind the head of the chain the Approval Checking protocol wants to vote&quot;</span>,
+						<span class="string">"polkadot_parachain_approval_checking_finality_lag"</span>,
+						<span class="string">"How far behind the head of the chain the Approval Checking protocol wants to vote"</span>,
 					)
 				)<span class="question-mark">?</span>,
 				registry,
@@ -822,8 +824,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			disputes_finality_lag: prometheus::register(
 				prometheus::Gauge::with_opts(
 					prometheus::Opts::new(
-						<span class="string">&quot;polkadot_parachain_disputes_finality_lag&quot;</span>,
-						<span class="string">&quot;How far behind the head of the chain the Disputes protocol wants to vote&quot;</span>,
+						<span class="string">"polkadot_parachain_disputes_finality_lag"</span>,
+						<span class="string">"How far behind the head of the chain the Disputes protocol wants to vote"</span>,
 					)
 				)<span class="question-mark">?</span>,
 				registry,
@@ -887,11 +889,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl</span>&lt;B&gt; SelectRelayChain&lt;B&gt;
 <span class="kw">where
-	</span>B: sc_client_api::Backend&lt;PolkadotBlock&gt; + <span class="lifetime">&#39;static</span>,
+	</span>B: sc_client_api::Backend&lt;PolkadotBlock&gt; + <span class="lifetime">'static</span>,
 {
 	<span class="doccomment">/// Use the plain longest chain algorithm exclusively.
 	</span><span class="kw">pub fn </span>new_longest_chain(backend: Arc&lt;B&gt;) -&gt; <span class="self">Self </span>{
-		<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="string">&quot;Using {} chain selection algorithm&quot;</span>, <span class="string">&quot;longest&quot;</span>);
+		<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="string">"Using {} chain selection algorithm"</span>, <span class="string">"longest"</span>);
 
 		<span class="self">Self </span>{
 			longest_chain: sc_consensus::LongestChain::new(backend.clone()),
@@ -907,7 +909,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		metrics: Metrics,
 		spawn_handle: <span class="prelude-ty">Option</span>&lt;SpawnTaskHandle&gt;,
 	) -&gt; <span class="self">Self </span>{
-		<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="string">&quot;Using dispute aware relay-chain selection algorithm&quot;</span>,);
+		<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="string">"Using dispute aware relay-chain selection algorithm"</span>,);
 
 		SelectRelayChain {
 			longest_chain: sc_consensus::LongestChain::new(backend.clone()),
@@ -929,7 +931,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[async_trait::async_trait]
 </span><span class="kw">impl</span>&lt;B&gt; SelectChain&lt;PolkadotBlock&gt; <span class="kw">for </span>SelectRelayChain&lt;B&gt;
 <span class="kw">where
-	</span>B: sc_client_api::Backend&lt;PolkadotBlock&gt; + <span class="lifetime">&#39;static</span>,
+	</span>B: sc_client_api::Backend&lt;PolkadotBlock&gt; + <span class="lifetime">'static</span>,
 {
 	<span class="kw">async fn </span>leaves(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Hash&gt;, ConsensusError&gt; {
 		<span class="kw">match </span><span class="self">self</span>.selection {
@@ -989,9 +991,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">match </span>HeaderProvider::header(<span class="self">self</span>.backend.header_provider(), hash) {
 			<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(header)) =&gt; <span class="prelude-val">Ok</span>(header),
 			<span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>) =&gt;
-				<span class="prelude-val">Err</span>(ConsensusError::ChainLookup(<span class="macro">format!</span>(<span class="string">&quot;Missing header with hash {:?}&quot;</span>, hash,))),
+				<span class="prelude-val">Err</span>(ConsensusError::ChainLookup(<span class="macro">format!</span>(<span class="string">"Missing header with hash {:?}"</span>, hash,))),
 			<span class="prelude-val">Err</span>(e) =&gt; <span class="prelude-val">Err</span>(ConsensusError::ChainLookup(<span class="macro">format!</span>(
-				<span class="string">&quot;Lookup failed for header with hash {:?}: {:?}&quot;</span>,
+				<span class="string">"Lookup failed for header with hash {:?}: {:?}"</span>,
 				hash, e,
 			))),
 		}
@@ -1001,9 +1003,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">match </span>HeaderProvider::number(<span class="self">self</span>.backend.header_provider(), hash) {
 			<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(number)) =&gt; <span class="prelude-val">Ok</span>(number),
 			<span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>) =&gt;
-				<span class="prelude-val">Err</span>(ConsensusError::ChainLookup(<span class="macro">format!</span>(<span class="string">&quot;Missing number with hash {:?}&quot;</span>, hash,))),
+				<span class="prelude-val">Err</span>(ConsensusError::ChainLookup(<span class="macro">format!</span>(<span class="string">"Missing number with hash {:?}"</span>, hash,))),
 			<span class="prelude-val">Err</span>(e) =&gt; <span class="prelude-val">Err</span>(ConsensusError::ChainLookup(<span class="macro">format!</span>(
-				<span class="string">&quot;Lookup failed for number with hash {:?}: {:?}&quot;</span>,
+				<span class="string">"Lookup failed for number with hash {:?}: {:?}"</span>,
 				hash, e,
 			))),
 		}
@@ -1029,17 +1031,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">enum </span>Error {
 	<span class="comment">// Oneshot for requesting leaves from chain selection got canceled - check errors in that
 	// subsystem.
-	</span><span class="attr">#[error(<span class="string">&quot;Request for leaves from chain selection got canceled&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"Request for leaves from chain selection got canceled"</span>)]
 	</span>LeavesCanceled(oneshot::Canceled),
-	<span class="attr">#[error(<span class="string">&quot;Request for leaves from chain selection got canceled&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Request for leaves from chain selection got canceled"</span>)]
 	</span>BestLeafContainingCanceled(oneshot::Canceled),
 	<span class="comment">// Requesting recent disputes oneshot got canceled.
-	</span><span class="attr">#[error(<span class="string">&quot;Request for determining the undisputed chain from DisputeCoordinator got canceled&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"Request for determining the undisputed chain from DisputeCoordinator got canceled"</span>)]
 	</span>DetermineUndisputedChainCanceled(oneshot::Canceled),
-	<span class="attr">#[error(<span class="string">&quot;Request approved ancestor from approval voting got canceled&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Request approved ancestor from approval voting got canceled"</span>)]
 	</span>ApprovedAncestorCanceled(oneshot::Canceled),
 	<span class="doccomment">/// Chain selection returned empty leaves.
-	</span><span class="attr">#[error(<span class="string">&quot;ChainSelection returned no leaves&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"ChainSelection returned no leaves"</span>)]
 	</span>EmptyLeaves,
 }
 
@@ -1048,12 +1050,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// Required for testing purposes.
 </span><span class="attr">#[async_trait::async_trait]
 </span><span class="kw">pub trait </span>OverseerHandleT: Clone + Send + Sync {
-	<span class="kw">async fn </span>send_msg&lt;M: Send + Into&lt;AllMessages&gt;&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, msg: M, origin: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str);
+	<span class="kw">async fn </span>send_msg&lt;M: Send + Into&lt;AllMessages&gt;&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, msg: M, origin: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str);
 }
 
 <span class="attr">#[async_trait::async_trait]
 </span><span class="kw">impl </span>OverseerHandleT <span class="kw">for </span>Handle {
-	<span class="kw">async fn </span>send_msg&lt;M: Send + Into&lt;AllMessages&gt;&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, msg: M, origin: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str) {
+	<span class="kw">async fn </span>send_msg&lt;M: Send + Into&lt;AllMessages&gt;&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, msg: M, origin: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str) {
 		Handle::send_msg(<span class="self">self</span>, msg, origin).<span class="kw">await
 	</span>}
 }
@@ -1061,7 +1063,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl</span>&lt;B, OH&gt; SelectRelayChainInner&lt;B, OH&gt;
 <span class="kw">where
 	</span>B: HeaderProviderProvider&lt;PolkadotBlock&gt;,
-	OH: OverseerHandleT + <span class="lifetime">&#39;static</span>,
+	OH: OverseerHandleT + <span class="lifetime">'static</span>,
 {
 	<span class="doccomment">/// Get all leaves of the chain, i.e. block hashes that are suitable to
 	/// build upon and have no suitable children.
@@ -1078,7 +1080,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span>.map_err(Error::LeavesCanceled)
 			.map_err(|e| ConsensusError::Other(Box::new(e)))<span class="question-mark">?</span>;
 
-		<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>leaves, <span class="string">&quot;Chain selection leaves&quot;</span>);
+		<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>leaves, <span class="string">"Chain selection leaves"</span>);
 
 		<span class="prelude-val">Ok</span>(leaves)
 	}
@@ -1094,7 +1096,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span>.first()
 			.ok_or_else(|| ConsensusError::Other(Box::new(Error::EmptyLeaves)))<span class="question-mark">?</span>;
 
-		<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>best_leaf, <span class="string">&quot;Best chain&quot;</span>);
+		<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>best_leaf, <span class="string">"Best chain"</span>);
 
 		<span class="self">self</span>.block_header(best_leaf)
 	}
@@ -1129,7 +1131,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				</span>.map_err(Error::BestLeafContainingCanceled)
 				.map_err(|e| ConsensusError::Other(Box::new(e)))<span class="question-mark">?</span>;
 
-			<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>best, <span class="string">&quot;Best leaf containing&quot;</span>);
+			<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>best, <span class="string">"Best leaf containing"</span>);
 
 			<span class="kw">match </span>best {
 				<span class="comment">// No viable leaves containing the block.
@@ -1150,7 +1152,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							LOG_TARGET,
 							max_number = max,
 							target_number,
-							<span class="string">&quot;`finality_target` max number is less than target number&quot;</span>,
+							<span class="string">"`finality_target` max number is less than target number"</span>,
 						);
 					}
 					<span class="kw">return </span><span class="prelude-val">Ok</span>(target_hash)
@@ -1159,7 +1161,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				</span><span class="kw">let </span>subchain_header = <span class="self">self</span>.block_header(subchain_head)<span class="question-mark">?</span>;
 
 				<span class="kw">if </span>subchain_header.number &lt;= max {
-					<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>subchain_head, <span class="string">&quot;Constrained sub-chain head&quot;</span>,);
+					<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>subchain_head, <span class="string">"Constrained sub-chain head"</span>,);
 					subchain_head
 				} <span class="kw">else </span>{
 					<span class="kw">let </span>(ancestor_hash, <span class="kw">_</span>) =
@@ -1168,11 +1170,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							max,
 							<span class="kw-2">&amp;</span>subchain_header,
 						)
-						.map_err(|e| ConsensusError::ChainLookup(<span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, e)))<span class="question-mark">?</span>;
+						.map_err(|e| ConsensusError::ChainLookup(<span class="macro">format!</span>(<span class="string">"{:?}"</span>, e)))<span class="question-mark">?</span>;
 					<span class="macro">gum::trace!</span>(
 						target: LOG_TARGET,
 						<span class="question-mark">?</span>ancestor_hash,
-						<span class="string">&quot;Grandpa walk backwards sub-chain head&quot;
+						<span class="string">"Grandpa walk backwards sub-chain head"
 					</span>);
 					ancestor_hash
 				}
@@ -1204,7 +1206,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			}
 		};
 
-		<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>subchain_head, <span class="string">&quot;Ancestor approval restriction applied&quot;</span>,);
+		<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>subchain_head, <span class="string">"Ancestor approval restriction applied"</span>,);
 
 		<span class="kw">let </span>lag = initial_leaf_number.saturating_sub(subchain_number);
 		<span class="self">self</span>.metrics.note_approval_checking_finality_lag(lag);
@@ -1223,8 +1225,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			};
 
 			spawn_handle.spawn(
-				<span class="string">&quot;approval-checking-lag-update&quot;</span>,
-				<span class="prelude-val">Some</span>(<span class="string">&quot;relay-chain-selection&quot;</span>),
+				<span class="string">"approval-checking-lag-update"</span>,
+				<span class="prelude-val">Some</span>(<span class="string">"relay-chain-selection"</span>),
 				Box::pin(lag_update_task),
 			);
 		}
@@ -1239,7 +1241,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					present_block_descriptions = subchain_block_descriptions.len(),
 					target_number,
 					subchain_number,
-					<span class="string">&quot;Mismatch of anticipated block descriptions and block number difference.&quot;</span>,
+					<span class="string">"Mismatch of anticipated block descriptions and block number difference."</span>,
 				);
 				<span class="kw">return </span><span class="prelude-val">Ok</span>(target_hash)
 			}
@@ -1272,7 +1274,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="macro">gum::error!</span>(
 							target: LOG_TARGET,
 							error = <span class="question-mark">?</span>e,
-							<span class="string">&quot;Call to `DetermineUndisputedChain` failed&quot;</span>,
+							<span class="string">"Call to `DetermineUndisputedChain` failed"</span>,
 						);
 						<span class="comment">// We need to return a sane finality target. But, we are unable to ensure we
 						// are not finalizing something that is being disputed or has been concluded
@@ -1287,7 +1289,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">gum::trace!</span>(
 			target: LOG_TARGET,
 			<span class="question-mark">?</span>subchain_head,
-			<span class="string">&quot;Disputed blocks in ancestry restriction applied&quot;</span>,
+			<span class="string">"Disputed blocks in ancestry restriction applied"</span>,
 		);
 
 		<span class="comment">// 4. Apply the maximum safeguard to the finality lag.
@@ -1297,23 +1299,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="kw">let </span>safe_target = initial_leaf_number - MAX_FINALITY_LAG;
 
 			<span class="kw">if </span>safe_target &lt;= target_number {
-				<span class="macro">gum::warn!</span>(target: LOG_TARGET, <span class="question-mark">?</span>target_hash, <span class="string">&quot;Safeguard enforced finalization&quot;</span>);
+				<span class="macro">gum::warn!</span>(target: LOG_TARGET, <span class="question-mark">?</span>target_hash, <span class="string">"Safeguard enforced finalization"</span>);
 				<span class="comment">// Minimal vote needs to be on the target number.
 				</span><span class="prelude-val">Ok</span>(target_hash)
 			} <span class="kw">else </span>{
-				<span class="comment">// Otherwise we&#39;re looking for a descendant.
+				<span class="comment">// Otherwise we're looking for a descendant.
 				</span><span class="kw">let </span>initial_leaf_header = <span class="self">self</span>.block_header(initial_leaf)<span class="question-mark">?</span>;
 				<span class="kw">let </span>(forced_target, <span class="kw">_</span>) = <span class="kw">crate</span>::grandpa_support::walk_backwards_to_target_block(
 					<span class="self">self</span>.backend.header_provider(),
 					safe_target,
 					<span class="kw-2">&amp;</span>initial_leaf_header,
 				)
-				.map_err(|e| ConsensusError::ChainLookup(<span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, e)))<span class="question-mark">?</span>;
+				.map_err(|e| ConsensusError::ChainLookup(<span class="macro">format!</span>(<span class="string">"{:?}"</span>, e)))<span class="question-mark">?</span>;
 
 				<span class="macro">gum::warn!</span>(
 					target: LOG_TARGET,
 					<span class="question-mark">?</span>forced_target,
-					<span class="string">&quot;Safeguard enforced finalization of child&quot;
+					<span class="string">"Safeguard enforced finalization of child"
 				</span>);
 
 				<span class="prelude-val">Ok</span>(forced_target)

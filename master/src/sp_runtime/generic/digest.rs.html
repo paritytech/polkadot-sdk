@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/runtime/src/generic/digest.rs`."><title>digest.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/runtime/src/generic/digest.rs`."><title>digest.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sp_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sp_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../sp_runtime/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -644,23 +646,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
 </span><span class="doccomment">//! Generic implementation of a digest.
 
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;serde&quot;</span>)]
+</span><span class="attr">#[cfg(feature = <span class="string">"serde"</span>)]
 </span><span class="kw">use </span>serde::{Deserialize, Serialize};
-<span class="attr">#[cfg(all(not(feature = <span class="string">&quot;std&quot;</span>), feature = <span class="string">&quot;serde&quot;</span>))]
+<span class="attr">#[cfg(all(not(feature = <span class="string">"std"</span>), feature = <span class="string">"serde"</span>))]
 </span><span class="kw">use </span>sp_std::alloc::format;
 
 <span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
@@ -677,7 +679,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Generic header digest.
 </span><span class="attr">#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, Default)]
-#[cfg_attr(feature = <span class="string">&quot;serde&quot;</span>, derive(Serialize, Deserialize))]
+#[cfg_attr(feature = <span class="string">"serde"</span>, derive(Serialize, Deserialize))]
 </span><span class="kw">pub struct </span>Digest {
 	<span class="doccomment">/// A list of logs in the digest.
 	</span><span class="kw">pub </span>logs: Vec&lt;DigestItem&gt;,
@@ -710,7 +712,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="doccomment">/// Digest item that is able to encode/decode &#39;system&#39; digest items and
+<span class="doccomment">/// Digest item that is able to encode/decode 'system' digest items and
 /// provide opaque access to other items.
 </span><span class="attr">#[derive(PartialEq, Eq, Clone, RuntimeDebug)]
 </span><span class="kw">pub enum </span>DigestItem {
@@ -749,7 +751,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>RuntimeEnvironmentUpdated,
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;serde&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"serde"</span>)]
 </span><span class="kw">impl </span>serde::Serialize <span class="kw">for </span>DigestItem {
 	<span class="kw">fn </span>serialize&lt;S&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, seq: S) -&gt; <span class="prelude-ty">Result</span>&lt;S::Ok, S::Error&gt;
 	<span class="kw">where
@@ -759,15 +761,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;serde&quot;</span>)]
-</span><span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; serde::Deserialize&lt;<span class="lifetime">&#39;a</span>&gt; <span class="kw">for </span>DigestItem {
+<span class="attr">#[cfg(feature = <span class="string">"serde"</span>)]
+</span><span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; serde::Deserialize&lt;<span class="lifetime">'a</span>&gt; <span class="kw">for </span>DigestItem {
 	<span class="kw">fn </span>deserialize&lt;D&gt;(de: D) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, D::Error&gt;
 	<span class="kw">where
-		</span>D: serde::Deserializer&lt;<span class="lifetime">&#39;a</span>&gt;,
+		</span>D: serde::Deserializer&lt;<span class="lifetime">'a</span>&gt;,
 	{
 		<span class="kw">let </span>r = sp_core::bytes::deserialize(de)<span class="question-mark">?</span>;
 		Decode::decode(<span class="kw-2">&amp;mut &amp;</span>r[..])
-			.map_err(|e| serde::de::Error::custom(<span class="macro">format!</span>(<span class="string">&quot;Decode error: {}&quot;</span>, e)))
+			.map_err(|e| serde::de::Error::custom(<span class="macro">format!</span>(<span class="string">"Decode error: {}"</span>, e)))
 	}
 }
 
@@ -775,67 +777,67 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>Identity = <span class="self">Self</span>;
 
 	<span class="kw">fn </span>type_info() -&gt; Type {
-		Type::builder().path(Path::new(<span class="string">&quot;DigestItem&quot;</span>, <span class="macro">module_path!</span>())).variant(
+		Type::builder().path(Path::new(<span class="string">"DigestItem"</span>, <span class="macro">module_path!</span>())).variant(
 			Variants::new()
-				.variant(<span class="string">&quot;PreRuntime&quot;</span>, |v| {
+				.variant(<span class="string">"PreRuntime"</span>, |v| {
 					v.index(DigestItemType::PreRuntime <span class="kw">as </span>u8).fields(
 						Fields::unnamed()
-							.field(|f| f.ty::&lt;ConsensusEngineId&gt;().type_name(<span class="string">&quot;ConsensusEngineId&quot;</span>))
-							.field(|f| f.ty::&lt;Vec&lt;u8&gt;&gt;().type_name(<span class="string">&quot;Vec&lt;u8&gt;&quot;</span>)),
+							.field(|f| f.ty::&lt;ConsensusEngineId&gt;().type_name(<span class="string">"ConsensusEngineId"</span>))
+							.field(|f| f.ty::&lt;Vec&lt;u8&gt;&gt;().type_name(<span class="string">"Vec&lt;u8&gt;"</span>)),
 					)
 				})
-				.variant(<span class="string">&quot;Consensus&quot;</span>, |v| {
+				.variant(<span class="string">"Consensus"</span>, |v| {
 					v.index(DigestItemType::Consensus <span class="kw">as </span>u8).fields(
 						Fields::unnamed()
-							.field(|f| f.ty::&lt;ConsensusEngineId&gt;().type_name(<span class="string">&quot;ConsensusEngineId&quot;</span>))
-							.field(|f| f.ty::&lt;Vec&lt;u8&gt;&gt;().type_name(<span class="string">&quot;Vec&lt;u8&gt;&quot;</span>)),
+							.field(|f| f.ty::&lt;ConsensusEngineId&gt;().type_name(<span class="string">"ConsensusEngineId"</span>))
+							.field(|f| f.ty::&lt;Vec&lt;u8&gt;&gt;().type_name(<span class="string">"Vec&lt;u8&gt;"</span>)),
 					)
 				})
-				.variant(<span class="string">&quot;Seal&quot;</span>, |v| {
+				.variant(<span class="string">"Seal"</span>, |v| {
 					v.index(DigestItemType::Seal <span class="kw">as </span>u8).fields(
 						Fields::unnamed()
-							.field(|f| f.ty::&lt;ConsensusEngineId&gt;().type_name(<span class="string">&quot;ConsensusEngineId&quot;</span>))
-							.field(|f| f.ty::&lt;Vec&lt;u8&gt;&gt;().type_name(<span class="string">&quot;Vec&lt;u8&gt;&quot;</span>)),
+							.field(|f| f.ty::&lt;ConsensusEngineId&gt;().type_name(<span class="string">"ConsensusEngineId"</span>))
+							.field(|f| f.ty::&lt;Vec&lt;u8&gt;&gt;().type_name(<span class="string">"Vec&lt;u8&gt;"</span>)),
 					)
 				})
-				.variant(<span class="string">&quot;Other&quot;</span>, |v| {
+				.variant(<span class="string">"Other"</span>, |v| {
 					v.index(DigestItemType::Other <span class="kw">as </span>u8)
-						.fields(Fields::unnamed().field(|f| f.ty::&lt;Vec&lt;u8&gt;&gt;().type_name(<span class="string">&quot;Vec&lt;u8&gt;&quot;</span>)))
+						.fields(Fields::unnamed().field(|f| f.ty::&lt;Vec&lt;u8&gt;&gt;().type_name(<span class="string">"Vec&lt;u8&gt;"</span>)))
 				})
-				.variant(<span class="string">&quot;RuntimeEnvironmentUpdated&quot;</span>, |v| {
+				.variant(<span class="string">"RuntimeEnvironmentUpdated"</span>, |v| {
 					v.index(DigestItemType::RuntimeEnvironmentUpdated <span class="kw">as </span>u8).fields(Fields::unit())
 				}),
 		)
 	}
 }
 
-<span class="doccomment">/// A &#39;referencing view&#39; for digest item. Does not own its contents. Used by
+<span class="doccomment">/// A 'referencing view' for digest item. Does not own its contents. Used by
 /// final runtime implementations for encoding/decoding its log items.
 </span><span class="attr">#[derive(PartialEq, Eq, Clone, RuntimeDebug)]
-</span><span class="kw">pub enum </span>DigestItemRef&lt;<span class="lifetime">&#39;a</span>&gt; {
+</span><span class="kw">pub enum </span>DigestItemRef&lt;<span class="lifetime">'a</span>&gt; {
 	<span class="doccomment">/// A pre-runtime digest.
 	///
 	/// These are messages from the consensus engine to the runtime, although
 	/// the consensus engine can (and should) read them itself to avoid
 	/// code and state duplication.  It is erroneous for a runtime to produce
 	/// these, but this is not (yet) checked.
-	</span>PreRuntime(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ConsensusEngineId, <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8]),
+	</span>PreRuntime(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>ConsensusEngineId, <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8]),
 	<span class="doccomment">/// A message from the runtime to the consensus engine. This should *never*
 	/// be generated by the native code of any consensus engine, but this is not
 	/// checked (yet).
-	</span>Consensus(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ConsensusEngineId, <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8]),
+	</span>Consensus(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>ConsensusEngineId, <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8]),
 	<span class="doccomment">/// Put a Seal on it. This is only used by native code, and is never seen
 	/// by runtimes.
-	</span>Seal(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ConsensusEngineId, <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8]),
-	<span class="doccomment">/// Any &#39;non-system&#39; digest item, opaque to the native code.
-	</span>Other(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8]),
+	</span>Seal(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>ConsensusEngineId, <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8]),
+	<span class="doccomment">/// Any 'non-system' digest item, opaque to the native code.
+	</span>Other(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8]),
 	<span class="doccomment">/// Runtime code or heap pages updated.
 	</span>RuntimeEnvironmentUpdated,
 }
 
 <span class="doccomment">/// Type of the digest item. Used to gain explicit control over `DigestItem` encoding
 /// process. We need an explicit control, because final runtimes are encoding their own
-/// digest items using `DigestItemRef` type and we can&#39;t auto-derive `Decode`
+/// digest items using `DigestItemRef` type and we can't auto-derive `Decode`
 /// trait for `DigestItemRef`.
 </span><span class="attr">#[repr(u32)]
 #[derive(Encode, Decode)]
@@ -850,19 +852,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Type of a digest item that contains raw data; this also names the consensus engine ID where
 /// applicable. Used to identify one or more digest items of interest.
 </span><span class="attr">#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
-</span><span class="kw">pub enum </span>OpaqueDigestItemId&lt;<span class="lifetime">&#39;a</span>&gt; {
+</span><span class="kw">pub enum </span>OpaqueDigestItemId&lt;<span class="lifetime">'a</span>&gt; {
 	<span class="doccomment">/// Type corresponding to DigestItem::PreRuntime.
-	</span>PreRuntime(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ConsensusEngineId),
+	</span>PreRuntime(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>ConsensusEngineId),
 	<span class="doccomment">/// Type corresponding to DigestItem::Consensus.
-	</span>Consensus(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ConsensusEngineId),
+	</span>Consensus(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>ConsensusEngineId),
 	<span class="doccomment">/// Type corresponding to DigestItem::Seal.
-	</span>Seal(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ConsensusEngineId),
+	</span>Seal(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>ConsensusEngineId),
 	<span class="doccomment">/// Some other (non-prescribed) type.
 	</span>Other,
 }
 
 <span class="kw">impl </span>DigestItem {
-	<span class="doccomment">/// Returns a &#39;referencing view&#39; for this digest item.
+	<span class="doccomment">/// Returns a 'referencing view' for this digest item.
 	</span><span class="kw">pub fn </span>dref(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; DigestItemRef {
 		<span class="kw">match </span><span class="kw-2">*</span><span class="self">self </span>{
 			<span class="self">Self</span>::PreRuntime(<span class="kw-2">ref </span>v, <span class="kw-2">ref </span>s) =&gt; DigestItemRef::PreRuntime(v, s),
@@ -906,14 +908,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Try to match this to a `Self::Seal`, check `id` matches and decode it.
 	///
-	/// Returns `None` if this isn&#39;t a seal item, the `id` doesn&#39;t match or when the decoding fails.
+	/// Returns `None` if this isn't a seal item, the `id` doesn't match or when the decoding fails.
 	</span><span class="kw">pub fn </span>seal_try_to&lt;T: Decode&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, id: <span class="kw-2">&amp;</span>ConsensusEngineId) -&gt; <span class="prelude-ty">Option</span>&lt;T&gt; {
 		<span class="self">self</span>.dref().seal_try_to(id)
 	}
 
 	<span class="doccomment">/// Try to match this to a `Self::Consensus`, check `id` matches and decode it.
 	///
-	/// Returns `None` if this isn&#39;t a consensus item, the `id` doesn&#39;t match or
+	/// Returns `None` if this isn't a consensus item, the `id` doesn't match or
 	/// when the decoding fails.
 	</span><span class="kw">pub fn </span>consensus_try_to&lt;T: Decode&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, id: <span class="kw-2">&amp;</span>ConsensusEngineId) -&gt; <span class="prelude-ty">Option</span>&lt;T&gt; {
 		<span class="self">self</span>.dref().consensus_try_to(id)
@@ -921,7 +923,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Try to match this to a `Self::PreRuntime`, check `id` matches and decode it.
 	///
-	/// Returns `None` if this isn&#39;t a pre-runtime item, the `id` doesn&#39;t match or
+	/// Returns `None` if this isn't a pre-runtime item, the `id` doesn't match or
 	/// when the decoding fails.
 	</span><span class="kw">pub fn </span>pre_runtime_try_to&lt;T: Decode&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, id: <span class="kw-2">&amp;</span>ConsensusEngineId) -&gt; <span class="prelude-ty">Option</span>&lt;T&gt; {
 		<span class="self">self</span>.dref().pre_runtime_try_to(id)
@@ -959,9 +961,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; DigestItemRef&lt;<span class="lifetime">&#39;a</span>&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; DigestItemRef&lt;<span class="lifetime">'a</span>&gt; {
 	<span class="doccomment">/// Cast this digest item into `PreRuntime`
-	</span><span class="kw">pub fn </span>as_pre_runtime(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;(ConsensusEngineId, <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8])&gt; {
+	</span><span class="kw">pub fn </span>as_pre_runtime(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;(ConsensusEngineId, <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8])&gt; {
 		<span class="kw">match </span><span class="kw-2">*</span><span class="self">self </span>{
 			<span class="self">Self</span>::PreRuntime(consensus_engine_id, data) =&gt; <span class="prelude-val">Some</span>((<span class="kw-2">*</span>consensus_engine_id, data)),
 			<span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
@@ -969,7 +971,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Cast this digest item into `Consensus`
-	</span><span class="kw">pub fn </span>as_consensus(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;(ConsensusEngineId, <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8])&gt; {
+	</span><span class="kw">pub fn </span>as_consensus(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;(ConsensusEngineId, <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8])&gt; {
 		<span class="kw">match </span><span class="kw-2">*</span><span class="self">self </span>{
 			<span class="self">Self</span>::Consensus(consensus_engine_id, data) =&gt; <span class="prelude-val">Some</span>((<span class="kw-2">*</span>consensus_engine_id, data)),
 			<span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
@@ -977,7 +979,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Cast this digest item into `Seal`
-	</span><span class="kw">pub fn </span>as_seal(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;(ConsensusEngineId, <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8])&gt; {
+	</span><span class="kw">pub fn </span>as_seal(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;(ConsensusEngineId, <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8])&gt; {
 		<span class="kw">match </span><span class="kw-2">*</span><span class="self">self </span>{
 			<span class="self">Self</span>::Seal(consensus_engine_id, data) =&gt; <span class="prelude-val">Some</span>((<span class="kw-2">*</span>consensus_engine_id, data)),
 			<span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
@@ -985,7 +987,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Cast this digest item into `PreRuntime`
-	</span><span class="kw">pub fn </span>as_other(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8]&gt; {
+	</span><span class="kw">pub fn </span>as_other(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8]&gt; {
 		<span class="kw">match </span><span class="kw-2">*</span><span class="self">self </span>{
 			<span class="self">Self</span>::Other(data) =&gt; <span class="prelude-val">Some</span>(data),
 			<span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
@@ -994,7 +996,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Try to match this digest item to the given opaque item identifier; if it matches, then
 	/// return the opaque data it contains.
-	</span><span class="kw">pub fn </span>try_as_raw(<span class="kw-2">&amp;</span><span class="self">self</span>, id: OpaqueDigestItemId) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8]&gt; {
+	</span><span class="kw">pub fn </span>try_as_raw(<span class="kw-2">&amp;</span><span class="self">self</span>, id: OpaqueDigestItemId) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8]&gt; {
 		<span class="kw">match </span>(id, <span class="self">self</span>) {
 			(OpaqueDigestItemId::Consensus(w), <span class="kw-2">&amp;</span><span class="self">Self</span>::Consensus(v, s)) |
 			(OpaqueDigestItemId::Seal(w), <span class="kw-2">&amp;</span><span class="self">Self</span>::Seal(v, s)) |
@@ -1014,7 +1016,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Try to match this to a `Self::Seal`, check `id` matches and decode it.
 	///
-	/// Returns `None` if this isn&#39;t a seal item, the `id` doesn&#39;t match or when the decoding fails.
+	/// Returns `None` if this isn't a seal item, the `id` doesn't match or when the decoding fails.
 	</span><span class="kw">pub fn </span>seal_try_to&lt;T: Decode&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, id: <span class="kw-2">&amp;</span>ConsensusEngineId) -&gt; <span class="prelude-ty">Option</span>&lt;T&gt; {
 		<span class="kw">match </span><span class="self">self </span>{
 			<span class="self">Self</span>::Seal(v, s) <span class="kw">if </span><span class="kw-2">*</span>v == id =&gt; Decode::decode(<span class="kw-2">&amp;mut &amp;</span>s[..]).ok(),
@@ -1024,7 +1026,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Try to match this to a `Self::Consensus`, check `id` matches and decode it.
 	///
-	/// Returns `None` if this isn&#39;t a consensus item, the `id` doesn&#39;t match or
+	/// Returns `None` if this isn't a consensus item, the `id` doesn't match or
 	/// when the decoding fails.
 	</span><span class="kw">pub fn </span>consensus_try_to&lt;T: Decode&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, id: <span class="kw-2">&amp;</span>ConsensusEngineId) -&gt; <span class="prelude-ty">Option</span>&lt;T&gt; {
 		<span class="kw">match </span><span class="self">self </span>{
@@ -1035,7 +1037,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Try to match this to a `Self::PreRuntime`, check `id` matches and decode it.
 	///
-	/// Returns `None` if this isn&#39;t a pre-runtime item, the `id` doesn&#39;t match or
+	/// Returns `None` if this isn't a pre-runtime item, the `id` doesn't match or
 	/// when the decoding fails.
 	</span><span class="kw">pub fn </span>pre_runtime_try_to&lt;T: Decode&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, id: <span class="kw-2">&amp;</span>ConsensusEngineId) -&gt; <span class="prelude-ty">Option</span>&lt;T&gt; {
 		<span class="kw">match </span><span class="self">self </span>{
@@ -1045,7 +1047,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; Encode <span class="kw">for </span>DigestItemRef&lt;<span class="lifetime">&#39;a</span>&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; Encode <span class="kw">for </span>DigestItemRef&lt;<span class="lifetime">'a</span>&gt; {
 	<span class="kw">fn </span>encode(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;u8&gt; {
 		<span class="kw">let </span><span class="kw-2">mut </span>v = Vec::new();
 
@@ -1075,7 +1077,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; codec::EncodeLike <span class="kw">for </span>DigestItemRef&lt;<span class="lifetime">&#39;a</span>&gt; {}
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; codec::EncodeLike <span class="kw">for </span>DigestItemRef&lt;<span class="lifetime">'a</span>&gt; {}
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
@@ -1084,12 +1086,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>should_serialize_digest() {
 		<span class="kw">let </span>digest = Digest {
-			logs: <span class="macro">vec!</span>[DigestItem::Other(<span class="macro">vec!</span>[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>]), DigestItem::Seal(<span class="kw-2">*</span><span class="string">b&quot;test&quot;</span>, <span class="macro">vec!</span>[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>])],
+			logs: <span class="macro">vec!</span>[DigestItem::Other(<span class="macro">vec!</span>[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>]), DigestItem::Seal(<span class="kw-2">*</span><span class="string">b"test"</span>, <span class="macro">vec!</span>[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>])],
 		};
 
 		<span class="macro">assert_eq!</span>(
 			serde_json::to_string(<span class="kw-2">&amp;</span>digest).unwrap(),
-			<span class="string">r#&quot;{&quot;logs&quot;:[&quot;0x000c010203&quot;,&quot;0x05746573740c010203&quot;]}&quot;#
+			<span class="string">r#"{"logs":["0x000c010203","0x05746573740c010203"]}"#
 		</span>);
 	}
 
@@ -1099,27 +1101,27 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>variants = <span class="kw">if let </span>scale_info::TypeDef::Variant(variant) = type_info.type_def {
 			variant.variants
 		} <span class="kw">else </span>{
-			<span class="macro">panic!</span>(<span class="string">&quot;Should be a TypeDef::TypeDefVariant&quot;</span>)
+			<span class="macro">panic!</span>(<span class="string">"Should be a TypeDef::TypeDefVariant"</span>)
 		};
 
 		<span class="comment">// ensure that all variants are covered by manual TypeInfo impl
 		</span><span class="kw">let </span>check = |digest_item_type: DigestItemType| {
 			<span class="kw">let </span>(variant_name, digest_item) = <span class="kw">match </span>digest_item_type {
-				DigestItemType::Other =&gt; (<span class="string">&quot;Other&quot;</span>, DigestItem::Other(Default::default())),
+				DigestItemType::Other =&gt; (<span class="string">"Other"</span>, DigestItem::Other(Default::default())),
 				DigestItemType::Consensus =&gt;
-					(<span class="string">&quot;Consensus&quot;</span>, DigestItem::Consensus(Default::default(), Default::default())),
+					(<span class="string">"Consensus"</span>, DigestItem::Consensus(Default::default(), Default::default())),
 				DigestItemType::Seal =&gt;
-					(<span class="string">&quot;Seal&quot;</span>, DigestItem::Seal(Default::default(), Default::default())),
+					(<span class="string">"Seal"</span>, DigestItem::Seal(Default::default(), Default::default())),
 				DigestItemType::PreRuntime =&gt;
-					(<span class="string">&quot;PreRuntime&quot;</span>, DigestItem::PreRuntime(Default::default(), Default::default())),
+					(<span class="string">"PreRuntime"</span>, DigestItem::PreRuntime(Default::default(), Default::default())),
 				DigestItemType::RuntimeEnvironmentUpdated =&gt;
-					(<span class="string">&quot;RuntimeEnvironmentUpdated&quot;</span>, DigestItem::RuntimeEnvironmentUpdated),
+					(<span class="string">"RuntimeEnvironmentUpdated"</span>, DigestItem::RuntimeEnvironmentUpdated),
 			};
 			<span class="kw">let </span>encoded = digest_item.encode();
 			<span class="kw">let </span>variant = variants
 				.iter()
 				.find(|v| v.name == variant_name)
-				.expect(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;Variant {} not found&quot;</span>, variant_name));
+				.expect(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"Variant {} not found"</span>, variant_name));
 
 			<span class="macro">assert_eq!</span>(encoded[<span class="number">0</span>], variant.index)
 		};

@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/tracing/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/tracing/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_tracing" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_tracing" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sp_tracing/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -406,14 +408,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -429,7 +431,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! must ensure that your identifiers do not clash with either of these.
 //!
 //! Additionally, we have a const: `WASM_TRACE_IDENTIFIER`, which holds a span name used
-//! to signal that the &#39;actual&#39; span name and target should be retrieved instead from
+//! to signal that the 'actual' span name and target should be retrieved instead from
 //! the associated Fields mentioned above.
 //!
 //! Note: The `tracing` crate requires trace metadata to be static. This does not work
@@ -438,11 +440,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! `name` and `target` data in the `values` map (normally they would be in the static
 //! metadata assembled at compile time).
 
-</span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
+</span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
 </span><span class="kw">extern crate </span>alloc;
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">use </span>tracing;
 <span class="kw">pub use </span>tracing::{
 	debug, debug_span, error, error_span, event, info, info_span, span, trace, trace_span, warn,
@@ -453,7 +455,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	WasmEntryAttributes, WasmFieldName, WasmFields, WasmLevel, WasmMetadata, WasmValue,
 	WasmValuesSet,
 };
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">pub use </span><span class="kw">crate</span>::types::{WASM_NAME_KEY, WASM_TARGET_KEY, WASM_TRACE_IDENTIFIER};
 
 <span class="doccomment">/// Tracing facilities and helpers.
@@ -479,17 +481,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// # Example
 ///
 /// ```rust
-/// sp_tracing::enter_span!(sp_tracing::Level::TRACE, &quot;fn wide span&quot;);
+/// sp_tracing::enter_span!(sp_tracing::Level::TRACE, "fn wide span");
 /// {
-/// 		sp_tracing::enter_span!(sp_tracing::trace_span!(&quot;outer-span&quot;));
+/// 		sp_tracing::enter_span!(sp_tracing::trace_span!("outer-span"));
 /// 		{
-/// 			sp_tracing::enter_span!(sp_tracing::Level::TRACE, &quot;inner-span&quot;);
+/// 			sp_tracing::enter_span!(sp_tracing::Level::TRACE, "inner-span");
 /// 			// ..
 /// 		}  // inner span exists here
 /// 	} // outer span exists here
 ///
 /// sp_tracing::within_span! {
-/// 		sp_tracing::debug_span!(&quot;debug-span&quot;, you_can_pass=&quot;any params&quot;);
+/// 		sp_tracing::debug_span!("debug-span", you_can_pass="any params");
 ///     1 + 1;
 ///     // some other complex code
 /// } // debug span ends here
@@ -499,12 +501,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// # Setup
 ///
 /// This project only provides the macros and facilities to manage tracing
-/// it doesn&#39;t implement the tracing subscriber or backend directly – that is
+/// it doesn't implement the tracing subscriber or backend directly – that is
 /// up to the developer integrating it into a specific environment. In native
 /// this can and must be done through the regular `tracing`-facilities, please
 /// see their documentation for details.
 ///
-/// On the wasm-side we&#39;ve adopted a similar approach of having a global
+/// On the wasm-side we've adopted a similar approach of having a global
 /// `TracingSubscriber` that the macros call and that does the actual work
 /// of tracking. To provide your tracking, you must implement `TracingSubscriber`
 /// and call `set_tracing_subscriber` at the very beginning of your execution –
@@ -515,7 +517,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Try to init a simple tracing subscriber with log compatibility layer.
 ///
 /// Ignores any error. Useful for testing.
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+</span><span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">pub fn </span>try_init_simple() {
 	<span class="kw">let _ </span>= tracing_subscriber::fmt()
 		.with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
@@ -531,7 +533,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// The logs are not shown by default, logs are only shown when the test fails
 /// or if [`nocapture`](https://doc.rust-lang.org/cargo/commands/cargo-test.html#display-options)
 /// is being used.
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+</span><span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">pub fn </span>init_for_tests() {
 	<span class="kw">let _ </span>= tracing_subscriber::fmt()
 		.with_max_level(tracing::Level::TRACE)
@@ -539,7 +541,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		.try_init();
 }
 
-<span class="doccomment">/// Runs given code within a tracing span, measuring it&#39;s execution time.
+<span class="doccomment">/// Runs given code within a tracing span, measuring it's execution time.
 ///
 /// If tracing is not enabled, the code is still executed. Pass in level and name or
 /// use any valid `sp_tracing::Span`followed by `;` and the code to execute,
@@ -549,24 +551,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// ```
 /// sp_tracing::within_span! {
 ///     sp_tracing::Level::TRACE,
-///     &quot;test-span&quot;;
+///     "test-span";
 ///     1 + 1;
 ///     // some other complex code
 /// }
 ///
 /// sp_tracing::within_span! {
-///     sp_tracing::span!(sp_tracing::Level::WARN, &quot;warn-span&quot;, you_can_pass=&quot;any params&quot;);
+///     sp_tracing::span!(sp_tracing::Level::WARN, "warn-span", you_can_pass="any params");
 ///     1 + 1;
 ///     // some other complex code
 /// }
 ///
 /// sp_tracing::within_span! {
-///     sp_tracing::debug_span!(&quot;debug-span&quot;, you_can_pass=&quot;any params&quot;);
+///     sp_tracing::debug_span!("debug-span", you_can_pass="any params");
 ///     1 + 1;
 ///     // some other complex code
 /// }
 /// ```
-</span><span class="attr">#[cfg(any(feature = <span class="string">&quot;std&quot;</span>, feature = <span class="string">&quot;with-tracing&quot;</span>))]
+</span><span class="attr">#[cfg(any(feature = <span class="string">"std"</span>, feature = <span class="string">"with-tracing"</span>))]
 #[macro_export]
 </span><span class="macro">macro_rules! </span>within_span {
 	(
@@ -590,7 +592,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	};
 }
 
-<span class="attr">#[cfg(all(not(feature = <span class="string">&quot;std&quot;</span>), not(feature = <span class="string">&quot;with-tracing&quot;</span>)))]
+<span class="attr">#[cfg(all(not(feature = <span class="string">"std"</span>), not(feature = <span class="string">"with-tracing"</span>)))]
 #[macro_export]
 </span><span class="macro">macro_rules! </span>within_span {
 	(
@@ -609,7 +611,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Enter a span - noop for `no_std` without `with-tracing`
-</span><span class="attr">#[cfg(all(not(feature = <span class="string">&quot;std&quot;</span>), not(feature = <span class="string">&quot;with-tracing&quot;</span>)))]
+</span><span class="attr">#[cfg(all(not(feature = <span class="string">"std"</span>), not(feature = <span class="string">"with-tracing"</span>)))]
 #[macro_export]
 </span><span class="macro">macro_rules! </span>enter_span {
 	( <span class="macro-nonterminal">$lvl</span>:expr, <span class="macro-nonterminal">$name</span>:expr ) =&gt; {};
@@ -628,21 +630,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// # Example
 ///
 /// ```
-/// sp_tracing::enter_span!(sp_tracing::Level::TRACE, &quot;test-span&quot;);
+/// sp_tracing::enter_span!(sp_tracing::Level::TRACE, "test-span");
 /// // previous will be dropped here
 /// sp_tracing::enter_span!(
-/// 	sp_tracing::span!(sp_tracing::Level::DEBUG, &quot;debug-span&quot;, params=&quot;value&quot;));
-/// sp_tracing::enter_span!(sp_tracing::info_span!(&quot;info-span&quot;,  params=&quot;value&quot;));
+/// 	sp_tracing::span!(sp_tracing::Level::DEBUG, "debug-span", params="value"));
+/// sp_tracing::enter_span!(sp_tracing::info_span!("info-span",  params="value"));
 ///
 /// {
-/// 		sp_tracing::enter_span!(sp_tracing::Level::TRACE, &quot;outer-span&quot;);
+/// 		sp_tracing::enter_span!(sp_tracing::Level::TRACE, "outer-span");
 /// 		{
-/// 			sp_tracing::enter_span!(sp_tracing::Level::TRACE, &quot;inner-span&quot;);
+/// 			sp_tracing::enter_span!(sp_tracing::Level::TRACE, "inner-span");
 /// 			// ..
 /// 		}  // inner span exists here
 /// 	} // outer span exists here
 /// ```
-</span><span class="attr">#[cfg(any(feature = <span class="string">&quot;std&quot;</span>, feature = <span class="string">&quot;with-tracing&quot;</span>))]
+</span><span class="attr">#[cfg(any(feature = <span class="string">"std"</span>, feature = <span class="string">"with-tracing"</span>))]
 #[macro_export]
 </span><span class="macro">macro_rules! </span>enter_span {
 	( <span class="macro-nonterminal">$span</span>:expr ) =&gt; {

@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `bridges/bin/runtime-common/src/integrity.rs`."><title>integrity.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `bridges/bin/runtime-common/src/integrity.rs`."><title>integrity.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="bridge_runtime_common" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="bridge_runtime_common" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../bridge_runtime_common/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -531,7 +533,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="macro">macro_rules! </span>assert_chain_types(
 	( runtime: <span class="macro-nonterminal">$r</span>:path, this_chain: <span class="macro-nonterminal">$this</span>:path ) =&gt; {
 		{
-			<span class="comment">// if one of asserts fail, then either bridge isn&#39;t configured properly (or alternatively - non-standard
+			<span class="comment">// if one of asserts fail, then either bridge isn't configured properly (or alternatively - non-standard
 			// configuration is used), or something has broke existing configuration (meaning that all bridged chains
 			// and relays will stop functioning)
 			</span><span class="kw">use </span>frame_system::{Config <span class="kw">as </span>SystemConfig, pallet_prelude::{BlockNumberFor, HeaderFor}};
@@ -553,7 +555,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="macro">macro_rules! </span>assert_bridge_grandpa_pallet_types(
 	( runtime: <span class="macro-nonterminal">$r</span>:path, with_bridged_chain_grandpa_instance: <span class="macro-nonterminal">$i</span>:path, bridged_chain: <span class="macro-nonterminal">$bridged</span>:path ) =&gt; {
 		{
-			<span class="comment">// if one of asserts fail, then either bridge isn&#39;t configured properly (or alternatively - non-standard
+			<span class="comment">// if one of asserts fail, then either bridge isn't configured properly (or alternatively - non-standard
 			// configuration is used), or something has broke existing configuration (meaning that all bridged chains
 			// and relays will stop functioning)
 			</span><span class="kw">use </span>pallet_bridge_grandpa::Config <span class="kw">as </span>GrandpaConfig;
@@ -574,7 +576,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		bridge: <span class="macro-nonterminal">$bridge</span>:path
 	) =&gt; {
 		{
-			<span class="comment">// if one of asserts fail, then either bridge isn&#39;t configured properly (or alternatively - non-standard
+			<span class="comment">// if one of asserts fail, then either bridge isn't configured properly (or alternatively - non-standard
 			// configuration is used), or something has broke existing configuration (meaning that all bridged chains
 			// and relays will stop functioning)
 			</span><span class="kw">use </span><span class="macro-nonterminal">$crate::messages</span>::{
@@ -642,9 +644,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">where
 	</span>R: frame_system::Config,
 {
-	<span class="comment">// we don&#39;t check runtime version here, because in our case we&#39;ll be building relay from one
+	<span class="comment">// we don't check runtime version here, because in our case we'll be building relay from one
 	// repo and runtime will live in another repo, along with outdated relay version. To avoid
-	// unneeded commits, let&#39;s not raise an error in case of version mismatch.
+	// unneeded commits, let's not raise an error in case of version mismatch.
 
 	// if one of following assert fails, it means that we may need to upgrade bridged chain and
 	// relay to use updated constants. If constants are now smaller than before, it may lead to
@@ -654,7 +656,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="macro">assert_eq!</span>(
 		R::BlockLength::get().encode(),
 		params.block_length.encode(),
-		<span class="string">&quot;BlockLength from runtime ({:?}) differ from hardcoded: {:?}&quot;</span>,
+		<span class="string">"BlockLength from runtime ({:?}) differ from hardcoded: {:?}"</span>,
 		R::BlockLength::get(),
 		params.block_length,
 	);
@@ -662,7 +664,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="macro">assert_eq!</span>(
 		R::BlockWeights::get().encode(),
 		params.block_weights.encode(),
-		<span class="string">&quot;BlockWeights from runtime ({:?}) differ from hardcoded: {:?}&quot;</span>,
+		<span class="string">"BlockWeights from runtime ({:?}) differ from hardcoded: {:?}"</span>,
 		R::BlockWeights::get(),
 		params.block_weights,
 	);
@@ -672,11 +674,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub fn </span>assert_bridge_grandpa_pallet_constants&lt;R, GI&gt;()
 <span class="kw">where
 	</span>R: pallet_bridge_grandpa::Config&lt;GI&gt;,
-	GI: <span class="lifetime">&#39;static</span>,
+	GI: <span class="lifetime">'static</span>,
 {
 	<span class="macro">assert!</span>(
 		R::HeadersToKeep::get() &gt; <span class="number">0</span>,
-		<span class="string">&quot;HeadersToKeep ({}) must be larger than zero&quot;</span>,
+		<span class="string">"HeadersToKeep ({}) must be larger than zero"</span>,
 		R::HeadersToKeep::get(),
 	);
 }
@@ -697,22 +699,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub fn </span>assert_bridge_messages_pallet_constants&lt;R, MI&gt;(params: AssertBridgeMessagesPalletConstants)
 <span class="kw">where
 	</span>R: pallet_bridge_messages::Config&lt;MI&gt;,
-	MI: <span class="lifetime">&#39;static</span>,
+	MI: <span class="lifetime">'static</span>,
 {
 	<span class="macro">assert!</span>(
 		!R::ActiveOutboundLanes::get().is_empty(),
-		<span class="string">&quot;ActiveOutboundLanes ({:?}) must not be empty&quot;</span>,
+		<span class="string">"ActiveOutboundLanes ({:?}) must not be empty"</span>,
 		R::ActiveOutboundLanes::get(),
 	);
 	<span class="macro">assert!</span>(
 		R::MaxUnrewardedRelayerEntriesAtInboundLane::get() &lt;= params.max_unrewarded_relayers_in_bridged_confirmation_tx,
-		<span class="string">&quot;MaxUnrewardedRelayerEntriesAtInboundLane ({}) must be &lt;= than the hardcoded value for bridged chain: {}&quot;</span>,
+		<span class="string">"MaxUnrewardedRelayerEntriesAtInboundLane ({}) must be &lt;= than the hardcoded value for bridged chain: {}"</span>,
 		R::MaxUnrewardedRelayerEntriesAtInboundLane::get(),
 		params.max_unrewarded_relayers_in_bridged_confirmation_tx,
 	);
 	<span class="macro">assert!</span>(
 		R::MaxUnconfirmedMessagesAtInboundLane::get() &lt;= params.max_unconfirmed_messages_in_bridged_confirmation_tx,
-		<span class="string">&quot;MaxUnrewardedRelayerEntriesAtInboundLane ({}) must be &lt;= than the hardcoded value for bridged chain: {}&quot;</span>,
+		<span class="string">"MaxUnrewardedRelayerEntriesAtInboundLane ({}) must be &lt;= than the hardcoded value for bridged chain: {}"</span>,
 		R::MaxUnconfirmedMessagesAtInboundLane::get(),
 		params.max_unconfirmed_messages_in_bridged_confirmation_tx,
 	);
@@ -721,16 +723,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Parameters for asserting bridge pallet names.
 </span><span class="attr">#[derive(Debug)]
-</span><span class="kw">pub struct </span>AssertBridgePalletNames&lt;<span class="lifetime">&#39;a</span>&gt; {
+</span><span class="kw">pub struct </span>AssertBridgePalletNames&lt;<span class="lifetime">'a</span>&gt; {
 	<span class="doccomment">/// Name of the messages pallet, deployed at the bridged chain and used to bridge with this
 	/// chain.
-	</span><span class="kw">pub </span>with_this_chain_messages_pallet_name: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>str,
+	</span><span class="kw">pub </span>with_this_chain_messages_pallet_name: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>str,
 	<span class="doccomment">/// Name of the GRANDPA pallet, deployed at this chain and used to bridge with the bridged
 	/// chain.
-	</span><span class="kw">pub </span>with_bridged_chain_grandpa_pallet_name: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>str,
+	</span><span class="kw">pub </span>with_bridged_chain_grandpa_pallet_name: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>str,
 	<span class="doccomment">/// Name of the messages pallet, deployed at this chain and used to bridge with the bridged
 	/// chain.
-	</span><span class="kw">pub </span>with_bridged_chain_messages_pallet_name: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>str,
+	</span><span class="kw">pub </span>with_bridged_chain_messages_pallet_name: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>str,
 }
 
 <span class="doccomment">/// Tests that bridge pallet names used in `construct_runtime!()` macro call are matching constants
@@ -739,19 +741,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">where
 	</span>B: MessageBridge,
 	R: pallet_bridge_grandpa::Config&lt;GI&gt; + pallet_bridge_messages::Config&lt;MI&gt;,
-	GI: <span class="lifetime">&#39;static</span>,
-	MI: <span class="lifetime">&#39;static</span>,
+	GI: <span class="lifetime">'static</span>,
+	MI: <span class="lifetime">'static</span>,
 {
 	<span class="macro">assert_eq!</span>(B::BRIDGED_MESSAGES_PALLET_NAME, params.with_this_chain_messages_pallet_name);
 	<span class="macro">assert_eq!</span>(
 		pallet_bridge_grandpa::PalletOwner::&lt;R, GI&gt;::storage_value_final_key().to_vec(),
-		bp_runtime::storage_value_key(params.with_bridged_chain_grandpa_pallet_name, <span class="string">&quot;PalletOwner&quot;</span>,).<span class="number">0</span>,
+		bp_runtime::storage_value_key(params.with_bridged_chain_grandpa_pallet_name, <span class="string">"PalletOwner"</span>,).<span class="number">0</span>,
 	);
 	<span class="macro">assert_eq!</span>(
 		pallet_bridge_messages::PalletOwner::&lt;R, MI&gt;::storage_value_final_key().to_vec(),
 		bp_runtime::storage_value_key(
 			params.with_bridged_chain_messages_pallet_name,
-			<span class="string">&quot;PalletOwner&quot;</span>,
+			<span class="string">"PalletOwner"</span>,
 		)
 		.<span class="number">0</span>,
 	);
@@ -759,13 +761,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Parameters for asserting complete standard messages bridge.
 </span><span class="attr">#[derive(Debug)]
-</span><span class="kw">pub struct </span>AssertCompleteBridgeConstants&lt;<span class="lifetime">&#39;a</span>&gt; {
+</span><span class="kw">pub struct </span>AssertCompleteBridgeConstants&lt;<span class="lifetime">'a</span>&gt; {
 	<span class="doccomment">/// Parameters to assert this chain constants.
 	</span><span class="kw">pub </span>this_chain_constants: AssertChainConstants,
 	<span class="doccomment">/// Parameters to assert messages pallet constants.
 	</span><span class="kw">pub </span>messages_pallet_constants: AssertBridgeMessagesPalletConstants,
 	<span class="doccomment">/// Parameters to assert pallet names constants.
-	</span><span class="kw">pub </span>pallet_names: AssertBridgePalletNames&lt;<span class="lifetime">&#39;a</span>&gt;,
+	</span><span class="kw">pub </span>pallet_names: AssertBridgePalletNames&lt;<span class="lifetime">'a</span>&gt;,
 }
 
 <span class="doccomment">/// All bridge-related constants tests for the complete standard messages bridge (i.e. with bridge
@@ -775,8 +777,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>R: frame_system::Config
 		+ pallet_bridge_grandpa::Config&lt;GI&gt;
 		+ pallet_bridge_messages::Config&lt;MI&gt;,
-	GI: <span class="lifetime">&#39;static</span>,
-	MI: <span class="lifetime">&#39;static</span>,
+	GI: <span class="lifetime">'static</span>,
+	MI: <span class="lifetime">'static</span>,
 	B: MessageBridge,
 {
 	assert_chain_constants::&lt;R&gt;(params.this_chain_constants);
@@ -789,7 +791,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub fn </span>check_message_lane_weights&lt;
 	C: Chain,
 	T: frame_system::Config + pallet_bridge_messages::Config&lt;MessagesPalletInstance&gt;,
-	MessagesPalletInstance: <span class="lifetime">&#39;static</span>,
+	MessagesPalletInstance: <span class="lifetime">'static</span>,
 &gt;(
 	bridged_chain_extra_storage_proof_size: u32,
 	this_chain_max_unrewarded_relayers: MessageNonce,
@@ -830,7 +832,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	// of `RefundBridgedParachainMessages` operations. This signed extension assumes the worst case
 	// (i.e. slashing if delivery transaction was invalid) and refunds some weight if
 	// assumption was wrong (i.e. if we did refund instead of slashing). This check
-	// ensures the extension will not refund weight when it doesn&#39;t need to (i.e. if pallet
+	// ensures the extension will not refund weight when it doesn't need to (i.e. if pallet
 	// weights do not account weights of refund extension).
 	</span><span class="kw">if </span>runtime_includes_refund_extension {
 		<span class="macro">assert_ne!</span>(

@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/core/src/const_hex2array.rs`."><title>const_hex2array.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/core/src/const_hex2array.rs`."><title>const_hex2array.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_core" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_core" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sp_core/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -314,14 +316,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -358,16 +360,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub const fn </span>private_hex2array&lt;<span class="kw">const </span>N: usize&gt;(hex: <span class="kw-2">&amp;</span>str) -&gt; [u8; N] {
 	<span class="kw">const fn </span>c2b(c: u8) -&gt; u8 {
 		<span class="kw">match </span>c <span class="kw">as </span>char {
-			<span class="string">&#39;0&#39;</span>..=<span class="string">&#39;9&#39; </span>=&gt; c - <span class="string">b&#39;0&#39;</span>,
-			<span class="string">&#39;a&#39;</span>..=<span class="string">&#39;f&#39; </span>=&gt; c - (<span class="string">b&#39;a&#39; </span>- <span class="number">10</span>),
-			<span class="string">&#39;A&#39;</span>..=<span class="string">&#39;F&#39; </span>=&gt; c - (<span class="string">b&#39;A&#39; </span>- <span class="number">10</span>),
-			<span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;hex string contains invalid character&quot;</span>),
+			<span class="string">'0'</span>..=<span class="string">'9' </span>=&gt; c - <span class="string">b'0'</span>,
+			<span class="string">'a'</span>..=<span class="string">'f' </span>=&gt; c - (<span class="string">b'a' </span>- <span class="number">10</span>),
+			<span class="string">'A'</span>..=<span class="string">'F' </span>=&gt; c - (<span class="string">b'A' </span>- <span class="number">10</span>),
+			<span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"hex string contains invalid character"</span>),
 		}
 	}
 	<span class="kw">let </span><span class="kw-2">mut </span>output = [<span class="number">0</span>; N];
 	<span class="kw">let </span><span class="kw-2">mut </span>i = <span class="number">0</span>;
 	<span class="kw">if </span>hex.len() != <span class="number">2 </span>* N {
-		<span class="macro">panic!</span>(<span class="string">&quot;hex string length is not valid&quot;</span>);
+		<span class="macro">panic!</span>(<span class="string">"hex string length is not valid"</span>);
 	}
 	<span class="kw">while </span>i &lt; N {
 		output[i] = <span class="number">16 </span>* c2b(hex.as_bytes()[<span class="number">2 </span>* i]) + c2b(hex.as_bytes()[<span class="number">2 </span>* i + <span class="number">1</span>]);
@@ -382,7 +384,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>t00() {
-		<span class="kw">const </span>T0: [u8; <span class="number">0</span>] = private_hex2array(<span class="string">&quot;&quot;</span>);
+		<span class="kw">const </span>T0: [u8; <span class="number">0</span>] = private_hex2array(<span class="string">""</span>);
 		<span class="kw">const </span>EMPTY: [u8; <span class="number">0</span>] = [];
 		<span class="macro">assert_eq!</span>(T0, EMPTY);
 	}
@@ -396,51 +398,51 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>t01() {
-		<span class="macro">test_byte!</span>(<span class="string">&quot;00&quot;</span>, <span class="number">0</span>);
-		<span class="macro">test_byte!</span>(<span class="string">&quot;01&quot;</span>, <span class="number">1</span>);
-		<span class="macro">test_byte!</span>(<span class="string">&quot;02&quot;</span>, <span class="number">2</span>);
-		<span class="macro">test_byte!</span>(<span class="string">&quot;03&quot;</span>, <span class="number">3</span>);
-		<span class="macro">test_byte!</span>(<span class="string">&quot;04&quot;</span>, <span class="number">4</span>);
-		<span class="macro">test_byte!</span>(<span class="string">&quot;05&quot;</span>, <span class="number">5</span>);
-		<span class="macro">test_byte!</span>(<span class="string">&quot;06&quot;</span>, <span class="number">6</span>);
-		<span class="macro">test_byte!</span>(<span class="string">&quot;07&quot;</span>, <span class="number">7</span>);
-		<span class="macro">test_byte!</span>(<span class="string">&quot;08&quot;</span>, <span class="number">8</span>);
-		<span class="macro">test_byte!</span>(<span class="string">&quot;09&quot;</span>, <span class="number">9</span>);
-		<span class="macro">test_byte!</span>(<span class="string">&quot;0a&quot;</span>, <span class="number">10</span>);
-		<span class="macro">test_byte!</span>(<span class="string">&quot;0A&quot;</span>, <span class="number">10</span>);
-		<span class="macro">test_byte!</span>(<span class="string">&quot;0b&quot;</span>, <span class="number">11</span>);
-		<span class="macro">test_byte!</span>(<span class="string">&quot;0B&quot;</span>, <span class="number">11</span>);
-		<span class="macro">test_byte!</span>(<span class="string">&quot;0c&quot;</span>, <span class="number">12</span>);
-		<span class="macro">test_byte!</span>(<span class="string">&quot;0C&quot;</span>, <span class="number">12</span>);
-		<span class="macro">test_byte!</span>(<span class="string">&quot;0d&quot;</span>, <span class="number">13</span>);
-		<span class="macro">test_byte!</span>(<span class="string">&quot;0D&quot;</span>, <span class="number">13</span>);
-		<span class="macro">test_byte!</span>(<span class="string">&quot;0e&quot;</span>, <span class="number">14</span>);
-		<span class="macro">test_byte!</span>(<span class="string">&quot;0E&quot;</span>, <span class="number">14</span>);
-		<span class="macro">test_byte!</span>(<span class="string">&quot;0f&quot;</span>, <span class="number">15</span>);
-		<span class="macro">test_byte!</span>(<span class="string">&quot;0F&quot;</span>, <span class="number">15</span>);
+		<span class="macro">test_byte!</span>(<span class="string">"00"</span>, <span class="number">0</span>);
+		<span class="macro">test_byte!</span>(<span class="string">"01"</span>, <span class="number">1</span>);
+		<span class="macro">test_byte!</span>(<span class="string">"02"</span>, <span class="number">2</span>);
+		<span class="macro">test_byte!</span>(<span class="string">"03"</span>, <span class="number">3</span>);
+		<span class="macro">test_byte!</span>(<span class="string">"04"</span>, <span class="number">4</span>);
+		<span class="macro">test_byte!</span>(<span class="string">"05"</span>, <span class="number">5</span>);
+		<span class="macro">test_byte!</span>(<span class="string">"06"</span>, <span class="number">6</span>);
+		<span class="macro">test_byte!</span>(<span class="string">"07"</span>, <span class="number">7</span>);
+		<span class="macro">test_byte!</span>(<span class="string">"08"</span>, <span class="number">8</span>);
+		<span class="macro">test_byte!</span>(<span class="string">"09"</span>, <span class="number">9</span>);
+		<span class="macro">test_byte!</span>(<span class="string">"0a"</span>, <span class="number">10</span>);
+		<span class="macro">test_byte!</span>(<span class="string">"0A"</span>, <span class="number">10</span>);
+		<span class="macro">test_byte!</span>(<span class="string">"0b"</span>, <span class="number">11</span>);
+		<span class="macro">test_byte!</span>(<span class="string">"0B"</span>, <span class="number">11</span>);
+		<span class="macro">test_byte!</span>(<span class="string">"0c"</span>, <span class="number">12</span>);
+		<span class="macro">test_byte!</span>(<span class="string">"0C"</span>, <span class="number">12</span>);
+		<span class="macro">test_byte!</span>(<span class="string">"0d"</span>, <span class="number">13</span>);
+		<span class="macro">test_byte!</span>(<span class="string">"0D"</span>, <span class="number">13</span>);
+		<span class="macro">test_byte!</span>(<span class="string">"0e"</span>, <span class="number">14</span>);
+		<span class="macro">test_byte!</span>(<span class="string">"0E"</span>, <span class="number">14</span>);
+		<span class="macro">test_byte!</span>(<span class="string">"0f"</span>, <span class="number">15</span>);
+		<span class="macro">test_byte!</span>(<span class="string">"0F"</span>, <span class="number">15</span>);
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>t02() {
-		<span class="kw">const </span>T0: [u8; <span class="number">2</span>] = private_hex2array(<span class="string">&quot;0a10&quot;</span>);
+		<span class="kw">const </span>T0: [u8; <span class="number">2</span>] = private_hex2array(<span class="string">"0a10"</span>);
 		<span class="macro">assert_eq!</span>(T0, [<span class="number">10</span>, <span class="number">16</span>]);
-		<span class="kw">const </span>T1: [u8; <span class="number">2</span>] = private_hex2array(<span class="string">&quot;4545&quot;</span>);
+		<span class="kw">const </span>T1: [u8; <span class="number">2</span>] = private_hex2array(<span class="string">"4545"</span>);
 		<span class="macro">assert_eq!</span>(T1, [<span class="number">69</span>, <span class="number">69</span>]);
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>t02m() {
-		<span class="macro">assert_eq!</span>(<span class="macro">hex2array!</span>(<span class="string">&quot;0a10&quot;</span>), [<span class="number">10</span>, <span class="number">16</span>]);
-		<span class="macro">assert_eq!</span>(<span class="macro">hex2array!</span>(<span class="string">&quot;4545&quot;</span>), [<span class="number">69</span>, <span class="number">69</span>]);
+		<span class="macro">assert_eq!</span>(<span class="macro">hex2array!</span>(<span class="string">"0a10"</span>), [<span class="number">10</span>, <span class="number">16</span>]);
+		<span class="macro">assert_eq!</span>(<span class="macro">hex2array!</span>(<span class="string">"4545"</span>), [<span class="number">69</span>, <span class="number">69</span>]);
 		<span class="macro">assert_eq!</span>(
-			<span class="macro">hex2array!</span>(<span class="string">&quot;000102030405060708090a0b0c0d0e0f&quot;</span>),
+			<span class="macro">hex2array!</span>(<span class="string">"000102030405060708090a0b0c0d0e0f"</span>),
 			[<span class="number">0</span>, <span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>, <span class="number">5</span>, <span class="number">6</span>, <span class="number">7</span>, <span class="number">8</span>, <span class="number">9</span>, <span class="number">10</span>, <span class="number">11</span>, <span class="number">12</span>, <span class="number">13</span>, <span class="number">14</span>, <span class="number">15</span>]
 		);
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>t16() {
-		<span class="kw">const </span>T16: [u8; <span class="number">16</span>] = private_hex2array(<span class="string">&quot;000102030405060708090a0b0c0d0e0f&quot;</span>);
+		<span class="kw">const </span>T16: [u8; <span class="number">16</span>] = private_hex2array(<span class="string">"000102030405060708090a0b0c0d0e0f"</span>);
 
 		<span class="macro">assert_eq!</span>(T16, [<span class="number">0</span>, <span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>, <span class="number">5</span>, <span class="number">6</span>, <span class="number">7</span>, <span class="number">8</span>, <span class="number">9</span>, <span class="number">10</span>, <span class="number">11</span>, <span class="number">12</span>, <span class="number">13</span>, <span class="number">14</span>, <span class="number">15</span>]);
 	}
@@ -448,7 +450,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>t33() {
 		<span class="kw">const </span>T33: [u8; <span class="number">33</span>] =
-			private_hex2array(<span class="string">&quot;9c8af77d3a4e3f6f076853922985b9e6724fc9675329087f47aff1ceaaae772180&quot;</span>);
+			private_hex2array(<span class="string">"9c8af77d3a4e3f6f076853922985b9e6724fc9675329087f47aff1ceaaae772180"</span>);
 
 		<span class="macro">assert_eq!</span>(
 			T33,
@@ -460,15 +462,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="attr">#[test]
-	#[should_panic = <span class="string">&quot;hex string length is not valid&quot;</span>]
+	#[should_panic = <span class="string">"hex string length is not valid"</span>]
 	</span><span class="kw">fn </span>t_panic_incorrect_length2() {
-		<span class="kw">let _ </span>= private_hex2array::&lt;<span class="number">2</span>&gt;(<span class="string">&quot;454&quot;</span>);
+		<span class="kw">let _ </span>= private_hex2array::&lt;<span class="number">2</span>&gt;(<span class="string">"454"</span>);
 	}
 
 	<span class="attr">#[test]
-	#[should_panic = <span class="string">&quot;hex string contains invalid character&quot;</span>]
+	#[should_panic = <span class="string">"hex string contains invalid character"</span>]
 	</span><span class="kw">fn </span>t_panic_invalid_character() {
-		<span class="kw">let _ </span>= private_hex2array::&lt;<span class="number">2</span>&gt;(<span class="string">&quot;45ag&quot;</span>);
+		<span class="kw">let _ </span>= private_hex2array::&lt;<span class="number">2</span>&gt;(<span class="string">"45ag"</span>);
 	}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `bridges/modules/parachains/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `bridges/modules/parachains/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_bridge_parachains" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_bridge_parachains" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../pallet_bridge_parachains/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1821,7 +1823,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! It requires corresponding relay headers to be already synced.
 
 </span><span class="attr">#![warn(missing_docs)]
-#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
+#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
 </span><span class="kw">pub use </span>weights::WeightInfo;
 <span class="kw">pub use </span>weights_ext::WeightInfoExt;
@@ -1833,11 +1835,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>frame_support::{dispatch::PostDispatchInfo, DefaultNoBound};
 <span class="kw">use </span>sp_std::{marker::PhantomData, vec::Vec};
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 </span><span class="kw">use </span>bp_parachains::ParaStoredHeaderDataBuilder;
-<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 </span><span class="kw">use </span>bp_runtime::HeaderOf;
-<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 </span><span class="kw">use </span>codec::Encode;
 
 <span class="comment">// Re-export in crate namespace for `construct_runtime!`.
@@ -1847,7 +1849,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">pub mod </span>weights;
 <span class="kw">pub mod </span>weights_ext;
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 </span><span class="kw">pub mod </span>benchmarking;
 
 <span class="kw">mod </span>call_ext;
@@ -1855,7 +1857,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">mod </span>mock;
 
 <span class="doccomment">/// The target that will be used when publishing logs related to this pallet.
-</span><span class="kw">pub const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;runtime::bridge-parachains&quot;</span>;
+</span><span class="kw">pub const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"runtime::bridge-parachains"</span>;
 
 <span class="doccomment">/// Block hash of the bridged relay chain.
 </span><span class="kw">pub type </span>RelayBlockHash = bp_polkadot_core::Hash;
@@ -1896,7 +1898,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[pallet::event]
 	#[pallet::generate_deposit(<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>deposit_event)]
-	</span><span class="kw">pub enum </span>Event&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; {
+	</span><span class="kw">pub enum </span>Event&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; {
 		<span class="doccomment">/// The caller has provided head of parachain that the pallet is not configured to track.
 		</span>UntrackedParachainRejected {
 			<span class="doccomment">/// Identifier of the parachain that is not tracked by the pallet.
@@ -1956,7 +1958,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Convenience trait for defining `BridgedChain` bounds.
-	</span><span class="kw">pub trait </span>BoundedBridgeGrandpaConfig&lt;I: <span class="lifetime">&#39;static</span>&gt;:
+	</span><span class="kw">pub trait </span>BoundedBridgeGrandpaConfig&lt;I: <span class="lifetime">'static</span>&gt;:
 		pallet_bridge_grandpa::Config&lt;I, BridgedChain = <span class="self">Self</span>::BridgedRelayChain&gt;
 	{
 		<span class="doccomment">/// Type of the bridged relay chain.
@@ -1967,7 +1969,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		&gt;;
 	}
 
-	<span class="kw">impl</span>&lt;T, I: <span class="lifetime">&#39;static</span>&gt; BoundedBridgeGrandpaConfig&lt;I&gt; <span class="kw">for </span>T
+	<span class="kw">impl</span>&lt;T, I: <span class="lifetime">'static</span>&gt; BoundedBridgeGrandpaConfig&lt;I&gt; <span class="kw">for </span>T
 	<span class="kw">where
 		</span>T: pallet_bridge_grandpa::Config&lt;I&gt;,
 		T::BridgedChain:
@@ -1978,20 +1980,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[pallet::config]
 	#[pallet::disable_frame_system_supertrait_check]
-	</span><span class="kw">pub trait </span>Config&lt;I: <span class="lifetime">&#39;static </span>= ()&gt;:
+	</span><span class="kw">pub trait </span>Config&lt;I: <span class="lifetime">'static </span>= ()&gt;:
 		BoundedBridgeGrandpaConfig&lt;<span class="self">Self</span>::BridgesGrandpaPalletInstance&gt;
 	{
 		<span class="doccomment">/// The overarching event type.
 		</span><span class="kw">type </span>RuntimeEvent: From&lt;Event&lt;<span class="self">Self</span>, I&gt;&gt;
 			+ IsType&lt;&lt;<span class="self">Self </span><span class="kw">as </span>frame_system::Config&gt;::RuntimeEvent&gt;;
-		<span class="doccomment">/// Benchmarks results from runtime we&#39;re plugged into.
+		<span class="doccomment">/// Benchmarks results from runtime we're plugged into.
 		</span><span class="kw">type </span>WeightInfo: WeightInfoExt;
 
 		<span class="doccomment">/// Instance of bridges GRANDPA pallet (within this runtime) that this pallet is linked to.
 		///
 		/// The GRANDPA pallet instance must be configured to import headers of relay chain that
-		/// we&#39;re interested in.
-		</span><span class="kw">type </span>BridgesGrandpaPalletInstance: <span class="lifetime">&#39;static</span>;
+		/// we're interested in.
+		</span><span class="kw">type </span>BridgesGrandpaPalletInstance: <span class="lifetime">'static</span>;
 
 		<span class="doccomment">/// Name of the original `paras` pallet in the `construct_runtime!()` call at the bridged
 		/// chain.
@@ -1999,16 +2001,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		/// Please keep in mind that this should be the name of the `runtime_parachains::paras`
 		/// pallet from polkadot repository, not the `pallet-bridge-parachains`.
 		</span><span class="attr">#[pallet::constant]
-		</span><span class="kw">type </span>ParasPalletName: Get&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt;;
+		</span><span class="kw">type </span>ParasPalletName: Get&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt;;
 
 		<span class="doccomment">/// Parachain head data builder.
 		///
 		/// We never store parachain heads here, since they may be too big (e.g. because of large
-		/// digest items). Instead we&#39;re using the same approach as `pallet-bridge-grandpa`
+		/// digest items). Instead we're using the same approach as `pallet-bridge-grandpa`
 		/// pallet - we are only storing `bp_messages::StoredHeaderData` (number and state root),
 		/// which is enough for our applications. However, we work with different parachains here
-		/// and they can use different primitives (for block numbers and hash). So we can&#39;t store
-		/// it directly. Instead, we&#39;re storing `bp_messages::StoredHeaderData` in SCALE-encoded
+		/// and they can use different primitives (for block numbers and hash). So we can't store
+		/// it directly. Instead, we're storing `bp_messages::StoredHeaderData` in SCALE-encoded
 		/// form, wrapping it into `bp_parachains::ParaStoredHeaderData`.
 		///
 		/// This builder helps to convert from `HeadData` to `bp_parachains::ParaStoredHeaderData`.
@@ -2018,7 +2020,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		///
 		/// The setting is there to prevent growing the on-chain state indefinitely. Note
 		/// the setting does not relate to parachain block numbers - we will simply keep as much
-		/// items in the storage, so it doesn&#39;t guarantee any fixed timeframe for heads.
+		/// items in the storage, so it doesn't guarantee any fixed timeframe for heads.
 		///
 		/// Incautious change of this constant may lead to orphan entries in the runtime storage.
 		</span><span class="attr">#[pallet::constant]
@@ -2028,10 +2030,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		/// (`bp_parachains::ParaStoredHeaderData`).
 		///
 		/// Keep in mind that the size of any tracked parachain header data must not exceed this
-		/// value. So if you&#39;re going to track multiple parachains, one of which is using large
+		/// value. So if you're going to track multiple parachains, one of which is using large
 		/// hashes, you shall choose this maximal value.
 		///
-		/// There&#39;s no mandatory headers in this pallet, so it can&#39;t stall if there&#39;s some header
+		/// There's no mandatory headers in this pallet, so it can't stall if there's some header
 		/// that exceeds this bound.
 		</span><span class="attr">#[pallet::constant]
 		</span><span class="kw">type </span>MaxParaHeadDataSize: Get&lt;u32&gt;;
@@ -2044,14 +2046,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// runtime methods may still be used to do that (i.e. democracy::referendum to update halt
 	/// flag directly or call the `halt_operations`).
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub type </span>PalletOwner&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; =
+	</span><span class="kw">pub type </span>PalletOwner&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; =
 		StorageValue&lt;<span class="kw">_</span>, T::AccountId, OptionQuery&gt;;
 
 	<span class="doccomment">/// The current operating mode of the pallet.
 	///
 	/// Depending on the mode either all, or no transactions will be allowed.
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub type </span>PalletOperatingMode&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; =
+	</span><span class="kw">pub type </span>PalletOperatingMode&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; =
 		StorageValue&lt;<span class="kw">_</span>, BasicOperatingMode, ValueQuery&gt;;
 
 	<span class="doccomment">/// Parachains info.
@@ -2060,7 +2062,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// - best parachain head hash
 	/// - the head of the `ImportedParaHashes` ring buffer
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub type </span>ParasInfo&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; = StorageMap&lt;
+	</span><span class="kw">pub type </span>ParasInfo&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; = StorageMap&lt;
 		Hasher = &lt;ParasInfoKeyProvider <span class="kw">as </span>StorageMapKeyProvider&gt;::Hasher,
 		Key = &lt;ParasInfoKeyProvider <span class="kw">as </span>StorageMapKeyProvider&gt;::Key,
 		Value = &lt;ParasInfoKeyProvider <span class="kw">as </span>StorageMapKeyProvider&gt;::Value,
@@ -2071,7 +2073,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// State roots of parachain heads which have been imported into the pallet.
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub type </span>ImportedParaHeads&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; = StorageDoubleMap&lt;
+	</span><span class="kw">pub type </span>ImportedParaHeads&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; = StorageDoubleMap&lt;
 		Hasher1 = &lt;ImportedParaHeadsKeyProvider <span class="kw">as </span>StorageDoubleMapKeyProvider&gt;::Hasher1,
 		Key1 = &lt;ImportedParaHeadsKeyProvider <span class="kw">as </span>StorageDoubleMapKeyProvider&gt;::Key1,
 		Hasher2 = &lt;ImportedParaHeadsKeyProvider <span class="kw">as </span>StorageDoubleMapKeyProvider&gt;::Hasher2,
@@ -2084,7 +2086,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// A ring buffer of imported parachain head hashes. Ordered by the insertion time.
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>ImportedParaHashes&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; = StorageDoubleMap&lt;
+	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>ImportedParaHashes&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; = StorageDoubleMap&lt;
 		Hasher1 = Blake2_128Concat,
 		Key1 = ParaId,
 		Hasher2 = Twox64Concat,
@@ -2098,15 +2100,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[pallet::pallet]
 	</span><span class="kw">pub struct </span>Pallet&lt;T, I = ()&gt;(PhantomData&lt;(T, I)&gt;);
 
-	<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; OwnedBridgeModule&lt;T&gt; <span class="kw">for </span>Pallet&lt;T, I&gt; {
-		<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = LOG_TARGET;
+	<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; OwnedBridgeModule&lt;T&gt; <span class="kw">for </span>Pallet&lt;T, I&gt; {
+		<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = LOG_TARGET;
 		<span class="kw">type </span>OwnerStorage = PalletOwner&lt;T, I&gt;;
 		<span class="kw">type </span>OperatingMode = BasicOperatingMode;
 		<span class="kw">type </span>OperatingModeStorage = PalletOperatingMode&lt;T, I&gt;;
 	}
 
 	<span class="attr">#[pallet::call]
-	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; Pallet&lt;T, I&gt; {
+	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Pallet&lt;T, I&gt; {
 		<span class="doccomment">/// Submit proof of one or several parachain heads.
 		///
 		/// The proof is supposed to be proof of some `Heads` entries from the
@@ -2122,7 +2124,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		///   GRANDPA pallet.
 		///
 		/// The call may succeed, but some heads may not be updated e.g. because pallet knows
-		/// better head or it isn&#39;t tracked by the pallet.
+		/// better head or it isn't tracked by the pallet.
 		</span><span class="attr">#[pallet::call_index(<span class="number">0</span>)]
 		#[pallet::weight(WeightInfoOf::&lt;T, I&gt;::submit_parachain_heads_weight(
 			T::DbWeight::get(),
@@ -2138,7 +2140,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="self">Self</span>::ensure_not_halted().map_err(Error::&lt;T, I&gt;::BridgeModule)<span class="question-mark">?</span>;
 			ensure_signed(origin)<span class="question-mark">?</span>;
 
-			<span class="comment">// we&#39;ll need relay chain header to verify that parachains heads are always increasing.
+			<span class="comment">// we'll need relay chain header to verify that parachains heads are always increasing.
 			</span><span class="kw">let </span>(relay_block_number, relay_block_hash) = at_relay_block;
 			<span class="kw">let </span>relay_block = pallet_bridge_grandpa::ImportedHeaders::&lt;
 				T,
@@ -2169,12 +2171,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>) =&gt; {
 						<span class="macro">log::trace!</span>(
 							target: LOG_TARGET,
-							<span class="string">&quot;The head of parachain {:?} is None. {}&quot;</span>,
+							<span class="string">"The head of parachain {:?} is None. {}"</span>,
 							parachain,
 							<span class="kw">if </span>ParasInfo::&lt;T, I&gt;::contains_key(parachain) {
-								<span class="string">&quot;Looks like it is not yet registered at the source relay chain&quot;
+								<span class="string">"Looks like it is not yet registered at the source relay chain"
 							</span>} <span class="kw">else </span>{
-								<span class="string">&quot;Looks like it has been deregistered from the source relay chain&quot;
+								<span class="string">"Looks like it has been deregistered from the source relay chain"
 							</span>},
 						);
 						<span class="self">Self</span>::deposit_event(Event::MissingParachainHead { parachain });
@@ -2183,7 +2185,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="prelude-val">Err</span>(e) =&gt; {
 						<span class="macro">log::trace!</span>(
 							target: LOG_TARGET,
-							<span class="string">&quot;The read of head of parachain {:?} has failed: {:?}&quot;</span>,
+							<span class="string">"The read of head of parachain {:?} has failed: {:?}"</span>,
 							parachain,
 							e,
 						);
@@ -2193,13 +2195,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				};
 
 				<span class="comment">// if relayer has specified invalid parachain head hash, ignore the head
-				// (this isn&#39;t strictly necessary, but better safe than sorry)
+				// (this isn't strictly necessary, but better safe than sorry)
 				</span><span class="kw">let </span>actual_parachain_head_hash = parachain_head.hash();
 				<span class="kw">if </span>parachain_head_hash != actual_parachain_head_hash {
 					<span class="macro">log::trace!</span>(
 						target: LOG_TARGET,
-						<span class="string">&quot;The submitter has specified invalid parachain {:?} head hash: \
-								{:?} vs {:?}&quot;</span>,
+						<span class="string">"The submitter has specified invalid parachain {:?} head hash: \
+								{:?} vs {:?}"</span>,
 						parachain,
 						parachain_head_hash,
 						actual_parachain_head_hash,
@@ -2219,7 +2221,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="prelude-val">None </span>=&gt; {
 							<span class="macro">log::trace!</span>(
 								target: LOG_TARGET,
-								<span class="string">&quot;The head of parachain {:?} has been provided, but it is not tracked by the pallet&quot;</span>,
+								<span class="string">"The head of parachain {:?} has been provided, but it is not tracked by the pallet"</span>,
 								parachain,
 							);
 							<span class="self">Self</span>::deposit_event(Event::UntrackedParachainRejected { parachain });
@@ -2240,7 +2242,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="prelude-val">Ok</span>(artifacts.prune_happened)
 					});
 
-				<span class="comment">// we&#39;re refunding weight if update has not happened and if pruning has not happened
+				<span class="comment">// we're refunding weight if update has not happened and if pruning has not happened
 				</span><span class="kw">let </span>is_update_happened = update_result.is_ok();
 				<span class="kw">if </span>!is_update_happened {
 					actual_weight = actual_weight.saturating_sub(
@@ -2257,7 +2259,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				}
 			}
 
-			<span class="comment">// even though we may have accepted some parachain heads, we can&#39;t allow relayers to
+			<span class="comment">// even though we may have accepted some parachain heads, we can't allow relayers to
 			// submit proof with unused trie nodes
 			// =&gt; treat this as an error
 			//
@@ -2291,7 +2293,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; Pallet&lt;T, I&gt; {
+	<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Pallet&lt;T, I&gt; {
 		<span class="doccomment">/// Get stored parachain info.
 		</span><span class="kw">pub fn </span>best_parachain_info(parachain: ParaId) -&gt; <span class="prelude-ty">Option</span>&lt;ParaInfo&gt; {
 			ParasInfo::&lt;T, I&gt;::get(parachain)
@@ -2370,8 +2372,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="prelude-val">Err</span>(e) =&gt; {
 						<span class="macro">log::trace!</span>(
 							target: LOG_TARGET,
-							<span class="string">&quot;The parachain head can&#39;t be updated. The parachain head data size \
-							for {:?} is {}. It exceeds maximal configured size {}.&quot;</span>,
+							<span class="string">"The parachain head can't be updated. The parachain head data size \
+							for {:?} is {}. It exceeds maximal configured size {}."</span>,
 							parachain,
 							e.value_size,
 							e.maximal_size,
@@ -2409,7 +2411,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			ImportedParaHeads::&lt;T, I&gt;::insert(parachain, new_head_hash, updated_head_data);
 			<span class="macro">log::trace!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;Updated head of parachain {:?} to {}&quot;</span>,
+				<span class="string">"Updated head of parachain {:?} to {}"</span>,
 				parachain,
 				new_head_hash,
 			);
@@ -2419,7 +2421,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">if let </span><span class="prelude-val">Ok</span>(head_hash_to_prune) = head_hash_to_prune {
 				<span class="macro">log::trace!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Pruning old head of parachain {:?}: {}&quot;</span>,
+					<span class="string">"Pruning old head of parachain {:?}: {}"</span>,
 					parachain,
 					head_hash_to_prune,
 				);
@@ -2436,7 +2438,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[pallet::genesis_config]
 	#[derive(DefaultNoBound)]
-	</span><span class="kw">pub struct </span>GenesisConfig&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; {
+	</span><span class="kw">pub struct </span>GenesisConfig&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; {
 		<span class="doccomment">/// Initial pallet operating mode.
 		</span><span class="kw">pub </span>operating_mode: BasicOperatingMode,
 		<span class="doccomment">/// Initial pallet owner.
@@ -2446,7 +2448,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="attr">#[pallet::genesis_build]
-	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; BuildGenesisConfig <span class="kw">for </span>GenesisConfig&lt;T, I&gt; {
+	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; BuildGenesisConfig <span class="kw">for </span>GenesisConfig&lt;T, I&gt; {
 		<span class="kw">fn </span>build(<span class="kw-2">&amp;</span><span class="self">self</span>) {
 			PalletOperatingMode::&lt;T, I&gt;::put(<span class="self">self</span>.operating_mode);
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>owner) = <span class="self">self</span>.owner {
@@ -2458,7 +2460,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Returns maximal number of parachains, supported by the pallet.
 	</span><span class="kw">pub struct </span>MaybeMaxParachains&lt;T, I&gt;(PhantomData&lt;(T, I)&gt;);
 
-	<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; Get&lt;<span class="prelude-ty">Option</span>&lt;u32&gt;&gt; <span class="kw">for </span>MaybeMaxParachains&lt;T, I&gt; {
+	<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Get&lt;<span class="prelude-ty">Option</span>&lt;u32&gt;&gt; <span class="kw">for </span>MaybeMaxParachains&lt;T, I&gt; {
 		<span class="kw">fn </span>get() -&gt; <span class="prelude-ty">Option</span>&lt;u32&gt; {
 			<span class="prelude-val">Some</span>(T::ParaStoredHeaderDataBuilder::supported_parachains())
 		}
@@ -2467,7 +2469,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Returns total number of all parachains hashes/heads, stored by the pallet.
 	</span><span class="kw">pub struct </span>MaybeMaxTotalParachainHashes&lt;T, I&gt;(PhantomData&lt;(T, I)&gt;);
 
-	<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; Get&lt;<span class="prelude-ty">Option</span>&lt;u32&gt;&gt; <span class="kw">for </span>MaybeMaxTotalParachainHashes&lt;T, I&gt; {
+	<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Get&lt;<span class="prelude-ty">Option</span>&lt;u32&gt;&gt; <span class="kw">for </span>MaybeMaxTotalParachainHashes&lt;T, I&gt; {
 		<span class="kw">fn </span>get() -&gt; <span class="prelude-ty">Option</span>&lt;u32&gt; {
 			<span class="prelude-val">Some</span>(
 				T::ParaStoredHeaderDataBuilder::supported_parachains()
@@ -2480,7 +2482,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Single parachain header chain adapter.
 </span><span class="kw">pub struct </span>ParachainHeaders&lt;T, I, C&gt;(PhantomData&lt;(T, I, C)&gt;);
 
-<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>, C: Parachain&lt;Hash = ParaHash&gt;&gt; HeaderChain&lt;C&gt;
+<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>, C: Parachain&lt;Hash = ParaHash&gt;&gt; HeaderChain&lt;C&gt;
 	<span class="kw">for </span>ParachainHeaders&lt;T, I, C&gt;
 {
 	<span class="kw">fn </span>finalized_header_state_root(hash: HashOf&lt;C&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;HashOf&lt;C&gt;&gt; {
@@ -2491,14 +2493,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// (Re)initialize pallet with given header for using it in `pallet-bridge-messages` benchmarks.
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
-</span><span class="kw">pub fn </span>initialize_for_benchmarks&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>, PC: Parachain&lt;Hash = ParaHash&gt;&gt;(
+</span><span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
+</span><span class="kw">pub fn </span>initialize_for_benchmarks&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>, PC: Parachain&lt;Hash = ParaHash&gt;&gt;(
 	header: HeaderOf&lt;PC&gt;,
 ) {
 	<span class="kw">let </span>parachain = ParaId(PC::PARACHAIN_ID);
 	<span class="kw">let </span>parachain_head = ParaHead(header.encode());
 	<span class="kw">let </span>updated_head_data = T::ParaStoredHeaderDataBuilder::try_build(parachain, <span class="kw-2">&amp;</span>parachain_head)
-		.expect(<span class="string">&quot;failed to build stored parachain head in benchmarks&quot;</span>);
+		.expect(<span class="string">"failed to build stored parachain head in benchmarks"</span>);
 	Pallet::&lt;T, I&gt;::update_parachain_head(
 		parachain,
 		<span class="prelude-val">None</span>,
@@ -2506,7 +2508,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		updated_head_data,
 		parachain_head.hash(),
 	)
-	.expect(<span class="string">&quot;failed to insert parachain head in benchmarks&quot;</span>);
+	.expect(<span class="string">"failed to insert parachain head in benchmarks"</span>);
 }
 
 <span class="attr">#[cfg(test)]
@@ -2707,7 +2709,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		run_test(|| {
 			initialize(state_root);
 
-			<span class="comment">// we&#39;re trying to update heads of parachains 1, 2 and 3
+			<span class="comment">// we're trying to update heads of parachains 1, 2 and 3
 			</span><span class="kw">let </span>expected_weight =
 				WeightInfo::submit_parachain_heads_weight(DbWeight::get(), <span class="kw-2">&amp;</span>proof, <span class="number">2</span>);
 			<span class="kw">let </span>result = Pallet::&lt;TestRuntime&gt;::submit_parachain_heads(
@@ -2717,7 +2719,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				proof,
 			);
 			<span class="macro">assert_ok!</span>(result);
-			<span class="macro">assert_eq!</span>(result.expect(<span class="string">&quot;checked above&quot;</span>).actual_weight, <span class="prelude-val">Some</span>(expected_weight));
+			<span class="macro">assert_eq!</span>(result.expect(<span class="string">"checked above"</span>).actual_weight, <span class="prelude-val">Some</span>(expected_weight));
 
 			<span class="comment">// but only 1 and 2 are updated, because proof is missing head of parachain#2
 			</span><span class="macro">assert_eq!</span>(ParasInfo::&lt;TestRuntime&gt;::get(ParaId(<span class="number">1</span>)), <span class="prelude-val">Some</span>(initial_best_head(<span class="number">1</span>)));
@@ -2906,7 +2908,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				proof,
 			);
 			<span class="macro">assert_ok!</span>(result);
-			<span class="macro">assert_eq!</span>(result.expect(<span class="string">&quot;checked above&quot;</span>).actual_weight, <span class="prelude-val">Some</span>(expected_weight));
+			<span class="macro">assert_eq!</span>(result.expect(<span class="string">"checked above"</span>).actual_weight, <span class="prelude-val">Some</span>(expected_weight));
 			<span class="macro">assert_eq!</span>(
 				ParasInfo::&lt;TestRuntime&gt;::get(ParaId(<span class="number">1</span>)),
 				<span class="prelude-val">Some</span>(ParaInfo {
@@ -3197,7 +3199,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">let </span>expected_weight = weight_of_import_parachain_1_head(<span class="kw-2">&amp;</span>proof, <span class="bool-val">false</span>);
 				<span class="kw">let </span>result = import_parachain_1_head(i, state_root, parachains, proof);
 				<span class="macro">assert_ok!</span>(result);
-				<span class="macro">assert_eq!</span>(result.expect(<span class="string">&quot;checked above&quot;</span>).actual_weight, <span class="prelude-val">Some</span>(expected_weight));
+				<span class="macro">assert_eq!</span>(result.expect(<span class="string">"checked above"</span>).actual_weight, <span class="prelude-val">Some</span>(expected_weight));
 			}
 
 			<span class="comment">// nothing is pruned yet
@@ -3214,7 +3216,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>expected_weight = weight_of_import_parachain_1_head(<span class="kw-2">&amp;</span>proof, <span class="bool-val">true</span>);
 			<span class="kw">let </span>result = import_parachain_1_head(heads_to_keep, state_root, parachains, proof);
 			<span class="macro">assert_ok!</span>(result);
-			<span class="macro">assert_eq!</span>(result.expect(<span class="string">&quot;checked above&quot;</span>).actual_weight, <span class="prelude-val">Some</span>(expected_weight));
+			<span class="macro">assert_eq!</span>(result.expect(<span class="string">"checked above"</span>).actual_weight, <span class="prelude-val">Some</span>(expected_weight));
 
 			<span class="comment">// and the head#0 is pruned
 			</span><span class="macro">assert!</span>(
@@ -3270,9 +3272,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>(state_root_10_at_30, proof_10_at_30, parachains_10_at_30) =
 			prepare_parachain_heads_proof::&lt;RegularParachainHeader&gt;(<span class="macro">vec!</span>[(<span class="number">1</span>, head_data(<span class="number">1</span>, <span class="number">10</span>))]);
 		run_test(|| {
-			<span class="comment">// we&#39;ve already imported head#5 of parachain#1 at relay block#10
+			<span class="comment">// we've already imported head#5 of parachain#1 at relay block#10
 			</span>initialize(state_root_5);
-			import_parachain_1_head(<span class="number">0</span>, state_root_5, parachains_5, proof_5).expect(<span class="string">&quot;ok&quot;</span>);
+			import_parachain_1_head(<span class="number">0</span>, state_root_5, parachains_5, proof_5).expect(<span class="string">"ok"</span>);
 			<span class="macro">assert_eq!</span>(
 				Pallet::&lt;TestRuntime&gt;::best_parachain_head(ParaId(<span class="number">1</span>)),
 				<span class="prelude-val">Some</span>(stored_head_data(<span class="number">1</span>, <span class="number">5</span>))
@@ -3281,7 +3283,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// then if someone is pretending to provide updated head#10 of parachain#1 at relay
 			// block#20, but fails to do that
 			//
-			// =&gt; we&#39;ll leave previous value
+			// =&gt; we'll leave previous value
 			</span>proceed(<span class="number">20</span>, state_root_10_at_20);
 			<span class="macro">assert_ok!</span>(Pallet::&lt;TestRuntime&gt;::submit_parachain_heads(
 				RuntimeOrigin::signed(<span class="number">1</span>),
@@ -3297,7 +3299,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// then if someone is pretending to provide updated head#10 of parachain#1 at relay
 			// block#30, and actually provides it
 			//
-			// =&gt; we&#39;ll update value
+			// =&gt; we'll update value
 			</span>proceed(<span class="number">30</span>, state_root_10_at_30);
 			<span class="macro">assert_ok!</span>(Pallet::&lt;TestRuntime&gt;::submit_parachain_heads(
 				RuntimeOrigin::signed(<span class="number">1</span>),
@@ -3316,7 +3318,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>storage_keys_computed_properly() {
 		<span class="macro">assert_eq!</span>(
 			ParasInfo::&lt;TestRuntime&gt;::storage_map_final_key(ParaId(<span class="number">42</span>)).to_vec(),
-			ParasInfoKeyProvider::final_key(<span class="string">&quot;Parachains&quot;</span>, <span class="kw-2">&amp;</span>ParaId(<span class="number">42</span>)).<span class="number">0
+			ParasInfoKeyProvider::final_key(<span class="string">"Parachains"</span>, <span class="kw-2">&amp;</span>ParaId(<span class="number">42</span>)).<span class="number">0
 		</span>);
 
 		<span class="macro">assert_eq!</span>(
@@ -3326,7 +3328,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			)
 			.to_vec(),
 			ImportedParaHeadsKeyProvider::final_key(
-				<span class="string">&quot;Parachains&quot;</span>,
+				<span class="string">"Parachains"</span>,
 				<span class="kw-2">&amp;</span>ParaId(<span class="number">42</span>),
 				<span class="kw-2">&amp;</span>ParaHash::from([<span class="number">21u8</span>; <span class="number">32</span>])
 			)

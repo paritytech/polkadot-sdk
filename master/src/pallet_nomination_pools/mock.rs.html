@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/nomination-pools/src/mock.rs`."><title>mock.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/nomination-pools/src/mock.rs`."><title>mock.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_nomination_pools" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_nomination_pools" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../pallet_nomination_pools/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -718,14 +720,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -807,7 +809,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">fn </span>desired_validator_count() -&gt; u32 {
-		<span class="macro">unimplemented!</span>(<span class="string">&quot;method currently not used in testing&quot;</span>)
+		<span class="macro">unimplemented!</span>(<span class="string">"method currently not used in testing"</span>)
 	}
 
 	<span class="kw">fn </span>current_era() -&gt; EraIndex {
@@ -823,7 +825,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; <span class="prelude-ty">Result</span>&lt;sp_staking::StakerStatus&lt;<span class="self">Self</span>::AccountId&gt;, DispatchError&gt; {
 		Nominations::get()
 			.map(|noms| sp_staking::StakerStatus::Nominator(noms))
-			.ok_or(DispatchError::Other(<span class="string">&quot;NotStash&quot;</span>))
+			.ok_or(DispatchError::Other(<span class="string">"NotStash"</span>))
 	}
 
 	<span class="kw">fn </span>bond_extra(who: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId, extra: <span class="self">Self</span>::Balance) -&gt; DispatchResult {
@@ -860,7 +862,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.unwrap()
 		};
 
-		<span class="kw">let </span>staker_map = unbonding_map.get_mut(<span class="kw-2">&amp;</span>who).ok_or(<span class="string">&quot;Nothing to unbond&quot;</span>)<span class="question-mark">?</span>;
+		<span class="kw">let </span>staker_map = unbonding_map.get_mut(<span class="kw-2">&amp;</span>who).ok_or(<span class="string">"Nothing to unbond"</span>)<span class="question-mark">?</span>;
 		<span class="kw">let </span>unlocking_before = unlocking(<span class="kw-2">&amp;</span>staker_map);
 
 		<span class="kw">let </span>current_era = <span class="self">Self</span>::current_era();
@@ -884,18 +886,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Ok</span>(())
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">fn </span>nominations(<span class="kw">_</span>: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;<span class="self">Self</span>::AccountId&gt;&gt; {
 		Nominations::get()
 	}
 
 	<span class="kw">fn </span>stash_by_ctrl(_controller: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::AccountId, DispatchError&gt; {
-		<span class="macro">unimplemented!</span>(<span class="string">&quot;method currently not used in testing&quot;</span>)
+		<span class="macro">unimplemented!</span>(<span class="string">"method currently not used in testing"</span>)
 	}
 
 	<span class="kw">fn </span>stake(who: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId) -&gt; <span class="prelude-ty">Result</span>&lt;Stake&lt;Balance&gt;, DispatchError&gt; {
 		<span class="kw">match </span>(UnbondingBalanceMap::get().get(who), BondedBalanceMap::get().get(who).copied()) {
-			(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>) =&gt; <span class="prelude-val">Err</span>(DispatchError::Other(<span class="string">&quot;balance not found&quot;</span>)),
+			(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>) =&gt; <span class="prelude-val">Err</span>(DispatchError::Other(<span class="string">"balance not found"</span>)),
 			(<span class="prelude-val">Some</span>(v), <span class="prelude-val">None</span>) =&gt; <span class="prelude-val">Ok</span>(Stake {
 				total: v.into_iter().fold(<span class="number">0u128</span>, |acc, <span class="kw-2">&amp;</span>x| acc.saturating_add(x.<span class="number">1</span>)),
 				active: <span class="number">0</span>,
@@ -909,34 +911,34 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">fn </span>election_ongoing() -&gt; bool {
-		<span class="macro">unimplemented!</span>(<span class="string">&quot;method currently not used in testing&quot;</span>)
+		<span class="macro">unimplemented!</span>(<span class="string">"method currently not used in testing"</span>)
 	}
 
 	<span class="kw">fn </span>force_unstake(_who: <span class="self">Self</span>::AccountId) -&gt; sp_runtime::DispatchResult {
-		<span class="macro">unimplemented!</span>(<span class="string">&quot;method currently not used in testing&quot;</span>)
+		<span class="macro">unimplemented!</span>(<span class="string">"method currently not used in testing"</span>)
 	}
 
 	<span class="kw">fn </span>is_exposed_in_era(_who: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId, _era: <span class="kw-2">&amp;</span>EraIndex) -&gt; bool {
-		<span class="macro">unimplemented!</span>(<span class="string">&quot;method currently not used in testing&quot;</span>)
+		<span class="macro">unimplemented!</span>(<span class="string">"method currently not used in testing"</span>)
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">fn </span>add_era_stakers(
 		_current_era: <span class="kw-2">&amp;</span>EraIndex,
 		_stash: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId,
 		_exposures: Vec&lt;(<span class="self">Self</span>::AccountId, <span class="self">Self</span>::Balance)&gt;,
 	) {
-		<span class="macro">unimplemented!</span>(<span class="string">&quot;method currently not used in testing&quot;</span>)
+		<span class="macro">unimplemented!</span>(<span class="string">"method currently not used in testing"</span>)
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">fn </span>set_current_era(_era: EraIndex) {
-		<span class="macro">unimplemented!</span>(<span class="string">&quot;method currently not used in testing&quot;</span>)
+		<span class="macro">unimplemented!</span>(<span class="string">"method currently not used in testing"</span>)
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">fn </span>max_exposure_page_size() -&gt; sp_staking::Page {
-		<span class="macro">unimplemented!</span>(<span class="string">&quot;method currently not used in testing&quot;</span>)
+		<span class="macro">unimplemented!</span>(<span class="string">"method currently not used in testing"</span>)
 	}
 }
 
@@ -1005,7 +1007,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">pub static </span>PostUnbondingPoolsWindow: u32 = <span class="number">2</span>;
 	<span class="kw">pub static </span>MaxMetadataLen: u32 = <span class="number">2</span>;
 	<span class="kw">pub static </span>CheckLevel: u8 = <span class="number">255</span>;
-	<span class="kw">pub const </span>PoolsPalletId: PalletId = PalletId(<span class="kw-2">*</span><span class="string">b&quot;py/nopls&quot;</span>);
+	<span class="kw">pub const </span>PoolsPalletId: PalletId = PalletId(<span class="kw-2">*</span><span class="string">b"py/nopls"</span>);
 }
 
 <span class="macro">ord_parameter_types! </span>{
@@ -1056,7 +1058,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="attr">#[cfg_attr(feature = <span class="string">&quot;fuzzing&quot;</span>, allow(dead_code))]
+<span class="attr">#[cfg_attr(feature = <span class="string">"fuzzing"</span>, allow(dead_code))]
 </span><span class="kw">impl </span>ExtBuilder {
 	<span class="comment">// Add members to pool 0.
 	</span><span class="kw">pub fn </span>add_members(<span class="kw-2">mut </span><span class="self">self</span>, members: Vec&lt;(AccountId, Balance)&gt;) -&gt; <span class="self">Self </span>{
@@ -1248,7 +1250,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">pub fn </span>reward_imbalance(pool: PoolId) -&gt; RewardImbalance {
-	<span class="kw">let </span>pending_rewards = pool_pending_rewards(pool).expect(<span class="string">&quot;pool should exist&quot;</span>);
+	<span class="kw">let </span>pending_rewards = pool_pending_rewards(pool).expect(<span class="string">"pool should exist"</span>);
 	<span class="kw">let </span>current_balance = RewardPool::&lt;Runtime&gt;::current_balance(pool);
 
 	<span class="kw">if </span>pending_rewards &gt; current_balance {

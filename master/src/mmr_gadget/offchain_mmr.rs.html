@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/merkle-mountain-range/src/offchain_mmr.rs`."><title>offchain_mmr.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/merkle-mountain-range/src/offchain_mmr.rs`."><title>offchain_mmr.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="mmr_gadget" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="mmr_gadget" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../mmr_gadget/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -668,7 +670,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt; {
 		<span class="kw">let </span><span class="kw-2">mut </span>best_canonicalized = first_mmr_block.saturating_sub(One::one());
 		best_canonicalized = aux_schema::load_or_init_state::&lt;B, BE&gt;(<span class="kw-2">&amp;*</span>backend, best_canonicalized)
-			.map_err(|e| <span class="macro">error!</span>(target: LOG_TARGET, <span class="string">&quot;Error loading state from aux db: {:?}&quot;</span>, e))
+			.map_err(|e| <span class="macro">error!</span>(target: LOG_TARGET, <span class="string">"Error loading state from aux db: {:?}"</span>, e))
 			.ok()<span class="question-mark">?</span>;
 
 		<span class="prelude-val">Some</span>(<span class="self">Self </span>{
@@ -693,7 +695,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if let </span><span class="prelude-val">Err</span>(e) =
 			aux_schema::write_gadget_state::&lt;B, BE&gt;(<span class="kw-2">&amp;*</span><span class="self">self</span>.backend, <span class="kw-2">&amp;</span><span class="self">self</span>.best_canonicalized)
 		{
-			<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;error saving state: {:?}&quot;</span>, e);
+			<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"error saving state: {:?}"</span>, e);
 		}
 	}
 
@@ -707,7 +709,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">_ </span>=&gt; {
 				<span class="macro">debug!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Block {} not found. Couldn&#39;t {} associated branch.&quot;</span>, hash, action
+					<span class="string">"Block {} not found. Couldn't {} associated branch."</span>, hash, action
 				);
 				<span class="prelude-val">None
 			</span>},
@@ -724,15 +726,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">let </span>branch = NodesUtils::right_branch_ending_in_leaf(leaf_idx);
 				<span class="macro">debug!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Nodes to {} for block {}: {:?}&quot;</span>, action, block_num, branch
+					<span class="string">"Nodes to {} for block {}: {:?}"</span>, action, block_num, branch
 				);
 				<span class="prelude-val">Some</span>(branch)
 			},
 			<span class="prelude-val">Err</span>(e) =&gt; {
 				<span class="macro">error!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Error converting block number {} to leaf index: {:?}. \
-					Couldn&#39;t {} associated branch.&quot;</span>,
+					<span class="string">"Error converting block number {} to leaf index: {:?}. \
+					Couldn't {} associated branch."</span>,
 					block_num,
 					e,
 					action
@@ -743,7 +745,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">fn </span>prune_branch(<span class="kw-2">&amp;mut </span><span class="self">self</span>, block_hash: <span class="kw-2">&amp;</span>B::Hash) {
-		<span class="kw">let </span>action = <span class="string">&quot;prune&quot;</span>;
+		<span class="kw">let </span>action = <span class="string">"prune"</span>;
 		<span class="kw">let </span>header = <span class="kw">match </span><span class="self">self</span>.header_metadata_or_log(<span class="kw-2">*</span>block_hash, action) {
 			<span class="prelude-val">Some</span>(header) =&gt; header,
 			<span class="kw">_ </span>=&gt; <span class="kw">return</span>,
@@ -754,7 +756,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">let </span>stale_nodes = <span class="kw">match </span><span class="self">self</span>.right_branch_ending_in_block_or_log(header.number, action) {
 			<span class="prelude-val">Some</span>(nodes) =&gt; nodes,
 			<span class="prelude-val">None </span>=&gt; {
-				<span class="comment">// If we can&#39;t convert the block number to a leaf index, the chain state is probably
+				<span class="comment">// If we can't convert the block number to a leaf index, the chain state is probably
 				// corrupted. We only log the error, hoping that the chain state will be fixed.
 				</span><span class="kw">return
 			</span>},
@@ -763,29 +765,29 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">for </span>pos <span class="kw">in </span>stale_nodes {
 			<span class="kw">let </span>temp_key = <span class="self">self</span>.node_temp_offchain_key(pos, header.parent);
 			<span class="self">self</span>.offchain_db.local_storage_clear(StorageKind::PERSISTENT, <span class="kw-2">&amp;</span>temp_key);
-			<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;Pruned elem at pos {} with temp key {:?}&quot;</span>, pos, temp_key);
+			<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"Pruned elem at pos {} with temp key {:?}"</span>, pos, temp_key);
 		}
 	}
 
 	<span class="kw">fn </span>canonicalize_branch(<span class="kw-2">&amp;mut </span><span class="self">self</span>, block_hash: B::Hash) {
-		<span class="kw">let </span>action = <span class="string">&quot;canonicalize&quot;</span>;
+		<span class="kw">let </span>action = <span class="string">"canonicalize"</span>;
 		<span class="kw">let </span>header = <span class="kw">match </span><span class="self">self</span>.header_metadata_or_log(block_hash, action) {
 			<span class="prelude-val">Some</span>(header) =&gt; header,
 			<span class="kw">_ </span>=&gt; <span class="kw">return</span>,
 		};
 
-		<span class="comment">// Don&#39;t canonicalize branches corresponding to blocks for which the MMR pallet
-		// wasn&#39;t yet initialized.
+		<span class="comment">// Don't canonicalize branches corresponding to blocks for which the MMR pallet
+		// wasn't yet initialized.
 		</span><span class="kw">if </span>header.number &lt; <span class="self">self</span>.first_mmr_block {
 			<span class="kw">return
 		</span>}
 
-		<span class="comment">// We &quot;canonicalize&quot; the leaf associated with the provided block
+		<span class="comment">// We "canonicalize" the leaf associated with the provided block
 		// and all the nodes added by that leaf.
 		</span><span class="kw">let </span>to_canon_nodes = <span class="kw">match </span><span class="self">self</span>.right_branch_ending_in_block_or_log(header.number, action) {
 			<span class="prelude-val">Some</span>(nodes) =&gt; nodes,
 			<span class="prelude-val">None </span>=&gt; {
-				<span class="comment">// If we can&#39;t convert the block number to a leaf index, the chain state is probably
+				<span class="comment">// If we can't convert the block number to a leaf index, the chain state is probably
 				// corrupted. We only log the error, hoping that the chain state will be fixed.
 				</span><span class="self">self</span>.best_canonicalized = header.number;
 				<span class="kw">return
@@ -802,7 +804,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="self">self</span>.offchain_db.local_storage_clear(StorageKind::PERSISTENT, <span class="kw-2">&amp;</span>temp_key);
 				<span class="macro">debug!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Moved elem at pos {} from temp key {:?} to canon key {:?}&quot;</span>,
+					<span class="string">"Moved elem at pos {} from temp key {:?} to canon key {:?}"</span>,
 					pos,
 					temp_key,
 					canon_key
@@ -810,14 +812,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			} <span class="kw">else </span>{
 				<span class="macro">debug!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Couldn&#39;t canonicalize elem at pos {} using temp key {:?}&quot;</span>, pos, temp_key
+					<span class="string">"Couldn't canonicalize elem at pos {} using temp key {:?}"</span>, pos, temp_key
 				);
 			}
 		}
 		<span class="kw">if </span><span class="self">self</span>.best_canonicalized != header.number.saturating_sub(One::one()) {
 			<span class="macro">warn!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;Detected canonicalization skip: best {:?} current {:?}.&quot;</span>,
+				<span class="string">"Detected canonicalization skip: best {:?} current {:?}."</span>,
 				<span class="self">self</span>.best_canonicalized,
 				header.number,
 			);
@@ -829,11 +831,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// make sure to also canon everything leading up to `notification.tree_route`.
 	</span><span class="kw">pub fn </span>canonicalize_catch_up(<span class="kw-2">&amp;mut </span><span class="self">self</span>, notification: <span class="kw-2">&amp;</span>FinalityNotification&lt;B&gt;) {
 		<span class="kw">let </span>first = notification.tree_route.first().unwrap_or(<span class="kw-2">&amp;</span>notification.hash);
-		<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">mut </span>header) = <span class="self">self</span>.header_metadata_or_log(<span class="kw-2">*</span>first, <span class="string">&quot;canonicalize&quot;</span>) {
+		<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">mut </span>header) = <span class="self">self</span>.header_metadata_or_log(<span class="kw-2">*</span>first, <span class="string">"canonicalize"</span>) {
 			<span class="kw">let </span><span class="kw-2">mut </span>to_canon = VecDeque::&lt;&lt;B <span class="kw">as </span>Block&gt;::Hash&gt;::new();
 			<span class="comment">// Walk up the chain adding all blocks newer than `self.best_canonicalized`.
 			</span><span class="kw">loop </span>{
-				header = <span class="kw">match </span><span class="self">self</span>.header_metadata_or_log(header.parent, <span class="string">&quot;canonicalize&quot;</span>) {
+				header = <span class="kw">match </span><span class="self">self</span>.header_metadata_or_log(header.parent, <span class="string">"canonicalize"</span>) {
 					<span class="prelude-val">Some</span>(header) =&gt; header,
 					<span class="kw">_ </span>=&gt; <span class="kw">break</span>,
 				};
@@ -855,7 +857,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">if </span>first_mmr_block_num != <span class="self">self</span>.first_mmr_block {
 				<span class="macro">info!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;pallet-mmr reset detected at block {:?} with new genesis at block {:?}&quot;</span>,
+					<span class="string">"pallet-mmr reset detected at block {:?} with new genesis at block {:?}"</span>,
 					notification.header.number(),
 					first_mmr_block_num
 				);
@@ -882,7 +884,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// Remove offchain MMR nodes for stale forks.
 		</span><span class="kw">let </span>stale_forks = <span class="self">self</span>.client.expand_forks(<span class="kw-2">&amp;</span>notification.stale_heads).unwrap_or_else(
 			|(stale_forks, e)| {
-				<span class="macro">warn!</span>(target: LOG_TARGET, <span class="string">&quot;{:?}&quot;</span>, e);
+				<span class="macro">warn!</span>(target: LOG_TARGET, <span class="string">"{:?}"</span>, e);
 				stale_forks
 			},
 		);
@@ -907,19 +909,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			//   -&gt; B1 -&gt; B2 -&gt; B3
 			//   -&gt; C1
 
-			</span><span class="kw">let </span>a1 = client.import_block(<span class="kw-2">&amp;</span>BlockId::Number(<span class="number">0</span>), <span class="string">b&quot;a1&quot;</span>, <span class="prelude-val">Some</span>(<span class="number">0</span>)).<span class="kw">await</span>;
-			<span class="kw">let </span>a2 = client.import_block(<span class="kw-2">&amp;</span>BlockId::Hash(a1.hash()), <span class="string">b&quot;a2&quot;</span>, <span class="prelude-val">Some</span>(<span class="number">1</span>)).<span class="kw">await</span>;
-			<span class="kw">let </span>a3 = client.import_block(<span class="kw-2">&amp;</span>BlockId::Hash(a2.hash()), <span class="string">b&quot;a3&quot;</span>, <span class="prelude-val">Some</span>(<span class="number">2</span>)).<span class="kw">await</span>;
-			<span class="kw">let </span>a4 = client.import_block(<span class="kw-2">&amp;</span>BlockId::Hash(a3.hash()), <span class="string">b&quot;a4&quot;</span>, <span class="prelude-val">Some</span>(<span class="number">3</span>)).<span class="kw">await</span>;
+			</span><span class="kw">let </span>a1 = client.import_block(<span class="kw-2">&amp;</span>BlockId::Number(<span class="number">0</span>), <span class="string">b"a1"</span>, <span class="prelude-val">Some</span>(<span class="number">0</span>)).<span class="kw">await</span>;
+			<span class="kw">let </span>a2 = client.import_block(<span class="kw-2">&amp;</span>BlockId::Hash(a1.hash()), <span class="string">b"a2"</span>, <span class="prelude-val">Some</span>(<span class="number">1</span>)).<span class="kw">await</span>;
+			<span class="kw">let </span>a3 = client.import_block(<span class="kw-2">&amp;</span>BlockId::Hash(a2.hash()), <span class="string">b"a3"</span>, <span class="prelude-val">Some</span>(<span class="number">2</span>)).<span class="kw">await</span>;
+			<span class="kw">let </span>a4 = client.import_block(<span class="kw-2">&amp;</span>BlockId::Hash(a3.hash()), <span class="string">b"a4"</span>, <span class="prelude-val">Some</span>(<span class="number">3</span>)).<span class="kw">await</span>;
 
-			<span class="kw">let </span>b1 = client.import_block(<span class="kw-2">&amp;</span>BlockId::Number(<span class="number">0</span>), <span class="string">b&quot;b1&quot;</span>, <span class="prelude-val">Some</span>(<span class="number">0</span>)).<span class="kw">await</span>;
-			<span class="kw">let </span>b2 = client.import_block(<span class="kw-2">&amp;</span>BlockId::Hash(b1.hash()), <span class="string">b&quot;b2&quot;</span>, <span class="prelude-val">Some</span>(<span class="number">1</span>)).<span class="kw">await</span>;
-			<span class="kw">let </span>b3 = client.import_block(<span class="kw-2">&amp;</span>BlockId::Hash(b2.hash()), <span class="string">b&quot;b3&quot;</span>, <span class="prelude-val">Some</span>(<span class="number">2</span>)).<span class="kw">await</span>;
+			<span class="kw">let </span>b1 = client.import_block(<span class="kw-2">&amp;</span>BlockId::Number(<span class="number">0</span>), <span class="string">b"b1"</span>, <span class="prelude-val">Some</span>(<span class="number">0</span>)).<span class="kw">await</span>;
+			<span class="kw">let </span>b2 = client.import_block(<span class="kw-2">&amp;</span>BlockId::Hash(b1.hash()), <span class="string">b"b2"</span>, <span class="prelude-val">Some</span>(<span class="number">1</span>)).<span class="kw">await</span>;
+			<span class="kw">let </span>b3 = client.import_block(<span class="kw-2">&amp;</span>BlockId::Hash(b2.hash()), <span class="string">b"b3"</span>, <span class="prelude-val">Some</span>(<span class="number">2</span>)).<span class="kw">await</span>;
 
-			<span class="kw">let </span>c1 = client.import_block(<span class="kw-2">&amp;</span>BlockId::Number(<span class="number">0</span>), <span class="string">b&quot;c1&quot;</span>, <span class="prelude-val">Some</span>(<span class="number">0</span>)).<span class="kw">await</span>;
+			<span class="kw">let </span>c1 = client.import_block(<span class="kw-2">&amp;</span>BlockId::Number(<span class="number">0</span>), <span class="string">b"c1"</span>, <span class="prelude-val">Some</span>(<span class="number">0</span>)).<span class="kw">await</span>;
 
-			<span class="kw">let </span>d4 = client.import_block(<span class="kw-2">&amp;</span>BlockId::Hash(a3.hash()), <span class="string">b&quot;d4&quot;</span>, <span class="prelude-val">Some</span>(<span class="number">3</span>)).<span class="kw">await</span>;
-			<span class="kw">let </span>d5 = client.import_block(<span class="kw-2">&amp;</span>BlockId::Hash(d4.hash()), <span class="string">b&quot;d5&quot;</span>, <span class="prelude-val">Some</span>(<span class="number">4</span>)).<span class="kw">await</span>;
+			<span class="kw">let </span>d4 = client.import_block(<span class="kw-2">&amp;</span>BlockId::Hash(a3.hash()), <span class="string">b"d4"</span>, <span class="prelude-val">Some</span>(<span class="number">3</span>)).<span class="kw">await</span>;
+			<span class="kw">let </span>d5 = client.import_block(<span class="kw-2">&amp;</span>BlockId::Hash(d4.hash()), <span class="string">b"d5"</span>, <span class="prelude-val">Some</span>(<span class="number">4</span>)).<span class="kw">await</span>;
 
 			client.finalize_block(a3.hash(), <span class="prelude-val">Some</span>(<span class="number">3</span>));
 			tokio::time::sleep(Duration::from_millis(<span class="number">200</span>)).<span class="kw">await</span>;
@@ -947,17 +949,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			//      |
 			//      | -&gt; first finality notification
 
-			</span><span class="kw">let </span>a1 = client.import_block(<span class="kw-2">&amp;</span>BlockId::Number(<span class="number">0</span>), <span class="string">b&quot;a1&quot;</span>, <span class="prelude-val">Some</span>(<span class="number">0</span>)).<span class="kw">await</span>;
-			<span class="kw">let </span>a2 = client.import_block(<span class="kw-2">&amp;</span>BlockId::Hash(a1.hash()), <span class="string">b&quot;a2&quot;</span>, <span class="prelude-val">Some</span>(<span class="number">1</span>)).<span class="kw">await</span>;
-			<span class="kw">let </span>a3 = client.import_block(<span class="kw-2">&amp;</span>BlockId::Hash(a2.hash()), <span class="string">b&quot;a3&quot;</span>, <span class="prelude-val">Some</span>(<span class="number">0</span>)).<span class="kw">await</span>;
-			<span class="kw">let </span>a4 = client.import_block(<span class="kw-2">&amp;</span>BlockId::Hash(a3.hash()), <span class="string">b&quot;a4&quot;</span>, <span class="prelude-val">Some</span>(<span class="number">1</span>)).<span class="kw">await</span>;
-			<span class="kw">let </span>a5 = client.import_block(<span class="kw-2">&amp;</span>BlockId::Hash(a4.hash()), <span class="string">b&quot;a5&quot;</span>, <span class="prelude-val">Some</span>(<span class="number">2</span>)).<span class="kw">await</span>;
+			</span><span class="kw">let </span>a1 = client.import_block(<span class="kw-2">&amp;</span>BlockId::Number(<span class="number">0</span>), <span class="string">b"a1"</span>, <span class="prelude-val">Some</span>(<span class="number">0</span>)).<span class="kw">await</span>;
+			<span class="kw">let </span>a2 = client.import_block(<span class="kw-2">&amp;</span>BlockId::Hash(a1.hash()), <span class="string">b"a2"</span>, <span class="prelude-val">Some</span>(<span class="number">1</span>)).<span class="kw">await</span>;
+			<span class="kw">let </span>a3 = client.import_block(<span class="kw-2">&amp;</span>BlockId::Hash(a2.hash()), <span class="string">b"a3"</span>, <span class="prelude-val">Some</span>(<span class="number">0</span>)).<span class="kw">await</span>;
+			<span class="kw">let </span>a4 = client.import_block(<span class="kw-2">&amp;</span>BlockId::Hash(a3.hash()), <span class="string">b"a4"</span>, <span class="prelude-val">Some</span>(<span class="number">1</span>)).<span class="kw">await</span>;
+			<span class="kw">let </span>a5 = client.import_block(<span class="kw-2">&amp;</span>BlockId::Hash(a4.hash()), <span class="string">b"a5"</span>, <span class="prelude-val">Some</span>(<span class="number">2</span>)).<span class="kw">await</span>;
 
 			client.finalize_block(a1.hash(), <span class="prelude-val">Some</span>(<span class="number">1</span>));
 			tokio::time::sleep(Duration::from_millis(<span class="number">200</span>)).<span class="kw">await</span>;
 			<span class="comment">// expected finalized heads: a1
 			</span>client.assert_canonicalized(<span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>a1]);
-			<span class="comment">// a2 shouldn&#39;t be either canonicalized or pruned. It should be handled as part of the
+			<span class="comment">// a2 shouldn't be either canonicalized or pruned. It should be handled as part of the
 			// reset process.
 			</span>client.assert_not_canonicalized(<span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>a2]);
 
@@ -980,8 +982,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				//      |
 				//      | -&gt; first mmr block
 
-				</span><span class="kw">let </span>a1 = client.import_block(<span class="kw-2">&amp;</span>BlockId::Number(<span class="number">0</span>), <span class="string">b&quot;a1&quot;</span>, <span class="prelude-val">Some</span>(<span class="number">0</span>)).<span class="kw">await</span>;
-				<span class="kw">let </span>a2 = client.import_block(<span class="kw-2">&amp;</span>BlockId::Hash(a1.hash()), <span class="string">b&quot;a2&quot;</span>, <span class="prelude-val">Some</span>(<span class="number">1</span>)).<span class="kw">await</span>;
+				</span><span class="kw">let </span>a1 = client.import_block(<span class="kw-2">&amp;</span>BlockId::Number(<span class="number">0</span>), <span class="string">b"a1"</span>, <span class="prelude-val">Some</span>(<span class="number">0</span>)).<span class="kw">await</span>;
+				<span class="kw">let </span>a2 = client.import_block(<span class="kw-2">&amp;</span>BlockId::Hash(a1.hash()), <span class="string">b"a2"</span>, <span class="prelude-val">Some</span>(<span class="number">1</span>)).<span class="kw">await</span>;
 
 				client.finalize_block(a2.hash(), <span class="prelude-val">Some</span>(<span class="number">2</span>));
 
@@ -1002,8 +1004,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				</span><span class="kw">let </span>blocks = mmr_blocks.lock();
 				<span class="kw">let </span>a1 = blocks[<span class="number">0</span>].clone();
 				<span class="kw">let </span>a2 = blocks[<span class="number">1</span>].clone();
-				<span class="kw">let </span>a3 = client.import_block(<span class="kw-2">&amp;</span>BlockId::Hash(a2.hash()), <span class="string">b&quot;a3&quot;</span>, <span class="prelude-val">Some</span>(<span class="number">2</span>)).<span class="kw">await</span>;
-				<span class="kw">let </span>a4 = client.import_block(<span class="kw-2">&amp;</span>BlockId::Hash(a3.hash()), <span class="string">b&quot;a4&quot;</span>, <span class="prelude-val">Some</span>(<span class="number">3</span>)).<span class="kw">await</span>;
+				<span class="kw">let </span>a3 = client.import_block(<span class="kw-2">&amp;</span>BlockId::Hash(a2.hash()), <span class="string">b"a3"</span>, <span class="prelude-val">Some</span>(<span class="number">2</span>)).<span class="kw">await</span>;
+				<span class="kw">let </span>a4 = client.import_block(<span class="kw-2">&amp;</span>BlockId::Hash(a3.hash()), <span class="string">b"a4"</span>, <span class="prelude-val">Some</span>(<span class="number">3</span>)).<span class="kw">await</span>;
 
 				client.finalize_block(a4.hash(), <span class="prelude-val">Some</span>(<span class="number">4</span>));
 				tokio::time::sleep(Duration::from_millis(<span class="number">200</span>)).<span class="kw">await</span>;
@@ -1025,8 +1027,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				//      |
 				//      | -&gt; first mmr block
 
-				</span><span class="kw">let </span>a1 = client.import_block(<span class="kw-2">&amp;</span>BlockId::Number(<span class="number">0</span>), <span class="string">b&quot;a1&quot;</span>, <span class="prelude-val">Some</span>(<span class="number">0</span>)).<span class="kw">await</span>;
-				<span class="kw">let </span>a2 = client.import_block(<span class="kw-2">&amp;</span>BlockId::Hash(a1.hash()), <span class="string">b&quot;a2&quot;</span>, <span class="prelude-val">Some</span>(<span class="number">0</span>)).<span class="kw">await</span>;
+				</span><span class="kw">let </span>a1 = client.import_block(<span class="kw-2">&amp;</span>BlockId::Number(<span class="number">0</span>), <span class="string">b"a1"</span>, <span class="prelude-val">Some</span>(<span class="number">0</span>)).<span class="kw">await</span>;
+				<span class="kw">let </span>a2 = client.import_block(<span class="kw-2">&amp;</span>BlockId::Hash(a1.hash()), <span class="string">b"a2"</span>, <span class="prelude-val">Some</span>(<span class="number">0</span>)).<span class="kw">await</span>;
 
 				client.finalize_block(a2.hash(), <span class="prelude-val">Some</span>(<span class="number">1</span>));
 
@@ -1048,14 +1050,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				</span><span class="kw">let </span>blocks = mmr_blocks.lock();
 				<span class="kw">let </span>a1 = blocks[<span class="number">0</span>].clone();
 				<span class="kw">let </span>a2 = blocks[<span class="number">1</span>].clone();
-				<span class="kw">let </span>a3 = client.import_block(<span class="kw-2">&amp;</span>BlockId::Hash(a2.hash()), <span class="string">b&quot;a3&quot;</span>, <span class="prelude-val">Some</span>(<span class="number">1</span>)).<span class="kw">await</span>;
-				<span class="kw">let </span>a4 = client.import_block(<span class="kw-2">&amp;</span>BlockId::Hash(a3.hash()), <span class="string">b&quot;a4&quot;</span>, <span class="prelude-val">Some</span>(<span class="number">2</span>)).<span class="kw">await</span>;
+				<span class="kw">let </span>a3 = client.import_block(<span class="kw-2">&amp;</span>BlockId::Hash(a2.hash()), <span class="string">b"a3"</span>, <span class="prelude-val">Some</span>(<span class="number">1</span>)).<span class="kw">await</span>;
+				<span class="kw">let </span>a4 = client.import_block(<span class="kw-2">&amp;</span>BlockId::Hash(a3.hash()), <span class="string">b"a4"</span>, <span class="prelude-val">Some</span>(<span class="number">2</span>)).<span class="kw">await</span>;
 
 				client.finalize_block(a4.hash(), <span class="prelude-val">Some</span>(<span class="number">3</span>));
 				tokio::time::sleep(Duration::from_millis(<span class="number">200</span>)).<span class="kw">await</span>;
-				<span class="comment">// a1 shouldn&#39;t be either canonicalized or pruned. It should be handled as part of
-				// the reset process. Checking only that it wasn&#39;t pruned. Because of temp key
-				// collision with a2 we can&#39;t check that it wasn&#39;t canonicalized.
+				<span class="comment">// a1 shouldn't be either canonicalized or pruned. It should be handled as part of
+				// the reset process. Checking only that it wasn't pruned. Because of temp key
+				// collision with a2 we can't check that it wasn't canonicalized.
 				</span>client.assert_not_pruned(<span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>a1]);
 				<span class="comment">// expected finalized heads: a4, a5.
 				</span>client.assert_canonicalized(<span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>a2, <span class="kw-2">&amp;</span>a3, <span class="kw-2">&amp;</span>a4]);

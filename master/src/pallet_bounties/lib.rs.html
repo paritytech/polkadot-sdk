@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/bounties/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/bounties/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_bounties" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_bounties" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../pallet_bounties/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1087,14 +1089,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -1117,10 +1119,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! regular democracy. The Council gets to unassign the curator, resulting in a new curator
 //! election. The Council also gets to cancel the bounty if deemed necessary before assigning a
 //! curator or once the bounty is active or payout is pending, resulting in the slash of the
-//! curator&#39;s deposit.
+//! curator's deposit.
 //!
 //! This pallet may opt into using a [`ChildBountyManager`] that enables bounties to be split into
-//! sub-bounties, as children of anh established bounty (called the parent in the context of it&#39;s
+//! sub-bounties, as children of anh established bounty (called the parent in the context of it's
 //! children).
 //!
 //! &gt; NOTE: The parent bounty cannot be closed if it has a non-zero number of it has active child
@@ -1164,7 +1166,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! - `unassign_curator` - Unassign an accepted curator from a specific earmark.
 //! - `close_bounty` - Cancel the earmark for a specific treasury amount and close the bounty.
 
-</span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
+</span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
 </span><span class="kw">mod </span>benchmarking;
 <span class="kw">pub mod </span>migrations;
@@ -1278,7 +1280,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub struct </span>Pallet&lt;T, I = ()&gt;(<span class="kw">_</span>);
 
 	<span class="attr">#[pallet::config]
-	</span><span class="kw">pub trait </span>Config&lt;I: <span class="lifetime">&#39;static </span>= ()&gt;: frame_system::Config + pallet_treasury::Config&lt;I&gt; {
+	</span><span class="kw">pub trait </span>Config&lt;I: <span class="lifetime">'static </span>= ()&gt;: frame_system::Config + pallet_treasury::Config&lt;I&gt; {
 		<span class="doccomment">/// The amount held on deposit for placing a bounty proposal.
 		</span><span class="attr">#[pallet::constant]
 		</span><span class="kw">type </span>BountyDepositBase: Get&lt;BalanceOf&lt;<span class="self">Self</span>, I&gt;&gt;;
@@ -1333,7 +1335,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[pallet::error]
 	</span><span class="kw">pub enum </span>Error&lt;T, I = ()&gt; {
-		<span class="doccomment">/// Proposer&#39;s balance is too low.
+		<span class="doccomment">/// Proposer's balance is too low.
 		</span>InsufficientProposersBalance,
 		<span class="doccomment">/// No proposal or bounty at that index.
 		</span>InvalidIndex,
@@ -1350,7 +1352,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="doccomment">/// A bounty payout is pending.
 		/// To cancel the bounty, you must unassign and slash the curator.
 		</span>PendingPayout,
-		<span class="doccomment">/// The bounties cannot be claimed/closed because it&#39;s still in the countdown period.
+		<span class="doccomment">/// The bounties cannot be claimed/closed because it's still in the countdown period.
 		</span>Premature,
 		<span class="doccomment">/// The bounty cannot be closed because it has active child bounties.
 		</span>HasActiveChildBounty,
@@ -1360,7 +1362,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[pallet::event]
 	#[pallet::generate_deposit(<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>deposit_event)]
-	</span><span class="kw">pub enum </span>Event&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; {
+	</span><span class="kw">pub enum </span>Event&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; {
 		<span class="doccomment">/// New bounty proposal.
 		</span>BountyProposed { index: BountyIndex },
 		<span class="doccomment">/// A bounty proposal was rejected; funds were slashed.
@@ -1388,12 +1390,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Number of bounty proposals that have been made.
 	</span><span class="attr">#[pallet::storage]
 	#[pallet::getter(<span class="kw">fn </span>bounty_count)]
-	</span><span class="kw">pub type </span>BountyCount&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; = StorageValue&lt;<span class="kw">_</span>, BountyIndex, ValueQuery&gt;;
+	</span><span class="kw">pub type </span>BountyCount&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; = StorageValue&lt;<span class="kw">_</span>, BountyIndex, ValueQuery&gt;;
 
 	<span class="doccomment">/// Bounties that have been made.
 	</span><span class="attr">#[pallet::storage]
 	#[pallet::getter(<span class="kw">fn </span>bounties)]
-	</span><span class="kw">pub type </span>Bounties&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; = StorageMap&lt;
+	</span><span class="kw">pub type </span>Bounties&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; = StorageMap&lt;
 		<span class="kw">_</span>,
 		Twox64Concat,
 		BountyIndex,
@@ -1403,17 +1405,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// The description of each bounty.
 	</span><span class="attr">#[pallet::storage]
 	#[pallet::getter(<span class="kw">fn </span>bounty_descriptions)]
-	</span><span class="kw">pub type </span>BountyDescriptions&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; =
+	</span><span class="kw">pub type </span>BountyDescriptions&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; =
 		StorageMap&lt;<span class="kw">_</span>, Twox64Concat, BountyIndex, BoundedVec&lt;u8, T::MaximumReasonLength&gt;&gt;;
 
 	<span class="doccomment">/// Bounty indices that have been approved but not yet funded.
 	</span><span class="attr">#[pallet::storage]
 	#[pallet::getter(<span class="kw">fn </span>bounty_approvals)]
-	</span><span class="kw">pub type </span>BountyApprovals&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; =
+	</span><span class="kw">pub type </span>BountyApprovals&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; =
 		StorageValue&lt;<span class="kw">_</span>, BoundedVec&lt;BountyIndex, T::MaxApprovals&gt;, ValueQuery&gt;;
 
 	<span class="attr">#[pallet::call]
-	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; Pallet&lt;T, I&gt; {
+	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Pallet&lt;T, I&gt; {
 		<span class="doccomment">/// Propose a new bounty.
 		///
 		/// The dispatch origin for this call must be _Signed_.
@@ -1523,7 +1525,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		/// they willingly give up. We could slash them, but for now we allow them to recover their
 		/// deposit and exit without issue. (We may want to change this if it is abused.)
 		///
-		/// Finally, the origin can be anyone if and only if the curator is &quot;inactive&quot;. This allows
+		/// Finally, the origin can be anyone if and only if the curator is "inactive". This allows
 		/// anyone in the community to call out that a curator is not doing their due diligence, and
 		/// we should pick a new curator. In this case the curator should also be slashed.
 		///
@@ -1811,7 +1813,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							)
 						},
 						BountyStatus::Approved =&gt; {
-							<span class="comment">// For weight reasons, we don&#39;t allow a council to cancel in this phase.
+							<span class="comment">// For weight reasons, we don't allow a council to cancel in this phase.
 							// We ask for them to wait until it is funded before they can cancel.
 							</span><span class="kw">return </span><span class="prelude-val">Err</span>(Error::&lt;T, I&gt;::UnexpectedStatus.into())
 						},
@@ -1894,7 +1896,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; Pallet&lt;T, I&gt; {
+<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Pallet&lt;T, I&gt; {
 	<span class="kw">pub fn </span>calculate_curator_deposit(fee: <span class="kw-2">&amp;</span>BalanceOf&lt;T, I&gt;) -&gt; BalanceOf&lt;T, I&gt; {
 		<span class="kw">let </span><span class="kw-2">mut </span>deposit = T::CuratorDepositMultiplier::get() * <span class="kw-2">*</span>fee;
 
@@ -1920,8 +1922,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// The account ID of a bounty account
 	</span><span class="kw">pub fn </span>bounty_account_id(id: BountyIndex) -&gt; T::AccountId {
 		<span class="comment">// only use two byte prefix to support 16 byte account id (used by test)
-		// &quot;modl&quot; ++ &quot;py/trsry&quot; ++ &quot;bt&quot; is 14 bytes, and two bytes remaining for bounty index
-		</span>T::PalletId::get().into_sub_account_truncating((<span class="string">&quot;bt&quot;</span>, id))
+		// "modl" ++ "py/trsry" ++ "bt" is 14 bytes, and two bytes remaining for bounty index
+		</span>T::PalletId::get().into_sub_account_truncating((<span class="string">"bt"</span>, id))
 	}
 
 	<span class="kw">fn </span>create_bounty(
@@ -1961,7 +1963,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; pallet_treasury::SpendFunds&lt;T, I&gt; <span class="kw">for </span>Pallet&lt;T, I&gt; {
+<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; pallet_treasury::SpendFunds&lt;T, I&gt; <span class="kw">for </span>Pallet&lt;T, I&gt; {
 	<span class="kw">fn </span>spend_funds(
 		budget_remaining: <span class="kw-2">&amp;mut </span>BalanceOf&lt;T, I&gt;,
 		imbalance: <span class="kw-2">&amp;mut </span>PositiveImbalanceOf&lt;T, I&gt;,
@@ -1972,7 +1974,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>bounties_approval_len = v.len() <span class="kw">as </span>u32;
 			v.retain(|<span class="kw-2">&amp;</span>index| {
 				Bounties::&lt;T, I&gt;::mutate(index, |bounty| {
-					<span class="comment">// Should always be true, but shouldn&#39;t panic if false or we&#39;re screwed.
+					<span class="comment">// Should always be true, but shouldn't panic if false or we're screwed.
 					</span><span class="kw">if let </span><span class="prelude-val">Some</span>(bounty) = bounty {
 						<span class="kw">if </span>bounty.value &lt;= <span class="kw-2">*</span>budget_remaining {
 							<span class="kw-2">*</span>budget_remaining -= bounty.value;

@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `bridges/bin/runtime-common/src/messages_benchmarking.rs`."><title>messages_benchmarking.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `bridges/bin/runtime-common/src/messages_benchmarking.rs`."><title>messages_benchmarking.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="bridge_runtime_common" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="bridge_runtime_common" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../bridge_runtime_common/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -480,7 +482,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! Everything required to run benchmarks of messages module, based on
 //! `bridge_runtime_common::messages` implementation.
 
-</span><span class="attr">#![cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+</span><span class="attr">#![cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 
 </span><span class="kw">use crate</span>::{
 	messages::{
@@ -514,16 +516,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">_ </span>=&gt; <span class="number">0</span>,
 	};
 
-	<span class="comment">// if we don&#39;t need a correct message, then we may just return some random blob
+	<span class="comment">// if we don't need a correct message, then we may just return some random blob
 	</span><span class="kw">if </span>!params.is_successful_dispatch_expected {
 		<span class="kw">return </span><span class="macro">vec!</span>[<span class="number">0u8</span>; expected_size]
 	}
 
-	<span class="comment">// else let&#39;s prepare successful message.
+	<span class="comment">// else let's prepare successful message.
 	</span><span class="kw">let </span>msg = successful_dispatch_message_generator(expected_size);
 	<span class="macro">assert!</span>(
 		msg.len() &gt;= expected_size,
-		<span class="string">&quot;msg.len(): {} does not match expected_size: {}&quot;</span>,
+		<span class="string">"msg.len(): {} does not match expected_size: {}"</span>,
 		expected_size,
 		msg.len()
 	);
@@ -544,7 +546,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ) -&gt; (FromBridgedChainMessagesProof&lt;HashOf&lt;BridgedChain&lt;B&gt;&gt;&gt;, Weight)
 <span class="kw">where
 	</span>R: pallet_bridge_grandpa::Config&lt;FI, BridgedChain = UnderlyingChainOf&lt;BridgedChain&lt;B&gt;&gt;&gt;,
-	FI: <span class="lifetime">&#39;static</span>,
+	FI: <span class="lifetime">'static</span>,
 	B: MessageBridge,
 {
 	<span class="comment">// prepare storage proof
@@ -587,7 +589,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ) -&gt; (FromBridgedChainMessagesProof&lt;HashOf&lt;BridgedChain&lt;B&gt;&gt;&gt;, Weight)
 <span class="kw">where
 	</span>R: pallet_bridge_parachains::Config&lt;PI&gt;,
-	PI: <span class="lifetime">&#39;static</span>,
+	PI: <span class="lifetime">'static</span>,
 	B: MessageBridge,
 	UnderlyingChainOf&lt;BridgedChain&lt;B&gt;&gt;: Chain&lt;Hash = ParaHash&gt; + Parachain,
 {
@@ -628,7 +630,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ) -&gt; FromBridgedChainMessagesDeliveryProof&lt;HashOf&lt;BridgedChain&lt;B&gt;&gt;&gt;
 <span class="kw">where
 	</span>R: pallet_bridge_grandpa::Config&lt;FI, BridgedChain = UnderlyingChainOf&lt;BridgedChain&lt;B&gt;&gt;&gt;,
-	FI: <span class="lifetime">&#39;static</span>,
+	FI: <span class="lifetime">'static</span>,
 	B: MessageBridge,
 {
 	<span class="comment">// prepare storage proof
@@ -659,7 +661,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ) -&gt; FromBridgedChainMessagesDeliveryProof&lt;HashOf&lt;BridgedChain&lt;B&gt;&gt;&gt;
 <span class="kw">where
 	</span>R: pallet_bridge_parachains::Config&lt;PI&gt;,
-	PI: <span class="lifetime">&#39;static</span>,
+	PI: <span class="lifetime">'static</span>,
 	B: MessageBridge,
 	UnderlyingChainOf&lt;BridgedChain&lt;B&gt;&gt;: Chain&lt;Hash = ParaHash&gt; + Parachain,
 {
@@ -688,7 +690,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ) -&gt; (bp_runtime::BlockNumberOf&lt;R::BridgedChain&gt;, bp_runtime::HashOf&lt;R::BridgedChain&gt;)
 <span class="kw">where
 	</span>R: pallet_bridge_grandpa::Config&lt;GI&gt;,
-	GI: <span class="lifetime">&#39;static</span>,
+	GI: <span class="lifetime">'static</span>,
 	R::BridgedChain: bp_runtime::Chain,
 {
 	<span class="kw">let </span>bridged_block_number = Zero::zero();
@@ -710,7 +712,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ) -&gt; (bp_runtime::BlockNumberOf&lt;PC&gt;, bp_runtime::HashOf&lt;PC&gt;)
 <span class="kw">where
 	</span>R: pallet_bridge_parachains::Config&lt;PI&gt;,
-	PI: <span class="lifetime">&#39;static</span>,
+	PI: <span class="lifetime">'static</span>,
 	PC: Chain&lt;Hash = ParaHash&gt; + Parachain,
 {
 	<span class="kw">let </span>bridged_block_number = Zero::zero();
@@ -737,7 +739,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">let </span>location = xcm::VersionedInteriorLocation::V4(destination.clone());
 		<span class="kw">let </span>location_encoded_size = location.encoded_size();
 
-		<span class="comment">// we don&#39;t need to be super-precise with `expected_size` here
+		<span class="comment">// we don't need to be super-precise with `expected_size` here
 		</span><span class="kw">let </span>xcm_size = expected_message_size.saturating_sub(location_encoded_size);
 		<span class="kw">let </span>xcm_data_size = xcm_size.saturating_sub(
 			<span class="comment">// minus empty instruction size
@@ -752,8 +754,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		);
 
 		<span class="macro">log::trace!</span>(
-			target: <span class="string">&quot;runtime::bridge-benchmarks&quot;</span>,
-			<span class="string">&quot;generate_xcm_builder_bridge_message_sample with expected_message_size: {}, location_encoded_size: {}, xcm_size: {}, xcm_data_size: {}&quot;</span>,
+			target: <span class="string">"runtime::bridge-benchmarks"</span>,
+			<span class="string">"generate_xcm_builder_bridge_message_sample with expected_message_size: {}, location_encoded_size: {}, xcm_size: {}, xcm_data_size: {}"</span>,
 			expected_message_size, location_encoded_size, xcm_size, xcm_data_size,
 		);
 

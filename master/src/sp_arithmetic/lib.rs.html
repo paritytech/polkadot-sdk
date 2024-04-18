@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/arithmetic/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/arithmetic/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_arithmetic" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_arithmetic" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sp_arithmetic/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -727,21 +729,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
 </span><span class="doccomment">//! Minimal fixed point arithmetic primitives and types for runtime.
 
-</span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
+</span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
 </span><span class="kw">extern crate </span>alloc;
 
@@ -751,7 +753,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	(<span class="macro-nonterminal">$x</span>:expr, <span class="macro-nonterminal">$y</span>:expr, <span class="macro-nonterminal">$error</span>:expr $(,)<span class="question-mark">?</span>) =&gt; {
 		<span class="macro">assert!</span>(
 			(<span class="macro-nonterminal">$x</span>) &gt;= ((<span class="macro-nonterminal">$y</span>) - (<span class="macro-nonterminal">$error</span>)) &amp;&amp; (<span class="macro-nonterminal">$x</span>) &lt;= ((<span class="macro-nonterminal">$y</span>) + (<span class="macro-nonterminal">$error</span>)),
-			<span class="string">&quot;{:?} != {:?} (with error rate {:?})&quot;</span>,
+			<span class="string">"{:?} != {:?} (with error rate {:?})"</span>,
 			<span class="macro-nonterminal">$x</span>,
 			<span class="macro-nonterminal">$y</span>,
 			<span class="macro-nonterminal">$error</span>,
@@ -782,12 +784,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>codec::{Decode, Encode, MaxEncodedLen};
 <span class="kw">use </span>scale_info::TypeInfo;
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;serde&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"serde"</span>)]
 </span><span class="kw">use </span>serde::{Deserialize, Serialize};
 
 <span class="doccomment">/// Arithmetic errors.
 </span><span class="attr">#[derive(Eq, PartialEq, Clone, Copy, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
-#[cfg_attr(feature = <span class="string">&quot;serde&quot;</span>, derive(Serialize, Deserialize))]
+#[cfg_attr(feature = <span class="string">"serde"</span>, derive(Serialize, Deserialize))]
 </span><span class="kw">pub enum </span>ArithmeticError {
 	<span class="doccomment">/// Underflow.
 	</span>Underflow,
@@ -797,12 +799,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>DivisionByZero,
 }
 
-<span class="kw">impl </span>From&lt;ArithmeticError&gt; <span class="kw">for </span><span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str {
-	<span class="kw">fn </span>from(e: ArithmeticError) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str {
+<span class="kw">impl </span>From&lt;ArithmeticError&gt; <span class="kw">for </span><span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
+	<span class="kw">fn </span>from(e: ArithmeticError) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
 		<span class="kw">match </span>e {
-			ArithmeticError::Underflow =&gt; <span class="string">&quot;An underflow would occur&quot;</span>,
-			ArithmeticError::Overflow =&gt; <span class="string">&quot;An overflow would occur&quot;</span>,
-			ArithmeticError::DivisionByZero =&gt; <span class="string">&quot;Division by zero&quot;</span>,
+			ArithmeticError::Underflow =&gt; <span class="string">"An underflow would occur"</span>,
+			ArithmeticError::Overflow =&gt; <span class="string">"An overflow would occur"</span>,
+			ArithmeticError::DivisionByZero =&gt; <span class="string">"Division by zero"</span>,
 		}
 	}
 }
@@ -854,14 +856,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// Only returns `Ok` if the new sum of results is guaranteed to be equal to `targeted_sum`.
 	/// Else, returns an error explaining why it failed to do so.
-	</span><span class="kw">fn </span>normalize(<span class="kw-2">&amp;</span><span class="self">self</span>, targeted_sum: T) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;T&gt;, <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt;;
+	</span><span class="kw">fn </span>normalize(<span class="kw-2">&amp;</span><span class="self">self</span>, targeted_sum: T) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;T&gt;, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt;;
 }
 
 <span class="macro">macro_rules! </span>impl_normalize_for_numeric {
 	($(<span class="macro-nonterminal">$numeric</span>:ty),<span class="kw-2">*</span>) =&gt; {
 		$(
 			<span class="kw">impl </span>Normalizable&lt;<span class="macro-nonterminal">$numeric</span>&gt; <span class="kw">for </span>Vec&lt;<span class="macro-nonterminal">$numeric</span>&gt; {
-				<span class="kw">fn </span>normalize(<span class="kw-2">&amp;</span><span class="self">self</span>, targeted_sum: <span class="macro-nonterminal">$numeric</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="macro-nonterminal">$numeric</span>&gt;, <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; {
+				<span class="kw">fn </span>normalize(<span class="kw-2">&amp;</span><span class="self">self</span>, targeted_sum: <span class="macro-nonterminal">$numeric</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="macro-nonterminal">$numeric</span>&gt;, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
 					normalize(<span class="self">self</span>.as_ref(), targeted_sum)
 				}
 			}
@@ -872,7 +874,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="macro">impl_normalize_for_numeric!</span>(u8, u16, u32, u64, u128);
 
 <span class="kw">impl</span>&lt;P: PerThing&gt; Normalizable&lt;P&gt; <span class="kw">for </span>Vec&lt;P&gt; {
-	<span class="kw">fn </span>normalize(<span class="kw-2">&amp;</span><span class="self">self</span>, targeted_sum: P) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;P&gt;, <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; {
+	<span class="kw">fn </span>normalize(<span class="kw-2">&amp;</span><span class="self">self</span>, targeted_sum: P) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;P&gt;, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
 		<span class="kw">let </span>uppers = <span class="self">self</span>.iter().map(|p| &lt;UpperOf&lt;P&gt;&gt;::from(p.deconstruct())).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 
 		<span class="kw">let </span>normalized =
@@ -914,19 +916,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// cannot fit inside `T`.
 ///
 /// * This proof is used in the implementation as well.
-</span><span class="kw">pub fn </span>normalize&lt;T&gt;(input: <span class="kw-2">&amp;</span>[T], targeted_sum: T) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;T&gt;, <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt;
+</span><span class="kw">pub fn </span>normalize&lt;T&gt;(input: <span class="kw-2">&amp;</span>[T], targeted_sum: T) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;T&gt;, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt;
 <span class="kw">where
 	</span>T: Clone + Copy + Ord + BaseArithmetic + Unsigned + Debug,
 {
 	<span class="comment">// compute sum and return error if failed.
 	</span><span class="kw">let </span><span class="kw-2">mut </span>sum = T::zero();
 	<span class="kw">for </span>t <span class="kw">in </span>input.iter() {
-		sum = sum.checked_add(t).ok_or(<span class="string">&quot;sum of input cannot fit in `T`&quot;</span>)<span class="question-mark">?</span>;
+		sum = sum.checked_add(t).ok_or(<span class="string">"sum of input cannot fit in `T`"</span>)<span class="question-mark">?</span>;
 	}
 
 	<span class="comment">// convert count and return error if failed.
 	</span><span class="kw">let </span>count = input.len();
-	<span class="kw">let </span>count_t: T = count.try_into().map_err(|<span class="kw">_</span>| <span class="string">&quot;length of `inputs` cannot fit in `T`&quot;</span>)<span class="question-mark">?</span>;
+	<span class="kw">let </span>count_t: T = count.try_into().map_err(|<span class="kw">_</span>| <span class="string">"length of `inputs` cannot fit in `T`"</span>)<span class="question-mark">?</span>;
 
 	<span class="comment">// Nothing to do here.
 	</span><span class="kw">if </span>count.is_zero() {
@@ -960,7 +962,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				output_with_idx[min_index].<span class="number">1 </span>= output_with_idx[min_index]
 					.<span class="number">1
 					</span>.checked_add(<span class="kw-2">&amp;</span>per_round)
-					.expect(<span class="string">&quot;Proof provided in the module doc; qed.&quot;</span>);
+					.expect(<span class="string">"Proof provided in the module doc; qed."</span>);
 				<span class="kw">if </span>output_with_idx[min_index].<span class="number">1 </span>&gt;= threshold {
 					min_index += <span class="number">1</span>;
 					min_index %= count;
@@ -973,7 +975,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			output_with_idx[min_index].<span class="number">1 </span>= output_with_idx[min_index]
 				.<span class="number">1
 				</span>.checked_add(<span class="kw-2">&amp;</span>T::one())
-				.expect(<span class="string">&quot;Proof provided in the module doc; qed.&quot;</span>);
+				.expect(<span class="string">"Proof provided in the module doc; qed."</span>);
 			<span class="kw">if </span>output_with_idx[min_index].<span class="number">1 </span>&gt;= threshold {
 				min_index += <span class="number">1</span>;
 				min_index %= count;
@@ -988,7 +990,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// at this threshold we move to next index.
 		</span><span class="kw">let </span>threshold = output_with_idx
 			.first()
-			.expect(<span class="string">&quot;length of input is greater than zero; it must have a first; qed&quot;</span>)
+			.expect(<span class="string">"length of input is greater than zero; it must have a first; qed"</span>)
 			.<span class="number">1</span>;
 
 		<span class="kw">if </span>!per_round.is_zero() {
@@ -1022,7 +1024,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="macro">debug_assert_eq!</span>(
 		output_with_idx.iter().fold(T::zero(), |acc, (<span class="kw">_</span>, x)| acc + <span class="kw-2">*</span>x),
 		targeted_sum,
-		<span class="string">&quot;sum({:?}) != {:?}&quot;</span>,
+		<span class="string">"sum({:?}) != {:?}"</span>,
 		output_with_idx,
 		targeted_sum
 	);
@@ -1057,7 +1059,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>fails_on_if_input_sum_large() {
 		<span class="macro">assert!</span>(normalize(<span class="macro">vec!</span>[<span class="number">1u8</span>; <span class="number">255</span>].as_ref(), <span class="number">10</span>).is_ok());
-		<span class="macro">assert_eq!</span>(normalize(<span class="macro">vec!</span>[<span class="number">1u8</span>; <span class="number">256</span>].as_ref(), <span class="number">10</span>), <span class="prelude-val">Err</span>(<span class="string">&quot;sum of input cannot fit in `T`&quot;</span>));
+		<span class="macro">assert_eq!</span>(normalize(<span class="macro">vec!</span>[<span class="number">1u8</span>; <span class="number">256</span>].as_ref(), <span class="number">10</span>), <span class="prelude-val">Err</span>(<span class="string">"sum of input cannot fit in `T`"</span>));
 	}
 
 	<span class="attr">#[test]
@@ -1191,7 +1193,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="macro">assert_eq!</span>(price, FixedU64::from_float(<span class="number">0.5</span>));
 
 		<span class="comment">// Now, the story has changed - lots of demand means we buy as many cores as there
-		// available.  This also means that price goes up! For the sake of simplicity, we don&#39;t care
+		// available.  This also means that price goes up! For the sake of simplicity, we don't care
 		// about who gets a core - just about our very simple price model
 
 		// Calculate a very rudimentary on-chain price from supply / demand
@@ -1209,8 +1211,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// The difference between this and perthings is perthings operates within the relam of [0,
 		// 1] In cases where we need &gt; 1, we can used fixed types such as FixedU64
 
-		</span><span class="kw">let </span>rational_1 = FixedU64::from_rational(<span class="number">10</span>, <span class="number">5</span>); <span class="comment">//&quot; 200%&quot; aka 2.
-		</span><span class="kw">let </span>rational_2 = FixedU64::from_rational_with_rounding(<span class="number">5</span>, <span class="number">10</span>, Rounding::Down); <span class="comment">// &quot;50%&quot; aka 0.50...
+		</span><span class="kw">let </span>rational_1 = FixedU64::from_rational(<span class="number">10</span>, <span class="number">5</span>); <span class="comment">//" 200%" aka 2.
+		</span><span class="kw">let </span>rational_2 = FixedU64::from_rational_with_rounding(<span class="number">5</span>, <span class="number">10</span>, Rounding::Down); <span class="comment">// "50%" aka 0.50...
 
 		</span><span class="macro">assert_eq!</span>(rational_1, (<span class="number">2u64</span>).into());
 		<span class="macro">assert_eq!</span>(rational_2.into_perbill(), Perbill::from_float(<span class="number">0.5</span>));
@@ -1219,8 +1221,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[docify::export]
 	#[test]
 	</span><span class="kw">fn </span>fixed_u64_operation_example() {
-		<span class="kw">let </span>rational_1 = FixedU64::from_rational(<span class="number">10</span>, <span class="number">5</span>); <span class="comment">// &quot;200%&quot; aka 2.
-		</span><span class="kw">let </span>rational_2 = FixedU64::from_rational(<span class="number">8</span>, <span class="number">5</span>); <span class="comment">// &quot;160%&quot; aka 1.6.
+		<span class="kw">let </span>rational_1 = FixedU64::from_rational(<span class="number">10</span>, <span class="number">5</span>); <span class="comment">// "200%" aka 2.
+		</span><span class="kw">let </span>rational_2 = FixedU64::from_rational(<span class="number">8</span>, <span class="number">5</span>); <span class="comment">// "160%" aka 1.6.
 
 		</span><span class="kw">let </span>addition = rational_1 + rational_2;
 		<span class="kw">let </span>multiplication = rational_1 * rational_2;

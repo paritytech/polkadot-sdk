@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `cumulus/pallets/collator-selection/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `cumulus/pallets/collator-selection/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_collator_selection" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_collator_selection" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../pallet_collator_selection/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1147,14 +1149,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -1199,7 +1201,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! possible to participate in the auction, the replacement threat incentivizes candidates to bid as
 //! close to their budget as possible in order to avoid being replaced.
 //!
-//! Candidates which are not on &quot;winning&quot; slots in the list can also decrease their deposits through
+//! Candidates which are not on "winning" slots in the list can also decrease their deposits through
 //! `update_bond`, but candidates who are on top slots and try to decrease their deposits will fail
 //! in order to enforce auction mechanics and have meaningful bids.
 //!
@@ -1213,7 +1215,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!
 //! ### Rewards
 //!
-//! The Collator Selection pallet maintains an on-chain account (the &quot;Pot&quot;). In each block, the
+//! The Collator Selection pallet maintains an on-chain account (the "Pot"). In each block, the
 //! collator who authored it receives:
 //!
 //! - Half the value of the Pot.
@@ -1225,7 +1227,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! Note: Eventually the Pot distribution may be modified as discussed in [this
 //! issue](https://github.com/paritytech/statemint/issues/21#issuecomment-810481073).
 
-</span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
+</span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
 </span><span class="kw">use </span>core::marker::PhantomData;
 <span class="kw">use </span>frame_support::traits::TypedGet;
@@ -1237,12 +1239,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests;
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 </span><span class="kw">mod </span>benchmarking;
 <span class="kw">pub mod </span>migration;
 <span class="kw">pub mod </span>weights;
 
-<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;runtime::collator-selection&quot;</span>;
+<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"runtime::collator-selection"</span>;
 
 <span class="attr">#[frame_support::pallet]
 </span><span class="kw">pub mod </span>pallet {
@@ -1393,15 +1395,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.collect::&lt;sp_std::collections::btree_set::BTreeSet&lt;<span class="kw">_</span>&gt;&gt;();
 			<span class="macro">assert!</span>(
 				duplicate_invulnerables.len() == <span class="self">self</span>.invulnerables.len(),
-				<span class="string">&quot;duplicate invulnerables in genesis.&quot;
+				<span class="string">"duplicate invulnerables in genesis."
 			</span>);
 
 			<span class="kw">let </span><span class="kw-2">mut </span>bounded_invulnerables =
 				BoundedVec::&lt;<span class="kw">_</span>, T::MaxInvulnerables&gt;::try_from(<span class="self">self</span>.invulnerables.clone())
-					.expect(<span class="string">&quot;genesis invulnerables are more than T::MaxInvulnerables&quot;</span>);
+					.expect(<span class="string">"genesis invulnerables are more than T::MaxInvulnerables"</span>);
 			<span class="macro">assert!</span>(
 				T::MaxCandidates::get() &gt;= <span class="self">self</span>.desired_candidates,
-				<span class="string">&quot;genesis desired_candidates are more than T::MaxCandidates&quot;</span>,
+				<span class="string">"genesis desired_candidates are more than T::MaxCandidates"</span>,
 			);
 
 			bounded_invulnerables.sort();
@@ -1466,7 +1468,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>DepositTooLow,
 		<span class="doccomment">/// Could not update the candidate list.
 		</span>UpdateCandidateListFailed,
-		<span class="doccomment">/// Deposit amount is too low to take the target&#39;s slot in the candidate list.
+		<span class="doccomment">/// Deposit amount is too low to take the target's slot in the candidate list.
 		</span>InsufficientBond,
 		<span class="doccomment">/// The target account to be replaced in the candidate list is not a candidate.
 		</span>TargetIsNotCandidate,
@@ -1479,15 +1481,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[pallet::hooks]
 	</span><span class="kw">impl</span>&lt;T: Config&gt; Hooks&lt;BlockNumberFor&lt;T&gt;&gt; <span class="kw">for </span>Pallet&lt;T&gt; {
 		<span class="kw">fn </span>integrity_test() {
-			<span class="macro">assert!</span>(T::MinEligibleCollators::get() &gt; <span class="number">0</span>, <span class="string">&quot;chain must require at least one collator&quot;</span>);
+			<span class="macro">assert!</span>(T::MinEligibleCollators::get() &gt; <span class="number">0</span>, <span class="string">"chain must require at least one collator"</span>);
 			<span class="macro">assert!</span>(
 				T::MaxInvulnerables::get().saturating_add(T::MaxCandidates::get()) &gt;=
 					T::MinEligibleCollators::get(),
-				<span class="string">&quot;invulnerables and candidates must be able to satisfy collator demand&quot;
+				<span class="string">"invulnerables and candidates must be able to satisfy collator demand"
 			</span>);
 		}
 
-		<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+		<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 		</span><span class="kw">fn </span>try_state(<span class="kw">_</span>: BlockNumberFor&lt;T&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), sp_runtime::TryRuntimeError&gt; {
 			<span class="self">Self</span>::do_try_state()
 		}
@@ -1513,7 +1515,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">pub fn </span>set_invulnerables(origin: OriginFor&lt;T&gt;, new: Vec&lt;T::AccountId&gt;) -&gt; DispatchResult {
 			T::UpdateOrigin::ensure_origin(origin)<span class="question-mark">?</span>;
 
-			<span class="comment">// don&#39;t wipe out the collator set
+			<span class="comment">// don't wipe out the collator set
 			</span><span class="kw">if </span>new.is_empty() {
 				<span class="comment">// Casting `u32` to `usize` should be safe on all machines running this.
 				</span><span class="macro">ensure!</span>(
@@ -1534,7 +1536,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="comment">// check if the invulnerables have associated validator keys before they are set
 			</span><span class="kw">for </span>account_id <span class="kw">in </span><span class="kw-2">&amp;</span>new {
-				<span class="comment">// don&#39;t let one unprepared collator ruin things for everyone.
+				<span class="comment">// don't let one unprepared collator ruin things for everyone.
 				</span><span class="kw">let </span>validator_key = T::ValidatorIdOf::convert(account_id.clone());
 				<span class="kw">match </span>validator_key {
 					<span class="prelude-val">Some</span>(key) =&gt; {
@@ -1589,7 +1591,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			T::UpdateOrigin::ensure_origin(origin)<span class="question-mark">?</span>;
 			<span class="comment">// we trust origin calls, this is just a for more accurate benchmarking
 			</span><span class="kw">if </span>max &gt; T::MaxCandidates::get() {
-				<span class="macro">log::warn!</span>(<span class="string">&quot;max &gt; T::MaxCandidates; you might need to run benchmarks again&quot;</span>);
+				<span class="macro">log::warn!</span>(<span class="string">"max &gt; T::MaxCandidates; you might need to run benchmarks again"</span>);
 			}
 			DesiredCandidates::&lt;T&gt;::put(max);
 			<span class="self">Self</span>::deposit_event(Event::NewDesiredCandidates { desired_candidates: max });
@@ -1747,7 +1749,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="prelude-val">Ok</span>(())
 			})<span class="question-mark">?</span>;
 
-			<span class="comment">// Error just means `who` wasn&#39;t a candidate, which is the state we want anyway. Don&#39;t
+			<span class="comment">// Error just means `who` wasn't a candidate, which is the state we want anyway. Don't
 			// remove their last authored block, as they are still a collator.
 			</span><span class="kw">let _ </span>= <span class="self">Self</span>::try_remove_candidate(<span class="kw-2">&amp;</span>who, <span class="bool-val">false</span>);
 
@@ -1882,7 +1884,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="kw">let </span>length = CandidateList::&lt;T&gt;::decode_len().unwrap_or_default();
 			<span class="comment">// The closure below iterates through all elements of the candidate list to ensure that
-			// the caller isn&#39;t already a candidate and to find the target it&#39;s trying to replace in
+			// the caller isn't already a candidate and to find the target it's trying to replace in
 			// the list. The return value is a tuple of the position of the candidate to be replaced
 			// in the list along with its candidate information.
 			</span><span class="kw">let </span>target_info = CandidateList::&lt;T&gt;::try_mutate(
@@ -1892,11 +1894,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw">let </span><span class="kw-2">mut </span>new_info_idx = <span class="prelude-val">None</span>;
 					<span class="kw">for </span>(idx, candidate_info) <span class="kw">in </span>candidates.iter().enumerate() {
 						<span class="comment">// While iterating through the candidates trying to find the target,
-						// also ensure on the same pass that our caller isn&#39;t already a
+						// also ensure on the same pass that our caller isn't already a
 						// candidate.
 						</span><span class="macro">ensure!</span>(candidate_info.who != who, Error::&lt;T&gt;::AlreadyCandidate);
 						<span class="comment">// If we find our target, update the position but do not stop the
-						// iteration since we&#39;re also checking that the caller isn&#39;t already a
+						// iteration since we're also checking that the caller isn't already a
 						// candidate.
 						</span><span class="kw">if </span>candidate_info.who == target {
 							target_info_idx = <span class="prelude-val">Some</span>(idx);
@@ -1923,7 +1925,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="comment">// Insert the new candidate in the correct spot in the list.
 					</span>candidates
 						.try_insert(new_pos, new_info)
-						.expect(<span class="string">&quot;candidate count previously decremented; qed&quot;</span>);
+						.expect(<span class="string">"candidate count previously decremented; qed"</span>);
 
 					<span class="prelude-val">Ok</span>(target_info)
 				},
@@ -2016,7 +2018,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 					<span class="kw">if </span>is_invulnerable {
 						<span class="comment">// They are invulnerable. No reason for them to be in `CandidateList` also.
-						// We don&#39;t even care about the min collators here, because an Account
+						// We don't even care about the min collators here, because an Account
 						// should not be a collator twice.
 						</span><span class="kw">let _ </span>= <span class="self">Self</span>::try_remove_candidate(<span class="kw-2">&amp;</span>c, <span class="bool-val">false</span>);
 						<span class="prelude-val">None
@@ -2034,7 +2036,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				})
 				.count()
 				.try_into()
-				.expect(<span class="string">&quot;filter_map operation can&#39;t result in a bounded vec larger than its original; qed&quot;</span>)
+				.expect(<span class="string">"filter_map operation can't result in a bounded vec larger than its original; qed"</span>)
 		}
 
 		<span class="doccomment">/// Ensure the correctness of the state of this pallet.
@@ -2048,19 +2050,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		/// * The current desired candidate count should not exceed the candidate list capacity.
 		/// * The number of selected candidates together with the invulnerables must be greater than
 		///   or equal to the minimum number of eligible collators.
-		</span><span class="attr">#[cfg(any(test, feature = <span class="string">&quot;try-runtime&quot;</span>))]
+		</span><span class="attr">#[cfg(any(test, feature = <span class="string">"try-runtime"</span>))]
 		</span><span class="kw">pub fn </span>do_try_state() -&gt; <span class="prelude-ty">Result</span>&lt;(), sp_runtime::TryRuntimeError&gt; {
 			<span class="kw">let </span>desired_candidates = DesiredCandidates::&lt;T&gt;::get();
 
 			<span class="macro">frame_support::ensure!</span>(
 				desired_candidates &lt;= T::MaxCandidates::get(),
-				<span class="string">&quot;Shouldn&#39;t demand more candidates than the pallet config allows.&quot;
+				<span class="string">"Shouldn't demand more candidates than the pallet config allows."
 			</span>);
 
 			<span class="macro">frame_support::ensure!</span>(
 				desired_candidates.saturating_add(T::MaxInvulnerables::get()) &gt;=
 					T::MinEligibleCollators::get(),
-				<span class="string">&quot;Invulnerable set together with desired candidates should be able to meet the collator quota.&quot;
+				<span class="string">"Invulnerable set together with desired candidates should be able to meet the collator quota."
 			</span>);
 
 			<span class="prelude-val">Ok</span>(())
@@ -2068,7 +2070,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Keep track of number of authored blocks per authority, uncles are counted as well since
-	/// they&#39;re a valid proof of being online.
+	/// they're a valid proof of being online.
 	</span><span class="kw">impl</span>&lt;T: Config + pallet_authorship::Config&gt;
 		pallet_authorship::EventHandler&lt;T::AccountId, BlockNumberFor&lt;T&gt;&gt; <span class="kw">for </span>Pallet&lt;T&gt;
 	{
@@ -2095,7 +2097,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">impl</span>&lt;T: Config&gt; SessionManager&lt;T::AccountId&gt; <span class="kw">for </span>Pallet&lt;T&gt; {
 		<span class="kw">fn </span>new_session(index: SessionIndex) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;T::AccountId&gt;&gt; {
 			<span class="macro">log::info!</span>(
-				<span class="string">&quot;assembling new collators for new session {} at #{:?}&quot;</span>,
+				<span class="string">"assembling new collators for new session {} at #{:?}"</span>,
 				index,
 				&lt;frame_system::Pallet&lt;T&gt;&gt;::block_number(),
 			);
@@ -2106,7 +2108,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="kw">let </span>candidates_len_before: u32 = CandidateList::&lt;T&gt;::decode_len()
 				.unwrap_or_default()
 				.try_into()
-				.expect(<span class="string">&quot;length is at most `T::MaxCandidates`, so it must fit in `u32`; qed&quot;</span>);
+				.expect(<span class="string">"length is at most `T::MaxCandidates`, so it must fit in `u32`; qed"</span>);
 			<span class="kw">let </span>active_candidates_count = <span class="self">Self</span>::kick_stale_candidates(
 				CandidateList::&lt;T&gt;::get()
 					.iter()
@@ -2122,10 +2124,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Some</span>(result)
 		}
 		<span class="kw">fn </span>start_session(<span class="kw">_</span>: SessionIndex) {
-			<span class="comment">// we don&#39;t care.
+			<span class="comment">// we don't care.
 		</span>}
 		<span class="kw">fn </span>end_session(<span class="kw">_</span>: SessionIndex) {
-			<span class="comment">// we don&#39;t care.
+			<span class="comment">// we don't care.
 		</span>}
 	}
 }

@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `cumulus/client/collator/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `cumulus/client/collator/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="cumulus_client_collator" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="cumulus_client_collator" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../cumulus_client_collator/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -667,7 +669,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">pub mod </span>service;
 
 <span class="doccomment">/// The logging target.
-</span><span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;cumulus-collator&quot;</span>;
+</span><span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"cumulus-collator"</span>;
 
 <span class="doccomment">/// The implementation of the Cumulus `Collator`.
 ///
@@ -711,7 +713,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">tracing::trace!</span>(
 			target: LOG_TARGET,
 			relay_parent = <span class="question-mark">?</span>relay_parent,
-			<span class="string">&quot;Producing candidate&quot;</span>,
+			<span class="string">"Producing candidate"</span>,
 		);
 
 		<span class="kw">let </span>last_head = <span class="kw">match </span>Block::Header::decode(<span class="kw-2">&amp;mut &amp;</span>validation_data.parent_head.<span class="number">0</span>[..]) {
@@ -720,7 +722,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="macro">tracing::error!</span>(
 					target: LOG_TARGET,
 					error = <span class="question-mark">?</span>e,
-					<span class="string">&quot;Could not decode the head data.&quot;
+					<span class="string">"Could not decode the head data."
 				</span>);
 				<span class="kw">return </span><span class="prelude-val">None
 			</span>},
@@ -735,7 +737,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			target: LOG_TARGET,
 			relay_parent = <span class="question-mark">?</span>relay_parent,
 			at = <span class="question-mark">?</span>last_head_hash,
-			<span class="string">&quot;Starting collation.&quot;</span>,
+			<span class="string">"Starting collation."</span>,
 		);
 
 		<span class="kw">let </span>candidate = <span class="self">self
@@ -749,7 +751,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="macro">tracing::info!</span>(
 			target: LOG_TARGET,
-			<span class="string">&quot;PoV size {{ header: {}kb, extrinsics: {}kb, storage_proof: {}kb }}&quot;</span>,
+			<span class="string">"PoV size {{ header: {}kb, extrinsics: {}kb, storage_proof: {}kb }}"</span>,
 			b.header().encode().len() <span class="kw">as </span>f64 / <span class="number">1024f64</span>,
 			b.extrinsics().encode().len() <span class="kw">as </span>f64 / <span class="number">1024f64</span>,
 			b.storage_proof().encode().len() <span class="kw">as </span>f64 / <span class="number">1024f64</span>,
@@ -758,14 +760,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if let </span>MaybeCompressedPoV::Compressed(<span class="kw-2">ref </span>pov) = collation.proof_of_validity {
 			<span class="macro">tracing::info!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;Compressed PoV size: {}kb&quot;</span>,
+				<span class="string">"Compressed PoV size: {}kb"</span>,
 				pov.block_data.<span class="number">0</span>.len() <span class="kw">as </span>f64 / <span class="number">1024f64</span>,
 			);
 		}
 
 		<span class="kw">let </span>result_sender = <span class="self">self</span>.service.announce_with_barrier(block_hash);
 
-		<span class="macro">tracing::info!</span>(target: LOG_TARGET, <span class="question-mark">?</span>block_hash, <span class="string">&quot;Produced proof-of-validity candidate.&quot;</span>,);
+		<span class="macro">tracing::info!</span>(target: LOG_TARGET, <span class="question-mark">?</span>block_hash, <span class="string">"Produced proof-of-validity candidate."</span>,);
 
 		<span class="prelude-val">Some</span>(CollationResult { collation, result_sender: <span class="prelude-val">Some</span>(result_sender) })
 	}
@@ -815,7 +817,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="doccomment">/// Initialize the collator with Polkadot&#39;s collation-generation
+	<span class="doccomment">/// Initialize the collator with Polkadot's collation-generation
 	/// subsystem, returning a stream of collation requests to handle.
 	</span><span class="kw">pub async fn </span>init(
 		key: CollatorPair,
@@ -850,11 +852,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		};
 
 		overseer_handle
-			.send_msg(CollationGenerationMessage::Initialize(config), <span class="string">&quot;StartCollator&quot;</span>)
+			.send_msg(CollationGenerationMessage::Initialize(config), <span class="string">"StartCollator"</span>)
 			.<span class="kw">await</span>;
 
 		overseer_handle
-			.send_msg(CollatorProtocolMessage::CollateOn(para_id), <span class="string">&quot;StartCollator&quot;</span>)
+			.send_msg(CollatorProtocolMessage::CollateOn(para_id), <span class="string">"StartCollator"</span>)
 			.<span class="kw">await</span>;
 
 		stream_rx
@@ -875,16 +877,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">if </span>reinitialize {
 		overseer_handle
-			.send_msg(CollationGenerationMessage::Reinitialize(config), <span class="string">&quot;StartCollator&quot;</span>)
+			.send_msg(CollationGenerationMessage::Reinitialize(config), <span class="string">"StartCollator"</span>)
 			.<span class="kw">await</span>;
 	} <span class="kw">else </span>{
 		overseer_handle
-			.send_msg(CollationGenerationMessage::Initialize(config), <span class="string">&quot;StartCollator&quot;</span>)
+			.send_msg(CollationGenerationMessage::Initialize(config), <span class="string">"StartCollator"</span>)
 			.<span class="kw">await</span>;
 	}
 
 	overseer_handle
-		.send_msg(CollatorProtocolMessage::CollateOn(para_id), <span class="string">&quot;StartCollator&quot;</span>)
+		.send_msg(CollatorProtocolMessage::CollateOn(para_id), <span class="string">"StartCollator"</span>)
 		.<span class="kw">await</span>;
 }
 
@@ -901,23 +903,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Start the collator.
-</span><span class="attr">#[deprecated = <span class="string">&quot;Collators should run consensus futures which handle this logic internally&quot;</span>]
+</span><span class="attr">#[deprecated = <span class="string">"Collators should run consensus futures which handle this logic internally"</span>]
 </span><span class="kw">pub async fn </span>start_collator&lt;Block, RA, BS, Spawner&gt;(
 	params: StartCollatorParams&lt;Block, RA, BS, Spawner&gt;,
 ) <span class="kw">where
 	</span>Block: BlockT,
-	BS: BlockBackend&lt;Block&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
-	Spawner: SpawnNamed + Clone + Send + Sync + <span class="lifetime">&#39;static</span>,
-	RA: ProvideRuntimeApi&lt;Block&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
+	BS: BlockBackend&lt;Block&gt; + Send + Sync + <span class="lifetime">'static</span>,
+	Spawner: SpawnNamed + Clone + Send + Sync + <span class="lifetime">'static</span>,
+	RA: ProvideRuntimeApi&lt;Block&gt; + Send + Sync + <span class="lifetime">'static</span>,
 	RA::Api: CollectCollationInfo&lt;Block&gt;,
 {
-	<span class="comment">// This never needed to be asynchronous, but shouldn&#39;t be changed due to backcompat.
+	<span class="comment">// This never needed to be asynchronous, but shouldn't be changed due to backcompat.
 	</span><span class="attr">#[allow(deprecated)]
 	</span>start_collator_sync(params);
 }
 
 <span class="doccomment">/// Start the collator in a synchronous function.
-</span><span class="attr">#[deprecated = <span class="string">&quot;Collators should run consensus futures which handle this logic internally&quot;</span>]
+</span><span class="attr">#[deprecated = <span class="string">"Collators should run consensus futures which handle this logic internally"</span>]
 </span><span class="kw">pub fn </span>start_collator_sync&lt;Block, RA, BS, Spawner&gt;(
 	StartCollatorParams {
 		para_id,
@@ -931,9 +933,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}: StartCollatorParams&lt;Block, RA, BS, Spawner&gt;,
 ) <span class="kw">where
 	</span>Block: BlockT,
-	BS: BlockBackend&lt;Block&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
-	Spawner: SpawnNamed + Clone + Send + Sync + <span class="lifetime">&#39;static</span>,
-	RA: ProvideRuntimeApi&lt;Block&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
+	BS: BlockBackend&lt;Block&gt; + Send + Sync + <span class="lifetime">'static</span>,
+	Spawner: SpawnNamed + Clone + Send + Sync + <span class="lifetime">'static</span>,
+	RA: ProvideRuntimeApi&lt;Block&gt; + Send + Sync + <span class="lifetime">'static</span>,
 	RA::Api: CollectCollationInfo&lt;Block&gt;,
 {
 	<span class="kw">let </span>collator_service =
@@ -956,7 +958,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	});
 
-	spawner.spawn(<span class="string">&quot;cumulus-relay-driven-collator&quot;</span>, <span class="prelude-val">None</span>, collation_future);
+	spawner.spawn(<span class="string">"cumulus-relay-driven-collator"</span>, <span class="prelude-val">None</span>, collation_future);
 }
 
 <span class="attr">#[cfg(test)]
@@ -1012,14 +1014,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				</span>.client
 				.init_block_builder_at(parent.hash(), <span class="prelude-val">Some</span>(validation_data.clone()), sproof);
 
-			<span class="kw">let </span>(block, <span class="kw">_</span>, proof) = block_builder.build().expect(<span class="string">&quot;Creates block&quot;</span>).into_inner();
+			<span class="kw">let </span>(block, <span class="kw">_</span>, proof) = block_builder.build().expect(<span class="string">"Creates block"</span>).into_inner();
 
 			<span class="self">self</span>.client
 				.import(BlockOrigin::Own, block.clone())
 				.<span class="kw">await
-				</span>.expect(<span class="string">&quot;Imports the block&quot;</span>);
+				</span>.expect(<span class="string">"Imports the block"</span>);
 
-			<span class="prelude-val">Some</span>(ParachainCandidate { block, proof: proof.expect(<span class="string">&quot;Proof is returned&quot;</span>) })
+			<span class="prelude-val">Some</span>(ParachainCandidate { block, proof: proof.expect(<span class="string">"Proof is returned"</span>) })
 		}
 	}
 
@@ -1037,12 +1039,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>(overseer, handle) =
 			dummy_overseer_builder(spawner.clone(), AlwaysSupportsParachains, <span class="prelude-val">None</span>)
-				.expect(<span class="string">&quot;Creates overseer builder&quot;</span>)
+				.expect(<span class="string">"Creates overseer builder"</span>)
 				.replace_collation_generation(|<span class="kw">_</span>| ForwardSubsystem(sub_tx))
 				.build()
-				.expect(<span class="string">&quot;Builds overseer&quot;</span>);
+				.expect(<span class="string">"Builds overseer"</span>);
 
-		spawner.spawn(<span class="string">&quot;overseer&quot;</span>, <span class="prelude-val">None</span>, overseer.run().then(|<span class="kw">_</span>| <span class="kw">async </span>{}).boxed());
+		spawner.spawn(<span class="string">"overseer"</span>, <span class="prelude-val">None</span>, overseer.run().then(|<span class="kw">_</span>| <span class="kw">async </span>{}).boxed());
 
 		<span class="attr">#[allow(deprecated)]
 		</span><span class="kw">let </span>collator_start = start_collator(StartCollatorParams {
@@ -1059,14 +1061,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>msg = block_on(sub_rx.into_future())
 			.<span class="number">0
-			</span>.expect(<span class="string">&quot;message should be send by `start_collator` above.&quot;</span>);
+			</span>.expect(<span class="string">"message should be send by `start_collator` above."</span>);
 
 		<span class="kw">let </span>collator_fn = <span class="kw">match </span>msg {
 			CollationGenerationMessage::Initialize(CollationGenerationConfig {
 				collator: <span class="prelude-val">Some</span>(c),
 				..
 			}) =&gt; c,
-			<span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;unexpected message or no collator fn&quot;</span>),
+			<span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"unexpected message or no collator fn"</span>),
 		};
 
 		<span class="kw">let </span>validation_data =
@@ -1074,7 +1076,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>relay_parent = Default::default();
 
 		<span class="kw">let </span>collation = block_on(collator_fn(relay_parent, <span class="kw-2">&amp;</span>validation_data))
-			.expect(<span class="string">&quot;Collation is build&quot;</span>)
+			.expect(<span class="string">"Collation is build"</span>)
 			.collation;
 
 		<span class="kw">let </span>pov = collation.proof_of_validity.into_compressed();
@@ -1083,7 +1085,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			sp_maybe_compressed_blob::decompress(<span class="kw-2">&amp;</span>pov.block_data.<span class="number">0</span>, <span class="number">1024 </span>* <span class="number">1024 </span>* <span class="number">10</span>).unwrap();
 
 		<span class="kw">let </span>block =
-			ParachainBlockData::&lt;Block&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>decompressed[..]).expect(<span class="string">&quot;Is a valid block&quot;</span>);
+			ParachainBlockData::&lt;Block&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>decompressed[..]).expect(<span class="string">"Is a valid block"</span>);
 
 		<span class="macro">assert_eq!</span>(<span class="number">1</span>, <span class="kw-2">*</span>block.header().number());
 
@@ -1100,7 +1102,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="macro">assert!</span>(backend
 			.storage(sp_core::storage::well_known_keys::CODE)
 			.unwrap_err()
-			.contains(<span class="string">&quot;Trie lookup error: Database missing expected key&quot;</span>));
+			.contains(<span class="string">"Trie lookup error: Database missing expected key"</span>));
 	}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

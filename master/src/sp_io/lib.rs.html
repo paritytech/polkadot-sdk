@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/io/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/io/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_io" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_io" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sp_io/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -2114,14 +2116,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -2129,7 +2131,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! # Substrate Primitives: IO
 //!
 //! This crate contains interfaces for the runtime to communicate with the outside world, ergo `io`.
-//! In other context, such interfaces are referred to as &quot;**host functions**&quot;.
+//! In other context, such interfaces are referred to as "**host functions**".
 //!
 //! Each set of host functions are defined with an instance of the
 //! [`sp_runtime_interface::runtime_interface`] macro.
@@ -2158,18 +2160,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! ```should_panic
 //! use sp_io::storage::get;
 //! # fn main() {
-//! let data = get(b&quot;hello world&quot;);
+//! let data = get(b"hello world");
 //! # }
 //! ```
 //!
 //! This code will panic with the following error:
 //!
 //! ```no_compile
-//! thread &#39;main&#39; panicked at &#39;`get_version_1` called outside of an Externalities-provided environment.&#39;
+//! thread 'main' panicked at '`get_version_1` called outside of an Externalities-provided environment.'
 //! ```
 //!
-//! Such error messages should always be interpreted as &quot;code accessing host functions accessed
-//! outside of externalities&quot;.
+//! Such error messages should always be interpreted as "code accessing host functions accessed
+//! outside of externalities".
 //!
 //! An externality is any type that implements [`sp_externalities::Externalities`]. A simple example
 //! of which is [`TestExternalities`], which is commonly used in tests and is exported from this
@@ -2179,31 +2181,31 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! use sp_io::{storage::get, TestExternalities};
 //! # fn main() {
 //! TestExternalities::default().execute_with(|| {
-//! 	let data = get(b&quot;hello world&quot;);
+//! 	let data = get(b"hello world");
 //! });
 //! # }
 //! ```
 
 </span><span class="attr">#![warn(missing_docs)]
-#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
+#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 #![cfg_attr(enable_alloc_error_handler, feature(alloc_error_handler))]
 
 </span><span class="kw">use </span>sp_std::vec::Vec;
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">use </span>tracing;
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">use </span>sp_core::{
 	crypto::Pair,
 	hexdisplay::HexDisplay,
 	offchain::{OffchainDbExt, OffchainWorkerExt, TransactionPoolExt},
 	storage::ChildInfo,
 };
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">use </span>sp_keystore::KeystoreExt;
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;bandersnatch-experimental&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"bandersnatch-experimental"</span>)]
 </span><span class="kw">use </span>sp_core::bandersnatch;
 <span class="kw">use </span>sp_core::{
 	crypto::KeyTypeId,
@@ -2216,10 +2218,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	LogLevel, LogLevelFilter, OpaquePeerId, H256,
 };
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;bls-experimental&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"bls-experimental"</span>)]
 </span><span class="kw">use </span>sp_core::{bls377, ecdsa_bls377};
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">use </span>sp_trie::{LayoutV0, LayoutV1, TrieConfiguration};
 
 <span class="kw">use </span>sp_runtime_interface::{
@@ -2229,29 +2231,29 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">use </span>codec::{Decode, Encode};
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">use </span>secp256k1::{
 	ecdsa::{RecoverableSignature, RecoveryId},
 	Message, SECP256K1,
 };
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">use </span>sp_externalities::{Externalities, ExternalitiesExt};
 
 <span class="kw">pub use </span>sp_externalities::MultiRemovalResults;
 
-<span class="attr">#[cfg(all(not(feature = <span class="string">&quot;disable_allocator&quot;</span>), substrate_runtime, target_family = <span class="string">&quot;wasm&quot;</span>))]
+<span class="attr">#[cfg(all(not(feature = <span class="string">"disable_allocator"</span>), substrate_runtime, target_family = <span class="string">"wasm"</span>))]
 </span><span class="kw">mod </span>global_alloc_wasm;
 
 <span class="attr">#[cfg(all(
-	not(feature = <span class="string">&quot;disable_allocator&quot;</span>),
+	not(feature = <span class="string">"disable_allocator"</span>),
 	substrate_runtime,
-	any(target_arch = <span class="string">&quot;riscv32&quot;</span>, target_arch = <span class="string">&quot;riscv64&quot;</span>)
+	any(target_arch = <span class="string">"riscv32"</span>, target_arch = <span class="string">"riscv64"</span>)
 ))]
 </span><span class="kw">mod </span>global_alloc_riscv;
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
-</span><span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;runtime::io&quot;</span>;
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
+</span><span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"runtime::io"</span>;
 
 <span class="doccomment">/// Error verifying ECDSA signature
 </span><span class="attr">#[derive(Encode, Decode)]
@@ -2278,9 +2280,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl </span>From&lt;MultiRemovalResults&gt; <span class="kw">for </span>KillStorageResult {
 	<span class="kw">fn </span>from(r: MultiRemovalResults) -&gt; <span class="self">Self </span>{
-		<span class="comment">// We use `loops` here rather than `backend` because that&#39;s the same as the original
-		// functionality pre-#11490. This won&#39;t matter once we switch to the new host function
-		// since we won&#39;t be using the `KillStorageResult` type in the runtime any more.
+		<span class="comment">// We use `loops` here rather than `backend` because that's the same as the original
+		// functionality pre-#11490. This won't matter once we switch to the new host function
+		// since we won't be using the `KillStorageResult` type in the runtime any more.
 		</span><span class="kw">match </span>r.maybe_cursor {
 			<span class="prelude-val">None </span>=&gt; <span class="self">Self</span>::AllRemoved(r.loops),
 			<span class="prelude-val">Some</span>(..) =&gt; <span class="self">Self</span>::SomeRemaining(r.loops),
@@ -2298,7 +2300,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Get `key` from storage, placing the value into `value_out` and return the number of
 	/// bytes that the entry in storage has beyond the offset or `None` if the storage entry
-	/// doesn&#39;t exist at all.
+	/// doesn't exist at all.
 	/// If `value_out` length is smaller than the returned length, only `value_out` length bytes
 	/// are copied into `value_out`.
 	</span><span class="kw">fn </span>read(<span class="kw-2">&amp;</span><span class="self">self</span>, key: <span class="kw-2">&amp;</span>[u8], value_out: <span class="kw-2">&amp;mut </span>[u8], value_offset: u32) -&gt; <span class="prelude-ty">Option</span>&lt;u32&gt; {
@@ -2379,7 +2381,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// A *cursor* may be passed in to this operation with `maybe_cursor`. `None` should only be
 	/// passed once (in the initial call) for any given `maybe_prefix` value. Subsequent calls
 	/// operating on the same prefix should always pass `Some`, and this should be equal to the
-	/// previous call result&#39;s `maybe_cursor` field.
+	/// previous call result's `maybe_cursor` field.
 	///
 	/// Returns [`MultiRemovalResults`](sp_io::MultiRemovalResults) to inform about the result. Once
 	/// the resultant `maybe_cursor` field is `None`, then no further items remain to be deleted.
@@ -2420,7 +2422,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">self</span>.storage_append(key.to_vec(), value);
 	}
 
-	<span class="doccomment">/// &quot;Commit&quot; all existing operations and compute the resulting storage root.
+	<span class="doccomment">/// "Commit" all existing operations and compute the resulting storage root.
 	///
 	/// The hashing algorithm is defined by the `Block`.
 	///
@@ -2429,7 +2431,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">self</span>.storage_root(StateVersion::V0)
 	}
 
-	<span class="doccomment">/// &quot;Commit&quot; all existing operations and compute the resulting storage root.
+	<span class="doccomment">/// "Commit" all existing operations and compute the resulting storage root.
 	///
 	/// The hashing algorithm is defined by the `Block`.
 	///
@@ -2474,7 +2476,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// Will panic if there is no open transaction.
 	</span><span class="kw">fn </span>rollback_transaction(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
 		<span class="self">self</span>.storage_rollback_transaction()
-			.expect(<span class="string">&quot;No open transaction that can be rolled back.&quot;</span>);
+			.expect(<span class="string">"No open transaction that can be rolled back."</span>);
 	}
 
 	<span class="doccomment">/// Commit the last transaction started by `start_transaction`.
@@ -2486,7 +2488,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// Will panic if there is no open transaction.
 	</span><span class="kw">fn </span>commit_transaction(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
 		<span class="self">self</span>.storage_commit_transaction()
-			.expect(<span class="string">&quot;No open transaction that can be committed.&quot;</span>);
+			.expect(<span class="string">"No open transaction that can be committed."</span>);
 	}
 }
 
@@ -2507,7 +2509,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// Get `key` from child storage, placing the value into `value_out` and return the number
 	/// of bytes that the entry in storage has beyond the offset or `None` if the storage entry
-	/// doesn&#39;t exist at all.
+	/// doesn't exist at all.
 	/// If `value_out` length is smaller than the returned length, only `value_out` length bytes
 	/// are copied into `value_out`.
 	</span><span class="kw">fn </span>read(
@@ -2639,7 +2641,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Default child root calculation.
 	///
-	/// &quot;Commit&quot; all existing operations and compute the resulting child storage root.
+	/// "Commit" all existing operations and compute the resulting child storage root.
 	/// The hashing algorithm is defined by the `Block`.
 	///
 	/// Returns a `Vec&lt;u8&gt;` that holds the SCALE encoded hash.
@@ -2650,7 +2652,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Default child root calculation.
 	///
-	/// &quot;Commit&quot; all existing operations and compute the resulting child storage root.
+	/// "Commit" all existing operations and compute the resulting child storage root.
 	/// The hashing algorithm is defined by the `Block`.
 	///
 	/// Returns a `Vec&lt;u8&gt;` that holds the SCALE encoded hash.
@@ -2807,24 +2809,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// node.
 </span><span class="attr">#[runtime_interface]
 </span><span class="kw">pub trait </span>Misc {
-	<span class="comment">// NOTE: We use the target &#39;runtime&#39; for messages produced by general printing functions,
+	<span class="comment">// NOTE: We use the target 'runtime' for messages produced by general printing functions,
 	// instead of LOG_TARGET.
 
 	</span><span class="doccomment">/// Print a number.
 	</span><span class="kw">fn </span>print_num(val: u64) {
-		<span class="macro">log::debug!</span>(target: <span class="string">&quot;runtime&quot;</span>, <span class="string">&quot;{}&quot;</span>, val);
+		<span class="macro">log::debug!</span>(target: <span class="string">"runtime"</span>, <span class="string">"{}"</span>, val);
 	}
 
 	<span class="doccomment">/// Print any valid `utf8` buffer.
 	</span><span class="kw">fn </span>print_utf8(utf8: <span class="kw-2">&amp;</span>[u8]) {
 		<span class="kw">if let </span><span class="prelude-val">Ok</span>(data) = std::str::from_utf8(utf8) {
-			<span class="macro">log::debug!</span>(target: <span class="string">&quot;runtime&quot;</span>, <span class="string">&quot;{}&quot;</span>, data)
+			<span class="macro">log::debug!</span>(target: <span class="string">"runtime"</span>, <span class="string">"{}"</span>, data)
 		}
 	}
 
 	<span class="doccomment">/// Print any `u8` slice as hex.
 	</span><span class="kw">fn </span>print_hex(data: <span class="kw-2">&amp;</span>[u8]) {
-		<span class="macro">log::debug!</span>(target: <span class="string">&quot;runtime&quot;</span>, <span class="string">&quot;{}&quot;</span>, HexDisplay::from(<span class="kw-2">&amp;</span>data));
+		<span class="macro">log::debug!</span>(target: <span class="string">"runtime"</span>, <span class="string">"{}"</span>, HexDisplay::from(<span class="kw-2">&amp;</span>data));
 	}
 
 	<span class="doccomment">/// Extract the runtime version of the given wasm blob by calling `Core_version`.
@@ -2849,14 +2851,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">match </span><span class="self">self
 			</span>.extension::&lt;ReadRuntimeVersionExt&gt;()
-			.expect(<span class="string">&quot;No `ReadRuntimeVersionExt` associated for the current context!&quot;</span>)
+			.expect(<span class="string">"No `ReadRuntimeVersionExt` associated for the current context!"</span>)
 			.read_runtime_version(wasm, <span class="kw-2">&amp;mut </span>ext)
 		{
 			<span class="prelude-val">Ok</span>(v) =&gt; <span class="prelude-val">Some</span>(v),
 			<span class="prelude-val">Err</span>(err) =&gt; {
 				<span class="macro">log::debug!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;cannot read version from the given runtime: {}&quot;</span>,
+					<span class="string">"cannot read version from the given runtime: {}"</span>,
 					err,
 				);
 				<span class="prelude-val">None
@@ -2865,7 +2867,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="macro">sp_externalities::decl_extension! </span>{
 	<span class="doccomment">/// Extension to signal to [`crypt::ed25519_verify`] to use the dalek crate.
 	///
@@ -2886,7 +2888,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub struct </span>UseDalekExt;
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">impl </span>Default <span class="kw">for </span>UseDalekExt {
 	<span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
 		<span class="self">Self
@@ -2899,7 +2901,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Returns all `ed25519` public keys for the given key id from the keystore.
 	</span><span class="kw">fn </span>ed25519_public_keys(<span class="kw-2">&amp;mut </span><span class="self">self</span>, id: KeyTypeId) -&gt; Vec&lt;ed25519::Public&gt; {
 		<span class="self">self</span>.extension::&lt;KeystoreExt&gt;()
-			.expect(<span class="string">&quot;No `keystore` associated for the current context!&quot;</span>)
+			.expect(<span class="string">"No `keystore` associated for the current context!"</span>)
 			.ed25519_public_keys(id)
 	}
 
@@ -2910,11 +2912,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// Returns the public key.
 	</span><span class="kw">fn </span>ed25519_generate(<span class="kw-2">&amp;mut </span><span class="self">self</span>, id: KeyTypeId, seed: <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt;) -&gt; ed25519::Public {
-		<span class="kw">let </span>seed = seed.as_ref().map(|s| std::str::from_utf8(s).expect(<span class="string">&quot;Seed is valid utf8!&quot;</span>));
+		<span class="kw">let </span>seed = seed.as_ref().map(|s| std::str::from_utf8(s).expect(<span class="string">"Seed is valid utf8!"</span>));
 		<span class="self">self</span>.extension::&lt;KeystoreExt&gt;()
-			.expect(<span class="string">&quot;No `keystore` associated for the current context!&quot;</span>)
+			.expect(<span class="string">"No `keystore` associated for the current context!"</span>)
 			.ed25519_generate_new(id, seed)
-			.expect(<span class="string">&quot;`ed25519_generate` failed&quot;</span>)
+			.expect(<span class="string">"`ed25519_generate` failed"</span>)
 	}
 
 	<span class="doccomment">/// Sign the given `msg` with the `ed25519` key that corresponds to the given public key and
@@ -2928,7 +2930,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		msg: <span class="kw-2">&amp;</span>[u8],
 	) -&gt; <span class="prelude-ty">Option</span>&lt;ed25519::Signature&gt; {
 		<span class="self">self</span>.extension::&lt;KeystoreExt&gt;()
-			.expect(<span class="string">&quot;No `keystore` associated for the current context!&quot;</span>)
+			.expect(<span class="string">"No `keystore` associated for the current context!"</span>)
 			.ed25519_sign(id, pub_key, msg)
 			.ok()
 			.flatten()
@@ -2938,7 +2940,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// Returns `true` when the verification was successful.
 	</span><span class="kw">fn </span>ed25519_verify(sig: <span class="kw-2">&amp;</span>ed25519::Signature, msg: <span class="kw-2">&amp;</span>[u8], pub_key: <span class="kw-2">&amp;</span>ed25519::Public) -&gt; bool {
-		<span class="comment">// We don&#39;t want to force everyone needing to call the function in an externalities context.
+		<span class="comment">// We don't want to force everyone needing to call the function in an externalities context.
 		// So, we assume that we should not use dalek when we are not in externalities context.
 		// Otherwise, we check if the extension is present.
 		</span><span class="kw">if </span>sp_externalities::with_externalities(|<span class="kw-2">mut </span>e| e.extension::&lt;UseDalekExt&gt;().is_some())
@@ -2969,7 +2971,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// NOTE: Is tagged with `register_only` to keep the functions around for backwards
 	/// compatibility with old runtimes, but it should not be used anymore by new runtimes.
-	/// The implementation emulates the old behavior, but isn&#39;t doing any batch verification
+	/// The implementation emulates the old behavior, but isn't doing any batch verification
 	/// anymore.
 	</span><span class="attr">#[version(<span class="number">1</span>, register_only)]
 	</span><span class="kw">fn </span>ed25519_batch_verify(
@@ -3006,7 +3008,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// NOTE: Is tagged with `register_only` to keep the functions around for backwards
 	/// compatibility with old runtimes, but it should not be used anymore by new runtimes.
-	/// The implementation emulates the old behavior, but isn&#39;t doing any batch verification
+	/// The implementation emulates the old behavior, but isn't doing any batch verification
 	/// anymore.
 	</span><span class="attr">#[version(<span class="number">1</span>, register_only)]
 	</span><span class="kw">fn </span>sr25519_batch_verify(
@@ -3028,12 +3030,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// NOTE: Is tagged with `register_only` to keep the functions around for backwards
 	/// compatibility with old runtimes, but it should not be used anymore by new runtimes.
-	/// The implementation emulates the old behavior, but isn&#39;t doing any batch verification
+	/// The implementation emulates the old behavior, but isn't doing any batch verification
 	/// anymore.
 	</span><span class="attr">#[version(<span class="number">1</span>, register_only)]
 	</span><span class="kw">fn </span>start_batch_verify(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
 		<span class="self">self</span>.register_extension(VerificationExtDeprecated(<span class="bool-val">true</span>))
-			.expect(<span class="string">&quot;Failed to register required extension: `VerificationExt`&quot;</span>);
+			.expect(<span class="string">"Failed to register required extension: `VerificationExt`"</span>);
 	}
 
 	<span class="doccomment">/// Finish batch-verification of signatures.
@@ -3045,17 +3047,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// NOTE: Is tagged with `register_only` to keep the functions around for backwards
 	/// compatibility with old runtimes, but it should not be used anymore by new runtimes.
-	/// The implementation emulates the old behavior, but isn&#39;t doing any batch verification
+	/// The implementation emulates the old behavior, but isn't doing any batch verification
 	/// anymore.
 	</span><span class="attr">#[version(<span class="number">1</span>, register_only)]
 	</span><span class="kw">fn </span>finish_batch_verify(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; bool {
 		<span class="kw">let </span>result = <span class="self">self
 			</span>.extension::&lt;VerificationExtDeprecated&gt;()
-			.expect(<span class="string">&quot;`finish_batch_verify` should only be called after `start_batch_verify`&quot;</span>)
+			.expect(<span class="string">"`finish_batch_verify` should only be called after `start_batch_verify`"</span>)
 			.<span class="number">0</span>;
 
 		<span class="self">self</span>.deregister_extension::&lt;VerificationExtDeprecated&gt;()
-			.expect(<span class="string">&quot;No verification extension in current context!&quot;</span>);
+			.expect(<span class="string">"No verification extension in current context!"</span>);
 
 		result
 	}
@@ -3063,7 +3065,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Returns all `sr25519` public keys for the given key id from the keystore.
 	</span><span class="kw">fn </span>sr25519_public_keys(<span class="kw-2">&amp;mut </span><span class="self">self</span>, id: KeyTypeId) -&gt; Vec&lt;sr25519::Public&gt; {
 		<span class="self">self</span>.extension::&lt;KeystoreExt&gt;()
-			.expect(<span class="string">&quot;No `keystore` associated for the current context!&quot;</span>)
+			.expect(<span class="string">"No `keystore` associated for the current context!"</span>)
 			.sr25519_public_keys(id)
 	}
 
@@ -3074,11 +3076,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// Returns the public key.
 	</span><span class="kw">fn </span>sr25519_generate(<span class="kw-2">&amp;mut </span><span class="self">self</span>, id: KeyTypeId, seed: <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt;) -&gt; sr25519::Public {
-		<span class="kw">let </span>seed = seed.as_ref().map(|s| std::str::from_utf8(s).expect(<span class="string">&quot;Seed is valid utf8!&quot;</span>));
+		<span class="kw">let </span>seed = seed.as_ref().map(|s| std::str::from_utf8(s).expect(<span class="string">"Seed is valid utf8!"</span>));
 		<span class="self">self</span>.extension::&lt;KeystoreExt&gt;()
-			.expect(<span class="string">&quot;No `keystore` associated for the current context!&quot;</span>)
+			.expect(<span class="string">"No `keystore` associated for the current context!"</span>)
 			.sr25519_generate_new(id, seed)
-			.expect(<span class="string">&quot;`sr25519_generate` failed&quot;</span>)
+			.expect(<span class="string">"`sr25519_generate` failed"</span>)
 	}
 
 	<span class="doccomment">/// Sign the given `msg` with the `sr25519` key that corresponds to the given public key and
@@ -3092,7 +3094,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		msg: <span class="kw-2">&amp;</span>[u8],
 	) -&gt; <span class="prelude-ty">Option</span>&lt;sr25519::Signature&gt; {
 		<span class="self">self</span>.extension::&lt;KeystoreExt&gt;()
-			.expect(<span class="string">&quot;No `keystore` associated for the current context!&quot;</span>)
+			.expect(<span class="string">"No `keystore` associated for the current context!"</span>)
 			.sr25519_sign(id, pub_key, msg)
 			.ok()
 			.flatten()
@@ -3109,7 +3111,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Returns all `ecdsa` public keys for the given key id from the keystore.
 	</span><span class="kw">fn </span>ecdsa_public_keys(<span class="kw-2">&amp;mut </span><span class="self">self</span>, id: KeyTypeId) -&gt; Vec&lt;ecdsa::Public&gt; {
 		<span class="self">self</span>.extension::&lt;KeystoreExt&gt;()
-			.expect(<span class="string">&quot;No `keystore` associated for the current context!&quot;</span>)
+			.expect(<span class="string">"No `keystore` associated for the current context!"</span>)
 			.ecdsa_public_keys(id)
 	}
 
@@ -3120,11 +3122,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// Returns the public key.
 	</span><span class="kw">fn </span>ecdsa_generate(<span class="kw-2">&amp;mut </span><span class="self">self</span>, id: KeyTypeId, seed: <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt;) -&gt; ecdsa::Public {
-		<span class="kw">let </span>seed = seed.as_ref().map(|s| std::str::from_utf8(s).expect(<span class="string">&quot;Seed is valid utf8!&quot;</span>));
+		<span class="kw">let </span>seed = seed.as_ref().map(|s| std::str::from_utf8(s).expect(<span class="string">"Seed is valid utf8!"</span>));
 		<span class="self">self</span>.extension::&lt;KeystoreExt&gt;()
-			.expect(<span class="string">&quot;No `keystore` associated for the current context!&quot;</span>)
+			.expect(<span class="string">"No `keystore` associated for the current context!"</span>)
 			.ecdsa_generate_new(id, seed)
-			.expect(<span class="string">&quot;`ecdsa_generate` failed&quot;</span>)
+			.expect(<span class="string">"`ecdsa_generate` failed"</span>)
 	}
 
 	<span class="doccomment">/// Sign the given `msg` with the `ecdsa` key that corresponds to the given public key and
@@ -3138,7 +3140,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		msg: <span class="kw-2">&amp;</span>[u8],
 	) -&gt; <span class="prelude-ty">Option</span>&lt;ecdsa::Signature&gt; {
 		<span class="self">self</span>.extension::&lt;KeystoreExt&gt;()
-			.expect(<span class="string">&quot;No `keystore` associated for the current context!&quot;</span>)
+			.expect(<span class="string">"No `keystore` associated for the current context!"</span>)
 			.ecdsa_sign(id, pub_key, msg)
 			.ok()
 			.flatten()
@@ -3155,7 +3157,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		msg: <span class="kw-2">&amp;</span>[u8; <span class="number">32</span>],
 	) -&gt; <span class="prelude-ty">Option</span>&lt;ecdsa::Signature&gt; {
 		<span class="self">self</span>.extension::&lt;KeystoreExt&gt;()
-			.expect(<span class="string">&quot;No `keystore` associated for the current context!&quot;</span>)
+			.expect(<span class="string">"No `keystore` associated for the current context!"</span>)
 			.ecdsa_sign_prehashed(id, pub_key, msg)
 			.ok()
 			.flatten()
@@ -3200,7 +3202,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// NOTE: Is tagged with `register_only` to keep the functions around for backwards
 	/// compatibility with old runtimes, but it should not be used anymore by new runtimes.
-	/// The implementation emulates the old behavior, but isn&#39;t doing any batch verification
+	/// The implementation emulates the old behavior, but isn't doing any batch verification
 	/// anymore.
 	</span><span class="attr">#[version(<span class="number">1</span>, register_only)]
 	</span><span class="kw">fn </span>ecdsa_batch_verify(
@@ -3224,7 +3226,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// - `msg` is the blake2-256 hash of the message.
 	///
 	/// Returns `Err` if the signature is bad, otherwise the 64-byte pubkey
-	/// (doesn&#39;t include the 0x04 prefix).
+	/// (doesn't include the 0x04 prefix).
 	/// This version is able to handle, non-standard, overflowing signatures.
 	</span><span class="kw">fn </span>secp256k1_ecdsa_recover(
 		sig: <span class="kw-2">&amp;</span>[u8; <span class="number">65</span>],
@@ -3250,7 +3252,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// - `msg` is the blake2-256 hash of the message.
 	///
 	/// Returns `Err` if the signature is bad, otherwise the 64-byte pubkey
-	/// (doesn&#39;t include the 0x04 prefix).
+	/// (doesn't include the 0x04 prefix).
 	</span><span class="attr">#[version(<span class="number">2</span>)]
 	</span><span class="kw">fn </span>secp256k1_ecdsa_recover(
 		sig: <span class="kw-2">&amp;</span>[u8; <span class="number">65</span>],
@@ -3260,7 +3262,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.map_err(|<span class="kw">_</span>| EcdsaVerifyError::BadV)<span class="question-mark">?</span>;
 		<span class="kw">let </span>sig = RecoverableSignature::from_compact(<span class="kw-2">&amp;</span>sig[..<span class="number">64</span>], rid)
 			.map_err(|<span class="kw">_</span>| EcdsaVerifyError::BadRS)<span class="question-mark">?</span>;
-		<span class="kw">let </span>msg = Message::from_digest_slice(msg).expect(<span class="string">&quot;Message is 32 bytes; qed&quot;</span>);
+		<span class="kw">let </span>msg = Message::from_digest_slice(msg).expect(<span class="string">"Message is 32 bytes; qed"</span>);
 		<span class="kw">let </span>pubkey = SECP256K1
 			.recover_ecdsa(<span class="kw-2">&amp;</span>msg, <span class="kw-2">&amp;</span>sig)
 			.map_err(|<span class="kw">_</span>| EcdsaVerifyError::BadSignature)<span class="question-mark">?</span>;
@@ -3306,7 +3308,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.map_err(|<span class="kw">_</span>| EcdsaVerifyError::BadV)<span class="question-mark">?</span>;
 		<span class="kw">let </span>sig = RecoverableSignature::from_compact(<span class="kw-2">&amp;</span>sig[..<span class="number">64</span>], rid)
 			.map_err(|<span class="kw">_</span>| EcdsaVerifyError::BadRS)<span class="question-mark">?</span>;
-		<span class="kw">let </span>msg = Message::from_digest_slice(msg).expect(<span class="string">&quot;Message is 32 bytes; qed&quot;</span>);
+		<span class="kw">let </span>msg = Message::from_digest_slice(msg).expect(<span class="string">"Message is 32 bytes; qed"</span>);
 		<span class="kw">let </span>pubkey = SECP256K1
 			.recover_ecdsa(<span class="kw-2">&amp;</span>msg, <span class="kw-2">&amp;</span>sig)
 			.map_err(|<span class="kw">_</span>| EcdsaVerifyError::BadSignature)<span class="question-mark">?</span>;
@@ -3319,13 +3321,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// The `seed` needs to be a valid utf8.
 	///
 	/// Returns the public key.
-	</span><span class="attr">#[cfg(feature = <span class="string">&quot;bls-experimental&quot;</span>)]
+	</span><span class="attr">#[cfg(feature = <span class="string">"bls-experimental"</span>)]
 	</span><span class="kw">fn </span>bls377_generate(<span class="kw-2">&amp;mut </span><span class="self">self</span>, id: KeyTypeId, seed: <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt;) -&gt; bls377::Public {
-		<span class="kw">let </span>seed = seed.as_ref().map(|s| std::str::from_utf8(s).expect(<span class="string">&quot;Seed is valid utf8!&quot;</span>));
+		<span class="kw">let </span>seed = seed.as_ref().map(|s| std::str::from_utf8(s).expect(<span class="string">"Seed is valid utf8!"</span>));
 		<span class="self">self</span>.extension::&lt;KeystoreExt&gt;()
-			.expect(<span class="string">&quot;No `keystore` associated for the current context!&quot;</span>)
+			.expect(<span class="string">"No `keystore` associated for the current context!"</span>)
 			.bls377_generate_new(id, seed)
-			.expect(<span class="string">&quot;`bls377_generate` failed&quot;</span>)
+			.expect(<span class="string">"`bls377_generate` failed"</span>)
 	}
 
 	<span class="doccomment">/// Generate an `(ecdsa,bls12-377)` key for the given key type using an optional `seed` and
@@ -3334,17 +3336,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// The `seed` needs to be a valid utf8.
 	///
 	/// Returns the public key.
-	</span><span class="attr">#[cfg(feature = <span class="string">&quot;bls-experimental&quot;</span>)]
+	</span><span class="attr">#[cfg(feature = <span class="string">"bls-experimental"</span>)]
 	</span><span class="kw">fn </span>ecdsa_bls377_generate(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		id: KeyTypeId,
 		seed: <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt;,
 	) -&gt; ecdsa_bls377::Public {
-		<span class="kw">let </span>seed = seed.as_ref().map(|s| std::str::from_utf8(s).expect(<span class="string">&quot;Seed is valid utf8!&quot;</span>));
+		<span class="kw">let </span>seed = seed.as_ref().map(|s| std::str::from_utf8(s).expect(<span class="string">"Seed is valid utf8!"</span>));
 		<span class="self">self</span>.extension::&lt;KeystoreExt&gt;()
-			.expect(<span class="string">&quot;No `keystore` associated for the current context!&quot;</span>)
+			.expect(<span class="string">"No `keystore` associated for the current context!"</span>)
 			.ecdsa_bls377_generate_new(id, seed)
-			.expect(<span class="string">&quot;`ecdsa_bls377_generate` failed&quot;</span>)
+			.expect(<span class="string">"`ecdsa_bls377_generate` failed"</span>)
 	}
 
 	<span class="doccomment">/// Generate a `bandersnatch` key pair for the given key type using an optional
@@ -3353,17 +3355,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// The `seed` needs to be a valid utf8.
 	///
 	/// Returns the public key.
-	</span><span class="attr">#[cfg(feature = <span class="string">&quot;bandersnatch-experimental&quot;</span>)]
+	</span><span class="attr">#[cfg(feature = <span class="string">"bandersnatch-experimental"</span>)]
 	</span><span class="kw">fn </span>bandersnatch_generate(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		id: KeyTypeId,
 		seed: <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt;,
 	) -&gt; bandersnatch::Public {
-		<span class="kw">let </span>seed = seed.as_ref().map(|s| std::str::from_utf8(s).expect(<span class="string">&quot;Seed is valid utf8!&quot;</span>));
+		<span class="kw">let </span>seed = seed.as_ref().map(|s| std::str::from_utf8(s).expect(<span class="string">"Seed is valid utf8!"</span>));
 		<span class="self">self</span>.extension::&lt;KeystoreExt&gt;()
-			.expect(<span class="string">&quot;No `keystore` associated for the current context!&quot;</span>)
+			.expect(<span class="string">"No `keystore` associated for the current context!"</span>)
 			.bandersnatch_generate_new(id, seed)
-			.expect(<span class="string">&quot;`bandernatch_generate` failed&quot;</span>)
+			.expect(<span class="string">"`bandernatch_generate` failed"</span>)
 	}
 }
 
@@ -3439,7 +3441,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="macro">sp_externalities::decl_extension! </span>{
 	<span class="doccomment">/// Deprecated verification context.
 	///
@@ -3458,7 +3460,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// and that the validator is registered in the chain.
 	</span><span class="kw">fn </span>is_validator(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; bool {
 		<span class="self">self</span>.extension::&lt;OffchainWorkerExt&gt;()
-			.expect(<span class="string">&quot;is_validator can be called only in the offchain worker context&quot;</span>)
+			.expect(<span class="string">"is_validator can be called only in the offchain worker context"</span>)
 			.is_validator()
 	}
 
@@ -3468,30 +3470,30 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>submit_transaction(<span class="kw-2">&amp;mut </span><span class="self">self</span>, data: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), ()&gt; {
 		<span class="self">self</span>.extension::&lt;TransactionPoolExt&gt;()
 			.expect(
-				<span class="string">&quot;submit_transaction can be called only in the offchain call context with
-				TransactionPool capabilities enabled&quot;</span>,
+				<span class="string">"submit_transaction can be called only in the offchain call context with
+				TransactionPool capabilities enabled"</span>,
 			)
 			.submit_transaction(data)
 	}
 
-	<span class="doccomment">/// Returns information about the local node&#39;s network state.
+	<span class="doccomment">/// Returns information about the local node's network state.
 	</span><span class="kw">fn </span>network_state(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;OpaqueNetworkState, ()&gt; {
 		<span class="self">self</span>.extension::&lt;OffchainWorkerExt&gt;()
-			.expect(<span class="string">&quot;network_state can be called only in the offchain worker context&quot;</span>)
+			.expect(<span class="string">"network_state can be called only in the offchain worker context"</span>)
 			.network_state()
 	}
 
 	<span class="doccomment">/// Returns current UNIX timestamp (in millis)
 	</span><span class="kw">fn </span>timestamp(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; Timestamp {
 		<span class="self">self</span>.extension::&lt;OffchainWorkerExt&gt;()
-			.expect(<span class="string">&quot;timestamp can be called only in the offchain worker context&quot;</span>)
+			.expect(<span class="string">"timestamp can be called only in the offchain worker context"</span>)
 			.timestamp()
 	}
 
 	<span class="doccomment">/// Pause the execution until `deadline` is reached.
 	</span><span class="kw">fn </span>sleep_until(<span class="kw-2">&amp;mut </span><span class="self">self</span>, deadline: Timestamp) {
 		<span class="self">self</span>.extension::&lt;OffchainWorkerExt&gt;()
-			.expect(<span class="string">&quot;sleep_until can be called only in the offchain worker context&quot;</span>)
+			.expect(<span class="string">"sleep_until can be called only in the offchain worker context"</span>)
 			.sleep_until(deadline)
 	}
 
@@ -3501,32 +3503,32 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// Obviously fine in the off-chain worker context.
 	</span><span class="kw">fn </span>random_seed(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; [u8; <span class="number">32</span>] {
 		<span class="self">self</span>.extension::&lt;OffchainWorkerExt&gt;()
-			.expect(<span class="string">&quot;random_seed can be called only in the offchain worker context&quot;</span>)
+			.expect(<span class="string">"random_seed can be called only in the offchain worker context"</span>)
 			.random_seed()
 	}
 
 	<span class="doccomment">/// Sets a value in the local storage.
 	///
-	/// Note this storage is not part of the consensus, it&#39;s only accessible by
+	/// Note this storage is not part of the consensus, it's only accessible by
 	/// offchain worker tasks running on the same machine. It IS persisted between runs.
 	</span><span class="kw">fn </span>local_storage_set(<span class="kw-2">&amp;mut </span><span class="self">self</span>, kind: StorageKind, key: <span class="kw-2">&amp;</span>[u8], value: <span class="kw-2">&amp;</span>[u8]) {
 		<span class="self">self</span>.extension::&lt;OffchainDbExt&gt;()
 			.expect(
-				<span class="string">&quot;local_storage_set can be called only in the offchain call context with
-				OffchainDb extension&quot;</span>,
+				<span class="string">"local_storage_set can be called only in the offchain call context with
+				OffchainDb extension"</span>,
 			)
 			.local_storage_set(kind, key, value)
 	}
 
 	<span class="doccomment">/// Remove a value from the local storage.
 	///
-	/// Note this storage is not part of the consensus, it&#39;s only accessible by
+	/// Note this storage is not part of the consensus, it's only accessible by
 	/// offchain worker tasks running on the same machine. It IS persisted between runs.
 	</span><span class="kw">fn </span>local_storage_clear(<span class="kw-2">&amp;mut </span><span class="self">self</span>, kind: StorageKind, key: <span class="kw-2">&amp;</span>[u8]) {
 		<span class="self">self</span>.extension::&lt;OffchainDbExt&gt;()
 			.expect(
-				<span class="string">&quot;local_storage_clear can be called only in the offchain call context with
-				OffchainDb extension&quot;</span>,
+				<span class="string">"local_storage_clear can be called only in the offchain call context with
+				OffchainDb extension"</span>,
 			)
 			.local_storage_clear(kind, key)
 	}
@@ -3538,7 +3540,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// Returns `true` if the value has been set, `false` otherwise.
 	///
-	/// Note this storage is not part of the consensus, it&#39;s only accessible by
+	/// Note this storage is not part of the consensus, it's only accessible by
 	/// offchain worker tasks running on the same machine. It IS persisted between runs.
 	</span><span class="kw">fn </span>local_storage_compare_and_set(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
@@ -3549,8 +3551,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; bool {
 		<span class="self">self</span>.extension::&lt;OffchainDbExt&gt;()
 			.expect(
-				<span class="string">&quot;local_storage_compare_and_set can be called only in the offchain call context
-				with OffchainDb extension&quot;</span>,
+				<span class="string">"local_storage_compare_and_set can be called only in the offchain call context
+				with OffchainDb extension"</span>,
 			)
 			.local_storage_compare_and_set(kind, key, old_value.as_deref(), new_value)
 	}
@@ -3558,13 +3560,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Gets a value from the local storage.
 	///
 	/// If the value does not exist in the storage `None` will be returned.
-	/// Note this storage is not part of the consensus, it&#39;s only accessible by
+	/// Note this storage is not part of the consensus, it's only accessible by
 	/// offchain worker tasks running on the same machine. It IS persisted between runs.
 	</span><span class="kw">fn </span>local_storage_get(<span class="kw-2">&amp;mut </span><span class="self">self</span>, kind: StorageKind, key: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt; {
 		<span class="self">self</span>.extension::&lt;OffchainDbExt&gt;()
 			.expect(
-				<span class="string">&quot;local_storage_get can be called only in the offchain call context with
-				OffchainDb extension&quot;</span>,
+				<span class="string">"local_storage_get can be called only in the offchain call context with
+				OffchainDb extension"</span>,
 			)
 			.local_storage_get(kind, key)
 	}
@@ -3580,7 +3582,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		meta: <span class="kw-2">&amp;</span>[u8],
 	) -&gt; <span class="prelude-ty">Result</span>&lt;HttpRequestId, ()&gt; {
 		<span class="self">self</span>.extension::&lt;OffchainWorkerExt&gt;()
-			.expect(<span class="string">&quot;http_request_start can be called only in the offchain worker context&quot;</span>)
+			.expect(<span class="string">"http_request_start can be called only in the offchain worker context"</span>)
 			.http_request_start(method, uri, meta)
 	}
 
@@ -3592,7 +3594,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		value: <span class="kw-2">&amp;</span>str,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), ()&gt; {
 		<span class="self">self</span>.extension::&lt;OffchainWorkerExt&gt;()
-			.expect(<span class="string">&quot;http_request_add_header can be called only in the offchain worker context&quot;</span>)
+			.expect(<span class="string">"http_request_add_header can be called only in the offchain worker context"</span>)
 			.http_request_add_header(request_id, name, value)
 	}
 
@@ -3601,7 +3603,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// Writing an empty chunks finalizes the request.
 	/// Passing `None` as deadline blocks forever.
 	///
-	/// Returns an error in case deadline is reached or the chunk couldn&#39;t be written.
+	/// Returns an error in case deadline is reached or the chunk couldn't be written.
 	</span><span class="kw">fn </span>http_request_write_body(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		request_id: HttpRequestId,
@@ -3609,7 +3611,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		deadline: <span class="prelude-ty">Option</span>&lt;Timestamp&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), HttpError&gt; {
 		<span class="self">self</span>.extension::&lt;OffchainWorkerExt&gt;()
-			.expect(<span class="string">&quot;http_request_write_body can be called only in the offchain worker context&quot;</span>)
+			.expect(<span class="string">"http_request_write_body can be called only in the offchain worker context"</span>)
 			.http_request_write_body(request_id, chunk, deadline)
 	}
 
@@ -3626,7 +3628,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		deadline: <span class="prelude-ty">Option</span>&lt;Timestamp&gt;,
 	) -&gt; Vec&lt;HttpRequestStatus&gt; {
 		<span class="self">self</span>.extension::&lt;OffchainWorkerExt&gt;()
-			.expect(<span class="string">&quot;http_response_wait can be called only in the offchain worker context&quot;</span>)
+			.expect(<span class="string">"http_response_wait can be called only in the offchain worker context"</span>)
 			.http_response_wait(ids, deadline)
 	}
 
@@ -3636,7 +3638,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// NOTE: response headers have to be read before response body.
 	</span><span class="kw">fn </span>http_response_headers(<span class="kw-2">&amp;mut </span><span class="self">self</span>, request_id: HttpRequestId) -&gt; Vec&lt;(Vec&lt;u8&gt;, Vec&lt;u8&gt;)&gt; {
 		<span class="self">self</span>.extension::&lt;OffchainWorkerExt&gt;()
-			.expect(<span class="string">&quot;http_response_headers can be called only in the offchain worker context&quot;</span>)
+			.expect(<span class="string">"http_response_headers can be called only in the offchain worker context"</span>)
 			.http_response_headers(request_id)
 	}
 
@@ -3655,7 +3657,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		deadline: <span class="prelude-ty">Option</span>&lt;Timestamp&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;u32, HttpError&gt; {
 		<span class="self">self</span>.extension::&lt;OffchainWorkerExt&gt;()
-			.expect(<span class="string">&quot;http_response_read_body can be called only in the offchain worker context&quot;</span>)
+			.expect(<span class="string">"http_response_read_body can be called only in the offchain worker context"</span>)
 			.http_response_read_body(request_id, buffer, deadline)
 			.map(|r| r <span class="kw">as </span>u32)
 	}
@@ -3663,7 +3665,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Set the authorized nodes and authorized_only flag.
 	</span><span class="kw">fn </span>set_authorized_nodes(<span class="kw-2">&amp;mut </span><span class="self">self</span>, nodes: Vec&lt;OpaquePeerId&gt;, authorized_only: bool) {
 		<span class="self">self</span>.extension::&lt;OffchainWorkerExt&gt;()
-			.expect(<span class="string">&quot;set_authorized_nodes can be called only in the offchain worker context&quot;</span>)
+			.expect(<span class="string">"set_authorized_nodes can be called only in the offchain worker context"</span>)
 			.set_authorized_nodes(nodes, authorized_only)
 	}
 }
@@ -3673,12 +3675,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub trait </span>Allocator {
 	<span class="doccomment">/// Malloc the given number of bytes and return the pointer to the allocated memory location.
 	</span><span class="kw">fn </span>malloc(<span class="kw-2">&amp;mut </span><span class="self">self</span>, size: u32) -&gt; Pointer&lt;u8&gt; {
-		<span class="self">self</span>.allocate_memory(size).expect(<span class="string">&quot;Failed to allocate memory&quot;</span>)
+		<span class="self">self</span>.allocate_memory(size).expect(<span class="string">"Failed to allocate memory"</span>)
 	}
 
 	<span class="doccomment">/// Free the given pointer.
 	</span><span class="kw">fn </span>free(<span class="kw-2">&amp;mut </span><span class="self">self</span>, ptr: Pointer&lt;u8&gt;) {
-		<span class="self">self</span>.deallocate_memory(ptr).expect(<span class="string">&quot;Failed to deallocate memory&quot;</span>)
+		<span class="self">self</span>.deallocate_memory(ptr).expect(<span class="string">"Failed to deallocate memory"</span>)
 	}
 }
 
@@ -3704,7 +3706,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// Instead of using directly, prefer setting up `RuntimeLogger` and using `log` macros.
 	</span><span class="kw">fn </span>log(level: LogLevel, target: <span class="kw-2">&amp;</span>str, message: <span class="kw-2">&amp;</span>[u8]) {
 		<span class="kw">if let </span><span class="prelude-val">Ok</span>(message) = std::str::from_utf8(message) {
-			<span class="macro">log::log!</span>(target: target, log::Level::from(level), <span class="string">&quot;{}&quot;</span>, message)
+			<span class="macro">log::log!</span>(target: target, log::Level::from(level), <span class="string">"{}"</span>, message)
 		}
 	}
 
@@ -3749,12 +3751,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// dispatcher.
 	///
 	/// When returning false the calling code should skip any tracing-related execution. In general
-	/// within the same block execution this is not expected to change and it doesn&#39;t have to be
+	/// within the same block execution this is not expected to change and it doesn't have to be
 	/// checked more than once per metadata. This exists for optimisation purposes but is still not
 	/// cheap as it will jump the wasm-native-barrier every time it is called. So an implementation
 	/// might chose to cache the result for the execution of the entire block.
 	</span><span class="kw">fn </span>enabled(<span class="kw-2">&amp;mut </span><span class="self">self</span>, metadata: Crossing&lt;sp_tracing::WasmMetadata&gt;) -&gt; bool {
-		<span class="kw">let </span>metadata: <span class="kw-2">&amp;</span>tracing_core::metadata::Metadata&lt;<span class="lifetime">&#39;static</span>&gt; = (<span class="kw-2">&amp;</span>metadata.into_inner()).into();
+		<span class="kw">let </span>metadata: <span class="kw-2">&amp;</span>tracing_core::metadata::Metadata&lt;<span class="lifetime">'static</span>&gt; = (<span class="kw-2">&amp;</span>metadata.into_inner()).into();
 		tracing::dispatcher::get_default(|d| d.enabled(metadata))
 	}
 
@@ -3768,7 +3770,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>span: tracing::Span = span.into_inner().into();
 		<span class="kw">match </span>span.id() {
 			<span class="prelude-val">Some</span>(id) =&gt; tracing::dispatcher::get_default(|d| {
-				<span class="comment">// inform dispatch that we&#39;ll keep the ID around
+				<span class="comment">// inform dispatch that we'll keep the ID around
 				// then enter it immediately
 				</span><span class="kw">let </span>final_id = d.clone_span(<span class="kw-2">&amp;</span>id);
 				d.enter(<span class="kw-2">&amp;</span>final_id);
@@ -3793,7 +3795,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="attr">#[cfg(all(not(feature = <span class="string">&quot;std&quot;</span>), feature = <span class="string">&quot;with-tracing&quot;</span>))]
+<span class="attr">#[cfg(all(not(feature = <span class="string">"std"</span>), feature = <span class="string">"with-tracing"</span>))]
 </span><span class="kw">mod </span>tracing_setup {
 	<span class="kw">use super</span>::{wasm_tracing, Crossing};
 	<span class="kw">use </span>core::sync::atomic::{AtomicBool, Ordering};
@@ -3810,10 +3812,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">struct </span>PassingTracingSubscriber;
 
 	<span class="kw">impl </span>tracing_core::Subscriber <span class="kw">for </span>PassingTracingSubscriber {
-		<span class="kw">fn </span>enabled(<span class="kw-2">&amp;</span><span class="self">self</span>, metadata: <span class="kw-2">&amp;</span>Metadata&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; bool {
+		<span class="kw">fn </span>enabled(<span class="kw-2">&amp;</span><span class="self">self</span>, metadata: <span class="kw-2">&amp;</span>Metadata&lt;<span class="lifetime">'_</span>&gt;) -&gt; bool {
 			wasm_tracing::enabled(Crossing(metadata.into()))
 		}
-		<span class="kw">fn </span>new_span(<span class="kw-2">&amp;</span><span class="self">self</span>, attrs: <span class="kw-2">&amp;</span>Attributes&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Id {
+		<span class="kw">fn </span>new_span(<span class="kw-2">&amp;</span><span class="self">self</span>, attrs: <span class="kw-2">&amp;</span>Attributes&lt;<span class="lifetime">'_</span>&gt;) -&gt; Id {
 			Id::from_u64(wasm_tracing::enter_span(Crossing(attrs.into())))
 		}
 		<span class="kw">fn </span>enter(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw">_</span>: <span class="kw-2">&amp;</span>Id) {
@@ -3821,7 +3823,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>}
 		<span class="doccomment">/// Not implemented! We do not support recording values later
 		/// Will panic when used.
-		</span><span class="kw">fn </span>record(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw">_</span>: <span class="kw-2">&amp;</span>Id, <span class="kw">_</span>: <span class="kw-2">&amp;</span>Record&lt;<span class="lifetime">&#39;_</span>&gt;) {
+		</span><span class="kw">fn </span>record(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw">_</span>: <span class="kw-2">&amp;</span>Id, <span class="kw">_</span>: <span class="kw-2">&amp;</span>Record&lt;<span class="lifetime">'_</span>&gt;) {
 			<span class="macro">unimplemented! </span>{} <span class="comment">// this usage is not supported
 		</span>}
 		<span class="doccomment">/// Not implemented! We do not support recording values later
@@ -3829,7 +3831,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">fn </span>record_follows_from(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw">_</span>: <span class="kw-2">&amp;</span>Id, <span class="kw">_</span>: <span class="kw-2">&amp;</span>Id) {
 			<span class="macro">unimplemented! </span>{} <span class="comment">// this usage is not supported
 		</span>}
-		<span class="kw">fn </span>event(<span class="kw-2">&amp;</span><span class="self">self</span>, event: <span class="kw-2">&amp;</span>Event&lt;<span class="lifetime">&#39;_</span>&gt;) {
+		<span class="kw">fn </span>event(<span class="kw-2">&amp;</span><span class="self">self</span>, event: <span class="kw-2">&amp;</span>Event&lt;<span class="lifetime">'_</span>&gt;) {
 			wasm_tracing::event(Crossing(event.into()))
 		}
 		<span class="kw">fn </span>exit(<span class="kw-2">&amp;</span><span class="self">self</span>, span: <span class="kw-2">&amp;</span>Id) {
@@ -3843,13 +3845,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub fn </span>init_tracing() {
 		<span class="kw">if </span>TRACING_SET.load(Ordering::Relaxed) == <span class="bool-val">false </span>{
 			set_global_default(Dispatch::new(PassingTracingSubscriber {}))
-				.expect(<span class="string">&quot;We only ever call this once&quot;</span>);
+				.expect(<span class="string">"We only ever call this once"</span>);
 			TRACING_SET.store(<span class="bool-val">true</span>, Ordering::Relaxed);
 		}
 	}
 }
 
-<span class="attr">#[cfg(not(all(not(feature = <span class="string">&quot;std&quot;</span>), feature = <span class="string">&quot;with-tracing&quot;</span>)))]
+<span class="attr">#[cfg(not(all(not(feature = <span class="string">"std"</span>), feature = <span class="string">"with-tracing"</span>)))]
 </span><span class="kw">mod </span>tracing_setup {
 	<span class="doccomment">/// Initialize tracing of sp_tracing not necessary – noop. To enable build
 	/// without std and with the `with-tracing`-feature.
@@ -3863,60 +3865,60 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// Equivalent to the WASM `unreachable` instruction, RISC-V `unimp` instruction,
 /// or just the `unreachable!()` macro everywhere else.
 </span><span class="kw">pub fn </span>unreachable() -&gt; ! {
-	<span class="attr">#[cfg(target_family = <span class="string">&quot;wasm&quot;</span>)]
+	<span class="attr">#[cfg(target_family = <span class="string">"wasm"</span>)]
 	</span>{
 		core::arch::wasm32::unreachable();
 	}
 
-	<span class="attr">#[cfg(any(target_arch = <span class="string">&quot;riscv32&quot;</span>, target_arch = <span class="string">&quot;riscv64&quot;</span>))]
+	<span class="attr">#[cfg(any(target_arch = <span class="string">"riscv32"</span>, target_arch = <span class="string">"riscv64"</span>))]
 	</span><span class="kw">unsafe </span>{
-		<span class="macro">core::arch::asm!</span>(<span class="string">&quot;unimp&quot;</span>, options(noreturn));
+		<span class="macro">core::arch::asm!</span>(<span class="string">"unimp"</span>, options(noreturn));
 	}
 
-	<span class="attr">#[cfg(not(any(target_arch = <span class="string">&quot;riscv32&quot;</span>, target_arch = <span class="string">&quot;riscv64&quot;</span>, target_family = <span class="string">&quot;wasm&quot;</span>)))]
+	<span class="attr">#[cfg(not(any(target_arch = <span class="string">"riscv32"</span>, target_arch = <span class="string">"riscv64"</span>, target_family = <span class="string">"wasm"</span>)))]
 	</span><span class="macro">unreachable!</span>();
 }
 
 <span class="doccomment">/// A default panic handler for the runtime environment.
-</span><span class="attr">#[cfg(all(not(feature = <span class="string">&quot;disable_panic_handler&quot;</span>), substrate_runtime))]
+</span><span class="attr">#[cfg(all(not(feature = <span class="string">"disable_panic_handler"</span>), substrate_runtime))]
 #[panic_handler]
 #[no_mangle]
 </span><span class="kw">pub fn </span>panic(info: <span class="kw-2">&amp;</span>core::panic::PanicInfo) -&gt; ! {
-	<span class="kw">let </span>message = <span class="macro">sp_std::alloc::format!</span>(<span class="string">&quot;{}&quot;</span>, info);
-	<span class="attr">#[cfg(feature = <span class="string">&quot;improved_panic_error_reporting&quot;</span>)]
+	<span class="kw">let </span>message = <span class="macro">sp_std::alloc::format!</span>(<span class="string">"{}"</span>, info);
+	<span class="attr">#[cfg(feature = <span class="string">"improved_panic_error_reporting"</span>)]
 	</span>{
 		panic_handler::abort_on_panic(<span class="kw-2">&amp;</span>message);
 	}
-	<span class="attr">#[cfg(not(feature = <span class="string">&quot;improved_panic_error_reporting&quot;</span>))]
+	<span class="attr">#[cfg(not(feature = <span class="string">"improved_panic_error_reporting"</span>))]
 	</span>{
-		logging::log(LogLevel::Error, <span class="string">&quot;runtime&quot;</span>, message.as_bytes());
+		logging::log(LogLevel::Error, <span class="string">"runtime"</span>, message.as_bytes());
 		unreachable();
 	}
 }
 
 <span class="doccomment">/// A default OOM handler for the runtime environment.
-</span><span class="attr">#[cfg(all(not(feature = <span class="string">&quot;disable_oom&quot;</span>), enable_alloc_error_handler))]
+</span><span class="attr">#[cfg(all(not(feature = <span class="string">"disable_oom"</span>), enable_alloc_error_handler))]
 #[alloc_error_handler]
 </span><span class="kw">pub fn </span>oom(<span class="kw">_</span>: core::alloc::Layout) -&gt; ! {
-	<span class="attr">#[cfg(feature = <span class="string">&quot;improved_panic_error_reporting&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"improved_panic_error_reporting"</span>)]
 	</span>{
-		panic_handler::abort_on_panic(<span class="string">&quot;Runtime memory exhausted.&quot;</span>);
+		panic_handler::abort_on_panic(<span class="string">"Runtime memory exhausted."</span>);
 	}
-	<span class="attr">#[cfg(not(feature = <span class="string">&quot;improved_panic_error_reporting&quot;</span>))]
+	<span class="attr">#[cfg(not(feature = <span class="string">"improved_panic_error_reporting"</span>))]
 	</span>{
-		logging::log(LogLevel::Error, <span class="string">&quot;runtime&quot;</span>, <span class="string">b&quot;Runtime memory exhausted. Aborting&quot;</span>);
+		logging::log(LogLevel::Error, <span class="string">"runtime"</span>, <span class="string">b"Runtime memory exhausted. Aborting"</span>);
 		unreachable();
 	}
 }
 
 <span class="doccomment">/// Type alias for Externalities implementation used in tests.
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+</span><span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">pub type </span>TestExternalities = sp_state_machine::TestExternalities&lt;sp_core::Blake2Hasher&gt;;
 
 <span class="doccomment">/// The host functions Substrate provides for the Wasm runtime environment.
 ///
 /// All these host functions will be callable from inside the Wasm environment.
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+</span><span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">pub type </span>SubstrateHostFunctions = (
 	storage::HostFunctions,
 	default_child_storage::HostFunctions,
@@ -3943,49 +3945,49 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>storage_works() {
 		<span class="kw">let </span><span class="kw-2">mut </span>t = BasicExternalities::default();
 		t.execute_with(|| {
-			<span class="macro">assert_eq!</span>(storage::get(<span class="string">b&quot;hello&quot;</span>), <span class="prelude-val">None</span>);
-			storage::set(<span class="string">b&quot;hello&quot;</span>, <span class="string">b&quot;world&quot;</span>);
-			<span class="macro">assert_eq!</span>(storage::get(<span class="string">b&quot;hello&quot;</span>), <span class="prelude-val">Some</span>(<span class="string">b&quot;world&quot;</span>.to_vec().into()));
-			<span class="macro">assert_eq!</span>(storage::get(<span class="string">b&quot;foo&quot;</span>), <span class="prelude-val">None</span>);
-			storage::set(<span class="string">b&quot;foo&quot;</span>, <span class="kw-2">&amp;</span>[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>][..]);
+			<span class="macro">assert_eq!</span>(storage::get(<span class="string">b"hello"</span>), <span class="prelude-val">None</span>);
+			storage::set(<span class="string">b"hello"</span>, <span class="string">b"world"</span>);
+			<span class="macro">assert_eq!</span>(storage::get(<span class="string">b"hello"</span>), <span class="prelude-val">Some</span>(<span class="string">b"world"</span>.to_vec().into()));
+			<span class="macro">assert_eq!</span>(storage::get(<span class="string">b"foo"</span>), <span class="prelude-val">None</span>);
+			storage::set(<span class="string">b"foo"</span>, <span class="kw-2">&amp;</span>[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>][..]);
 		});
 
 		t = BasicExternalities::new(Storage {
-			top: <span class="macro">map!</span>[<span class="string">b&quot;foo&quot;</span>.to_vec() =&gt; <span class="string">b&quot;bar&quot;</span>.to_vec()],
+			top: <span class="macro">map!</span>[<span class="string">b"foo"</span>.to_vec() =&gt; <span class="string">b"bar"</span>.to_vec()],
 			children_default: <span class="macro">map!</span>[],
 		});
 
 		t.execute_with(|| {
-			<span class="macro">assert_eq!</span>(storage::get(<span class="string">b&quot;hello&quot;</span>), <span class="prelude-val">None</span>);
-			<span class="macro">assert_eq!</span>(storage::get(<span class="string">b&quot;foo&quot;</span>), <span class="prelude-val">Some</span>(<span class="string">b&quot;bar&quot;</span>.to_vec().into()));
+			<span class="macro">assert_eq!</span>(storage::get(<span class="string">b"hello"</span>), <span class="prelude-val">None</span>);
+			<span class="macro">assert_eq!</span>(storage::get(<span class="string">b"foo"</span>), <span class="prelude-val">Some</span>(<span class="string">b"bar"</span>.to_vec().into()));
 		});
 
 		<span class="kw">let </span>value = <span class="macro">vec!</span>[<span class="number">7u8</span>; <span class="number">35</span>];
 		<span class="kw">let </span>storage =
-			Storage { top: <span class="macro">map!</span>[<span class="string">b&quot;foo00&quot;</span>.to_vec() =&gt; value.clone()], children_default: <span class="macro">map!</span>[] };
+			Storage { top: <span class="macro">map!</span>[<span class="string">b"foo00"</span>.to_vec() =&gt; value.clone()], children_default: <span class="macro">map!</span>[] };
 		t = BasicExternalities::new(storage);
 
 		t.execute_with(|| {
-			<span class="macro">assert_eq!</span>(storage::get(<span class="string">b&quot;hello&quot;</span>), <span class="prelude-val">None</span>);
-			<span class="macro">assert_eq!</span>(storage::get(<span class="string">b&quot;foo00&quot;</span>), <span class="prelude-val">Some</span>(value.clone().into()));
+			<span class="macro">assert_eq!</span>(storage::get(<span class="string">b"hello"</span>), <span class="prelude-val">None</span>);
+			<span class="macro">assert_eq!</span>(storage::get(<span class="string">b"foo00"</span>), <span class="prelude-val">Some</span>(value.clone().into()));
 		});
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>read_storage_works() {
-		<span class="kw">let </span>value = <span class="string">b&quot;\x0b\0\0\0Hello world&quot;</span>.to_vec();
+		<span class="kw">let </span>value = <span class="string">b"\x0b\0\0\0Hello world"</span>.to_vec();
 		<span class="kw">let </span><span class="kw-2">mut </span>t = BasicExternalities::new(Storage {
-			top: <span class="macro">map!</span>[<span class="string">b&quot;:test&quot;</span>.to_vec() =&gt; value.clone()],
+			top: <span class="macro">map!</span>[<span class="string">b":test"</span>.to_vec() =&gt; value.clone()],
 			children_default: <span class="macro">map!</span>[],
 		});
 
 		t.execute_with(|| {
 			<span class="kw">let </span><span class="kw-2">mut </span>v = [<span class="number">0u8</span>; <span class="number">4</span>];
-			<span class="macro">assert_eq!</span>(storage::read(<span class="string">b&quot;:test&quot;</span>, <span class="kw-2">&amp;mut </span>v[..], <span class="number">0</span>).unwrap(), value.len() <span class="kw">as </span>u32);
+			<span class="macro">assert_eq!</span>(storage::read(<span class="string">b":test"</span>, <span class="kw-2">&amp;mut </span>v[..], <span class="number">0</span>).unwrap(), value.len() <span class="kw">as </span>u32);
 			<span class="macro">assert_eq!</span>(v, [<span class="number">11u8</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>]);
 			<span class="kw">let </span><span class="kw-2">mut </span>w = [<span class="number">0u8</span>; <span class="number">11</span>];
-			<span class="macro">assert_eq!</span>(storage::read(<span class="string">b&quot;:test&quot;</span>, <span class="kw-2">&amp;mut </span>w[..], <span class="number">4</span>).unwrap(), value.len() <span class="kw">as </span>u32 - <span class="number">4</span>);
-			<span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span>w, <span class="string">b&quot;Hello world&quot;</span>);
+			<span class="macro">assert_eq!</span>(storage::read(<span class="string">b":test"</span>, <span class="kw-2">&amp;mut </span>w[..], <span class="number">4</span>).unwrap(), value.len() <span class="kw">as </span>u32 - <span class="number">4</span>);
+			<span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span>w, <span class="string">b"Hello world"</span>);
 		});
 	}
 
@@ -3993,10 +3995,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>clear_prefix_works() {
 		<span class="kw">let </span><span class="kw-2">mut </span>t = BasicExternalities::new(Storage {
 			top: <span class="macro">map!</span>[
-				<span class="string">b&quot;:a&quot;</span>.to_vec() =&gt; <span class="string">b&quot;\x0b\0\0\0Hello world&quot;</span>.to_vec(),
-				<span class="string">b&quot;:abcd&quot;</span>.to_vec() =&gt; <span class="string">b&quot;\x0b\0\0\0Hello world&quot;</span>.to_vec(),
-				<span class="string">b&quot;:abc&quot;</span>.to_vec() =&gt; <span class="string">b&quot;\x0b\0\0\0Hello world&quot;</span>.to_vec(),
-				<span class="string">b&quot;:abdd&quot;</span>.to_vec() =&gt; <span class="string">b&quot;\x0b\0\0\0Hello world&quot;</span>.to_vec()
+				<span class="string">b":a"</span>.to_vec() =&gt; <span class="string">b"\x0b\0\0\0Hello world"</span>.to_vec(),
+				<span class="string">b":abcd"</span>.to_vec() =&gt; <span class="string">b"\x0b\0\0\0Hello world"</span>.to_vec(),
+				<span class="string">b":abc"</span>.to_vec() =&gt; <span class="string">b"\x0b\0\0\0Hello world"</span>.to_vec(),
+				<span class="string">b":abdd"</span>.to_vec() =&gt; <span class="string">b"\x0b\0\0\0Hello world"</span>.to_vec()
 			],
 			children_default: <span class="macro">map!</span>[],
 		});
@@ -4004,26 +4006,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		t.execute_with(|| {
 			<span class="comment">// We can switch to this once we enable v3 of the `clear_prefix`.
 			//assert!(matches!(
-			//	storage::clear_prefix(b&quot;:abc&quot;, None),
+			//	storage::clear_prefix(b":abc", None),
 			//	MultiRemovalResults::NoneLeft { db: 2, total: 2 }
 			//));
 			</span><span class="macro">assert!</span>(<span class="macro">matches!</span>(
-				storage::clear_prefix(<span class="string">b&quot;:abc&quot;</span>, <span class="prelude-val">None</span>),
+				storage::clear_prefix(<span class="string">b":abc"</span>, <span class="prelude-val">None</span>),
 				KillStorageResult::AllRemoved(<span class="number">2</span>),
 			));
 
-			<span class="macro">assert!</span>(storage::get(<span class="string">b&quot;:a&quot;</span>).is_some());
-			<span class="macro">assert!</span>(storage::get(<span class="string">b&quot;:abdd&quot;</span>).is_some());
-			<span class="macro">assert!</span>(storage::get(<span class="string">b&quot;:abcd&quot;</span>).is_none());
-			<span class="macro">assert!</span>(storage::get(<span class="string">b&quot;:abc&quot;</span>).is_none());
+			<span class="macro">assert!</span>(storage::get(<span class="string">b":a"</span>).is_some());
+			<span class="macro">assert!</span>(storage::get(<span class="string">b":abdd"</span>).is_some());
+			<span class="macro">assert!</span>(storage::get(<span class="string">b":abcd"</span>).is_none());
+			<span class="macro">assert!</span>(storage::get(<span class="string">b":abc"</span>).is_none());
 
 			<span class="comment">// We can switch to this once we enable v3 of the `clear_prefix`.
 			//assert!(matches!(
-			//	storage::clear_prefix(b&quot;:abc&quot;, None),
+			//	storage::clear_prefix(b":abc", None),
 			//	MultiRemovalResults::NoneLeft { db: 0, total: 0 }
 			//));
 			</span><span class="macro">assert!</span>(<span class="macro">matches!</span>(
-				storage::clear_prefix(<span class="string">b&quot;:abc&quot;</span>, <span class="prelude-val">None</span>),
+				storage::clear_prefix(<span class="string">b":abc"</span>, <span class="prelude-val">None</span>),
 				KillStorageResult::AllRemoved(<span class="number">0</span>),
 			));
 		});

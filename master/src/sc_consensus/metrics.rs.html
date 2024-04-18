@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/consensus/common/src/metrics.rs`."><title>metrics.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/consensus/common/src/metrics.rs`."><title>metrics.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_consensus" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_consensus" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sc_consensus/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -297,34 +299,34 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			import_queue_processed: register(
 				CounterVec::new(
 					Opts::new(
-						<span class="string">&quot;substrate_import_queue_processed_total&quot;</span>,
-						<span class="string">&quot;Blocks processed by import queue&quot;</span>,
+						<span class="string">"substrate_import_queue_processed_total"</span>,
+						<span class="string">"Blocks processed by import queue"</span>,
 					),
-					<span class="kw-2">&amp;</span>[<span class="string">&quot;result&quot;</span>], <span class="comment">// &#39;success or failure
+					<span class="kw-2">&amp;</span>[<span class="string">"result"</span>], <span class="comment">// 'success or failure
 				</span>)<span class="question-mark">?</span>,
 				registry,
 			)<span class="question-mark">?</span>,
 			block_verification_time: register(
 				HistogramVec::new(
 					HistogramOpts::new(
-						<span class="string">&quot;substrate_block_verification_time&quot;</span>,
-						<span class="string">&quot;Time taken to verify blocks&quot;</span>,
+						<span class="string">"substrate_block_verification_time"</span>,
+						<span class="string">"Time taken to verify blocks"</span>,
 					),
-					<span class="kw-2">&amp;</span>[<span class="string">&quot;result&quot;</span>],
+					<span class="kw-2">&amp;</span>[<span class="string">"result"</span>],
 				)<span class="question-mark">?</span>,
 				registry,
 			)<span class="question-mark">?</span>,
 			block_verification_and_import_time: register(
 				Histogram::with_opts(HistogramOpts::new(
-					<span class="string">&quot;substrate_block_verification_and_import_time&quot;</span>,
-					<span class="string">&quot;Time taken to verify and import blocks&quot;</span>,
+					<span class="string">"substrate_block_verification_and_import_time"</span>,
+					<span class="string">"Time taken to verify and import blocks"</span>,
 				))<span class="question-mark">?</span>,
 				registry,
 			)<span class="question-mark">?</span>,
 			justification_import_time: register(
 				Histogram::with_opts(HistogramOpts::new(
-					<span class="string">&quot;substrate_justification_import_time&quot;</span>,
-					<span class="string">&quot;Time taken to import justifications&quot;</span>,
+					<span class="string">"substrate_justification_import_time"</span>,
+					<span class="string">"Time taken to import justifications"</span>,
 				))<span class="question-mark">?</span>,
 				registry,
 			)<span class="question-mark">?</span>,
@@ -336,14 +338,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		result: <span class="kw-2">&amp;</span><span class="prelude-ty">Result</span>&lt;BlockImportStatus&lt;NumberFor&lt;B&gt;&gt;, BlockImportError&gt;,
 	) {
 		<span class="kw">let </span>label = <span class="kw">match </span>result {
-			<span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; <span class="string">&quot;success&quot;</span>,
-			<span class="prelude-val">Err</span>(BlockImportError::IncompleteHeader(<span class="kw">_</span>)) =&gt; <span class="string">&quot;incomplete_header&quot;</span>,
-			<span class="prelude-val">Err</span>(BlockImportError::VerificationFailed(<span class="kw">_</span>, <span class="kw">_</span>)) =&gt; <span class="string">&quot;verification_failed&quot;</span>,
-			<span class="prelude-val">Err</span>(BlockImportError::BadBlock(<span class="kw">_</span>)) =&gt; <span class="string">&quot;bad_block&quot;</span>,
-			<span class="prelude-val">Err</span>(BlockImportError::MissingState) =&gt; <span class="string">&quot;missing_state&quot;</span>,
-			<span class="prelude-val">Err</span>(BlockImportError::UnknownParent) =&gt; <span class="string">&quot;unknown_parent&quot;</span>,
-			<span class="prelude-val">Err</span>(BlockImportError::Cancelled) =&gt; <span class="string">&quot;cancelled&quot;</span>,
-			<span class="prelude-val">Err</span>(BlockImportError::Other(<span class="kw">_</span>)) =&gt; <span class="string">&quot;failed&quot;</span>,
+			<span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; <span class="string">"success"</span>,
+			<span class="prelude-val">Err</span>(BlockImportError::IncompleteHeader(<span class="kw">_</span>)) =&gt; <span class="string">"incomplete_header"</span>,
+			<span class="prelude-val">Err</span>(BlockImportError::VerificationFailed(<span class="kw">_</span>, <span class="kw">_</span>)) =&gt; <span class="string">"verification_failed"</span>,
+			<span class="prelude-val">Err</span>(BlockImportError::BadBlock(<span class="kw">_</span>)) =&gt; <span class="string">"bad_block"</span>,
+			<span class="prelude-val">Err</span>(BlockImportError::MissingState) =&gt; <span class="string">"missing_state"</span>,
+			<span class="prelude-val">Err</span>(BlockImportError::UnknownParent) =&gt; <span class="string">"unknown_parent"</span>,
+			<span class="prelude-val">Err</span>(BlockImportError::Cancelled) =&gt; <span class="string">"cancelled"</span>,
+			<span class="prelude-val">Err</span>(BlockImportError::Other(<span class="kw">_</span>)) =&gt; <span class="string">"failed"</span>,
 		};
 
 		<span class="self">self</span>.import_queue_processed.with_label_values(<span class="kw-2">&amp;</span>[label]).inc();
@@ -351,7 +353,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">pub fn </span>report_verification(<span class="kw-2">&amp;</span><span class="self">self</span>, success: bool, time: std::time::Duration) {
 		<span class="self">self</span>.block_verification_time
-			.with_label_values(<span class="kw-2">&amp;</span>[<span class="kw">if </span>success { <span class="string">&quot;success&quot; </span>} <span class="kw">else </span>{ <span class="string">&quot;verification_failed&quot; </span>}])
+			.with_label_values(<span class="kw-2">&amp;</span>[<span class="kw">if </span>success { <span class="string">"success" </span>} <span class="kw">else </span>{ <span class="string">"verification_failed" </span>}])
 			.observe(time.as_secs_f64());
 	}
 

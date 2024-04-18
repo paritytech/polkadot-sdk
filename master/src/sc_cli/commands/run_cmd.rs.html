@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/cli/src/commands/run_cmd.rs`."><title>run_cmd.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/cli/src/commands/run_cmd.rs`."><title>run_cmd.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sc_cli" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sc_cli" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../sc_cli/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -785,7 +787,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// RPC methods to expose.
 	</span><span class="attr">#[arg(
 		long,
-		value_name = <span class="string">&quot;METHOD SET&quot;</span>,
+		value_name = <span class="string">"METHOD SET"</span>,
 		value_enum,
 		ignore_case = <span class="bool-val">true</span>,
 		default_value_t = RpcMethods::Auto,
@@ -815,11 +817,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>rpc_max_subscriptions_per_connection: u32,
 
 	<span class="doccomment">/// Specify JSON-RPC server TCP port.
-	</span><span class="attr">#[arg(long, value_name = <span class="string">&quot;PORT&quot;</span>)]
+	</span><span class="attr">#[arg(long, value_name = <span class="string">"PORT"</span>)]
 	</span><span class="kw">pub </span>rpc_port: <span class="prelude-ty">Option</span>&lt;u16&gt;,
 
 	<span class="doccomment">/// Maximum number of RPC server connections.
-	</span><span class="attr">#[arg(long, value_name = <span class="string">&quot;COUNT&quot;</span>, default_value_t = RPC_DEFAULT_MAX_CONNECTIONS)]
+	</span><span class="attr">#[arg(long, value_name = <span class="string">"COUNT"</span>, default_value_t = RPC_DEFAULT_MAX_CONNECTIONS)]
 	</span><span class="kw">pub </span>rpc_max_connections: u32,
 
 	<span class="doccomment">/// The number of messages the RPC server is allowed to keep in memory.
@@ -834,11 +836,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>rpc_message_buffer_capacity_per_connection: u32,
 
 	<span class="doccomment">/// Disable RPC batch requests
-	</span><span class="attr">#[arg(long, alias = <span class="string">&quot;rpc_no_batch_requests&quot;</span>, conflicts_with_all = <span class="kw-2">&amp;</span>[<span class="string">&quot;rpc_max_batch_request_len&quot;</span>]</span>)]
+	</span><span class="attr">#[arg(long, alias = <span class="string">"rpc_no_batch_requests"</span>, conflicts_with_all = <span class="kw-2">&amp;</span>[<span class="string">"rpc_max_batch_request_len"</span>]</span>)]
 	<span class="kw">pub </span>rpc_disable_batch_requests: bool,
 
 	<span class="doccomment">/// Limit the max length per RPC batch request
-	</span><span class="attr">#[arg(long, conflicts_with_all = <span class="kw-2">&amp;</span>[<span class="string">&quot;rpc_disable_batch_requests&quot;</span>]</span>, value_name = <span class="string">&quot;LEN&quot;</span>)]
+	</span><span class="attr">#[arg(long, conflicts_with_all = <span class="kw-2">&amp;</span>[<span class="string">"rpc_disable_batch_requests"</span>]</span>, value_name = <span class="string">"LEN"</span>)]
 	<span class="kw">pub </span>rpc_max_batch_request_len: <span class="prelude-ty">Option</span>&lt;u32&gt;,
 
 	<span class="doccomment">/// Specify browser *origins* allowed to access the HTTP &amp; WS RPC servers.
@@ -847,13 +849,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// value). Value of `all` will disable origin validation. Default is to
 	/// allow localhost and &lt;https://polkadot.js.org&gt; origins. When running in
 	/// `--dev` mode the default is to allow all origins.
-	</span><span class="attr">#[arg(long, value_name = <span class="string">&quot;ORIGINS&quot;</span>)]
+	</span><span class="attr">#[arg(long, value_name = <span class="string">"ORIGINS"</span>)]
 	</span><span class="kw">pub </span>rpc_cors: <span class="prelude-ty">Option</span>&lt;Cors&gt;,
 
 	<span class="doccomment">/// The human-readable name for this node.
 	///
-	/// It&#39;s used as network node name.
-	</span><span class="attr">#[arg(long, value_name = <span class="string">&quot;NAME&quot;</span>)]
+	/// It's used as network node name.
+	</span><span class="attr">#[arg(long, value_name = <span class="string">"NAME"</span>)]
 	</span><span class="kw">pub </span>name: <span class="prelude-ty">Option</span>&lt;String&gt;,
 
 	<span class="attr">#[allow(missing_docs)]
@@ -895,49 +897,49 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Shortcut for `--name Alice --validator`.
 	///
 	/// Session keys for `Alice` are added to keystore.
-	</span><span class="attr">#[arg(long, conflicts_with_all = <span class="kw-2">&amp;</span>[<span class="string">&quot;bob&quot;</span>, <span class="string">&quot;charlie&quot;</span>, <span class="string">&quot;dave&quot;</span>, <span class="string">&quot;eve&quot;</span>, <span class="string">&quot;ferdie&quot;</span>, <span class="string">&quot;one&quot;</span>, <span class="string">&quot;two&quot;</span>]</span>)]
+	</span><span class="attr">#[arg(long, conflicts_with_all = <span class="kw-2">&amp;</span>[<span class="string">"bob"</span>, <span class="string">"charlie"</span>, <span class="string">"dave"</span>, <span class="string">"eve"</span>, <span class="string">"ferdie"</span>, <span class="string">"one"</span>, <span class="string">"two"</span>]</span>)]
 	<span class="kw">pub </span>alice: bool,
 
 	<span class="doccomment">/// Shortcut for `--name Bob --validator`.
 	///
 	/// Session keys for `Bob` are added to keystore.
-	</span><span class="attr">#[arg(long, conflicts_with_all = <span class="kw-2">&amp;</span>[<span class="string">&quot;alice&quot;</span>, <span class="string">&quot;charlie&quot;</span>, <span class="string">&quot;dave&quot;</span>, <span class="string">&quot;eve&quot;</span>, <span class="string">&quot;ferdie&quot;</span>, <span class="string">&quot;one&quot;</span>, <span class="string">&quot;two&quot;</span>]</span>)]
+	</span><span class="attr">#[arg(long, conflicts_with_all = <span class="kw-2">&amp;</span>[<span class="string">"alice"</span>, <span class="string">"charlie"</span>, <span class="string">"dave"</span>, <span class="string">"eve"</span>, <span class="string">"ferdie"</span>, <span class="string">"one"</span>, <span class="string">"two"</span>]</span>)]
 	<span class="kw">pub </span>bob: bool,
 
 	<span class="doccomment">/// Shortcut for `--name Charlie --validator`.
 	///
 	/// Session keys for `Charlie` are added to keystore.
-	</span><span class="attr">#[arg(long, conflicts_with_all = <span class="kw-2">&amp;</span>[<span class="string">&quot;alice&quot;</span>, <span class="string">&quot;bob&quot;</span>, <span class="string">&quot;dave&quot;</span>, <span class="string">&quot;eve&quot;</span>, <span class="string">&quot;ferdie&quot;</span>, <span class="string">&quot;one&quot;</span>, <span class="string">&quot;two&quot;</span>]</span>)]
+	</span><span class="attr">#[arg(long, conflicts_with_all = <span class="kw-2">&amp;</span>[<span class="string">"alice"</span>, <span class="string">"bob"</span>, <span class="string">"dave"</span>, <span class="string">"eve"</span>, <span class="string">"ferdie"</span>, <span class="string">"one"</span>, <span class="string">"two"</span>]</span>)]
 	<span class="kw">pub </span>charlie: bool,
 
 	<span class="doccomment">/// Shortcut for `--name Dave --validator`.
 	///
 	/// Session keys for `Dave` are added to keystore.
-	</span><span class="attr">#[arg(long, conflicts_with_all = <span class="kw-2">&amp;</span>[<span class="string">&quot;alice&quot;</span>, <span class="string">&quot;bob&quot;</span>, <span class="string">&quot;charlie&quot;</span>, <span class="string">&quot;eve&quot;</span>, <span class="string">&quot;ferdie&quot;</span>, <span class="string">&quot;one&quot;</span>, <span class="string">&quot;two&quot;</span>]</span>)]
+	</span><span class="attr">#[arg(long, conflicts_with_all = <span class="kw-2">&amp;</span>[<span class="string">"alice"</span>, <span class="string">"bob"</span>, <span class="string">"charlie"</span>, <span class="string">"eve"</span>, <span class="string">"ferdie"</span>, <span class="string">"one"</span>, <span class="string">"two"</span>]</span>)]
 	<span class="kw">pub </span>dave: bool,
 
 	<span class="doccomment">/// Shortcut for `--name Eve --validator`.
 	///
 	/// Session keys for `Eve` are added to keystore.
-	</span><span class="attr">#[arg(long, conflicts_with_all = <span class="kw-2">&amp;</span>[<span class="string">&quot;alice&quot;</span>, <span class="string">&quot;bob&quot;</span>, <span class="string">&quot;charlie&quot;</span>, <span class="string">&quot;dave&quot;</span>, <span class="string">&quot;ferdie&quot;</span>, <span class="string">&quot;one&quot;</span>, <span class="string">&quot;two&quot;</span>]</span>)]
+	</span><span class="attr">#[arg(long, conflicts_with_all = <span class="kw-2">&amp;</span>[<span class="string">"alice"</span>, <span class="string">"bob"</span>, <span class="string">"charlie"</span>, <span class="string">"dave"</span>, <span class="string">"ferdie"</span>, <span class="string">"one"</span>, <span class="string">"two"</span>]</span>)]
 	<span class="kw">pub </span>eve: bool,
 
 	<span class="doccomment">/// Shortcut for `--name Ferdie --validator`.
 	///
 	/// Session keys for `Ferdie` are added to keystore.
-	</span><span class="attr">#[arg(long, conflicts_with_all = <span class="kw-2">&amp;</span>[<span class="string">&quot;alice&quot;</span>, <span class="string">&quot;bob&quot;</span>, <span class="string">&quot;charlie&quot;</span>, <span class="string">&quot;dave&quot;</span>, <span class="string">&quot;eve&quot;</span>, <span class="string">&quot;one&quot;</span>, <span class="string">&quot;two&quot;</span>]</span>)]
+	</span><span class="attr">#[arg(long, conflicts_with_all = <span class="kw-2">&amp;</span>[<span class="string">"alice"</span>, <span class="string">"bob"</span>, <span class="string">"charlie"</span>, <span class="string">"dave"</span>, <span class="string">"eve"</span>, <span class="string">"one"</span>, <span class="string">"two"</span>]</span>)]
 	<span class="kw">pub </span>ferdie: bool,
 
 	<span class="doccomment">/// Shortcut for `--name One --validator`.
 	///
 	/// Session keys for `One` are added to keystore.
-	</span><span class="attr">#[arg(long, conflicts_with_all = <span class="kw-2">&amp;</span>[<span class="string">&quot;alice&quot;</span>, <span class="string">&quot;bob&quot;</span>, <span class="string">&quot;charlie&quot;</span>, <span class="string">&quot;dave&quot;</span>, <span class="string">&quot;eve&quot;</span>, <span class="string">&quot;ferdie&quot;</span>, <span class="string">&quot;two&quot;</span>]</span>)]
+	</span><span class="attr">#[arg(long, conflicts_with_all = <span class="kw-2">&amp;</span>[<span class="string">"alice"</span>, <span class="string">"bob"</span>, <span class="string">"charlie"</span>, <span class="string">"dave"</span>, <span class="string">"eve"</span>, <span class="string">"ferdie"</span>, <span class="string">"two"</span>]</span>)]
 	<span class="kw">pub </span>one: bool,
 
 	<span class="doccomment">/// Shortcut for `--name Two --validator`.
 	///
 	/// Session keys for `Two` are added to keystore.
-	</span><span class="attr">#[arg(long, conflicts_with_all = <span class="kw-2">&amp;</span>[<span class="string">&quot;alice&quot;</span>, <span class="string">&quot;bob&quot;</span>, <span class="string">&quot;charlie&quot;</span>, <span class="string">&quot;dave&quot;</span>, <span class="string">&quot;eve&quot;</span>, <span class="string">&quot;ferdie&quot;</span>, <span class="string">&quot;one&quot;</span>]</span>)]
+	</span><span class="attr">#[arg(long, conflicts_with_all = <span class="kw-2">&amp;</span>[<span class="string">"alice"</span>, <span class="string">"bob"</span>, <span class="string">"charlie"</span>, <span class="string">"dave"</span>, <span class="string">"eve"</span>, <span class="string">"ferdie"</span>, <span class="string">"one"</span>]</span>)]
 	<span class="kw">pub </span>two: bool,
 
 	<span class="doccomment">/// Enable authoring even when offline.
@@ -953,7 +955,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// which includes: database, node key and keystore.
 	///
 	/// When `--dev` is given and no explicit `--base-path`, this option is implied.
-	</span><span class="attr">#[arg(long, conflicts_with = <span class="string">&quot;base_path&quot;</span>)]
+	</span><span class="attr">#[arg(long, conflicts_with = <span class="string">"base_path"</span>)]
 	</span><span class="kw">pub </span>tmp: bool,
 }
 
@@ -1014,7 +1016,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		is_node_name_valid(<span class="kw-2">&amp;</span>name).map_err(|msg| {
 			Error::Input(<span class="macro">format!</span>(
-				<span class="string">&quot;Invalid node name &#39;{}&#39;. Reason: {}. If unsure, use none.&quot;</span>,
+				<span class="string">"Invalid node name '{}'. Reason: {}. If unsure, use none."</span>,
 				name, msg
 			))
 		})<span class="question-mark">?</span>;
@@ -1023,9 +1025,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">fn </span>dev_key_seed(<span class="kw-2">&amp;</span><span class="self">self</span>, is_dev: bool) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;String&gt;&gt; {
-		<span class="prelude-val">Ok</span>(<span class="self">self</span>.get_keyring().map(|a| <span class="macro">format!</span>(<span class="string">&quot;//{}&quot;</span>, a)).or_else(|| {
+		<span class="prelude-val">Ok</span>(<span class="self">self</span>.get_keyring().map(|a| <span class="macro">format!</span>(<span class="string">"//{}"</span>, a)).or_else(|| {
 			<span class="kw">if </span>is_dev {
-				<span class="prelude-val">Some</span>(<span class="string">&quot;//Alice&quot;</span>.into())
+				<span class="prelude-val">Some</span>(<span class="string">"//Alice"</span>.into())
 			} <span class="kw">else </span>{
 				<span class="prelude-val">None
 			</span>}
@@ -1085,15 +1087,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.clone()
 			.unwrap_or_else(|| {
 				<span class="kw">if </span>is_dev {
-					<span class="macro">log::warn!</span>(<span class="string">&quot;Running in --dev mode, RPC CORS has been disabled.&quot;</span>);
+					<span class="macro">log::warn!</span>(<span class="string">"Running in --dev mode, RPC CORS has been disabled."</span>);
 					Cors::All
 				} <span class="kw">else </span>{
 					Cors::List(<span class="macro">vec!</span>[
-						<span class="string">&quot;http://localhost:*&quot;</span>.into(),
-						<span class="string">&quot;http://127.0.0.1:*&quot;</span>.into(),
-						<span class="string">&quot;https://localhost:*&quot;</span>.into(),
-						<span class="string">&quot;https://127.0.0.1:*&quot;</span>.into(),
-						<span class="string">&quot;https://polkadot.js.org&quot;</span>.into(),
+						<span class="string">"http://localhost:*"</span>.into(),
+						<span class="string">"http://127.0.0.1:*"</span>.into(),
+						<span class="string">"https://localhost:*"</span>.into(),
+						<span class="string">"https://127.0.0.1:*"</span>.into(),
+						<span class="string">"https://polkadot.js.org"</span>.into(),
 					])
 				}
 			})
@@ -1178,23 +1180,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>name = _name.to_string();
 
 	<span class="kw">if </span>name.is_empty() {
-		<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;Node name cannot be empty&quot;</span>)
+		<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Node name cannot be empty"</span>)
 	}
 
 	<span class="kw">if </span>name.chars().count() &gt;= <span class="kw">crate</span>::NODE_NAME_MAX_LENGTH {
-		<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;Node name too long&quot;</span>)
+		<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Node name too long"</span>)
 	}
 
-	<span class="kw">let </span>invalid_chars = <span class="string">r&quot;[\\.@]&quot;</span>;
+	<span class="kw">let </span>invalid_chars = <span class="string">r"[\\.@]"</span>;
 	<span class="kw">let </span>re = Regex::new(invalid_chars).unwrap();
 	<span class="kw">if </span>re.is_match(<span class="kw-2">&amp;</span>name) {
-		<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;Node name should not contain invalid chars such as &#39;.&#39; and &#39;@&#39;&quot;</span>)
+		<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Node name should not contain invalid chars such as '.' and '@'"</span>)
 	}
 
-	<span class="kw">let </span>invalid_patterns = <span class="string">r&quot;^https?:&quot;</span>;
+	<span class="kw">let </span>invalid_patterns = <span class="string">r"^https?:"</span>;
 	<span class="kw">let </span>re = Regex::new(invalid_patterns).unwrap();
 	<span class="kw">if </span>re.is_match(<span class="kw-2">&amp;</span>name) {
-		<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;Node name should not contain urls&quot;</span>)
+		<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Node name should not contain urls"</span>)
 	}
 
 	<span class="prelude-val">Ok</span>(())
@@ -1208,9 +1210,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ) -&gt; <span class="prelude-ty">Result</span>&lt;IpAddr&gt; {
 	<span class="kw">if </span>is_external &amp;&amp; is_validator &amp;&amp; rpc_methods != RpcMethods::Unsafe {
 		<span class="kw">return </span><span class="prelude-val">Err</span>(Error::Input(
-			<span class="string">&quot;--rpc-external option shouldn&#39;t be used if the node is running as \
+			<span class="string">"--rpc-external option shouldn't be used if the node is running as \
 			 a validator. Use `--unsafe-rpc-external` or `--rpc-methods=unsafe` if you understand \
-			 the risks. See the options description for more information.&quot;
+			 the risks. See the options description for more information."
 				</span>.to_owned(),
 		))
 	}
@@ -1218,8 +1220,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">if </span>is_external || is_unsafe_external {
 		<span class="kw">if </span>rpc_methods == RpcMethods::Unsafe {
 			<span class="macro">log::warn!</span>(
-				<span class="string">&quot;It isn&#39;t safe to expose RPC publicly without a proxy server that filters \
-				 available set of RPC methods.&quot;
+				<span class="string">"It isn't safe to expose RPC publicly without a proxy server that filters \
+				 available set of RPC methods."
 			</span>);
 		}
 
@@ -1235,34 +1237,34 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>tests_node_name_good() {
-		<span class="macro">assert!</span>(is_node_name_valid(<span class="string">&quot;short name&quot;</span>).is_ok());
-		<span class="macro">assert!</span>(is_node_name_valid(<span class="string">&quot;www&quot;</span>).is_ok());
-		<span class="macro">assert!</span>(is_node_name_valid(<span class="string">&quot;aawww&quot;</span>).is_ok());
-		<span class="macro">assert!</span>(is_node_name_valid(<span class="string">&quot;wwwaa&quot;</span>).is_ok());
-		<span class="macro">assert!</span>(is_node_name_valid(<span class="string">&quot;www aa&quot;</span>).is_ok());
+		<span class="macro">assert!</span>(is_node_name_valid(<span class="string">"short name"</span>).is_ok());
+		<span class="macro">assert!</span>(is_node_name_valid(<span class="string">"www"</span>).is_ok());
+		<span class="macro">assert!</span>(is_node_name_valid(<span class="string">"aawww"</span>).is_ok());
+		<span class="macro">assert!</span>(is_node_name_valid(<span class="string">"wwwaa"</span>).is_ok());
+		<span class="macro">assert!</span>(is_node_name_valid(<span class="string">"www aa"</span>).is_ok());
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>tests_node_name_bad() {
-		<span class="macro">assert!</span>(is_node_name_valid(<span class="string">&quot;&quot;</span>).is_err());
+		<span class="macro">assert!</span>(is_node_name_valid(<span class="string">""</span>).is_err());
 		<span class="macro">assert!</span>(is_node_name_valid(
-			<span class="string">&quot;very very long names are really not very cool for the ui at all, really they&#39;re not&quot;
+			<span class="string">"very very long names are really not very cool for the ui at all, really they're not"
 		</span>)
 		.is_err());
-		<span class="macro">assert!</span>(is_node_name_valid(<span class="string">&quot;Dots.not.Ok&quot;</span>).is_err());
-		<span class="comment">// NOTE: the urls below don&#39;t include a domain otherwise
-		// they&#39;d get filtered for including a `.`
-		</span><span class="macro">assert!</span>(is_node_name_valid(<span class="string">&quot;http://visitme&quot;</span>).is_err());
-		<span class="macro">assert!</span>(is_node_name_valid(<span class="string">&quot;http:/visitme&quot;</span>).is_err());
-		<span class="macro">assert!</span>(is_node_name_valid(<span class="string">&quot;http:visitme&quot;</span>).is_err());
-		<span class="macro">assert!</span>(is_node_name_valid(<span class="string">&quot;https://visitme&quot;</span>).is_err());
-		<span class="macro">assert!</span>(is_node_name_valid(<span class="string">&quot;https:/visitme&quot;</span>).is_err());
-		<span class="macro">assert!</span>(is_node_name_valid(<span class="string">&quot;https:visitme&quot;</span>).is_err());
-		<span class="macro">assert!</span>(is_node_name_valid(<span class="string">&quot;www.visit.me&quot;</span>).is_err());
-		<span class="macro">assert!</span>(is_node_name_valid(<span class="string">&quot;www.visit&quot;</span>).is_err());
-		<span class="macro">assert!</span>(is_node_name_valid(<span class="string">&quot;hello\\world&quot;</span>).is_err());
-		<span class="macro">assert!</span>(is_node_name_valid(<span class="string">&quot;visit.www&quot;</span>).is_err());
-		<span class="macro">assert!</span>(is_node_name_valid(<span class="string">&quot;email@domain&quot;</span>).is_err());
+		<span class="macro">assert!</span>(is_node_name_valid(<span class="string">"Dots.not.Ok"</span>).is_err());
+		<span class="comment">// NOTE: the urls below don't include a domain otherwise
+		// they'd get filtered for including a `.`
+		</span><span class="macro">assert!</span>(is_node_name_valid(<span class="string">"http://visitme"</span>).is_err());
+		<span class="macro">assert!</span>(is_node_name_valid(<span class="string">"http:/visitme"</span>).is_err());
+		<span class="macro">assert!</span>(is_node_name_valid(<span class="string">"http:visitme"</span>).is_err());
+		<span class="macro">assert!</span>(is_node_name_valid(<span class="string">"https://visitme"</span>).is_err());
+		<span class="macro">assert!</span>(is_node_name_valid(<span class="string">"https:/visitme"</span>).is_err());
+		<span class="macro">assert!</span>(is_node_name_valid(<span class="string">"https:visitme"</span>).is_err());
+		<span class="macro">assert!</span>(is_node_name_valid(<span class="string">"www.visit.me"</span>).is_err());
+		<span class="macro">assert!</span>(is_node_name_valid(<span class="string">"www.visit"</span>).is_err());
+		<span class="macro">assert!</span>(is_node_name_valid(<span class="string">"hello\\world"</span>).is_err());
+		<span class="macro">assert!</span>(is_node_name_valid(<span class="string">"visit.www"</span>).is_err());
+		<span class="macro">assert!</span>(is_node_name_valid(<span class="string">"email@domain"</span>).is_err());
 	}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/cli/src/params/network_params.rs`."><title>network_params.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/cli/src/params/network_params.rs`."><title>network_params.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sc_cli" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sc_cli" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../sc_cli/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -522,11 +524,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[derive(Debug, Clone, Args)]
 </span><span class="kw">pub struct </span>NetworkParams {
 	<span class="doccomment">/// Specify a list of bootnodes.
-	</span><span class="attr">#[arg(long, value_name = <span class="string">&quot;ADDR&quot;</span>, num_args = <span class="number">1</span>..)]
+	</span><span class="attr">#[arg(long, value_name = <span class="string">"ADDR"</span>, num_args = <span class="number">1</span>..)]
 	</span><span class="kw">pub </span>bootnodes: Vec&lt;MultiaddrWithPeerId&gt;,
 
 	<span class="doccomment">/// Specify a list of reserved node addresses.
-	</span><span class="attr">#[arg(long, value_name = <span class="string">&quot;ADDR&quot;</span>, num_args = <span class="number">1</span>..)]
+	</span><span class="attr">#[arg(long, value_name = <span class="string">"ADDR"</span>, num_args = <span class="number">1</span>..)]
 	</span><span class="kw">pub </span>reserved_nodes: Vec&lt;MultiaddrWithPeerId&gt;,
 
 	<span class="doccomment">/// Whether to only synchronize the chain with reserved nodes.
@@ -541,8 +543,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Public address that other nodes will use to connect to this node.
 	///
-	/// This can be used if there&#39;s a proxy in front of this node.
-	</span><span class="attr">#[arg(long, value_name = <span class="string">&quot;PUBLIC_ADDR&quot;</span>, num_args = <span class="number">1</span>..)]
+	/// This can be used if there's a proxy in front of this node.
+	</span><span class="attr">#[arg(long, value_name = <span class="string">"PUBLIC_ADDR"</span>, num_args = <span class="number">1</span>..)]
 	</span><span class="kw">pub </span>public_addr: Vec&lt;Multiaddr&gt;,
 
 	<span class="doccomment">/// Listen on this multiaddress.
@@ -550,44 +552,44 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// By default:
 	/// If `--validator` is passed: `/ip4/0.0.0.0/tcp/&lt;port&gt;` and `/ip6/[::]/tcp/&lt;port&gt;`.
 	/// Otherwise: `/ip4/0.0.0.0/tcp/&lt;port&gt;/ws` and `/ip6/[::]/tcp/&lt;port&gt;/ws`.
-	</span><span class="attr">#[arg(long, value_name = <span class="string">&quot;LISTEN_ADDR&quot;</span>, num_args = <span class="number">1</span>..)]
+	</span><span class="attr">#[arg(long, value_name = <span class="string">"LISTEN_ADDR"</span>, num_args = <span class="number">1</span>..)]
 	</span><span class="kw">pub </span>listen_addr: Vec&lt;Multiaddr&gt;,
 
 	<span class="doccomment">/// Specify p2p protocol TCP port.
-	</span><span class="attr">#[arg(long, value_name = <span class="string">&quot;PORT&quot;</span>, conflicts_with_all = <span class="kw-2">&amp;</span>[ <span class="string">&quot;listen_addr&quot; </span>]</span>)]
+	</span><span class="attr">#[arg(long, value_name = <span class="string">"PORT"</span>, conflicts_with_all = <span class="kw-2">&amp;</span>[ <span class="string">"listen_addr" </span>]</span>)]
 	<span class="kw">pub </span>port: <span class="prelude-ty">Option</span>&lt;u16&gt;,
 
 	<span class="doccomment">/// Always forbid connecting to private IPv4/IPv6 addresses.
 	///
-	/// The option doesn&#39;t apply to addresses passed with `--reserved-nodes` or
-	/// `--bootnodes`. Enabled by default for chains marked as &quot;live&quot; in their chain
+	/// The option doesn't apply to addresses passed with `--reserved-nodes` or
+	/// `--bootnodes`. Enabled by default for chains marked as "live" in their chain
 	/// specifications.
 	///
 	/// Address allocation for private networks is specified by
 	/// [RFC1918](https://tools.ietf.org/html/rfc1918)).
-	</span><span class="attr">#[arg(long, alias = <span class="string">&quot;no-private-ipv4&quot;</span>, conflicts_with_all = <span class="kw-2">&amp;</span>[<span class="string">&quot;allow_private_ip&quot;</span>]</span>)]
+	</span><span class="attr">#[arg(long, alias = <span class="string">"no-private-ipv4"</span>, conflicts_with_all = <span class="kw-2">&amp;</span>[<span class="string">"allow_private_ip"</span>]</span>)]
 	<span class="kw">pub </span>no_private_ip: bool,
 
 	<span class="doccomment">/// Always accept connecting to private IPv4/IPv6 addresses.
 	///
-	/// Enabled by default for chains marked as &quot;local&quot; in their chain specifications,
+	/// Enabled by default for chains marked as "local" in their chain specifications,
 	/// or when `--dev` is passed.
 	///
 	/// Address allocation for private networks is specified by
 	/// [RFC1918](https://tools.ietf.org/html/rfc1918)).
-	</span><span class="attr">#[arg(long, alias = <span class="string">&quot;allow-private-ipv4&quot;</span>, conflicts_with_all = <span class="kw-2">&amp;</span>[<span class="string">&quot;no_private_ip&quot;</span>]</span>)]
+	</span><span class="attr">#[arg(long, alias = <span class="string">"allow-private-ipv4"</span>, conflicts_with_all = <span class="kw-2">&amp;</span>[<span class="string">"no_private_ip"</span>]</span>)]
 	<span class="kw">pub </span>allow_private_ip: bool,
 
-	<span class="doccomment">/// Number of outgoing connections we&#39;re trying to maintain.
-	</span><span class="attr">#[arg(long, value_name = <span class="string">&quot;COUNT&quot;</span>, default_value_t = <span class="number">8</span>)]
+	<span class="doccomment">/// Number of outgoing connections we're trying to maintain.
+	</span><span class="attr">#[arg(long, value_name = <span class="string">"COUNT"</span>, default_value_t = <span class="number">8</span>)]
 	</span><span class="kw">pub </span>out_peers: u32,
 
 	<span class="doccomment">/// Maximum number of inbound full nodes peers.
-	</span><span class="attr">#[arg(long, value_name = <span class="string">&quot;COUNT&quot;</span>, default_value_t = <span class="number">32</span>)]
+	</span><span class="attr">#[arg(long, value_name = <span class="string">"COUNT"</span>, default_value_t = <span class="number">32</span>)]
 	</span><span class="kw">pub </span>in_peers: u32,
 
 	<span class="doccomment">/// Maximum number of inbound light nodes peers.
-	</span><span class="attr">#[arg(long, value_name = <span class="string">&quot;COUNT&quot;</span>, default_value_t = <span class="number">100</span>)]
+	</span><span class="attr">#[arg(long, value_name = <span class="string">"COUNT"</span>, default_value_t = <span class="number">100</span>)]
 	</span><span class="kw">pub </span>in_peers_light: u32,
 
 	<span class="doccomment">/// Disable mDNS discovery (default: true).
@@ -601,7 +603,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// This allows downloading announced blocks from multiple peers.
 	/// Decrease to save traffic and risk increased latency.
-	</span><span class="attr">#[arg(long, value_name = <span class="string">&quot;COUNT&quot;</span>, default_value_t = <span class="number">5</span>)]
+	</span><span class="attr">#[arg(long, value_name = <span class="string">"COUNT"</span>, default_value_t = <span class="number">5</span>)]
 	</span><span class="kw">pub </span>max_parallel_downloads: u32,
 
 	<span class="attr">#[allow(missing_docs)]
@@ -630,7 +632,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// Discovery mechanism requires successful replication to all
 	/// `kademlia_replication_factor` peers to consider record successfully put.
-	</span><span class="attr">#[arg(long, default_value = <span class="string">&quot;20&quot;</span>)]
+	</span><span class="attr">#[arg(long, default_value = <span class="string">"20"</span>)]
 	</span><span class="kw">pub </span>kademlia_replication_factor: NonZeroUsize,
 
 	<span class="doccomment">/// Join the IPFS network and serve transactions over bitswap protocol.
@@ -641,7 +643,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="attr">#[arg(
 		long,
 		value_enum,
-		value_name = <span class="string">&quot;SYNC_MODE&quot;</span>,
+		value_name = <span class="string">"SYNC_MODE"</span>,
 		default_value_t = SyncMode::Full,
 		ignore_case = <span class="bool-val">true</span>,
 		verbatim_doc_comment
@@ -652,17 +654,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// Try reducing this number from the default value if you have a slow network connection
 	/// and observe block requests timing out.
-	</span><span class="attr">#[arg(long, value_name = <span class="string">&quot;COUNT&quot;</span>, default_value_t = <span class="number">64</span>)]
+	</span><span class="attr">#[arg(long, value_name = <span class="string">"COUNT"</span>, default_value_t = <span class="number">64</span>)]
 	</span><span class="kw">pub </span>max_blocks_per_request: u32,
 
 	<span class="doccomment">/// Network backend used for P2P networking.
 	///
-	/// litep2p network backend is considered experimental and isn&#39;t as stable as the libp2p
+	/// litep2p network backend is considered experimental and isn't as stable as the libp2p
 	/// network backend.
 	</span><span class="attr">#[arg(
 		long,
 		value_enum,
-		value_name = <span class="string">&quot;NETWORK_BACKEND&quot;</span>,
+		value_name = <span class="string">"NETWORK_BACKEND"</span>,
 		default_value_t = NetworkBackendType::Libp2p,
 		ignore_case = <span class="bool-val">true</span>,
 		verbatim_doc_comment
@@ -700,11 +702,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					Multiaddr::empty()
 						.with(Protocol::Ip6([<span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>].into()))
 						.with(Protocol::Tcp(port))
-						.with(Protocol::Ws(Cow::Borrowed(<span class="string">&quot;/&quot;</span>))),
+						.with(Protocol::Ws(Cow::Borrowed(<span class="string">"/"</span>))),
 					Multiaddr::empty()
 						.with(Protocol::Ip4([<span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>].into()))
 						.with(Protocol::Tcp(port))
-						.with(Protocol::Ws(Cow::Borrowed(<span class="string">&quot;/&quot;</span>))),
+						.with(Protocol::Ws(Cow::Borrowed(<span class="string">"/"</span>))),
 				]
 			}
 		} <span class="kw">else </span>{
@@ -724,7 +726,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				is_dev || <span class="macro">matches!</span>(chain_type, ChainType::Local | ChainType::Development);
 
 		<span class="kw">let </span>allow_private_ip = <span class="kw">match </span>(<span class="self">self</span>.allow_private_ip, <span class="self">self</span>.no_private_ip) {
-			(<span class="bool-val">true</span>, <span class="bool-val">true</span>) =&gt; <span class="macro">unreachable!</span>(<span class="string">&quot;`*_private_ip` flags are mutually exclusive; qed&quot;</span>),
+			(<span class="bool-val">true</span>, <span class="bool-val">true</span>) =&gt; <span class="macro">unreachable!</span>(<span class="string">"`*_private_ip` flags are mutually exclusive; qed"</span>),
 			(<span class="bool-val">true</span>, <span class="bool-val">false</span>) =&gt; <span class="bool-val">true</span>,
 			(<span class="bool-val">false</span>, <span class="bool-val">true</span>) =&gt; <span class="bool-val">false</span>,
 			(<span class="bool-val">false</span>, <span class="bool-val">false</span>) =&gt;
@@ -782,28 +784,28 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>reserved_nodes_multiple_values_and_occurrences() {
 		<span class="kw">let </span>params = Cli::try_parse_from([
-			<span class="string">&quot;&quot;</span>,
-			<span class="string">&quot;--reserved-nodes&quot;</span>,
-			<span class="string">&quot;/ip4/0.0.0.0/tcp/501/p2p/12D3KooWEBo1HUPQJwiBmM5kSeg4XgiVxEArArQdDarYEsGxMfbS&quot;</span>,
-			<span class="string">&quot;/ip4/0.0.0.0/tcp/502/p2p/12D3KooWEBo1HUPQJwiBmM5kSeg4XgiVxEArArQdDarYEsGxMfbS&quot;</span>,
-			<span class="string">&quot;--reserved-nodes&quot;</span>,
-			<span class="string">&quot;/ip4/0.0.0.0/tcp/503/p2p/12D3KooWEBo1HUPQJwiBmM5kSeg4XgiVxEArArQdDarYEsGxMfbS&quot;</span>,
+			<span class="string">""</span>,
+			<span class="string">"--reserved-nodes"</span>,
+			<span class="string">"/ip4/0.0.0.0/tcp/501/p2p/12D3KooWEBo1HUPQJwiBmM5kSeg4XgiVxEArArQdDarYEsGxMfbS"</span>,
+			<span class="string">"/ip4/0.0.0.0/tcp/502/p2p/12D3KooWEBo1HUPQJwiBmM5kSeg4XgiVxEArArQdDarYEsGxMfbS"</span>,
+			<span class="string">"--reserved-nodes"</span>,
+			<span class="string">"/ip4/0.0.0.0/tcp/503/p2p/12D3KooWEBo1HUPQJwiBmM5kSeg4XgiVxEArArQdDarYEsGxMfbS"</span>,
 		])
-		.expect(<span class="string">&quot;Parses network params&quot;</span>);
+		.expect(<span class="string">"Parses network params"</span>);
 
 		<span class="kw">let </span>expected = <span class="macro">vec!</span>[
 			MultiaddrWithPeerId::try_from(
-				<span class="string">&quot;/ip4/0.0.0.0/tcp/501/p2p/12D3KooWEBo1HUPQJwiBmM5kSeg4XgiVxEArArQdDarYEsGxMfbS&quot;
+				<span class="string">"/ip4/0.0.0.0/tcp/501/p2p/12D3KooWEBo1HUPQJwiBmM5kSeg4XgiVxEArArQdDarYEsGxMfbS"
 					</span>.to_string(),
 			)
 			.unwrap(),
 			MultiaddrWithPeerId::try_from(
-				<span class="string">&quot;/ip4/0.0.0.0/tcp/502/p2p/12D3KooWEBo1HUPQJwiBmM5kSeg4XgiVxEArArQdDarYEsGxMfbS&quot;
+				<span class="string">"/ip4/0.0.0.0/tcp/502/p2p/12D3KooWEBo1HUPQJwiBmM5kSeg4XgiVxEArArQdDarYEsGxMfbS"
 					</span>.to_string(),
 			)
 			.unwrap(),
 			MultiaddrWithPeerId::try_from(
-				<span class="string">&quot;/ip4/0.0.0.0/tcp/503/p2p/12D3KooWEBo1HUPQJwiBmM5kSeg4XgiVxEArArQdDarYEsGxMfbS&quot;
+				<span class="string">"/ip4/0.0.0.0/tcp/503/p2p/12D3KooWEBo1HUPQJwiBmM5kSeg4XgiVxEArArQdDarYEsGxMfbS"
 					</span>.to_string(),
 			)
 			.unwrap(),
@@ -814,7 +816,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>sync_ignores_case() {
-		<span class="kw">let </span>params = Cli::try_parse_from([<span class="string">&quot;&quot;</span>, <span class="string">&quot;--sync&quot;</span>, <span class="string">&quot;wArP&quot;</span>]).expect(<span class="string">&quot;Parses network params&quot;</span>);
+		<span class="kw">let </span>params = Cli::try_parse_from([<span class="string">""</span>, <span class="string">"--sync"</span>, <span class="string">"wArP"</span>]).expect(<span class="string">"Parses network params"</span>);
 
 		<span class="macro">assert_eq!</span>(SyncMode::Warp, params.network_params.sync);
 	}

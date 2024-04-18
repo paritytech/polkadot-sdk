@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/support/procedural/src/pallet/parse/storage.rs`."><title>storage.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/support/procedural/src/pallet/parse/storage.rs`."><title>storage.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="frame_support_procedural" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="frame_support_procedural" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../../frame_support_procedural/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1099,14 +1101,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -1133,7 +1135,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Parse for one of the following:
 /// * `#[pallet::getter(fn dummy)]`
-/// * `#[pallet::storage_prefix = &quot;CustomName&quot;]`
+/// * `#[pallet::storage_prefix = "CustomName"]`
 /// * `#[pallet::unbounded]`
 /// * `#[pallet::whitelist_storage]
 /// * `#[pallet::disable_try_decode_storage]`
@@ -1181,7 +1183,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>renamed_prefix = content.parse::&lt;syn::LitStr&gt;()<span class="question-mark">?</span>;
 			<span class="comment">// Ensure the renamed prefix is a proper Rust identifier
 			</span>syn::parse_str::&lt;syn::Ident&gt;(<span class="kw-2">&amp;</span>renamed_prefix.value()).map_err(|<span class="kw">_</span>| {
-				<span class="kw">let </span>msg = <span class="macro">format!</span>(<span class="string">&quot;`{}` is not a valid identifier&quot;</span>, renamed_prefix.value());
+				<span class="kw">let </span>msg = <span class="macro">format!</span>(<span class="string">"`{}` is not a valid identifier"</span>, renamed_prefix.value());
 				syn::Error::new(renamed_prefix.span(), msg)
 			})<span class="question-mark">?</span>;
 
@@ -1229,7 +1231,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				attr =&gt;
 					<span class="kw">return </span><span class="prelude-val">Err</span>(syn::Error::new(
 						attr.attr_span(),
-						<span class="string">&quot;Invalid attribute: Duplicate attribute&quot;</span>,
+						<span class="string">"Invalid attribute: Duplicate attribute"</span>,
 					)),
 			}
 		}
@@ -1282,7 +1284,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// ident.
 	</span><span class="kw">pub </span>rename_as: <span class="prelude-ty">Option</span>&lt;syn::LitStr&gt;,
 	<span class="doccomment">/// Whereas the querytype of the storage is OptionQuery, ResultQuery or ValueQuery.
-	/// Note that this is best effort as it can&#39;t be determined when QueryKind is generic, and
+	/// Note that this is best effort as it can't be determined when QueryKind is generic, and
 	/// result can be false if user do some unexpected type alias.
 	</span><span class="kw">pub </span>query_kind: <span class="prelude-ty">Option</span>&lt;QueryKind&gt;,
 	<span class="doccomment">/// Where clause of type definition.
@@ -1395,7 +1397,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Check the generics in the `map` contains the generics in `gen` may contains generics in
-/// `optional_gen`, and doesn&#39;t contains any other.
+/// `optional_gen`, and doesn't contains any other.
 </span><span class="kw">fn </span>check_generics(
 	map: <span class="kw-2">&amp;</span>HashMap&lt;String, syn::AssocType&gt;,
 	mandatory_generics: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>str],
@@ -1407,17 +1409,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">let </span>expectation = {
 		<span class="kw">let </span><span class="kw-2">mut </span>e = <span class="macro">format!</span>(
-			<span class="string">&quot;`{}` expect generics {}and optional generics {}&quot;</span>,
+			<span class="string">"`{}` expect generics {}and optional generics {}"</span>,
 			storage_type_name,
 			mandatory_generics
 				.iter()
-				.map(|name| <span class="macro">format!</span>(<span class="string">&quot;`{}`, &quot;</span>, name))
+				.map(|name| <span class="macro">format!</span>(<span class="string">"`{}`, "</span>, name))
 				.collect::&lt;String&gt;(),
-			<span class="kw-2">&amp;</span>optional_generics.iter().map(|name| <span class="macro">format!</span>(<span class="string">&quot;`{}`, &quot;</span>, name)).collect::&lt;String&gt;(),
+			<span class="kw-2">&amp;</span>optional_generics.iter().map(|name| <span class="macro">format!</span>(<span class="string">"`{}`, "</span>, name)).collect::&lt;String&gt;(),
 		);
 		e.pop();
 		e.pop();
-		e.push(<span class="string">&#39;.&#39;</span>);
+		e.push(<span class="string">'.'</span>);
 		e
 	};
 
@@ -1426,7 +1428,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			!optional_generics.contains(<span class="kw-2">&amp;</span>gen_name.as_str())
 		{
 			<span class="kw">let </span>msg = <span class="macro">format!</span>(
-				<span class="string">&quot;Invalid pallet::storage, Unexpected generic `{}` for `{}`. {}&quot;</span>,
+				<span class="string">"Invalid pallet::storage, Unexpected generic `{}` for `{}`. {}"</span>,
 				gen_name, storage_type_name, expectation,
 			);
 			errors.push(syn::Error::new(gen_binding.span(), msg));
@@ -1436,7 +1438,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">for </span>mandatory_generic <span class="kw">in </span>mandatory_generics {
 		<span class="kw">if </span>!map.contains_key(<span class="kw-2">&amp;</span>mandatory_generic.to_string()) {
 			<span class="kw">let </span>msg = <span class="macro">format!</span>(
-				<span class="string">&quot;Invalid pallet::storage, cannot find `{}` generic, required for `{}`.&quot;</span>,
+				<span class="string">"Invalid pallet::storage, cannot find `{}` generic, required for `{}`."</span>,
 				mandatory_generic, storage_type_name
 			);
 			errors.push(syn::Error::new(args_span, msg));
@@ -1466,7 +1468,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="comment">// Ensure no duplicate.
 	</span><span class="kw">for </span>arg <span class="kw">in </span>args {
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(other) = parsed.get(<span class="kw-2">&amp;</span>arg.ident.to_string()) {
-			<span class="kw">let </span>msg = <span class="string">&quot;Invalid pallet::storage, Duplicated named generic&quot;</span>;
+			<span class="kw">let </span>msg = <span class="string">"Invalid pallet::storage, Duplicated named generic"</span>;
 			<span class="kw">let </span><span class="kw-2">mut </span>err = syn::Error::new(arg.ident.span(), msg);
 			err.combine(syn::Error::new(other.ident.span(), msg));
 			<span class="kw">return </span><span class="prelude-val">Err</span>(err)
@@ -1474,31 +1476,31 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		parsed.insert(arg.ident.to_string(), arg.clone());
 	}
 
-	<span class="kw">let </span><span class="kw-2">mut </span>map_mandatory_generics = <span class="macro">vec!</span>[<span class="string">&quot;Key&quot;</span>, <span class="string">&quot;Value&quot;</span>];
-	<span class="kw">let </span><span class="kw-2">mut </span>map_optional_generics = <span class="macro">vec!</span>[<span class="string">&quot;QueryKind&quot;</span>, <span class="string">&quot;OnEmpty&quot;</span>, <span class="string">&quot;MaxValues&quot;</span>];
+	<span class="kw">let </span><span class="kw-2">mut </span>map_mandatory_generics = <span class="macro">vec!</span>[<span class="string">"Key"</span>, <span class="string">"Value"</span>];
+	<span class="kw">let </span><span class="kw-2">mut </span>map_optional_generics = <span class="macro">vec!</span>[<span class="string">"QueryKind"</span>, <span class="string">"OnEmpty"</span>, <span class="string">"MaxValues"</span>];
 	<span class="kw">if </span>dev_mode {
-		map_optional_generics.push(<span class="string">&quot;Hasher&quot;</span>);
+		map_optional_generics.push(<span class="string">"Hasher"</span>);
 	} <span class="kw">else </span>{
-		map_mandatory_generics.push(<span class="string">&quot;Hasher&quot;</span>);
+		map_mandatory_generics.push(<span class="string">"Hasher"</span>);
 	}
 
 	<span class="kw">let </span>generics = <span class="kw">match </span>storage {
 		StorageKind::Value =&gt; {
 			check_generics(
 				<span class="kw-2">&amp;</span>parsed,
-				<span class="kw-2">&amp;</span>[<span class="string">&quot;Value&quot;</span>],
-				<span class="kw-2">&amp;</span>[<span class="string">&quot;QueryKind&quot;</span>, <span class="string">&quot;OnEmpty&quot;</span>],
-				<span class="string">&quot;StorageValue&quot;</span>,
+				<span class="kw-2">&amp;</span>[<span class="string">"Value"</span>],
+				<span class="kw-2">&amp;</span>[<span class="string">"QueryKind"</span>, <span class="string">"OnEmpty"</span>],
+				<span class="string">"StorageValue"</span>,
 				args_span,
 			)<span class="question-mark">?</span>;
 
 			StorageGenerics::Value {
 				value: parsed
-					.remove(<span class="string">&quot;Value&quot;</span>)
+					.remove(<span class="string">"Value"</span>)
 					.map(|binding| binding.ty)
-					.expect(<span class="string">&quot;checked above as mandatory generic&quot;</span>),
-				query_kind: parsed.remove(<span class="string">&quot;QueryKind&quot;</span>).map(|binding| binding.ty),
-				on_empty: parsed.remove(<span class="string">&quot;OnEmpty&quot;</span>).map(|binding| binding.ty),
+					.expect(<span class="string">"checked above as mandatory generic"</span>),
+				query_kind: parsed.remove(<span class="string">"QueryKind"</span>).map(|binding| binding.ty),
+				on_empty: parsed.remove(<span class="string">"OnEmpty"</span>).map(|binding| binding.ty),
 			}
 		},
 		StorageKind::Map =&gt; {
@@ -1506,26 +1508,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw-2">&amp;</span>parsed,
 				<span class="kw-2">&amp;</span>map_mandatory_generics,
 				<span class="kw-2">&amp;</span>map_optional_generics,
-				<span class="string">&quot;StorageMap&quot;</span>,
+				<span class="string">"StorageMap"</span>,
 				args_span,
 			)<span class="question-mark">?</span>;
 
 			StorageGenerics::Map {
 				hasher: parsed
-					.remove(<span class="string">&quot;Hasher&quot;</span>)
+					.remove(<span class="string">"Hasher"</span>)
 					.map(|binding| binding.ty)
 					.unwrap_or(<span class="macro">syn::parse_quote!</span>(Blake2_128Concat)),
 				key: parsed
-					.remove(<span class="string">&quot;Key&quot;</span>)
+					.remove(<span class="string">"Key"</span>)
 					.map(|binding| binding.ty)
-					.expect(<span class="string">&quot;checked above as mandatory generic&quot;</span>),
+					.expect(<span class="string">"checked above as mandatory generic"</span>),
 				value: parsed
-					.remove(<span class="string">&quot;Value&quot;</span>)
+					.remove(<span class="string">"Value"</span>)
 					.map(|binding| binding.ty)
-					.expect(<span class="string">&quot;checked above as mandatory generic&quot;</span>),
-				query_kind: parsed.remove(<span class="string">&quot;QueryKind&quot;</span>).map(|binding| binding.ty),
-				on_empty: parsed.remove(<span class="string">&quot;OnEmpty&quot;</span>).map(|binding| binding.ty),
-				max_values: parsed.remove(<span class="string">&quot;MaxValues&quot;</span>).map(|binding| binding.ty),
+					.expect(<span class="string">"checked above as mandatory generic"</span>),
+				query_kind: parsed.remove(<span class="string">"QueryKind"</span>).map(|binding| binding.ty),
+				on_empty: parsed.remove(<span class="string">"OnEmpty"</span>).map(|binding| binding.ty),
+				max_values: parsed.remove(<span class="string">"MaxValues"</span>).map(|binding| binding.ty),
 			}
 		},
 		StorageKind::CountedMap =&gt; {
@@ -1533,114 +1535,114 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw-2">&amp;</span>parsed,
 				<span class="kw-2">&amp;</span>map_mandatory_generics,
 				<span class="kw-2">&amp;</span>map_optional_generics,
-				<span class="string">&quot;CountedStorageMap&quot;</span>,
+				<span class="string">"CountedStorageMap"</span>,
 				args_span,
 			)<span class="question-mark">?</span>;
 
 			StorageGenerics::CountedMap {
 				hasher: parsed
-					.remove(<span class="string">&quot;Hasher&quot;</span>)
+					.remove(<span class="string">"Hasher"</span>)
 					.map(|binding| binding.ty)
 					.unwrap_or(syn::Type::Verbatim(<span class="macro">quote::quote! </span>{ Blake2_128Concat })),
 				key: parsed
-					.remove(<span class="string">&quot;Key&quot;</span>)
+					.remove(<span class="string">"Key"</span>)
 					.map(|binding| binding.ty)
-					.expect(<span class="string">&quot;checked above as mandatory generic&quot;</span>),
+					.expect(<span class="string">"checked above as mandatory generic"</span>),
 				value: parsed
-					.remove(<span class="string">&quot;Value&quot;</span>)
+					.remove(<span class="string">"Value"</span>)
 					.map(|binding| binding.ty)
-					.expect(<span class="string">&quot;checked above as mandatory generic&quot;</span>),
-				query_kind: parsed.remove(<span class="string">&quot;QueryKind&quot;</span>).map(|binding| binding.ty),
-				on_empty: parsed.remove(<span class="string">&quot;OnEmpty&quot;</span>).map(|binding| binding.ty),
-				max_values: parsed.remove(<span class="string">&quot;MaxValues&quot;</span>).map(|binding| binding.ty),
+					.expect(<span class="string">"checked above as mandatory generic"</span>),
+				query_kind: parsed.remove(<span class="string">"QueryKind"</span>).map(|binding| binding.ty),
+				on_empty: parsed.remove(<span class="string">"OnEmpty"</span>).map(|binding| binding.ty),
+				max_values: parsed.remove(<span class="string">"MaxValues"</span>).map(|binding| binding.ty),
 			}
 		},
 		StorageKind::DoubleMap =&gt; {
-			<span class="kw">let </span><span class="kw-2">mut </span>double_map_mandatory_generics = <span class="macro">vec!</span>[<span class="string">&quot;Key1&quot;</span>, <span class="string">&quot;Key2&quot;</span>, <span class="string">&quot;Value&quot;</span>];
+			<span class="kw">let </span><span class="kw-2">mut </span>double_map_mandatory_generics = <span class="macro">vec!</span>[<span class="string">"Key1"</span>, <span class="string">"Key2"</span>, <span class="string">"Value"</span>];
 			<span class="kw">if </span>dev_mode {
-				map_optional_generics.extend([<span class="string">&quot;Hasher1&quot;</span>, <span class="string">&quot;Hasher2&quot;</span>]);
+				map_optional_generics.extend([<span class="string">"Hasher1"</span>, <span class="string">"Hasher2"</span>]);
 			} <span class="kw">else </span>{
-				double_map_mandatory_generics.extend([<span class="string">&quot;Hasher1&quot;</span>, <span class="string">&quot;Hasher2&quot;</span>]);
+				double_map_mandatory_generics.extend([<span class="string">"Hasher1"</span>, <span class="string">"Hasher2"</span>]);
 			}
 
 			check_generics(
 				<span class="kw-2">&amp;</span>parsed,
 				<span class="kw-2">&amp;</span>double_map_mandatory_generics,
 				<span class="kw-2">&amp;</span>map_optional_generics,
-				<span class="string">&quot;StorageDoubleMap&quot;</span>,
+				<span class="string">"StorageDoubleMap"</span>,
 				args_span,
 			)<span class="question-mark">?</span>;
 
 			StorageGenerics::DoubleMap {
 				hasher1: parsed
-					.remove(<span class="string">&quot;Hasher1&quot;</span>)
+					.remove(<span class="string">"Hasher1"</span>)
 					.map(|binding| binding.ty)
 					.unwrap_or(<span class="macro">syn::parse_quote!</span>(Blake2_128Concat)),
 				key1: parsed
-					.remove(<span class="string">&quot;Key1&quot;</span>)
+					.remove(<span class="string">"Key1"</span>)
 					.map(|binding| binding.ty)
-					.expect(<span class="string">&quot;checked above as mandatory generic&quot;</span>),
+					.expect(<span class="string">"checked above as mandatory generic"</span>),
 				hasher2: parsed
-					.remove(<span class="string">&quot;Hasher2&quot;</span>)
+					.remove(<span class="string">"Hasher2"</span>)
 					.map(|binding| binding.ty)
 					.unwrap_or(<span class="macro">syn::parse_quote!</span>(Blake2_128Concat)),
 				key2: parsed
-					.remove(<span class="string">&quot;Key2&quot;</span>)
+					.remove(<span class="string">"Key2"</span>)
 					.map(|binding| binding.ty)
-					.expect(<span class="string">&quot;checked above as mandatory generic&quot;</span>),
+					.expect(<span class="string">"checked above as mandatory generic"</span>),
 				value: parsed
-					.remove(<span class="string">&quot;Value&quot;</span>)
+					.remove(<span class="string">"Value"</span>)
 					.map(|binding| binding.ty)
-					.expect(<span class="string">&quot;checked above as mandatory generic&quot;</span>),
-				query_kind: parsed.remove(<span class="string">&quot;QueryKind&quot;</span>).map(|binding| binding.ty),
-				on_empty: parsed.remove(<span class="string">&quot;OnEmpty&quot;</span>).map(|binding| binding.ty),
-				max_values: parsed.remove(<span class="string">&quot;MaxValues&quot;</span>).map(|binding| binding.ty),
+					.expect(<span class="string">"checked above as mandatory generic"</span>),
+				query_kind: parsed.remove(<span class="string">"QueryKind"</span>).map(|binding| binding.ty),
+				on_empty: parsed.remove(<span class="string">"OnEmpty"</span>).map(|binding| binding.ty),
+				max_values: parsed.remove(<span class="string">"MaxValues"</span>).map(|binding| binding.ty),
 			}
 		},
 		StorageKind::NMap =&gt; {
 			check_generics(
 				<span class="kw-2">&amp;</span>parsed,
-				<span class="kw-2">&amp;</span>[<span class="string">&quot;Key&quot;</span>, <span class="string">&quot;Value&quot;</span>],
-				<span class="kw-2">&amp;</span>[<span class="string">&quot;QueryKind&quot;</span>, <span class="string">&quot;OnEmpty&quot;</span>, <span class="string">&quot;MaxValues&quot;</span>],
-				<span class="string">&quot;StorageNMap&quot;</span>,
+				<span class="kw-2">&amp;</span>[<span class="string">"Key"</span>, <span class="string">"Value"</span>],
+				<span class="kw-2">&amp;</span>[<span class="string">"QueryKind"</span>, <span class="string">"OnEmpty"</span>, <span class="string">"MaxValues"</span>],
+				<span class="string">"StorageNMap"</span>,
 				args_span,
 			)<span class="question-mark">?</span>;
 
 			StorageGenerics::NMap {
 				keygen: parsed
-					.remove(<span class="string">&quot;Key&quot;</span>)
+					.remove(<span class="string">"Key"</span>)
 					.map(|binding| binding.ty)
-					.expect(<span class="string">&quot;checked above as mandatory generic&quot;</span>),
+					.expect(<span class="string">"checked above as mandatory generic"</span>),
 				value: parsed
-					.remove(<span class="string">&quot;Value&quot;</span>)
+					.remove(<span class="string">"Value"</span>)
 					.map(|binding| binding.ty)
-					.expect(<span class="string">&quot;checked above as mandatory generic&quot;</span>),
-				query_kind: parsed.remove(<span class="string">&quot;QueryKind&quot;</span>).map(|binding| binding.ty),
-				on_empty: parsed.remove(<span class="string">&quot;OnEmpty&quot;</span>).map(|binding| binding.ty),
-				max_values: parsed.remove(<span class="string">&quot;MaxValues&quot;</span>).map(|binding| binding.ty),
+					.expect(<span class="string">"checked above as mandatory generic"</span>),
+				query_kind: parsed.remove(<span class="string">"QueryKind"</span>).map(|binding| binding.ty),
+				on_empty: parsed.remove(<span class="string">"OnEmpty"</span>).map(|binding| binding.ty),
+				max_values: parsed.remove(<span class="string">"MaxValues"</span>).map(|binding| binding.ty),
 			}
 		},
 		StorageKind::CountedNMap =&gt; {
 			check_generics(
 				<span class="kw-2">&amp;</span>parsed,
-				<span class="kw-2">&amp;</span>[<span class="string">&quot;Key&quot;</span>, <span class="string">&quot;Value&quot;</span>],
-				<span class="kw-2">&amp;</span>[<span class="string">&quot;QueryKind&quot;</span>, <span class="string">&quot;OnEmpty&quot;</span>, <span class="string">&quot;MaxValues&quot;</span>],
-				<span class="string">&quot;CountedStorageNMap&quot;</span>,
+				<span class="kw-2">&amp;</span>[<span class="string">"Key"</span>, <span class="string">"Value"</span>],
+				<span class="kw-2">&amp;</span>[<span class="string">"QueryKind"</span>, <span class="string">"OnEmpty"</span>, <span class="string">"MaxValues"</span>],
+				<span class="string">"CountedStorageNMap"</span>,
 				args_span,
 			)<span class="question-mark">?</span>;
 
 			StorageGenerics::CountedNMap {
 				keygen: parsed
-					.remove(<span class="string">&quot;Key&quot;</span>)
+					.remove(<span class="string">"Key"</span>)
 					.map(|binding| binding.ty)
-					.expect(<span class="string">&quot;checked above as mandatory generic&quot;</span>),
+					.expect(<span class="string">"checked above as mandatory generic"</span>),
 				value: parsed
-					.remove(<span class="string">&quot;Value&quot;</span>)
+					.remove(<span class="string">"Value"</span>)
 					.map(|binding| binding.ty)
-					.expect(<span class="string">&quot;checked above as mandatory generic&quot;</span>),
-				query_kind: parsed.remove(<span class="string">&quot;QueryKind&quot;</span>).map(|binding| binding.ty),
-				on_empty: parsed.remove(<span class="string">&quot;OnEmpty&quot;</span>).map(|binding| binding.ty),
-				max_values: parsed.remove(<span class="string">&quot;MaxValues&quot;</span>).map(|binding| binding.ty),
+					.expect(<span class="string">"checked above as mandatory generic"</span>),
+				query_kind: parsed.remove(<span class="string">"QueryKind"</span>).map(|binding| binding.ty),
+				on_empty: parsed.remove(<span class="string">"OnEmpty"</span>).map(|binding| binding.ty),
+				max_values: parsed.remove(<span class="string">"MaxValues"</span>).map(|binding| binding.ty),
 			}
 		},
 	};
@@ -1661,8 +1663,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>retrieve_arg = |arg_pos| {
 		args.get(arg_pos).cloned().ok_or_else(|| {
 			<span class="kw">let </span>msg = <span class="macro">format!</span>(
-				<span class="string">&quot;Invalid pallet::storage, unexpected number of generic argument, \
-						expect at least {} args, found {}.&quot;</span>,
+				<span class="string">"Invalid pallet::storage, unexpected number of generic argument, \
+						expect at least {} args, found {}."</span>,
 				arg_pos + <span class="number">1</span>,
 				args.len(),
 			);
@@ -1672,8 +1674,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">let </span>prefix_arg = retrieve_arg(<span class="number">0</span>)<span class="question-mark">?</span>;
 	syn::parse2::&lt;<span class="macro">syn::Token!</span>[<span class="kw">_</span>]&gt;(prefix_arg.to_token_stream()).map_err(|e| {
-		<span class="kw">let </span>msg = <span class="string">&quot;Invalid pallet::storage, for unnamed generic arguments the type \
-				first generic argument must be `_`, the argument is then replaced by macro.&quot;</span>;
+		<span class="kw">let </span>msg = <span class="string">"Invalid pallet::storage, for unnamed generic arguments the type \
+				first generic argument must be `_`, the argument is then replaced by macro."</span>;
 		<span class="kw">let </span><span class="kw-2">mut </span>err = syn::Error::new(prefix_arg.span(), msg);
 		err.combine(e);
 		err
@@ -1685,7 +1687,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">if </span>dev_mode {
 				<span class="prelude-val">Ok</span>(<span class="bool-val">true</span>)
 			} <span class="kw">else </span>{
-				<span class="kw">let </span>msg = <span class="string">&quot;`_` can only be used in dev_mode. Please specify an appropriate hasher.&quot;</span>;
+				<span class="kw">let </span>msg = <span class="string">"`_` can only be used in dev_mode. Please specify an appropriate hasher."</span>;
 				<span class="prelude-val">Err</span>(syn::Error::new(arg.span(), msg))
 			}
 		} <span class="kw">else </span>{
@@ -1749,17 +1751,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	dev_mode: bool,
 ) -&gt; syn::Result&lt;(<span class="prelude-ty">Option</span>&lt;StorageGenerics&gt;, Metadata, <span class="prelude-ty">Option</span>&lt;syn::Type&gt;, bool)&gt; {
 	<span class="kw">let </span>storage_kind = <span class="kw">match </span><span class="kw-2">&amp;*</span>segment.ident.to_string() {
-		<span class="string">&quot;StorageValue&quot; </span>=&gt; StorageKind::Value,
-		<span class="string">&quot;StorageMap&quot; </span>=&gt; StorageKind::Map,
-		<span class="string">&quot;CountedStorageMap&quot; </span>=&gt; StorageKind::CountedMap,
-		<span class="string">&quot;StorageDoubleMap&quot; </span>=&gt; StorageKind::DoubleMap,
-		<span class="string">&quot;StorageNMap&quot; </span>=&gt; StorageKind::NMap,
-		<span class="string">&quot;CountedStorageNMap&quot; </span>=&gt; StorageKind::CountedNMap,
+		<span class="string">"StorageValue" </span>=&gt; StorageKind::Value,
+		<span class="string">"StorageMap" </span>=&gt; StorageKind::Map,
+		<span class="string">"CountedStorageMap" </span>=&gt; StorageKind::CountedMap,
+		<span class="string">"StorageDoubleMap" </span>=&gt; StorageKind::DoubleMap,
+		<span class="string">"StorageNMap" </span>=&gt; StorageKind::NMap,
+		<span class="string">"CountedStorageNMap" </span>=&gt; StorageKind::CountedNMap,
 		found =&gt; {
 			<span class="kw">let </span>msg = <span class="macro">format!</span>(
-				<span class="string">&quot;Invalid pallet::storage, expected ident: `StorageValue` or \
+				<span class="string">"Invalid pallet::storage, expected ident: `StorageValue` or \
 				`StorageMap` or `CountedStorageMap` or `StorageDoubleMap` or `StorageNMap` or `CountedStorageNMap` \
-				in order to expand metadata, found `{}`.&quot;</span>,
+				in order to expand metadata, found `{}`."</span>,
 				found,
 			);
 			<span class="kw">return </span><span class="prelude-val">Err</span>(syn::Error::new(segment.ident.span(), msg))
@@ -1771,8 +1773,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>args = <span class="kw">match </span><span class="kw-2">&amp;</span>segment.arguments {
 		syn::PathArguments::AngleBracketed(args) <span class="kw">if </span>!args.args.is_empty() =&gt; args,
 		<span class="kw">_ </span>=&gt; {
-			<span class="kw">let </span>msg = <span class="string">&quot;Invalid pallet::storage, invalid number of generic generic arguments, \
-				expect more that 0 generic arguments.&quot;</span>;
+			<span class="kw">let </span>msg = <span class="string">"Invalid pallet::storage, invalid number of generic generic arguments, \
+				expect more that 0 generic arguments."</span>;
 			<span class="kw">return </span><span class="prelude-val">Err</span>(syn::Error::new(segment.span(), msg))
 		},
 	};
@@ -1783,7 +1785,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.iter()
 			.map(|gen| <span class="kw">match </span>gen {
 				syn::GenericArgument::Type(gen) =&gt; gen.clone(),
-				<span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(<span class="string">&quot;It is asserted above that all generics are types&quot;</span>),
+				<span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(<span class="string">"It is asserted above that all generics are types"</span>),
 			})
 			.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 		process_unnamed_generics(<span class="kw-2">&amp;</span>storage_kind, args_span, <span class="kw-2">&amp;</span>args, dev_mode)
@@ -1793,14 +1795,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.iter()
 			.map(|gen| <span class="kw">match </span>gen {
 				syn::GenericArgument::AssocType(gen) =&gt; gen.clone(),
-				<span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(<span class="string">&quot;It is asserted above that all generics are bindings&quot;</span>),
+				<span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(<span class="string">"It is asserted above that all generics are bindings"</span>),
 			})
 			.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 		process_named_generics(<span class="kw-2">&amp;</span>storage_kind, args_span, <span class="kw-2">&amp;</span>args, dev_mode)
 	} <span class="kw">else </span>{
-		<span class="kw">let </span>msg = <span class="string">&quot;Invalid pallet::storage, invalid generic declaration for storage. Expect only \
+		<span class="kw">let </span>msg = <span class="string">"Invalid pallet::storage, invalid generic declaration for storage. Expect only \
 			type generics or binding generics, e.g. `&lt;Name1 = Gen1, Name2 = Gen2, ..&gt;` or \
-			`&lt;Gen1, Gen2, ..&gt;`.&quot;</span>;
+			`&lt;Gen1, Gen2, ..&gt;`."</span>;
 		<span class="prelude-val">Err</span>(syn::Error::new(segment.span(), msg))
 	}
 }
@@ -1819,30 +1821,30 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>typ = <span class="kw">if let </span>syn::Type::Path(typ) = ty {
 		typ
 	} <span class="kw">else </span>{
-		<span class="kw">let </span>msg = <span class="string">&quot;Invalid pallet::storage, expected type path&quot;</span>;
+		<span class="kw">let </span>msg = <span class="string">"Invalid pallet::storage, expected type path"</span>;
 		<span class="kw">return </span><span class="prelude-val">Err</span>(syn::Error::new(ty.span(), msg))
 	};
 
 	<span class="kw">let </span>key_struct = typ.path.segments.last().ok_or_else(|| {
-		<span class="kw">let </span>msg = <span class="string">&quot;Invalid pallet::storage, expected type path with at least one segment&quot;</span>;
+		<span class="kw">let </span>msg = <span class="string">"Invalid pallet::storage, expected type path with at least one segment"</span>;
 		syn::Error::new(typ.path.span(), msg)
 	})<span class="question-mark">?</span>;
-	<span class="kw">if </span>key_struct.ident != <span class="string">&quot;Key&quot; </span>&amp;&amp; key_struct.ident != <span class="string">&quot;NMapKey&quot; </span>{
-		<span class="kw">let </span>msg = <span class="string">&quot;Invalid pallet::storage, expected Key or NMapKey struct&quot;</span>;
+	<span class="kw">if </span>key_struct.ident != <span class="string">"Key" </span>&amp;&amp; key_struct.ident != <span class="string">"NMapKey" </span>{
+		<span class="kw">let </span>msg = <span class="string">"Invalid pallet::storage, expected Key or NMapKey struct"</span>;
 		<span class="kw">return </span><span class="prelude-val">Err</span>(syn::Error::new(key_struct.ident.span(), msg))
 	}
 
 	<span class="kw">let </span>ty_params = <span class="kw">if let </span>syn::PathArguments::AngleBracketed(args) = <span class="kw-2">&amp;</span>key_struct.arguments {
 		args
 	} <span class="kw">else </span>{
-		<span class="kw">let </span>msg = <span class="string">&quot;Invalid pallet::storage, expected angle bracketed arguments&quot;</span>;
+		<span class="kw">let </span>msg = <span class="string">"Invalid pallet::storage, expected angle bracketed arguments"</span>;
 		<span class="kw">return </span><span class="prelude-val">Err</span>(syn::Error::new(key_struct.arguments.span(), msg))
 	};
 
 	<span class="kw">if </span>ty_params.args.len() != <span class="number">2 </span>{
 		<span class="kw">let </span>msg = <span class="macro">format!</span>(
-			<span class="string">&quot;Invalid pallet::storage, unexpected number of generic arguments \
-			for Key struct, expected 2 args, found {}&quot;</span>,
+			<span class="string">"Invalid pallet::storage, unexpected number of generic arguments \
+			for Key struct, expected 2 args, found {}"</span>,
 			ty_params.args.len()
 		);
 		<span class="kw">return </span><span class="prelude-val">Err</span>(syn::Error::new(ty_params.span(), msg))
@@ -1851,7 +1853,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>key = <span class="kw">match </span><span class="kw-2">&amp;</span>ty_params.args[<span class="number">1</span>] {
 		syn::GenericArgument::Type(key_ty) =&gt; key_ty.clone(),
 		<span class="kw">_ </span>=&gt; {
-			<span class="kw">let </span>msg = <span class="string">&quot;Invalid pallet::storage, expected type&quot;</span>;
+			<span class="kw">let </span>msg = <span class="string">"Invalid pallet::storage, expected type"</span>;
 			<span class="kw">return </span><span class="prelude-val">Err</span>(syn::Error::new(ty_params.args[<span class="number">1</span>].span(), msg))
 		},
 	};
@@ -1886,7 +1888,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>item = <span class="kw">if let </span>syn::Item::Type(item) = item {
 			item
 		} <span class="kw">else </span>{
-			<span class="kw">return </span><span class="prelude-val">Err</span>(syn::Error::new(item.span(), <span class="string">&quot;Invalid pallet::storage, expect item type.&quot;</span>))
+			<span class="kw">return </span><span class="prelude-val">Err</span>(syn::Error::new(item.span(), <span class="string">"Invalid pallet::storage, expect item type."</span>))
 		};
 
 		<span class="kw">let </span>attrs: Vec&lt;PalletStorageAttr&gt; = helper::take_item_pallet_attrs(<span class="kw-2">&amp;mut </span>item.attrs)<span class="question-mark">?</span>;
@@ -1905,12 +1907,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>typ = <span class="kw">if let </span>syn::Type::Path(typ) = <span class="kw-2">&amp;*</span>item.ty {
 			typ
 		} <span class="kw">else </span>{
-			<span class="kw">let </span>msg = <span class="string">&quot;Invalid pallet::storage, expected type path&quot;</span>;
+			<span class="kw">let </span>msg = <span class="string">"Invalid pallet::storage, expected type path"</span>;
 			<span class="kw">return </span><span class="prelude-val">Err</span>(syn::Error::new(item.ty.span(), msg))
 		};
 
 		<span class="kw">if </span>typ.path.segments.len() != <span class="number">1 </span>{
-			<span class="kw">let </span>msg = <span class="string">&quot;Invalid pallet::storage, expected type path with one segment&quot;</span>;
+			<span class="kw">let </span>msg = <span class="string">"Invalid pallet::storage, expected type path with one segment"</span>;
 			<span class="kw">return </span><span class="prelude-val">Err</span>(syn::Error::new(item.ty.span(), msg))
 		}
 
@@ -1930,16 +1932,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							.path
 							.segments
 							.last()
-							.map_or(<span class="bool-val">false</span>, |s| s.ident == <span class="string">&quot;OptionQuery&quot;</span>) =&gt;
+							.map_or(<span class="bool-val">false</span>, |s| s.ident == <span class="string">"OptionQuery"</span>) =&gt;
 						<span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(QueryKind::OptionQuery)),
 					Type::Path(TypePath { path: Path { segments, .. }, .. })
-						<span class="kw">if </span>segments.last().map_or(<span class="bool-val">false</span>, |s| s.ident == <span class="string">&quot;ResultQuery&quot;</span>) =&gt;
+						<span class="kw">if </span>segments.last().map_or(<span class="bool-val">false</span>, |s| s.ident == <span class="string">"ResultQuery"</span>) =&gt;
 						segments
 							.last()
-							.expect(<span class="string">&quot;segments is checked to have the last value; qed&quot;</span>)
+							.expect(<span class="string">"segments is checked to have the last value; qed"</span>)
 							.clone(),
 					Type::Path(path)
-						<span class="kw">if </span>path.path.segments.last().map_or(<span class="bool-val">false</span>, |s| s.ident == <span class="string">&quot;ValueQuery&quot;</span>) =&gt;
+						<span class="kw">if </span>path.path.segments.last().map_or(<span class="bool-val">false</span>, |s| s.ident == <span class="string">"ValueQuery"</span>) =&gt;
 						<span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(QueryKind::ValueQuery)),
 					<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>),
 				};
@@ -1950,8 +1952,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					}) =&gt; {
 						<span class="kw">if </span>args.len() != <span class="number">1 </span>{
 							<span class="kw">let </span>msg = <span class="macro">format!</span>(
-								<span class="string">&quot;Invalid pallet::storage, unexpected number of generic arguments \
-								for ResultQuery, expected 1 type argument, found {}&quot;</span>,
+								<span class="string">"Invalid pallet::storage, unexpected number of generic arguments \
+								for ResultQuery, expected 1 type argument, found {}"</span>,
 								args.len(),
 							);
 							<span class="kw">return </span><span class="prelude-val">Err</span>(syn::Error::new(args.span(), msg))
@@ -1961,8 +1963,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					},
 					args =&gt; {
 						<span class="kw">let </span>msg = <span class="macro">format!</span>(
-							<span class="string">&quot;Invalid pallet::storage, unexpected generic args for ResultQuery, \
-							expected angle-bracketed arguments, found `{}`&quot;</span>,
+							<span class="string">"Invalid pallet::storage, unexpected generic args for ResultQuery, \
+							expected angle-bracketed arguments, found `{}`"</span>,
 							args.to_token_stream().to_string()
 						);
 						<span class="kw">return </span><span class="prelude-val">Err</span>(syn::Error::new(args.span(), msg))
@@ -1976,9 +1978,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					})) =&gt; {
 						<span class="kw">if </span>err_variant.len() &lt; <span class="number">2 </span>{
 							<span class="kw">let </span>msg = <span class="macro">format!</span>(
-								<span class="string">&quot;Invalid pallet::storage, unexpected number of path segments for \
+								<span class="string">"Invalid pallet::storage, unexpected number of path segments for \
 								the generics in ResultQuery, expected a path with at least 2 \
-								segments, found {}&quot;</span>,
+								segments, found {}"</span>,
 								err_variant.len(),
 							);
 							<span class="kw">return </span><span class="prelude-val">Err</span>(syn::Error::new(err_variant.span(), msg))
@@ -1986,13 +1988,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="kw">let </span><span class="kw-2">mut </span>error = err_variant.clone();
 						<span class="kw">let </span>err_variant = error
 							.pop()
-							.expect(<span class="string">&quot;Checked to have at least 2; qed&quot;</span>)
+							.expect(<span class="string">"Checked to have at least 2; qed"</span>)
 							.into_value()
 							.ident;
 
 						<span class="comment">// Necessary here to eliminate the last double colon
 						</span><span class="kw">let </span>last =
-							error.pop().expect(<span class="string">&quot;Checked to have at least 2; qed&quot;</span>).into_value();
+							error.pop().expect(<span class="string">"Checked to have at least 2; qed"</span>).into_value();
 						error.push_value(last);
 
 						<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(QueryKind::ResultQuery(
@@ -2002,8 +2004,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					},
 					gen_arg =&gt; {
 						<span class="kw">let </span>msg = <span class="macro">format!</span>(
-							<span class="string">&quot;Invalid pallet::storage, unexpected generic argument kind, expected a \
-							type path to a `PalletError` enum variant, found `{}`&quot;</span>,
+							<span class="string">"Invalid pallet::storage, unexpected generic argument kind, expected a \
+							type path to a `PalletError` enum variant, found `{}`"</span>,
 							gen_arg.to_token_stream().to_string(),
 						);
 						<span class="prelude-val">Err</span>(syn::Error::new(gen_arg.span(), msg))
@@ -2014,9 +2016,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span>.unwrap_or(<span class="prelude-val">Some</span>(QueryKind::OptionQuery));
 
 		<span class="kw">if let </span>(<span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(getter)) = (query_kind.as_ref(), getter.as_ref()) {
-			<span class="kw">let </span>msg = <span class="string">&quot;Invalid pallet::storage, cannot generate getter because QueryKind is not \
+			<span class="kw">let </span>msg = <span class="string">"Invalid pallet::storage, cannot generate getter because QueryKind is not \
 				identifiable. QueryKind must be `OptionQuery`, `ResultQuery`, `ValueQuery`, or default \
-				one to be identifiable.&quot;</span>;
+				one to be identifiable."</span>;
 			<span class="kw">return </span><span class="prelude-val">Err</span>(syn::Error::new(getter.span(), msg))
 		}
 

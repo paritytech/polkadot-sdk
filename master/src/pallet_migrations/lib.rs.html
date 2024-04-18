@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/migrations/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/migrations/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_migrations" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_migrations" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../pallet_migrations/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -940,14 +942,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -972,7 +974,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! succeeding after two steps. A runtime upgrade is then enacted and the block number is advanced
 //! until all migrations finish executing. Afterwards, the recorded historic migrations are
 //! checked and events are asserted.
-</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;src/tests.rs&quot;</span>, simple_works)]
+</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">"src/tests.rs"</span>, simple_works)]
 </span><span class="doccomment">//!
 //! ## Pallet API
 //!
@@ -1058,7 +1060,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! [`FailedMigrationHandler::failed`] should be setup in a way that it allows governance to act,
 //! but still prevent other transactions from interacting with the inconsistent storage state. Note
 //! that this is paramount, since the inconsistent state might contain a faulty balance amount or
-//! similar that could cause great harm if user transactions don&#39;t remain suspended. One way to
+//! similar that could cause great harm if user transactions don't remain suspended. One way to
 //! implement this would be to use the `SafeMode` or `TxPause` pallets that can prevent most user
 //! interactions but still allow a whitelisted set of governance calls.
 //!
@@ -1072,9 +1074,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!
 //! You can see the transactional semantics for migration steps as mostly useless, since in the
 //! stuck case the state is already messed up. This just prevents it from becoming even more messed
-//! up, but doesn&#39;t prevent it in the first place.
+//! up, but doesn't prevent it in the first place.
 
-</span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
+</span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
 </span><span class="kw">mod </span>benchmarking;
 <span class="kw">mod </span>mock;
@@ -1223,14 +1225,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		///
 		/// Should only be updated in a runtime-upgrade once all the old migrations have completed.
 		/// (Check that [`Cursor`] is `None`).
-		</span><span class="attr">#[cfg(not(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>))]
+		</span><span class="attr">#[cfg(not(feature = <span class="string">"runtime-benchmarks"</span>))]
 		#[pallet::no_default]
 		</span><span class="kw">type </span>Migrations: SteppedMigrations;
 
 		<span class="doccomment">/// Mocked migrations for benchmarking only.
 		///
 		/// Should be configured to [`crate::mock_helpers::MockedMigrations`] in benchmarks.
-		</span><span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+		</span><span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 		#[pallet::no_default]
 		</span><span class="kw">type </span>Migrations: MockedMigrations;
 
@@ -1277,7 +1279,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		/// [`derive_impl`](`frame_support::derive_impl`) to derive a testing pallet config
 		/// based on this one.
 		///
-		/// See `Test` in the `default-config` example pallet&#39;s `test.rs` for an example of
+		/// See `Test` in the `default-config` example pallet's `test.rs` for an example of
 		/// a downstream user of this particular `TestDefaultConfig`
 		</span><span class="kw">pub struct </span>TestDefaultConfig;
 
@@ -1383,14 +1385,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="self">Self</span>::onboard_new_mbms()
 		}
 
-		<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+		<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 		</span><span class="kw">fn </span>integrity_test() {
 			<span class="comment">// Check that the migrations tuple is legit.
 			</span><span class="macro">frame_support::assert_ok!</span>(T::Migrations::integrity_test());
 
 			<span class="comment">// Very important! Ensure that the pallet is configured in `System::Config`.
 			</span>{
-				<span class="macro">assert!</span>(!Cursor::&lt;T&gt;::exists(), <span class="string">&quot;Externalities storage should be clean&quot;</span>);
+				<span class="macro">assert!</span>(!Cursor::&lt;T&gt;::exists(), <span class="string">"Externalities storage should be clean"</span>);
 				<span class="macro">assert!</span>(!&lt;T <span class="kw">as </span>frame_system::Config&gt;::MultiBlockMigrator::ongoing());
 
 				Cursor::&lt;T&gt;::put(MigrationCursor::Stuck);
@@ -1404,7 +1406,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">let </span>want = T::MaxServiceWeight::get();
 				<span class="kw">let </span>max = &lt;T <span class="kw">as </span>frame_system::Config&gt;::BlockWeights::get().max_block;
 
-				<span class="macro">assert!</span>(want.all_lte(max), <span class="string">&quot;Service weight is larger than a block: {want} &gt; {max}&quot;</span>);
+				<span class="macro">assert!</span>(want.all_lte(max), <span class="string">"Service weight is larger than a block: {want} &gt; {max}"</span>);
 			}
 
 			<span class="comment">// Cursor MEL
@@ -1413,7 +1415,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">let </span>max_mel = T::CursorMaxLen::get() <span class="kw">as </span>usize;
 				<span class="macro">assert!</span>(
 					mel &lt;= max_mel,
-					<span class="string">&quot;A Cursor is not guaranteed to fit into the storage: {mel} &gt; {max_mel}&quot;</span>,
+					<span class="string">"A Cursor is not guaranteed to fit into the storage: {mel} &gt; {max_mel}"</span>,
 				);
 			}
 
@@ -1423,7 +1425,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">let </span>max_mel = T::IdentifierMaxLen::get() <span class="kw">as </span>usize;
 				<span class="macro">assert!</span>(
 					mel &lt;= max_mel,
-					<span class="string">&quot;An Identifier is not guaranteed to fit into the storage: {mel} &gt; {max_mel}&quot;</span>,
+					<span class="string">"An Identifier is not guaranteed to fit into the storage: {mel} &gt; {max_mel}"</span>,
 				);
 			}
 		}
@@ -1526,7 +1528,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// Should only be called once all previous migrations completed.
 	</span><span class="kw">fn </span>onboard_new_mbms() -&gt; Weight {
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(cursor) = Cursor::&lt;T&gt;::get() {
-			<span class="macro">log::error!</span>(<span class="string">&quot;Ongoing migrations interrupted - chain stuck&quot;</span>);
+			<span class="macro">log::error!</span>(<span class="string">"Ongoing migrations interrupted - chain stuck"</span>);
 
 			<span class="kw">let </span>maybe_index = cursor.as_active().map(|c| c.index);
 			<span class="self">Self</span>::upgrade_failed(maybe_index);
@@ -1534,7 +1536,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 
 		<span class="kw">let </span>migrations = T::Migrations::len();
-		<span class="macro">log::debug!</span>(<span class="string">&quot;Onboarding {migrations} new MBM migrations&quot;</span>);
+		<span class="macro">log::debug!</span>(<span class="string">"Onboarding {migrations} new MBM migrations"</span>);
 
 		<span class="kw">if </span>migrations &gt; <span class="number">0 </span>{
 			<span class="comment">// Set the cursor to the first migration:
@@ -1560,15 +1562,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span><span class="kw-2">mut </span>cursor = <span class="kw">match </span>Cursor::&lt;T&gt;::get() {
 			<span class="prelude-val">None </span>=&gt; {
-				<span class="macro">log::trace!</span>(<span class="string">&quot;[Block {n:?}] Waiting for cursor to become `Some`.&quot;</span>);
+				<span class="macro">log::trace!</span>(<span class="string">"[Block {n:?}] Waiting for cursor to become `Some`."</span>);
 				<span class="kw">return </span>meter.consumed()
 			},
 			<span class="prelude-val">Some</span>(MigrationCursor::Active(cursor)) =&gt; {
-				<span class="macro">log::debug!</span>(<span class="string">&quot;Progressing MBM #{}&quot;</span>, cursor.index);
+				<span class="macro">log::debug!</span>(<span class="string">"Progressing MBM #{}"</span>, cursor.index);
 				cursor
 			},
 			<span class="prelude-val">Some</span>(MigrationCursor::Stuck) =&gt; {
-				<span class="macro">log::error!</span>(<span class="string">&quot;Migration stuck. Governance intervention required.&quot;</span>);
+				<span class="macro">log::error!</span>(<span class="string">"Migration stuck. Governance intervention required."</span>);
 				<span class="kw">return </span>meter.consumed()
 			},
 		};
@@ -1606,16 +1608,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		is_first: bool,
 		meter: <span class="kw-2">&amp;mut </span>WeightMeter,
 	) -&gt; <span class="prelude-ty">Option</span>&lt;ControlFlow&lt;ActiveCursorOf&lt;T&gt;, ActiveCursorOf&lt;T&gt;&gt;&gt; {
-		<span class="comment">// The differences between the single branches&#39; weights is not that big. And since we do
+		<span class="comment">// The differences between the single branches' weights is not that big. And since we do
 		// only one step per block, we can just use the maximum instead of more precise accounting.
 		</span><span class="kw">if </span>meter.try_consume(<span class="self">Self</span>::exec_migration_max_weight()).is_err() {
-			<span class="macro">defensive_assert!</span>(!is_first, <span class="string">&quot;There should be enough weight to do this at least once&quot;</span>);
+			<span class="macro">defensive_assert!</span>(!is_first, <span class="string">"There should be enough weight to do this at least once"</span>);
 			<span class="kw">return </span><span class="prelude-val">Some</span>(ControlFlow::Break(cursor))
 		}
 
 		<span class="kw">let </span><span class="prelude-val">Some</span>(id) = T::Migrations::nth_id(cursor.index) <span class="kw">else </span>{
 			<span class="comment">// No more migrations in the tuple - we are done.
-			</span><span class="macro">defensive_assert!</span>(cursor.index == T::Migrations::len(), <span class="string">&quot;Inconsistent MBMs tuple&quot;</span>);
+			</span><span class="macro">defensive_assert!</span>(cursor.index == T::Migrations::len(), <span class="string">"Inconsistent MBMs tuple"</span>);
 			<span class="self">Self</span>::deposit_event(Event::UpgradeCompleted);
 			Cursor::&lt;T&gt;::kill();
 			T::MigrationStatusHandler::completed();
@@ -1623,7 +1625,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		};
 
 		<span class="kw">let </span><span class="prelude-val">Ok</span>(bounded_id): <span class="prelude-ty">Result</span>&lt;IdentifierOf&lt;T&gt;, <span class="kw">_</span>&gt; = id.try_into() <span class="kw">else </span>{
-			<span class="macro">defensive!</span>(<span class="string">&quot;integrity_test ensures that all identifiers&#39; MEL bounds fit into CursorMaxLen; qed.&quot;</span>);
+			<span class="macro">defensive!</span>(<span class="string">"integrity_test ensures that all identifiers' MEL bounds fit into CursorMaxLen; qed."</span>);
 			<span class="self">Self</span>::upgrade_failed(<span class="prelude-val">Some</span>(cursor.index));
 			<span class="kw">return </span><span class="prelude-val">None
 		</span>};
@@ -1641,7 +1643,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			meter,
 		);
 		<span class="kw">let </span><span class="prelude-val">Some</span>((max_steps, next_cursor)) = max_steps.zip(next_cursor) <span class="kw">else </span>{
-			<span class="macro">defensive!</span>(<span class="string">&quot;integrity_test ensures that the tuple is valid; qed&quot;</span>);
+			<span class="macro">defensive!</span>(<span class="string">"integrity_test ensures that the tuple is valid; qed"</span>);
 			<span class="self">Self</span>::upgrade_failed(<span class="prelude-val">Some</span>(cursor.index));
 			<span class="kw">return </span><span class="prelude-val">None
 		</span>};
@@ -1650,7 +1652,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">match </span>next_cursor {
 			<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(next_cursor)) =&gt; {
 				<span class="kw">let </span><span class="prelude-val">Ok</span>(bound_next_cursor) = next_cursor.try_into() <span class="kw">else </span>{
-					<span class="macro">defensive!</span>(<span class="string">&quot;The integrity check ensures that all cursors&#39; MEL bound fits into CursorMaxLen; qed&quot;</span>);
+					<span class="macro">defensive!</span>(<span class="string">"The integrity check ensures that all cursors' MEL bound fits into CursorMaxLen; qed"</span>);
 					<span class="self">Self</span>::upgrade_failed(<span class="prelude-val">Some</span>(cursor.index));
 					<span class="kw">return </span><span class="prelude-val">None
 				</span>};

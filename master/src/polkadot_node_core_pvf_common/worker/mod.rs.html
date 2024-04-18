@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/core/pvf/common/src/worker/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/core/pvf/common/src/worker/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_node_core_pvf_common" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_node_core_pvf_common" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../polkadot_node_core_pvf_common/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -953,18 +955,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="macro">macro_rules! </span>decl_worker_main {
 	(<span class="macro-nonterminal">$expected_command</span>:expr, <span class="macro-nonterminal">$entrypoint</span>:expr, <span class="macro-nonterminal">$worker_version</span>:expr, <span class="macro-nonterminal">$worker_version_hash</span>:expr $(,)<span class="kw-2">*</span>) =&gt; {
 		<span class="kw">fn </span>get_full_version() -&gt; String {
-			<span class="macro">format!</span>(<span class="string">&quot;{}-{}&quot;</span>, <span class="macro-nonterminal">$worker_version</span>, <span class="macro-nonterminal">$worker_version_hash</span>)
+			<span class="macro">format!</span>(<span class="string">"{}-{}"</span>, <span class="macro-nonterminal">$worker_version</span>, <span class="macro-nonterminal">$worker_version_hash</span>)
 		}
 
 		<span class="kw">fn </span>print_help(expected_command: <span class="kw-2">&amp;</span>str) {
-			<span class="macro">println!</span>(<span class="string">&quot;{} {}&quot;</span>, expected_command, <span class="macro-nonterminal">$worker_version</span>);
-			<span class="macro">println!</span>(<span class="string">&quot;commit: {}&quot;</span>, <span class="macro-nonterminal">$worker_version_hash</span>);
+			<span class="macro">println!</span>(<span class="string">"{} {}"</span>, expected_command, <span class="macro-nonterminal">$worker_version</span>);
+			<span class="macro">println!</span>(<span class="string">"commit: {}"</span>, <span class="macro-nonterminal">$worker_version_hash</span>);
 			<span class="macro">println!</span>();
-			<span class="macro">println!</span>(<span class="string">&quot;PVF worker that is called by polkadot.&quot;</span>);
+			<span class="macro">println!</span>(<span class="string">"PVF worker that is called by polkadot."</span>);
 		}
 
 		<span class="kw">fn </span>main() {
-			<span class="attr">#[cfg(target_os = <span class="string">&quot;linux&quot;</span>)]
+			<span class="attr">#[cfg(target_os = <span class="string">"linux"</span>)]
 			</span><span class="kw">use </span><span class="macro-nonterminal">$crate::worker::security</span>;
 
 			<span class="macro-nonterminal">$crate::sp_tracing::try_init_simple</span>();
@@ -978,80 +980,80 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span>}
 
 			<span class="kw">match </span>args[<span class="number">1</span>].as_ref() {
-				<span class="string">&quot;--help&quot; </span>| <span class="string">&quot;-h&quot; </span>=&gt; {
+				<span class="string">"--help" </span>| <span class="string">"-h" </span>=&gt; {
 					print_help(<span class="macro-nonterminal">$expected_command</span>);
 					<span class="kw">return
 				</span>},
-				<span class="string">&quot;--version&quot; </span>| <span class="string">&quot;-v&quot; </span>=&gt; {
-					<span class="macro">println!</span>(<span class="string">&quot;{}&quot;</span>, <span class="macro-nonterminal">$worker_version</span>);
+				<span class="string">"--version" </span>| <span class="string">"-v" </span>=&gt; {
+					<span class="macro">println!</span>(<span class="string">"{}"</span>, <span class="macro-nonterminal">$worker_version</span>);
 					<span class="kw">return
 				</span>},
 				<span class="comment">// Useful for debugging. --version is used for version checks.
-				</span><span class="string">&quot;--full-version&quot; </span>=&gt; {
-					<span class="macro">println!</span>(<span class="string">&quot;{}&quot;</span>, get_full_version());
+				</span><span class="string">"--full-version" </span>=&gt; {
+					<span class="macro">println!</span>(<span class="string">"{}"</span>, get_full_version());
 					<span class="kw">return
 				</span>},
 
-				<span class="string">&quot;--check-can-enable-landlock&quot; </span>=&gt; {
-					<span class="attr">#[cfg(target_os = <span class="string">&quot;linux&quot;</span>)]
+				<span class="string">"--check-can-enable-landlock" </span>=&gt; {
+					<span class="attr">#[cfg(target_os = <span class="string">"linux"</span>)]
 					</span><span class="kw">let </span>status = <span class="kw">if let </span><span class="prelude-val">Err</span>(err) = security::landlock::check_can_fully_enable() {
 						<span class="comment">// Write the error to stderr, log it on the host-side.
-						</span><span class="macro">eprintln!</span>(<span class="string">&quot;{}&quot;</span>, err);
+						</span><span class="macro">eprintln!</span>(<span class="string">"{}"</span>, err);
 						-<span class="number">1
 					</span>} <span class="kw">else </span>{
 						<span class="number">0
 					</span>};
-					<span class="attr">#[cfg(not(target_os = <span class="string">&quot;linux&quot;</span>))]
+					<span class="attr">#[cfg(not(target_os = <span class="string">"linux"</span>))]
 					</span><span class="kw">let </span>status = -<span class="number">1</span>;
 					std::process::exit(status)
 				},
-				<span class="string">&quot;--check-can-enable-seccomp&quot; </span>=&gt; {
-					<span class="attr">#[cfg(all(target_os = <span class="string">&quot;linux&quot;</span>, target_arch = <span class="string">&quot;x86_64&quot;</span>))]
+				<span class="string">"--check-can-enable-seccomp" </span>=&gt; {
+					<span class="attr">#[cfg(all(target_os = <span class="string">"linux"</span>, target_arch = <span class="string">"x86_64"</span>))]
 					</span><span class="kw">let </span>status = <span class="kw">if let </span><span class="prelude-val">Err</span>(err) = security::seccomp::check_can_fully_enable() {
 						<span class="comment">// Write the error to stderr, log it on the host-side.
-						</span><span class="macro">eprintln!</span>(<span class="string">&quot;{}&quot;</span>, err);
+						</span><span class="macro">eprintln!</span>(<span class="string">"{}"</span>, err);
 						-<span class="number">1
 					</span>} <span class="kw">else </span>{
 						<span class="number">0
 					</span>};
-					<span class="attr">#[cfg(not(all(target_os = <span class="string">&quot;linux&quot;</span>, target_arch = <span class="string">&quot;x86_64&quot;</span>)))]
+					<span class="attr">#[cfg(not(all(target_os = <span class="string">"linux"</span>, target_arch = <span class="string">"x86_64"</span>)))]
 					</span><span class="kw">let </span>status = -<span class="number">1</span>;
 					std::process::exit(status)
 				},
-				<span class="string">&quot;--check-can-unshare-user-namespace-and-change-root&quot; </span>=&gt; {
-					<span class="attr">#[cfg(target_os = <span class="string">&quot;linux&quot;</span>)]
+				<span class="string">"--check-can-unshare-user-namespace-and-change-root" </span>=&gt; {
+					<span class="attr">#[cfg(target_os = <span class="string">"linux"</span>)]
 					</span><span class="kw">let </span>cache_path_tempdir = std::path::Path::new(<span class="kw-2">&amp;</span>args[<span class="number">2</span>]);
-					<span class="attr">#[cfg(target_os = <span class="string">&quot;linux&quot;</span>)]
+					<span class="attr">#[cfg(target_os = <span class="string">"linux"</span>)]
 					</span><span class="kw">let </span>status = <span class="kw">if let </span><span class="prelude-val">Err</span>(err) =
 						security::change_root::check_can_fully_enable(<span class="kw-2">&amp;</span>cache_path_tempdir)
 					{
 						<span class="comment">// Write the error to stderr, log it on the host-side.
-						</span><span class="macro">eprintln!</span>(<span class="string">&quot;{}&quot;</span>, err);
+						</span><span class="macro">eprintln!</span>(<span class="string">"{}"</span>, err);
 						-<span class="number">1
 					</span>} <span class="kw">else </span>{
 						<span class="number">0
 					</span>};
-					<span class="attr">#[cfg(not(target_os = <span class="string">&quot;linux&quot;</span>))]
+					<span class="attr">#[cfg(not(target_os = <span class="string">"linux"</span>))]
 					</span><span class="kw">let </span>status = -<span class="number">1</span>;
 					std::process::exit(status)
 				},
-				<span class="string">&quot;--check-can-do-secure-clone&quot; </span>=&gt; {
-					<span class="attr">#[cfg(target_os = <span class="string">&quot;linux&quot;</span>)]
+				<span class="string">"--check-can-do-secure-clone" </span>=&gt; {
+					<span class="attr">#[cfg(target_os = <span class="string">"linux"</span>)]
 					</span><span class="comment">// SAFETY: new process is spawned within a single threaded process. This
 					// invariant is enforced by tests.
 					</span><span class="kw">let </span>status = <span class="kw">if let </span><span class="prelude-val">Err</span>(err) = <span class="kw">unsafe </span>{ security::clone::check_can_fully_clone() } {
 						<span class="comment">// Write the error to stderr, log it on the host-side.
-						</span><span class="macro">eprintln!</span>(<span class="string">&quot;{}&quot;</span>, err);
+						</span><span class="macro">eprintln!</span>(<span class="string">"{}"</span>, err);
 						-<span class="number">1
 					</span>} <span class="kw">else </span>{
 						<span class="number">0
 					</span>};
-					<span class="attr">#[cfg(not(target_os = <span class="string">&quot;linux&quot;</span>))]
+					<span class="attr">#[cfg(not(target_os = <span class="string">"linux"</span>))]
 					</span><span class="kw">let </span>status = -<span class="number">1</span>;
 					std::process::exit(status)
 				},
 
-				<span class="string">&quot;test-sleep&quot; </span>=&gt; {
+				<span class="string">"test-sleep" </span>=&gt; {
 					std::thread::sleep(std::time::Duration::from_secs(<span class="number">5</span>));
 					<span class="kw">return
 				</span>},
@@ -1060,7 +1062,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="comment">// Must be passed for compatibility with the single-binary test workers.
 					</span><span class="kw">if </span>subcommand != <span class="macro-nonterminal">$expected_command </span>{
 						<span class="macro">panic!</span>(
-							<span class="string">&quot;trying to run {} binary with the {} subcommand&quot;</span>,
+							<span class="string">"trying to run {} binary with the {} subcommand"</span>,
 							<span class="macro-nonterminal">$expected_command</span>, subcommand
 						)
 					}
@@ -1074,25 +1076,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span><span class="kw-2">mut </span>i = <span class="number">2</span>;
 			<span class="kw">while </span>i &lt; args.len() {
 				<span class="kw">match </span>args[i].as_ref() {
-					<span class="string">&quot;--socket-path&quot; </span>=&gt; {
+					<span class="string">"--socket-path" </span>=&gt; {
 						socket_path = <span class="prelude-val">Some</span>(args[i + <span class="number">1</span>].as_str());
 						i += <span class="number">1
 					</span>},
-					<span class="string">&quot;--worker-dir-path&quot; </span>=&gt; {
+					<span class="string">"--worker-dir-path" </span>=&gt; {
 						worker_dir_path = <span class="prelude-val">Some</span>(args[i + <span class="number">1</span>].as_str());
 						i += <span class="number">1
 					</span>},
-					<span class="string">&quot;--node-impl-version&quot; </span>=&gt; {
+					<span class="string">"--node-impl-version" </span>=&gt; {
 						node_version = <span class="prelude-val">Some</span>(args[i + <span class="number">1</span>].as_str());
 						i += <span class="number">1
 					</span>},
-					arg =&gt; <span class="macro">panic!</span>(<span class="string">&quot;Unexpected argument found: {}&quot;</span>, arg),
+					arg =&gt; <span class="macro">panic!</span>(<span class="string">"Unexpected argument found: {}"</span>, arg),
 				}
 				i += <span class="number">1</span>;
 			}
-			<span class="kw">let </span>socket_path = socket_path.expect(<span class="string">&quot;the --socket-path argument is required&quot;</span>);
+			<span class="kw">let </span>socket_path = socket_path.expect(<span class="string">"the --socket-path argument is required"</span>);
 			<span class="kw">let </span>worker_dir_path =
-				worker_dir_path.expect(<span class="string">&quot;the --worker-dir-path argument is required&quot;</span>);
+				worker_dir_path.expect(<span class="string">"the --worker-dir-path argument is required"</span>);
 
 			<span class="kw">let </span>socket_path = std::path::Path::new(socket_path).to_owned();
 			<span class="kw">let </span>worker_dir_path = std::path::Path::new(worker_dir_path).to_owned();
@@ -1103,8 +1105,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="comment">//taken from the os_pipe crate. Copied here to reduce one dependency and
-// because its type-safe abstractions do not play well with nix&#39;s clone
-</span><span class="attr">#[cfg(not(target_os = <span class="string">&quot;macos&quot;</span>))]
+// because its type-safe abstractions do not play well with nix's clone
+</span><span class="attr">#[cfg(not(target_os = <span class="string">"macos"</span>))]
 </span><span class="kw">pub fn </span>pipe2_cloexec() -&gt; io::Result&lt;(libc::c_int, libc::c_int)&gt; {
 	<span class="kw">let </span><span class="kw-2">mut </span>fds: [libc::c_int; <span class="number">2</span>] = [<span class="number">0</span>; <span class="number">2</span>];
 	<span class="kw">let </span>res = <span class="kw">unsafe </span>{ libc::pipe2(fds.as_mut_ptr(), libc::O_CLOEXEC) };
@@ -1114,7 +1116,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="prelude-val">Ok</span>((fds[<span class="number">0</span>], fds[<span class="number">1</span>]))
 }
 
-<span class="attr">#[cfg(target_os = <span class="string">&quot;macos&quot;</span>)]
+<span class="attr">#[cfg(target_os = <span class="string">"macos"</span>)]
 </span><span class="kw">pub fn </span>pipe2_cloexec() -&gt; io::Result&lt;(libc::c_int, libc::c_int)&gt; {
 	<span class="kw">let </span><span class="kw-2">mut </span>fds: [libc::c_int; <span class="number">2</span>] = [<span class="number">0</span>; <span class="number">2</span>];
 	<span class="kw">let </span>res = <span class="kw">unsafe </span>{ libc::pipe(fds.as_mut_ptr()) };
@@ -1180,7 +1182,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="doccomment">/// Some allowed overhead that we account for in the &quot;CPU time monitor&quot; thread&#39;s sleeps, on the
+<span class="doccomment">/// Some allowed overhead that we account for in the "CPU time monitor" thread's sleeps, on the
 /// child process.
 </span><span class="kw">pub const </span>JOB_TIMEOUT_OVERHEAD: Duration = Duration::from_millis(<span class="number">50</span>);
 
@@ -1192,11 +1194,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl </span>fmt::Display <span class="kw">for </span>WorkerKind {
-	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; fmt::Result {
+	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; fmt::Result {
 		<span class="kw">match </span><span class="self">self </span>{
-			<span class="self">Self</span>::Prepare =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;prepare&quot;</span>),
-			<span class="self">Self</span>::Execute =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;execute&quot;</span>),
-			<span class="self">Self</span>::CheckPivotRoot =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;check pivot root&quot;</span>),
+			<span class="self">Self</span>::Prepare =&gt; <span class="macro">write!</span>(f, <span class="string">"prepare"</span>),
+			<span class="self">Self</span>::Execute =&gt; <span class="macro">write!</span>(f, <span class="string">"execute"</span>),
+			<span class="self">Self</span>::CheckPivotRoot =&gt; <span class="macro">write!</span>(f, <span class="string">"check pivot root"</span>),
 		}
 	}
 }
@@ -1227,7 +1229,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ) <span class="kw">where
 	</span>F: FnMut(UnixStream, <span class="kw-2">&amp;</span>WorkerInfo, SecurityStatus) -&gt; io::Result&lt;Never&gt;,
 {
-	<span class="attr">#[cfg_attr(not(target_os = <span class="string">&quot;linux&quot;</span>), allow(unused_mut))]
+	<span class="attr">#[cfg_attr(not(target_os = <span class="string">"linux"</span>), allow(unused_mut))]
 	</span><span class="kw">let </span><span class="kw-2">mut </span>worker_info = WorkerInfo {
 		pid: std::process::id(),
 		kind: worker_kind,
@@ -1238,7 +1240,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		target: LOG_TARGET,
 		<span class="question-mark">?</span>worker_info,
 		<span class="question-mark">?</span>socket_path,
-		<span class="string">&quot;starting pvf worker ({})&quot;</span>,
+		<span class="string">"starting pvf worker ({})"</span>,
 		worker_info.kind
 	);
 
@@ -1249,10 +1251,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				target: LOG_TARGET,
 				<span class="question-mark">?</span>worker_info,
 				%node_version,
-				<span class="string">&quot;Node and worker version mismatch, node needs restarting, forcing shutdown&quot;</span>,
+				<span class="string">"Node and worker version mismatch, node needs restarting, forcing shutdown"</span>,
 			);
 			kill_parent_node_in_emergency();
-			worker_shutdown(worker_info, <span class="string">&quot;Version mismatch&quot;</span>);
+			worker_shutdown(worker_info, <span class="string">"Version mismatch"</span>);
 		}
 	}
 
@@ -1261,9 +1263,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		.and_then(|d| d.map(|res| res.map(|e| e.file_name())).collect());
 	<span class="kw">match </span>entries {
 		<span class="prelude-val">Ok</span>(entries) =&gt;
-			<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>worker_info, <span class="string">&quot;content of worker dir: {:?}&quot;</span>, entries),
+			<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>worker_info, <span class="string">"content of worker dir: {:?}"</span>, entries),
 		<span class="prelude-val">Err</span>(err) =&gt; {
-			<span class="kw">let </span>err = <span class="macro">format!</span>(<span class="string">&quot;Could not read worker dir: {}&quot;</span>, err.to_string());
+			<span class="kw">let </span>err = <span class="macro">format!</span>(<span class="string">"Could not read worker dir: {}"</span>, err.to_string());
 			worker_shutdown_error(worker_info, <span class="kw-2">&amp;</span>err);
 		},
 	}
@@ -1286,17 +1288,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="comment">// Enable some security features.
 	</span>{
-		<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>security_status, <span class="string">&quot;Enabling security features&quot;</span>);
+		<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>security_status, <span class="string">"Enabling security features"</span>);
 
 		<span class="comment">// First, make sure env vars were cleared, to match the environment we perform the checks
 		// within. (In theory, running checks with different env vars could result in different
 		// outcomes of the checks.)
 		</span><span class="kw">if </span>!security::check_env_vars_were_cleared(<span class="kw-2">&amp;</span>worker_info) {
-			<span class="kw">let </span>err = <span class="string">&quot;not all env vars were cleared when spawning the process&quot;</span>;
+			<span class="kw">let </span>err = <span class="string">"not all env vars were cleared when spawning the process"</span>;
 			<span class="macro">gum::error!</span>(
 				target: LOG_TARGET,
 				<span class="question-mark">?</span>worker_info,
-				<span class="string">&quot;{}&quot;</span>,
+				<span class="string">"{}"</span>,
 				err
 			);
 			<span class="kw">if </span>security_status.secure_validator_mode {
@@ -1310,26 +1312,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		// runtime). `unshare(2)`:
 		//
 		//       &gt; CLONE_NEWUSER requires that the calling process is not threaded.
-		</span><span class="attr">#[cfg(target_os = <span class="string">&quot;linux&quot;</span>)]
+		</span><span class="attr">#[cfg(target_os = <span class="string">"linux"</span>)]
 		</span><span class="kw">if </span>security_status.can_unshare_user_namespace_and_change_root {
 			<span class="kw">if let </span><span class="prelude-val">Err</span>(err) = security::change_root::enable_for_worker(<span class="kw-2">&amp;</span>worker_info) {
 				<span class="comment">// The filesystem may be in an inconsistent state, always bail out.
-				</span><span class="kw">let </span>err = <span class="macro">format!</span>(<span class="string">&quot;Could not change root to be the worker cache path: {}&quot;</span>, err);
+				</span><span class="kw">let </span>err = <span class="macro">format!</span>(<span class="string">"Could not change root to be the worker cache path: {}"</span>, err);
 				worker_shutdown_error(worker_info, <span class="kw-2">&amp;</span>err);
 			}
-			worker_info.worker_dir_path = std::path::Path::new(<span class="string">&quot;/&quot;</span>).to_owned();
+			worker_info.worker_dir_path = std::path::Path::new(<span class="string">"/"</span>).to_owned();
 		}
 
-		<span class="attr">#[cfg(target_os = <span class="string">&quot;linux&quot;</span>)]
+		<span class="attr">#[cfg(target_os = <span class="string">"linux"</span>)]
 		</span><span class="kw">if </span>security_status.can_enable_landlock {
 			<span class="kw">if let </span><span class="prelude-val">Err</span>(err) = security::landlock::enable_for_worker(<span class="kw-2">&amp;</span>worker_info) {
 				<span class="comment">// We previously were able to enable, so this should never happen. Shutdown if
 				// running in secure mode.
-				</span><span class="kw">let </span>err = <span class="macro">format!</span>(<span class="string">&quot;could not fully enable landlock: {:?}&quot;</span>, err);
+				</span><span class="kw">let </span>err = <span class="macro">format!</span>(<span class="string">"could not fully enable landlock: {:?}"</span>, err);
 				<span class="macro">gum::error!</span>(
 					target: LOG_TARGET,
 					<span class="question-mark">?</span>worker_info,
-					<span class="string">&quot;{}. This should not happen, please report an issue&quot;</span>,
+					<span class="string">"{}. This should not happen, please report an issue"</span>,
 					err
 				);
 				<span class="kw">if </span>security_status.secure_validator_mode {
@@ -1340,16 +1342,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// TODO: We can enable the seccomp networking blacklist on aarch64 as well, but we need a CI
 		//       job to catch regressions. See issue ci_cd/issues/609.
-		</span><span class="attr">#[cfg(all(target_os = <span class="string">&quot;linux&quot;</span>, target_arch = <span class="string">&quot;x86_64&quot;</span>))]
+		</span><span class="attr">#[cfg(all(target_os = <span class="string">"linux"</span>, target_arch = <span class="string">"x86_64"</span>))]
 		</span><span class="kw">if </span>security_status.can_enable_seccomp {
 			<span class="kw">if let </span><span class="prelude-val">Err</span>(err) = security::seccomp::enable_for_worker(<span class="kw-2">&amp;</span>worker_info) {
 				<span class="comment">// We previously were able to enable, so this should never happen. Shutdown if
 				// running in secure mode.
-				</span><span class="kw">let </span>err = <span class="macro">format!</span>(<span class="string">&quot;could not fully enable seccomp: {:?}&quot;</span>, err);
+				</span><span class="kw">let </span>err = <span class="macro">format!</span>(<span class="string">"could not fully enable seccomp: {:?}"</span>, err);
 				<span class="macro">gum::error!</span>(
 					target: LOG_TARGET,
 					<span class="question-mark">?</span>worker_info,
-					<span class="string">&quot;{}. This should not happen, please report an issue&quot;</span>,
+					<span class="string">"{}. This should not happen, please report an issue"</span>,
 					err
 				);
 				<span class="kw">if </span>security_status.secure_validator_mode {
@@ -1361,7 +1363,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="comment">// Run the main worker loop.
 	</span><span class="kw">let </span>err = event_loop(stream, <span class="kw-2">&amp;</span>worker_info, security_status)
-		<span class="comment">// It&#39;s never `Ok` because it&#39;s `Ok(Never)`.
+		<span class="comment">// It's never `Ok` because it's `Ok(Never)`.
 		</span>.unwrap_err();
 
 	worker_shutdown(worker_info, <span class="kw-2">&amp;</span>err.to_string());
@@ -1369,13 +1371,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Provide a consistent message on unexpected worker shutdown.
 </span><span class="kw">fn </span>worker_shutdown(worker_info: WorkerInfo, err: <span class="kw-2">&amp;</span>str) -&gt; ! {
-	<span class="macro">gum::warn!</span>(target: LOG_TARGET, <span class="question-mark">?</span>worker_info, <span class="string">&quot;quitting pvf worker ({}): {}&quot;</span>, worker_info.kind, err);
+	<span class="macro">gum::warn!</span>(target: LOG_TARGET, <span class="question-mark">?</span>worker_info, <span class="string">"quitting pvf worker ({}): {}"</span>, worker_info.kind, err);
 	std::process::exit(<span class="number">1</span>);
 }
 
 <span class="doccomment">/// Provide a consistent error on unexpected worker shutdown.
 </span><span class="kw">fn </span>worker_shutdown_error(worker_info: WorkerInfo, err: <span class="kw-2">&amp;</span>str) -&gt; ! {
-	<span class="macro">gum::error!</span>(target: LOG_TARGET, <span class="question-mark">?</span>worker_info, <span class="string">&quot;quitting pvf worker ({}): {}&quot;</span>, worker_info.kind, err);
+	<span class="macro">gum::error!</span>(target: LOG_TARGET, <span class="question-mark">?</span>worker_info, <span class="string">"quitting pvf worker ({}): {}"</span>, worker_info.kind, err);
 	std::process::exit(<span class="number">1</span>);
 }
 
@@ -1398,7 +1400,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// Treat the timeout as CPU time, which is less subject to variance due to load.
 		</span><span class="kw">if </span>cpu_time_elapsed &lt;= timeout {
-			<span class="comment">// Sleep for the remaining CPU time, plus a bit to account for overhead. (And we don&#39;t
+			<span class="comment">// Sleep for the remaining CPU time, plus a bit to account for overhead. (And we don't
 			// want to wake up too often -- so, since we just want to halt the worker thread if it
 			// stalled, we can sleep longer than necessary.) Note that the sleep is wall clock time.
 			// The CPU clock may be slower than the wall clock.
@@ -1419,13 +1421,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Attempt to convert an opaque panic payload to a string.
 ///
 /// This is a best effort, and is not guaranteed to provide the most accurate value.
-</span><span class="kw">pub fn </span>stringify_panic_payload(payload: Box&lt;<span class="kw">dyn </span>Any + Send + <span class="lifetime">&#39;static</span>&gt;) -&gt; String {
-	<span class="kw">match </span>payload.downcast::&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt;() {
+</span><span class="kw">pub fn </span>stringify_panic_payload(payload: Box&lt;<span class="kw">dyn </span>Any + Send + <span class="lifetime">'static</span>&gt;) -&gt; String {
+	<span class="kw">match </span>payload.downcast::&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt;() {
 		<span class="prelude-val">Ok</span>(msg) =&gt; msg.to_string(),
 		<span class="prelude-val">Err</span>(payload) =&gt; <span class="kw">match </span>payload.downcast::&lt;String&gt;() {
 			<span class="prelude-val">Ok</span>(msg) =&gt; <span class="kw-2">*</span>msg,
 			<span class="comment">// At least we tried...
-			</span><span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="string">&quot;unknown panic payload&quot;</span>.to_string(),
+			</span><span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="string">"unknown panic payload"</span>.to_string(),
 		},
 	}
 }
@@ -1438,7 +1440,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// no leftover artifacts are possible.
 </span><span class="kw">fn </span>kill_parent_node_in_emergency() {
 	<span class="kw">unsafe </span>{
-		<span class="comment">// SAFETY: `getpid()` never fails but may return &quot;no-parent&quot; (0) or &quot;parent-init&quot; (1) in
+		<span class="comment">// SAFETY: `getpid()` never fails but may return "no-parent" (0) or "parent-init" (1) in
 		// some corner cases, which is checked. `kill()` never fails.
 		</span><span class="kw">let </span>ppid = libc::getppid();
 		<span class="kw">if </span>ppid &gt; <span class="number">1 </span>{
@@ -1453,7 +1455,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>worker_handshake = WorkerHandshake::decode(<span class="kw-2">&amp;mut &amp;</span>worker_handshake[..]).map_err(|e| {
 		io::Error::new(
 			io::ErrorKind::Other,
-			<span class="macro">format!</span>(<span class="string">&quot;recv_worker_handshake: failed to decode WorkerHandshake: {}&quot;</span>, e),
+			<span class="macro">format!</span>(<span class="string">"recv_worker_handshake: failed to decode WorkerHandshake: {}"</span>, e),
 		)
 	})<span class="question-mark">?</span>;
 	<span class="prelude-val">Ok</span>(worker_handshake)
@@ -1498,7 +1500,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// # Returns
 	///
-	/// Returns the thread&#39;s join handle. Calling `.join()` on it returns the result of executing
+	/// Returns the thread's join handle. Calling `.join()` on it returns the result of executing
 	/// `f()`, as well as whether we were able to enable sandboxing.
 	</span><span class="kw">pub fn </span>spawn_worker_thread&lt;F, R&gt;(
 		name: <span class="kw-2">&amp;</span>str,
@@ -1508,8 +1510,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; io::Result&lt;thread::JoinHandle&lt;R&gt;&gt;
 	<span class="kw">where
 		</span>F: FnOnce() -&gt; R,
-		F: Send + <span class="lifetime">&#39;static </span>+ panic::UnwindSafe,
-		R: Send + <span class="lifetime">&#39;static</span>,
+		F: Send + <span class="lifetime">'static </span>+ panic::UnwindSafe,
+		R: Send + <span class="lifetime">'static</span>,
 	{
 		thread::Builder::new()
 			.name(name.into())
@@ -1526,8 +1528,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; io::Result&lt;thread::JoinHandle&lt;R&gt;&gt;
 	<span class="kw">where
 		</span>F: FnOnce() -&gt; R,
-		F: Send + <span class="lifetime">&#39;static </span>+ panic::UnwindSafe,
-		R: Send + <span class="lifetime">&#39;static</span>,
+		F: Send + <span class="lifetime">'static </span>+ panic::UnwindSafe,
+		R: Send + <span class="lifetime">'static</span>,
 	{
 		thread::Builder::new()
 			.name(name.into())
@@ -1571,7 +1573,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Block the thread while it waits on the condvar or on a timeout. If the timeout is hit,
 	/// returns `None`.
-	</span><span class="attr">#[cfg_attr(not(any(target_os = <span class="string">&quot;linux&quot;</span>, feature = <span class="string">&quot;jemalloc-allocator&quot;</span>)), allow(dead_code))]
+	</span><span class="attr">#[cfg_attr(not(any(target_os = <span class="string">"linux"</span>, feature = <span class="string">"jemalloc-allocator"</span>)), allow(dead_code))]
 	</span><span class="kw">pub fn </span>wait_for_threads_with_timeout(cond: <span class="kw-2">&amp;</span>Cond, dur: Duration) -&gt; <span class="prelude-ty">Option</span>&lt;WaitOutcome&gt; {
 		<span class="kw">let </span>(lock, cvar) = <span class="kw-2">&amp;**</span>cond;
 		<span class="kw">let </span>result = cvar
@@ -1616,7 +1618,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">fn </span>spawn_worker_thread_should_notify_on_done() {
 			<span class="kw">let </span>condvar = Arc::new((Mutex::new(WaitOutcome::Pending), Condvar::new()));
 			<span class="kw">let </span>response =
-				spawn_worker_thread(<span class="string">&quot;thread&quot;</span>, || <span class="number">2</span>, condvar.clone(), WaitOutcome::TimedOut);
+				spawn_worker_thread(<span class="string">"thread"</span>, || <span class="number">2</span>, condvar.clone(), WaitOutcome::TimedOut);
 			<span class="kw">let </span>(lock, <span class="kw">_</span>) = <span class="kw-2">&amp;*</span>condvar;
 			<span class="kw">let </span>r = response.unwrap().join().unwrap();
 			<span class="macro">assert_eq!</span>(r, <span class="number">2</span>);
@@ -1627,7 +1629,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">fn </span>spawn_worker_should_not_change_finished_outcome() {
 			<span class="kw">let </span>condvar = Arc::new((Mutex::new(WaitOutcome::Finished), Condvar::new()));
 			<span class="kw">let </span>response =
-				spawn_worker_thread(<span class="string">&quot;thread&quot;</span>, <span class="kw">move </span>|| <span class="number">2</span>, condvar.clone(), WaitOutcome::TimedOut);
+				spawn_worker_thread(<span class="string">"thread"</span>, <span class="kw">move </span>|| <span class="number">2</span>, condvar.clone(), WaitOutcome::TimedOut);
 
 			<span class="kw">let </span>r = response.unwrap().join().unwrap();
 			<span class="macro">assert_eq!</span>(r, <span class="number">2</span>);
@@ -1638,7 +1640,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">fn </span>cond_notify_on_done_should_update_wait_outcome_when_panic() {
 			<span class="kw">let </span>condvar = Arc::new((Mutex::new(WaitOutcome::Pending), Condvar::new()));
 			<span class="kw">let </span>err = panic::catch_unwind(panic::AssertUnwindSafe(|| {
-				cond_notify_on_done(|| <span class="macro">panic!</span>(<span class="string">&quot;test&quot;</span>), condvar.clone(), WaitOutcome::Finished)
+				cond_notify_on_done(|| <span class="macro">panic!</span>(<span class="string">"test"</span>), condvar.clone(), WaitOutcome::Finished)
 			}));
 
 			<span class="macro">assert_matches!</span>(<span class="kw-2">*</span>condvar.<span class="number">0</span>.lock().unwrap(), WaitOutcome::Finished);

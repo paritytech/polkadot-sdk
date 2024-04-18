@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/network/src/service/out_events.rs`."><title>out_events.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/network/src/service/out_events.rs`."><title>out_events.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sc_network" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sc_network" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../sc_network/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -541,13 +543,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 
 <span class="doccomment">/// Log target for this file.
-</span><span class="kw">pub const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;sub-libp2p::out_events&quot;</span>;
+</span><span class="kw">pub const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"sub-libp2p::out_events"</span>;
 
 <span class="doccomment">/// Creates a new channel that can be associated to a [`OutChannels`].
 ///
 /// The name is used in Prometheus reports, the queue size threshold is used
 /// to warn if there are too many unprocessed events in the channel.
-</span><span class="kw">pub fn </span>channel(name: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str, queue_size_warning: usize) -&gt; (Sender, Receiver) {
+</span><span class="kw">pub fn </span>channel(name: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str, queue_size_warning: usize) -&gt; (Sender, Receiver) {
 	<span class="kw">let </span>(tx, rx) = async_channel::unbounded();
 	<span class="kw">let </span>tx = Sender {
 		inner: tx,
@@ -582,7 +584,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub struct </span>Sender {
 	inner: async_channel::Sender&lt;Event&gt;,
 	<span class="doccomment">/// Name to identify the channel (e.g., in Prometheus and logs).
-	</span>name: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
+	</span>name: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
 	<span class="doccomment">/// Threshold queue size to generate an error message in the logs.
 	</span>queue_size_warning: usize,
 	<span class="doccomment">/// We generate the error message only once to not spam the logs after the first error.
@@ -597,7 +599,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl </span>fmt::Debug <span class="kw">for </span>Sender {
 	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter) -&gt; fmt::Result {
-		f.debug_tuple(<span class="string">&quot;Sender&quot;</span>).finish()
+		f.debug_tuple(<span class="string">"Sender"</span>).finish()
 	}
 }
 
@@ -612,7 +614,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Receiving side of a channel.
 </span><span class="kw">pub struct </span>Receiver {
 	inner: async_channel::Receiver&lt;Event&gt;,
-	name: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
+	name: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
 	<span class="doccomment">/// Initially contains `None`, and will be set to a value once the corresponding [`Sender`]
 	/// is assigned to an instance of [`OutChannels`].
 	</span>metrics: <span class="prelude-ty">Option</span>&lt;Metrics&gt;,
@@ -635,7 +637,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl </span>fmt::Debug <span class="kw">for </span>Receiver {
 	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter) -&gt; fmt::Result {
-		f.debug_tuple(<span class="string">&quot;Receiver&quot;</span>).finish()
+		f.debug_tuple(<span class="string">"Receiver"</span>).finish()
 	}
 }
 
@@ -684,19 +686,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">if </span>current_pending &gt;= sender.queue_size_warning {
 				<span class="kw">if </span>sender.warning_fired == SenderWarningState::NotFired {
 					<span class="macro">error!</span>(
-						<span class="string">&quot;The number of unprocessed events in channel `{}` exceeded {}.\n\
+						<span class="string">"The number of unprocessed events in channel `{}` exceeded {}.\n\
 						 The channel was created at:\n{:}\n
-						 The last event was sent from:\n{:}&quot;</span>,
+						 The last event was sent from:\n{:}"</span>,
 						sender.name,
 						sender.queue_size_warning,
 						sender.creation_backtrace,
 						Backtrace::force_capture(),
 					);
 				} <span class="kw">else if </span>sender.warning_fired == SenderWarningState::FiredFree {
-					<span class="comment">// We don&#39;t want to spam the logs, so we only log on debug level
+					<span class="comment">// We don't want to spam the logs, so we only log on debug level
 					</span><span class="macro">debug!</span>(
 						target: LOG_TARGET,
-						<span class="string">&quot;Channel `{}` is overflowed again. Number of events: {}&quot;</span>,
+						<span class="string">"Channel `{}` is overflowed again. Number of events: {}"</span>,
 						sender.name, current_pending
 					);
 				}
@@ -707,7 +709,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				sender.warning_fired = SenderWarningState::FiredFree;
 				<span class="macro">debug!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Channel `{}` is no longer overflowed. Number of events: {}&quot;</span>,
+					<span class="string">"Channel `{}` is no longer overflowed. Number of events: {}"</span>,
 					sender.name, current_pending
 				);
 			}
@@ -725,8 +727,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl </span>fmt::Debug <span class="kw">for </span>OutChannels {
 	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter) -&gt; fmt::Result {
-		f.debug_struct(<span class="string">&quot;OutChannels&quot;</span>)
-			.field(<span class="string">&quot;num_channels&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.event_streams.len())
+		f.debug_struct(<span class="string">"OutChannels"</span>)
+			.field(<span class="string">"num_channels"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.event_streams.len())
 			.finish()
 	}
 }
@@ -749,9 +751,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		label_buffer.clear();
 		label_buffer.reserve(prefix.len() + protocol.len() + <span class="number">2</span>);
 		label_buffer.push_str(prefix);
-		label_buffer.push(<span class="string">&#39;&quot;&#39;</span>);
+		label_buffer.push(<span class="string">'"'</span>);
 		label_buffer.push_str(protocol);
-		label_buffer.push(<span class="string">&#39;&quot;&#39;</span>);
+		label_buffer.push(<span class="string">'"'</span>);
 		callback(<span class="kw-2">&amp;</span>label_buffer);
 	});
 }
@@ -761,26 +763,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Ok</span>(<span class="self">Self </span>{
 			events_total: register(CounterVec::new(
 				Opts::new(
-					<span class="string">&quot;substrate_sub_libp2p_out_events_events_total&quot;</span>,
-					<span class="string">&quot;Number of broadcast network events that have been sent or received across all \
-					 channels&quot;
+					<span class="string">"substrate_sub_libp2p_out_events_events_total"</span>,
+					<span class="string">"Number of broadcast network events that have been sent or received across all \
+					 channels"
 				</span>),
-				<span class="kw-2">&amp;</span>[<span class="string">&quot;event_name&quot;</span>, <span class="string">&quot;action&quot;</span>, <span class="string">&quot;name&quot;</span>]
+				<span class="kw-2">&amp;</span>[<span class="string">"event_name"</span>, <span class="string">"action"</span>, <span class="string">"name"</span>]
 			)<span class="question-mark">?</span>, registry)<span class="question-mark">?</span>,
 			notifications_sizes: register(CounterVec::new(
 				Opts::new(
-					<span class="string">&quot;substrate_sub_libp2p_out_events_notifications_sizes&quot;</span>,
-					<span class="string">&quot;Size of notification events that have been sent or received across all \
-					 channels&quot;
+					<span class="string">"substrate_sub_libp2p_out_events_notifications_sizes"</span>,
+					<span class="string">"Size of notification events that have been sent or received across all \
+					 channels"
 				</span>),
-				<span class="kw-2">&amp;</span>[<span class="string">&quot;protocol&quot;</span>, <span class="string">&quot;action&quot;</span>, <span class="string">&quot;name&quot;</span>]
+				<span class="kw-2">&amp;</span>[<span class="string">"protocol"</span>, <span class="string">"action"</span>, <span class="string">"name"</span>]
 			)<span class="question-mark">?</span>, registry)<span class="question-mark">?</span>,
 			num_channels: register(GaugeVec::new(
 				Opts::new(
-					<span class="string">&quot;substrate_sub_libp2p_out_events_num_channels&quot;</span>,
-					<span class="string">&quot;Number of internal active channels that broadcast network events&quot;</span>,
+					<span class="string">"substrate_sub_libp2p_out_events_num_channels"</span>,
+					<span class="string">"Number of internal active channels that broadcast network events"</span>,
 				),
-				<span class="kw-2">&amp;</span>[<span class="string">&quot;name&quot;</span>]
+				<span class="kw-2">&amp;</span>[<span class="string">"name"</span>]
 			)<span class="question-mark">?</span>, registry)<span class="question-mark">?</span>,
 		})
 	}
@@ -788,25 +790,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>event_in(<span class="kw-2">&amp;</span><span class="self">self</span>, event: <span class="kw-2">&amp;</span>Event, name: <span class="kw-2">&amp;</span>str) {
 		<span class="kw">match </span>event {
 			Event::Dht(<span class="kw">_</span>) =&gt; {
-				<span class="self">self</span>.events_total.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">&quot;dht&quot;</span>, <span class="string">&quot;sent&quot;</span>, name]).inc();
+				<span class="self">self</span>.events_total.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">"dht"</span>, <span class="string">"sent"</span>, name]).inc();
 			},
 			Event::NotificationStreamOpened { protocol, .. } =&gt; {
-				format_label(<span class="string">&quot;notif-open-&quot;</span>, protocol, |protocol_label| {
-					<span class="self">self</span>.events_total.with_label_values(<span class="kw-2">&amp;</span>[protocol_label, <span class="string">&quot;sent&quot;</span>, name]).inc();
+				format_label(<span class="string">"notif-open-"</span>, protocol, |protocol_label| {
+					<span class="self">self</span>.events_total.with_label_values(<span class="kw-2">&amp;</span>[protocol_label, <span class="string">"sent"</span>, name]).inc();
 				});
 			},
 			Event::NotificationStreamClosed { protocol, .. } =&gt; {
-				format_label(<span class="string">&quot;notif-closed-&quot;</span>, protocol, |protocol_label| {
-					<span class="self">self</span>.events_total.with_label_values(<span class="kw-2">&amp;</span>[protocol_label, <span class="string">&quot;sent&quot;</span>, name]).inc();
+				format_label(<span class="string">"notif-closed-"</span>, protocol, |protocol_label| {
+					<span class="self">self</span>.events_total.with_label_values(<span class="kw-2">&amp;</span>[protocol_label, <span class="string">"sent"</span>, name]).inc();
 				});
 			},
 			Event::NotificationsReceived { messages, .. } =&gt;
 				<span class="kw">for </span>(protocol, message) <span class="kw">in </span>messages {
-					format_label(<span class="string">&quot;notif-&quot;</span>, protocol, |protocol_label| {
-						<span class="self">self</span>.events_total.with_label_values(<span class="kw-2">&amp;</span>[protocol_label, <span class="string">&quot;sent&quot;</span>, name]).inc();
+					format_label(<span class="string">"notif-"</span>, protocol, |protocol_label| {
+						<span class="self">self</span>.events_total.with_label_values(<span class="kw-2">&amp;</span>[protocol_label, <span class="string">"sent"</span>, name]).inc();
 					});
 					<span class="self">self</span>.notifications_sizes
-						.with_label_values(<span class="kw-2">&amp;</span>[protocol, <span class="string">&quot;sent&quot;</span>, name])
+						.with_label_values(<span class="kw-2">&amp;</span>[protocol, <span class="string">"sent"</span>, name])
 						.inc_by(u64::try_from(message.len()).unwrap_or(u64::MAX));
 				},
 		}
@@ -815,27 +817,27 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>event_out(<span class="kw-2">&amp;</span><span class="self">self</span>, event: <span class="kw-2">&amp;</span>Event, name: <span class="kw-2">&amp;</span>str) {
 		<span class="kw">match </span>event {
 			Event::Dht(<span class="kw">_</span>) =&gt; {
-				<span class="self">self</span>.events_total.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">&quot;dht&quot;</span>, <span class="string">&quot;received&quot;</span>, name]).inc();
+				<span class="self">self</span>.events_total.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">"dht"</span>, <span class="string">"received"</span>, name]).inc();
 			},
 			Event::NotificationStreamOpened { protocol, .. } =&gt; {
-				format_label(<span class="string">&quot;notif-open-&quot;</span>, protocol, |protocol_label| {
-					<span class="self">self</span>.events_total.with_label_values(<span class="kw-2">&amp;</span>[protocol_label, <span class="string">&quot;received&quot;</span>, name]).inc();
+				format_label(<span class="string">"notif-open-"</span>, protocol, |protocol_label| {
+					<span class="self">self</span>.events_total.with_label_values(<span class="kw-2">&amp;</span>[protocol_label, <span class="string">"received"</span>, name]).inc();
 				});
 			},
 			Event::NotificationStreamClosed { protocol, .. } =&gt; {
-				format_label(<span class="string">&quot;notif-closed-&quot;</span>, protocol, |protocol_label| {
-					<span class="self">self</span>.events_total.with_label_values(<span class="kw-2">&amp;</span>[protocol_label, <span class="string">&quot;received&quot;</span>, name]).inc();
+				format_label(<span class="string">"notif-closed-"</span>, protocol, |protocol_label| {
+					<span class="self">self</span>.events_total.with_label_values(<span class="kw-2">&amp;</span>[protocol_label, <span class="string">"received"</span>, name]).inc();
 				});
 			},
 			Event::NotificationsReceived { messages, .. } =&gt;
 				<span class="kw">for </span>(protocol, message) <span class="kw">in </span>messages {
-					format_label(<span class="string">&quot;notif-&quot;</span>, protocol, |protocol_label| {
+					format_label(<span class="string">"notif-"</span>, protocol, |protocol_label| {
 						<span class="self">self</span>.events_total
-							.with_label_values(<span class="kw-2">&amp;</span>[protocol_label, <span class="string">&quot;received&quot;</span>, name])
+							.with_label_values(<span class="kw-2">&amp;</span>[protocol_label, <span class="string">"received"</span>, name])
 							.inc();
 					});
 					<span class="self">self</span>.notifications_sizes
-						.with_label_values(<span class="kw-2">&amp;</span>[protocol, <span class="string">&quot;received&quot;</span>, name])
+						.with_label_values(<span class="kw-2">&amp;</span>[protocol, <span class="string">"received"</span>, name])
 						.inc_by(u64::try_from(message.len()).unwrap_or(u64::MAX));
 				},
 		}

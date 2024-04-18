@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `docs/sdk/src/reference_docs/wasm_meta_protocol.rs`."><title>wasm_meta_protocol.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `docs/sdk/src/reference_docs/wasm_meta_protocol.rs`."><title>wasm_meta_protocol.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_sdk_docs" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="icon" href="https://polkadot.network/favicon-32x32.png"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_sdk_docs" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="icon" href="https://polkadot.network/favicon-32x32.png"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../polkadot_sdk_docs/index.html"><img src="https://europe1.discourse-cdn.com/standard21/uploads/polkadot2/original/1X/eb57081e2bb7c39e5fcb1a98b443e423fa4448ae.svg" alt="polkadot_sdk_docs"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../polkadot_sdk_docs/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -263,23 +265,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </pre></div><pre class="rust"><code><span class="doccomment">//! # WASM Meta Protocol
 //!
 //! All Substrate based chains adhere to a unique architectural design novel to the Polkadot
-//! ecosystem. We refer to this design as the &quot;WASM Meta Protocol&quot;.
+//! ecosystem. We refer to this design as the "WASM Meta Protocol".
 //!
 //! Consider the fact that a traditional blockchain software is usually a monolithic artifact.
 //! Upgrading any part of the system implies upgrading the entire system. This has historically led
 //! to cumbersome forkful upgrades to be the status quo in the blockchain ecosystem.
 //!
-//! Moreover, the idea of &quot;storing code in the state&quot; is explored in the context of smart contracts
+//! Moreover, the idea of "storing code in the state" is explored in the context of smart contracts
 //! platforms, but has not been expanded further.
 //!
 //! Substrate mixes these two ideas together, and takes the novel approach of storing the
-//! blockchain&#39;s main &quot;state transition function&quot; in the main blockchain state, in the same fashion
+//! blockchain's main "state transition function" in the main blockchain state, in the same fashion
 //! that a smart contract platform stores the code of individual contracts in its state. As noted in
 //! [`crate::reference_docs::blockchain_state_machines`], this state transition function is called
 //! the **Runtime**, and WASM is chosen as the bytecode. The Runtime is stored under a special key
 //! in the state (see
 //! [`sp_core::storage::well_known_keys`](../../../sp_core/index.html)) and can be
-//! updated as a part of the state transition function&#39;s execution, just like a user&#39;s account
+//! updated as a part of the state transition function's execution, just like a user's account
 //! balance can be updated.
 //!
 //! &gt; Note that while we drew an analogy between smart contracts and runtimes in the above, there
@@ -295,7 +297,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!
 //! Therefore, the high-level architecture of a any Substrate-based chain can be demonstrated as
 //! follows:
-</span><span class="attr">#![doc = <span class="macro">simple_mermaid::mermaid!</span>(<span class="string">&quot;../../../mermaid/substrate_simple.mmd&quot;</span>)]
+</span><span class="attr">#![doc = <span class="macro">simple_mermaid::mermaid!</span>(<span class="string">"../../../mermaid/substrate_simple.mmd"</span>)]
 </span><span class="doccomment">//!
 //! The node and the runtime need to communicate. This is done through two concepts:
 //!
@@ -306,13 +308,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!    using macros and utilities in [`sp_api`]. For example, [`sp_api::Core`] is the most
 //!    fundamental runtime API that any blockchain must implement in order to be able to (re)
 //!    execute blocks.
-</span><span class="attr">#![doc = <span class="macro">simple_mermaid::mermaid!</span>(<span class="string">&quot;../../../mermaid/substrate_client_runtime.mmd&quot;</span>)]
+</span><span class="attr">#![doc = <span class="macro">simple_mermaid::mermaid!</span>(<span class="string">"../../../mermaid/substrate_client_runtime.mmd"</span>)]
 </span><span class="doccomment">//!
 //! A runtime must have a set of runtime APIs in order to have any meaningful blockchain
 //! functionality, but it can also expose more APIs. See TODO as an example of how to add custom
 //! runtime APIs to your FRAME-based runtime.
 //!
-//! Similarly, for a runtime to be &quot;compatible&quot; with a node, the node must implement the full set of
+//! Similarly, for a runtime to be "compatible" with a node, the node must implement the full set of
 //! host functions that the runtime at any point in time requires. Given the fact that a runtime can
 //! evolve in time, and a blockchain node (typically) wishes to be capable of re-executing all the
 //! previous blocks, this means that a node must always maintain support for the old host functions.
@@ -325,7 +327,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! ones of the runtime?
 //!
 //! Recall from [`crate::reference_docs::blockchain_state_machines`] that the runtime is the state
-//! transition function. Anything that needs to influence how your blockchain&#39;s state is updated,
+//! transition function. Anything that needs to influence how your blockchain's state is updated,
 //! should be a part of the runtime. For example, the logic around currency, governance, identity or
 //! any other application-specific logic that has to do with the state is part of the runtime.
 //!
@@ -336,13 +338,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! &gt; The consensus is to your runtime what HTTP is to a web-application. It is the underlying
 //! &gt; engine that enables trustless execution of the runtime in a distributed manner whilst
 //! &gt; maintaining a canonical outcome of that execution.
-</span><span class="attr">#![doc = <span class="macro">simple_mermaid::mermaid!</span>(<span class="string">&quot;../../../mermaid/substrate_with_frame.mmd&quot;</span>)]
+</span><span class="attr">#![doc = <span class="macro">simple_mermaid::mermaid!</span>(<span class="string">"../../../mermaid/substrate_with_frame.mmd"</span>)]
 </span><span class="doccomment">//!
 //! ## State
 //!
 //! From the previous sections, we know that the a database component is part of the node, not the
 //! runtime. We also hinted that a set of host functions ([`sp_io::storage`]) are how the runtime
-//! issues commands to the node to read/write to the state. Let&#39;s dive deeper into this.
+//! issues commands to the node to read/write to the state. Let's dive deeper into this.
 //!
 //! The state of the blockchain, what we seek to come to consensus about, is indeed *kept* in the
 //! node side. Nonetheless, the runtime is the only component that:
@@ -353,7 +355,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! In fact, [`sp_core::storage::well_known_keys`] are the only state keys that the node side is
 //! aware of. The rest of the state, including what logic the runtime has, what balance each user
 //! has and such are all only comprehensible to the runtime.
-</span><span class="attr">#![doc = <span class="macro">simple_mermaid::mermaid!</span>(<span class="string">&quot;../../../mermaid/state.mmd&quot;</span>)]
+</span><span class="attr">#![doc = <span class="macro">simple_mermaid::mermaid!</span>(<span class="string">"../../../mermaid/state.mmd"</span>)]
 </span><span class="doccomment">//!
 //! In the above diagram, all of the state keys and values are opaque bytes to the node. The node
 //! does not know what they mean, and it does not now what is the type of the corresponding value

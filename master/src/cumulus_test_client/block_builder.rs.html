@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `cumulus/test/client/src/block_builder.rs`."><title>block_builder.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `cumulus/test/client/src/block_builder.rs`."><title>block_builder.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="cumulus_test_client" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="cumulus_test_client" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../cumulus_test_client/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -380,8 +382,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 
 <span class="doccomment">/// A struct containing a block builder and support data required to build test scenarios.
-</span><span class="kw">pub struct </span>BlockBuilderAndSupportData&lt;<span class="lifetime">&#39;a</span>&gt; {
-	<span class="kw">pub </span>block_builder: sc_block_builder::BlockBuilder&lt;<span class="lifetime">&#39;a</span>, Block, Client&gt;,
+</span><span class="kw">pub struct </span>BlockBuilderAndSupportData&lt;<span class="lifetime">'a</span>&gt; {
+	<span class="kw">pub </span>block_builder: sc_block_builder::BlockBuilder&lt;<span class="lifetime">'a</span>, Block, Client&gt;,
 	<span class="kw">pub </span>persisted_validation_data: PersistedValidationData&lt;PHash, PBlockNumber&gt;,
 	<span class="kw">pub </span>slot: Slot,
 }
@@ -435,7 +437,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	validation_data: <span class="prelude-ty">Option</span>&lt;PersistedValidationData&lt;PHash, PBlockNumber&gt;&gt;,
 	<span class="kw-2">mut </span>relay_sproof_builder: RelayStateSproofBuilder,
 	timestamp: u64,
-) -&gt; BlockBuilderAndSupportData&lt;<span class="lifetime">&#39;_</span>&gt; {
+) -&gt; BlockBuilderAndSupportData&lt;<span class="lifetime">'_</span>&gt; {
 	<span class="comment">// This slot will be used for both relay chain and parachain
 	</span><span class="kw">let </span>slot: Slot = (timestamp / cumulus_test_runtime::SLOT_DURATION).into();
 	relay_sproof_builder.current_slot = slot;
@@ -451,13 +453,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		.enable_proof_recording()
 		.with_inherent_digests(aura_pre_digest)
 		.build()
-		.expect(<span class="string">&quot;Creates new block builder for test runtime&quot;</span>);
+		.expect(<span class="string">"Creates new block builder for test runtime"</span>);
 
 	<span class="kw">let </span><span class="kw-2">mut </span>inherent_data = sp_inherents::InherentData::new();
 
 	inherent_data
 		.put_data(sp_timestamp::INHERENT_IDENTIFIER, <span class="kw-2">&amp;</span>timestamp)
-		.expect(<span class="string">&quot;Put timestamp failed&quot;</span>);
+		.expect(<span class="string">"Put timestamp failed"</span>);
 
 	<span class="kw">let </span>(relay_parent_storage_root, relay_chain_state) =
 		relay_sproof_builder.into_state_root_and_proof();
@@ -475,13 +477,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				horizontal_messages: Default::default(),
 			},
 		)
-		.expect(<span class="string">&quot;Put validation function params failed&quot;</span>);
+		.expect(<span class="string">"Put validation function params failed"</span>);
 
-	<span class="kw">let </span>inherents = block_builder.create_inherents(inherent_data).expect(<span class="string">&quot;Creates inherents&quot;</span>);
+	<span class="kw">let </span>inherents = block_builder.create_inherents(inherent_data).expect(<span class="string">"Creates inherents"</span>);
 
 	inherents
 		.into_iter()
-		.for_each(|ext| block_builder.push(ext).expect(<span class="string">&quot;Pushes inherent&quot;</span>));
+		.for_each(|ext| block_builder.push(ext).expect(<span class="string">"Pushes inherent"</span>));
 
 	BlockBuilderAndSupportData { block_builder, persisted_validation_data: validation_data, slot }
 }
@@ -502,12 +504,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		validation_data: <span class="prelude-ty">Option</span>&lt;PersistedValidationData&lt;PHash, PBlockNumber&gt;&gt;,
 		relay_sproof_builder: RelayStateSproofBuilder,
 	) -&gt; BlockBuilderAndSupportData {
-		<span class="kw">let </span>last_timestamp = <span class="self">self</span>.runtime_api().get_last_timestamp(at).expect(<span class="string">&quot;Get last timestamp&quot;</span>);
+		<span class="kw">let </span>last_timestamp = <span class="self">self</span>.runtime_api().get_last_timestamp(at).expect(<span class="string">"Get last timestamp"</span>);
 
 		<span class="kw">let </span>timestamp = <span class="kw">if </span>last_timestamp == <span class="number">0 </span>{
 			std::time::SystemTime::now()
 				.duration_since(std::time::SystemTime::UNIX_EPOCH)
-				.expect(<span class="string">&quot;Time is always after UNIX_EPOCH; qed&quot;</span>)
+				.expect(<span class="string">"Time is always after UNIX_EPOCH; qed"</span>)
 				.as_millis() <span class="kw">as </span>u64
 		} <span class="kw">else </span>{
 			last_timestamp + cumulus_test_runtime::SLOT_DURATION
@@ -535,15 +537,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>build_parachain_block(<span class="self">self</span>, parent_state_root: Hash) -&gt; ParachainBlockData&lt;Block&gt;;
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; BuildParachainBlockData <span class="kw">for </span>sc_block_builder::BlockBuilder&lt;<span class="lifetime">&#39;a</span>, Block, Client&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; BuildParachainBlockData <span class="kw">for </span>sc_block_builder::BlockBuilder&lt;<span class="lifetime">'a</span>, Block, Client&gt; {
 	<span class="kw">fn </span>build_parachain_block(<span class="self">self</span>, parent_state_root: Hash) -&gt; ParachainBlockData&lt;Block&gt; {
-		<span class="kw">let </span>built_block = <span class="self">self</span>.build().expect(<span class="string">&quot;Builds the block&quot;</span>);
+		<span class="kw">let </span>built_block = <span class="self">self</span>.build().expect(<span class="string">"Builds the block"</span>);
 
 		<span class="kw">let </span>storage_proof = built_block
 			.proof
-			.expect(<span class="string">&quot;We enabled proof recording before.&quot;</span>)
+			.expect(<span class="string">"We enabled proof recording before."</span>)
 			.into_compact_proof::&lt;&lt;Header <span class="kw">as </span>HeaderT&gt;::Hashing&gt;(parent_state_root)
-			.expect(<span class="string">&quot;Creates the compact proof&quot;</span>);
+			.expect(<span class="string">"Creates the compact proof"</span>);
 
 		<span class="kw">let </span>(header, extrinsics) = built_block.block.deconstruct();
 		ParachainBlockData::new(header, extrinsics, storage_proof)

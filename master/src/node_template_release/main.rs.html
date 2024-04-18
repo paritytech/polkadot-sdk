@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/scripts/ci/node-template-release/src/main.rs`."><title>main.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/scripts/ci/node-template-release/src/main.rs`."><title>main.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="node_template_release" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="node_template_release" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../node_template_release/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -654,7 +656,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>tempfile;
 <span class="kw">use </span>toml_edit::{<span class="self">self</span>, value, Array, Item, Table};
 
-<span class="kw">const </span>SUBSTRATE_GIT_URL: <span class="kw-2">&amp;</span>str = <span class="string">&quot;https://github.com/paritytech/polkadot-sdk.git&quot;</span>;
+<span class="kw">const </span>SUBSTRATE_GIT_URL: <span class="kw-2">&amp;</span>str = <span class="string">"https://github.com/paritytech/polkadot-sdk.git"</span>;
 
 <span class="kw">type </span>CargoToml = toml_edit::Document;
 
@@ -680,38 +682,38 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Copy the `node-template` to the given path.
 </span><span class="kw">fn </span>copy_node_template(node_template: <span class="kw-2">&amp;</span>Path, node_template_folder: <span class="kw-2">&amp;</span>OsString, dest_path: <span class="kw-2">&amp;</span>Path) {
 	<span class="kw">let </span>options = CopyOptions::new();
-	dir::copy(node_template, dest_path, <span class="kw-2">&amp;</span>options).expect(<span class="string">&quot;Copies node-template to tmp dir&quot;</span>);
+	dir::copy(node_template, dest_path, <span class="kw-2">&amp;</span>options).expect(<span class="string">"Copies node-template to tmp dir"</span>);
 
 	<span class="kw">let </span>dest_path = dest_path.join(node_template_folder);
 
-	dir::get_dir_content(dest_path.join(<span class="string">&quot;env-setup&quot;</span>))
-		.expect(<span class="string">&quot;`env-setup` directory should exist&quot;</span>)
+	dir::get_dir_content(dest_path.join(<span class="string">"env-setup"</span>))
+		.expect(<span class="string">"`env-setup` directory should exist"</span>)
 		.files
 		.iter()
 		.for_each(|f| {
 			fs::copy(
 				f,
-				dest_path.join(PathBuf::from(f).file_name().expect(<span class="string">&quot;File has a file name.&quot;</span>)),
+				dest_path.join(PathBuf::from(f).file_name().expect(<span class="string">"File has a file name."</span>)),
 			)
-			.expect(<span class="string">&quot;Copying from `env-setup` directory works&quot;</span>);
+			.expect(<span class="string">"Copying from `env-setup` directory works"</span>);
 		});
-	dir::remove(dest_path.join(<span class="string">&quot;env-setup&quot;</span>)).expect(<span class="string">&quot;Deleting `env-setup works`&quot;</span>);
+	dir::remove(dest_path.join(<span class="string">"env-setup"</span>)).expect(<span class="string">"Deleting `env-setup works`"</span>);
 }
 
 <span class="doccomment">/// Find all `Cargo.toml` files in the given path.
 </span><span class="kw">fn </span>find_cargo_tomls(path: <span class="kw-2">&amp;</span>PathBuf) -&gt; Vec&lt;PathBuf&gt; {
-	<span class="kw">let </span>path = <span class="macro">format!</span>(<span class="string">&quot;{}/**/Cargo.toml&quot;</span>, path.display());
+	<span class="kw">let </span>path = <span class="macro">format!</span>(<span class="string">"{}/**/Cargo.toml"</span>, path.display());
 
-	<span class="kw">let </span>glob = glob::glob(<span class="kw-2">&amp;</span>path).expect(<span class="string">&quot;Generates globbing pattern&quot;</span>);
+	<span class="kw">let </span>glob = glob::glob(<span class="kw-2">&amp;</span>path).expect(<span class="string">"Generates globbing pattern"</span>);
 
 	<span class="kw">let </span><span class="kw-2">mut </span>result = Vec::new();
 	glob.into_iter().for_each(|file| <span class="kw">match </span>file {
 		<span class="prelude-val">Ok</span>(file) =&gt; result.push(file),
-		<span class="prelude-val">Err</span>(e) =&gt; <span class="macro">println!</span>(<span class="string">&quot;{:?}&quot;</span>, e),
+		<span class="prelude-val">Err</span>(e) =&gt; <span class="macro">println!</span>(<span class="string">"{:?}"</span>, e),
 	});
 
 	<span class="kw">if </span>result.is_empty() {
-		<span class="macro">panic!</span>(<span class="string">&quot;Did not found any `Cargo.toml` files.&quot;</span>);
+		<span class="macro">panic!</span>(<span class="string">"Did not found any `Cargo.toml` files."</span>);
 	}
 
 	result
@@ -720,31 +722,31 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Parse the given `Cargo.toml`.
 </span><span class="kw">fn </span>parse_cargo_toml(file: <span class="kw-2">&amp;</span>Path) -&gt; CargoToml {
 	fs::read_to_string(file)
-		.unwrap_or_else(|e| <span class="macro">panic!</span>(<span class="string">&quot;Failed to read `{}`: {}&quot;</span>, file.display(), e))
+		.unwrap_or_else(|e| <span class="macro">panic!</span>(<span class="string">"Failed to read `{}`: {}"</span>, file.display(), e))
 		.parse()
-		.unwrap_or_else(|e| <span class="macro">panic!</span>(<span class="string">&quot;Failed to parse `{}`: {}&quot;</span>, file.display(), e))
+		.unwrap_or_else(|e| <span class="macro">panic!</span>(<span class="string">"Failed to parse `{}`: {}"</span>, file.display(), e))
 }
 
 <span class="doccomment">/// Write the given `Cargo.toml` to the given path.
 </span><span class="kw">fn </span>write_cargo_toml(path: <span class="kw-2">&amp;</span>Path, cargo_toml: CargoToml) {
 	fs::write(path, cargo_toml.to_string())
-		.unwrap_or_else(|e| <span class="macro">panic!</span>(<span class="string">&quot;Failed to write `{}`: {}&quot;</span>, path.display(), e));
+		.unwrap_or_else(|e| <span class="macro">panic!</span>(<span class="string">"Failed to write `{}`: {}"</span>, path.display(), e));
 }
 
 <span class="doccomment">/// Gets the latest commit id of the repository given by `path`.
 </span><span class="kw">fn </span>get_git_commit_id(path: <span class="kw-2">&amp;</span>Path) -&gt; String {
 	<span class="kw">let </span><span class="kw-2">mut </span>dir = path;
-	<span class="kw">while </span>!dir.join(<span class="string">&quot;.git&quot;</span>).exists() {
+	<span class="kw">while </span>!dir.join(<span class="string">".git"</span>).exists() {
 		dir = dir
 			.parent()
-			.expect(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;Node template ({}) should be in a git repository.&quot;</span>, path.display()));
+			.expect(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"Node template ({}) should be in a git repository."</span>, path.display()));
 	}
 
-	<span class="kw">let </span>git = dir.join(<span class="string">&quot;.git&quot;</span>);
-	<span class="kw">let </span>head = git.join(<span class="string">&quot;HEAD&quot;</span>);
-	<span class="kw">let </span>head_contents = fs::read_to_string(head).expect(<span class="string">&quot;Repository should have a HEAD&quot;</span>);
-	<span class="kw">let </span>branch = head_contents.strip_prefix(<span class="string">&quot;ref: &quot;</span>).expect(<span class="string">&quot;.git/HEAD to start &#39;ref: &#39;&quot;</span>).trim();
-	<span class="kw">let </span><span class="kw-2">mut </span>commit = fs::read_to_string(git.join(branch)).expect(<span class="string">&quot;Head references a commit&quot;</span>);
+	<span class="kw">let </span>git = dir.join(<span class="string">".git"</span>);
+	<span class="kw">let </span>head = git.join(<span class="string">"HEAD"</span>);
+	<span class="kw">let </span>head_contents = fs::read_to_string(head).expect(<span class="string">"Repository should have a HEAD"</span>);
+	<span class="kw">let </span>branch = head_contents.strip_prefix(<span class="string">"ref: "</span>).expect(<span class="string">".git/HEAD to start 'ref: '"</span>).trim();
+	<span class="kw">let </span><span class="kw-2">mut </span>commit = fs::read_to_string(git.join(branch)).expect(<span class="string">"Head references a commit"</span>);
 	commit.truncate(commit.trim_end().len());
 	commit
 }
@@ -764,23 +766,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		value
 			.as_table_like_mut()
 			.filter(|dep| {
-				dep.get(<span class="string">&quot;path&quot;</span>).and_then(|path| path.as_str()).map(path_filter).unwrap_or(<span class="bool-val">false</span>)
+				dep.get(<span class="string">"path"</span>).and_then(|path| path.as_str()).map(path_filter).unwrap_or(<span class="bool-val">false</span>)
 			})
 			.map(|dep| {
-				dep.insert(<span class="string">&quot;workspace&quot;</span>, toml_edit::value(<span class="bool-val">true</span>));
-				dep.remove(<span class="string">&quot;path&quot;</span>);
+				dep.insert(<span class="string">"workspace"</span>, toml_edit::value(<span class="bool-val">true</span>));
+				dep.remove(<span class="string">"path"</span>);
 
 				Dependency {
 					name: key.get().to_string(),
 					version: dep
-						.remove(<span class="string">&quot;version&quot;</span>)
+						.remove(<span class="string">"version"</span>)
 						.and_then(|version| version.as_str().map(|s| s.to_string())),
-					default_features: dep.remove(<span class="string">&quot;default-features&quot;</span>).and_then(|b| b.as_bool()),
+					default_features: dep.remove(<span class="string">"default-features"</span>).and_then(|b| b.as_bool()),
 				}
 			})
 	};
 
-	[<span class="string">&quot;dependencies&quot;</span>, <span class="string">&quot;build-dependencies&quot;</span>, <span class="string">&quot;dev-dependencies&quot;</span>]
+	[<span class="string">"dependencies"</span>, <span class="string">"build-dependencies"</span>, <span class="string">"dev-dependencies"</span>]
 		.into_iter()
 		.map(|table| -&gt; (String, HashMap&lt;String, Dependency&gt;) {
 			(
@@ -833,38 +835,38 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ) {
 	<span class="kw">let </span><span class="kw-2">mut </span>workspace = Table::new();
 
-	workspace.insert(<span class="string">&quot;resolver&quot;</span>, value(<span class="string">&quot;2&quot;</span>));
+	workspace.insert(<span class="string">"resolver"</span>, value(<span class="string">"2"</span>));
 
-	workspace.insert(<span class="string">&quot;members&quot;</span>, value(Array::from_iter(members.iter())));
+	workspace.insert(<span class="string">"members"</span>, value(Array::from_iter(members.iter())));
 	<span class="kw">let </span><span class="kw-2">mut </span>workspace_dependencies = Table::new();
 	deps.values()
 		.flatten()
 		.sorted_by_key(|(name, <span class="kw">_</span>)| <span class="kw-2">*</span>name)
 		.for_each(|(name, dep)| {
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(version) = <span class="kw-2">&amp;</span>dep.version {
-				workspace_dependencies[name][<span class="string">&quot;version&quot;</span>] = value(version);
+				workspace_dependencies[name][<span class="string">"version"</span>] = value(version);
 			}
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(default_features) = dep.default_features {
-				workspace_dependencies[name][<span class="string">&quot;default-features&quot;</span>] = value(default_features);
+				workspace_dependencies[name][<span class="string">"default-features"</span>] = value(default_features);
 			}
-			workspace_dependencies[name][<span class="string">&quot;git&quot;</span>] = value(SUBSTRATE_GIT_URL);
-			workspace_dependencies[name][<span class="string">&quot;rev&quot;</span>] = value(commit_id);
+			workspace_dependencies[name][<span class="string">"git"</span>] = value(SUBSTRATE_GIT_URL);
+			workspace_dependencies[name][<span class="string">"rev"</span>] = value(commit_id);
 		});
 
 	<span class="kw">let </span><span class="kw-2">mut </span>package = Table::new();
-	package.insert(<span class="string">&quot;edition&quot;</span>, value(<span class="string">&quot;2021&quot;</span>));
-	workspace.insert(<span class="string">&quot;package&quot;</span>, Item::Table(package));
+	package.insert(<span class="string">"edition"</span>, value(<span class="string">"2021"</span>));
+	workspace.insert(<span class="string">"package"</span>, Item::Table(package));
 
-	workspace.insert(<span class="string">&quot;dependencies&quot;</span>, Item::Table(workspace_dependencies));
+	workspace.insert(<span class="string">"dependencies"</span>, Item::Table(workspace_dependencies));
 
-	workspace.insert(<span class="string">&quot;lints&quot;</span>, Item::Table(Table::new()));
-	cargo_toml.insert(<span class="string">&quot;workspace&quot;</span>, Item::Table(workspace));
+	workspace.insert(<span class="string">"lints"</span>, Item::Table(Table::new()));
+	cargo_toml.insert(<span class="string">"workspace"</span>, Item::Table(workspace));
 
 	<span class="kw">let </span><span class="kw-2">mut </span>panic_unwind = Table::new();
-	panic_unwind.insert(<span class="string">&quot;panic&quot;</span>, value(<span class="string">&quot;unwind&quot;</span>));
+	panic_unwind.insert(<span class="string">"panic"</span>, value(<span class="string">"unwind"</span>));
 	<span class="kw">let </span><span class="kw-2">mut </span>profile = Table::new();
-	profile.insert(<span class="string">&quot;release&quot;</span>, Item::Table(panic_unwind));
-	cargo_toml.insert(<span class="string">&quot;profile&quot;</span>, Item::Table(profile.into()));
+	profile.insert(<span class="string">"release"</span>, Item::Table(panic_unwind));
+	cargo_toml.insert(<span class="string">"profile"</span>, Item::Table(profile.into()));
 }
 
 <span class="kw">fn </span>process_root_cargo_toml(
@@ -879,11 +881,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		.iter()
 		.map(|p| {
 			p.strip_prefix(node_template_path)
-				.expect(<span class="string">&quot;Workspace member is a child of the node template path!&quot;</span>)
+				.expect(<span class="string">"Workspace member is a child of the node template path!"</span>)
 				.parent()
 				<span class="comment">// We get the `Cargo.toml` paths as workspace members, but for the `members` field
 				// we just need the path.
-				</span>.expect(<span class="string">&quot;The given path ends with `Cargo.toml` as file name!&quot;</span>)
+				</span>.expect(<span class="string">"The given path ends with `Cargo.toml` as file name!"</span>)
 				.display()
 				.to_string()
 		})
@@ -896,30 +898,30 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Build and test the generated node-template
 </span><span class="kw">fn </span>build_and_test(path: <span class="kw-2">&amp;</span>Path, cargo_tomls: <span class="kw-2">&amp;</span>[PathBuf]) {
 	<span class="comment">// Build node
-	</span><span class="macro">assert!</span>(Command::new(<span class="string">&quot;cargo&quot;</span>)
-		.args(<span class="kw-2">&amp;</span>[<span class="string">&quot;build&quot;</span>, <span class="string">&quot;--all&quot;</span>])
+	</span><span class="macro">assert!</span>(Command::new(<span class="string">"cargo"</span>)
+		.args(<span class="kw-2">&amp;</span>[<span class="string">"build"</span>, <span class="string">"--all"</span>])
 		.current_dir(path)
 		.status()
-		.expect(<span class="string">&quot;Compiles node&quot;</span>)
+		.expect(<span class="string">"Compiles node"</span>)
 		.success());
 
 	<span class="comment">// Test node
-	</span><span class="macro">assert!</span>(Command::new(<span class="string">&quot;cargo&quot;</span>)
-		.args(<span class="kw-2">&amp;</span>[<span class="string">&quot;test&quot;</span>, <span class="string">&quot;--all&quot;</span>])
+	</span><span class="macro">assert!</span>(Command::new(<span class="string">"cargo"</span>)
+		.args(<span class="kw-2">&amp;</span>[<span class="string">"test"</span>, <span class="string">"--all"</span>])
 		.current_dir(path)
 		.status()
-		.expect(<span class="string">&quot;Tests node&quot;</span>)
+		.expect(<span class="string">"Tests node"</span>)
 		.success());
 
 	<span class="comment">// Remove all `target` directories
 	</span><span class="kw">for </span>toml <span class="kw">in </span>cargo_tomls {
 		<span class="kw">let </span><span class="kw-2">mut </span>target_path = toml.clone();
 		target_path.pop();
-		target_path = target_path.join(<span class="string">&quot;target&quot;</span>);
+		target_path = target_path.join(<span class="string">"target"</span>);
 
 		<span class="kw">if </span>target_path.exists() {
 			fs::remove_dir_all(<span class="kw-2">&amp;</span>target_path)
-				.expect(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;Removes `{}`&quot;</span>, target_path.display()));
+				.expect(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"Removes `{}`"</span>, target_path.display()));
 		}
 	}
 }
@@ -928,19 +930,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>options = Options::parse();
 
 	<span class="comment">// Copy node-template to a temp build dir.
-	</span><span class="kw">let </span>build_dir = tempfile::tempdir().expect(<span class="string">&quot;Creates temp build dir&quot;</span>);
+	</span><span class="kw">let </span>build_dir = tempfile::tempdir().expect(<span class="string">"Creates temp build dir"</span>);
 	<span class="kw">let </span>node_template_folder = options
 		.node_template
 		.canonicalize()
-		.expect(<span class="string">&quot;Node template path exists&quot;</span>)
+		.expect(<span class="string">"Node template path exists"</span>)
 		.file_name()
-		.expect(<span class="string">&quot;Node template folder is last element of path&quot;</span>)
+		.expect(<span class="string">"Node template folder is last element of path"</span>)
 		.to_owned();
 	copy_node_template(<span class="kw-2">&amp;</span>options.node_template, <span class="kw-2">&amp;</span>node_template_folder, build_dir.path());
 
 	<span class="comment">// The path to the node-template in the build dir.
 	</span><span class="kw">let </span>node_template_path = build_dir.path().join(node_template_folder);
-	<span class="kw">let </span>root_cargo_toml_path = node_template_path.join(<span class="string">&quot;Cargo.toml&quot;</span>);
+	<span class="kw">let </span>root_cargo_toml_path = node_template_path.join(<span class="string">"Cargo.toml"</span>);
 
 	<span class="comment">// Get all `Cargo.toml` files in the node-template
 	</span><span class="kw">let </span><span class="kw-2">mut </span>cargo_tomls = find_cargo_tomls(<span class="kw-2">&amp;</span>node_template_path);
@@ -954,7 +956,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.create(<span class="bool-val">true</span>)
 			.write(<span class="bool-val">true</span>)
 			.open(root_cargo_toml_path.clone())
-			.expect(<span class="string">&quot;Create root level `Cargo.toml` failed.&quot;</span>);
+			.expect(<span class="string">"Create root level `Cargo.toml` failed."</span>);
 	}
 
 	<span class="comment">// Process all `Cargo.toml` files.
@@ -968,22 +970,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	);
 
 	<span class="comment">// Add root rustfmt to node template build path.
-	</span><span class="kw">let </span>node_template_rustfmt_toml_path = node_template_path.join(<span class="string">&quot;rustfmt.toml&quot;</span>);
-	<span class="kw">let </span>root_rustfmt_toml = <span class="kw-2">&amp;</span>options.node_template.join(<span class="string">&quot;../../rustfmt.toml&quot;</span>);
+	</span><span class="kw">let </span>node_template_rustfmt_toml_path = node_template_path.join(<span class="string">"rustfmt.toml"</span>);
+	<span class="kw">let </span>root_rustfmt_toml = <span class="kw-2">&amp;</span>options.node_template.join(<span class="string">"../../rustfmt.toml"</span>);
 	<span class="kw">if </span>root_rustfmt_toml.exists() {
 		fs::copy(<span class="kw-2">&amp;</span>root_rustfmt_toml, <span class="kw-2">&amp;</span>node_template_rustfmt_toml_path)
-			.expect(<span class="string">&quot;Copying rustfmt.toml.&quot;</span>);
+			.expect(<span class="string">"Copying rustfmt.toml."</span>);
 	}
 
 	build_and_test(<span class="kw-2">&amp;</span>node_template_path, <span class="kw-2">&amp;</span>cargo_tomls);
 
 	<span class="kw">let </span>output = GzEncoder::new(
-		File::create(<span class="kw-2">&amp;</span>options.output).expect(<span class="string">&quot;Creates output file&quot;</span>),
+		File::create(<span class="kw-2">&amp;</span>options.output).expect(<span class="string">"Creates output file"</span>),
 		Compression::default(),
 	);
 	<span class="kw">let </span><span class="kw-2">mut </span>tar = tar::Builder::new(output);
-	tar.append_dir_all(<span class="string">&quot;substrate-node-template&quot;</span>, node_template_path)
-		.expect(<span class="string">&quot;Writes substrate-node-template archive&quot;</span>);
+	tar.append_dir_all(<span class="string">"substrate-node-template"</span>, node_template_path)
+		.expect(<span class="string">"Writes substrate-node-template archive"</span>);
 }
 
 <span class="attr">#[cfg(test)]
@@ -992,47 +994,47 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>test_update_git_dependencies() {
-		<span class="kw">let </span>toml = <span class="string">r#&quot;
+		<span class="kw">let </span>toml = <span class="string">r#"
 [dev-dependencies]
-scale-info = { version = &quot;2.5.0&quot;, default-features = false, features = [&quot;derive&quot;] }
+scale-info = { version = "2.5.0", default-features = false, features = ["derive"] }
 
 [dependencies]
-scale-info = { version = &quot;2.5.0&quot;, default-features = false, features = [&quot;derive&quot;] }
-sp-io = { version = &quot;7.0.0&quot;, path = &quot;../../../../primitives/io&quot; }
-frame-system = { version = &quot;4.0.0-dev&quot;, default-features = false, path = &quot;../../../../frame/system&quot; }
-&quot;#</span>;
-		<span class="kw">let </span><span class="kw-2">mut </span>cargo_toml = toml.parse::&lt;CargoToml&gt;().expect(<span class="string">&quot;invalid doc&quot;</span>);
+scale-info = { version = "2.5.0", default-features = false, features = ["derive"] }
+sp-io = { version = "7.0.0", path = "../../../../primitives/io" }
+frame-system = { version = "4.0.0-dev", default-features = false, path = "../../../../frame/system" }
+"#</span>;
+		<span class="kw">let </span><span class="kw-2">mut </span>cargo_toml = toml.parse::&lt;CargoToml&gt;().expect(<span class="string">"invalid doc"</span>);
 		<span class="kw">let </span>actual_deps = update_git_dependencies(<span class="kw-2">&amp;mut </span>cargo_toml, |<span class="kw">_</span>| <span class="bool-val">true</span>);
 
 		<span class="macro">assert_eq!</span>(actual_deps.len(), <span class="number">3</span>);
-		<span class="macro">assert_eq!</span>(actual_deps.get(<span class="string">&quot;dependencies&quot;</span>).unwrap().len(), <span class="number">2</span>);
-		<span class="macro">assert_eq!</span>(actual_deps.get(<span class="string">&quot;dev-dependencies&quot;</span>).unwrap().len(), <span class="number">0</span>);
+		<span class="macro">assert_eq!</span>(actual_deps.get(<span class="string">"dependencies"</span>).unwrap().len(), <span class="number">2</span>);
+		<span class="macro">assert_eq!</span>(actual_deps.get(<span class="string">"dev-dependencies"</span>).unwrap().len(), <span class="number">0</span>);
 		<span class="macro">assert_eq!</span>(
-			actual_deps.get(<span class="string">&quot;dependencies&quot;</span>).unwrap().get(<span class="string">&quot;sp-io&quot;</span>).unwrap(),
+			actual_deps.get(<span class="string">"dependencies"</span>).unwrap().get(<span class="string">"sp-io"</span>).unwrap(),
 			<span class="kw-2">&amp;</span>Dependency {
-				name: <span class="string">&quot;sp-io&quot;</span>.into(),
-				version: <span class="prelude-val">Some</span>(<span class="string">&quot;7.0.0&quot;</span>.into()),
+				name: <span class="string">"sp-io"</span>.into(),
+				version: <span class="prelude-val">Some</span>(<span class="string">"7.0.0"</span>.into()),
 				default_features: <span class="prelude-val">None
 			</span>}
 		);
 		<span class="macro">assert_eq!</span>(
-			actual_deps.get(<span class="string">&quot;dependencies&quot;</span>).unwrap().get(<span class="string">&quot;frame-system&quot;</span>).unwrap(),
+			actual_deps.get(<span class="string">"dependencies"</span>).unwrap().get(<span class="string">"frame-system"</span>).unwrap(),
 			<span class="kw-2">&amp;</span>Dependency {
-				name: <span class="string">&quot;frame-system&quot;</span>.into(),
-				version: <span class="prelude-val">Some</span>(<span class="string">&quot;4.0.0-dev&quot;</span>.into()),
+				name: <span class="string">"frame-system"</span>.into(),
+				version: <span class="prelude-val">Some</span>(<span class="string">"4.0.0-dev"</span>.into()),
 				default_features: <span class="prelude-val">Some</span>(<span class="bool-val">false</span>),
 			}
 		);
 
-		<span class="kw">let </span>expected_toml = <span class="string">r#&quot;
+		<span class="kw">let </span>expected_toml = <span class="string">r#"
 [dev-dependencies]
-scale-info = { version = &quot;2.5.0&quot;, default-features = false, features = [&quot;derive&quot;] }
+scale-info = { version = "2.5.0", default-features = false, features = ["derive"] }
 
 [dependencies]
-scale-info = { version = &quot;2.5.0&quot;, default-features = false, features = [&quot;derive&quot;] }
+scale-info = { version = "2.5.0", default-features = false, features = ["derive"] }
 sp-io = { workspace = true }
 frame-system = { workspace = true }
-&quot;#</span>;
+"#</span>;
 		<span class="macro">assert_eq!</span>(cargo_toml.to_string(), expected_toml);
 	}
 
@@ -1041,53 +1043,53 @@ frame-system = { workspace = true }
 		<span class="kw">let </span><span class="kw-2">mut </span>cargo_toml = CargoToml::new();
 		update_root_cargo_toml(
 			<span class="kw-2">&amp;mut </span>cargo_toml,
-			<span class="kw-2">&amp;</span><span class="macro">vec!</span>[<span class="string">&quot;node&quot;</span>.into(), <span class="string">&quot;pallets/template&quot;</span>.into(), <span class="string">&quot;runtime&quot;</span>.into()],
+			<span class="kw-2">&amp;</span><span class="macro">vec!</span>[<span class="string">"node"</span>.into(), <span class="string">"pallets/template"</span>.into(), <span class="string">"runtime"</span>.into()],
 			Dependencies::from([
 				(
-					<span class="string">&quot;dependencies&quot;</span>.into(),
+					<span class="string">"dependencies"</span>.into(),
 					HashMap::from([
 						(
-							<span class="string">&quot;sp-io&quot;</span>.into(),
+							<span class="string">"sp-io"</span>.into(),
 							Dependency {
-								name: <span class="string">&quot;sp-io&quot;</span>.into(),
-								version: <span class="prelude-val">Some</span>(<span class="string">&quot;7.0.0&quot;</span>.into()),
+								name: <span class="string">"sp-io"</span>.into(),
+								version: <span class="prelude-val">Some</span>(<span class="string">"7.0.0"</span>.into()),
 								default_features: <span class="prelude-val">None</span>,
 							},
 						),
 						(
-							<span class="string">&quot;frame-system&quot;</span>.into(),
+							<span class="string">"frame-system"</span>.into(),
 							Dependency {
-								name: <span class="string">&quot;frame-system&quot;</span>.into(),
-								version: <span class="prelude-val">Some</span>(<span class="string">&quot;4.0.0-dev&quot;</span>.into()),
+								name: <span class="string">"frame-system"</span>.into(),
+								version: <span class="prelude-val">Some</span>(<span class="string">"4.0.0-dev"</span>.into()),
 								default_features: <span class="prelude-val">Some</span>(<span class="bool-val">true</span>),
 							},
 						),
 					]),
 				),
-				(<span class="string">&quot;dev-dependencies&quot;</span>.into(), HashMap::new()),
-				(<span class="string">&quot;build-dependencies&quot;</span>.into(), HashMap::new()),
+				(<span class="string">"dev-dependencies"</span>.into(), HashMap::new()),
+				(<span class="string">"build-dependencies"</span>.into(), HashMap::new()),
 			]),
-			<span class="string">&quot;commit_id&quot;</span>,
+			<span class="string">"commit_id"</span>,
 		);
 
-		<span class="kw">let </span>expected_toml = <span class="string">r#&quot;[workspace]
-resolver = &quot;2&quot;
-members = [&quot;node&quot;, &quot;pallets/template&quot;, &quot;runtime&quot;]
+		<span class="kw">let </span>expected_toml = <span class="string">r#"[workspace]
+resolver = "2"
+members = ["node", "pallets/template", "runtime"]
 
 [workspace.package]
-edition = &quot;2021&quot;
+edition = "2021"
 
 [workspace.dependencies]
-frame-system = { version = &quot;4.0.0-dev&quot;, default-features = true, git = &quot;https://github.com/paritytech/polkadot-sdk.git&quot;, rev = &quot;commit_id&quot; }
-sp-io = { version = &quot;7.0.0&quot;, git = &quot;https://github.com/paritytech/polkadot-sdk.git&quot;, rev = &quot;commit_id&quot; }
+frame-system = { version = "4.0.0-dev", default-features = true, git = "https://github.com/paritytech/polkadot-sdk.git", rev = "commit_id" }
+sp-io = { version = "7.0.0", git = "https://github.com/paritytech/polkadot-sdk.git", rev = "commit_id" }
 
 [workspace.lints]
 
 [profile]
 
 [profile.release]
-panic = &quot;unwind&quot;
-&quot;#</span>;
+panic = "unwind"
+"#</span>;
 		<span class="macro">assert_eq!</span>(cargo_toml.to_string(), expected_toml);
 	}
 }

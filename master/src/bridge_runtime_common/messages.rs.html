@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `bridges/bin/runtime-common/src/messages.rs`."><title>messages.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `bridges/bin/runtime-common/src/messages.rs`."><title>messages.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="bridge_runtime_common" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="bridge_runtime_common" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../bridge_runtime_common/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -892,7 +894,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Name of the paired messages pallet instance at the Bridged chain.
 	///
 	/// Should be the name that is used in the `construct_runtime!()` macro.
-	</span><span class="kw">const </span>BRIDGED_MESSAGES_PALLET_NAME: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str;
+	</span><span class="kw">const </span>BRIDGED_MESSAGES_PALLET_NAME: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str;
 
 	<span class="doccomment">/// This chain in context of message bridge.
 	</span><span class="kw">type </span>ThisChain: ThisChainWithMessages;
@@ -966,7 +968,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="doccomment">/// &#39;Parsed&#39; message delivery proof - inbound lane id and its state.
+	<span class="doccomment">/// 'Parsed' message delivery proof - inbound lane id and its state.
 	</span><span class="kw">pub type </span>ParsedMessagesDeliveryProofFromBridgedChain&lt;B&gt; =
 		(LaneId, InboundLaneData&lt;AccountIdOf&lt;ThisChain&lt;B&gt;&gt;&gt;);
 
@@ -999,14 +1001,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Do basic Bridged-chain specific verification of This -&gt; Bridged chain message.
 	///
 	/// Ok result from this function means that the delivery transaction with this message
-	/// may be &#39;mined&#39; by the target chain.
+	/// may be 'mined' by the target chain.
 	</span><span class="kw">pub fn </span>verify_chain_message&lt;B: MessageBridge&gt;(
 		payload: <span class="kw-2">&amp;</span>FromThisChainMessagePayload,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), VerificationError&gt; {
 		<span class="comment">// IMPORTANT: any error that is returned here is fatal for the bridge, because
 		// this code is executed at the bridge hub and message sender actually lives
 		// at some sibling parachain. So we are failing **after** the message has been
-		// sent and we can&#39;t report it back to sender (unless error report mechanism is
+		// sent and we can't report it back to sender (unless error report mechanism is
 		// embedded into message and its dispatcher).
 
 		// apart from maximal message size check (see below), we should also check the message
@@ -1016,7 +1018,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		// The maximal size of extrinsic at Substrate-based chain depends on the
 		// `frame_system::Config::MaximumBlockLength` and
 		// `frame_system::Config::AvailableBlockRatio` constants. This check is here to be sure that
-		// the lane won&#39;t stuck because message is too large to fit into delivery transaction.
+		// the lane won't stuck because message is too large to fit into delivery transaction.
 		//
 		// **IMPORTANT NOTE**: the delivery transaction contains storage proof of the message, not
 		// the message itself. The proof is always larger than the message. But unless chain state
@@ -1052,7 +1054,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.read_and_decode_mandatory_value(storage_inbound_lane_data_key.<span class="number">0</span>.as_ref())
 			.map_err(VerificationError::InboundLaneStorage)<span class="question-mark">?</span>;
 
-		<span class="comment">// check that the storage proof doesn&#39;t have any untouched trie nodes
+		<span class="comment">// check that the storage proof doesn't have any untouched trie nodes
 		</span>storage.ensure_no_unused_nodes().map_err(VerificationError::StorageProof)<span class="question-mark">?</span>;
 
 		<span class="prelude-val">Ok</span>((lane, inbound_lane_data))
@@ -1097,7 +1099,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="doccomment">/// Return maximal dispatch weight of the message we&#39;re able to receive.
+	<span class="doccomment">/// Return maximal dispatch weight of the message we're able to receive.
 	</span><span class="kw">pub fn </span>maximal_incoming_message_dispatch_weight(maximal_extrinsic_weight: Weight) -&gt; Weight {
 		maximal_extrinsic_weight / <span class="number">2
 	</span>}
@@ -1163,7 +1165,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			messages.push(Message { key: message_key, payload: message_payload });
 		}
 
-		<span class="comment">// Now let&#39;s check if proof contains outbound lane state proof. It is optional, so
+		<span class="comment">// Now let's check if proof contains outbound lane state proof. It is optional, so
 		// we simply ignore `read_value` errors and missing value.
 		</span><span class="kw">let </span>proved_lane_messages = ProvedLaneMessages {
 			lane_state: parser.read_and_decode_outbound_lane_data(<span class="kw-2">&amp;</span>lane)<span class="question-mark">?</span>,
@@ -1175,7 +1177,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">return </span><span class="prelude-val">Err</span>(VerificationError::EmptyMessageProof)
 		}
 
-		<span class="comment">// check that the storage proof doesn&#39;t have any untouched trie nodes
+		<span class="comment">// check that the storage proof doesn't have any untouched trie nodes
 		</span>parser
 			.storage
 			.ensure_no_unused_nodes()

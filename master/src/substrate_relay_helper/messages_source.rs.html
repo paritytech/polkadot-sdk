@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `bridges/relays/lib-substrate-relay/src/messages_source.rs`."><title>messages_source.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `bridges/relays/lib-substrate-relay/src/messages_source.rs`."><title>messages_source.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="substrate_relay_helper" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="substrate_relay_helper" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../substrate_relay_helper/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -922,7 +924,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// required to submit to the target node: cumulative dispatch weight of bundled messages and
 /// the proof itself.
 </span><span class="kw">pub type </span>SubstrateMessagesProof&lt;C&gt; = (Weight, FromBridgedChainMessagesProof&lt;HashOf&lt;C&gt;&gt;);
-<span class="kw">type </span>MessagesToRefine&lt;<span class="lifetime">&#39;a</span>&gt; = Vec&lt;(MessagePayload, <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>OutboundMessageDetails)&gt;;
+<span class="kw">type </span>MessagesToRefine&lt;<span class="lifetime">'a</span>&gt; = Vec&lt;(MessagePayload, <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>OutboundMessageDetails)&gt;;
 
 <span class="doccomment">/// Substrate client as Substrate messages source.
 </span><span class="kw">pub struct </span>SubstrateMessagesSource&lt;P: SubstrateMessageLane&gt; {
@@ -1021,14 +1023,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>TransactionTracker = TransactionTracker&lt;P::SourceChain, Client&lt;P::SourceChain&gt;&gt;;
 
 	<span class="kw">async fn </span>state(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;SourceClientState&lt;MessageLaneAdapter&lt;P&gt;&gt;, SubstrateError&gt; {
-		<span class="comment">// we can&#39;t continue to deliver confirmations if source node is out of sync, because
-		// it may have already received confirmations that we&#39;re going to deliver
+		<span class="comment">// we can't continue to deliver confirmations if source node is out of sync, because
+		// it may have already received confirmations that we're going to deliver
 		//
-		// we can&#39;t continue to deliver messages if target node is out of sync, because
-		// it may have already received (some of) messages that we&#39;re going to deliver
+		// we can't continue to deliver messages if target node is out of sync, because
+		// it may have already received (some of) messages that we're going to deliver
 		</span><span class="self">self</span>.source_client.ensure_synced().<span class="kw">await</span><span class="question-mark">?</span>;
 		<span class="self">self</span>.target_client.ensure_synced().<span class="kw">await</span><span class="question-mark">?</span>;
-		<span class="comment">// we can&#39;t relay confirmations if messages pallet at source chain is halted
+		<span class="comment">// we can't relay confirmations if messages pallet at source chain is halted
 		</span><span class="self">self</span>.ensure_pallet_active().<span class="kw">await</span><span class="question-mark">?</span>;
 
 		read_client_state(<span class="kw-2">&amp;</span><span class="self">self</span>.source_client, <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.target_client)).<span class="kw">await
@@ -1090,7 +1092,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>msg_payload: MessagePayload =
 				<span class="self">self</span>.source_client.storage_value(msg_key, <span class="prelude-val">Some</span>(id.<span class="number">1</span>)).<span class="kw">await</span><span class="question-mark">?</span>.ok_or_else(|| {
 					SubstrateError::Custom(<span class="macro">format!</span>(
-						<span class="string">&quot;Message to {} {:?}/{} is missing from runtime the storage of {} at {:?}&quot;</span>,
+						<span class="string">"Message to {} {:?}/{} is missing from runtime the storage of {} at {:?}"</span>,
 						P::TargetChain::NAME,
 						<span class="self">self</span>.lane_id,
 						out_msg_details.nonce,
@@ -1115,7 +1117,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.<span class="kw">await</span><span class="question-mark">?</span>;
 			<span class="kw">if </span>in_msgs_details.len() != msgs_to_refine_batch.len() {
 				<span class="kw">return </span><span class="prelude-val">Err</span>(SubstrateError::Custom(<span class="macro">format!</span>(
-					<span class="string">&quot;Call of {} at {} has returned {} entries instead of expected {}&quot;</span>,
+					<span class="string">"Call of {} at {} has returned {} entries instead of expected {}"</span>,
 					P::SourceChain::FROM_CHAIN_MESSAGE_DETAILS_METHOD,
 					P::TargetChain::NAME,
 					in_msgs_details.len(),
@@ -1126,8 +1128,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				</span>msgs_to_refine_batch.iter_mut().zip(in_msgs_details)
 			{
 				<span class="macro">log::trace!</span>(
-					target: <span class="string">&quot;bridge&quot;</span>,
-					<span class="string">&quot;Refined weight of {}-&gt;{} message {:?}/{}: at-source: {}, at-target: {}&quot;</span>,
+					target: <span class="string">"bridge"</span>,
+					<span class="string">"Refined weight of {}-&gt;{} message {:?}/{}: at-source: {}, at-target: {}"</span>,
 					P::SourceChain::NAME,
 					P::TargetChain::NAME,
 					<span class="self">self</span>.lane_id,
@@ -1284,12 +1286,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>SelfChain: Chain,
 	PeerChain: Chain,
 {
-	<span class="comment">// let&#39;s read our state first: we need best finalized header hash on **this** chain
+	<span class="comment">// let's read our state first: we need best finalized header hash on **this** chain
 	</span><span class="kw">let </span>self_best_finalized_id = self_client.best_finalized_header().<span class="kw">await</span><span class="question-mark">?</span>.id();
-	<span class="comment">// now let&#39;s read our best header on **this** chain
+	<span class="comment">// now let's read our best header on **this** chain
 	</span><span class="kw">let </span>self_best_id = self_client.best_header().<span class="kw">await</span><span class="question-mark">?</span>.id();
 
-	<span class="comment">// now let&#39;s read id of best finalized peer header at our best finalized block
+	<span class="comment">// now let's read id of best finalized peer header at our best finalized block
 	</span><span class="kw">let </span>peer_on_self_best_finalized_id =
 		best_synced_header_id::&lt;PeerChain, SelfChain&gt;(self_client, self_best_id.hash()).<span class="kw">await</span><span class="question-mark">?</span>;
 
@@ -1323,7 +1325,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>SelfChain: Chain,
 	PeerChain: Chain,
 {
-	<span class="comment">// now let&#39;s read id of best finalized peer header at our best finalized block
+	<span class="comment">// now let's read id of best finalized peer header at our best finalized block
 	</span>self_client
 		.typed_state_call::&lt;<span class="kw">_</span>, <span class="prelude-ty">Option</span>&lt;<span class="kw">_</span>&gt;&gt;(
 			PeerChain::BEST_FINALIZED_HEADER_ID_METHOD.into(),
@@ -1339,13 +1341,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(), SubstrateError&gt; {
 	<span class="kw">let </span>make_missing_nonce_error = |expected_nonce| {
 		<span class="prelude-val">Err</span>(SubstrateError::Custom(<span class="macro">format!</span>(
-			<span class="string">&quot;Missing nonce {expected_nonce} in message_details call result. Expected all nonces from {nonces:?}&quot;</span>,
+			<span class="string">"Missing nonce {expected_nonce} in message_details call result. Expected all nonces from {nonces:?}"</span>,
 		)))
 	};
 
 	<span class="kw">if </span>out_msgs_details.len() &gt; nonces.clone().count() {
 		<span class="kw">return </span><span class="prelude-val">Err</span>(SubstrateError::Custom(
-			<span class="string">&quot;More messages than requested returned by the message_details call.&quot;</span>.into(),
+			<span class="string">"More messages than requested returned by the message_details call."</span>.into(),
 		))
 	}
 
@@ -1370,8 +1372,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	// and will be auto-resolved by messages lane (and target node).
 	</span><span class="kw">if </span>nonces_iter.peek().is_some() {
 		<span class="macro">log::info!</span>(
-			target: <span class="string">&quot;bridge&quot;</span>,
-			<span class="string">&quot;Some messages are missing from the {} node: {:?}. Target node may be out of sync?&quot;</span>,
+			target: <span class="string">"bridge"</span>,
+			<span class="string">"Some messages are missing from the {} node: {:?}. Target node may be out of sync?"</span>,
 			C::NAME,
 			nonces_iter.rev().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
 		);
@@ -1393,8 +1395,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">while </span>(lane_id, <span class="kw-2">&amp;</span>current_msgs_batch).encoded_size() &gt; max_batch_size {
 			<span class="kw">if </span>current_msgs_batch.len() &lt;= <span class="number">1 </span>{
 				<span class="kw">return </span><span class="prelude-val">Err</span>(SubstrateError::Custom(<span class="macro">format!</span>(
-					<span class="string">&quot;Call of {} at {} can&#39;t be executed even if only one message is supplied. \
-						max_extrinsic_size(): {}&quot;</span>,
+					<span class="string">"Call of {} at {} can't be executed even if only one message is supplied. \
+						max_extrinsic_size(): {}"</span>,
 					Source::FROM_CHAIN_MESSAGE_DETAILS_METHOD,
 					Target::NAME,
 					Target::max_extrinsic_size(),

@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `cumulus/client/consensus/aura/src/equivocation_import_queue.rs`."><title>equivocation_import_queue.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `cumulus/client/consensus/aura/src/equivocation_import_queue.rs`."><title>equivocation_import_queue.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="cumulus_client_consensus_aura" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="cumulus_client_consensus_aura" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../cumulus_client_consensus_aura/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -458,7 +460,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>val = <span class="self">self
 			</span>.cache
 			.get_or_insert(<span class="kw-2">*</span>slot, || <span class="number">0</span>)
-			.expect(<span class="string">&quot;insertion with ByLength limiter always succeeds; qed&quot;</span>);
+			.expect(<span class="string">"insertion with ByLength limiter always succeeds; qed"</span>);
 		<span class="kw">if </span><span class="kw-2">*</span>val == EQUIVOCATION_LIMIT {
 			<span class="bool-val">true
 		</span>} <span class="kw">else </span>{
@@ -507,7 +509,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>{
 			<span class="kw">let </span>authorities = aura_internal::fetch_authorities(<span class="self">self</span>.client.as_ref(), parent_hash)
 				.map_err(|e| {
-				<span class="macro">format!</span>(<span class="string">&quot;Could not fetch authorities at {:?}: {}&quot;</span>, parent_hash, e)
+				<span class="macro">format!</span>(<span class="string">"Could not fetch authorities at {:?}: {}"</span>, parent_hash, e)
 			})<span class="question-mark">?</span>;
 
 			<span class="kw">let </span>slot_duration = <span class="self">self
@@ -528,8 +530,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="macro">telemetry!</span>(
 						<span class="self">self</span>.telemetry;
 						CONSENSUS_TRACE;
-						<span class="string">&quot;aura.checked_and_importing&quot;</span>;
-						<span class="string">&quot;pre_header&quot; </span>=&gt; <span class="question-mark">?</span>pre_header,
+						<span class="string">"aura.checked_and_importing"</span>;
+						<span class="string">"pre_header" </span>=&gt; <span class="question-mark">?</span>pre_header,
 					);
 
 					block_params.header = pre_header;
@@ -540,7 +542,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="comment">// Check for and reject egregious amounts of equivocations.
 					</span><span class="kw">if </span><span class="self">self</span>.defender.insert_and_check(slot) {
 						<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(
-							<span class="string">&quot;Rejecting block {:?} due to excessive equivocations at slot&quot;</span>,
+							<span class="string">"Rejecting block {:?} due to excessive equivocations at slot"</span>,
 							post_hash,
 						))
 					}
@@ -549,20 +551,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="macro">telemetry!</span>(
 						<span class="self">self</span>.telemetry;
 						CONSENSUS_DEBUG;
-						<span class="string">&quot;aura.header_too_far_in_future&quot;</span>;
-						<span class="string">&quot;hash&quot; </span>=&gt; <span class="question-mark">?</span>post_hash,
-						<span class="string">&quot;a&quot; </span>=&gt; <span class="question-mark">?</span>hdr,
-						<span class="string">&quot;b&quot; </span>=&gt; <span class="question-mark">?</span>slot,
+						<span class="string">"aura.header_too_far_in_future"</span>;
+						<span class="string">"hash" </span>=&gt; <span class="question-mark">?</span>post_hash,
+						<span class="string">"a" </span>=&gt; <span class="question-mark">?</span>hdr,
+						<span class="string">"b" </span>=&gt; <span class="question-mark">?</span>slot,
 					);
 
 					<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(
-						<span class="string">&quot;Rejecting block ({:?}) from future slot {:?}&quot;</span>,
+						<span class="string">"Rejecting block ({:?}) from future slot {:?}"</span>,
 						post_hash, slot
 					))
 				},
 				<span class="prelude-val">Err</span>(e) =&gt;
 					<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(
-						<span class="string">&quot;Rejecting block ({:?}) with invalid seal ({:?})&quot;</span>,
+						<span class="string">"Rejecting block ({:?}) with invalid seal ({:?})"</span>,
 						post_hash, e
 					)),
 			}
@@ -575,26 +577,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				</span>.create_inherent_data_providers
 				.create_inherent_data_providers(parent_hash, ())
 				.<span class="kw">await
-				</span>.map_err(|e| <span class="macro">format!</span>(<span class="string">&quot;Could not create inherent data {:?}&quot;</span>, e))<span class="question-mark">?</span>;
+				</span>.map_err(|e| <span class="macro">format!</span>(<span class="string">"Could not create inherent data {:?}"</span>, e))<span class="question-mark">?</span>;
 
 			<span class="kw">let </span>inherent_data = create_inherent_data_providers
 				.create_inherent_data()
 				.<span class="kw">await
-				</span>.map_err(|e| <span class="macro">format!</span>(<span class="string">&quot;Could not create inherent data {:?}&quot;</span>, e))<span class="question-mark">?</span>;
+				</span>.map_err(|e| <span class="macro">format!</span>(<span class="string">"Could not create inherent data {:?}"</span>, e))<span class="question-mark">?</span>;
 
 			<span class="kw">let </span>inherent_res = <span class="self">self
 				</span>.client
 				.runtime_api()
 				.check_inherents(parent_hash, block, inherent_data)
-				.map_err(|e| <span class="macro">format!</span>(<span class="string">&quot;Unable to check block inherents {:?}&quot;</span>, e))<span class="question-mark">?</span>;
+				.map_err(|e| <span class="macro">format!</span>(<span class="string">"Unable to check block inherents {:?}"</span>, e))<span class="question-mark">?</span>;
 
 			<span class="kw">if </span>!inherent_res.ok() {
 				<span class="kw">for </span>(i, e) <span class="kw">in </span>inherent_res.into_errors() {
 					<span class="kw">match </span>create_inherent_data_providers.try_handle_error(<span class="kw-2">&amp;</span>i, <span class="kw-2">&amp;</span>e).<span class="kw">await </span>{
-						<span class="prelude-val">Some</span>(res) =&gt; res.map_err(|e| <span class="macro">format!</span>(<span class="string">&quot;Inherent Error {:?}&quot;</span>, e))<span class="question-mark">?</span>,
+						<span class="prelude-val">Some</span>(res) =&gt; res.map_err(|e| <span class="macro">format!</span>(<span class="string">"Inherent Error {:?}"</span>, e))<span class="question-mark">?</span>,
 						<span class="prelude-val">None </span>=&gt;
 							<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(
-								<span class="string">&quot;Unknown inherent error, source {:?}&quot;</span>,
+								<span class="string">"Unknown inherent error, source {:?}"</span>,
 								String::from_utf8_lossy(<span class="kw-2">&amp;</span>i[..])
 							)),
 					}
@@ -611,9 +613,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	Slot::from_timestamp(timestamp, slot_duration)
 }
 
-<span class="doccomment">/// Start an import queue for a Cumulus node which checks blocks&#39; seals and inherent data.
+<span class="doccomment">/// Start an import queue for a Cumulus node which checks blocks' seals and inherent data.
 ///
-/// Pass in only inherent data providers which don&#39;t include aura or parachain consensus inherents,
+/// Pass in only inherent data providers which don't include aura or parachain consensus inherents,
 /// e.g. things like timestamp and custom inherents for the runtime.
 ///
 /// The others are generated explicitly internally.
@@ -629,17 +631,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	telemetry: <span class="prelude-ty">Option</span>&lt;TelemetryHandle&gt;,
 ) -&gt; BasicQueue&lt;Block&gt;
 <span class="kw">where
-	</span>P: Pair + <span class="lifetime">&#39;static</span>,
+	</span>P: Pair + <span class="lifetime">'static</span>,
 	P::Signature: Codec,
 	P::Public: Codec + Debug,
 	I: BlockImport&lt;Block, Error = ConsensusError&gt;
 		+ ParachainBlockImportMarker
 		+ Send
 		+ Sync
-		+ <span class="lifetime">&#39;static</span>,
-	Client: ProvideRuntimeApi&lt;Block&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
+		+ <span class="lifetime">'static</span>,
+	Client: ProvideRuntimeApi&lt;Block&gt; + Send + Sync + <span class="lifetime">'static</span>,
 	&lt;Client <span class="kw">as </span>ProvideRuntimeApi&lt;Block&gt;&gt;::Api: BlockBuilderApi&lt;Block&gt; + AuraApi&lt;Block, P::Public&gt;,
-	CIDP: CreateInherentDataProviders&lt;Block, ()&gt; + <span class="lifetime">&#39;static</span>,
+	CIDP: CreateInherentDataProviders&lt;Block, ()&gt; + <span class="lifetime">'static</span>,
 {
 	<span class="kw">let </span>verifier = Verifier::&lt;P, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt; {
 		client,

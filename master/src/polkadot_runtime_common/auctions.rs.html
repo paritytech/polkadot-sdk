@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/runtime/common/src/auctions.rs`."><title>auctions.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/runtime/common/src/auctions.rs`."><title>auctions.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_runtime_common" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_runtime_common" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../polkadot_runtime_common/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -2116,7 +2118,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // along with Polkadot.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
 
 </span><span class="doccomment">//! Auctioning system to determine the set of Parachains in operation. This includes logic for the
-//! auctioning mechanism and for reserving balance as part of the &quot;payment&quot;. Unreserving the balance
+//! auctioning mechanism and for reserving balance as part of the "payment". Unreserving the balance
 //! happens elsewhere.
 
 </span><span class="kw">use crate</span>::{
@@ -2186,7 +2188,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[pallet::pallet]
 	</span><span class="kw">pub struct </span>Pallet&lt;T&gt;(<span class="kw">_</span>);
 
-	<span class="doccomment">/// The module&#39;s configuration trait.
+	<span class="doccomment">/// The module's configuration trait.
 	</span><span class="attr">#[pallet::config]
 	</span><span class="kw">pub trait </span>Config: frame_system::Config {
 		<span class="doccomment">/// The overarching event type.
@@ -2281,7 +2283,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// The first item in the tuple is the lease period index that the first of the four
 	/// contiguous lease periods on auction is for. The second is the block number when the
-	/// auction will &quot;begin to end&quot;, i.e. the first block of the Ending Period of the auction.
+	/// auction will "begin to end", i.e. the first block of the Ending Period of the auction.
 	</span><span class="attr">#[pallet::storage]
 	</span><span class="kw">pub type </span>AuctionInfo&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, (LeasePeriodOf&lt;T&gt;, BlockNumberFor&lt;T&gt;)&gt;;
 
@@ -2292,7 +2294,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		StorageMap&lt;<span class="kw">_</span>, Twox64Concat, (T::AccountId, ParaId), BalanceOf&lt;T&gt;&gt;;
 
 	<span class="doccomment">/// The winning bids for each of the 10 ranges at each sample in the final Ending Period of
-	/// the current auction. The map&#39;s key is the 0-based index into the Sample Size. The
+	/// the current auction. The map's key is the 0-based index into the Sample Size. The
 	/// first sample of the ending period is 0; the last is `Sample Size - 1`.
 	</span><span class="attr">#[pallet::storage]
 	</span><span class="kw">pub type </span>Winning&lt;T: Config&gt; = StorageMap&lt;<span class="kw">_</span>, Twox64Concat, BlockNumberFor&lt;T&gt;, WinningData&lt;T&gt;&gt;;
@@ -2346,7 +2348,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
 		<span class="doccomment">/// Create a new auction.
 		///
-		/// This can only happen when there isn&#39;t already an auction in progress and may only be
+		/// This can only happen when there isn't already an auction in progress and may only be
 		/// called by the root origin. Accepts the `duration` of this auction and the
 		/// `lease_period_index` of the initial lease period of the four that are to be auctioned.
 		</span><span class="attr">#[pallet::call_index(<span class="number">0</span>)]
@@ -2460,7 +2462,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		T::Leaser::lease_period_index(b)
 	}
 
-	<span class="attr">#[cfg(any(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>, test))]
+	<span class="attr">#[cfg(any(feature = <span class="string">"runtime-benchmarks"</span>, test))]
 	</span><span class="kw">fn </span>lease_period_length() -&gt; (BlockNumberFor&lt;T&gt;, BlockNumberFor&lt;T&gt;) {
 		T::Leaser::lease_period_length()
 	}
@@ -2476,7 +2478,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Create a new auction.
 	///
-	/// This can only happen when there isn&#39;t already an auction in progress. Accepts the `duration`
+	/// This can only happen when there isn't already an auction in progress. Accepts the `duration`
 	/// of this auction and the `lease_period_index` of the initial lease period of the four that
 	/// are to be auctioned.
 	</span><span class="kw">fn </span>do_new_auction(
@@ -2487,7 +2489,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">ensure!</span>(maybe_auction.is_none(), Error::&lt;T&gt;::AuctionInProgress);
 		<span class="kw">let </span>now = frame_system::Pallet::&lt;T&gt;::block_number();
 		<span class="kw">if let </span><span class="prelude-val">Some</span>((current_lease_period, <span class="kw">_</span>)) = T::Leaser::lease_period_index(now) {
-			<span class="comment">// If there is no active lease period, then we don&#39;t need to make this check.
+			<span class="comment">// If there is no active lease period, then we don't need to make this check.
 			</span><span class="macro">ensure!</span>(lease_period_index &gt;= current_lease_period, Error::&lt;T&gt;::LeasePeriodInPast);
 		}
 
@@ -2529,7 +2531,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="macro">ensure!</span>(T::Registrar::is_registered(para), Error::&lt;T&gt;::ParaNotRegistered);
 		<span class="comment">// Bidding on latest auction.
 		</span><span class="macro">ensure!</span>(auction_index == AuctionCounter::&lt;T&gt;::get(), Error::&lt;T&gt;::NotCurrentAuction);
-		<span class="comment">// Assume it&#39;s actually an auction (this should never fail because of above).
+		<span class="comment">// Assume it's actually an auction (this should never fail because of above).
 		</span><span class="kw">let </span>(first_lease_period, <span class="kw">_</span>) = AuctionInfo::&lt;T&gt;::get().ok_or(Error::&lt;T&gt;::NotAuction)<span class="question-mark">?</span>;
 
 		<span class="comment">// Get the auction status and the current sample block. For the starting period, the sample
@@ -2563,7 +2565,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">if </span>current_winning[range_index].as_ref().map_or(<span class="bool-val">true</span>, |last| amount &gt; last.<span class="number">2</span>) {
 			<span class="comment">// Ok; we are the new winner of this range - reserve the additional amount and record.
 
-			// Get the amount already held on deposit if this is a renewal bid (i.e. there&#39;s
+			// Get the amount already held on deposit if this is a renewal bid (i.e. there's
 			// an existing lease on the same para by the same leaser).
 			</span><span class="kw">let </span>existing_lease_deposit = T::Leaser::deposit_held(para, <span class="kw-2">&amp;</span>bidder);
 			<span class="kw">let </span>reserve_required = amount.saturating_sub(existing_lease_deposit);
@@ -2572,9 +2574,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="kw">let </span>bidder_para = (bidder.clone(), para);
 			<span class="kw">let </span>already_reserved = ReservedAmounts::&lt;T&gt;::get(<span class="kw-2">&amp;</span>bidder_para).unwrap_or_default();
 
-			<span class="comment">// If these don&#39;t already cover the bid...
+			<span class="comment">// If these don't already cover the bid...
 			</span><span class="kw">if let </span><span class="prelude-val">Some</span>(additional) = reserve_required.checked_sub(<span class="kw-2">&amp;</span>already_reserved) {
-				<span class="comment">// ...then reserve some more funds from their account, failing if there&#39;s not
+				<span class="comment">// ...then reserve some more funds from their account, failing if there's not
 				// enough funds.
 				</span>CurrencyOf::&lt;T&gt;::reserve(<span class="kw-2">&amp;</span>bidder, additional)<span class="question-mark">?</span>;
 				<span class="comment">// ...and record the amount reserved.
@@ -2600,7 +2602,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				{
 					<span class="comment">// Previous bidder is no longer winning any ranges: unreserve their funds.
 					</span><span class="kw">if let </span><span class="prelude-val">Some</span>(amount) = ReservedAmounts::&lt;T&gt;::take(<span class="kw-2">&amp;</span>(who.clone(), para)) {
-						<span class="comment">// It really should be reserved; there&#39;s not much we can do here on fail.
+						<span class="comment">// It really should be reserved; there's not much we can do here on fail.
 						</span><span class="kw">let </span>err_amt = CurrencyOf::&lt;T&gt;::unreserve(<span class="kw-2">&amp;</span>who, amount);
 						<span class="macro">debug_assert!</span>(err_amt.is_zero());
 						<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::Unreserved { bidder: who, amount });
@@ -2621,7 +2623,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Ok</span>(())
 	}
 
-	<span class="doccomment">/// Some when the auction&#39;s end is known (with the end block number). None if it is unknown.
+	<span class="doccomment">/// Some when the auction's end is known (with the end block number). None if it is unknown.
 	/// If `Some` then the block number must be at most the previous block and at least the
 	/// previous block minus `T::EndingPeriod::get()`.
 	///
@@ -2635,14 +2637,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">if </span>is_ended {
 				<span class="comment">// auction definitely ended.
 				// check to see if we can determine the actual ending point.
-				</span><span class="kw">let </span>(raw_offset, known_since) = T::Randomness::random(<span class="kw-2">&amp;</span><span class="string">b&quot;para_auction&quot;</span>[..]);
+				</span><span class="kw">let </span>(raw_offset, known_since) = T::Randomness::random(<span class="kw-2">&amp;</span><span class="string">b"para_auction"</span>[..]);
 
 				<span class="kw">if </span>late_end &lt;= known_since {
 					<span class="comment">// Our random seed was known only after the auction ended. Good to use.
 					</span><span class="kw">let </span>raw_offset_block_number = &lt;BlockNumberFor&lt;T&gt;&gt;::decode(
 						<span class="kw-2">&amp;mut </span>raw_offset.as_ref(),
 					)
-					.expect(<span class="string">&quot;secure hashes should always be bigger than the block number; qed&quot;</span>);
+					.expect(<span class="string">"secure hashes should always be bigger than the block number; qed"</span>);
 					<span class="kw">let </span>offset = (raw_offset_block_number % ending_period) /
 						T::SampleLength::get().max(One::one());
 
@@ -2666,15 +2668,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">None
 	</span>}
 
-	<span class="doccomment">/// Auction just ended. We have the current lease period, the auction&#39;s lease period (which
+	<span class="doccomment">/// Auction just ended. We have the current lease period, the auction's lease period (which
 	/// is guaranteed to be at least the current period) and the bidders that were winning each
-	/// range at the time of the auction&#39;s close.
+	/// range at the time of the auction's close.
 	</span><span class="kw">fn </span>manage_auction_end(
 		auction_lease_period_index: LeasePeriodOf&lt;T&gt;,
 		winning_ranges: WinningData&lt;T&gt;,
 	) {
 		<span class="comment">// First, unreserve all amounts that were reserved for the bids. We will later re-reserve
-		// the amounts from the bidders that ended up being assigned the slot so there&#39;s no need to
+		// the amounts from the bidders that ended up being assigned the slot so there's no need to
 		// special-case them here.
 		</span><span class="kw">for </span>((bidder, <span class="kw">_</span>), amount) <span class="kw">in </span>ReservedAmounts::&lt;T&gt;::drain() {
 			CurrencyOf::&lt;T&gt;::unreserve(<span class="kw-2">&amp;</span>bidder, amount);
@@ -2696,11 +2698,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="prelude-val">Err</span>(LeaseError::AlreadyEnded) |
 				<span class="prelude-val">Err</span>(LeaseError::NoLeasePeriod) =&gt; {
 					<span class="comment">// Should never happen since we just unreserved this amount (and our offset is
-					// from the present period). But if it does, there&#39;s not much we can do.
+					// from the present period). But if it does, there's not much we can do.
 				</span>},
 				<span class="prelude-val">Err</span>(LeaseError::AlreadyLeased) =&gt; {
 					<span class="comment">// The leaser attempted to get a second lease on the same para ID, possibly
-					// griefing us. Let&#39;s keep the amount reserved and let governance sort it out.
+					// griefing us. Let's keep the amount reserved and let governance sort it out.
 					</span><span class="kw">if </span>CurrencyOf::&lt;T&gt;::reserve(<span class="kw-2">&amp;</span>leaser, amount).is_ok() {
 						<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::ReserveConfiscated {
 							para_id: para,
@@ -2732,13 +2734,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					.map(|(<span class="kw">_</span>, <span class="kw">_</span>, amount)| <span class="kw-2">*</span>amount * (range.len() <span class="kw">as </span>u32).into())
 			};
 			<span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..SlotRange::LEASE_PERIODS_PER_SLOT {
-				<span class="kw">let </span>r = SlotRange::new_bounded(<span class="number">0</span>, <span class="number">0</span>, i <span class="kw">as </span>u32).expect(<span class="string">&quot;`i &lt; LPPS`; qed&quot;</span>);
+				<span class="kw">let </span>r = SlotRange::new_bounded(<span class="number">0</span>, <span class="number">0</span>, i <span class="kw">as </span>u32).expect(<span class="string">"`i &lt; LPPS`; qed"</span>);
 				<span class="kw">if let </span><span class="prelude-val">Some</span>(bid) = best_bid(r) {
 					best_winners_ending_at[i] = (<span class="macro">vec!</span>[r], bid);
 				}
 				<span class="kw">for </span>j <span class="kw">in </span><span class="number">0</span>..i {
 					<span class="kw">let </span>r = SlotRange::new_bounded(<span class="number">0</span>, j <span class="kw">as </span>u32 + <span class="number">1</span>, i <span class="kw">as </span>u32)
-						.expect(<span class="string">&quot;`i &lt; LPPS`; `j &lt; i`; `j + 1 &lt; LPPS`; qed&quot;</span>);
+						.expect(<span class="string">"`i &lt; LPPS`; `j &lt; i`; `j + 1 &lt; LPPS`; qed"</span>);
 					<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">mut </span>bid) = best_bid(r) {
 						bid += best_winners_ending_at[j].<span class="number">1</span>;
 						<span class="kw">if </span>bid &gt; best_winners_ending_at[i].<span class="number">1 </span>{
@@ -3224,10 +3226,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				Auctions::auction_status(System::block_number()),
 				AuctionStatus::&lt;u32&gt;::EndingPeriod(<span class="number">2</span>, <span class="number">0</span>)
 			);
-			<span class="comment">// This will prevent the auction&#39;s winner from being decided in the next block, since
+			<span class="comment">// This will prevent the auction's winner from being decided in the next block, since
 			// the random seed was known before the final bids were made.
 			</span>set_last_random(H256::zero(), <span class="number">8</span>);
-			<span class="comment">// Auction definitely ended now, but we don&#39;t know exactly when in the last 3 blocks yet
+			<span class="comment">// Auction definitely ended now, but we don't know exactly when in the last 3 blocks yet
 			// since no randomness available yet.
 			</span>run_to_block(<span class="number">9</span>);
 			<span class="comment">// Auction has now ended... But auction winner still not yet decided, so no leases yet.
@@ -3381,7 +3383,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="macro">assert_ok!</span>(Auctions::new_auction(RuntimeOrigin::signed(<span class="number">6</span>), <span class="number">5</span>, <span class="number">2</span>));
 			<span class="macro">assert_ok!</span>(Auctions::bid(RuntimeOrigin::signed(<span class="number">1</span>), <span class="number">1</span>.into(), <span class="number">2</span>, <span class="number">2</span>, <span class="number">2</span>, <span class="number">6</span>));
-			<span class="comment">// 6 reserved since we are bidding on a new para; only works because we don&#39;t
+			<span class="comment">// 6 reserved since we are bidding on a new para; only works because we don't
 			</span><span class="macro">assert_eq!</span>(Balances::reserved_balance(<span class="number">1</span>), <span class="number">6</span>);
 			run_to_block(<span class="number">20</span>);
 
@@ -3826,7 +3828,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 </span><span class="kw">mod </span>benchmarking {
 	<span class="kw">use super</span>::{Pallet <span class="kw">as </span>Auctions, <span class="kw-2">*</span>};
 	<span class="kw">use </span>frame_support::{
@@ -3852,7 +3854,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>minimum_balance = CurrencyOf::&lt;T&gt;::minimum_balance();
 
 		<span class="kw">for </span>n <span class="kw">in </span><span class="number">1</span>..=SlotRange::SLOT_RANGE_COUNT <span class="kw">as </span>u32 {
-			<span class="kw">let </span>owner = account(<span class="string">&quot;owner&quot;</span>, n, <span class="number">0</span>);
+			<span class="kw">let </span>owner = account(<span class="string">"owner"</span>, n, <span class="number">0</span>);
 			<span class="kw">let </span>worst_validation_code = T::Registrar::worst_validation_code();
 			<span class="kw">let </span>worst_head_data = T::Registrar::worst_head_data();
 			CurrencyOf::&lt;T&gt;::make_free_balance_be(<span class="kw-2">&amp;</span>owner, BalanceOf::&lt;T&gt;::max_value());
@@ -3873,7 +3875,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		T::Registrar::execute_pending_transitions();
 
 		<span class="kw">for </span>n <span class="kw">in </span><span class="number">1</span>..=SlotRange::SLOT_RANGE_COUNT <span class="kw">as </span>u32 {
-			<span class="kw">let </span>bidder = account(<span class="string">&quot;bidder&quot;</span>, n, <span class="number">0</span>);
+			<span class="kw">let </span>bidder = account(<span class="string">"bidder"</span>, n, <span class="number">0</span>);
 			CurrencyOf::&lt;T&gt;::make_free_balance_be(<span class="kw-2">&amp;</span>bidder, BalanceOf::&lt;T&gt;::max_value());
 
 			<span class="kw">let </span>slot_range = SlotRange::n((n - <span class="number">1</span>) <span class="kw">as </span>u8).unwrap();
@@ -3918,14 +3920,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="kw">let </span>duration = BlockNumberFor::&lt;T&gt;::max_value();
 			<span class="kw">let </span>lease_period_index = LeasePeriodOf::&lt;T&gt;::zero();
 			<span class="kw">let </span>origin = T::InitiateOrigin::try_successful_origin()
-				.expect(<span class="string">&quot;InitiateOrigin has no successful origin required for the benchmark&quot;</span>);
+				.expect(<span class="string">"InitiateOrigin has no successful origin required for the benchmark"</span>);
 			Auctions::&lt;T&gt;::new_auction(origin, duration, lease_period_index)<span class="question-mark">?</span>;
 
 			<span class="kw">let </span>para = ParaId::from(<span class="number">0</span>);
 			<span class="kw">let </span>new_para = ParaId::from(<span class="number">1_u32</span>);
 
 			<span class="comment">// Register the paras
-			</span><span class="kw">let </span>owner = account(<span class="string">&quot;owner&quot;</span>, <span class="number">0</span>, <span class="number">0</span>);
+			</span><span class="kw">let </span>owner = account(<span class="string">"owner"</span>, <span class="number">0</span>, <span class="number">0</span>);
 			CurrencyOf::&lt;T&gt;::make_free_balance_be(<span class="kw-2">&amp;</span>owner, BalanceOf::&lt;T&gt;::max_value());
 			<span class="kw">let </span>worst_head_data = T::Registrar::worst_head_data();
 			<span class="kw">let </span>worst_validation_code = T::Registrar::worst_validation_code();
@@ -3943,7 +3945,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>first_slot = AuctionInfo::&lt;T&gt;::get().unwrap().<span class="number">0</span>;
 			<span class="kw">let </span>last_slot = first_slot + <span class="number">3u32</span>.into();
 			<span class="kw">let </span>first_amount = CurrencyOf::&lt;T&gt;::minimum_balance();
-			<span class="kw">let </span>first_bidder: T::AccountId = account(<span class="string">&quot;first_bidder&quot;</span>, <span class="number">0</span>, <span class="number">0</span>);
+			<span class="kw">let </span>first_bidder: T::AccountId = account(<span class="string">"first_bidder"</span>, <span class="number">0</span>, <span class="number">0</span>);
 			CurrencyOf::&lt;T&gt;::make_free_balance_be(<span class="kw-2">&amp;</span>first_bidder, BalanceOf::&lt;T&gt;::max_value());
 			Auctions::&lt;T&gt;::bid(
 				RawOrigin::Signed(first_bidder.clone()).into(),
@@ -3976,7 +3978,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>lease_period_index = LeasePeriodOf::&lt;T&gt;::zero();
 			<span class="kw">let </span>now = frame_system::Pallet::&lt;T&gt;::block_number();
 			<span class="kw">let </span>origin = T::InitiateOrigin::try_successful_origin()
-				.expect(<span class="string">&quot;InitiateOrigin has no successful origin required for the benchmark&quot;</span>);
+				.expect(<span class="string">"InitiateOrigin has no successful origin required for the benchmark"</span>);
 			Auctions::&lt;T&gt;::new_auction(origin, duration, lease_period_index)<span class="question-mark">?</span>;
 
 			fill_winners::&lt;T&gt;(lease_period_index);
@@ -4024,7 +4026,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>lease_period_index = LeasePeriodOf::&lt;T&gt;::zero();
 			<span class="kw">let </span>now = frame_system::Pallet::&lt;T&gt;::block_number();
 			<span class="kw">let </span>origin = T::InitiateOrigin::try_successful_origin()
-				.expect(<span class="string">&quot;InitiateOrigin has no successful origin required for the benchmark&quot;</span>);
+				.expect(<span class="string">"InitiateOrigin has no successful origin required for the benchmark"</span>);
 			Auctions::&lt;T&gt;::new_auction(origin, duration, lease_period_index)<span class="question-mark">?</span>;
 
 			fill_winners::&lt;T&gt;(lease_period_index);

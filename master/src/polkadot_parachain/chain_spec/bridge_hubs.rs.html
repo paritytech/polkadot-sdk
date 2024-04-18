@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `cumulus/polkadot-parachain/src/chain_spec/bridge_hubs.rs`."><title>bridge_hubs.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `cumulus/polkadot-parachain/src/chain_spec/bridge_hubs.rs`."><title>bridge_hubs.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_parachain" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_parachain" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../polkadot_parachain/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -574,70 +576,70 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			rococo::BRIDGE_HUB_ROCOCO =&gt; <span class="prelude-val">Ok</span>(BridgeHubRuntimeType::Rococo),
 			rococo::BRIDGE_HUB_ROCOCO_LOCAL =&gt; <span class="prelude-val">Ok</span>(BridgeHubRuntimeType::RococoLocal),
 			rococo::BRIDGE_HUB_ROCOCO_DEVELOPMENT =&gt; <span class="prelude-val">Ok</span>(BridgeHubRuntimeType::RococoDevelopment),
-			<span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">&quot;Value &#39;{}&#39; is not configured yet&quot;</span>, value)),
+			<span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">"Value '{}' is not configured yet"</span>, value)),
 		}
 	}
 }
 
 <span class="kw">impl </span>BridgeHubRuntimeType {
-	<span class="kw">pub const </span>ID_PREFIX: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;bridge-hub&quot;</span>;
+	<span class="kw">pub const </span>ID_PREFIX: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"bridge-hub"</span>;
 
 	<span class="kw">pub fn </span>load_config(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>ChainSpec&gt;, String&gt; {
 		<span class="kw">match </span><span class="self">self </span>{
 			BridgeHubRuntimeType::Polkadot =&gt; <span class="prelude-val">Ok</span>(Box::new(GenericChainSpec::from_json_bytes(
-				<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">&quot;../../chain-specs/bridge-hub-polkadot.json&quot;</span>)[..],
+				<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">"../../chain-specs/bridge-hub-polkadot.json"</span>)[..],
 			)<span class="question-mark">?</span>)),
 			BridgeHubRuntimeType::Kusama =&gt; <span class="prelude-val">Ok</span>(Box::new(GenericChainSpec::from_json_bytes(
-				<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">&quot;../../chain-specs/bridge-hub-kusama.json&quot;</span>)[..],
+				<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">"../../chain-specs/bridge-hub-kusama.json"</span>)[..],
 			)<span class="question-mark">?</span>)),
 			BridgeHubRuntimeType::Westend =&gt; <span class="prelude-val">Ok</span>(Box::new(GenericChainSpec::from_json_bytes(
-				<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">&quot;../../chain-specs/bridge-hub-westend.json&quot;</span>)[..],
+				<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">"../../chain-specs/bridge-hub-westend.json"</span>)[..],
 			)<span class="question-mark">?</span>)),
 			BridgeHubRuntimeType::WestendLocal =&gt; <span class="prelude-val">Ok</span>(Box::new(westend::local_config(
 				westend::BRIDGE_HUB_WESTEND_LOCAL,
-				<span class="string">&quot;Westend BridgeHub Local&quot;</span>,
-				<span class="string">&quot;westend-local&quot;</span>,
+				<span class="string">"Westend BridgeHub Local"</span>,
+				<span class="string">"westend-local"</span>,
 				ParaId::new(<span class="number">1002</span>),
-				<span class="prelude-val">Some</span>(<span class="string">&quot;Bob&quot;</span>.to_string()),
+				<span class="prelude-val">Some</span>(<span class="string">"Bob"</span>.to_string()),
 			))),
 			BridgeHubRuntimeType::WestendDevelopment =&gt; <span class="prelude-val">Ok</span>(Box::new(westend::local_config(
 				westend::BRIDGE_HUB_WESTEND_DEVELOPMENT,
-				<span class="string">&quot;Westend BridgeHub Development&quot;</span>,
-				<span class="string">&quot;westend-dev&quot;</span>,
+				<span class="string">"Westend BridgeHub Development"</span>,
+				<span class="string">"westend-dev"</span>,
 				ParaId::new(<span class="number">1002</span>),
-				<span class="prelude-val">Some</span>(<span class="string">&quot;Bob&quot;</span>.to_string()),
+				<span class="prelude-val">Some</span>(<span class="string">"Bob"</span>.to_string()),
 			))),
 			BridgeHubRuntimeType::Rococo =&gt; <span class="prelude-val">Ok</span>(Box::new(GenericChainSpec::from_json_bytes(
-				<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">&quot;../../chain-specs/bridge-hub-rococo.json&quot;</span>)[..],
+				<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">"../../chain-specs/bridge-hub-rococo.json"</span>)[..],
 			)<span class="question-mark">?</span>)),
 			BridgeHubRuntimeType::RococoLocal =&gt; <span class="prelude-val">Ok</span>(Box::new(rococo::local_config(
 				rococo::BRIDGE_HUB_ROCOCO_LOCAL,
-				<span class="string">&quot;Rococo BridgeHub Local&quot;</span>,
-				<span class="string">&quot;rococo-local&quot;</span>,
+				<span class="string">"Rococo BridgeHub Local"</span>,
+				<span class="string">"rococo-local"</span>,
 				ParaId::new(<span class="number">1013</span>),
-				<span class="prelude-val">Some</span>(<span class="string">&quot;Bob&quot;</span>.to_string()),
+				<span class="prelude-val">Some</span>(<span class="string">"Bob"</span>.to_string()),
 				|<span class="kw">_</span>| (),
 			))),
 			BridgeHubRuntimeType::RococoDevelopment =&gt; <span class="prelude-val">Ok</span>(Box::new(rococo::local_config(
 				rococo::BRIDGE_HUB_ROCOCO_DEVELOPMENT,
-				<span class="string">&quot;Rococo BridgeHub Development&quot;</span>,
-				<span class="string">&quot;rococo-dev&quot;</span>,
+				<span class="string">"Rococo BridgeHub Development"</span>,
+				<span class="string">"rococo-dev"</span>,
 				ParaId::new(<span class="number">1013</span>),
-				<span class="prelude-val">Some</span>(<span class="string">&quot;Bob&quot;</span>.to_string()),
+				<span class="prelude-val">Some</span>(<span class="string">"Bob"</span>.to_string()),
 				|<span class="kw">_</span>| (),
 			))),
-			other =&gt; <span class="prelude-val">Err</span>(<span class="macro">std::format!</span>(<span class="string">&quot;No default config present for {:?}&quot;</span>, other)),
+			other =&gt; <span class="prelude-val">Err</span>(<span class="macro">std::format!</span>(<span class="string">"No default config present for {:?}"</span>, other)),
 		}
 	}
 }
 
-<span class="doccomment">/// Check if &#39;id&#39; satisfy BridgeHub-like format
+<span class="doccomment">/// Check if 'id' satisfy BridgeHub-like format
 </span><span class="kw">fn </span>ensure_id(id: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;</span>str, String&gt; {
 	<span class="kw">if </span>id.starts_with(BridgeHubRuntimeType::ID_PREFIX) {
 		<span class="prelude-val">Ok</span>(id)
 	} <span class="kw">else </span>{
 		<span class="prelude-val">Err</span>(<span class="macro">format!</span>(
-			<span class="string">&quot;Invalid &#39;id&#39; attribute ({}), should start with prefix: {}&quot;</span>,
+			<span class="string">"Invalid 'id' attribute ({}), should start with prefix: {}"</span>,
 			id,
 			BridgeHubRuntimeType::ID_PREFIX
 		))
@@ -653,9 +655,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">use </span><span class="kw">super</span>::BridgeHubBalance;
 
-	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>BRIDGE_HUB_ROCOCO: <span class="kw-2">&amp;</span>str = <span class="string">&quot;bridge-hub-rococo&quot;</span>;
-	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>BRIDGE_HUB_ROCOCO_LOCAL: <span class="kw-2">&amp;</span>str = <span class="string">&quot;bridge-hub-rococo-local&quot;</span>;
-	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>BRIDGE_HUB_ROCOCO_DEVELOPMENT: <span class="kw-2">&amp;</span>str = <span class="string">&quot;bridge-hub-rococo-dev&quot;</span>;
+	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>BRIDGE_HUB_ROCOCO: <span class="kw-2">&amp;</span>str = <span class="string">"bridge-hub-rococo"</span>;
+	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>BRIDGE_HUB_ROCOCO_LOCAL: <span class="kw-2">&amp;</span>str = <span class="string">"bridge-hub-rococo-local"</span>;
+	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>BRIDGE_HUB_ROCOCO_DEVELOPMENT: <span class="kw-2">&amp;</span>str = <span class="string">"bridge-hub-rococo-dev"</span>;
 	<span class="kw">const </span>BRIDGE_HUB_ROCOCO_ED: BridgeHubBalance =
 		bridge_hub_rococo_runtime::ExistentialDeposit::get();
 
@@ -669,44 +671,44 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; GenericChainSpec {
 		<span class="comment">// Rococo defaults
 		</span><span class="kw">let </span><span class="kw-2">mut </span>properties = sc_chain_spec::Properties::new();
-		properties.insert(<span class="string">&quot;ss58Format&quot;</span>.into(), <span class="number">42</span>.into());
-		properties.insert(<span class="string">&quot;tokenSymbol&quot;</span>.into(), <span class="string">&quot;ROC&quot;</span>.into());
-		properties.insert(<span class="string">&quot;tokenDecimals&quot;</span>.into(), <span class="number">12</span>.into());
+		properties.insert(<span class="string">"ss58Format"</span>.into(), <span class="number">42</span>.into());
+		properties.insert(<span class="string">"tokenSymbol"</span>.into(), <span class="string">"ROC"</span>.into());
+		properties.insert(<span class="string">"tokenDecimals"</span>.into(), <span class="number">12</span>.into());
 		modify_props(<span class="kw-2">&amp;mut </span>properties);
 
 		GenericChainSpec::builder(
 			bridge_hub_rococo_runtime::WASM_BINARY
-				.expect(<span class="string">&quot;WASM binary was not built, please build it!&quot;</span>),
+				.expect(<span class="string">"WASM binary was not built, please build it!"</span>),
 			Extensions { relay_chain: relay_chain.to_string(), para_id: para_id.into() },
 		)
 		.with_name(chain_name)
-		.with_id(<span class="kw">super</span>::ensure_id(id).expect(<span class="string">&quot;invalid id&quot;</span>))
+		.with_id(<span class="kw">super</span>::ensure_id(id).expect(<span class="string">"invalid id"</span>))
 		.with_chain_type(ChainType::Local)
 		.with_genesis_config_patch(genesis(
 			<span class="comment">// initial collators.
 			</span><span class="macro">vec!</span>[
 				(
-					get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>),
-					get_collator_keys_from_seed::&lt;AuraId&gt;(<span class="string">&quot;Alice&quot;</span>),
+					get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Alice"</span>),
+					get_collator_keys_from_seed::&lt;AuraId&gt;(<span class="string">"Alice"</span>),
 				),
 				(
-					get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Bob&quot;</span>),
-					get_collator_keys_from_seed::&lt;AuraId&gt;(<span class="string">&quot;Bob&quot;</span>),
+					get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Bob"</span>),
+					get_collator_keys_from_seed::&lt;AuraId&gt;(<span class="string">"Bob"</span>),
 				),
 			],
 			<span class="macro">vec!</span>[
-				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>),
-				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Bob&quot;</span>),
-				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Charlie&quot;</span>),
-				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Dave&quot;</span>),
-				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Eve&quot;</span>),
-				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Ferdie&quot;</span>),
-				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice//stash&quot;</span>),
-				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Bob//stash&quot;</span>),
-				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Charlie//stash&quot;</span>),
-				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Dave//stash&quot;</span>),
-				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Eve//stash&quot;</span>),
-				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Ferdie//stash&quot;</span>),
+				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Alice"</span>),
+				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Bob"</span>),
+				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Charlie"</span>),
+				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Dave"</span>),
+				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Eve"</span>),
+				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Ferdie"</span>),
+				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Alice//stash"</span>),
+				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Bob//stash"</span>),
+				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Charlie//stash"</span>),
+				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Dave//stash"</span>),
+				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Eve//stash"</span>),
+				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Ferdie//stash"</span>),
 			],
 			para_id,
 			bridges_pallet_owner_seed
@@ -724,18 +726,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		bridges_pallet_owner: <span class="prelude-ty">Option</span>&lt;AccountId&gt;,
 	) -&gt; serde_json::Value {
 		<span class="macro">serde_json::json!</span>({
-			<span class="string">&quot;balances&quot;</span>: {
-				<span class="string">&quot;balances&quot;</span>: endowed_accounts.iter().cloned().map(|k| (k, <span class="number">1u64 </span>&lt;&lt; <span class="number">60</span>)).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
+			<span class="string">"balances"</span>: {
+				<span class="string">"balances"</span>: endowed_accounts.iter().cloned().map(|k| (k, <span class="number">1u64 </span>&lt;&lt; <span class="number">60</span>)).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
 			},
-			<span class="string">&quot;parachainInfo&quot;</span>: {
-				<span class="string">&quot;parachainId&quot;</span>: id,
+			<span class="string">"parachainInfo"</span>: {
+				<span class="string">"parachainId"</span>: id,
 			},
-			<span class="string">&quot;collatorSelection&quot;</span>: {
-				<span class="string">&quot;invulnerables&quot;</span>: invulnerables.iter().cloned().map(|(acc, <span class="kw">_</span>)| acc).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
-				<span class="string">&quot;candidacyBond&quot;</span>: BRIDGE_HUB_ROCOCO_ED * <span class="number">16</span>,
+			<span class="string">"collatorSelection"</span>: {
+				<span class="string">"invulnerables"</span>: invulnerables.iter().cloned().map(|(acc, <span class="kw">_</span>)| acc).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
+				<span class="string">"candidacyBond"</span>: BRIDGE_HUB_ROCOCO_ED * <span class="number">16</span>,
 			},
-			<span class="string">&quot;session&quot;</span>: {
-				<span class="string">&quot;keys&quot;</span>: invulnerables
+			<span class="string">"session"</span>: {
+				<span class="string">"keys"</span>: invulnerables
 					.into_iter()
 					.map(|(acc, aura)| {
 						(
@@ -746,18 +748,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					})
 					.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
 			},
-			<span class="string">&quot;polkadotXcm&quot;</span>: {
-				<span class="string">&quot;safeXcmVersion&quot;</span>: <span class="prelude-val">Some</span>(SAFE_XCM_VERSION),
+			<span class="string">"polkadotXcm"</span>: {
+				<span class="string">"safeXcmVersion"</span>: <span class="prelude-val">Some</span>(SAFE_XCM_VERSION),
 			},
-			<span class="string">&quot;bridgeWestendGrandpa&quot;</span>: {
-				<span class="string">&quot;owner&quot;</span>: bridges_pallet_owner.clone(),
+			<span class="string">"bridgeWestendGrandpa"</span>: {
+				<span class="string">"owner"</span>: bridges_pallet_owner.clone(),
 			},
-			<span class="string">&quot;bridgeWestendMessages&quot;</span>: {
-				<span class="string">&quot;owner&quot;</span>: bridges_pallet_owner.clone(),
+			<span class="string">"bridgeWestendMessages"</span>: {
+				<span class="string">"owner"</span>: bridges_pallet_owner.clone(),
 			},
-			<span class="string">&quot;ethereumSystem&quot;</span>: {
-				<span class="string">&quot;paraId&quot;</span>: id,
-				<span class="string">&quot;assetHubParaId&quot;</span>: <span class="number">1000
+			<span class="string">"ethereumSystem"</span>: {
+				<span class="string">"paraId"</span>: id,
+				<span class="string">"assetHubParaId"</span>: <span class="number">1000
 			</span>}
 		})
 	}
@@ -765,8 +767,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Sub-module for Kusama setup
 </span><span class="kw">pub mod </span>kusama {
-	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>BRIDGE_HUB_KUSAMA: <span class="kw-2">&amp;</span>str = <span class="string">&quot;bridge-hub-kusama&quot;</span>;
-	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>BRIDGE_HUB_KUSAMA_LOCAL: <span class="kw-2">&amp;</span>str = <span class="string">&quot;bridge-hub-kusama-local&quot;</span>;
+	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>BRIDGE_HUB_KUSAMA: <span class="kw-2">&amp;</span>str = <span class="string">"bridge-hub-kusama"</span>;
+	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>BRIDGE_HUB_KUSAMA_LOCAL: <span class="kw-2">&amp;</span>str = <span class="string">"bridge-hub-kusama-local"</span>;
 }
 
 <span class="doccomment">/// Sub-module for Westend setup.
@@ -778,9 +780,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">use </span><span class="kw">super</span>::BridgeHubBalance;
 
-	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>BRIDGE_HUB_WESTEND: <span class="kw-2">&amp;</span>str = <span class="string">&quot;bridge-hub-westend&quot;</span>;
-	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>BRIDGE_HUB_WESTEND_LOCAL: <span class="kw-2">&amp;</span>str = <span class="string">&quot;bridge-hub-westend-local&quot;</span>;
-	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>BRIDGE_HUB_WESTEND_DEVELOPMENT: <span class="kw-2">&amp;</span>str = <span class="string">&quot;bridge-hub-westend-dev&quot;</span>;
+	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>BRIDGE_HUB_WESTEND: <span class="kw-2">&amp;</span>str = <span class="string">"bridge-hub-westend"</span>;
+	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>BRIDGE_HUB_WESTEND_LOCAL: <span class="kw-2">&amp;</span>str = <span class="string">"bridge-hub-westend-local"</span>;
+	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>BRIDGE_HUB_WESTEND_DEVELOPMENT: <span class="kw-2">&amp;</span>str = <span class="string">"bridge-hub-westend-dev"</span>;
 	<span class="kw">const </span>BRIDGE_HUB_WESTEND_ED: BridgeHubBalance =
 		bridge_hub_westend_runtime::ExistentialDeposit::get();
 
@@ -792,42 +794,42 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		bridges_pallet_owner_seed: <span class="prelude-ty">Option</span>&lt;String&gt;,
 	) -&gt; GenericChainSpec {
 		<span class="kw">let </span><span class="kw-2">mut </span>properties = sc_chain_spec::Properties::new();
-		properties.insert(<span class="string">&quot;tokenSymbol&quot;</span>.into(), <span class="string">&quot;WND&quot;</span>.into());
-		properties.insert(<span class="string">&quot;tokenDecimals&quot;</span>.into(), <span class="number">12</span>.into());
+		properties.insert(<span class="string">"tokenSymbol"</span>.into(), <span class="string">"WND"</span>.into());
+		properties.insert(<span class="string">"tokenDecimals"</span>.into(), <span class="number">12</span>.into());
 
 		GenericChainSpec::builder(
 			bridge_hub_westend_runtime::WASM_BINARY
-				.expect(<span class="string">&quot;WASM binary was not build, please build it!&quot;</span>),
+				.expect(<span class="string">"WASM binary was not build, please build it!"</span>),
 			Extensions { relay_chain: relay_chain.to_string(), para_id: para_id.into() },
 		)
 		.with_name(chain_name)
-		.with_id(<span class="kw">super</span>::ensure_id(id).expect(<span class="string">&quot;invalid id&quot;</span>))
+		.with_id(<span class="kw">super</span>::ensure_id(id).expect(<span class="string">"invalid id"</span>))
 		.with_chain_type(ChainType::Local)
 		.with_genesis_config_patch(genesis(
 			<span class="comment">// initial collators.
 			</span><span class="macro">vec!</span>[
 				(
-					get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>),
-					get_collator_keys_from_seed::&lt;AuraId&gt;(<span class="string">&quot;Alice&quot;</span>),
+					get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Alice"</span>),
+					get_collator_keys_from_seed::&lt;AuraId&gt;(<span class="string">"Alice"</span>),
 				),
 				(
-					get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Bob&quot;</span>),
-					get_collator_keys_from_seed::&lt;AuraId&gt;(<span class="string">&quot;Bob&quot;</span>),
+					get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Bob"</span>),
+					get_collator_keys_from_seed::&lt;AuraId&gt;(<span class="string">"Bob"</span>),
 				),
 			],
 			<span class="macro">vec!</span>[
-				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>),
-				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Bob&quot;</span>),
-				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Charlie&quot;</span>),
-				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Dave&quot;</span>),
-				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Eve&quot;</span>),
-				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Ferdie&quot;</span>),
-				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice//stash&quot;</span>),
-				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Bob//stash&quot;</span>),
-				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Charlie//stash&quot;</span>),
-				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Dave//stash&quot;</span>),
-				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Eve//stash&quot;</span>),
-				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Ferdie//stash&quot;</span>),
+				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Alice"</span>),
+				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Bob"</span>),
+				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Charlie"</span>),
+				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Dave"</span>),
+				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Eve"</span>),
+				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Ferdie"</span>),
+				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Alice//stash"</span>),
+				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Bob//stash"</span>),
+				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Charlie//stash"</span>),
+				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Dave//stash"</span>),
+				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Eve//stash"</span>),
+				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Ferdie//stash"</span>),
 			],
 			para_id,
 			bridges_pallet_owner_seed
@@ -845,18 +847,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		bridges_pallet_owner: <span class="prelude-ty">Option</span>&lt;AccountId&gt;,
 	) -&gt; serde_json::Value {
 		<span class="macro">serde_json::json!</span>({
-			<span class="string">&quot;balances&quot;</span>: {
-				<span class="string">&quot;balances&quot;</span>: endowed_accounts.iter().cloned().map(|k| (k, <span class="number">1u64 </span>&lt;&lt; <span class="number">60</span>)).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
+			<span class="string">"balances"</span>: {
+				<span class="string">"balances"</span>: endowed_accounts.iter().cloned().map(|k| (k, <span class="number">1u64 </span>&lt;&lt; <span class="number">60</span>)).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
 			},
-			<span class="string">&quot;parachainInfo&quot;</span>: {
-				<span class="string">&quot;parachainId&quot;</span>: id,
+			<span class="string">"parachainInfo"</span>: {
+				<span class="string">"parachainId"</span>: id,
 			},
-			<span class="string">&quot;collatorSelection&quot;</span>: {
-				<span class="string">&quot;invulnerables&quot;</span>: invulnerables.iter().cloned().map(|(acc, <span class="kw">_</span>)| acc).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
-				<span class="string">&quot;candidacyBond&quot;</span>: BRIDGE_HUB_WESTEND_ED * <span class="number">16</span>,
+			<span class="string">"collatorSelection"</span>: {
+				<span class="string">"invulnerables"</span>: invulnerables.iter().cloned().map(|(acc, <span class="kw">_</span>)| acc).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
+				<span class="string">"candidacyBond"</span>: BRIDGE_HUB_WESTEND_ED * <span class="number">16</span>,
 			},
-			<span class="string">&quot;session&quot;</span>: {
-				<span class="string">&quot;keys&quot;</span>: invulnerables
+			<span class="string">"session"</span>: {
+				<span class="string">"keys"</span>: invulnerables
 					.into_iter()
 					.map(|(acc, aura)| {
 						(
@@ -867,14 +869,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					})
 					.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
 			},
-			<span class="string">&quot;polkadotXcm&quot;</span>: {
-				<span class="string">&quot;safeXcmVersion&quot;</span>: <span class="prelude-val">Some</span>(SAFE_XCM_VERSION),
+			<span class="string">"polkadotXcm"</span>: {
+				<span class="string">"safeXcmVersion"</span>: <span class="prelude-val">Some</span>(SAFE_XCM_VERSION),
 			},
-			<span class="string">&quot;bridgeRococoGrandpa&quot;</span>: {
-				<span class="string">&quot;owner&quot;</span>: bridges_pallet_owner.clone(),
+			<span class="string">"bridgeRococoGrandpa"</span>: {
+				<span class="string">"owner"</span>: bridges_pallet_owner.clone(),
 			},
-			<span class="string">&quot;bridgeRococoMessages&quot;</span>:  {
-				<span class="string">&quot;owner&quot;</span>: bridges_pallet_owner.clone(),
+			<span class="string">"bridgeRococoMessages"</span>:  {
+				<span class="string">"owner"</span>: bridges_pallet_owner.clone(),
 			}
 		})
 	}
@@ -882,8 +884,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Sub-module for Polkadot setup
 </span><span class="kw">pub mod </span>polkadot {
-	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>BRIDGE_HUB_POLKADOT: <span class="kw-2">&amp;</span>str = <span class="string">&quot;bridge-hub-polkadot&quot;</span>;
-	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>BRIDGE_HUB_POLKADOT_LOCAL: <span class="kw-2">&amp;</span>str = <span class="string">&quot;bridge-hub-polkadot-local&quot;</span>;
+	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>BRIDGE_HUB_POLKADOT: <span class="kw-2">&amp;</span>str = <span class="string">"bridge-hub-polkadot"</span>;
+	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>BRIDGE_HUB_POLKADOT_LOCAL: <span class="kw-2">&amp;</span>str = <span class="string">"bridge-hub-polkadot-local"</span>;
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 

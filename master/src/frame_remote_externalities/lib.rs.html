@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/utils/frame/remote-externalities/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/utils/frame/remote-externalities/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="frame_remote_externalities" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="frame_remote_externalities" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../frame_remote_externalities/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1731,14 +1733,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -1785,8 +1787,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">type </span>ChildKeyValues = Vec&lt;(ChildInfo, Vec&lt;KeyValue&gt;)&gt;;
 <span class="kw">type </span>SnapshotVersion = Compact&lt;u16&gt;;
 
-<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;remote-ext&quot;</span>;
-<span class="kw">const </span>DEFAULT_HTTP_ENDPOINT: <span class="kw-2">&amp;</span>str = <span class="string">&quot;https://rpc.polkadot.io:443&quot;</span>;
+<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"remote-ext"</span>;
+<span class="kw">const </span>DEFAULT_HTTP_ENDPOINT: <span class="kw-2">&amp;</span>str = <span class="string">"https://rpc.polkadot.io:443"</span>;
 <span class="kw">const </span>SNAPSHOT_VERSION: SnapshotVersion = Compact(<span class="number">3</span>);
 
 <span class="doccomment">/// The snapshot that we store on disk.
@@ -1816,18 +1818,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="kw">fn </span>load(path: <span class="kw-2">&amp;</span>PathBuf) -&gt; <span class="prelude-ty">Result</span>&lt;Snapshot&lt;H&gt;, <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; {
-		<span class="kw">let </span>bytes = fs::read(path).map_err(|<span class="kw">_</span>| <span class="string">&quot;fs::read failed.&quot;</span>)<span class="question-mark">?</span>;
+	<span class="kw">fn </span>load(path: <span class="kw-2">&amp;</span>PathBuf) -&gt; <span class="prelude-ty">Result</span>&lt;Snapshot&lt;H&gt;, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
+		<span class="kw">let </span>bytes = fs::read(path).map_err(|<span class="kw">_</span>| <span class="string">"fs::read failed."</span>)<span class="question-mark">?</span>;
 		<span class="comment">// The first item in the SCALE encoded struct bytes is the snapshot version. We decode and
 		// check that first, before proceeding to decode the rest of the snapshot.
 		</span><span class="kw">let </span>snapshot_version = SnapshotVersion::decode(<span class="kw-2">&amp;mut &amp;*</span>bytes)
-			.map_err(|<span class="kw">_</span>| <span class="string">&quot;Failed to decode snapshot version&quot;</span>)<span class="question-mark">?</span>;
+			.map_err(|<span class="kw">_</span>| <span class="string">"Failed to decode snapshot version"</span>)<span class="question-mark">?</span>;
 
 		<span class="kw">if </span>snapshot_version != SNAPSHOT_VERSION {
-			<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;Unsupported snapshot version detected. Please create a new snapshot.&quot;</span>)
+			<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Unsupported snapshot version detected. Please create a new snapshot."</span>)
 		}
 
-		Decode::decode(<span class="kw-2">&amp;mut &amp;*</span>bytes).map_err(|<span class="kw">_</span>| <span class="string">&quot;Decode failed&quot;</span>)
+		Decode::decode(<span class="kw-2">&amp;mut &amp;*</span>bytes).map_err(|<span class="kw">_</span>| <span class="string">"Decode failed"</span>)
 	}
 }
 
@@ -1897,21 +1899,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="comment">// Build an HttpClient from a URI.
-	</span><span class="kw">async fn </span>init(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; {
+	</span><span class="kw">async fn </span>init(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
 		<span class="kw">if let </span><span class="self">Self</span>::Uri(uri) = <span class="self">self </span>{
-			<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;initializing remote client to {:?}&quot;</span>, uri);
+			<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"initializing remote client to {:?}"</span>, uri);
 
 			<span class="comment">// If we have a ws uri, try to convert it to an http uri.
-			// We use an HTTP client rather than WS because WS starts to choke with &quot;accumulated
-			// message length exceeds maximum&quot; errors after processing ~10k keys when fetching
+			// We use an HTTP client rather than WS because WS starts to choke with "accumulated
+			// message length exceeds maximum" errors after processing ~10k keys when fetching
 			// from a node running a default configuration.
-			</span><span class="kw">let </span>uri = <span class="kw">if </span>uri.starts_with(<span class="string">&quot;ws://&quot;</span>) {
-				<span class="kw">let </span>uri = uri.replace(<span class="string">&quot;ws://&quot;</span>, <span class="string">&quot;http://&quot;</span>);
-				<span class="macro">log::info!</span>(target: LOG_TARGET, <span class="string">&quot;replacing ws:// in uri with http://: {:?} (ws is currently unstable for fetching remote storage, for more see https://github.com/paritytech/jsonrpsee/issues/1086)&quot;</span>, uri);
+			</span><span class="kw">let </span>uri = <span class="kw">if </span>uri.starts_with(<span class="string">"ws://"</span>) {
+				<span class="kw">let </span>uri = uri.replace(<span class="string">"ws://"</span>, <span class="string">"http://"</span>);
+				<span class="macro">log::info!</span>(target: LOG_TARGET, <span class="string">"replacing ws:// in uri with http://: {:?} (ws is currently unstable for fetching remote storage, for more see https://github.com/paritytech/jsonrpsee/issues/1086)"</span>, uri);
 				uri
-			} <span class="kw">else if </span>uri.starts_with(<span class="string">&quot;wss://&quot;</span>) {
-				<span class="kw">let </span>uri = uri.replace(<span class="string">&quot;wss://&quot;</span>, <span class="string">&quot;https://&quot;</span>);
-				<span class="macro">log::info!</span>(target: LOG_TARGET, <span class="string">&quot;replacing wss:// in uri with https://: {:?} (ws is currently unstable for fetching remote storage, for more see https://github.com/paritytech/jsonrpsee/issues/1086)&quot;</span>, uri);
+			} <span class="kw">else if </span>uri.starts_with(<span class="string">"wss://"</span>) {
+				<span class="kw">let </span>uri = uri.replace(<span class="string">"wss://"</span>, <span class="string">"https://"</span>);
+				<span class="macro">log::info!</span>(target: LOG_TARGET, <span class="string">"replacing wss:// in uri with https://: {:?} (ws is currently unstable for fetching remote storage, for more see https://github.com/paritytech/jsonrpsee/issues/1086)"</span>, uri);
 				uri
 			} <span class="kw">else </span>{
 				uri.clone()
@@ -1922,8 +1924,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.request_timeout(std::time::Duration::from_secs(<span class="number">60 </span>* <span class="number">5</span>))
 				.build(uri)
 				.map_err(|e| {
-					<span class="macro">log::error!</span>(target: LOG_TARGET, <span class="string">&quot;error: {:?}&quot;</span>, e);
-					<span class="string">&quot;failed to build http client&quot;
+					<span class="macro">log::error!</span>(target: LOG_TARGET, <span class="string">"error: {:?}"</span>, e);
+					<span class="string">"failed to build http client"
 				</span>})<span class="question-mark">?</span>;
 
 			<span class="kw-2">*</span><span class="self">self </span>= <span class="self">Self</span>::RemoteClient(http_client)
@@ -1973,11 +1975,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>rpc_client(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>HttpClient {
 		<span class="self">self</span>.transport
 			.as_client()
-			.expect(<span class="string">&quot;http client must have been initialized by now; qed.&quot;</span>)
+			.expect(<span class="string">"http client must have been initialized by now; qed."</span>)
 	}
 
 	<span class="kw">fn </span>at_expected(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; H {
-		<span class="self">self</span>.at.clone().expect(<span class="string">&quot;block at must be initialized; qed&quot;</span>)
+		<span class="self">self</span>.at.clone().expect(<span class="string">"block at must be initialized; qed"</span>)
 	}
 }
 
@@ -2022,7 +2024,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl </span>Default <span class="kw">for </span>SnapshotConfig {
 	<span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
-		<span class="self">Self </span>{ path: Path::new(<span class="string">&quot;SNAPSHOT&quot;</span>).into() }
+		<span class="self">Self </span>{ path: Path::new(<span class="string">"SNAPSHOT"</span>).into() }
 	}
 }
 
@@ -2060,7 +2062,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.mode {
 			Mode::Online(config) =&gt; config,
 			Mode::OfflineOrElseOnline(<span class="kw">_</span>, config) =&gt; config,
-			<span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;Unexpected mode: Online&quot;</span>),
+			<span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"Unexpected mode: Online"</span>),
 		}
 	}
 
@@ -2068,7 +2070,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">match </span><span class="kw-2">&amp;mut </span><span class="self">self</span>.mode {
 			Mode::Online(config) =&gt; config,
 			Mode::OfflineOrElseOnline(<span class="kw">_</span>, config) =&gt; config,
-			<span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;Unexpected mode: Online&quot;</span>),
+			<span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"Unexpected mode: Online"</span>),
 		}
 	}
 }
@@ -2093,24 +2095,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		key: StorageKey,
 		maybe_at: <span class="prelude-ty">Option</span>&lt;B::Hash&gt;,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;StorageData&gt;, <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; {
-		<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">&quot;rpc: get_storage&quot;</span>);
+	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;StorageData&gt;, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
+		<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">"rpc: get_storage"</span>);
 		<span class="self">self</span>.as_online().rpc_client().storage(key, maybe_at).<span class="kw">await</span>.map_err(|e| {
-			<span class="macro">error!</span>(target: LOG_TARGET, <span class="string">&quot;Error = {:?}&quot;</span>, e);
-			<span class="string">&quot;rpc get_storage failed.&quot;
+			<span class="macro">error!</span>(target: LOG_TARGET, <span class="string">"Error = {:?}"</span>, e);
+			<span class="string">"rpc get_storage failed."
 		</span>})
 	}
 
 	<span class="doccomment">/// Get the latest finalized head.
-	</span><span class="kw">async fn </span>rpc_get_head(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;B::Hash, <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; {
-		<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">&quot;rpc: finalized_head&quot;</span>);
+	</span><span class="kw">async fn </span>rpc_get_head(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;B::Hash, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
+		<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">"rpc: finalized_head"</span>);
 
 		<span class="comment">// sadly this pretty much unreadable...
 		</span>ChainApi::&lt;(), <span class="kw">_</span>, B::Header, ()&gt;::finalized_head(<span class="self">self</span>.as_online().rpc_client())
 			.<span class="kw">await
 			</span>.map_err(|e| {
-				<span class="macro">error!</span>(target: LOG_TARGET, <span class="string">&quot;Error = {:?}&quot;</span>, e);
-				<span class="string">&quot;rpc finalized_head failed.&quot;
+				<span class="macro">error!</span>(target: LOG_TARGET, <span class="string">"Error = {:?}"</span>, e);
+				<span class="string">"rpc finalized_head failed."
 			</span>})
 	}
 
@@ -2119,14 +2121,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		prefix: <span class="prelude-ty">Option</span>&lt;StorageKey&gt;,
 		start_key: <span class="prelude-ty">Option</span>&lt;StorageKey&gt;,
 		at: B::Hash,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;StorageKey&gt;, <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; {
+	) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;StorageKey&gt;, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
 		<span class="self">self</span>.as_online()
 			.rpc_client()
 			.storage_keys_paged(prefix, <span class="self">Self</span>::DEFAULT_KEY_DOWNLOAD_PAGE, start_key, <span class="prelude-val">Some</span>(at))
 			.<span class="kw">await
 			</span>.map_err(|e| {
-				<span class="macro">error!</span>(target: LOG_TARGET, <span class="string">&quot;Error = {:?}&quot;</span>, e);
-				<span class="string">&quot;rpc get_keys failed&quot;
+				<span class="macro">error!</span>(target: LOG_TARGET, <span class="string">"Error = {:?}"</span>, e);
+				<span class="string">"rpc get_keys failed"
 			</span>})
 	}
 
@@ -2136,7 +2138,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		prefix: <span class="kw-2">&amp;</span>StorageKey,
 		block: B::Hash,
 		parallel: usize,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;StorageKey&gt;, <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; {
+	) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;StorageKey&gt;, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
 		<span class="doccomment">/// Divide the workload and return the start key of each chunks. Guaranteed to return a
 		/// non-empty list.
 		</span><span class="kw">fn </span>gen_start_keys(prefix: <span class="kw-2">&amp;</span>StorageKey) -&gt; Vec&lt;StorageKey&gt; {
@@ -2179,7 +2181,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.clone()
 				.acquire_owned()
 				.<span class="kw">await
-				</span>.expect(<span class="string">&quot;semaphore is not closed until the end of loop&quot;</span>);
+				</span>.expect(<span class="string">"semaphore is not closed until the end of loop"</span>);
 
 			<span class="kw">let </span>builder = builder.clone();
 			<span class="kw">let </span>prefix = prefix.clone();
@@ -2220,7 +2222,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		block: B::Hash,
 		start_key: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>StorageKey&gt;,
 		end_key: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>StorageKey&gt;,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;StorageKey&gt;, <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; {
+	) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;StorageKey&gt;, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
 		<span class="kw">let </span><span class="kw-2">mut </span>last_key: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>StorageKey&gt; = start_key;
 		<span class="kw">let </span><span class="kw-2">mut </span>keys: Vec&lt;StorageKey&gt; = <span class="macro">vec!</span>[];
 
@@ -2247,15 +2249,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// scraping out of range or no more matches,
 			// we are done either way
 			</span><span class="kw">if </span>page_len &lt; <span class="self">Self</span>::DEFAULT_KEY_DOWNLOAD_PAGE <span class="kw">as </span>usize {
-				<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;last page received: {}&quot;</span>, page_len);
+				<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"last page received: {}"</span>, page_len);
 				<span class="kw">break
 			</span>}
 
 			<span class="macro">log::debug!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;new total = {}, full page received: {}&quot;</span>,
+				<span class="string">"new total = {}, full page received: {}"</span>,
 				keys.len(),
-				HexDisplay::from(last_key.expect(<span class="string">&quot;full page received, cannot be None&quot;</span>))
+				HexDisplay::from(last_key.expect(<span class="string">"full page received, cannot be None"</span>))
 			);
 		}
 
@@ -2294,15 +2296,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// async fn example() {
 	///     let client = HttpClient::new();
 	///     let payloads = vec![
-	///         (&quot;some_method&quot;.to_string(), ArrayParams::new(vec![])),
-	///         (&quot;another_method&quot;.to_string(), ArrayParams::new(vec![])),
+	///         ("some_method".to_string(), ArrayParams::new(vec![])),
+	///         ("another_method".to_string(), ArrayParams::new(vec![])),
 	///     ];
 	///     let initial_batch_size = 10;
 	///
 	///     let storage_data = get_storage_data_dynamic_batch_size(client, payloads, batch_size).await;
 	///     match storage_data {
-	///         Ok(data) =&gt; println!(&quot;Storage data: {:?}&quot;, data),
-	///         Err(e) =&gt; eprintln!(&quot;Error fetching storage data: {}&quot;, e),
+	///         Ok(data) =&gt; println!("Storage data: {:?}", data),
+	///         Err(e) =&gt; eprintln!("Error fetching storage data: {}", e),
 	///     }
 	/// }
 	/// ```
@@ -2320,7 +2322,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">while </span>start_index &lt; total_payloads {
 			<span class="macro">log::debug!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;Remaining payloads: {} Batch request size: {}&quot;</span>,
+				<span class="string">"Remaining payloads: {} Batch request size: {}"</span>,
 				total_payloads - start_index,
 				batch_size,
 			);
@@ -2333,7 +2335,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">for </span>(method, params) <span class="kw">in </span>page.iter() {
 				batch
 					.insert(method, params.clone())
-					.map_err(|<span class="kw">_</span>| <span class="string">&quot;Invalid batch method and/or params&quot;</span>)<span class="question-mark">?</span>;
+					.map_err(|<span class="kw">_</span>| <span class="string">"Invalid batch method and/or params"</span>)<span class="question-mark">?</span>;
 			}
 
 			<span class="kw">let </span>request_started = Instant::now();
@@ -2349,7 +2351,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 					retries += <span class="number">1</span>;
 					<span class="kw">let </span>failure_log = <span class="macro">format!</span>(
-						<span class="string">&quot;Batch request failed ({}/{} retries). Error: {}&quot;</span>,
+						<span class="string">"Batch request failed ({}/{} retries). Error: {}"</span>,
 						retries,
 						<span class="self">Self</span>::MAX_RETRIES,
 						e
@@ -2357,10 +2359,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="comment">// after 2 subsequent failures something very wrong is happening. log a warning
 					// and reset the batch size down to 1.
 					</span><span class="kw">if </span>retries &gt;= <span class="number">2 </span>{
-						<span class="macro">log::warn!</span>(<span class="string">&quot;{}&quot;</span>, failure_log);
+						<span class="macro">log::warn!</span>(<span class="string">"{}"</span>, failure_log);
 						batch_size = <span class="number">1</span>;
 					} <span class="kw">else </span>{
-						<span class="macro">log::debug!</span>(<span class="string">&quot;{}&quot;</span>, failure_log);
+						<span class="macro">log::debug!</span>(<span class="string">"{}"</span>, failure_log);
 						<span class="comment">// Decrease batch size by DECREASE_FACTOR
 						</span>batch_size =
 							(batch_size <span class="kw">as </span>f32 * <span class="self">Self</span>::BATCH_SIZE_DECREASE_FACTOR) <span class="kw">as </span>usize;
@@ -2386,7 +2388,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="macro">log::debug!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;Request duration: {:?} Target duration: {:?} Last batch size: {} Next batch size: {}&quot;</span>,
+				<span class="string">"Request duration: {:?} Target duration: {:?} Last batch size: {} Next batch size: {}"</span>,
 				request_duration,
 				<span class="self">Self</span>::REQUEST_DURATION_TARGET,
 				end_index - start_index,
@@ -2418,9 +2420,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		prefix: StorageKey,
 		at: B::Hash,
 		pending_ext: <span class="kw-2">&amp;mut </span>TestExternalities&lt;HashingFor&lt;B&gt;&gt;,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;KeyValue&gt;, <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; {
+	) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;KeyValue&gt;, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
 		<span class="kw">let </span>start = Instant::now();
-		<span class="kw">let </span><span class="kw-2">mut </span>sp = Spinner::with_timer(Spinners::Dots, <span class="string">&quot;Scraping keys...&quot;</span>.into());
+		<span class="kw">let </span><span class="kw-2">mut </span>sp = Spinner::with_timer(Spinners::Dots, <span class="string">"Scraping keys..."</span>.into());
 		<span class="comment">// TODO We could start downloading when having collected the first batch of keys
 		// https://github.com/paritytech/polkadot-sdk/issues/2494
 		</span><span class="kw">let </span>keys = <span class="self">self
@@ -2429,7 +2431,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span>.into_iter()
 			.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 		sp.stop_with_message(<span class="macro">format!</span>(
-			<span class="string">&quot;✅ Found {} keys ({:.2}s)&quot;</span>,
+			<span class="string">"✅ Found {} keys ({:.2}s)"</span>,
 			keys.len(),
 			start.elapsed().as_secs_f32()
 		));
@@ -2440,18 +2442,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>client = <span class="self">self</span>.as_online().rpc_client();
 		<span class="kw">let </span>payloads = keys
 			.iter()
-			.map(|key| (<span class="string">&quot;state_getStorage&quot;</span>.to_string(), <span class="macro">rpc_params!</span>(key, at)))
+			.map(|key| (<span class="string">"state_getStorage"</span>.to_string(), <span class="macro">rpc_params!</span>(key, at)))
 			.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 
 		<span class="kw">let </span>bar = ProgressBar::new(payloads.len() <span class="kw">as </span>u64);
 		bar.enable_steady_tick(Duration::from_secs(<span class="number">1</span>));
-		bar.set_message(<span class="string">&quot;Downloading key values&quot;</span>.to_string());
+		bar.set_message(<span class="string">"Downloading key values"</span>.to_string());
 		bar.set_style(
 			ProgressStyle::with_template(
-				<span class="string">&quot;[{elapsed_precise}] {msg} {per_sec} [{wide_bar}] {pos}/{len} ({eta})&quot;</span>,
+				<span class="string">"[{elapsed_precise}] {msg} {per_sec} [{wide_bar}] {pos}/{len} ({eta})"</span>,
 			)
 			.unwrap()
-			.progress_chars(<span class="string">&quot;=&gt;-&quot;</span>),
+			.progress_chars(<span class="string">"=&gt;-"</span>),
 		);
 		<span class="kw">let </span>payloads_chunked = payloads.chunks((payloads.len() / <span class="self">Self</span>::PARALLEL_REQUESTS).max(<span class="number">1</span>));
 		<span class="kw">let </span>requests = payloads_chunked.map(|payload_chunk| {
@@ -2464,11 +2466,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">let </span>storage_data = <span class="kw">match </span>storage_data_result {
 			<span class="prelude-val">Ok</span>(storage_data) =&gt; storage_data.into_iter().flatten().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
 			<span class="prelude-val">Err</span>(e) =&gt; {
-				<span class="macro">log::error!</span>(target: LOG_TARGET, <span class="string">&quot;Error while getting storage data: {}&quot;</span>, e);
-				<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;Error while getting storage data&quot;</span>)
+				<span class="macro">log::error!</span>(target: LOG_TARGET, <span class="string">"Error while getting storage data: {}"</span>, e);
+				<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Error while getting storage data"</span>)
 			},
 		};
-		bar.finish_with_message(<span class="string">&quot;✅ Downloaded key values&quot;</span>);
+		bar.finish_with_message(<span class="string">"✅ Downloaded key values"</span>);
 		<span class="macro">println!</span>();
 
 		<span class="comment">// Check if we got responses for all submitted requests.
@@ -2480,17 +2482,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.map(|(key, maybe_value)| <span class="kw">match </span>maybe_value {
 				<span class="prelude-val">Some</span>(data) =&gt; (key.clone(), data),
 				<span class="prelude-val">None </span>=&gt; {
-					<span class="macro">log::warn!</span>(target: LOG_TARGET, <span class="string">&quot;key {:?} had none corresponding value.&quot;</span>, <span class="kw-2">&amp;</span>key);
+					<span class="macro">log::warn!</span>(target: LOG_TARGET, <span class="string">"key {:?} had none corresponding value."</span>, <span class="kw-2">&amp;</span>key);
 					<span class="kw">let </span>data = StorageData(<span class="macro">vec!</span>[]);
 					(key.clone(), data)
 				},
 			})
 			.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 
-		<span class="kw">let </span><span class="kw-2">mut </span>sp = Spinner::with_timer(Spinners::Dots, <span class="string">&quot;Inserting keys into DB...&quot;</span>.into());
+		<span class="kw">let </span><span class="kw-2">mut </span>sp = Spinner::with_timer(Spinners::Dots, <span class="string">"Inserting keys into DB..."</span>.into());
 		<span class="kw">let </span>start = Instant::now();
 		pending_ext.batch_insert(key_values.clone().into_iter().filter_map(|(k, v)| {
-			<span class="comment">// Don&#39;t insert the child keys here, they need to be inserted separately with all their
+			<span class="comment">// Don't insert the child keys here, they need to be inserted separately with all their
 			// data in the load_child_remote function.
 			</span><span class="kw">match </span>is_default_child_storage_key(<span class="kw-2">&amp;</span>k.<span class="number">0</span>) {
 				<span class="bool-val">true </span>=&gt; <span class="prelude-val">None</span>,
@@ -2498,7 +2500,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			}
 		}));
 		sp.stop_with_message(<span class="macro">format!</span>(
-			<span class="string">&quot;✅ Inserted keys into DB ({:.2}s)&quot;</span>,
+			<span class="string">"✅ Inserted keys into DB ({:.2}s)"</span>,
 			start.elapsed().as_secs_f32()
 		));
 		<span class="prelude-val">Ok</span>(key_values)
@@ -2510,14 +2512,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		prefixed_top_key: <span class="kw-2">&amp;</span>StorageKey,
 		child_keys: Vec&lt;StorageKey&gt;,
 		at: B::Hash,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;KeyValue&gt;, <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; {
+	) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;KeyValue&gt;, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
 		<span class="kw">let </span>child_keys_len = child_keys.len();
 
 		<span class="kw">let </span>payloads = child_keys
 			.iter()
 			.map(|key| {
 				(
-					<span class="string">&quot;childstate_getStorage&quot;</span>.to_string(),
+					<span class="string">"childstate_getStorage"</span>.to_string(),
 					<span class="macro">rpc_params!</span>[
 						PrefixedStorageKey::new(prefixed_top_key.as_ref().to_vec()),
 						key,
@@ -2532,8 +2534,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">match </span><span class="self">Self</span>::get_storage_data_dynamic_batch_size(client, payloads, <span class="kw-2">&amp;</span>bar).<span class="kw">await </span>{
 				<span class="prelude-val">Ok</span>(storage_data) =&gt; storage_data,
 				<span class="prelude-val">Err</span>(e) =&gt; {
-					<span class="macro">log::error!</span>(target: LOG_TARGET, <span class="string">&quot;batch processing failed: {:?}&quot;</span>, e);
-					<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;batch processing failed&quot;</span>)
+					<span class="macro">log::error!</span>(target: LOG_TARGET, <span class="string">"batch processing failed: {:?}"</span>, e);
+					<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"batch processing failed"</span>)
 				},
 			};
 
@@ -2545,7 +2547,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.map(|(key, maybe_value)| <span class="kw">match </span>maybe_value {
 				<span class="prelude-val">Some</span>(v) =&gt; (key.clone(), v),
 				<span class="prelude-val">None </span>=&gt; {
-					<span class="macro">log::warn!</span>(target: LOG_TARGET, <span class="string">&quot;key {:?} had no corresponding value.&quot;</span>, <span class="kw-2">&amp;</span>key);
+					<span class="macro">log::warn!</span>(target: LOG_TARGET, <span class="string">"key {:?} had no corresponding value."</span>, <span class="kw-2">&amp;</span>key);
 					(key.clone(), StorageData(<span class="macro">vec!</span>[]))
 				},
 			})
@@ -2557,7 +2559,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		prefixed_top_key: <span class="kw-2">&amp;</span>StorageKey,
 		child_prefix: StorageKey,
 		at: B::Hash,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;StorageKey&gt;, <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; {
+	) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;StorageKey&gt;, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
 		<span class="comment">// This is deprecated and will generate a warning which causes the CI to fail.
 		</span><span class="attr">#[allow(warnings)]
 		</span><span class="kw">let </span>child_keys = substrate_rpc_client::ChildStateApi::storage_keys(
@@ -2568,13 +2570,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		)
 		.<span class="kw">await
 		</span>.map_err(|e| {
-			<span class="macro">error!</span>(target: LOG_TARGET, <span class="string">&quot;Error = {:?}&quot;</span>, e);
-			<span class="string">&quot;rpc child_get_keys failed.&quot;
+			<span class="macro">error!</span>(target: LOG_TARGET, <span class="string">"Error = {:?}"</span>, e);
+			<span class="string">"rpc child_get_keys failed."
 		</span>})<span class="question-mark">?</span>;
 
 		<span class="macro">debug!</span>(
 			target: LOG_TARGET,
-			<span class="string">&quot;[thread = {:?}] scraped {} child-keys of the child-bearing top key: {}&quot;</span>,
+			<span class="string">"[thread = {:?}] scraped {} child-keys of the child-bearing top key: {}"</span>,
 			std::thread::current().id(),
 			child_keys.len(),
 			HexDisplay::from(prefixed_top_key)
@@ -2601,7 +2603,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		top_kv: <span class="kw-2">&amp;</span>[KeyValue],
 		pending_ext: <span class="kw-2">&amp;mut </span>TestExternalities&lt;HashingFor&lt;B&gt;&gt;,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;ChildKeyValues, <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; {
+	) -&gt; <span class="prelude-ty">Result</span>&lt;ChildKeyValues, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
 		<span class="kw">let </span>child_roots = top_kv
 			.iter()
 			.filter(|(k, <span class="kw">_</span>)| is_default_child_storage_key(k.as_ref()))
@@ -2609,13 +2611,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 
 		<span class="kw">if </span>child_roots.is_empty() {
-			<span class="macro">info!</span>(target: LOG_TARGET, <span class="string">&quot;👩‍👦 no child roots found to scrape&quot;</span>,);
+			<span class="macro">info!</span>(target: LOG_TARGET, <span class="string">"👩‍👦 no child roots found to scrape"</span>,);
 			<span class="kw">return </span><span class="prelude-val">Ok</span>(Default::default())
 		}
 
 		<span class="macro">info!</span>(
 			target: LOG_TARGET,
-			<span class="string">&quot;👩‍👦 scraping child-tree data from {} top keys&quot;</span>,
+			<span class="string">"👩‍👦 scraping child-tree data from {} top keys"</span>,
 			child_roots.len(),
 		);
 
@@ -2635,8 +2637,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>un_prefixed = <span class="kw">match </span>ChildType::from_prefixed_key(<span class="kw-2">&amp;</span>prefixed_top_key) {
 				<span class="prelude-val">Some</span>((ChildType::ParentKeyId, storage_key)) =&gt; storage_key,
 				<span class="prelude-val">None </span>=&gt; {
-					<span class="macro">log::error!</span>(target: LOG_TARGET, <span class="string">&quot;invalid key: {:?}&quot;</span>, prefixed_top_key);
-					<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;Invalid child key&quot;</span>)
+					<span class="macro">log::error!</span>(target: LOG_TARGET, <span class="string">"invalid key: {:?}"</span>, prefixed_top_key);
+					<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Invalid child key"</span>)
 				},
 			};
 
@@ -2659,13 +2661,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">async fn </span>load_top_remote(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		pending_ext: <span class="kw-2">&amp;mut </span>TestExternalities&lt;HashingFor&lt;B&gt;&gt;,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;TopKeyValues, <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; {
+	) -&gt; <span class="prelude-ty">Result</span>&lt;TopKeyValues, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
 		<span class="kw">let </span>config = <span class="self">self</span>.as_online();
 		<span class="kw">let </span>at = <span class="self">self
 			</span>.as_online()
 			.at
-			.expect(<span class="string">&quot;online config must be initialized by this point; qed.&quot;</span>);
-		<span class="macro">log::info!</span>(target: LOG_TARGET, <span class="string">&quot;scraping key-pairs from remote at block height {:?}&quot;</span>, at);
+			.expect(<span class="string">"online config must be initialized by this point; qed."</span>);
+		<span class="macro">log::info!</span>(target: LOG_TARGET, <span class="string">"scraping key-pairs from remote at block height {:?}"</span>, at);
 
 		<span class="kw">let </span><span class="kw-2">mut </span>keys_and_values = Vec::new();
 		<span class="kw">for </span>prefix <span class="kw">in </span><span class="kw-2">&amp;</span>config.hashed_prefixes {
@@ -2675,7 +2677,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>elapsed = now.elapsed();
 			<span class="macro">log::info!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;adding data for hashed prefix: {:?}, took {:.2}s&quot;</span>,
+				<span class="string">"adding data for hashed prefix: {:?}, took {:.2}s"</span>,
 				HexDisplay::from(prefix),
 				elapsed.as_secs_f32()
 			);
@@ -2686,7 +2688,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>key = StorageKey(key.to_vec());
 			<span class="macro">log::info!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;adding data for hashed key: {:?}&quot;</span>,
+				<span class="string">"adding data for hashed key: {:?}"</span>,
 				HexDisplay::from(<span class="kw-2">&amp;</span>key)
 			);
 			<span class="kw">match </span><span class="self">self</span>.rpc_get_storage(key.clone(), <span class="prelude-val">Some</span>(at)).<span class="kw">await</span><span class="question-mark">? </span>{
@@ -2697,7 +2699,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="prelude-val">None </span>=&gt; {
 					<span class="macro">log::warn!</span>(
 						target: LOG_TARGET,
-						<span class="string">&quot;no data found for hashed key: {:?}&quot;</span>,
+						<span class="string">"no data found for hashed key: {:?}"</span>,
 						HexDisplay::from(<span class="kw-2">&amp;</span>key)
 					);
 				},
@@ -2710,7 +2712,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// The entry point of execution, if `mode` is online.
 	///
 	/// initializes the remote client in `transport`, and sets the `at` field, if not specified.
-	</span><span class="kw">async fn </span>init_remote_client(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; {
+	</span><span class="kw">async fn </span>init_remote_client(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
 		<span class="comment">// First, initialize the http client.
 		</span><span class="self">self</span>.as_online_mut().transport.init().<span class="kw">await</span><span class="question-mark">?</span>;
 
@@ -2719,7 +2721,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>at = <span class="self">self</span>.rpc_get_head().<span class="kw">await</span><span class="question-mark">?</span>;
 			<span class="macro">log::info!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;since no at is provided, setting it to latest finalized head, {:?}&quot;</span>,
+				<span class="string">"since no at is provided, setting it to latest finalized head, {:?}"</span>,
 				at
 			);
 			<span class="self">self</span>.as_online_mut().at = <span class="prelude-val">Some</span>(at);
@@ -2747,7 +2749,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>{
 			<span class="macro">log::info!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;since no prefix is filtered, the data for all pallets will be downloaded&quot;
+				<span class="string">"since no prefix is filtered, the data for all pallets will be downloaded"
 			</span>);
 			online_config.hashed_prefixes.push(<span class="macro">vec!</span>[]);
 		}
@@ -2761,13 +2763,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// Must be called after `init_remote_client`.
 	</span><span class="kw">async fn </span>load_remote_and_maybe_save(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;TestExternalities&lt;HashingFor&lt;B&gt;&gt;, <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; {
+	) -&gt; <span class="prelude-ty">Result</span>&lt;TestExternalities&lt;HashingFor&lt;B&gt;&gt;, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
 		<span class="kw">let </span>state_version =
 			StateApi::&lt;B::Hash&gt;::runtime_version(<span class="self">self</span>.as_online().rpc_client(), <span class="prelude-val">None</span>)
 				.<span class="kw">await
 				</span>.map_err(|e| {
-					<span class="macro">error!</span>(target: LOG_TARGET, <span class="string">&quot;Error = {:?}&quot;</span>, e);
-					<span class="string">&quot;rpc runtime_version failed.&quot;
+					<span class="macro">error!</span>(target: LOG_TARGET, <span class="string">"Error = {:?}"</span>, e);
+					<span class="string">"rpc runtime_version failed."
 				</span>})
 				.map(|v| v.state_version())<span class="question-mark">?</span>;
 		<span class="kw">let </span><span class="kw-2">mut </span>pending_ext = TestExternalities::new_with_code_and_state(
@@ -2787,18 +2789,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				state_version,
 				<span class="self">self</span>.as_online()
 					.at
-					.expect(<span class="string">&quot;set to `Some` in `init_remote_client`; must be called before; qed&quot;</span>),
+					.expect(<span class="string">"set to `Some` in `init_remote_client`; must be called before; qed"</span>),
 				raw_storage.clone(),
 				storage_root,
 			);
 			<span class="kw">let </span>encoded = snapshot.encode();
 			<span class="macro">log::info!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;writing snapshot of {} bytes to {:?}&quot;</span>,
+				<span class="string">"writing snapshot of {} bytes to {:?}"</span>,
 				encoded.len(),
 				path
 			);
-			std::fs::write(path, encoded).map_err(|<span class="kw">_</span>| <span class="string">&quot;fs::write failed&quot;</span>)<span class="question-mark">?</span>;
+			std::fs::write(path, encoded).map_err(|<span class="kw">_</span>| <span class="string">"fs::write failed"</span>)<span class="question-mark">?</span>;
 
 			<span class="comment">// pending_ext was consumed when creating the snapshot, need to reinitailize it
 			</span><span class="kw">return </span><span class="prelude-val">Ok</span>(TestExternalities::from_raw_snapshot(
@@ -2811,7 +2813,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Ok</span>(pending_ext)
 	}
 
-	<span class="kw">async fn </span>do_load_remote(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;RemoteExternalities&lt;HashingFor&lt;B&gt;&gt;, <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; {
+	<span class="kw">async fn </span>do_load_remote(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;RemoteExternalities&lt;HashingFor&lt;B&gt;&gt;, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
 		<span class="self">self</span>.init_remote_client().<span class="kw">await</span><span class="question-mark">?</span>;
 		<span class="kw">let </span>block_hash = <span class="self">self</span>.as_online().at_expected();
 		<span class="kw">let </span>inner_ext = <span class="self">self</span>.load_remote_and_maybe_save().<span class="kw">await</span><span class="question-mark">?</span>;
@@ -2821,10 +2823,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>do_load_offline(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		config: OfflineConfig,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;RemoteExternalities&lt;HashingFor&lt;B&gt;&gt;, <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; {
-		<span class="kw">let </span><span class="kw-2">mut </span>sp = Spinner::with_timer(Spinners::Dots, <span class="string">&quot;Loading snapshot...&quot;</span>.into());
+	) -&gt; <span class="prelude-ty">Result</span>&lt;RemoteExternalities&lt;HashingFor&lt;B&gt;&gt;, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
+		<span class="kw">let </span><span class="kw-2">mut </span>sp = Spinner::with_timer(Spinners::Dots, <span class="string">"Loading snapshot..."</span>.into());
 		<span class="kw">let </span>start = Instant::now();
-		<span class="macro">info!</span>(target: LOG_TARGET, <span class="string">&quot;Loading snapshot from {:?}&quot;</span>, <span class="kw-2">&amp;</span>config.state_snapshot.path);
+		<span class="macro">info!</span>(target: LOG_TARGET, <span class="string">"Loading snapshot from {:?}"</span>, <span class="kw-2">&amp;</span>config.state_snapshot.path);
 		<span class="kw">let </span>Snapshot { snapshot_version: <span class="kw">_</span>, block_hash, state_version, raw_storage, storage_root } =
 			Snapshot::&lt;B::Hash&gt;::load(<span class="kw-2">&amp;</span>config.state_snapshot.path)<span class="question-mark">?</span>;
 
@@ -2833,14 +2835,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			storage_root,
 			<span class="self">self</span>.overwrite_state_version.unwrap_or(state_version),
 		);
-		sp.stop_with_message(<span class="macro">format!</span>(<span class="string">&quot;✅ Loaded snapshot ({:.2}s)&quot;</span>, start.elapsed().as_secs_f32()));
+		sp.stop_with_message(<span class="macro">format!</span>(<span class="string">"✅ Loaded snapshot ({:.2}s)"</span>, start.elapsed().as_secs_f32()));
 
 		<span class="prelude-val">Ok</span>(RemoteExternalities { inner_ext, block_hash })
 	}
 
 	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>pre_build(
 		<span class="kw-2">mut </span><span class="self">self</span>,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;RemoteExternalities&lt;HashingFor&lt;B&gt;&gt;, <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; {
+	) -&gt; <span class="prelude-ty">Result</span>&lt;RemoteExternalities&lt;HashingFor&lt;B&gt;&gt;, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
 		<span class="kw">let </span><span class="kw-2">mut </span>ext = <span class="kw">match </span><span class="self">self</span>.mode.clone() {
 			Mode::Offline(config) =&gt; <span class="self">self</span>.do_load_offline(config)<span class="question-mark">?</span>,
 			Mode::Online(<span class="kw">_</span>) =&gt; <span class="self">self</span>.do_load_remote().<span class="kw">await</span><span class="question-mark">?</span>,
@@ -2856,7 +2858,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">if </span>!<span class="self">self</span>.hashed_key_values.is_empty() {
 			<span class="macro">log::info!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;extending externalities with {} manually injected key-values&quot;</span>,
+				<span class="string">"extending externalities with {} manually injected key-values"</span>,
 				<span class="self">self</span>.hashed_key_values.len()
 			);
 			ext.batch_insert(<span class="self">self</span>.hashed_key_values.into_iter().map(|(k, v)| (k.<span class="number">0</span>, v.<span class="number">0</span>)));
@@ -2866,7 +2868,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">if </span>!<span class="self">self</span>.hashed_blacklist.is_empty() {
 			<span class="macro">log::info!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;excluding externalities from {} keys&quot;</span>,
+				<span class="string">"excluding externalities from {} keys"</span>,
 				<span class="self">self</span>.hashed_blacklist.len()
 			);
 			<span class="kw">for </span>k <span class="kw">in </span><span class="self">self</span>.hashed_blacklist {
@@ -2916,13 +2918,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">self
 	</span>}
 
-	<span class="kw">pub async fn </span>build(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;RemoteExternalities&lt;HashingFor&lt;B&gt;&gt;, <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; {
+	<span class="kw">pub async fn </span>build(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;RemoteExternalities&lt;HashingFor&lt;B&gt;&gt;, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
 		<span class="kw">let </span><span class="kw-2">mut </span>ext = <span class="self">self</span>.pre_build().<span class="kw">await</span><span class="question-mark">?</span>;
 		ext.commit_all().unwrap();
 
 		<span class="macro">info!</span>(
 			target: LOG_TARGET,
-			<span class="string">&quot;initialized state externalities with storage root {:?} and state_version {:?}&quot;</span>,
+			<span class="string">"initialized state externalities with storage root {:?} and state_version {:?}"</span>,
 			ext.as_backend().root(),
 			ext.state_version
 		);
@@ -2951,7 +2953,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		init_logger();
 		Builder::&lt;Block&gt;::new()
 			.mode(Mode::Offline(OfflineConfig {
-				state_snapshot: SnapshotConfig::new(<span class="string">&quot;test_data/proxy_test&quot;</span>),
+				state_snapshot: SnapshotConfig::new(<span class="string">"test_data/proxy_test"</span>),
 			}))
 			.build()
 			.<span class="kw">await
@@ -2966,49 +2968,49 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// get the first key from the snapshot file.
 		</span><span class="kw">let </span>some_key = Builder::&lt;Block&gt;::new()
 			.mode(Mode::Offline(OfflineConfig {
-				state_snapshot: SnapshotConfig::new(<span class="string">&quot;test_data/proxy_test&quot;</span>),
+				state_snapshot: SnapshotConfig::new(<span class="string">"test_data/proxy_test"</span>),
 			}))
 			.build()
 			.<span class="kw">await
-			</span>.expect(<span class="string">&quot;Can&#39;t read state snapshot file&quot;</span>)
+			</span>.expect(<span class="string">"Can't read state snapshot file"</span>)
 			.execute_with(|| {
 				<span class="kw">let </span>key =
-					sp_io::storage::next_key(<span class="kw-2">&amp;</span>[]).expect(<span class="string">&quot;some key must exist in the snapshot&quot;</span>);
+					sp_io::storage::next_key(<span class="kw-2">&amp;</span>[]).expect(<span class="string">"some key must exist in the snapshot"</span>);
 				<span class="macro">assert!</span>(sp_io::storage::get(<span class="kw-2">&amp;</span>key).is_some());
 				key
 			});
 
 		Builder::&lt;Block&gt;::new()
 			.mode(Mode::Offline(OfflineConfig {
-				state_snapshot: SnapshotConfig::new(<span class="string">&quot;test_data/proxy_test&quot;</span>),
+				state_snapshot: SnapshotConfig::new(<span class="string">"test_data/proxy_test"</span>),
 			}))
 			.blacklist_hashed_key(<span class="kw-2">&amp;</span>some_key)
 			.build()
 			.<span class="kw">await
-			</span>.expect(<span class="string">&quot;Can&#39;t read state snapshot file&quot;</span>)
+			</span>.expect(<span class="string">"Can't read state snapshot file"</span>)
 			.execute_with(|| <span class="macro">assert!</span>(sp_io::storage::get(<span class="kw-2">&amp;</span>some_key).is_none()));
 	}
 }
 
-<span class="attr">#[cfg(all(test, feature = <span class="string">&quot;remote-test&quot;</span>))]
+<span class="attr">#[cfg(all(test, feature = <span class="string">"remote-test"</span>))]
 </span><span class="kw">mod </span>remote_tests {
 	<span class="kw">use </span><span class="kw">super</span>::test_prelude::<span class="kw-2">*</span>;
 	<span class="kw">use </span>std::{env, os::unix::fs::MetadataExt};
 
 	<span class="kw">fn </span>endpoint() -&gt; String {
-		env::var(<span class="string">&quot;TEST_WS&quot;</span>).unwrap_or_else(|<span class="kw">_</span>| DEFAULT_HTTP_ENDPOINT.to_string())
+		env::var(<span class="string">"TEST_WS"</span>).unwrap_or_else(|<span class="kw">_</span>| DEFAULT_HTTP_ENDPOINT.to_string())
 	}
 
 	<span class="attr">#[tokio::test]
 	</span><span class="kw">async fn </span>state_version_is_kept_and_can_be_altered() {
-		<span class="kw">const </span>CACHE: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;state_version_is_kept_and_can_be_altered&quot;</span>;
+		<span class="kw">const </span>CACHE: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"state_version_is_kept_and_can_be_altered"</span>;
 		init_logger();
 
 		<span class="comment">// first, build a snapshot.
 		</span><span class="kw">let </span>ext = Builder::&lt;Block&gt;::new()
 			.mode(Mode::Online(OnlineConfig {
 				transport: endpoint().clone().into(),
-				pallets: <span class="macro">vec!</span>[<span class="string">&quot;Proxy&quot;</span>.to_owned()],
+				pallets: <span class="macro">vec!</span>[<span class="string">"Proxy"</span>.to_owned()],
 				child_trie: <span class="bool-val">false</span>,
 				state_snapshot: <span class="prelude-val">Some</span>(SnapshotConfig::new(CACHE)),
 				..Default::default()
@@ -3043,14 +3045,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[tokio::test]
 	</span><span class="kw">async fn </span>snapshot_block_hash_works() {
-		<span class="kw">const </span>CACHE: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;snapshot_block_hash_works&quot;</span>;
+		<span class="kw">const </span>CACHE: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"snapshot_block_hash_works"</span>;
 		init_logger();
 
 		<span class="comment">// first, build a snapshot.
 		</span><span class="kw">let </span>ext = Builder::&lt;Block&gt;::new()
 			.mode(Mode::Online(OnlineConfig {
 				transport: endpoint().clone().into(),
-				pallets: <span class="macro">vec!</span>[<span class="string">&quot;Proxy&quot;</span>.to_owned()],
+				pallets: <span class="macro">vec!</span>[<span class="string">"Proxy"</span>.to_owned()],
 				child_trie: <span class="bool-val">false</span>,
 				state_snapshot: <span class="prelude-val">Some</span>(SnapshotConfig::new(CACHE)),
 				..Default::default()
@@ -3071,14 +3073,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[tokio::test]
 	</span><span class="kw">async fn </span>child_keys_are_loaded() {
-		<span class="kw">const </span>CACHE: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;snapshot_retains_storage&quot;</span>;
+		<span class="kw">const </span>CACHE: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"snapshot_retains_storage"</span>;
 		init_logger();
 
 		<span class="comment">// create an ext with children keys
 		</span><span class="kw">let </span>child_ext = Builder::&lt;Block&gt;::new()
 			.mode(Mode::Online(OnlineConfig {
 				transport: endpoint().clone().into(),
-				pallets: <span class="macro">vec!</span>[<span class="string">&quot;Proxy&quot;</span>.to_owned()],
+				pallets: <span class="macro">vec!</span>[<span class="string">"Proxy"</span>.to_owned()],
 				child_trie: <span class="bool-val">true</span>,
 				state_snapshot: <span class="prelude-val">Some</span>(SnapshotConfig::new(CACHE)),
 				..Default::default()
@@ -3091,7 +3093,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">let </span>ext = Builder::&lt;Block&gt;::new()
 			.mode(Mode::Online(OnlineConfig {
 				transport: endpoint().clone().into(),
-				pallets: <span class="macro">vec!</span>[<span class="string">&quot;Proxy&quot;</span>.to_owned()],
+				pallets: <span class="macro">vec!</span>[<span class="string">"Proxy"</span>.to_owned()],
 				child_trie: <span class="bool-val">false</span>,
 				state_snapshot: <span class="prelude-val">Some</span>(SnapshotConfig::new(CACHE)),
 				..Default::default()
@@ -3109,7 +3111,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[tokio::test]
 	</span><span class="kw">async fn </span>offline_else_online_works() {
-		<span class="kw">const </span>CACHE: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;offline_else_online_works_data&quot;</span>;
+		<span class="kw">const </span>CACHE: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"offline_else_online_works_data"</span>;
 		init_logger();
 		<span class="comment">// this shows that in the second run, we use the remote and create a snapshot.
 		</span>Builder::&lt;Block&gt;::new()
@@ -3117,7 +3119,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				OfflineConfig { state_snapshot: SnapshotConfig::new(CACHE) },
 				OnlineConfig {
 					transport: endpoint().clone().into(),
-					pallets: <span class="macro">vec!</span>[<span class="string">&quot;Proxy&quot;</span>.to_owned()],
+					pallets: <span class="macro">vec!</span>[<span class="string">"Proxy"</span>.to_owned()],
 					child_trie: <span class="bool-val">false</span>,
 					state_snapshot: <span class="prelude-val">Some</span>(SnapshotConfig::new(CACHE)),
 					..Default::default()
@@ -3133,7 +3135,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.mode(Mode::OfflineOrElseOnline(
 				OfflineConfig { state_snapshot: SnapshotConfig::new(CACHE) },
 				OnlineConfig {
-					transport: <span class="string">&quot;ws://non-existent:666&quot;</span>.to_owned().into(),
+					transport: <span class="string">"ws://non-existent:666"</span>.to_owned().into(),
 					..Default::default()
 				},
 			))
@@ -3142,7 +3144,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span>.unwrap()
 			.execute_with(|| {});
 
-		<span class="kw">let </span>to_delete = std::fs::read_dir(Path::new(<span class="string">&quot;.&quot;</span>))
+		<span class="kw">let </span>to_delete = std::fs::read_dir(Path::new(<span class="string">"."</span>))
 			.unwrap()
 			.into_iter()
 			.map(|d| d.unwrap())
@@ -3159,7 +3161,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		Builder::&lt;Block&gt;::new()
 			.mode(Mode::Online(OnlineConfig {
 				transport: endpoint().clone().into(),
-				pallets: <span class="macro">vec!</span>[<span class="string">&quot;Proxy&quot;</span>.to_owned()],
+				pallets: <span class="macro">vec!</span>[<span class="string">"Proxy"</span>.to_owned()],
 				child_trie: <span class="bool-val">false</span>,
 				..Default::default()
 			}))
@@ -3175,7 +3177,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		Builder::&lt;Block&gt;::new()
 			.mode(Mode::Online(OnlineConfig {
 				transport: endpoint().clone().into(),
-				pallets: <span class="macro">vec!</span>[<span class="string">&quot;Proxy&quot;</span>.to_owned(), <span class="string">&quot;Multisig&quot;</span>.to_owned()],
+				pallets: <span class="macro">vec!</span>[<span class="string">"Proxy"</span>.to_owned(), <span class="string">"Multisig"</span>.to_owned()],
 				child_trie: <span class="bool-val">false</span>,
 				..Default::default()
 			}))
@@ -3185,16 +3187,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.execute_with(|| {});
 	}
 
-	<span class="attr">#[tokio::test(flavor = <span class="string">&quot;multi_thread&quot;</span>)]
+	<span class="attr">#[tokio::test(flavor = <span class="string">"multi_thread"</span>)]
 	</span><span class="kw">async fn </span>can_create_snapshot() {
-		<span class="kw">const </span>CACHE: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;can_create_snapshot&quot;</span>;
+		<span class="kw">const </span>CACHE: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"can_create_snapshot"</span>;
 		init_logger();
 
 		Builder::&lt;Block&gt;::new()
 			.mode(Mode::Online(OnlineConfig {
 				transport: endpoint().clone().into(),
 				state_snapshot: <span class="prelude-val">Some</span>(SnapshotConfig::new(CACHE)),
-				pallets: <span class="macro">vec!</span>[<span class="string">&quot;Proxy&quot;</span>.to_owned()],
+				pallets: <span class="macro">vec!</span>[<span class="string">"Proxy"</span>.to_owned()],
 				child_trie: <span class="bool-val">false</span>,
 				..Default::default()
 			}))
@@ -3203,7 +3205,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span>.unwrap()
 			.execute_with(|| {});
 
-		<span class="kw">let </span>to_delete = std::fs::read_dir(Path::new(<span class="string">&quot;.&quot;</span>))
+		<span class="kw">let </span>to_delete = std::fs::read_dir(Path::new(<span class="string">"."</span>))
 			.unwrap()
 			.into_iter()
 			.map(|d| d.unwrap())
@@ -3218,13 +3220,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[tokio::test]
 	</span><span class="kw">async fn </span>can_create_child_snapshot() {
-		<span class="kw">const </span>CACHE: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;can_create_child_snapshot&quot;</span>;
+		<span class="kw">const </span>CACHE: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"can_create_child_snapshot"</span>;
 		init_logger();
 		Builder::&lt;Block&gt;::new()
 			.mode(Mode::Online(OnlineConfig {
 				transport: endpoint().clone().into(),
 				state_snapshot: <span class="prelude-val">Some</span>(SnapshotConfig::new(CACHE)),
-				pallets: <span class="macro">vec!</span>[<span class="string">&quot;Crowdloan&quot;</span>.to_owned()],
+				pallets: <span class="macro">vec!</span>[<span class="string">"Crowdloan"</span>.to_owned()],
 				child_trie: <span class="bool-val">true</span>,
 				..Default::default()
 			}))
@@ -3233,7 +3235,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span>.unwrap()
 			.execute_with(|| {});
 
-		<span class="kw">let </span>to_delete = std::fs::read_dir(Path::new(<span class="string">&quot;.&quot;</span>))
+		<span class="kw">let </span>to_delete = std::fs::read_dir(Path::new(<span class="string">"."</span>))
 			.unwrap()
 			.into_iter()
 			.map(|d| d.unwrap())
@@ -3248,14 +3250,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[tokio::test]
 	</span><span class="kw">async fn </span>can_build_big_pallet() {
-		<span class="kw">if </span><span class="macro">std::option_env!</span>(<span class="string">&quot;TEST_WS&quot;</span>).is_none() {
+		<span class="kw">if </span><span class="macro">std::option_env!</span>(<span class="string">"TEST_WS"</span>).is_none() {
 			<span class="kw">return
 		</span>}
 		init_logger();
 		Builder::&lt;Block&gt;::new()
 			.mode(Mode::Online(OnlineConfig {
 				transport: endpoint().clone().into(),
-				pallets: <span class="macro">vec!</span>[<span class="string">&quot;Staking&quot;</span>.to_owned()],
+				pallets: <span class="macro">vec!</span>[<span class="string">"Staking"</span>.to_owned()],
 				child_trie: <span class="bool-val">false</span>,
 				..Default::default()
 			}))
@@ -3267,7 +3269,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[tokio::test]
 	</span><span class="kw">async fn </span>can_fetch_all() {
-		<span class="kw">if </span><span class="macro">std::option_env!</span>(<span class="string">&quot;TEST_WS&quot;</span>).is_none() {
+		<span class="kw">if </span><span class="macro">std::option_env!</span>(<span class="string">"TEST_WS"</span>).is_none() {
 			<span class="kw">return
 		</span>}
 		init_logger();

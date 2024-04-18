@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/chain-spec/src/chain_spec.rs`."><title>chain_spec.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/chain-spec/src/chain_spec.rs`."><title>chain_spec.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_chain_spec" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_chain_spec" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sc_chain_spec/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1502,7 +1504,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 
 <span class="attr">#[derive(Serialize, Deserialize)]
-#[serde(rename_all = <span class="string">&quot;camelCase&quot;</span>)]
+#[serde(rename_all = <span class="string">"camelCase"</span>)]
 </span><span class="kw">enum </span>GenesisBuildAction&lt;EHF&gt; {
 	Patch(json::Value),
 	Full(json::Value),
@@ -1522,7 +1524,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[allow(deprecated)]
 </span><span class="kw">enum </span>GenesisSource&lt;G, EHF&gt; {
 	File(PathBuf),
-	Binary(Cow&lt;<span class="lifetime">&#39;static</span>, [u8]&gt;),
+	Binary(Cow&lt;<span class="lifetime">'static</span>, [u8]&gt;),
 	<span class="doccomment">/// factory function + code
 	</span><span class="comment">//Factory and G type parameter shall be removed together with `ChainSpec::from_genesis`
 	</span>Factory(Arc&lt;<span class="kw">dyn </span>Fn() -&gt; G + Send + Sync&gt;, Vec&lt;u8&gt;),
@@ -1555,24 +1557,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">match </span><span class="self">self </span>{
 			<span class="self">Self</span>::File(path) =&gt; {
 				<span class="kw">let </span>file = File::open(path).map_err(|e| {
-					<span class="macro">format!</span>(<span class="string">&quot;Error opening spec file at `{}`: {}&quot;</span>, path.display(), e)
+					<span class="macro">format!</span>(<span class="string">"Error opening spec file at `{}`: {}"</span>, path.display(), e)
 				})<span class="question-mark">?</span>;
 				<span class="comment">// SAFETY: `mmap` is fundamentally unsafe since technically the file can change
-				//         underneath us while it is mapped; in practice it&#39;s unlikely to be a
+				//         underneath us while it is mapped; in practice it's unlikely to be a
 				//         problem
 				</span><span class="kw">let </span>bytes = <span class="kw">unsafe </span>{
 					memmap2::Mmap::map(<span class="kw-2">&amp;</span>file).map_err(|e| {
-						<span class="macro">format!</span>(<span class="string">&quot;Error mmaping spec file `{}`: {}&quot;</span>, path.display(), e)
+						<span class="macro">format!</span>(<span class="string">"Error mmaping spec file `{}`: {}"</span>, path.display(), e)
 					})<span class="question-mark">?
 				</span>};
 
 				<span class="kw">let </span>genesis: GenesisContainer&lt;G&gt; = json::from_slice(<span class="kw-2">&amp;</span>bytes)
-					.map_err(|e| <span class="macro">format!</span>(<span class="string">&quot;Error parsing spec file: {}&quot;</span>, e))<span class="question-mark">?</span>;
+					.map_err(|e| <span class="macro">format!</span>(<span class="string">"Error parsing spec file: {}"</span>, e))<span class="question-mark">?</span>;
 				<span class="prelude-val">Ok</span>(genesis.genesis)
 			},
 			<span class="self">Self</span>::Binary(buf) =&gt; {
 				<span class="kw">let </span>genesis: GenesisContainer&lt;G&gt; = json::from_reader(buf.as_ref())
-					.map_err(|e| <span class="macro">format!</span>(<span class="string">&quot;Error parsing embedded file: {}&quot;</span>, e))<span class="question-mark">?</span>;
+					.map_err(|e| <span class="macro">format!</span>(<span class="string">"Error parsing embedded file: {}"</span>, e))<span class="question-mark">?</span>;
 				<span class="prelude-val">Ok</span>(genesis.genesis)
 			},
 			<span class="self">Self</span>::Factory(f, code) =&gt; <span class="prelude-val">Ok</span>(Genesis::RuntimeAndCode(RuntimeInnerWrapper {
@@ -1632,10 +1634,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				});
 			},
 			<span class="comment">// The `StateRootHash` variant exists as a way to keep note that other clients support
-			// it, but Substrate itself isn&#39;t capable of loading chain specs with just a hash at the
+			// it, but Substrate itself isn't capable of loading chain specs with just a hash at the
 			// moment.
 			</span>Genesis::StateRootHash(<span class="kw">_</span>) =&gt;
-				<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;Genesis storage in hash format not supported&quot;</span>.into()),
+				<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Genesis storage in hash format not supported"</span>.into()),
 			Genesis::RuntimeGenesis(RuntimeGenesisInner {
 				json_blob: RuntimeGenesisConfigJson::Config(config),
 				code,
@@ -1668,7 +1670,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Raw storage content for genesis block.
 </span><span class="attr">#[derive(Serialize, Deserialize)]
-#[serde(rename_all = <span class="string">&quot;camelCase&quot;</span>)]
+#[serde(rename_all = <span class="string">"camelCase"</span>)]
 #[serde(deny_unknown_fields)]
 </span><span class="kw">pub struct </span>RawGenesis {
 	<span class="kw">pub </span>top: GenesisStorage,
@@ -1702,9 +1704,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">struct </span>RuntimeGenesisInner {
 	<span class="doccomment">/// Runtime wasm code, expected to be hex-encoded in JSON.
 	/// The code shall be capable of parsing `json_blob`.
-	</span><span class="attr">#[serde(default, with = <span class="string">&quot;sp_core::bytes&quot;</span>)]
+	</span><span class="attr">#[serde(default, with = <span class="string">"sp_core::bytes"</span>)]
 	</span>code: Vec&lt;u8&gt;,
-	<span class="doccomment">/// The patch or full representation of runtime&#39;s `RuntimeGenesisConfig` struct.
+	<span class="doccomment">/// The patch or full representation of runtime's `RuntimeGenesisConfig` struct.
 	</span><span class="attr">#[serde(flatten)]
 	</span>json_blob: RuntimeGenesisConfigJson,
 }
@@ -1712,7 +1714,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Represents two possible variants of the contained JSON blob for the
 /// [`Genesis&lt;G&gt;::RuntimeGenesis`] format.
 </span><span class="attr">#[derive(Serialize, Deserialize, Debug)]
-#[serde(rename_all = <span class="string">&quot;camelCase&quot;</span>)]
+#[serde(rename_all = <span class="string">"camelCase"</span>)]
 </span><span class="kw">enum </span>RuntimeGenesisConfigJson {
 	<span class="doccomment">/// Represents the explicit and comprehensive runtime genesis config in JSON format.
 	/// The contained object is a JSON blob that can be parsed by a compatible runtime.
@@ -1732,22 +1734,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// The native `RuntimeGenesisConfig` struct.
 	</span>runtime: G,
 	<span class="doccomment">/// Runtime code.
-	</span><span class="attr">#[serde(with = <span class="string">&quot;sp_core::bytes&quot;</span>)]
+	</span><span class="attr">#[serde(with = <span class="string">"sp_core::bytes"</span>)]
 	</span>code: Vec&lt;u8&gt;,
 }
 
 <span class="doccomment">/// Represents the different formats of the genesis state within chain spec JSON blob.
 </span><span class="attr">#[derive(Serialize, Deserialize)]
-#[serde(rename_all = <span class="string">&quot;camelCase&quot;</span>)]
+#[serde(rename_all = <span class="string">"camelCase"</span>)]
 #[serde(deny_unknown_fields)]
 </span><span class="kw">enum </span>Genesis&lt;G&gt; {
 	<span class="doccomment">/// (Deprecated) Contains the JSON representation of G (the native type representing the
-	/// runtime&#39;s  `RuntimeGenesisConfig` struct) (will be removed with `ChainSpec::from_genesis`)
+	/// runtime's  `RuntimeGenesisConfig` struct) (will be removed with `ChainSpec::from_genesis`)
 	/// without the runtime code. It is required to deserialize the legacy chainspecs generated
 	/// with `ChainsSpec::from_genesis` method.
 	</span>Runtime(G),
 	<span class="doccomment">/// (Deprecated) Contains the JSON representation of G (the native type representing the
-	/// runtime&#39;s  `RuntimeGenesisConfig` struct) (will be removed with `ChainSpec::from_genesis`)
+	/// runtime's  `RuntimeGenesisConfig` struct) (will be removed with `ChainSpec::from_genesis`)
 	/// and the runtime code. It is required to create and deserialize JSON chainspecs created with
 	/// deprecated `ChainSpec::from_genesis` method.
 	</span>RuntimeAndCode(RuntimeInnerWrapper&lt;G&gt;),
@@ -1764,7 +1766,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// JSON file. Refer to [`ChainSpecJsonContainer`], which flattens [`ClientSpec`] and denies unknown
 /// fields.
 </span><span class="attr">#[derive(Serialize, Deserialize, Clone, Debug)]
-#[serde(rename_all = <span class="string">&quot;camelCase&quot;</span>)]
+#[serde(rename_all = <span class="string">"camelCase"</span>)]
 </span><span class="comment">// we cannot #[serde(deny_unknown_fields)]. Otherwise chain-spec-builder will fail on any
 // non-standard spec
 </span><span class="kw">struct </span>ClientSpec&lt;E&gt; {
@@ -1778,7 +1780,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Arbitrary string. Nodes will only synchronize with other nodes that have the same value
 	/// in their `fork_id`. This can be used in order to segregate nodes in cases when multiple
 	/// chains have the same genesis hash.
-	</span><span class="attr">#[serde(default = <span class="string">&quot;Default::default&quot;</span>, skip_serializing_if = <span class="string">&quot;Option::is_none&quot;</span>)]
+	</span><span class="attr">#[serde(default = <span class="string">"Default::default"</span>, skip_serializing_if = <span class="string">"Option::is_none"</span>)]
 	</span>fork_id: <span class="prelude-ty">Option</span>&lt;String&gt;,
 	properties: <span class="prelude-ty">Option</span>&lt;Properties&gt;,
 	<span class="attr">#[serde(flatten)]
@@ -1825,8 +1827,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">Self </span>{
 			code: code.into(),
 			extensions,
-			name: <span class="string">&quot;Development&quot;</span>.to_string(),
-			id: <span class="string">&quot;dev&quot;</span>.to_string(),
+			name: <span class="string">"Development"</span>.to_string(),
+			id: <span class="string">"dev"</span>.to_string(),
 			chain_type: ChainType::Local,
 			genesis_build_action: GenesisBuildAction::Patch(Default::default()),
 			boot_nodes: <span class="prelude-val">None</span>,
@@ -1898,20 +1900,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">self
 	</span>}
 
-	<span class="doccomment">/// Sets the JSON patch for runtime&#39;s GenesisConfig.
+	<span class="doccomment">/// Sets the JSON patch for runtime's GenesisConfig.
 	</span><span class="kw">pub fn </span>with_genesis_config_patch(<span class="kw-2">mut </span><span class="self">self</span>, patch: json::Value) -&gt; <span class="self">Self </span>{
 		<span class="self">self</span>.genesis_build_action = GenesisBuildAction::Patch(patch);
 		<span class="self">self
 	</span>}
 
-	<span class="doccomment">/// Sets the name of runtime-provided JSON patch for runtime&#39;s GenesisConfig.
+	<span class="doccomment">/// Sets the name of runtime-provided JSON patch for runtime's GenesisConfig.
 	</span><span class="kw">pub fn </span>with_genesis_config_preset_name(<span class="kw-2">mut </span><span class="self">self</span>, name: <span class="kw-2">&amp;</span>str) -&gt; <span class="self">Self </span>{
 		<span class="self">self</span>.genesis_build_action =
 			GenesisBuildAction::NamedPreset(name.to_string(), Default::default());
 		<span class="self">self
 	</span>}
 
-	<span class="doccomment">/// Sets the full runtime&#39;s GenesisConfig JSON.
+	<span class="doccomment">/// Sets the full runtime's GenesisConfig JSON.
 	</span><span class="kw">pub fn </span>with_genesis_config(<span class="kw-2">mut </span><span class="self">self</span>, config: json::Value) -&gt; <span class="self">Self </span>{
 		<span class="self">self</span>.genesis_build_action = GenesisBuildAction::Full(config);
 		<span class="self">self
@@ -1996,7 +1998,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Additional loosely-typed properties of the chain.
 	///
-	/// Returns an empty JSON object if &#39;properties&#39; not defined in config
+	/// Returns an empty JSON object if 'properties' not defined in config
 	</span><span class="kw">pub fn </span>properties(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Properties {
 		<span class="self">self</span>.client_spec.properties.as_ref().unwrap_or(<span class="kw-2">&amp;</span>json::map::Map::new()).clone()
 	}
@@ -2018,10 +2020,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Create hardcoded spec.
 	</span><span class="attr">#[deprecated(
-		note = <span class="string">&quot;`from_genesis` is planned to be removed in May 2024. Use `builder()` instead.&quot;
+		note = <span class="string">"`from_genesis` is planned to be removed in May 2024. Use `builder()` instead."
 	</span>)]
 	</span><span class="comment">// deprecated note: Genesis&lt;G&gt;::Runtime + GenesisSource::Factory shall also be removed
-	</span><span class="kw">pub fn </span>from_genesis&lt;F: Fn() -&gt; G + <span class="lifetime">&#39;static </span>+ Send + Sync&gt;(
+	</span><span class="kw">pub fn </span>from_genesis&lt;F: Fn() -&gt; G + <span class="lifetime">'static </span>+ Send + Sync&gt;(
 		name: <span class="kw-2">&amp;</span>str,
 		id: <span class="kw-2">&amp;</span>str,
 		chain_type: ChainType,
@@ -2069,10 +2071,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl</span>&lt;G: serde::de::DeserializeOwned, E: serde::de::DeserializeOwned, EHF&gt; ChainSpec&lt;G, E, EHF&gt; {
 	<span class="doccomment">/// Parse json content into a `ChainSpec`
-	</span><span class="kw">pub fn </span>from_json_bytes(json: <span class="kw">impl </span>Into&lt;Cow&lt;<span class="lifetime">&#39;static</span>, [u8]&gt;&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, String&gt; {
+	</span><span class="kw">pub fn </span>from_json_bytes(json: <span class="kw">impl </span>Into&lt;Cow&lt;<span class="lifetime">'static</span>, [u8]&gt;&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, String&gt; {
 		<span class="kw">let </span>json = json.into();
 		<span class="kw">let </span>client_spec = json::from_slice(json.as_ref())
-			.map_err(|e| <span class="macro">format!</span>(<span class="string">&quot;Error parsing spec file: {}&quot;</span>, e))<span class="question-mark">?</span>;
+			.map_err(|e| <span class="macro">format!</span>(<span class="string">"Error parsing spec file: {}"</span>, e))<span class="question-mark">?</span>;
 
 		<span class="prelude-val">Ok</span>(ChainSpec {
 			client_spec,
@@ -2086,16 +2088,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// We mmap the file into memory first, as this is *a lot* faster than using
 		// `serde_json::from_reader`. See https://github.com/serde-rs/json/issues/160
 		</span><span class="kw">let </span>file = File::open(<span class="kw-2">&amp;</span>path)
-			.map_err(|e| <span class="macro">format!</span>(<span class="string">&quot;Error opening spec file `{}`: {}&quot;</span>, path.display(), e))<span class="question-mark">?</span>;
+			.map_err(|e| <span class="macro">format!</span>(<span class="string">"Error opening spec file `{}`: {}"</span>, path.display(), e))<span class="question-mark">?</span>;
 
 		<span class="comment">// SAFETY: `mmap` is fundamentally unsafe since technically the file can change
-		//         underneath us while it is mapped; in practice it&#39;s unlikely to be a problem
+		//         underneath us while it is mapped; in practice it's unlikely to be a problem
 		</span><span class="kw">let </span>bytes = <span class="kw">unsafe </span>{
 			memmap2::Mmap::map(<span class="kw-2">&amp;</span>file)
-				.map_err(|e| <span class="macro">format!</span>(<span class="string">&quot;Error mmaping spec file `{}`: {}&quot;</span>, path.display(), e))<span class="question-mark">?
+				.map_err(|e| <span class="macro">format!</span>(<span class="string">"Error mmaping spec file `{}`: {}"</span>, path.display(), e))<span class="question-mark">?
 		</span>};
 		<span class="kw">let </span>client_spec =
-			json::from_slice(<span class="kw-2">&amp;</span>bytes).map_err(|e| <span class="macro">format!</span>(<span class="string">&quot;Error parsing spec file: {}&quot;</span>, e))<span class="question-mark">?</span>;
+			json::from_slice(<span class="kw-2">&amp;</span>bytes).map_err(|e| <span class="macro">format!</span>(<span class="string">"Error parsing spec file: {}"</span>, e))<span class="question-mark">?</span>;
 
 		<span class="prelude-val">Ok</span>(ChainSpec {
 			client_spec,
@@ -2116,7 +2118,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	genesis: Genesis&lt;G&gt;,
 }
 
-<span class="kw">impl</span>&lt;G: RuntimeGenesis, E: serde::Serialize + Clone + <span class="lifetime">&#39;static</span>, EHF&gt; ChainSpec&lt;G, E, EHF&gt;
+<span class="kw">impl</span>&lt;G: RuntimeGenesis, E: serde::Serialize + Clone + <span class="lifetime">'static</span>, EHF&gt; ChainSpec&lt;G, E, EHF&gt;
 <span class="kw">where
 	</span>EHF: HostFunctions,
 {
@@ -2173,14 +2175,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Dump the chain specification to JSON string.
 	</span><span class="kw">pub fn </span>as_json(<span class="kw-2">&amp;</span><span class="self">self</span>, raw: bool) -&gt; <span class="prelude-ty">Result</span>&lt;String, String&gt; {
 		<span class="kw">let </span>container = <span class="self">self</span>.json_container(raw)<span class="question-mark">?</span>;
-		json::to_string_pretty(<span class="kw-2">&amp;</span>container).map_err(|e| <span class="macro">format!</span>(<span class="string">&quot;Error generating spec json: {}&quot;</span>, e))
+		json::to_string_pretty(<span class="kw-2">&amp;</span>container).map_err(|e| <span class="macro">format!</span>(<span class="string">"Error generating spec json: {}"</span>, e))
 	}
 }
 
 <span class="kw">impl</span>&lt;G, E, EHF&gt; <span class="kw">crate</span>::ChainSpec <span class="kw">for </span>ChainSpec&lt;G, E, EHF&gt;
 <span class="kw">where
-	</span>G: RuntimeGenesis + <span class="lifetime">&#39;static</span>,
-	E: GetExtension + serde::Serialize + Clone + Send + Sync + <span class="lifetime">&#39;static</span>,
+	</span>G: RuntimeGenesis + <span class="lifetime">'static</span>,
+	E: GetExtension + serde::Serialize + Clone + Send + Sync + <span class="lifetime">'static</span>,
 	EHF: HostFunctions,
 {
 	<span class="kw">fn </span>boot_nodes(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[MultiaddrWithPeerId] {
@@ -2261,9 +2263,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// # Examples
 /// ```ignore
 /// use serde_json::{from_str, json, Value};
-/// let doc = json!({&quot;a&quot;:{&quot;b&quot;:{&quot;c&quot;:&quot;5&quot;}}});
-/// let mut path = [&quot;a&quot;, &quot;b&quot;, &quot;c&quot;].into();
-/// assert!(json_eval_value_at_key(&amp;doc, &amp;mut path, &amp;|v| { assert_eq!(v,&quot;5&quot;); true }));
+/// let doc = json!({"a":{"b":{"c":"5"}}});
+/// let mut path = ["a", "b", "c"].into();
+/// assert!(json_eval_value_at_key(&amp;doc, &amp;mut path, &amp;|v| { assert_eq!(v,"5"); true }));
 /// ```
 </span><span class="kw">fn </span>json_eval_value_at_key(
 	doc: <span class="kw-2">&amp;</span>json::Value,
@@ -2298,25 +2300,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// If update was successful `true` is returned, otherwise `false`. Chain spec JSON is modified in
 /// place.
 </span><span class="kw">pub fn </span>update_code_in_json_chain_spec(chain_spec: <span class="kw-2">&amp;mut </span>json::Value, code: <span class="kw-2">&amp;</span>[u8]) -&gt; bool {
-	<span class="kw">let </span><span class="kw-2">mut </span>path = <span class="macro">json_path!</span>[<span class="string">&quot;genesis&quot;</span>, <span class="string">&quot;runtimeGenesis&quot;</span>, <span class="string">&quot;code&quot;</span>];
-	<span class="kw">let </span><span class="kw-2">mut </span>raw_path = <span class="macro">json_path!</span>[<span class="string">&quot;genesis&quot;</span>, <span class="string">&quot;raw&quot;</span>, <span class="string">&quot;top&quot;</span>];
+	<span class="kw">let </span><span class="kw-2">mut </span>path = <span class="macro">json_path!</span>[<span class="string">"genesis"</span>, <span class="string">"runtimeGenesis"</span>, <span class="string">"code"</span>];
+	<span class="kw">let </span><span class="kw-2">mut </span>raw_path = <span class="macro">json_path!</span>[<span class="string">"genesis"</span>, <span class="string">"raw"</span>, <span class="string">"top"</span>];
 
 	<span class="kw">if </span>json_contains_path(<span class="kw-2">&amp;</span>chain_spec, <span class="kw-2">&amp;mut </span>path) {
 		<span class="attr">#[derive(Serialize)]
-		</span><span class="kw">struct </span>Container&lt;<span class="lifetime">&#39;a</span>&gt; {
-			<span class="attr">#[serde(with = <span class="string">&quot;sp_core::bytes&quot;</span>)]
-			</span>code: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8],
+		</span><span class="kw">struct </span>Container&lt;<span class="lifetime">'a</span>&gt; {
+			<span class="attr">#[serde(with = <span class="string">"sp_core::bytes"</span>)]
+			</span>code: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8],
 		}
-		<span class="kw">let </span>code_patch = <span class="macro">json::json!</span>({<span class="string">&quot;genesis&quot;</span>:{<span class="string">&quot;runtimeGenesis&quot;</span>: Container { code }}});
+		<span class="kw">let </span>code_patch = <span class="macro">json::json!</span>({<span class="string">"genesis"</span>:{<span class="string">"runtimeGenesis"</span>: Container { code }}});
 		<span class="kw">crate</span>::json_patch::merge(chain_spec, code_patch);
 		<span class="bool-val">true
 	</span>} <span class="kw">else if </span>json_contains_path(<span class="kw-2">&amp;</span>chain_spec, <span class="kw-2">&amp;mut </span>raw_path) {
 		<span class="attr">#[derive(Serialize)]
-		</span><span class="kw">struct </span>Container&lt;<span class="lifetime">&#39;a</span>&gt; {
-			<span class="attr">#[serde(with = <span class="string">&quot;sp_core::bytes&quot;</span>, rename = <span class="string">&quot;0x3a636f6465&quot;</span>)]
-			</span>code: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8],
+		</span><span class="kw">struct </span>Container&lt;<span class="lifetime">'a</span>&gt; {
+			<span class="attr">#[serde(with = <span class="string">"sp_core::bytes"</span>, rename = <span class="string">"0x3a636f6465"</span>)]
+			</span>code: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8],
 		}
-		<span class="kw">let </span>code_patch = <span class="macro">json::json!</span>({<span class="string">&quot;genesis&quot;</span>:{<span class="string">&quot;raw&quot;</span>:{<span class="string">&quot;top&quot;</span>: Container { code }}}});
+		<span class="kw">let </span>code_patch = <span class="macro">json::json!</span>({<span class="string">"genesis"</span>:{<span class="string">"raw"</span>:{<span class="string">"top"</span>: Container { code }}}});
 		<span class="kw">crate</span>::json_patch::merge(chain_spec, code_patch);
 		<span class="bool-val">true
 	</span>} <span class="kw">else </span>{
@@ -2349,17 +2351,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>should_deserialize_example_chain_spec() {
 		<span class="kw">let </span>spec1 = TestSpec::from_json_bytes(Cow::Owned(
-			<span class="macro">include_bytes!</span>(<span class="string">&quot;../res/chain_spec.json&quot;</span>).to_vec(),
+			<span class="macro">include_bytes!</span>(<span class="string">"../res/chain_spec.json"</span>).to_vec(),
 		))
 		.unwrap();
-		<span class="kw">let </span>spec2 = TestSpec::from_json_file(PathBuf::from(<span class="string">&quot;./res/chain_spec.json&quot;</span>)).unwrap();
+		<span class="kw">let </span>spec2 = TestSpec::from_json_file(PathBuf::from(<span class="string">"./res/chain_spec.json"</span>)).unwrap();
 
 		<span class="macro">assert_eq!</span>(spec1.as_json(<span class="bool-val">false</span>), spec2.as_json(<span class="bool-val">false</span>));
 		<span class="macro">assert_eq!</span>(spec2.chain_type(), ChainType::Live)
 	}
 
 	<span class="attr">#[derive(Debug, Serialize, Deserialize, Clone)]
-	#[serde(rename_all = <span class="string">&quot;camelCase&quot;</span>)]
+	#[serde(rename_all = <span class="string">"camelCase"</span>)]
 	</span><span class="kw">struct </span>Extension1 {
 		my_property: String,
 	}
@@ -2367,7 +2369,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">impl </span><span class="kw">crate</span>::Extension <span class="kw">for </span>Extension1 {
 		<span class="kw">type </span>Forks = <span class="prelude-ty">Option</span>&lt;()&gt;;
 
-		<span class="kw">fn </span>get&lt;T: <span class="lifetime">&#39;static</span>&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>T&gt; {
+		<span class="kw">fn </span>get&lt;T: <span class="lifetime">'static</span>&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>T&gt; {
 			<span class="prelude-val">None
 		</span>}
 
@@ -2385,24 +2387,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>should_deserialize_chain_spec_with_extensions() {
 		<span class="kw">let </span>spec = TestSpec2::from_json_bytes(Cow::Owned(
-			<span class="macro">include_bytes!</span>(<span class="string">&quot;../res/chain_spec2.json&quot;</span>).to_vec(),
+			<span class="macro">include_bytes!</span>(<span class="string">"../res/chain_spec2.json"</span>).to_vec(),
 		))
 		.unwrap();
 
-		<span class="macro">assert_eq!</span>(spec.extensions().my_property, <span class="string">&quot;Test Extension&quot;</span>);
+		<span class="macro">assert_eq!</span>(spec.extensions().my_property, <span class="string">"Test Extension"</span>);
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>chain_spec_raw_output_should_be_deterministic() {
 		<span class="kw">let </span><span class="kw-2">mut </span>spec = TestSpec2::from_json_bytes(Cow::Owned(
-			<span class="macro">include_bytes!</span>(<span class="string">&quot;../res/chain_spec2.json&quot;</span>).to_vec(),
+			<span class="macro">include_bytes!</span>(<span class="string">"../res/chain_spec2.json"</span>).to_vec(),
 		))
 		.unwrap();
 
 		<span class="kw">let </span><span class="kw-2">mut </span>storage = spec.build_storage().unwrap();
 
-		<span class="comment">// Add some extra data, so that storage &quot;sorting&quot; is tested.
-		</span><span class="kw">let </span>extra_data = <span class="kw-2">&amp;</span>[(<span class="string">&quot;random_key&quot;</span>, <span class="string">&quot;val&quot;</span>), (<span class="string">&quot;r@nd0m_key&quot;</span>, <span class="string">&quot;val&quot;</span>), (<span class="string">&quot;aaarandom_key&quot;</span>, <span class="string">&quot;val&quot;</span>)];
+		<span class="comment">// Add some extra data, so that storage "sorting" is tested.
+		</span><span class="kw">let </span>extra_data = <span class="kw-2">&amp;</span>[(<span class="string">"random_key"</span>, <span class="string">"val"</span>), (<span class="string">"r@nd0m_key"</span>, <span class="string">"val"</span>), (<span class="string">"aaarandom_key"</span>, <span class="string">"val"</span>)];
 		storage
 			.top
 			.extend(extra_data.iter().map(|(k, v)| (k.as_bytes().to_vec(), v.as_bytes().to_vec())));
@@ -2426,35 +2428,35 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="comment">// some tests for json path utils
 	</span><span class="kw">fn </span>test_json_eval_value_at_key() {
-		<span class="kw">let </span>doc = <span class="macro">json!</span>({<span class="string">&quot;a&quot;</span>:{<span class="string">&quot;b1&quot;</span>:<span class="string">&quot;20&quot;</span>,<span class="string">&quot;b&quot;</span>:{<span class="string">&quot;c&quot;</span>:{<span class="string">&quot;d&quot;</span>:<span class="string">&quot;10&quot;</span>}}}});
+		<span class="kw">let </span>doc = <span class="macro">json!</span>({<span class="string">"a"</span>:{<span class="string">"b1"</span>:<span class="string">"20"</span>,<span class="string">"b"</span>:{<span class="string">"c"</span>:{<span class="string">"d"</span>:<span class="string">"10"</span>}}}});
 
-		<span class="macro">assert!</span>(json_eval_value_at_key(<span class="kw-2">&amp;</span>doc, <span class="kw-2">&amp;mut </span><span class="macro">json_path!</span>[<span class="string">&quot;a&quot;</span>, <span class="string">&quot;b1&quot;</span>], <span class="kw-2">&amp;</span>|v| { <span class="kw-2">*</span>v == <span class="string">&quot;20&quot; </span>}));
-		<span class="macro">assert!</span>(json_eval_value_at_key(<span class="kw-2">&amp;</span>doc, <span class="kw-2">&amp;mut </span><span class="macro">json_path!</span>[<span class="string">&quot;a&quot;</span>, <span class="string">&quot;b&quot;</span>, <span class="string">&quot;c&quot;</span>, <span class="string">&quot;d&quot;</span>], <span class="kw-2">&amp;</span>|v| {
-			<span class="kw-2">*</span>v == <span class="string">&quot;10&quot;
+		<span class="macro">assert!</span>(json_eval_value_at_key(<span class="kw-2">&amp;</span>doc, <span class="kw-2">&amp;mut </span><span class="macro">json_path!</span>[<span class="string">"a"</span>, <span class="string">"b1"</span>], <span class="kw-2">&amp;</span>|v| { <span class="kw-2">*</span>v == <span class="string">"20" </span>}));
+		<span class="macro">assert!</span>(json_eval_value_at_key(<span class="kw-2">&amp;</span>doc, <span class="kw-2">&amp;mut </span><span class="macro">json_path!</span>[<span class="string">"a"</span>, <span class="string">"b"</span>, <span class="string">"c"</span>, <span class="string">"d"</span>], <span class="kw-2">&amp;</span>|v| {
+			<span class="kw-2">*</span>v == <span class="string">"10"
 		</span>}));
-		<span class="macro">assert!</span>(!json_eval_value_at_key(<span class="kw-2">&amp;</span>doc, <span class="kw-2">&amp;mut </span><span class="macro">json_path!</span>[<span class="string">&quot;a&quot;</span>, <span class="string">&quot;c&quot;</span>, <span class="string">&quot;d&quot;</span>], <span class="kw-2">&amp;</span>|<span class="kw">_</span>| { <span class="bool-val">true </span>}));
-		<span class="macro">assert!</span>(!json_eval_value_at_key(<span class="kw-2">&amp;</span>doc, <span class="kw-2">&amp;mut </span><span class="macro">json_path!</span>[<span class="string">&quot;d&quot;</span>], <span class="kw-2">&amp;</span>|<span class="kw">_</span>| { <span class="bool-val">true </span>}));
+		<span class="macro">assert!</span>(!json_eval_value_at_key(<span class="kw-2">&amp;</span>doc, <span class="kw-2">&amp;mut </span><span class="macro">json_path!</span>[<span class="string">"a"</span>, <span class="string">"c"</span>, <span class="string">"d"</span>], <span class="kw-2">&amp;</span>|<span class="kw">_</span>| { <span class="bool-val">true </span>}));
+		<span class="macro">assert!</span>(!json_eval_value_at_key(<span class="kw-2">&amp;</span>doc, <span class="kw-2">&amp;mut </span><span class="macro">json_path!</span>[<span class="string">"d"</span>], <span class="kw-2">&amp;</span>|<span class="kw">_</span>| { <span class="bool-val">true </span>}));
 
-		<span class="macro">assert!</span>(json_contains_path(<span class="kw-2">&amp;</span>doc, <span class="kw-2">&amp;mut </span><span class="macro">json_path!</span>[<span class="string">&quot;a&quot;</span>, <span class="string">&quot;b1&quot;</span>]));
-		<span class="macro">assert!</span>(json_contains_path(<span class="kw-2">&amp;</span>doc, <span class="kw-2">&amp;mut </span><span class="macro">json_path!</span>[<span class="string">&quot;a&quot;</span>, <span class="string">&quot;b&quot;</span>]));
-		<span class="macro">assert!</span>(json_contains_path(<span class="kw-2">&amp;</span>doc, <span class="kw-2">&amp;mut </span><span class="macro">json_path!</span>[<span class="string">&quot;a&quot;</span>, <span class="string">&quot;b&quot;</span>, <span class="string">&quot;c&quot;</span>]));
-		<span class="macro">assert!</span>(json_contains_path(<span class="kw-2">&amp;</span>doc, <span class="kw-2">&amp;mut </span><span class="macro">json_path!</span>[<span class="string">&quot;a&quot;</span>, <span class="string">&quot;b&quot;</span>, <span class="string">&quot;c&quot;</span>, <span class="string">&quot;d&quot;</span>]));
-		<span class="macro">assert!</span>(!json_contains_path(<span class="kw-2">&amp;</span>doc, <span class="kw-2">&amp;mut </span><span class="macro">json_path!</span>[<span class="string">&quot;a&quot;</span>, <span class="string">&quot;b&quot;</span>, <span class="string">&quot;c&quot;</span>, <span class="string">&quot;d&quot;</span>, <span class="string">&quot;e&quot;</span>]));
-		<span class="macro">assert!</span>(!json_contains_path(<span class="kw-2">&amp;</span>doc, <span class="kw-2">&amp;mut </span><span class="macro">json_path!</span>[<span class="string">&quot;a&quot;</span>, <span class="string">&quot;b&quot;</span>, <span class="string">&quot;b1&quot;</span>]));
-		<span class="macro">assert!</span>(!json_contains_path(<span class="kw-2">&amp;</span>doc, <span class="kw-2">&amp;mut </span><span class="macro">json_path!</span>[<span class="string">&quot;d&quot;</span>]));
+		<span class="macro">assert!</span>(json_contains_path(<span class="kw-2">&amp;</span>doc, <span class="kw-2">&amp;mut </span><span class="macro">json_path!</span>[<span class="string">"a"</span>, <span class="string">"b1"</span>]));
+		<span class="macro">assert!</span>(json_contains_path(<span class="kw-2">&amp;</span>doc, <span class="kw-2">&amp;mut </span><span class="macro">json_path!</span>[<span class="string">"a"</span>, <span class="string">"b"</span>]));
+		<span class="macro">assert!</span>(json_contains_path(<span class="kw-2">&amp;</span>doc, <span class="kw-2">&amp;mut </span><span class="macro">json_path!</span>[<span class="string">"a"</span>, <span class="string">"b"</span>, <span class="string">"c"</span>]));
+		<span class="macro">assert!</span>(json_contains_path(<span class="kw-2">&amp;</span>doc, <span class="kw-2">&amp;mut </span><span class="macro">json_path!</span>[<span class="string">"a"</span>, <span class="string">"b"</span>, <span class="string">"c"</span>, <span class="string">"d"</span>]));
+		<span class="macro">assert!</span>(!json_contains_path(<span class="kw-2">&amp;</span>doc, <span class="kw-2">&amp;mut </span><span class="macro">json_path!</span>[<span class="string">"a"</span>, <span class="string">"b"</span>, <span class="string">"c"</span>, <span class="string">"d"</span>, <span class="string">"e"</span>]));
+		<span class="macro">assert!</span>(!json_contains_path(<span class="kw-2">&amp;</span>doc, <span class="kw-2">&amp;mut </span><span class="macro">json_path!</span>[<span class="string">"a"</span>, <span class="string">"b"</span>, <span class="string">"b1"</span>]));
+		<span class="macro">assert!</span>(!json_contains_path(<span class="kw-2">&amp;</span>doc, <span class="kw-2">&amp;mut </span><span class="macro">json_path!</span>[<span class="string">"d"</span>]));
 	}
 
 	<span class="kw">fn </span>zeroize_code_key_in_json(encoded: bool, json: <span class="kw-2">&amp;</span>str) -&gt; Value {
 		<span class="kw">let </span><span class="kw-2">mut </span>json = from_str::&lt;Value&gt;(json).unwrap();
 		<span class="kw">let </span>(zeroing_patch, <span class="kw-2">mut </span>path) = <span class="kw">if </span>encoded {
 			(
-				<span class="macro">json!</span>({<span class="string">&quot;genesis&quot;</span>:{<span class="string">&quot;raw&quot;</span>:{<span class="string">&quot;top&quot;</span>:{<span class="string">&quot;0x3a636f6465&quot;</span>:<span class="string">&quot;0x0&quot;</span>}}}}),
-				<span class="macro">json_path!</span>[<span class="string">&quot;genesis&quot;</span>, <span class="string">&quot;raw&quot;</span>, <span class="string">&quot;top&quot;</span>, <span class="string">&quot;0x3a636f6465&quot;</span>],
+				<span class="macro">json!</span>({<span class="string">"genesis"</span>:{<span class="string">"raw"</span>:{<span class="string">"top"</span>:{<span class="string">"0x3a636f6465"</span>:<span class="string">"0x0"</span>}}}}),
+				<span class="macro">json_path!</span>[<span class="string">"genesis"</span>, <span class="string">"raw"</span>, <span class="string">"top"</span>, <span class="string">"0x3a636f6465"</span>],
 			)
 		} <span class="kw">else </span>{
 			(
-				<span class="macro">json!</span>({<span class="string">&quot;genesis&quot;</span>:{<span class="string">&quot;runtimeGenesis&quot;</span>:{<span class="string">&quot;code&quot;</span>:<span class="string">&quot;0x0&quot;</span>}}}),
-				<span class="macro">json_path!</span>[<span class="string">&quot;genesis&quot;</span>, <span class="string">&quot;runtimeGenesis&quot;</span>, <span class="string">&quot;code&quot;</span>],
+				<span class="macro">json!</span>({<span class="string">"genesis"</span>:{<span class="string">"runtimeGenesis"</span>:{<span class="string">"code"</span>:<span class="string">"0x0"</span>}}}),
+				<span class="macro">json_path!</span>[<span class="string">"genesis"</span>, <span class="string">"runtimeGenesis"</span>, <span class="string">"code"</span>],
 			)
 		};
 		<span class="macro">assert!</span>(json_contains_path(<span class="kw-2">&amp;</span>json, <span class="kw-2">&amp;mut </span>path));
@@ -2469,21 +2471,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			substrate_test_runtime::wasm_binary_unwrap().into(),
 			Default::default(),
 		)
-		.with_name(<span class="string">&quot;TestName&quot;</span>)
-		.with_id(<span class="string">&quot;test_id&quot;</span>)
+		.with_name(<span class="string">"TestName"</span>)
+		.with_id(<span class="string">"test_id"</span>)
 		.with_chain_type(ChainType::Local)
 		.with_genesis_config_patch(<span class="macro">json!</span>({
-			<span class="string">&quot;babe&quot;</span>: {
-				<span class="string">&quot;epochConfig&quot;</span>: {
-					<span class="string">&quot;c&quot;</span>: [
+			<span class="string">"babe"</span>: {
+				<span class="string">"epochConfig"</span>: {
+					<span class="string">"c"</span>: [
 						<span class="number">7</span>,
 						<span class="number">10
 					</span>],
-					<span class="string">&quot;allowed_slots&quot;</span>: <span class="string">&quot;PrimaryAndSecondaryPlainSlots&quot;
+					<span class="string">"allowed_slots"</span>: <span class="string">"PrimaryAndSecondaryPlainSlots"
 				</span>}
 			},
-			<span class="string">&quot;substrateTest&quot;</span>: {
-				<span class="string">&quot;authorities&quot;</span>: [
+			<span class="string">"substrateTest"</span>: {
+				<span class="string">"authorities"</span>: [
 					AccountKeyring::Ferdie.public().to_ss58check(),
 					AccountKeyring::Alice.public().to_ss58check()
 				],
@@ -2502,18 +2504,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			substrate_test_runtime::wasm_binary_unwrap().into(),
 			Default::default(),
 		)
-		.with_name(<span class="string">&quot;TestName&quot;</span>)
-		.with_id(<span class="string">&quot;test_id&quot;</span>)
+		.with_name(<span class="string">"TestName"</span>)
+		.with_id(<span class="string">"test_id"</span>)
 		.with_chain_type(ChainType::Local)
-		.with_genesis_config_preset_name(<span class="string">&quot;staging&quot;</span>)
+		.with_genesis_config_preset_name(<span class="string">"staging"</span>)
 		.build();
 
 		<span class="kw">let </span>actual = output.as_json(<span class="bool-val">false</span>).unwrap();
 		<span class="kw">let </span>expected =
-			from_str::&lt;Value&gt;(<span class="macro">include_str!</span>(<span class="string">&quot;../res/substrate_test_runtime_from_named_preset.json&quot;</span>))
+			from_str::&lt;Value&gt;(<span class="macro">include_str!</span>(<span class="string">"../res/substrate_test_runtime_from_named_preset.json"</span>))
 				.unwrap();
 
-		<span class="comment">//wasm blob may change overtime so let&#39;s zero it. Also ensure it is there:
+		<span class="comment">//wasm blob may change overtime so let's zero it. Also ensure it is there:
 		</span><span class="kw">let </span>actual = zeroize_code_key_in_json(<span class="bool-val">false</span>, actual.as_str());
 
 		<span class="macro">assert_eq!</span>(actual, expected);
@@ -2525,21 +2527,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			substrate_test_runtime::wasm_binary_unwrap().into(),
 			Default::default(),
 		)
-		.with_name(<span class="string">&quot;TestName&quot;</span>)
-		.with_id(<span class="string">&quot;test_id&quot;</span>)
+		.with_name(<span class="string">"TestName"</span>)
+		.with_id(<span class="string">"test_id"</span>)
 		.with_chain_type(ChainType::Local)
 		.with_genesis_config_patch(<span class="macro">json!</span>({
-			<span class="string">&quot;babe&quot;</span>: {
-				<span class="string">&quot;epochConfig&quot;</span>: {
-					<span class="string">&quot;c&quot;</span>: [
+			<span class="string">"babe"</span>: {
+				<span class="string">"epochConfig"</span>: {
+					<span class="string">"c"</span>: [
 						<span class="number">7</span>,
 						<span class="number">10
 					</span>],
-					<span class="string">&quot;allowed_slots&quot;</span>: <span class="string">&quot;PrimaryAndSecondaryPlainSlots&quot;
+					<span class="string">"allowed_slots"</span>: <span class="string">"PrimaryAndSecondaryPlainSlots"
 				</span>}
 			},
-			<span class="string">&quot;substrateTest&quot;</span>: {
-				<span class="string">&quot;authorities&quot;</span>: [
+			<span class="string">"substrateTest"</span>: {
+				<span class="string">"authorities"</span>: [
 					AccountKeyring::Ferdie.public().to_ss58check(),
 					AccountKeyring::Alice.public().to_ss58check()
 				],
@@ -2551,13 +2553,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>actual_raw = output.as_json(<span class="bool-val">true</span>).unwrap();
 
 		<span class="kw">let </span>expected =
-			from_str::&lt;Value&gt;(<span class="macro">include_str!</span>(<span class="string">&quot;../res/substrate_test_runtime_from_patch.json&quot;</span>))
+			from_str::&lt;Value&gt;(<span class="macro">include_str!</span>(<span class="string">"../res/substrate_test_runtime_from_patch.json"</span>))
 				.unwrap();
 		<span class="kw">let </span>expected_raw =
-			from_str::&lt;Value&gt;(<span class="macro">include_str!</span>(<span class="string">&quot;../res/substrate_test_runtime_from_patch_raw.json&quot;</span>))
+			from_str::&lt;Value&gt;(<span class="macro">include_str!</span>(<span class="string">"../res/substrate_test_runtime_from_patch_raw.json"</span>))
 				.unwrap();
 
-		<span class="comment">//wasm blob may change overtime so let&#39;s zero it. Also ensure it is there:
+		<span class="comment">//wasm blob may change overtime so let's zero it. Also ensure it is there:
 		</span><span class="kw">let </span>actual = zeroize_code_key_in_json(<span class="bool-val">false</span>, actual.as_str());
 		<span class="kw">let </span>actual_raw = zeroize_code_key_in_json(<span class="bool-val">true</span>, actual_raw.as_str());
 
@@ -2567,13 +2569,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>generate_chain_spec_with_full_config_works() {
-		<span class="kw">let </span>j = <span class="macro">include_str!</span>(<span class="string">&quot;../../../test-utils/runtime/res/default_genesis_config.json&quot;</span>);
+		<span class="kw">let </span>j = <span class="macro">include_str!</span>(<span class="string">"../../../test-utils/runtime/res/default_genesis_config.json"</span>);
 		<span class="kw">let </span>output = ChainSpec::&lt;()&gt;::builder(
 			substrate_test_runtime::wasm_binary_unwrap().into(),
 			Default::default(),
 		)
-		.with_name(<span class="string">&quot;TestName&quot;</span>)
-		.with_id(<span class="string">&quot;test_id&quot;</span>)
+		.with_name(<span class="string">"TestName"</span>)
+		.with_id(<span class="string">"test_id"</span>)
 		.with_chain_type(ChainType::Local)
 		.with_genesis_config(from_str(j).unwrap())
 		.build();
@@ -2582,13 +2584,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>actual_raw = output.as_json(<span class="bool-val">true</span>).unwrap();
 
 		<span class="kw">let </span>expected =
-			from_str::&lt;Value&gt;(<span class="macro">include_str!</span>(<span class="string">&quot;../res/substrate_test_runtime_from_config.json&quot;</span>))
+			from_str::&lt;Value&gt;(<span class="macro">include_str!</span>(<span class="string">"../res/substrate_test_runtime_from_config.json"</span>))
 				.unwrap();
 		<span class="kw">let </span>expected_raw =
-			from_str::&lt;Value&gt;(<span class="macro">include_str!</span>(<span class="string">&quot;../res/substrate_test_runtime_from_config_raw.json&quot;</span>))
+			from_str::&lt;Value&gt;(<span class="macro">include_str!</span>(<span class="string">"../res/substrate_test_runtime_from_config_raw.json"</span>))
 				.unwrap();
 
-		<span class="comment">//wasm blob may change overtime so let&#39;s zero it. Also ensure it is there:
+		<span class="comment">//wasm blob may change overtime so let's zero it. Also ensure it is there:
 		</span><span class="kw">let </span>actual = zeroize_code_key_in_json(<span class="bool-val">false</span>, actual.as_str());
 		<span class="kw">let </span>actual_raw = zeroize_code_key_in_json(<span class="bool-val">true</span>, actual_raw.as_str());
 
@@ -2599,15 +2601,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>chain_spec_as_json_fails_with_invalid_config() {
 		<span class="kw">let </span>expected_error_message =
-			<span class="macro">include_str!</span>(<span class="string">&quot;../res/chain_spec_as_json_fails_with_invalid_config.err&quot;</span>);
+			<span class="macro">include_str!</span>(<span class="string">"../res/chain_spec_as_json_fails_with_invalid_config.err"</span>);
 		<span class="kw">let </span>j =
-			<span class="macro">include_str!</span>(<span class="string">&quot;../../../test-utils/runtime/res/default_genesis_config_invalid_2.json&quot;</span>);
+			<span class="macro">include_str!</span>(<span class="string">"../../../test-utils/runtime/res/default_genesis_config_invalid_2.json"</span>);
 		<span class="kw">let </span>output = ChainSpec::&lt;()&gt;::builder(
 			substrate_test_runtime::wasm_binary_unwrap().into(),
 			Default::default(),
 		)
-		.with_name(<span class="string">&quot;TestName&quot;</span>)
-		.with_id(<span class="string">&quot;test_id&quot;</span>)
+		.with_name(<span class="string">"TestName"</span>)
+		.with_id(<span class="string">"test_id"</span>)
 		.with_chain_type(ChainType::Local)
 		.with_genesis_config(from_str(j).unwrap())
 		.build();
@@ -2623,13 +2625,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			substrate_test_runtime::wasm_binary_unwrap().into(),
 			Default::default(),
 		)
-		.with_name(<span class="string">&quot;TestName&quot;</span>)
-		.with_id(<span class="string">&quot;test_id&quot;</span>)
+		.with_name(<span class="string">"TestName"</span>)
+		.with_id(<span class="string">"test_id"</span>)
 		.with_chain_type(ChainType::Local)
 		.with_genesis_config_patch(<span class="macro">json!</span>({
-			<span class="string">&quot;invalid_pallet&quot;</span>: {},
-			<span class="string">&quot;substrateTest&quot;</span>: {
-				<span class="string">&quot;authorities&quot;</span>: [
+			<span class="string">"invalid_pallet"</span>: {},
+			<span class="string">"substrateTest"</span>: {
+				<span class="string">"authorities"</span>: [
 					AccountKeyring::Ferdie.public().to_ss58check(),
 					AccountKeyring::Alice.public().to_ss58check()
 				],
@@ -2637,13 +2639,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}))
 		.build();
 
-		<span class="macro">assert!</span>(output.as_json(<span class="bool-val">true</span>).unwrap_err().contains(<span class="string">&quot;Invalid JSON blob: unknown field `invalid_pallet`, expected one of `system`, `babe`, `substrateTest`, `balances`&quot;</span>));
+		<span class="macro">assert!</span>(output.as_json(<span class="bool-val">true</span>).unwrap_err().contains(<span class="string">"Invalid JSON blob: unknown field `invalid_pallet`, expected one of `system`, `babe`, `substrateTest`, `balances`"</span>));
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>check_if_code_is_valid_for_raw_without_code() {
 		<span class="kw">let </span>spec = ChainSpec::&lt;()&gt;::from_json_bytes(Cow::Owned(
-			<span class="macro">include_bytes!</span>(<span class="string">&quot;../res/raw_no_code.json&quot;</span>).to_vec(),
+			<span class="macro">include_bytes!</span>(<span class="string">"../res/raw_no_code.json"</span>).to_vec(),
 		))
 		.unwrap();
 
@@ -2651,16 +2653,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="macro">assert!</span>(json_eval_value_at_key(
 			<span class="kw-2">&amp;</span>j,
-			<span class="kw-2">&amp;mut </span><span class="macro">json_path!</span>[<span class="string">&quot;genesis&quot;</span>, <span class="string">&quot;raw&quot;</span>, <span class="string">&quot;top&quot;</span>, <span class="string">&quot;0x3a636f6465&quot;</span>],
-			<span class="kw-2">&amp;</span>|v| { <span class="kw-2">*</span>v == <span class="string">&quot;0x010101&quot; </span>}
+			<span class="kw-2">&amp;mut </span><span class="macro">json_path!</span>[<span class="string">"genesis"</span>, <span class="string">"raw"</span>, <span class="string">"top"</span>, <span class="string">"0x3a636f6465"</span>],
+			<span class="kw-2">&amp;</span>|v| { <span class="kw-2">*</span>v == <span class="string">"0x010101" </span>}
 		));
-		<span class="macro">assert!</span>(!json_contains_path(<span class="kw-2">&amp;</span>j, <span class="kw-2">&amp;mut </span><span class="macro">json_path!</span>[<span class="string">&quot;code&quot;</span>]));
+		<span class="macro">assert!</span>(!json_contains_path(<span class="kw-2">&amp;</span>j, <span class="kw-2">&amp;mut </span><span class="macro">json_path!</span>[<span class="string">"code"</span>]));
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>check_code_in_assimilated_storage_for_raw_without_code() {
 		<span class="kw">let </span>spec = ChainSpec::&lt;()&gt;::from_json_bytes(Cow::Owned(
-			<span class="macro">include_bytes!</span>(<span class="string">&quot;../res/raw_no_code.json&quot;</span>).to_vec(),
+			<span class="macro">include_bytes!</span>(<span class="string">"../res/raw_no_code.json"</span>).to_vec(),
 		))
 		.unwrap();
 
@@ -2674,13 +2676,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>update_code_works_with_runtime_genesis_config() {
-		<span class="kw">let </span>j = <span class="macro">include_str!</span>(<span class="string">&quot;../../../test-utils/runtime/res/default_genesis_config.json&quot;</span>);
+		<span class="kw">let </span>j = <span class="macro">include_str!</span>(<span class="string">"../../../test-utils/runtime/res/default_genesis_config.json"</span>);
 		<span class="kw">let </span>chain_spec = ChainSpec::&lt;()&gt;::builder(
 			substrate_test_runtime::wasm_binary_unwrap().into(),
 			Default::default(),
 		)
-		.with_name(<span class="string">&quot;TestName&quot;</span>)
-		.with_id(<span class="string">&quot;test_id&quot;</span>)
+		.with_name(<span class="string">"TestName"</span>)
+		.with_id(<span class="string">"test_id"</span>)
 		.with_chain_type(ChainType::Local)
 		.with_genesis_config(from_str(j).unwrap())
 		.build();
@@ -2690,20 +2692,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="macro">assert!</span>(json_eval_value_at_key(
 			<span class="kw-2">&amp;</span>chain_spec_json,
-			<span class="kw-2">&amp;mut </span><span class="macro">json_path!</span>[<span class="string">&quot;genesis&quot;</span>, <span class="string">&quot;runtimeGenesis&quot;</span>, <span class="string">&quot;code&quot;</span>],
-			<span class="kw-2">&amp;</span>|v| { <span class="kw-2">*</span>v == <span class="string">&quot;0x000102040506&quot; </span>}
+			<span class="kw-2">&amp;mut </span><span class="macro">json_path!</span>[<span class="string">"genesis"</span>, <span class="string">"runtimeGenesis"</span>, <span class="string">"code"</span>],
+			<span class="kw-2">&amp;</span>|v| { <span class="kw-2">*</span>v == <span class="string">"0x000102040506" </span>}
 		));
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>update_code_works_for_raw() {
-		<span class="kw">let </span>j = <span class="macro">include_str!</span>(<span class="string">&quot;../../../test-utils/runtime/res/default_genesis_config.json&quot;</span>);
+		<span class="kw">let </span>j = <span class="macro">include_str!</span>(<span class="string">"../../../test-utils/runtime/res/default_genesis_config.json"</span>);
 		<span class="kw">let </span>chain_spec = ChainSpec::&lt;()&gt;::builder(
 			substrate_test_runtime::wasm_binary_unwrap().into(),
 			Default::default(),
 		)
-		.with_name(<span class="string">&quot;TestName&quot;</span>)
-		.with_id(<span class="string">&quot;test_id&quot;</span>)
+		.with_name(<span class="string">"TestName"</span>)
+		.with_id(<span class="string">"test_id"</span>)
 		.with_chain_type(ChainType::Local)
 		.with_genesis_config(from_str(j).unwrap())
 		.build();
@@ -2713,8 +2715,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="macro">assert!</span>(json_eval_value_at_key(
 			<span class="kw-2">&amp;</span>chain_spec_json,
-			<span class="kw-2">&amp;mut </span><span class="macro">json_path!</span>[<span class="string">&quot;genesis&quot;</span>, <span class="string">&quot;raw&quot;</span>, <span class="string">&quot;top&quot;</span>, <span class="string">&quot;0x3a636f6465&quot;</span>],
-			<span class="kw-2">&amp;</span>|v| { <span class="kw-2">*</span>v == <span class="string">&quot;0x000102040506&quot; </span>}
+			<span class="kw-2">&amp;mut </span><span class="macro">json_path!</span>[<span class="string">"genesis"</span>, <span class="string">"raw"</span>, <span class="string">"top"</span>, <span class="string">"0x3a636f6465"</span>],
+			<span class="kw-2">&amp;</span>|v| { <span class="kw-2">*</span>v == <span class="string">"0x000102040506" </span>}
 		));
 	}
 
@@ -2724,8 +2726,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			substrate_test_runtime::wasm_binary_unwrap().into(),
 			Default::default(),
 		)
-		.with_name(<span class="string">&quot;TestName&quot;</span>)
-		.with_id(<span class="string">&quot;test_id&quot;</span>)
+		.with_name(<span class="string">"TestName"</span>)
+		.with_id(<span class="string">"test_id"</span>)
 		.with_chain_type(ChainType::Local)
 		.with_genesis_config_patch(<span class="macro">json!</span>({}))
 		.build();
@@ -2735,8 +2737,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="macro">assert!</span>(json_eval_value_at_key(
 			<span class="kw-2">&amp;</span>chain_spec_json,
-			<span class="kw-2">&amp;mut </span><span class="macro">json_path!</span>[<span class="string">&quot;genesis&quot;</span>, <span class="string">&quot;runtimeGenesis&quot;</span>, <span class="string">&quot;code&quot;</span>],
-			<span class="kw-2">&amp;</span>|v| { <span class="kw-2">*</span>v == <span class="string">&quot;0x000102040506&quot; </span>}
+			<span class="kw-2">&amp;mut </span><span class="macro">json_path!</span>[<span class="string">"genesis"</span>, <span class="string">"runtimeGenesis"</span>, <span class="string">"code"</span>],
+			<span class="kw-2">&amp;</span>|v| { <span class="kw-2">*</span>v == <span class="string">"0x000102040506" </span>}
 		));
 	}
 
@@ -2744,8 +2746,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>generate_from_genesis_is_still_supported() {
 		<span class="attr">#[allow(deprecated)]
 		</span><span class="kw">let </span>chain_spec: ChainSpec&lt;substrate_test_runtime::RuntimeGenesisConfig&gt; = ChainSpec::from_genesis(
-			<span class="string">&quot;TestName&quot;</span>,
-			<span class="string">&quot;test&quot;</span>,
+			<span class="string">"TestName"</span>,
+			<span class="string">"test"</span>,
 			ChainType::Local,
 			|| Default::default(),
 			Vec::new(),
@@ -2760,14 +2762,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>chain_spec_json = from_str::&lt;Value&gt;(<span class="kw-2">&amp;</span>chain_spec.as_json(<span class="bool-val">false</span>).unwrap()).unwrap();
 		<span class="macro">assert!</span>(json_eval_value_at_key(
 			<span class="kw-2">&amp;</span>chain_spec_json,
-			<span class="kw-2">&amp;mut </span><span class="macro">json_path!</span>[<span class="string">&quot;genesis&quot;</span>, <span class="string">&quot;runtimeAndCode&quot;</span>, <span class="string">&quot;code&quot;</span>],
-			<span class="kw-2">&amp;</span>|v| { <span class="kw-2">*</span>v == <span class="string">&quot;0x000102040506&quot; </span>}
+			<span class="kw-2">&amp;mut </span><span class="macro">json_path!</span>[<span class="string">"genesis"</span>, <span class="string">"runtimeAndCode"</span>, <span class="string">"code"</span>],
+			<span class="kw-2">&amp;</span>|v| { <span class="kw-2">*</span>v == <span class="string">"0x000102040506" </span>}
 		));
 		<span class="kw">let </span>chain_spec_json = from_str::&lt;Value&gt;(<span class="kw-2">&amp;</span>chain_spec.as_json(<span class="bool-val">true</span>).unwrap()).unwrap();
 		<span class="macro">assert!</span>(json_eval_value_at_key(
 			<span class="kw-2">&amp;</span>chain_spec_json,
-			<span class="kw-2">&amp;mut </span><span class="macro">json_path!</span>[<span class="string">&quot;genesis&quot;</span>, <span class="string">&quot;raw&quot;</span>, <span class="string">&quot;top&quot;</span>, <span class="string">&quot;0x3a636f6465&quot;</span>],
-			<span class="kw-2">&amp;</span>|v| { <span class="kw-2">*</span>v == <span class="string">&quot;0x000102040506&quot; </span>}
+			<span class="kw-2">&amp;mut </span><span class="macro">json_path!</span>[<span class="string">"genesis"</span>, <span class="string">"raw"</span>, <span class="string">"top"</span>, <span class="string">"0x3a636f6465"</span>],
+			<span class="kw-2">&amp;</span>|v| { <span class="kw-2">*</span>v == <span class="string">"0x000102040506" </span>}
 		));
 	}
 }

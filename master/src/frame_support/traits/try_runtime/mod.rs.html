@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/support/src/traits/try_runtime/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/support/src/traits/try_runtime/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="frame_support" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="frame_support" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../../frame_support/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -376,14 +378,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -409,7 +411,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>All,
 	<span class="doccomment">/// Run a fixed number of them in a round robin manner.
 	</span>RoundRobin(u32),
-	<span class="doccomment">/// Run only pallets who&#39;s name matches the given list.
+	<span class="doccomment">/// Run only pallets who's name matches the given list.
 	///
 	/// Pallet names are obtained from [`super::PalletInfoAccess`].
 	</span>Only(Vec&lt;Vec&lt;u8&gt;&gt;),
@@ -429,38 +431,38 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl </span>sp_std::fmt::Debug <span class="kw">for </span>Select {
-	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; sp_std::fmt::Result {
+	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; sp_std::fmt::Result {
 		<span class="kw">match </span><span class="self">self </span>{
-			Select::RoundRobin(x) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;RoundRobin({})&quot;</span>, x),
+			Select::RoundRobin(x) =&gt; <span class="macro">write!</span>(f, <span class="string">"RoundRobin({})"</span>, x),
 			Select::Only(x) =&gt; <span class="macro">write!</span>(
 				f,
-				<span class="string">&quot;Only({:?})&quot;</span>,
+				<span class="string">"Only({:?})"</span>,
 				x.iter()
-					.map(|x| sp_std::str::from_utf8(x).unwrap_or(<span class="string">&quot;&lt;invalid?&gt;&quot;</span>))
+					.map(|x| sp_std::str::from_utf8(x).unwrap_or(<span class="string">"&lt;invalid?&gt;"</span>))
 					.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
 			),
-			Select::All =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;All&quot;</span>),
-			Select::None =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;None&quot;</span>),
+			Select::All =&gt; <span class="macro">write!</span>(f, <span class="string">"All"</span>),
+			Select::None =&gt; <span class="macro">write!</span>(f, <span class="string">"None"</span>),
 		}
 	}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">impl </span>sp_std::str::FromStr <span class="kw">for </span>Select {
-	<span class="kw">type </span><span class="prelude-val">Err </span>= <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str;
+	<span class="kw">type </span><span class="prelude-val">Err </span>= <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str;
 	<span class="kw">fn </span>from_str(s: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Err&gt; {
 		<span class="kw">match </span>s {
-			<span class="string">&quot;all&quot; </span>| <span class="string">&quot;All&quot; </span>=&gt; <span class="prelude-val">Ok</span>(Select::All),
-			<span class="string">&quot;none&quot; </span>| <span class="string">&quot;None&quot; </span>=&gt; <span class="prelude-val">Ok</span>(Select::None),
+			<span class="string">"all" </span>| <span class="string">"All" </span>=&gt; <span class="prelude-val">Ok</span>(Select::All),
+			<span class="string">"none" </span>| <span class="string">"None" </span>=&gt; <span class="prelude-val">Ok</span>(Select::None),
 			<span class="kw">_ </span>=&gt;
-				<span class="kw">if </span>s.starts_with(<span class="string">&quot;rr-&quot;</span>) {
+				<span class="kw">if </span>s.starts_with(<span class="string">"rr-"</span>) {
 					<span class="kw">let </span>count = s
-						.split_once(<span class="string">&#39;-&#39;</span>)
+						.split_once(<span class="string">'-'</span>)
 						.and_then(|(<span class="kw">_</span>, count)| count.parse::&lt;u32&gt;().ok())
-						.ok_or(<span class="string">&quot;failed to parse count&quot;</span>)<span class="question-mark">?</span>;
+						.ok_or(<span class="string">"failed to parse count"</span>)<span class="question-mark">?</span>;
 					<span class="prelude-val">Ok</span>(Select::RoundRobin(count))
 				} <span class="kw">else </span>{
-					<span class="kw">let </span>pallets = s.split(<span class="string">&#39;,&#39;</span>).map(|x| x.as_bytes().to_vec()).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+					<span class="kw">let </span>pallets = s.split(<span class="string">','</span>).map(|x| x.as_bytes().to_vec()).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 					<span class="prelude-val">Ok</span>(Select::Only(pallets))
 				},
 		}
@@ -497,17 +499,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">impl </span>core::str::FromStr <span class="kw">for </span>UpgradeCheckSelect {
-	<span class="kw">type </span><span class="prelude-val">Err </span>= <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str;
+	<span class="kw">type </span><span class="prelude-val">Err </span>= <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str;
 
 	<span class="kw">fn </span>from_str(s: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Err&gt; {
 		<span class="kw">match </span>s.to_lowercase().as_str() {
-			<span class="string">&quot;none&quot; </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::None),
-			<span class="string">&quot;all&quot; </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::All),
-			<span class="string">&quot;pre-and-post&quot; </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::PreAndPost),
-			<span class="string">&quot;try-state&quot; </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::TryState),
-			<span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(<span class="string">&quot;Invalid CheckSelector&quot;</span>),
+			<span class="string">"none" </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::None),
+			<span class="string">"all" </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::All),
+			<span class="string">"pre-and-post" </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::PreAndPost),
+			<span class="string">"try-state" </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::TryState),
+			<span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(<span class="string">"Invalid CheckSelector"</span>),
 		}
 	}
 }
@@ -523,9 +525,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>try_state(<span class="kw">_</span>: BlockNumber, <span class="kw">_</span>: Select) -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt;;
 }
 
-<span class="attr">#[cfg_attr(all(not(feature = <span class="string">&quot;tuples-96&quot;</span>), not(feature = <span class="string">&quot;tuples-128&quot;</span>)), impl_for_tuples(<span class="number">64</span>))]
-#[cfg_attr(all(feature = <span class="string">&quot;tuples-96&quot;</span>, not(feature = <span class="string">&quot;tuples-128&quot;</span>)), impl_for_tuples(<span class="number">96</span>))]
-#[cfg_attr(all(feature = <span class="string">&quot;tuples-128&quot;</span>), impl_for_tuples(<span class="number">128</span>))]
+<span class="attr">#[cfg_attr(all(not(feature = <span class="string">"tuples-96"</span>), not(feature = <span class="string">"tuples-128"</span>)), impl_for_tuples(<span class="number">64</span>))]
+#[cfg_attr(all(feature = <span class="string">"tuples-96"</span>, not(feature = <span class="string">"tuples-128"</span>)), impl_for_tuples(<span class="number">96</span>))]
+#[cfg_attr(all(feature = <span class="string">"tuples-128"</span>), impl_for_tuples(<span class="number">128</span>))]
 </span><span class="kw">impl</span>&lt;BlockNumber: Clone + sp_std::fmt::Debug + AtLeast32BitUnsigned&gt; TryState&lt;BlockNumber&gt;
 	<span class="kw">for </span>Tuple
 {
@@ -543,13 +545,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 				<span class="kw">if </span>error_count &gt; <span class="number">0 </span>{
 					<span class="macro">log::error!</span>(
-						target: <span class="string">&quot;try-runtime&quot;</span>,
-						<span class="string">&quot;{} pallets exited with errors while executing try_state checks.&quot;</span>,
+						target: <span class="string">"try-runtime"</span>,
+						<span class="string">"{} pallets exited with errors while executing try_state checks."</span>,
 						error_count
 					);
 
 					<span class="kw">return </span><span class="prelude-val">Err</span>(
-						<span class="string">&quot;Detected errors while executing try_state checks. See logs for more info.&quot;
+						<span class="string">"Detected errors while executing try_state checks. See logs for more info."
 							</span>.into(),
 					)
 				}
@@ -571,7 +573,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			},
 			Select::Only(<span class="kw-2">ref </span>pallet_names) =&gt; {
 				<span class="kw">let </span>try_state_fns: <span class="kw-2">&amp;</span>[(
-					<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
+					<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
 					<span class="kw">fn</span>(BlockNumber, Select) -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt;,
 				)] = <span class="kw-2">&amp;</span>[<span class="macro">for_tuples!</span>(
 					#( (&lt;Tuple <span class="kw">as </span><span class="kw">crate</span>::traits::PalletInfoAccess&gt;::name(), Tuple::try_state) ),*
@@ -584,7 +586,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						result = result.and(try_state_fn(n.clone(), targets.clone()));
 					} <span class="kw">else </span>{
 						<span class="macro">log::warn!</span>(
-							<span class="string">&quot;Pallet {:?} not found&quot;</span>,
+							<span class="string">"Pallet {:?} not found"</span>,
 							sp_std::str::from_utf8(pallet_name).unwrap_or_default()
 						);
 					}

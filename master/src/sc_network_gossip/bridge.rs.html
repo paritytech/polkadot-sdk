@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/network-gossip/src/bridge.rs`."><title>bridge.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/network-gossip/src/bridge.rs`."><title>bridge.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_network_gossip" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_network_gossip" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sc_network_gossip/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1134,12 +1136,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		metrics_registry: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Registry&gt;,
 	) -&gt; <span class="self">Self
 	</span><span class="kw">where
-		</span>B: <span class="lifetime">&#39;static</span>,
-		N: Network&lt;B&gt; + Send + Clone + <span class="lifetime">&#39;static</span>,
-		S: Syncing&lt;B&gt; + Send + Clone + <span class="lifetime">&#39;static</span>,
+		</span>B: <span class="lifetime">'static</span>,
+		N: Network&lt;B&gt; + Send + Clone + <span class="lifetime">'static</span>,
+		S: Syncing&lt;B&gt; + Send + Clone + <span class="lifetime">'static</span>,
 	{
 		<span class="kw">let </span>protocol = protocol.into();
-		<span class="kw">let </span>sync_event_stream = sync.event_stream(<span class="string">&quot;network-gossip&quot;</span>);
+		<span class="kw">let </span>sync_event_stream = sync.event_stream(<span class="string">"network-gossip"</span>);
 
 		GossipEngine {
 			state_machine: ConsensusGossip::new(validator, protocol.clone(), metrics_registry),
@@ -1163,7 +1165,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Registers a message without propagating it to any peers. The message
 	/// becomes available to new peers or when the service is asked to gossip
-	/// the message&#39;s topic. No validation is performed on the message, if the
+	/// the message's topic. No validation is performed on the message, if the
 	/// message is already expired it should be dropped on the next garbage
 	/// collection.
 	</span><span class="kw">pub fn </span>register_gossip_message(<span class="kw-2">&amp;mut </span><span class="self">self</span>, topic: B::Hash, message: Vec&lt;u8&gt;) {
@@ -1187,7 +1189,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">for </span>notification <span class="kw">in </span>past_messages {
 			tx.try_send(notification)
-				.expect(<span class="string">&quot;receiver known to be live, and buffer size known to suffice; qed&quot;</span>);
+				.expect(<span class="string">"receiver known to be live, and buffer size known to suffice; qed"</span>);
 		}
 
 		<span class="self">self</span>.message_sinks.entry(topic).or_default().push(tx);
@@ -1215,9 +1217,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="doccomment">/// Notify everyone we&#39;re connected to that we have the given block.
+	<span class="doccomment">/// Notify everyone we're connected to that we have the given block.
 	///
-	/// Note: this method isn&#39;t strictly related to gossiping and should eventually be moved
+	/// Note: this method isn't strictly related to gossiping and should eventually be moved
 	/// somewhere else.
 	</span><span class="kw">pub fn </span>announce(<span class="kw-2">&amp;</span><span class="self">self</span>, block: B::Hash, associated_data: <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt;) {
 		<span class="self">self</span>.sync.announce_block(block, associated_data);
@@ -1235,7 +1237,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>poll(<span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context) -&gt; Poll&lt;<span class="self">Self</span>::Output&gt; {
 		<span class="kw">let </span>this = <span class="kw-2">&amp;mut *</span><span class="self">self</span>;
 
-		<span class="lifetime">&#39;outer</span>: <span class="kw">loop </span>{
+		<span class="lifetime">'outer</span>: <span class="kw">loop </span>{
 			<span class="kw">match </span><span class="kw-2">&amp;mut </span>this.forwarding_state {
 				ForwardingState::Idle =&gt; {
 					<span class="kw">let </span>next_notification_event =
@@ -1265,7 +1267,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 								peer, handshake, ..
 							} =&gt; {
 								<span class="kw">let </span><span class="prelude-val">Some</span>(role) = this.network.peer_role(peer, handshake) <span class="kw">else </span>{
-									<span class="macro">log::debug!</span>(target: <span class="string">&quot;gossip&quot;</span>, <span class="string">&quot;role for {peer} couldn&#39;t be determined&quot;</span>);
+									<span class="macro">log::debug!</span>(target: <span class="string">"gossip"</span>, <span class="string">"role for {peer} couldn't be determined"</span>);
 									<span class="kw">continue
 								</span>};
 
@@ -1335,7 +1337,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							Poll::Pending =&gt; {
 								<span class="comment">// Push back onto queue for later.
 								</span>to_forward.push_front((topic, notification));
-								<span class="kw">break </span><span class="lifetime">&#39;outer
+								<span class="kw">break </span><span class="lifetime">'outer
 							</span>},
 						}
 					}
@@ -1349,8 +1351,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					</span>}
 
 					<span class="macro">trace!</span>(
-						target: <span class="string">&quot;gossip&quot;</span>,
-						<span class="string">&quot;Pushing consensus message to sinks for {}.&quot;</span>, topic,
+						target: <span class="string">"gossip"</span>,
+						<span class="string">"Pushing consensus message to sinks for {}."</span>, topic,
 					);
 
 					<span class="comment">// Send the notification on each sink.
@@ -1358,7 +1360,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="kw">match </span>sink.start_send(notification.clone()) {
 							<span class="prelude-val">Ok</span>(()) =&gt; {},
 							<span class="prelude-val">Err</span>(e) <span class="kw">if </span>e.is_full() =&gt; {
-								<span class="macro">unreachable!</span>(<span class="string">&quot;Previously ensured that all sinks are ready; qed.&quot;</span>)
+								<span class="macro">unreachable!</span>(<span class="string">"Previously ensured that all sinks are ready; qed."</span>)
 							},
 							<span class="comment">// Receiver got dropped. Will be removed in next iteration (See (1)).
 							</span><span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {},
@@ -1502,7 +1504,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">impl </span>NetworkEventStream <span class="kw">for </span>TestNetwork {
-		<span class="kw">fn </span>event_stream(<span class="kw-2">&amp;</span><span class="self">self</span>, _name: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str) -&gt; Pin&lt;Box&lt;<span class="kw">dyn </span>Stream&lt;Item = Event&gt; + Send&gt;&gt; {
+		<span class="kw">fn </span>event_stream(<span class="kw-2">&amp;</span><span class="self">self</span>, _name: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str) -&gt; Pin&lt;Box&lt;<span class="kw">dyn </span>Stream&lt;Item = Event&gt; + Send&gt;&gt; {
 			<span class="macro">unimplemented!</span>();
 		}
 	}
@@ -1534,7 +1536,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">impl </span>SyncEventStream <span class="kw">for </span>TestSync {
 		<span class="kw">fn </span>event_stream(
 			<span class="kw-2">&amp;</span><span class="self">self</span>,
-			_name: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
+			_name: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
 		) -&gt; Pin&lt;Box&lt;<span class="kw">dyn </span>Stream&lt;Item = SyncEvent&gt; + Send&gt;&gt; {
 			<span class="kw">let </span>(tx, rx) = unbounded();
 			<span class="self">self</span>.inner.lock().unwrap().event_senders.push(tx);
@@ -1635,7 +1637,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			network.clone(),
 			sync,
 			notification_service,
-			<span class="string">&quot;/my_protocol&quot;</span>,
+			<span class="string">"/my_protocol"</span>,
 			Arc::new(AllowAll {}),
 			<span class="prelude-val">None</span>,
 		);
@@ -1646,18 +1648,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		block_on(poll_fn(<span class="kw">move </span>|ctx| {
 			<span class="kw">if let </span>Poll::Pending = gossip_engine.poll_unpin(ctx) {
 				<span class="macro">panic!</span>(
-					<span class="string">&quot;Expected gossip engine to finish on first poll, given that \
-					 `GossipEngine.network_event_stream` closes right away.&quot;
+					<span class="string">"Expected gossip engine to finish on first poll, given that \
+					 `GossipEngine.network_event_stream` closes right away."
 				</span>)
 			}
 			Poll::Ready(())
 		}))
 	}
 
-	<span class="attr">#[tokio::test(flavor = <span class="string">&quot;multi_thread&quot;</span>, worker_threads = <span class="number">2</span>)]
+	<span class="attr">#[tokio::test(flavor = <span class="string">"multi_thread"</span>, worker_threads = <span class="number">2</span>)]
 	</span><span class="kw">async fn </span>keeps_multiple_subscribers_per_topic_updated_with_both_old_and_new_messages() {
 		<span class="kw">let </span>topic = H256::default();
-		<span class="kw">let </span>protocol = ProtocolName::from(<span class="string">&quot;/my_protocol&quot;</span>);
+		<span class="kw">let </span>protocol = ProtocolName::from(<span class="string">"/my_protocol"</span>);
 		<span class="kw">let </span>remote_peer = PeerId::random();
 		<span class="kw">let </span>network = TestNetwork::default();
 		<span class="kw">let </span>sync = Arc::new(TestSync::default());
@@ -1777,7 +1779,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 
 		<span class="kw">fn </span>prop(channels: Vec&lt;ChannelLengthAndTopic&gt;, notifications: Vec&lt;Vec&lt;Message&gt;&gt;) {
-			<span class="kw">let </span>protocol = ProtocolName::from(<span class="string">&quot;/my_protocol&quot;</span>);
+			<span class="kw">let </span>protocol = ProtocolName::from(<span class="string">"/my_protocol"</span>);
 			<span class="kw">let </span>remote_peer = PeerId::random();
 			<span class="kw">let </span>network = TestNetwork::default();
 			<span class="kw">let </span>sync = Arc::new(TestSync::default());
@@ -1803,7 +1805,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.into_iter()
 				<span class="comment">// Messages are cloned for each channel with the corresponding topic, thus multiply
 				// with the amount of channels per topic. If there is no channel for a given topic,
-				// don&#39;t expect any messages for the topic to be received.
+				// don't expect any messages for the topic to be received.
 				</span>.map(|(topic, num)| (topic, num_channels_per_topic.get(<span class="kw-2">&amp;</span>topic).unwrap_or(<span class="kw-2">&amp;</span><span class="number">0</span>) * num))
 				.collect::&lt;HashMap&lt;H256, <span class="kw">_</span>&gt;&gt;();
 
@@ -1880,8 +1882,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">loop </span>{
 					<span class="kw">if let </span>Poll::Ready(()) = gossip_engine.poll_unpin(cx) {
 						<span class="macro">unreachable!</span>(
-							<span class="string">&quot;Event stream sender side is not dropped, thus gossip engine does not \
-							 terminate&quot;</span>,
+							<span class="string">"Event stream sender side is not dropped, thus gossip engine does not \
+							 terminate"</span>,
 						);
 					}
 
@@ -1897,7 +1899,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 									.or_insert(<span class="number">1</span>);
 							},
 							Poll::Ready(<span class="prelude-val">None</span>) =&gt; {
-								<span class="macro">unreachable!</span>(<span class="string">&quot;Sender side of channel is never dropped&quot;</span>)
+								<span class="macro">unreachable!</span>(<span class="string">"Sender side of channel is never dropped"</span>)
 							},
 							Poll::Pending =&gt; {},
 						}

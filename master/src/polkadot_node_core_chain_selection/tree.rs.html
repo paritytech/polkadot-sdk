@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/core/chain-selection/src/tree.rs`."><title>tree.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/core/chain-selection/src/tree.rs`."><title>tree.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_node_core_chain_selection" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_node_core_chain_selection" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../polkadot_node_core_chain_selection/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1016,10 +1018,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // the `base` entry as well as all descendants. If the parent of the block
 // entry is not viable, this will not affect any descendants.
 //
-// If the block entry provided is self-unviable, then it&#39;s assumed that an
+// If the block entry provided is self-unviable, then it's assumed that an
 // unviability update needs to be propagated to descendants.
 //
-// If the block entry provided is self-viable, then it&#39;s assumed that a
+// If the block entry provided is self-viable, then it's assumed that a
 // viability update needs to be propagated to descendants.
 </span><span class="kw">fn </span>propagate_viability_update(
 	backend: <span class="kw-2">&amp;mut </span>OverlayedBackend&lt;<span class="kw">impl </span>Backend&gt;,
@@ -1071,7 +1073,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="macro">gum::warn!</span>(
 						target: LOG_TARGET,
 						block_hash = <span class="question-mark">?</span>hash,
-						<span class="string">&quot;Missing expected block entry&quot;
+						<span class="string">"Missing expected block entry"
 					</span>);
 
 					<span class="kw">continue
@@ -1110,29 +1112,29 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.extend(children.into_iter().map(|(h, update)| (BlockEntryRef::Hash(h), update)));
 	}
 
-	<span class="comment">// Revisit the viability pivots now that we&#39;ve traversed the entire subtree.
+	<span class="comment">// Revisit the viability pivots now that we've traversed the entire subtree.
 	// After this point, the viable leaves set is fully updated. A proof follows.
 	//
-	// If the base has become unviable, then we&#39;ve iterated into all descendants,
+	// If the base has become unviable, then we've iterated into all descendants,
 	// made them unviable and removed them from the set. We know that the parent is
 	// viable as this function is a no-op otherwise, so we need to see if the parent
 	// has other children or not.
 	//
-	// If the base has become viable, then we&#39;ve iterated into all descendants,
-	// and found all blocks which are viable and have no children. We&#39;ve already added
-	// those blocks to the leaf set, but what we haven&#39;t detected
+	// If the base has become viable, then we've iterated into all descendants,
+	// and found all blocks which are viable and have no children. We've already added
+	// those blocks to the leaf set, but what we haven't detected
 	// is blocks which are viable and have children, but all of the children are
 	// unviable.
 	//
 	// The solution of viability pivots addresses both of these:
 	//
-	// When the base has become unviable, the parent&#39;s viability is unchanged and therefore
+	// When the base has become unviable, the parent's viability is unchanged and therefore
 	// any leaves descending from parent but not base are still in the viable leaves set.
 	// If the parent has only one child which is the base, the parent is now a viable leaf.
-	// We&#39;ve already visited the base in recursive search so the set of pivots should
+	// We've already visited the base in recursive search so the set of pivots should
 	// contain only a single entry `(parent, 1)`. qed.
 	//
-	// When the base has become viable, we&#39;ve already iterated into every descendant
+	// When the base has become viable, we've already iterated into every descendant
 	// of the base and thus have collected a set of pivots whose corresponding pivot
 	// counts have already been exhaustively computed from their children. qed.
 	</span><span class="kw">for </span>(pivot, pivot_count) <span class="kw">in </span>viability_pivots {
@@ -1179,7 +1181,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="prelude-val">Ok</span>(())
 }
 
-<span class="comment">// Load the given ancestor&#39;s block entry, in descending order from the `block_hash`.
+<span class="comment">// Load the given ancestor's block entry, in descending order from the `block_hash`.
 // The ancestor_number must be at least one block less than the `block_number`.
 //
 // The returned entry will be `None` if the range is invalid or any block in the path had
@@ -1234,7 +1236,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>inherited_viability =
 		parent_entry.as_ref().and_then(|parent| parent.non_viable_ancestor_for_child());
 
-	<span class="comment">// 1. Add the block to the DB assuming it&#39;s not reverted.
+	<span class="comment">// 1. Add the block to the DB assuming it's not reverted.
 	</span>backend.write_block_entry(BlockEntry {
 		block_hash,
 		block_number,
@@ -1291,7 +1293,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				target: LOG_TARGET,
 				<span class="question-mark">?</span>revert_number,
 				revert_hash = <span class="question-mark">?</span>block_entry.block_hash,
-				<span class="string">&quot;Block marked as reverted via scraped on-chain reversions&quot;
+				<span class="string">"Block marked as reverted via scraped on-chain reversions"
 			</span>);
 		}
 		revert_single_block_entry_if_present(
@@ -1319,7 +1321,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		target: LOG_TARGET,
 		<span class="question-mark">?</span>revert_number,
 		<span class="question-mark">?</span>revert_hash,
-		<span class="string">&quot;Block marked as reverted via ChainSelectionMessage::RevertBlocks&quot;
+		<span class="string">"Block marked as reverted via ChainSelectionMessage::RevertBlocks"
 	</span>);
 	<span class="kw">let </span>maybe_block_entry = backend.load_block_entry(<span class="kw-2">&amp;</span>revert_hash)<span class="question-mark">?</span>;
 	revert_single_block_entry_if_present(
@@ -1349,9 +1351,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				revert_target = revert_number,
 				<span class="question-mark">?</span>maybe_reporting_hash,
 				<span class="question-mark">?</span>maybe_reporting_number,
-				<span class="string">&quot;The hammer has dropped. \
+				<span class="string">"The hammer has dropped. \
 				The protocol has indicated that a finalized block be reverted. \
-				Please inform an adult.&quot;</span>,
+				Please inform an adult."</span>,
 			);
 		},
 		<span class="prelude-val">Some</span>(<span class="kw-2">mut </span>block_entry) =&gt; {
@@ -1361,7 +1363,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				revert_target = revert_number,
 				<span class="question-mark">?</span>maybe_reporting_hash,
 				<span class="question-mark">?</span>maybe_reporting_number,
-				<span class="string">&quot;Unfinalized block reverted due to a bad parachain block.&quot;</span>,
+				<span class="string">"Unfinalized block reverted due to a bad parachain block."</span>,
 			);
 
 			block_entry.viability.explicitly_reverted = <span class="bool-val">true</span>;
@@ -1381,11 +1383,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// This is assumed to start with a fresh backend, and will produce
 /// an overlay over the backend with all the changes applied.
-</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>finalize_block&lt;<span class="lifetime">&#39;a</span>, B: Backend + <span class="lifetime">&#39;a</span>&gt;(
-	backend: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>B,
+</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>finalize_block&lt;<span class="lifetime">'a</span>, B: Backend + <span class="lifetime">'a</span>&gt;(
+	backend: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>B,
 	finalized_hash: Hash,
 	finalized_number: BlockNumber,
-) -&gt; <span class="prelude-ty">Result</span>&lt;OverlayedBackend&lt;<span class="lifetime">&#39;a</span>, B&gt;, Error&gt; {
+) -&gt; <span class="prelude-ty">Result</span>&lt;OverlayedBackend&lt;<span class="lifetime">'a</span>, B&gt;, Error&gt; {
 	<span class="kw">let </span>earliest_stored_number = backend.load_first_block_number()<span class="question-mark">?</span>;
 	<span class="kw">let </span><span class="kw-2">mut </span>backend = OverlayedBackend::new(backend);
 
@@ -1464,7 +1466,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="question-mark">?</span>finalized_hash,
 				finalized_number,
 				child_hash = <span class="question-mark">?</span>child,
-				<span class="string">&quot;Missing child of finalized block&quot;</span>,
+				<span class="string">"Missing child of finalized block"</span>,
 			);
 
 			<span class="comment">// No need to do anything, but this is an inconsistent state.
@@ -1497,7 +1499,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">gum::debug!</span>(
 			target: LOG_TARGET,
 			block_hash = <span class="question-mark">?</span>approved_hash,
-			<span class="string">&quot;Missing entry for freshly-approved block. Ignoring&quot;
+			<span class="string">"Missing entry for freshly-approved block. Ignoring"
 		</span>);
 	}
 
@@ -1509,11 +1511,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// This accepts a fresh backend and returns an overlay on top of it representing
 /// all changes made.
-</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>detect_stagnant&lt;<span class="lifetime">&#39;a</span>, B: <span class="lifetime">&#39;a </span>+ Backend&gt;(
-	backend: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>B,
+</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>detect_stagnant&lt;<span class="lifetime">'a</span>, B: <span class="lifetime">'a </span>+ Backend&gt;(
+	backend: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>B,
 	up_to: Timestamp,
 	max_elements: usize,
-) -&gt; <span class="prelude-ty">Result</span>&lt;OverlayedBackend&lt;<span class="lifetime">&#39;a</span>, B&gt;, Error&gt; {
+) -&gt; <span class="prelude-ty">Result</span>&lt;OverlayedBackend&lt;<span class="lifetime">'a</span>, B&gt;, Error&gt; {
 	<span class="kw">let </span>stagnant_up_to = backend.load_stagnant_at_up_to(up_to, max_elements)<span class="question-mark">?</span>;
 	<span class="kw">let </span><span class="kw-2">mut </span>backend = OverlayedBackend::new(backend);
 
@@ -1530,7 +1532,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="question-mark">?</span>up_to,
 		<span class="question-mark">?</span>min_ts,
 		<span class="question-mark">?</span>max_ts,
-		<span class="string">&quot;Prepared {} stagnant entries for checking/pruning&quot;</span>,
+		<span class="string">"Prepared {} stagnant entries for checking/pruning"</span>,
 		stagnant_up_to.len()
 	);
 
@@ -1550,7 +1552,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="question-mark">?</span>timestamp,
 					<span class="question-mark">?</span>was_viable,
 					<span class="question-mark">?</span>is_viable,
-					<span class="string">&quot;Found existing stagnant entry&quot;
+					<span class="string">"Found existing stagnant entry"
 				</span>);
 
 				<span class="kw">if </span>was_viable &amp;&amp; !is_viable {
@@ -1563,7 +1565,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					target: LOG_TARGET,
 					<span class="question-mark">?</span>block_hash,
 					<span class="question-mark">?</span>timestamp,
-					<span class="string">&quot;Found non-existing stagnant entry&quot;
+					<span class="string">"Found non-existing stagnant entry"
 				</span>);
 			}
 		}
@@ -1575,11 +1577,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Prune stagnant entries at some timestamp without other checks
 /// This function is intended just to clean leftover entries when the real
 /// stagnant checks are disabled
-</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>prune_only_stagnant&lt;<span class="lifetime">&#39;a</span>, B: <span class="lifetime">&#39;a </span>+ Backend&gt;(
-	backend: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>B,
+</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>prune_only_stagnant&lt;<span class="lifetime">'a</span>, B: <span class="lifetime">'a </span>+ Backend&gt;(
+	backend: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>B,
 	up_to: Timestamp,
 	max_elements: usize,
-) -&gt; <span class="prelude-ty">Result</span>&lt;OverlayedBackend&lt;<span class="lifetime">&#39;a</span>, B&gt;, Error&gt; {
+) -&gt; <span class="prelude-ty">Result</span>&lt;OverlayedBackend&lt;<span class="lifetime">'a</span>, B&gt;, Error&gt; {
 	<span class="kw">let </span>stagnant_up_to = backend.load_stagnant_at_up_to(up_to, max_elements)<span class="question-mark">?</span>;
 	<span class="kw">let </span><span class="kw-2">mut </span>backend = OverlayedBackend::new(backend);
 
@@ -1594,7 +1596,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="question-mark">?</span>up_to,
 		<span class="question-mark">?</span>min_ts,
 		<span class="question-mark">?</span>max_ts,
-		<span class="string">&quot;Prepared {} stagnant entries for pruning&quot;</span>,
+		<span class="string">"Prepared {} stagnant entries for pruning"</span>,
 		stagnant_up_to.len()
 	);
 
@@ -1609,10 +1611,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// This accepts a fresh backend and returns an overlay on top of it representing
 /// all changes made.
-</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>revert_to&lt;<span class="lifetime">&#39;a</span>, B: Backend + <span class="lifetime">&#39;a</span>&gt;(
-	backend: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>B,
+</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>revert_to&lt;<span class="lifetime">'a</span>, B: Backend + <span class="lifetime">'a</span>&gt;(
+	backend: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>B,
 	hash: Hash,
-) -&gt; <span class="prelude-ty">Result</span>&lt;OverlayedBackend&lt;<span class="lifetime">&#39;a</span>, B&gt;, Error&gt; {
+) -&gt; <span class="prelude-ty">Result</span>&lt;OverlayedBackend&lt;<span class="lifetime">'a</span>, B&gt;, Error&gt; {
 	<span class="kw">let </span>first_number = backend.load_first_block_number()<span class="question-mark">?</span>.unwrap_or_default();
 
 	<span class="kw">let </span><span class="kw-2">mut </span>backend = OverlayedBackend::new(backend);
@@ -1637,14 +1639,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.flatten()
 				.ok_or_else(|| {
 					ChainApiError::from(<span class="macro">format!</span>(
-						<span class="string">&quot;Lookup failure for block at height {}&quot;</span>,
+						<span class="string">"Lookup failure for block at height {}"</span>,
 						first_number
 					))
 				})<span class="question-mark">?</span>;
 
 			<span class="comment">// The parent is expected to be the last finalized block.
 			</span><span class="kw">if </span>block.parent_hash != hash {
-				<span class="kw">return </span><span class="prelude-val">Err</span>(ChainApiError::from(<span class="string">&quot;Can&#39;t revert below last finalized block&quot;</span>).into())
+				<span class="kw">return </span><span class="prelude-val">Err</span>(ChainApiError::from(<span class="string">"Can't revert below last finalized block"</span>).into())
 			}
 
 			<span class="comment">// The weight is set to the one of the first child. Even though this is

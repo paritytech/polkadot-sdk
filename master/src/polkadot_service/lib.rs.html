@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/service/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/service/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_service" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_service" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../polkadot_service/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1666,12 +1668,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">mod </span>parachains_db;
 <span class="kw">mod </span>relay_chain_selection;
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;full-node&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"full-node"</span>)]
 </span><span class="kw">pub mod </span>overseer;
-<span class="attr">#[cfg(feature = <span class="string">&quot;full-node&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"full-node"</span>)]
 </span><span class="kw">pub mod </span>workers;
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;full-node&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"full-node"</span>)]
 </span><span class="kw">pub use </span><span class="self">self</span>::overseer::{
 	CollatorOverseerGen, ExtendedOverseerGenArgs, OverseerGen, OverseerGenArgs,
 	ValidatorOverseerGen,
@@ -1680,7 +1682,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests;
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;full-node&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"full-node"</span>)]
 </span><span class="kw">use </span>{
 	grandpa::{<span class="self">self</span>, FinalityProofProvider <span class="kw">as </span>GrandpaFinalityProofProvider},
 	gum::info,
@@ -1705,7 +1707,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">use </span>polkadot_node_subsystem_util::database::Database;
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;full-node&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"full-node"</span>)]
 </span><span class="kw">pub use </span>{
 	polkadot_overseer::{Handle, Overseer, OverseerConnector, OverseerHandle},
 	polkadot_primitives::runtime_api::ParachainHost,
@@ -1716,17 +1718,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	sp_consensus_babe::BabeApi,
 };
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;full-node&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"full-node"</span>)]
 </span><span class="kw">use </span>polkadot_node_subsystem::jaeger;
 
 <span class="kw">use </span>std::{collections::HashMap, path::PathBuf, sync::Arc, time::Duration};
 
 <span class="kw">use </span>prometheus_endpoint::Registry;
-<span class="attr">#[cfg(feature = <span class="string">&quot;full-node&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"full-node"</span>)]
 </span><span class="kw">use </span>service::KeystoreContainer;
 <span class="kw">use </span>service::RpcHandlers;
 <span class="kw">use </span>telemetry::TelemetryWorker;
-<span class="attr">#[cfg(feature = <span class="string">&quot;full-node&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"full-node"</span>)]
 </span><span class="kw">use </span>telemetry::{Telemetry, TelemetryWorkerHandle};
 
 <span class="kw">pub use </span>chain_spec::{GenericChainSpec, RococoChainSpec, WestendChainSpec};
@@ -1750,17 +1752,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	traits::{<span class="self">self </span><span class="kw">as </span>runtime_traits, BlakeTwo256, Block <span class="kw">as </span>BlockT, Header <span class="kw">as </span>HeaderT, NumberFor},
 };
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;rococo-native&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"rococo-native"</span>)]
 </span><span class="kw">pub use </span>{rococo_runtime, rococo_runtime_constants};
-<span class="attr">#[cfg(feature = <span class="string">&quot;westend-native&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"westend-native"</span>)]
 </span><span class="kw">pub use </span>{westend_runtime, westend_runtime_constants};
 
 <span class="kw">pub use </span>fake_runtime_api::{GetLastTimestamp, RuntimeApi};
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;full-node&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"full-node"</span>)]
 </span><span class="kw">pub type </span>FullBackend = service::TFullBackend&lt;Block&gt;;
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;full-node&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"full-node"</span>)]
 </span><span class="kw">pub type </span>FullClient = service::TFullClient&lt;
 	Block,
 	RuntimeApi,
@@ -1774,10 +1776,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Provides the header and block number for a hash.
 ///
 /// Decouples `sc_client_api::Backend` and `sp_blockchain::HeaderBackend`.
-</span><span class="kw">pub trait </span>HeaderProvider&lt;Block, Error = sp_blockchain::Error&gt;: Send + Sync + <span class="lifetime">&#39;static
+</span><span class="kw">pub trait </span>HeaderProvider&lt;Block, Error = sp_blockchain::Error&gt;: Send + Sync + <span class="lifetime">'static
 </span><span class="kw">where
 	</span>Block: BlockT,
-	Error: std::fmt::Debug + Send + Sync + <span class="lifetime">&#39;static</span>,
+	Error: std::fmt::Debug + Send + Sync + <span class="lifetime">'static</span>,
 {
 	<span class="doccomment">/// Obtain the header for a hash.
 	</span><span class="kw">fn </span>header(
@@ -1794,7 +1796,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl</span>&lt;Block, T&gt; HeaderProvider&lt;Block&gt; <span class="kw">for </span>T
 <span class="kw">where
 	</span>Block: BlockT,
-	T: sp_blockchain::HeaderBackend&lt;Block&gt; + <span class="lifetime">&#39;static</span>,
+	T: sp_blockchain::HeaderBackend&lt;Block&gt; + <span class="lifetime">'static</span>,
 {
 	<span class="kw">fn </span>header(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
@@ -1814,11 +1816,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// Mandated since `trait HeaderProvider` can only be
 /// implemented once for a generic `T`.
-</span><span class="kw">pub trait </span>HeaderProviderProvider&lt;Block&gt;: Send + Sync + <span class="lifetime">&#39;static
+</span><span class="kw">pub trait </span>HeaderProviderProvider&lt;Block&gt;: Send + Sync + <span class="lifetime">'static
 </span><span class="kw">where
 	</span>Block: BlockT,
 {
-	<span class="kw">type </span>Provider: HeaderProvider&lt;Block&gt; + <span class="lifetime">&#39;static</span>;
+	<span class="kw">type </span>Provider: HeaderProvider&lt;Block&gt; + <span class="lifetime">'static</span>;
 
 	<span class="kw">fn </span>header_provider(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="self">Self</span>::Provider;
 }
@@ -1826,7 +1828,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl</span>&lt;Block, T&gt; HeaderProviderProvider&lt;Block&gt; <span class="kw">for </span>T
 <span class="kw">where
 	</span>Block: BlockT,
-	T: sc_client_api::Backend&lt;Block&gt; + <span class="lifetime">&#39;static</span>,
+	T: sc_client_api::Backend&lt;Block&gt; + <span class="lifetime">'static</span>,
 {
 	<span class="kw">type </span>Provider = &lt;T <span class="kw">as </span>sc_client_api::Backend&lt;Block&gt;&gt;::Blockchain;
 
@@ -1852,7 +1854,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[error(transparent)]
 	</span>Consensus(<span class="attr">#[from] </span>consensus_common::Error),
 
-	<span class="attr">#[error(<span class="string">&quot;Failed to create an overseer&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Failed to create an overseer"</span>)]
 	</span>Overseer(<span class="attr">#[from] </span>polkadot_overseer::SubsystemError),
 
 	<span class="attr">#[error(transparent)]
@@ -1864,35 +1866,35 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[error(transparent)]
 	</span>Jaeger(<span class="attr">#[from] </span>polkadot_node_subsystem::jaeger::JaegerError),
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;full-node&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"full-node"</span>)]
 	#[error(transparent)]
 	</span>Availability(<span class="attr">#[from] </span>AvailabilityError),
 
-	<span class="attr">#[error(<span class="string">&quot;Authorities require the real overseer implementation&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Authorities require the real overseer implementation"</span>)]
 	</span>AuthoritiesRequireRealOverseer,
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;full-node&quot;</span>)]
-	#[error(<span class="string">&quot;Creating a custom database is required for validators&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"full-node"</span>)]
+	#[error(<span class="string">"Creating a custom database is required for validators"</span>)]
 	</span>DatabasePathRequired,
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;full-node&quot;</span>)]
-	#[error(<span class="string">&quot;Expected at least one of polkadot, kusama, westend or rococo runtime feature&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"full-node"</span>)]
+	#[error(<span class="string">"Expected at least one of polkadot, kusama, westend or rococo runtime feature"</span>)]
 	</span>NoRuntime,
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;full-node&quot;</span>)]
-	#[error(<span class="string">&quot;Worker binaries not executable, prepare binary: {prep_worker_path:?}, execute binary: {exec_worker_path:?}&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"full-node"</span>)]
+	#[error(<span class="string">"Worker binaries not executable, prepare binary: {prep_worker_path:?}, execute binary: {exec_worker_path:?}"</span>)]
 	</span>InvalidWorkerBinaries { prep_worker_path: PathBuf, exec_worker_path: PathBuf },
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;full-node&quot;</span>)]
-	#[error(<span class="string">&quot;Worker binaries could not be found, make sure polkadot was built and installed correctly. Please see the readme for the latest instructions (https://github.com/paritytech/polkadot-sdk/tree/master/polkadot). If you ran with `cargo run`, please run `cargo build` first. Searched given workers path ({given_workers_path:?}), polkadot binary path ({current_exe_path:?}), and lib path (/usr/lib/polkadot), workers names: {workers_names:?}&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"full-node"</span>)]
+	#[error(<span class="string">"Worker binaries could not be found, make sure polkadot was built and installed correctly. Please see the readme for the latest instructions (https://github.com/paritytech/polkadot-sdk/tree/master/polkadot). If you ran with `cargo run`, please run `cargo build` first. Searched given workers path ({given_workers_path:?}), polkadot binary path ({current_exe_path:?}), and lib path (/usr/lib/polkadot), workers names: {workers_names:?}"</span>)]
 	</span>MissingWorkerBinaries {
 		given_workers_path: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
 		current_exe_path: PathBuf,
 		workers_names: <span class="prelude-ty">Option</span>&lt;(String, String)&gt;,
 	},
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;full-node&quot;</span>)]
-	#[error(<span class="string">&quot;Version of worker binary ({worker_version}) is different from node version ({node_version}), worker_path: {worker_path}. If you ran with `cargo run`, please run `cargo build` first, otherwise try to `cargo clean`. TESTING ONLY: this check can be disabled with --disable-worker-version-check&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"full-node"</span>)]
+	#[error(<span class="string">"Version of worker binary ({worker_version}) is different from node version ({node_version}), worker_path: {worker_path}. If you ran with `cargo run`, please run `cargo build` first, otherwise try to `cargo clean`. TESTING ONLY: this check can be disabled with --disable-worker-version-check"</span>)]
 	</span>WorkerBinaryVersionMismatch {
 		worker_version: String,
 		node_version: String,
@@ -1944,25 +1946,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl </span>IdentifyVariant <span class="kw">for </span>Box&lt;<span class="kw">dyn </span>ChainSpec&gt; {
 	<span class="kw">fn </span>is_polkadot(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
-		<span class="self">self</span>.id().starts_with(<span class="string">&quot;polkadot&quot;</span>) || <span class="self">self</span>.id().starts_with(<span class="string">&quot;dot&quot;</span>)
+		<span class="self">self</span>.id().starts_with(<span class="string">"polkadot"</span>) || <span class="self">self</span>.id().starts_with(<span class="string">"dot"</span>)
 	}
 	<span class="kw">fn </span>is_kusama(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
-		<span class="self">self</span>.id().starts_with(<span class="string">&quot;kusama&quot;</span>) || <span class="self">self</span>.id().starts_with(<span class="string">&quot;ksm&quot;</span>)
+		<span class="self">self</span>.id().starts_with(<span class="string">"kusama"</span>) || <span class="self">self</span>.id().starts_with(<span class="string">"ksm"</span>)
 	}
 	<span class="kw">fn </span>is_westend(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
-		<span class="self">self</span>.id().starts_with(<span class="string">&quot;westend&quot;</span>) || <span class="self">self</span>.id().starts_with(<span class="string">&quot;wnd&quot;</span>)
+		<span class="self">self</span>.id().starts_with(<span class="string">"westend"</span>) || <span class="self">self</span>.id().starts_with(<span class="string">"wnd"</span>)
 	}
 	<span class="kw">fn </span>is_rococo(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
-		<span class="self">self</span>.id().starts_with(<span class="string">&quot;rococo&quot;</span>) || <span class="self">self</span>.id().starts_with(<span class="string">&quot;rco&quot;</span>)
+		<span class="self">self</span>.id().starts_with(<span class="string">"rococo"</span>) || <span class="self">self</span>.id().starts_with(<span class="string">"rco"</span>)
 	}
 	<span class="kw">fn </span>is_wococo(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
-		<span class="self">self</span>.id().starts_with(<span class="string">&quot;wococo&quot;</span>) || <span class="self">self</span>.id().starts_with(<span class="string">&quot;wco&quot;</span>)
+		<span class="self">self</span>.id().starts_with(<span class="string">"wococo"</span>) || <span class="self">self</span>.id().starts_with(<span class="string">"wco"</span>)
 	}
 	<span class="kw">fn </span>is_versi(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
-		<span class="self">self</span>.id().starts_with(<span class="string">&quot;versi&quot;</span>) || <span class="self">self</span>.id().starts_with(<span class="string">&quot;vrs&quot;</span>)
+		<span class="self">self</span>.id().starts_with(<span class="string">"versi"</span>) || <span class="self">self</span>.id().starts_with(<span class="string">"vrs"</span>)
 	}
 	<span class="kw">fn </span>is_dev(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
-		<span class="self">self</span>.id().ends_with(<span class="string">&quot;dev&quot;</span>)
+		<span class="self">self</span>.id().ends_with(<span class="string">"dev"</span>)
 	}
 	<span class="kw">fn </span>identify_chain(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Chain {
 		<span class="kw">if </span><span class="self">self</span>.is_polkadot() {
@@ -1979,7 +1981,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;full-node&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"full-node"</span>)]
 </span><span class="kw">pub fn </span>open_database(db_source: <span class="kw-2">&amp;</span>DatabaseSource) -&gt; <span class="prelude-ty">Result</span>&lt;Arc&lt;<span class="kw">dyn </span>Database&gt;, Error&gt; {
 	<span class="kw">let </span>parachains_db = <span class="kw">match </span>db_source {
 		DatabaseSource::RocksDb { path, .. } =&gt; parachains_db::open_creating_rocksdb(
@@ -2004,7 +2006,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span>}
 		},
 		DatabaseSource::Custom { .. } =&gt; {
-			<span class="macro">unimplemented!</span>(<span class="string">&quot;No polkadot subsystem db for custom source.&quot;</span>);
+			<span class="macro">unimplemented!</span>(<span class="string">"No polkadot subsystem db for custom source."</span>);
 		},
 	};
 	<span class="prelude-val">Ok</span>(parachains_db)
@@ -2012,7 +2014,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Initialize the `Jeager` collector. The destination must listen
 /// on the given address and port for `UDP` packets.
-</span><span class="attr">#[cfg(any(test, feature = <span class="string">&quot;full-node&quot;</span>))]
+</span><span class="attr">#[cfg(any(test, feature = <span class="string">"full-node"</span>))]
 </span><span class="kw">fn </span>jaeger_launch_collector_with_agent(
 	spawner: <span class="kw">impl </span>SpawnNamed,
 	config: <span class="kw-2">&amp;</span>Configuration,
@@ -2029,16 +2031,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="prelude-val">Ok</span>(())
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;full-node&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"full-node"</span>)]
 </span><span class="kw">type </span>FullSelectChain = relay_chain_selection::SelectRelayChain&lt;FullBackend&gt;;
-<span class="attr">#[cfg(feature = <span class="string">&quot;full-node&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"full-node"</span>)]
 </span><span class="kw">type </span>FullGrandpaBlockImport&lt;ChainSelection = FullSelectChain&gt; =
 	grandpa::GrandpaBlockImport&lt;FullBackend, Block, FullClient, ChainSelection&gt;;
-<span class="attr">#[cfg(feature = <span class="string">&quot;full-node&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"full-node"</span>)]
 </span><span class="kw">type </span>FullBeefyBlockImport&lt;InnerBlockImport&gt; =
 	beefy::import::BeefyBlockImport&lt;Block, FullBackend, FullClient, InnerBlockImport&gt;;
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;full-node&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"full-node"</span>)]
 </span><span class="kw">struct </span>Basics {
 	task_manager: TaskManager,
 	client: Arc&lt;FullClient&gt;,
@@ -2047,7 +2049,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	telemetry: <span class="prelude-ty">Option</span>&lt;Telemetry&gt;,
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;full-node&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"full-node"</span>)]
 </span><span class="kw">fn </span>new_partial_basics(
 	config: <span class="kw-2">&amp;mut </span>Configuration,
 	jaeger_agent: <span class="prelude-ty">Option</span>&lt;std::net::SocketAddr&gt;,
@@ -2093,8 +2095,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>telemetry = telemetry.map(|(worker, telemetry)| {
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(worker) = worker {
 			task_manager.spawn_handle().spawn(
-				<span class="string">&quot;telemetry&quot;</span>,
-				<span class="prelude-val">Some</span>(<span class="string">&quot;telemetry&quot;</span>),
+				<span class="string">"telemetry"</span>,
+				<span class="prelude-val">Some</span>(<span class="string">"telemetry"</span>),
 				Box::pin(worker.run()),
 			);
 		}
@@ -2106,7 +2108,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="prelude-val">Ok</span>(Basics { task_manager, client, backend, keystore_container, telemetry })
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;full-node&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"full-node"</span>)]
 </span><span class="kw">fn </span>new_partial&lt;ChainSelection&gt;(
 	config: <span class="kw-2">&amp;mut </span>Configuration,
 	Basics { task_manager, backend, client, keystore_container, telemetry }: Basics,
@@ -2141,7 +2143,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	Error,
 &gt;
 <span class="kw">where
-	</span>ChainSelection: <span class="lifetime">&#39;static </span>+ SelectChain&lt;Block&gt;,
+	</span>ChainSelection: <span class="lifetime">'static </span>+ SelectChain&lt;Block&gt;,
 {
 	<span class="kw">let </span>transaction_pool = sc_transaction_pool::BasicPool::new_full(
 		config.transaction_pool.clone(),
@@ -2266,12 +2268,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	})
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;full-node&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"full-node"</span>)]
 </span><span class="kw">pub struct </span>NewFullParams&lt;OverseerGenerator: OverseerGen&gt; {
 	<span class="kw">pub </span>is_parachain_node: IsParachainNode,
 	<span class="kw">pub </span>enable_beefy: bool,
 	<span class="doccomment">/// Whether to enable the block authoring backoff on production networks
-	/// where it isn&#39;t enabled by default.
+	/// where it isn't enabled by default.
 	</span><span class="kw">pub </span>force_authoring_backoff: bool,
 	<span class="kw">pub </span>jaeger_agent: <span class="prelude-ty">Option</span>&lt;std::net::SocketAddr&gt;,
 	<span class="kw">pub </span>telemetry_worker_handle: <span class="prelude-ty">Option</span>&lt;TelemetryWorkerHandle&gt;,
@@ -2291,7 +2293,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">pub </span>hwbench: <span class="prelude-ty">Option</span>&lt;sc_sysinfo::HwBench&gt;,
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;full-node&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"full-node"</span>)]
 </span><span class="kw">pub struct </span>NewFull {
 	<span class="kw">pub </span>task_manager: TaskManager,
 	<span class="kw">pub </span>client: Arc&lt;FullClient&gt;,
@@ -2303,7 +2305,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Is this node running as in-process node for a parachain node?
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;full-node&quot;</span>)]
+</span><span class="attr">#[cfg(feature = <span class="string">"full-node"</span>)]
 #[derive(Clone)]
 </span><span class="kw">pub enum </span>IsParachainNode {
 	<span class="doccomment">/// This node is running as in-process node for a parachain collator.
@@ -2315,19 +2317,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>No,
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;full-node&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"full-node"</span>)]
 </span><span class="kw">impl </span>std::fmt::Debug <span class="kw">for </span>IsParachainNode {
 	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, fmt: <span class="kw-2">&amp;mut </span>std::fmt::Formatter) -&gt; std::fmt::Result {
 		<span class="kw">use </span>sp_core::Pair;
 		<span class="kw">match </span><span class="self">self </span>{
-			IsParachainNode::Collator(pair) =&gt; <span class="macro">write!</span>(fmt, <span class="string">&quot;Collator({})&quot;</span>, pair.public()),
-			IsParachainNode::FullNode =&gt; <span class="macro">write!</span>(fmt, <span class="string">&quot;FullNode&quot;</span>),
-			IsParachainNode::No =&gt; <span class="macro">write!</span>(fmt, <span class="string">&quot;No&quot;</span>),
+			IsParachainNode::Collator(pair) =&gt; <span class="macro">write!</span>(fmt, <span class="string">"Collator({})"</span>, pair.public()),
+			IsParachainNode::FullNode =&gt; <span class="macro">write!</span>(fmt, <span class="string">"FullNode"</span>),
+			IsParachainNode::No =&gt; <span class="macro">write!</span>(fmt, <span class="string">"No"</span>),
 		}
 	}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;full-node&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"full-node"</span>)]
 </span><span class="kw">impl </span>IsParachainNode {
 	<span class="doccomment">/// Is this running alongside a collator?
 	</span><span class="kw">fn </span>is_collator(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
@@ -2356,10 +2358,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// a better choice.
 ///
 /// `workers_path` is used to get the path to the directory where auxiliary worker binaries reside.
-/// If not specified, the main binary&#39;s directory is searched first, then `/usr/lib/polkadot` is
+/// If not specified, the main binary's directory is searched first, then `/usr/lib/polkadot` is
 /// searched. If the path points to an executable rather then directory, that executable is used
 /// both as preparation and execution worker (supposed to be used for tests only).
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;full-node&quot;</span>)]
+</span><span class="attr">#[cfg(feature = <span class="string">"full-node"</span>)]
 </span><span class="kw">pub fn </span>new_full&lt;
 	OverseerGenerator: OverseerGen,
 	Network: sc_network::NetworkBackend&lt;Block, &lt;Block <span class="kw">as </span>BlockT&gt;::Hash&gt;,
@@ -2401,7 +2403,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			config.chain_spec.is_dev()
 		{
 			<span class="comment">// on testnets that are in flux (like rococo or versi), finality has stalled
-			// sometimes due to operational issues and it&#39;s annoying to slow down block
+			// sometimes due to operational issues and it's annoying to slow down block
 			// production to 1 block per hour.
 			</span>backoff.max_interval = <span class="number">10</span>;
 		}
@@ -2459,10 +2461,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span><span class="kw-2">mut </span>net_config =
 		sc_network::config::FullNetworkConfiguration::&lt;<span class="kw">_</span>, <span class="kw">_</span>, Network&gt;::new(<span class="kw-2">&amp;</span>config.network);
 
-	<span class="kw">let </span>genesis_hash = client.block_hash(<span class="number">0</span>).ok().flatten().expect(<span class="string">&quot;Genesis block exists; qed&quot;</span>);
+	<span class="kw">let </span>genesis_hash = client.block_hash(<span class="number">0</span>).ok().flatten().expect(<span class="string">"Genesis block exists; qed"</span>);
 	<span class="kw">let </span>peer_store_handle = net_config.peer_store_handle();
 
-	<span class="comment">// Note: GrandPa is pushed before the Polkadot-specific protocols. This doesn&#39;t change
+	<span class="comment">// Note: GrandPa is pushed before the Polkadot-specific protocols. This doesn't change
 	// anything in terms of behaviour, but makes the logs more consistent with the other
 	// Substrate nodes.
 	</span><span class="kw">let </span>grandpa_protocol_name = grandpa::protocol_standard_name(<span class="kw-2">&amp;</span>genesis_hash, <span class="kw-2">&amp;</span>config.chain_spec);
@@ -2571,15 +2573,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				workers_names,
 				node_version.clone(),
 			)<span class="question-mark">?</span>;
-			<span class="macro">log::info!</span>(<span class="string">&quot;🚀 Using prepare-worker binary at: {:?}&quot;</span>, prep_worker_path);
-			<span class="macro">log::info!</span>(<span class="string">&quot;🚀 Using execute-worker binary at: {:?}&quot;</span>, exec_worker_path);
+			<span class="macro">log::info!</span>(<span class="string">"🚀 Using prepare-worker binary at: {:?}"</span>, prep_worker_path);
+			<span class="macro">log::info!</span>(<span class="string">"🚀 Using execute-worker binary at: {:?}"</span>, exec_worker_path);
 
 			<span class="prelude-val">Some</span>(CandidateValidationConfig {
 				artifacts_cache_path: config
 					.database
 					.path()
 					.ok_or(Error::DatabasePathRequired)<span class="question-mark">?
-					</span>.join(<span class="string">&quot;pvf-artifacts&quot;</span>),
+					</span>.join(<span class="string">"pvf-artifacts"</span>),
 				node_version,
 				secure_validator_mode,
 				prep_worker_path,
@@ -2643,8 +2645,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">use </span>futures::FutureExt;
 
 		task_manager.spawn_handle().spawn(
-			<span class="string">&quot;offchain-workers-runner&quot;</span>,
-			<span class="string">&quot;offchain-work&quot;</span>,
+			<span class="string">"offchain-workers-runner"</span>,
+			<span class="string">"offchain-work"</span>,
 			sc_offchain::OffchainWorkers::new(sc_offchain::OffchainWorkerOptions {
 				runtime_api_provider: client.clone(),
 				keystore: <span class="prelude-val">Some</span>(keystore_container.keystore()),
@@ -2682,8 +2684,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">match </span>SUBSTRATE_REFERENCE_HARDWARE.check_hardware(<span class="kw-2">&amp;</span>hwbench) {
 			<span class="prelude-val">Err</span>(err) <span class="kw">if </span>role.is_authority() =&gt; {
 				<span class="macro">log::warn!</span>(
-				<span class="string">&quot;⚠️  The hardware does not meet the minimal requirements {} for role &#39;Authority&#39; find out more at:\n\
-				https://wiki.polkadot.network/docs/maintain-guides-how-to-validate-polkadot#reference-hardware&quot;</span>,
+				<span class="string">"⚠️  The hardware does not meet the minimal requirements {} for role 'Authority' find out more at:\n\
+				https://wiki.polkadot.network/docs/maintain-guides-how-to-validate-polkadot#reference-hardware"</span>,
 				err
 			);
 			},
@@ -2693,7 +2695,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref mut </span>telemetry) = telemetry {
 			<span class="kw">let </span>telemetry_handle = telemetry.handle();
 			task_manager.spawn_handle().spawn(
-				<span class="string">&quot;telemetry_hwbench&quot;</span>,
+				<span class="string">"telemetry_hwbench"</span>,
 				<span class="prelude-val">None</span>,
 				sc_sysinfo::initialize_hwbench_telemetry(telemetry_handle, hwbench),
 			);
@@ -2716,11 +2718,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>authority_discovery_role = <span class="kw">if </span>role.is_authority() {
 				sc_authority_discovery::Role::PublishAndDiscover(keystore_container.keystore())
 			} <span class="kw">else </span>{
-				<span class="comment">// don&#39;t publish our addresses when we&#39;re not an authority (collator, cumulus, ..)
+				<span class="comment">// don't publish our addresses when we're not an authority (collator, cumulus, ..)
 				</span>sc_authority_discovery::Role::Discover
 			};
 			<span class="kw">let </span>dht_event_stream =
-				network.event_stream(<span class="string">&quot;authority-discovery&quot;</span>).filter_map(|e| <span class="kw">async move </span>{
+				network.event_stream(<span class="string">"authority-discovery"</span>).filter_map(|e| <span class="kw">async move </span>{
 					<span class="kw">match </span>e {
 						Event::Dht(e) =&gt; <span class="prelude-val">Some</span>(e),
 						<span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
@@ -2742,8 +2744,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			);
 
 			task_manager.spawn_handle().spawn(
-				<span class="string">&quot;authority-discovery-worker&quot;</span>,
-				<span class="prelude-val">Some</span>(<span class="string">&quot;authority-discovery&quot;</span>),
+				<span class="string">"authority-discovery-worker"</span>,
+				<span class="prelude-val">Some</span>(<span class="string">"authority-discovery"</span>),
 				Box::pin(worker.run()),
 			);
 			<span class="prelude-val">Some</span>(service)
@@ -2779,7 +2781,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				ext_overseer_args,
 			)
 			.map_err(|e| {
-				<span class="macro">gum::error!</span>(<span class="string">&quot;Failed to init overseer: {}&quot;</span>, e);
+				<span class="macro">gum::error!</span>(<span class="string">"Failed to init overseer: {}"</span>, e);
 				e
 			})<span class="question-mark">?</span>;
 		<span class="kw">let </span>handle = Handle::new(overseer_handle.clone());
@@ -2787,7 +2789,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		{
 			<span class="kw">let </span>handle = handle.clone();
 			task_manager.spawn_essential_handle().spawn_blocking(
-				<span class="string">&quot;overseer&quot;</span>,
+				<span class="string">"overseer"</span>,
 				<span class="prelude-val">None</span>,
 				Box::pin(<span class="kw">async move </span>{
 					<span class="kw">use </span>futures::{pin_mut, select, FutureExt};
@@ -2812,7 +2814,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	} <span class="kw">else </span>{
 		<span class="macro">assert!</span>(
 			!auth_or_collator,
-			<span class="string">&quot;Precondition congruence (false) is guaranteed by manual checking. qed&quot;
+			<span class="string">"Precondition congruence (false) is guaranteed by manual checking. qed"
 		</span>);
 		<span class="prelude-val">None
 	</span>};
@@ -2870,10 +2872,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		};
 
 		<span class="kw">let </span>babe = babe::start_babe(babe_config)<span class="question-mark">?</span>;
-		task_manager.spawn_essential_handle().spawn_blocking(<span class="string">&quot;babe&quot;</span>, <span class="prelude-val">None</span>, babe);
+		task_manager.spawn_essential_handle().spawn_blocking(<span class="string">"babe"</span>, <span class="prelude-val">None</span>, babe);
 	}
 
-	<span class="comment">// if the node isn&#39;t actively participating in consensus then it doesn&#39;t
+	<span class="comment">// if the node isn't actively participating in consensus then it doesn't
 	// need a keystore, regardless of which protocol we use below.
 	</span><span class="kw">let </span>keystore_opt = <span class="kw">if </span>role.is_authority() { <span class="prelude-val">Some</span>(keystore_container.keystore()) } <span class="kw">else </span>{ <span class="prelude-val">None </span>};
 
@@ -2905,16 +2907,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>gadget = beefy::start_beefy_gadget::&lt;<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;(beefy_params);
 
-		<span class="comment">// BEEFY is part of consensus, if it fails we&#39;ll bring the node down with it to make sure it
+		<span class="comment">// BEEFY is part of consensus, if it fails we'll bring the node down with it to make sure it
 		// is noticed.
 		</span>task_manager
 			.spawn_essential_handle()
-			.spawn_blocking(<span class="string">&quot;beefy-gadget&quot;</span>, <span class="prelude-val">None</span>, gadget);
+			.spawn_blocking(<span class="string">"beefy-gadget"</span>, <span class="prelude-val">None</span>, gadget);
 	}
 	<span class="comment">// When offchain indexing is enabled, MMR gadget should also run.
 	</span><span class="kw">if </span>is_offchain_indexing_enabled {
 		task_manager.spawn_essential_handle().spawn_blocking(
-			<span class="string">&quot;mmr-gadget&quot;</span>,
+			<span class="string">"mmr-gadget"</span>,
 			<span class="prelude-val">None</span>,
 			MmrGadget::start(
 				client.clone(),
@@ -2943,17 +2945,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// start the full GRANDPA voter
 		// NOTE: unlike in substrate we are currently running the full
 		// GRANDPA voter protocol for all full nodes (regardless of whether
-		// they&#39;re validators or not). at this point the full voter should
+		// they're validators or not). at this point the full voter should
 		// provide better guarantees of block and vote data availability than
 		// the observer.
 
 		</span><span class="kw">let </span><span class="kw-2">mut </span>voting_rules_builder = grandpa::VotingRulesBuilder::default();
 
-		<span class="attr">#[cfg(not(feature = <span class="string">&quot;malus&quot;</span>))]
+		<span class="attr">#[cfg(not(feature = <span class="string">"malus"</span>))]
 		</span><span class="kw">let </span>_malus_finality_delay = <span class="prelude-val">None</span>;
 
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(delay) = _malus_finality_delay {
-			<span class="macro">info!</span>(<span class="question-mark">?</span>delay, <span class="string">&quot;Enabling malus finality delay&quot;</span>,);
+			<span class="macro">info!</span>(<span class="question-mark">?</span>delay, <span class="string">"Enabling malus finality delay"</span>,);
 			voting_rules_builder = voting_rules_builder.add(grandpa::BeforeBestBlockBy(delay));
 		};
 
@@ -2971,7 +2973,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		};
 
 		task_manager.spawn_essential_handle().spawn_blocking(
-			<span class="string">&quot;grandpa-voter&quot;</span>,
+			<span class="string">"grandpa-voter"</span>,
 			<span class="prelude-val">None</span>,
 			grandpa::run_grandpa_voter(grandpa_config)<span class="question-mark">?</span>,
 		);
@@ -2990,7 +2992,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	})
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;full-node&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"full-node"</span>)]
 </span><span class="macro">macro_rules! </span>chain_ops {
 	(<span class="macro-nonterminal">$config</span>:expr, <span class="macro-nonterminal">$jaeger_agent</span>:expr, <span class="macro-nonterminal">$telemetry_worker_handle</span>:expr) =&gt; {{
 		<span class="kw">let </span>telemetry_worker_handle = <span class="macro-nonterminal">$telemetry_worker_handle</span>;
@@ -3009,7 +3011,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Builds a new object suitable for chain operations.
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;full-node&quot;</span>)]
+</span><span class="attr">#[cfg(feature = <span class="string">"full-node"</span>)]
 </span><span class="kw">pub fn </span>new_chain_ops(
 	config: <span class="kw-2">&amp;mut </span>Configuration,
 	jaeger_agent: <span class="prelude-ty">Option</span>&lt;std::net::SocketAddr&gt;,
@@ -3033,9 +3035,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Build a full node.
 ///
-/// The actual &quot;flavor&quot;, aka if it will use `Polkadot`, `Rococo` or `Kusama` is determined based on
+/// The actual "flavor", aka if it will use `Polkadot`, `Rococo` or `Kusama` is determined based on
 /// [`IdentifyVariant`] using the chain spec.
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;full-node&quot;</span>)]
+</span><span class="attr">#[cfg(feature = <span class="string">"full-node"</span>)]
 </span><span class="kw">pub fn </span>build_full&lt;OverseerGenerator: OverseerGen&gt;(
 	config: Configuration,
 	<span class="kw-2">mut </span>params: NewFullParams&lt;OverseerGenerator&gt;,
@@ -3045,7 +3047,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	params.overseer_message_channel_capacity_override =
 		params.overseer_message_channel_capacity_override.map(<span class="kw">move </span>|capacity| {
 			<span class="kw">if </span>is_polkadot {
-				<span class="macro">gum::warn!</span>(<span class="string">&quot;Channel capacity should _never_ be tampered with on polkadot!&quot;</span>);
+				<span class="macro">gum::warn!</span>(<span class="string">"Channel capacity should _never_ be tampered with on polkadot!"</span>);
 			}
 			capacity
 		});
@@ -3064,7 +3066,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// - `ApprovalVotingSubsystem` data in the parachains-db;
 /// - `ChainSelectionSubsystem` data in the parachains-db;
 /// - Low level Babe and Grandpa consensus data.
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;full-node&quot;</span>)]
+</span><span class="attr">#[cfg(feature = <span class="string">"full-node"</span>)]
 </span><span class="kw">pub fn </span>revert_backend(
 	client: Arc&lt;FullClient&gt;,
 	backend: Arc&lt;FullBackend&gt;,
@@ -3082,7 +3084,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>number = best_number - revertible;
 	<span class="kw">let </span>hash = client.block_hash_from_id(<span class="kw-2">&amp;</span>BlockId::Number(number))<span class="question-mark">?</span>.ok_or(
 		sp_blockchain::Error::Backend(<span class="macro">format!</span>(
-			<span class="string">&quot;Unexpected hash lookup failure for block number: {}&quot;</span>,
+			<span class="string">"Unexpected hash lookup failure for block number: {}"</span>,
 			number
 		)),
 	)<span class="question-mark">?</span>;

@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/executor/src/executor.rs`."><title>executor.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/executor/src/executor.rs`."><title>executor.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_executor" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_executor" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sc_executor/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -994,10 +996,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		std::panic::catch_unwind(f).map_err(|e| {
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(err) = e.downcast_ref::&lt;String&gt;() {
 				Error::RuntimePanicked(err.clone())
-			} <span class="kw">else if let </span><span class="prelude-val">Some</span>(err) = e.downcast_ref::&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt;() {
+			} <span class="kw">else if let </span><span class="prelude-val">Some</span>(err) = e.downcast_ref::&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt;() {
 				Error::RuntimePanicked(err.to_string())
 			} <span class="kw">else </span>{
-				Error::RuntimePanicked(<span class="string">&quot;Unknown panic&quot;</span>.into())
+				Error::RuntimePanicked(<span class="string">"Unknown panic"</span>.into())
 			}
 		})
 	})
@@ -1005,7 +1007,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Delegate for dispatching a CodeExecutor call.
 ///
-/// By dispatching we mean that we execute a runtime function specified by it&#39;s name.
+/// By dispatching we mean that we execute a runtime function specified by it's name.
 </span><span class="kw">pub trait </span>NativeExecutionDispatch: Send + Sync {
 	<span class="doccomment">/// Host functions for custom runtime interfaces that should be callable from within the runtime
 	/// besides the default Substrate runtime interfaces.
@@ -1214,7 +1216,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///   compiled execution method is used.
 	///
 	/// `runtime_cache_size` - The capacity of runtime cache.
-	</span><span class="attr">#[deprecated(note = <span class="string">&quot;use `Self::builder` method instead of it&quot;</span>)]
+	</span><span class="attr">#[deprecated(note = <span class="string">"use `Self::builder` method instead of it"</span>)]
 	</span><span class="kw">pub fn </span>new(
 		method: WasmExecutionMethod,
 		default_heap_pages: <span class="prelude-ty">Option</span>&lt;u64&gt;,
@@ -1248,7 +1250,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Ignore missing function imports if set true.
-	</span><span class="attr">#[deprecated(note = <span class="string">&quot;use `Self::builder` method instead of it&quot;</span>)]
+	</span><span class="attr">#[deprecated(note = <span class="string">"use `Self::builder` method instead of it"</span>)]
 	</span><span class="kw">pub fn </span>allow_missing_host_functions(<span class="kw-2">&amp;mut </span><span class="self">self</span>, allow_missing_host_functions: bool) {
 		<span class="self">self</span>.allow_missing_host_functions = allow_missing_host_functions
 	}
@@ -1363,10 +1365,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			allow_missing_host_functions,
 			<span class="self">self</span>.cache_path.as_deref(),
 		)
-		.map_err(|e| <span class="macro">format!</span>(<span class="string">&quot;Failed to create module: {}&quot;</span>, e))<span class="question-mark">?</span>;
+		.map_err(|e| <span class="macro">format!</span>(<span class="string">"Failed to create module: {}"</span>, e))<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>instance =
-			module.new_instance().map_err(|e| <span class="macro">format!</span>(<span class="string">&quot;Failed to create instance: {}&quot;</span>, e))<span class="question-mark">?</span>;
+			module.new_instance().map_err(|e| <span class="macro">format!</span>(<span class="string">"Failed to create instance: {}"</span>, e))<span class="question-mark">?</span>;
 
 		<span class="kw">let </span><span class="kw-2">mut </span>instance = AssertUnwindSafe(instance);
 		<span class="kw">let </span><span class="kw-2">mut </span>ext = AssertUnwindSafe(ext);
@@ -1392,16 +1394,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		ext: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>Externalities,
 	) -&gt; std::result::Result&lt;Vec&lt;u8&gt;, String&gt; {
 		<span class="kw">let </span>runtime_blob = RuntimeBlob::uncompress_if_needed(wasm_code)
-			.map_err(|e| <span class="macro">format!</span>(<span class="string">&quot;Failed to create runtime blob: {:?}&quot;</span>, e))<span class="question-mark">?</span>;
+			.map_err(|e| <span class="macro">format!</span>(<span class="string">"Failed to create runtime blob: {:?}"</span>, e))<span class="question-mark">?</span>;
 
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(version) = <span class="kw">crate</span>::wasm_runtime::read_embedded_version(<span class="kw-2">&amp;</span>runtime_blob)
-			.map_err(|e| <span class="macro">format!</span>(<span class="string">&quot;Failed to read the static section: {:?}&quot;</span>, e))
+			.map_err(|e| <span class="macro">format!</span>(<span class="string">"Failed to read the static section: {:?}"</span>, e))
 			.map(|v| v.map(|v| v.encode()))<span class="question-mark">?
 		</span>{
 			<span class="kw">return </span><span class="prelude-val">Ok</span>(version)
 		}
 
-		<span class="comment">// If the blob didn&#39;t have embedded runtime version section, we fallback to the legacy
+		<span class="comment">// If the blob didn't have embedded runtime version section, we fallback to the legacy
 		// way of fetching the version: i.e. instantiating the given instance and calling
 		// `Core_version` on it.
 
@@ -1413,7 +1415,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			// updated could run this successfully and it could lead to a storage root
 			// mismatch when importing this block.
 			</span><span class="bool-val">true</span>,
-			<span class="string">&quot;Core_version&quot;</span>,
+			<span class="string">"Core_version"</span>,
 			<span class="kw-2">&amp;</span>[],
 		)
 		.map_err(|e| e.to_string())
@@ -1435,9 +1437,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		context: CallContext,
 	) -&gt; (<span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;&gt;, bool) {
 		<span class="macro">tracing::trace!</span>(
-			target: <span class="string">&quot;executor&quot;</span>,
+			target: <span class="string">"executor"</span>,
 			%method,
-			<span class="string">&quot;Executing function&quot;</span>,
+			<span class="string">"Executing function"</span>,
 		);
 
 		<span class="kw">let </span>on_chain_heap_alloc_strategy = <span class="kw">if </span><span class="self">self</span>.ignore_onchain_heap_pages {
@@ -1490,7 +1492,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			ext,
 			on_chain_heap_pages,
 			|_module, _instance, version, _ext| {
-				<span class="prelude-val">Ok</span>(version.cloned().ok_or_else(|| Error::ApiError(<span class="string">&quot;Unknown version&quot;</span>.into())))
+				<span class="prelude-val">Ok</span>(version.cloned().ok_or_else(|| Error::ApiError(<span class="string">"Unknown version"</span>.into())))
 			},
 		)
 	}
@@ -1524,7 +1526,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// `max_runtime_instances` - The number of runtime instances to keep in memory ready for reuse.
 	///
 	/// `runtime_cache_size` - The capacity of runtime cache.
-	</span><span class="attr">#[deprecated(note = <span class="string">&quot;use `Self::new_with_wasm_executor` method instead of it&quot;</span>)]
+	</span><span class="attr">#[deprecated(note = <span class="string">"use `Self::new_with_wasm_executor` method instead of it"</span>)]
 	</span><span class="kw">pub fn </span>new(
 		fallback_method: WasmExecutionMethod,
 		default_heap_pages: <span class="prelude-ty">Option</span>&lt;u64&gt;,
@@ -1562,7 +1564,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Ignore missing function imports if set true.
-	</span><span class="attr">#[deprecated(note = <span class="string">&quot;use `Self::new_with_wasm_executor` method instead of it&quot;</span>)]
+	</span><span class="attr">#[deprecated(note = <span class="string">"use `Self::new_with_wasm_executor` method instead of it"</span>)]
 	</span><span class="kw">pub fn </span>allow_missing_host_functions(<span class="kw-2">&amp;mut </span><span class="self">self</span>, allow_missing_host_functions: bool) {
 		<span class="self">self</span>.wasm.allow_missing_host_functions = allow_missing_host_functions
 	}
@@ -1584,7 +1586,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;D: NativeExecutionDispatch + <span class="lifetime">&#39;static</span>&gt; CodeExecutor <span class="kw">for </span>NativeElseWasmExecutor&lt;D&gt; {
+<span class="kw">impl</span>&lt;D: NativeExecutionDispatch + <span class="lifetime">'static</span>&gt; CodeExecutor <span class="kw">for </span>NativeElseWasmExecutor&lt;D&gt; {
 	<span class="kw">type </span>Error = Error;
 
 	<span class="kw">fn </span>call(
@@ -1598,9 +1600,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>use_native = <span class="self">self</span>.use_native;
 
 		<span class="macro">tracing::trace!</span>(
-			target: <span class="string">&quot;executor&quot;</span>,
+			target: <span class="string">"executor"</span>,
 			function = %method,
-			<span class="string">&quot;Executing function&quot;</span>,
+			<span class="string">"Executing function"</span>,
 		);
 
 		<span class="kw">let </span>on_chain_heap_alloc_strategy = <span class="kw">if </span><span class="self">self</span>.wasm.ignore_onchain_heap_pages {
@@ -1624,17 +1626,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			heap_alloc_strategy,
 			|<span class="kw">_</span>, <span class="kw-2">mut </span>instance, on_chain_version, <span class="kw-2">mut </span>ext| {
 				<span class="kw">let </span>on_chain_version =
-					on_chain_version.ok_or_else(|| Error::ApiError(<span class="string">&quot;Unknown version&quot;</span>.into()))<span class="question-mark">?</span>;
+					on_chain_version.ok_or_else(|| Error::ApiError(<span class="string">"Unknown version"</span>.into()))<span class="question-mark">?</span>;
 
 				<span class="kw">let </span>can_call_with =
 					on_chain_version.can_call_with(<span class="kw-2">&amp;</span><span class="self">self</span>.native_version.runtime_version);
 
 				<span class="kw">if </span>use_native &amp;&amp; can_call_with {
 					<span class="macro">tracing::trace!</span>(
-						target: <span class="string">&quot;executor&quot;</span>,
+						target: <span class="string">"executor"</span>,
 						native = %<span class="self">self</span>.native_version.runtime_version,
 						chain = %on_chain_version,
-						<span class="string">&quot;Request for native execution succeeded&quot;</span>,
+						<span class="string">"Request for native execution succeeded"</span>,
 					);
 
 					used_native = <span class="bool-val">true</span>;
@@ -1643,10 +1645,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				} <span class="kw">else </span>{
 					<span class="kw">if </span>!can_call_with {
 						<span class="macro">tracing::trace!</span>(
-							target: <span class="string">&quot;executor&quot;</span>,
+							target: <span class="string">"executor"</span>,
 							native = %<span class="self">self</span>.native_version.runtime_version,
 							chain = %on_chain_version,
-							<span class="string">&quot;Request for native execution failed&quot;</span>,
+							<span class="string">"Request for native execution failed"</span>,
 						);
 					}
 
@@ -1686,7 +1688,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[runtime_interface]
 	</span><span class="kw">trait </span>MyInterface {
 		<span class="kw">fn </span>say_hello_world(data: <span class="kw-2">&amp;</span>str) {
-			<span class="macro">println!</span>(<span class="string">&quot;Hello world from: {}&quot;</span>, data);
+			<span class="macro">println!</span>(<span class="string">"Hello world from: {}"</span>, data);
 		}
 	}
 
@@ -1712,7 +1714,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">fn </span>extract_host_functions&lt;H&gt;(
 			<span class="kw">_</span>: <span class="kw-2">&amp;</span>WasmExecutor&lt;H&gt;,
-		) -&gt; Vec&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span><span class="kw">dyn </span>sp_wasm_interface::Function&gt;
+		) -&gt; Vec&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span><span class="kw">dyn </span>sp_wasm_interface::Function&gt;
 		<span class="kw">where
 			</span>H: HostFunctions,
 		{
@@ -1726,7 +1728,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span>);
 		});
 
-		my_interface::say_hello_world(<span class="string">&quot;hey&quot;</span>);
+		my_interface::say_hello_world(<span class="string">"hey"</span>);
 	}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

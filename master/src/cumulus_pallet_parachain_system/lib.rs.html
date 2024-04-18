@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `cumulus/pallets/parachain-system/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `cumulus/pallets/parachain-system/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="cumulus_pallet_parachain_system" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="cumulus_pallet_parachain_system" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../cumulus_pallet_parachain_system/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1924,7 +1926,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
 
-</span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
+</span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
 </span><span class="doccomment">//! `cumulus-pallet-parachain-system` is a base pallet for Cumulus-based parachains.
 //!
@@ -2046,7 +2048,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		previous: RelayChainBlockNumber,
 	) {
 		<span class="kw">if </span>current &lt;= previous {
-			<span class="macro">panic!</span>(<span class="string">&quot;Relay chain block number needs to strictly increase between Parachain blocks!&quot;</span>)
+			<span class="macro">panic!</span>(<span class="string">"Relay chain block number needs to strictly increase between Parachain blocks!"</span>)
 		}
 	}
 }
@@ -2073,7 +2075,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		previous: RelayChainBlockNumber,
 	) {
 		<span class="kw">if </span>current &lt; previous {
-			<span class="macro">panic!</span>(<span class="string">&quot;Relay chain block number needs to monotonically increase between Parachain blocks!&quot;</span>)
+			<span class="macro">panic!</span>(<span class="string">"Relay chain block number needs to monotonically increase between Parachain blocks!"</span>)
 		}
 	}
 }
@@ -2152,12 +2154,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		///
 		/// However, to maintain the same behavior as prior to asynchronous backing, provide the
 		/// [`consensus_hook::ExpectParentIncluded`] here. This is only necessary in the case
-		/// that collators aren&#39;t expected to have node versions that supply the included block
+		/// that collators aren't expected to have node versions that supply the included block
 		/// in the relay-chain state proof.
 		///
 		/// This config type is only available when the `parameterized-consensus-hook` crate feature
 		/// is activated.
-		</span><span class="attr">#[cfg(feature = <span class="string">&quot;parameterized-consensus-hook&quot;</span>)]
+		</span><span class="attr">#[cfg(feature = <span class="string">"parameterized-consensus-hook"</span>)]
 		</span><span class="kw">type </span>ConsensusHook: ConsensusHook;
 	}
 
@@ -2173,7 +2175,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>relay_upgrade_go_ahead = &lt;UpgradeGoAhead&lt;T&gt;&gt;::take();
 
 			<span class="kw">let </span>vfp = &lt;ValidationData&lt;T&gt;&gt;::get()
-				.expect(<span class="string">&quot;set_validation_data inherent needs to be present in every block!&quot;</span>);
+				.expect(<span class="string">"set_validation_data inherent needs to be present in every block!"</span>);
 
 			LastRelayChainBlockNumber::&lt;T&gt;::put(vfp.relay_parent_number);
 
@@ -2182,7 +2184,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="prelude-val">None </span>=&gt; {
 					<span class="macro">debug_assert!</span>(
 						<span class="bool-val">false</span>,
-						<span class="string">&quot;host configuration is promised to set until `on_finalize`; qed&quot;</span>,
+						<span class="string">"host configuration is promised to set until `on_finalize`; qed"</span>,
 					);
 					<span class="kw">return
 				</span>},
@@ -2196,8 +2198,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="prelude-val">None </span>=&gt; {
 					<span class="macro">debug_assert!</span>(
 						<span class="bool-val">false</span>,
-						<span class="string">&quot;relevant messaging state is promised to be set until `on_finalize`; \
-							qed&quot;</span>,
+						<span class="string">"relevant messaging state is promised to be set until `on_finalize`; \
+							qed"</span>,
 					);
 					<span class="kw">return
 				</span>},
@@ -2217,8 +2219,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="prelude-val">None </span>=&gt; {
 						<span class="macro">debug_assert!</span>(
 							<span class="bool-val">false</span>,
-							<span class="string">&quot;relevant messaging state is promised to be set until `on_finalize`; \
-								qed&quot;</span>,
+							<span class="string">"relevant messaging state is promised to be set until `on_finalize`; \
+								qed"</span>,
 						);
 						<span class="kw">return </span>(<span class="number">0</span>, <span class="number">0</span>)
 					},
@@ -2323,9 +2325,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 				aggregated_segment
 					.append(<span class="kw-2">&amp;</span>ancestor, watermark_update, <span class="kw-2">&amp;</span>total_bandwidth_out)
-					.expect(<span class="string">&quot;unincluded segment limits exceeded&quot;</span>);
+					.expect(<span class="string">"unincluded segment limits exceeded"</span>);
 				AggregatedUnincludedSegment::&lt;T&gt;::put(aggregated_segment);
-				<span class="comment">// Check in `on_initialize` guarantees there&#39;s space for this block.
+				<span class="comment">// Check in `on_initialize` guarantees there's space for this block.
 				</span>UnincludedSegment::&lt;T&gt;::append(ancestor);
 			}
 			HrmpOutboundMessages::&lt;T&gt;::put(outbound_messages);
@@ -2432,7 +2434,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			ensure_none(origin)<span class="question-mark">?</span>;
 			<span class="macro">assert!</span>(
 				!&lt;ValidationData&lt;T&gt;&gt;::exists(),
-				<span class="string">&quot;ValidationData must be updated only once in a block&quot;</span>,
+				<span class="string">"ValidationData must be updated only once in a block"</span>,
 			);
 
 			<span class="comment">// TODO: This is more than zero, but will need benchmarking to figure out what.
@@ -2440,7 +2442,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="comment">// NOTE: the inherent data is expected to be unique, even if this block is built
 			// in the context of the same relay parent as the previous one. In particular,
-			// the inherent shouldn&#39;t contain messages that were already processed by any of the
+			// the inherent shouldn't contain messages that were already processed by any of the
 			// ancestors.
 			//
 			// This invariant should be upheld by the `ProvideInherent` implementation.
@@ -2462,17 +2464,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				vfp.relay_parent_storage_root,
 				relay_chain_state.clone(),
 			)
-			.expect(<span class="string">&quot;Invalid relay chain state proof&quot;</span>);
+			.expect(<span class="string">"Invalid relay chain state proof"</span>);
 
 			<span class="comment">// Update the desired maximum capacity according to the consensus hook.
-			</span><span class="attr">#[cfg(feature = <span class="string">&quot;parameterized-consensus-hook&quot;</span>)]
+			</span><span class="attr">#[cfg(feature = <span class="string">"parameterized-consensus-hook"</span>)]
 			</span><span class="kw">let </span>(consensus_hook_weight, capacity) = T::ConsensusHook::on_state_proof(<span class="kw-2">&amp;</span>relay_state_proof);
-			<span class="attr">#[cfg(not(feature = <span class="string">&quot;parameterized-consensus-hook&quot;</span>))]
+			<span class="attr">#[cfg(not(feature = <span class="string">"parameterized-consensus-hook"</span>))]
 			</span><span class="kw">let </span>(consensus_hook_weight, capacity) = ExpectParentIncluded::on_state_proof(<span class="kw-2">&amp;</span>relay_state_proof);
 			total_weight += consensus_hook_weight;
 			total_weight += <span class="self">Self</span>::maybe_drop_included_ancestors(<span class="kw-2">&amp;</span>relay_state_proof, capacity);
 			<span class="comment">// Deposit a log indicating the relay-parent storage root.
-			// TODO: remove this in favor of the relay-parent&#39;s hash after
+			// TODO: remove this in favor of the relay-parent's hash after
 			// https://github.com/paritytech/cumulus/issues/303
 			</span>frame_system::Pallet::&lt;T&gt;::deposit_log(
 				cumulus_primitives_core::rpsr_digest::relay_parent_storage_root_item(
@@ -2486,7 +2488,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			// sequencing problem.
 			</span><span class="kw">let </span>upgrade_go_ahead_signal = relay_state_proof
 				.read_upgrade_go_ahead_signal()
-				.expect(<span class="string">&quot;Invalid upgrade go ahead signal&quot;</span>);
+				.expect(<span class="string">"Invalid upgrade go ahead signal"</span>);
 
 			<span class="kw">let </span>upgrade_signal_in_segment = AggregatedUnincludedSegment::&lt;T&gt;::get()
 				.as_ref()
@@ -2503,7 +2505,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="prelude-val">Some</span>(relay_chain::UpgradeGoAhead::GoAhead) =&gt; {
 					<span class="macro">assert!</span>(
 						&lt;PendingValidationCode&lt;T&gt;&gt;::exists(),
-						<span class="string">&quot;No new validation function found in storage, GoAhead signal is not expected&quot;</span>,
+						<span class="string">"No new validation function found in storage, GoAhead signal is not expected"</span>,
 					);
 					<span class="kw">let </span>validation_code = &lt;PendingValidationCode&lt;T&gt;&gt;::take();
 
@@ -2522,17 +2524,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			&lt;UpgradeRestrictionSignal&lt;T&gt;&gt;::put(
 				relay_state_proof
 					.read_upgrade_restriction_signal()
-					.expect(<span class="string">&quot;Invalid upgrade restriction signal&quot;</span>),
+					.expect(<span class="string">"Invalid upgrade restriction signal"</span>),
 			);
 			&lt;UpgradeGoAhead&lt;T&gt;&gt;::put(upgrade_go_ahead_signal);
 
 			<span class="kw">let </span>host_config = relay_state_proof
 				.read_abridged_host_configuration()
-				.expect(<span class="string">&quot;Invalid host configuration in relay chain state proof&quot;</span>);
+				.expect(<span class="string">"Invalid host configuration in relay chain state proof"</span>);
 
 			<span class="kw">let </span>relevant_messaging_state = relay_state_proof
 				.read_messaging_state_snapshot(<span class="kw-2">&amp;</span>host_config)
-				.expect(<span class="string">&quot;Invalid messaging state in relay chain state proof&quot;</span>);
+				.expect(<span class="string">"Invalid messaging state in relay chain state proof"</span>);
 
 			&lt;ValidationData&lt;T&gt;&gt;::put(<span class="kw-2">&amp;</span>vfp);
 			&lt;RelayStateProof&lt;T&gt;&gt;::put(relay_chain_state);
@@ -2568,7 +2570,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="doccomment">/// Authorize an upgrade to a given `code_hash` for the runtime. The runtime can be supplied
 		/// later.
 		///
-		/// The `check_version` parameter sets a boolean flag for whether or not the runtime&#39;s spec
+		/// The `check_version` parameter sets a boolean flag for whether or not the runtime's spec
 		/// version and name should be verified on upgrade. Since the authorization only has a hash,
 		/// it cannot actually perform the verification.
 		///
@@ -2577,7 +2579,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		#[pallet::weight(&lt;T <span class="kw">as </span>frame_system::Config&gt;::SystemWeightInfo::authorize_upgrade())]
 		#[allow(deprecated)]
 		#[deprecated(
-			note = <span class="string">&quot;To be removed after June 2024. Migrate to `frame_system::authorize_upgrade`.&quot;
+			note = <span class="string">"To be removed after June 2024. Migrate to `frame_system::authorize_upgrade`."
 		</span>)]
 		</span><span class="kw">pub fn </span>authorize_upgrade(
 			origin: OriginFor&lt;T&gt;,
@@ -2602,7 +2604,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		#[pallet::weight(&lt;T <span class="kw">as </span>frame_system::Config&gt;::SystemWeightInfo::apply_authorized_upgrade())]
 		#[allow(deprecated)]
 		#[deprecated(
-			note = <span class="string">&quot;To be removed after June 2024. Migrate to `frame_system::apply_authorized_upgrade`.&quot;
+			note = <span class="string">"To be removed after June 2024. Migrate to `frame_system::apply_authorized_upgrade`."
 		</span>)]
 		</span><span class="kw">pub fn </span>enact_authorized_upgrade(
 			<span class="kw">_</span>: OriginFor&lt;T&gt;,
@@ -2686,7 +2688,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>NewValidationCode&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, Vec&lt;u8&gt;, OptionQuery&gt;;
 
 	<span class="doccomment">/// The [`PersistedValidationData`] set for this block.
-	/// This value is expected to be set only once per block and it&#39;s never stored
+	/// This value is expected to be set only once per block and it's never stored
 	/// in the trie.
 	</span><span class="attr">#[pallet::storage]
 	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>ValidationData&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, PersistedValidationData&gt;;
@@ -2707,7 +2709,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// candidate will be invalid.
 	///
 	/// This storage item is a mirror of the corresponding value for the current parachain from the
-	/// relay-chain. This value is ephemeral which means it doesn&#39;t hit the storage. This value is
+	/// relay-chain. This value is ephemeral which means it doesn't hit the storage. This value is
 	/// set after the inherent.
 	</span><span class="attr">#[pallet::storage]
 	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>UpgradeRestrictionSignal&lt;T: Config&gt; =
@@ -2716,7 +2718,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Optional upgrade go-ahead signal from the relay-chain.
 	///
 	/// This storage item is a mirror of the corresponding value for the current parachain from the
-	/// relay-chain. This value is ephemeral which means it doesn&#39;t hit the storage. This value is
+	/// relay-chain. This value is ephemeral which means it doesn't hit the storage. This value is
 	/// set after the inherent.
 	</span><span class="attr">#[pallet::storage]
 	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>UpgradeGoAhead&lt;T: Config&gt; =
@@ -2839,7 +2841,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">fn </span>create_inherent(data: <span class="kw-2">&amp;</span>InherentData) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::Call&gt; {
 			<span class="kw">let </span><span class="kw-2">mut </span>data: ParachainInherentData =
 				data.get_data(<span class="kw-2">&amp;</span><span class="self">Self</span>::INHERENT_IDENTIFIER).ok().flatten().expect(
-					<span class="string">&quot;validation function params are always injected into inherent data; qed&quot;</span>,
+					<span class="string">"validation function params are always injected into inherent data; qed"</span>,
 				);
 
 			<span class="self">Self</span>::drop_processed_messages_from_inherent(<span class="kw-2">&amp;mut </span>data);
@@ -2863,7 +2865,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">impl</span>&lt;T: Config&gt; BuildGenesisConfig <span class="kw">for </span>GenesisConfig&lt;T&gt; {
 		<span class="kw">fn </span>build(<span class="kw-2">&amp;</span><span class="self">self</span>) {
 			<span class="comment">// TODO: Remove after https://github.com/paritytech/cumulus/issues/479
-			</span>sp_io::storage::set(<span class="string">b&quot;:c&quot;</span>, <span class="kw-2">&amp;</span>[]);
+			</span>sp_io::storage::set(<span class="string">b":c"</span>, <span class="kw-2">&amp;</span>[]);
 		}
 	}
 
@@ -2895,7 +2897,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
 	<span class="doccomment">/// Get the unincluded segment size after the given hash.
 	///
-	/// If the unincluded segment doesn&#39;t contain the given hash, this returns the
+	/// If the unincluded segment doesn't contain the given hash, this returns the
 	/// length of the entire unincluded segment.
 	///
 	/// This is intended to be used for determining how long the unincluded segment _would be_
@@ -2937,24 +2939,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		// block, in case this is called from `on_initialize`, i.e. before the inherent with
 		// fresh data is submitted.
 		//
-		// That shouldn&#39;t be a problem though because this is anticipated and already can
+		// That shouldn't be a problem though because this is anticipated and already can
 		// happen. This is because sending implies that a message is buffered until there is
 		// space to send a message in the candidate. After a while waiting in a buffer, it may
 		// be discovered that the channel to which a message were addressed is now closed.
 		// Another possibility, is that the maximum message size was decreased so that a
-		// message in the buffer doesn&#39;t fit. Should any of that happen the sender should be
+		// message in the buffer doesn't fit. Should any of that happen the sender should be
 		// notified about the message was discarded.
 		//
 		// Here it a similar case, with the difference that the realization that the channel is
 		// closed came the same block.
 		</span><span class="kw">let </span>channels = <span class="kw">match </span>RelevantMessagingState::&lt;T&gt;::get() {
 			<span class="prelude-val">None </span>=&gt; {
-				<span class="macro">log::warn!</span>(<span class="string">&quot;calling `get_channel_status` with no RelevantMessagingState?!&quot;</span>);
+				<span class="macro">log::warn!</span>(<span class="string">"calling `get_channel_status` with no RelevantMessagingState?!"</span>);
 				<span class="kw">return </span>ChannelStatus::Closed
 			},
 			<span class="prelude-val">Some</span>(d) =&gt; d.egress_channels,
 		};
-		<span class="comment">// ^^^ NOTE: This storage field should carry over from the previous block. So if it&#39;s
+		<span class="comment">// ^^^ NOTE: This storage field should carry over from the previous block. So if it's
 		// None then it must be that this is an edge-case where a message is attempted to be
 		// sent at the first block. It should be safe to assume that there are no channels
 		// opened at all so early. At least, relying on this assumption seems to be a better
@@ -2989,10 +2991,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
-	<span class="doccomment">/// Updates inherent data to only contain messages that weren&#39;t already processed
+	<span class="doccomment">/// Updates inherent data to only contain messages that weren't already processed
 	/// by the runtime based on last relay chain block number.
 	///
-	/// This method doesn&#39;t check for mqc heads mismatch.
+	/// This method doesn't check for mqc heads mismatch.
 	</span><span class="kw">fn </span>drop_processed_messages_from_inherent(para_inherent: <span class="kw-2">&amp;mut </span>ParachainInherentData) {
 		<span class="kw">let </span>ParachainInherentData { downward_messages, horizontal_messages, .. } = para_inherent;
 
@@ -3016,7 +3018,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			horizontal.drain(..horizontal_processed_num);
 		}
 
-		<span class="comment">// If MQC doesn&#39;t match after dropping messages, the runtime will panic when creating
+		<span class="comment">// If MQC doesn't match after dropping messages, the runtime will panic when creating
 		// inherent.
 	</span>}
 
@@ -3028,7 +3030,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// # Panics
 	///
 	/// If it turns out that after processing all messages the Message Queue Chain
-	/// hash doesn&#39;t match the expected.
+	/// hash doesn't match the expected.
 	</span><span class="kw">fn </span>enqueue_inbound_downward_messages(
 		expected_dmq_mqc_head: relay_chain::Hash,
 		downward_messages: Vec&lt;InboundDownwardMessage&gt;,
@@ -3051,7 +3053,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				</span>.filter_map(|m| <span class="kw">match </span>BoundedSlice::try_from(<span class="kw-2">&amp;</span>m.msg[..]) {
 					<span class="prelude-val">Ok</span>(bounded) =&gt; <span class="prelude-val">Some</span>(bounded),
 					<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
-						<span class="macro">defensive!</span>(<span class="string">&quot;Inbound Downward message was too long; dropping&quot;</span>);
+						<span class="macro">defensive!</span>(<span class="string">"Inbound Downward message was too long; dropping"</span>);
 						<span class="prelude-val">None
 					</span>},
 				});
@@ -3095,7 +3097,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		// channel exists if its MQC head is present in `vfp.hrmp_mqc_heads`.
 		</span><span class="kw">for </span>sender <span class="kw">in </span>horizontal_messages.keys() {
 			<span class="comment">// A violation of the assertion below indicates that one of the messages submitted
-			// by the collator was sent from a sender that doesn&#39;t have a channel opened to
+			// by the collator was sent from a sender that doesn't have a channel opened to
 			// this parachain, according to the relay-parent state.
 			</span><span class="macro">assert!</span>(ingress_channels.binary_search_by_key(sender, |<span class="kw-2">&amp;</span>(s, <span class="kw">_</span>)| s).is_ok(),);
 		}
@@ -3151,7 +3153,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		//
 		// Along the way we also carry over the relevant entries from the `last_mqc_heads` to
 		// `running_mqc_heads`. Otherwise, in a block where no messages were sent in a channel
-		// it won&#39;t get into next block&#39;s `last_mqc_heads` and thus will be all zeros, which
+		// it won't get into next block's `last_mqc_heads` and thus will be all zeros, which
 		// would corrupt the message queue chain.
 		</span><span class="kw">for </span>(sender, channel) <span class="kw">in </span>ingress_channels {
 			<span class="kw">let </span>cur_head = running_mqc_heads
@@ -3191,7 +3193,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="macro">assert_eq!</span>(
 					h,
 					frame_system::Pallet::&lt;T&gt;::parent_hash(),
-					<span class="string">&quot;expected parent to be included&quot;
+					<span class="string">"expected parent to be included"
 				</span>);
 
 				h
@@ -3202,7 +3204,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				// might still not provide the included block with the state proof.
 				</span>frame_system::Pallet::&lt;T&gt;::parent_hash()
 			},
-			(<span class="prelude-val">None</span>, <span class="bool-val">false</span>) =&gt; <span class="macro">panic!</span>(<span class="string">&quot;included head not present in relay storage proof&quot;</span>),
+			(<span class="prelude-val">None</span>, <span class="bool-val">false</span>) =&gt; <span class="macro">panic!</span>(<span class="string">"included head not present in relay storage proof"</span>),
 		};
 
 		<span class="kw">let </span>new_len = {
@@ -3215,7 +3217,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					.position(|block| {
 						<span class="kw">let </span>head_hash = block
 							.para_head_hash()
-							.expect(<span class="string">&quot;para head hash is updated during block initialization; qed&quot;</span>);
+							.expect(<span class="string">"para head hash is updated during block initialization; qed"</span>);
 						head_hash == <span class="kw-2">&amp;</span>para_head_hash
 					})
 					.map_or(<span class="number">0</span>, |idx| idx + <span class="number">1</span>); <span class="comment">// inclusive.
@@ -3228,7 +3230,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">if </span>!dropped.is_empty() {
 				&lt;AggregatedUnincludedSegment&lt;T&gt;&gt;::mutate(|agg| {
 					<span class="kw">let </span>agg = agg.as_mut().expect(
-						<span class="string">&quot;dropped part of the segment wasn&#39;t empty, hence value exists; qed&quot;</span>,
+						<span class="string">"dropped part of the segment wasn't empty, hence value exists; qed"</span>,
 					);
 					<span class="kw">for </span>block <span class="kw">in </span>dropped {
 						agg.subtract(<span class="kw-2">&amp;</span>block);
@@ -3244,7 +3246,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		//
 		// If this fails, the parachain needs to wait for ancestors to be included before
 		// a new block is allowed.
-		</span><span class="macro">assert!</span>(new_len &lt; capacity.get(), <span class="string">&quot;no space left for the block in the unincluded segment&quot;</span>);
+		</span><span class="macro">assert!</span>(new_len &lt; capacity.get(), <span class="string">"no space left for the block in the unincluded segment"</span>);
 		weight_used
 	}
 
@@ -3298,7 +3300,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// The maximum code size permitted, in bytes.
 	///
-	/// Returns `None` if the relay chain parachain host configuration hasn&#39;t been submitted yet.
+	/// Returns `None` if the relay chain parachain host configuration hasn't been submitted yet.
 	</span><span class="kw">pub fn </span>max_code_size() -&gt; <span class="prelude-ty">Option</span>&lt;u32&gt; {
 		&lt;HostConfiguration&lt;T&gt;&gt;::get().map(|cfg| cfg.max_code_size)
 	}
@@ -3371,7 +3373,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// The caller assumes that the pallet will accept regular outbound message to the sibling
 	/// `target_parachain` after this call. No other assumptions are made.
-	</span><span class="attr">#[cfg(any(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>, feature = <span class="string">&quot;std&quot;</span>))]
+	</span><span class="attr">#[cfg(any(feature = <span class="string">"runtime-benchmarks"</span>, feature = <span class="string">"std"</span>))]
 	</span><span class="kw">pub fn </span>open_outbound_hrmp_channel_for_benchmarks_or_tests(target_parachain: ParaId) {
 		RelevantMessagingState::&lt;T&gt;::put(MessagingStateSnapshot {
 			dmq_mqc_head: Default::default(),
@@ -3395,7 +3397,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// The caller assumes that the pallet will accept regular outbound message to the sibling
 	/// `target_parachain` after this call. No other assumptions are made.
-	</span><span class="attr">#[cfg(any(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>, feature = <span class="string">&quot;std&quot;</span>))]
+	</span><span class="attr">#[cfg(any(feature = <span class="string">"runtime-benchmarks"</span>, feature = <span class="string">"std"</span>))]
 	</span><span class="kw">pub fn </span>open_custom_outbound_hrmp_channel_for_benchmarks_or_tests(
 		target_parachain: ParaId,
 		channel: cumulus_primitives_core::AbridgedHrmpChannel,
@@ -3409,7 +3411,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Prepare/insert relevant data for `schedule_code_upgrade` for benchmarks.
-	</span><span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	</span><span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">pub fn </span>initialize_for_set_code_benchmark(max_code_size: u32) {
 		<span class="comment">// insert dummy ValidationData
 		</span><span class="kw">let </span>vfp = PersistedValidationData {
@@ -3462,7 +3464,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		// block, in case this is called from `on_initialize`, i.e. before the inherent with fresh
 		// data is submitted.
 		//
-		// That shouldn&#39;t be a problem since this is a preliminary check and the actual check would
+		// That shouldn't be a problem since this is a preliminary check and the actual check would
 		// be performed just before submitting the message from the candidate, and it already can
 		// happen that during the time the message is buffered for sending the relay-chain setting
 		// may change so that the message is no longer valid.
@@ -3480,18 +3482,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>pending_messages = PendingUpwardMessages::&lt;T&gt;::get();
 			<span class="kw">let </span>total_size: usize = pending_messages.iter().map(UpwardMessage::len).sum();
 			<span class="kw">if </span>total_size &gt; threshold <span class="kw">as </span>usize {
-				<span class="comment">// We increase the fee factor by a factor based on the new message&#39;s size in KB
+				<span class="comment">// We increase the fee factor by a factor based on the new message's size in KB
 				</span><span class="kw">let </span>message_size_factor = FixedU128::from((message_len / <span class="number">1024</span>) <span class="kw">as </span>u128)
 					.saturating_mul(ump_constants::MESSAGE_SIZE_FEE_BASE);
 				<span class="self">Self</span>::increase_fee_factor((), message_size_factor);
 			}
 		} <span class="kw">else </span>{
-			<span class="comment">// This storage field should carry over from the previous block. So if it&#39;s None
+			<span class="comment">// This storage field should carry over from the previous block. So if it's None
 			// then it must be that this is an edge-case where a message is attempted to be
 			// sent at the first block.
 			//
-			// Let&#39;s pass this message through. I think it&#39;s not unreasonable to expect that
-			// the message is not huge and it comes through, but if it doesn&#39;t it can be
+			// Let's pass this message through. I think it's not unreasonable to expect that
+			// the message is not huge and it comes through, but if it doesn't it can be
 			// returned back to the sender.
 			//
 			// Thus fall through here.
@@ -3518,7 +3520,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 </span><span class="kw">impl</span>&lt;T: Config&gt; polkadot_runtime_common::xcm_sender::EnsureForParachain <span class="kw">for </span>Pallet&lt;T&gt; {
 	<span class="kw">fn </span>ensure(para_id: ParaId) {
 		<span class="kw">if let </span>ChannelStatus::Closed = <span class="self">Self</span>::get_channel_status(para_id) {
@@ -3529,8 +3531,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Something that can check the inherents of a block.
 </span><span class="attr">#[cfg_attr(
-	feature = <span class="string">&quot;parameterized-consensus-hook&quot;</span>,
-	deprecated = <span class="string">&quot;consider switching to `cumulus-pallet-parachain-system::ConsensusHook`&quot;
+	feature = <span class="string">"parameterized-consensus-hook"</span>,
+	deprecated = <span class="string">"consider switching to `cumulus-pallet-parachain-system::ConsensusHook`"
 </span>)]
 </span><span class="kw">pub trait </span>CheckInherents&lt;Block: BlockT&gt; {
 	<span class="doccomment">/// Check all inherents of the block.
@@ -3595,7 +3597,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// else a noop.
 	///
 	/// It allows for setting a custom RelayChainState.
-	</span><span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	</span><span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">fn </span>set_current_relay_chain_state(_state: RelayChainState) {}
 }
 
@@ -3606,7 +3608,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// [`Pallet::last_relay_block_number()`].
 ///
 /// **NOTE**: This has been deprecated, please use [`RelaychainDataProvider`]
-</span><span class="attr">#[deprecated = <span class="string">&quot;Use `RelaychainDataProvider` instead&quot;</span>]
+</span><span class="attr">#[deprecated = <span class="string">"Use `RelaychainDataProvider` instead"</span>]
 </span><span class="kw">pub type </span>RelaychainBlockNumberProvider&lt;T&gt; = RelaychainDataProvider&lt;T&gt;;
 
 <span class="doccomment">/// Implements [`BlockNumberProvider`] and [`RelaychainStateProvider`] that returns relevant relay
@@ -3629,7 +3631,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.unwrap_or_else(|| Pallet::&lt;T&gt;::last_relay_block_number())
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">fn </span>set_block_number(block: <span class="self">Self</span>::BlockNumber) {
 		<span class="kw">let </span><span class="kw-2">mut </span>validation_data = ValidationData::&lt;T&gt;::get().unwrap_or_else(||
 			<span class="comment">// PersistedValidationData does not impl default in non-std
@@ -3654,7 +3656,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.unwrap_or_default()
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">fn </span>set_current_relay_chain_state(state: RelayChainState) {
 		<span class="kw">let </span><span class="kw-2">mut </span>validation_data = ValidationData::&lt;T&gt;::get().unwrap_or_else(||
 			<span class="comment">// PersistedValidationData does not impl default in non-std

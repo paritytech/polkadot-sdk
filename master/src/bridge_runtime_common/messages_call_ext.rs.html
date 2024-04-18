@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `bridges/bin/runtime-common/src/messages_call_ext.rs`."><title>messages_call_ext.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `bridges/bin/runtime-common/src/messages_call_ext.rs`."><title>messages_call_ext.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="bridge_runtime_common" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="bridge_runtime_common" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../bridge_runtime_common/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -922,19 +924,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// - or there are no bundled messages, but the inbound lane is blocked by too many unconfirmed
 	///   messages and/or unrewarded relayers.
 	</span><span class="kw">fn </span>is_obsolete(<span class="kw-2">&amp;</span><span class="self">self</span>, is_dispatcher_active: bool) -&gt; bool {
-		<span class="comment">// if dispatcher is inactive, we don&#39;t accept any delivery transactions
+		<span class="comment">// if dispatcher is inactive, we don't accept any delivery transactions
 		</span><span class="kw">if </span>!is_dispatcher_active {
 			<span class="kw">return </span><span class="bool-val">true
 		</span>}
 
-		<span class="comment">// transactions with zero bundled nonces are not allowed, unless they&#39;re message
+		<span class="comment">// transactions with zero bundled nonces are not allowed, unless they're message
 		// delivery transactions, which brings reward confirmations required to unblock
 		// the lane
 		</span><span class="kw">if </span><span class="self">self</span>.base.bundled_range.is_empty() {
 			<span class="kw">let </span>empty_transactions_allowed =
-				<span class="comment">// we allow empty transactions when we can&#39;t accept delivery from new relayers
+				<span class="comment">// we allow empty transactions when we can't accept delivery from new relayers
 				</span><span class="self">self</span>.unrewarded_relayers.free_relayer_slots == <span class="number">0 </span>||
-				<span class="comment">// or if we can&#39;t accept new messages at all
+				<span class="comment">// or if we can't accept new messages at all
 				</span><span class="self">self</span>.unrewarded_relayers.free_message_slots == <span class="number">0</span>;
 
 			<span class="kw">return </span>!empty_transactions_allowed
@@ -977,11 +979,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Helper struct that provides methods for working with a call supported by `CallInfo`.
-</span><span class="kw">pub struct </span>CallHelper&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; {
+</span><span class="kw">pub struct </span>CallHelper&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; {
 	_phantom_data: sp_std::marker::PhantomData&lt;(T, I)&gt;,
 }
 
-<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; CallHelper&lt;T, I&gt; {
+<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; CallHelper&lt;T, I&gt; {
 	<span class="doccomment">/// Returns true if:
 	///
 	/// - call is `receive_messages_proof` and all messages have been delivered;
@@ -996,7 +998,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">if </span>info.base.bundled_range.is_empty() {
 					<span class="kw">let </span>post_occupation =
 						unrewarded_relayers_occupation::&lt;T, I&gt;(<span class="kw-2">&amp;</span>inbound_lane_data);
-					<span class="comment">// we don&#39;t care about `free_relayer_slots` here - it is checked in
+					<span class="comment">// we don't care about `free_relayer_slots` here - it is checked in
 					// `is_obsolete` and every relayer has delivered at least one message,
 					// so if relayer slots are released, then message slots are also
 					// released
@@ -1016,7 +1018,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Trait representing a call that is a sub type of `pallet_bridge_messages::Call`.
-</span><span class="kw">pub trait </span>MessagesCallSubType&lt;T: Config&lt;I, RuntimeCall = <span class="self">Self</span>&gt;, I: <span class="lifetime">&#39;static</span>&gt;:
+</span><span class="kw">pub trait </span>MessagesCallSubType&lt;T: Config&lt;I, RuntimeCall = <span class="self">Self</span>&gt;, I: <span class="lifetime">'static</span>&gt;:
 	IsSubType&lt;CallableCallFor&lt;Pallet&lt;T, I&gt;, T&gt;&gt;
 {
 	<span class="doccomment">/// Create a new instance of `ReceiveMessagesProofInfo` from a `ReceiveMessagesProof` call.
@@ -1066,7 +1068,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		Call: IsSubType&lt;CallableCallFor&lt;Pallet&lt;T, I&gt;, T&gt;&gt;,
 		T: frame_system::Config&lt;RuntimeCall = Call&gt;
 			+ Config&lt;I, SourceHeaderChain = SourceHeaderChain, TargetHeaderChain = TargetHeaderChain&gt;,
-		I: <span class="lifetime">&#39;static</span>,
+		I: <span class="lifetime">'static</span>,
 	&gt; MessagesCallSubType&lt;T, I&gt; <span class="kw">for </span>T::RuntimeCall
 {
 	<span class="kw">fn </span>receive_messages_proof_info(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;ReceiveMessagesProofInfo&gt; {
@@ -1103,8 +1105,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="kw">return </span><span class="prelude-val">Some</span>(ReceiveMessagesDeliveryProofInfo(BaseMessagesProofInfo {
 				lane_id: proof.lane,
-				<span class="comment">// there&#39;s a time frame between message delivery, message confirmation and reward
-				// confirmation. Because of that, we can&#39;t assume that our state has been confirmed
+				<span class="comment">// there's a time frame between message delivery, message confirmation and reward
+				// confirmation. Because of that, we can't assume that our state has been confirmed
 				// to the bridged chain. So we are accepting any proof that brings new
 				// confirmations.
 				</span>bundled_range: outbound_lane_data.latest_received_nonce + <span class="number">1</span>..=
@@ -1144,7 +1146,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Some</span>(proof_info) <span class="kw">if </span>is_pallet_halted =&gt; {
 				<span class="macro">log::trace!</span>(
 					target: pallet_bridge_messages::LOG_TARGET,
-					<span class="string">&quot;Rejecting messages transaction on halted pallet: {:?}&quot;</span>,
+					<span class="string">"Rejecting messages transaction on halted pallet: {:?}"</span>,
 					proof_info
 				);
 
@@ -1155,7 +1157,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			{
 				<span class="macro">log::trace!</span>(
 					target: pallet_bridge_messages::LOG_TARGET,
-					<span class="string">&quot;Rejecting obsolete messages delivery transaction: {:?}&quot;</span>,
+					<span class="string">"Rejecting obsolete messages delivery transaction: {:?}"</span>,
 					proof_info
 				);
 
@@ -1166,7 +1168,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			{
 				<span class="macro">log::trace!</span>(
 					target: pallet_bridge_messages::LOG_TARGET,
-					<span class="string">&quot;Rejecting obsolete messages confirmation transaction: {:?}&quot;</span>,
+					<span class="string">"Rejecting obsolete messages confirmation transaction: {:?}"</span>,
 					proof_info,
 				);
 
@@ -1180,7 +1182,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Returns occupation state of unrewarded relayers vector.
-</span><span class="kw">fn </span>unrewarded_relayers_occupation&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt;(
+</span><span class="kw">fn </span>unrewarded_relayers_occupation&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt;(
 	inbound_lane_data: <span class="kw-2">&amp;</span>InboundLaneData&lt;T::InboundRelayer&gt;,
 ) -&gt; UnrewardedRelayerOccupation {
 	UnrewardedRelayerOccupation {
@@ -1275,7 +1277,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>extension_rejects_obsolete_messages() {
 		sp_io::TestExternalities::new(Default::default()).execute_with(|| {
-			<span class="comment">// when current best delivered is message#10 and we&#39;re trying to deliver messages 8..=9
+			<span class="comment">// when current best delivered is message#10 and we're trying to deliver messages 8..=9
 			// =&gt; tx is rejected
 			</span>deliver_message_10();
 			<span class="macro">assert!</span>(!validate_message_delivery(<span class="number">8</span>, <span class="number">9</span>));
@@ -1285,7 +1287,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>extension_rejects_same_message() {
 		sp_io::TestExternalities::new(Default::default()).execute_with(|| {
-			<span class="comment">// when current best delivered is message#10 and we&#39;re trying to import messages 10..=10
+			<span class="comment">// when current best delivered is message#10 and we're trying to import messages 10..=10
 			// =&gt; tx is rejected
 			</span>deliver_message_10();
 			<span class="macro">assert!</span>(!validate_message_delivery(<span class="number">8</span>, <span class="number">10</span>));
@@ -1295,7 +1297,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>extension_rejects_call_with_some_obsolete_messages() {
 		sp_io::TestExternalities::new(Default::default()).execute_with(|| {
-			<span class="comment">// when current best delivered is message#10 and we&#39;re trying to deliver messages
+			<span class="comment">// when current best delivered is message#10 and we're trying to deliver messages
 			// 10..=15 =&gt; tx is rejected
 			</span>deliver_message_10();
 			<span class="macro">assert!</span>(!validate_message_delivery(<span class="number">10</span>, <span class="number">15</span>));
@@ -1305,7 +1307,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>extension_rejects_call_with_future_messages() {
 		sp_io::TestExternalities::new(Default::default()).execute_with(|| {
-			<span class="comment">// when current best delivered is message#10 and we&#39;re trying to deliver messages
+			<span class="comment">// when current best delivered is message#10 and we're trying to deliver messages
 			// 13..=15 =&gt; tx is rejected
 			</span>deliver_message_10();
 			<span class="macro">assert!</span>(!validate_message_delivery(<span class="number">13</span>, <span class="number">15</span>));
@@ -1315,7 +1317,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>extension_reject_call_when_dispatcher_is_inactive() {
 		sp_io::TestExternalities::new(Default::default()).execute_with(|| {
-			<span class="comment">// when current best delivered is message#10 and we&#39;re trying to deliver message 11..=15
+			<span class="comment">// when current best delivered is message#10 and we're trying to deliver message 11..=15
 			// =&gt; tx is accepted, but we have inactive dispatcher, so...
 			</span>deliver_message_10();
 
@@ -1358,7 +1360,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>extension_accepts_new_messages() {
 		sp_io::TestExternalities::new(Default::default()).execute_with(|| {
-			<span class="comment">// when current best delivered is message#10 and we&#39;re trying to deliver message 11..=15
+			<span class="comment">// when current best delivered is message#10 and we're trying to deliver message 11..=15
 			// =&gt; tx is accepted
 			</span>deliver_message_10();
 			<span class="macro">assert!</span>(validate_message_delivery(<span class="number">11</span>, <span class="number">15</span>));
@@ -1397,7 +1399,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>extension_rejects_obsolete_confirmations() {
 		sp_io::TestExternalities::new(Default::default()).execute_with(|| {
-			<span class="comment">// when current best confirmed is message#10 and we&#39;re trying to confirm message#5 =&gt; tx
+			<span class="comment">// when current best confirmed is message#10 and we're trying to confirm message#5 =&gt; tx
 			// is rejected
 			</span>confirm_message_10();
 			<span class="macro">assert!</span>(!validate_message_confirmation(<span class="number">5</span>));
@@ -1407,7 +1409,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>extension_rejects_same_confirmation() {
 		sp_io::TestExternalities::new(Default::default()).execute_with(|| {
-			<span class="comment">// when current best confirmed is message#10 and we&#39;re trying to confirm message#10 =&gt;
+			<span class="comment">// when current best confirmed is message#10 and we're trying to confirm message#10 =&gt;
 			// tx is rejected
 			</span>confirm_message_10();
 			<span class="macro">assert!</span>(!validate_message_confirmation(<span class="number">10</span>));
@@ -1426,7 +1428,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>extension_accepts_new_confirmation() {
 		sp_io::TestExternalities::new(Default::default()).execute_with(|| {
-			<span class="comment">// when current best confirmed is message#10 and we&#39;re trying to confirm message#15 =&gt;
+			<span class="comment">// when current best confirmed is message#10 and we're trying to confirm message#15 =&gt;
 			// tx is accepted
 			</span>confirm_message_10();
 			<span class="macro">assert!</span>(validate_message_confirmation(<span class="number">15</span>));
@@ -1442,10 +1444,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				base: BaseMessagesProofInfo {
 					lane_id: LaneId([<span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>]),
 					bundled_range,
-					best_stored_nonce: <span class="number">0</span>, <span class="comment">// doesn&#39;t matter for `was_successful`
+					best_stored_nonce: <span class="number">0</span>, <span class="comment">// doesn't matter for `was_successful`
 				</span>},
 				unrewarded_relayers: UnrewardedRelayerOccupation {
-					free_relayer_slots: <span class="number">0</span>, <span class="comment">// doesn&#39;t matter for `was_successful`
+					free_relayer_slots: <span class="number">0</span>, <span class="comment">// doesn't matter for `was_successful`
 					</span>free_message_slots: <span class="kw">if </span>is_empty {
 						<span class="number">0
 					</span>} <span class="kw">else </span>{
@@ -1502,7 +1504,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			ReceiveMessagesDeliveryProofInfo(BaseMessagesProofInfo {
 				lane_id: LaneId([<span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>]),
 				bundled_range,
-				best_stored_nonce: <span class="number">0</span>, <span class="comment">// doesn&#39;t matter for `was_successful`
+				best_stored_nonce: <span class="number">0</span>, <span class="comment">// doesn't matter for `was_successful`
 			</span>}),
 		))
 	}

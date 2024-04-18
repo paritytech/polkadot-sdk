@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/rpc-spec-v2/src/chain_head/event.rs`."><title>event.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/rpc-spec-v2/src/chain_head/event.rs`."><title>event.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sc_rpc_spec_v2" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sc_rpc_spec_v2" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../sc_rpc_spec_v2/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -819,7 +821,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see &lt;https://www.gnu.org/licenses/&gt;.
 
-</span><span class="doccomment">//! The chain head&#39;s event returned as json compatible object.
+</span><span class="doccomment">//! The chain head's event returned as json compatible object.
 
 </span><span class="kw">use </span>serde::{ser::SerializeStruct, Deserialize, Serialize, Serializer};
 <span class="kw">use </span>sp_api::ApiError;
@@ -830,7 +832,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// The operation could not be processed due to an error.
 </span><span class="attr">#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = <span class="string">&quot;camelCase&quot;</span>)]
+#[serde(rename_all = <span class="string">"camelCase"</span>)]
 </span><span class="kw">pub struct </span>ErrorEvent {
 	<span class="doccomment">/// Reason of the error.
 	</span><span class="kw">pub </span>error: String,
@@ -842,7 +844,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///   - the first announced block by the follow subscription
 ///   - blocks that suffered a change in runtime compared with their parents
 </span><span class="attr">#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = <span class="string">&quot;camelCase&quot;</span>)]
+#[serde(rename_all = <span class="string">"camelCase"</span>)]
 </span><span class="kw">pub struct </span>RuntimeVersionEvent {
 	<span class="doccomment">/// The runtime version.
 	</span><span class="kw">pub </span>spec: ChainHeadRuntimeVersion,
@@ -851,7 +853,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Simplified type clone of `sp_version::RuntimeVersion`. Used instead of
 /// `sp_version::RuntimeVersion` to conform to RPC spec V2.
 </span><span class="attr">#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = <span class="string">&quot;camelCase&quot;</span>)]
+#[serde(rename_all = <span class="string">"camelCase"</span>)]
 </span><span class="kw">pub struct </span>ChainHeadRuntimeVersion {
 	<span class="doccomment">/// Identifies the different Substrate runtimes.
 	</span><span class="kw">pub </span>spec_name: String,
@@ -861,7 +863,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>spec_version: u32,
 	<span class="doccomment">/// Version of the implementation of the specification.
 	</span><span class="kw">pub </span>impl_version: u32,
-	<span class="doccomment">/// Map of all supported API &quot;features&quot; and their versions.
+	<span class="doccomment">/// Map of all supported API "features" and their versions.
 	</span><span class="kw">pub </span>apis: BTreeMap&lt;String, u32&gt;,
 	<span class="doccomment">/// Transaction version.
 	</span><span class="kw">pub </span>transaction_version: u32,
@@ -887,8 +889,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// The runtime event generated if the `follow` subscription
 /// has set the `with_runtime` flag.
 </span><span class="attr">#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = <span class="string">&quot;camelCase&quot;</span>)]
-#[serde(tag = <span class="string">&quot;type&quot;</span>)]
+#[serde(rename_all = <span class="string">"camelCase"</span>)]
+#[serde(tag = <span class="string">"type"</span>)]
 </span><span class="kw">pub enum </span>RuntimeEvent {
 	<span class="doccomment">/// The runtime version of this block.
 	</span>Valid(RuntimeVersionEvent),
@@ -898,7 +900,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl </span>From&lt;ApiError&gt; <span class="kw">for </span>RuntimeEvent {
 	<span class="kw">fn </span>from(err: ApiError) -&gt; <span class="self">Self </span>{
-		RuntimeEvent::Invalid(ErrorEvent { error: <span class="macro">format!</span>(<span class="string">&quot;Api error: {}&quot;</span>, err) })
+		RuntimeEvent::Invalid(ErrorEvent { error: <span class="macro">format!</span>(<span class="string">"Api error: {}"</span>, err) })
 	}
 }
 
@@ -912,7 +914,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// If the `with_runtime` flag is set, then this event contains
 /// the `RuntimeEvent`, otherwise the `RuntimeEvent` is not present.
 </span><span class="attr">#[derive(Debug, Clone, PartialEq, Deserialize)]
-#[serde(rename_all = <span class="string">&quot;camelCase&quot;</span>)]
+#[serde(rename_all = <span class="string">"camelCase"</span>)]
 </span><span class="kw">pub struct </span>Initialized&lt;Hash&gt; {
 	<span class="doccomment">/// The hash of the latest finalized blocks.
 	</span><span class="kw">pub </span>finalized_block_hashes: Vec&lt;Hash&gt;,
@@ -937,13 +939,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>S: Serializer,
 	{
 		<span class="kw">if </span><span class="self">self</span>.with_runtime {
-			<span class="kw">let </span><span class="kw-2">mut </span>state = serializer.serialize_struct(<span class="string">&quot;Initialized&quot;</span>, <span class="number">2</span>)<span class="question-mark">?</span>;
-			state.serialize_field(<span class="string">&quot;finalizedBlockHashes&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.finalized_block_hashes)<span class="question-mark">?</span>;
-			state.serialize_field(<span class="string">&quot;finalizedBlockRuntime&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.finalized_block_runtime)<span class="question-mark">?</span>;
+			<span class="kw">let </span><span class="kw-2">mut </span>state = serializer.serialize_struct(<span class="string">"Initialized"</span>, <span class="number">2</span>)<span class="question-mark">?</span>;
+			state.serialize_field(<span class="string">"finalizedBlockHashes"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.finalized_block_hashes)<span class="question-mark">?</span>;
+			state.serialize_field(<span class="string">"finalizedBlockRuntime"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.finalized_block_runtime)<span class="question-mark">?</span>;
 			state.end()
 		} <span class="kw">else </span>{
-			<span class="kw">let </span><span class="kw-2">mut </span>state = serializer.serialize_struct(<span class="string">&quot;Initialized&quot;</span>, <span class="number">1</span>)<span class="question-mark">?</span>;
-			state.serialize_field(<span class="string">&quot;finalizedBlockHashes&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.finalized_block_hashes)<span class="question-mark">?</span>;
+			<span class="kw">let </span><span class="kw-2">mut </span>state = serializer.serialize_struct(<span class="string">"Initialized"</span>, <span class="number">1</span>)<span class="question-mark">?</span>;
+			state.serialize_field(<span class="string">"finalizedBlockHashes"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.finalized_block_hashes)<span class="question-mark">?</span>;
 			state.end()
 		}
 	}
@@ -951,7 +953,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Indicate a new non-finalized block.
 </span><span class="attr">#[derive(Debug, Clone, PartialEq, Deserialize)]
-#[serde(rename_all = <span class="string">&quot;camelCase&quot;</span>)]
+#[serde(rename_all = <span class="string">"camelCase"</span>)]
 </span><span class="kw">pub struct </span>NewBlock&lt;Hash&gt; {
 	<span class="doccomment">/// The hash of the new block.
 	</span><span class="kw">pub </span>block_hash: Hash,
@@ -978,15 +980,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>S: Serializer,
 	{
 		<span class="kw">if </span><span class="self">self</span>.with_runtime {
-			<span class="kw">let </span><span class="kw-2">mut </span>state = serializer.serialize_struct(<span class="string">&quot;NewBlock&quot;</span>, <span class="number">3</span>)<span class="question-mark">?</span>;
-			state.serialize_field(<span class="string">&quot;blockHash&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.block_hash)<span class="question-mark">?</span>;
-			state.serialize_field(<span class="string">&quot;parentBlockHash&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.parent_block_hash)<span class="question-mark">?</span>;
-			state.serialize_field(<span class="string">&quot;newRuntime&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.new_runtime)<span class="question-mark">?</span>;
+			<span class="kw">let </span><span class="kw-2">mut </span>state = serializer.serialize_struct(<span class="string">"NewBlock"</span>, <span class="number">3</span>)<span class="question-mark">?</span>;
+			state.serialize_field(<span class="string">"blockHash"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.block_hash)<span class="question-mark">?</span>;
+			state.serialize_field(<span class="string">"parentBlockHash"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.parent_block_hash)<span class="question-mark">?</span>;
+			state.serialize_field(<span class="string">"newRuntime"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.new_runtime)<span class="question-mark">?</span>;
 			state.end()
 		} <span class="kw">else </span>{
-			<span class="kw">let </span><span class="kw-2">mut </span>state = serializer.serialize_struct(<span class="string">&quot;NewBlock&quot;</span>, <span class="number">2</span>)<span class="question-mark">?</span>;
-			state.serialize_field(<span class="string">&quot;blockHash&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.block_hash)<span class="question-mark">?</span>;
-			state.serialize_field(<span class="string">&quot;parentBlockHash&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.parent_block_hash)<span class="question-mark">?</span>;
+			<span class="kw">let </span><span class="kw-2">mut </span>state = serializer.serialize_struct(<span class="string">"NewBlock"</span>, <span class="number">2</span>)<span class="question-mark">?</span>;
+			state.serialize_field(<span class="string">"blockHash"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.block_hash)<span class="question-mark">?</span>;
+			state.serialize_field(<span class="string">"parentBlockHash"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.parent_block_hash)<span class="question-mark">?</span>;
 			state.end()
 		}
 	}
@@ -994,7 +996,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Indicate the block hash of the new best block.
 </span><span class="attr">#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = <span class="string">&quot;camelCase&quot;</span>)]
+#[serde(rename_all = <span class="string">"camelCase"</span>)]
 </span><span class="kw">pub struct </span>BestBlockChanged&lt;Hash&gt; {
 	<span class="doccomment">/// The block hash of the new best block.
 	</span><span class="kw">pub </span>best_block_hash: Hash,
@@ -1002,7 +1004,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Indicate the finalized and pruned block hashes.
 </span><span class="attr">#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = <span class="string">&quot;camelCase&quot;</span>)]
+#[serde(rename_all = <span class="string">"camelCase"</span>)]
 </span><span class="kw">pub struct </span>Finalized&lt;Hash&gt; {
 	<span class="doccomment">/// Block hashes that are finalized.
 	</span><span class="kw">pub </span>finalized_block_hashes: Vec&lt;Hash&gt;,
@@ -1012,7 +1014,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Indicate the operation id of the event.
 </span><span class="attr">#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = <span class="string">&quot;camelCase&quot;</span>)]
+#[serde(rename_all = <span class="string">"camelCase"</span>)]
 </span><span class="kw">pub struct </span>OperationId {
 	<span class="doccomment">/// The operation id of the event.
 	</span><span class="kw">pub </span>operation_id: String,
@@ -1020,7 +1022,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// The response of the `chainHead_body` method.
 </span><span class="attr">#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = <span class="string">&quot;camelCase&quot;</span>)]
+#[serde(rename_all = <span class="string">"camelCase"</span>)]
 </span><span class="kw">pub struct </span>OperationBodyDone {
 	<span class="doccomment">/// The operation id of the event.
 	</span><span class="kw">pub </span>operation_id: String,
@@ -1030,7 +1032,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// The response of the `chainHead_call` method.
 </span><span class="attr">#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = <span class="string">&quot;camelCase&quot;</span>)]
+#[serde(rename_all = <span class="string">"camelCase"</span>)]
 </span><span class="kw">pub struct </span>OperationCallDone {
 	<span class="doccomment">/// The operation id of the event.
 	</span><span class="kw">pub </span>operation_id: String,
@@ -1040,7 +1042,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// The response of the `chainHead_call` method.
 </span><span class="attr">#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = <span class="string">&quot;camelCase&quot;</span>)]
+#[serde(rename_all = <span class="string">"camelCase"</span>)]
 </span><span class="kw">pub struct </span>OperationStorageItems {
 	<span class="doccomment">/// The operation id of the event.
 	</span><span class="kw">pub </span>operation_id: String,
@@ -1050,7 +1052,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Indicate a problem during the operation.
 </span><span class="attr">#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = <span class="string">&quot;camelCase&quot;</span>)]
+#[serde(rename_all = <span class="string">"camelCase"</span>)]
 </span><span class="kw">pub struct </span>OperationError {
 	<span class="doccomment">/// The operation id of the event.
 	</span><span class="kw">pub </span>operation_id: String,
@@ -1081,8 +1083,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// The stop event indicates that the JSON-RPC server was unable to provide a consistent list of
 /// the blocks at the head of the chain.
 </span><span class="attr">#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = <span class="string">&quot;camelCase&quot;</span>)]
-#[serde(tag = <span class="string">&quot;event&quot;</span>)]
+#[serde(rename_all = <span class="string">"camelCase"</span>)]
+#[serde(tag = <span class="string">"event"</span>)]
 </span><span class="kw">pub enum </span>FollowEvent&lt;Hash&gt; {
 	<span class="doccomment">/// The latest finalized block.
 	///
@@ -1120,8 +1122,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// The method response of `chainHead_body`, `chainHead_call` and `chainHead_storage`.
 </span><span class="attr">#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = <span class="string">&quot;camelCase&quot;</span>)]
-#[serde(tag = <span class="string">&quot;result&quot;</span>)]
+#[serde(rename_all = <span class="string">"camelCase"</span>)]
+#[serde(tag = <span class="string">"result"</span>)]
 </span><span class="kw">pub enum </span>MethodResponse {
 	<span class="doccomment">/// The method has started.
 	</span>Started(MethodResponseStarted),
@@ -1131,12 +1133,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// The `started` result of a method.
 </span><span class="attr">#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = <span class="string">&quot;camelCase&quot;</span>)]
+#[serde(rename_all = <span class="string">"camelCase"</span>)]
 </span><span class="kw">pub struct </span>MethodResponseStarted {
 	<span class="doccomment">/// The operation id of the response.
 	</span><span class="kw">pub </span>operation_id: String,
 	<span class="doccomment">/// The number of items from the back of the `chainHead_storage` that have been discarded.
-	</span><span class="attr">#[serde(skip_serializing_if = <span class="string">&quot;Option::is_none&quot;</span>)]
+	</span><span class="attr">#[serde(skip_serializing_if = <span class="string">"Option::is_none"</span>)]
 	#[serde(default)]
 	</span><span class="kw">pub </span>discarded_items: <span class="prelude-ty">Option</span>&lt;usize&gt;,
 }
@@ -1151,13 +1153,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>follow_initialized_event_no_updates() {
 		<span class="comment">// Runtime flag is false.
 		</span><span class="kw">let </span>event: FollowEvent&lt;String&gt; = FollowEvent::Initialized(Initialized {
-			finalized_block_hashes: <span class="macro">vec!</span>[<span class="string">&quot;0x1&quot;</span>.into()],
+			finalized_block_hashes: <span class="macro">vec!</span>[<span class="string">"0x1"</span>.into()],
 			finalized_block_runtime: <span class="prelude-val">None</span>,
 			with_runtime: <span class="bool-val">false</span>,
 		});
 
 		<span class="kw">let </span>ser = serde_json::to_string(<span class="kw-2">&amp;</span>event).unwrap();
-		<span class="kw">let </span>exp = <span class="string">r#&quot;{&quot;event&quot;:&quot;initialized&quot;,&quot;finalizedBlockHashes&quot;:[&quot;0x1&quot;]}&quot;#</span>;
+		<span class="kw">let </span>exp = <span class="string">r#"{"event":"initialized","finalizedBlockHashes":["0x1"]}"#</span>;
 		<span class="macro">assert_eq!</span>(ser, exp);
 
 		<span class="kw">let </span>event_dec: FollowEvent&lt;String&gt; = serde_json::from_str(exp).unwrap();
@@ -1168,15 +1170,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>follow_initialized_event_with_updates() {
 		<span class="comment">// Runtime flag is true, block runtime must always be reported for this event.
 		</span><span class="kw">let </span>runtime = RuntimeVersion {
-			spec_name: <span class="string">&quot;ABC&quot;</span>.into(),
-			impl_name: <span class="string">&quot;Impl&quot;</span>.into(),
+			spec_name: <span class="string">"ABC"</span>.into(),
+			impl_name: <span class="string">"Impl"</span>.into(),
 			spec_version: <span class="number">1</span>,
 			..Default::default()
 		};
 
 		<span class="kw">let </span>runtime_event = RuntimeEvent::Valid(RuntimeVersionEvent { spec: runtime.into() });
 		<span class="kw">let </span><span class="kw-2">mut </span>initialized = Initialized {
-			finalized_block_hashes: <span class="macro">vec!</span>[<span class="string">&quot;0x1&quot;</span>.into()],
+			finalized_block_hashes: <span class="macro">vec!</span>[<span class="string">"0x1"</span>.into()],
 			finalized_block_runtime: <span class="prelude-val">Some</span>(runtime_event),
 			with_runtime: <span class="bool-val">true</span>,
 		};
@@ -1184,9 +1186,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>ser = serde_json::to_string(<span class="kw-2">&amp;</span>event).unwrap();
 		<span class="kw">let </span>exp = <span class="macro">concat!</span>(
-			<span class="string">r#&quot;{&quot;event&quot;:&quot;initialized&quot;,&quot;finalizedBlockHashes&quot;:[&quot;0x1&quot;],&quot;#</span>,
-			<span class="string">r#&quot;&quot;finalizedBlockRuntime&quot;:{&quot;type&quot;:&quot;valid&quot;,&quot;spec&quot;:{&quot;specName&quot;:&quot;ABC&quot;,&quot;implName&quot;:&quot;Impl&quot;,&quot;#</span>,
-			<span class="string">r#&quot;&quot;specVersion&quot;:1,&quot;implVersion&quot;:0,&quot;apis&quot;:{},&quot;transactionVersion&quot;:0}}}&quot;#</span>,
+			<span class="string">r#"{"event":"initialized","finalizedBlockHashes":["0x1"],"#</span>,
+			<span class="string">r#""finalizedBlockRuntime":{"type":"valid","spec":{"specName":"ABC","implName":"Impl","#</span>,
+			<span class="string">r#""specVersion":1,"implVersion":0,"apis":{},"transactionVersion":0}}}"#</span>,
 		);
 		<span class="macro">assert_eq!</span>(ser, exp);
 
@@ -1202,14 +1204,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>follow_new_block_event_no_updates() {
 		<span class="comment">// Runtime flag is false.
 		</span><span class="kw">let </span>event: FollowEvent&lt;String&gt; = FollowEvent::NewBlock(NewBlock {
-			block_hash: <span class="string">&quot;0x1&quot;</span>.into(),
-			parent_block_hash: <span class="string">&quot;0x2&quot;</span>.into(),
+			block_hash: <span class="string">"0x1"</span>.into(),
+			parent_block_hash: <span class="string">"0x2"</span>.into(),
 			new_runtime: <span class="prelude-val">None</span>,
 			with_runtime: <span class="bool-val">false</span>,
 		});
 
 		<span class="kw">let </span>ser = serde_json::to_string(<span class="kw-2">&amp;</span>event).unwrap();
-		<span class="kw">let </span>exp = <span class="string">r#&quot;{&quot;event&quot;:&quot;newBlock&quot;,&quot;blockHash&quot;:&quot;0x1&quot;,&quot;parentBlockHash&quot;:&quot;0x2&quot;}&quot;#</span>;
+		<span class="kw">let </span>exp = <span class="string">r#"{"event":"newBlock","blockHash":"0x1","parentBlockHash":"0x2"}"#</span>;
 		<span class="macro">assert_eq!</span>(ser, exp);
 
 		<span class="kw">let </span>event_dec: FollowEvent&lt;String&gt; = serde_json::from_str(exp).unwrap();
@@ -1220,8 +1222,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>follow_new_block_event_with_updates() {
 		<span class="comment">// Runtime flag is true, block runtime must always be reported for this event.
 		</span><span class="kw">let </span>runtime = RuntimeVersion {
-			spec_name: <span class="string">&quot;ABC&quot;</span>.into(),
-			impl_name: <span class="string">&quot;Impl&quot;</span>.into(),
+			spec_name: <span class="string">"ABC"</span>.into(),
+			impl_name: <span class="string">"Impl"</span>.into(),
 			spec_version: <span class="number">1</span>,
 			apis: <span class="macro">vec!</span>[([<span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>], <span class="number">2</span>), ([<span class="number">1</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>], <span class="number">3</span>)].into(),
 			..Default::default()
@@ -1229,8 +1231,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>runtime_event = RuntimeEvent::Valid(RuntimeVersionEvent { spec: runtime.into() });
 		<span class="kw">let </span><span class="kw-2">mut </span>new_block = NewBlock {
-			block_hash: <span class="string">&quot;0x1&quot;</span>.into(),
-			parent_block_hash: <span class="string">&quot;0x2&quot;</span>.into(),
+			block_hash: <span class="string">"0x1"</span>.into(),
+			parent_block_hash: <span class="string">"0x2"</span>.into(),
 			new_runtime: <span class="prelude-val">Some</span>(runtime_event),
 			with_runtime: <span class="bool-val">true</span>,
 		};
@@ -1239,9 +1241,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>ser = serde_json::to_string(<span class="kw-2">&amp;</span>event).unwrap();
 		<span class="kw">let </span>exp = <span class="macro">concat!</span>(
-			<span class="string">r#&quot;{&quot;event&quot;:&quot;newBlock&quot;,&quot;blockHash&quot;:&quot;0x1&quot;,&quot;parentBlockHash&quot;:&quot;0x2&quot;,&quot;#</span>,
-			<span class="string">r#&quot;&quot;newRuntime&quot;:{&quot;type&quot;:&quot;valid&quot;,&quot;spec&quot;:{&quot;specName&quot;:&quot;ABC&quot;,&quot;implName&quot;:&quot;Impl&quot;,&quot;#</span>,
-			<span class="string">r#&quot;&quot;specVersion&quot;:1,&quot;implVersion&quot;:0,&quot;apis&quot;:{&quot;0x0000000000000000&quot;:2,&quot;0x0100000000000000&quot;:3},&quot;transactionVersion&quot;:0}}}&quot;#</span>,
+			<span class="string">r#"{"event":"newBlock","blockHash":"0x1","parentBlockHash":"0x2","#</span>,
+			<span class="string">r#""newRuntime":{"type":"valid","spec":{"specName":"ABC","implName":"Impl","#</span>,
+			<span class="string">r#""specVersion":1,"implVersion":0,"apis":{"0x0000000000000000":2,"0x0100000000000000":3},"transactionVersion":0}}}"#</span>,
 		);
 		<span class="macro">assert_eq!</span>(ser, exp);
 
@@ -1252,10 +1254,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			event_dec, FollowEvent::NewBlock(<span class="kw-2">ref </span>dec) <span class="kw">if </span>dec == <span class="kw-2">&amp;</span>new_block
 		));
 
-		<span class="comment">// Runtime flag is true, runtime didn&#39;t change compared to parent.
+		<span class="comment">// Runtime flag is true, runtime didn't change compared to parent.
 		</span><span class="kw">let </span><span class="kw-2">mut </span>new_block = NewBlock {
-			block_hash: <span class="string">&quot;0x1&quot;</span>.into(),
-			parent_block_hash: <span class="string">&quot;0x2&quot;</span>.into(),
+			block_hash: <span class="string">"0x1"</span>.into(),
+			parent_block_hash: <span class="string">"0x2"</span>.into(),
 			new_runtime: <span class="prelude-val">None</span>,
 			with_runtime: <span class="bool-val">true</span>,
 		};
@@ -1263,7 +1265,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>ser = serde_json::to_string(<span class="kw-2">&amp;</span>event).unwrap();
 		<span class="kw">let </span>exp =
-			<span class="string">r#&quot;{&quot;event&quot;:&quot;newBlock&quot;,&quot;blockHash&quot;:&quot;0x1&quot;,&quot;parentBlockHash&quot;:&quot;0x2&quot;,&quot;newRuntime&quot;:null}&quot;#</span>;
+			<span class="string">r#"{"event":"newBlock","blockHash":"0x1","parentBlockHash":"0x2","newRuntime":null}"#</span>;
 		<span class="macro">assert_eq!</span>(ser, exp);
 		new_block.with_runtime = <span class="bool-val">false</span>;
 		<span class="kw">let </span>event_dec: FollowEvent&lt;String&gt; = serde_json::from_str(exp).unwrap();
@@ -1275,10 +1277,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>follow_best_block_changed_event() {
 		<span class="kw">let </span>event: FollowEvent&lt;String&gt; =
-			FollowEvent::BestBlockChanged(BestBlockChanged { best_block_hash: <span class="string">&quot;0x1&quot;</span>.into() });
+			FollowEvent::BestBlockChanged(BestBlockChanged { best_block_hash: <span class="string">"0x1"</span>.into() });
 
 		<span class="kw">let </span>ser = serde_json::to_string(<span class="kw-2">&amp;</span>event).unwrap();
-		<span class="kw">let </span>exp = <span class="string">r#&quot;{&quot;event&quot;:&quot;bestBlockChanged&quot;,&quot;bestBlockHash&quot;:&quot;0x1&quot;}&quot;#</span>;
+		<span class="kw">let </span>exp = <span class="string">r#"{"event":"bestBlockChanged","bestBlockHash":"0x1"}"#</span>;
 		<span class="macro">assert_eq!</span>(ser, exp);
 
 		<span class="kw">let </span>event_dec: FollowEvent&lt;String&gt; = serde_json::from_str(exp).unwrap();
@@ -1288,13 +1290,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>follow_finalized_event() {
 		<span class="kw">let </span>event: FollowEvent&lt;String&gt; = FollowEvent::Finalized(Finalized {
-			finalized_block_hashes: <span class="macro">vec!</span>[<span class="string">&quot;0x1&quot;</span>.into()],
-			pruned_block_hashes: <span class="macro">vec!</span>[<span class="string">&quot;0x2&quot;</span>.into()],
+			finalized_block_hashes: <span class="macro">vec!</span>[<span class="string">"0x1"</span>.into()],
+			pruned_block_hashes: <span class="macro">vec!</span>[<span class="string">"0x2"</span>.into()],
 		});
 
 		<span class="kw">let </span>ser = serde_json::to_string(<span class="kw-2">&amp;</span>event).unwrap();
 		<span class="kw">let </span>exp =
-			<span class="string">r#&quot;{&quot;event&quot;:&quot;finalized&quot;,&quot;finalizedBlockHashes&quot;:[&quot;0x1&quot;],&quot;prunedBlockHashes&quot;:[&quot;0x2&quot;]}&quot;#</span>;
+			<span class="string">r#"{"event":"finalized","finalizedBlockHashes":["0x1"],"prunedBlockHashes":["0x2"]}"#</span>;
 		<span class="macro">assert_eq!</span>(ser, exp);
 
 		<span class="kw">let </span>event_dec: FollowEvent&lt;String&gt; = serde_json::from_str(exp).unwrap();
@@ -1304,12 +1306,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>follow_op_body_event() {
 		<span class="kw">let </span>event: FollowEvent&lt;String&gt; = FollowEvent::OperationBodyDone(OperationBodyDone {
-			operation_id: <span class="string">&quot;123&quot;</span>.into(),
-			value: <span class="macro">vec!</span>[<span class="string">&quot;0x1&quot;</span>.into()],
+			operation_id: <span class="string">"123"</span>.into(),
+			value: <span class="macro">vec!</span>[<span class="string">"0x1"</span>.into()],
 		});
 
 		<span class="kw">let </span>ser = serde_json::to_string(<span class="kw-2">&amp;</span>event).unwrap();
-		<span class="kw">let </span>exp = <span class="string">r#&quot;{&quot;event&quot;:&quot;operationBodyDone&quot;,&quot;operationId&quot;:&quot;123&quot;,&quot;value&quot;:[&quot;0x1&quot;]}&quot;#</span>;
+		<span class="kw">let </span>exp = <span class="string">r#"{"event":"operationBodyDone","operationId":"123","value":["0x1"]}"#</span>;
 		<span class="macro">assert_eq!</span>(ser, exp);
 
 		<span class="kw">let </span>event_dec: FollowEvent&lt;String&gt; = serde_json::from_str(exp).unwrap();
@@ -1319,12 +1321,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>follow_op_call_event() {
 		<span class="kw">let </span>event: FollowEvent&lt;String&gt; = FollowEvent::OperationCallDone(OperationCallDone {
-			operation_id: <span class="string">&quot;123&quot;</span>.into(),
-			output: <span class="string">&quot;0x1&quot;</span>.into(),
+			operation_id: <span class="string">"123"</span>.into(),
+			output: <span class="string">"0x1"</span>.into(),
 		});
 
 		<span class="kw">let </span>ser = serde_json::to_string(<span class="kw-2">&amp;</span>event).unwrap();
-		<span class="kw">let </span>exp = <span class="string">r#&quot;{&quot;event&quot;:&quot;operationCallDone&quot;,&quot;operationId&quot;:&quot;123&quot;,&quot;output&quot;:&quot;0x1&quot;}&quot;#</span>;
+		<span class="kw">let </span>exp = <span class="string">r#"{"event":"operationCallDone","operationId":"123","output":"0x1"}"#</span>;
 		<span class="macro">assert_eq!</span>(ser, exp);
 
 		<span class="kw">let </span>event_dec: FollowEvent&lt;String&gt; = serde_json::from_str(exp).unwrap();
@@ -1335,15 +1337,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>follow_op_storage_items_event() {
 		<span class="kw">let </span>event: FollowEvent&lt;String&gt; =
 			FollowEvent::OperationStorageItems(OperationStorageItems {
-				operation_id: <span class="string">&quot;123&quot;</span>.into(),
+				operation_id: <span class="string">"123"</span>.into(),
 				items: <span class="macro">vec!</span>[StorageResult {
-					key: <span class="string">&quot;0x1&quot;</span>.into(),
-					result: StorageResultType::Value(<span class="string">&quot;0x123&quot;</span>.to_string()),
+					key: <span class="string">"0x1"</span>.into(),
+					result: StorageResultType::Value(<span class="string">"0x123"</span>.to_string()),
 				}],
 			});
 
 		<span class="kw">let </span>ser = serde_json::to_string(<span class="kw-2">&amp;</span>event).unwrap();
-		<span class="kw">let </span>exp = <span class="string">r#&quot;{&quot;event&quot;:&quot;operationStorageItems&quot;,&quot;operationId&quot;:&quot;123&quot;,&quot;items&quot;:[{&quot;key&quot;:&quot;0x1&quot;,&quot;value&quot;:&quot;0x123&quot;}]}&quot;#</span>;
+		<span class="kw">let </span>exp = <span class="string">r#"{"event":"operationStorageItems","operationId":"123","items":[{"key":"0x1","value":"0x123"}]}"#</span>;
 		<span class="macro">assert_eq!</span>(ser, exp);
 
 		<span class="kw">let </span>event_dec: FollowEvent&lt;String&gt; = serde_json::from_str(exp).unwrap();
@@ -1353,10 +1355,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>follow_op_wait_event() {
 		<span class="kw">let </span>event: FollowEvent&lt;String&gt; =
-			FollowEvent::OperationWaitingForContinue(OperationId { operation_id: <span class="string">&quot;123&quot;</span>.into() });
+			FollowEvent::OperationWaitingForContinue(OperationId { operation_id: <span class="string">"123"</span>.into() });
 
 		<span class="kw">let </span>ser = serde_json::to_string(<span class="kw-2">&amp;</span>event).unwrap();
-		<span class="kw">let </span>exp = <span class="string">r#&quot;{&quot;event&quot;:&quot;operationWaitingForContinue&quot;,&quot;operationId&quot;:&quot;123&quot;}&quot;#</span>;
+		<span class="kw">let </span>exp = <span class="string">r#"{"event":"operationWaitingForContinue","operationId":"123"}"#</span>;
 		<span class="macro">assert_eq!</span>(ser, exp);
 
 		<span class="kw">let </span>event_dec: FollowEvent&lt;String&gt; = serde_json::from_str(exp).unwrap();
@@ -1366,10 +1368,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>follow_op_storage_done_event() {
 		<span class="kw">let </span>event: FollowEvent&lt;String&gt; =
-			FollowEvent::OperationStorageDone(OperationId { operation_id: <span class="string">&quot;123&quot;</span>.into() });
+			FollowEvent::OperationStorageDone(OperationId { operation_id: <span class="string">"123"</span>.into() });
 
 		<span class="kw">let </span>ser = serde_json::to_string(<span class="kw-2">&amp;</span>event).unwrap();
-		<span class="kw">let </span>exp = <span class="string">r#&quot;{&quot;event&quot;:&quot;operationStorageDone&quot;,&quot;operationId&quot;:&quot;123&quot;}&quot;#</span>;
+		<span class="kw">let </span>exp = <span class="string">r#"{"event":"operationStorageDone","operationId":"123"}"#</span>;
 		<span class="macro">assert_eq!</span>(ser, exp);
 
 		<span class="kw">let </span>event_dec: FollowEvent&lt;String&gt; = serde_json::from_str(exp).unwrap();
@@ -1379,10 +1381,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>follow_op_inaccessible_event() {
 		<span class="kw">let </span>event: FollowEvent&lt;String&gt; =
-			FollowEvent::OperationInaccessible(OperationId { operation_id: <span class="string">&quot;123&quot;</span>.into() });
+			FollowEvent::OperationInaccessible(OperationId { operation_id: <span class="string">"123"</span>.into() });
 
 		<span class="kw">let </span>ser = serde_json::to_string(<span class="kw-2">&amp;</span>event).unwrap();
-		<span class="kw">let </span>exp = <span class="string">r#&quot;{&quot;event&quot;:&quot;operationInaccessible&quot;,&quot;operationId&quot;:&quot;123&quot;}&quot;#</span>;
+		<span class="kw">let </span>exp = <span class="string">r#"{"event":"operationInaccessible","operationId":"123"}"#</span>;
 		<span class="macro">assert_eq!</span>(ser, exp);
 
 		<span class="kw">let </span>event_dec: FollowEvent&lt;String&gt; = serde_json::from_str(exp).unwrap();
@@ -1392,12 +1394,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>follow_op_error_event() {
 		<span class="kw">let </span>event: FollowEvent&lt;String&gt; = FollowEvent::OperationError(OperationError {
-			operation_id: <span class="string">&quot;123&quot;</span>.into(),
-			error: <span class="string">&quot;reason&quot;</span>.into(),
+			operation_id: <span class="string">"123"</span>.into(),
+			error: <span class="string">"reason"</span>.into(),
 		});
 
 		<span class="kw">let </span>ser = serde_json::to_string(<span class="kw-2">&amp;</span>event).unwrap();
-		<span class="kw">let </span>exp = <span class="string">r#&quot;{&quot;event&quot;:&quot;operationError&quot;,&quot;operationId&quot;:&quot;123&quot;,&quot;error&quot;:&quot;reason&quot;}&quot;#</span>;
+		<span class="kw">let </span>exp = <span class="string">r#"{"event":"operationError","operationId":"123","error":"reason"}"#</span>;
 		<span class="macro">assert_eq!</span>(ser, exp);
 
 		<span class="kw">let </span>event_dec: FollowEvent&lt;String&gt; = serde_json::from_str(exp).unwrap();
@@ -1409,7 +1411,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>event: FollowEvent&lt;String&gt; = FollowEvent::Stop;
 
 		<span class="kw">let </span>ser = serde_json::to_string(<span class="kw-2">&amp;</span>event).unwrap();
-		<span class="kw">let </span>exp = <span class="string">r#&quot;{&quot;event&quot;:&quot;stop&quot;}&quot;#</span>;
+		<span class="kw">let </span>exp = <span class="string">r#"{"event":"stop"}"#</span>;
 		<span class="macro">assert_eq!</span>(ser, exp);
 
 		<span class="kw">let </span>event_dec: FollowEvent&lt;String&gt; = serde_json::from_str(exp).unwrap();
@@ -1420,12 +1422,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>method_response() {
 		<span class="comment">// Response of `call` and `body`
 		</span><span class="kw">let </span>event = MethodResponse::Started(MethodResponseStarted {
-			operation_id: <span class="string">&quot;123&quot;</span>.into(),
+			operation_id: <span class="string">"123"</span>.into(),
 			discarded_items: <span class="prelude-val">None</span>,
 		});
 
 		<span class="kw">let </span>ser = serde_json::to_string(<span class="kw-2">&amp;</span>event).unwrap();
-		<span class="kw">let </span>exp = <span class="string">r#&quot;{&quot;result&quot;:&quot;started&quot;,&quot;operationId&quot;:&quot;123&quot;}&quot;#</span>;
+		<span class="kw">let </span>exp = <span class="string">r#"{"result":"started","operationId":"123"}"#</span>;
 		<span class="macro">assert_eq!</span>(ser, exp);
 
 		<span class="kw">let </span>event_dec: MethodResponse = serde_json::from_str(exp).unwrap();
@@ -1433,12 +1435,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// Response of `storage`
 		</span><span class="kw">let </span>event = MethodResponse::Started(MethodResponseStarted {
-			operation_id: <span class="string">&quot;123&quot;</span>.into(),
+			operation_id: <span class="string">"123"</span>.into(),
 			discarded_items: <span class="prelude-val">Some</span>(<span class="number">1</span>),
 		});
 
 		<span class="kw">let </span>ser = serde_json::to_string(<span class="kw-2">&amp;</span>event).unwrap();
-		<span class="kw">let </span>exp = <span class="string">r#&quot;{&quot;result&quot;:&quot;started&quot;,&quot;operationId&quot;:&quot;123&quot;,&quot;discardedItems&quot;:1}&quot;#</span>;
+		<span class="kw">let </span>exp = <span class="string">r#"{"result":"started","operationId":"123","discardedItems":1}"#</span>;
 		<span class="macro">assert_eq!</span>(ser, exp);
 
 		<span class="kw">let </span>event_dec: MethodResponse = serde_json::from_str(exp).unwrap();
@@ -1448,7 +1450,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">let </span>event = MethodResponse::LimitReached;
 
 		<span class="kw">let </span>ser = serde_json::to_string(<span class="kw-2">&amp;</span>event).unwrap();
-		<span class="kw">let </span>exp = <span class="string">r#&quot;{&quot;result&quot;:&quot;limitReached&quot;}&quot;#</span>;
+		<span class="kw">let </span>exp = <span class="string">r#"{"result":"limitReached"}"#</span>;
 		<span class="macro">assert_eq!</span>(ser, exp);
 
 		<span class="kw">let </span>event_dec: MethodResponse = serde_json::from_str(exp).unwrap();

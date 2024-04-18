@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/network/dispute-distribution/src/receiver/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/network/dispute-distribution/src/receiver/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_dispute_distribution" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_dispute_distribution" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../polkadot_dispute_distribution/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -738,16 +740,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	peer_queues::PeerQueues,
 };
 
-<span class="kw">const </span>COST_INVALID_REQUEST: Rep = Rep::CostMajor(<span class="string">&quot;Received message could not be decoded.&quot;</span>);
-<span class="kw">const </span>COST_INVALID_SIGNATURE: Rep = Rep::Malicious(<span class="string">&quot;Signatures were invalid.&quot;</span>);
+<span class="kw">const </span>COST_INVALID_REQUEST: Rep = Rep::CostMajor(<span class="string">"Received message could not be decoded."</span>);
+<span class="kw">const </span>COST_INVALID_SIGNATURE: Rep = Rep::Malicious(<span class="string">"Signatures were invalid."</span>);
 <span class="kw">const </span>COST_INVALID_IMPORT: Rep =
-	Rep::Malicious(<span class="string">&quot;Import was deemed invalid by dispute-coordinator.&quot;</span>);
-<span class="kw">const </span>COST_NOT_A_VALIDATOR: Rep = Rep::CostMajor(<span class="string">&quot;Reporting peer was not a validator.&quot;</span>);
+	Rep::Malicious(<span class="string">"Import was deemed invalid by dispute-coordinator."</span>);
+<span class="kw">const </span>COST_NOT_A_VALIDATOR: Rep = Rep::CostMajor(<span class="string">"Reporting peer was not a validator."</span>);
 <span class="doccomment">/// Mildly punish peers exceeding their rate limit.
 ///
 /// For honest peers this should rarely happen, but if it happens we would not want to disconnect
 /// too quickly. Minor cost should suffice for disconnecting any real flooder.
-</span><span class="kw">const </span>COST_APPARENT_FLOOD: Rep = Rep::CostMinor(<span class="string">&quot;Peer exceeded the rate limit.&quot;</span>);
+</span><span class="kw">const </span>COST_APPARENT_FLOOD: Rep = Rep::CostMinor(<span class="string">"Peer exceeded the rate limit."</span>);
 
 <span class="doccomment">/// How many votes must have arrived in the last `BATCH_COLLECTING_INTERVAL`
 ///
@@ -859,7 +861,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="macro">gum::debug!</span>(
 						target: LOG_TARGET,
 						error = <span class="question-mark">?</span>fatal,
-						<span class="string">&quot;Shutting down&quot;
+						<span class="string">"Shutting down"
 					</span>);
 					<span class="kw">return
 				</span>},
@@ -919,7 +921,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="kw">let </span>rate_limited = <span class="self">self</span>.peer_queues.pop_reqs();
 			<span class="macro">pin_mut!</span>(rate_limited);
-			<span class="comment">// We poll rate_limit before batches, so we don&#39;t unnecessarily delay importing to
+			<span class="comment">// We poll rate_limit before batches, so we don't unnecessarily delay importing to
 			// batches.
 			</span><span class="kw">if let </span>Poll::Ready(reqs) = rate_limited.poll(ctx) {
 				<span class="kw">return </span>Poll::Ready(<span class="prelude-val">Ok</span>(MuxedMessage::WakePeerQueuesPopReqs(reqs)))
@@ -978,7 +980,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				target: LOG_TARGET,
 				<span class="question-mark">?</span>authority_id,
 				<span class="question-mark">?</span>peer,
-				<span class="string">&quot;Peer hit the rate limit - dropping message.&quot;
+				<span class="string">"Peer hit the rate limit - dropping message."
 			</span>);
 			req.send_outgoing_response(OutgoingResponse {
 				result: <span class="prelude-val">Err</span>(()),
@@ -1037,7 +1039,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					target: LOG_TARGET,
 					<span class="question-mark">?</span>candidate_hash,
 					<span class="question-mark">?</span>peer,
-					<span class="string">&quot;No batch yet - triggering immediate import&quot;
+					<span class="string">"No batch yet - triggering immediate import"
 				</span>);
 				<span class="kw">let </span>import = PreparedImport {
 					candidate_receipt: batch.candidate_receipt().clone(),
@@ -1047,14 +1049,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="self">self</span>.start_import(import).<span class="kw">await</span>;
 			},
 			FoundBatch::Found(batch) =&gt; {
-				<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>candidate_hash, <span class="string">&quot;Batch exists - batching request&quot;</span>);
+				<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>candidate_hash, <span class="string">"Batch exists - batching request"</span>);
 				<span class="kw">let </span>batch_result =
 					batch.add_votes(valid_vote, invalid_vote, peer, pending_response);
 
 				<span class="kw">if let </span><span class="prelude-val">Err</span>(pending_response) = batch_result {
-					<span class="comment">// We don&#39;t expect honest peers to send redundant votes within a single batch,
-					// as the timeout for retry is much higher. Still we don&#39;t want to punish the
-					// node as it might not be the node&#39;s fault. Some other (malicious) node could
+					<span class="comment">// We don't expect honest peers to send redundant votes within a single batch,
+					// as the timeout for retry is much higher. Still we don't want to punish the
+					// node as it might not be the node's fault. Some other (malicious) node could
 					// have been faster sending the same votes in order to harm the reputation of
 					// that honest node. Given that we already have a rate limit, if a validator
 					// chooses to waste available rate with redundant votes - so be it. The actual
@@ -1062,13 +1064,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					</span><span class="macro">gum::debug!</span>(
 						target: LOG_TARGET,
 						<span class="question-mark">?</span>peer,
-						<span class="string">&quot;Peer sent completely redundant votes within a single batch - that looks fishy!&quot;</span>,
+						<span class="string">"Peer sent completely redundant votes within a single batch - that looks fishy!"</span>,
 					);
 					pending_response
 						.send_outgoing_response(OutgoingResponse {
-							<span class="comment">// While we have seen duplicate votes, we cannot confirm as we don&#39;t
+							<span class="comment">// While we have seen duplicate votes, we cannot confirm as we don't
 							// know yet whether the batch is going to be confirmed, so we assume
-							// the worst. We don&#39;t want to push the pending response to the batch
+							// the worst. We don't want to push the pending response to the batch
 							// either as that would be unbounded, only limited by the rate limit.
 							</span>result: <span class="prelude-val">Err</span>(()),
 							reputation_changes: Vec::new(),
@@ -1098,7 +1100,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="macro">gum::debug!</span>(
 					target: LOG_TARGET,
 					candidate_hash = <span class="question-mark">?</span>candidate_receipt.hash(),
-					<span class="string">&quot;Not importing empty batch&quot;
+					<span class="string">"Not importing empty batch"
 				</span>);
 				<span class="kw">return
 			</span>},
@@ -1191,7 +1193,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl </span>Future <span class="kw">for </span>PendingImport {
 	<span class="kw">type </span>Output = JfyiResult&lt;ImportResult&gt;;
-	<span class="kw">fn </span>poll(<span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;<span class="self">Self</span>::Output&gt; {
+	<span class="kw">fn </span>poll(<span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">'_</span>&gt;) -&gt; Poll&lt;<span class="self">Self</span>::Output&gt; {
 		<span class="kw">let </span>fut = <span class="self">self</span>.wait_for_result();
 		<span class="macro">pin_mut!</span>(fut);
 		fut.poll(cx)

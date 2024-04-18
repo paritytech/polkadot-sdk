@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/runtime/src/offchain/http.rs`."><title>http.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/runtime/src/offchain/http.rs`."><title>http.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sp_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sp_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../sp_runtime/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -763,14 +765,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -789,9 +791,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! use sp_runtime::offchain::http::Request;
 //!
 //! // initiate a GET request to localhost:1234
-//! let request: Request = Request::get(&quot;http://localhost:1234&quot;);
+//! let request: Request = Request::get("http://localhost:1234");
 //! let pending = request
-//! 	.add_header(&quot;X-Auth&quot;, &quot;hunter2&quot;)
+//! 	.add_header("X-Auth", "hunter2")
 //! 	.send()
 //! 	.unwrap();
 //!
@@ -804,7 +806,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!
 //! // and collect the body
 //! let body = response.body();
-//! assert_eq!(body.clone().collect::&lt;Vec&lt;_&gt;&gt;(), b&quot;1234&quot;.to_vec());
+//! assert_eq!(body.clone().collect::&lt;Vec&lt;_&gt;&gt;(), b"1234".to_vec());
 //! assert_eq!(body.error(), &amp;None);
 //! ```
 
@@ -814,7 +816,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	},
 	RuntimeDebug,
 };
-<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
 </span><span class="kw">use </span>sp_std::prelude::vec;
 <span class="kw">use </span>sp_std::{prelude::Vec, str};
 
@@ -832,17 +834,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// DELETE request
 	</span>Delete,
 	<span class="doccomment">/// Custom verb
-	</span>Other(<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str),
+	</span>Other(<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str),
 }
 
 <span class="kw">impl </span>AsRef&lt;str&gt; <span class="kw">for </span>Method {
 	<span class="kw">fn </span>as_ref(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>str {
 		<span class="kw">match </span><span class="kw-2">*</span><span class="self">self </span>{
-			Method::Get =&gt; <span class="string">&quot;GET&quot;</span>,
-			Method::Post =&gt; <span class="string">&quot;POST&quot;</span>,
-			Method::Put =&gt; <span class="string">&quot;PUT&quot;</span>,
-			Method::Patch =&gt; <span class="string">&quot;PATCH&quot;</span>,
-			Method::Delete =&gt; <span class="string">&quot;DELETE&quot;</span>,
+			Method::Get =&gt; <span class="string">"GET"</span>,
+			Method::Post =&gt; <span class="string">"POST"</span>,
+			Method::Put =&gt; <span class="string">"PUT"</span>,
+			Method::Patch =&gt; <span class="string">"PATCH"</span>,
+			Method::Delete =&gt; <span class="string">"DELETE"</span>,
 			Method::Other(m) =&gt; m,
 		}
 	}
@@ -859,7 +861,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">impl </span>Header {
-		<span class="doccomment">/// Creates new header given it&#39;s name and value.
+		<span class="doccomment">/// Creates new header given it's name and value.
 		</span><span class="kw">pub fn </span>new(name: <span class="kw-2">&amp;</span>str, value: <span class="kw-2">&amp;</span>str) -&gt; <span class="self">Self </span>{
 			Header { name: name.as_bytes().to_vec(), value: value.as_bytes().to_vec() }
 		}
@@ -867,7 +869,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="doccomment">/// Returns the name of this header.
 		</span><span class="kw">pub fn </span>name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>str {
 			<span class="comment">// Header keys are always produced from `&amp;str` so this is safe.
-			// we don&#39;t store them as `Strings` to avoid bringing `alloc::String` to sp-std
+			// we don't store them as `Strings` to avoid bringing `alloc::String` to sp-std
 			// or here.
 			</span><span class="kw">unsafe </span>{ str::from_utf8_unchecked(<span class="kw-2">&amp;</span><span class="self">self</span>.name) }
 		}
@@ -875,7 +877,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="doccomment">/// Returns the value of this header.
 		</span><span class="kw">pub fn </span>value(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>str {
 			<span class="comment">// Header values are always produced from `&amp;str` so this is safe.
-			// we don&#39;t store them as `Strings` to avoid bringing `alloc::String` to sp-std
+			// we don't store them as `Strings` to avoid bringing `alloc::String` to sp-std
 			// or here.
 			</span><span class="kw">unsafe </span>{ str::from_utf8_unchecked(<span class="kw-2">&amp;</span><span class="self">self</span>.value) }
 		}
@@ -884,11 +886,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// An HTTP request builder.
 </span><span class="attr">#[derive(Clone, PartialEq, Eq, RuntimeDebug)]
-</span><span class="kw">pub struct </span>Request&lt;<span class="lifetime">&#39;a</span>, T = Vec&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8]&gt;&gt; {
+</span><span class="kw">pub struct </span>Request&lt;<span class="lifetime">'a</span>, T = Vec&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>[u8]&gt;&gt; {
 	<span class="doccomment">/// Request method
 	</span><span class="kw">pub </span>method: Method,
 	<span class="doccomment">/// Request URL
-	</span><span class="kw">pub </span>url: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>str,
+	</span><span class="kw">pub </span>url: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>str,
 	<span class="doccomment">/// Body of the request
 	</span><span class="kw">pub </span>body: T,
 	<span class="doccomment">/// Deadline to finish sending the request
@@ -897,11 +899,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>headers: Vec&lt;header::Header&gt;,
 }
 
-<span class="kw">impl</span>&lt;T: Default&gt; Default <span class="kw">for </span>Request&lt;<span class="lifetime">&#39;static</span>, T&gt; {
+<span class="kw">impl</span>&lt;T: Default&gt; Default <span class="kw">for </span>Request&lt;<span class="lifetime">'static</span>, T&gt; {
 	<span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
 		Request {
 			method: Method::Get,
-			url: <span class="string">&quot;http://localhost&quot;</span>,
+			url: <span class="string">"http://localhost"</span>,
 			headers: Vec::new(),
 			body: Default::default(),
 			deadline: <span class="prelude-val">None</span>,
@@ -909,25 +911,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; Request&lt;<span class="lifetime">&#39;a</span>&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; Request&lt;<span class="lifetime">'a</span>&gt; {
 	<span class="doccomment">/// Start a simple GET request
-	</span><span class="kw">pub fn </span>get(url: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>str) -&gt; <span class="self">Self </span>{
+	</span><span class="kw">pub fn </span>get(url: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>str) -&gt; <span class="self">Self </span>{
 		<span class="self">Self</span>::new(url)
 	}
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, T&gt; Request&lt;<span class="lifetime">&#39;a</span>, T&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, T&gt; Request&lt;<span class="lifetime">'a</span>, T&gt; {
 	<span class="doccomment">/// Create new POST request with given body.
-	</span><span class="kw">pub fn </span>post(url: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>str, body: T) -&gt; <span class="self">Self </span>{
+	</span><span class="kw">pub fn </span>post(url: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>str, body: T) -&gt; <span class="self">Self </span>{
 		<span class="kw">let </span>req: Request = Request::default();
 
 		Request { url, body, method: Method::Post, headers: req.headers, deadline: req.deadline }
 	}
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, T: Default&gt; Request&lt;<span class="lifetime">&#39;a</span>, T&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, T: Default&gt; Request&lt;<span class="lifetime">'a</span>, T&gt; {
 	<span class="doccomment">/// Create a new Request builder with the given URL.
-	</span><span class="kw">pub fn </span>new(url: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>str) -&gt; <span class="self">Self </span>{
+	</span><span class="kw">pub fn </span>new(url: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>str) -&gt; <span class="self">Self </span>{
 		Request::default().url(url)
 	}
 
@@ -938,7 +940,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>}
 
 	<span class="doccomment">/// Change the URL of the request.
-	</span><span class="kw">pub fn </span>url(<span class="kw-2">mut </span><span class="self">self</span>, url: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>str) -&gt; <span class="self">Self </span>{
+	</span><span class="kw">pub fn </span>url(<span class="kw-2">mut </span><span class="self">self</span>, url: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>str) -&gt; <span class="self">Self </span>{
 		<span class="self">self</span>.url = url;
 		<span class="self">self
 	</span>}
@@ -962,7 +964,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>}
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, I: AsRef&lt;[u8]&gt;, T: IntoIterator&lt;Item = I&gt;&gt; Request&lt;<span class="lifetime">&#39;a</span>, T&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, I: AsRef&lt;[u8]&gt;, T: IntoIterator&lt;Item = I&gt;&gt; Request&lt;<span class="lifetime">'a</span>, T&gt; {
 	<span class="doccomment">/// Send the request and return a handle.
 	///
 	/// Err is returned in case the deadline is reached
@@ -1020,7 +1022,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub fn </span>wait(<span class="self">self</span>) -&gt; HttpResult {
 		<span class="kw">match </span><span class="self">self</span>.try_wait(<span class="prelude-val">None</span>) {
 			<span class="prelude-val">Ok</span>(res) =&gt; res,
-			<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="macro">panic!</span>(<span class="string">&quot;Since `None` is passed we will never get a deadline error; qed&quot;</span>),
+			<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="macro">panic!</span>(<span class="string">"Since `None` is passed we will never get a deadline error; qed"</span>),
 		}
 	}
 
@@ -1032,7 +1034,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; <span class="prelude-ty">Result</span>&lt;HttpResult, PendingRequest&gt; {
 		<span class="self">Self</span>::try_wait_all(<span class="macro">vec!</span>[<span class="self">self</span>], deadline)
 			.pop()
-			.expect(<span class="string">&quot;One request passed, one status received; qed&quot;</span>)
+			.expect(<span class="string">"One request passed, one status received; qed"</span>)
 	}
 
 	<span class="doccomment">/// Wait for all provided requests.
@@ -1041,7 +1043,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.into_iter()
 			.map(|r| <span class="kw">match </span>r {
 				<span class="prelude-val">Ok</span>(r) =&gt; r,
-				<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="macro">panic!</span>(<span class="string">&quot;Since `None` is passed we will never get a deadline error; qed&quot;</span>),
+				<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="macro">panic!</span>(<span class="string">"Since `None` is passed we will never get a deadline error; qed"</span>),
 			})
 			.collect()
 	}
@@ -1091,7 +1093,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if </span><span class="self">self</span>.headers.is_none() {
 			<span class="self">self</span>.headers = <span class="prelude-val">Some</span>(Headers { raw: sp_io::offchain::http_response_headers(<span class="self">self</span>.id) });
 		}
-		<span class="self">self</span>.headers.as_ref().expect(<span class="string">&quot;Headers were just set; qed&quot;</span>)
+		<span class="self">self</span>.headers.as_ref().expect(<span class="string">"Headers were just set; qed"</span>)
 	}
 
 	<span class="doccomment">/// Retrieve the body of this response.
@@ -1103,7 +1105,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// A buffered byte iterator over response body.
 ///
 /// Note that reading the body may return `None` in following cases:
-/// 1. Either the deadline you&#39;ve set is reached (check via `#error`; In such case you can resume
+/// 1. Either the deadline you've set is reached (check via `#error`; In such case you can resume
 ///    the reader by setting a new deadline)
 /// 2. Or because of IOError. In such case the reader is not resumable and will keep returning
 ///    `None`.
@@ -1118,16 +1120,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	deadline: <span class="prelude-ty">Option</span>&lt;Timestamp&gt;,
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">impl </span>std::fmt::Debug <span class="kw">for </span>ResponseBody {
 	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, fmt: <span class="kw-2">&amp;mut </span>std::fmt::Formatter) -&gt; std::fmt::Result {
-		fmt.debug_struct(<span class="string">&quot;ResponseBody&quot;</span>)
-			.field(<span class="string">&quot;id&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.id)
-			.field(<span class="string">&quot;error&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.error)
-			.field(<span class="string">&quot;buffer&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.buffer.len())
-			.field(<span class="string">&quot;filled_up_to&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.filled_up_to)
-			.field(<span class="string">&quot;position&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.position)
-			.field(<span class="string">&quot;deadline&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.deadline)
+		fmt.debug_struct(<span class="string">"ResponseBody"</span>)
+			.field(<span class="string">"id"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.id)
+			.field(<span class="string">"error"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.error)
+			.field(<span class="string">"buffer"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.buffer.len())
+			.field(<span class="string">"filled_up_to"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.filled_up_to)
+			.field(<span class="string">"position"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.position)
+			.field(<span class="string">"deadline"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.deadline)
 			.finish()
 	}
 }
@@ -1206,7 +1208,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// Note this method is linearly looking from all the headers
 	/// comparing them with the needle byte-by-byte.
-	/// If you want to consume multiple headers it&#39;s better to iterate
+	/// If you want to consume multiple headers it's better to iterate
 	/// and collect them on your own.
 	</span><span class="kw">pub fn </span>find(<span class="kw-2">&amp;</span><span class="self">self</span>, name: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt; {
 		<span class="kw">let </span>raw = name.as_bytes();
@@ -1226,12 +1228,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// A custom iterator traversing all the headers.
 </span><span class="attr">#[derive(Clone, RuntimeDebug)]
-</span><span class="kw">pub struct </span>HeadersIterator&lt;<span class="lifetime">&#39;a</span>&gt; {
-	collection: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[(Vec&lt;u8&gt;, Vec&lt;u8&gt;)],
+</span><span class="kw">pub struct </span>HeadersIterator&lt;<span class="lifetime">'a</span>&gt; {
+	collection: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[(Vec&lt;u8&gt;, Vec&lt;u8&gt;)],
 	index: <span class="prelude-ty">Option</span>&lt;usize&gt;,
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; HeadersIterator&lt;<span class="lifetime">&#39;a</span>&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; HeadersIterator&lt;<span class="lifetime">'a</span>&gt; {
 	<span class="doccomment">/// Move the iterator to the next position.
 	///
 	/// Returns `true` is `current` has been set by this call.
@@ -1247,7 +1249,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub fn </span>current(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;(<span class="kw-2">&amp;</span>str, <span class="kw-2">&amp;</span>str)&gt; {
 		<span class="self">self</span>.collection
 			.get(<span class="self">self</span>.index<span class="question-mark">?</span>)
-			.map(|val| (str::from_utf8(<span class="kw-2">&amp;</span>val.<span class="number">0</span>).unwrap_or(<span class="string">&quot;&quot;</span>), str::from_utf8(<span class="kw-2">&amp;</span>val.<span class="number">1</span>).unwrap_or(<span class="string">&quot;&quot;</span>)))
+			.map(|val| (str::from_utf8(<span class="kw-2">&amp;</span>val.<span class="number">0</span>).unwrap_or(<span class="string">""</span>), str::from_utf8(<span class="kw-2">&amp;</span>val.<span class="number">1</span>).unwrap_or(<span class="string">""</span>)))
 	}
 }
 
@@ -1264,19 +1266,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		t.register_extension(OffchainWorkerExt::new(offchain));
 
 		t.execute_with(|| {
-			<span class="kw">let </span>request: Request = Request::get(<span class="string">&quot;http://localhost:1234&quot;</span>);
-			<span class="kw">let </span>pending = request.add_header(<span class="string">&quot;X-Auth&quot;</span>, <span class="string">&quot;hunter2&quot;</span>).send().unwrap();
-			<span class="comment">// make sure it&#39;s sent correctly
+			<span class="kw">let </span>request: Request = Request::get(<span class="string">"http://localhost:1234"</span>);
+			<span class="kw">let </span>pending = request.add_header(<span class="string">"X-Auth"</span>, <span class="string">"hunter2"</span>).send().unwrap();
+			<span class="comment">// make sure it's sent correctly
 			</span>state.write().fulfill_pending_request(
 				<span class="number">0</span>,
 				testing::PendingRequest {
-					method: <span class="string">&quot;GET&quot;</span>.into(),
-					uri: <span class="string">&quot;http://localhost:1234&quot;</span>.into(),
-					headers: <span class="macro">vec!</span>[(<span class="string">&quot;X-Auth&quot;</span>.into(), <span class="string">&quot;hunter2&quot;</span>.into())],
+					method: <span class="string">"GET"</span>.into(),
+					uri: <span class="string">"http://localhost:1234"</span>.into(),
+					headers: <span class="macro">vec!</span>[(<span class="string">"X-Auth"</span>.into(), <span class="string">"hunter2"</span>.into())],
 					sent: <span class="bool-val">true</span>,
 					..Default::default()
 				},
-				<span class="string">b&quot;1234&quot;</span>.to_vec(),
+				<span class="string">b"1234"</span>.to_vec(),
 				<span class="prelude-val">None</span>,
 			);
 
@@ -1290,7 +1292,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">assert_eq!</span>(headers.current(), <span class="prelude-val">None</span>);
 
 			<span class="kw">let </span>body = response.body();
-			<span class="macro">assert_eq!</span>(body.clone().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(), <span class="string">b&quot;1234&quot;</span>.to_vec());
+			<span class="macro">assert_eq!</span>(body.clone().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(), <span class="string">b"1234"</span>.to_vec());
 			<span class="macro">assert_eq!</span>(body.error(), <span class="kw-2">&amp;</span><span class="prelude-val">None</span>);
 		})
 	}
@@ -1302,15 +1304,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		t.register_extension(OffchainWorkerExt::new(offchain));
 
 		t.execute_with(|| {
-			<span class="kw">let </span>request: Request = Request::get(<span class="string">&quot;http://localhost:1234&quot;</span>);
-			<span class="kw">let </span>pending = request.add_header(<span class="string">&quot;X-Auth&quot;</span>, <span class="string">&quot;hunter2&quot;</span>).send().unwrap();
-			<span class="comment">// make sure it&#39;s sent correctly
+			<span class="kw">let </span>request: Request = Request::get(<span class="string">"http://localhost:1234"</span>);
+			<span class="kw">let </span>pending = request.add_header(<span class="string">"X-Auth"</span>, <span class="string">"hunter2"</span>).send().unwrap();
+			<span class="comment">// make sure it's sent correctly
 			</span>state.write().fulfill_pending_request(
 				<span class="number">0</span>,
 				testing::PendingRequest {
-					method: <span class="string">&quot;GET&quot;</span>.into(),
-					uri: <span class="string">&quot;http://localhost:1234&quot;</span>.into(),
-					headers: <span class="macro">vec!</span>[(<span class="string">&quot;X-Auth&quot;</span>.into(), <span class="string">&quot;hunter2&quot;</span>.into())],
+					method: <span class="string">"GET"</span>.into(),
+					uri: <span class="string">"http://localhost:1234"</span>.into(),
+					headers: <span class="macro">vec!</span>[(<span class="string">"X-Auth"</span>.into(), <span class="string">"hunter2"</span>.into())],
 					sent: <span class="bool-val">true</span>,
 					..Default::default()
 				},
@@ -1336,22 +1338,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		t.execute_with(|| {
 			<span class="kw">let </span>pending = Request::default()
 				.method(Method::Post)
-				.url(<span class="string">&quot;http://localhost:1234&quot;</span>)
-				.body(<span class="macro">vec!</span>[<span class="string">b&quot;1234&quot;</span>])
+				.url(<span class="string">"http://localhost:1234"</span>)
+				.body(<span class="macro">vec!</span>[<span class="string">b"1234"</span>])
 				.send()
 				.unwrap();
-			<span class="comment">// make sure it&#39;s sent correctly
+			<span class="comment">// make sure it's sent correctly
 			</span>state.write().fulfill_pending_request(
 				<span class="number">0</span>,
 				testing::PendingRequest {
-					method: <span class="string">&quot;POST&quot;</span>.into(),
-					uri: <span class="string">&quot;http://localhost:1234&quot;</span>.into(),
-					body: <span class="string">b&quot;1234&quot;</span>.to_vec(),
+					method: <span class="string">"POST"</span>.into(),
+					uri: <span class="string">"http://localhost:1234"</span>.into(),
+					body: <span class="string">b"1234"</span>.to_vec(),
 					sent: <span class="bool-val">true</span>,
 					..Default::default()
 				},
-				<span class="string">b&quot;1234&quot;</span>.to_vec(),
-				<span class="prelude-val">Some</span>((<span class="string">&quot;Test&quot;</span>.to_owned(), <span class="string">&quot;Header&quot;</span>.to_owned())),
+				<span class="string">b"1234"</span>.to_vec(),
+				<span class="prelude-val">Some</span>((<span class="string">"Test"</span>.to_owned(), <span class="string">"Header"</span>.to_owned())),
 			);
 
 			<span class="comment">// wait
@@ -1361,10 +1363,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="kw">let </span><span class="kw-2">mut </span>headers = response.headers().into_iter();
 			<span class="macro">assert_eq!</span>(headers.current(), <span class="prelude-val">None</span>);
 			<span class="macro">assert_eq!</span>(headers.next(), <span class="bool-val">true</span>);
-			<span class="macro">assert_eq!</span>(headers.current(), <span class="prelude-val">Some</span>((<span class="string">&quot;Test&quot;</span>, <span class="string">&quot;Header&quot;</span>)));
+			<span class="macro">assert_eq!</span>(headers.current(), <span class="prelude-val">Some</span>((<span class="string">"Test"</span>, <span class="string">"Header"</span>)));
 
 			<span class="kw">let </span>body = response.body();
-			<span class="macro">assert_eq!</span>(body.clone().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(), <span class="string">b&quot;1234&quot;</span>.to_vec());
+			<span class="macro">assert_eq!</span>(body.clone().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(), <span class="string">b"1234"</span>.to_vec());
 			<span class="macro">assert_eq!</span>(body.error(), <span class="kw-2">&amp;</span><span class="prelude-val">None</span>);
 		})
 	}

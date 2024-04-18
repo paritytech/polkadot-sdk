@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/network/sync/src/justification_requests.rs`."><title>justification_requests.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/network/sync/src/justification_requests.rs`."><title>justification_requests.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_network_sync" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_network_sync" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sc_network_sync/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -756,7 +758,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="doccomment">//! Justification requests scheduling. [`ExtraRequests`] manages requesting justifications
 //! from peers taking into account forks and their finalization (dropping pending requests
-//! that don&#39;t make sense after one of the forks is finalized).
+//! that don't make sense after one of the forks is finalized).
 
 </span><span class="kw">use crate</span>::{
 	request_metrics::Metrics,
@@ -799,11 +801,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// successful requests
 	</span>importing_requests: HashSet&lt;ExtraRequest&lt;B&gt;&gt;,
 	<span class="doccomment">/// the name of this type of extra request (useful for logging.)
-	</span>request_type_name: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
+	</span>request_type_name: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
 }
 
 <span class="kw">impl</span>&lt;B: BlockT&gt; ExtraRequests&lt;B&gt; {
-	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new(request_type_name: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str) -&gt; <span class="self">Self </span>{
+	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new(request_type_name: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str) -&gt; <span class="self">Self </span>{
 		<span class="self">Self </span>{
 			tree: ForkTree::new(),
 			best_seen_finalized_number: Zero::zero(),
@@ -845,7 +847,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				// ignore the `Revert` error.
 			</span>},
 			<span class="prelude-val">Err</span>(err) =&gt; {
-				<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;Failed to insert request {:?} into tree: {}&quot;</span>, request, err);
+				<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"Failed to insert request {:?} into tree: {}"</span>, request, err);
 			},
 			<span class="kw">_ </span>=&gt; (),
 		}
@@ -870,7 +872,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">if let </span><span class="prelude-val">Some</span>(request) = <span class="self">self</span>.active_requests.remove(<span class="kw-2">&amp;</span>who) {
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(r) = resp {
 				<span class="macro">trace!</span>(target: LOG_TARGET,
-					<span class="string">&quot;Queuing import of {} from {:?} for {:?}&quot;</span>,
+					<span class="string">"Queuing import of {} from {:?} for {:?}"</span>,
 					<span class="self">self</span>.request_type_name, who, request,
 				);
 
@@ -878,7 +880,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">return </span><span class="prelude-val">Some</span>((who, request.<span class="number">0</span>, request.<span class="number">1</span>, r))
 			} <span class="kw">else </span>{
 				<span class="macro">trace!</span>(target: LOG_TARGET,
-					<span class="string">&quot;Empty {} response from {:?} for {:?}&quot;</span>,
+					<span class="string">"Empty {} response from {:?} for {:?}"</span>,
 					<span class="self">self</span>.request_type_name, who, request,
 				);
 			}
@@ -886,7 +888,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="self">self</span>.pending_requests.push_front(request);
 		} <span class="kw">else </span>{
 			<span class="macro">trace!</span>(target: LOG_TARGET,
-				<span class="string">&quot;No active {} request to {:?}&quot;</span>,
+				<span class="string">"No active {} request to {:?}"</span>,
 				<span class="self">self</span>.request_type_name, who,
 			);
 		}
@@ -961,7 +963,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">if </span><span class="self">self</span>.tree.finalize_root(<span class="kw-2">&amp;</span>finalized_hash).is_none() {
 			<span class="macro">warn!</span>(target: LOG_TARGET,
-				<span class="string">&quot;‼️ Imported {:?} {:?} which isn&#39;t a root in the tree: {:?}&quot;</span>,
+				<span class="string">"‼️ Imported {:?} {:?} which isn't a root in the tree: {:?}"</span>,
 				finalized_hash, finalized_number, <span class="self">self</span>.tree.roots().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
 			);
 			<span class="kw">return </span><span class="bool-val">true
@@ -1001,21 +1003,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Matches peers with pending extra requests.
 </span><span class="attr">#[derive(Debug)]
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>Matcher&lt;<span class="lifetime">&#39;a</span>, B: BlockT&gt; {
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>Matcher&lt;<span class="lifetime">'a</span>, B: BlockT&gt; {
 	<span class="doccomment">/// Length of pending requests collection.
 	/// Used to ensure we do not loop more than once over all pending requests.
 	</span>remaining: usize,
-	extras: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>ExtraRequests&lt;B&gt;,
+	extras: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>ExtraRequests&lt;B&gt;,
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, B: BlockT&gt; Matcher&lt;<span class="lifetime">&#39;a</span>, B&gt; {
-	<span class="kw">fn </span>new(extras: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>ExtraRequests&lt;B&gt;) -&gt; <span class="self">Self </span>{
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, B: BlockT&gt; Matcher&lt;<span class="lifetime">'a</span>, B&gt; {
+	<span class="kw">fn </span>new(extras: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>ExtraRequests&lt;B&gt;) -&gt; <span class="self">Self </span>{
 		<span class="self">Self </span>{ remaining: extras.pending_requests.len(), extras }
 	}
 
 	<span class="doccomment">/// Finds a peer to which a pending request can be sent.
 	///
-	/// Peers are filtered according to the current known best block (i.e. we won&#39;t
+	/// Peers are filtered according to the current known best block (i.e. we won't
 	/// send an extra request for block #10 to a peer at block #2), and we also
 	/// throttle requests to the same peer if a previous request yielded no results.
 	///
@@ -1044,12 +1046,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">for </span>(peer, sync) <span class="kw">in
 				</span>peers.iter().filter(|(<span class="kw">_</span>, sync)| sync.state == PeerSyncState::Available)
 			{
-				<span class="comment">// only ask peers that have synced at least up to the block number that we&#39;re asking
+				<span class="comment">// only ask peers that have synced at least up to the block number that we're asking
 				// the extra for
 				</span><span class="kw">if </span>sync.best_number &lt; request.<span class="number">1 </span>{
 					<span class="kw">continue
 				</span>}
-				<span class="comment">// don&#39;t request to any peers that already have pending requests
+				<span class="comment">// don't request to any peers that already have pending requests
 				</span><span class="kw">if </span><span class="self">self</span>.extras.active_requests.contains_key(peer) {
 					<span class="kw">continue
 				</span>}
@@ -1066,7 +1068,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="self">self</span>.extras.active_requests.insert(<span class="kw-2">*</span>peer, request);
 
 				<span class="macro">trace!</span>(target: LOG_TARGET,
-					<span class="string">&quot;Sending {} request to {:?} for {:?}&quot;</span>,
+					<span class="string">"Sending {} request to {:?} for {:?}"</span>,
 					<span class="self">self</span>.extras.request_type_name, peer, request,
 				);
 
@@ -1097,7 +1099,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>requests_are_processed_in_order() {
 		<span class="kw">fn </span>property(<span class="kw-2">mut </span>peers: ArbitraryPeers) {
-			<span class="kw">let </span><span class="kw-2">mut </span>requests = ExtraRequests::&lt;Block&gt;::new(<span class="string">&quot;test&quot;</span>);
+			<span class="kw">let </span><span class="kw-2">mut </span>requests = ExtraRequests::&lt;Block&gt;::new(<span class="string">"test"</span>);
 
 			<span class="kw">let </span>num_peers_available =
 				peers.<span class="number">0</span>.values().filter(|s| s.state == PeerSyncState::Available).count();
@@ -1123,7 +1125,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>new_roots_schedule_new_request() {
 		<span class="kw">fn </span>property(data: Vec&lt;BlockNumber&gt;) {
-			<span class="kw">let </span><span class="kw-2">mut </span>requests = ExtraRequests::&lt;Block&gt;::new(<span class="string">&quot;test&quot;</span>);
+			<span class="kw">let </span><span class="kw-2">mut </span>requests = ExtraRequests::&lt;Block&gt;::new(<span class="string">"test"</span>);
 			<span class="kw">for </span>(i, number) <span class="kw">in </span>data.into_iter().enumerate() {
 				<span class="kw">let </span>hash = [i <span class="kw">as </span>u8; <span class="number">32</span>].into();
 				<span class="kw">let </span>pending = requests.pending_requests.len();
@@ -1140,7 +1142,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>disconnecting_implies_rescheduling() {
 		<span class="kw">fn </span>property(<span class="kw-2">mut </span>peers: ArbitraryPeers) -&gt; bool {
-			<span class="kw">let </span><span class="kw-2">mut </span>requests = ExtraRequests::&lt;Block&gt;::new(<span class="string">&quot;test&quot;</span>);
+			<span class="kw">let </span><span class="kw-2">mut </span>requests = ExtraRequests::&lt;Block&gt;::new(<span class="string">"test"</span>);
 
 			<span class="kw">let </span>num_peers_available =
 				peers.<span class="number">0</span>.values().filter(|s| s.state == PeerSyncState::Available).count();
@@ -1176,7 +1178,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>no_response_reschedules() {
 		<span class="kw">fn </span>property(<span class="kw-2">mut </span>peers: ArbitraryPeers) {
-			<span class="kw">let </span><span class="kw-2">mut </span>requests = ExtraRequests::&lt;Block&gt;::new(<span class="string">&quot;test&quot;</span>);
+			<span class="kw">let </span><span class="kw-2">mut </span>requests = ExtraRequests::&lt;Block&gt;::new(<span class="string">"test"</span>);
 
 			<span class="kw">let </span>num_peers_available =
 				peers.<span class="number">0</span>.values().filter(|s| s.state == PeerSyncState::Available).count();
@@ -1218,7 +1220,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>request_is_rescheduled_when_earlier_block_is_finalized() {
 		sp_tracing::try_init_simple();
 
-		<span class="kw">let </span><span class="kw-2">mut </span>finality_proofs = ExtraRequests::&lt;Block&gt;::new(<span class="string">&quot;test&quot;</span>);
+		<span class="kw">let </span><span class="kw-2">mut </span>finality_proofs = ExtraRequests::&lt;Block&gt;::new(<span class="string">"test"</span>);
 
 		<span class="kw">let </span>hash4 = [<span class="number">4</span>; <span class="number">32</span>].into();
 		<span class="kw">let </span>hash5 = [<span class="number">5</span>; <span class="number">32</span>].into();
@@ -1250,7 +1252,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		finality_proofs.on_block_finalized(<span class="kw-2">&amp;</span>hash7, <span class="number">7</span>, is_descendent_of).unwrap();
 		finality_proofs.try_finalize_root::&lt;()&gt;((hash6, <span class="number">6</span>), <span class="prelude-val">Ok</span>((hash7, <span class="number">7</span>)), <span class="bool-val">true</span>);
 
-		<span class="comment">// ensure that there&#39;s no request for #6
+		<span class="comment">// ensure that there's no request for #6
 		</span><span class="macro">assert_eq!</span>(
 			finality_proofs.pending_requests.iter().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
 			Vec::&lt;<span class="kw-2">&amp;</span>(Hash, u64)&gt;::new()
@@ -1259,7 +1261,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>ancestor_roots_are_finalized_when_finality_notification_is_missed() {
-		<span class="kw">let </span><span class="kw-2">mut </span>finality_proofs = ExtraRequests::&lt;Block&gt;::new(<span class="string">&quot;test&quot;</span>);
+		<span class="kw">let </span><span class="kw-2">mut </span>finality_proofs = ExtraRequests::&lt;Block&gt;::new(<span class="string">"test"</span>);
 
 		<span class="kw">let </span>hash4 = [<span class="number">4</span>; <span class="number">32</span>].into();
 		<span class="kw">let </span>hash5 = [<span class="number">5</span>; <span class="number">32</span>].into();

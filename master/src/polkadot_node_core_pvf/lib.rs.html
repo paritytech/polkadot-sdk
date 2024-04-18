@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/core/pvf/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/core/pvf/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_node_core_pvf" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_node_core_pvf" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../polkadot_node_core_pvf/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -324,7 +326,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="doccomment">//! The PVF validation host. Responsible for coordinating preparation and execution of PVFs.
 //!
-//! For more background, refer to the Implementer&#39;s Guide: [PVF
+//! For more background, refer to the Implementer's Guide: [PVF
 //! Pre-checking](https://paritytech.github.io/polkadot-sdk/book/pvf-prechecking.html), [Candidate
 //! Validation](https://paritytech.github.io/polkadot-sdk/book/node/utility/candidate-validation.html)
 //! and [PVF Host and Workers](https://paritytech.github.io/polkadot-sdk/book/node/utility/pvf-host-and-workers.html).
@@ -358,8 +360,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!
 //! Preparation started by a heads up signal always starts with the background priority. If there
 //! is already a request for that PVF preparation under way the priority is inherited. If after
-//! heads up, a new PVF execution request comes in with a higher priority, then the original task&#39;s
-//! priority will be adjusted to match the new one if it&#39;s larger.
+//! heads up, a new PVF execution request comes in with a higher priority, then the original task's
+//! priority will be adjusted to match the new one if it's larger.
 //!
 //! Priority can never go down, only up.
 //!
@@ -368,8 +370,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! ## The flow
 //!
 //! Under the hood, the validation host is built using a bunch of communicating processes, not
-//! dissimilar to actors. Each of such &quot;processes&quot; is a future task that contains an event loop that
-//! processes incoming messages, potentially delegating sub-tasks to other &quot;processes&quot;.
+//! dissimilar to actors. Each of such "processes" is a future task that contains an event loop that
+//! processes incoming messages, potentially delegating sub-tasks to other "processes".
 //!
 //! Two of these processes are queues. The first one is for preparation jobs and the second one is
 //! for execution. Both of the queues are backed by separate pools of workers of different kind.
@@ -384,11 +386,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! preparation failed, then no artifact is created.
 //!
 //! The artifact is saved on disk and is also tracked by an in memory table. This in memory table
-//! doesn&#39;t contain the artifact contents though, only a flag for the state of the given artifact
+//! doesn't contain the artifact contents though, only a flag for the state of the given artifact
 //! and some associated data. If the artifact failed to process, this also includes the error.
 //!
 //! A pruning task will run at a fixed interval of time. This task will remove all artifacts that
-//! weren&#39;t used or received a heads up signal for a while.
+//! weren't used or received a heads up signal for a while.
 //!
 //! ## Execution
 //!
@@ -403,11 +405,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">mod </span>metrics;
 <span class="kw">mod </span>prepare;
 <span class="kw">mod </span>priority;
-<span class="attr">#[cfg(target_os = <span class="string">&quot;linux&quot;</span>)]
+<span class="attr">#[cfg(target_os = <span class="string">"linux"</span>)]
 </span><span class="kw">mod </span>security;
 <span class="kw">mod </span>worker_interface;
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;test-utils&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"test-utils"</span>)]
 </span><span class="kw">pub mod </span>testing;
 
 <span class="kw">pub use </span>error::{InvalidCandidate, PossiblyInvalidError, ValidationError};
@@ -430,37 +432,37 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>std::{path::Path, process::Command};
 
 <span class="doccomment">/// The log target for this crate.
-</span><span class="kw">pub const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;parachain::pvf&quot;</span>;
+</span><span class="kw">pub const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"parachain::pvf"</span>;
 
 <span class="doccomment">/// Utility to get the version of a worker, used for version checks.
 ///
-/// The worker&#39;s existence at the given path must be checked separately.
+/// The worker's existence at the given path must be checked separately.
 </span><span class="kw">pub fn </span>get_worker_version(worker_path: <span class="kw-2">&amp;</span>Path) -&gt; std::io::Result&lt;String&gt; {
-	<span class="kw">let </span>worker_version = Command::new(worker_path).args([<span class="string">&quot;--version&quot;</span>]).output()<span class="question-mark">?</span>.stdout;
+	<span class="kw">let </span>worker_version = Command::new(worker_path).args([<span class="string">"--version"</span>]).output()<span class="question-mark">?</span>.stdout;
 	<span class="prelude-val">Ok</span>(std::str::from_utf8(<span class="kw-2">&amp;</span>worker_version)
-		.expect(<span class="string">&quot;version is printed as a string; qed&quot;</span>)
+		.expect(<span class="string">"version is printed as a string; qed"</span>)
 		.trim()
 		.to_string())
 }
 
 <span class="comment">// Trying to run securely and some mandatory errors occurred.
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>SECURE_MODE_ERROR: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str =
-	<span class="string">&quot;🚨 Your system cannot securely run a validator. \
-\nRunning validation of malicious PVF code has a higher risk of compromising this machine.&quot;</span>;
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>SECURE_MODE_ERROR: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str =
+	<span class="string">"🚨 Your system cannot securely run a validator. \
+\nRunning validation of malicious PVF code has a higher risk of compromising this machine."</span>;
 <span class="comment">// Some errors occurred when running insecurely, or some optional errors occurred when running
 // securely.
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>SECURE_MODE_WARNING: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;🚨 Some security issues have been detected. \
-\nRunning validation of malicious PVF code has a higher risk of compromising this machine.&quot;</span>;
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>SECURE_MODE_WARNING: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"🚨 Some security issues have been detected. \
+\nRunning validation of malicious PVF code has a higher risk of compromising this machine."</span>;
 <span class="comment">// Message to be printed only when running securely and mandatory errors occurred.
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>IGNORE_SECURE_MODE_TIP: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str =
-<span class="string">&quot;\nYou can ignore this error with the `--insecure-validator-i-know-what-i-do` \
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>IGNORE_SECURE_MODE_TIP: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str =
+<span class="string">"\nYou can ignore this error with the `--insecure-validator-i-know-what-i-do` \
 command line argument if you understand and accept the risks of running insecurely. \
 With this flag, security features are enabled on a best-effort basis, but not mandatory. \
-\nMore information: https://wiki.polkadot.network/docs/maintain-guides-secure-validator#secure-validator-mode&quot;</span>;
+\nMore information: https://wiki.polkadot.network/docs/maintain-guides-secure-validator#secure-validator-mode"</span>;
 <span class="comment">// Only Linux supports security features
-</span><span class="attr">#[cfg(not(target_os = <span class="string">&quot;linux&quot;</span>))]
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>SECURE_LINUX_NOTE: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;\nSecure mode is enabled only for Linux \
-\nand a full secure mode is enabled only for Linux x86-64.&quot;</span>;
+</span><span class="attr">#[cfg(not(target_os = <span class="string">"linux"</span>))]
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>SECURE_LINUX_NOTE: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"\nSecure mode is enabled only for Linux \
+\nand a full secure mode is enabled only for Linux x86-64."</span>;
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

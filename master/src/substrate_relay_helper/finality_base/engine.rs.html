@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `bridges/relays/lib-substrate-relay/src/finality_base/engine.rs`."><title>engine.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `bridges/relays/lib-substrate-relay/src/finality_base/engine.rs`."><title>engine.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="substrate_relay_helper" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="substrate_relay_helper" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../substrate_relay_helper/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -689,14 +691,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// The type of the key owner proof used by the consensus engine.
 	</span><span class="kw">type </span>KeyOwnerProof: Send;
 	<span class="doccomment">/// Type of bridge pallet initialization data.
-	</span><span class="kw">type </span>InitializationData: Debug + Send + Sync + <span class="lifetime">&#39;static</span>;
+	</span><span class="kw">type </span>InitializationData: Debug + Send + Sync + <span class="lifetime">'static</span>;
 	<span class="doccomment">/// Type of bridge pallet operating mode.
-	</span><span class="kw">type </span>OperatingMode: OperatingMode + <span class="lifetime">&#39;static</span>;
+	</span><span class="kw">type </span>OperatingMode: OperatingMode + <span class="lifetime">'static</span>;
 
 	<span class="doccomment">/// Returns storage at the bridged (target) chain that corresponds to some value that is
 	/// missing from the storage until bridge pallet is initialized.
 	///
-	/// Note that we don&#39;t care about type of the value - just if it present or not.
+	/// Note that we don't care about type of the value - just if it present or not.
 	</span><span class="kw">fn </span>is_initialized_key() -&gt; StorageKey;
 
 	<span class="doccomment">/// Returns `Ok(true)` if finality pallet at the bridged chain has already been initialized.
@@ -743,7 +745,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Checks whether the given `header` and its finality `proof` fit the maximal expected
 	/// call size limit. If result is `MaxExpectedCallSizeCheck::Exceeds { .. }`, this
-	/// submission won&#39;t be fully refunded and relayer will spend its own funds on that.
+	/// submission won't be fully refunded and relayer will spend its own funds on that.
 	</span><span class="kw">fn </span>check_max_expected_call_size(
 		header: <span class="kw-2">&amp;</span>C::Header,
 		proof: <span class="kw-2">&amp;</span><span class="self">Self</span>::FinalityProof,
@@ -838,9 +840,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			target_client.best_header().<span class="kw">await</span><span class="question-mark">?</span>.hash(),
 		)
 		.<span class="kw">await</span><span class="question-mark">?</span>;
-		<span class="comment">// we&#39;re risking with race here - we have decided to submit justification some time ago and
+		<span class="comment">// we're risking with race here - we have decided to submit justification some time ago and
 		// actual authorities set (which we have read now) may have changed, so this
-		// `optimize_justification` may fail. But if target chain is configured properly, it&#39;ll fail
+		// `optimize_justification` may fail. But if target chain is configured properly, it'll fail
 		// anyway, after we submit transaction and failing earlier is better. So - it is fine
 		</span>verify_and_optimize_justification(
 			(header.hash(), <span class="kw-2">*</span>header.number()),
@@ -850,7 +852,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		.map(|<span class="kw">_</span>| verification_context)
 		.map_err(|e| {
 			SubstrateError::Custom(<span class="macro">format!</span>(
-				<span class="string">&quot;Failed to optimize {} GRANDPA jutification for header {:?}: {:?}&quot;</span>,
+				<span class="string">"Failed to optimize {} GRANDPA jutification for header {:?}: {:?}"</span>,
 				C::NAME,
 				header.id(),
 				e,
@@ -885,7 +887,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		// this header.
 		//
 		// But now there are problems with this approach - `CurrentSetId` may return invalid value.
-		// So here we&#39;re waiting for the next justification, read the authorities set and then try
+		// So here we're waiting for the next justification, read the authorities set and then try
 		// to figure out the set id with bruteforce.
 		</span><span class="kw">let </span>justifications = <span class="self">Self</span>::source_finality_proofs(<span class="kw-2">&amp;</span>source_client)
 			.<span class="kw">await
@@ -908,7 +910,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			(justification.commit.target_hash, justification.commit.target_number);
 
 		<span class="kw">let </span>initial_header = <span class="self">Self</span>::source_header(<span class="kw-2">&amp;</span>source_client, initial_header_hash).<span class="kw">await</span><span class="question-mark">?</span>;
-		<span class="macro">log::trace!</span>(target: <span class="string">&quot;bridge&quot;</span>, <span class="string">&quot;Selected {} initial header: {}/{}&quot;</span>,
+		<span class="macro">log::trace!</span>(target: <span class="string">"bridge"</span>, <span class="string">"Selected {} initial header: {}/{}"</span>,
 			C::NAME,
 			initial_header_number,
 			initial_header_hash,
@@ -917,7 +919,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// Read GRANDPA authorities set at initial header.
 		</span><span class="kw">let </span>initial_authorities_set =
 			<span class="self">Self</span>::source_authorities_set(<span class="kw-2">&amp;</span>source_client, initial_header_hash).<span class="kw">await</span><span class="question-mark">?</span>;
-		<span class="macro">log::trace!</span>(target: <span class="string">&quot;bridge&quot;</span>, <span class="string">&quot;Selected {} initial authorities set: {:?}&quot;</span>,
+		<span class="macro">log::trace!</span>(target: <span class="string">"bridge"</span>, <span class="string">"Selected {} initial authorities set: {:?}"</span>,
 			C::NAME,
 			initial_authorities_set,
 		);
@@ -930,8 +932,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		);
 		<span class="macro">assert!</span>(
 			scheduled_change.as_ref().map(|c| c.delay.is_zero()).unwrap_or(<span class="bool-val">true</span>),
-			<span class="string">&quot;GRANDPA authorities change at {} scheduled to happen in {:?} blocks. We expect\
-			regular change to have zero delay&quot;</span>,
+			<span class="string">"GRANDPA authorities change at {} scheduled to happen in {:?} blocks. We expect\
+			regular change to have zero delay"</span>,
 			initial_header_hash,
 			scheduled_change.as_ref().map(|c| c.delay),
 		);
@@ -940,19 +942,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			authorities_for_verification =
 				<span class="self">Self</span>::source_authorities_set(<span class="kw-2">&amp;</span>source_client, <span class="kw-2">*</span>initial_header.parent_hash()).<span class="kw">await</span><span class="question-mark">?</span>;
 			<span class="macro">log::trace!</span>(
-				target: <span class="string">&quot;bridge&quot;</span>,
-				<span class="string">&quot;Selected {} header is scheduling GRANDPA authorities set changes. Using previous set: {:?}&quot;</span>,
+				target: <span class="string">"bridge"</span>,
+				<span class="string">"Selected {} header is scheduling GRANDPA authorities set changes. Using previous set: {:?}"</span>,
 				C::NAME,
 				authorities_for_verification,
 			);
 		}
 
-		<span class="comment">// Now let&#39;s try to guess authorities set id by verifying justification.
+		<span class="comment">// Now let's try to guess authorities set id by verifying justification.
 		</span><span class="kw">let </span><span class="kw-2">mut </span>initial_authorities_set_id = <span class="number">0</span>;
 		<span class="kw">let </span><span class="kw-2">mut </span>min_possible_block_number = C::BlockNumber::zero();
 		<span class="kw">loop </span>{
 			<span class="macro">log::trace!</span>(
-				target: <span class="string">&quot;bridge&quot;</span>, <span class="string">&quot;Trying {} GRANDPA authorities set id: {}&quot;</span>,
+				target: <span class="string">"bridge"</span>, <span class="string">"Trying {} GRANDPA authorities set id: {}"</span>,
 				C::NAME,
 				initial_authorities_set_id,
 			);
@@ -978,7 +980,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			initial_authorities_set_id += <span class="number">1</span>;
 			min_possible_block_number += One::one();
 			<span class="kw">if </span>min_possible_block_number &gt; initial_header_number {
-				<span class="comment">// there can&#39;t be more authorities set changes than headers =&gt; if we have reached
+				<span class="comment">// there can't be more authorities set changes than headers =&gt; if we have reached
 				// `initial_block_number` and still have not found correct value of
 				// `initial_authorities_set_id`, then something else is broken =&gt; fail
 				</span><span class="kw">return </span><span class="prelude-val">Err</span>(Error::GuessInitialAuthorities(C::NAME, initial_header_number))
@@ -1009,14 +1011,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.<span class="kw">await</span><span class="question-mark">?
 			</span>.map(<span class="prelude-val">Ok</span>)
 			.unwrap_or(<span class="prelude-val">Err</span>(SubstrateError::Custom(<span class="macro">format!</span>(
-				<span class="string">&quot;{} `CurrentAuthoritySet` is missing from the {} storage&quot;</span>,
+				<span class="string">"{} `CurrentAuthoritySet` is missing from the {} storage"</span>,
 				C::NAME,
 				TargetChain::NAME,
 			))))<span class="question-mark">?</span>;
 
 		authority_set.try_into().map_err(|e| {
 			SubstrateError::Custom(<span class="macro">format!</span>(
-				<span class="string">&quot;{} `CurrentAuthoritySet` from the {} storage is invalid: {e:?}&quot;</span>,
+				<span class="string">"{} `CurrentAuthoritySet` from the {} storage is invalid: {e:?}"</span>,
 				C::NAME,
 				TargetChain::NAME,
 			))
@@ -1035,7 +1037,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">for </span>stored_header_grandpa_info <span class="kw">in </span>stored_headers_grandpa_info {
 			headers_grandpa_info.push(stored_header_grandpa_info.try_into().map_err(|e| {
 				SubstrateError::Custom(<span class="macro">format!</span>(
-					<span class="string">&quot;{} `AuthoritySet` synced to {} is invalid: {e:?} &quot;</span>,
+					<span class="string">"{} `AuthoritySet` synced to {} is invalid: {e:?} "</span>,
 					C::NAME,
 					TargetChain::NAME,
 				))
@@ -1057,16 +1059,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.generate_grandpa_key_ownership_proof(at, set_id, offender.clone())
 			.<span class="kw">await</span><span class="question-mark">?
 			</span>.ok_or(SubstrateError::Custom(<span class="macro">format!</span>(
-				<span class="string">&quot;Couldn&#39;t get GRANDPA key ownership proof from {} at block: {at} \
-				for offender: {:?}, set_id: {set_id} &quot;</span>,
+				<span class="string">"Couldn't get GRANDPA key ownership proof from {} at block: {at} \
+				for offender: {:?}, set_id: {set_id} "</span>,
 				C::NAME,
 				offender.clone(),
 			)))<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>key_owner_proof =
 			opaque_key_owner_proof.decode().ok_or(SubstrateError::Custom(<span class="macro">format!</span>(
-				<span class="string">&quot;Couldn&#39;t decode GRANDPA `OpaqueKeyOwnnershipProof` from {} at block: {at} 
-				to `{:?}` for offender: {:?}, set_id: {set_id}, at block: {at}&quot;</span>,
+				<span class="string">"Couldn't decode GRANDPA `OpaqueKeyOwnnershipProof` from {} at block: {at} 
+				to `{:?}` for offender: {:?}, set_id: {set_id}, at block: {at}"</span>,
 				C::NAME,
 				&lt;C::KeyOwnerProof <span class="kw">as </span>TypeInfo&gt;::type_info().path,
 				offender.clone(),

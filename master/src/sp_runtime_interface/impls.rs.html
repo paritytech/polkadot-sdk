@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/runtime-interface/src/impls.rs`."><title>impls.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/runtime-interface/src/impls.rs`."><title>impls.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_runtime_interface" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_runtime_interface" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sp_runtime_interface/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -687,23 +689,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
 </span><span class="doccomment">//! Provides implementations for the runtime interface traits.
 
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+</span><span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">use </span><span class="kw">crate</span>::host::<span class="kw-2">*</span>;
-<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
 </span><span class="kw">use </span><span class="kw">crate</span>::wasm::<span class="kw-2">*</span>;
 <span class="kw">use crate</span>::{
 	pass_by::{Codec, Enum, Inner, PassBy, PassByInner},
@@ -711,23 +713,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	Pointer, RIType,
 };
 
-<span class="attr">#[cfg(all(not(feature = <span class="string">&quot;std&quot;</span>), not(feature = <span class="string">&quot;disable_target_static_assertions&quot;</span>)))]
+<span class="attr">#[cfg(all(not(feature = <span class="string">"std"</span>), not(feature = <span class="string">"disable_target_static_assertions"</span>)))]
 </span><span class="kw">use </span>static_assertions::assert_eq_size;
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">use </span>sp_wasm_interface::{FunctionContext, <span class="prelude-ty">Result</span>};
 
 <span class="kw">use </span>codec::{Decode, Encode};
 
 <span class="kw">use </span>sp_std::{any::TypeId, mem, vec::Vec};
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">use </span>sp_std::borrow::Cow;
 
 <span class="comment">// Make sure that our assumptions for storing a pointer + its size in `u64` is valid.
-</span><span class="attr">#[cfg(all(not(feature = <span class="string">&quot;std&quot;</span>), not(feature = <span class="string">&quot;disable_target_static_assertions&quot;</span>)))]
+</span><span class="attr">#[cfg(all(not(feature = <span class="string">"std"</span>), not(feature = <span class="string">"disable_target_static_assertions"</span>)))]
 </span><span class="macro">assert_eq_size!</span>(usize, u32);
-<span class="attr">#[cfg(all(not(feature = <span class="string">&quot;std&quot;</span>), not(feature = <span class="string">&quot;disable_target_static_assertions&quot;</span>)))]
+<span class="attr">#[cfg(all(not(feature = <span class="string">"std"</span>), not(feature = <span class="string">"disable_target_static_assertions"</span>)))]
 </span><span class="macro">assert_eq_size!</span>(<span class="kw-2">*const </span>u8, u32);
 
 <span class="doccomment">/// Implement the traits for the given primitive traits.
@@ -743,7 +745,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">type </span>FFIType = <span class="macro-nonterminal">$fty</span>;
 			}
 
-			<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+			<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
 			</span><span class="kw">impl </span>IntoFFIValue <span class="kw">for </span><span class="macro-nonterminal">$rty </span>{
 				<span class="kw">type </span>Owned = ();
 
@@ -752,14 +754,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				}
 			}
 
-			<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+			<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
 			</span><span class="kw">impl </span>FromFFIValue <span class="kw">for </span><span class="macro-nonterminal">$rty </span>{
 				<span class="kw">fn </span>from_ffi_value(arg: <span class="macro-nonterminal">$fty</span>) -&gt; <span class="macro-nonterminal">$rty </span>{
 					arg <span class="kw">as </span><span class="macro-nonterminal">$rty
 				</span>}
 			}
 
-			<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+			<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 			</span><span class="kw">impl </span>FromFFIValue <span class="kw">for </span><span class="macro-nonterminal">$rty </span>{
 				<span class="kw">type </span>SelfInstance = <span class="macro-nonterminal">$rty</span>;
 
@@ -768,7 +770,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				}
 			}
 
-			<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+			<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 			</span><span class="kw">impl </span>IntoFFIValue <span class="kw">for </span><span class="macro-nonterminal">$rty </span>{
 				<span class="kw">fn </span>into_ffi_value(<span class="self">self</span>, <span class="kw">_</span>: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>FunctionContext) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="macro-nonterminal">$fty</span>&gt; {
 					<span class="prelude-val">Ok</span>(<span class="self">self </span><span class="kw">as </span><span class="macro-nonterminal">$fty</span>)
@@ -797,7 +799,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>FFIType = u32;
 }
 
-<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
 </span><span class="kw">impl </span>IntoFFIValue <span class="kw">for </span>bool {
 	<span class="kw">type </span>Owned = ();
 
@@ -806,14 +808,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
 </span><span class="kw">impl </span>FromFFIValue <span class="kw">for </span>bool {
 	<span class="kw">fn </span>from_ffi_value(arg: u32) -&gt; bool {
 		arg == <span class="number">1
 	</span>}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">impl </span>FromFFIValue <span class="kw">for </span>bool {
 	<span class="kw">type </span>SelfInstance = bool;
 
@@ -822,7 +824,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">impl </span>IntoFFIValue <span class="kw">for </span>bool {
 	<span class="kw">fn </span>into_ffi_value(<span class="self">self</span>, <span class="kw">_</span>: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>FunctionContext) -&gt; <span class="prelude-ty">Result</span>&lt;u32&gt; {
 		<span class="prelude-val">Ok</span>(<span class="kw">if </span><span class="self">self </span>{ <span class="number">1 </span>} <span class="kw">else </span>{ <span class="number">0 </span>})
@@ -839,10 +841,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>FFIType = u64;
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
-</span><span class="kw">impl</span>&lt;T: <span class="lifetime">&#39;static </span>+ Encode&gt; IntoFFIValue <span class="kw">for </span>Vec&lt;T&gt; {
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
+</span><span class="kw">impl</span>&lt;T: <span class="lifetime">'static </span>+ Encode&gt; IntoFFIValue <span class="kw">for </span>Vec&lt;T&gt; {
 	<span class="kw">fn </span>into_ffi_value(<span class="self">self</span>, context: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>FunctionContext) -&gt; <span class="prelude-ty">Result</span>&lt;u64&gt; {
-		<span class="kw">let </span>vec: Cow&lt;<span class="lifetime">&#39;_</span>, [u8]&gt; = <span class="kw">if </span>TypeId::of::&lt;T&gt;() == TypeId::of::&lt;u8&gt;() {
+		<span class="kw">let </span>vec: Cow&lt;<span class="lifetime">'_</span>, [u8]&gt; = <span class="kw">if </span>TypeId::of::&lt;T&gt;() == TypeId::of::&lt;u8&gt;() {
 			<span class="kw">unsafe </span>{ Cow::Borrowed(mem::transmute(<span class="kw-2">&amp;</span><span class="self">self</span>[..])) }
 		} <span class="kw">else </span>{
 			Cow::Owned(<span class="self">self</span>.encode())
@@ -855,8 +857,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
-</span><span class="kw">impl</span>&lt;T: <span class="lifetime">&#39;static </span>+ Decode&gt; FromFFIValue <span class="kw">for </span>Vec&lt;T&gt; {
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
+</span><span class="kw">impl</span>&lt;T: <span class="lifetime">'static </span>+ Decode&gt; FromFFIValue <span class="kw">for </span>Vec&lt;T&gt; {
 	<span class="kw">type </span>SelfInstance = Vec&lt;T&gt;;
 
 	<span class="kw">fn </span>from_ffi_value(context: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>FunctionContext, arg: u64) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;T&gt;&gt; {
@@ -864,8 +866,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
-</span><span class="kw">impl</span>&lt;T: <span class="lifetime">&#39;static </span>+ Encode&gt; IntoFFIValue <span class="kw">for </span>Vec&lt;T&gt; {
+<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
+</span><span class="kw">impl</span>&lt;T: <span class="lifetime">'static </span>+ Encode&gt; IntoFFIValue <span class="kw">for </span>Vec&lt;T&gt; {
 	<span class="kw">type </span>Owned = Vec&lt;u8&gt;;
 
 	<span class="kw">fn </span>into_ffi_value(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; WrappedFFIValue&lt;u64, Vec&lt;u8&gt;&gt; {
@@ -873,8 +875,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
-</span><span class="kw">impl</span>&lt;T: <span class="lifetime">&#39;static </span>+ Decode&gt; FromFFIValue <span class="kw">for </span>Vec&lt;T&gt; {
+<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
+</span><span class="kw">impl</span>&lt;T: <span class="lifetime">'static </span>+ Decode&gt; FromFFIValue <span class="kw">for </span>Vec&lt;T&gt; {
 	<span class="kw">fn </span>from_ffi_value(arg: u64) -&gt; Vec&lt;T&gt; {
 		<span class="kw">let </span>(ptr, len) = unpack_ptr_and_len(arg);
 		<span class="kw">let </span>len = len <span class="kw">as </span>usize;
@@ -888,7 +890,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if </span>TypeId::of::&lt;T&gt;() == TypeId::of::&lt;u8&gt;() {
 			<span class="kw">unsafe </span>{ mem::transmute(data) }
 		} <span class="kw">else </span>{
-			<span class="self">Self</span>::decode(<span class="kw-2">&amp;mut &amp;</span>data[..]).expect(<span class="string">&quot;Host to wasm values are encoded correctly; qed&quot;</span>)
+			<span class="self">Self</span>::decode(<span class="kw-2">&amp;mut &amp;</span>data[..]).expect(<span class="string">"Host to wasm values are encoded correctly; qed"</span>)
 		}
 	}
 }
@@ -903,8 +905,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>FFIType = u64;
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
-</span><span class="kw">impl</span>&lt;T: <span class="lifetime">&#39;static </span>+ Decode&gt; FromFFIValue <span class="kw">for </span>[T] {
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
+</span><span class="kw">impl</span>&lt;T: <span class="lifetime">'static </span>+ Decode&gt; FromFFIValue <span class="kw">for </span>[T] {
 	<span class="kw">type </span>SelfInstance = Vec&lt;T&gt;;
 
 	<span class="kw">fn </span>from_ffi_value(context: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>FunctionContext, arg: u64) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;T&gt;&gt; {
@@ -916,12 +918,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Ok</span>(<span class="kw">unsafe </span>{ mem::transmute(vec) })
 		} <span class="kw">else </span>{
 			<span class="prelude-val">Ok</span>(Vec::&lt;T&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>vec[..])
-				.expect(<span class="string">&quot;Wasm to host values are encoded correctly; qed&quot;</span>))
+				.expect(<span class="string">"Wasm to host values are encoded correctly; qed"</span>))
 		}
 	}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">impl </span>IntoPreallocatedFFIValue <span class="kw">for </span>[u8] {
 	<span class="kw">type </span>SelfInstance = Vec&lt;u8&gt;;
 
@@ -934,7 +936,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">if </span>(len <span class="kw">as </span>usize) &lt; self_instance.len() {
 			<span class="prelude-val">Err</span>(<span class="macro">format!</span>(
-				<span class="string">&quot;Preallocated buffer is not big enough (given {} vs needed {})!&quot;</span>,
+				<span class="string">"Preallocated buffer is not big enough (given {} vs needed {})!"</span>,
 				len,
 				self_instance.len()
 			))
@@ -944,8 +946,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
-</span><span class="kw">impl</span>&lt;T: <span class="lifetime">&#39;static </span>+ Encode&gt; IntoFFIValue <span class="kw">for </span>[T] {
+<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
+</span><span class="kw">impl</span>&lt;T: <span class="lifetime">'static </span>+ Encode&gt; IntoFFIValue <span class="kw">for </span>[T] {
 	<span class="kw">type </span>Owned = Vec&lt;u8&gt;;
 
 	<span class="kw">fn </span>into_ffi_value(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; WrappedFFIValue&lt;u64, Vec&lt;u8&gt;&gt; {
@@ -967,7 +969,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>FFIType = u32;
 }
 
-<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
 </span><span class="kw">impl</span>&lt;<span class="kw">const </span>N: usize&gt; IntoFFIValue <span class="kw">for </span>[u8; N] {
 	<span class="kw">type </span>Owned = ();
 
@@ -976,7 +978,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
 </span><span class="kw">impl</span>&lt;<span class="kw">const </span>N: usize&gt; FromFFIValue <span class="kw">for </span>[u8; N] {
 	<span class="kw">fn </span>from_ffi_value(arg: u32) -&gt; [u8; N] {
 		<span class="kw">let </span><span class="kw-2">mut </span>res = [<span class="number">0u8</span>; N];
@@ -988,7 +990,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">impl</span>&lt;<span class="kw">const </span>N: usize&gt; FromFFIValue <span class="kw">for </span>[u8; N] {
 	<span class="kw">type </span>SelfInstance = [u8; N];
 
@@ -999,7 +1001,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">impl</span>&lt;<span class="kw">const </span>N: usize&gt; IntoFFIValue <span class="kw">for </span>[u8; N] {
 	<span class="kw">fn </span>into_ffi_value(<span class="self">self</span>, context: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>FunctionContext) -&gt; <span class="prelude-ty">Result</span>&lt;u32&gt; {
 		<span class="kw">let </span>addr = context.allocate_memory(N <span class="kw">as </span>u32)<span class="question-mark">?</span>;
@@ -1008,7 +1010,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">impl</span>&lt;<span class="kw">const </span>N: usize&gt; IntoPreallocatedFFIValue <span class="kw">for </span>[u8; N] {
 	<span class="kw">type </span>SelfInstance = [u8; N];
 
@@ -1080,7 +1082,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>FFIType = u64;
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">impl </span>FromFFIValue <span class="kw">for </span>str {
 	<span class="kw">type </span>SelfInstance = String;
 
@@ -1090,11 +1092,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>vec = context.read_memory(Pointer::new(ptr), len)<span class="question-mark">?</span>;
 
 		<span class="comment">// The data is valid utf8, as it is stored as `&amp;str` in wasm.
-		</span>String::from_utf8(vec).map_err(|<span class="kw">_</span>| <span class="string">&quot;Invalid utf8 data provided&quot;</span>.into())
+		</span>String::from_utf8(vec).map_err(|<span class="kw">_</span>| <span class="string">"Invalid utf8 data provided"</span>.into())
 	}
 }
 
-<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
 </span><span class="kw">impl </span>IntoFFIValue <span class="kw">for </span>str {
 	<span class="kw">type </span>Owned = ();
 
@@ -1104,18 +1106,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">impl</span>&lt;T: sp_wasm_interface::PointerType&gt; RIType <span class="kw">for </span>Pointer&lt;T&gt; {
 	<span class="kw">type </span>FFIType = u32;
 }
 
 <span class="doccomment">/// The type is passed as `u32`.
-</span><span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+</span><span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
 </span><span class="kw">impl</span>&lt;T&gt; RIType <span class="kw">for </span>Pointer&lt;T&gt; {
 	<span class="kw">type </span>FFIType = u32;
 }
 
-<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
 </span><span class="kw">impl</span>&lt;T&gt; IntoFFIValue <span class="kw">for </span>Pointer&lt;T&gt; {
 	<span class="kw">type </span>Owned = ();
 
@@ -1124,14 +1126,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
 </span><span class="kw">impl</span>&lt;T&gt; FromFFIValue <span class="kw">for </span>Pointer&lt;T&gt; {
 	<span class="kw">fn </span>from_ffi_value(arg: u32) -&gt; <span class="self">Self </span>{
 		arg <span class="kw">as _
 	</span>}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">impl</span>&lt;T: sp_wasm_interface::PointerType&gt; FromFFIValue <span class="kw">for </span>Pointer&lt;T&gt; {
 	<span class="kw">type </span>SelfInstance = <span class="self">Self</span>;
 
@@ -1140,7 +1142,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">impl</span>&lt;T: sp_wasm_interface::PointerType&gt; IntoFFIValue <span class="kw">for </span>Pointer&lt;T&gt; {
 	<span class="kw">fn </span>into_ffi_value(<span class="self">self</span>, <span class="kw">_</span>: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>FunctionContext) -&gt; <span class="prelude-ty">Result</span>&lt;u32&gt; {
 		<span class="prelude-val">Ok</span>(<span class="self">self</span>.into())
@@ -1157,7 +1159,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">type </span><span class="macro-nonterminal">FFIType </span>= u32;
 		}
 
-		<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+		<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
 		</span><span class="kw">impl </span>IntoFFIValue <span class="kw">for </span><span class="macro-nonterminal">$</span><span class="kw">type </span>{
 			<span class="kw">type </span><span class="macro-nonterminal">Owned </span>= ();
 
@@ -1166,14 +1168,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			}
 		}
 
-		<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+		<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
 		</span><span class="kw">impl </span>FromFFIValue <span class="kw">for </span><span class="macro-nonterminal">$</span><span class="kw">type </span>{
 			<span class="kw">fn </span><span class="macro-nonterminal">from_ffi_value</span>(arg: u32) -&gt; <span class="macro-nonterminal">$</span><span class="kw">type </span>{
 				&lt;<span class="macro-nonterminal">$</span><span class="kw">type</span>&gt;<span class="macro-nonterminal">::from_le_bytes</span>(&lt;[u8; mem::size_of::&lt;<span class="macro-nonterminal">$</span><span class="kw">type</span>&gt;()]&gt;<span class="macro-nonterminal">::from_ffi_value</span>(arg))
 			}
 		}
 
-		<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+		<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 		</span><span class="kw">impl </span>FromFFIValue <span class="kw">for </span><span class="macro-nonterminal">$</span><span class="kw">type </span>{
 			<span class="kw">type </span><span class="macro-nonterminal">SelfInstance </span>= <span class="macro-nonterminal">$</span><span class="kw">type</span>;
 
@@ -1184,7 +1186,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			}
 		}
 
-		<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+		<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 		</span><span class="kw">impl </span>IntoFFIValue <span class="kw">for </span><span class="macro-nonterminal">$</span><span class="kw">type </span>{
 			<span class="kw">fn </span><span class="macro-nonterminal">into_ffi_value</span>(<span class="self">self</span>, context: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>FunctionContext) -&gt; <span class="prelude-ty">Result</span>&lt;u32&gt; {
 				<span class="kw">let </span>addr = context.allocate_memory(mem::size_of::&lt;<span class="macro-nonterminal">$</span><span class="kw">type</span>&gt;() <span class="kw">as </span><span class="macro-nonterminal">u32</span>)<span class="question-mark">?</span>;

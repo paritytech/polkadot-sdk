@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/keystore/src/testing.rs`."><title>testing.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/keystore/src/testing.rs`."><title>testing.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_keystore" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_keystore" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sp_keystore/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -757,14 +759,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -773,9 +775,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="kw">use crate</span>::{Error, Keystore, KeystorePtr};
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;bandersnatch-experimental&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"bandersnatch-experimental"</span>)]
 </span><span class="kw">use </span>sp_core::bandersnatch;
-<span class="attr">#[cfg(feature = <span class="string">&quot;bls-experimental&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"bls-experimental"</span>)]
 </span><span class="kw">use </span>sp_core::{bls377, bls381, ecdsa_bls377, KeccakHasher};
 <span class="kw">use </span>sp_core::{
 	crypto::{ByteArray, KeyTypeId, Pair, VrfSecret},
@@ -802,7 +804,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">self</span>.keys.read().get(<span class="kw-2">&amp;</span>key_type).and_then(|inner| {
 			inner
 				.get(public.as_slice())
-				.map(|s| T::from_string(s, <span class="prelude-val">None</span>).expect(<span class="string">&quot;seed slice is valid&quot;</span>))
+				.map(|s| T::from_string(s, <span class="prelude-val">None</span>).expect(<span class="string">"seed slice is valid"</span>))
 		})
 	}
 
@@ -812,7 +814,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.get(<span class="kw-2">&amp;</span>key_type)
 			.map(|keys| {
 				keys.values()
-					.map(|s| T::from_string(s, <span class="prelude-val">None</span>).expect(<span class="string">&quot;seed slice is valid&quot;</span>))
+					.map(|s| T::from_string(s, <span class="prelude-val">None</span>).expect(<span class="string">"seed slice is valid"</span>))
 					.map(|p| p.public())
 					.collect()
 			})
@@ -827,7 +829,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">match </span>seed {
 			<span class="prelude-val">Some</span>(seed) =&gt; {
 				<span class="kw">let </span>pair = T::from_string(seed, <span class="prelude-val">None</span>)
-					.map_err(|<span class="kw">_</span>| Error::ValidationError(<span class="string">&quot;Generates a pair.&quot;</span>.to_owned()))<span class="question-mark">?</span>;
+					.map_err(|<span class="kw">_</span>| Error::ValidationError(<span class="string">"Generates a pair."</span>.to_owned()))<span class="question-mark">?</span>;
 				<span class="self">self</span>.keys
 					.write()
 					.entry(key_type)
@@ -970,12 +972,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Ok</span>(sig)
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;bandersnatch-experimental&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"bandersnatch-experimental"</span>)]
 	</span><span class="kw">fn </span>bandersnatch_public_keys(<span class="kw-2">&amp;</span><span class="self">self</span>, key_type: KeyTypeId) -&gt; Vec&lt;bandersnatch::Public&gt; {
 		<span class="self">self</span>.public_keys::&lt;bandersnatch::Pair&gt;(key_type)
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;bandersnatch-experimental&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"bandersnatch-experimental"</span>)]
 	</span><span class="kw">fn </span>bandersnatch_generate_new(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		key_type: KeyTypeId,
@@ -984,7 +986,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">self</span>.generate_new::&lt;bandersnatch::Pair&gt;(key_type, seed)
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;bandersnatch-experimental&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"bandersnatch-experimental"</span>)]
 	</span><span class="kw">fn </span>bandersnatch_sign(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		key_type: KeyTypeId,
@@ -994,7 +996,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">self</span>.sign::&lt;bandersnatch::Pair&gt;(key_type, public, msg)
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;bandersnatch-experimental&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"bandersnatch-experimental"</span>)]
 	</span><span class="kw">fn </span>bandersnatch_vrf_sign(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		key_type: KeyTypeId,
@@ -1004,7 +1006,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">self</span>.vrf_sign::&lt;bandersnatch::Pair&gt;(key_type, public, data)
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;bandersnatch-experimental&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"bandersnatch-experimental"</span>)]
 	</span><span class="kw">fn </span>bandersnatch_ring_vrf_sign(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		key_type: KeyTypeId,
@@ -1018,7 +1020,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Ok</span>(sig)
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;bandersnatch-experimental&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"bandersnatch-experimental"</span>)]
 	</span><span class="kw">fn </span>bandersnatch_vrf_pre_output(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		key_type: KeyTypeId,
@@ -1028,12 +1030,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">self</span>.vrf_pre_output::&lt;bandersnatch::Pair&gt;(key_type, public, input)
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;bls-experimental&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"bls-experimental"</span>)]
 	</span><span class="kw">fn </span>bls381_public_keys(<span class="kw-2">&amp;</span><span class="self">self</span>, key_type: KeyTypeId) -&gt; Vec&lt;bls381::Public&gt; {
 		<span class="self">self</span>.public_keys::&lt;bls381::Pair&gt;(key_type)
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;bls-experimental&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"bls-experimental"</span>)]
 	</span><span class="kw">fn </span>bls381_generate_new(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		key_type: KeyTypeId,
@@ -1042,7 +1044,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">self</span>.generate_new::&lt;bls381::Pair&gt;(key_type, seed)
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;bls-experimental&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"bls-experimental"</span>)]
 	</span><span class="kw">fn </span>bls381_sign(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		key_type: KeyTypeId,
@@ -1052,12 +1054,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">self</span>.sign::&lt;bls381::Pair&gt;(key_type, public, msg)
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;bls-experimental&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"bls-experimental"</span>)]
 	</span><span class="kw">fn </span>bls377_public_keys(<span class="kw-2">&amp;</span><span class="self">self</span>, key_type: KeyTypeId) -&gt; Vec&lt;bls377::Public&gt; {
 		<span class="self">self</span>.public_keys::&lt;bls377::Pair&gt;(key_type)
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;bls-experimental&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"bls-experimental"</span>)]
 	</span><span class="kw">fn </span>bls377_generate_new(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		key_type: KeyTypeId,
@@ -1066,7 +1068,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">self</span>.generate_new::&lt;bls377::Pair&gt;(key_type, seed)
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;bls-experimental&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"bls-experimental"</span>)]
 	</span><span class="kw">fn </span>bls377_sign(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		key_type: KeyTypeId,
@@ -1076,12 +1078,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">self</span>.sign::&lt;bls377::Pair&gt;(key_type, public, msg)
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;bls-experimental&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"bls-experimental"</span>)]
 	</span><span class="kw">fn </span>ecdsa_bls377_public_keys(<span class="kw-2">&amp;</span><span class="self">self</span>, key_type: KeyTypeId) -&gt; Vec&lt;ecdsa_bls377::Public&gt; {
 		<span class="self">self</span>.public_keys::&lt;ecdsa_bls377::Pair&gt;(key_type)
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;bls-experimental&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"bls-experimental"</span>)]
 	</span><span class="kw">fn </span>ecdsa_bls377_generate_new(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		key_type: KeyTypeId,
@@ -1090,7 +1092,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">self</span>.generate_new::&lt;ecdsa_bls377::Pair&gt;(key_type, seed)
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;bls-experimental&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"bls-experimental"</span>)]
 	</span><span class="kw">fn </span>ecdsa_bls377_sign(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		key_type: KeyTypeId,
@@ -1100,7 +1102,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">self</span>.sign::&lt;ecdsa_bls377::Pair&gt;(key_type, public, msg)
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;bls-experimental&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"bls-experimental"</span>)]
 	</span><span class="kw">fn </span>ecdsa_bls377_sign_with_keccak256(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		key_type: KeyTypeId,
@@ -1157,7 +1159,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>store_key_and_extract() {
 		<span class="kw">let </span>store = MemoryKeystore::new();
 
-		<span class="kw">let </span>public = store.ed25519_generate_new(ED25519, <span class="prelude-val">None</span>).expect(<span class="string">&quot;Generates key&quot;</span>);
+		<span class="kw">let </span>public = store.ed25519_generate_new(ED25519, <span class="prelude-val">None</span>).expect(<span class="string">"Generates key"</span>);
 
 		<span class="kw">let </span>public_keys = store.ed25519_public_keys(ED25519);
 
@@ -1168,12 +1170,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>store_unknown_and_extract_it() {
 		<span class="kw">let </span>store = MemoryKeystore::new();
 
-		<span class="kw">let </span>secret_uri = <span class="string">&quot;//Alice&quot;</span>;
-		<span class="kw">let </span>key_pair = sr25519::Pair::from_string(secret_uri, <span class="prelude-val">None</span>).expect(<span class="string">&quot;Generates key pair&quot;</span>);
+		<span class="kw">let </span>secret_uri = <span class="string">"//Alice"</span>;
+		<span class="kw">let </span>key_pair = sr25519::Pair::from_string(secret_uri, <span class="prelude-val">None</span>).expect(<span class="string">"Generates key pair"</span>);
 
 		store
 			.insert(SR25519, secret_uri, key_pair.public().as_ref())
-			.expect(<span class="string">&quot;Inserts unknown key&quot;</span>);
+			.expect(<span class="string">"Inserts unknown key"</span>);
 
 		<span class="kw">let </span>public_keys = store.sr25519_public_keys(SR25519);
 
@@ -1184,15 +1186,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>sr25519_vrf_sign() {
 		<span class="kw">let </span>store = MemoryKeystore::new();
 
-		<span class="kw">let </span>secret_uri = <span class="string">&quot;//Alice&quot;</span>;
-		<span class="kw">let </span>key_pair = sr25519::Pair::from_string(secret_uri, <span class="prelude-val">None</span>).expect(<span class="string">&quot;Generates key pair&quot;</span>);
+		<span class="kw">let </span>secret_uri = <span class="string">"//Alice"</span>;
+		<span class="kw">let </span>key_pair = sr25519::Pair::from_string(secret_uri, <span class="prelude-val">None</span>).expect(<span class="string">"Generates key pair"</span>);
 
 		<span class="kw">let </span>data = sr25519::vrf::VrfInput::new(
-			<span class="string">b&quot;Test&quot;</span>,
+			<span class="string">b"Test"</span>,
 			<span class="kw-2">&amp;</span>[
-				(<span class="string">b&quot;one&quot;</span>, <span class="kw-2">&amp;</span><span class="number">1_u64</span>.to_le_bytes()),
-				(<span class="string">b&quot;two&quot;</span>, <span class="kw-2">&amp;</span><span class="number">2_u64</span>.to_le_bytes()),
-				(<span class="string">b&quot;three&quot;</span>, <span class="string">&quot;test&quot;</span>.as_bytes()),
+				(<span class="string">b"one"</span>, <span class="kw-2">&amp;</span><span class="number">1_u64</span>.to_le_bytes()),
+				(<span class="string">b"two"</span>, <span class="kw-2">&amp;</span><span class="number">2_u64</span>.to_le_bytes()),
+				(<span class="string">b"three"</span>, <span class="string">"test"</span>.as_bytes()),
 			],
 		)
 		.into_sign_data();
@@ -1202,7 +1204,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		store
 			.insert(SR25519, secret_uri, key_pair.public().as_ref())
-			.expect(<span class="string">&quot;Inserts unknown key&quot;</span>);
+			.expect(<span class="string">"Inserts unknown key"</span>);
 
 		<span class="kw">let </span>result = store.sr25519_vrf_sign(SR25519, <span class="kw-2">&amp;</span>key_pair.public(), <span class="kw-2">&amp;</span>data);
 
@@ -1213,15 +1215,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>sr25519_vrf_pre_output() {
 		<span class="kw">let </span>store = MemoryKeystore::new();
 
-		<span class="kw">let </span>secret_uri = <span class="string">&quot;//Alice&quot;</span>;
-		<span class="kw">let </span>pair = sr25519::Pair::from_string(secret_uri, <span class="prelude-val">None</span>).expect(<span class="string">&quot;Generates key pair&quot;</span>);
+		<span class="kw">let </span>secret_uri = <span class="string">"//Alice"</span>;
+		<span class="kw">let </span>pair = sr25519::Pair::from_string(secret_uri, <span class="prelude-val">None</span>).expect(<span class="string">"Generates key pair"</span>);
 
 		<span class="kw">let </span>input = sr25519::vrf::VrfInput::new(
-			<span class="string">b&quot;Test&quot;</span>,
+			<span class="string">b"Test"</span>,
 			<span class="kw-2">&amp;</span>[
-				(<span class="string">b&quot;one&quot;</span>, <span class="kw-2">&amp;</span><span class="number">1_u64</span>.to_le_bytes()),
-				(<span class="string">b&quot;two&quot;</span>, <span class="kw-2">&amp;</span><span class="number">2_u64</span>.to_le_bytes()),
-				(<span class="string">b&quot;three&quot;</span>, <span class="string">&quot;test&quot;</span>.as_bytes()),
+				(<span class="string">b"one"</span>, <span class="kw-2">&amp;</span><span class="number">1_u64</span>.to_le_bytes()),
+				(<span class="string">b"two"</span>, <span class="kw-2">&amp;</span><span class="number">2_u64</span>.to_le_bytes()),
+				(<span class="string">b"three"</span>, <span class="string">"test"</span>.as_bytes()),
 			],
 		);
 
@@ -1230,12 +1232,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		store
 			.insert(SR25519, secret_uri, pair.public().as_ref())
-			.expect(<span class="string">&quot;Inserts unknown key&quot;</span>);
+			.expect(<span class="string">"Inserts unknown key"</span>);
 
 		<span class="kw">let </span>pre_output =
 			store.sr25519_vrf_pre_output(SR25519, <span class="kw-2">&amp;</span>pair.public(), <span class="kw-2">&amp;</span>input).unwrap().unwrap();
 
-		<span class="kw">let </span>result = pre_output.make_bytes::&lt;<span class="number">32</span>&gt;(<span class="string">b&quot;rand&quot;</span>, <span class="kw-2">&amp;</span>input, <span class="kw-2">&amp;</span>pair.public());
+		<span class="kw">let </span>result = pre_output.make_bytes::&lt;<span class="number">32</span>&gt;(<span class="string">b"rand"</span>, <span class="kw-2">&amp;</span>input, <span class="kw-2">&amp;</span>pair.public());
 		<span class="macro">assert!</span>(result.is_ok());
 	}
 
@@ -1243,10 +1245,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>ecdsa_sign_prehashed_works() {
 		<span class="kw">let </span>store = MemoryKeystore::new();
 
-		<span class="kw">let </span>suri = <span class="string">&quot;//Alice&quot;</span>;
+		<span class="kw">let </span>suri = <span class="string">"//Alice"</span>;
 		<span class="kw">let </span>pair = ecdsa::Pair::from_string(suri, <span class="prelude-val">None</span>).unwrap();
 
-		<span class="comment">// Let&#39;s pretend this to be the hash output as content doesn&#39;t really matter here.
+		<span class="comment">// Let's pretend this to be the hash output as content doesn't really matter here.
 		</span><span class="kw">let </span>hash = [<span class="number">0xff</span>; <span class="number">32</span>];
 
 		<span class="comment">// no key in key store
@@ -1261,16 +1263,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="attr">#[test]
-	#[cfg(feature = <span class="string">&quot;bls-experimental&quot;</span>)]
+	#[cfg(feature = <span class="string">"bls-experimental"</span>)]
 	</span><span class="kw">fn </span>ecdsa_bls377_sign_with_keccak_works() {
 		<span class="kw">use </span>sp_core::testing::ECDSA_BLS377;
 
 		<span class="kw">let </span>store = MemoryKeystore::new();
 
-		<span class="kw">let </span>suri = <span class="string">&quot;//Alice&quot;</span>;
+		<span class="kw">let </span>suri = <span class="string">"//Alice"</span>;
 		<span class="kw">let </span>pair = ecdsa_bls377::Pair::from_string(suri, <span class="prelude-val">None</span>).unwrap();
 
-		<span class="kw">let </span>msg = <span class="string">b&quot;this should be a normal unhashed message not &quot;</span>;
+		<span class="kw">let </span>msg = <span class="string">b"this should be a normal unhashed message not "</span>;
 
 		<span class="comment">// insert key, sign again
 		</span>store.insert(ECDSA_BLS377, suri, pair.public().as_ref()).unwrap();
@@ -1293,26 +1295,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="attr">#[test]
-	#[cfg(feature = <span class="string">&quot;bandersnatch-experimental&quot;</span>)]
+	#[cfg(feature = <span class="string">"bandersnatch-experimental"</span>)]
 	</span><span class="kw">fn </span>bandersnatch_vrf_sign() {
 		<span class="kw">use </span>sp_core::testing::BANDERSNATCH;
 
 		<span class="kw">let </span>store = MemoryKeystore::new();
 
-		<span class="kw">let </span>secret_uri = <span class="string">&quot;//Alice&quot;</span>;
+		<span class="kw">let </span>secret_uri = <span class="string">"//Alice"</span>;
 		<span class="kw">let </span>key_pair =
-			bandersnatch::Pair::from_string(secret_uri, <span class="prelude-val">None</span>).expect(<span class="string">&quot;Generates key pair&quot;</span>);
+			bandersnatch::Pair::from_string(secret_uri, <span class="prelude-val">None</span>).expect(<span class="string">"Generates key pair"</span>);
 
-		<span class="kw">let </span>in1 = bandersnatch::vrf::VrfInput::new(<span class="string">&quot;in&quot;</span>, <span class="string">&quot;foo&quot;</span>);
+		<span class="kw">let </span>in1 = bandersnatch::vrf::VrfInput::new(<span class="string">"in"</span>, <span class="string">"foo"</span>);
 		<span class="kw">let </span>sign_data =
-			bandersnatch::vrf::VrfSignData::new_unchecked(<span class="string">b&quot;Test&quot;</span>, <span class="prelude-val">Some</span>(<span class="string">&quot;m1&quot;</span>), <span class="prelude-val">Some</span>(in1));
+			bandersnatch::vrf::VrfSignData::new_unchecked(<span class="string">b"Test"</span>, <span class="prelude-val">Some</span>(<span class="string">"m1"</span>), <span class="prelude-val">Some</span>(in1));
 
 		<span class="kw">let </span>result = store.bandersnatch_vrf_sign(BANDERSNATCH, <span class="kw-2">&amp;</span>key_pair.public(), <span class="kw-2">&amp;</span>sign_data);
 		<span class="macro">assert!</span>(result.unwrap().is_none());
 
 		store
 			.insert(BANDERSNATCH, secret_uri, key_pair.public().as_ref())
-			.expect(<span class="string">&quot;Inserts unknown key&quot;</span>);
+			.expect(<span class="string">"Inserts unknown key"</span>);
 
 		<span class="kw">let </span>result = store.bandersnatch_vrf_sign(BANDERSNATCH, <span class="kw-2">&amp;</span>key_pair.public(), <span class="kw-2">&amp;</span>sign_data);
 
@@ -1320,7 +1322,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="attr">#[test]
-	#[cfg(feature = <span class="string">&quot;bandersnatch-experimental&quot;</span>)]
+	#[cfg(feature = <span class="string">"bandersnatch-experimental"</span>)]
 	</span><span class="kw">fn </span>bandersnatch_ring_vrf_sign() {
 		<span class="kw">use </span>sp_core::testing::BANDERSNATCH;
 
@@ -1335,13 +1337,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>prover_idx = <span class="number">3</span>;
 		<span class="kw">let </span>prover = ring_ctx.prover(<span class="kw-2">&amp;</span>pks, prover_idx).unwrap();
 
-		<span class="kw">let </span>secret_uri = <span class="string">&quot;//Alice&quot;</span>;
-		<span class="kw">let </span>pair = bandersnatch::Pair::from_string(secret_uri, <span class="prelude-val">None</span>).expect(<span class="string">&quot;Generates key pair&quot;</span>);
+		<span class="kw">let </span>secret_uri = <span class="string">"//Alice"</span>;
+		<span class="kw">let </span>pair = bandersnatch::Pair::from_string(secret_uri, <span class="prelude-val">None</span>).expect(<span class="string">"Generates key pair"</span>);
 		pks[prover_idx] = pair.public();
 
-		<span class="kw">let </span>in1 = bandersnatch::vrf::VrfInput::new(<span class="string">&quot;in1&quot;</span>, <span class="string">&quot;foo&quot;</span>);
+		<span class="kw">let </span>in1 = bandersnatch::vrf::VrfInput::new(<span class="string">"in1"</span>, <span class="string">"foo"</span>);
 		<span class="kw">let </span>sign_data =
-			bandersnatch::vrf::VrfSignData::new_unchecked(<span class="string">b&quot;Test&quot;</span>, <span class="kw-2">&amp;</span>[<span class="string">&quot;m1&quot;</span>, <span class="string">&quot;m2&quot;</span>], [in1]);
+			bandersnatch::vrf::VrfSignData::new_unchecked(<span class="string">b"Test"</span>, <span class="kw-2">&amp;</span>[<span class="string">"m1"</span>, <span class="string">"m2"</span>], [in1]);
 
 		<span class="kw">let </span>result =
 			store.bandersnatch_ring_vrf_sign(BANDERSNATCH, <span class="kw-2">&amp;</span>pair.public(), <span class="kw-2">&amp;</span>sign_data, <span class="kw-2">&amp;</span>prover);
@@ -1349,7 +1351,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		store
 			.insert(BANDERSNATCH, secret_uri, pair.public().as_ref())
-			.expect(<span class="string">&quot;Inserts unknown key&quot;</span>);
+			.expect(<span class="string">"Inserts unknown key"</span>);
 
 		<span class="kw">let </span>result =
 			store.bandersnatch_ring_vrf_sign(BANDERSNATCH, <span class="kw-2">&amp;</span>pair.public(), <span class="kw-2">&amp;</span>sign_data, <span class="kw-2">&amp;</span>prover);

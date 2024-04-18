@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/network/sync/src/strategy/warp.rs`."><title>warp.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/network/sync/src/strategy/warp.rs`."><title>warp.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sc_network_sync" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sc_network_sync" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../sc_network_sync/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1676,19 +1678,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use </span>sc_network::ReputationChange <span class="kw">as </span>Rep;
 
 	<span class="doccomment">/// Unexpected response received form a peer
-	</span><span class="kw">pub const </span>UNEXPECTED_RESPONSE: Rep = Rep::new(-(<span class="number">1 </span>&lt;&lt; <span class="number">29</span>), <span class="string">&quot;Unexpected response&quot;</span>);
+	</span><span class="kw">pub const </span>UNEXPECTED_RESPONSE: Rep = Rep::new(-(<span class="number">1 </span>&lt;&lt; <span class="number">29</span>), <span class="string">"Unexpected response"</span>);
 
 	<span class="doccomment">/// Peer provided invalid warp proof data
-	</span><span class="kw">pub const </span>BAD_WARP_PROOF: Rep = Rep::new(-(<span class="number">1 </span>&lt;&lt; <span class="number">29</span>), <span class="string">&quot;Bad warp proof&quot;</span>);
+	</span><span class="kw">pub const </span>BAD_WARP_PROOF: Rep = Rep::new(-(<span class="number">1 </span>&lt;&lt; <span class="number">29</span>), <span class="string">"Bad warp proof"</span>);
 
 	<span class="doccomment">/// Peer did not provide us with advertised block data.
-	</span><span class="kw">pub const </span>NO_BLOCK: Rep = Rep::new(-(<span class="number">1 </span>&lt;&lt; <span class="number">29</span>), <span class="string">&quot;No requested block data&quot;</span>);
+	</span><span class="kw">pub const </span>NO_BLOCK: Rep = Rep::new(-(<span class="number">1 </span>&lt;&lt; <span class="number">29</span>), <span class="string">"No requested block data"</span>);
 
 	<span class="doccomment">/// Reputation change for peers which send us non-requested block data.
-	</span><span class="kw">pub const </span>NOT_REQUESTED: Rep = Rep::new(-(<span class="number">1 </span>&lt;&lt; <span class="number">29</span>), <span class="string">&quot;Not requested block data&quot;</span>);
+	</span><span class="kw">pub const </span>NOT_REQUESTED: Rep = Rep::new(-(<span class="number">1 </span>&lt;&lt; <span class="number">29</span>), <span class="string">"Not requested block data"</span>);
 
 	<span class="doccomment">/// Reputation change for peers which send us a block which we fail to verify.
-	</span><span class="kw">pub const </span>VERIFICATION_FAIL: Rep = Rep::new(-(<span class="number">1 </span>&lt;&lt; <span class="number">29</span>), <span class="string">&quot;Block verification failed&quot;</span>);
+	</span><span class="kw">pub const </span>VERIFICATION_FAIL: Rep = Rep::new(-(<span class="number">1 </span>&lt;&lt; <span class="number">29</span>), <span class="string">"Block verification failed"</span>);
 }
 
 <span class="doccomment">/// Reported warp sync phase.
@@ -1716,14 +1718,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter) -&gt; fmt::Result {
 		<span class="kw">match </span><span class="self">self </span>{
 			<span class="self">Self</span>::AwaitingPeers { required_peers } =&gt;
-				<span class="macro">write!</span>(f, <span class="string">&quot;Waiting for {required_peers} peers to be connected&quot;</span>),
-			<span class="self">Self</span>::AwaitingTargetBlock =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Waiting for target block to be received&quot;</span>),
-			<span class="self">Self</span>::DownloadingWarpProofs =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Downloading finality proofs&quot;</span>),
-			<span class="self">Self</span>::DownloadingTargetBlock =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Downloading target block&quot;</span>),
-			<span class="self">Self</span>::DownloadingState =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Downloading state&quot;</span>),
-			<span class="self">Self</span>::ImportingState =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Importing state&quot;</span>),
-			<span class="self">Self</span>::DownloadingBlocks(n) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Downloading block history (#{})&quot;</span>, n),
-			<span class="self">Self</span>::Complete =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Warp sync is complete&quot;</span>),
+				<span class="macro">write!</span>(f, <span class="string">"Waiting for {required_peers} peers to be connected"</span>),
+			<span class="self">Self</span>::AwaitingTargetBlock =&gt; <span class="macro">write!</span>(f, <span class="string">"Waiting for target block to be received"</span>),
+			<span class="self">Self</span>::DownloadingWarpProofs =&gt; <span class="macro">write!</span>(f, <span class="string">"Downloading finality proofs"</span>),
+			<span class="self">Self</span>::DownloadingTargetBlock =&gt; <span class="macro">write!</span>(f, <span class="string">"Downloading target block"</span>),
+			<span class="self">Self</span>::DownloadingState =&gt; <span class="macro">write!</span>(f, <span class="string">"Downloading state"</span>),
+			<span class="self">Self</span>::ImportingState =&gt; <span class="macro">write!</span>(f, <span class="string">"Importing state"</span>),
+			<span class="self">Self</span>::DownloadingBlocks(n) =&gt; <span class="macro">write!</span>(f, <span class="string">"Downloading block history (#{})"</span>, n),
+			<span class="self">Self</span>::Complete =&gt; <span class="macro">write!</span>(f, <span class="string">"Warp sync is complete"</span>),
 		}
 	}
 }
@@ -1807,7 +1809,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	state: PeerState,
 }
 
-<span class="doccomment">/// Action that should be performed on [`WarpSync`]&#39;s behalf.
+<span class="doccomment">/// Action that should be performed on [`WarpSync`]'s behalf.
 </span><span class="kw">pub enum </span>WarpSyncAction&lt;B: BlockT&gt; {
 	<span class="doccomment">/// Send warp proof request to peer.
 	</span>SendWarpProofRequest { peer_id: PeerId, request: WarpProofRequest&lt;B&gt; },
@@ -1839,7 +1841,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl</span>&lt;B, Client&gt; WarpSync&lt;B, Client&gt;
 <span class="kw">where
 	</span>B: BlockT,
-	Client: HeaderBackend&lt;B&gt; + <span class="lifetime">&#39;static</span>,
+	Client: HeaderBackend&lt;B&gt; + <span class="lifetime">'static</span>,
 {
 	<span class="doccomment">/// Create a new instance. When passing a warp sync provider we will be checking for proof and
 	/// authorities. Alternatively we can pass a target block when we want to skip downloading
@@ -1848,7 +1850,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if </span>client.info().finalized_state.is_some() {
 			<span class="macro">error!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;Can&#39;t use warp sync mode with a partially synced database. Reverting to full sync mode.&quot;
+				<span class="string">"Can't use warp sync mode with a partially synced database. Reverting to full sync mode."
 			</span>);
 			<span class="kw">return </span><span class="self">Self </span>{
 				client,
@@ -1883,7 +1885,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>Phase::PendingTargetBlock = <span class="self">self</span>.phase <span class="kw">else </span>{
 			<span class="macro">error!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;Attempt to set warp sync target block in invalid phase.&quot;</span>,
+				<span class="string">"Attempt to set warp sync target block in invalid phase."</span>,
 			);
 			<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
 			<span class="kw">return
@@ -1939,7 +1941,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			last_hash: <span class="self">self</span>.client.info().genesis_hash,
 			warp_sync_provider: Arc::clone(warp_sync_provider),
 		};
-		<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">&quot;Started warp sync with {} peers.&quot;</span>, <span class="self">self</span>.peers.len());
+		<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">"Started warp sync with {} peers."</span>, <span class="self">self</span>.peers.len());
 	}
 
 	<span class="doccomment">/// Process warp proof response.
@@ -1951,7 +1953,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>Phase::WarpProof { set_id, authorities, last_hash, warp_sync_provider } =
 			<span class="kw-2">&amp;mut </span><span class="self">self</span>.phase
 		<span class="kw">else </span>{
-			<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;Unexpected warp proof response&quot;</span>);
+			<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"Unexpected warp proof response"</span>);
 			<span class="self">self</span>.actions
 				.push(WarpSyncAction::DropPeer(BadPeer(<span class="kw-2">*</span>peer_id, rep::UNEXPECTED_RESPONSE)));
 			<span class="kw">return
@@ -1959,12 +1961,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">match </span>warp_sync_provider.verify(<span class="kw-2">&amp;</span>response, <span class="kw-2">*</span>set_id, authorities.clone()) {
 			<span class="prelude-val">Err</span>(e) =&gt; {
-				<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;Bad warp proof response: {}&quot;</span>, e);
+				<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"Bad warp proof response: {}"</span>, e);
 				<span class="self">self</span>.actions
 					.push(WarpSyncAction::DropPeer(BadPeer(<span class="kw-2">*</span>peer_id, rep::BAD_WARP_PROOF)))
 			},
 			<span class="prelude-val">Ok</span>(VerificationResult::Partial(new_set_id, new_authorities, new_last_hash)) =&gt; {
-				<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;Verified partial proof, set_id={:?}&quot;</span>, new_set_id);
+				<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"Verified partial proof, set_id={:?}"</span>, new_set_id);
 				<span class="kw-2">*</span>set_id = new_set_id;
 				<span class="kw-2">*</span>authorities = new_authorities;
 				<span class="kw-2">*</span>last_hash = new_last_hash;
@@ -1973,7 +1975,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Ok</span>(VerificationResult::Complete(new_set_id, <span class="kw">_</span>, header)) =&gt; {
 				<span class="macro">log::debug!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Verified complete proof, set_id={:?}. Continuing with target block download: {} ({}).&quot;</span>,
+					<span class="string">"Verified complete proof, set_id={:?}. Continuing with target block download: {} ({})."</span>,
 					new_set_id,
 					header.hash(),
 					header.number(),
@@ -2007,14 +2009,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 
 		<span class="kw">let </span>Phase::TargetBlock(header) = <span class="kw-2">&amp;mut </span><span class="self">self</span>.phase <span class="kw">else </span>{
-			<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;Unexpected target block response from {peer_id}&quot;</span>);
+			<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"Unexpected target block response from {peer_id}"</span>);
 			<span class="kw">return </span><span class="prelude-val">Err</span>(BadPeer(peer_id, rep::UNEXPECTED_RESPONSE))
 		};
 
 		<span class="kw">if </span>blocks.is_empty() {
 			<span class="macro">debug!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;Downloading target block failed: empty block response from {peer_id}&quot;</span>,
+				<span class="string">"Downloading target block failed: empty block response from {peer_id}"</span>,
 			);
 			<span class="kw">return </span><span class="prelude-val">Err</span>(BadPeer(peer_id, rep::NO_BLOCK))
 		}
@@ -2022,7 +2024,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if </span>blocks.len() &gt; <span class="number">1 </span>{
 			<span class="macro">debug!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;Too many blocks ({}) in warp target block response from {peer_id}&quot;</span>,
+				<span class="string">"Too many blocks ({}) in warp target block response from {peer_id}"</span>,
 				blocks.len(),
 			);
 			<span class="kw">return </span><span class="prelude-val">Err</span>(BadPeer(peer_id, rep::NOT_REQUESTED))
@@ -2030,12 +2032,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		validate_blocks::&lt;B&gt;(<span class="kw-2">&amp;</span>blocks, <span class="kw-2">&amp;</span>peer_id, <span class="prelude-val">Some</span>(request))<span class="question-mark">?</span>;
 
-		<span class="kw">let </span>block = blocks.pop().expect(<span class="string">&quot;`blocks` len checked above; qed&quot;</span>);
+		<span class="kw">let </span>block = blocks.pop().expect(<span class="string">"`blocks` len checked above; qed"</span>);
 
 		<span class="kw">let </span><span class="prelude-val">Some</span>(block_header) = <span class="kw-2">&amp;</span>block.header <span class="kw">else </span>{
 			<span class="macro">debug!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;Downloading target block failed: missing header in response from {peer_id}.&quot;</span>,
+				<span class="string">"Downloading target block failed: missing header in response from {peer_id}."</span>,
 			);
 			<span class="kw">return </span><span class="prelude-val">Err</span>(BadPeer(peer_id, rep::VERIFICATION_FAIL))
 		};
@@ -2043,7 +2045,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if </span>block_header != header {
 			<span class="macro">debug!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;Downloading target block failed: different header in response from {peer_id}.&quot;</span>,
+				<span class="string">"Downloading target block failed: different header in response from {peer_id}."</span>,
 			);
 			<span class="kw">return </span><span class="prelude-val">Err</span>(BadPeer(peer_id, rep::VERIFICATION_FAIL))
 		}
@@ -2051,7 +2053,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if </span>block.body.is_none() {
 			<span class="macro">debug!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;Downloading target block failed: missing body in response from {peer_id}.&quot;</span>,
+				<span class="string">"Downloading target block failed: missing body in response from {peer_id}."</span>,
 			);
 			<span class="kw">return </span><span class="prelude-val">Err</span>(BadPeer(peer_id, rep::VERIFICATION_FAIL))
 		}
@@ -2107,7 +2109,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>}
 
 		<span class="kw">let </span>peer_id = <span class="self">self</span>.schedule_next_peer(PeerState::DownloadingProofs, <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
-		<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">&quot;New WarpProofRequest to {peer_id}, begin hash: {begin}.&quot;</span>);
+		<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">"New WarpProofRequest to {peer_id}, begin hash: {begin}."</span>);
 
 		<span class="prelude-val">Some</span>((peer_id, WarpProofRequest { begin }))
 	}
@@ -2134,7 +2136,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="macro">trace!</span>(
 			target: LOG_TARGET,
-			<span class="string">&quot;New target block request to {peer_id}, target: {} ({}).&quot;</span>,
+			<span class="string">"New target block request to {peer_id}, target: {} ({})."</span>,
 			target_hash,
 			target_number,
 		);
@@ -2211,7 +2213,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="doccomment">/// Get actions that should be performed by the owner on [`WarpSync`]&#39;s behalf
+	<span class="doccomment">/// Get actions that should be performed by the owner on [`WarpSync`]'s behalf
 	</span><span class="attr">#[must_use]
 	</span><span class="kw">pub fn </span>actions(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw">impl </span>Iterator&lt;Item = WarpSyncAction&lt;B&gt;&gt; {
 		<span class="kw">let </span>warp_proof_request = <span class="self">self
@@ -2403,10 +2405,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>enough_peers_are_used_in_tests() {
-		<span class="comment">// Tests below use 10 peers. Fail early if it&#39;s less than a threshold for warp sync.
+		<span class="comment">// Tests below use 10 peers. Fail early if it's less than a threshold for warp sync.
 		</span><span class="macro">assert!</span>(
 			<span class="number">10 </span>&gt;= MIN_PEERS_TO_START_WARP_SYNC,
-			<span class="string">&quot;Tests must be updated to use that many initial peers.&quot;</span>,
+			<span class="string">"Tests must be updated to use that many initial peers."</span>,
 		);
 	}
 
@@ -2499,7 +2501,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			Phase::WarpProof { last_hash, .. } =&gt; {
 				<span class="kw-2">*</span>last_hash = known_last_hash;
 			},
-			<span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;Invalid phase.&quot;</span>),
+			<span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"Invalid phase."</span>),
 		}
 
 		<span class="kw">let </span>(_peer_id, request) = warp_sync.warp_proof_request().unwrap();
@@ -2539,7 +2541,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.return_const(AuthorityList::default());
 		<span class="comment">// Warp proof verification fails.
 		</span>provider.expect_verify().return_once(|_proof, _set_id, _authorities| {
-			<span class="prelude-val">Err</span>(Box::new(std::io::Error::new(ErrorKind::Other, <span class="string">&quot;test-verification-failure&quot;</span>)))
+			<span class="prelude-val">Err</span>(Box::new(std::io::Error::new(ErrorKind::Other, <span class="string">"test-verification-failure"</span>)))
 		});
 		<span class="kw">let </span>config = WarpSyncConfig::WithProvider(Arc::new(provider));
 		<span class="kw">let </span><span class="kw-2">mut </span>warp_sync = WarpSync::new(Arc::new(client), config);
@@ -2555,7 +2557,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">assert_eq!</span>(actions.len(), <span class="number">1</span>);
 		<span class="kw">let </span>WarpSyncAction::SendWarpProofRequest { peer_id: request_peer_id, .. } = actions[<span class="number">0</span>]
 		<span class="kw">else </span>{
-			<span class="macro">panic!</span>(<span class="string">&quot;Invalid action&quot;</span>);
+			<span class="macro">panic!</span>(<span class="string">"Invalid action"</span>);
 		};
 
 		warp_sync.on_warp_proof_response(<span class="kw-2">&amp;</span>request_peer_id, EncodedProof(Vec::new()));
@@ -2596,12 +2598,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">assert_eq!</span>(actions.len(), <span class="number">1</span>);
 		<span class="kw">let </span>WarpSyncAction::SendWarpProofRequest { peer_id: request_peer_id, .. } = actions[<span class="number">0</span>]
 		<span class="kw">else </span>{
-			<span class="macro">panic!</span>(<span class="string">&quot;Invalid action&quot;</span>);
+			<span class="macro">panic!</span>(<span class="string">"Invalid action"</span>);
 		};
 
 		warp_sync.on_warp_proof_response(<span class="kw-2">&amp;</span>request_peer_id, EncodedProof(Vec::new()));
 
-		<span class="macro">assert!</span>(warp_sync.actions.is_empty(), <span class="string">&quot;No extra actions generated&quot;</span>);
+		<span class="macro">assert!</span>(warp_sync.actions.is_empty(), <span class="string">"No extra actions generated"</span>);
 		<span class="macro">assert!</span>(<span class="macro">matches!</span>(warp_sync.phase, Phase::WarpProof { .. }));
 	}
 
@@ -2640,12 +2642,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">assert_eq!</span>(actions.len(), <span class="number">1</span>);
 		<span class="kw">let </span>WarpSyncAction::SendWarpProofRequest { peer_id: request_peer_id, .. } = actions[<span class="number">0</span>]
 		<span class="kw">else </span>{
-			<span class="macro">panic!</span>(<span class="string">&quot;Invalid action.&quot;</span>);
+			<span class="macro">panic!</span>(<span class="string">"Invalid action."</span>);
 		};
 
 		warp_sync.on_warp_proof_response(<span class="kw-2">&amp;</span>request_peer_id, EncodedProof(Vec::new()));
 
-		<span class="macro">assert!</span>(warp_sync.actions.is_empty(), <span class="string">&quot;No extra actions generated.&quot;</span>);
+		<span class="macro">assert!</span>(warp_sync.actions.is_empty(), <span class="string">"No extra actions generated."</span>);
 		<span class="macro">assert!</span>(
 			<span class="macro">matches!</span>(warp_sync.phase, Phase::TargetBlock(header) <span class="kw">if </span>header == <span class="kw-2">*</span>target_block.header())
 		);
@@ -3007,7 +3009,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// Correct block received.
 		</span><span class="kw">let </span>body = <span class="prelude-val">Some</span>(target_block.extrinsics().iter().cloned().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;());
-		<span class="kw">let </span>justifications = <span class="prelude-val">Some</span>(Justifications::from((<span class="kw-2">*</span><span class="string">b&quot;FRNK&quot;</span>, Vec::new())));
+		<span class="kw">let </span>justifications = <span class="prelude-val">Some</span>(Justifications::from((<span class="kw-2">*</span><span class="string">b"FRNK"</span>, Vec::new())));
 		<span class="kw">let </span>response = <span class="macro">vec!</span>[BlockData::&lt;Block&gt; {
 			hash: target_block.header().hash(),
 			header: <span class="prelude-val">Some</span>(target_block.header().clone()),

@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/support/procedural/src/pallet/expand/call.rs`."><title>call.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/support/procedural/src/pallet/expand/call.rs`."><title>call.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="frame_support_procedural" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="frame_support_procedural" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../../frame_support_procedural/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -604,14 +606,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -649,19 +651,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>type_impl_gen = <span class="kw-2">&amp;</span>def.type_impl_generics(span);
 	<span class="kw">let </span>type_decl_bounded_gen = <span class="kw-2">&amp;</span>def.type_decl_bounded_generics(span);
 	<span class="kw">let </span>type_use_gen = <span class="kw-2">&amp;</span>def.type_use_generics(span);
-	<span class="kw">let </span>call_ident = syn::Ident::new(<span class="string">&quot;Call&quot;</span>, span);
+	<span class="kw">let </span>call_ident = syn::Ident::new(<span class="string">"Call"</span>, span);
 	<span class="kw">let </span>pallet_ident = <span class="kw-2">&amp;</span>def.pallet_struct.pallet;
 
 	<span class="kw">let </span>fn_name = methods.iter().map(|method| <span class="kw-2">&amp;</span>method.name).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 	<span class="kw">let </span>call_index = methods.iter().map(|method| method.call_index).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 	<span class="kw">let </span>new_call_variant_fn_name = fn_name
 		.iter()
-		.map(|fn_name| <span class="macro">quote::format_ident!</span>(<span class="string">&quot;new_call_variant_{}&quot;</span>, fn_name))
+		.map(|fn_name| <span class="macro">quote::format_ident!</span>(<span class="string">"new_call_variant_{}"</span>, fn_name))
 		.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 
 	<span class="kw">let </span>new_call_variant_doc = fn_name
 		.iter()
-		.map(|fn_name| <span class="macro">format!</span>(<span class="string">&quot;Create a call with the variant `{}`.&quot;</span>, fn_name))
+		.map(|fn_name| <span class="macro">format!</span>(<span class="string">"Create a call with the variant `{}`."</span>, fn_name))
 		.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 
 	<span class="kw">let </span><span class="kw-2">mut </span>call_index_warnings = Vec::new();
@@ -671,13 +673,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">continue
 		</span>}
 
-		<span class="kw">let </span>warning = Warning::new_deprecated(<span class="string">&quot;ImplicitCallIndex&quot;</span>)
+		<span class="kw">let </span>warning = Warning::new_deprecated(<span class="string">"ImplicitCallIndex"</span>)
 			.index(call_index_warnings.len())
-			.old(<span class="string">&quot;use implicit call indices&quot;</span>)
-			.new(<span class="string">&quot;ensure that all calls have a `pallet::call_index` attribute or put the pallet into `dev` mode&quot;</span>)
+			.old(<span class="string">"use implicit call indices"</span>)
+			.new(<span class="string">"ensure that all calls have a `pallet::call_index` attribute or put the pallet into `dev` mode"</span>)
 			.help_links(<span class="kw-2">&amp;</span>[
-				<span class="string">&quot;https://github.com/paritytech/substrate/pull/12891&quot;</span>,
-				<span class="string">&quot;https://github.com/paritytech/substrate/pull/11381&quot;
+				<span class="string">"https://github.com/paritytech/substrate/pull/12891"</span>,
+				<span class="string">"https://github.com/paritytech/substrate/pull/11381"
 			</span>])
 			.span(method.name.span())
 			.build_or_panic();
@@ -699,10 +701,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">let </span>pallet_weight = def
 					.call
 					.as_ref()
-					.expect(<span class="string">&quot;we have methods; we have calls; qed&quot;</span>)
+					.expect(<span class="string">"we have methods; we have calls; qed"</span>)
 					.inherited_call_weight
 					.as_ref()
-					.expect(<span class="string">&quot;the parser prevents this&quot;</span>);
+					.expect(<span class="string">"the parser prevents this"</span>);
 
 				<span class="comment">// Expand `&lt;&lt;T as Config&gt;::WeightInfo&gt;::call_name()`.
 				</span><span class="kw">let </span>t = <span class="kw-2">&amp;</span>pallet_weight.typename;
@@ -727,7 +729,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.args
 				.iter()
 				.map(|(<span class="kw">_</span>, name, <span class="kw">_</span>)| {
-					syn::Ident::new(name.to_string().trim_start_matches(<span class="string">&#39;_&#39;</span>), name.span())
+					syn::Ident::new(name.to_string().trim_start_matches(<span class="string">'_'</span>), name.span())
 				})
 				.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
 		})
@@ -776,16 +778,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 
 	<span class="kw">let </span>default_docs =
-		[<span class="macro">syn::parse_quote!</span>(<span class="string">r&quot;Contains a variant per dispatchable extrinsic that this pallet has.&quot;</span>)];
+		[<span class="macro">syn::parse_quote!</span>(<span class="string">r"Contains a variant per dispatchable extrinsic that this pallet has."</span>)];
 	<span class="kw">let </span>docs = <span class="kw">if </span>docs.is_empty() { <span class="kw-2">&amp;</span>default_docs[..] } <span class="kw">else </span>{ <span class="kw-2">&amp;</span>docs[..] };
 
 	<span class="kw">let </span>maybe_compile_error = <span class="kw">if </span>def.call.is_none() {
 		<span class="macro">quote::quote! </span>{
 			<span class="macro">compile_error!</span>(<span class="macro">concat!</span>(
-				<span class="string">&quot;`&quot;</span>,
+				<span class="string">"`"</span>,
 				<span class="macro">stringify!</span>(<span class="macro-nonterminal">$pallet_name</span>),
-				<span class="string">&quot;` does not have #[pallet::call] defined, perhaps you should remove `Call` from \
-				construct_runtime?&quot;</span>,
+				<span class="string">"` does not have #[pallet::call] defined, perhaps you should remove `Call` from \
+				construct_runtime?"</span>,
 			));
 		}
 	} <span class="kw">else </span>{
@@ -793,15 +795,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	};
 
 	<span class="kw">let </span>count = COUNTER.with(|counter| counter.borrow_mut().inc());
-	<span class="kw">let </span>macro_ident = syn::Ident::new(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;__is_call_part_defined_{}&quot;</span>, count), span);
+	<span class="kw">let </span>macro_ident = syn::Ident::new(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"__is_call_part_defined_{}"</span>, count), span);
 
-	<span class="kw">let </span>capture_docs = <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">&quot;no-metadata-docs&quot;</span>) { <span class="string">&quot;never&quot; </span>} <span class="kw">else </span>{ <span class="string">&quot;always&quot; </span>};
+	<span class="kw">let </span>capture_docs = <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">"no-metadata-docs"</span>) { <span class="string">"never" </span>} <span class="kw">else </span>{ <span class="string">"always" </span>};
 
 	<span class="comment">// Wrap all calls inside of storage layers
 	</span><span class="kw">if let </span><span class="prelude-val">Some</span>(syn::Item::Impl(item_impl)) = def
 		.call
 		.as_ref()
-		.map(|c| <span class="kw-2">&amp;mut </span>def.item.content.as_mut().expect(<span class="string">&quot;Checked by def parser&quot;</span>).<span class="number">1</span>[c.index])
+		.map(|c| <span class="kw-2">&amp;mut </span>def.item.content.as_mut().expect(<span class="string">"Checked by def parser"</span>).<span class="number">1</span>[c.index])
 	{
 		item_impl.items.iter_mut().for_each(|i| {
 			<span class="kw">if let </span>syn::ImplItem::Fn(method) = i {
@@ -815,14 +817,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		});
 	}
 
-	<span class="comment">// Extracts #[allow] attributes, necessary so that we don&#39;t run into compiler warnings
+	<span class="comment">// Extracts #[allow] attributes, necessary so that we don't run into compiler warnings
 	</span><span class="kw">let </span>maybe_allow_attrs = methods
 		.iter()
 		.map(|method| {
 			method
 				.attrs
 				.iter()
-				.find(|attr| attr.path().is_ident(<span class="string">&quot;allow&quot;</span>))
+				.find(|attr| attr.path().is_ident(<span class="string">"allow"</span>))
 				.map_or(proc_macro2::TokenStream::new(), |attr| attr.to_token_stream())
 		})
 		.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
@@ -952,7 +954,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							}
 						},
 					)*
-					<span class="self">Self</span>::__Ignore(<span class="kw">_</span>, <span class="kw">_</span>) =&gt; <span class="macro">unreachable!</span>(<span class="string">&quot;__Ignore cannot be used&quot;</span>),
+					<span class="self">Self</span>::__Ignore(<span class="kw">_</span>, <span class="kw">_</span>) =&gt; <span class="macro">unreachable!</span>(<span class="string">"__Ignore cannot be used"</span>),
 				}
 			}
 		}
@@ -970,7 +972,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							#feeless_check_result
 						},
 					)*
-					<span class="self">Self</span>::__Ignore(<span class="kw">_</span>, <span class="kw">_</span>) =&gt; <span class="macro">unreachable!</span>(<span class="string">&quot;__Ignore cannot be used&quot;</span>),
+					<span class="self">Self</span>::__Ignore(<span class="kw">_</span>, <span class="kw">_</span>) =&gt; <span class="macro">unreachable!</span>(<span class="string">"__Ignore cannot be used"</span>),
 				}
 			}
 		}
@@ -978,14 +980,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">impl</span>&lt;#type_impl_gen&gt; #frame_support::traits::GetCallName <span class="kw">for </span>#call_ident&lt;#type_use_gen&gt;
 			#where_clause
 		{
-			<span class="kw">fn </span>get_call_name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str {
+			<span class="kw">fn </span>get_call_name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
 				<span class="kw">match </span><span class="kw-2">*</span><span class="self">self </span>{
 					#( #cfg_attrs <span class="self">Self</span>::#fn_name { .. } =&gt; <span class="macro">stringify!</span>(#fn_name), )*
-					<span class="self">Self</span>::__Ignore(<span class="kw">_</span>, <span class="kw">_</span>) =&gt; <span class="macro">unreachable!</span>(<span class="string">&quot;__PhantomItem cannot be used.&quot;</span>),
+					<span class="self">Self</span>::__Ignore(<span class="kw">_</span>, <span class="kw">_</span>) =&gt; <span class="macro">unreachable!</span>(<span class="string">"__PhantomItem cannot be used."</span>),
 				}
 			}
 
-			<span class="kw">fn </span>get_call_names() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str] {
+			<span class="kw">fn </span>get_call_names() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>[<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str] {
 				<span class="kw-2">&amp;</span>[ #( #cfg_attrs <span class="macro">stringify!</span>(#fn_name), )* ]
 			}
 		}
@@ -996,11 +998,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">fn </span>get_call_index(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u8 {
 				<span class="kw">match </span><span class="kw-2">*</span><span class="self">self </span>{
 					#( #cfg_attrs <span class="self">Self</span>::#fn_name { .. } =&gt; #call_index, )*
-					<span class="self">Self</span>::__Ignore(<span class="kw">_</span>, <span class="kw">_</span>) =&gt; <span class="macro">unreachable!</span>(<span class="string">&quot;__PhantomItem cannot be used.&quot;</span>),
+					<span class="self">Self</span>::__Ignore(<span class="kw">_</span>, <span class="kw">_</span>) =&gt; <span class="macro">unreachable!</span>(<span class="string">"__PhantomItem cannot be used."</span>),
 				}
 			}
 
-			<span class="kw">fn </span>get_call_indices() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8] {
+			<span class="kw">fn </span>get_call_indices() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>[u8] {
 				<span class="kw-2">&amp;</span>[ #( #cfg_attrs #call_index, )* ]
 			}
 		}
@@ -1029,7 +1031,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						)*
 						<span class="self">Self</span>::__Ignore(<span class="kw">_</span>, <span class="kw">_</span>) =&gt; {
 							<span class="kw">let _ </span>= origin; <span class="comment">// Use origin for empty Call enum
-							</span><span class="macro">unreachable!</span>(<span class="string">&quot;__PhantomItem cannot be used.&quot;</span>);
+							</span><span class="macro">unreachable!</span>(<span class="string">"__PhantomItem cannot be used."</span>);
 						},
 					}
 				})

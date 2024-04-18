@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/society/src/migrations.rs`."><title>migrations.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/society/src/migrations.rs`."><title>migrations.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_society" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_society" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../pallet_society/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -507,14 +509,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -525,28 +527,28 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>frame_support::traits::{Defensive, DefensiveOption, Instance, UncheckedOnRuntimeUpgrade};
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 </span><span class="kw">use </span>sp_runtime::TryRuntimeError;
 
 <span class="doccomment">/// The log target.
-</span><span class="kw">const </span>TARGET: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;runtime::society::migration&quot;</span>;
+</span><span class="kw">const </span>TARGET: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"runtime::society::migration"</span>;
 
 <span class="doccomment">/// This migration moves all the state to v2 of Society.
-</span><span class="kw">pub struct </span>VersionUncheckedMigrateToV2&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>, PastPayouts&gt;(
+</span><span class="kw">pub struct </span>VersionUncheckedMigrateToV2&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>, PastPayouts&gt;(
 	core::marker::PhantomData&lt;(T, I, PastPayouts)&gt;,
 );
 
 <span class="kw">impl</span>&lt;
 		T: Config&lt;I&gt;,
-		I: Instance + <span class="lifetime">&#39;static</span>,
+		I: Instance + <span class="lifetime">'static</span>,
 		PastPayouts: Get&lt;Vec&lt;(&lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId, BalanceOf&lt;T, I&gt;)&gt;&gt;,
 	&gt; UncheckedOnRuntimeUpgrade <span class="kw">for </span>VersionUncheckedMigrateToV2&lt;T, I, PastPayouts&gt;
 {
-	<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 	</span><span class="kw">fn </span>pre_upgrade() -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, TryRuntimeError&gt; {
 		<span class="kw">let </span>in_code = Pallet::&lt;T, I&gt;::in_code_storage_version();
 		<span class="kw">let </span>on_chain = Pallet::&lt;T, I&gt;::on_chain_storage_version();
-		<span class="macro">ensure!</span>(on_chain == <span class="number">0 </span>&amp;&amp; in_code == <span class="number">2</span>, <span class="string">&quot;pallet_society: invalid version&quot;</span>);
+		<span class="macro">ensure!</span>(on_chain == <span class="number">0 </span>&amp;&amp; in_code == <span class="number">2</span>, <span class="string">"pallet_society: invalid version"</span>);
 
 		<span class="prelude-val">Ok</span>((v0::Candidates::&lt;T, I&gt;::get(), v0::Members::&lt;T, I&gt;::get()).encode())
 	}
@@ -556,22 +558,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if </span>onchain &lt; <span class="number">2 </span>{
 			<span class="macro">log::info!</span>(
 				target: TARGET,
-				<span class="string">&quot;Running migration against onchain version {:?}&quot;</span>,
+				<span class="string">"Running migration against onchain version {:?}"</span>,
 				onchain
 			);
 			from_original::&lt;T, I&gt;(<span class="kw-2">&amp;mut </span>PastPayouts::get()).defensive_unwrap_or(Weight::MAX)
 		} <span class="kw">else </span>{
-			<span class="macro">log::warn!</span>(<span class="string">&quot;Unexpected onchain version: {:?} (expected 0)&quot;</span>, onchain);
+			<span class="macro">log::warn!</span>(<span class="string">"Unexpected onchain version: {:?} (expected 0)"</span>, onchain);
 			T::DbWeight::get().reads(<span class="number">1</span>)
 		}
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 	</span><span class="kw">fn </span>post_upgrade(data: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
 		<span class="kw">let </span>old: (
 			Vec&lt;Bid&lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId, BalanceOf&lt;T, I&gt;&gt;&gt;,
 			Vec&lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId&gt;,
-		) = Decode::decode(<span class="kw-2">&amp;mut &amp;</span>data[..]).expect(<span class="string">&quot;Bad data&quot;</span>);
+		) = Decode::decode(<span class="kw-2">&amp;mut &amp;</span>data[..]).expect(<span class="string">"Bad data"</span>);
 		<span class="kw">let </span><span class="kw-2">mut </span>old_candidates =
 			old.<span class="number">0</span>.into_iter().map(|x| (x.who, x.kind, x.value)).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 		<span class="kw">let </span><span class="kw-2">mut </span>old_members = old.<span class="number">1</span>;
@@ -589,7 +591,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="macro">ensure!</span>(
 			Pallet::&lt;T, I&gt;::on_chain_storage_version() == <span class="number">2</span>,
-			<span class="string">&quot;The onchain version must be updated after the migration.&quot;
+			<span class="string">"The onchain version must be updated after the migration."
 		</span>);
 
 		assert_internal_consistency::&lt;T, I&gt;();
@@ -616,26 +618,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub enum </span>Vote {
 		<span class="doccomment">/// The member has been chosen to be skeptic and has not yet taken any action.
 		</span>Skeptic,
-		<span class="doccomment">/// The member has rejected the candidate&#39;s application.
+		<span class="doccomment">/// The member has rejected the candidate's application.
 		</span>Reject,
-		<span class="doccomment">/// The member approves of the candidate&#39;s application.
+		<span class="doccomment">/// The member approves of the candidate's application.
 		</span>Approve,
 	}
 
 	<span class="attr">#[storage_alias]
-	</span><span class="kw">pub type </span>Bids&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; = StorageValue&lt;
+	</span><span class="kw">pub type </span>Bids&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; = StorageValue&lt;
 		Pallet&lt;T, I&gt;,
 		Vec&lt;Bid&lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId, BalanceOf&lt;T, I&gt;&gt;&gt;,
 		ValueQuery,
 	&gt;;
 	<span class="attr">#[storage_alias]
-	</span><span class="kw">pub type </span>Candidates&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; = StorageValue&lt;
+	</span><span class="kw">pub type </span>Candidates&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; = StorageValue&lt;
 		Pallet&lt;T, I&gt;,
 		Vec&lt;Bid&lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId, BalanceOf&lt;T, I&gt;&gt;&gt;,
 		ValueQuery,
 	&gt;;
 	<span class="attr">#[storage_alias]
-	</span><span class="kw">pub type </span>Votes&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; = StorageDoubleMap&lt;
+	</span><span class="kw">pub type </span>Votes&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; = StorageDoubleMap&lt;
 		Pallet&lt;T, I&gt;,
 		Twox64Concat,
 		&lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId,
@@ -644,24 +646,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		Vote,
 	&gt;;
 	<span class="attr">#[storage_alias]
-	</span><span class="kw">pub type </span>SuspendedCandidates&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; = StorageMap&lt;
+	</span><span class="kw">pub type </span>SuspendedCandidates&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; = StorageMap&lt;
 		Pallet&lt;T, I&gt;,
 		Twox64Concat,
 		&lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId,
 		(BalanceOf&lt;T, I&gt;, BidKind&lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId, BalanceOf&lt;T, I&gt;&gt;),
 	&gt;;
 	<span class="attr">#[storage_alias]
-	</span><span class="kw">pub type </span>Members&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; =
+	</span><span class="kw">pub type </span>Members&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; =
 		StorageValue&lt;Pallet&lt;T, I&gt;, Vec&lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId&gt;, ValueQuery&gt;;
 	<span class="attr">#[storage_alias]
-	</span><span class="kw">pub type </span>Vouching&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; = StorageMap&lt;
+	</span><span class="kw">pub type </span>Vouching&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; = StorageMap&lt;
 		Pallet&lt;T, I&gt;,
 		Twox64Concat,
 		&lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId,
 		VouchingStatus,
 	&gt;;
 	<span class="attr">#[storage_alias]
-	</span><span class="kw">pub type </span>Strikes&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; = StorageMap&lt;
+	</span><span class="kw">pub type </span>Strikes&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; = StorageMap&lt;
 		Pallet&lt;T, I&gt;,
 		Twox64Concat,
 		&lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId,
@@ -669,7 +671,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		ValueQuery,
 	&gt;;
 	<span class="attr">#[storage_alias]
-	</span><span class="kw">pub type </span>Payouts&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; = StorageMap&lt;
+	</span><span class="kw">pub type </span>Payouts&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; = StorageMap&lt;
 		Pallet&lt;T, I&gt;,
 		Twox64Concat,
 		&lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId,
@@ -677,7 +679,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		ValueQuery,
 	&gt;;
 	<span class="attr">#[storage_alias]
-	</span><span class="kw">pub type </span>SuspendedMembers&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; = StorageMap&lt;
+	</span><span class="kw">pub type </span>SuspendedMembers&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; = StorageMap&lt;
 		Pallet&lt;T, I&gt;,
 		Twox64Concat,
 		&lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId,
@@ -685,19 +687,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		ValueQuery,
 	&gt;;
 	<span class="attr">#[storage_alias]
-	</span><span class="kw">pub type </span>Defender&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; =
+	</span><span class="kw">pub type </span>Defender&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; =
 		StorageValue&lt;Pallet&lt;T, I&gt;, &lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId&gt;;
 	<span class="attr">#[storage_alias]
-	</span><span class="kw">pub type </span>DefenderVotes&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; =
+	</span><span class="kw">pub type </span>DefenderVotes&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; =
 		StorageMap&lt;Pallet&lt;T, I&gt;, Twox64Concat, &lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId, Vote&gt;;
 }
 
-<span class="doccomment">/// Will panic if there are any inconsistencies in the pallet&#39;s state or old keys remaining.
-</span><span class="kw">pub fn </span>assert_internal_consistency&lt;T: Config&lt;I&gt;, I: Instance + <span class="lifetime">&#39;static</span>&gt;() {
+<span class="doccomment">/// Will panic if there are any inconsistencies in the pallet's state or old keys remaining.
+</span><span class="kw">pub fn </span>assert_internal_consistency&lt;T: Config&lt;I&gt;, I: Instance + <span class="lifetime">'static</span>&gt;() {
 	<span class="comment">// Check all members are valid data.
 	</span><span class="kw">let </span><span class="kw-2">mut </span>members = <span class="macro">vec!</span>[];
 	<span class="kw">for </span>m <span class="kw">in </span>Members::&lt;T, I&gt;::iter_keys() {
-		<span class="kw">let </span>r = Members::&lt;T, I&gt;::get(<span class="kw-2">&amp;</span>m).expect(<span class="string">&quot;Member data must be valid&quot;</span>);
+		<span class="kw">let </span>r = Members::&lt;T, I&gt;::get(<span class="kw-2">&amp;</span>m).expect(<span class="string">"Member data must be valid"</span>);
 		members.push((m, r));
 	}
 	<span class="macro">assert_eq!</span>(MemberCount::&lt;T, I&gt;::get(), members.len() <span class="kw">as </span>u32);
@@ -705,7 +707,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">assert_eq!</span>(MemberByIndex::&lt;T, I&gt;::get(record.index).as_ref(), <span class="prelude-val">Some</span>(who));
 	}
 	<span class="kw">if let </span><span class="prelude-val">Some</span>(founder) = Founder::&lt;T, I&gt;::get() {
-		<span class="macro">assert_eq!</span>(Members::&lt;T, I&gt;::get(founder).expect(<span class="string">&quot;founder is member&quot;</span>).index, <span class="number">0</span>);
+		<span class="macro">assert_eq!</span>(Members::&lt;T, I&gt;::get(founder).expect(<span class="string">"founder is member"</span>).index, <span class="number">0</span>);
 	}
 	<span class="kw">if let </span><span class="prelude-val">Some</span>(head) = Head::&lt;T, I&gt;::get() {
 		<span class="macro">assert!</span>(Members::&lt;T, I&gt;::contains_key(head));
@@ -729,11 +731,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="comment">// Check all payouts are valid data.
 	</span><span class="kw">for </span>p <span class="kw">in </span>Payouts::&lt;T, I&gt;::iter_keys() {
 		<span class="kw">let </span>k = Payouts::&lt;T, I&gt;::hashed_key_for(<span class="kw-2">&amp;</span>p);
-		<span class="kw">let </span>v = frame_support::storage::unhashed::get_raw(<span class="kw-2">&amp;</span>k[..]).expect(<span class="string">&quot;value is in map&quot;</span>);
+		<span class="kw">let </span>v = frame_support::storage::unhashed::get_raw(<span class="kw-2">&amp;</span>k[..]).expect(<span class="string">"value is in map"</span>);
 		<span class="macro">assert!</span>(PayoutRecordFor::&lt;T, I&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>v[..]).is_ok());
 	}
 
-	<span class="comment">// We don&#39;t use these - make sure they don&#39;t exist.
+	<span class="comment">// We don't use these - make sure they don't exist.
 	</span><span class="macro">assert_eq!</span>(v0::SuspendedCandidates::&lt;T, I&gt;::iter().count(), <span class="number">0</span>);
 	<span class="macro">assert_eq!</span>(v0::Strikes::&lt;T, I&gt;::iter().count(), <span class="number">0</span>);
 	<span class="macro">assert_eq!</span>(v0::Vouching::&lt;T, I&gt;::iter().count(), <span class="number">0</span>);
@@ -741,9 +743,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="macro">assert!</span>(!v0::Members::&lt;T, I&gt;::exists());
 }
 
-<span class="kw">pub fn </span>from_original&lt;T: Config&lt;I&gt;, I: Instance + <span class="lifetime">&#39;static</span>&gt;(
+<span class="kw">pub fn </span>from_original&lt;T: Config&lt;I&gt;, I: Instance + <span class="lifetime">'static</span>&gt;(
 	past_payouts: <span class="kw-2">&amp;mut </span>[(&lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId, BalanceOf&lt;T, I&gt;)],
-) -&gt; <span class="prelude-ty">Result</span>&lt;Weight, <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; {
+) -&gt; <span class="prelude-ty">Result</span>&lt;Weight, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
 	<span class="comment">// Migrate Bids from old::Bids (just a truncation).
 	</span>Bids::&lt;T, I&gt;::put(BoundedVec::&lt;<span class="kw">_</span>, T::MaxBids&gt;::truncate_from(v0::Bids::&lt;T, I&gt;::take()));
 
@@ -754,7 +756,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">for </span>Bid { who: candidate, kind, value } <span class="kw">in </span>v0::Candidates::&lt;T, I&gt;::take().into_iter() {
 		<span class="kw">let </span><span class="kw-2">mut </span>tally = Tally::default();
 		<span class="comment">// Migrate Votes from old::Votes
-		// No need to drain, since we&#39;re overwriting values.
+		// No need to drain, since we're overwriting values.
 		</span><span class="kw">for </span>(voter, vote) <span class="kw">in </span>v0::Votes::&lt;T, I&gt;::iter_prefix(<span class="kw-2">&amp;</span>candidate) {
 			Votes::&lt;T, I&gt;::insert(
 				<span class="kw-2">&amp;</span>candidate,
@@ -784,11 +786,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// The founder must be the first member in Society V2. If we find the founder not in index
 		// zero, we swap it with the first member.
-		</span><span class="kw">if </span>member == Founder::&lt;T, I&gt;::get().defensive_ok_or(<span class="string">&quot;founder must always be set&quot;</span>)<span class="question-mark">? </span>&amp;&amp;
+		</span><span class="kw">if </span>member == Founder::&lt;T, I&gt;::get().defensive_ok_or(<span class="string">"founder must always be set"</span>)<span class="question-mark">? </span>&amp;&amp;
 			member_count &gt; <span class="number">0
 		</span>{
 			<span class="kw">let </span>member_to_swap = MemberByIndex::&lt;T, I&gt;::get(<span class="number">0</span>)
-				.defensive_ok_or(<span class="string">&quot;member_count &gt; 0, we must have at least 1 member&quot;</span>)<span class="question-mark">?</span>;
+				.defensive_ok_or(<span class="string">"member_count &gt; 0, we must have at least 1 member"</span>)<span class="question-mark">?</span>;
 			<span class="comment">// Swap the founder with the first member in MemberByIndex.
 			</span>MemberByIndex::&lt;T, I&gt;::swap(<span class="number">0</span>, member_count);
 			<span class="comment">// Update the indices of the swapped member MemberRecords.
@@ -797,7 +799,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					member.index = <span class="number">0</span>;
 				} <span class="kw">else </span>{
 					<span class="macro">frame_support::defensive!</span>(
-						<span class="string">&quot;Member somehow disappeared from storage after it was inserted&quot;
+						<span class="string">"Member somehow disappeared from storage after it was inserted"
 					</span>);
 				}
 			});
@@ -806,7 +808,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					member.index = member_count;
 				} <span class="kw">else </span>{
 					<span class="macro">frame_support::defensive!</span>(
-						<span class="string">&quot;Member somehow disappeared from storage after it was queried&quot;
+						<span class="string">"Member somehow disappeared from storage after it was queried"
 					</span>);
 				}
 			});
@@ -815,7 +817,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 	MemberCount::&lt;T, I&gt;::put(member_count);
 
-	<span class="comment">// Migrate Payouts from: old::Payouts and raw info (needed since we can&#39;t query old chain
+	<span class="comment">// Migrate Payouts from: old::Payouts and raw info (needed since we can't query old chain
 	// state).
 	</span>past_payouts.sort();
 	<span class="kw">for </span>(who, <span class="kw-2">mut </span>payouts) <span class="kw">in </span>v0::Payouts::&lt;T, I&gt;::iter() {
@@ -828,7 +830,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.unwrap_or(Zero::zero());
 		<span class="kw">match </span>BoundedVec::try_from(payouts) {
 			<span class="prelude-val">Ok</span>(payouts) =&gt; Payouts::&lt;T, I&gt;::insert(who, PayoutRecord { paid, payouts }),
-			<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="macro">debug_assert!</span>(<span class="bool-val">false</span>, <span class="string">&quot;Truncation of Payouts ineffective??&quot;</span>),
+			<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="macro">debug_assert!</span>(<span class="bool-val">false</span>, <span class="string">"Truncation of Payouts ineffective??"</span>),
 		}
 	}
 
@@ -850,7 +852,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="prelude-val">Ok</span>(T::BlockWeights::get().max_block)
 }
 
-<span class="kw">pub fn </span>from_raw_past_payouts&lt;T: Config&lt;I&gt;, I: Instance + <span class="lifetime">&#39;static</span>&gt;(
+<span class="kw">pub fn </span>from_raw_past_payouts&lt;T: Config&lt;I&gt;, I: Instance + <span class="lifetime">'static</span>&gt;(
 	past_payouts_raw: <span class="kw">impl </span>Iterator&lt;Item = ([u8; <span class="number">32</span>], u128)&gt;,
 ) -&gt; Vec&lt;(&lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId, BalanceOf&lt;T, I&gt;)&gt; {
 	past_payouts_raw

@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/trie/src/cache/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/trie/src/cache/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sp_trie" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sp_trie" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../sp_trie/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1136,14 +1138,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -1159,11 +1161,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! [`LocalTrieCache`] is used to cache the nodes and the values before they are merged back to the
 //! shared instance. Last but not least there is the [`TrieCache`] that is being used per access to
 //! the state. It will use the [`SharedTrieCache`] and the [`LocalTrieCache`] to fulfill cache
-//! requests. If both of them don&#39;t provide the requested data it will be inserted into the
+//! requests. If both of them don't provide the requested data it will be inserted into the
 //! [`LocalTrieCache`] and then later into the [`SharedTrieCache`].
 //!
 //! The [`SharedTrieCache`] is bound to some maximum number of bytes. It is ensured that it never
-//! runs above this limit. However as long as data is cached inside a [`LocalTrieCache`] it isn&#39;t
+//! runs above this limit. However as long as data is cached inside a [`LocalTrieCache`] it isn't
 //! taken into account when limiting the [`SharedTrieCache`]. This means that for the lifetime of a
 //! [`LocalTrieCache`] the actual memory usage could be above the allowed maximum.
 
@@ -1189,9 +1191,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">use </span><span class="self">self</span>::shared_cache::ValueCacheKeyHash;
 
-<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;trie-cache&quot;</span>;
+<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"trie-cache"</span>;
 
-<span class="doccomment">/// The maximum amount of time we&#39;ll wait trying to acquire the shared cache lock
+<span class="doccomment">/// The maximum amount of time we'll wait trying to acquire the shared cache lock
 /// when the local cache is dropped and synchronized with the share cache.
 ///
 /// This is just a failsafe; normally this should never trigger.
@@ -1200,7 +1202,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// The maximum number of existing keys in the shared cache that a single local cache
 /// can promote to the front of the LRU cache in one go.
 ///
-/// If we have a big shared cache and the local cache hits all of those keys we don&#39;t
+/// If we have a big shared cache and the local cache hits all of those keys we don't
 /// want to spend forever bumping all of them.
 </span><span class="kw">const </span>SHARED_NODE_CACHE_MAX_PROMOTED_KEYS: u32 = <span class="number">1792</span>;
 <span class="doccomment">/// Same as [`SHARED_NODE_CACHE_MAX_PROMOTED_KEYS`].
@@ -1209,7 +1211,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// The maximum portion of the shared cache (in percent) that a single local
 /// cache can replace in one go.
 ///
-/// We don&#39;t want a single local cache instance to have the ability to replace
+/// We don't want a single local cache instance to have the ability to replace
 /// everything in the shared cache.
 </span><span class="kw">const </span>SHARED_NODE_CACHE_MAX_REPLACE_PERCENT: usize = <span class="number">33</span>;
 <span class="doccomment">/// Same as [`SHARED_NODE_CACHE_MAX_REPLACE_PERCENT`].
@@ -1248,12 +1250,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="doccomment">/// A limiter for the local node cache. This makes sure the local cache doesn&#39;t grow too big.
+<span class="doccomment">/// A limiter for the local node cache. This makes sure the local cache doesn't grow too big.
 </span><span class="attr">#[derive(Default)]
 </span><span class="kw">pub struct </span>LocalNodeCacheLimiter {
 	<span class="doccomment">/// The current size (in bytes) of data allocated by this cache on the heap.
 	///
-	/// This doesn&#39;t include the size of the map itself.
+	/// This doesn't include the size of the map itself.
 	</span>current_heap_size: usize,
 }
 
@@ -1261,12 +1263,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">where
 	</span>H: AsRef&lt;[u8]&gt; + std::fmt::Debug,
 {
-	<span class="kw">type </span>KeyToInsert&lt;<span class="lifetime">&#39;a</span>&gt; = H;
+	<span class="kw">type </span>KeyToInsert&lt;<span class="lifetime">'a</span>&gt; = H;
 	<span class="kw">type </span>LinkType = u32;
 
 	<span class="attr">#[inline]
 	</span><span class="kw">fn </span>is_over_the_limit(<span class="kw-2">&amp;</span><span class="self">self</span>, length: usize) -&gt; bool {
-		<span class="comment">// Only enforce the limit if there&#39;s more than one element to make sure
+		<span class="comment">// Only enforce the limit if there's more than one element to make sure
 		// we can always add a new element to the cache.
 		</span><span class="kw">if </span>length &lt;= <span class="number">1 </span>{
 			<span class="kw">return </span><span class="bool-val">false
@@ -1276,7 +1278,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="attr">#[inline]
-	</span><span class="kw">fn </span>on_insert&lt;<span class="lifetime">&#39;a</span>&gt;(
+	</span><span class="kw">fn </span>on_insert&lt;<span class="lifetime">'a</span>&gt;(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		_length: usize,
 		key: H,
@@ -1317,12 +1319,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="doccomment">/// A limiter for the local value cache. This makes sure the local cache doesn&#39;t grow too big.
+<span class="doccomment">/// A limiter for the local value cache. This makes sure the local cache doesn't grow too big.
 </span><span class="attr">#[derive(Default)]
 </span><span class="kw">pub struct </span>LocalValueCacheLimiter {
 	<span class="doccomment">/// The current size (in bytes) of data allocated by this cache on the heap.
 	///
-	/// This doesn&#39;t include the size of the map itself.
+	/// This doesn't include the size of the map itself.
 	</span>current_heap_size: usize,
 }
 
@@ -1330,12 +1332,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">where
 	</span>H: AsRef&lt;[u8]&gt;,
 {
-	<span class="kw">type </span>KeyToInsert&lt;<span class="lifetime">&#39;a</span>&gt; = ValueCacheRef&lt;<span class="lifetime">&#39;a</span>, H&gt;;
+	<span class="kw">type </span>KeyToInsert&lt;<span class="lifetime">'a</span>&gt; = ValueCacheRef&lt;<span class="lifetime">'a</span>, H&gt;;
 	<span class="kw">type </span>LinkType = u32;
 
 	<span class="attr">#[inline]
 	</span><span class="kw">fn </span>is_over_the_limit(<span class="kw-2">&amp;</span><span class="self">self</span>, length: usize) -&gt; bool {
-		<span class="comment">// Only enforce the limit if there&#39;s more than one element to make sure
+		<span class="comment">// Only enforce the limit if there's more than one element to make sure
 		// we can always add a new element to the cache.
 		</span><span class="kw">if </span>length &lt;= <span class="number">1 </span>{
 			<span class="kw">return </span><span class="bool-val">false
@@ -1348,7 +1350,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>on_insert(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		_length: usize,
-		key: <span class="self">Self</span>::KeyToInsert&lt;<span class="lifetime">&#39;_</span>&gt;,
+		key: <span class="self">Self</span>::KeyToInsert&lt;<span class="lifetime">'_</span>&gt;,
 		value: CachedValue&lt;H&gt;,
 	) -&gt; <span class="prelude-ty">Option</span>&lt;(ValueCacheKey&lt;H&gt;, CachedValue&lt;H&gt;)&gt; {
 		<span class="self">self</span>.current_heap_size += key.storage_key.len();
@@ -1400,13 +1402,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>local_hits = <span class="self">self</span>.local_hits.load(Ordering::Relaxed);
 		<span class="kw">let </span>local_fetch_attempts = <span class="self">self</span>.local_fetch_attempts.load(Ordering::Relaxed);
 		<span class="kw">if </span>shared_fetch_attempts == <span class="number">0 </span>&amp;&amp; local_hits == <span class="number">0 </span>{
-			<span class="macro">write!</span>(fmt, <span class="string">&quot;empty&quot;</span>)
+			<span class="macro">write!</span>(fmt, <span class="string">"empty"</span>)
 		} <span class="kw">else </span>{
 			<span class="kw">let </span>percent_local = (local_hits <span class="kw">as </span>f32 / local_fetch_attempts <span class="kw">as </span>f32) * <span class="number">100.0</span>;
 			<span class="kw">let </span>percent_shared = (shared_hits <span class="kw">as </span>f32 / shared_fetch_attempts <span class="kw">as </span>f32) * <span class="number">100.0</span>;
 			<span class="macro">write!</span>(
 				fmt,
-				<span class="string">&quot;local hit rate = {}% [{}/{}], shared hit rate = {}% [{}/{}]&quot;</span>,
+				<span class="string">"local hit rate = {}% [{}/{}], shared hit rate = {}% [{}/{}]"</span>,
 				percent_local <span class="kw">as </span>u32,
 				local_hits,
 				local_fetch_attempts,
@@ -1489,7 +1491,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Return self as a [`TrieDB`](trie_db::TrieDB) compatible cache.
 	///
 	/// The given `storage_root` needs to be the storage root of the trie this cache is used for.
-	</span><span class="kw">pub fn </span>as_trie_db_cache(<span class="kw-2">&amp;</span><span class="self">self</span>, storage_root: H::Out) -&gt; TrieCache&lt;<span class="lifetime">&#39;_</span>, H&gt; {
+	</span><span class="kw">pub fn </span>as_trie_db_cache(<span class="kw-2">&amp;</span><span class="self">self</span>, storage_root: H::Out) -&gt; TrieCache&lt;<span class="lifetime">'_</span>, H&gt; {
 		<span class="kw">let </span>value_cache = ValueCache::ForStorageRoot {
 			storage_root,
 			local_value_cache: <span class="self">self</span>.value_cache.lock(),
@@ -1512,7 +1514,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// cache instance. If the function is not called, cached data is just thrown away and not
 	/// propagated to the shared cache. So, accessing these new items will be slower, but nothing
 	/// would break because of this.
-	</span><span class="kw">pub fn </span>as_trie_db_mut_cache(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TrieCache&lt;<span class="lifetime">&#39;_</span>, H&gt; {
+	</span><span class="kw">pub fn </span>as_trie_db_mut_cache(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TrieCache&lt;<span class="lifetime">'_</span>, H&gt; {
 		TrieCache {
 			shared_cache: <span class="self">self</span>.shared.clone(),
 			local_cache: <span class="self">self</span>.node_cache.lock(),
@@ -1526,13 +1528,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>drop(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
 		<span class="macro">tracing::debug!</span>(
 			target: LOG_TARGET,
-			<span class="string">&quot;Local node trie cache dropped: {}&quot;</span>,
+			<span class="string">"Local node trie cache dropped: {}"</span>,
 			<span class="self">self</span>.stats.node_cache
 		);
 
 		<span class="macro">tracing::debug!</span>(
 			target: LOG_TARGET,
-			<span class="string">&quot;Local value trie cache dropped: {}&quot;</span>,
+			<span class="string">"Local value trie cache dropped: {}"</span>,
 			<span class="self">self</span>.stats.value_cache
 		);
 
@@ -1541,7 +1543,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">None </span>=&gt; {
 				<span class="macro">tracing::warn!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Timeout while trying to acquire a write lock for the shared trie cache&quot;
+					<span class="string">"Timeout while trying to acquire a write lock for the shared trie cache"
 				</span>);
 				<span class="kw">return
 			</span>},
@@ -1557,14 +1559,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// The abstraction of the value cache for the [`TrieCache`].
-</span><span class="kw">enum </span>ValueCache&lt;<span class="lifetime">&#39;a</span>, H: Hasher&gt; {
+</span><span class="kw">enum </span>ValueCache&lt;<span class="lifetime">'a</span>, H: Hasher&gt; {
 	<span class="doccomment">/// The value cache is fresh, aka not yet associated to any storage root.
 	/// This is used for example when a new trie is being build, to cache new values.
 	</span>Fresh(HashMap&lt;Arc&lt;[u8]&gt;, CachedValue&lt;H::Out&gt;&gt;),
 	<span class="doccomment">/// The value cache is already bound to a specific storage root.
 	</span>ForStorageRoot {
-		shared_value_cache_access: MutexGuard&lt;<span class="lifetime">&#39;a</span>, ValueAccessSet&gt;,
-		local_value_cache: MutexGuard&lt;<span class="lifetime">&#39;a</span>, ValueCacheMap&lt;H::Out&gt;&gt;,
+		shared_value_cache_access: MutexGuard&lt;<span class="lifetime">'a</span>, ValueAccessSet&gt;,
+		local_value_cache: MutexGuard&lt;<span class="lifetime">'a</span>, ValueCacheMap&lt;H::Out&gt;&gt;,
 		storage_root: H::Out,
 		<span class="comment">// The shared value cache needs to be temporarily locked when reading from it
 		// so we need to clone the value that is returned, but we need to be able to
@@ -1573,7 +1575,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	},
 }
 
-<span class="kw">impl</span>&lt;H: Hasher&gt; ValueCache&lt;<span class="lifetime">&#39;_</span>, H&gt; {
+<span class="kw">impl</span>&lt;H: Hasher&gt; ValueCache&lt;<span class="lifetime">'_</span>, H&gt; {
 	<span class="doccomment">/// Get the value for the given `key`.
 	</span><span class="kw">fn </span>get(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
@@ -1647,14 +1649,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// If this instance was created for using it with a [`TrieDBMut`](trie_db::TrieDBMut), it needs to
 /// be merged back into the [`LocalTrieCache`] with [`Self::merge_into`] after all operations are
 /// done.
-</span><span class="kw">pub struct </span>TrieCache&lt;<span class="lifetime">&#39;a</span>, H: Hasher&gt; {
+</span><span class="kw">pub struct </span>TrieCache&lt;<span class="lifetime">'a</span>, H: Hasher&gt; {
 	shared_cache: SharedTrieCache&lt;H&gt;,
-	local_cache: MutexGuard&lt;<span class="lifetime">&#39;a</span>, NodeCacheMap&lt;H::Out&gt;&gt;,
-	value_cache: ValueCache&lt;<span class="lifetime">&#39;a</span>, H&gt;,
-	stats: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>TrieHitStats,
+	local_cache: MutexGuard&lt;<span class="lifetime">'a</span>, NodeCacheMap&lt;H::Out&gt;&gt;,
+	value_cache: ValueCache&lt;<span class="lifetime">'a</span>, H&gt;,
+	stats: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>TrieHitStats,
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, H: Hasher&gt; TrieCache&lt;<span class="lifetime">&#39;a</span>, H&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, H: Hasher&gt; TrieCache&lt;<span class="lifetime">'a</span>, H&gt; {
 	<span class="doccomment">/// Merge this cache into the given [`LocalTrieCache`].
 	///
 	/// This function is only required to be called when this instance was created through
@@ -1677,7 +1679,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, H: Hasher&gt; trie_db::TrieCache&lt;NodeCodec&lt;H&gt;&gt; <span class="kw">for </span>TrieCache&lt;<span class="lifetime">&#39;a</span>, H&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, H: Hasher&gt; trie_db::TrieCache&lt;NodeCodec&lt;H&gt;&gt; <span class="kw">for </span>TrieCache&lt;<span class="lifetime">'a</span>, H&gt; {
 	<span class="kw">fn </span>get_or_insert_node(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		hash: H::Out,
@@ -1694,7 +1696,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="self">self</span>.stats.node_cache.shared_fetch_attempts.fetch_add(<span class="number">1</span>, Ordering::Relaxed);
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(node) = <span class="self">self</span>.shared_cache.peek_node(<span class="kw-2">&amp;</span>hash) {
 				<span class="self">self</span>.stats.node_cache.shared_hits.fetch_add(<span class="number">1</span>, Ordering::Relaxed);
-				<span class="macro">tracing::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>hash, <span class="string">&quot;Serving node from shared cache&quot;</span>);
+				<span class="macro">tracing::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>hash, <span class="string">"Serving node from shared cache"</span>);
 
 				<span class="kw">return </span><span class="prelude-val">Ok</span>(NodeCached::&lt;H::Out&gt; { node: node.clone(), is_from_shared_cache: <span class="bool-val">true </span>})
 			}
@@ -1702,23 +1704,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// It was not in the shared cache; try fetching it from the database.
 			</span><span class="kw">match </span>fetch_node() {
 				<span class="prelude-val">Ok</span>(node) =&gt; {
-					<span class="macro">tracing::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>hash, <span class="string">&quot;Serving node from database&quot;</span>);
+					<span class="macro">tracing::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>hash, <span class="string">"Serving node from database"</span>);
 					<span class="prelude-val">Ok</span>(NodeCached::&lt;H::Out&gt; { node, is_from_shared_cache: <span class="bool-val">false </span>})
 				},
 				<span class="prelude-val">Err</span>(error) =&gt; {
-					<span class="macro">tracing::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>hash, <span class="string">&quot;Serving node from database failed&quot;</span>);
+					<span class="macro">tracing::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>hash, <span class="string">"Serving node from database failed"</span>);
 					<span class="prelude-val">Err</span>(error)
 				},
 			}
 		});
 
 		<span class="kw">if </span>is_local_cache_hit {
-			<span class="macro">tracing::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>hash, <span class="string">&quot;Serving node from local cache&quot;</span>);
+			<span class="macro">tracing::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>hash, <span class="string">"Serving node from local cache"</span>);
 			<span class="self">self</span>.stats.node_cache.local_hits.fetch_add(<span class="number">1</span>, Ordering::Relaxed);
 		}
 
 		<span class="prelude-val">Ok</span>(<span class="kw-2">&amp;</span>node<span class="question-mark">?
-			</span>.expect(<span class="string">&quot;you can always insert at least one element into the local cache; qed&quot;</span>)
+			</span>.expect(<span class="string">"you can always insert at least one element into the local cache; qed"</span>)
 			.node)
 	}
 
@@ -1734,18 +1736,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="self">self</span>.stats.node_cache.shared_fetch_attempts.fetch_add(<span class="number">1</span>, Ordering::Relaxed);
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(node) = <span class="self">self</span>.shared_cache.peek_node(<span class="kw-2">&amp;</span>hash) {
 				<span class="self">self</span>.stats.node_cache.shared_hits.fetch_add(<span class="number">1</span>, Ordering::Relaxed);
-				<span class="macro">tracing::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>hash, <span class="string">&quot;Serving node from shared cache&quot;</span>);
+				<span class="macro">tracing::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>hash, <span class="string">"Serving node from shared cache"</span>);
 
 				<span class="prelude-val">Ok</span>(NodeCached::&lt;H::Out&gt; { node: node.clone(), is_from_shared_cache: <span class="bool-val">true </span>})
 			} <span class="kw">else </span>{
-				<span class="macro">tracing::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>hash, <span class="string">&quot;Serving node from cache failed&quot;</span>);
+				<span class="macro">tracing::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>hash, <span class="string">"Serving node from cache failed"</span>);
 
 				<span class="prelude-val">Err</span>(())
 			}
 		});
 
 		<span class="kw">if </span>is_local_cache_hit {
-			<span class="macro">tracing::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>hash, <span class="string">&quot;Serving node from local cache&quot;</span>);
+			<span class="macro">tracing::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>hash, <span class="string">"Serving node from local cache"</span>);
 			<span class="self">self</span>.stats.node_cache.local_hits.fetch_add(<span class="number">1</span>, Ordering::Relaxed);
 		}
 
@@ -1753,7 +1755,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(cached_node)) =&gt; <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>cached_node.node),
 			<span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>) =&gt; {
 				<span class="macro">unreachable!</span>(
-					<span class="string">&quot;you can always insert at least one element into the local cache; qed&quot;
+					<span class="string">"you can always insert at least one element into the local cache; qed"
 				</span>);
 			},
 			<span class="prelude-val">Err</span>(()) =&gt; <span class="prelude-val">None</span>,
@@ -1767,7 +1769,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			target: LOG_TARGET,
 			key = <span class="question-mark">?</span>sp_core::hexdisplay::HexDisplay::from(<span class="kw-2">&amp;</span>key),
 			found = res.is_some(),
-			<span class="string">&quot;Looked up value for key&quot;</span>,
+			<span class="string">"Looked up value for key"</span>,
 		);
 
 		res
@@ -1777,7 +1779,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">tracing::trace!</span>(
 			target: LOG_TARGET,
 			key = <span class="question-mark">?</span>sp_core::hexdisplay::HexDisplay::from(<span class="kw-2">&amp;</span>key),
-			<span class="string">&quot;Caching value for key&quot;</span>,
+			<span class="string">"Caching value for key"</span>,
 		);
 
 		<span class="self">self</span>.value_cache.insert(key, data);
@@ -1795,7 +1797,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>Recorder = <span class="kw">crate</span>::recorder::Recorder&lt;sp_core::Blake2Hasher&gt;;
 
 	<span class="kw">const </span>TEST_DATA: <span class="kw-2">&amp;</span>[(<span class="kw-2">&amp;</span>[u8], <span class="kw-2">&amp;</span>[u8])] =
-		<span class="kw-2">&amp;</span>[(<span class="string">b&quot;key1&quot;</span>, <span class="string">b&quot;val1&quot;</span>), (<span class="string">b&quot;key2&quot;</span>, <span class="kw-2">&amp;</span>[<span class="number">2</span>; <span class="number">64</span>]), (<span class="string">b&quot;key3&quot;</span>, <span class="string">b&quot;val3&quot;</span>), (<span class="string">b&quot;key4&quot;</span>, <span class="kw-2">&amp;</span>[<span class="number">4</span>; <span class="number">64</span>])];
+		<span class="kw-2">&amp;</span>[(<span class="string">b"key1"</span>, <span class="string">b"val1"</span>), (<span class="string">b"key2"</span>, <span class="kw-2">&amp;</span>[<span class="number">2</span>; <span class="number">64</span>]), (<span class="string">b"key3"</span>, <span class="string">b"val3"</span>), (<span class="string">b"key4"</span>, <span class="kw-2">&amp;</span>[<span class="number">4</span>; <span class="number">64</span>])];
 	<span class="kw">const </span>CACHE_SIZE_RAW: usize = <span class="number">1024 </span>* <span class="number">10</span>;
 	<span class="kw">const </span>CACHE_SIZE: CacheSize = CacheSize::new(CACHE_SIZE_RAW);
 
@@ -1806,7 +1808,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		{
 			<span class="kw">let </span><span class="kw-2">mut </span>trie = TrieDBMutBuilder::&lt;Layout&gt;::new(<span class="kw-2">&amp;mut </span>db, <span class="kw-2">&amp;mut </span>root).build();
 			<span class="kw">for </span>(k, v) <span class="kw">in </span>TEST_DATA {
-				trie.insert(k, v).expect(<span class="string">&quot;Inserts data&quot;</span>);
+				trie.insert(k, v).expect(<span class="string">"Inserts data"</span>);
 			}
 		}
 
@@ -1826,7 +1828,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">assert_eq!</span>(TEST_DATA[<span class="number">0</span>].<span class="number">1</span>.to_vec(), trie.get(TEST_DATA[<span class="number">0</span>].<span class="number">0</span>).unwrap().unwrap());
 		}
 
-		<span class="comment">// Local cache wasn&#39;t dropped yet, so there should nothing in the shared caches.
+		<span class="comment">// Local cache wasn't dropped yet, so there should nothing in the shared caches.
 		</span><span class="macro">assert!</span>(shared_cache.read_lock_inner().value_cache().lru.is_empty());
 		<span class="macro">assert!</span>(shared_cache.read_lock_inner().node_cache().lru.is_empty());
 
@@ -1843,7 +1845,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.clone();
 		<span class="macro">assert_eq!</span>(Bytes::from(TEST_DATA[<span class="number">0</span>].<span class="number">1</span>.to_vec()), cached_data.data().flatten().unwrap());
 
-		<span class="kw">let </span>fake_data = Bytes::from(<span class="kw-2">&amp;</span><span class="string">b&quot;fake_data&quot;</span>[..]);
+		<span class="kw">let </span>fake_data = Bytes::from(<span class="kw-2">&amp;</span><span class="string">b"fake_data"</span>[..]);
 
 		<span class="kw">let </span>local_cache = shared_cache.local_cache();
 		shared_cache.write_lock_inner().unwrap().value_cache_mut().lru.insert(
@@ -1855,8 +1857,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span><span class="kw-2">mut </span>cache = local_cache.as_trie_db_cache(root);
 			<span class="kw">let </span>trie = TrieDBBuilder::&lt;Layout&gt;::new(<span class="kw-2">&amp;</span>db, <span class="kw-2">&amp;</span>root).with_cache(<span class="kw-2">&amp;mut </span>cache).build();
 
-			<span class="comment">// We should now get the &quot;fake_data&quot;, because we inserted this manually to the cache.
-			</span><span class="macro">assert_eq!</span>(<span class="string">b&quot;fake_data&quot;</span>.to_vec(), trie.get(TEST_DATA[<span class="number">1</span>].<span class="number">0</span>).unwrap().unwrap());
+			<span class="comment">// We should now get the "fake_data", because we inserted this manually to the cache.
+			</span><span class="macro">assert_eq!</span>(<span class="string">b"fake_data"</span>.to_vec(), trie.get(TEST_DATA[<span class="number">1</span>].<span class="number">0</span>).unwrap().unwrap());
 		}
 	}
 
@@ -1864,7 +1866,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>trie_db_mut_cache_works() {
 		<span class="kw">let </span>(<span class="kw-2">mut </span>db, root) = create_trie();
 
-		<span class="kw">let </span>new_key = <span class="string">b&quot;new_key&quot;</span>.to_vec();
+		<span class="kw">let </span>new_key = <span class="string">b"new_key"</span>.to_vec();
 		<span class="comment">// Use some long value to not have it inlined
 		</span><span class="kw">let </span>new_value = <span class="macro">vec!</span>[<span class="number">23</span>; <span class="number">64</span>];
 
@@ -1944,7 +1946,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>trie_db_mut_cache_and_recorder_work_together() {
-		<span class="kw">const </span>DATA_TO_ADD: <span class="kw-2">&amp;</span>[(<span class="kw-2">&amp;</span>[u8], <span class="kw-2">&amp;</span>[u8])] = <span class="kw-2">&amp;</span>[(<span class="string">b&quot;key11&quot;</span>, <span class="kw-2">&amp;</span>[<span class="number">45</span>; <span class="number">78</span>]), (<span class="string">b&quot;key33&quot;</span>, <span class="kw-2">&amp;</span>[<span class="number">78</span>; <span class="number">89</span>])];
+		<span class="kw">const </span>DATA_TO_ADD: <span class="kw-2">&amp;</span>[(<span class="kw-2">&amp;</span>[u8], <span class="kw-2">&amp;</span>[u8])] = <span class="kw-2">&amp;</span>[(<span class="string">b"key11"</span>, <span class="kw-2">&amp;</span>[<span class="number">45</span>; <span class="number">78</span>]), (<span class="string">b"key33"</span>, <span class="kw-2">&amp;</span>[<span class="number">78</span>; <span class="number">89</span>])];
 
 		<span class="kw">let </span>(db, root) = create_trie();
 
@@ -2104,7 +2106,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw">let </span>value = <span class="macro">vec!</span>[<span class="number">10u8</span>; <span class="number">100</span>];
 					<span class="comment">// Ensure we add enough data that would overflow the cache.
 					</span><span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..CACHE_SIZE_RAW / <span class="number">100 </span>* <span class="number">2 </span>{
-						trie.insert(<span class="macro">format!</span>(<span class="string">&quot;key{}&quot;</span>, i).as_bytes(), <span class="kw-2">&amp;</span>value).unwrap();
+						trie.insert(<span class="macro">format!</span>(<span class="string">"key{}"</span>, i).as_bytes(), <span class="kw-2">&amp;</span>value).unwrap();
 					}
 				}
 

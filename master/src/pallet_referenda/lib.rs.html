@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/referenda/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/referenda/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_referenda" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_referenda" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../pallet_referenda/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1558,14 +1560,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -1581,8 +1583,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! origin is used to determine which one of several _tracks_ that a referendum happens under.
 //! Tracks each have their own configuration which governs the voting process and parameters.
 //!
-//! A referendum&#39;s lifecycle has three main stages: Preparation, deciding and conclusion.
-//! Referenda are considered &quot;ongoing&quot; immediately after submission until their eventual
+//! A referendum's lifecycle has three main stages: Preparation, deciding and conclusion.
+//! Referenda are considered "ongoing" immediately after submission until their eventual
 //! conclusion, and votes may be cast throughout.
 //!
 //! In order to progress from preparating to being decided, three things must be in place:
@@ -1597,7 +1599,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! - The referendum should remain in an unbroken _Passing_ state for a period of time. This
 //! is known as the _Confirmation Period_ and is determined by the track. A referendum is considered
 //! _Passing_ when there is a sufficiently high support and approval, given the amount of time it
-//! has been being decided. Generally the threshold for what counts as being &quot;sufficiently high&quot;
+//! has been being decided. Generally the threshold for what counts as being "sufficiently high"
 //! will reduce over time. The curves setting these thresholds are determined by the track. In this
 //! case, the referendum is considered _Approved_ and the proposal is scheduled for dispatch.
 //! - The referendum reaches the end of its deciding phase outside not _Passing_. It ends in
@@ -1616,8 +1618,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! - [`Config`]
 //! - [`Call`]
 
-</span><span class="attr">#![recursion_limit = <span class="string">&quot;256&quot;</span>]
-#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
+</span><span class="attr">#![recursion_limit = <span class="string">"256"</span>]
+#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
 </span><span class="kw">use </span>codec::{Codec, Encode};
 <span class="kw">use </span>frame_support::{
@@ -1663,7 +1665,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests;
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 </span><span class="kw">pub mod </span>benchmarking;
 
 <span class="kw">pub use </span>frame_support::traits::Get;
@@ -1690,7 +1692,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	};
 }
 
-<span class="kw">const </span>ASSEMBLY_ID: LockIdentifier = <span class="kw-2">*</span><span class="string">b&quot;assembly&quot;</span>;
+<span class="kw">const </span>ASSEMBLY_ID: LockIdentifier = <span class="kw-2">*</span><span class="string">b"assembly"</span>;
 
 <span class="attr">#[frame_support::pallet]
 </span><span class="kw">pub mod </span>pallet {
@@ -1706,7 +1708,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub struct </span>Pallet&lt;T, I = ()&gt;(<span class="kw">_</span>);
 
 	<span class="attr">#[pallet::config]
-	</span><span class="kw">pub trait </span>Config&lt;I: <span class="lifetime">&#39;static </span>= ()&gt;: frame_system::Config + Sized {
+	</span><span class="kw">pub trait </span>Config&lt;I: <span class="lifetime">'static </span>= ()&gt;: frame_system::Config + Sized {
 		<span class="comment">// System level stuff.
 		</span><span class="kw">type </span>RuntimeCall: Parameter
 			+ Dispatchable&lt;RuntimeOrigin = <span class="self">Self</span>::RuntimeOrigin&gt;
@@ -1799,7 +1801,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Information concerning any given referendum.
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub type </span>ReferendumInfoFor&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; =
+	</span><span class="kw">pub type </span>ReferendumInfoFor&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; =
 		StorageMap&lt;<span class="kw">_</span>, Blake2_128Concat, ReferendumIndex, ReferendumInfoOf&lt;T, I&gt;&gt;;
 
 	<span class="doccomment">/// The sorted list of referenda ready to be decided but not yet being decided, ordered by
@@ -1807,7 +1809,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// This should be empty if `DecidingCount` is less than `TrackInfo::max_deciding`.
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub type </span>TrackQueue&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; = StorageMap&lt;
+	</span><span class="kw">pub type </span>TrackQueue&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; = StorageMap&lt;
 		<span class="kw">_</span>,
 		Twox64Concat,
 		TrackIdOf&lt;T, I&gt;,
@@ -1817,7 +1819,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// The number of referenda being decided currently.
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub type </span>DecidingCount&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; =
+	</span><span class="kw">pub type </span>DecidingCount&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; =
 		StorageMap&lt;<span class="kw">_</span>, Twox64Concat, TrackIdOf&lt;T, I&gt;, u32, ValueQuery&gt;;
 
 	<span class="doccomment">/// The metadata is a general information concerning the referendum.
@@ -1827,12 +1829,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// Consider a garbage collection for a metadata of finished referendums to `unrequest` (remove)
 	/// large preimages.
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub type </span>MetadataOf&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; =
+	</span><span class="kw">pub type </span>MetadataOf&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; =
 		StorageMap&lt;<span class="kw">_</span>, Blake2_128Concat, ReferendumIndex, T::Hash&gt;;
 
 	<span class="attr">#[pallet::event]
 	#[pallet::generate_deposit(<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>deposit_event)]
-	</span><span class="kw">pub enum </span>Event&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; {
+	</span><span class="kw">pub enum </span>Event&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; {
 		<span class="doccomment">/// A referendum has been submitted.
 		</span>Submitted {
 			<span class="doccomment">/// Index of the referendum.
@@ -1955,7 +1957,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub enum </span>Error&lt;T, I = ()&gt; {
 		<span class="doccomment">/// Referendum is not ongoing.
 		</span>NotOngoing,
-		<span class="doccomment">/// Referendum&#39;s decision deposit is already paid.
+		<span class="doccomment">/// Referendum's decision deposit is already paid.
 		</span>HasDeposit,
 		<span class="doccomment">/// The track identifier given was invalid.
 		</span>BadTrack,
@@ -1984,21 +1986,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="attr">#[pallet::hooks]
-	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; Hooks&lt;BlockNumberFor&lt;T&gt;&gt; <span class="kw">for </span>Pallet&lt;T, I&gt; {
-		<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Hooks&lt;BlockNumberFor&lt;T&gt;&gt; <span class="kw">for </span>Pallet&lt;T, I&gt; {
+		<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 		</span><span class="kw">fn </span>try_state(_n: BlockNumberFor&lt;T&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), sp_runtime::TryRuntimeError&gt; {
 			<span class="self">Self</span>::do_try_state()<span class="question-mark">?</span>;
 			<span class="prelude-val">Ok</span>(())
 		}
 
-		<span class="attr">#[cfg(any(feature = <span class="string">&quot;std&quot;</span>, test))]
+		<span class="attr">#[cfg(any(feature = <span class="string">"std"</span>, test))]
 		</span><span class="kw">fn </span>integrity_test() {
-			T::Tracks::check_integrity().expect(<span class="string">&quot;Static tracks configuration is valid.&quot;</span>);
+			T::Tracks::check_integrity().expect(<span class="string">"Static tracks configuration is valid."</span>);
 		}
 	}
 
 	<span class="attr">#[pallet::call]
-	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; Pallet&lt;T, I&gt; {
+	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Pallet&lt;T, I&gt; {
 		<span class="doccomment">/// Propose a referendum on a privileged action.
 		///
 		/// - `origin`: must be `SubmitOrigin` and the account must have `SubmissionDeposit` funds
@@ -2062,7 +2064,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="doccomment">/// Post the Decision Deposit for a referendum.
 		///
 		/// - `origin`: must be `Signed` and the account must have funds available for the
-		///   referendum&#39;s track&#39;s Decision Deposit.
+		///   referendum's track's Decision Deposit.
 		/// - `index`: The index of the submitted referendum whose Decision Deposit is yet to be
 		///   posted.
 		///
@@ -2293,7 +2295,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; Polling&lt;T::Tally&gt; <span class="kw">for </span>Pallet&lt;T, I&gt; {
+<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Polling&lt;T::Tally&gt; <span class="kw">for </span>Pallet&lt;T, I&gt; {
 	<span class="kw">type </span>Index = ReferendumIndex;
 	<span class="kw">type </span>Votes = VotesOf&lt;T, I&gt;;
 	<span class="kw">type </span>Moment = BlockNumberFor&lt;T&gt;;
@@ -2345,7 +2347,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">Self</span>::ensure_ongoing(index).ok().map(|x| (x.tally, x.track))
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">fn </span>create_ongoing(class: <span class="self">Self</span>::Class) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Index, ()&gt; {
 		<span class="kw">let </span>index = ReferendumCount::&lt;T, I&gt;::mutate(|x| {
 			<span class="kw">let </span>r = <span class="kw-2">*</span>x;
@@ -2354,8 +2356,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		});
 		<span class="kw">let </span>now = frame_system::Pallet::&lt;T&gt;::block_number();
 		<span class="kw">let </span>dummy_account_id =
-			codec::Decode::decode(<span class="kw-2">&amp;mut </span>sp_runtime::traits::TrailingZeroInput::new(<span class="kw-2">&amp;</span><span class="string">b&quot;dummy&quot;</span>[..]))
-				.expect(<span class="string">&quot;infinite length input; no invalid inputs for type; qed&quot;</span>);
+			codec::Decode::decode(<span class="kw-2">&amp;mut </span>sp_runtime::traits::TrailingZeroInput::new(<span class="kw-2">&amp;</span><span class="string">b"dummy"</span>[..]))
+				.expect(<span class="string">"infinite length input; no invalid inputs for type; qed"</span>);
 		<span class="kw">let </span><span class="kw-2">mut </span>status = ReferendumStatusOf::&lt;T, I&gt; {
 			track: class,
 			origin: frame_support::dispatch::RawOrigin::Root.into(),
@@ -2375,7 +2377,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Ok</span>(index)
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">fn </span>end_ongoing(index: <span class="self">Self</span>::Index, approved: bool) -&gt; <span class="prelude-ty">Result</span>&lt;(), ()&gt; {
 		<span class="kw">let </span><span class="kw-2">mut </span>status = <span class="self">Self</span>::ensure_ongoing(index).map_err(|<span class="kw">_</span>| ())<span class="question-mark">?</span>;
 		<span class="self">Self</span>::ensure_no_alarm(<span class="kw-2">&amp;mut </span>status);
@@ -2390,17 +2392,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Ok</span>(())
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">fn </span>max_ongoing() -&gt; (<span class="self">Self</span>::Class, u32) {
 		<span class="kw">let </span>r = T::Tracks::tracks()
 			.iter()
 			.max_by_key(|(<span class="kw">_</span>, info)| info.max_deciding)
-			.expect(<span class="string">&quot;Always one class&quot;</span>);
+			.expect(<span class="string">"Always one class"</span>);
 		(r.<span class="number">0</span>, r.<span class="number">1</span>.max_deciding)
 	}
 }
 
-<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; Pallet&lt;T, I&gt; {
+<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Pallet&lt;T, I&gt; {
 	<span class="doccomment">/// Check that referendum `index` is in the `Ongoing` state and return the `ReferendumStatus`
 	/// value, or `Err` otherwise.
 	</span><span class="kw">pub fn </span>ensure_ongoing(
@@ -2449,7 +2451,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>earliest_allowed = now.saturating_add(track.min_enactment_period);
 		<span class="kw">let </span>desired = desired.evaluate(now);
 		<span class="kw">let </span>ok = T::Scheduler::schedule_named(
-			(ASSEMBLY_ID, <span class="string">&quot;enactment&quot;</span>, index).using_encoded(sp_io::hashing::blake2_256),
+			(ASSEMBLY_ID, <span class="string">"enactment"</span>, index).using_encoded(sp_io::hashing::blake2_256),
 			DispatchTime::At(desired.max(earliest_allowed)),
 			<span class="prelude-val">None</span>,
 			<span class="number">63</span>,
@@ -2457,7 +2459,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			call,
 		)
 		.is_ok();
-		<span class="macro">debug_assert!</span>(ok, <span class="string">&quot;LOGIC ERROR: bake_referendum/schedule_named failed&quot;</span>);
+		<span class="macro">debug_assert!</span>(ok, <span class="string">"LOGIC ERROR: bake_referendum/schedule_named failed"</span>);
 	}
 
 	<span class="doccomment">/// Set an alarm to dispatch `call` at block number `when`.
@@ -2480,7 +2482,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		);
 		<span class="macro">debug_assert!</span>(
 			result.is_ok(),
-			<span class="string">&quot;Unable to schedule a new alarm at #{:?} (now: #{:?}), scheduler error: `{:?}`&quot;</span>,
+			<span class="string">"Unable to schedule a new alarm at #{:?} (now: #{:?}), scheduler error: `{:?}`"</span>,
 			when,
 			frame_system::Pallet::&lt;T&gt;::block_number(),
 			result.unwrap_err(),
@@ -2488,7 +2490,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		result.ok().map(|x| (when, x))
 	}
 
-	<span class="doccomment">/// Mutate a referendum&#39;s `status` into the correct deciding state.
+	<span class="doccomment">/// Mutate a referendum's `status` into the correct deciding state.
 	///
 	/// - `now` is the current block number.
 	/// - `track` is the track info for the referendum.
@@ -2581,7 +2583,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		})) {
 			<span class="prelude-val">Ok</span>(c) =&gt; c,
 			<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
-				<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>, <span class="string">&quot;Unable to create a bounded call from `one_fewer_deciding`??&quot;</span>,);
+				<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>, <span class="string">"Unable to create a bounded call from `one_fewer_deciding`??"</span>,);
 				<span class="kw">return
 			</span>},
 		};
@@ -2607,7 +2609,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
 						<span class="macro">debug_assert!</span>(
 							<span class="bool-val">false</span>,
-							<span class="string">&quot;Unable to create a bounded call from `nudge_referendum`??&quot;</span>,
+							<span class="string">"Unable to create a bounded call from `nudge_referendum`??"</span>,
 						);
 						<span class="kw">return </span><span class="bool-val">false
 					</span>},
@@ -2620,12 +2622,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Advance the state of a referendum, which comes down to:
-	/// - If it&#39;s ready to be decided, start deciding;
-	/// - If it&#39;s not ready to be decided and non-deciding timeout has passed, fail;
-	/// - If it&#39;s ongoing and passing, ensure confirming; if at end of confirmation period, pass.
-	/// - If it&#39;s ongoing and not passing, stop confirming; if it has reached end time, fail.
+	/// - If it's ready to be decided, start deciding;
+	/// - If it's not ready to be decided and non-deciding timeout has passed, fail;
+	/// - If it's ongoing and passing, ensure confirming; if at end of confirmation period, pass.
+	/// - If it's ongoing and not passing, stop confirming; if it has reached end time, fail.
 	///
-	/// Weight will be a bit different depending on what it does, but it&#39;s designed so as not to
+	/// Weight will be a bit different depending on what it does, but it's designed so as not to
 	/// differ dramatically, especially if `MaxQueue` is kept small. In particular _there are no
 	/// balance operations in here_.
 	///
@@ -2698,7 +2700,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						ServiceBranch::NoDeposit
 					}
 				}
-				<span class="comment">// If we didn&#39;t move into being decided, then check the timeout.
+				<span class="comment">// If we didn't move into being decided, then check the timeout.
 				</span><span class="kw">if </span>status.deciding.is_none() &amp;&amp; now &gt;= timeout &amp;&amp; !status.in_queue {
 					<span class="comment">// Too long without being decided - end it.
 					</span><span class="self">Self</span>::ensure_no_alarm(<span class="kw-2">&amp;mut </span>status);
@@ -2847,7 +2849,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Get the track info value for the track `id`.
-	</span><span class="kw">fn </span>track(id: TrackIdOf&lt;T, I&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>TrackInfoOf&lt;T, I&gt;&gt; {
+	</span><span class="kw">fn </span>track(id: TrackIdOf&lt;T, I&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>TrackInfoOf&lt;T, I&gt;&gt; {
 		<span class="kw">let </span>tracks = T::Tracks::tracks();
 		<span class="kw">let </span>index = tracks.binary_search_by_key(<span class="kw-2">&amp;</span>id, |x| x.<span class="number">0</span>).unwrap_or_else(|x| x);
 		<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>tracks[index].<span class="number">1</span>)
@@ -2885,18 +2887,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// * [`ReferendumCount`] must always be equal to the number of referenda in
 	///   [`ReferendumInfoFor`].
 	/// * Referendum indices in [`MetadataOf`] must also be stored in [`ReferendumInfoFor`].
-	</span><span class="attr">#[cfg(any(feature = <span class="string">&quot;try-runtime&quot;</span>, test))]
+	</span><span class="attr">#[cfg(any(feature = <span class="string">"try-runtime"</span>, test))]
 	</span><span class="kw">fn </span>do_try_state() -&gt; <span class="prelude-ty">Result</span>&lt;(), sp_runtime::TryRuntimeError&gt; {
 		<span class="macro">ensure!</span>(
 			ReferendumCount::&lt;T, I&gt;::get() <span class="kw">as </span>usize ==
 				ReferendumInfoFor::&lt;T, I&gt;::iter_keys().count(),
-			<span class="string">&quot;Number of referenda in `ReferendumInfoFor` is different than `ReferendumCount`&quot;
+			<span class="string">"Number of referenda in `ReferendumInfoFor` is different than `ReferendumCount`"
 		</span>);
 
 		MetadataOf::&lt;T, I&gt;::iter_keys().try_for_each(|referendum_index| -&gt; DispatchResult {
 			<span class="macro">ensure!</span>(
 				ReferendumInfoFor::&lt;T, I&gt;::contains_key(referendum_index),
-				<span class="string">&quot;Referendum indices in `MetadataOf` must also be stored in `ReferendumInfoOf`&quot;
+				<span class="string">"Referendum indices in `MetadataOf` must also be stored in `ReferendumInfoOf`"
 			</span>);
 			<span class="prelude-val">Ok</span>(())
 		})<span class="question-mark">?</span>;
@@ -2915,21 +2917,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// * The deciding stage has to begin before confirmation period.
 	/// * If alarm is set the nudge call has to be at most [`UndecidingTimeout`] blocks away
 	///  from the submission block.
-	</span><span class="attr">#[cfg(any(feature = <span class="string">&quot;try-runtime&quot;</span>, test))]
+	</span><span class="attr">#[cfg(any(feature = <span class="string">"try-runtime"</span>, test))]
 	</span><span class="kw">fn </span>try_state_referenda_info() -&gt; <span class="prelude-ty">Result</span>&lt;(), sp_runtime::TryRuntimeError&gt; {
 		ReferendumInfoFor::&lt;T, I&gt;::iter().try_for_each(|(<span class="kw">_</span>, referendum)| {
 			<span class="kw">match </span>referendum {
 				ReferendumInfo::Ongoing(status) =&gt; {
 					<span class="macro">ensure!</span>(
 						<span class="self">Self</span>::track(status.track).is_some(),
-						<span class="string">&quot;No track info for the track of the referendum.&quot;
+						<span class="string">"No track info for the track of the referendum."
 					</span>);
 
 					<span class="kw">if let </span><span class="prelude-val">Some</span>(deciding) = status.deciding {
 						<span class="macro">ensure!</span>(
 							deciding.since &lt;
 								deciding.confirming.unwrap_or(BlockNumberFor::&lt;T&gt;::max_value()),
-							<span class="string">&quot;Deciding status cannot begin before confirming stage.&quot;
+							<span class="string">"Deciding status cannot begin before confirming stage."
 						</span>)
 					}
 				},
@@ -2943,14 +2945,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// * The referendum indices stored in [`TrackQueue`] must exist as keys in the
 	///  [`ReferendumInfoFor`] storage map.
-	</span><span class="attr">#[cfg(any(feature = <span class="string">&quot;try-runtime&quot;</span>, test))]
+	</span><span class="attr">#[cfg(any(feature = <span class="string">"try-runtime"</span>, test))]
 	</span><span class="kw">fn </span>try_state_tracks() -&gt; <span class="prelude-ty">Result</span>&lt;(), sp_runtime::TryRuntimeError&gt; {
 		T::Tracks::tracks().iter().try_for_each(|track| {
 			TrackQueue::&lt;T, I&gt;::get(track.<span class="number">0</span>).iter().try_for_each(
 				|(referendum_index, <span class="kw">_</span>)| -&gt; <span class="prelude-ty">Result</span>&lt;(), sp_runtime::TryRuntimeError&gt; {
 					<span class="macro">ensure!</span>(
 					ReferendumInfoFor::&lt;T, I&gt;::contains_key(referendum_index),
-					<span class="string">&quot;`ReferendumIndex` inside the `TrackQueue` should be a key in `ReferendumInfoFor`&quot;
+					<span class="string">"`ReferendumIndex` inside the `TrackQueue` should be a key in `ReferendumInfoFor`"
 				</span>);
 					<span class="prelude-val">Ok</span>(())
 				},

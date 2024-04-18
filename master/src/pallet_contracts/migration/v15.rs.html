@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/contracts/src/migration/v15.rs`."><title>v15.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/contracts/src/migration/v15.rs`."><title>v15.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="pallet_contracts" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="pallet_contracts" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../pallet_contracts/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -484,23 +486,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-</span><span class="doccomment">//! Move contracts&#39; _reserved_ balance from the `deposit_account` to be _held_ in the contract&#39;s
+</span><span class="doccomment">//! Move contracts' _reserved_ balance from the `deposit_account` to be _held_ in the contract's
 //! account instead. Since [`Currency`](frame_support::traits::Currency) has been
 //! [deprecated](https://github.com/paritytech/substrate/pull/12951), we need the deposits to be
 //! handled by the [`frame_support::traits::fungible`] traits instead. For this transfer the
-//! balance from the deposit account to the contract&#39;s account and hold it in there.
+//! balance from the deposit account to the contract's account and hold it in there.
 //! Then the deposit account is not needed anymore and we can get rid of it.
 
 </span><span class="kw">use crate</span>::{
@@ -508,7 +510,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	weights::WeightInfo,
 	AccountIdOf, BalanceOf, CodeHash, Config, HoldReason, Pallet, TrieId, Weight, LOG_TARGET,
 };
-<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 </span><span class="kw">use </span>frame_support::traits::fungible::InspectHold;
 <span class="kw">use </span>frame_support::{
 	pallet_prelude::<span class="kw-2">*</span>,
@@ -522,10 +524,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>frame_system::Pallet <span class="kw">as </span>System;
 <span class="kw">use </span>sp_core::hexdisplay::HexDisplay;
-<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 </span><span class="kw">use </span>sp_runtime::TryRuntimeError;
 <span class="kw">use </span>sp_runtime::{traits::Zero, Saturating};
-<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 </span><span class="kw">use </span>sp_std::vec::Vec;
 
 <span class="kw">mod </span>v14 {
@@ -557,12 +559,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	&gt;;
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 </span><span class="kw">pub fn </span>store_old_contract_info&lt;T: Config&gt;(account: T::AccountId, info: <span class="kw">crate</span>::ContractInfo&lt;T&gt;) {
 	<span class="kw">use </span>sp_runtime::traits::{Hash, TrailingZeroInput};
-	<span class="kw">let </span>entropy = (<span class="string">b&quot;contract_depo_v1&quot;</span>, account.clone()).using_encoded(T::Hashing::hash);
+	<span class="kw">let </span>entropy = (<span class="string">b"contract_depo_v1"</span>, account.clone()).using_encoded(T::Hashing::hash);
 	<span class="kw">let </span>deposit_account = Decode::decode(<span class="kw-2">&amp;mut </span>TrailingZeroInput::new(entropy.as_ref()))
-		.expect(<span class="string">&quot;infinite length input; no invalid inputs for type; qed&quot;</span>);
+		.expect(<span class="string">"infinite length input; no invalid inputs for type; qed"</span>);
 	<span class="kw">let </span>info = v14::ContractInfo {
 		trie_id: info.trie_id.clone(),
 		deposit_account,
@@ -634,7 +636,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				// reference.
 				</span><span class="macro">log::warn!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Deposit account 0x{:?} for contract 0x{:?} has some non-reducible balance {:?} from a total of {:?} that will remain in there.&quot;</span>,
+					<span class="string">"Deposit account 0x{:?} for contract 0x{:?} has some non-reducible balance {:?} from a total of {:?} that will remain in there."</span>,
 					HexDisplay::from(<span class="kw-2">&amp;</span>deposit_account.encode()),
 					HexDisplay::from(<span class="kw-2">&amp;</span>account.encode()),
 					total_deposit_balance.saturating_sub(reducible_deposit_balance),
@@ -646,7 +648,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			// Let the deposit account die.
 			</span><span class="macro">log::debug!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;Transferring {:?} from the deposit account 0x{:?} to the contract 0x{:?}.&quot;</span>,
+				<span class="string">"Transferring {:?} from the deposit account 0x{:?} to the contract 0x{:?}."</span>,
 				reducible_deposit_balance,
 				HexDisplay::from(<span class="kw-2">&amp;</span>deposit_account.encode()),
 				HexDisplay::from(<span class="kw-2">&amp;</span>account.encode())
@@ -660,7 +662,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.unwrap_or_else(|err| {
 				<span class="macro">log::error!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Failed to transfer {:?} from the deposit account 0x{:?} to the contract 0x{:?}, reason: {:?}.&quot;</span>,
+					<span class="string">"Failed to transfer {:?} from the deposit account 0x{:?} to the contract 0x{:?}, reason: {:?}."</span>,
 					reducible_deposit_balance,
 					HexDisplay::from(<span class="kw-2">&amp;</span>deposit_account.encode()),
 					HexDisplay::from(<span class="kw-2">&amp;</span>account.encode()),
@@ -673,13 +675,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="kw">if </span>transferred_deposit_balance == Zero::zero() {
 				<span class="macro">log::warn!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;No balance to hold as storage deposit on the contract 0x{:?}.&quot;</span>,
+					<span class="string">"No balance to hold as storage deposit on the contract 0x{:?}."</span>,
 					HexDisplay::from(<span class="kw-2">&amp;</span>account.encode())
 				);
 			} <span class="kw">else </span>{
 				<span class="macro">log::debug!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Holding {:?} as storage deposit on the contract 0x{:?}.&quot;</span>,
+					<span class="string">"Holding {:?} as storage deposit on the contract 0x{:?}."</span>,
 					transferred_deposit_balance,
 					HexDisplay::from(<span class="kw-2">&amp;</span>account.encode())
 				);
@@ -692,7 +694,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.unwrap_or_else(|err| {
 					<span class="macro">log::error!</span>(
 						target: LOG_TARGET,
-						<span class="string">&quot;Failed to hold {:?} as storage deposit on the contract 0x{:?}, reason: {:?}.&quot;</span>,
+						<span class="string">"Failed to hold {:?} as storage deposit on the contract 0x{:?}, reason: {:?}."</span>,
 						transferred_deposit_balance,
 						HexDisplay::from(<span class="kw-2">&amp;</span>account.encode()),
 						err
@@ -700,7 +702,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				});
 			}
 
-			<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;===&quot;</span>);
+			<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"==="</span>);
 			<span class="kw">let </span>info = ContractInfo {
 				trie_id: old_contract.trie_id,
 				code_hash: old_contract.code_hash,
@@ -719,17 +721,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			meter.consume(T::WeightInfo::v15_migration_step());
 			IsFinished::No
 		} <span class="kw">else </span>{
-			<span class="macro">log::info!</span>(target: LOG_TARGET, <span class="string">&quot;Done Migrating Storage Deposits.&quot;</span>);
+			<span class="macro">log::info!</span>(target: LOG_TARGET, <span class="string">"Done Migrating Storage Deposits."</span>);
 			meter.consume(T::WeightInfo::v15_migration_step());
 			IsFinished::Yes
 		}
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 	</span><span class="kw">fn </span>pre_upgrade_step() -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, TryRuntimeError&gt; {
 		<span class="kw">let </span>sample: Vec&lt;<span class="kw">_</span>&gt; = v14::ContractInfoOf::&lt;T&gt;::iter().take(<span class="number">100</span>).collect();
 
-		<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;Taking sample of {} contracts&quot;</span>, sample.len());
+		<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"Taking sample of {} contracts"</span>, sample.len());
 
 		<span class="kw">let </span>state: Vec&lt;(T::AccountId, v14::ContractInfo&lt;T&gt;, BalanceOf&lt;T&gt;, BalanceOf&lt;T&gt;)&gt; = sample
 			.iter()
@@ -746,18 +748,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Ok</span>(state.encode())
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 	</span><span class="kw">fn </span>post_upgrade_step(state: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
 		<span class="kw">let </span>sample =
 			&lt;Vec&lt;(T::AccountId, v14::ContractInfo&lt;T&gt;, BalanceOf&lt;T&gt;, BalanceOf&lt;T&gt;)&gt; <span class="kw">as </span>Decode&gt;::decode(
 				<span class="kw-2">&amp;mut &amp;</span>state[..],
 			)
-			.expect(<span class="string">&quot;pre_upgrade_step provides a valid state; qed&quot;</span>);
+			.expect(<span class="string">"pre_upgrade_step provides a valid state; qed"</span>);
 
-		<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;Validating sample of {} contracts&quot;</span>, sample.len());
+		<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"Validating sample of {} contracts"</span>, sample.len());
 		<span class="kw">for </span>(account, old_contract, old_account_balance, old_deposit_balance) <span class="kw">in </span>sample {
-			<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;===&quot;</span>);
-			<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;Account: 0x{} &quot;</span>, HexDisplay::from(<span class="kw-2">&amp;</span>account.encode()));
+			<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"==="</span>);
+			<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"Account: 0x{} "</span>, HexDisplay::from(<span class="kw-2">&amp;</span>account.encode()));
 
 			<span class="kw">let </span>on_hold =
 				T::Currency::balance_on_hold(<span class="kw-2">&amp;</span>HoldReason::StorageDepositReserve.into(), <span class="kw-2">&amp;</span>account);
@@ -765,7 +767,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="macro">log::debug!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;Validating balances match. Old deposit account&#39;s balance: {:?}. Contract&#39;s on hold: {:?}. Old contract&#39;s total balance: {:?}, Contract&#39;s total balance: {:?}.&quot;</span>,
+				<span class="string">"Validating balances match. Old deposit account's balance: {:?}. Contract's on hold: {:?}. Old contract's total balance: {:?}, Contract's total balance: {:?}."</span>,
 				old_deposit_balance,
 				on_hold,
 				old_account_balance,
@@ -773,38 +775,38 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			);
 			<span class="macro">ensure!</span>(
 				old_account_balance.saturating_add(old_deposit_balance) == account_balance,
-				<span class="string">&quot;total balance mismatch&quot;
+				<span class="string">"total balance mismatch"
 			</span>);
-			<span class="macro">ensure!</span>(old_deposit_balance == on_hold, <span class="string">&quot;deposit mismatch&quot;</span>);
+			<span class="macro">ensure!</span>(old_deposit_balance == on_hold, <span class="string">"deposit mismatch"</span>);
 			<span class="macro">ensure!</span>(
 				!System::&lt;T&gt;::account_exists(<span class="kw-2">&amp;</span>old_contract.deposit_account),
-				<span class="string">&quot;deposit account still exists&quot;
+				<span class="string">"deposit account still exists"
 			</span>);
 
 			<span class="kw">let </span>migration_contract_info = ContractInfoOf::&lt;T&gt;::try_get(<span class="kw-2">&amp;</span>account).unwrap();
 			<span class="kw">let </span>crate_contract_info = <span class="kw">crate</span>::ContractInfoOf::&lt;T&gt;::try_get(<span class="kw-2">&amp;</span>account).unwrap();
 			<span class="macro">ensure!</span>(
 				migration_contract_info.trie_id == crate_contract_info.trie_id,
-				<span class="string">&quot;trie_id mismatch&quot;
+				<span class="string">"trie_id mismatch"
 			</span>);
 			<span class="macro">ensure!</span>(
 				migration_contract_info.code_hash == crate_contract_info.code_hash,
-				<span class="string">&quot;code_hash mismatch&quot;
+				<span class="string">"code_hash mismatch"
 			</span>);
 			<span class="macro">ensure!</span>(
 				migration_contract_info.storage_byte_deposit ==
 					crate_contract_info.storage_byte_deposit,
-				<span class="string">&quot;storage_byte_deposit mismatch&quot;
+				<span class="string">"storage_byte_deposit mismatch"
 			</span>);
 			<span class="macro">ensure!</span>(
 				migration_contract_info.storage_base_deposit ==
 					crate_contract_info.storage_base_deposit(),
-				<span class="string">&quot;storage_base_deposit mismatch&quot;
+				<span class="string">"storage_base_deposit mismatch"
 			</span>);
 			<span class="macro">ensure!</span>(
 				<span class="kw-2">&amp;</span>migration_contract_info.delegate_dependencies ==
 					crate_contract_info.delegate_dependencies(),
-				<span class="string">&quot;delegate_dependencies mismatch&quot;
+				<span class="string">"delegate_dependencies mismatch"
 			</span>);
 		}
 

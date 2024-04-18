@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/bin/node/cli/src/service.rs`."><title>service.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/bin/node/cli/src/service.rs`."><title>service.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="staging_node_cli" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="staging_node_cli" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../staging_node_cli/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1286,12 +1288,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>std::{path::Path, sync::Arc};
 
 <span class="doccomment">/// Host functions required for kitchensink runtime and Substrate node.
-</span><span class="attr">#[cfg(not(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>))]
+</span><span class="attr">#[cfg(not(feature = <span class="string">"runtime-benchmarks"</span>))]
 </span><span class="kw">pub type </span>HostFunctions =
 	(sp_io::SubstrateHostFunctions, sp_statement_store::runtime_api::HostFunctions);
 
 <span class="doccomment">/// Host functions required for kitchensink runtime and Substrate node.
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+</span><span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 </span><span class="kw">pub type </span>HostFunctions = (
 	sp_io::SubstrateHostFunctions,
 	sp_statement_store::runtime_api::HostFunctions,
@@ -1326,7 +1328,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	client
 		.runtime_api()
 		.account_nonce(best_hash, account.public().into())
-		.expect(<span class="string">&quot;Fetching account nonce works; qed&quot;</span>)
+		.expect(<span class="string">"Fetching account nonce works; qed"</span>)
 }
 
 <span class="doccomment">/// Create a transaction using the given `call`.
@@ -1342,7 +1344,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	nonce: <span class="prelude-ty">Option</span>&lt;u32&gt;,
 ) -&gt; kitchensink_runtime::UncheckedExtrinsic {
 	<span class="kw">let </span>function = function.into();
-	<span class="kw">let </span>genesis_hash = client.block_hash(<span class="number">0</span>).ok().flatten().expect(<span class="string">&quot;Genesis block exists; qed&quot;</span>);
+	<span class="kw">let </span>genesis_hash = client.block_hash(<span class="number">0</span>).ok().flatten().expect(<span class="string">"Genesis block exists; qed"</span>);
 	<span class="kw">let </span>best_hash = client.chain_info().best_hash;
 	<span class="kw">let </span>best_block = client.chain_info().best_number;
 	<span class="kw">let </span>nonce = nonce.unwrap_or_else(|| fetch_nonce(client, sender.clone()));
@@ -1451,7 +1453,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>client = Arc::new(client);
 
 	<span class="kw">let </span>telemetry = telemetry.map(|(worker, telemetry)| {
-		task_manager.spawn_handle().spawn(<span class="string">&quot;telemetry&quot;</span>, <span class="prelude-val">None</span>, worker.run());
+		task_manager.spawn_handle().spawn(<span class="string">"telemetry"</span>, <span class="prelude-val">None</span>, worker.run());
 		telemetry
 	});
 
@@ -1523,7 +1525,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		config.prometheus_registry(),
 		<span class="kw-2">&amp;</span>task_manager.spawn_handle(),
 	)
-	.map_err(|e| ServiceError::Other(<span class="macro">format!</span>(<span class="string">&quot;Statement store error: {:?}&quot;</span>, e)))<span class="question-mark">?</span>;
+	.map_err(|e| ServiceError::Other(<span class="macro">format!</span>(<span class="string">"Statement store error: {:?}"</span>, e)))<span class="question-mark">?</span>;
 
 	<span class="kw">let </span>(mixnet_api, mixnet_api_backend) = mixnet_config.map(sc_mixnet::Api::new).unzip();
 
@@ -1675,7 +1677,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span><span class="kw-2">mut </span>net_config =
 		sc_network::config::FullNetworkConfiguration::&lt;<span class="kw">_</span>, <span class="kw">_</span>, N&gt;::new(<span class="kw-2">&amp;</span>config.network);
 
-	<span class="kw">let </span>genesis_hash = client.block_hash(<span class="number">0</span>).ok().flatten().expect(<span class="string">&quot;Genesis block exists; qed&quot;</span>);
+	<span class="kw">let </span>genesis_hash = client.block_hash(<span class="number">0</span>).ok().flatten().expect(<span class="string">"Genesis block exists; qed"</span>);
 	<span class="kw">let </span>peer_store_handle = net_config.peer_store_handle();
 
 	<span class="kw">let </span>grandpa_protocol_name = grandpa::protocol_standard_name(<span class="kw-2">&amp;</span>genesis_hash, <span class="kw-2">&amp;</span>config.chain_spec);
@@ -1754,7 +1756,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">if let </span><span class="prelude-val">Some</span>(mixnet_config) = mixnet_config {
 		<span class="kw">let </span>mixnet = sc_mixnet::run(
 			mixnet_config,
-			mixnet_api_backend.expect(<span class="string">&quot;Mixnet API backend created if mixnet enabled&quot;</span>),
+			mixnet_api_backend.expect(<span class="string">"Mixnet API backend created if mixnet enabled"</span>),
 			client.clone(),
 			sync_service.clone(),
 			network.clone(),
@@ -1762,9 +1764,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			transaction_pool.clone(),
 			<span class="prelude-val">Some</span>(keystore_container.keystore()),
 			mixnet_notification_service
-				.expect(<span class="string">&quot;`NotificationService` exists since mixnet was enabled; qed&quot;</span>),
+				.expect(<span class="string">"`NotificationService` exists since mixnet was enabled; qed"</span>),
 		);
-		task_manager.spawn_handle().spawn(<span class="string">&quot;mixnet&quot;</span>, <span class="prelude-val">None</span>, mixnet);
+		task_manager.spawn_handle().spawn(<span class="string">"mixnet"</span>, <span class="prelude-val">None</span>, mixnet);
 	}
 
 	<span class="kw">let </span>rpc_handlers = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
@@ -1787,7 +1789,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">match </span>SUBSTRATE_REFERENCE_HARDWARE.check_hardware(<span class="kw-2">&amp;</span>hwbench) {
 			<span class="prelude-val">Err</span>(err) <span class="kw">if </span>role.is_authority() =&gt; {
 				<span class="macro">log::warn!</span>(
-					<span class="string">&quot;⚠️  The hardware does not meet the minimal requirements {} for role &#39;Authority&#39;.&quot;</span>,
+					<span class="string">"⚠️  The hardware does not meet the minimal requirements {} for role 'Authority'."</span>,
 					err
 				);
 			},
@@ -1797,7 +1799,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref mut </span>telemetry) = telemetry {
 			<span class="kw">let </span>telemetry_handle = telemetry.handle();
 			task_manager.spawn_handle().spawn(
-				<span class="string">&quot;telemetry_hwbench&quot;</span>,
+				<span class="string">"telemetry_hwbench"</span>,
 				<span class="prelude-val">None</span>,
 				sc_sysinfo::initialize_hwbench_telemetry(telemetry_handle, hwbench),
 			);
@@ -1857,8 +1859,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>babe = sc_consensus_babe::start_babe(babe_config)<span class="question-mark">?</span>;
 		task_manager.spawn_essential_handle().spawn_blocking(
-			<span class="string">&quot;babe-proposer&quot;</span>,
-			<span class="prelude-val">Some</span>(<span class="string">&quot;block-authoring&quot;</span>),
+			<span class="string">"babe-proposer"</span>,
+			<span class="prelude-val">Some</span>(<span class="string">"block-authoring"</span>),
 			babe,
 		);
 	}
@@ -1868,7 +1870,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>authority_discovery_role =
 			sc_authority_discovery::Role::PublishAndDiscover(keystore_container.keystore());
 		<span class="kw">let </span>dht_event_stream =
-			network.event_stream(<span class="string">&quot;authority-discovery&quot;</span>).filter_map(|e| <span class="kw">async move </span>{
+			network.event_stream(<span class="string">"authority-discovery"</span>).filter_map(|e| <span class="kw">async move </span>{
 				<span class="kw">match </span>e {
 					Event::Dht(e) =&gt; <span class="prelude-val">Some</span>(e),
 					<span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
@@ -1889,13 +1891,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			);
 
 		task_manager.spawn_handle().spawn(
-			<span class="string">&quot;authority-discovery-worker&quot;</span>,
-			<span class="prelude-val">Some</span>(<span class="string">&quot;networking&quot;</span>),
+			<span class="string">"authority-discovery-worker"</span>,
+			<span class="prelude-val">Some</span>(<span class="string">"networking"</span>),
 			authority_discovery_worker.run(),
 		);
 	}
 
-	<span class="comment">// if the node isn&#39;t actively participating in consensus then it doesn&#39;t
+	<span class="comment">// if the node isn't actively participating in consensus then it doesn't
 	// need a keystore, regardless of which protocol we use below.
 	</span><span class="kw">let </span>keystore = <span class="kw">if </span>role.is_authority() { <span class="prelude-val">Some</span>(keystore_container.keystore()) } <span class="kw">else </span>{ <span class="prelude-val">None </span>};
 
@@ -1923,15 +1925,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	};
 
 	<span class="kw">let </span>beefy_gadget = beefy::start_beefy_gadget::&lt;<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;(beefy_params);
-	<span class="comment">// BEEFY is part of consensus, if it fails we&#39;ll bring the node down with it to make sure it
+	<span class="comment">// BEEFY is part of consensus, if it fails we'll bring the node down with it to make sure it
 	// is noticed.
 	</span>task_manager
 		.spawn_essential_handle()
-		.spawn_blocking(<span class="string">&quot;beefy-gadget&quot;</span>, <span class="prelude-val">None</span>, beefy_gadget);
+		.spawn_blocking(<span class="string">"beefy-gadget"</span>, <span class="prelude-val">None</span>, beefy_gadget);
 	<span class="comment">// When offchain indexing is enabled, MMR gadget should also run.
 	</span><span class="kw">if </span>is_offchain_indexing_enabled {
 		task_manager.spawn_essential_handle().spawn_blocking(
-			<span class="string">&quot;mmr-gadget&quot;</span>,
+			<span class="string">"mmr-gadget"</span>,
 			<span class="prelude-val">None</span>,
 			mmr_gadget::MmrGadget::start(
 				client.clone(),
@@ -1976,7 +1978,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// the GRANDPA voter task is considered infallible, i.e.
 		// if it fails we take down the service with it.
 		</span>task_manager.spawn_essential_handle().spawn_blocking(
-			<span class="string">&quot;grandpa-voter&quot;</span>,
+			<span class="string">"grandpa-voter"</span>,
 			<span class="prelude-val">None</span>,
 			grandpa::run_grandpa_voter(grandpa_params)<span class="question-mark">?</span>,
 		);
@@ -1986,7 +1988,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">let </span>statement_protocol_executor = {
 		<span class="kw">let </span>spawn_handle = task_manager.spawn_handle();
 		Box::new(<span class="kw">move </span>|fut| {
-			spawn_handle.spawn(<span class="string">&quot;network-statement-validator&quot;</span>, <span class="prelude-val">Some</span>(<span class="string">&quot;networking&quot;</span>), fut);
+			spawn_handle.spawn(<span class="string">"network-statement-validator"</span>, <span class="prelude-val">Some</span>(<span class="string">"networking"</span>), fut);
 		})
 	};
 	<span class="kw">let </span>statement_handler = statement_handler_proto.build(
@@ -1997,15 +1999,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		statement_protocol_executor,
 	)<span class="question-mark">?</span>;
 	task_manager.spawn_handle().spawn(
-		<span class="string">&quot;network-statement-handler&quot;</span>,
-		<span class="prelude-val">Some</span>(<span class="string">&quot;networking&quot;</span>),
+		<span class="string">"network-statement-handler"</span>,
+		<span class="prelude-val">Some</span>(<span class="string">"networking"</span>),
 		statement_handler.run(),
 	);
 
 	<span class="kw">if </span>enable_offchain_worker {
 		task_manager.spawn_handle().spawn(
-			<span class="string">&quot;offchain-workers-runner&quot;</span>,
-			<span class="string">&quot;offchain-work&quot;</span>,
+			<span class="string">"offchain-workers-runner"</span>,
+			<span class="string">"offchain-work"</span>,
 			sc_offchain::OffchainWorkers::new(sc_offchain::OffchainWorkerOptions {
 				runtime_api_provider: client.clone(),
 				keystore: <span class="prelude-val">Some</span>(keystore_container.keystore()),
@@ -2109,19 +2111,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>AccountPublic = &lt;Signature <span class="kw">as </span>Verify&gt;::Signer;
 
 	<span class="attr">#[test]
-	</span><span class="comment">// It is &quot;ignored&quot;, but the node-cli ignored tests are running on the CI.
+	</span><span class="comment">// It is "ignored", but the node-cli ignored tests are running on the CI.
 	// This can be run locally with `cargo test --release -p node-cli test_sync -- --ignored`.
 	</span><span class="attr">#[ignore]
 	</span><span class="kw">fn </span>test_sync() {
 		sp_tracing::try_init_simple();
 
-		<span class="kw">let </span>keystore_path = tempfile::tempdir().expect(<span class="string">&quot;Creates keystore path&quot;</span>);
+		<span class="kw">let </span>keystore_path = tempfile::tempdir().expect(<span class="string">"Creates keystore path"</span>);
 		<span class="kw">let </span>keystore: KeystorePtr = LocalKeystore::open(keystore_path.path(), <span class="prelude-val">None</span>)
-			.expect(<span class="string">&quot;Creates keystore&quot;</span>)
+			.expect(<span class="string">"Creates keystore"</span>)
 			.into();
 		<span class="kw">let </span>alice: sp_consensus_babe::AuthorityId = keystore
-			.sr25519_generate_new(BABE, <span class="prelude-val">Some</span>(<span class="string">&quot;//Alice&quot;</span>))
-			.expect(<span class="string">&quot;Creates authority pair&quot;</span>)
+			.sr25519_generate_new(BABE, <span class="prelude-val">Some</span>(<span class="string">"//Alice"</span>))
+			.expect(<span class="string">"Creates authority pair"</span>)
 			.into();
 
 		<span class="kw">let </span>chain_spec = <span class="kw">crate</span>::chain_spec::tests::integration_test_config_with_single_authority();
@@ -2177,7 +2179,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 				<span class="kw">let </span><span class="kw-2">mut </span>digest = Digest::default();
 
-				<span class="comment">// even though there&#39;s only one authority some slots might be empty,
+				<span class="comment">// even though there's only one authority some slots might be empty,
 				// so we must keep trying the next slots until we can claim one.
 				</span><span class="kw">let </span>(babe_pre_digest, epoch_descriptor) = <span class="kw">loop </span>{
 					<span class="kw">let </span>epoch_descriptor = babe_link
@@ -2219,7 +2221,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					)
 						.create_inherent_data(),
 				)
-				.expect(<span class="string">&quot;Creates inherent data&quot;</span>);
+				.expect(<span class="string">"Creates inherent data"</span>);
 
 				digest.push(&lt;DigestItem <span class="kw">as </span>CompatibleDigestItem&gt;::babe_pre_digest(babe_pre_digest));
 
@@ -2230,7 +2232,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						.propose(inherent_data, digest, std::time::Duration::from_secs(<span class="number">1</span>), <span class="prelude-val">None</span>)
 						.<span class="kw">await
 				</span>})
-				.expect(<span class="string">&quot;Error making test block&quot;</span>)
+				.expect(<span class="string">"Error making test block"</span>)
 				.block;
 
 				<span class="kw">let </span>(new_header, new_body) = new_block.deconstruct();
@@ -2255,7 +2257,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				params.fork_choice = <span class="prelude-val">Some</span>(ForkChoiceStrategy::LongestChain);
 
 				futures::executor::block_on(block_import.import_block(params))
-					.expect(<span class="string">&quot;error importing test block&quot;</span>);
+					.expect(<span class="string">"error importing test block"</span>);
 			},
 			|service, <span class="kw">_</span>| {
 				<span class="kw">let </span>amount = <span class="number">5 </span>* CENTS;
@@ -2331,7 +2333,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					transaction_pool,
 				))
 			},
-			<span class="macro">vec!</span>[<span class="string">&quot;//Alice&quot;</span>.into(), <span class="string">&quot;//Bob&quot;</span>.into()],
+			<span class="macro">vec!</span>[<span class="string">"//Alice"</span>.into(), <span class="string">"//Bob"</span>.into()],
 		)
 	}
 }

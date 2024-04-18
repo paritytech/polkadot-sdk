@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/conviction-voting/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/conviction-voting/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_conviction_voting" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_conviction_voting" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../pallet_conviction_voting/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -838,14 +840,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -859,8 +861,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!
 //! Pallet for managing actual voting in polls.
 
-</span><span class="attr">#![recursion_limit = <span class="string">&quot;256&quot;</span>]
-#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
+</span><span class="attr">#![recursion_limit = <span class="string">"256"</span>]
+#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
 </span><span class="kw">use </span>frame_support::{
 	dispatch::DispatchResult,
@@ -893,10 +895,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests;
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 </span><span class="kw">pub mod </span>benchmarking;
 
-<span class="kw">const </span>CONVICTION_VOTING_ID: LockIdentifier = <span class="kw-2">*</span><span class="string">b&quot;pyconvot&quot;</span>;
+<span class="kw">const </span>CONVICTION_VOTING_ID: LockIdentifier = <span class="kw-2">*</span><span class="string">b"pyconvot"</span>;
 
 <span class="kw">type </span>AccountIdLookupOf&lt;T&gt; = &lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::Lookup <span class="kw">as </span>StaticLookup&gt;::Source;
 <span class="kw">type </span>BalanceOf&lt;T, I = ()&gt; =
@@ -914,7 +916,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">pub type </span>TallyOf&lt;T, I = ()&gt; = Tally&lt;BalanceOf&lt;T, I&gt;, &lt;T <span class="kw">as </span>Config&lt;I&gt;&gt;::MaxTurnout&gt;;
 <span class="kw">pub type </span>VotesOf&lt;T, I = ()&gt; = BalanceOf&lt;T, I&gt;;
 <span class="kw">type </span>PollIndexOf&lt;T, I = ()&gt; = &lt;&lt;T <span class="kw">as </span>Config&lt;I&gt;&gt;::Polls <span class="kw">as </span>Polling&lt;TallyOf&lt;T, I&gt;&gt;&gt;::Index;
-<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 </span><span class="kw">type </span>IndexOf&lt;T, I = ()&gt; = &lt;&lt;T <span class="kw">as </span>Config&lt;I&gt;&gt;::Polls <span class="kw">as </span>Polling&lt;TallyOf&lt;T, I&gt;&gt;&gt;::Index;
 <span class="kw">type </span>ClassOf&lt;T, I = ()&gt; = &lt;&lt;T <span class="kw">as </span>Config&lt;I&gt;&gt;::Polls <span class="kw">as </span>Polling&lt;TallyOf&lt;T, I&gt;&gt;&gt;::Class;
 
@@ -935,7 +937,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub struct </span>Pallet&lt;T, I = ()&gt;(<span class="kw">_</span>);
 
 	<span class="attr">#[pallet::config]
-	</span><span class="kw">pub trait </span>Config&lt;I: <span class="lifetime">&#39;static </span>= ()&gt;: frame_system::Config + Sized {
+	</span><span class="kw">pub trait </span>Config&lt;I: <span class="lifetime">'static </span>= ()&gt;: frame_system::Config + Sized {
 		<span class="comment">// System level stuff.
 		</span><span class="kw">type </span>RuntimeEvent: From&lt;Event&lt;<span class="self">Self</span>, I&gt;&gt;
 			+ IsType&lt;&lt;<span class="self">Self </span><span class="kw">as </span>frame_system::Config&gt;::RuntimeEvent&gt;;
@@ -976,7 +978,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// All voting for a particular voter in a particular voting class. We store the balance for the
 	/// number of votes that we have recorded.
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub type </span>VotingFor&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; = StorageDoubleMap&lt;
+	</span><span class="kw">pub type </span>VotingFor&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; = StorageDoubleMap&lt;
 		<span class="kw">_</span>,
 		Twox64Concat,
 		T::AccountId,
@@ -990,7 +992,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// require. The actual amount locked on behalf of this pallet should always be the maximum of
 	/// this list.
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub type </span>ClassLocksFor&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; = StorageMap&lt;
+	</span><span class="kw">pub type </span>ClassLocksFor&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; = StorageMap&lt;
 		<span class="kw">_</span>,
 		Twox64Concat,
 		T::AccountId,
@@ -1000,7 +1002,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[pallet::event]
 	#[pallet::generate_deposit(<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>deposit_event)]
-	</span><span class="kw">pub enum </span>Event&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; {
+	</span><span class="kw">pub enum </span>Event&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; {
 		<span class="doccomment">/// An account has delegated their vote to another account. \[who, target\]
 		</span>Delegated(T::AccountId, T::AccountId),
 		<span class="doccomment">/// An \[account\] has cancelled a previous delegation operation.
@@ -1037,7 +1039,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="attr">#[pallet::call]
-	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; Pallet&lt;T, I&gt; {
+	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Pallet&lt;T, I&gt; {
 		<span class="doccomment">/// Vote in a poll. If `vote.is_aye()`, the vote is to enact the proposal;
 		/// otherwise it is a vote to keep the status quo.
 		///
@@ -1061,21 +1063,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="doccomment">/// Delegate the voting power (with some given conviction) of the sending account for a
 		/// particular class of polls.
 		///
-		/// The balance delegated is locked for as long as it&#39;s delegated, and thereafter for the
-		/// time appropriate for the conviction&#39;s lock period.
+		/// The balance delegated is locked for as long as it's delegated, and thereafter for the
+		/// time appropriate for the conviction's lock period.
 		///
 		/// The dispatch origin of this call must be _Signed_, and the signing account must either:
 		///   - be delegating already; or
 		///   - have no voting activity (if there is, then it will need to be removed through
 		///     `remove_vote`).
 		///
-		/// - `to`: The account whose voting the `target` account&#39;s voting power will follow.
+		/// - `to`: The account whose voting the `target` account's voting power will follow.
 		/// - `class`: The class of polls to delegate. To delegate multiple classes, multiple calls
 		///   to this function are required.
 		/// - `conviction`: The conviction that will be attached to the delegated votes. When the
 		///   account is undelegated, the funds will be locked for the corresponding period.
-		/// - `balance`: The amount of the account&#39;s balance to be used in delegating. This must not
-		///   be more than the account&#39;s current balance.
+		/// - `balance`: The amount of the account's balance to be used in delegating. This must not
+		///   be more than the account's current balance.
 		///
 		/// Emits `Delegated`.
 		///
@@ -1155,7 +1157,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		/// - the poll is ongoing, or
 		/// - the poll has ended such that
 		///   - the vote of the account was in opposition to the result; or
-		///   - there was no conviction to the account&#39;s vote; or
+		///   - there was no conviction to the account's vote; or
 		///   - the account made a split vote
 		/// ...then the vote is removed cleanly and a following call to `unlock` may result in more
 		/// funds being available.
@@ -1164,7 +1166,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		/// - it finished corresponding to the vote of the account, and
 		/// - the account made a standard vote with conviction, and
 		/// - the lock period of the conviction is not over
-		/// ...then the lock will be aggregated into the overall account&#39;s lock, which may involve
+		/// ...then the lock will be aggregated into the overall account's lock, which may involve
 		/// *overlocking* (where the two locks are combined into a single lock that is the maximum
 		/// of both the amount locked and the time is it locked for).
 		///
@@ -1221,7 +1223,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; Pallet&lt;T, I&gt; {
+<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Pallet&lt;T, I&gt; {
 	<span class="doccomment">/// Actually enact a vote, if legit.
 	</span><span class="kw">fn </span>try_vote(
 		who: <span class="kw-2">&amp;</span>T::AccountId,
@@ -1238,7 +1240,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">if let </span>Voting::Casting(Casting { <span class="kw-2">ref mut </span>votes, delegations, .. }) = voting {
 					<span class="kw">match </span>votes.binary_search_by_key(<span class="kw-2">&amp;</span>poll_index, |i| i.<span class="number">0</span>) {
 						<span class="prelude-val">Ok</span>(i) =&gt; {
-							<span class="comment">// Shouldn&#39;t be possible to fail, but we handle it gracefully.
+							<span class="comment">// Shouldn't be possible to fail, but we handle it gracefully.
 							</span>tally.remove(votes[i].<span class="number">1</span>).ok_or(ArithmeticError::Underflow)<span class="question-mark">?</span>;
 							<span class="kw">if let </span><span class="prelude-val">Some</span>(approve) = votes[i].<span class="number">1</span>.as_standard() {
 								tally.reduce(approve, <span class="kw-2">*</span>delegations);
@@ -1251,7 +1253,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 								.map_err(|<span class="kw">_</span>| Error::&lt;T, I&gt;::MaxVotesReached)<span class="question-mark">?</span>;
 						},
 					}
-					<span class="comment">// Shouldn&#39;t be possible to fail, but we handle it gracefully.
+					<span class="comment">// Shouldn't be possible to fail, but we handle it gracefully.
 					</span>tally.add(vote).ok_or(ArithmeticError::Overflow)<span class="question-mark">?</span>;
 					<span class="kw">if let </span><span class="prelude-val">Some</span>(approve) = vote.as_standard() {
 						tally.increase(approve, <span class="kw-2">*</span>delegations);
@@ -1259,7 +1261,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				} <span class="kw">else </span>{
 					<span class="kw">return </span><span class="prelude-val">Err</span>(Error::&lt;T, I&gt;::AlreadyDelegating.into())
 				}
-				<span class="comment">// Extend the lock to `balance` (rather than setting it) since we don&#39;t know what
+				<span class="comment">// Extend the lock to `balance` (rather than setting it) since we don't know what
 				// other votes are in place.
 				</span><span class="self">Self</span>::extend_lock(who, <span class="kw-2">&amp;</span>class, vote.balance());
 				<span class="prelude-val">Ok</span>(())
@@ -1267,10 +1269,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		})
 	}
 
-	<span class="doccomment">/// Remove the account&#39;s vote for the given poll if possible. This is possible when:
+	<span class="doccomment">/// Remove the account's vote for the given poll if possible. This is possible when:
 	/// - The poll has not finished.
 	/// - The poll has finished and the voter lost their direction.
-	/// - The poll has finished and the voter&#39;s lock period is up.
+	/// - The poll has finished and the voter's lock period is up.
 	///
 	/// This will generally be combined with a call to `unlock`.
 	</span><span class="kw">fn </span>try_remove_vote(
@@ -1292,7 +1294,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				T::Polls::try_access_poll(poll_index, |poll_status| <span class="kw">match </span>poll_status {
 					PollStatus::Ongoing(tally, <span class="kw">_</span>) =&gt; {
 						<span class="macro">ensure!</span>(<span class="macro">matches!</span>(scope, UnvoteScope::Any), Error::&lt;T, I&gt;::NoPermission);
-						<span class="comment">// Shouldn&#39;t be possible to fail, but we handle it gracefully.
+						<span class="comment">// Shouldn't be possible to fail, but we handle it gracefully.
 						</span>tally.remove(v.<span class="number">1</span>).ok_or(ArithmeticError::Underflow)<span class="question-mark">?</span>;
 						<span class="kw">if let </span><span class="prelude-val">Some</span>(approve) = v.<span class="number">1</span>.as_standard() {
 							tally.reduce(approve, <span class="kw-2">*</span>delegations);
@@ -1331,7 +1333,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; u32 {
 		VotingFor::&lt;T, I&gt;::mutate(who, class, |voting| <span class="kw">match </span>voting {
 			Voting::Delegating(Delegating { delegations, .. }) =&gt; {
-				<span class="comment">// We don&#39;t support second level delegating, so we don&#39;t need to do anything more.
+				<span class="comment">// We don't support second level delegating, so we don't need to do anything more.
 				</span><span class="kw-2">*</span>delegations = delegations.saturating_add(amount);
 				<span class="number">1
 			</span>},
@@ -1359,7 +1361,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; u32 {
 		VotingFor::&lt;T, I&gt;::mutate(who, class, |voting| <span class="kw">match </span>voting {
 			Voting::Delegating(Delegating { delegations, .. }) =&gt; {
-				<span class="comment">// We don&#39;t support second level delegating, so we don&#39;t need to do anything more.
+				<span class="comment">// We don't support second level delegating, so we don't need to do anything more.
 				</span><span class="kw-2">*</span>delegations = delegations.saturating_sub(amount);
 				<span class="number">1
 			</span>},
@@ -1408,7 +1410,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					Voting::Delegating(Delegating { .. }) =&gt;
 						<span class="kw">return </span><span class="prelude-val">Err</span>(Error::&lt;T, I&gt;::AlreadyDelegating.into()),
 					Voting::Casting(Casting { votes, delegations, prior }) =&gt; {
-						<span class="comment">// here we just ensure that we&#39;re currently idling with no votes recorded.
+						<span class="comment">// here we just ensure that we're currently idling with no votes recorded.
 						</span><span class="macro">ensure!</span>(votes.is_empty(), Error::&lt;T, I&gt;::AlreadyVoting);
 						voting.set_common(delegations, prior);
 					},
@@ -1416,7 +1418,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 				<span class="kw">let </span>votes =
 					<span class="self">Self</span>::increase_upstream_delegation(<span class="kw-2">&amp;</span>target, <span class="kw-2">&amp;</span>class, conviction.votes(balance));
-				<span class="comment">// Extend the lock to `balance` (rather than setting it) since we don&#39;t know what
+				<span class="comment">// Extend the lock to `balance` (rather than setting it) since we don't know what
 				// other votes are in place.
 				</span><span class="self">Self</span>::extend_lock(<span class="kw-2">&amp;</span>who, <span class="kw-2">&amp;</span>class, balance);
 				<span class="prelude-val">Ok</span>(votes)
@@ -1472,9 +1474,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw">let </span>ok = locks.try_push((class.clone(), amount)).is_ok();
 					<span class="macro">debug_assert!</span>(
 						ok,
-						<span class="string">&quot;Vec bounded by number of classes; \
+						<span class="string">"Vec bounded by number of classes; \
 						all items in Vec associated with a unique class; \
-						qed&quot;
+						qed"
 					</span>);
 				},
 			}
@@ -1500,9 +1502,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">let </span>ok = locks.try_push((class.clone(), class_lock_needed)).is_ok();
 				<span class="macro">debug_assert!</span>(
 					ok,
-					<span class="string">&quot;Vec bounded by number of classes; \
+					<span class="string">"Vec bounded by number of classes; \
 					all items in Vec associated with a unique class; \
-					qed&quot;
+					qed"
 				</span>);
 			}
 			locks.iter().map(|x| x.<span class="number">1</span>).max().unwrap_or(Zero::zero())

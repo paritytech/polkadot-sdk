@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/nfts/src/types.rs`."><title>types.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/nfts/src/types.rs`."><title>types.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_nfts" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_nfts" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../pallet_nfts/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -699,14 +701,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -737,16 +739,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="prelude-ty">Option</span>&lt;BlockNumberFor&lt;T&gt;&gt;,
 	&lt;T <span class="kw">as </span>Config&lt;I&gt;&gt;::ApprovalsLimit,
 &gt;;
-<span class="doccomment">/// A type alias for keeping track of approvals for an item&#39;s attributes.
+<span class="doccomment">/// A type alias for keeping track of approvals for an item's attributes.
 </span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>ItemAttributesApprovals&lt;T, I = ()&gt; =
 	BoundedBTreeSet&lt;&lt;T <span class="kw">as </span>SystemConfig&gt;::AccountId, &lt;T <span class="kw">as </span>Config&lt;I&gt;&gt;::ItemAttributesApprovalsLimit&gt;;
 <span class="doccomment">/// A type that holds the deposit for a single item.
 </span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>ItemDepositOf&lt;T, I&gt; =
 	ItemDeposit&lt;DepositBalanceOf&lt;T, I&gt;, &lt;T <span class="kw">as </span>SystemConfig&gt;::AccountId&gt;;
-<span class="doccomment">/// A type that holds the deposit amount for an item&#39;s attribute.
+<span class="doccomment">/// A type that holds the deposit amount for an item's attribute.
 </span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>AttributeDepositOf&lt;T, I&gt; =
 	AttributeDeposit&lt;DepositBalanceOf&lt;T, I&gt;, &lt;T <span class="kw">as </span>SystemConfig&gt;::AccountId&gt;;
-<span class="doccomment">/// A type that holds the deposit amount for an item&#39;s metadata.
+<span class="doccomment">/// A type that holds the deposit amount for an item's metadata.
 </span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>ItemMetadataDepositOf&lt;T, I&gt; =
 	ItemMetadataDeposit&lt;DepositBalanceOf&lt;T, I&gt;, &lt;T <span class="kw">as </span>SystemConfig&gt;::AccountId&gt;;
 <span class="doccomment">/// A type that holds the details of a single item.
@@ -786,7 +788,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Information about a collection.
 </span><span class="attr">#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 </span><span class="kw">pub struct </span>CollectionDetails&lt;AccountId, DepositBalance&gt; {
-	<span class="doccomment">/// Collection&#39;s owner.
+	<span class="doccomment">/// Collection's owner.
 	</span><span class="kw">pub</span>(<span class="kw">super</span>) owner: AccountId,
 	<span class="doccomment">/// The total balance deposited by the owner for all the storage data associated with this
 	/// collection. Used by `destroy`.
@@ -841,7 +843,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub</span>(<span class="kw">super</span>) owner: AccountId,
 	<span class="doccomment">/// The approved transferrer of this item, if one is set.
 	</span><span class="kw">pub</span>(<span class="kw">super</span>) approvals: Approvals,
-	<span class="doccomment">/// The amount held in the pallet&#39;s default account for this item. Free-hold items will have
+	<span class="doccomment">/// The amount held in the pallet's default account for this item. Free-hold items will have
 	/// this as zero.
 	</span><span class="kw">pub</span>(<span class="kw">super</span>) deposit: Deposit,
 }
@@ -855,7 +857,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub</span>(<span class="kw">super</span>) amount: DepositBalance,
 }
 
-<span class="doccomment">/// Information about the collection&#39;s metadata.
+<span class="doccomment">/// Information about the collection's metadata.
 </span><span class="attr">#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, Default, TypeInfo, MaxEncodedLen)]
 #[scale_info(skip_type_params(StringLimit))]
 #[codec(mel_bound(Deposit: MaxEncodedLen))]
@@ -870,7 +872,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub</span>(<span class="kw">super</span>) data: BoundedVec&lt;u8, StringLimit&gt;,
 }
 
-<span class="doccomment">/// Information about the item&#39;s metadata.
+<span class="doccomment">/// Information about the item's metadata.
 </span><span class="attr">#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, Default, TypeInfo, MaxEncodedLen)]
 #[scale_info(skip_type_params(StringLimit))]
 </span><span class="kw">pub struct </span>ItemMetadata&lt;Deposit, StringLimit: Get&lt;u32&gt;&gt; {
@@ -919,10 +921,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub</span>(<span class="kw">super</span>) amount: DepositBalance,
 }
 
-<span class="doccomment">/// Information about the reserved item&#39;s metadata deposit.
+<span class="doccomment">/// Information about the reserved item's metadata deposit.
 </span><span class="attr">#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 </span><span class="kw">pub struct </span>ItemMetadataDeposit&lt;DepositBalance, AccountId&gt; {
-	<span class="doccomment">/// A depositor account, None means the deposit is collection&#39;s owner.
+	<span class="doccomment">/// A depositor account, None means the deposit is collection's owner.
 	</span><span class="kw">pub</span>(<span class="kw">super</span>) account: <span class="prelude-ty">Option</span>&lt;AccountId&gt;,
 	<span class="doccomment">/// An amount that gets reserved.
 	</span><span class="kw">pub</span>(<span class="kw">super</span>) amount: DepositBalance,
@@ -959,7 +961,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>UnlockedAttributes,
 	<span class="doccomment">/// The supply of this collection can be modified.
 	</span>UnlockedMaxSupply,
-	<span class="doccomment">/// When this isn&#39;t set then the deposit is required to hold the items of this collection.
+	<span class="doccomment">/// When this isn't set then the deposit is required to hold the items of this collection.
 	</span>DepositRequired,
 }
 
@@ -1031,9 +1033,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub enum </span>AttributeNamespace&lt;AccountId&gt; {
 	<span class="doccomment">/// An attribute was set by the pallet.
 	</span>Pallet,
-	<span class="doccomment">/// An attribute was set by collection&#39;s owner.
+	<span class="doccomment">/// An attribute was set by collection's owner.
 	</span>CollectionOwner,
-	<span class="doccomment">/// An attribute was set by item&#39;s owner.
+	<span class="doccomment">/// An attribute was set by item's owner.
 	</span>ItemOwner,
 	<span class="doccomment">/// An attribute was set by pre-approved account.
 	</span>Account(AccountId),
@@ -1055,14 +1057,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>TransferDisabled,
 }
 
-<span class="doccomment">/// Collection&#39;s configuration.
+<span class="doccomment">/// Collection's configuration.
 </span><span class="attr">#[derive(
 	Clone, Copy, Decode, Default, Encode, MaxEncodedLen, PartialEq, RuntimeDebug, TypeInfo,
 )]
 </span><span class="kw">pub struct </span>CollectionConfig&lt;Price, BlockNumber, CollectionId&gt; {
-	<span class="doccomment">/// Collection&#39;s settings.
+	<span class="doccomment">/// Collection's settings.
 	</span><span class="kw">pub </span>settings: CollectionSettings,
-	<span class="doccomment">/// Collection&#39;s max supply.
+	<span class="doccomment">/// Collection's max supply.
 	</span><span class="kw">pub </span>max_supply: <span class="prelude-ty">Option</span>&lt;u32&gt;,
 	<span class="doccomment">/// Default settings each item will get during the mint.
 	</span><span class="kw">pub </span>mint_settings: MintSettings&lt;Price, BlockNumber, CollectionId&gt;,
@@ -1117,12 +1119,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="macro">impl_codec_bitflags!</span>(ItemSettings, u64, ItemSetting);
 
-<span class="doccomment">/// Item&#39;s configuration.
+<span class="doccomment">/// Item's configuration.
 </span><span class="attr">#[derive(
 	Encode, Decode, Default, PartialEq, RuntimeDebug, Clone, Copy, MaxEncodedLen, TypeInfo,
 )]
 </span><span class="kw">pub struct </span>ItemConfig {
-	<span class="doccomment">/// Item&#39;s settings.
+	<span class="doccomment">/// Item's settings.
 	</span><span class="kw">pub </span>settings: ItemSettings,
 }
 
@@ -1214,11 +1216,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub struct </span>PreSignedMint&lt;CollectionId, ItemId, AccountId, Deadline, Balance&gt; {
 	<span class="doccomment">/// A collection of the item to be minted.
 	</span><span class="kw">pub</span>(<span class="kw">super</span>) collection: CollectionId,
-	<span class="doccomment">/// Item&#39;s ID.
+	<span class="doccomment">/// Item's ID.
 	</span><span class="kw">pub</span>(<span class="kw">super</span>) item: ItemId,
-	<span class="doccomment">/// Additional item&#39;s key-value attributes.
+	<span class="doccomment">/// Additional item's key-value attributes.
 	</span><span class="kw">pub</span>(<span class="kw">super</span>) attributes: Vec&lt;(Vec&lt;u8&gt;, Vec&lt;u8&gt;)&gt;,
-	<span class="doccomment">/// Additional item&#39;s metadata.
+	<span class="doccomment">/// Additional item's metadata.
 	</span><span class="kw">pub</span>(<span class="kw">super</span>) metadata: Vec&lt;u8&gt;,
 	<span class="doccomment">/// Restrict the claim to a particular account.
 	</span><span class="kw">pub</span>(<span class="kw">super</span>) only_account: <span class="prelude-ty">Option</span>&lt;AccountId&gt;,
@@ -1230,13 +1232,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="attr">#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
 </span><span class="kw">pub struct </span>PreSignedAttributes&lt;CollectionId, ItemId, AccountId, Deadline&gt; {
-	<span class="doccomment">/// Collection&#39;s ID.
+	<span class="doccomment">/// Collection's ID.
 	</span><span class="kw">pub</span>(<span class="kw">super</span>) collection: CollectionId,
-	<span class="doccomment">/// Item&#39;s ID.
+	<span class="doccomment">/// Item's ID.
 	</span><span class="kw">pub</span>(<span class="kw">super</span>) item: ItemId,
 	<span class="doccomment">/// Key-value attributes.
 	</span><span class="kw">pub</span>(<span class="kw">super</span>) attributes: Vec&lt;(Vec&lt;u8&gt;, Vec&lt;u8&gt;)&gt;,
-	<span class="doccomment">/// Attributes&#39; namespace.
+	<span class="doccomment">/// Attributes' namespace.
 	</span><span class="kw">pub</span>(<span class="kw">super</span>) namespace: AttributeNamespace&lt;AccountId&gt;,
 	<span class="doccomment">/// A deadline for the signature.
 	</span><span class="kw">pub</span>(<span class="kw">super</span>) deadline: Deadline,

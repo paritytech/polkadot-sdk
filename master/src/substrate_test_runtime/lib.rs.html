@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/test-utils/runtime/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/test-utils/runtime/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="substrate_test_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="substrate_test_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../substrate_test_runtime/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1693,32 +1695,32 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
 </span><span class="doccomment">//! The Substrate runtime. This can be compiled with `#[no_std]`, ready for Wasm.
 
-</span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
+</span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
 </span><span class="kw">extern crate </span>alloc;
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">pub mod </span>extrinsic;
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">pub mod </span>genesismap;
 <span class="kw">pub mod </span>substrate_test_pallet;
 
 <span class="kw">use </span>alloc::boxed::Box;
-<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
 </span><span class="kw">use </span>alloc::{vec, vec::Vec};
 <span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>frame_support::{
@@ -1759,7 +1761,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	transaction_validity::{TransactionSource, TransactionValidity, TransactionValidityError},
 	ApplyExtrinsicResult, ExtrinsicInclusionMode, Perbill,
 };
-<span class="attr">#[cfg(any(feature = <span class="string">&quot;std&quot;</span>, test))]
+<span class="attr">#[cfg(any(feature = <span class="string">"std"</span>, test))]
 </span><span class="kw">use </span>sp_version::NativeVersion;
 <span class="kw">use </span>sp_version::RuntimeVersion;
 
@@ -1768,43 +1770,43 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">pub use </span>pallet_balances::Call <span class="kw">as </span>BalancesCall;
 
 <span class="kw">pub type </span>AuraId = sp_consensus_aura::sr25519::AuthorityId;
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">pub use </span>extrinsic::{ExtrinsicBuilder, Transfer};
 
-<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;substrate-test-runtime&quot;</span>;
+<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"substrate-test-runtime"</span>;
 
 <span class="comment">// Include the WASM binary
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
-</span><span class="macro">include!</span>(<span class="macro">concat!</span>(<span class="macro">env!</span>(<span class="string">&quot;OUT_DIR&quot;</span>), <span class="string">&quot;/wasm_binary.rs&quot;</span>));
+</span><span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
+</span><span class="macro">include!</span>(<span class="macro">concat!</span>(<span class="macro">env!</span>(<span class="string">"OUT_DIR"</span>), <span class="string">"/wasm_binary.rs"</span>));
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">pub mod </span>wasm_binary_logging_disabled {
-	<span class="macro">include!</span>(<span class="macro">concat!</span>(<span class="macro">env!</span>(<span class="string">&quot;OUT_DIR&quot;</span>), <span class="string">&quot;/wasm_binary_logging_disabled.rs&quot;</span>));
+	<span class="macro">include!</span>(<span class="macro">concat!</span>(<span class="macro">env!</span>(<span class="string">"OUT_DIR"</span>), <span class="string">"/wasm_binary_logging_disabled.rs"</span>));
 }
 
 <span class="doccomment">/// Wasm binary unwrapped. If built with `SKIP_WASM_BUILD`, the function panics.
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
-</span><span class="kw">pub fn </span>wasm_binary_unwrap() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8] {
+</span><span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
+</span><span class="kw">pub fn </span>wasm_binary_unwrap() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>[u8] {
 	WASM_BINARY.expect(
-		<span class="string">&quot;Development wasm binary is not available. Testing is only supported with the flag
-		 disabled.&quot;</span>,
+		<span class="string">"Development wasm binary is not available. Testing is only supported with the flag
+		 disabled."</span>,
 	)
 }
 
 <span class="doccomment">/// Wasm binary unwrapped. If built with `SKIP_WASM_BUILD`, the function panics.
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
-</span><span class="kw">pub fn </span>wasm_binary_logging_disabled_unwrap() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8] {
+</span><span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
+</span><span class="kw">pub fn </span>wasm_binary_logging_disabled_unwrap() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>[u8] {
 	wasm_binary_logging_disabled::WASM_BINARY.expect(
-		<span class="string">&quot;Development wasm binary is not available. Testing is only supported with the flag
-		 disabled.&quot;</span>,
+		<span class="string">"Development wasm binary is not available. Testing is only supported with the flag
+		 disabled."</span>,
 	)
 }
 
 <span class="doccomment">/// Test runtime version.
 </span><span class="attr">#[sp_version::runtime_version]
 </span><span class="kw">pub const </span>VERSION: RuntimeVersion = RuntimeVersion {
-	spec_name: <span class="macro">create_runtime_str!</span>(<span class="string">&quot;test&quot;</span>),
-	impl_name: <span class="macro">create_runtime_str!</span>(<span class="string">&quot;parity-test&quot;</span>),
+	spec_name: <span class="macro">create_runtime_str!</span>(<span class="string">"test"</span>),
+	impl_name: <span class="macro">create_runtime_str!</span>(<span class="string">"parity-test"</span>),
 	authoring_version: <span class="number">1</span>,
 	spec_version: <span class="number">2</span>,
 	impl_version: <span class="number">2</span>,
@@ -1818,7 +1820,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Native version.
-</span><span class="attr">#[cfg(any(feature = <span class="string">&quot;std&quot;</span>, test))]
+</span><span class="attr">#[cfg(any(feature = <span class="string">"std"</span>, test))]
 </span><span class="kw">pub fn </span>native_version() -&gt; NativeVersion {
 	NativeVersion { runtime_version: VERSION, can_author_with: Default::default() }
 }
@@ -1835,7 +1837,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// The address format for describing accounts.
 </span><span class="kw">pub type </span>Address = sp_core::sr25519::Public;
 <span class="kw">pub type </span>Signature = sr25519::Signature;
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">pub type </span>Pair = sp_core::sr25519::Pair;
 
 <span class="doccomment">/// The SignedExtension to the basic transaction logic.
@@ -1862,7 +1864,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub type </span>Digest = sp_runtime::generic::Digest;
 <span class="doccomment">/// A test block.
 </span><span class="kw">pub type </span>Block = sp_runtime::generic::Block&lt;Header, Extrinsic&gt;;
-<span class="doccomment">/// A test block&#39;s header.
+<span class="doccomment">/// A test block's header.
 </span><span class="kw">pub type </span>Header = sp_runtime::generic::Header&lt;BlockNumber, Hashing&gt;;
 <span class="doccomment">/// Balance of an account.
 </span><span class="kw">pub type </span>Balance = u64;
@@ -1912,7 +1914,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="doccomment">/// Test that ensures that we can call a function that takes multiple
 		/// arguments.
 		</span><span class="kw">fn </span>test_multiple_arguments(data: Vec&lt;u8&gt;, other: Vec&lt;u8&gt;, num: u32);
-		<span class="doccomment">/// Traces log &quot;Hey I&#39;m runtime.&quot;
+		<span class="doccomment">/// Traces log "Hey I'm runtime."
 		</span><span class="kw">fn </span>do_trace_log();
 		<span class="doccomment">/// Verify the given signature, public &amp; message bundle.
 		</span><span class="kw">fn </span>verify_ed25519(sig: ed25519::Signature, public: ed25519::Public, message: Vec&lt;u8&gt;) -&gt; bool;
@@ -1934,7 +1936,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl </span>sp_runtime::traits::Printable <span class="kw">for </span>CheckSubstrateCall {
 	<span class="kw">fn </span>print(<span class="kw-2">&amp;</span><span class="self">self</span>) {
-		<span class="string">&quot;CheckSubstrateCall&quot;</span>.print()
+		<span class="string">"CheckSubstrateCall"</span>.print()
 	}
 }
 
@@ -1948,7 +1950,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">self</span>,
 		_origin: <span class="self">Self</span>::RuntimeOrigin,
 	) -&gt; sp_runtime::DispatchResultWithInfo&lt;<span class="self">Self</span>::PostInfo&gt; {
-		<span class="macro">panic!</span>(<span class="string">&quot;This implementation should not be used for actual dispatch.&quot;</span>);
+		<span class="macro">panic!</span>(<span class="string">"This implementation should not be used for actual dispatch."</span>);
 	}
 }
 
@@ -1957,7 +1959,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>Call = RuntimeCall;
 	<span class="kw">type </span>AdditionalSigned = ();
 	<span class="kw">type </span>Pre = ();
-	<span class="kw">const </span>IDENTIFIER: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;CheckSubstrateCall&quot;</span>;
+	<span class="kw">const </span>IDENTIFIER: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"CheckSubstrateCall"</span>;
 
 	<span class="kw">fn </span>additional_signed(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
@@ -1972,7 +1974,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		_info: <span class="kw-2">&amp;</span>DispatchInfoOf&lt;<span class="self">Self</span>::Call&gt;,
 		_len: usize,
 	) -&gt; TransactionValidity {
-		<span class="macro">log::trace!</span>(target: LOG_TARGET, <span class="string">&quot;validate&quot;</span>);
+		<span class="macro">log::trace!</span>(target: LOG_TARGET, <span class="string">"validate"</span>);
 		<span class="kw">match </span>call {
 			RuntimeCall::SubstrateTest(<span class="kw-2">ref </span>substrate_test_call) =&gt;
 				substrate_test_pallet::validate_runtime_call(substrate_test_call),
@@ -2130,8 +2132,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">fn </span>code_using_trie() -&gt; u64 {
 	<span class="kw">let </span>pairs = [
-		(<span class="string">b&quot;0103000000000000000464&quot;</span>.to_vec(), <span class="string">b&quot;0400000000&quot;</span>.to_vec()),
-		(<span class="string">b&quot;0103000000000000000469&quot;</span>.to_vec(), <span class="string">b&quot;0401000000&quot;</span>.to_vec()),
+		(<span class="string">b"0103000000000000000464"</span>.to_vec(), <span class="string">b"0400000000"</span>.to_vec()),
+		(<span class="string">b"0103000000000000000469"</span>.to_vec(), <span class="string">b"0401000000"</span>.to_vec()),
 	]
 	.to_vec();
 
@@ -2172,12 +2174,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 
 		<span class="kw">fn </span>execute_block(block: Block) {
-			<span class="macro">log::trace!</span>(target: LOG_TARGET, <span class="string">&quot;execute_block: {block:#?}&quot;</span>);
+			<span class="macro">log::trace!</span>(target: LOG_TARGET, <span class="string">"execute_block: {block:#?}"</span>);
 			Executive::execute_block(block);
 		}
 
 		<span class="kw">fn </span>initialize_block(header: <span class="kw-2">&amp;</span>&lt;Block <span class="kw">as </span>BlockT&gt;::Header) -&gt; ExtrinsicInclusionMode {
-			<span class="macro">log::trace!</span>(target: LOG_TARGET, <span class="string">&quot;initialize_block: {header:#?}&quot;</span>);
+			<span class="macro">log::trace!</span>(target: LOG_TARGET, <span class="string">"initialize_block: {header:#?}"</span>);
 			Executive::initialize_block(header)
 		}
 	}
@@ -2202,7 +2204,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			block_hash: &lt;Block <span class="kw">as </span>BlockT&gt;::Hash,
 		) -&gt; TransactionValidity {
 			<span class="kw">let </span>validity = Executive::validate_transaction(source, utx.clone(), block_hash);
-			<span class="macro">log::trace!</span>(target: LOG_TARGET, <span class="string">&quot;validate_transaction {:?} {:?}&quot;</span>, utx, validity);
+			<span class="macro">log::trace!</span>(target: LOG_TARGET, <span class="string">"validate_transaction {:?} {:?}"</span>, utx, validity);
 			validity
 		}
 	}
@@ -2213,7 +2215,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 
 		<span class="kw">fn </span>finalize_block() -&gt; &lt;Block <span class="kw">as </span>BlockT&gt;::Header {
-			<span class="macro">log::trace!</span>(target: LOG_TARGET, <span class="string">&quot;finalize_block&quot;</span>);
+			<span class="macro">log::trace!</span>(target: LOG_TARGET, <span class="string">"finalize_block"</span>);
 			Executive::finalize_block()
 		}
 
@@ -2298,7 +2300,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 
 		<span class="kw">fn </span>do_trace_log() {
-			<span class="macro">log::trace!</span>(<span class="string">&quot;Hey I&#39;m runtime&quot;</span>);
+			<span class="macro">log::trace!</span>(<span class="string">"Hey I'm runtime"</span>);
 		}
 
 		<span class="kw">fn </span>verify_ed25519(sig: ed25519::Signature, public: ed25519::Public, message: Vec&lt;u8&gt;) -&gt; bool {
@@ -2309,7 +2311,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			sp_io::storage::set(<span class="kw-2">&amp;</span>key, <span class="kw-2">&amp;</span>value);
 
 			<span class="kw">if </span>panic {
-				<span class="macro">panic!</span>(<span class="string">&quot;I&#39;m just following my master&quot;</span>);
+				<span class="macro">panic!</span>(<span class="string">"I'm just following my master"</span>);
 			}
 		}
 	}
@@ -2370,7 +2372,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">fn </span>offchain_worker(header: <span class="kw-2">&amp;</span>&lt;Block <span class="kw">as </span>BlockT&gt;::Header) {
 			<span class="kw">let </span>ext = Extrinsic::new_unsigned(
 				substrate_test_pallet::pallet::Call::storage_change{
-					key:<span class="string">b&quot;some_key&quot;</span>.encode(),
+					key:<span class="string">b"some_key"</span>.encode(),
 					value:<span class="prelude-val">Some</span>(header.number.encode())
 				}.into(),
 			);
@@ -2425,35 +2427,35 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">fn </span>get_preset(name: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;PresetId&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt; {
 			get_preset::&lt;RuntimeGenesisConfig&gt;(name, |name| {
 				<span class="kw">let </span>patch = <span class="kw">match </span>name.try_into() {
-					<span class="prelude-val">Ok</span>(<span class="string">&quot;staging&quot;</span>) =&gt; {
+					<span class="prelude-val">Ok</span>(<span class="string">"staging"</span>) =&gt; {
 						<span class="kw">let </span>endowed_accounts: Vec&lt;AccountId&gt; = <span class="macro">vec!</span>[
 							AccountKeyring::Bob.public().into(),
 							AccountKeyring::Charlie.public().into(),
 						];
 
 						<span class="macro">json!</span>({
-							<span class="string">&quot;balances&quot;</span>: {
-								<span class="string">&quot;balances&quot;</span>: endowed_accounts.into_iter().map(|k| (k, <span class="number">10 </span>* currency::DOLLARS)).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
+							<span class="string">"balances"</span>: {
+								<span class="string">"balances"</span>: endowed_accounts.into_iter().map(|k| (k, <span class="number">10 </span>* currency::DOLLARS)).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
 							},
-							<span class="string">&quot;substrateTest&quot;</span>: {
-								<span class="string">&quot;authorities&quot;</span>: [
+							<span class="string">"substrateTest"</span>: {
+								<span class="string">"authorities"</span>: [
 									AccountKeyring::Alice.public().to_ss58check(),
 									AccountKeyring::Ferdie.public().to_ss58check()
 								],
 							}
 						})
 					},
-					<span class="prelude-val">Ok</span>(<span class="string">&quot;foobar&quot;</span>) =&gt; <span class="macro">json!</span>({<span class="string">&quot;foo&quot;</span>:<span class="string">&quot;bar&quot;</span>}),
+					<span class="prelude-val">Ok</span>(<span class="string">"foobar"</span>) =&gt; <span class="macro">json!</span>({<span class="string">"foo"</span>:<span class="string">"bar"</span>}),
 					<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">None</span>,
 				};
 				<span class="prelude-val">Some</span>(serde_json::to_string(<span class="kw-2">&amp;</span>patch)
-					.expect(<span class="string">&quot;serialization to json is expected to work. qed.&quot;</span>)
+					.expect(<span class="string">"serialization to json is expected to work. qed."</span>)
 					.into_bytes())
 			})
 		}
 
 		<span class="kw">fn </span>preset_names() -&gt; Vec&lt;PresetId&gt; {
-			<span class="macro">vec!</span>[PresetId::from(<span class="string">&quot;foobar&quot;</span>), PresetId::from(<span class="string">&quot;staging&quot;</span>)]
+			<span class="macro">vec!</span>[PresetId::from(<span class="string">"foobar"</span>), PresetId::from(<span class="string">"staging"</span>)]
 		}
 	}
 }
@@ -2468,8 +2470,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="macro">assert!</span>(all.contains(<span class="kw-2">&amp;</span>public1));
 	<span class="macro">assert!</span>(all.contains(<span class="kw-2">&amp;</span>public2));
 
-	<span class="kw">let </span>signature = public0.sign(<span class="kw-2">&amp;</span><span class="string">&quot;ed25519&quot;</span>).expect(<span class="string">&quot;Generates a valid `ed25519` signature.&quot;</span>);
-	<span class="macro">assert!</span>(public0.verify(<span class="kw-2">&amp;</span><span class="string">&quot;ed25519&quot;</span>, <span class="kw-2">&amp;</span>signature));
+	<span class="kw">let </span>signature = public0.sign(<span class="kw-2">&amp;</span><span class="string">"ed25519"</span>).expect(<span class="string">"Generates a valid `ed25519` signature."</span>);
+	<span class="macro">assert!</span>(public0.verify(<span class="kw-2">&amp;</span><span class="string">"ed25519"</span>, <span class="kw-2">&amp;</span>signature));
 	(signature, public0)
 }
 
@@ -2483,8 +2485,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="macro">assert!</span>(all.contains(<span class="kw-2">&amp;</span>public1));
 	<span class="macro">assert!</span>(all.contains(<span class="kw-2">&amp;</span>public2));
 
-	<span class="kw">let </span>signature = public0.sign(<span class="kw-2">&amp;</span><span class="string">&quot;sr25519&quot;</span>).expect(<span class="string">&quot;Generates a valid `sr25519` signature.&quot;</span>);
-	<span class="macro">assert!</span>(public0.verify(<span class="kw-2">&amp;</span><span class="string">&quot;sr25519&quot;</span>, <span class="kw-2">&amp;</span>signature));
+	<span class="kw">let </span>signature = public0.sign(<span class="kw-2">&amp;</span><span class="string">"sr25519"</span>).expect(<span class="string">"Generates a valid `sr25519` signature."</span>);
+	<span class="macro">assert!</span>(public0.verify(<span class="kw-2">&amp;</span><span class="string">"sr25519"</span>, <span class="kw-2">&amp;</span>signature));
 	(signature, public0)
 }
 
@@ -2498,20 +2500,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="macro">assert!</span>(all.contains(<span class="kw-2">&amp;</span>public1));
 	<span class="macro">assert!</span>(all.contains(<span class="kw-2">&amp;</span>public2));
 
-	<span class="kw">let </span>signature = public0.sign(<span class="kw-2">&amp;</span><span class="string">&quot;ecdsa&quot;</span>).expect(<span class="string">&quot;Generates a valid `ecdsa` signature.&quot;</span>);
+	<span class="kw">let </span>signature = public0.sign(<span class="kw-2">&amp;</span><span class="string">"ecdsa"</span>).expect(<span class="string">"Generates a valid `ecdsa` signature."</span>);
 
-	<span class="macro">assert!</span>(public0.verify(<span class="kw-2">&amp;</span><span class="string">&quot;ecdsa&quot;</span>, <span class="kw-2">&amp;</span>signature));
+	<span class="macro">assert!</span>(public0.verify(<span class="kw-2">&amp;</span><span class="string">"ecdsa"</span>, <span class="kw-2">&amp;</span>signature));
 	(signature, public0)
 }
 
 <span class="kw">fn </span>test_read_storage() {
-	<span class="kw">const </span>KEY: <span class="kw-2">&amp;</span>[u8] = <span class="string">b&quot;:read_storage&quot;</span>;
-	sp_io::storage::set(KEY, <span class="string">b&quot;test&quot;</span>);
+	<span class="kw">const </span>KEY: <span class="kw-2">&amp;</span>[u8] = <span class="string">b":read_storage"</span>;
+	sp_io::storage::set(KEY, <span class="string">b"test"</span>);
 
 	<span class="kw">let </span><span class="kw-2">mut </span>v = [<span class="number">0u8</span>; <span class="number">4</span>];
 	<span class="kw">let </span>r = sp_io::storage::read(KEY, <span class="kw-2">&amp;mut </span>v, <span class="number">0</span>);
 	<span class="macro">assert_eq!</span>(r, <span class="prelude-val">Some</span>(<span class="number">4</span>));
-	<span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span>v, <span class="string">b&quot;test&quot;</span>);
+	<span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span>v, <span class="string">b"test"</span>);
 
 	<span class="kw">let </span><span class="kw-2">mut </span>v = [<span class="number">0u8</span>; <span class="number">4</span>];
 	<span class="kw">let </span>r = sp_io::storage::read(KEY, <span class="kw-2">&amp;mut </span>v, <span class="number">4</span>);
@@ -2520,14 +2522,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">fn </span>test_read_child_storage() {
-	<span class="kw">const </span>STORAGE_KEY: <span class="kw-2">&amp;</span>[u8] = <span class="string">b&quot;unique_id_1&quot;</span>;
-	<span class="kw">const </span>KEY: <span class="kw-2">&amp;</span>[u8] = <span class="string">b&quot;:read_child_storage&quot;</span>;
-	sp_io::default_child_storage::set(STORAGE_KEY, KEY, <span class="string">b&quot;test&quot;</span>);
+	<span class="kw">const </span>STORAGE_KEY: <span class="kw-2">&amp;</span>[u8] = <span class="string">b"unique_id_1"</span>;
+	<span class="kw">const </span>KEY: <span class="kw-2">&amp;</span>[u8] = <span class="string">b":read_child_storage"</span>;
+	sp_io::default_child_storage::set(STORAGE_KEY, KEY, <span class="string">b"test"</span>);
 
 	<span class="kw">let </span><span class="kw-2">mut </span>v = [<span class="number">0u8</span>; <span class="number">4</span>];
 	<span class="kw">let </span>r = sp_io::default_child_storage::read(STORAGE_KEY, KEY, <span class="kw-2">&amp;mut </span>v, <span class="number">0</span>);
 	<span class="macro">assert_eq!</span>(r, <span class="prelude-val">Some</span>(<span class="number">4</span>));
-	<span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span>v, <span class="string">b&quot;test&quot;</span>);
+	<span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span>v, <span class="string">b"test"</span>);
 
 	<span class="kw">let </span><span class="kw-2">mut </span>v = [<span class="number">0u8</span>; <span class="number">4</span>];
 	<span class="kw">let </span>r = sp_io::default_child_storage::read(STORAGE_KEY, KEY, <span class="kw-2">&amp;mut </span>v, <span class="number">8</span>);
@@ -2543,10 +2545,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span><span class="kw-2">mut </span>ext = sp_state_machine::Ext::new(
 		<span class="kw-2">&amp;mut </span>overlay,
 		<span class="kw-2">&amp;</span>backend,
-		<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+		<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 		</span><span class="prelude-val">None</span>,
 	);
-	<span class="macro">assert!</span>(ext.storage(<span class="string">b&quot;value3&quot;</span>).is_some());
+	<span class="macro">assert!</span>(ext.storage(<span class="string">b"value3"</span>).is_some());
 	<span class="macro">assert!</span>(ext.storage_root(Default::default()).as_slice() == <span class="kw-2">&amp;</span>root[..]);
 	ext.place_storage(<span class="macro">vec!</span>[<span class="number">0</span>], <span class="prelude-val">Some</span>(<span class="macro">vec!</span>[<span class="number">1</span>]));
 	<span class="macro">assert!</span>(ext.storage_root(Default::default()).as_slice() != <span class="kw-2">&amp;</span>root[..]);
@@ -2555,7 +2557,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Some tests require the hashed keys of the storage. As the values of hashed keys are not trivial
 /// to guess, this small module provides the values of the keys, and the code which is required to
 /// generate the keys.
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+</span><span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">pub mod </span>storage_key_generator {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use </span>sp_core::Pair;
@@ -2579,27 +2581,27 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Generate the hashed storage keys from the raw literals. These keys are expected to be be in
 	/// storage with given substrate-test runtime.
 	</span><span class="kw">pub fn </span>generate_expected_storage_hashed_keys(custom_heap_pages: bool) -&gt; Vec&lt;String&gt; {
-		<span class="kw">let </span><span class="kw-2">mut </span>literals: Vec&lt;<span class="kw-2">&amp;</span>[u8]&gt; = <span class="macro">vec!</span>[<span class="string">b&quot;:code&quot;</span>, <span class="string">b&quot;:extrinsic_index&quot;</span>];
+		<span class="kw">let </span><span class="kw-2">mut </span>literals: Vec&lt;<span class="kw-2">&amp;</span>[u8]&gt; = <span class="macro">vec!</span>[<span class="string">b":code"</span>, <span class="string">b":extrinsic_index"</span>];
 
 		<span class="kw">if </span>custom_heap_pages {
-			literals.push(<span class="string">b&quot;:heappages&quot;</span>);
+			literals.push(<span class="string">b":heappages"</span>);
 		}
 
 		<span class="kw">let </span>keys: Vec&lt;Vec&lt;<span class="kw-2">&amp;</span>[u8]&gt;&gt; = <span class="macro">vec!</span>[
-			<span class="macro">vec!</span>[<span class="string">b&quot;Babe&quot;</span>, <span class="string">b&quot;:__STORAGE_VERSION__:&quot;</span>],
-			<span class="macro">vec!</span>[<span class="string">b&quot;Babe&quot;</span>, <span class="string">b&quot;Authorities&quot;</span>],
-			<span class="macro">vec!</span>[<span class="string">b&quot;Babe&quot;</span>, <span class="string">b&quot;EpochConfig&quot;</span>],
-			<span class="macro">vec!</span>[<span class="string">b&quot;Babe&quot;</span>, <span class="string">b&quot;NextAuthorities&quot;</span>],
-			<span class="macro">vec!</span>[<span class="string">b&quot;Babe&quot;</span>, <span class="string">b&quot;SegmentIndex&quot;</span>],
-			<span class="macro">vec!</span>[<span class="string">b&quot;Balances&quot;</span>, <span class="string">b&quot;:__STORAGE_VERSION__:&quot;</span>],
-			<span class="macro">vec!</span>[<span class="string">b&quot;Balances&quot;</span>, <span class="string">b&quot;TotalIssuance&quot;</span>],
-			<span class="macro">vec!</span>[<span class="string">b&quot;SubstrateTest&quot;</span>, <span class="string">b&quot;:__STORAGE_VERSION__:&quot;</span>],
-			<span class="macro">vec!</span>[<span class="string">b&quot;SubstrateTest&quot;</span>, <span class="string">b&quot;Authorities&quot;</span>],
-			<span class="macro">vec!</span>[<span class="string">b&quot;System&quot;</span>, <span class="string">b&quot;:__STORAGE_VERSION__:&quot;</span>],
-			<span class="macro">vec!</span>[<span class="string">b&quot;System&quot;</span>, <span class="string">b&quot;LastRuntimeUpgrade&quot;</span>],
-			<span class="macro">vec!</span>[<span class="string">b&quot;System&quot;</span>, <span class="string">b&quot;ParentHash&quot;</span>],
-			<span class="macro">vec!</span>[<span class="string">b&quot;System&quot;</span>, <span class="string">b&quot;UpgradedToTripleRefCount&quot;</span>],
-			<span class="macro">vec!</span>[<span class="string">b&quot;System&quot;</span>, <span class="string">b&quot;UpgradedToU32RefCount&quot;</span>],
+			<span class="macro">vec!</span>[<span class="string">b"Babe"</span>, <span class="string">b":__STORAGE_VERSION__:"</span>],
+			<span class="macro">vec!</span>[<span class="string">b"Babe"</span>, <span class="string">b"Authorities"</span>],
+			<span class="macro">vec!</span>[<span class="string">b"Babe"</span>, <span class="string">b"EpochConfig"</span>],
+			<span class="macro">vec!</span>[<span class="string">b"Babe"</span>, <span class="string">b"NextAuthorities"</span>],
+			<span class="macro">vec!</span>[<span class="string">b"Babe"</span>, <span class="string">b"SegmentIndex"</span>],
+			<span class="macro">vec!</span>[<span class="string">b"Balances"</span>, <span class="string">b":__STORAGE_VERSION__:"</span>],
+			<span class="macro">vec!</span>[<span class="string">b"Balances"</span>, <span class="string">b"TotalIssuance"</span>],
+			<span class="macro">vec!</span>[<span class="string">b"SubstrateTest"</span>, <span class="string">b":__STORAGE_VERSION__:"</span>],
+			<span class="macro">vec!</span>[<span class="string">b"SubstrateTest"</span>, <span class="string">b"Authorities"</span>],
+			<span class="macro">vec!</span>[<span class="string">b"System"</span>, <span class="string">b":__STORAGE_VERSION__:"</span>],
+			<span class="macro">vec!</span>[<span class="string">b"System"</span>, <span class="string">b"LastRuntimeUpgrade"</span>],
+			<span class="macro">vec!</span>[<span class="string">b"System"</span>, <span class="string">b"ParentHash"</span>],
+			<span class="macro">vec!</span>[<span class="string">b"System"</span>, <span class="string">b"UpgradedToTripleRefCount"</span>],
+			<span class="macro">vec!</span>[<span class="string">b"System"</span>, <span class="string">b"UpgradedToU32RefCount"</span>],
 		];
 
 		<span class="kw">let </span><span class="kw-2">mut </span>expected_keys = keys.iter().map(concat_hashes).collect::&lt;Vec&lt;String&gt;&gt;();
@@ -2621,14 +2623,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					.collect::&lt;Vec&lt;u8&gt;&gt;()
 			})
 			.map(|hash_pubkey| {
-				[concat_hashes(<span class="kw-2">&amp;</span><span class="macro">vec!</span>[<span class="string">b&quot;System&quot;</span>, <span class="string">b&quot;Account&quot;</span>]), hex(hash_pubkey)].concat()
+				[concat_hashes(<span class="kw-2">&amp;</span><span class="macro">vec!</span>[<span class="string">b"System"</span>, <span class="string">b"Account"</span>]), hex(hash_pubkey)].concat()
 			});
 
 		expected_keys.extend(balances_map_keys);
 
 		expected_keys.push(
 			[
-				concat_hashes(<span class="kw-2">&amp;</span><span class="macro">vec!</span>[<span class="string">b&quot;System&quot;</span>, <span class="string">b&quot;BlockHash&quot;</span>]),
+				concat_hashes(<span class="kw-2">&amp;</span><span class="macro">vec!</span>[<span class="string">b"System"</span>, <span class="string">b"BlockHash"</span>]),
 				hex(<span class="number">0u64</span>.using_encoded(twox_64_concat)),
 			]
 			.concat(),
@@ -2645,86 +2647,86 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// `custom_heap_pages`: Should be set to `true` when the state contains the `:heap_pages` key
 	/// aka when overriding the heap pages to be used by the executor.
-	</span><span class="kw">pub fn </span>get_expected_storage_hashed_keys(custom_heap_pages: bool) -&gt; Vec&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; {
+	</span><span class="kw">pub fn </span>get_expected_storage_hashed_keys(custom_heap_pages: bool) -&gt; Vec&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
 		<span class="kw">let </span><span class="kw-2">mut </span>res = <span class="macro">vec!</span>[
 			<span class="comment">//SubstrateTest|:__STORAGE_VERSION__:
-			</span><span class="string">&quot;00771836bebdd29870ff246d305c578c4e7b9012096b41c4eb3aaf947f6ea429&quot;</span>,
+			</span><span class="string">"00771836bebdd29870ff246d305c578c4e7b9012096b41c4eb3aaf947f6ea429"</span>,
 			<span class="comment">//SubstrateTest|Authorities
-			</span><span class="string">&quot;00771836bebdd29870ff246d305c578c5e0621c4869aa60c02be9adcc98a0d1d&quot;</span>,
+			</span><span class="string">"00771836bebdd29870ff246d305c578c5e0621c4869aa60c02be9adcc98a0d1d"</span>,
 			<span class="comment">//Babe|:__STORAGE_VERSION__:
-			</span><span class="string">&quot;1cb6f36e027abb2091cfb5110ab5087f4e7b9012096b41c4eb3aaf947f6ea429&quot;</span>,
+			</span><span class="string">"1cb6f36e027abb2091cfb5110ab5087f4e7b9012096b41c4eb3aaf947f6ea429"</span>,
 			<span class="comment">//Babe|Authorities
-			</span><span class="string">&quot;1cb6f36e027abb2091cfb5110ab5087f5e0621c4869aa60c02be9adcc98a0d1d&quot;</span>,
+			</span><span class="string">"1cb6f36e027abb2091cfb5110ab5087f5e0621c4869aa60c02be9adcc98a0d1d"</span>,
 			<span class="comment">//Babe|SegmentIndex
-			</span><span class="string">&quot;1cb6f36e027abb2091cfb5110ab5087f66e8f035c8adbe7f1547b43c51e6f8a4&quot;</span>,
+			</span><span class="string">"1cb6f36e027abb2091cfb5110ab5087f66e8f035c8adbe7f1547b43c51e6f8a4"</span>,
 			<span class="comment">//Babe|NextAuthorities
-			</span><span class="string">&quot;1cb6f36e027abb2091cfb5110ab5087faacf00b9b41fda7a9268821c2a2b3e4c&quot;</span>,
+			</span><span class="string">"1cb6f36e027abb2091cfb5110ab5087faacf00b9b41fda7a9268821c2a2b3e4c"</span>,
 			<span class="comment">//Babe|EpochConfig
-			</span><span class="string">&quot;1cb6f36e027abb2091cfb5110ab5087fdc6b171b77304263c292cc3ea5ed31ef&quot;</span>,
+			</span><span class="string">"1cb6f36e027abb2091cfb5110ab5087fdc6b171b77304263c292cc3ea5ed31ef"</span>,
 			<span class="comment">//System|:__STORAGE_VERSION__:
-			</span><span class="string">&quot;26aa394eea5630e07c48ae0c9558cef74e7b9012096b41c4eb3aaf947f6ea429&quot;</span>,
+			</span><span class="string">"26aa394eea5630e07c48ae0c9558cef74e7b9012096b41c4eb3aaf947f6ea429"</span>,
 			<span class="comment">//System|UpgradedToU32RefCount
-			</span><span class="string">&quot;26aa394eea5630e07c48ae0c9558cef75684a022a34dd8bfa2baaf44f172b710&quot;</span>,
+			</span><span class="string">"26aa394eea5630e07c48ae0c9558cef75684a022a34dd8bfa2baaf44f172b710"</span>,
 			<span class="comment">//System|ParentHash
-			</span><span class="string">&quot;26aa394eea5630e07c48ae0c9558cef78a42f33323cb5ced3b44dd825fda9fcc&quot;</span>,
+			</span><span class="string">"26aa394eea5630e07c48ae0c9558cef78a42f33323cb5ced3b44dd825fda9fcc"</span>,
 			<span class="comment">//System::BlockHash|0
-			</span><span class="string">&quot;26aa394eea5630e07c48ae0c9558cef7a44704b568d21667356a5a050c118746bb1bdbcacd6ac9340000000000000000&quot;</span>,
+			</span><span class="string">"26aa394eea5630e07c48ae0c9558cef7a44704b568d21667356a5a050c118746bb1bdbcacd6ac9340000000000000000"</span>,
 			<span class="comment">//System|UpgradedToTripleRefCount
-			</span><span class="string">&quot;26aa394eea5630e07c48ae0c9558cef7a7fd6c28836b9a28522dc924110cf439&quot;</span>,
+			</span><span class="string">"26aa394eea5630e07c48ae0c9558cef7a7fd6c28836b9a28522dc924110cf439"</span>,
 
-			<span class="comment">// System|Account|blake2_128Concat(&quot;//11&quot;)
-			</span><span class="string">&quot;26aa394eea5630e07c48ae0c9558cef7b99d880ec681799c0cf30e8886371da901cae4e3edfbb32c91ed3f01ab964f4eeeab50338d8e5176d3141802d7b010a55dadcd5f23cf8aaafa724627e967e90e&quot;</span>,
-			<span class="comment">// System|Account|blake2_128Concat(&quot;//4&quot;)
-			</span><span class="string">&quot;26aa394eea5630e07c48ae0c9558cef7b99d880ec681799c0cf30e8886371da91b614bd4a126f2d5d294e9a8af9da25248d7e931307afb4b68d8d565d4c66e00d856c6d65f5fed6bb82dcfb60e936c67&quot;</span>,
-			<span class="comment">// System|Account|blake2_128Concat(&quot;//7&quot;)
-			</span><span class="string">&quot;26aa394eea5630e07c48ae0c9558cef7b99d880ec681799c0cf30e8886371da94b21aff9fe1e8b2fc4b0775b8cbeff28ba8e2c7594dd74730f3ca835e95455d199261897edc9735d602ea29615e2b10b&quot;</span>,
-			<span class="comment">// System|Account|blake2_128Concat(&quot;//Bob&quot;)
-			</span><span class="string">&quot;26aa394eea5630e07c48ae0c9558cef7b99d880ec681799c0cf30e8886371da94f9aea1afa791265fae359272badc1cf8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48&quot;</span>,
-			<span class="comment">// System|Account|blake2_128Concat(&quot;//3&quot;)
-			</span><span class="string">&quot;26aa394eea5630e07c48ae0c9558cef7b99d880ec681799c0cf30e8886371da95786a2916fcb81e1bd5dcd81e0d2452884617f575372edb5a36d85c04cdf2e4699f96fe33eb5f94a28c041b88e398d0c&quot;</span>,
-			<span class="comment">// System|Account|blake2_128Concat(&quot;//14&quot;)
-			</span><span class="string">&quot;26aa394eea5630e07c48ae0c9558cef7b99d880ec681799c0cf30e8886371da95b8542d9672c7b7e779cc7c1e6b605691c2115d06120ea2bee32dd601d02f36367564e7ddf84ae2717ca3f097459652e&quot;</span>,
-			<span class="comment">// System|Account|blake2_128Concat(&quot;//6&quot;)
-			</span><span class="string">&quot;26aa394eea5630e07c48ae0c9558cef7b99d880ec681799c0cf30e8886371da996c30bdbfab640838e6b6d3c33ab4adb4211b79e34ee8072eab506edd4b93a7b85a14c9a05e5cdd056d98e7dbca87730&quot;</span>,
-			<span class="comment">// System|Account|blake2_128Concat(&quot;//9&quot;)
-			</span><span class="string">&quot;26aa394eea5630e07c48ae0c9558cef7b99d880ec681799c0cf30e8886371da99dc65b1339ec388fbf2ca0cdef51253512c6cfd663203ea16968594f24690338befd906856c4d2f4ef32dad578dba20c&quot;</span>,
-			<span class="comment">// System|Account|blake2_128Concat(&quot;//8&quot;)
-			</span><span class="string">&quot;26aa394eea5630e07c48ae0c9558cef7b99d880ec681799c0cf30e8886371da99e6eb5abd62f5fd54793da91a47e6af6125d57171ff9241f07acaa1bb6a6103517965cf2cd00e643b27e7599ebccba70&quot;</span>,
-			<span class="comment">// System|Account|blake2_128Concat(&quot;//Charlie&quot;)
-			</span><span class="string">&quot;26aa394eea5630e07c48ae0c9558cef7b99d880ec681799c0cf30e8886371da9b0edae20838083f2cde1c4080db8cf8090b5ab205c6974c9ea841be688864633dc9ca8a357843eeacf2314649965fe22&quot;</span>,
-			<span class="comment">// System|Account|blake2_128Concat(&quot;//10&quot;)
-			</span><span class="string">&quot;26aa394eea5630e07c48ae0c9558cef7b99d880ec681799c0cf30e8886371da9d0052993b6f3bd0544fd1f5e4125b9fbde3e789ecd53431fe5c06c12b72137153496dace35c695b5f4d7b41f7ed5763b&quot;</span>,
-			<span class="comment">// System|Account|blake2_128Concat(&quot;//1&quot;)
-			</span><span class="string">&quot;26aa394eea5630e07c48ae0c9558cef7b99d880ec681799c0cf30e8886371da9d6b7e9a5f12bc571053265dade10d3b4b606fc73f57f03cdb4c932d475ab426043e429cecc2ffff0d2672b0df8398c48&quot;</span>,
-			<span class="comment">// System|Account|blake2_128Concat(&quot;//Alice&quot;)
-			</span><span class="string">&quot;26aa394eea5630e07c48ae0c9558cef7b99d880ec681799c0cf30e8886371da9de1e86a9a8c739864cf3cc5ec2bea59fd43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d&quot;</span>,
-			<span class="comment">// System|Account|blake2_128Concat(&quot;//2&quot;)
-			</span><span class="string">&quot;26aa394eea5630e07c48ae0c9558cef7b99d880ec681799c0cf30e8886371da9e1a35f56ee295d39287cbffcfc60c4b346f136b564e1fad55031404dd84e5cd3fa76bfe7cc7599b39d38fd06663bbc0a&quot;</span>,
-			<span class="comment">// System|Account|blake2_128Concat(&quot;//5&quot;)
-			</span><span class="string">&quot;26aa394eea5630e07c48ae0c9558cef7b99d880ec681799c0cf30e8886371da9e2c1dc507e2035edbbd8776c440d870460c57f0008067cc01c5ff9eb2e2f9b3a94299a915a91198bd1021a6c55596f57&quot;</span>,
-			<span class="comment">// System|Account|blake2_128Concat(&quot;//0&quot;)
-			</span><span class="string">&quot;26aa394eea5630e07c48ae0c9558cef7b99d880ec681799c0cf30e8886371da9eca0e653a94f4080f6311b4e7b6934eb2afba9278e30ccf6a6ceb3a8b6e336b70068f045c666f2e7f4f9cc5f47db8972&quot;</span>,
-			<span class="comment">// System|Account|blake2_128Concat(&quot;//13&quot;)
-			</span><span class="string">&quot;26aa394eea5630e07c48ae0c9558cef7b99d880ec681799c0cf30e8886371da9ee8bf7ef90fc56a8aa3b90b344c599550c29b161e27ff8ba45bf6bad4711f326fc506a8803453a4d7e3158e993495f10&quot;</span>,
-			<span class="comment">// System|Account|blake2_128Concat(&quot;//12&quot;)
-			</span><span class="string">&quot;26aa394eea5630e07c48ae0c9558cef7b99d880ec681799c0cf30e8886371da9f5d6f1c082fe63eec7a71fcad00f4a892e3d43b7b0d04e776e69e7be35247cecdac65504c579195731eaf64b7940966e&quot;</span>,
-			<span class="comment">// System|Account|blake2_128Concat(&quot;//15&quot;)
-			</span><span class="string">&quot;26aa394eea5630e07c48ae0c9558cef7b99d880ec681799c0cf30e8886371da9fbf0818841edf110e05228a6379763c4fc3c37459d9bdc61f58a5ebc01e9e2305a19d390c0543dc733861ec3cf1de01f&quot;</span>,
+			<span class="comment">// System|Account|blake2_128Concat("//11")
+			</span><span class="string">"26aa394eea5630e07c48ae0c9558cef7b99d880ec681799c0cf30e8886371da901cae4e3edfbb32c91ed3f01ab964f4eeeab50338d8e5176d3141802d7b010a55dadcd5f23cf8aaafa724627e967e90e"</span>,
+			<span class="comment">// System|Account|blake2_128Concat("//4")
+			</span><span class="string">"26aa394eea5630e07c48ae0c9558cef7b99d880ec681799c0cf30e8886371da91b614bd4a126f2d5d294e9a8af9da25248d7e931307afb4b68d8d565d4c66e00d856c6d65f5fed6bb82dcfb60e936c67"</span>,
+			<span class="comment">// System|Account|blake2_128Concat("//7")
+			</span><span class="string">"26aa394eea5630e07c48ae0c9558cef7b99d880ec681799c0cf30e8886371da94b21aff9fe1e8b2fc4b0775b8cbeff28ba8e2c7594dd74730f3ca835e95455d199261897edc9735d602ea29615e2b10b"</span>,
+			<span class="comment">// System|Account|blake2_128Concat("//Bob")
+			</span><span class="string">"26aa394eea5630e07c48ae0c9558cef7b99d880ec681799c0cf30e8886371da94f9aea1afa791265fae359272badc1cf8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48"</span>,
+			<span class="comment">// System|Account|blake2_128Concat("//3")
+			</span><span class="string">"26aa394eea5630e07c48ae0c9558cef7b99d880ec681799c0cf30e8886371da95786a2916fcb81e1bd5dcd81e0d2452884617f575372edb5a36d85c04cdf2e4699f96fe33eb5f94a28c041b88e398d0c"</span>,
+			<span class="comment">// System|Account|blake2_128Concat("//14")
+			</span><span class="string">"26aa394eea5630e07c48ae0c9558cef7b99d880ec681799c0cf30e8886371da95b8542d9672c7b7e779cc7c1e6b605691c2115d06120ea2bee32dd601d02f36367564e7ddf84ae2717ca3f097459652e"</span>,
+			<span class="comment">// System|Account|blake2_128Concat("//6")
+			</span><span class="string">"26aa394eea5630e07c48ae0c9558cef7b99d880ec681799c0cf30e8886371da996c30bdbfab640838e6b6d3c33ab4adb4211b79e34ee8072eab506edd4b93a7b85a14c9a05e5cdd056d98e7dbca87730"</span>,
+			<span class="comment">// System|Account|blake2_128Concat("//9")
+			</span><span class="string">"26aa394eea5630e07c48ae0c9558cef7b99d880ec681799c0cf30e8886371da99dc65b1339ec388fbf2ca0cdef51253512c6cfd663203ea16968594f24690338befd906856c4d2f4ef32dad578dba20c"</span>,
+			<span class="comment">// System|Account|blake2_128Concat("//8")
+			</span><span class="string">"26aa394eea5630e07c48ae0c9558cef7b99d880ec681799c0cf30e8886371da99e6eb5abd62f5fd54793da91a47e6af6125d57171ff9241f07acaa1bb6a6103517965cf2cd00e643b27e7599ebccba70"</span>,
+			<span class="comment">// System|Account|blake2_128Concat("//Charlie")
+			</span><span class="string">"26aa394eea5630e07c48ae0c9558cef7b99d880ec681799c0cf30e8886371da9b0edae20838083f2cde1c4080db8cf8090b5ab205c6974c9ea841be688864633dc9ca8a357843eeacf2314649965fe22"</span>,
+			<span class="comment">// System|Account|blake2_128Concat("//10")
+			</span><span class="string">"26aa394eea5630e07c48ae0c9558cef7b99d880ec681799c0cf30e8886371da9d0052993b6f3bd0544fd1f5e4125b9fbde3e789ecd53431fe5c06c12b72137153496dace35c695b5f4d7b41f7ed5763b"</span>,
+			<span class="comment">// System|Account|blake2_128Concat("//1")
+			</span><span class="string">"26aa394eea5630e07c48ae0c9558cef7b99d880ec681799c0cf30e8886371da9d6b7e9a5f12bc571053265dade10d3b4b606fc73f57f03cdb4c932d475ab426043e429cecc2ffff0d2672b0df8398c48"</span>,
+			<span class="comment">// System|Account|blake2_128Concat("//Alice")
+			</span><span class="string">"26aa394eea5630e07c48ae0c9558cef7b99d880ec681799c0cf30e8886371da9de1e86a9a8c739864cf3cc5ec2bea59fd43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d"</span>,
+			<span class="comment">// System|Account|blake2_128Concat("//2")
+			</span><span class="string">"26aa394eea5630e07c48ae0c9558cef7b99d880ec681799c0cf30e8886371da9e1a35f56ee295d39287cbffcfc60c4b346f136b564e1fad55031404dd84e5cd3fa76bfe7cc7599b39d38fd06663bbc0a"</span>,
+			<span class="comment">// System|Account|blake2_128Concat("//5")
+			</span><span class="string">"26aa394eea5630e07c48ae0c9558cef7b99d880ec681799c0cf30e8886371da9e2c1dc507e2035edbbd8776c440d870460c57f0008067cc01c5ff9eb2e2f9b3a94299a915a91198bd1021a6c55596f57"</span>,
+			<span class="comment">// System|Account|blake2_128Concat("//0")
+			</span><span class="string">"26aa394eea5630e07c48ae0c9558cef7b99d880ec681799c0cf30e8886371da9eca0e653a94f4080f6311b4e7b6934eb2afba9278e30ccf6a6ceb3a8b6e336b70068f045c666f2e7f4f9cc5f47db8972"</span>,
+			<span class="comment">// System|Account|blake2_128Concat("//13")
+			</span><span class="string">"26aa394eea5630e07c48ae0c9558cef7b99d880ec681799c0cf30e8886371da9ee8bf7ef90fc56a8aa3b90b344c599550c29b161e27ff8ba45bf6bad4711f326fc506a8803453a4d7e3158e993495f10"</span>,
+			<span class="comment">// System|Account|blake2_128Concat("//12")
+			</span><span class="string">"26aa394eea5630e07c48ae0c9558cef7b99d880ec681799c0cf30e8886371da9f5d6f1c082fe63eec7a71fcad00f4a892e3d43b7b0d04e776e69e7be35247cecdac65504c579195731eaf64b7940966e"</span>,
+			<span class="comment">// System|Account|blake2_128Concat("//15")
+			</span><span class="string">"26aa394eea5630e07c48ae0c9558cef7b99d880ec681799c0cf30e8886371da9fbf0818841edf110e05228a6379763c4fc3c37459d9bdc61f58a5ebc01e9e2305a19d390c0543dc733861ec3cf1de01f"</span>,
 			<span class="comment">// System|LastRuntimeUpgrade
-			</span><span class="string">&quot;26aa394eea5630e07c48ae0c9558cef7f9cce9c888469bb1a0dceaa129672ef8&quot;</span>,
+			</span><span class="string">"26aa394eea5630e07c48ae0c9558cef7f9cce9c888469bb1a0dceaa129672ef8"</span>,
 			<span class="comment">// :code
-			</span><span class="string">&quot;3a636f6465&quot;</span>,
+			</span><span class="string">"3a636f6465"</span>,
 			<span class="comment">// :extrinsic_index
-			</span><span class="string">&quot;3a65787472696e7369635f696e646578&quot;</span>,
+			</span><span class="string">"3a65787472696e7369635f696e646578"</span>,
 			<span class="comment">// Balances|:__STORAGE_VERSION__:
-			</span><span class="string">&quot;c2261276cc9d1f8598ea4b6a74b15c2f4e7b9012096b41c4eb3aaf947f6ea429&quot;</span>,
+			</span><span class="string">"c2261276cc9d1f8598ea4b6a74b15c2f4e7b9012096b41c4eb3aaf947f6ea429"</span>,
 			<span class="comment">// Balances|TotalIssuance
-			</span><span class="string">&quot;c2261276cc9d1f8598ea4b6a74b15c2f57c875e4cff74148e4628f264b974c80&quot;</span>,
+			</span><span class="string">"c2261276cc9d1f8598ea4b6a74b15c2f57c875e4cff74148e4628f264b974c80"</span>,
 		];
 
 		<span class="kw">if </span>custom_heap_pages {
 			<span class="comment">// :heappages
-			</span>res.push(<span class="string">&quot;3a686561707061676573&quot;</span>);
+			</span>res.push(<span class="string">"3a686561707061676573"</span>);
 		}
 
 		res
@@ -2808,8 +2810,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		{
 			<span class="kw">let </span><span class="kw-2">mut </span>trie =
 				sp_trie::trie_types::TrieDBMutBuilderV1::new(<span class="kw-2">&amp;mut </span>mdb, <span class="kw-2">&amp;mut </span>root).build();
-			trie.insert(<span class="string">b&quot;value3&quot;</span>, <span class="kw-2">&amp;</span>[<span class="number">142</span>]).expect(<span class="string">&quot;insert failed&quot;</span>);
-			trie.insert(<span class="string">b&quot;value4&quot;</span>, <span class="kw-2">&amp;</span>[<span class="number">124</span>]).expect(<span class="string">&quot;insert failed&quot;</span>);
+			trie.insert(<span class="string">b"value3"</span>, <span class="kw-2">&amp;</span>[<span class="number">142</span>]).expect(<span class="string">"insert failed"</span>);
+			trie.insert(<span class="string">b"value4"</span>, <span class="kw-2">&amp;</span>[<span class="number">124</span>]).expect(<span class="string">"insert failed"</span>);
 		};
 		(mdb, root)
 	}
@@ -2819,7 +2821,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>(db, root) = witness_backend();
 		<span class="kw">let </span>backend =
 			sp_state_machine::TrieBackendBuilder::&lt;<span class="kw">_</span>, <span class="kw">crate</span>::Hashing&gt;::new(db, root).build();
-		<span class="kw">let </span>proof = sp_state_machine::prove_read(backend, <span class="macro">vec!</span>[<span class="string">b&quot;value3&quot;</span>]).unwrap();
+		<span class="kw">let </span>proof = sp_state_machine::prove_read(backend, <span class="macro">vec!</span>[<span class="string">b"value3"</span>]).unwrap();
 		<span class="kw">let </span>client = TestClientBuilder::new().build();
 		<span class="kw">let </span>runtime_api = client.runtime_api();
 		<span class="kw">let </span>best_hash = client.chain_info().best_hash;
@@ -2960,10 +2962,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="attr">#[test]
 		</span><span class="kw">fn </span>build_minimal_genesis_config_works() {
 			sp_tracing::try_init_simple();
-			<span class="kw">let </span>default_minimal_json = <span class="string">r#&quot;{&quot;system&quot;:{},&quot;babe&quot;:{&quot;authorities&quot;:[],&quot;epochConfig&quot;:{&quot;c&quot;: [ 3, 10 ],&quot;allowed_slots&quot;:&quot;PrimaryAndSecondaryPlainSlots&quot;}},&quot;substrateTest&quot;:{&quot;authorities&quot;:[]},&quot;balances&quot;:{&quot;balances&quot;:[]}}&quot;#</span>;
+			<span class="kw">let </span>default_minimal_json = <span class="string">r#"{"system":{},"babe":{"authorities":[],"epochConfig":{"c": [ 3, 10 ],"allowed_slots":"PrimaryAndSecondaryPlainSlots"}},"substrateTest":{"authorities":[]},"balances":{"balances":[]}}"#</span>;
 			<span class="kw">let </span><span class="kw-2">mut </span>t = BasicExternalities::new_empty();
 
-			executor_call(<span class="kw-2">&amp;mut </span>t, <span class="string">&quot;GenesisBuilder_build_state&quot;</span>, <span class="kw-2">&amp;</span>default_minimal_json.encode())
+			executor_call(<span class="kw-2">&amp;mut </span>t, <span class="string">"GenesisBuilder_build_state"</span>, <span class="kw-2">&amp;</span>default_minimal_json.encode())
 				.unwrap();
 
 			<span class="kw">let </span><span class="kw-2">mut </span>keys = t.into_storages().top.keys().cloned().map(hex).collect::&lt;Vec&lt;String&gt;&gt;();
@@ -2971,36 +2973,36 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="kw">let </span><span class="kw-2">mut </span>expected = [
 				<span class="comment">//SubstrateTest|Authorities
-				</span><span class="string">&quot;00771836bebdd29870ff246d305c578c5e0621c4869aa60c02be9adcc98a0d1d&quot;</span>,
+				</span><span class="string">"00771836bebdd29870ff246d305c578c5e0621c4869aa60c02be9adcc98a0d1d"</span>,
 				<span class="comment">//Babe|SegmentIndex
-				</span><span class="string">&quot;1cb6f36e027abb2091cfb5110ab5087f66e8f035c8adbe7f1547b43c51e6f8a4&quot;</span>,
+				</span><span class="string">"1cb6f36e027abb2091cfb5110ab5087f66e8f035c8adbe7f1547b43c51e6f8a4"</span>,
 				<span class="comment">//Babe|EpochConfig
-				</span><span class="string">&quot;1cb6f36e027abb2091cfb5110ab5087fdc6b171b77304263c292cc3ea5ed31ef&quot;</span>,
+				</span><span class="string">"1cb6f36e027abb2091cfb5110ab5087fdc6b171b77304263c292cc3ea5ed31ef"</span>,
 				<span class="comment">//System|UpgradedToU32RefCount
-				</span><span class="string">&quot;26aa394eea5630e07c48ae0c9558cef75684a022a34dd8bfa2baaf44f172b710&quot;</span>,
+				</span><span class="string">"26aa394eea5630e07c48ae0c9558cef75684a022a34dd8bfa2baaf44f172b710"</span>,
 				<span class="comment">//System|ParentHash
-				</span><span class="string">&quot;26aa394eea5630e07c48ae0c9558cef78a42f33323cb5ced3b44dd825fda9fcc&quot;</span>,
+				</span><span class="string">"26aa394eea5630e07c48ae0c9558cef78a42f33323cb5ced3b44dd825fda9fcc"</span>,
 				<span class="comment">//System::BlockHash|0
-				</span><span class="string">&quot;26aa394eea5630e07c48ae0c9558cef7a44704b568d21667356a5a050c118746bb1bdbcacd6ac9340000000000000000&quot;</span>,
+				</span><span class="string">"26aa394eea5630e07c48ae0c9558cef7a44704b568d21667356a5a050c118746bb1bdbcacd6ac9340000000000000000"</span>,
 				<span class="comment">//System|UpgradedToTripleRefCount
-				</span><span class="string">&quot;26aa394eea5630e07c48ae0c9558cef7a7fd6c28836b9a28522dc924110cf439&quot;</span>,
+				</span><span class="string">"26aa394eea5630e07c48ae0c9558cef7a7fd6c28836b9a28522dc924110cf439"</span>,
 
 				<span class="comment">// System|LastRuntimeUpgrade
-				</span><span class="string">&quot;26aa394eea5630e07c48ae0c9558cef7f9cce9c888469bb1a0dceaa129672ef8&quot;</span>,
+				</span><span class="string">"26aa394eea5630e07c48ae0c9558cef7f9cce9c888469bb1a0dceaa129672ef8"</span>,
 				<span class="comment">// :extrinsic_index
-				</span><span class="string">&quot;3a65787472696e7369635f696e646578&quot;</span>,
+				</span><span class="string">"3a65787472696e7369635f696e646578"</span>,
 				<span class="comment">// Balances|TotalIssuance
-				</span><span class="string">&quot;c2261276cc9d1f8598ea4b6a74b15c2f57c875e4cff74148e4628f264b974c80&quot;</span>,
+				</span><span class="string">"c2261276cc9d1f8598ea4b6a74b15c2f57c875e4cff74148e4628f264b974c80"</span>,
 
 				<span class="comment">// added by on_genesis:
 				// Balances|:__STORAGE_VERSION__:
-				</span><span class="string">&quot;c2261276cc9d1f8598ea4b6a74b15c2f4e7b9012096b41c4eb3aaf947f6ea429&quot;</span>,
+				</span><span class="string">"c2261276cc9d1f8598ea4b6a74b15c2f4e7b9012096b41c4eb3aaf947f6ea429"</span>,
 				<span class="comment">//System|:__STORAGE_VERSION__:
-				</span><span class="string">&quot;26aa394eea5630e07c48ae0c9558cef74e7b9012096b41c4eb3aaf947f6ea429&quot;</span>,
+				</span><span class="string">"26aa394eea5630e07c48ae0c9558cef74e7b9012096b41c4eb3aaf947f6ea429"</span>,
 				<span class="comment">//Babe|:__STORAGE_VERSION__:
-				</span><span class="string">&quot;1cb6f36e027abb2091cfb5110ab5087f4e7b9012096b41c4eb3aaf947f6ea429&quot;</span>,
+				</span><span class="string">"1cb6f36e027abb2091cfb5110ab5087f4e7b9012096b41c4eb3aaf947f6ea429"</span>,
 				<span class="comment">//SubstrateTest|:__STORAGE_VERSION__:
-				</span><span class="string">&quot;00771836bebdd29870ff246d305c578c4e7b9012096b41c4eb3aaf947f6ea429&quot;</span>,
+				</span><span class="string">"00771836bebdd29870ff246d305c578c4e7b9012096b41c4eb3aaf947f6ea429"</span>,
 				].into_iter().map(String::from).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 			expected.sort();
 
@@ -3011,14 +3013,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">fn </span>default_config_as_json_works() {
 			sp_tracing::try_init_simple();
 			<span class="kw">let </span><span class="kw-2">mut </span>t = BasicExternalities::new_empty();
-			<span class="kw">let </span>r = executor_call(<span class="kw-2">&amp;mut </span>t, <span class="string">&quot;GenesisBuilder_get_preset&quot;</span>, <span class="kw-2">&amp;</span><span class="prelude-val">None</span>::&lt;<span class="kw-2">&amp;</span>PresetId&gt;.encode())
+			<span class="kw">let </span>r = executor_call(<span class="kw-2">&amp;mut </span>t, <span class="string">"GenesisBuilder_get_preset"</span>, <span class="kw-2">&amp;</span><span class="prelude-val">None</span>::&lt;<span class="kw-2">&amp;</span>PresetId&gt;.encode())
 				.unwrap();
 			<span class="kw">let </span>r = <span class="prelude-ty">Option</span>::&lt;Vec&lt;u8&gt;&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>r[..])
 				.unwrap()
-				.expect(<span class="string">&quot;default config is there&quot;</span>);
-			<span class="kw">let </span>json = String::from_utf8(r.into()).expect(<span class="string">&quot;returned value is json. qed.&quot;</span>);
+				.expect(<span class="string">"default config is there"</span>);
+			<span class="kw">let </span>json = String::from_utf8(r.into()).expect(<span class="string">"returned value is json. qed."</span>);
 
-			<span class="kw">let </span>expected = <span class="string">r#&quot;{&quot;system&quot;:{},&quot;babe&quot;:{&quot;authorities&quot;:[],&quot;epochConfig&quot;:{&quot;c&quot;:[1,4],&quot;allowed_slots&quot;:&quot;PrimaryAndSecondaryVRFSlots&quot;}},&quot;substrateTest&quot;:{&quot;authorities&quot;:[]},&quot;balances&quot;:{&quot;balances&quot;:[]}}&quot;#</span>;
+			<span class="kw">let </span>expected = <span class="string">r#"{"system":{},"babe":{"authorities":[],"epochConfig":{"c":[1,4],"allowed_slots":"PrimaryAndSecondaryVRFSlots"}},"substrateTest":{"authorities":[]},"balances":{"balances":[]}}"#</span>;
 			<span class="macro">assert_eq!</span>(expected.to_string(), json);
 		}
 
@@ -3026,10 +3028,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">fn </span>preset_names_listing_works() {
 			sp_tracing::try_init_simple();
 			<span class="kw">let </span><span class="kw-2">mut </span>t = BasicExternalities::new_empty();
-			<span class="kw">let </span>r = executor_call(<span class="kw-2">&amp;mut </span>t, <span class="string">&quot;GenesisBuilder_preset_names&quot;</span>, <span class="kw-2">&amp;</span><span class="macro">vec!</span>[]).unwrap();
+			<span class="kw">let </span>r = executor_call(<span class="kw-2">&amp;mut </span>t, <span class="string">"GenesisBuilder_preset_names"</span>, <span class="kw-2">&amp;</span><span class="macro">vec!</span>[]).unwrap();
 			<span class="kw">let </span>r = Vec::&lt;PresetId&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>r[..]).unwrap();
-			<span class="macro">assert_eq!</span>(r, <span class="macro">vec!</span>[PresetId::from(<span class="string">&quot;foobar&quot;</span>), PresetId::from(<span class="string">&quot;staging&quot;</span>),]);
-			<span class="macro">log::info!</span>(<span class="string">&quot;r: {:#?}&quot;</span>, r);
+			<span class="macro">assert_eq!</span>(r, <span class="macro">vec!</span>[PresetId::from(<span class="string">"foobar"</span>), PresetId::from(<span class="string">"staging"</span>),]);
+			<span class="macro">log::info!</span>(<span class="string">"r: {:#?}"</span>, r);
 		}
 
 		<span class="attr">#[test]
@@ -3040,31 +3042,31 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">let </span>name = cfg_name.to_string();
 				<span class="kw">let </span>r = executor_call(
 					<span class="kw-2">&amp;mut </span>t,
-					<span class="string">&quot;GenesisBuilder_get_preset&quot;</span>,
+					<span class="string">"GenesisBuilder_get_preset"</span>,
 					<span class="kw-2">&amp;</span><span class="prelude-val">Some</span>(name.as_bytes()).encode(),
 				)
 				.unwrap();
 				<span class="kw">let </span>r = <span class="prelude-ty">Option</span>::&lt;Vec&lt;u8&gt;&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>r[..]).unwrap();
 				<span class="kw">let </span>json =
-					String::from_utf8(r.unwrap().into()).expect(<span class="string">&quot;returned value is json. qed.&quot;</span>);
-				<span class="macro">log::info!</span>(<span class="string">&quot;json: {:#?}&quot;</span>, json);
+					String::from_utf8(r.unwrap().into()).expect(<span class="string">"returned value is json. qed."</span>);
+				<span class="macro">log::info!</span>(<span class="string">"json: {:#?}"</span>, json);
 				<span class="macro">assert_eq!</span>(expected.to_string(), json);
 			};
 
-			f(<span class="string">&quot;foobar&quot;</span>, <span class="string">r#&quot;{&quot;foo&quot;:&quot;bar&quot;}&quot;#</span>);
+			f(<span class="string">"foobar"</span>, <span class="string">r#"{"foo":"bar"}"#</span>);
 			f(
-				<span class="string">&quot;staging&quot;</span>,
-				<span class="string">r#&quot;{&quot;balances&quot;:{&quot;balances&quot;:[[&quot;5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty&quot;,1000000000000000],[&quot;5FLSigC9HGRKVhB9FiEo4Y3koPsNmBmLJbpXg2mp1hXcS59Y&quot;,1000000000000000]]},&quot;substrateTest&quot;:{&quot;authorities&quot;:[&quot;5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY&quot;,&quot;5CiPPseXPECbkjWCa6MnjNokrgYjMqmKndv2rSnekmSK2DjL&quot;]}}&quot;#</span>,
+				<span class="string">"staging"</span>,
+				<span class="string">r#"{"balances":{"balances":[["5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty",1000000000000000],["5FLSigC9HGRKVhB9FiEo4Y3koPsNmBmLJbpXg2mp1hXcS59Y",1000000000000000]]},"substrateTest":{"authorities":["5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY","5CiPPseXPECbkjWCa6MnjNokrgYjMqmKndv2rSnekmSK2DjL"]}}"#</span>,
 			);
 		}
 
 		<span class="attr">#[test]
 		</span><span class="kw">fn </span>build_config_from_json_works() {
 			sp_tracing::try_init_simple();
-			<span class="kw">let </span>j = <span class="macro">include_str!</span>(<span class="string">&quot;../res/default_genesis_config.json&quot;</span>);
+			<span class="kw">let </span>j = <span class="macro">include_str!</span>(<span class="string">"../res/default_genesis_config.json"</span>);
 
 			<span class="kw">let </span><span class="kw-2">mut </span>t = BasicExternalities::new_empty();
-			<span class="kw">let </span>r = executor_call(<span class="kw-2">&amp;mut </span>t, <span class="string">&quot;GenesisBuilder_build_state&quot;</span>, <span class="kw-2">&amp;</span>j.encode()).unwrap();
+			<span class="kw">let </span>r = executor_call(<span class="kw-2">&amp;mut </span>t, <span class="string">"GenesisBuilder_build_state"</span>, <span class="kw-2">&amp;</span>j.encode()).unwrap();
 			<span class="kw">let </span>r = BuildResult::decode(<span class="kw-2">&amp;mut &amp;</span>r[..]);
 			<span class="macro">assert!</span>(r.is_ok());
 
@@ -3072,7 +3074,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="comment">// following keys are not placed during `&lt;RuntimeGenesisConfig as GenesisBuild&gt;::build`
 			// process, add them `keys` to assert against known keys.
-			</span>keys.push(hex(<span class="string">b&quot;:code&quot;</span>));
+			</span>keys.push(hex(<span class="string">b":code"</span>));
 			keys.sort();
 
 			<span class="macro">assert_eq!</span>(keys, storage_key_generator::get_expected_storage_hashed_keys(<span class="bool-val">false</span>));
@@ -3081,14 +3083,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="attr">#[test]
 		</span><span class="kw">fn </span>build_config_from_invalid_json_fails() {
 			sp_tracing::try_init_simple();
-			<span class="kw">let </span>j = <span class="macro">include_str!</span>(<span class="string">&quot;../res/default_genesis_config_invalid.json&quot;</span>);
+			<span class="kw">let </span>j = <span class="macro">include_str!</span>(<span class="string">"../res/default_genesis_config_invalid.json"</span>);
 			<span class="kw">let </span><span class="kw-2">mut </span>t = BasicExternalities::new_empty();
-			<span class="kw">let </span>r = executor_call(<span class="kw-2">&amp;mut </span>t, <span class="string">&quot;GenesisBuilder_build_state&quot;</span>, <span class="kw-2">&amp;</span>j.encode()).unwrap();
+			<span class="kw">let </span>r = executor_call(<span class="kw-2">&amp;mut </span>t, <span class="string">"GenesisBuilder_build_state"</span>, <span class="kw-2">&amp;</span>j.encode()).unwrap();
 			<span class="kw">let </span>r = BuildResult::decode(<span class="kw-2">&amp;mut &amp;</span>r[..]).unwrap();
-			<span class="macro">log::info!</span>(<span class="string">&quot;result: {:#?}&quot;</span>, r);
+			<span class="macro">log::info!</span>(<span class="string">"result: {:#?}"</span>, r);
 			<span class="macro">assert_eq!</span>(r, <span class="prelude-val">Err</span>(
 				sp_runtime::RuntimeString::Owned(
-					<span class="string">&quot;Invalid JSON blob: unknown field `renamed_authorities`, expected `authorities` or `epochConfig` at line 4 column 25&quot;</span>.to_string(),
+					<span class="string">"Invalid JSON blob: unknown field `renamed_authorities`, expected `authorities` or `epochConfig` at line 4 column 25"</span>.to_string(),
 				))
 			);
 		}
@@ -3096,13 +3098,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="attr">#[test]
 		</span><span class="kw">fn </span>build_config_from_invalid_json_fails_2() {
 			sp_tracing::try_init_simple();
-			<span class="kw">let </span>j = <span class="macro">include_str!</span>(<span class="string">&quot;../res/default_genesis_config_invalid_2.json&quot;</span>);
+			<span class="kw">let </span>j = <span class="macro">include_str!</span>(<span class="string">"../res/default_genesis_config_invalid_2.json"</span>);
 			<span class="kw">let </span><span class="kw-2">mut </span>t = BasicExternalities::new_empty();
-			<span class="kw">let </span>r = executor_call(<span class="kw-2">&amp;mut </span>t, <span class="string">&quot;GenesisBuilder_build_state&quot;</span>, <span class="kw-2">&amp;</span>j.encode()).unwrap();
+			<span class="kw">let </span>r = executor_call(<span class="kw-2">&amp;mut </span>t, <span class="string">"GenesisBuilder_build_state"</span>, <span class="kw-2">&amp;</span>j.encode()).unwrap();
 			<span class="kw">let </span>r = BuildResult::decode(<span class="kw-2">&amp;mut &amp;</span>r[..]).unwrap();
 			<span class="macro">assert_eq!</span>(r, <span class="prelude-val">Err</span>(
 				sp_runtime::RuntimeString::Owned(
-					<span class="string">&quot;Invalid JSON blob: unknown field `babex`, expected one of `system`, `babe`, `substrateTest`, `balances` at line 3 column 9&quot;</span>.to_string(),
+					<span class="string">"Invalid JSON blob: unknown field `babex`, expected one of `system`, `babe`, `substrateTest`, `balances` at line 3 column 9"</span>.to_string(),
 				))
 			);
 		}
@@ -3110,16 +3112,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="attr">#[test]
 		</span><span class="kw">fn </span>build_config_from_incomplete_json_fails() {
 			sp_tracing::try_init_simple();
-			<span class="kw">let </span>j = <span class="macro">include_str!</span>(<span class="string">&quot;../res/default_genesis_config_incomplete.json&quot;</span>);
+			<span class="kw">let </span>j = <span class="macro">include_str!</span>(<span class="string">"../res/default_genesis_config_incomplete.json"</span>);
 
 			<span class="kw">let </span><span class="kw-2">mut </span>t = BasicExternalities::new_empty();
-			<span class="kw">let </span>r = executor_call(<span class="kw-2">&amp;mut </span>t, <span class="string">&quot;GenesisBuilder_build_state&quot;</span>, <span class="kw-2">&amp;</span>j.encode()).unwrap();
+			<span class="kw">let </span>r = executor_call(<span class="kw-2">&amp;mut </span>t, <span class="string">"GenesisBuilder_build_state"</span>, <span class="kw-2">&amp;</span>j.encode()).unwrap();
 			<span class="kw">let </span>r =
 				core::result::Result::&lt;(), sp_runtime::RuntimeString&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>r[..]).unwrap();
 			<span class="macro">assert_eq!</span>(
 				r,
 				<span class="prelude-val">Err</span>(sp_runtime::RuntimeString::Owned(
-					<span class="string">&quot;Invalid JSON blob: missing field `authorities` at line 11 column 3&quot;
+					<span class="string">"Invalid JSON blob: missing field `authorities` at line 11 column 3"
 						</span>.to_string()
 				))
 			);
@@ -3127,12 +3129,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="attr">#[test]
 		</span><span class="kw">fn </span>write_default_config_to_tmp_file() {
-			<span class="kw">if </span>std::env::var(<span class="string">&quot;WRITE_DEFAULT_JSON_FOR_STR_GC&quot;</span>).is_ok() {
+			<span class="kw">if </span>std::env::var(<span class="string">"WRITE_DEFAULT_JSON_FOR_STR_GC"</span>).is_ok() {
 				sp_tracing::try_init_simple();
 				<span class="kw">let </span><span class="kw-2">mut </span>file = fs::OpenOptions::new()
 					.create(<span class="bool-val">true</span>)
 					.write(<span class="bool-val">true</span>)
-					.open(<span class="string">&quot;/tmp/default_genesis_config.json&quot;</span>)
+					.open(<span class="string">"/tmp/default_genesis_config.json"</span>)
 					.unwrap();
 
 				<span class="kw">let </span>j = serde_json::to_string(<span class="kw-2">&amp;</span>GenesisStorageBuilder::default().genesis_config())
@@ -3148,27 +3150,27 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span>sp_tracing::try_init_simple();
 
 			<span class="kw">let </span><span class="kw-2">mut </span>t = BasicExternalities::new_empty();
-			<span class="kw">let </span>r = executor_call(<span class="kw-2">&amp;mut </span>t, <span class="string">&quot;GenesisBuilder_get_preset&quot;</span>, <span class="kw-2">&amp;</span><span class="prelude-val">None</span>::&lt;<span class="kw-2">&amp;</span>PresetId&gt;.encode())
+			<span class="kw">let </span>r = executor_call(<span class="kw-2">&amp;mut </span>t, <span class="string">"GenesisBuilder_get_preset"</span>, <span class="kw-2">&amp;</span><span class="prelude-val">None</span>::&lt;<span class="kw-2">&amp;</span>PresetId&gt;.encode())
 				.unwrap();
 			<span class="kw">let </span>r = <span class="prelude-ty">Option</span>::&lt;Vec&lt;u8&gt;&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>r[..])
 				.unwrap()
-				.expect(<span class="string">&quot;default config is there&quot;</span>);
+				.expect(<span class="string">"default config is there"</span>);
 			<span class="kw">let </span><span class="kw-2">mut </span>default_config: serde_json::Value =
-				serde_json::from_slice(<span class="kw-2">&amp;</span>r[..]).expect(<span class="string">&quot;returned value is json. qed.&quot;</span>);
+				serde_json::from_slice(<span class="kw-2">&amp;</span>r[..]).expect(<span class="string">"returned value is json. qed."</span>);
 
 			<span class="comment">// Patch default json with some custom values:
 			</span><span class="kw">let </span>patch = <span class="macro">json!</span>({
-				<span class="string">&quot;babe&quot;</span>: {
-					<span class="string">&quot;epochConfig&quot;</span>: {
-						<span class="string">&quot;c&quot;</span>: [
+				<span class="string">"babe"</span>: {
+					<span class="string">"epochConfig"</span>: {
+						<span class="string">"c"</span>: [
 							<span class="number">7</span>,
 							<span class="number">10
 						</span>],
-						<span class="string">&quot;allowed_slots&quot;</span>: <span class="string">&quot;PrimaryAndSecondaryPlainSlots&quot;
+						<span class="string">"allowed_slots"</span>: <span class="string">"PrimaryAndSecondaryPlainSlots"
 					</span>}
 				},
-				<span class="string">&quot;substrateTest&quot;</span>: {
-					<span class="string">&quot;authorities&quot;</span>: [
+				<span class="string">"substrateTest"</span>: {
+					<span class="string">"authorities"</span>: [
 						AccountKeyring::Ferdie.public().to_ss58check(),
 						AccountKeyring::Alice.public().to_ss58check()
 					],
@@ -3181,7 +3183,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="kw">let </span><span class="kw-2">mut </span>t = BasicExternalities::new_empty();
 			executor_call(
 				<span class="kw-2">&amp;mut </span>t,
-				<span class="string">&quot;GenesisBuilder_build_state&quot;</span>,
+				<span class="string">"GenesisBuilder_build_state"</span>,
 				<span class="kw-2">&amp;</span>default_config.to_string().encode(),
 			)
 			.unwrap();
@@ -3194,7 +3196,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="comment">//SubstrateTest|Authorities
 			</span><span class="kw">let </span>value: Vec&lt;u8&gt; = get_from_storage(
-				<span class="string">&quot;00771836bebdd29870ff246d305c578c5e0621c4869aa60c02be9adcc98a0d1d&quot;</span>,
+				<span class="string">"00771836bebdd29870ff246d305c578c5e0621c4869aa60c02be9adcc98a0d1d"</span>,
 			);
 			<span class="kw">let </span>authority_key_vec =
 				Vec::&lt;sp_core::sr25519::Public&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>value[..]).unwrap();
@@ -3204,7 +3206,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="comment">//Babe|Authorities
 			</span><span class="kw">let </span>value: Vec&lt;u8&gt; = get_from_storage(
-				<span class="string">&quot;1cb6f36e027abb2091cfb5110ab5087fdc6b171b77304263c292cc3ea5ed31ef&quot;</span>,
+				<span class="string">"1cb6f36e027abb2091cfb5110ab5087fdc6b171b77304263c292cc3ea5ed31ef"</span>,
 			);
 			<span class="macro">assert_eq!</span>(
 				BabeEpochConfiguration::decode(<span class="kw-2">&amp;mut &amp;</span>value[..]).unwrap(),
@@ -3217,13 +3219,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// Ensure that some values are default ones:
 			// Balances|TotalIssuance
 			</span><span class="kw">let </span>value: Vec&lt;u8&gt; = get_from_storage(
-				<span class="string">&quot;c2261276cc9d1f8598ea4b6a74b15c2f57c875e4cff74148e4628f264b974c80&quot;</span>,
+				<span class="string">"c2261276cc9d1f8598ea4b6a74b15c2f57c875e4cff74148e4628f264b974c80"</span>,
 			);
 			<span class="macro">assert_eq!</span>(u64::decode(<span class="kw-2">&amp;mut &amp;</span>value[..]).unwrap(), <span class="number">0</span>);
 
 			<span class="comment">//System|ParentHash
 			</span><span class="kw">let </span>value: Vec&lt;u8&gt; = get_from_storage(
-				<span class="string">&quot;26aa394eea5630e07c48ae0c9558cef78a42f33323cb5ced3b44dd825fda9fcc&quot;</span>,
+				<span class="string">"26aa394eea5630e07c48ae0c9558cef78a42f33323cb5ced3b44dd825fda9fcc"</span>,
 			);
 			<span class="macro">assert_eq!</span>(H256::decode(<span class="kw-2">&amp;mut &amp;</span>value[..]).unwrap(), [<span class="number">69u8</span>; <span class="number">32</span>].into());
 		}

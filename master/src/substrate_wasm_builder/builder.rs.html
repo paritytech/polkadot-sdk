@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/utils/wasm-builder/src/builder.rs`."><title>builder.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/utils/wasm-builder/src/builder.rs`."><title>builder.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="substrate_wasm_builder" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="substrate_wasm_builder" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../substrate_wasm_builder/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -469,14 +471,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -491,8 +493,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Returns the manifest dir from the `CARGO_MANIFEST_DIR` env.
 </span><span class="kw">fn </span>get_manifest_dir() -&gt; PathBuf {
-	env::var(<span class="string">&quot;CARGO_MANIFEST_DIR&quot;</span>)
-		.expect(<span class="string">&quot;`CARGO_MANIFEST_DIR` is always set for `build.rs` files; qed&quot;</span>)
+	env::var(<span class="string">"CARGO_MANIFEST_DIR"</span>)
+		.expect(<span class="string">"`CARGO_MANIFEST_DIR` is always set for `build.rs` files; qed"</span>)
 		.into()
 }
 
@@ -514,7 +516,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		WasmBuilder {
 			rust_flags: Vec::new(),
 			file_name: <span class="prelude-val">None</span>,
-			project_cargo_toml: get_manifest_dir().join(<span class="string">&quot;Cargo.toml&quot;</span>),
+			project_cargo_toml: get_manifest_dir().join(<span class="string">"Cargo.toml"</span>),
 			features_to_enable: Vec::new(),
 			disable_runtime_version_section_check: <span class="bool-val">false</span>,
 			export_heap_base: <span class="bool-val">false</span>,
@@ -525,10 +527,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Use the given `path` as project for building the WASM binary.
 	///
 	/// Returns an error if the given `path` does not points to a `Cargo.toml`.
-	</span><span class="kw">pub fn </span>with_project(<span class="self">self</span>, path: <span class="kw">impl </span>Into&lt;PathBuf&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;WasmBuilder, <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; {
+	</span><span class="kw">pub fn </span>with_project(<span class="self">self</span>, path: <span class="kw">impl </span>Into&lt;PathBuf&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;WasmBuilder, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
 		<span class="kw">let </span>path = path.into();
 
-		<span class="kw">if </span>path.ends_with(<span class="string">&quot;Cargo.toml&quot;</span>) &amp;&amp; path.exists() {
+		<span class="kw">if </span>path.ends_with(<span class="string">"Cargo.toml"</span>) &amp;&amp; path.exists() {
 			<span class="prelude-val">Ok</span>(WasmBuilder {
 				rust_flags: Vec::new(),
 				file_name: <span class="prelude-val">None</span>,
@@ -539,7 +541,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				import_memory: <span class="bool-val">false</span>,
 			})
 		} <span class="kw">else </span>{
-			<span class="prelude-val">Err</span>(<span class="string">&quot;Project path must point to the `Cargo.toml` of the project&quot;</span>)
+			<span class="prelude-val">Err</span>(<span class="string">"Project path must point to the `Cargo.toml` of the project"</span>)
 		}
 	}
 }
@@ -640,17 +642,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>target = <span class="kw">crate</span>::runtime_target();
 		<span class="kw">if </span>target == RuntimeTarget::Wasm {
 			<span class="kw">if </span><span class="self">self</span>.export_heap_base {
-				<span class="self">self</span>.rust_flags.push(<span class="string">&quot;-Clink-arg=--export=__heap_base&quot;</span>.into());
+				<span class="self">self</span>.rust_flags.push(<span class="string">"-Clink-arg=--export=__heap_base"</span>.into());
 			}
 
 			<span class="kw">if </span><span class="self">self</span>.import_memory {
-				<span class="self">self</span>.rust_flags.push(<span class="string">&quot;-C link-arg=--import-memory&quot;</span>.into());
+				<span class="self">self</span>.rust_flags.push(<span class="string">"-C link-arg=--import-memory"</span>.into());
 			}
 		}
 
-		<span class="kw">let </span>out_dir = PathBuf::from(env::var(<span class="string">&quot;OUT_DIR&quot;</span>).expect(<span class="string">&quot;`OUT_DIR` is set by cargo!&quot;</span>));
+		<span class="kw">let </span>out_dir = PathBuf::from(env::var(<span class="string">"OUT_DIR"</span>).expect(<span class="string">"`OUT_DIR` is set by cargo!"</span>));
 		<span class="kw">let </span>file_path =
-			out_dir.join(<span class="self">self</span>.file_name.clone().unwrap_or_else(|| <span class="string">&quot;wasm_binary.rs&quot;</span>.into()));
+			out_dir.join(<span class="self">self</span>.file_name.clone().unwrap_or_else(|| <span class="string">"wasm_binary.rs"</span>.into()));
 
 		<span class="kw">if </span>check_skip_build() {
 			<span class="comment">// If we skip the build, we still want to make sure to be called when an env variable
@@ -666,13 +668,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			target,
 			file_path,
 			<span class="self">self</span>.project_cargo_toml,
-			<span class="self">self</span>.rust_flags.into_iter().map(|f| <span class="macro">format!</span>(<span class="string">&quot;{} &quot;</span>, f)).collect(),
+			<span class="self">self</span>.rust_flags.into_iter().map(|f| <span class="macro">format!</span>(<span class="string">"{} "</span>, f)).collect(),
 			<span class="self">self</span>.features_to_enable,
 			<span class="self">self</span>.file_name,
 			!<span class="self">self</span>.disable_runtime_version_section_check,
 		);
 
-		<span class="comment">// As last step we need to generate our `rerun-if-changed` stuff. If a build fails, we don&#39;t
+		<span class="comment">// As last step we need to generate our `rerun-if-changed` stuff. If a build fails, we don't
 		// want to spam the output!
 		</span>generate_rerun_if_changed_instructions();
 	}
@@ -681,11 +683,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Generate the name of the skip build environment variable for the current crate.
 </span><span class="kw">fn </span>generate_crate_skip_build_env_name() -&gt; String {
 	<span class="macro">format!</span>(
-		<span class="string">&quot;SKIP_{}_WASM_BUILD&quot;</span>,
-		env::var(<span class="string">&quot;CARGO_PKG_NAME&quot;</span>)
-			.expect(<span class="string">&quot;Package name is set&quot;</span>)
+		<span class="string">"SKIP_{}_WASM_BUILD"</span>,
+		env::var(<span class="string">"CARGO_PKG_NAME"</span>)
+			.expect(<span class="string">"Package name is set"</span>)
 			.to_uppercase()
-			.replace(<span class="string">&#39;-&#39;</span>, <span class="string">&quot;_&quot;</span>),
+			.replace(<span class="string">'-'</span>, <span class="string">"_"</span>),
 	)
 }
 
@@ -693,18 +695,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">fn </span>check_skip_build() -&gt; bool {
 	env::var(<span class="kw">crate</span>::SKIP_BUILD_ENV).is_ok() ||
 		env::var(generate_crate_skip_build_env_name()).is_ok() ||
-		<span class="comment">// If we are running in docs.rs, let&#39;s skip building.
+		<span class="comment">// If we are running in docs.rs, let's skip building.
 		// https://docs.rs/about/builds#detecting-docsrs
-		</span>env::var(<span class="string">&quot;DOCS_RS&quot;</span>).is_ok()
+		</span>env::var(<span class="string">"DOCS_RS"</span>).is_ok()
 }
 
-<span class="doccomment">/// Provide a dummy WASM binary if there doesn&#39;t exist one.
+<span class="doccomment">/// Provide a dummy WASM binary if there doesn't exist one.
 </span><span class="kw">fn </span>provide_dummy_wasm_binary_if_not_exist(file_path: <span class="kw-2">&amp;</span>Path) {
 	<span class="kw">if </span>!file_path.exists() {
 		<span class="kw">crate</span>::write_file_if_changed(
 			file_path,
-			<span class="string">&quot;pub const WASM_BINARY: Option&lt;&amp;[u8]&gt; = None;\
-			 pub const WASM_BINARY_BLOATY: Option&lt;&amp;[u8]&gt; = None;&quot;</span>,
+			<span class="string">"pub const WASM_BINARY: Option&lt;&amp;[u8]&gt; = None;\
+			 pub const WASM_BINARY_BLOATY: Option&lt;&amp;[u8]&gt; = None;"</span>,
 		);
 	}
 }
@@ -713,9 +715,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// rebuilt when needed.
 </span><span class="kw">fn </span>generate_rerun_if_changed_instructions() {
 	<span class="comment">// Make sure that the `build.rs` is called again if one of the following env variables changes.
-	</span><span class="macro">println!</span>(<span class="string">&quot;cargo:rerun-if-env-changed={}&quot;</span>, <span class="kw">crate</span>::SKIP_BUILD_ENV);
-	<span class="macro">println!</span>(<span class="string">&quot;cargo:rerun-if-env-changed={}&quot;</span>, <span class="kw">crate</span>::FORCE_WASM_BUILD_ENV);
-	<span class="macro">println!</span>(<span class="string">&quot;cargo:rerun-if-env-changed={}&quot;</span>, generate_crate_skip_build_env_name());
+	</span><span class="macro">println!</span>(<span class="string">"cargo:rerun-if-env-changed={}"</span>, <span class="kw">crate</span>::SKIP_BUILD_ENV);
+	<span class="macro">println!</span>(<span class="string">"cargo:rerun-if-env-changed={}"</span>, <span class="kw">crate</span>::FORCE_WASM_BUILD_ENV);
+	<span class="macro">println!</span>(<span class="string">"cargo:rerun-if-env-changed={}"</span>, generate_crate_skip_build_env_name());
 }
 
 <span class="doccomment">/// Build the currently built project as wasm binary.
@@ -748,7 +750,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>cargo_cmd = <span class="kw">match </span><span class="kw">crate</span>::prerequisites::check(target) {
 		<span class="prelude-val">Ok</span>(cmd) =&gt; cmd,
 		<span class="prelude-val">Err</span>(err_msg) =&gt; {
-			<span class="macro">eprintln!</span>(<span class="string">&quot;{}&quot;</span>, err_msg);
+			<span class="macro">eprintln!</span>(<span class="string">"{}"</span>, err_msg);
 			process::exit(<span class="number">1</span>);
 		},
 	};
@@ -772,10 +774,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">crate</span>::write_file_if_changed(
 		file_name,
 		<span class="macro">format!</span>(
-			<span class="string">r#&quot;
-				pub const WASM_BINARY: Option&lt;&amp;[u8]&gt; = Some(include_bytes!(&quot;{wasm_binary}&quot;));
-				pub const WASM_BINARY_BLOATY: Option&lt;&amp;[u8]&gt; = Some(include_bytes!(&quot;{wasm_binary_bloaty}&quot;));
-			&quot;#</span>,
+			<span class="string">r#"
+				pub const WASM_BINARY: Option&lt;&amp;[u8]&gt; = Some(include_bytes!("{wasm_binary}"));
+				pub const WASM_BINARY_BLOATY: Option&lt;&amp;[u8]&gt; = Some(include_bytes!("{wasm_binary_bloaty}"));
+			"#</span>,
 			wasm_binary = wasm_binary,
 			wasm_binary_bloaty = wasm_binary_bloaty,
 		),

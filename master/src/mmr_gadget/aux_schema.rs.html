@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/merkle-mountain-range/src/aux_schema.rs`."><title>aux_schema.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/merkle-mountain-range/src/aux_schema.rs`."><title>aux_schema.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="mmr_gadget" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="mmr_gadget" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../mmr_gadget/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -412,14 +414,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sp_blockchain::{Error <span class="kw">as </span>ClientError, <span class="prelude-ty">Result </span><span class="kw">as </span>ClientResult};
 <span class="kw">use </span>sp_runtime::traits::{Block, NumberFor};
 
-<span class="kw">const </span>VERSION_KEY: <span class="kw-2">&amp;</span>[u8] = <span class="string">b&quot;mmr_auxschema_version&quot;</span>;
-<span class="kw">const </span>GADGET_STATE: <span class="kw-2">&amp;</span>[u8] = <span class="string">b&quot;mmr_gadget_state&quot;</span>;
+<span class="kw">const </span>VERSION_KEY: <span class="kw-2">&amp;</span>[u8] = <span class="string">b"mmr_auxschema_version"</span>;
+<span class="kw">const </span>GADGET_STATE: <span class="kw-2">&amp;</span>[u8] = <span class="string">b"mmr_gadget_state"</span>;
 
 <span class="kw">const </span>CURRENT_VERSION: u32 = <span class="number">1</span>;
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>PersistedState&lt;B&gt; = NumberFor&lt;B&gt;;
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>write_current_version&lt;B: AuxStore&gt;(backend: <span class="kw-2">&amp;</span>B) -&gt; ClientResult&lt;()&gt; {
-	<span class="macro">info!</span>(target: LOG_TARGET, <span class="string">&quot;write aux schema version {:?}&quot;</span>, CURRENT_VERSION);
+	<span class="macro">info!</span>(target: LOG_TARGET, <span class="string">"write aux schema version {:?}"</span>, CURRENT_VERSION);
 	AuxStore::insert_aux(backend, <span class="kw-2">&amp;</span>[(VERSION_KEY, CURRENT_VERSION.encode().as_slice())], <span class="kw-2">&amp;</span>[])
 }
 
@@ -428,7 +430,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	backend: <span class="kw-2">&amp;</span>BE,
 	state: <span class="kw-2">&amp;</span>PersistedState&lt;B&gt;,
 ) -&gt; ClientResult&lt;()&gt; {
-	<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">&quot;persisting {:?}&quot;</span>, state);
+	<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">"persisting {:?}"</span>, state);
 	backend.insert_aux(<span class="kw-2">&amp;</span>[(GADGET_STATE, state.encode().as_slice())], <span class="kw-2">&amp;</span>[])
 }
 
@@ -436,7 +438,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">match </span>backend.get_aux(key)<span class="question-mark">? </span>{
 		<span class="prelude-val">None </span>=&gt; <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>),
 		<span class="prelude-val">Some</span>(t) =&gt; T::decode(<span class="kw-2">&amp;mut &amp;</span>t[..])
-			.map_err(|e| ClientError::Backend(<span class="macro">format!</span>(<span class="string">&quot;MMR aux DB is corrupted: {}&quot;</span>, e)))
+			.map_err(|e| ClientError::Backend(<span class="macro">format!</span>(<span class="string">"MMR aux DB is corrupted: {}"</span>, e)))
 			.map(<span class="prelude-val">Some</span>),
 	}
 }
@@ -453,7 +455,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">None </span>=&gt; (),
 		<span class="prelude-val">Some</span>(<span class="number">1</span>) =&gt; <span class="kw">return </span>load_decode::&lt;<span class="kw">_</span>, PersistedState&lt;B&gt;&gt;(backend, GADGET_STATE),
 		other =&gt;
-			<span class="kw">return </span><span class="prelude-val">Err</span>(ClientError::Backend(<span class="macro">format!</span>(<span class="string">&quot;Unsupported MMR aux DB version: {:?}&quot;</span>, other))),
+			<span class="kw">return </span><span class="prelude-val">Err</span>(ClientError::Backend(<span class="macro">format!</span>(<span class="string">"Unsupported MMR aux DB version: {:?}"</span>, other))),
 	}
 
 	<span class="comment">// No persistent state found in DB.
@@ -471,12 +473,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 {
 	<span class="comment">// Initialize gadget best_canon from AUX DB or from pallet genesis.
 	</span><span class="kw">if let </span><span class="prelude-val">Some</span>(best) = load_state::&lt;B, BE&gt;(backend)<span class="question-mark">? </span>{
-		<span class="macro">info!</span>(target: LOG_TARGET, <span class="string">&quot;Loading MMR best canonicalized state from db: {:?}.&quot;</span>, best);
+		<span class="macro">info!</span>(target: LOG_TARGET, <span class="string">"Loading MMR best canonicalized state from db: {:?}."</span>, best);
 		<span class="prelude-val">Ok</span>(best)
 	} <span class="kw">else </span>{
 		<span class="macro">info!</span>(
 			target: LOG_TARGET,
-			<span class="string">&quot;Loading MMR from pallet genesis on what appears to be the first startup: {:?}.&quot;</span>,
+			<span class="string">"Loading MMR from pallet genesis on what appears to be the first startup: {:?}."</span>,
 			default
 		);
 		write_current_version(backend)<span class="question-mark">?</span>;
@@ -507,7 +509,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// verify correct version is retrieved
 		</span><span class="macro">assert_eq!</span>(load_decode(backend, VERSION_KEY).unwrap(), <span class="prelude-val">Some</span>(CURRENT_VERSION));
 
-		<span class="comment">// version is available in db but state isn&#39;t -&gt; None
+		<span class="comment">// version is available in db but state isn't -&gt; None
 		</span><span class="macro">assert_eq!</span>(load_state::&lt;Block, Backend&gt;(backend).unwrap(), <span class="prelude-val">None</span>);
 	}
 
@@ -527,9 +529,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			client.clone(),
 			|<span class="kw">_</span>| <span class="kw">async </span>{},
 			|client| <span class="kw">async move </span>{
-				<span class="kw">let </span>a1 = client.import_block(<span class="kw-2">&amp;</span>BlockId::Number(<span class="number">0</span>), <span class="string">b&quot;a1&quot;</span>, <span class="prelude-val">Some</span>(<span class="number">0</span>)).<span class="kw">await</span>;
-				<span class="kw">let </span>a2 = client.import_block(<span class="kw-2">&amp;</span>BlockId::Number(<span class="number">1</span>), <span class="string">b&quot;a2&quot;</span>, <span class="prelude-val">Some</span>(<span class="number">1</span>)).<span class="kw">await</span>;
-				<span class="kw">let </span>a3 = client.import_block(<span class="kw-2">&amp;</span>BlockId::Number(<span class="number">2</span>), <span class="string">b&quot;a3&quot;</span>, <span class="prelude-val">Some</span>(<span class="number">2</span>)).<span class="kw">await</span>;
+				<span class="kw">let </span>a1 = client.import_block(<span class="kw-2">&amp;</span>BlockId::Number(<span class="number">0</span>), <span class="string">b"a1"</span>, <span class="prelude-val">Some</span>(<span class="number">0</span>)).<span class="kw">await</span>;
+				<span class="kw">let </span>a2 = client.import_block(<span class="kw-2">&amp;</span>BlockId::Number(<span class="number">1</span>), <span class="string">b"a2"</span>, <span class="prelude-val">Some</span>(<span class="number">1</span>)).<span class="kw">await</span>;
+				<span class="kw">let </span>a3 = client.import_block(<span class="kw-2">&amp;</span>BlockId::Number(<span class="number">2</span>), <span class="string">b"a3"</span>, <span class="prelude-val">Some</span>(<span class="number">2</span>)).<span class="kw">await</span>;
 				client.finalize_block(a3.hash(), <span class="prelude-val">Some</span>(<span class="number">3</span>));
 				tokio::time::sleep(Duration::from_millis(<span class="number">200</span>)).<span class="kw">await</span>;
 				<span class="comment">// a1, a2, a3 were canonicalized
@@ -547,9 +549,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="macro">assert_eq!</span>(load_state::&lt;Block, Backend&gt;(backend).unwrap(), <span class="prelude-val">Some</span>(<span class="number">3</span>));
 			},
 			|client| <span class="kw">async move </span>{
-				<span class="kw">let </span>a4 = client.import_block(<span class="kw-2">&amp;</span>BlockId::Number(<span class="number">3</span>), <span class="string">b&quot;a4&quot;</span>, <span class="prelude-val">Some</span>(<span class="number">3</span>)).<span class="kw">await</span>;
-				<span class="kw">let </span>a5 = client.import_block(<span class="kw-2">&amp;</span>BlockId::Number(<span class="number">4</span>), <span class="string">b&quot;a5&quot;</span>, <span class="prelude-val">Some</span>(<span class="number">4</span>)).<span class="kw">await</span>;
-				<span class="kw">let </span>a6 = client.import_block(<span class="kw-2">&amp;</span>BlockId::Number(<span class="number">5</span>), <span class="string">b&quot;a6&quot;</span>, <span class="prelude-val">Some</span>(<span class="number">5</span>)).<span class="kw">await</span>;
+				<span class="kw">let </span>a4 = client.import_block(<span class="kw-2">&amp;</span>BlockId::Number(<span class="number">3</span>), <span class="string">b"a4"</span>, <span class="prelude-val">Some</span>(<span class="number">3</span>)).<span class="kw">await</span>;
+				<span class="kw">let </span>a5 = client.import_block(<span class="kw-2">&amp;</span>BlockId::Number(<span class="number">4</span>), <span class="string">b"a5"</span>, <span class="prelude-val">Some</span>(<span class="number">4</span>)).<span class="kw">await</span>;
+				<span class="kw">let </span>a6 = client.import_block(<span class="kw-2">&amp;</span>BlockId::Number(<span class="number">5</span>), <span class="string">b"a6"</span>, <span class="prelude-val">Some</span>(<span class="number">5</span>)).<span class="kw">await</span>;
 				client.finalize_block(a6.hash(), <span class="prelude-val">Some</span>(<span class="number">6</span>));
 				tokio::time::sleep(Duration::from_millis(<span class="number">200</span>)).<span class="kw">await</span>;
 
@@ -575,9 +577,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			|<span class="kw">_</span>| <span class="kw">async </span>{},
 			|client| <span class="kw">async move </span>{
 				<span class="kw">let </span><span class="kw-2">mut </span>blocks = blocks_clone.lock();
-				blocks.push(client.import_block(<span class="kw-2">&amp;</span>BlockId::Number(<span class="number">0</span>), <span class="string">b&quot;a1&quot;</span>, <span class="prelude-val">Some</span>(<span class="number">0</span>)).<span class="kw">await</span>);
-				blocks.push(client.import_block(<span class="kw-2">&amp;</span>BlockId::Number(<span class="number">1</span>), <span class="string">b&quot;a2&quot;</span>, <span class="prelude-val">Some</span>(<span class="number">1</span>)).<span class="kw">await</span>);
-				blocks.push(client.import_block(<span class="kw-2">&amp;</span>BlockId::Number(<span class="number">2</span>), <span class="string">b&quot;a3&quot;</span>, <span class="prelude-val">Some</span>(<span class="number">2</span>)).<span class="kw">await</span>);
+				blocks.push(client.import_block(<span class="kw-2">&amp;</span>BlockId::Number(<span class="number">0</span>), <span class="string">b"a1"</span>, <span class="prelude-val">Some</span>(<span class="number">0</span>)).<span class="kw">await</span>);
+				blocks.push(client.import_block(<span class="kw-2">&amp;</span>BlockId::Number(<span class="number">1</span>), <span class="string">b"a2"</span>, <span class="prelude-val">Some</span>(<span class="number">1</span>)).<span class="kw">await</span>);
+				blocks.push(client.import_block(<span class="kw-2">&amp;</span>BlockId::Number(<span class="number">2</span>), <span class="string">b"a3"</span>, <span class="prelude-val">Some</span>(<span class="number">2</span>)).<span class="kw">await</span>);
 				client.finalize_block(blocks.last().unwrap().hash(), <span class="prelude-val">Some</span>(<span class="number">3</span>));
 				tokio::time::sleep(Duration::from_millis(<span class="number">200</span>)).<span class="kw">await</span>;
 				<span class="comment">// a1, a2, a3 were canonicalized
@@ -605,9 +607,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				</span>client.assert_not_canonicalized(<span class="kw-2">&amp;</span>slice);
 			},
 			|client| <span class="kw">async move </span>{
-				<span class="kw">let </span>a4 = client.import_block(<span class="kw-2">&amp;</span>BlockId::Number(<span class="number">3</span>), <span class="string">b&quot;a4&quot;</span>, <span class="prelude-val">Some</span>(<span class="number">3</span>)).<span class="kw">await</span>;
-				<span class="kw">let </span>a5 = client.import_block(<span class="kw-2">&amp;</span>BlockId::Number(<span class="number">4</span>), <span class="string">b&quot;a5&quot;</span>, <span class="prelude-val">Some</span>(<span class="number">4</span>)).<span class="kw">await</span>;
-				<span class="kw">let </span>a6 = client.import_block(<span class="kw-2">&amp;</span>BlockId::Number(<span class="number">5</span>), <span class="string">b&quot;a6&quot;</span>, <span class="prelude-val">Some</span>(<span class="number">5</span>)).<span class="kw">await</span>;
+				<span class="kw">let </span>a4 = client.import_block(<span class="kw-2">&amp;</span>BlockId::Number(<span class="number">3</span>), <span class="string">b"a4"</span>, <span class="prelude-val">Some</span>(<span class="number">3</span>)).<span class="kw">await</span>;
+				<span class="kw">let </span>a5 = client.import_block(<span class="kw-2">&amp;</span>BlockId::Number(<span class="number">4</span>), <span class="string">b"a5"</span>, <span class="prelude-val">Some</span>(<span class="number">4</span>)).<span class="kw">await</span>;
+				<span class="kw">let </span>a6 = client.import_block(<span class="kw-2">&amp;</span>BlockId::Number(<span class="number">5</span>), <span class="string">b"a6"</span>, <span class="prelude-val">Some</span>(<span class="number">5</span>)).<span class="kw">await</span>;
 				client.finalize_block(a6.hash(), <span class="prelude-val">Some</span>(<span class="number">6</span>));
 				tokio::time::sleep(Duration::from_millis(<span class="number">200</span>)).<span class="kw">await</span>;
 

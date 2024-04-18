@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/vesting/src/benchmarking.rs`."><title>benchmarking.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/vesting/src/benchmarking.rs`."><title>benchmarking.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_vesting" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_vesting" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../pallet_vesting/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -570,21 +572,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
 </span><span class="doccomment">//! Vesting pallet benchmarking.
 
-</span><span class="attr">#![cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+</span><span class="attr">#![cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 
 </span><span class="kw">use </span>frame_benchmarking::v1::{account, benchmarks, whitelisted_caller};
 <span class="kw">use </span>frame_support::assert_ok;
@@ -611,14 +613,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">fn </span>add_vesting_schedules&lt;T: Config&gt;(
 	target: AccountIdLookupOf&lt;T&gt;,
 	n: u32,
-) -&gt; <span class="prelude-ty">Result</span>&lt;BalanceOf&lt;T&gt;, <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; {
+) -&gt; <span class="prelude-ty">Result</span>&lt;BalanceOf&lt;T&gt;, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
 	<span class="kw">let </span>min_transfer = T::MinVestedTransfer::get();
 	<span class="kw">let </span>locked = min_transfer.checked_mul(<span class="kw-2">&amp;</span><span class="number">20u32</span>.into()).unwrap();
 	<span class="comment">// Schedule has a duration of 20.
 	</span><span class="kw">let </span>per_block = min_transfer;
 	<span class="kw">let </span>starting_block = <span class="number">1u32</span>;
 
-	<span class="kw">let </span>source: T::AccountId = account(<span class="string">&quot;source&quot;</span>, <span class="number">0</span>, SEED);
+	<span class="kw">let </span>source: T::AccountId = account(<span class="string">"source"</span>, <span class="number">0</span>, SEED);
 	<span class="kw">let </span>source_lookup = T::Lookup::unlookup(source.clone());
 	T::Currency::make_free_balance_be(<span class="kw-2">&amp;</span>source, BalanceOf::&lt;T&gt;::max_value());
 
@@ -659,7 +661,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">assert_eq!</span>(
 			Vesting::&lt;T&gt;::vesting_balance(<span class="kw-2">&amp;</span>caller),
 			<span class="prelude-val">Some</span>(expected_balance),
-			<span class="string">&quot;Vesting schedule not added&quot;</span>,
+			<span class="string">"Vesting schedule not added"</span>,
 		);
 	}: vest(RawOrigin::Signed(caller.clone()))
 	verify {
@@ -667,7 +669,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="macro">assert_eq!</span>(
 			Vesting::&lt;T&gt;::vesting_balance(<span class="kw-2">&amp;</span>caller),
 			<span class="prelude-val">Some</span>(expected_balance),
-			<span class="string">&quot;Vesting schedule was removed&quot;</span>,
+			<span class="string">"Vesting schedule was removed"</span>,
 		);
 	}
 
@@ -687,7 +689,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">assert_eq!</span>(
 			Vesting::&lt;T&gt;::vesting_balance(<span class="kw-2">&amp;</span>caller),
 			<span class="prelude-val">Some</span>(BalanceOf::&lt;T&gt;::zero()),
-			<span class="string">&quot;Vesting schedule still active&quot;</span>,
+			<span class="string">"Vesting schedule still active"</span>,
 		);
 	}: vest(RawOrigin::Signed(caller.clone()))
 	verify {
@@ -695,7 +697,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="macro">assert_eq!</span>(
 			Vesting::&lt;T&gt;::vesting_balance(<span class="kw-2">&amp;</span>caller),
 			<span class="prelude-val">None</span>,
-			<span class="string">&quot;Vesting schedule was not removed&quot;</span>,
+			<span class="string">"Vesting schedule was not removed"</span>,
 		);
 	}
 
@@ -703,7 +705,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>l <span class="kw">in </span><span class="number">0 </span>.. MaxLocksOf::&lt;T&gt;::get() - <span class="number">1</span>;
 		<span class="kw">let </span>s <span class="kw">in </span><span class="number">1 </span>.. T::MAX_VESTING_SCHEDULES;
 
-		<span class="kw">let </span>other: T::AccountId = account(<span class="string">&quot;other&quot;</span>, <span class="number">0</span>, SEED);
+		<span class="kw">let </span>other: T::AccountId = account(<span class="string">"other"</span>, <span class="number">0</span>, SEED);
 		<span class="kw">let </span>other_lookup = T::Lookup::unlookup(other.clone());
 
 		T::Currency::make_free_balance_be(<span class="kw-2">&amp;</span>other, T::Currency::minimum_balance());
@@ -715,7 +717,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">assert_eq!</span>(
 			Vesting::&lt;T&gt;::vesting_balance(<span class="kw-2">&amp;</span>other),
 			<span class="prelude-val">Some</span>(expected_balance),
-			<span class="string">&quot;Vesting schedule not added&quot;</span>,
+			<span class="string">"Vesting schedule not added"</span>,
 		);
 
 		<span class="kw">let </span>caller: T::AccountId = whitelisted_caller();
@@ -725,7 +727,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="macro">assert_eq!</span>(
 			Vesting::&lt;T&gt;::vesting_balance(<span class="kw-2">&amp;</span>other),
 			<span class="prelude-val">Some</span>(expected_balance),
-			<span class="string">&quot;Vesting schedule was removed&quot;</span>,
+			<span class="string">"Vesting schedule was removed"</span>,
 		);
 	}
 
@@ -733,7 +735,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>l <span class="kw">in </span><span class="number">0 </span>.. MaxLocksOf::&lt;T&gt;::get() - <span class="number">1</span>;
 		<span class="kw">let </span>s <span class="kw">in </span><span class="number">1 </span>.. T::MAX_VESTING_SCHEDULES;
 
-		<span class="kw">let </span>other: T::AccountId = account(<span class="string">&quot;other&quot;</span>, <span class="number">0</span>, SEED);
+		<span class="kw">let </span>other: T::AccountId = account(<span class="string">"other"</span>, <span class="number">0</span>, SEED);
 		<span class="kw">let </span>other_lookup = T::Lookup::unlookup(other.clone());
 
 		T::Currency::make_free_balance_be(<span class="kw-2">&amp;</span>other, T::Currency::minimum_balance());
@@ -745,7 +747,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">assert_eq!</span>(
 			Vesting::&lt;T&gt;::vesting_balance(<span class="kw-2">&amp;</span>other),
 			<span class="prelude-val">Some</span>(BalanceOf::&lt;T&gt;::zero()),
-			<span class="string">&quot;Vesting schedule still active&quot;</span>,
+			<span class="string">"Vesting schedule still active"</span>,
 		);
 
 		<span class="kw">let </span>caller: T::AccountId = whitelisted_caller();
@@ -755,7 +757,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="macro">assert_eq!</span>(
 			Vesting::&lt;T&gt;::vesting_balance(<span class="kw-2">&amp;</span>other),
 			<span class="prelude-val">None</span>,
-			<span class="string">&quot;Vesting schedule was not removed&quot;</span>,
+			<span class="string">"Vesting schedule was not removed"</span>,
 		);
 	}
 
@@ -766,7 +768,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>caller: T::AccountId = whitelisted_caller();
 		T::Currency::make_free_balance_be(<span class="kw-2">&amp;</span>caller, BalanceOf::&lt;T&gt;::max_value());
 
-		<span class="kw">let </span>target: T::AccountId = account(<span class="string">&quot;target&quot;</span>, <span class="number">0</span>, SEED);
+		<span class="kw">let </span>target: T::AccountId = account(<span class="string">"target"</span>, <span class="number">0</span>, SEED);
 		<span class="kw">let </span>target_lookup = T::Lookup::unlookup(target.clone());
 		<span class="comment">// Give target existing locks
 		</span>T::Currency::make_free_balance_be(<span class="kw-2">&amp;</span>target, T::Currency::minimum_balance());
@@ -789,12 +791,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">assert_eq!</span>(
 			orig_balance + expected_balance,
 			T::Currency::free_balance(<span class="kw-2">&amp;</span>target),
-			<span class="string">&quot;Transfer didn&#39;t happen&quot;</span>,
+			<span class="string">"Transfer didn't happen"</span>,
 		);
 		<span class="macro">assert_eq!</span>(
 			Vesting::&lt;T&gt;::vesting_balance(<span class="kw-2">&amp;</span>target),
 			<span class="prelude-val">Some</span>(expected_balance),
-			<span class="string">&quot;Lock not correctly updated&quot;</span>,
+			<span class="string">"Lock not correctly updated"</span>,
 		);
 	}
 
@@ -802,11 +804,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>l <span class="kw">in </span><span class="number">0 </span>.. MaxLocksOf::&lt;T&gt;::get() - <span class="number">1</span>;
 		<span class="kw">let </span>s <span class="kw">in </span><span class="number">0 </span>.. T::MAX_VESTING_SCHEDULES - <span class="number">1</span>;
 
-		<span class="kw">let </span>source: T::AccountId = account(<span class="string">&quot;source&quot;</span>, <span class="number">0</span>, SEED);
+		<span class="kw">let </span>source: T::AccountId = account(<span class="string">"source"</span>, <span class="number">0</span>, SEED);
 		<span class="kw">let </span>source_lookup = T::Lookup::unlookup(source.clone());
 		T::Currency::make_free_balance_be(<span class="kw-2">&amp;</span>source, BalanceOf::&lt;T&gt;::max_value());
 
-		<span class="kw">let </span>target: T::AccountId = account(<span class="string">&quot;target&quot;</span>, <span class="number">0</span>, SEED);
+		<span class="kw">let </span>target: T::AccountId = account(<span class="string">"target"</span>, <span class="number">0</span>, SEED);
 		<span class="kw">let </span>target_lookup = T::Lookup::unlookup(target.clone());
 		<span class="comment">// Give target existing locks
 		</span>T::Currency::make_free_balance_be(<span class="kw-2">&amp;</span>target, T::Currency::minimum_balance());
@@ -829,12 +831,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">assert_eq!</span>(
 			orig_balance + expected_balance,
 			T::Currency::free_balance(<span class="kw-2">&amp;</span>target),
-			<span class="string">&quot;Transfer didn&#39;t happen&quot;</span>,
+			<span class="string">"Transfer didn't happen"</span>,
 		);
 		<span class="macro">assert_eq!</span>(
 			Vesting::&lt;T&gt;::vesting_balance(<span class="kw-2">&amp;</span>target),
 			<span class="prelude-val">Some</span>(expected_balance),
-				<span class="string">&quot;Lock not correctly updated&quot;</span>,
+				<span class="string">"Lock not correctly updated"</span>,
 			);
 		}
 
@@ -842,7 +844,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>l <span class="kw">in </span><span class="number">0 </span>.. MaxLocksOf::&lt;T&gt;::get() - <span class="number">1</span>;
 		<span class="kw">let </span>s <span class="kw">in </span><span class="number">2 </span>.. T::MAX_VESTING_SCHEDULES;
 
-		<span class="kw">let </span>caller: T::AccountId = account(<span class="string">&quot;caller&quot;</span>, <span class="number">0</span>, SEED);
+		<span class="kw">let </span>caller: T::AccountId = account(<span class="string">"caller"</span>, <span class="number">0</span>, SEED);
 		<span class="kw">let </span>caller_lookup = T::Lookup::unlookup(caller.clone());
 		<span class="comment">// Give target existing locks.
 		</span>T::Currency::make_free_balance_be(<span class="kw-2">&amp;</span>caller, T::Currency::minimum_balance());
@@ -855,12 +857,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">assert_eq!</span>(
 			Vesting::&lt;T&gt;::vesting_balance(<span class="kw-2">&amp;</span>caller),
 			<span class="prelude-val">Some</span>(expected_balance),
-			<span class="string">&quot;Vesting balance should equal sum locked of all schedules&quot;</span>,
+			<span class="string">"Vesting balance should equal sum locked of all schedules"</span>,
 		);
 		<span class="macro">assert_eq!</span>(
 			Vesting::&lt;T&gt;::vesting(<span class="kw-2">&amp;</span>caller).unwrap().len(),
 			s <span class="kw">as </span>usize,
-			<span class="string">&quot;There should be exactly max vesting schedules&quot;
+			<span class="string">"There should be exactly max vesting schedules"
 		</span>);
 	}: merge_schedules(RawOrigin::Signed(caller.clone()), <span class="number">0</span>, s - <span class="number">1</span>)
 	verify {
@@ -877,12 +879,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">assert_eq!</span>(
 			Vesting::&lt;T&gt;::vesting_balance(<span class="kw-2">&amp;</span>caller),
 			<span class="prelude-val">Some</span>(expected_balance),
-			<span class="string">&quot;Vesting balance should equal total locked of all schedules&quot;</span>,
+			<span class="string">"Vesting balance should equal total locked of all schedules"</span>,
 		);
 		<span class="macro">assert_eq!</span>(
 			Vesting::&lt;T&gt;::vesting(<span class="kw-2">&amp;</span>caller).unwrap().len(),
 			(s - <span class="number">1</span>) <span class="kw">as </span>usize,
-			<span class="string">&quot;Schedule count should reduce by 1&quot;
+			<span class="string">"Schedule count should reduce by 1"
 		</span>);
 	}
 
@@ -891,9 +893,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>s <span class="kw">in </span><span class="number">2 </span>.. T::MAX_VESTING_SCHEDULES;
 
 		<span class="comment">// Destination used just for currency transfers in asserts.
-		</span><span class="kw">let </span>test_dest: T::AccountId = account(<span class="string">&quot;test_dest&quot;</span>, <span class="number">0</span>, SEED);
+		</span><span class="kw">let </span>test_dest: T::AccountId = account(<span class="string">"test_dest"</span>, <span class="number">0</span>, SEED);
 
-		<span class="kw">let </span>caller: T::AccountId = account(<span class="string">&quot;caller&quot;</span>, <span class="number">0</span>, SEED);
+		<span class="kw">let </span>caller: T::AccountId = account(<span class="string">"caller"</span>, <span class="number">0</span>, SEED);
 		<span class="kw">let </span>caller_lookup = T::Lookup::unlookup(caller.clone());
 		<span class="comment">// Give target other locks.
 		</span>T::Currency::make_free_balance_be(<span class="kw-2">&amp;</span>caller, T::Currency::minimum_balance());
@@ -908,12 +910,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">assert_eq!</span>(
 			Vesting::&lt;T&gt;::vesting_balance(<span class="kw-2">&amp;</span>caller),
 			<span class="prelude-val">Some</span>(expected_balance),
-			<span class="string">&quot;Vesting balance should reflect that we are half way through all schedules duration&quot;</span>,
+			<span class="string">"Vesting balance should reflect that we are half way through all schedules duration"</span>,
 		);
 		<span class="macro">assert_eq!</span>(
 			Vesting::&lt;T&gt;::vesting(<span class="kw-2">&amp;</span>caller).unwrap().len(),
 			s <span class="kw">as </span>usize,
-			<span class="string">&quot;There should be exactly max vesting schedules&quot;
+			<span class="string">"There should be exactly max vesting schedules"
 		</span>);
 		<span class="comment">// The balance is not actually transferable because it has not been unlocked.
 		</span><span class="macro">assert!</span>(T::Currency::transfer(<span class="kw-2">&amp;</span>caller, <span class="kw-2">&amp;</span>test_dest, expected_balance, ExistenceRequirement::AllowDeath).is_err());
@@ -928,7 +930,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">assert_eq!</span>(
 			Vesting::&lt;T&gt;::vesting(<span class="kw-2">&amp;</span>caller).unwrap()[expected_index],
 			expected_schedule,
-			<span class="string">&quot;New schedule is properly created and placed&quot;
+			<span class="string">"New schedule is properly created and placed"
 		</span>);
 		<span class="macro">assert_eq!</span>(
 			Vesting::&lt;T&gt;::vesting(<span class="kw-2">&amp;</span>caller).unwrap()[expected_index],
@@ -937,12 +939,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">assert_eq!</span>(
 			Vesting::&lt;T&gt;::vesting_balance(<span class="kw-2">&amp;</span>caller),
 			<span class="prelude-val">Some</span>(expected_balance),
-			<span class="string">&quot;Vesting balance should equal half total locked of all schedules&quot;</span>,
+			<span class="string">"Vesting balance should equal half total locked of all schedules"</span>,
 		);
 		<span class="macro">assert_eq!</span>(
 			Vesting::&lt;T&gt;::vesting(<span class="kw-2">&amp;</span>caller).unwrap().len(),
 			(s - <span class="number">1</span>) <span class="kw">as </span>usize,
-			<span class="string">&quot;Schedule count should reduce by 1&quot;
+			<span class="string">"Schedule count should reduce by 1"
 		</span>);
 		<span class="comment">// Since merge unlocks all schedules we can now transfer the balance.
 		</span><span class="macro">assert_ok!</span>(
@@ -954,11 +956,11 @@ force_remove_vesting_schedule {
 		<span class="kw">let </span>l <span class="kw">in </span><span class="number">0 </span>.. MaxLocksOf::&lt;T&gt;::get() - <span class="number">1</span>;
 		<span class="kw">let </span>s <span class="kw">in </span><span class="number">2 </span>.. T::MAX_VESTING_SCHEDULES;
 
-		<span class="kw">let </span>source: T::AccountId = account(<span class="string">&quot;source&quot;</span>, <span class="number">0</span>, SEED);
+		<span class="kw">let </span>source: T::AccountId = account(<span class="string">"source"</span>, <span class="number">0</span>, SEED);
 		<span class="kw">let </span>source_lookup: &lt;T::Lookup <span class="kw">as </span>StaticLookup&gt;::Source = T::Lookup::unlookup(source.clone());
 		T::Currency::make_free_balance_be(<span class="kw-2">&amp;</span>source, BalanceOf::&lt;T&gt;::max_value());
 
-		<span class="kw">let </span>target: T::AccountId = account(<span class="string">&quot;target&quot;</span>, <span class="number">0</span>, SEED);
+		<span class="kw">let </span>target: T::AccountId = account(<span class="string">"target"</span>, <span class="number">0</span>, SEED);
 		<span class="kw">let </span>target_lookup: &lt;T::Lookup <span class="kw">as </span>StaticLookup&gt;::Source = T::Lookup::unlookup(target.clone());
 		T::Currency::make_free_balance_be(<span class="kw-2">&amp;</span>target, T::Currency::minimum_balance());
 
@@ -973,7 +975,7 @@ force_remove_vesting_schedule {
 		<span class="macro">assert_eq!</span>(
 		Vesting::&lt;T&gt;::vesting(<span class="kw-2">&amp;</span>target).unwrap().len(),
 			schedule_index <span class="kw">as </span>usize,
-			<span class="string">&quot;Schedule count should reduce by 1&quot;
+			<span class="string">"Schedule count should reduce by 1"
 		</span>);
 	}
 

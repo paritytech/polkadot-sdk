@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/merkle-mountain-range/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/merkle-mountain-range/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_mmr_primitives" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_mmr_primitives" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sp_mmr_primitives/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -796,28 +798,28 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
 </span><span class="doccomment">//! Merkle Mountain Range primitive types.
 
-</span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
+</span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 #![warn(missing_docs)]
 
 </span><span class="kw">extern crate </span>alloc;
 
 <span class="kw">pub use </span>mmr_lib;
 
-<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
 </span><span class="kw">use </span>alloc::vec::Vec;
 <span class="kw">use </span>core::fmt;
 <span class="kw">use </span>scale_info::TypeInfo;
@@ -827,7 +829,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">pub mod </span>utils;
 
 <span class="doccomment">/// Prefix for elements stored in the Off-chain DB via Indexing API.
-</span><span class="kw">pub const </span>INDEXING_PREFIX: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8] = <span class="string">b&quot;mmr&quot;</span>;
+</span><span class="kw">pub const </span>INDEXING_PREFIX: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>[u8] = <span class="string">b"mmr"</span>;
 
 <span class="doccomment">/// A type to describe node position in the MMR (node index).
 </span><span class="kw">pub type </span>NodeIndex = u64;
@@ -839,7 +841,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// but might be actually at different positions in the MMR `NodeIndex`.
 </span><span class="kw">pub type </span>LeafIndex = u64;
 
-<span class="doccomment">/// A provider of the MMR&#39;s leaf data.
+<span class="doccomment">/// A provider of the MMR's leaf data.
 </span><span class="kw">pub trait </span>LeafDataProvider {
 	<span class="doccomment">/// A type that should end up in the leaf of MMR.
 	</span><span class="kw">type </span>LeafData: FullLeaf + codec::Decode;
@@ -887,22 +889,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// A helper type to allow using arbitrary SCALE-encoded leaf data in the RuntimeApi.
 ///
-/// The point is to be able to verify MMR proofs from external MMRs, where we don&#39;t
-/// know the exact leaf type, but it&#39;s enough for us to have it SCALE-encoded.
+/// The point is to be able to verify MMR proofs from external MMRs, where we don't
+/// know the exact leaf type, but it's enough for us to have it SCALE-encoded.
 ///
 /// Note the leaf type should be encoded in its compact form when passed through this type.
 /// See [FullLeaf] documentation for details.
 ///
 /// This type does not implement SCALE encoding/decoding on purpose to avoid confusion,
 /// it would have to be SCALE-compatible with the concrete leaf type, but due to SCALE limitations
-/// it&#39;s not possible to know how many bytes the encoding of concrete leaf type uses.
-</span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;serde&quot;</span>, derive(serde::Serialize, serde::Deserialize))]
+/// it's not possible to know how many bytes the encoding of concrete leaf type uses.
+</span><span class="attr">#[cfg_attr(feature = <span class="string">"serde"</span>, derive(serde::Serialize, serde::Deserialize))]
 #[derive(RuntimeDebug, Clone, PartialEq)]
 </span><span class="kw">pub struct </span>OpaqueLeaf(
 	<span class="doccomment">/// Raw bytes of the leaf type encoded in its compact form.
 	///
 	/// NOTE it DOES NOT include length prefix (like `Vec&lt;u8&gt;` encoding would).
-	</span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;serde&quot;</span>, serde(with = <span class="string">&quot;sp_core::bytes&quot;</span>))]
+	</span><span class="attr">#[cfg_attr(feature = <span class="string">"serde"</span>, serde(with = <span class="string">"sp_core::bytes"</span>))]
 	</span><span class="kw">pub </span>Vec&lt;u8&gt;,
 );
 
@@ -1018,7 +1020,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl</span>&lt;H: traits::Hash, L: FullLeaf&gt; DataOrHash&lt;H, L&gt; {
 	<span class="doccomment">/// Retrieve a hash of this item.
 	///
-	/// Depending on the node type it&#39;s going to either be a contained value for [DataOrHash::Hash]
+	/// Depending on the node type it's going to either be a contained value for [DataOrHash::Hash]
 	/// node, or a hash of SCALE-encoded [DataOrHash::Data] data.
 	</span><span class="kw">pub fn </span>hash(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; H::Output {
 		<span class="kw">match </span><span class="kw-2">*</span><span class="self">self </span>{
@@ -1035,10 +1037,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// However this will cause the leaves to have significant size, while for some
 /// use cases it will be enough to prove only one element of the tuple.
-/// That&#39;s the rationale for [Compact] struct. We wrap each element of the tuple
+/// That's the rationale for [Compact] struct. We wrap each element of the tuple
 /// into [DataOrHash] and each tuple element is hashed first before constructing
 /// the final hash of the entire tuple. This allows you to replace tuple elements
-/// you don&#39;t care about with their hashes.
+/// you don't care about with their hashes.
 </span><span class="attr">#[derive(RuntimeDebug, Clone, PartialEq)]
 </span><span class="kw">pub struct </span>Compact&lt;H, T&gt; {
 	<span class="doccomment">/// Internal tuple representation.
@@ -1155,38 +1157,38 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Merkle Mountain Range operation error.
-</span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(thiserror::Error))]
+</span><span class="attr">#[cfg_attr(feature = <span class="string">"std"</span>, derive(thiserror::Error))]
 #[derive(RuntimeDebug, codec::Encode, codec::Decode, PartialEq, Eq, TypeInfo)]
 </span><span class="kw">pub enum </span>Error {
 	<span class="doccomment">/// Error during translation of a block number into a leaf index.
-	</span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, error(<span class="string">&quot;Error performing numeric op&quot;</span>))]
+	</span><span class="attr">#[cfg_attr(feature = <span class="string">"std"</span>, error(<span class="string">"Error performing numeric op"</span>))]
 	</span>InvalidNumericOp,
 	<span class="doccomment">/// Error while pushing new node.
-	</span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, error(<span class="string">&quot;Error pushing new node&quot;</span>))]
+	</span><span class="attr">#[cfg_attr(feature = <span class="string">"std"</span>, error(<span class="string">"Error pushing new node"</span>))]
 	</span>Push,
 	<span class="doccomment">/// Error getting the new root.
-	</span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, error(<span class="string">&quot;Error getting new root&quot;</span>))]
+	</span><span class="attr">#[cfg_attr(feature = <span class="string">"std"</span>, error(<span class="string">"Error getting new root"</span>))]
 	</span>GetRoot,
 	<span class="doccomment">/// Error committing changes.
-	</span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, error(<span class="string">&quot;Error committing changes&quot;</span>))]
+	</span><span class="attr">#[cfg_attr(feature = <span class="string">"std"</span>, error(<span class="string">"Error committing changes"</span>))]
 	</span>Commit,
 	<span class="doccomment">/// Error during proof generation.
-	</span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, error(<span class="string">&quot;Error generating proof&quot;</span>))]
+	</span><span class="attr">#[cfg_attr(feature = <span class="string">"std"</span>, error(<span class="string">"Error generating proof"</span>))]
 	</span>GenerateProof,
 	<span class="doccomment">/// Proof verification error.
-	</span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, error(<span class="string">&quot;Invalid proof&quot;</span>))]
+	</span><span class="attr">#[cfg_attr(feature = <span class="string">"std"</span>, error(<span class="string">"Invalid proof"</span>))]
 	</span>Verify,
 	<span class="doccomment">/// Leaf not found in the storage.
-	</span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, error(<span class="string">&quot;Leaf was not found&quot;</span>))]
+	</span><span class="attr">#[cfg_attr(feature = <span class="string">"std"</span>, error(<span class="string">"Leaf was not found"</span>))]
 	</span>LeafNotFound,
 	<span class="doccomment">/// Mmr Pallet not included in runtime
-	</span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, error(<span class="string">&quot;MMR pallet not included in runtime&quot;</span>))]
+	</span><span class="attr">#[cfg_attr(feature = <span class="string">"std"</span>, error(<span class="string">"MMR pallet not included in runtime"</span>))]
 	</span>PalletNotIncluded,
 	<span class="doccomment">/// Cannot find the requested leaf index
-	</span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, error(<span class="string">&quot;Requested leaf index invalid&quot;</span>))]
+	</span><span class="attr">#[cfg_attr(feature = <span class="string">"std"</span>, error(<span class="string">"Requested leaf index invalid"</span>))]
 	</span>InvalidLeafIndex,
 	<span class="doccomment">/// The provided best know block number is invalid.
-	</span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, error(<span class="string">&quot;Provided best known block number invalid&quot;</span>))]
+	</span><span class="attr">#[cfg_attr(feature = <span class="string">"std"</span>, error(<span class="string">"Provided best known block number invalid"</span>))]
 	</span>InvalidBestKnownBlock,
 }
 
@@ -1195,8 +1197,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="doccomment">/// Consume given error `e` with `self` and generate a native log entry with error details.
 	</span><span class="kw">pub fn </span>log_error(<span class="self">self</span>, e: <span class="kw">impl </span>fmt::Debug) -&gt; <span class="self">Self </span>{
 		<span class="macro">log::error!</span>(
-			target: <span class="string">&quot;runtime::mmr&quot;</span>,
-			<span class="string">&quot;[{:?}] MMR error: {:?}&quot;</span>,
+			target: <span class="string">"runtime::mmr"</span>,
+			<span class="string">"[{:?}] MMR error: {:?}"</span>,
 			<span class="self">self</span>,
 			e,
 		);
@@ -1206,8 +1208,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Consume given error `e` with `self` and generate a native log entry with error details.
 	</span><span class="kw">pub fn </span>log_debug(<span class="self">self</span>, e: <span class="kw">impl </span>fmt::Debug) -&gt; <span class="self">Self </span>{
 		<span class="macro">log::debug!</span>(
-			target: <span class="string">&quot;runtime::mmr&quot;</span>,
-			<span class="string">&quot;[{:?}] MMR error: {:?}&quot;</span>,
+			target: <span class="string">"runtime::mmr"</span>,
+			<span class="string">"[{:?}] MMR error: {:?}"</span>,
 			<span class="self">self</span>,
 			e,
 		);
@@ -1274,9 +1276,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			leaf_indices: <span class="macro">vec!</span>[<span class="number">5</span>],
 			leaf_count: <span class="number">10</span>,
 			items: <span class="macro">vec!</span>[
-				hex(<span class="string">&quot;c3e7ba6b511162fead58f2c8b5764ce869ed1118011ac37392522ed16720bbcd&quot;</span>),
-				hex(<span class="string">&quot;d3e7ba6b511162fead58f2c8b5764ce869ed1118011ac37392522ed16720bbcd&quot;</span>),
-				hex(<span class="string">&quot;e3e7ba6b511162fead58f2c8b5764ce869ed1118011ac37392522ed16720bbcd&quot;</span>),
+				hex(<span class="string">"c3e7ba6b511162fead58f2c8b5764ce869ed1118011ac37392522ed16720bbcd"</span>),
+				hex(<span class="string">"d3e7ba6b511162fead58f2c8b5764ce869ed1118011ac37392522ed16720bbcd"</span>),
+				hex(<span class="string">"e3e7ba6b511162fead58f2c8b5764ce869ed1118011ac37392522ed16720bbcd"</span>),
 			],
 		};
 
@@ -1292,10 +1294,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>should_encode_decode_correctly_if_no_compact() {
 		<span class="comment">// given
 		</span><span class="kw">let </span>cases = <span class="macro">vec!</span>[
-			Test::Data(<span class="string">&quot;Hello World!&quot;</span>.into()),
-			Test::Hash(hex(<span class="string">&quot;c3e7ba6b511162fead58f2c8b5764ce869ed1118011ac37392522ed16720bbcd&quot;</span>)),
-			Test::Data(<span class="string">&quot;&quot;</span>.into()),
-			Test::Data(<span class="string">&quot;3e48d6bcd417fb22e044747242451e2c0f3e602d1bcad2767c34808621956417&quot;</span>.into()),
+			Test::Data(<span class="string">"Hello World!"</span>.into()),
+			Test::Hash(hex(<span class="string">"c3e7ba6b511162fead58f2c8b5764ce869ed1118011ac37392522ed16720bbcd"</span>)),
+			Test::Data(<span class="string">""</span>.into()),
+			Test::Data(<span class="string">"3e48d6bcd417fb22e044747242451e2c0f3e602d1bcad2767c34808621956417"</span>.into()),
 		];
 
 		<span class="comment">// when
@@ -1311,12 +1313,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// check encoding correctness
 		</span><span class="macro">assert_eq!</span>(
 			<span class="kw-2">&amp;</span>encoded[<span class="number">0</span>],
-			<span class="kw-2">&amp;</span>array_bytes::hex2bytes_unchecked(<span class="string">&quot;00343048656c6c6f20576f726c6421&quot;</span>)
+			<span class="kw-2">&amp;</span>array_bytes::hex2bytes_unchecked(<span class="string">"00343048656c6c6f20576f726c6421"</span>)
 		);
 		<span class="macro">assert_eq!</span>(
 			encoded[<span class="number">1</span>].as_slice(),
 			array_bytes::hex2bytes_unchecked(
-				<span class="string">&quot;01c3e7ba6b511162fead58f2c8b5764ce869ed1118011ac37392522ed16720bbcd&quot;
+				<span class="string">"01c3e7ba6b511162fead58f2c8b5764ce869ed1118011ac37392522ed16720bbcd"
 			</span>)
 			.as_slice()
 		);
@@ -1325,23 +1327,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>should_return_the_hash_correctly() {
 		<span class="comment">// given
-		</span><span class="kw">let </span>a = Test::Data(<span class="string">&quot;Hello World!&quot;</span>.into());
-		<span class="kw">let </span>b = Test::Hash(hex(<span class="string">&quot;c3e7ba6b511162fead58f2c8b5764ce869ed1118011ac37392522ed16720bbcd&quot;</span>));
+		</span><span class="kw">let </span>a = Test::Data(<span class="string">"Hello World!"</span>.into());
+		<span class="kw">let </span>b = Test::Hash(hex(<span class="string">"c3e7ba6b511162fead58f2c8b5764ce869ed1118011ac37392522ed16720bbcd"</span>));
 
 		<span class="comment">// when
 		</span><span class="kw">let </span>a = a.hash();
 		<span class="kw">let </span>b = b.hash();
 
 		<span class="comment">// then
-		</span><span class="macro">assert_eq!</span>(a, hex(<span class="string">&quot;a9c321be8c24ba4dc2bd73f5300bde67dc57228ab8b68b607bb4c39c5374fac9&quot;</span>));
-		<span class="macro">assert_eq!</span>(b, hex(<span class="string">&quot;c3e7ba6b511162fead58f2c8b5764ce869ed1118011ac37392522ed16720bbcd&quot;</span>));
+		</span><span class="macro">assert_eq!</span>(a, hex(<span class="string">"a9c321be8c24ba4dc2bd73f5300bde67dc57228ab8b68b607bb4c39c5374fac9"</span>));
+		<span class="macro">assert_eq!</span>(b, hex(<span class="string">"c3e7ba6b511162fead58f2c8b5764ce869ed1118011ac37392522ed16720bbcd"</span>));
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>compact_should_work() {
 		<span class="comment">// given
-		</span><span class="kw">let </span>a = Test::Data(<span class="string">&quot;Hello World!&quot;</span>.into());
-		<span class="kw">let </span>b = Test::Data(<span class="string">&quot;&quot;</span>.into());
+		</span><span class="kw">let </span>a = Test::Data(<span class="string">"Hello World!"</span>.into());
+		<span class="kw">let </span>b = Test::Data(<span class="string">""</span>.into());
 
 		<span class="comment">// when
 		</span><span class="kw">let </span>c: TestCompact = Compact::new((a.clone(), b.clone()));
@@ -1354,8 +1356,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>compact_should_encode_decode_correctly() {
 		<span class="comment">// given
-		</span><span class="kw">let </span>a = Test::Data(<span class="string">&quot;Hello World!&quot;</span>.into());
-		<span class="kw">let </span>b = Test::Data(<span class="string">&quot;&quot;</span>.into());
+		</span><span class="kw">let </span>a = Test::Data(<span class="string">"Hello World!"</span>.into());
+		<span class="kw">let </span>b = Test::Data(<span class="string">""</span>.into());
 
 		<span class="kw">let </span>c: TestCompact = Compact::new((a.clone(), b.clone()));
 		<span class="kw">let </span>d: TestCompact = Compact::new((Test::Hash(a.hash()), Test::Hash(b.hash())));
@@ -1387,8 +1389,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>opaque_leaves_should_be_full_leaf_compatible() {
 		<span class="comment">// given
-		</span><span class="kw">let </span>a = Test::Data(<span class="string">&quot;Hello World!&quot;</span>.into());
-		<span class="kw">let </span>b = Test::Data(<span class="string">&quot;&quot;</span>.into());
+		</span><span class="kw">let </span>a = Test::Data(<span class="string">"Hello World!"</span>.into());
+		<span class="kw">let </span>b = Test::Data(<span class="string">""</span>.into());
 
 		<span class="kw">let </span>c: TestCompact = Compact::new((a.clone(), b.clone()));
 		<span class="kw">let </span>d: TestCompact = Compact::new((Test::Hash(a.hash()), Test::Hash(b.hash())));
@@ -1411,7 +1413,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">use </span>codec::Encode;
 
 		<span class="comment">// given
-		</span><span class="kw">let </span>a = Test::Data(<span class="string">&quot;Hello World!&quot;</span>.into());
+		</span><span class="kw">let </span>a = Test::Data(<span class="string">"Hello World!"</span>.into());
 		<span class="kw">let </span>case1 = EncodableOpaqueLeaf::from_leaf(<span class="kw-2">&amp;</span>a);
 		<span class="kw">let </span>case2 = EncodableOpaqueLeaf::from_opaque_leaf(OpaqueLeaf(a.encode()));
 		<span class="kw">let </span>case3 = a.encode().encode();

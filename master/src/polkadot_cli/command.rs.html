@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/cli/src/command.rs`."><title>command.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/cli/src/command.rs`."><title>command.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_cli" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_cli" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../polkadot_cli/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -669,9 +671,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>std::net::ToSocketAddrs;
 
 <span class="kw">pub use crate</span>::{error::Error, service::BlockId};
-<span class="attr">#[cfg(feature = <span class="string">&quot;hostperfcheck&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"hostperfcheck"</span>)]
 </span><span class="kw">pub use </span>polkadot_performance_test::PerfCheckError;
-<span class="attr">#[cfg(feature = <span class="string">&quot;pyroscope&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"pyroscope"</span>)]
 </span><span class="kw">use </span>pyroscope_pprofrs::{pprof_backend, PprofConfig};
 
 <span class="kw">type </span><span class="prelude-ty">Result</span>&lt;T&gt; = std::result::Result&lt;T, Error&gt;;
@@ -685,24 +687,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl </span>SubstrateCli <span class="kw">for </span>Cli {
 	<span class="kw">fn </span>impl_name() -&gt; String {
-		<span class="string">&quot;Parity Polkadot&quot;</span>.into()
+		<span class="string">"Parity Polkadot"</span>.into()
 	}
 
 	<span class="kw">fn </span>impl_version() -&gt; String {
-		<span class="kw">let </span>commit_hash = <span class="macro">env!</span>(<span class="string">&quot;SUBSTRATE_CLI_COMMIT_HASH&quot;</span>);
-		<span class="macro">format!</span>(<span class="string">&quot;{}-{commit_hash}&quot;</span>, NODE_VERSION)
+		<span class="kw">let </span>commit_hash = <span class="macro">env!</span>(<span class="string">"SUBSTRATE_CLI_COMMIT_HASH"</span>);
+		<span class="macro">format!</span>(<span class="string">"{}-{commit_hash}"</span>, NODE_VERSION)
 	}
 
 	<span class="kw">fn </span>description() -&gt; String {
-		<span class="macro">env!</span>(<span class="string">&quot;CARGO_PKG_DESCRIPTION&quot;</span>).into()
+		<span class="macro">env!</span>(<span class="string">"CARGO_PKG_DESCRIPTION"</span>).into()
 	}
 
 	<span class="kw">fn </span>author() -&gt; String {
-		<span class="macro">env!</span>(<span class="string">&quot;CARGO_PKG_AUTHORS&quot;</span>).into()
+		<span class="macro">env!</span>(<span class="string">"CARGO_PKG_AUTHORS"</span>).into()
 	}
 
 	<span class="kw">fn </span>support_url() -&gt; String {
-		<span class="string">&quot;https://github.com/paritytech/polkadot-sdk/issues/new&quot;</span>.into()
+		<span class="string">"https://github.com/paritytech/polkadot-sdk/issues/new"</span>.into()
 	}
 
 	<span class="kw">fn </span>copyright_start_year() -&gt; i32 {
@@ -710,65 +712,65 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>}
 
 	<span class="kw">fn </span>executable_name() -&gt; String {
-		<span class="string">&quot;polkadot&quot;</span>.into()
+		<span class="string">"polkadot"</span>.into()
 	}
 
 	<span class="kw">fn </span>load_spec(<span class="kw-2">&amp;</span><span class="self">self</span>, id: <span class="kw-2">&amp;</span>str) -&gt; std::result::Result&lt;Box&lt;<span class="kw">dyn </span>sc_service::ChainSpec&gt;, String&gt; {
-		<span class="kw">let </span>id = <span class="kw">if </span>id == <span class="string">&quot;&quot; </span>{
+		<span class="kw">let </span>id = <span class="kw">if </span>id == <span class="string">"" </span>{
 			<span class="kw">let </span>n = get_exec_name().unwrap_or_default();
-			[<span class="string">&quot;polkadot&quot;</span>, <span class="string">&quot;kusama&quot;</span>, <span class="string">&quot;westend&quot;</span>, <span class="string">&quot;rococo&quot;</span>, <span class="string">&quot;versi&quot;</span>]
+			[<span class="string">"polkadot"</span>, <span class="string">"kusama"</span>, <span class="string">"westend"</span>, <span class="string">"rococo"</span>, <span class="string">"versi"</span>]
 				.iter()
 				.cloned()
 				.find(|<span class="kw-2">&amp;</span>chain| n.starts_with(chain))
-				.unwrap_or(<span class="string">&quot;polkadot&quot;</span>)
+				.unwrap_or(<span class="string">"polkadot"</span>)
 		} <span class="kw">else </span>{
 			id
 		};
 		<span class="prelude-val">Ok</span>(<span class="kw">match </span>id {
-			<span class="string">&quot;kusama&quot; </span>=&gt; Box::new(service::chain_spec::kusama_config()<span class="question-mark">?</span>),
-			name <span class="kw">if </span>name.starts_with(<span class="string">&quot;kusama-&quot;</span>) &amp;&amp; !name.ends_with(<span class="string">&quot;.json&quot;</span>) =&gt;
-				<span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">&quot;`{name}` is not supported anymore as the kusama native runtime no longer part of the node.&quot;</span>))<span class="question-mark">?</span>,
-			<span class="string">&quot;polkadot&quot; </span>=&gt; Box::new(service::chain_spec::polkadot_config()<span class="question-mark">?</span>),
-			name <span class="kw">if </span>name.starts_with(<span class="string">&quot;polkadot-&quot;</span>) &amp;&amp; !name.ends_with(<span class="string">&quot;.json&quot;</span>) =&gt;
-				<span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">&quot;`{name}` is not supported anymore as the polkadot native runtime no longer part of the node.&quot;</span>))<span class="question-mark">?</span>,
-			<span class="string">&quot;paseo&quot; </span>=&gt; Box::new(service::chain_spec::paseo_config()<span class="question-mark">?</span>),
-			<span class="string">&quot;rococo&quot; </span>=&gt; Box::new(service::chain_spec::rococo_config()<span class="question-mark">?</span>),
-			<span class="attr">#[cfg(feature = <span class="string">&quot;rococo-native&quot;</span>)]
-			</span><span class="string">&quot;dev&quot; </span>| <span class="string">&quot;rococo-dev&quot; </span>=&gt; Box::new(service::chain_spec::rococo_development_config()<span class="question-mark">?</span>),
-			<span class="attr">#[cfg(feature = <span class="string">&quot;rococo-native&quot;</span>)]
-			</span><span class="string">&quot;rococo-local&quot; </span>=&gt; Box::new(service::chain_spec::rococo_local_testnet_config()<span class="question-mark">?</span>),
-			<span class="attr">#[cfg(feature = <span class="string">&quot;rococo-native&quot;</span>)]
-			</span><span class="string">&quot;rococo-staging&quot; </span>=&gt; Box::new(service::chain_spec::rococo_staging_testnet_config()<span class="question-mark">?</span>),
-			<span class="attr">#[cfg(not(feature = <span class="string">&quot;rococo-native&quot;</span>))]
-			</span>name <span class="kw">if </span>name.starts_with(<span class="string">&quot;rococo-&quot;</span>) &amp;&amp; !name.ends_with(<span class="string">&quot;.json&quot;</span>) || name == <span class="string">&quot;dev&quot; </span>=&gt;
-				<span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">&quot;`{}` only supported with `rococo-native` feature enabled.&quot;</span>, name))<span class="question-mark">?</span>,
-			<span class="string">&quot;westend&quot; </span>=&gt; Box::new(service::chain_spec::westend_config()<span class="question-mark">?</span>),
-			<span class="attr">#[cfg(feature = <span class="string">&quot;westend-native&quot;</span>)]
-			</span><span class="string">&quot;westend-dev&quot; </span>=&gt; Box::new(service::chain_spec::westend_development_config()<span class="question-mark">?</span>),
-			<span class="attr">#[cfg(feature = <span class="string">&quot;westend-native&quot;</span>)]
-			</span><span class="string">&quot;westend-local&quot; </span>=&gt; Box::new(service::chain_spec::westend_local_testnet_config()<span class="question-mark">?</span>),
-			<span class="attr">#[cfg(feature = <span class="string">&quot;westend-native&quot;</span>)]
-			</span><span class="string">&quot;westend-staging&quot; </span>=&gt; Box::new(service::chain_spec::westend_staging_testnet_config()<span class="question-mark">?</span>),
-			<span class="attr">#[cfg(not(feature = <span class="string">&quot;westend-native&quot;</span>))]
-			</span>name <span class="kw">if </span>name.starts_with(<span class="string">&quot;westend-&quot;</span>) &amp;&amp; !name.ends_with(<span class="string">&quot;.json&quot;</span>) =&gt;
-				<span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">&quot;`{}` only supported with `westend-native` feature enabled.&quot;</span>, name))<span class="question-mark">?</span>,
-			<span class="string">&quot;wococo&quot; </span>=&gt; Box::new(service::chain_spec::wococo_config()<span class="question-mark">?</span>),
-			<span class="attr">#[cfg(feature = <span class="string">&quot;rococo-native&quot;</span>)]
-			</span><span class="string">&quot;wococo-dev&quot; </span>=&gt; Box::new(service::chain_spec::wococo_development_config()<span class="question-mark">?</span>),
-			<span class="attr">#[cfg(feature = <span class="string">&quot;rococo-native&quot;</span>)]
-			</span><span class="string">&quot;wococo-local&quot; </span>=&gt; Box::new(service::chain_spec::wococo_local_testnet_config()<span class="question-mark">?</span>),
-			<span class="attr">#[cfg(not(feature = <span class="string">&quot;rococo-native&quot;</span>))]
-			</span>name <span class="kw">if </span>name.starts_with(<span class="string">&quot;wococo-&quot;</span>) =&gt;
-				<span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">&quot;`{}` only supported with `rococo-native` feature enabled.&quot;</span>, name))<span class="question-mark">?</span>,
-			<span class="attr">#[cfg(feature = <span class="string">&quot;rococo-native&quot;</span>)]
-			</span><span class="string">&quot;versi-dev&quot; </span>=&gt; Box::new(service::chain_spec::versi_development_config()<span class="question-mark">?</span>),
-			<span class="attr">#[cfg(feature = <span class="string">&quot;rococo-native&quot;</span>)]
-			</span><span class="string">&quot;versi-local&quot; </span>=&gt; Box::new(service::chain_spec::versi_local_testnet_config()<span class="question-mark">?</span>),
-			<span class="attr">#[cfg(feature = <span class="string">&quot;rococo-native&quot;</span>)]
-			</span><span class="string">&quot;versi-staging&quot; </span>=&gt; Box::new(service::chain_spec::versi_staging_testnet_config()<span class="question-mark">?</span>),
-			<span class="attr">#[cfg(not(feature = <span class="string">&quot;rococo-native&quot;</span>))]
-			</span>name <span class="kw">if </span>name.starts_with(<span class="string">&quot;versi-&quot;</span>) =&gt;
-				<span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">&quot;`{}` only supported with `rococo-native` feature enabled.&quot;</span>, name))<span class="question-mark">?</span>,
+			<span class="string">"kusama" </span>=&gt; Box::new(service::chain_spec::kusama_config()<span class="question-mark">?</span>),
+			name <span class="kw">if </span>name.starts_with(<span class="string">"kusama-"</span>) &amp;&amp; !name.ends_with(<span class="string">".json"</span>) =&gt;
+				<span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">"`{name}` is not supported anymore as the kusama native runtime no longer part of the node."</span>))<span class="question-mark">?</span>,
+			<span class="string">"polkadot" </span>=&gt; Box::new(service::chain_spec::polkadot_config()<span class="question-mark">?</span>),
+			name <span class="kw">if </span>name.starts_with(<span class="string">"polkadot-"</span>) &amp;&amp; !name.ends_with(<span class="string">".json"</span>) =&gt;
+				<span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">"`{name}` is not supported anymore as the polkadot native runtime no longer part of the node."</span>))<span class="question-mark">?</span>,
+			<span class="string">"paseo" </span>=&gt; Box::new(service::chain_spec::paseo_config()<span class="question-mark">?</span>),
+			<span class="string">"rococo" </span>=&gt; Box::new(service::chain_spec::rococo_config()<span class="question-mark">?</span>),
+			<span class="attr">#[cfg(feature = <span class="string">"rococo-native"</span>)]
+			</span><span class="string">"dev" </span>| <span class="string">"rococo-dev" </span>=&gt; Box::new(service::chain_spec::rococo_development_config()<span class="question-mark">?</span>),
+			<span class="attr">#[cfg(feature = <span class="string">"rococo-native"</span>)]
+			</span><span class="string">"rococo-local" </span>=&gt; Box::new(service::chain_spec::rococo_local_testnet_config()<span class="question-mark">?</span>),
+			<span class="attr">#[cfg(feature = <span class="string">"rococo-native"</span>)]
+			</span><span class="string">"rococo-staging" </span>=&gt; Box::new(service::chain_spec::rococo_staging_testnet_config()<span class="question-mark">?</span>),
+			<span class="attr">#[cfg(not(feature = <span class="string">"rococo-native"</span>))]
+			</span>name <span class="kw">if </span>name.starts_with(<span class="string">"rococo-"</span>) &amp;&amp; !name.ends_with(<span class="string">".json"</span>) || name == <span class="string">"dev" </span>=&gt;
+				<span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">"`{}` only supported with `rococo-native` feature enabled."</span>, name))<span class="question-mark">?</span>,
+			<span class="string">"westend" </span>=&gt; Box::new(service::chain_spec::westend_config()<span class="question-mark">?</span>),
+			<span class="attr">#[cfg(feature = <span class="string">"westend-native"</span>)]
+			</span><span class="string">"westend-dev" </span>=&gt; Box::new(service::chain_spec::westend_development_config()<span class="question-mark">?</span>),
+			<span class="attr">#[cfg(feature = <span class="string">"westend-native"</span>)]
+			</span><span class="string">"westend-local" </span>=&gt; Box::new(service::chain_spec::westend_local_testnet_config()<span class="question-mark">?</span>),
+			<span class="attr">#[cfg(feature = <span class="string">"westend-native"</span>)]
+			</span><span class="string">"westend-staging" </span>=&gt; Box::new(service::chain_spec::westend_staging_testnet_config()<span class="question-mark">?</span>),
+			<span class="attr">#[cfg(not(feature = <span class="string">"westend-native"</span>))]
+			</span>name <span class="kw">if </span>name.starts_with(<span class="string">"westend-"</span>) &amp;&amp; !name.ends_with(<span class="string">".json"</span>) =&gt;
+				<span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">"`{}` only supported with `westend-native` feature enabled."</span>, name))<span class="question-mark">?</span>,
+			<span class="string">"wococo" </span>=&gt; Box::new(service::chain_spec::wococo_config()<span class="question-mark">?</span>),
+			<span class="attr">#[cfg(feature = <span class="string">"rococo-native"</span>)]
+			</span><span class="string">"wococo-dev" </span>=&gt; Box::new(service::chain_spec::wococo_development_config()<span class="question-mark">?</span>),
+			<span class="attr">#[cfg(feature = <span class="string">"rococo-native"</span>)]
+			</span><span class="string">"wococo-local" </span>=&gt; Box::new(service::chain_spec::wococo_local_testnet_config()<span class="question-mark">?</span>),
+			<span class="attr">#[cfg(not(feature = <span class="string">"rococo-native"</span>))]
+			</span>name <span class="kw">if </span>name.starts_with(<span class="string">"wococo-"</span>) =&gt;
+				<span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">"`{}` only supported with `rococo-native` feature enabled."</span>, name))<span class="question-mark">?</span>,
+			<span class="attr">#[cfg(feature = <span class="string">"rococo-native"</span>)]
+			</span><span class="string">"versi-dev" </span>=&gt; Box::new(service::chain_spec::versi_development_config()<span class="question-mark">?</span>),
+			<span class="attr">#[cfg(feature = <span class="string">"rococo-native"</span>)]
+			</span><span class="string">"versi-local" </span>=&gt; Box::new(service::chain_spec::versi_local_testnet_config()<span class="question-mark">?</span>),
+			<span class="attr">#[cfg(feature = <span class="string">"rococo-native"</span>)]
+			</span><span class="string">"versi-staging" </span>=&gt; Box::new(service::chain_spec::versi_staging_testnet_config()<span class="question-mark">?</span>),
+			<span class="attr">#[cfg(not(feature = <span class="string">"rococo-native"</span>))]
+			</span>name <span class="kw">if </span>name.starts_with(<span class="string">"versi-"</span>) =&gt;
+				<span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">"`{}` only supported with `rococo-native` feature enabled."</span>, name))<span class="question-mark">?</span>,
 			path =&gt; {
 				<span class="kw">let </span>path = std::path::PathBuf::from(path);
 
@@ -813,7 +815,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// for integration tests as needed.
 /// `malus_finality_delay` restrict finality votes of this node
 /// to be at most `best_block - malus_finality_delay` height.
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;malus&quot;</span>)]
+</span><span class="attr">#[cfg(feature = <span class="string">"malus"</span>)]
 </span><span class="kw">pub fn </span>run_node(
 	run: Cli,
 	overseer_gen: <span class="kw">impl </span>service::OverseerGen,
@@ -842,11 +844,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	set_default_ss58_version(chain_spec);
 
 	<span class="kw">if </span>chain_spec.is_kusama() {
-		<span class="macro">info!</span>(<span class="string">&quot;----------------------------&quot;</span>);
-		<span class="macro">info!</span>(<span class="string">&quot;This chain is not in any way&quot;</span>);
-		<span class="macro">info!</span>(<span class="string">&quot;      endorsed by the       &quot;</span>);
-		<span class="macro">info!</span>(<span class="string">&quot;     KUSAMA FOUNDATION      &quot;</span>);
-		<span class="macro">info!</span>(<span class="string">&quot;----------------------------&quot;</span>);
+		<span class="macro">info!</span>(<span class="string">"----------------------------"</span>);
+		<span class="macro">info!</span>(<span class="string">"This chain is not in any way"</span>);
+		<span class="macro">info!</span>(<span class="string">"      endorsed by the       "</span>);
+		<span class="macro">info!</span>(<span class="string">"     KUSAMA FOUNDATION      "</span>);
+		<span class="macro">info!</span>(<span class="string">"----------------------------"</span>);
 	}
 
 	<span class="kw">let </span>jaeger_agent = <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>jaeger_agent) = cli.run.jaeger_agent {
@@ -913,7 +915,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub fn </span>run() -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
 	<span class="kw">let </span>cli: Cli = Cli::from_args();
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;pyroscope&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"pyroscope"</span>)]
 	</span><span class="kw">let </span><span class="kw-2">mut </span>pyroscope_agent_maybe = <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>agent_addr) = cli.run.pyroscope_server {
 		<span class="kw">let </span>address = agent_addr
 			.to_socket_addrs()
@@ -922,8 +924,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.ok_or_else(|| Error::AddressResolutionMissing)<span class="question-mark">?</span>;
 		<span class="comment">// The pyroscope agent requires a `http://` prefix, so we just do that.
 		</span><span class="kw">let </span>agent = pyro::PyroscopeAgent::builder(
-			<span class="string">&quot;http://&quot;</span>.to_owned() + address.to_string().as_str(),
-			<span class="string">&quot;polkadot&quot;</span>.to_owned(),
+			<span class="string">"http://"</span>.to_owned() + address.to_string().as_str(),
+			<span class="string">"polkadot"</span>.to_owned(),
 		)
 		.backend(pprof_backend(PprofConfig::new().sample_rate(<span class="number">113</span>)))
 		.build()<span class="question-mark">?</span>;
@@ -932,7 +934,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">None
 	</span>};
 
-	<span class="attr">#[cfg(not(feature = <span class="string">&quot;pyroscope&quot;</span>))]
+	<span class="attr">#[cfg(not(feature = <span class="string">"pyroscope"</span>))]
 	</span><span class="kw">if </span>cli.run.pyroscope_server.is_some() {
 		<span class="kw">return </span><span class="prelude-val">Err</span>(Error::PyroscopeNotCompiledIn)
 	}
@@ -1027,15 +1029,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>chain_spec = <span class="kw-2">&amp;</span>runner.config().chain_spec;
 
 			<span class="kw">match </span>cmd {
-				<span class="attr">#[cfg(not(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>))]
+				<span class="attr">#[cfg(not(feature = <span class="string">"runtime-benchmarks"</span>))]
 				</span>BenchmarkCmd::Storage(<span class="kw">_</span>) =&gt;
 					<span class="kw">return </span><span class="prelude-val">Err</span>(sc_cli::Error::Input(
-						<span class="string">&quot;Compile with --features=runtime-benchmarks \
-						to enable storage benchmarks.&quot;
+						<span class="string">"Compile with --features=runtime-benchmarks \
+						to enable storage benchmarks."
 							</span>.into(),
 					)
 					.into()),
-				<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+				<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 				</span>BenchmarkCmd::Storage(cmd) =&gt; runner.sync_run(|<span class="kw-2">mut </span>config| {
 					<span class="kw">let </span>(client, backend, <span class="kw">_</span>, <span class="kw">_</span>) = service::new_chain_ops(<span class="kw-2">&amp;mut </span>config, <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
 					<span class="kw">let </span>db = backend.expose_db();
@@ -1054,7 +1056,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="kw">let </span>(client, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>) = service::new_chain_ops(<span class="kw-2">&amp;mut </span>config, <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
 						<span class="kw">let </span>header = client.header(client.info().genesis_hash).unwrap().unwrap();
 						<span class="kw">let </span>inherent_data = benchmark_inherent_data(header)
-							.map_err(|e| <span class="macro">format!</span>(<span class="string">&quot;generating inherent data: {:?}&quot;</span>, e))<span class="question-mark">?</span>;
+							.map_err(|e| <span class="macro">format!</span>(<span class="string">"generating inherent data: {:?}"</span>, e))<span class="question-mark">?</span>;
 						<span class="kw">let </span>remark_builder =
 							RemarkBuilder::new(client.clone(), config.chain_spec.identify_chain());
 
@@ -1083,13 +1085,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 									<span class="kw-2">&amp;</span>remark_builder,
 								)
 								.map_err(Error::SubstrateCli),
-							<span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(<span class="string">&quot;Ensured by the outside match; qed&quot;</span>),
+							<span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(<span class="string">"Ensured by the outside match; qed"</span>),
 						}
 					}),
 				BenchmarkCmd::Pallet(cmd) =&gt; {
 					set_default_ss58_version(chain_spec);
 
-					<span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>) {
+					<span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">"runtime-benchmarks"</span>) {
 						runner.sync_run(|config| {
 							cmd.run_with_spec::&lt;sp_runtime::traits::HashingFor&lt;service::Block&gt;, ()&gt;(
 								<span class="prelude-val">Some</span>(config.chain_spec),
@@ -1098,8 +1100,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						})
 					} <span class="kw">else </span>{
 						<span class="prelude-val">Err</span>(sc_cli::Error::Input(
-							<span class="string">&quot;Benchmarking wasn&#39;t enabled when building the node. \
-				You can enable it with `--features runtime-benchmarks`.&quot;
+							<span class="string">"Benchmarking wasn't enabled when building the node. \
+				You can enable it with `--features runtime-benchmarks`."
 								</span>.into(),
 						)
 						.into())
@@ -1122,7 +1124,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		},
 	}<span class="question-mark">?</span>;
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;pyroscope&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"pyroscope"</span>)]
 	</span><span class="kw">if let </span><span class="prelude-val">Some</span>(pyroscope_agent) = pyroscope_agent_maybe.take() {
 		<span class="kw">let </span>agent = pyroscope_agent.stop()<span class="question-mark">?</span>;
 		agent.shutdown();

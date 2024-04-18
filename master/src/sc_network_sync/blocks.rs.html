@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/network/sync/src/blocks.rs`."><title>blocks.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/network/sync/src/blocks.rs`."><title>blocks.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_network_sync" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_network_sync" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sc_network_sync/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -886,10 +888,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">match </span><span class="self">self</span>.blocks.get(<span class="kw-2">&amp;</span>start) {
 			<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>BlockRangeState::Downloading { .. }) =&gt; {
-				<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">&quot;Inserting block data still marked as being downloaded: {}&quot;</span>, start);
+				<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">"Inserting block data still marked as being downloaded: {}"</span>, start);
 			},
 			<span class="prelude-val">Some</span>(BlockRangeState::Complete(existing)) <span class="kw">if </span>existing.len() &gt;= blocks.len() =&gt; {
-				<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">&quot;Ignored block data already downloaded: {}&quot;</span>, start);
+				<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">"Ignored block data already downloaded: {}"</span>, start);
 				<span class="kw">return
 			</span>},
 			<span class="kw">_ </span>=&gt; (),
@@ -961,7 +963,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		};
 		<span class="comment">// crop to peers best
 		</span><span class="kw">if </span>range.start &gt; peer_best {
-			<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">&quot;Out of range for peer {} ({} vs {})&quot;</span>, who, range.start, peer_best);
+			<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">"Out of range for peer {} ({} vs {})"</span>, who, range.start, peer_best);
 			<span class="kw">return </span><span class="prelude-val">None
 		</span>}
 		range.end = cmp::min(peer_best + One::one(), range.end);
@@ -972,7 +974,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.next()
 			.map_or(<span class="bool-val">false</span>, |(n, <span class="kw">_</span>)| range.start &gt; <span class="kw-2">*</span>n + max_ahead.into())
 		{
-			<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">&quot;Too far ahead for peer {} ({})&quot;</span>, who, range.start);
+			<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">"Too far ahead for peer {} ({})"</span>, who, range.start);
 			<span class="kw">return </span><span class="prelude-val">None
 		</span>}
 
@@ -986,7 +988,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		);
 		<span class="kw">if </span>range.end &lt;= range.start {
 			<span class="macro">panic!</span>(
-				<span class="string">&quot;Empty range {:?}, count={}, peer_best={}, common={}, blocks={:?}&quot;</span>,
+				<span class="string">"Empty range {:?}, count={}, peer_best={}, common={}, blocks={:?}"</span>,
 				range, count, peer_best, common, <span class="self">self</span>.blocks
 			);
 		}
@@ -1023,7 +1025,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			};
 			<span class="kw-2">*</span>range_data = BlockRangeState::Queued { len };
 		}
-		<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">&quot;{} blocks ready for import&quot;</span>, ready.len());
+		<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">"{} blocks ready for import"</span>, ready.len());
 		ready
 	}
 
@@ -1034,7 +1036,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="self">self</span>.blocks.remove(<span class="kw-2">&amp;</span>block_num);
 				block_num += One::one();
 			}
-			<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">&quot;Cleared blocks from {:?} to {:?}&quot;</span>, from, to);
+			<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">"Cleared blocks from {:?} to {:?}"</span>, from, to);
 		}
 	}
 
@@ -1203,7 +1205,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>bc.clear_peer_download(<span class="kw-2">&amp;</span>peer);
 		bc.insert(<span class="number">40</span>, blocks[..<span class="number">5</span>].to_vec(), peer);
 
-		<span class="comment">// our &quot;node&quot; started on a fork, with its current best = 47, which is &gt; common
+		<span class="comment">// our "node" started on a fork, with its current best = 47, which is &gt; common
 		</span><span class="kw">let </span>ready = bc.ready_blocks(<span class="number">48</span>);
 		<span class="macro">assert_eq!</span>(
 			ready,

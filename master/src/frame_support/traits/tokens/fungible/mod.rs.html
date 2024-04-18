@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/support/src/traits/tokens/fungible/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/support/src/traits/tokens/fungible/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../../../" data-static-root-path="../../../../../static.files/" data-current-crate="frame_support" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../../../src-files.js"></script><script defer src="../../../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../../../" data-static-root-path="../../../../../static.files/" data-current-crate="frame_support" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../../../src-files.js"></script><script defer src="../../../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../../../frame_support/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -508,14 +510,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -550,9 +552,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!
 //! - **Total Issuance**: The total number of units in existence in a system.
 //!
-//! - **Total Balance**: The sum of an account&#39;s free and held balances.
+//! - **Total Balance**: The sum of an account's free and held balances.
 //!
-//! - **Free Balance**: A portion of an account&#39;s total balance that is not held. Note this is
+//! - **Free Balance**: A portion of an account's total balance that is not held. Note this is
 //!   distinct from the Spendable Balance, which represents how much Balance the user can actually
 //!   transfer.
 //!
@@ -563,26 +565,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!   3 holds for 100 units, the account can spend its funds for any reason down to 300 units, at
 //!   which point the holds will start to come into play.
 //!
-//! - **Frozen Balance**: A freeze on a specified amount of an account&#39;s free balance until a
+//! - **Frozen Balance**: A freeze on a specified amount of an account's free balance until a
 //!   specified block number.
 //!
-//!   Multiple freezes always operate over the same funds, so they &quot;overlay&quot; rather than
-//!   &quot;stack&quot;. This means that if an account has 3 freezes for 100 units, the account can spend its
+//!   Multiple freezes always operate over the same funds, so they "overlay" rather than
+//!   "stack". This means that if an account has 3 freezes for 100 units, the account can spend its
 //!   funds for any reason down to 100 units, at which point the freezes will start to come into
 //!   play.
 //!
 //! - **Minimum Balance (a.k.a. Existential Deposit, a.k.a. ED)**: The minimum balance required to
-//!   create or keep an account open. This is to prevent &quot;dust accounts&quot; from filling storage. When
+//!   create or keep an account open. This is to prevent "dust accounts" from filling storage. When
 //!   the free plus the held balance (i.e. the total balance) falls below this, then the account is
 //!   said to be dead. It loses its functionality as well as any prior history and all information
-//!   on it is removed from the chain&#39;s state. No account should ever have a total balance that is
+//!   on it is removed from the chain's state. No account should ever have a total balance that is
 //!   strictly between 0 and the existential deposit (exclusive). If this ever happens, it indicates
 //!   either a bug in the implementation of this trait or an erroneous raw mutation of storage.
 //!
-//! - **Untouchable Balance**: The part of a user&#39;s free balance they cannot spend, due to ED or
+//! - **Untouchable Balance**: The part of a user's free balance they cannot spend, due to ED or
 //!   Freeze(s).
 //!
-//! - **Spendable Balance**: The part of a user&#39;s free balance they can actually transfer, after
+//! - **Spendable Balance**: The part of a user's free balance they can actually transfer, after
 //!   accounting for Holds and Freezes.
 //!
 //! - **Imbalance**: A condition when some funds were credited or debited without equal and opposite
@@ -692,7 +694,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Consideration method using a `fungible` balance frozen as the cost exacted for the footprint.
 ///
 /// The aggregate amount frozen under `R::get()` for any account which has multiple tickets,
-/// is the *cumulative* amounts of each ticket&#39;s footprint (each individually determined by `D`).
+/// is the *cumulative* amounts of each ticket's footprint (each individually determined by `D`).
 </span><span class="attr">#[derive(
 	CloneNoBound,
 	EqNoBound,
@@ -709,10 +711,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">where
 	</span>F: MutateFreeze&lt;A&gt;;
 <span class="kw">impl</span>&lt;
-		A: <span class="lifetime">&#39;static</span>,
-		F: <span class="lifetime">&#39;static </span>+ MutateFreeze&lt;A&gt;,
-		R: <span class="lifetime">&#39;static </span>+ Get&lt;F::Id&gt;,
-		D: <span class="lifetime">&#39;static </span>+ Convert&lt;Footprint, F::Balance&gt;,
+		A: <span class="lifetime">'static</span>,
+		F: <span class="lifetime">'static </span>+ MutateFreeze&lt;A&gt;,
+		R: <span class="lifetime">'static </span>+ Get&lt;F::Id&gt;,
+		D: <span class="lifetime">'static </span>+ Convert&lt;Footprint, F::Balance&gt;,
 	&gt; Consideration&lt;A&gt; <span class="kw">for </span>FreezeConsideration&lt;A, F, R, D&gt;
 {
 	<span class="kw">fn </span>new(who: <span class="kw-2">&amp;</span>A, footprint: Footprint) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, DispatchError&gt; {
@@ -751,10 +753,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">where
 	</span>F: MutateHold&lt;A&gt;;
 <span class="kw">impl</span>&lt;
-		A: <span class="lifetime">&#39;static</span>,
-		F: <span class="lifetime">&#39;static </span>+ MutateHold&lt;A&gt;,
-		R: <span class="lifetime">&#39;static </span>+ Get&lt;F::Reason&gt;,
-		D: <span class="lifetime">&#39;static </span>+ Convert&lt;Footprint, F::Balance&gt;,
+		A: <span class="lifetime">'static</span>,
+		F: <span class="lifetime">'static </span>+ MutateHold&lt;A&gt;,
+		R: <span class="lifetime">'static </span>+ Get&lt;F::Reason&gt;,
+		D: <span class="lifetime">'static </span>+ Convert&lt;Footprint, F::Balance&gt;,
 	&gt; Consideration&lt;A&gt; <span class="kw">for </span>HoldConsideration&lt;A, F, R, D&gt;
 {
 	<span class="kw">fn </span>new(who: <span class="kw-2">&amp;</span>A, footprint: Footprint) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, DispatchError&gt; {
@@ -800,10 +802,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 #[codec(mel_bound())]
 </span><span class="kw">pub struct </span>LoneFreezeConsideration&lt;A, Fx, Rx, D&gt;(PhantomData&lt;<span class="kw">fn</span>() -&gt; (A, Fx, Rx, D)&gt;);
 <span class="kw">impl</span>&lt;
-		A: <span class="lifetime">&#39;static</span>,
-		Fx: <span class="lifetime">&#39;static </span>+ MutateFreeze&lt;A&gt;,
-		Rx: <span class="lifetime">&#39;static </span>+ Get&lt;Fx::Id&gt;,
-		D: <span class="lifetime">&#39;static </span>+ Convert&lt;Footprint, Fx::Balance&gt;,
+		A: <span class="lifetime">'static</span>,
+		Fx: <span class="lifetime">'static </span>+ MutateFreeze&lt;A&gt;,
+		Rx: <span class="lifetime">'static </span>+ Get&lt;Fx::Id&gt;,
+		D: <span class="lifetime">'static </span>+ Convert&lt;Footprint, Fx::Balance&gt;,
 	&gt; Consideration&lt;A&gt; <span class="kw">for </span>LoneFreezeConsideration&lt;A, Fx, Rx, D&gt;
 {
 	<span class="kw">fn </span>new(who: <span class="kw-2">&amp;</span>A, footprint: Footprint) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, DispatchError&gt; {
@@ -839,10 +841,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 #[codec(mel_bound())]
 </span><span class="kw">pub struct </span>LoneHoldConsideration&lt;A, Fx, Rx, D&gt;(PhantomData&lt;<span class="kw">fn</span>() -&gt; (A, Fx, Rx, D)&gt;);
 <span class="kw">impl</span>&lt;
-		A: <span class="lifetime">&#39;static</span>,
-		F: <span class="lifetime">&#39;static </span>+ MutateHold&lt;A&gt;,
-		R: <span class="lifetime">&#39;static </span>+ Get&lt;F::Reason&gt;,
-		D: <span class="lifetime">&#39;static </span>+ Convert&lt;Footprint, F::Balance&gt;,
+		A: <span class="lifetime">'static</span>,
+		F: <span class="lifetime">'static </span>+ MutateHold&lt;A&gt;,
+		R: <span class="lifetime">'static </span>+ Get&lt;F::Reason&gt;,
+		D: <span class="lifetime">'static </span>+ Convert&lt;Footprint, F::Balance&gt;,
 	&gt; Consideration&lt;A&gt; <span class="kw">for </span>LoneHoldConsideration&lt;A, F, R, D&gt;
 {
 	<span class="kw">fn </span>new(who: <span class="kw-2">&amp;</span>A, footprint: Footprint) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, DispatchError&gt; {

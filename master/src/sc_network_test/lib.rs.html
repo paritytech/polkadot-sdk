@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/network/test/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/network/test/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_network_test" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_network_test" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sc_network_test/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1660,7 +1662,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">self</span>.network.service().local_peer_id().into()
 	}
 
-	<span class="doccomment">/// Returns true if we&#39;re major syncing.
+	<span class="doccomment">/// Returns true if we're major syncing.
 	</span><span class="kw">pub fn </span>is_major_syncing(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
 		<span class="self">self</span>.sync_service.is_major_syncing()
 	}
@@ -1672,7 +1674,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">self</span>.select_chain.clone()
 	}
 
-	<span class="doccomment">/// Returns the number of peers we&#39;re connected to.
+	<span class="doccomment">/// Returns the number of peers we're connected to.
 	</span><span class="kw">pub async fn </span>num_peers(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
 		<span class="self">self</span>.sync_service.status().<span class="kw">await</span>.unwrap().num_connected_peers <span class="kw">as </span>usize
 	}
@@ -1787,8 +1789,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>block = edit_block(builder);
 			<span class="kw">let </span>hash = block.header.hash();
 			<span class="macro">trace!</span>(
-				target: <span class="string">&quot;test_network&quot;</span>,
-				<span class="string">&quot;Generating {}, (#{}, parent={})&quot;</span>,
+				target: <span class="string">"test_network"</span>,
+				<span class="string">"Generating {}, (#{}, parent={})"</span>,
 				hash,
 				block.header.number,
 				block.header.parent_hash,
@@ -1801,7 +1803,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				futures::executor::block_on(<span class="self">self</span>.verifier.verify(import_block)).unwrap();
 
 			futures::executor::block_on(<span class="self">self</span>.block_import.import_block(import_block))
-				.expect(<span class="string">&quot;block_import failed&quot;</span>);
+				.expect(<span class="string">"block_import failed"</span>);
 			hashes.push(hash);
 			at = hash;
 		}
@@ -1984,7 +1986,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Implements `BlockImport` for any `Transaction`. Internally the transaction is
-/// &quot;converted&quot;, aka the field is set to `None`.
+/// "converted", aka the field is set to `None`.
 ///
 /// This is required as the `TestNetFactory` trait does not distinguish between
 /// full and light nodes.
@@ -2052,7 +2054,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl</span>&lt;B: BlockT&gt; VerifierAdapter&lt;B&gt; {
-	<span class="kw">fn </span>new(verifier: <span class="kw">impl </span>Verifier&lt;B&gt; + <span class="lifetime">&#39;static</span>) -&gt; <span class="self">Self </span>{
+	<span class="kw">fn </span>new(verifier: <span class="kw">impl </span>Verifier&lt;B&gt; + <span class="lifetime">'static</span>) -&gt; <span class="self">Self </span>{
 		VerifierAdapter {
 			verifier: Arc::new(futures::lock::Mutex::new(Box::new(verifier))),
 			failed_verifications: Default::default(),
@@ -2119,8 +2121,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="attr">#[async_trait::async_trait]
 </span><span class="kw">pub trait </span>TestNetFactory: Default + Sized + Send {
-	<span class="kw">type </span>Verifier: <span class="lifetime">&#39;static </span>+ Verifier&lt;Block&gt;;
-	<span class="kw">type </span>BlockImport: BlockImport&lt;Block, Error = ConsensusError&gt; + Clone + Send + Sync + <span class="lifetime">&#39;static</span>;
+	<span class="kw">type </span>Verifier: <span class="lifetime">'static </span>+ Verifier&lt;Block&gt;;
+	<span class="kw">type </span>BlockImport: BlockImport&lt;Block, Error = ConsensusError&gt; + Clone + Send + Sync + <span class="lifetime">'static</span>;
 	<span class="kw">type </span>PeerData: Default + Send;
 
 	<span class="doccomment">/// This one needs to be implemented!
@@ -2147,11 +2149,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Create new test network with this many peers.
 	</span><span class="kw">fn </span>new(n: usize) -&gt; <span class="self">Self </span>{
-		<span class="macro">trace!</span>(target: <span class="string">&quot;test_network&quot;</span>, <span class="string">&quot;Creating test network&quot;</span>);
+		<span class="macro">trace!</span>(target: <span class="string">"test_network"</span>, <span class="string">"Creating test network"</span>);
 		<span class="kw">let </span><span class="kw-2">mut </span>net = <span class="self">Self</span>::default();
 
 		<span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..n {
-			<span class="macro">trace!</span>(target: <span class="string">&quot;test_network&quot;</span>, <span class="string">&quot;Adding peer {}&quot;</span>, i);
+			<span class="macro">trace!</span>(target: <span class="string">"test_network"</span>, <span class="string">"Adding peer {}"</span>, i);
 			net.add_full_peer();
 		}
 		net
@@ -2201,7 +2203,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>listen_addr = <span class="macro">build_multiaddr!</span>[Memory(rand::random::&lt;u64&gt;())];
 
 		<span class="kw">let </span><span class="kw-2">mut </span>network_config =
-			NetworkConfiguration::new(<span class="string">&quot;test-node&quot;</span>, <span class="string">&quot;test-client&quot;</span>, Default::default(), <span class="prelude-val">None</span>);
+			NetworkConfiguration::new(<span class="string">"test-node"</span>, <span class="string">"test-client"</span>, Default::default(), <span class="prelude-val">None</span>);
 		network_config.sync_mode = config.sync_mode;
 		network_config.transport = TransportConfig::MemoryOnly;
 		network_config.listen_addresses = <span class="macro">vec!</span>[listen_addr.clone()];
@@ -2237,9 +2239,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 		<span class="kw">let </span><span class="kw-2">mut </span>full_net_config = FullNetworkConfiguration::new(<span class="kw-2">&amp;</span>network_config);
 
-		<span class="kw">let </span>protocol_id = ProtocolId::from(<span class="string">&quot;test-protocol-name&quot;</span>);
+		<span class="kw">let </span>protocol_id = ProtocolId::from(<span class="string">"test-protocol-name"</span>);
 
-		<span class="kw">let </span>fork_id = <span class="prelude-val">Some</span>(String::from(<span class="string">&quot;test-fork-id&quot;</span>));
+		<span class="kw">let </span>fork_id = <span class="prelude-val">Some</span>(String::from(<span class="string">"test-fork-id"</span>));
 
 		<span class="kw">let </span>(chain_sync_network_provider, chain_sync_network_handle) =
 			NetworkServiceProvider::new();
@@ -2293,7 +2295,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						.block_hash(<span class="number">0u32</span>.into())
 						.ok()
 						.flatten()
-						.expect(<span class="string">&quot;Genesis block exists; qed&quot;</span>),
+						.expect(<span class="string">"Genesis block exists; qed"</span>),
 					<span class="prelude-val">None</span>,
 					warp_sync.clone(),
 				);
@@ -2358,7 +2360,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 
 		<span class="kw">let </span>genesis_hash =
-			client.hash(Zero::zero()).ok().flatten().expect(<span class="string">&quot;Genesis block exists; qed&quot;</span>);
+			client.hash(Zero::zero()).ok().flatten().expect(<span class="string">"Genesis block exists; qed"</span>);
 		<span class="kw">let </span>network = NetworkWorker::new(sc_network::config::Params {
 			role: <span class="kw">if </span>config.is_authority { Role::Authority } <span class="kw">else </span>{ Role::Full },
 			executor: Box::new(|f| {
@@ -2375,7 +2377,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		})
 		.unwrap();
 
-		<span class="macro">trace!</span>(target: <span class="string">&quot;test_network&quot;</span>, <span class="string">&quot;Peer identifier: {}&quot;</span>, network.service().local_peer_id());
+		<span class="macro">trace!</span>(target: <span class="string">"test_network"</span>, <span class="string">"Peer identifier: {}"</span>, network.service().local_peer_id());
 
 		<span class="kw">let </span>service = network.service().clone();
 		tokio::spawn(<span class="kw">async move </span>{
@@ -2420,7 +2422,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Used to spawn background tasks, e.g. the block request protocol handler.
-	</span><span class="kw">fn </span>spawn_task(<span class="kw-2">&amp;</span><span class="self">self</span>, f: BoxFuture&lt;<span class="lifetime">&#39;static</span>, ()&gt;) {
+	</span><span class="kw">fn </span>spawn_task(<span class="kw-2">&amp;</span><span class="self">self</span>, f: BoxFuture&lt;<span class="lifetime">'static</span>, ()&gt;) {
 		tokio::spawn(f);
 	}
 
@@ -2461,10 +2463,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="bool-val">true
 	</span>}
 
-	<span class="doccomment">/// Blocks the current thread until we are sync&#39;ed.
-	/// Wait until we are sync&#39;ed.
+	<span class="doccomment">/// Blocks the current thread until we are sync'ed.
+	/// Wait until we are sync'ed.
 	///
-	/// (If we&#39;ve not synced within 10 mins then panic rather than hang.)
+	/// (If we've not synced within 10 mins then panic rather than hang.)
 	</span><span class="kw">async fn </span>run_until_sync(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
 		timeout(Duration::from_secs(<span class="number">10 </span>* <span class="number">60</span>), <span class="kw">async </span>{
 			<span class="kw">loop </span>{
@@ -2480,7 +2482,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			}
 		})
 		.<span class="kw">await
-		</span>.expect(<span class="string">&quot;sync didn&#39;t happen within 10 mins&quot;</span>);
+		</span>.expect(<span class="string">"sync didn't happen within 10 mins"</span>);
 	}
 
 	<span class="doccomment">/// Run the network until there are no pending packets.
@@ -2506,7 +2508,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>sync_services =
 			<span class="self">self</span>.peers().iter().map(|info| info.sync_service.clone()).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 
-		<span class="lifetime">&#39;outer</span>: <span class="kw">loop </span>{
+		<span class="lifetime">'outer</span>: <span class="kw">loop </span>{
 			<span class="kw">for </span>sync_service <span class="kw">in </span><span class="kw-2">&amp;</span>sync_services {
 				<span class="kw">if </span>sync_service.status().<span class="kw">await</span>.unwrap().num_connected_peers <span class="kw">as </span>usize !=
 					num_peers - <span class="number">1
@@ -2516,7 +2518,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						Poll::Ready(())
 					})
 					.<span class="kw">await</span>;
-					<span class="kw">continue </span><span class="lifetime">&#39;outer
+					<span class="kw">continue </span><span class="lifetime">'outer
 				</span>}
 			}
 
@@ -2528,7 +2530,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>poll(<span class="kw-2">&amp;mut </span><span class="self">self</span>, cx: <span class="kw-2">&amp;mut </span>FutureContext) {
 		<span class="self">self</span>.mut_peers(|peers| {
 			<span class="kw">for </span>(i, peer) <span class="kw">in </span>peers.iter_mut().enumerate() {
-				<span class="macro">trace!</span>(target: <span class="string">&quot;sync&quot;</span>, <span class="string">&quot;-- Polling {}: {}&quot;</span>, i, peer.id());
+				<span class="macro">trace!</span>(target: <span class="string">"sync"</span>, <span class="string">"-- Polling {}: {}"</span>, i, peer.id());
 				<span class="kw">loop </span>{
 					<span class="comment">// The code below is not quite correct, because we are polling a different
 					// instance of the future every time. But as long as
@@ -2541,7 +2543,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="kw">break
 					</span>}
 				}
-				<span class="macro">trace!</span>(target: <span class="string">&quot;sync&quot;</span>, <span class="string">&quot;-- Polling complete {}: {}&quot;</span>, i, peer.id());
+				<span class="macro">trace!</span>(target: <span class="string">"sync"</span>, <span class="string">"-- Polling complete {}: {}"</span>, i, peer.id());
 
 				<span class="comment">// We poll `imported_blocks_stream`.
 				</span><span class="kw">while let </span>Poll::Ready(<span class="prelude-val">Some</span>(notification)) =

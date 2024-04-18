@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/election-provider-multi-phase/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/election-provider-multi-phase/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_election_provider_multi_phase" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_election_provider_multi_phase" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../pallet_election_provider_multi_phase/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -2859,14 +2861,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -3069,8 +3071,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! useful because an honest validator will run substrate OCW code, which should be good enough to
 //! trump a mediocre or malicious signed submission (assuming in the absence of honest signed bots).
 //! If there are signed submissions, they can be checked against an absolute measure (e.g. PJR),
-//! then we can only open the unsigned phase in extreme conditions (i.e. &quot;no good signed solution
-//! received&quot;) to spare some work for the active validators.
+//! then we can only open the unsigned phase in extreme conditions (i.e. "no good signed solution
+//! received") to spare some work for the active validators.
 //!
 //! **Allow smaller solutions and build up**: For now we only allow solutions that are exactly
 //! [`DesiredTargets`], no more, no less. Over time, we can change this to a [min, max] where any
@@ -3083,7 +3085,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! account the weight of encode/decode in the `submit_unsigned` given its priority. Nonetheless,
 //! all operations on the solution and the snapshot are worthy of taking this into account.
 
-</span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
+</span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
 </span><span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>frame_election_provider_support::{
@@ -3114,17 +3116,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 </span><span class="kw">use </span>sp_runtime::TryRuntimeError;
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 </span><span class="kw">mod </span>benchmarking;
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>mock;
 <span class="attr">#[macro_use]
 </span><span class="kw">pub mod </span>helpers;
 
-<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;runtime::election-provider&quot;</span>;
+<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"runtime::election-provider"</span>;
 
 <span class="kw">pub mod </span>migrations;
 <span class="kw">pub mod </span>signed;
@@ -3181,8 +3183,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// number.
 	///
 	/// We do not yet check whether the unsigned phase is active or passive. The intent is for the
-	/// blockchain to be able to declare: &quot;I believe that there exists an adequate signed
-	/// solution,&quot; advising validators not to bother running the unsigned offchain worker.
+	/// blockchain to be able to declare: "I believe that there exists an adequate signed
+	/// solution," advising validators not to bother running the unsigned offchain worker.
 	///
 	/// As validator nodes are free to edit their OCW code, they could simply ignore this advisory
 	/// and always compute their own solution. However, by default, when the unsigned phase is
@@ -3338,14 +3340,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// Note that this is different from [`pallet::Error`].
 </span><span class="attr">#[derive(frame_support::DebugNoBound)]
-#[cfg_attr(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>, derive(strum::IntoStaticStr))]
+#[cfg_attr(feature = <span class="string">"runtime-benchmarks"</span>, derive(strum::IntoStaticStr))]
 </span><span class="kw">pub enum </span>ElectionError&lt;T: Config&gt; {
 	<span class="doccomment">/// An error happened in the feasibility check sub-system.
 	</span>Feasibility(FeasibilityError),
 	<span class="doccomment">/// An error in the miner (offchain) sub-system.
 	</span>Miner(unsigned::MinerError),
 	<span class="doccomment">/// An error happened in the data provider.
-	</span>DataProvider(<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str),
+	</span>DataProvider(<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str),
 	<span class="doccomment">/// An error nested in the fallback.
 	</span>Fallback(FallbackErrorOf&lt;T&gt;),
 	<span class="doccomment">/// No solution has been queued.
@@ -3385,7 +3387,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Errors that can happen in the feasibility check.
 </span><span class="attr">#[derive(Debug, Eq, PartialEq)]
-#[cfg_attr(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>, derive(strum::IntoStaticStr))]
+#[cfg_attr(feature = <span class="string">"runtime-benchmarks"</span>, derive(strum::IntoStaticStr))]
 </span><span class="kw">pub enum </span>FeasibilityError {
 	<span class="doccomment">/// Wrong number of winners presented.
 	</span>WrongWinnerCount,
@@ -3447,14 +3449,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">type </span>SignedPhase: Get&lt;BlockNumberFor&lt;<span class="self">Self</span>&gt;&gt;;
 
 		<span class="doccomment">/// The minimum amount of improvement to the solution score that defines a solution as
-		/// &quot;better&quot; in the Signed phase.
+		/// "better" in the Signed phase.
 		</span><span class="attr">#[pallet::constant]
 		</span><span class="kw">type </span>BetterSignedThreshold: Get&lt;Perbill&gt;;
 
 		<span class="doccomment">/// The repeat threshold of the offchain worker.
 		///
 		/// For example, if it is 5, that means that at least 5 blocks will elapse between attempts
-		/// to submit the worker&#39;s solution.
+		/// to submit the worker's solution.
 		</span><span class="attr">#[pallet::constant]
 		</span><span class="kw">type </span>OffchainRepeat: Get&lt;BlockNumberFor&lt;<span class="self">Self</span>&gt;&gt;;
 
@@ -3604,7 +3606,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="macro">log!</span>(
 				trace,
-				<span class="string">&quot;current phase {:?}, next election {:?}, metadata: {:?}&quot;</span>,
+				<span class="string">"current phase {:?}, next election {:?}, metadata: {:?}"</span>,
 				current_phase,
 				next_election,
 				<span class="self">Self</span>::snapshot_metadata()
@@ -3619,7 +3621,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						},
 						<span class="prelude-val">Err</span>(why) =&gt; {
 							<span class="comment">// Not much we can do about this at this point.
-							</span><span class="macro">log!</span>(warn, <span class="string">&quot;failed to open signed phase due to {:?}&quot;</span>, why);
+							</span><span class="macro">log!</span>(warn, <span class="string">"failed to open signed phase due to {:?}"</span>, why);
 							T::WeightInfo::on_initialize_nothing()
 						},
 					}
@@ -3641,7 +3643,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						//     unavoidable.
 						</span><span class="kw">let _ </span>= <span class="self">Self</span>::finalize_signed_phase();
 						<span class="comment">// In the future we can consider disabling the unsigned phase if the signed
-						// phase completes successfully, but for now we&#39;re enabling it
+						// phase completes successfully, but for now we're enabling it
 						// unconditionally as a defensive measure.
 						</span>(<span class="bool-val">false</span>, <span class="bool-val">true</span>)
 					} <span class="kw">else </span>{
@@ -3657,7 +3659,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 								T::WeightInfo::on_initialize_open_unsigned()
 							},
 							<span class="prelude-val">Err</span>(why) =&gt; {
-								<span class="macro">log!</span>(warn, <span class="string">&quot;failed to open unsigned phase due to {:?}&quot;</span>, why);
+								<span class="macro">log!</span>(warn, <span class="string">"failed to open unsigned phase due to {:?}"</span>, why);
 								T::WeightInfo::on_initialize_nothing()
 							},
 						}
@@ -3687,7 +3689,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="self">Self</span>::do_synchronized_offchain_worker(now);
 				},
 				<span class="prelude-val">Err</span>(deadline) =&gt; {
-					<span class="macro">log!</span>(debug, <span class="string">&quot;offchain worker lock not released, deadline is {:?}&quot;</span>, deadline);
+					<span class="macro">log!</span>(debug, <span class="string">"offchain worker lock not released, deadline is {:?}"</span>, deadline);
 				},
 			};
 		}
@@ -3715,8 +3717,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.iter()
 				.fold(Zero::zero(), |acc, x| acc.checked_add(x).unwrap());
 
-			<span class="comment">// We only accept data provider who&#39;s maximum votes per voter matches our
-			// `T::Solution`&#39;s `LIMIT`.
+			<span class="comment">// We only accept data provider who's maximum votes per voter matches our
+			// `T::Solution`'s `LIMIT`.
 			//
 			// NOTE that this pallet does not really need to enforce this in runtime. The
 			// solution cannot represent any voters more than `LIMIT` anyhow.
@@ -3725,13 +3727,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				&lt;SolutionOf&lt;T::MinerConfig&gt; <span class="kw">as </span>NposSolution&gt;::LIMIT <span class="kw">as </span>u32,
 			);
 
-			<span class="comment">// While it won&#39;t cause any failures, setting `SignedMaxRefunds` gt
+			<span class="comment">// While it won't cause any failures, setting `SignedMaxRefunds` gt
 			// `SignedMaxSubmissions` is a red flag that the developer does not understand how to
 			// configure this pallet.
 			</span><span class="macro">assert!</span>(T::SignedMaxSubmissions::get() &gt;= T::SignedMaxRefunds::get());
 		}
 
-		<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+		<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 		</span><span class="kw">fn </span>try_state(_n: BlockNumberFor&lt;T&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
 			<span class="self">Self</span>::do_try_state()
 		}
@@ -3769,8 +3771,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			witness: SolutionOrSnapshotSize,
 		) -&gt; DispatchResult {
 			ensure_none(origin)<span class="question-mark">?</span>;
-			<span class="kw">let </span>error_message = <span class="string">&quot;Invalid unsigned submission must produce invalid block and \
-				 deprive validator from their authoring reward.&quot;</span>;
+			<span class="kw">let </span>error_message = <span class="string">"Invalid unsigned submission must produce invalid block and \
+				 deprive validator from their authoring reward."</span>;
 
 			<span class="comment">// Check score being an improvement, phase, and desired targets.
 			</span><span class="self">Self</span>::unsigned_pre_dispatch_checks(<span class="kw-2">&amp;</span>raw_solution).expect(error_message);
@@ -3780,14 +3782,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="self">Self</span>::snapshot_metadata().expect(error_message);
 
 			<span class="comment">// NOTE: we are asserting, not `ensure`ing -- we want to panic here.
-			</span><span class="macro">assert!</span>(voters <span class="kw">as </span>u32 == witness.voters, <span class="string">&quot;{}&quot;</span>, error_message);
-			<span class="macro">assert!</span>(targets <span class="kw">as </span>u32 == witness.targets, <span class="string">&quot;{}&quot;</span>, error_message);
+			</span><span class="macro">assert!</span>(voters <span class="kw">as </span>u32 == witness.voters, <span class="string">"{}"</span>, error_message);
+			<span class="macro">assert!</span>(targets <span class="kw">as </span>u32 == witness.targets, <span class="string">"{}"</span>, error_message);
 
 			<span class="kw">let </span>ready = <span class="self">Self</span>::feasibility_check(<span class="kw-2">*</span>raw_solution, ElectionCompute::Unsigned)
 				.expect(error_message);
 
 			<span class="comment">// Store the newly received solution.
-			</span><span class="macro">log!</span>(debug, <span class="string">&quot;queued unsigned solution with score {:?}&quot;</span>, ready.score);
+			</span><span class="macro">log!</span>(debug, <span class="string">"queued unsigned solution with score {:?}"</span>, ready.score);
 			<span class="kw">let </span>ejected_a_solution = &lt;QueuedSolution&lt;T&gt;&gt;::exists();
 			&lt;QueuedSolution&lt;T&gt;&gt;::put(ready);
 			<span class="self">Self</span>::deposit_event(Event::SolutionStored {
@@ -3835,7 +3837,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// bound supports with T::MaxWinners
 			</span><span class="kw">let </span>supports = supports.try_into().map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::TooManyWinners)<span class="question-mark">?</span>;
 
-			<span class="comment">// Note: we don&#39;t `rotate_round` at this point; the next call to
+			<span class="comment">// Note: we don't `rotate_round` at this point; the next call to
 			// `ElectionProvider::elect` will succeed and take care of that.
 			</span><span class="kw">let </span>solution = ReadySolution {
 				supports,
@@ -3900,11 +3902,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				call_fee,
 			};
 
-			<span class="comment">// insert the submission if the queue has space or it&#39;s better than the weakest
+			<span class="comment">// insert the submission if the queue has space or it's better than the weakest
 			// eject the weakest if the queue was full
 			</span><span class="kw">let </span><span class="kw-2">mut </span>signed_submissions = <span class="self">Self</span>::signed_submissions();
 			<span class="kw">let </span>maybe_removed = <span class="kw">match </span>signed_submissions.insert(submission) {
-				<span class="comment">// it&#39;s an error if we failed to insert a submission: this indicates the queue was
+				<span class="comment">// it's an error if we failed to insert a submission: this indicates the queue was
 				// full but our solution had insufficient score to eject any solution
 				</span>signed::InsertResult::NotInserted =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Error::&lt;T&gt;::SignedQueueFull.into()),
 				signed::InsertResult::Inserted =&gt; <span class="prelude-val">None</span>,
@@ -3954,7 +3956,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				election_bounds.targets,
 			)
 			.map_err(|e| {
-				<span class="macro">log!</span>(error, <span class="string">&quot;GovernanceFallback failed: {:?}&quot;</span>, e);
+				<span class="macro">log!</span>(error, <span class="string">"GovernanceFallback failed: {:?}"</span>, e);
 				Error::&lt;T&gt;::FallbackFailed
 			})<span class="question-mark">?</span>;
 
@@ -4034,7 +4036,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>SignedTooMuchWeight,
 		<span class="doccomment">/// OCW submitted solution for wrong round
 		</span>OcwCallWrongEra,
-		<span class="doccomment">/// Snapshot metadata should exist but didn&#39;t.
+		<span class="doccomment">/// Snapshot metadata should exist but didn't.
 		</span>MissingSnapshotMetadata,
 		<span class="doccomment">/// `Self::insert_submission` returned an invalid index.
 		</span>InvalidSubmissionIndex,
@@ -4063,12 +4065,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 				<span class="kw">let _ </span>= <span class="self">Self</span>::unsigned_pre_dispatch_checks(raw_solution)
 					.map_err(|err| {
-						<span class="macro">log!</span>(debug, <span class="string">&quot;unsigned transaction validation failed due to {:?}&quot;</span>, err);
+						<span class="macro">log!</span>(debug, <span class="string">"unsigned transaction validation failed due to {:?}"</span>, err);
 						err
 					})
 					.map_err(dispatch_error_to_invalid)<span class="question-mark">?</span>;
 
-				ValidTransaction::with_tag_prefix(<span class="string">&quot;OffchainElection&quot;</span>)
+				ValidTransaction::with_tag_prefix(<span class="string">"OffchainElection"</span>)
 					<span class="comment">// The higher the score.minimal_stake, the better a solution is.
 					</span>.priority(
 						T::MinerTxPriority::get()
@@ -4079,7 +4081,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					</span>.and_provides(raw_solution.round)
 					<span class="comment">// Transaction should stay in the pool for the duration of the unsigned phase.
 					</span>.longevity(T::UnsignedPhase::get().saturated_into::&lt;u64&gt;())
-					<span class="comment">// We don&#39;t propagate this. This can never be validated at a remote node.
+					<span class="comment">// We don't propagate this. This can never be validated at a remote node.
 					</span>.propagate(<span class="bool-val">false</span>)
 					.build()
 			} <span class="kw">else </span>{
@@ -4152,7 +4154,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="comment">// The following storage items collectively comprise `SignedSubmissions&lt;T&gt;`, and should never be
 	// accessed independently. Instead, get `Self::signed_submissions()`, modify it as desired, and
-	// then do `signed_submissions.put()` when you&#39;re done with it.
+	// then do `signed_submissions.put()` when you're done with it.
 
 	</span><span class="doccomment">/// The next index to be assigned to an incoming signed submission.
 	///
@@ -4160,8 +4162,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// submission for the duration of the election. On election finalization, the next index is
 	/// reset to 0.
 	///
-	/// We can&#39;t just use `SignedSubmissionIndices.len()`, because that&#39;s a bounded set; past its
-	/// capacity, it will simply saturate. We can&#39;t just iterate over `SignedSubmissionsMap`,
+	/// We can't just use `SignedSubmissionIndices.len()`, because that's a bounded set; past its
+	/// capacity, it will simply saturate. We can't just iterate over `SignedSubmissionsMap`,
 	/// because iteration is slow. Instead, we store the value here.
 	</span><span class="attr">#[pallet::storage]
 	</span><span class="kw">pub type </span>SignedSubmissionNextIndex&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, u32, ValueQuery&gt;;
@@ -4170,7 +4172,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// value in `SignedSubmissions`.
 	///
 	/// We never need to process more than a single signed submission at a time. Signed submissions
-	/// can be quite large, so we&#39;re willing to pay the cost of multiple database accesses to access
+	/// can be quite large, so we're willing to pay the cost of multiple database accesses to access
 	/// them one at a time instead of reading and decoding all of them at once.
 	</span><span class="attr">#[pallet::storage]
 	</span><span class="kw">pub type </span>SignedSubmissionIndices&lt;T: Config&gt; =
@@ -4182,14 +4184,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// allowing us to keep only a single one in memory at a time.
 	///
 	/// Twox note: the key of the map is an auto-incrementing index which users cannot inspect or
-	/// affect; we shouldn&#39;t need a cryptographically secure hasher.
+	/// affect; we shouldn't need a cryptographically secure hasher.
 	</span><span class="attr">#[pallet::storage]
 	</span><span class="kw">pub type </span>SignedSubmissionsMap&lt;T: Config&gt; =
 		StorageMap&lt;<span class="kw">_</span>, Twox64Concat, u32, SignedSubmissionOf&lt;T&gt;, OptionQuery&gt;;
 
 	<span class="comment">// `SignedSubmissions` items end here.
 
-	</span><span class="doccomment">/// The minimum score that each &#39;untrusted&#39; solution must attain in order to be considered
+	</span><span class="doccomment">/// The minimum score that each 'untrusted' solution must attain in order to be considered
 	/// feasible.
 	///
 	/// Can be set via `set_minimum_untrusted_score`.
@@ -4228,7 +4230,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Check if all of the storage items exist at the same time or all of the storage items do not
 	/// exist.
-	</span><span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+	</span><span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 	</span><span class="kw">pub fn </span>is_consistent() -&gt; bool {
 		<span class="kw">let </span>snapshots = [
 			&lt;Snapshot&lt;T&gt;&gt;::exists(),
@@ -4246,7 +4248,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// acquired with success.
 	</span><span class="kw">fn </span>do_synchronized_offchain_worker(now: BlockNumberFor&lt;T&gt;) {
 		<span class="kw">let </span>current_phase = <span class="self">Self</span>::current_phase();
-		<span class="macro">log!</span>(trace, <span class="string">&quot;lock for offchain worker acquired. Phase = {:?}&quot;</span>, current_phase);
+		<span class="macro">log!</span>(trace, <span class="string">"lock for offchain worker acquired. Phase = {:?}"</span>, current_phase);
 		<span class="kw">match </span>current_phase {
 			Phase::Unsigned((<span class="bool-val">true</span>, opened)) <span class="kw">if </span>opened == now =&gt; {
 				<span class="comment">// Mine a new solution, cache it, and attempt to submit it
@@ -4256,14 +4258,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					</span>unsigned::kill_ocw_solution::&lt;T&gt;();
 					<span class="self">Self</span>::mine_check_save_submit()
 				});
-				<span class="macro">log!</span>(debug, <span class="string">&quot;initial offchain thread output: {:?}&quot;</span>, initial_output);
+				<span class="macro">log!</span>(debug, <span class="string">"initial offchain thread output: {:?}"</span>, initial_output);
 			},
 			Phase::Unsigned((<span class="bool-val">true</span>, opened)) <span class="kw">if </span>opened &lt; now =&gt; {
 				<span class="comment">// Try and resubmit the cached solution, and recompute ONLY if it is not
 				// feasible.
 				</span><span class="kw">let </span>resubmit_output = <span class="self">Self</span>::ensure_offchain_repeat_frequency(now)
 					.and_then(|<span class="kw">_</span>| <span class="self">Self</span>::restore_or_compute_then_maybe_submit());
-				<span class="macro">log!</span>(debug, <span class="string">&quot;resubmit offchain thread output: {:?}&quot;</span>, resubmit_output);
+				<span class="macro">log!</span>(debug, <span class="string">"resubmit offchain thread output: {:?}"</span>, resubmit_output);
 			},
 			<span class="kw">_ </span>=&gt; {},
 		}
@@ -4271,7 +4273,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Phase transition helper.
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>phase_transition(to: Phase&lt;BlockNumberFor&lt;T&gt;&gt;) {
-		<span class="macro">log!</span>(info, <span class="string">&quot;Starting phase {:?}, round {}.&quot;</span>, to, <span class="self">Self</span>::round());
+		<span class="macro">log!</span>(info, <span class="string">"Starting phase {:?}, round {}."</span>, to, <span class="self">Self</span>::round());
 		<span class="self">Self</span>::deposit_event(Event::PhaseTransitioned {
 			from: &lt;CurrentPhase&lt;T&gt;&gt;::get(),
 			to,
@@ -4290,14 +4292,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) {
 		<span class="kw">let </span>metadata =
 			SolutionOrSnapshotSize { voters: voters.len() <span class="kw">as </span>u32, targets: targets.len() <span class="kw">as </span>u32 };
-		<span class="macro">log!</span>(info, <span class="string">&quot;creating a snapshot with metadata {:?}&quot;</span>, metadata);
+		<span class="macro">log!</span>(info, <span class="string">"creating a snapshot with metadata {:?}"</span>, metadata);
 
 		<span class="comment">// instead of using storage APIs, we do a manual encoding into a fixed-size buffer.
 		// `encoded_size` encodes it without storing it anywhere, this should not cause any
 		// allocation.
 		</span><span class="kw">let </span>snapshot = RoundSnapshot::&lt;T::AccountId, VoterOf&lt;T&gt;&gt; { voters, targets };
 		<span class="kw">let </span>size = snapshot.encoded_size();
-		<span class="macro">log!</span>(debug, <span class="string">&quot;snapshot pre-calculated size {:?}&quot;</span>, size);
+		<span class="macro">log!</span>(debug, <span class="string">"snapshot pre-calculated size {:?}"</span>, size);
 		<span class="kw">let </span><span class="kw-2">mut </span>buffer = Vec::with_capacity(size);
 		snapshot.encode_to(<span class="kw-2">&amp;mut </span>buffer);
 
@@ -4345,7 +4347,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if </span>desired_targets &gt; max_desired_targets {
 			<span class="macro">log!</span>(
 				warn,
-				<span class="string">&quot;desired_targets: {} &gt; targets.len(): {}, capping desired_targets&quot;</span>,
+				<span class="string">"desired_targets: {} &gt; targets.len(): {}, capping desired_targets"</span>,
 				desired_targets,
 				max_desired_targets
 			);
@@ -4457,14 +4459,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.map(|ReadySolution { compute, score, supports }| {
 				<span class="self">Self</span>::deposit_event(Event::ElectionFinalized { compute, score });
 				<span class="kw">if </span><span class="self">Self</span>::round() != <span class="number">1 </span>{
-					<span class="macro">log!</span>(info, <span class="string">&quot;Finalized election round with compute {:?}.&quot;</span>, compute);
+					<span class="macro">log!</span>(info, <span class="string">"Finalized election round with compute {:?}."</span>, compute);
 				}
 				supports
 			})
 			.map_err(|err| {
 				<span class="self">Self</span>::deposit_event(Event::ElectionFailed);
 				<span class="kw">if </span><span class="self">Self</span>::round() != <span class="number">1 </span>{
-					<span class="macro">log!</span>(warn, <span class="string">&quot;Failed to finalize election round. reason {:?}&quot;</span>, err);
+					<span class="macro">log!</span>(warn, <span class="string">"Failed to finalize election round. reason {:?}"</span>, err);
 				}
 				err
 			})
@@ -4481,7 +4483,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 </span><span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
 	<span class="kw">fn </span>do_try_state() -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
 		<span class="self">Self</span>::try_state_snapshot()<span class="question-mark">?</span>;
@@ -4496,7 +4498,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if </span>SnapshotWrapper::&lt;T&gt;::is_consistent() {
 			<span class="prelude-val">Ok</span>(())
 		} <span class="kw">else </span>{
-			<span class="prelude-val">Err</span>(<span class="string">&quot;If snapshot exists, metadata and desired targets should be set too. Otherwise, none should be set.&quot;</span>.into())
+			<span class="prelude-val">Err</span>(<span class="string">"If snapshot exists, metadata and desired targets should be set too. Otherwise, none should be set."</span>.into())
 		}
 	}
 
@@ -4512,7 +4514,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>submission = &lt;SignedSubmissionsMap&lt;T&gt;&gt;::get(indice.<span class="number">2</span>);
 			<span class="kw">if </span>submission.is_none() {
 				<span class="kw">return </span><span class="prelude-val">Err</span>(
-					<span class="string">&quot;All signed submissions indices must be part of the submissions map&quot;</span>.into()
+					<span class="string">"All signed submissions indices must be part of the submissions map"</span>.into()
 				)
 			}
 
@@ -4521,7 +4523,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span>} <span class="kw">else </span>{
 				<span class="kw">if </span>last_score.strict_threshold_better(indice.<span class="number">0</span>, Perbill::zero()) {
 					<span class="kw">return </span><span class="prelude-val">Err</span>(
-						<span class="string">&quot;Signed submission indices vector must be ordered by election score&quot;</span>.into()
+						<span class="string">"Signed submission indices vector must be ordered by election score"</span>.into()
 					)
 				}
 				last_score = indice.<span class="number">0</span>;
@@ -4530,7 +4532,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">if </span>&lt;SignedSubmissionsMap&lt;T&gt;&gt;::iter().nth(indices.len()).is_some() {
 			<span class="kw">return </span><span class="prelude-val">Err</span>(
-				<span class="string">&quot;Signed submissions map length should be the same as the indices vec length&quot;</span>.into()
+				<span class="string">"Signed submissions map length should be the same as the indices vec length"</span>.into()
 			)
 		}
 
@@ -4539,7 +4541,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			next =&gt;
 				<span class="kw">if </span>&lt;SignedSubmissionsMap&lt;T&gt;&gt;::get(next).is_some() {
 					<span class="kw">return </span><span class="prelude-val">Err</span>(
-						<span class="string">&quot;The next submissions index should not be in the submissions maps already&quot;
+						<span class="string">"The next submissions index should not be in the submissions maps already"
 							</span>.into(),
 					)
 				} <span class="kw">else </span>{
@@ -4555,7 +4557,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="bool-val">false </span>=&gt; <span class="prelude-val">Ok</span>(()),
 			<span class="bool-val">true </span>=&gt;
 				<span class="kw">if </span>&lt;Snapshot&lt;T&gt;&gt;::get().is_some() {
-					<span class="prelude-val">Err</span>(<span class="string">&quot;Snapshot must be none when in Phase::Off&quot;</span>.into())
+					<span class="prelude-val">Err</span>(<span class="string">"Snapshot must be none when in Phase::Off"</span>.into())
 				} <span class="kw">else </span>{
 					<span class="prelude-val">Ok</span>(())
 				},
@@ -4588,7 +4590,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="prelude-val">Ok</span>(supports)
 			},
 			<span class="prelude-val">Err</span>(why) =&gt; {
-				<span class="macro">log!</span>(error, <span class="string">&quot;Entering emergency mode: {:?}&quot;</span>, why);
+				<span class="macro">log!</span>(error, <span class="string">"Entering emergency mode: {:?}"</span>, why);
 				<span class="self">Self</span>::phase_transition(Phase::Emergency);
 				<span class="prelude-val">Err</span>(why)
 			},
@@ -4706,7 +4708,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			// Swap all votes from 3 to 4. This will ensure that the number of unique winners will
 			// still be 4, but one of the indices will be gibberish. Requirement is to make sure 3 a
-			// winner, which we don&#39;t do here.
+			// winner, which we don't do here.
 			</span>raw.solution
 				.votes1
 				.iter_mut()
@@ -5064,7 +5066,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// An unexpected call to elect.
 			</span><span class="macro">assert_ok!</span>(MultiPhase::elect());
 
-			<span class="comment">// We surely can&#39;t have any feasible solutions. This will cause an on-chain election.
+			<span class="comment">// We surely can't have any feasible solutions. This will cause an on-chain election.
 			</span><span class="macro">assert_eq!</span>(
 				multi_phase_events(),
 				<span class="macro">vec!</span>[
@@ -5325,7 +5327,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="comment">// Zilch solutions thus far.
 			</span><span class="macro">assert!</span>(MultiPhase::queued_solution().is_none());
-			<span class="macro">assert_eq!</span>(MultiPhase::elect().unwrap_err(), ElectionError::Fallback(<span class="string">&quot;NoFallback.&quot;</span>));
+			<span class="macro">assert_eq!</span>(MultiPhase::elect().unwrap_err(), ElectionError::Fallback(<span class="string">"NoFallback."</span>));
 			<span class="comment">// phase is now emergency.
 			</span><span class="macro">assert_eq!</span>(MultiPhase::current_phase(), Phase::Emergency);
 			<span class="comment">// snapshot is still there until election finalizes.
@@ -5359,7 +5361,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="comment">// Zilch solutions thus far.
 			</span><span class="macro">assert!</span>(MultiPhase::queued_solution().is_none());
-			<span class="macro">assert_eq!</span>(MultiPhase::elect().unwrap_err(), ElectionError::Fallback(<span class="string">&quot;NoFallback.&quot;</span>));
+			<span class="macro">assert_eq!</span>(MultiPhase::elect().unwrap_err(), ElectionError::Fallback(<span class="string">"NoFallback."</span>));
 
 			<span class="comment">// phase is now emergency.
 			</span><span class="macro">assert_eq!</span>(MultiPhase::current_phase(), Phase::Emergency);
@@ -5469,7 +5471,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			roll_to(<span class="number">29</span>);
 			<span class="kw">let </span>err = MultiPhase::elect().unwrap_err();
-			<span class="macro">assert_eq!</span>(err, ElectionError::Fallback(<span class="string">&quot;NoFallback.&quot;</span>));
+			<span class="macro">assert_eq!</span>(err, ElectionError::Fallback(<span class="string">"NoFallback."</span>));
 			<span class="macro">assert_eq!</span>(MultiPhase::current_phase(), Phase::Emergency);
 
 			<span class="macro">assert_eq!</span>(
@@ -5513,7 +5515,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="kw">crate</span>::mock::Balancing::set(<span class="prelude-val">Some</span>(BalancingConfig { iterations: <span class="number">2</span>, tolerance: <span class="number">0 </span>}));
 
 			<span class="kw">let </span>(solution, <span class="kw">_</span>, <span class="kw">_</span>) = MultiPhase::mine_solution().unwrap();
-			<span class="comment">// Default solution&#39;s score.
+			<span class="comment">// Default solution's score.
 			</span><span class="macro">assert!</span>(<span class="macro">matches!</span>(solution.score, ElectionScore { minimal_stake: <span class="number">50</span>, .. }));
 
 			&lt;MinimumUntrustedScore&lt;Runtime&gt;&gt;::put(ElectionScore {
@@ -5558,7 +5560,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			active += <span class="number">1</span>;
 		}
 
-		<span class="macro">println!</span>(<span class="string">&quot;can support {} voters to yield a weight of {}&quot;</span>, active, weight_with(active));
+		<span class="macro">println!</span>(<span class="string">"can support {} voters to yield a weight of {}"</span>, active, weight_with(active));
 	}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

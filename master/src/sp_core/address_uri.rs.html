@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/core/src/address_uri.rs`."><title>address_uri.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/core/src/address_uri.rs`."><title>address_uri.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_core" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_core" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sp_core/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -584,21 +586,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
 </span><span class="doccomment">//! Little util for parsing an address URI. Replaces regular expressions.
 
-</span><span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+</span><span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
 </span><span class="kw">use </span>sp_std::{
 	alloc::string::{String, ToString},
 	vec::Vec,
@@ -607,41 +609,41 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// A container for results of parsing the address uri string.
 ///
 /// Intended to be equivalent of:
-/// `Regex::new(r&quot;^(?P&lt;phrase&gt;[a-zA-Z0-9 ]+)?(?P&lt;path&gt;(//?[^/]+)*)(///(?P&lt;password&gt;.*))?$&quot;)`
+/// `Regex::new(r"^(?P&lt;phrase&gt;[a-zA-Z0-9 ]+)?(?P&lt;path&gt;(//?[^/]+)*)(///(?P&lt;password&gt;.*))?$")`
 /// which also handles soft and hard derivation paths:
-/// `Regex::new(r&quot;/(/?[^/]+)&quot;)`
+/// `Regex::new(r"/(/?[^/]+)")`
 ///
 /// Example:
 /// ```
 /// 	use sp_core::crypto::AddressUri;
-/// 	let manual_result = AddressUri::parse(&quot;hello world/s//h///pass&quot;);
+/// 	let manual_result = AddressUri::parse("hello world/s//h///pass");
 /// 	assert_eq!(
 /// 		manual_result.unwrap(),
-/// 		AddressUri { phrase: Some(&quot;hello world&quot;), paths: vec![&quot;s&quot;, &quot;/h&quot;], pass: Some(&quot;pass&quot;) }
+/// 		AddressUri { phrase: Some("hello world"), paths: vec!["s", "/h"], pass: Some("pass") }
 /// 	);
 /// ```
 </span><span class="attr">#[derive(Debug, PartialEq)]
-</span><span class="kw">pub struct </span>AddressUri&lt;<span class="lifetime">&#39;a</span>&gt; {
+</span><span class="kw">pub struct </span>AddressUri&lt;<span class="lifetime">'a</span>&gt; {
 	<span class="doccomment">/// Phrase, hexadecimal string, or ss58-compatible string.
-	</span><span class="kw">pub </span>phrase: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>str&gt;,
+	</span><span class="kw">pub </span>phrase: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>str&gt;,
 	<span class="doccomment">/// Key derivation paths, ordered as in input string,
-	</span><span class="kw">pub </span>paths: Vec&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>str&gt;,
+	</span><span class="kw">pub </span>paths: Vec&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>str&gt;,
 	<span class="doccomment">/// Password.
-	</span><span class="kw">pub </span>pass: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>str&gt;,
+	</span><span class="kw">pub </span>pass: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>str&gt;,
 }
 
 <span class="doccomment">/// Errors that are possible during parsing the address URI.
 </span><span class="attr">#[allow(missing_docs)]
-#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(thiserror::Error))]
+#[cfg_attr(feature = <span class="string">"std"</span>, derive(thiserror::Error))]
 #[derive(Debug, PartialEq, Eq, Clone)]
 </span><span class="kw">pub enum </span>Error {
-	<span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, error(<span class="string">&quot;Invalid character in phrase:\n{0}&quot;</span>))]
+	<span class="attr">#[cfg_attr(feature = <span class="string">"std"</span>, error(<span class="string">"Invalid character in phrase:\n{0}"</span>))]
 	</span>InvalidCharacterInPhrase(InvalidCharacterInfo),
-	<span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, error(<span class="string">&quot;Invalid character in password:\n{0}&quot;</span>))]
+	<span class="attr">#[cfg_attr(feature = <span class="string">"std"</span>, error(<span class="string">"Invalid character in password:\n{0}"</span>))]
 	</span>InvalidCharacterInPass(InvalidCharacterInfo),
-	<span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, error(<span class="string">&quot;Missing character in hard path:\n{0}&quot;</span>))]
+	<span class="attr">#[cfg_attr(feature = <span class="string">"std"</span>, error(<span class="string">"Missing character in hard path:\n{0}"</span>))]
 	</span>MissingCharacterInHardPath(InvalidCharacterInfo),
-	<span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, error(<span class="string">&quot;Missing character in soft path:\n{0}&quot;</span>))]
+	<span class="attr">#[cfg_attr(feature = <span class="string">"std"</span>, error(<span class="string">"Missing character in soft path:\n{0}"</span>))]
 	</span>MissingCharacterInSoftPath(InvalidCharacterInfo),
 }
 
@@ -681,7 +683,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl </span>sp_std::fmt::Display <span class="kw">for </span>InvalidCharacterInfo {
 	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter) -&gt; sp_std::fmt::Result {
 		<span class="kw">let </span>(s, pos) = escape_string(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>, <span class="self">self</span>.<span class="number">1</span>);
-		<span class="macro">write!</span>(f, <span class="string">&quot;{s}\n{i}^&quot;</span>, i = sp_std::iter::repeat(<span class="string">&quot; &quot;</span>).take(pos).collect::&lt;String&gt;())
+		<span class="macro">write!</span>(f, <span class="string">"{s}\n{i}^"</span>, i = sp_std::iter::repeat(<span class="string">" "</span>).take(pos).collect::&lt;String&gt;())
 	}
 }
 
@@ -694,15 +696,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		.chars()
 		.enumerate()
 		.map(|(i, c)| {
-			<span class="kw">let </span>esc = |c| (i, <span class="prelude-val">Some</span>(<span class="string">&#39;\\&#39;</span>), c, <span class="number">2</span>);
+			<span class="kw">let </span>esc = |c| (i, <span class="prelude-val">Some</span>(<span class="string">'\\'</span>), c, <span class="number">2</span>);
 			<span class="kw">match </span>c {
-				<span class="string">&#39;\t&#39; </span>=&gt; esc(<span class="string">&#39;t&#39;</span>),
-				<span class="string">&#39;\n&#39; </span>=&gt; esc(<span class="string">&#39;n&#39;</span>),
-				<span class="string">&#39;\r&#39; </span>=&gt; esc(<span class="string">&#39;r&#39;</span>),
-				<span class="string">&#39;\x07&#39; </span>=&gt; esc(<span class="string">&#39;a&#39;</span>),
-				<span class="string">&#39;\x08&#39; </span>=&gt; esc(<span class="string">&#39;b&#39;</span>),
-				<span class="string">&#39;\x0b&#39; </span>=&gt; esc(<span class="string">&#39;v&#39;</span>),
-				<span class="string">&#39;\x0c&#39; </span>=&gt; esc(<span class="string">&#39;f&#39;</span>),
+				<span class="string">'\t' </span>=&gt; esc(<span class="string">'t'</span>),
+				<span class="string">'\n' </span>=&gt; esc(<span class="string">'n'</span>),
+				<span class="string">'\r' </span>=&gt; esc(<span class="string">'r'</span>),
+				<span class="string">'\x07' </span>=&gt; esc(<span class="string">'a'</span>),
+				<span class="string">'\x08' </span>=&gt; esc(<span class="string">'b'</span>),
+				<span class="string">'\x0b' </span>=&gt; esc(<span class="string">'v'</span>),
+				<span class="string">'\x0c' </span>=&gt; esc(<span class="string">'f'</span>),
 				<span class="kw">_ </span>=&gt; (i, <span class="prelude-val">None</span>, c, <span class="number">1</span>),
 			}
 		})
@@ -716,7 +718,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	(out, out_pos)
 }
 
-<span class="kw">fn </span>extract_prefix&lt;<span class="lifetime">&#39;a</span>&gt;(input: <span class="kw-2">&amp;mut &amp;</span><span class="lifetime">&#39;a </span>str, is_allowed: <span class="kw-2">&amp;</span><span class="kw">dyn </span>Fn(char) -&gt; bool) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>str&gt; {
+<span class="kw">fn </span>extract_prefix&lt;<span class="lifetime">'a</span>&gt;(input: <span class="kw-2">&amp;mut &amp;</span><span class="lifetime">'a </span>str, is_allowed: <span class="kw-2">&amp;</span><span class="kw">dyn </span>Fn(char) -&gt; bool) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>str&gt; {
 	<span class="kw">let </span>output = input.trim_start_matches(is_allowed);
 	<span class="kw">let </span>prefix_len = input.len() - output.len();
 	<span class="kw">let </span>prefix = <span class="kw">if </span>prefix_len &gt; <span class="number">0 </span>{ <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>input[..prefix_len]) } <span class="kw">else </span>{ <span class="prelude-val">None </span>};
@@ -733,30 +735,30 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>}
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; AddressUri&lt;<span class="lifetime">&#39;a</span>&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; AddressUri&lt;<span class="lifetime">'a</span>&gt; {
 	<span class="doccomment">/// Parses the given string.
-	</span><span class="kw">pub fn </span>parse(<span class="kw-2">mut </span>input: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, Error&gt; {
+	</span><span class="kw">pub fn </span>parse(<span class="kw-2">mut </span>input: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, Error&gt; {
 		<span class="kw">let </span>initial_input = input;
 		<span class="kw">let </span>initial_input_len = input.len();
 		<span class="kw">let </span>phrase = extract_prefix(<span class="kw-2">&amp;mut </span>input, <span class="kw-2">&amp;</span>|ch: char| {
-			ch.is_ascii_digit() || ch.is_ascii_alphabetic() || ch == <span class="string">&#39; &#39;
+			ch.is_ascii_digit() || ch.is_ascii_alphabetic() || ch == <span class="string">' '
 		</span>});
 
 		<span class="kw">let </span><span class="kw-2">mut </span>pass = <span class="prelude-val">None</span>;
 		<span class="kw">let </span><span class="kw-2">mut </span>paths = Vec::new();
 		<span class="kw">while </span>!input.is_empty() {
 			<span class="kw">let </span>unstripped_input = input;
-			<span class="kw">if </span>strip_prefix(<span class="kw-2">&amp;mut </span>input, <span class="string">&quot;///&quot;</span>) {
-				pass = <span class="prelude-val">Some</span>(extract_prefix(<span class="kw-2">&amp;mut </span>input, <span class="kw-2">&amp;</span>|ch: char| ch != <span class="string">&#39;\n&#39;</span>).unwrap_or(<span class="string">&quot;&quot;</span>));
-			} <span class="kw">else if </span>strip_prefix(<span class="kw-2">&amp;mut </span>input, <span class="string">&quot;//&quot;</span>) {
-				<span class="kw">let </span>path = extract_prefix(<span class="kw-2">&amp;mut </span>input, <span class="kw-2">&amp;</span>|ch: char| ch != <span class="string">&#39;/&#39;</span>)
+			<span class="kw">if </span>strip_prefix(<span class="kw-2">&amp;mut </span>input, <span class="string">"///"</span>) {
+				pass = <span class="prelude-val">Some</span>(extract_prefix(<span class="kw-2">&amp;mut </span>input, <span class="kw-2">&amp;</span>|ch: char| ch != <span class="string">'\n'</span>).unwrap_or(<span class="string">""</span>));
+			} <span class="kw">else if </span>strip_prefix(<span class="kw-2">&amp;mut </span>input, <span class="string">"//"</span>) {
+				<span class="kw">let </span>path = extract_prefix(<span class="kw-2">&amp;mut </span>input, <span class="kw-2">&amp;</span>|ch: char| ch != <span class="string">'/'</span>)
 					.ok_or(Error::in_hard_path(initial_input, initial_input_len - input.len()))<span class="question-mark">?</span>;
 				<span class="macro">assert!</span>(path.len() &gt; <span class="number">0</span>);
-				<span class="comment">// hard path shall contain leading &#39;/&#39;, so take it from unstripped input.
+				<span class="comment">// hard path shall contain leading '/', so take it from unstripped input.
 				</span>paths.push(<span class="kw-2">&amp;</span>unstripped_input[<span class="number">1</span>..path.len() + <span class="number">2</span>]);
-			} <span class="kw">else if </span>strip_prefix(<span class="kw-2">&amp;mut </span>input, <span class="string">&quot;/&quot;</span>) {
+			} <span class="kw">else if </span>strip_prefix(<span class="kw-2">&amp;mut </span>input, <span class="string">"/"</span>) {
 				paths.push(
-					extract_prefix(<span class="kw-2">&amp;mut </span>input, <span class="kw-2">&amp;</span>|ch: char| ch != <span class="string">&#39;/&#39;</span>).ok_or(
+					extract_prefix(<span class="kw-2">&amp;mut </span>input, <span class="kw-2">&amp;</span>|ch: char| ch != <span class="string">'/'</span>).ok_or(
 						Error::in_soft_path(initial_input, initial_input_len - input.len()),
 					)<span class="question-mark">?</span>,
 				);
@@ -779,8 +781,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use </span>regex::Regex;
 
 	<span class="macro">lazy_static::lazy_static! </span>{
-		<span class="kw">static </span><span class="kw-2">ref </span>SECRET_PHRASE_REGEX: Regex = Regex::new(<span class="string">r&quot;^(?P&lt;phrase&gt;[a-zA-Z0-9 ]+)?(?P&lt;path&gt;(//?[^/]+)*)(///(?P&lt;password&gt;.*))?$&quot;</span>)
-			.expect(<span class="string">&quot;constructed from known-good static value; qed&quot;</span>);
+		<span class="kw">static </span><span class="kw-2">ref </span>SECRET_PHRASE_REGEX: Regex = Regex::new(<span class="string">r"^(?P&lt;phrase&gt;[a-zA-Z0-9 ]+)?(?P&lt;path&gt;(//?[^/]+)*)(///(?P&lt;password&gt;.*))?$"</span>)
+			.expect(<span class="string">"constructed from known-good static value; qed"</span>);
 	}
 
 	<span class="kw">fn </span>check_with_regex(input: <span class="kw-2">&amp;</span>str) {
@@ -789,20 +791,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">assert_eq!</span>(regex_result.is_some(), manual_result.is_ok());
 		<span class="kw">if let </span>(<span class="prelude-val">Some</span>(regex_result), <span class="prelude-val">Ok</span>(manual_result)) = (regex_result, manual_result) {
 			<span class="macro">assert_eq!</span>(
-				regex_result.name(<span class="string">&quot;phrase&quot;</span>).map(|phrase| phrase.as_str()),
+				regex_result.name(<span class="string">"phrase"</span>).map(|phrase| phrase.as_str()),
 				manual_result.phrase
 			);
 
 			<span class="kw">let </span>manual_paths = manual_result
 				.paths
 				.iter()
-				.map(|s| <span class="string">&quot;/&quot;</span>.to_string() + s)
+				.map(|s| <span class="string">"/"</span>.to_string() + s)
 				.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
-				.join(<span class="string">&quot;&quot;</span>);
+				.join(<span class="string">""</span>);
 
-			<span class="macro">assert_eq!</span>(regex_result.name(<span class="string">&quot;path&quot;</span>).unwrap().as_str().to_string(), manual_paths);
+			<span class="macro">assert_eq!</span>(regex_result.name(<span class="string">"path"</span>).unwrap().as_str().to_string(), manual_paths);
 			<span class="macro">assert_eq!</span>(
-				regex_result.name(<span class="string">&quot;password&quot;</span>).map(|phrase| phrase.as_str()),
+				regex_result.name(<span class="string">"password"</span>).map(|phrase| phrase.as_str()),
 				manual_result.pass
 			);
 		}
@@ -816,57 +818,57 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>test00() {
-		check(<span class="string">&quot;///&quot;</span>, <span class="prelude-val">Ok</span>(AddressUri { phrase: <span class="prelude-val">None</span>, pass: <span class="prelude-val">Some</span>(<span class="string">&quot;&quot;</span>), paths: <span class="macro">vec!</span>[] }));
+		check(<span class="string">"///"</span>, <span class="prelude-val">Ok</span>(AddressUri { phrase: <span class="prelude-val">None</span>, pass: <span class="prelude-val">Some</span>(<span class="string">""</span>), paths: <span class="macro">vec!</span>[] }));
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>test01() {
-		check(<span class="string">&quot;////////&quot;</span>, <span class="prelude-val">Ok</span>(AddressUri { phrase: <span class="prelude-val">None</span>, pass: <span class="prelude-val">Some</span>(<span class="string">&quot;/////&quot;</span>), paths: <span class="macro">vec!</span>[] }))
+		check(<span class="string">"////////"</span>, <span class="prelude-val">Ok</span>(AddressUri { phrase: <span class="prelude-val">None</span>, pass: <span class="prelude-val">Some</span>(<span class="string">"/////"</span>), paths: <span class="macro">vec!</span>[] }))
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>test02() {
 		check(
-			<span class="string">&quot;sdasd///asda&quot;</span>,
-			<span class="prelude-val">Ok</span>(AddressUri { phrase: <span class="prelude-val">Some</span>(<span class="string">&quot;sdasd&quot;</span>), pass: <span class="prelude-val">Some</span>(<span class="string">&quot;asda&quot;</span>), paths: <span class="macro">vec!</span>[] }),
+			<span class="string">"sdasd///asda"</span>,
+			<span class="prelude-val">Ok</span>(AddressUri { phrase: <span class="prelude-val">Some</span>(<span class="string">"sdasd"</span>), pass: <span class="prelude-val">Some</span>(<span class="string">"asda"</span>), paths: <span class="macro">vec!</span>[] }),
 		);
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>test03() {
 		check(
-			<span class="string">&quot;sdasd//asda&quot;</span>,
-			<span class="prelude-val">Ok</span>(AddressUri { phrase: <span class="prelude-val">Some</span>(<span class="string">&quot;sdasd&quot;</span>), pass: <span class="prelude-val">None</span>, paths: <span class="macro">vec!</span>[<span class="string">&quot;/asda&quot;</span>] }),
+			<span class="string">"sdasd//asda"</span>,
+			<span class="prelude-val">Ok</span>(AddressUri { phrase: <span class="prelude-val">Some</span>(<span class="string">"sdasd"</span>), pass: <span class="prelude-val">None</span>, paths: <span class="macro">vec!</span>[<span class="string">"/asda"</span>] }),
 		);
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>test04() {
-		check(<span class="string">&quot;sdasd//a&quot;</span>, <span class="prelude-val">Ok</span>(AddressUri { phrase: <span class="prelude-val">Some</span>(<span class="string">&quot;sdasd&quot;</span>), pass: <span class="prelude-val">None</span>, paths: <span class="macro">vec!</span>[<span class="string">&quot;/a&quot;</span>] }));
+		check(<span class="string">"sdasd//a"</span>, <span class="prelude-val">Ok</span>(AddressUri { phrase: <span class="prelude-val">Some</span>(<span class="string">"sdasd"</span>), pass: <span class="prelude-val">None</span>, paths: <span class="macro">vec!</span>[<span class="string">"/a"</span>] }));
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>test05() {
-		<span class="kw">let </span>input = <span class="string">&quot;sdasd//&quot;</span>;
+		<span class="kw">let </span>input = <span class="string">"sdasd//"</span>;
 		check(input, <span class="prelude-val">Err</span>(Error::in_hard_path(input, <span class="number">7</span>)));
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>test06() {
 		check(
-			<span class="string">&quot;sdasd/xx//asda&quot;</span>,
-			<span class="prelude-val">Ok</span>(AddressUri { phrase: <span class="prelude-val">Some</span>(<span class="string">&quot;sdasd&quot;</span>), pass: <span class="prelude-val">None</span>, paths: <span class="macro">vec!</span>[<span class="string">&quot;xx&quot;</span>, <span class="string">&quot;/asda&quot;</span>] }),
+			<span class="string">"sdasd/xx//asda"</span>,
+			<span class="prelude-val">Ok</span>(AddressUri { phrase: <span class="prelude-val">Some</span>(<span class="string">"sdasd"</span>), pass: <span class="prelude-val">None</span>, paths: <span class="macro">vec!</span>[<span class="string">"xx"</span>, <span class="string">"/asda"</span>] }),
 		);
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>test07() {
 		check(
-			<span class="string">&quot;sdasd/xx//a/b//c///pass&quot;</span>,
+			<span class="string">"sdasd/xx//a/b//c///pass"</span>,
 			<span class="prelude-val">Ok</span>(AddressUri {
-				phrase: <span class="prelude-val">Some</span>(<span class="string">&quot;sdasd&quot;</span>),
-				pass: <span class="prelude-val">Some</span>(<span class="string">&quot;pass&quot;</span>),
-				paths: <span class="macro">vec!</span>[<span class="string">&quot;xx&quot;</span>, <span class="string">&quot;/a&quot;</span>, <span class="string">&quot;b&quot;</span>, <span class="string">&quot;/c&quot;</span>],
+				phrase: <span class="prelude-val">Some</span>(<span class="string">"sdasd"</span>),
+				pass: <span class="prelude-val">Some</span>(<span class="string">"pass"</span>),
+				paths: <span class="macro">vec!</span>[<span class="string">"xx"</span>, <span class="string">"/a"</span>, <span class="string">"b"</span>, <span class="string">"/c"</span>],
 			}),
 		);
 	}
@@ -874,140 +876,140 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>test08() {
 		check(
-			<span class="string">&quot;sdasd/xx//a&quot;</span>,
-			<span class="prelude-val">Ok</span>(AddressUri { phrase: <span class="prelude-val">Some</span>(<span class="string">&quot;sdasd&quot;</span>), pass: <span class="prelude-val">None</span>, paths: <span class="macro">vec!</span>[<span class="string">&quot;xx&quot;</span>, <span class="string">&quot;/a&quot;</span>] }),
+			<span class="string">"sdasd/xx//a"</span>,
+			<span class="prelude-val">Ok</span>(AddressUri { phrase: <span class="prelude-val">Some</span>(<span class="string">"sdasd"</span>), pass: <span class="prelude-val">None</span>, paths: <span class="macro">vec!</span>[<span class="string">"xx"</span>, <span class="string">"/a"</span>] }),
 		);
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>test09() {
-		<span class="kw">let </span>input = <span class="string">&quot;sdasd/xx//&quot;</span>;
+		<span class="kw">let </span>input = <span class="string">"sdasd/xx//"</span>;
 		check(input, <span class="prelude-val">Err</span>(Error::in_hard_path(input, <span class="number">10</span>)));
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>test10() {
 		check(
-			<span class="string">&quot;sdasd/asda&quot;</span>,
-			<span class="prelude-val">Ok</span>(AddressUri { phrase: <span class="prelude-val">Some</span>(<span class="string">&quot;sdasd&quot;</span>), pass: <span class="prelude-val">None</span>, paths: <span class="macro">vec!</span>[<span class="string">&quot;asda&quot;</span>] }),
+			<span class="string">"sdasd/asda"</span>,
+			<span class="prelude-val">Ok</span>(AddressUri { phrase: <span class="prelude-val">Some</span>(<span class="string">"sdasd"</span>), pass: <span class="prelude-val">None</span>, paths: <span class="macro">vec!</span>[<span class="string">"asda"</span>] }),
 		);
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>test11() {
 		check(
-			<span class="string">&quot;sdasd/asda//x&quot;</span>,
-			<span class="prelude-val">Ok</span>(AddressUri { phrase: <span class="prelude-val">Some</span>(<span class="string">&quot;sdasd&quot;</span>), pass: <span class="prelude-val">None</span>, paths: <span class="macro">vec!</span>[<span class="string">&quot;asda&quot;</span>, <span class="string">&quot;/x&quot;</span>] }),
+			<span class="string">"sdasd/asda//x"</span>,
+			<span class="prelude-val">Ok</span>(AddressUri { phrase: <span class="prelude-val">Some</span>(<span class="string">"sdasd"</span>), pass: <span class="prelude-val">None</span>, paths: <span class="macro">vec!</span>[<span class="string">"asda"</span>, <span class="string">"/x"</span>] }),
 		);
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>test12() {
-		check(<span class="string">&quot;sdasd/a&quot;</span>, <span class="prelude-val">Ok</span>(AddressUri { phrase: <span class="prelude-val">Some</span>(<span class="string">&quot;sdasd&quot;</span>), pass: <span class="prelude-val">None</span>, paths: <span class="macro">vec!</span>[<span class="string">&quot;a&quot;</span>] }));
+		check(<span class="string">"sdasd/a"</span>, <span class="prelude-val">Ok</span>(AddressUri { phrase: <span class="prelude-val">Some</span>(<span class="string">"sdasd"</span>), pass: <span class="prelude-val">None</span>, paths: <span class="macro">vec!</span>[<span class="string">"a"</span>] }));
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>test13() {
-		<span class="kw">let </span>input = <span class="string">&quot;sdasd/&quot;</span>;
+		<span class="kw">let </span>input = <span class="string">"sdasd/"</span>;
 		check(input, <span class="prelude-val">Err</span>(Error::in_soft_path(input, <span class="number">6</span>)));
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>test14() {
-		check(<span class="string">&quot;sdasd&quot;</span>, <span class="prelude-val">Ok</span>(AddressUri { phrase: <span class="prelude-val">Some</span>(<span class="string">&quot;sdasd&quot;</span>), pass: <span class="prelude-val">None</span>, paths: <span class="macro">vec!</span>[] }));
+		check(<span class="string">"sdasd"</span>, <span class="prelude-val">Ok</span>(AddressUri { phrase: <span class="prelude-val">Some</span>(<span class="string">"sdasd"</span>), pass: <span class="prelude-val">None</span>, paths: <span class="macro">vec!</span>[] }));
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>test15() {
-		<span class="kw">let </span>input = <span class="string">&quot;sdasd.&quot;</span>;
+		<span class="kw">let </span>input = <span class="string">"sdasd."</span>;
 		check(input, <span class="prelude-val">Err</span>(Error::in_phrase(input, <span class="number">5</span>)));
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>test16() {
-		<span class="kw">let </span>input = <span class="string">&quot;sd.asd/asd.a&quot;</span>;
+		<span class="kw">let </span>input = <span class="string">"sd.asd/asd.a"</span>;
 		check(input, <span class="prelude-val">Err</span>(Error::in_phrase(input, <span class="number">2</span>)));
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>test17() {
-		<span class="kw">let </span>input = <span class="string">&quot;sd.asd//asd.a&quot;</span>;
+		<span class="kw">let </span>input = <span class="string">"sd.asd//asd.a"</span>;
 		check(input, <span class="prelude-val">Err</span>(Error::in_phrase(input, <span class="number">2</span>)));
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>test18() {
 		check(
-			<span class="string">&quot;sdasd/asd.a&quot;</span>,
-			<span class="prelude-val">Ok</span>(AddressUri { phrase: <span class="prelude-val">Some</span>(<span class="string">&quot;sdasd&quot;</span>), pass: <span class="prelude-val">None</span>, paths: <span class="macro">vec!</span>[<span class="string">&quot;asd.a&quot;</span>] }),
+			<span class="string">"sdasd/asd.a"</span>,
+			<span class="prelude-val">Ok</span>(AddressUri { phrase: <span class="prelude-val">Some</span>(<span class="string">"sdasd"</span>), pass: <span class="prelude-val">None</span>, paths: <span class="macro">vec!</span>[<span class="string">"asd.a"</span>] }),
 		);
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>test19() {
 		check(
-			<span class="string">&quot;sdasd//asd.a&quot;</span>,
-			<span class="prelude-val">Ok</span>(AddressUri { phrase: <span class="prelude-val">Some</span>(<span class="string">&quot;sdasd&quot;</span>), pass: <span class="prelude-val">None</span>, paths: <span class="macro">vec!</span>[<span class="string">&quot;/asd.a&quot;</span>] }),
+			<span class="string">"sdasd//asd.a"</span>,
+			<span class="prelude-val">Ok</span>(AddressUri { phrase: <span class="prelude-val">Some</span>(<span class="string">"sdasd"</span>), pass: <span class="prelude-val">None</span>, paths: <span class="macro">vec!</span>[<span class="string">"/asd.a"</span>] }),
 		);
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>test20() {
-		<span class="kw">let </span>input = <span class="string">&quot;///\n&quot;</span>;
+		<span class="kw">let </span>input = <span class="string">"///\n"</span>;
 		check(input, <span class="prelude-val">Err</span>(Error::in_pass(input, <span class="number">3</span>)));
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>test21() {
-		<span class="kw">let </span>input = <span class="string">&quot;///a\n&quot;</span>;
+		<span class="kw">let </span>input = <span class="string">"///a\n"</span>;
 		check(input, <span class="prelude-val">Err</span>(Error::in_pass(input, <span class="number">4</span>)));
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>test22() {
-		<span class="kw">let </span>input = <span class="string">&quot;sd asd///asd.a\n&quot;</span>;
+		<span class="kw">let </span>input = <span class="string">"sd asd///asd.a\n"</span>;
 		check(input, <span class="prelude-val">Err</span>(Error::in_pass(input, <span class="number">14</span>)));
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>test_invalid_char_info_1() {
-		<span class="kw">let </span>expected = <span class="string">&quot;01234\n^&quot;</span>;
-		<span class="kw">let </span>f = <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, InvalidCharacterInfo::new(<span class="string">&quot;01234&quot;</span>, <span class="number">0</span>));
+		<span class="kw">let </span>expected = <span class="string">"01234\n^"</span>;
+		<span class="kw">let </span>f = <span class="macro">format!</span>(<span class="string">"{}"</span>, InvalidCharacterInfo::new(<span class="string">"01234"</span>, <span class="number">0</span>));
 		<span class="macro">assert_eq!</span>(expected, f);
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>test_invalid_char_info_2() {
-		<span class="kw">let </span>expected = <span class="string">&quot;01\n ^&quot;</span>;
-		<span class="kw">let </span>f = <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, InvalidCharacterInfo::new(<span class="string">&quot;01&quot;</span>, <span class="number">1</span>));
+		<span class="kw">let </span>expected = <span class="string">"01\n ^"</span>;
+		<span class="kw">let </span>f = <span class="macro">format!</span>(<span class="string">"{}"</span>, InvalidCharacterInfo::new(<span class="string">"01"</span>, <span class="number">1</span>));
 		<span class="macro">assert_eq!</span>(expected, f);
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>test_invalid_char_info_3() {
-		<span class="kw">let </span>expected = <span class="string">&quot;01234\n  ^&quot;</span>;
-		<span class="kw">let </span>f = <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, InvalidCharacterInfo::new(<span class="string">&quot;01234&quot;</span>, <span class="number">2</span>));
+		<span class="kw">let </span>expected = <span class="string">"01234\n  ^"</span>;
+		<span class="kw">let </span>f = <span class="macro">format!</span>(<span class="string">"{}"</span>, InvalidCharacterInfo::new(<span class="string">"01234"</span>, <span class="number">2</span>));
 		<span class="macro">assert_eq!</span>(expected, f);
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>test_invalid_char_info_4() {
-		<span class="kw">let </span>expected = <span class="string">&quot;012\\n456\n   ^&quot;</span>;
-		<span class="kw">let </span>f = <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, InvalidCharacterInfo::new(<span class="string">&quot;012\n456&quot;</span>, <span class="number">3</span>));
+		<span class="kw">let </span>expected = <span class="string">"012\\n456\n   ^"</span>;
+		<span class="kw">let </span>f = <span class="macro">format!</span>(<span class="string">"{}"</span>, InvalidCharacterInfo::new(<span class="string">"012\n456"</span>, <span class="number">3</span>));
 		<span class="macro">assert_eq!</span>(expected, f);
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>test_invalid_char_info_5() {
-		<span class="kw">let </span>expected = <span class="string">&quot;012\\n456\n      ^&quot;</span>;
-		<span class="kw">let </span>f = <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, InvalidCharacterInfo::new(<span class="string">&quot;012\n456&quot;</span>, <span class="number">5</span>));
+		<span class="kw">let </span>expected = <span class="string">"012\\n456\n      ^"</span>;
+		<span class="kw">let </span>f = <span class="macro">format!</span>(<span class="string">"{}"</span>, InvalidCharacterInfo::new(<span class="string">"012\n456"</span>, <span class="number">5</span>));
 		<span class="macro">assert_eq!</span>(expected, f);
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>test_invalid_char_info_6() {
-		<span class="kw">let </span>expected = <span class="string">&quot;012\\f456\\t89\n           ^&quot;</span>;
-		<span class="kw">let </span>f = <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, InvalidCharacterInfo::new(<span class="string">&quot;012\x0c456\t89&quot;</span>, <span class="number">9</span>));
+		<span class="kw">let </span>expected = <span class="string">"012\\f456\\t89\n           ^"</span>;
+		<span class="kw">let </span>f = <span class="macro">format!</span>(<span class="string">"{}"</span>, InvalidCharacterInfo::new(<span class="string">"012\x0c456\t89"</span>, <span class="number">9</span>));
 		<span class="macro">assert_eq!</span>(expected, f);
 	}
 }

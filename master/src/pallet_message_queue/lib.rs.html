@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/message-queue/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/message-queue/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_message_queue" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_message_queue" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../pallet_message_queue/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1813,14 +1815,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -1904,7 +1906,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! since the pallet runs in `on_initialize` which has a hard weight limit. The weight meter is used
 //! in a way that `can_accrue` and `check_accrue` are always used to check the remaining weight of
 //! an operation before committing to it. The process of exiting due to insufficient weight is
-//! termed &quot;bailing&quot;.
+//! termed "bailing".
 //!
 //! # Scenario: Message enqueuing
 //!
@@ -1923,7 +1925,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! The pallet runs each block in `on_initialize` or when being manually called through
 //! [`frame_support::traits::ServiceQueues::service_queues`].
 //!
-//! First it tries to &quot;rotate&quot; the `ReadyRing` by one through advancing the `ServiceHead` to the
+//! First it tries to "rotate" the `ReadyRing` by one through advancing the `ServiceHead` to the
 //! next *ready* queue. It then starts to service this queue by servicing as many pages of it as
 //! possible. Servicing a page means to execute as many message of it as possible. Each executed
 //! message is marked as *processed* if the [`Config::MessageProcessor`] return Ok. An event
@@ -2001,10 +2003,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! The average amount of weight available for message processing is the same for each queue if the
 //! number of queues is constant. Creating a new queue must therefore be, possibly economically,
 //! expensive. Currently this is archived by having one queue per para-chain/thread, which keeps the
-//! number of queues within `O(n)` and should be &quot;good enough&quot;.
+//! number of queues within `O(n)` and should be "good enough".
 
 </span><span class="attr">#![deny(missing_docs)]
-#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
+#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
 </span><span class="kw">mod </span>benchmarking;
 <span class="kw">mod </span>integration_test;
@@ -2113,7 +2115,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>header = ItemHeader::&lt;Size&gt; { payload_len, is_processed: <span class="bool-val">false </span>};
 		<span class="kw">let </span>heap_size: u32 = HeapSize::get().into();
 		<span class="kw">if </span>(heap_size <span class="kw">as </span>usize).saturating_sub(<span class="self">self</span>.heap.len()) &lt; data_len {
-			<span class="comment">// Can&#39;t fit.
+			<span class="comment">// Can't fit.
 			</span><span class="kw">return </span><span class="prelude-val">Err</span>(())
 		}
 
@@ -2144,7 +2146,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				</span><span class="kw">return </span><span class="prelude-val">Some</span>(BoundedSlice::defensive_truncate_from(<span class="kw-2">&amp;</span>item_slice[..payload_len]))
 			}
 		}
-		<span class="macro">defensive!</span>(<span class="string">&quot;message-queue: heap corruption&quot;</span>);
+		<span class="macro">defensive!</span>(<span class="string">"message-queue: heap corruption"</span>);
 		<span class="prelude-val">None
 	</span>}
 
@@ -2471,7 +2473,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			}
 		}
 
-		<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+		<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 		</span><span class="kw">fn </span>try_state(<span class="kw">_</span>: BlockNumberFor&lt;T&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), sp_runtime::TryRuntimeError&gt; {
 			<span class="self">Self</span>::do_try_state()
 		}
@@ -2479,7 +2481,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="doccomment">/// Check all compile-time assumptions about [`crate::Config`].
 		</span><span class="attr">#[cfg(test)]
 		</span><span class="kw">fn </span>integrity_test() {
-			<span class="self">Self</span>::do_integrity_test().expect(<span class="string">&quot;Pallet config is valid; qed&quot;</span>)
+			<span class="self">Self</span>::do_integrity_test().expect(<span class="string">"Pallet config is valid; qed"</span>)
 		}
 	}
 
@@ -2607,7 +2609,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if </span>origin == <span class="kw-2">&amp;</span>neighbours.next {
 			<span class="macro">debug_assert!</span>(
 				origin == <span class="kw-2">&amp;</span>neighbours.prev,
-				<span class="string">&quot;unknitting from single item ring; outgoing must be only item&quot;
+				<span class="string">"unknitting from single item ring; outgoing must be only item"
 			</span>);
 			<span class="comment">// Service queue empty.
 			</span>ServiceHead::&lt;T&gt;::kill();
@@ -2627,7 +2629,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					ServiceHead::&lt;T&gt;::put(neighbours.next);
 				}
 			} <span class="kw">else </span>{
-				<span class="macro">defensive!</span>(<span class="string">&quot;`ServiceHead` must be some if there was a ready queue&quot;</span>);
+				<span class="macro">defensive!</span>(<span class="string">"`ServiceHead` must be some if there was a ready queue"</span>);
 			}
 		}
 	}
@@ -2679,12 +2681,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// The results of this can only be relied upon if the config values are set to constants.
 	</span><span class="attr">#[cfg(test)]
 	</span><span class="kw">fn </span>do_integrity_test() -&gt; <span class="prelude-ty">Result</span>&lt;(), String&gt; {
-		<span class="macro">ensure!</span>(!MaxMessageLenOf::&lt;T&gt;::get().is_zero(), <span class="string">&quot;HeapSize too low&quot;</span>);
+		<span class="macro">ensure!</span>(!MaxMessageLenOf::&lt;T&gt;::get().is_zero(), <span class="string">"HeapSize too low"</span>);
 
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(service) = T::ServiceWeight::get() {
 			<span class="kw">if </span><span class="self">Self</span>::max_message_weight(service).is_none() {
 				<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(
-					<span class="string">&quot;ServiceWeight too low: {}. Must be at least {}&quot;</span>,
+					<span class="string">"ServiceWeight too low: {}. Must be at least {}"</span>,
 					service,
 					<span class="self">Self</span>::single_msg_overhead(),
 				))
@@ -2706,13 +2708,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span>.saturating_accrue(message.len() <span class="kw">as </span>u64);
 
 		<span class="kw">if </span>book_state.end &gt; book_state.begin {
-			<span class="macro">debug_assert!</span>(book_state.ready_neighbours.is_some(), <span class="string">&quot;Must be in ready ring if ready&quot;</span>);
+			<span class="macro">debug_assert!</span>(book_state.ready_neighbours.is_some(), <span class="string">"Must be in ready ring if ready"</span>);
 			<span class="comment">// Already have a page in progress - attempt to append.
 			</span><span class="kw">let </span>last = book_state.end - <span class="number">1</span>;
 			<span class="kw">let </span><span class="kw-2">mut </span>page = <span class="kw">match </span>Pages::&lt;T&gt;::get(origin, last) {
 				<span class="prelude-val">Some</span>(p) =&gt; p,
 				<span class="prelude-val">None </span>=&gt; {
-					<span class="macro">defensive!</span>(<span class="string">&quot;Corruption: referenced page doesn&#39;t exist.&quot;</span>);
+					<span class="macro">defensive!</span>(<span class="string">"Corruption: referenced page doesn't exist."</span>);
 					<span class="kw">return
 				</span>},
 			};
@@ -2724,13 +2726,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		} <span class="kw">else </span>{
 			<span class="macro">debug_assert!</span>(
 				book_state.ready_neighbours.is_none(),
-				<span class="string">&quot;Must not be in ready ring if not ready&quot;
+				<span class="string">"Must not be in ready ring if not ready"
 			</span>);
 			<span class="comment">// insert into ready queue.
 			</span><span class="kw">match </span><span class="self">Self</span>::ready_ring_knit(origin) {
 				<span class="prelude-val">Ok</span>(neighbours) =&gt; book_state.ready_neighbours = <span class="prelude-val">Some</span>(neighbours),
 				<span class="prelude-val">Err</span>(()) =&gt; {
-					<span class="macro">defensive!</span>(<span class="string">&quot;Ring state invalid when knitting&quot;</span>);
+					<span class="macro">defensive!</span>(<span class="string">"Ring state invalid when knitting"</span>);
 				},
 			}
 		}
@@ -2802,10 +2804,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">let </span>page_weight = <span class="kw">if </span>page.remaining.is_zero() {
 					<span class="macro">debug_assert!</span>(
 						page.remaining_size.is_zero(),
-						<span class="string">&quot;no messages remaining; no space taken; qed&quot;
+						<span class="string">"no messages remaining; no space taken; qed"
 					</span>);
 					Pages::&lt;T&gt;::remove(<span class="kw-2">&amp;</span>origin, page_index);
-					<span class="macro">debug_assert!</span>(book_state.count &gt;= <span class="number">1</span>, <span class="string">&quot;page exists, so book must have pages&quot;</span>);
+					<span class="macro">debug_assert!</span>(book_state.count &gt;= <span class="number">1</span>, <span class="string">"page exists, so book must have pages"</span>);
 					book_state.count.saturating_dec();
 					T::WeightInfo::execute_overweight_page_removed()
 				<span class="comment">// no need to consider .first or ready ring since processing an overweight page
@@ -2832,7 +2834,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Same as `do_reap_page` but must be called while holding the `service_mutex`.
 	</span><span class="kw">fn </span>do_reap_page_inner(origin: <span class="kw-2">&amp;</span>MessageOriginOf&lt;T&gt;, page_index: PageIndex) -&gt; DispatchResult {
 		<span class="kw">let </span><span class="kw-2">mut </span>book_state = BookStateFor::&lt;T&gt;::get(origin);
-		<span class="comment">// definitely not reapable if the page&#39;s index is no less than the `begin`ning of ready
+		<span class="comment">// definitely not reapable if the page's index is no less than the `begin`ning of ready
 		// pages.
 		</span><span class="macro">ensure!</span>(page_index &lt; book_state.begin, Error::&lt;T&gt;::NotReapable);
 
@@ -2848,9 +2850,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="comment">// The number of stale pages - i.e. pages which contain unprocessed overweight messages.
 			// We would prefer to keep these around but will restrict how far into history they can
-			// extend if we notice that there&#39;s too many of them.
+			// extend if we notice that there's too many of them.
 			//
-			// We don&#39;t know *where* in history these pages are so we use a dynamic formula which
+			// We don't know *where* in history these pages are so we use a dynamic formula which
 			// reduces the historical time horizon as the stale pages pile up and increases it as
 			// they reduce.
 			</span><span class="kw">let </span>stale_pages = total_pages - ready_pages;
@@ -2860,7 +2862,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			// pages may be dropped, even if they contain unprocessed overweight messages.
 			</span><span class="kw">let </span>max_stale = T::MaxStale::get();
 
-			<span class="comment">// The amount beyond the maximum which are being used. If it&#39;s not beyond the maximum
+			<span class="comment">// The amount beyond the maximum which are being used. If it's not beyond the maximum
 			// then we exit now since no culling is needed.
 			</span><span class="kw">let </span>overflow = <span class="kw">match </span>stale_pages.checked_sub(max_stale + <span class="number">1</span>) {
 				<span class="prelude-val">Some</span>(x) =&gt; x + <span class="number">1</span>,
@@ -2883,7 +2885,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">ensure!</span>(reapable || cullable(), Error::&lt;T&gt;::NotReapable);
 
 		Pages::&lt;T&gt;::remove(origin, page_index);
-		<span class="macro">debug_assert!</span>(book_state.count &gt; <span class="number">0</span>, <span class="string">&quot;reaping a page implies there are pages&quot;</span>);
+		<span class="macro">debug_assert!</span>(book_state.count &gt; <span class="number">0</span>, <span class="string">"reaping a page implies there are pages"</span>);
 		book_state.count.saturating_dec();
 		book_state.message_count.saturating_reduce(page.remaining.into() <span class="kw">as </span>u64);
 		book_state.size.saturating_reduce(page.remaining_size.into() <span class="kw">as </span>u64);
@@ -2938,7 +2940,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="kw">if let </span><span class="prelude-val">Some</span>(neighbours) = book_state.ready_neighbours.take() {
 				<span class="self">Self</span>::ready_ring_unknit(<span class="kw-2">&amp;</span>origin, neighbours);
 			} <span class="kw">else if </span>total_processed &gt; <span class="number">0 </span>{
-				<span class="macro">defensive!</span>(<span class="string">&quot;Freshly processed queue must have been ready&quot;</span>);
+				<span class="macro">defensive!</span>(<span class="string">"Freshly processed queue must have been ready"</span>);
 			}
 		}
 		BookStateFor::&lt;T&gt;::insert(<span class="kw-2">&amp;</span>origin, <span class="kw-2">&amp;</span>book_state);
@@ -2950,7 +2952,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Service as many messages of a page as possible.
 	///
-	/// Returns how many messages were processed and the page&#39;s status.
+	/// Returns how many messages were processed and the page's status.
 	</span><span class="kw">fn </span>service_page(
 		origin: <span class="kw-2">&amp;</span>MessageOriginOf&lt;T&gt;,
 		book_state: <span class="kw-2">&amp;mut </span>BookStateOf&lt;T&gt;,
@@ -2972,7 +2974,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span><span class="kw-2">mut </span>page = <span class="kw">match </span>Pages::&lt;T&gt;::get(origin, page_index) {
 			<span class="prelude-val">Some</span>(p) =&gt; p,
 			<span class="prelude-val">None </span>=&gt; {
-				<span class="macro">defensive!</span>(<span class="string">&quot;message-queue: referenced page not found&quot;</span>);
+				<span class="macro">defensive!</span>(<span class="string">"message-queue: referenced page not found"</span>);
 				<span class="kw">return </span>(<span class="number">0</span>, NoMore)
 			},
 		};
@@ -3000,9 +3002,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		};
 
 		<span class="kw">if </span>page.is_complete() {
-			<span class="macro">debug_assert!</span>(status != Bailed, <span class="string">&quot;we never bail if a page became complete&quot;</span>);
+			<span class="macro">debug_assert!</span>(status != Bailed, <span class="string">"we never bail if a page became complete"</span>);
 			Pages::&lt;T&gt;::remove(origin, page_index);
-			<span class="macro">debug_assert!</span>(book_state.count &gt; <span class="number">0</span>, <span class="string">&quot;completing a page implies there are pages&quot;</span>);
+			<span class="macro">debug_assert!</span>(book_state.count &gt; <span class="number">0</span>, <span class="string">"completing a page implies there are pages"</span>);
 			book_state.count.saturating_dec();
 		} <span class="kw">else </span>{
 			Pages::&lt;T&gt;::insert(origin, page_index, page);
@@ -3021,7 +3023,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; ItemExecutionStatus {
 		<span class="kw">use </span>MessageExecutionStatus::<span class="kw-2">*</span>;
 		<span class="comment">// This ugly pre-checking is needed for the invariant
-		// &quot;we never bail if a page became complete&quot;.
+		// "we never bail if a page became complete".
 		</span><span class="kw">if </span>page.is_complete() {
 			<span class="kw">return </span>ItemExecutionStatus::NoItem
 		}
@@ -3053,7 +3055,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(new_page) = Pages::&lt;T&gt;::get(origin, page_index) {
 			<span class="kw-2">*</span>page = new_page;
 		} <span class="kw">else </span>{
-			<span class="macro">defensive!</span>(<span class="string">&quot;page must exist since we just inserted it and recursive calls are not allowed to remove anything&quot;</span>);
+			<span class="macro">defensive!</span>(<span class="string">"page must exist since we just inserted it and recursive calls are not allowed to remove anything"</span>);
 			<span class="kw">return </span>ItemExecutionStatus::NoItem
 		};
 
@@ -3091,29 +3093,29 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// * `remaining_size` &gt; 0
 	/// * `first` &lt;= `last`
 	/// * Every page can be decoded into peek_* functions
-	</span><span class="attr">#[cfg(any(test, feature = <span class="string">&quot;try-runtime&quot;</span>, feature = <span class="string">&quot;std&quot;</span>))]
+	</span><span class="attr">#[cfg(any(test, feature = <span class="string">"try-runtime"</span>, feature = <span class="string">"std"</span>))]
 	</span><span class="kw">pub fn </span>do_try_state() -&gt; <span class="prelude-ty">Result</span>&lt;(), sp_runtime::TryRuntimeError&gt; {
 		<span class="comment">// Checking memory corruption for BookStateFor
 		</span><span class="macro">ensure!</span>(
 			BookStateFor::&lt;T&gt;::iter_keys().count() == BookStateFor::&lt;T&gt;::iter_values().count(),
-			<span class="string">&quot;Memory Corruption in BookStateFor&quot;
+			<span class="string">"Memory Corruption in BookStateFor"
 		</span>);
 		<span class="comment">// Checking memory corruption for Pages
 		</span><span class="macro">ensure!</span>(
 			Pages::&lt;T&gt;::iter_keys().count() == Pages::&lt;T&gt;::iter_values().count(),
-			<span class="string">&quot;Memory Corruption in Pages&quot;
+			<span class="string">"Memory Corruption in Pages"
 		</span>);
 
 		<span class="comment">// Basic checks for each book
 		</span><span class="kw">for </span>book <span class="kw">in </span>BookStateFor::&lt;T&gt;::iter_values() {
-			<span class="macro">ensure!</span>(book.end &gt;= book.begin, <span class="string">&quot;Invariant&quot;</span>);
-			<span class="macro">ensure!</span>(book.end &lt; <span class="number">1 </span>&lt;&lt; <span class="number">30</span>, <span class="string">&quot;Likely overflow or corruption&quot;</span>);
-			<span class="macro">ensure!</span>(book.message_count &lt; <span class="number">1 </span>&lt;&lt; <span class="number">30</span>, <span class="string">&quot;Likely overflow or corruption&quot;</span>);
-			<span class="macro">ensure!</span>(book.size &lt; <span class="number">1 </span>&lt;&lt; <span class="number">30</span>, <span class="string">&quot;Likely overflow or corruption&quot;</span>);
-			<span class="macro">ensure!</span>(book.count &lt; <span class="number">1 </span>&lt;&lt; <span class="number">30</span>, <span class="string">&quot;Likely overflow or corruption&quot;</span>);
+			<span class="macro">ensure!</span>(book.end &gt;= book.begin, <span class="string">"Invariant"</span>);
+			<span class="macro">ensure!</span>(book.end &lt; <span class="number">1 </span>&lt;&lt; <span class="number">30</span>, <span class="string">"Likely overflow or corruption"</span>);
+			<span class="macro">ensure!</span>(book.message_count &lt; <span class="number">1 </span>&lt;&lt; <span class="number">30</span>, <span class="string">"Likely overflow or corruption"</span>);
+			<span class="macro">ensure!</span>(book.size &lt; <span class="number">1 </span>&lt;&lt; <span class="number">30</span>, <span class="string">"Likely overflow or corruption"</span>);
+			<span class="macro">ensure!</span>(book.count &lt; <span class="number">1 </span>&lt;&lt; <span class="number">30</span>, <span class="string">"Likely overflow or corruption"</span>);
 
 			<span class="kw">let </span>fp: QueueFootprint = book.into();
-			<span class="macro">ensure!</span>(fp.ready_pages &lt;= fp.pages, <span class="string">&quot;There cannot be more ready than total pages&quot;</span>);
+			<span class="macro">ensure!</span>(fp.ready_pages &lt;= fp.pages, <span class="string">"There cannot be more ready than total pages"</span>);
 		}
 
 		<span class="comment">//loop around this origin
@@ -3122,28 +3124,28 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">while let </span><span class="prelude-val">Some</span>(head) = <span class="self">Self</span>::bump_service_head(<span class="kw-2">&amp;mut </span>WeightMeter::new()) {
 			<span class="macro">ensure!</span>(
 				BookStateFor::&lt;T&gt;::contains_key(<span class="kw-2">&amp;</span>head),
-				<span class="string">&quot;Service head must point to an existing book&quot;
+				<span class="string">"Service head must point to an existing book"
 			</span>);
 
 			<span class="kw">let </span>head_book_state = BookStateFor::&lt;T&gt;::get(<span class="kw-2">&amp;</span>head);
 			<span class="macro">ensure!</span>(
 				head_book_state.message_count &gt; <span class="number">0</span>,
-				<span class="string">&quot;There must be some messages if in ReadyRing&quot;
+				<span class="string">"There must be some messages if in ReadyRing"
 			</span>);
-			<span class="macro">ensure!</span>(head_book_state.size &gt; <span class="number">0</span>, <span class="string">&quot;There must be some message size if in ReadyRing&quot;</span>);
+			<span class="macro">ensure!</span>(head_book_state.size &gt; <span class="number">0</span>, <span class="string">"There must be some message size if in ReadyRing"</span>);
 			<span class="macro">ensure!</span>(
 				head_book_state.end &gt; head_book_state.begin,
-				<span class="string">&quot;End &gt; Begin if unprocessed messages exists&quot;
+				<span class="string">"End &gt; Begin if unprocessed messages exists"
 			</span>);
 			<span class="macro">ensure!</span>(
 				head_book_state.ready_neighbours.is_some(),
-				<span class="string">&quot;There must be neighbours if in ReadyRing&quot;
+				<span class="string">"There must be neighbours if in ReadyRing"
 			</span>);
 
 			<span class="kw">if </span>head_book_state.ready_neighbours.as_ref().unwrap().next == head {
 				<span class="macro">ensure!</span>(
 					head_book_state.ready_neighbours.as_ref().unwrap().prev == head,
-					<span class="string">&quot;Can only happen if only queue in ReadyRing&quot;
+					<span class="string">"Can only happen if only queue in ReadyRing"
 				</span>);
 			}
 
@@ -3153,7 +3155,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">let </span><span class="kw-2">mut </span>counted_remaining_messages: u32 = <span class="number">0</span>;
 				<span class="macro">ensure!</span>(
 					remaining_messages &gt; <span class="number">0</span>.into(),
-					<span class="string">&quot;These must be some messages that have not been processed yet!&quot;
+					<span class="string">"These must be some messages that have not been processed yet!"
 				</span>);
 
 				<span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..u32::MAX {
@@ -3168,7 +3170,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 				<span class="macro">ensure!</span>(
 					remaining_messages.into() == counted_remaining_messages,
-					<span class="string">&quot;Memory Corruption&quot;
+					<span class="string">"Memory Corruption"
 				</span>);
 			}
 
@@ -3189,39 +3191,39 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// queue Here:
 	///   page 0: []
 	/// &gt; page 1: []
-	///   page 2: [&quot;\0weight=4&quot;, &quot;\0c&quot;, ]
-	///   page 3: [&quot;\0bigbig 1&quot;, ]
-	///   page 4: [&quot;\0bigbig 2&quot;, ]
-	///   page 5: [&quot;\0bigbig 3&quot;, ]
+	///   page 2: ["\0weight=4", "\0c", ]
+	///   page 3: ["\0bigbig 1", ]
+	///   page 4: ["\0bigbig 2", ]
+	///   page 5: ["\0bigbig 3", ]
 	/// ```
-	</span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+	</span><span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 	</span><span class="kw">pub fn </span>debug_info() -&gt; String {
 		<span class="kw">let </span><span class="kw-2">mut </span>info = String::new();
 		<span class="kw">for </span>(origin, book_state) <span class="kw">in </span>BookStateFor::&lt;T&gt;::iter() {
-			<span class="kw">let </span><span class="kw-2">mut </span>queue = <span class="macro">format!</span>(<span class="string">&quot;queue {:?}:\n&quot;</span>, <span class="kw-2">&amp;</span>origin);
+			<span class="kw">let </span><span class="kw-2">mut </span>queue = <span class="macro">format!</span>(<span class="string">"queue {:?}:\n"</span>, <span class="kw-2">&amp;</span>origin);
 			<span class="kw">let </span><span class="kw-2">mut </span>pages = Pages::&lt;T&gt;::iter_prefix(<span class="kw-2">&amp;</span>origin).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 			pages.sort_by(|(a, <span class="kw">_</span>), (b, <span class="kw">_</span>)| a.cmp(b));
 			<span class="kw">for </span>(page_index, <span class="kw-2">mut </span>page) <span class="kw">in </span>pages.into_iter() {
-				<span class="kw">let </span>page_info = <span class="kw">if </span>book_state.begin == page_index { <span class="string">&quot;&gt;&quot; </span>} <span class="kw">else </span>{ <span class="string">&quot; &quot; </span>};
+				<span class="kw">let </span>page_info = <span class="kw">if </span>book_state.begin == page_index { <span class="string">"&gt;" </span>} <span class="kw">else </span>{ <span class="string">" " </span>};
 				<span class="kw">let </span><span class="kw-2">mut </span>page_info = <span class="macro">format!</span>(
-					<span class="string">&quot;{} page {} ({:?} first, {:?} last, {:?} remain): [ &quot;</span>,
+					<span class="string">"{} page {} ({:?} first, {:?} last, {:?} remain): [ "</span>,
 					page_info, page_index, page.first, page.last, page.remaining
 				);
 				<span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..u32::MAX {
 					<span class="kw">if let </span><span class="prelude-val">Some</span>((<span class="kw">_</span>, processed, message)) =
-						page.peek_index(i.try_into().expect(<span class="string">&quot;std-only code&quot;</span>))
+						page.peek_index(i.try_into().expect(<span class="string">"std-only code"</span>))
 					{
 						<span class="kw">let </span>msg = String::from_utf8_lossy(message);
 						<span class="kw">if </span>processed {
-							page_info.push(<span class="string">&#39;*&#39;</span>);
+							page_info.push(<span class="string">'*'</span>);
 						}
-						page_info.push_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{:?}, &quot;</span>, msg));
+						page_info.push_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{:?}, "</span>, msg));
 						page.skip_first(<span class="bool-val">true</span>);
 					} <span class="kw">else </span>{
 						<span class="kw">break
 					</span>}
 				}
-				page_info.push_str(<span class="string">&quot;]\n&quot;</span>);
+				page_info.push_str(<span class="string">"]\n"</span>);
 				queue.push_str(<span class="kw-2">&amp;</span>page_info);
 			}
 			info.push_str(<span class="kw-2">&amp;</span>queue);
@@ -3295,7 +3297,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// The first `ok_or` should always be `Ok` since we are inside a `using_once`.
 		</span><span class="kw">let </span>hold = token::with(|t| t.take()).ok_or(()).defensive()<span class="question-mark">?</span>.ok_or(())<span class="question-mark">?</span>;
 
-		<span class="comment">// Put the token back when we&#39;re done.
+		<span class="comment">// Put the token back when we're done.
 		</span><span class="macro">defer! </span>{
 			token::with(|t| {
 				<span class="kw-2">*</span>t = <span class="prelude-val">Some</span>(hold);
@@ -3357,7 +3359,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// Get the maximum weight that processing a single message may take:
 		</span><span class="kw">let </span>max_weight = <span class="self">Self</span>::max_message_weight(weight_limit).unwrap_or_else(|| {
-			<span class="macro">defensive!</span>(<span class="string">&quot;Not enough weight to service a single message.&quot;</span>);
+			<span class="macro">defensive!</span>(<span class="string">"Not enough weight to service a single message."</span>);
 			Weight::zero()
 		});
 
@@ -3442,8 +3444,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		T::QueueChangeHandler::on_queue_changed(origin, book_state.into());
 	}
 
-	<span class="kw">fn </span>enqueue_messages&lt;<span class="lifetime">&#39;a</span>&gt;(
-		messages: <span class="kw">impl </span>Iterator&lt;Item = BoundedSlice&lt;<span class="lifetime">&#39;a</span>, u8, <span class="self">Self</span>::MaxMessageLen&gt;&gt;,
+	<span class="kw">fn </span>enqueue_messages&lt;<span class="lifetime">'a</span>&gt;(
+		messages: <span class="kw">impl </span>Iterator&lt;Item = BoundedSlice&lt;<span class="lifetime">'a</span>, u8, <span class="self">Self</span>::MaxMessageLen&gt;&gt;,
 		origin: &lt;T::MessageProcessor <span class="kw">as </span>ProcessMessage&gt;::Origin,
 	) {
 		<span class="kw">for </span>message <span class="kw">in </span>messages {

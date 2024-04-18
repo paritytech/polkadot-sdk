@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/network/src/discovery.rs`."><title>discovery.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/network/src/discovery.rs`."><title>discovery.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_network" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_network" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sc_network/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1387,12 +1389,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!
 //! The `DiscoveryBehaviour` generates events of type `DiscoveryOut`, most notably
 //! `DiscoveryOut::Discovered` that is generated whenever we discover a node.
-//! Only the identity of the node is returned. The node&#39;s addresses are stored within the
+//! Only the identity of the node is returned. The node's addresses are stored within the
 //! `DiscoveryBehaviour` and can be queried through the `NetworkBehaviour` trait.
 //!
 //! **Important**: In order for the discovery mechanism to work properly, there needs to be an
 //! active mechanism that asks nodes for the addresses they are listening on. Whenever we learn
-//! of a node&#39;s address, you must call `add_self_reported_address`.
+//! of a node's address, you must call `add_self_reported_address`.
 
 </span><span class="kw">use crate</span>::{config::ProtocolId, utils::LruHashSet};
 
@@ -1471,7 +1473,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			kademlia_disjoint_query_paths: <span class="bool-val">false</span>,
 			kademlia_protocols: Vec::new(),
 			kademlia_replication_factor: NonZeroUsize::new(DEFAULT_KADEMLIA_REPLICATION_FACTOR)
-				.expect(<span class="string">&quot;value is a constant; constant is non-zero; qed.&quot;</span>),
+				.expect(<span class="string">"value is a constant; constant is non-zero; qed."</span>),
 		}
 	}
 
@@ -1601,7 +1603,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">match </span>TokioMdns::new(mdns::Config::default(), local_peer_id) {
 					<span class="prelude-val">Ok</span>(mdns) =&gt; Toggle::from(<span class="prelude-val">Some</span>(mdns)),
 					<span class="prelude-val">Err</span>(err) =&gt; {
-						<span class="macro">warn!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;Failed to initialize mDNS: {:?}&quot;</span>, err);
+						<span class="macro">warn!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"Failed to initialize mDNS: {:?}"</span>, err);
 						Toggle::from(<span class="prelude-val">None</span>)
 					},
 				}
@@ -1611,7 +1613,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			allow_non_globals_in_dht,
 			known_external_addresses: LruHashSet::new(
 				NonZeroUsize::new(MAX_KNOWN_EXTERNAL_ADDRESSES)
-					.expect(<span class="string">&quot;value is a constant; constant is non-zero; qed.&quot;</span>),
+					.expect(<span class="string">"value is a constant; constant is non-zero; qed."</span>),
 			),
 			records_to_publish: Default::default(),
 		}
@@ -1626,8 +1628,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Same as `permanent_addresses`, except that addresses that fail to reach a peer are
 	/// removed.
 	</span>ephemeral_addresses: HashMap&lt;PeerId, Vec&lt;Multiaddr&gt;&gt;,
-	<span class="doccomment">/// Kademlia requests and answers. Even though it&#39;s wrapped in `Toggle`, currently
-	/// it&#39;s always enabled in `NetworkWorker::new()`.
+	<span class="doccomment">/// Kademlia requests and answers. Even though it's wrapped in `Toggle`, currently
+	/// it's always enabled in `NetworkWorker::new()`.
 	</span>kademlia: Toggle&lt;Kademlia&lt;MemoryStore&gt;&gt;,
 	<span class="doccomment">/// Discovers nodes on the local network.
 	</span>mdns: Toggle&lt;TokioMdns&gt;,
@@ -1640,9 +1642,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>pending_events: VecDeque&lt;DiscoveryOut&gt;,
 	<span class="doccomment">/// Identity of our local node.
 	</span>local_peer_id: PeerId,
-	<span class="doccomment">/// Number of nodes we&#39;re currently connected to.
+	<span class="doccomment">/// Number of nodes we're currently connected to.
 	</span>num_connections: u64,
-	<span class="doccomment">/// If false, `addresses_of_peer` won&#39;t return any private IPv4/IPv6 address, except for the
+	<span class="doccomment">/// If false, `addresses_of_peer` won't return any private IPv4/IPv6 address, except for the
 	/// ones stored in `permanent_addresses` or `ephemeral_addresses`.
 	</span>allow_private_ip: bool,
 	<span class="doccomment">/// Number of active connections over which we interrupt the discovery process.
@@ -1679,7 +1681,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// This adds an entry to the parameter that was passed to `new`.
 	///
-	/// If we didn&#39;t know this address before, also generates a `Discovered` event.
+	/// If we didn't know this address before, also generates a `Discovered` event.
 	</span><span class="kw">pub fn </span>add_known_address(<span class="kw-2">&amp;mut </span><span class="self">self</span>, peer_id: PeerId, addr: Multiaddr) {
 		<span class="kw">let </span>addrs_list = <span class="self">self</span>.ephemeral_addresses.entry(peer_id).or_default();
 		<span class="kw">if </span>addrs_list.contains(<span class="kw-2">&amp;</span>addr) {
@@ -1708,8 +1710,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(kademlia) = <span class="self">self</span>.kademlia.as_mut() {
 			<span class="kw">if </span>!<span class="self">self</span>.allow_non_globals_in_dht &amp;&amp; !<span class="self">Self</span>::can_add_to_dht(<span class="kw-2">&amp;</span>addr) {
 				<span class="macro">trace!</span>(
-					target: <span class="string">&quot;sub-libp2p&quot;</span>,
-					<span class="string">&quot;Ignoring self-reported non-global address {} from {}.&quot;</span>, addr, peer_id
+					target: <span class="string">"sub-libp2p"</span>,
+					<span class="string">"Ignoring self-reported non-global address {} from {}."</span>, addr, peer_id
 				);
 				<span class="kw">return
 			</span>}
@@ -1719,16 +1721,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.find(|p| kademlia.protocol_names().iter().any(|k| k.as_ref() == p.as_ref()))
 			{
 				<span class="macro">trace!</span>(
-					target: <span class="string">&quot;sub-libp2p&quot;</span>,
-					<span class="string">&quot;Adding self-reported address {} from {} to Kademlia DHT {}.&quot;</span>,
+					target: <span class="string">"sub-libp2p"</span>,
+					<span class="string">"Adding self-reported address {} from {} to Kademlia DHT {}."</span>,
 					addr, peer_id, String::from_utf8_lossy(matching_protocol.as_ref()),
 				);
 				kademlia.add_address(peer_id, addr.clone());
 			} <span class="kw">else </span>{
 				<span class="macro">trace!</span>(
-					target: <span class="string">&quot;sub-libp2p&quot;</span>,
-					<span class="string">&quot;Ignoring self-reported address {} from {} as remote node is not part of the \
-					 Kademlia DHT supported by the local node.&quot;</span>, addr, peer_id,
+					target: <span class="string">"sub-libp2p"</span>,
+					<span class="string">"Ignoring self-reported address {} from {} as remote node is not part of the \
+					 Kademlia DHT supported by the local node."</span>, addr, peer_id,
 				);
 			}
 		}
@@ -1750,7 +1752,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub fn </span>put_value(<span class="kw-2">&amp;mut </span><span class="self">self</span>, key: RecordKey, value: Vec&lt;u8&gt;) {
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(k) = <span class="self">self</span>.kademlia.as_mut() {
 			<span class="kw">if let </span><span class="prelude-val">Err</span>(e) = k.put_record(Record::new(key.clone(), value.clone()), Quorum::All) {
-				<span class="macro">warn!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;Libp2p =&gt; Failed to put record: {:?}&quot;</span>, e);
+				<span class="macro">warn!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"Libp2p =&gt; Failed to put record: {:?}"</span>, e);
 				<span class="self">self</span>.pending_events
 					.push_back(DiscoveryOut::ValuePutFailed(key.clone(), Duration::from_secs(<span class="number">0</span>)));
 			}
@@ -1943,7 +1945,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			});
 		}
 
-		<span class="macro">trace!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;Addresses of {:?}: {:?}&quot;</span>, peer_id, list);
+		<span class="macro">trace!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"Addresses of {:?}: {:?}"</span>, peer_id, list);
 
 		<span class="prelude-val">Ok</span>(list.into_iter().collect())
 	}
@@ -1985,7 +1987,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="self">self</span>.kademlia.on_swarm_event(FromSwarm::ListenerError(e));
 			},
 			FromSwarm::ExpiredExternalAddr(e) =&gt; {
-				<span class="comment">// We intentionally don&#39;t remove the element from `known_external_addresses` in
+				<span class="comment">// We intentionally don't remove the element from `known_external_addresses` in
 				// order to not print the log line again.
 
 				</span><span class="self">self</span>.kademlia.on_swarm_event(FromSwarm::ExpiredExternalAddr(e));
@@ -2004,8 +2006,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					// in which case we just want to refrain from logging.
 					</span><span class="kw">if </span><span class="self">self</span>.known_external_addresses.insert(new_addr.clone()) {
 						<span class="macro">info!</span>(
-						  target: <span class="string">&quot;sub-libp2p&quot;</span>,
-						  <span class="string">&quot;🔍 Discovered new external address for our node: {}&quot;</span>,
+						  target: <span class="string">"sub-libp2p"</span>,
+						  <span class="string">"🔍 Discovered new external address for our node: {}"</span>,
 						  new_addr,
 						);
 					}
@@ -2050,16 +2052,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="kw">if </span><span class="self">self</span>.num_connections &lt; <span class="self">self</span>.discovery_only_if_under_num {
 							<span class="kw">let </span>random_peer_id = PeerId::random();
 							<span class="macro">debug!</span>(
-								target: <span class="string">&quot;sub-libp2p&quot;</span>,
-								<span class="string">&quot;Libp2p &lt;= Starting random Kademlia request for {:?}&quot;</span>,
+								target: <span class="string">"sub-libp2p"</span>,
+								<span class="string">"Libp2p &lt;= Starting random Kademlia request for {:?}"</span>,
 								random_peer_id,
 							);
 							kademlia.get_closest_peers(random_peer_id);
 							<span class="bool-val">true
 						</span>} <span class="kw">else </span>{
 							<span class="macro">debug!</span>(
-								target: <span class="string">&quot;sub-libp2p&quot;</span>,
-								<span class="string">&quot;Kademlia paused due to high number of connections ({})&quot;</span>,
+								target: <span class="string">"sub-libp2p"</span>,
+								<span class="string">"Kademlia paused due to high number of connections ({})"</span>,
 								<span class="self">self</span>.num_connections
 							);
 							<span class="bool-val">false
@@ -2104,21 +2106,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					} =&gt; <span class="kw">match </span>res {
 						<span class="prelude-val">Err</span>(GetClosestPeersError::Timeout { key, peers }) =&gt; {
 							<span class="macro">debug!</span>(
-								target: <span class="string">&quot;sub-libp2p&quot;</span>,
-								<span class="string">&quot;Libp2p =&gt; Query for {:?} timed out with {} results&quot;</span>,
+								target: <span class="string">"sub-libp2p"</span>,
+								<span class="string">"Libp2p =&gt; Query for {:?} timed out with {} results"</span>,
 								HexDisplay::from(<span class="kw-2">&amp;</span>key), peers.len(),
 							);
 						},
 						<span class="prelude-val">Ok</span>(ok) =&gt; {
 							<span class="macro">trace!</span>(
-								target: <span class="string">&quot;sub-libp2p&quot;</span>,
-								<span class="string">&quot;Libp2p =&gt; Query for {:?} yielded {:?} results&quot;</span>,
+								target: <span class="string">"sub-libp2p"</span>,
+								<span class="string">"Libp2p =&gt; Query for {:?} yielded {:?} results"</span>,
 								HexDisplay::from(<span class="kw-2">&amp;</span>ok.key), ok.peers.len(),
 							);
 							<span class="kw">if </span>ok.peers.is_empty() &amp;&amp; <span class="self">self</span>.num_connections != <span class="number">0 </span>{
 								<span class="macro">debug!</span>(
-									target: <span class="string">&quot;sub-libp2p&quot;</span>,
-									<span class="string">&quot;Libp2p =&gt; Random Kademlia query has yielded empty results&quot;</span>,
+									target: <span class="string">"sub-libp2p"</span>,
+									<span class="string">"Libp2p =&gt; Random Kademlia query has yielded empty results"</span>,
 								);
 							}
 						},
@@ -2132,13 +2134,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="kw">let </span>ev = <span class="kw">match </span>res {
 							<span class="prelude-val">Ok</span>(GetRecordOk::FoundRecord(r)) =&gt; {
 								<span class="macro">debug!</span>(
-									target: <span class="string">&quot;sub-libp2p&quot;</span>,
-									<span class="string">&quot;Libp2p =&gt; Found record ({:?}) with value: {:?}&quot;</span>,
+									target: <span class="string">"sub-libp2p"</span>,
+									<span class="string">"Libp2p =&gt; Found record ({:?}) with value: {:?}"</span>,
 									r.record.key,
 									r.record.value,
 								);
 
-								<span class="comment">// Let&#39;s directly finish the query, as we are only interested in a
+								<span class="comment">// Let's directly finish the query, as we are only interested in a
 								// quorum of 1.
 								</span><span class="kw">if let </span><span class="prelude-val">Some</span>(kad) = <span class="self">self</span>.kademlia.as_mut() {
 									<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">mut </span>query) = kad.query_mut(<span class="kw-2">&amp;</span>id) {
@@ -2179,8 +2181,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							</span>},
 							<span class="prelude-val">Err</span>(e @ libp2p::kad::GetRecordError::NotFound { .. }) =&gt; {
 								<span class="macro">trace!</span>(
-									target: <span class="string">&quot;sub-libp2p&quot;</span>,
-									<span class="string">&quot;Libp2p =&gt; Failed to get record: {:?}&quot;</span>,
+									target: <span class="string">"sub-libp2p"</span>,
+									<span class="string">"Libp2p =&gt; Failed to get record: {:?}"</span>,
 									e,
 								);
 								DiscoveryOut::ValueNotFound(
@@ -2190,8 +2192,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							},
 							<span class="prelude-val">Err</span>(e) =&gt; {
 								<span class="macro">debug!</span>(
-									target: <span class="string">&quot;sub-libp2p&quot;</span>,
-									<span class="string">&quot;Libp2p =&gt; Failed to get record: {:?}&quot;</span>,
+									target: <span class="string">"sub-libp2p"</span>,
+									<span class="string">"Libp2p =&gt; Failed to get record: {:?}"</span>,
 									e,
 								);
 								DiscoveryOut::ValueNotFound(
@@ -2212,8 +2214,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 								DiscoveryOut::ValuePut(ok.key, stats.duration().unwrap_or_default()),
 							<span class="prelude-val">Err</span>(e) =&gt; {
 								<span class="macro">debug!</span>(
-									target: <span class="string">&quot;sub-libp2p&quot;</span>,
-									<span class="string">&quot;Libp2p =&gt; Failed to put record: {:?}&quot;</span>,
+									target: <span class="string">"sub-libp2p"</span>,
+									<span class="string">"Libp2p =&gt; Failed to put record: {:?}"</span>,
 									e,
 								);
 								DiscoveryOut::ValuePutFailed(
@@ -2229,19 +2231,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						..
 					} =&gt; <span class="kw">match </span>res {
 						<span class="prelude-val">Ok</span>(ok) =&gt; <span class="macro">debug!</span>(
-							target: <span class="string">&quot;sub-libp2p&quot;</span>,
-							<span class="string">&quot;Libp2p =&gt; Record republished: {:?}&quot;</span>,
+							target: <span class="string">"sub-libp2p"</span>,
+							<span class="string">"Libp2p =&gt; Record republished: {:?}"</span>,
 							ok.key,
 						),
 						<span class="prelude-val">Err</span>(e) =&gt; <span class="macro">debug!</span>(
-							target: <span class="string">&quot;sub-libp2p&quot;</span>,
-							<span class="string">&quot;Libp2p =&gt; Republishing of record {:?} failed with: {:?}&quot;</span>,
+							target: <span class="string">"sub-libp2p"</span>,
+							<span class="string">"Libp2p =&gt; Republishing of record {:?} failed with: {:?}"</span>,
 							e.key(), e,
 						),
 					},
 					<span class="comment">// We never start any other type of query.
 					</span>KademliaEvent::OutboundQueryProgressed { result: e, .. } =&gt; {
-						<span class="macro">warn!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;Libp2p =&gt; Unhandled Kademlia event: {:?}&quot;</span>, e)
+						<span class="macro">warn!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"Libp2p =&gt; Unhandled Kademlia event: {:?}"</span>, e)
 					},
 				},
 				ToSwarm::Dial { opts } =&gt; <span class="kw">return </span>Poll::Ready(ToSwarm::Dial { opts }),
@@ -2272,7 +2274,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					mdns::Event::Expired(<span class="kw">_</span>) =&gt; {},
 				},
 				ToSwarm::Dial { .. } =&gt; {
-					<span class="macro">unreachable!</span>(<span class="string">&quot;mDNS never dials!&quot;</span>);
+					<span class="macro">unreachable!</span>(<span class="string">"mDNS never dials!"</span>);
 				},
 				ToSwarm::NotifyHandler { event, .. } =&gt; <span class="kw">match </span>event {}, <span class="comment">/* `event` is an */
 				// enum with no
@@ -2290,19 +2292,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Legacy (fallback) Kademlia protocol name based on `protocol_id`.
 </span><span class="kw">fn </span>legacy_kademlia_protocol_name(id: <span class="kw-2">&amp;</span>ProtocolId) -&gt; Vec&lt;u8&gt; {
-	<span class="kw">let </span><span class="kw-2">mut </span>v = <span class="macro">vec!</span>[<span class="string">b&#39;/&#39;</span>];
+	<span class="kw">let </span><span class="kw-2">mut </span>v = <span class="macro">vec!</span>[<span class="string">b'/'</span>];
 	v.extend_from_slice(id.as_ref().as_bytes());
-	v.extend_from_slice(<span class="string">b&quot;/kad&quot;</span>);
+	v.extend_from_slice(<span class="string">b"/kad"</span>);
 	v
 }
 
 <span class="doccomment">/// Kademlia protocol name based on `genesis_hash` and `fork_id`.
 </span><span class="kw">fn </span>kademlia_protocol_name&lt;Hash: AsRef&lt;[u8]&gt;&gt;(genesis_hash: Hash, fork_id: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;) -&gt; Vec&lt;u8&gt; {
-	<span class="kw">let </span>genesis_hash_hex = bytes2hex(<span class="string">&quot;&quot;</span>, genesis_hash.as_ref());
+	<span class="kw">let </span>genesis_hash_hex = bytes2hex(<span class="string">""</span>, genesis_hash.as_ref());
 	<span class="kw">if let </span><span class="prelude-val">Some</span>(fork_id) = fork_id {
-		<span class="macro">format!</span>(<span class="string">&quot;/{}/{}/kad&quot;</span>, genesis_hash_hex, fork_id).as_bytes().into()
+		<span class="macro">format!</span>(<span class="string">"/{}/{}/kad"</span>, genesis_hash_hex, fork_id).as_bytes().into()
 	} <span class="kw">else </span>{
-		<span class="macro">format!</span>(<span class="string">&quot;/{}/kad&quot;</span>, genesis_hash_hex).as_bytes().into()
+		<span class="macro">format!</span>(<span class="string">"/{}/kad"</span>, genesis_hash_hex).as_bytes().into()
 	}
 }
 
@@ -2338,8 +2340,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span><span class="kw-2">mut </span>first_swarm_peer_id_and_addr = <span class="prelude-val">None</span>;
 
 		<span class="kw">let </span>genesis_hash = H256::from_low_u64_be(<span class="number">1</span>);
-		<span class="kw">let </span>fork_id = <span class="prelude-val">Some</span>(<span class="string">&quot;test-fork-id&quot;</span>);
-		<span class="kw">let </span>protocol_id = ProtocolId::from(<span class="string">&quot;dot&quot;</span>);
+		<span class="kw">let </span>fork_id = <span class="prelude-val">Some</span>(<span class="string">"test-fork-id"</span>);
+		<span class="kw">let </span>protocol_id = ProtocolId::from(<span class="string">"dot"</span>);
 
 		<span class="comment">// Build swarms whose behaviour is `DiscoveryBehaviour`, each aware of
 		// the first swarm via `with_permanent_addresses`.
@@ -2375,7 +2377,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.build();
 
 				<span class="kw">let </span>listen_addr: Multiaddr =
-					<span class="macro">format!</span>(<span class="string">&quot;/memory/{}&quot;</span>, rand::random::&lt;u64&gt;()).parse().unwrap();
+					<span class="macro">format!</span>(<span class="string">"/memory/{}"</span>, rand::random::&lt;u64&gt;()).parse().unwrap();
 
 				<span class="kw">if </span>i == <span class="number">0 </span>{
 					first_swarm_peer_id_and_addr =
@@ -2400,7 +2402,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 
 		<span class="kw">let </span>fut = futures::future::poll_fn(<span class="kw">move </span>|cx| {
-			<span class="lifetime">&#39;polling</span>: <span class="kw">loop </span>{
+			<span class="lifetime">'polling</span>: <span class="kw">loop </span>{
 				<span class="kw">for </span>swarm_n <span class="kw">in </span><span class="number">0</span>..swarms.len() {
 					<span class="kw">match </span>swarms[swarm_n].<span class="number">0</span>.poll_next_unpin(cx) {
 						Poll::Ready(<span class="prelude-val">Some</span>(e)) =&gt; {
@@ -2441,14 +2443,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 										},
 										DiscoveryOut::RandomKademliaStarted =&gt; {},
 										e =&gt; {
-											<span class="macro">panic!</span>(<span class="string">&quot;Unexpected event: {:?}&quot;</span>, e)
+											<span class="macro">panic!</span>(<span class="string">"Unexpected event: {:?}"</span>, e)
 										},
 									}
 								},
 								<span class="comment">// ignore non Behaviour events
 								</span><span class="kw">_ </span>=&gt; {},
 							}
-							<span class="kw">continue </span><span class="lifetime">&#39;polling
+							<span class="kw">continue </span><span class="lifetime">'polling
 						</span>},
 						<span class="kw">_ </span>=&gt; {},
 					}
@@ -2470,8 +2472,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>discovery_ignores_peers_with_unknown_protocols() {
 		<span class="kw">let </span>supported_genesis_hash = H256::from_low_u64_be(<span class="number">1</span>);
 		<span class="kw">let </span>unsupported_genesis_hash = H256::from_low_u64_be(<span class="number">2</span>);
-		<span class="kw">let </span>supported_protocol_id = ProtocolId::from(<span class="string">&quot;a&quot;</span>);
-		<span class="kw">let </span>unsupported_protocol_id = ProtocolId::from(<span class="string">&quot;b&quot;</span>);
+		<span class="kw">let </span>supported_protocol_id = ProtocolId::from(<span class="string">"a"</span>);
+		<span class="kw">let </span>unsupported_protocol_id = ProtocolId::from(<span class="string">"b"</span>);
 
 		<span class="kw">let </span><span class="kw-2">mut </span>discovery = {
 			<span class="kw">let </span>keypair = Keypair::generate_ed25519();
@@ -2488,10 +2490,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			Keypair::ed25519_from_bytes(bytes.to_owned()).unwrap().public().to_peer_id()
 		};
 
-		<span class="kw">let </span>remote_peer_id = predictable_peer_id(<span class="string">b&quot;00000000000000000000000000000001&quot;</span>);
-		<span class="kw">let </span>remote_addr: Multiaddr = <span class="string">&quot;/memory/1&quot;</span>.parse().unwrap();
-		<span class="kw">let </span>another_peer_id = predictable_peer_id(<span class="string">b&quot;00000000000000000000000000000002&quot;</span>);
-		<span class="kw">let </span>another_addr: Multiaddr = <span class="string">&quot;/memory/2&quot;</span>.parse().unwrap();
+		<span class="kw">let </span>remote_peer_id = predictable_peer_id(<span class="string">b"00000000000000000000000000000001"</span>);
+		<span class="kw">let </span>remote_addr: Multiaddr = <span class="string">"/memory/1"</span>.parse().unwrap();
+		<span class="kw">let </span>another_peer_id = predictable_peer_id(<span class="string">b"00000000000000000000000000000002"</span>);
+		<span class="kw">let </span>another_addr: Multiaddr = <span class="string">"/memory/2"</span>.parse().unwrap();
 
 		<span class="comment">// Try adding remote peers with unsupported protocols.
 		</span>discovery.add_self_reported_address(
@@ -2510,16 +2512,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">assert!</span>(
 				kademlia
 					.kbucket(remote_peer_id)
-					.expect(<span class="string">&quot;Remote peer id not to be equal to local peer id.&quot;</span>)
+					.expect(<span class="string">"Remote peer id not to be equal to local peer id."</span>)
 					.is_empty(),
-				<span class="string">&quot;Expect peer with unsupported protocol not to be added.&quot;
+				<span class="string">"Expect peer with unsupported protocol not to be added."
 			</span>);
 			<span class="macro">assert!</span>(
 				kademlia
 					.kbucket(another_peer_id)
-					.expect(<span class="string">&quot;Remote peer id not to be equal to local peer id.&quot;</span>)
+					.expect(<span class="string">"Remote peer id not to be equal to local peer id."</span>)
 					.is_empty(),
-				<span class="string">&quot;Expect peer with unsupported protocol not to be added.&quot;
+				<span class="string">"Expect peer with unsupported protocol not to be added."
 			</span>);
 		}
 
@@ -2540,7 +2542,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">assert_eq!</span>(
 				<span class="number">2</span>,
 				kademlia.kbuckets().fold(<span class="number">0</span>, |acc, bucket| acc + bucket.num_entries()),
-				<span class="string">&quot;Expect peers with supported protocol to be added.&quot;
+				<span class="string">"Expect peers with supported protocol to be added."
 			</span>);
 		}
 	}

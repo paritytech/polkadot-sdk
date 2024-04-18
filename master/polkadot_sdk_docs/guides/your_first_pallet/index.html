@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Write your first simple pallet, learning the most most basic features of FRAME along the way."><title>polkadot_sdk_docs::guides::your_first_pallet - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Write your first simple pallet, learning the most most basic features of FRAME along the way."><title>polkadot_sdk_docs::guides::your_first_pallet - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_sdk_docs" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="icon" href="https://polkadot.network/favicon-32x32.png"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_sdk_docs" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="icon" href="https://polkadot.network/favicon-32x32.png"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,8 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="logo-container" href="../../../polkadot_sdk_docs/index.html"><img src="https://europe1.discourse-cdn.com/standard21/uploads/polkadot2/original/1X/eb57081e2bb7c39e5fcb1a98b443e423fa4448ae.svg" alt=""></a></nav><nav class="sidebar"><div class="sidebar-crate"><a class="logo-container" href="../../../polkadot_sdk_docs/index.html"><img src="https://europe1.discourse-cdn.com/standard21/uploads/polkadot2/original/1X/eb57081e2bb7c39e5fcb1a98b443e423fa4448ae.svg" alt="logo"></a><h2><a href="../../../polkadot_sdk_docs/index.html">polkadot_sdk_docs</a><span class="version">0.0.1</span></h2></div><h2 class="location"><a href="#">Module your_first_pallet</a></h2><div class="sidebar-elems"><section><ul class="block"><li><a href="#modules">Modules</a></li></ul></section><h2><a href="../index.html">In polkadot_sdk_docs::guides</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../../index.html">polkadot_sdk_docs</a>::<wbr><a href="../index.html">guides</a>::<wbr><a class="mod" href="#">your_first_pallet</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../../../src/polkadot_sdk_docs/guides/your_first_pallet/mod.rs.html#1-757">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Write your first simple pallet, learning the most most basic features of FRAME along the way.</p>
-<h2 id="currency-pallet"><a href="#currency-pallet">Currency Pallet</a></h2>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button><a class="logo-container" href="../../../polkadot_sdk_docs/index.html"><img src="https://europe1.discourse-cdn.com/standard21/uploads/polkadot2/original/1X/eb57081e2bb7c39e5fcb1a98b443e423fa4448ae.svg" alt=""></a></nav><nav class="sidebar"><div class="sidebar-crate"><a class="logo-container" href="../../../polkadot_sdk_docs/index.html"><img src="https://europe1.discourse-cdn.com/standard21/uploads/polkadot2/original/1X/eb57081e2bb7c39e5fcb1a98b443e423fa4448ae.svg" alt="logo"></a><h2><a href="../../../polkadot_sdk_docs/index.html">polkadot_sdk_docs</a><span class="version">0.0.1</span></h2></div><h2 class="location"><a href="#">Module your_first_pallet</a></h2><div class="sidebar-elems"><section><ul class="block"><li><a href="#modules">Modules</a></li></ul></section><h2><a href="../index.html">In polkadot_sdk_docs::guides</a></h2></div></nav><div class="sidebar-resizer"></div>
+    <main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../polkadot_sdk_docs/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../../index.html">polkadot_sdk_docs</a>::<wbr><a href="../index.html">guides</a>::<wbr><a class="mod" href="#">your_first_pallet</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../../../src/polkadot_sdk_docs/guides/your_first_pallet/mod.rs.html#1-757">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Write your first simple pallet, learning the most most basic features of FRAME along the way.</p>
+<h2 id="currency-pallet"><a class="doc-anchor" href="#currency-pallet">§</a>Currency Pallet</h2>
 <p>By the end of this guide, you will write a small FRAME pallet (see
 <a href="../../polkadot_sdk/frame_runtime/index.html" title="mod polkadot_sdk_docs::polkadot_sdk::frame_runtime"><code>crate::polkadot_sdk::frame_runtime</code></a>) that is capable of handling a simple crypto-currency.
 This pallet will:</p>
@@ -164,7 +165,7 @@ FRAME, and is mainly intended for education, not <em>applicability</em>. For exa
 FRAME-based runtimes use various techniques to re-use a currency pallet instead of writing
 one. Further advanced FRAME related topics are discussed in <a href="../../reference_docs/index.html" title="mod polkadot_sdk_docs::reference_docs"><code>crate::reference_docs</code></a>.</p>
 </blockquote>
-<h3 id="topics-covered"><a href="#topics-covered">Topics Covered</a></h3>
+<h3 id="topics-covered"><a class="doc-anchor" href="#topics-covered">§</a>Topics Covered</h3>
 <p>The following FRAME topics are covered in this guide:</p>
 <ul>
 <li><a href="../../../frame_support_procedural/attr.storage.html" title="attr frame_support_procedural::storage">Storage</a></li>
@@ -174,14 +175,14 @@ one. Further advanced FRAME related topics are discussed in <a href="../../refer
 <li>Basics of testing a pallet</li>
 <li><a href="../../../frame_support_procedural/macro.construct_runtime.html" title="macro frame_support_procedural::construct_runtime">Constructing a runtime</a></li>
 </ul>
-<h3 id="writing-your-first-pallet"><a href="#writing-your-first-pallet">Writing Your First Pallet</a></h3>
+<h3 id="writing-your-first-pallet"><a class="doc-anchor" href="#writing-your-first-pallet">§</a>Writing Your First Pallet</h3>
 <p>You should have studied the following modules as a prelude to this guide:</p>
 <ul>
 <li><a href="../../reference_docs/blockchain_state_machines/index.html" title="mod polkadot_sdk_docs::reference_docs::blockchain_state_machines"><code>crate::reference_docs::blockchain_state_machines</code></a></li>
 <li><a href="../../reference_docs/trait_based_programming/index.html" title="mod polkadot_sdk_docs::reference_docs::trait_based_programming"><code>crate::reference_docs::trait_based_programming</code></a></li>
 <li><a href="../../polkadot_sdk/frame_runtime/index.html" title="mod polkadot_sdk_docs::polkadot_sdk::frame_runtime"><code>crate::polkadot_sdk::frame_runtime</code></a></li>
 </ul>
-<h4 id="shell-pallet"><a href="#shell-pallet">Shell Pallet</a></h4>
+<h4 id="shell-pallet"><a class="doc-anchor" href="#shell-pallet">§</a>Shell Pallet</h4>
 <p>Consider the following as a “shell pallet”. We continue building the rest of this pallet based
 on this template.</p>
 <p><a href="../../../frame_support_procedural/attr.config.html" title="attr frame_support_procedural::config"><code>pallet::config</code></a> and
@@ -198,7 +199,7 @@ to the documentation of each to get an overview of what they do.</p>
 	<span class="attr">#[pallet::pallet]
 	</span><span class="kw">pub struct </span>Pallet&lt;T&gt;(<span class="kw">_</span>);
 }</code></pre></div>
-<h4 id="storage"><a href="#storage">Storage</a></h4>
+<h4 id="storage"><a class="doc-anchor" href="#storage">§</a>Storage</h4>
 <p>First, we will need to create two onchain storage declarations.</p>
 <p>One should be a mapping from account-ids to a balance type, and one value that is the total
 issuance.</p>
@@ -217,7 +218,7 @@ is as follows:</p>
 
 <div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[pallet::storage]
 </span><span class="kw">pub type </span>Balances&lt;T: Config&gt; = StorageMap&lt;<span class="kw">_</span>, <span class="kw">_</span>, T::AccountId, Balance&gt;;</code></pre></div>
-<h4 id="dispatchables"><a href="#dispatchables">Dispatchables</a></h4>
+<h4 id="dispatchables"><a class="doc-anchor" href="#dispatchables">§</a>Dispatchables</h4>
 <p>Next, we will define the dispatchable functions. As per <a href="../../../frame_support_procedural/attr.call.html" title="attr frame_support_procedural::call"><code>frame::pallet_macros::call</code></a>, these
 will be defined as normal <code>fn</code>s attached to <code>struct Pallet</code>.</p>
 
@@ -229,7 +230,7 @@ will be defined as normal <code>fn</code>s attached to <code>struct Pallet</code
 		dest: T::AccountId,
 		amount: Balance,
 	) -&gt; DispatchResult {
-		<span class="comment">// ensure that this is a signed account, but we don&#39;t really check `_anyone`.
+		<span class="comment">// ensure that this is a signed account, but we don't really check `_anyone`.
 		</span><span class="kw">let </span>_anyone = ensure_signed(origin)<span class="question-mark">?</span>;
 
 		<span class="comment">// update the balances map. Notice how all `&lt;T: Config&gt;` remains as `&lt;T&gt;`.
@@ -249,9 +250,9 @@ will be defined as normal <code>fn</code>s attached to <code>struct Pallet</code
 		<span class="kw">let </span>sender = ensure_signed(origin)<span class="question-mark">?</span>;
 
 		<span class="comment">// ensure sender has enough balance, and if so, calculate what is left after `amount`.
-		</span><span class="kw">let </span>sender_balance = Balances::&lt;T&gt;::get(<span class="kw-2">&amp;</span>sender).ok_or(<span class="string">&quot;NonExistentAccount&quot;</span>)<span class="question-mark">?</span>;
+		</span><span class="kw">let </span>sender_balance = Balances::&lt;T&gt;::get(<span class="kw-2">&amp;</span>sender).ok_or(<span class="string">"NonExistentAccount"</span>)<span class="question-mark">?</span>;
 		<span class="kw">if </span>sender_balance &lt; amount {
-			<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;InsufficientBalance&quot;</span>.into())
+			<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"InsufficientBalance"</span>.into())
 		}
 		<span class="kw">let </span>reminder = sender_balance - amount;
 
@@ -307,7 +308,7 @@ of FRAME storage APIs. You can learn more about how to override this by looking 
 <a href="../../../frame_support_procedural/attr.storage.html" title="attr frame_support_procedural::storage"><code>frame::pallet_macros::storage</code></a>, and
 <a href="../../../frame_support/storage/types/struct.ValueQuery.html" title="struct frame_support::storage::types::ValueQuery"><code>frame::prelude::ValueQuery</code></a>/<a href="../../../frame_support/storage/types/struct.OptionQuery.html" title="struct frame_support::storage::types::OptionQuery"><code>frame::prelude::OptionQuery</code></a></li>
 </ul>
-<h4 id="improving-errors"><a href="#improving-errors">Improving Errors</a></h4>
+<h4 id="improving-errors"><a class="doc-anchor" href="#improving-errors">§</a>Improving Errors</h4>
 <p>How we handle error in the above snippets is fairly rudimentary. Let’s look at how this can be
 improved. First, we can use <a href="../../../frame_support/macro.ensure.html" title="macro frame_support::ensure"><code>frame::prelude::ensure</code></a> to express the error slightly better.
 This macro will call <code>.into()</code> under the hood.</p>
@@ -319,8 +320,8 @@ This macro will call <code>.into()</code> under the hood.</p>
 ) -&gt; DispatchResult {
 	<span class="kw">let </span>sender = ensure_signed(origin)<span class="question-mark">?</span>;
 
-	<span class="kw">let </span>sender_balance = Balances::&lt;T&gt;::get(<span class="kw-2">&amp;</span>sender).ok_or(<span class="string">&quot;NonExistentAccount&quot;</span>)<span class="question-mark">?</span>;
-	<span class="macro">ensure!</span>(sender_balance &gt;= amount, <span class="string">&quot;InsufficientBalance&quot;</span>);
+	<span class="kw">let </span>sender_balance = Balances::&lt;T&gt;::get(<span class="kw-2">&amp;</span>sender).ok_or(<span class="string">"NonExistentAccount"</span>)<span class="question-mark">?</span>;
+	<span class="macro">ensure!</span>(sender_balance &gt;= amount, <span class="string">"InsufficientBalance"</span>);
 	<span class="kw">let </span>reminder = sender_balance - amount;
 
 	<span class="comment">// .. snip
@@ -339,14 +340,14 @@ ergonomic.</p>
 ) -&gt; DispatchResult {
 	<span class="kw">let </span>sender = ensure_signed(origin)<span class="question-mark">?</span>;
 
-	<span class="kw">let </span>sender_balance = Balances::&lt;T&gt;::get(<span class="kw-2">&amp;</span>sender).ok_or(<span class="string">&quot;NonExistentAccount&quot;</span>)<span class="question-mark">?</span>;
-	<span class="kw">let </span>reminder = sender_balance.checked_sub(amount).ok_or(<span class="string">&quot;InsufficientBalance&quot;</span>)<span class="question-mark">?</span>;
+	<span class="kw">let </span>sender_balance = Balances::&lt;T&gt;::get(<span class="kw-2">&amp;</span>sender).ok_or(<span class="string">"NonExistentAccount"</span>)<span class="question-mark">?</span>;
+	<span class="kw">let </span>reminder = sender_balance.checked_sub(amount).ok_or(<span class="string">"InsufficientBalance"</span>)<span class="question-mark">?</span>;
 
 	<span class="comment">// .. snip
 	</span><span class="prelude-val">Ok</span>(())
 }</code></pre></div>
 <p>This is more or less all the logic that there is this basic currency pallet!</p>
-<h4 id="your-first-test-runtime"><a href="#your-first-test-runtime">Your First (Test) Runtime</a></h4>
+<h4 id="your-first-test-runtime"><a class="doc-anchor" href="#your-first-test-runtime">§</a>Your First (Test) Runtime</h4>
 <p>Next, we create a “test runtime” in order to test our pallet. Recall from
 <a href="../../polkadot_sdk/frame_runtime/index.html" title="mod polkadot_sdk_docs::polkadot_sdk::frame_runtime"><code>crate::polkadot_sdk::frame_runtime</code></a> that a runtime is a collection of pallets, expressed
 through <a href="../../../frame_support_procedural/macro.construct_runtime.html" title="macro frame_support_procedural::construct_runtime"><code>frame::runtime::prelude::construct_runtime</code></a>. All runtimes also have to include
@@ -405,7 +406,7 @@ being so generic, different types can always be customized to simple things when
 <p>Imagine how hard it would have been if all tests had to use a real 32-byte account id, as
 opposed to just a u64 number 🙈.</p>
 </blockquote>
-<h4 id="your-first-test"><a href="#your-first-test">Your First Test</a></h4>
+<h4 id="your-first-test"><a class="doc-anchor" href="#your-first-test">§</a>Your First Test</h4>
 <p>The above is all you need to execute the dispatchables of your pallet. The last thing you need
 to learn is that all of your pallet testing code should be wrapped in
 <a href="../../../sp_io/type.TestExternalities.html" title="type sp_io::TestExternalities"><code>frame::testing_prelude::TestState</code></a>. This is a type that provides access to an in-memory state
@@ -414,11 +415,11 @@ to be used in our tests.</p>
 <div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[test]
 </span><span class="kw">fn </span>first_test() {
 	TestState::new_empty().execute_with(|| {
-		<span class="comment">// We expect Alice&#39;s account to have no funds.
+		<span class="comment">// We expect Alice's account to have no funds.
 		</span><span class="macro">assert_eq!</span>(Balances::&lt;Runtime&gt;::get(<span class="kw-2">&amp;</span>ALICE), <span class="prelude-val">None</span>);
 		<span class="macro">assert_eq!</span>(TotalIssuance::&lt;Runtime&gt;::get(), <span class="prelude-val">None</span>);
 
-		<span class="comment">// mint some funds into Alice&#39;s account.
+		<span class="comment">// mint some funds into Alice's account.
 		</span><span class="macro">assert_ok!</span>(Pallet::&lt;Runtime&gt;::mint_unsafe(
 			RuntimeOrigin::signed(ALICE),
 			ALICE,
@@ -437,7 +438,7 @@ This is why for example you see <code>Balances::&lt;Runtime&gt;::get(..)</code>.
 dispatchables are simply functions that can be called on top of the <code>Pallet</code> struct.</p>
 <p>Congratulations! You have written your first pallet and tested it! Next, we learn a few optional
 steps to improve our pallet.</p>
-<h3 id="improving-the-currency-pallet"><a href="#improving-the-currency-pallet">Improving the Currency Pallet</a></h3><h4 id="better-test-setup"><a href="#better-test-setup">Better Test Setup</a></h4>
+<h3 id="improving-the-currency-pallet"><a class="doc-anchor" href="#improving-the-currency-pallet">§</a>Improving the Currency Pallet</h3><h4 id="better-test-setup"><a class="doc-anchor" href="#better-test-setup">§</a>Better Test Setup</h4>
 <p>Idiomatic FRAME pallets often use Builder pattern to define their initial state.</p>
 <blockquote>
 <p>The Polkadot Blockchain Academy’s Rust entrance exam has a
@@ -525,7 +526,7 @@ is working exactly as intended.</p>
 		<span class="macro">assert_eq!</span>(TotalIssuance::&lt;Runtime&gt;::get(), <span class="prelude-val">Some</span>(<span class="number">242</span>));
 	})
 }</code></pre></div>
-<h4 id="more-tests"><a href="#more-tests">More Tests</a></h4>
+<h4 id="more-tests"><a class="doc-anchor" href="#more-tests">§</a>More Tests</h4>
 <p>Now that we have a more ergonomic test setup, let’s see how a well written test for transfer and
 mint would look like.</p>
 
@@ -581,7 +582,7 @@ mint would look like.</p>
 		<span class="comment">// given the the initial state, when:
 		</span><span class="macro">assert_err!</span>(
 			Pallet::&lt;Runtime&gt;::transfer(RuntimeOrigin::signed(CHARLIE), ALICE, <span class="number">10</span>),
-			<span class="string">&quot;NonExistentAccount&quot;
+			<span class="string">"NonExistentAccount"
 		</span>);
 
 		<span class="comment">// then nothing has changed.
@@ -592,7 +593,7 @@ mint would look like.</p>
 	});
 }</code></pre></div>
 <p>We leave it up to you to write a test that triggers the <code>InsufficientBalance</code> error.</p>
-<h4 id="event-and-error"><a href="#event-and-error">Event and Error</a></h4>
+<h4 id="event-and-error"><a class="doc-anchor" href="#event-and-error">§</a>Event and Error</h4>
 <p>Our pallet is mainly missing two parts that are common in most FRAME pallets: Events, and
 Errors. First, let’s understand what each is.</p>
 <ul>
@@ -713,7 +714,7 @@ setup.</p>
 <a href="../../../frame_support_procedural/macro.construct_runtime.html" title="macro frame_support_procedural::construct_runtime"><code>construct_runtime</code></a>. An interesting way to inspect
 this type is to see its definition in rust-docs:
 <a href="pallet_v2/tests/runtime_v2/enum.RuntimeEvent.html" title="enum polkadot_sdk_docs::guides::your_first_pallet::pallet_v2::tests::runtime_v2::RuntimeEvent"><code>crate::guides::your_first_pallet::pallet_v2::tests::runtime_v2::RuntimeEvent</code></a>.</p>
-<h3 id="what-next"><a href="#what-next">What Next?</a></h3>
+<h3 id="what-next"><a class="doc-anchor" href="#what-next">§</a>What Next?</h3>
 <p>The following topics where used in this guide, but not covered in depth. It is suggested to
 study them subsequently:</p>
 <ul>
@@ -725,7 +726,7 @@ study them subsequently:</p>
 <li>Learn more about the individual pallet items/macros, such as event and errors and call, in
 <a href="../../../polkadot_sdk_frame/pallet_macros/index.html" title="mod polkadot_sdk_frame::pallet_macros"><code>frame::pallet_macros</code></a>.</li>
 </ul>
-</div></details><h2 id="modules" class="small-section-header"><a href="#modules">Modules</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="pallet/index.html" title="mod polkadot_sdk_docs::guides::your_first_pallet::pallet">pallet</a></div><div class="desc docblock-short">The <code>pallet</code> module in each FRAME pallet hosts the most important items needed
+</div></details><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="pallet/index.html" title="mod polkadot_sdk_docs::guides::your_first_pallet::pallet">pallet</a></div><div class="desc docblock-short">The <code>pallet</code> module in each FRAME pallet hosts the most important items needed
 to construct this pallet.</div></li><li><div class="item-name"><a class="mod" href="pallet_v2/index.html" title="mod polkadot_sdk_docs::guides::your_first_pallet::pallet_v2">pallet_v2</a></div><div class="desc docblock-short">The <code>pallet</code> module in each FRAME pallet hosts the most important items needed
 to construct this pallet.</div></li><li><div class="item-name"><a class="mod" href="shell_pallet/index.html" title="mod polkadot_sdk_docs::guides::your_first_pallet::shell_pallet">shell_pallet</a></div><div class="desc docblock-short">The <code>pallet</code> module in each FRAME pallet hosts the most important items needed
 to construct this pallet.</div></li></ul></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

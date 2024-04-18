@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/staking/src/pallet/impls.rs`."><title>impls.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/staking/src/pallet/impls.rs`."><title>impls.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="pallet_staking" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="pallet_staking" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../pallet_staking/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -2316,14 +2318,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -2369,9 +2371,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">use </span><span class="kw">super</span>::pallet::<span class="kw-2">*</span>;
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 </span><span class="kw">use </span>frame_support::ensure;
-<span class="attr">#[cfg(any(test, feature = <span class="string">&quot;try-runtime&quot;</span>))]
+<span class="attr">#[cfg(any(test, feature = <span class="string">"try-runtime"</span>))]
 </span><span class="kw">use </span>sp_runtime::TryRuntimeError;
 
 <span class="doccomment">/// The maximum number of iterations that we do whilst iterating over `T::VoterList` in
@@ -2492,7 +2494,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// `old_total` should never be less than the new total because
 		// `consolidate_unlocked` strictly subtracts balance.
 		</span><span class="kw">if </span>new_total &lt; old_total {
-			<span class="comment">// Already checked that this won&#39;t overflow by entry condition.
+			<span class="comment">// Already checked that this won't overflow by entry condition.
 			</span><span class="kw">let </span>value = old_total.defensive_saturating_sub(new_total);
 			<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::Withdrawn { stash, amount: value });
 
@@ -2613,7 +2615,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>validator_leftover_payout =
 			validator_total_payout.defensive_saturating_sub(validator_total_commission_payout);
-		<span class="comment">// Now let&#39;s calculate how this is split to the validator.
+		<span class="comment">// Now let's calculate how this is split to the validator.
 		</span><span class="kw">let </span>validator_exposure_part = Perbill::from_rational(exposure.own(), exposure.total());
 		<span class="kw">let </span>validator_staking_payout = validator_exposure_part * validator_leftover_payout;
 		<span class="kw">let </span>page_stake_part = Perbill::from_rational(exposure.page_total(), exposure.total());
@@ -2675,7 +2677,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="doccomment">/// Actually make a payment to a staker. This uses the currency&#39;s reward function
+	<span class="doccomment">/// Actually make a payment to a staker. This uses the currency's reward function
 	/// to pay the right payee for the given staker account.
 	</span><span class="kw">fn </span>make_payout(
 		stash: <span class="kw-2">&amp;</span>T::AccountId,
@@ -2697,7 +2699,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 					<span class="kw">let _ </span>= ledger
 						.update()
-						.defensive_proof(<span class="string">&quot;ledger fetched from storage, so it exists; qed.&quot;</span>);
+						.defensive_proof(<span class="string">"ledger fetched from storage, so it exists; qed."</span>);
 
 					<span class="prelude-val">Ok</span>(r)
 				})
@@ -2708,7 +2710,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="attr">#[allow(deprecated)]
 			</span>RewardDestination::Controller =&gt; <span class="self">Self</span>::bonded(stash)
 					.map(|controller| {
-						<span class="macro">defensive!</span>(<span class="string">&quot;Paying out controller as reward destination which is deprecated and should be migrated.&quot;</span>);
+						<span class="macro">defensive!</span>(<span class="string">"Paying out controller as reward destination which is deprecated and should be migrated."</span>);
 						<span class="comment">// This should never happen once payees with a `Controller` variant have been migrated.
 						// But if it does, just pay the controller account.
 						</span>T::Currency::deposit_creating(<span class="kw-2">&amp;</span>controller, amount)
@@ -2726,7 +2728,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// Initial era has been set.
 			</span><span class="kw">let </span>current_era_start_session_index = <span class="self">Self</span>::eras_start_session_index(current_era)
 				.unwrap_or_else(|| {
-					frame_support::print(<span class="string">&quot;Error: start_session_index must be set for current_era&quot;</span>);
+					frame_support::print(<span class="string">"Error: start_session_index must be set for current_era"</span>);
 					<span class="number">0
 				</span>});
 
@@ -2757,7 +2759,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			maybe_new_era_validators
 		} <span class="kw">else </span>{
 			<span class="comment">// Set initial era.
-			</span><span class="macro">log!</span>(debug, <span class="string">&quot;Starting the first era.&quot;</span>);
+			</span><span class="macro">log!</span>(debug, <span class="string">"Starting the first era."</span>);
 			<span class="self">Self</span>::try_trigger_new_era(session_index, is_genesis)
 		}
 	}
@@ -2776,7 +2778,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			} <span class="kw">else if </span>next_active_era_start_session_index &lt; start_session {
 				<span class="comment">// This arm should never happen, but better handle it than to stall the staking
 				// pallet.
-				</span>frame_support::print(<span class="string">&quot;Warning: A session appears to have been skipped.&quot;</span>);
+				</span>frame_support::print(<span class="string">"Warning: A session appears to have been skipped."</span>);
 				<span class="self">Self</span>::start_era(start_session);
 			}
 		}
@@ -2825,7 +2827,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">if </span>active_era &gt; bonding_duration {
 				<span class="kw">let </span>first_kept = active_era.defensive_saturating_sub(bonding_duration);
 
-				<span class="comment">// Prune out everything that&#39;s from before the first-kept index.
+				<span class="comment">// Prune out everything that's from before the first-kept index.
 				</span><span class="kw">let </span>n_to_prune =
 					bonded.iter().take_while(|&amp;&amp;(era_idx, <span class="kw">_</span>)| era_idx &lt; first_kept).count();
 
@@ -2923,7 +2925,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; <span class="prelude-ty">Option</span>&lt;BoundedVec&lt;T::AccountId, MaxWinnersOf&lt;T&gt;&gt;&gt; {
 		<span class="kw">let </span>election_result: BoundedVec&lt;<span class="kw">_</span>, MaxWinnersOf&lt;T&gt;&gt; = <span class="kw">if </span>is_genesis {
 			<span class="kw">let </span>result = &lt;T::GenesisElectionProvider&gt;::elect().map_err(|e| {
-				<span class="macro">log!</span>(warn, <span class="string">&quot;genesis election provider failed due to {:?}&quot;</span>, e);
+				<span class="macro">log!</span>(warn, <span class="string">"genesis election provider failed due to {:?}"</span>, e);
 				<span class="self">Self</span>::deposit_event(Event::StakingElectionFailed);
 			});
 
@@ -2935,7 +2937,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				</span>.defensive_unwrap_or_default()
 		} <span class="kw">else </span>{
 			<span class="kw">let </span>result = &lt;T::ElectionProvider&gt;::elect().map_err(|e| {
-				<span class="macro">log!</span>(warn, <span class="string">&quot;election provider failed due to {:?}&quot;</span>, e);
+				<span class="macro">log!</span>(warn, <span class="string">"election provider failed due to {:?}"</span>, e);
 				<span class="self">Self</span>::deposit_event(Event::StakingElectionFailed);
 			});
 			result.ok()<span class="question-mark">?
@@ -2947,8 +2949,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="kw">match </span>CurrentEra::&lt;T&gt;::get() {
 				<span class="prelude-val">Some</span>(current_era) <span class="kw">if </span>current_era &gt; <span class="number">0 </span>=&gt; <span class="macro">log!</span>(
 					warn,
-					<span class="string">&quot;chain does not have enough staking candidates to operate for era {:?} ({} \
-					elected, minimum is {})&quot;</span>,
+					<span class="string">"chain does not have enough staking candidates to operate for era {:?} ({} \
+					elected, minimum is {})"</span>,
 					CurrentEra::&lt;T&gt;::get().unwrap_or(<span class="number">0</span>),
 					exposures.len(),
 					<span class="self">Self</span>::minimum_validator_count(),
@@ -2997,7 +2999,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>elected_stashes: BoundedVec&lt;<span class="kw">_</span>, MaxWinnersOf&lt;T&gt;&gt; = elected_stashes
 			.try_into()
-			.expect(<span class="string">&quot;elected_stashes.len() always equal to exposures.len(); qed&quot;</span>);
+			.expect(<span class="string">"elected_stashes.len() always equal to exposures.len(); qed"</span>);
 
 		EraInfo::&lt;T&gt;::set_total_stake(new_planned_era, total_stake);
 
@@ -3010,7 +3012,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if </span>new_planned_era &gt; <span class="number">0 </span>{
 			<span class="macro">log!</span>(
 				info,
-				<span class="string">&quot;new validator set of size {:?} has been processed for era {:?}&quot;</span>,
+				<span class="string">"new validator set of size {:?} has been processed for era {:?}"</span>,
 				elected_stashes.len(),
 				new_planned_era,
 			);
@@ -3053,7 +3055,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				(validator, exposure)
 			})
 			.try_collect()
-			.expect(<span class="string">&quot;we only map through support vector which cannot change the size; qed&quot;</span>)
+			.expect(<span class="string">"we only map through support vector which cannot change the size; qed"</span>)
 	}
 
 	<span class="doccomment">/// Remove all associated data of a stash account from the staking system.
@@ -3061,7 +3063,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// Assumes storage is upgraded before calling.
 	///
 	/// This is called:
-	/// - after a `withdraw_unbonded()` call that frees all of a stash&#39;s bonded balance.
+	/// - after a `withdraw_unbonded()` call that frees all of a stash's bonded balance.
 	/// - through `reap_stash()` if the balance has fallen to zero (through slashing).
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>kill_stash(stash: <span class="kw-2">&amp;</span>T::AccountId, num_slashing_spans: u32) -&gt; DispatchResult {
 		slashing::clear_stash_metadata::&lt;T&gt;(<span class="kw-2">&amp;</span>stash, num_slashing_spans)<span class="question-mark">?</span>;
@@ -3106,7 +3108,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>era_slashes = UnappliedSlashes::&lt;T&gt;::take(<span class="kw-2">&amp;</span>active_era);
 		<span class="macro">log!</span>(
 			debug,
-			<span class="string">&quot;found {} slashes scheduled to be executed in era {:?}&quot;</span>,
+			<span class="string">"found {} slashes scheduled to be executed in era {:?}"</span>,
 			era_slashes.len(),
 			active_era,
 		);
@@ -3140,7 +3142,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Helper to set a new `ForceEra` mode.
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>set_force_era(mode: Forcing) {
-		<span class="macro">log!</span>(info, <span class="string">&quot;Setting force era mode {:?}.&quot;</span>, mode);
+		<span class="macro">log!</span>(info, <span class="string">"Setting force era mode {:?}."</span>, mode);
 		ForceEra::&lt;T&gt;::put(mode);
 		<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::ForceEra { mode });
 	}
@@ -3153,7 +3155,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">pub fn </span>add_era_stakers(
 		current_era: EraIndex,
 		stash: T::AccountId,
@@ -3162,7 +3164,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		EraInfo::&lt;T&gt;::set_exposure(current_era, <span class="kw-2">&amp;</span>stash, exposure);
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">pub fn </span>set_slash_reward_fraction(fraction: Perbill) {
 		SlashRewardFraction::&lt;T&gt;::put(fraction);
 	}
@@ -3208,7 +3210,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>voter_weight = weight_of(<span class="kw-2">&amp;</span>voter);
 			<span class="comment">// if voter weight is zero, do not consider this voter for the snapshot.
 			</span><span class="kw">if </span>voter_weight.is_zero() {
-				<span class="macro">log!</span>(debug, <span class="string">&quot;voter&#39;s active balance is 0. skip this voter.&quot;</span>);
+				<span class="macro">log!</span>(debug, <span class="string">"voter's active balance is 0. skip this voter."</span>);
 				<span class="kw">continue
 			</span>}
 
@@ -3241,7 +3243,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					voter_weight,
 					<span class="macro">vec!</span>[voter.clone()]
 						.try_into()
-						.expect(<span class="string">&quot;`MaxVotesPerVoter` must be greater than or equal to 1&quot;</span>),
+						.expect(<span class="string">"`MaxVotesPerVoter` must be greater than or equal to 1"</span>),
 				);
 
 				<span class="kw">if </span>voters_size_tracker.try_register_voter(<span class="kw-2">&amp;</span>self_vote, <span class="kw-2">&amp;</span>bounds).is_err() {
@@ -3260,7 +3262,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				// `T::NominationsQuota::get_quota`. The latter can rarely happen, and is not
 				// really an emergency or bug if it does.
 				</span><span class="macro">defensive!</span>(
-				    <span class="string">&quot;DEFENSIVE: invalid item in `VoterList`: {:?}, this nominator probably has too many nominations now&quot;</span>,
+				    <span class="string">"DEFENSIVE: invalid item in `VoterList`: {:?}, this nominator probably has too many nominations now"</span>,
                     voter,
                 );
 			}
@@ -3278,7 +3280,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="macro">log!</span>(
 			info,
-			<span class="string">&quot;generated {} npos voters, {} from validators and {} nominators&quot;</span>,
+			<span class="string">"generated {} npos voters, {} from validators and {} nominators"</span>,
 			all_voters.len(),
 			validators_taken,
 			nominators_taken
@@ -3327,7 +3329,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 
 		<span class="self">Self</span>::register_weight(T::WeightInfo::get_npos_targets(all_targets.len() <span class="kw">as </span>u32));
-		<span class="macro">log!</span>(info, <span class="string">&quot;generated {} npos targets&quot;</span>, all_targets.len());
+		<span class="macro">log!</span>(info, <span class="string">"generated {} npos targets"</span>, all_targets.len());
 
 		all_targets
 	}
@@ -3492,10 +3494,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>electable_targets(bounds: DataProviderBounds) -&gt; data_provider::Result&lt;Vec&lt;T::AccountId&gt;&gt; {
 		<span class="kw">let </span>targets = <span class="self">Self</span>::get_npos_targets(bounds);
 
-		<span class="comment">// We can&#39;t handle this case yet -- return an error. WIP to improve handling this case in
+		<span class="comment">// We can't handle this case yet -- return an error. WIP to improve handling this case in
 		// &lt;https://github.com/paritytech/substrate/pull/13195&gt;.
 		</span><span class="kw">if </span>bounds.exhausted(<span class="prelude-val">None</span>, CountBound(T::TargetList::count() <span class="kw">as </span>u32).into()) {
-			<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;Target snapshot too big&quot;</span>)
+			<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Target snapshot too big"</span>)
 		}
 
 		<span class="macro">debug_assert!</span>(!bounds.exhausted(
@@ -3539,14 +3541,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		)
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">fn </span>add_voter(
 		voter: T::AccountId,
 		weight: VoteWeight,
 		targets: BoundedVec&lt;T::AccountId, <span class="self">Self</span>::MaxVotesPerVoter&gt;,
 	) {
 		<span class="kw">let </span>stake = &lt;BalanceOf&lt;T&gt;&gt;::try_from(weight).unwrap_or_else(|<span class="kw">_</span>| {
-			<span class="macro">panic!</span>(<span class="string">&quot;cannot convert a VoteWeight into BalanceOf, benchmark needs reconfiguring.&quot;</span>)
+			<span class="macro">panic!</span>(<span class="string">"cannot convert a VoteWeight into BalanceOf, benchmark needs reconfiguring."</span>)
 		});
 		&lt;Bonded&lt;T&gt;&gt;::insert(voter.clone(), voter.clone());
 		&lt;Ledger&lt;T&gt;&gt;::insert(voter.clone(), StakingLedger::&lt;T&gt;::new(voter.clone(), stake));
@@ -3554,7 +3556,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">Self</span>::do_add_nominator(<span class="kw-2">&amp;</span>voter, Nominations { targets, submitted_in: <span class="number">0</span>, suppressed: <span class="bool-val">false </span>});
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">fn </span>add_target(target: T::AccountId) {
 		<span class="kw">let </span>stake = MinValidatorBond::&lt;T&gt;::get() * <span class="number">100u32</span>.into();
 		&lt;Bonded&lt;T&gt;&gt;::insert(target.clone(), target.clone());
@@ -3565,7 +3567,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		);
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">fn </span>clear() {
 		<span class="attr">#[allow(deprecated)]
 		</span>&lt;Bonded&lt;T&gt;&gt;::remove_all(<span class="prelude-val">None</span>);
@@ -3579,7 +3581,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		T::VoterList::unsafe_clear();
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">fn </span>put_snapshot(
 		voters: Vec&lt;VoterOf&lt;<span class="self">Self</span>&gt;&gt;,
 		targets: Vec&lt;T::AccountId&gt;,
@@ -3599,7 +3601,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		voters.into_iter().for_each(|(v, s, t)| {
 			<span class="kw">let </span>stake = &lt;BalanceOf&lt;T&gt;&gt;::try_from(s).unwrap_or_else(|<span class="kw">_</span>| {
-				<span class="macro">panic!</span>(<span class="string">&quot;cannot convert a VoteWeight into BalanceOf, benchmark needs reconfiguring.&quot;</span>)
+				<span class="macro">panic!</span>(<span class="string">"cannot convert a VoteWeight into BalanceOf, benchmark needs reconfiguring."</span>)
 			});
 			&lt;Bonded&lt;T&gt;&gt;::insert(v.clone(), v.clone());
 			&lt;Ledger&lt;T&gt;&gt;::insert(v.clone(), StakingLedger::&lt;T&gt;::new(v.clone(), stake));
@@ -3618,21 +3620,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// some session can lag in between the newest session planned and the latest session started.
 </span><span class="kw">impl</span>&lt;T: Config&gt; pallet_session::SessionManager&lt;T::AccountId&gt; <span class="kw">for </span>Pallet&lt;T&gt; {
 	<span class="kw">fn </span>new_session(new_index: SessionIndex) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;T::AccountId&gt;&gt; {
-		<span class="macro">log!</span>(trace, <span class="string">&quot;planning new session {}&quot;</span>, new_index);
+		<span class="macro">log!</span>(trace, <span class="string">"planning new session {}"</span>, new_index);
 		CurrentPlannedSession::&lt;T&gt;::put(new_index);
 		<span class="self">Self</span>::new_session(new_index, <span class="bool-val">false</span>).map(|v| v.into_inner())
 	}
 	<span class="kw">fn </span>new_session_genesis(new_index: SessionIndex) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;T::AccountId&gt;&gt; {
-		<span class="macro">log!</span>(trace, <span class="string">&quot;planning new session {} at genesis&quot;</span>, new_index);
+		<span class="macro">log!</span>(trace, <span class="string">"planning new session {} at genesis"</span>, new_index);
 		CurrentPlannedSession::&lt;T&gt;::put(new_index);
 		<span class="self">Self</span>::new_session(new_index, <span class="bool-val">true</span>).map(|v| v.into_inner())
 	}
 	<span class="kw">fn </span>start_session(start_index: SessionIndex) {
-		<span class="macro">log!</span>(trace, <span class="string">&quot;starting session {}&quot;</span>, start_index);
+		<span class="macro">log!</span>(trace, <span class="string">"starting session {}"</span>, start_index);
 		<span class="self">Self</span>::start_session(start_index)
 	}
 	<span class="kw">fn </span>end_session(end_index: SessionIndex) {
-		<span class="macro">log!</span>(trace, <span class="string">&quot;ending session {}&quot;</span>, end_index);
+		<span class="macro">log!</span>(trace, <span class="string">"ending session {}"</span>, end_index);
 		<span class="self">Self</span>::end_session(end_index)
 	}
 }
@@ -3734,11 +3736,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="comment">// This offence need not be re-submitted.
 				</span><span class="kw">return </span>consumed_weight
 			}
-			active_era.expect(<span class="string">&quot;value checked not to be `None`; qed&quot;</span>).index
+			active_era.expect(<span class="string">"value checked not to be `None`; qed"</span>).index
 		};
 		<span class="kw">let </span>active_era_start_session_index = <span class="self">Self</span>::eras_start_session_index(active_era)
 			.unwrap_or_else(|| {
-				frame_support::print(<span class="string">&quot;Error: start_session_index must be set for current_era&quot;</span>);
+				frame_support::print(<span class="string">"Error: start_session_index must be set for current_era"</span>);
 				<span class="number">0
 			</span>});
 		add_db_reads_writes(<span class="number">1</span>, <span class="number">0</span>);
@@ -3753,7 +3755,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>eras = BondedEras::&lt;T&gt;::get();
 			add_db_reads_writes(<span class="number">1</span>, <span class="number">0</span>);
 
-			<span class="comment">// Reverse because it&#39;s more likely to find reports from recent eras.
+			<span class="comment">// Reverse because it's more likely to find reports from recent eras.
 			</span><span class="kw">match </span>eras.iter().rev().find(|<span class="kw-2">&amp;</span>(<span class="kw">_</span>, sesh)| sesh &lt;= <span class="kw-2">&amp;</span>slash_session) {
 				<span class="prelude-val">Some</span>((slash_era, <span class="kw">_</span>)) =&gt; <span class="kw-2">*</span>slash_era,
 				<span class="comment">// Before bonding period. defensive - should be filtered out.
@@ -3818,7 +3820,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="comment">// Defer to end of some `slash_defer_duration` from now.
 					</span><span class="macro">log!</span>(
 						debug,
-						<span class="string">&quot;deferring slash of {:?}% happened in {:?} (reported in {:?}) to {:?}&quot;</span>,
+						<span class="string">"deferring slash of {:?}% happened in {:?} (reported in {:?}) to {:?}"</span>,
 						slash_fraction,
 						slash_era,
 						active_era,
@@ -3846,7 +3848,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">Self</span>::weight_of(who)
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">fn </span>set_score_of(who: <span class="kw-2">&amp;</span>T::AccountId, weight: <span class="self">Self</span>::Score) {
 		<span class="comment">// this will clearly results in an inconsistent state, but it should not matter for a
 		// benchmark.
@@ -3865,7 +3867,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		// conversion.
 		</span><span class="kw">let </span>imbalance = T::Currency::burn(T::Currency::total_issuance());
 		<span class="comment">// kinda ugly, but gets the job done. The fact that this works here is a HUGE exception.
-		// Don&#39;t try this pattern in other places.
+		// Don't try this pattern in other places.
 		</span>sp_std::mem::forget(imbalance);
 	}
 }
@@ -3920,7 +3922,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// nothing to do upon regenerate.
 		</span><span class="number">0
 	</span>}
-	<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 	</span><span class="kw">fn </span>try_state() -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
 		<span class="prelude-val">Ok</span>(())
 	}
@@ -3930,7 +3932,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>Validators::&lt;T&gt;::remove_all();
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">fn </span>score_update_worst_case(_who: <span class="kw-2">&amp;</span>T::AccountId, _is_increase: bool) -&gt; <span class="self">Self</span>::Score {
 		<span class="macro">unimplemented!</span>()
 	}
@@ -3997,13 +3999,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="number">0
 	</span>}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 	</span><span class="kw">fn </span>try_state() -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
 		<span class="prelude-val">Ok</span>(())
 	}
 
 	<span class="kw">fn </span>unsafe_clear() {
-		<span class="comment">// NOTE: Caller must ensure this doesn&#39;t lead to too many storage accesses. This is a
+		<span class="comment">// NOTE: Caller must ensure this doesn't lead to too many storage accesses. This is a
 		// condition of SortedListProvider::unsafe_clear.
 		</span><span class="attr">#[allow(deprecated)]
 		</span>Nominators::&lt;T&gt;::remove_all();
@@ -4011,7 +4013,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>Validators::&lt;T&gt;::remove_all();
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">fn </span>score_update_worst_case(_who: <span class="kw-2">&amp;</span>T::AccountId, _is_increase: bool) -&gt; <span class="self">Self</span>::Score {
 		<span class="macro">unimplemented!</span>()
 	}
@@ -4136,10 +4138,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			(<span class="bool-val">false</span>, <span class="bool-val">false</span>) =&gt; <span class="prelude-val">Ok</span>(StakerStatus::Idle),
 			(<span class="bool-val">true</span>, <span class="bool-val">false</span>) =&gt; <span class="prelude-val">Ok</span>(StakerStatus::Validator),
 			(<span class="bool-val">false</span>, <span class="bool-val">true</span>) =&gt; <span class="prelude-val">Ok</span>(StakerStatus::Nominator(
-				is_nominator.expect(<span class="string">&quot;is checked above; qed&quot;</span>).targets.into_inner(),
+				is_nominator.expect(<span class="string">"is checked above; qed"</span>).targets.into_inner(),
 			)),
 			(<span class="bool-val">true</span>, <span class="bool-val">true</span>) =&gt; {
-				<span class="macro">defensive!</span>(<span class="string">&quot;cannot be both validators and nominator&quot;</span>);
+				<span class="macro">defensive!</span>(<span class="string">"cannot be both validators and nominator"</span>);
 				<span class="prelude-val">Err</span>(Error::&lt;T&gt;::BadState.into())
 			},
 		}
@@ -4173,13 +4175,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="attr">#[cfg(any(test, feature = <span class="string">&quot;try-runtime&quot;</span>))]
+<span class="attr">#[cfg(any(test, feature = <span class="string">"try-runtime"</span>))]
 </span><span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
 	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>do_try_state(<span class="kw">_</span>: BlockNumberFor&lt;T&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
 		<span class="macro">ensure!</span>(
 			T::VoterList::iter()
 				.all(|x| &lt;Nominators&lt;T&gt;&gt;::contains_key(<span class="kw-2">&amp;</span>x) || &lt;Validators&lt;T&gt;&gt;::contains_key(<span class="kw-2">&amp;</span>x)),
-			<span class="string">&quot;VoterList contains non-staker&quot;
+			<span class="string">"VoterList contains non-staker"
 		</span>);
 
 		<span class="self">Self</span>::check_ledgers()<span class="question-mark">?</span>;
@@ -4233,17 +4235,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if </span>count_controller_double != <span class="number">0 </span>{
 			<span class="macro">log!</span>(
 				warn,
-				<span class="string">&quot;a controller is associated with more than one ledger ({} occurrences)&quot;</span>,
+				<span class="string">"a controller is associated with more than one ledger ({} occurrences)"</span>,
 				count_controller_double
 			);
 		};
 
 		<span class="kw">if </span>count_double != <span class="number">0 </span>{
-			<span class="macro">log!</span>(warn, <span class="string">&quot;single tuple of (stash, controller) pair bonds more than one ledger ({} occurrences)&quot;</span>, count_double);
+			<span class="macro">log!</span>(warn, <span class="string">"single tuple of (stash, controller) pair bonds more than one ledger ({} occurrences)"</span>, count_double);
 		}
 
 		<span class="kw">if </span>count_none != <span class="number">0 </span>{
-			<span class="macro">log!</span>(warn, <span class="string">&quot;inconsistent bonded state: (stash, controller) pair missing associated ledger ({} occurrences)&quot;</span>, count_none);
+			<span class="macro">log!</span>(warn, <span class="string">"inconsistent bonded state: (stash, controller) pair missing associated ledger ({} occurrences)"</span>, count_none);
 		}
 
 		<span class="prelude-val">Ok</span>(())
@@ -4255,13 +4257,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// * The stash account in the ledger must match that of the bonded account.
 	</span><span class="kw">fn </span>check_payees() -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
 		<span class="kw">for </span>(stash, <span class="kw">_</span>) <span class="kw">in </span>Bonded::&lt;T&gt;::iter() {
-			<span class="macro">ensure!</span>(Payee::&lt;T&gt;::get(<span class="kw-2">&amp;</span>stash).is_some(), <span class="string">&quot;bonded ledger does not have payee set&quot;</span>);
+			<span class="macro">ensure!</span>(Payee::&lt;T&gt;::get(<span class="kw-2">&amp;</span>stash).is_some(), <span class="string">"bonded ledger does not have payee set"</span>);
 		}
 
 		<span class="macro">ensure!</span>(
 			(Ledger::&lt;T&gt;::iter().count() == Payee::&lt;T&gt;::iter().count()) &amp;&amp;
 				(Ledger::&lt;T&gt;::iter().count() == Bonded::&lt;T&gt;::iter().count()),
-			<span class="string">&quot;number of entries in payee storage items does not match the number of bonded ledgers&quot;</span>,
+			<span class="string">"number of entries in payee storage items does not match the number of bonded ledgers"</span>,
 		);
 
 		<span class="prelude-val">Ok</span>(())
@@ -4271,16 +4273,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// * Number of voters in `VoterList` match that of the number of Nominators and Validators in
 	/// the system (validator is both voter and target).
 	/// * Number of targets in `TargetList` matches the number of validators in the system.
-	/// * Current validator count is bounded by the election provider&#39;s max winners.
+	/// * Current validator count is bounded by the election provider's max winners.
 	</span><span class="kw">fn </span>check_count() -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
 		<span class="macro">ensure!</span>(
 			&lt;T <span class="kw">as </span>Config&gt;::VoterList::count() ==
 				Nominators::&lt;T&gt;::count() + Validators::&lt;T&gt;::count(),
-			<span class="string">&quot;wrong external count&quot;
+			<span class="string">"wrong external count"
 		</span>);
 		<span class="macro">ensure!</span>(
 			&lt;T <span class="kw">as </span>Config&gt;::TargetList::count() == Validators::&lt;T&gt;::count(),
-			<span class="string">&quot;wrong external count&quot;
+			<span class="string">"wrong external count"
 		</span>);
 		<span class="macro">ensure!</span>(
 			ValidatorCount::&lt;T&gt;::get() &lt;=
@@ -4292,8 +4294,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Invariants:
 	/// * Stake consistency: ledger.total == ledger.active + sum(ledger.unlocking).
-	/// * The ledger&#39;s controller and stash matches the associated `Bonded` tuple.
-	/// * Staking locked funds for every bonded stash should be the same as its ledger&#39;s total.
+	/// * The ledger's controller and stash matches the associated `Bonded` tuple.
+	/// * Staking locked funds for every bonded stash should be the same as its ledger's total.
 	/// * Staking ledger and bond are not corrupted.
 	</span><span class="kw">fn </span>check_ledgers() -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
 		Bonded::&lt;T&gt;::iter()
@@ -4301,7 +4303,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="comment">// ensure locks consistency.
 				</span><span class="macro">ensure!</span>(
 					<span class="self">Self</span>::inspect_bond_state(<span class="kw-2">&amp;</span>stash) == <span class="prelude-val">Ok</span>(LedgerIntegrityState::Ok),
-					<span class="string">&quot;bond, ledger and/or staking lock inconsistent for a bonded stash.&quot;
+					<span class="string">"bond, ledger and/or staking lock inconsistent for a bonded stash."
 				</span>);
 
 				<span class="comment">// ensure ledger consistency.
@@ -4325,7 +4327,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 								.iter()
 								.map(|e| e.value)
 								.fold(Zero::zero(), |acc, x| acc + x),
-					<span class="string">&quot;wrong total exposure.&quot;</span>,
+					<span class="string">"wrong total exposure."</span>,
 				);
 				<span class="prelude-val">Ok</span>(())
 			})
@@ -4356,7 +4358,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="macro">ensure!</span>(
 					expo.page_total ==
 						expo.others.iter().map(|e| e.value).fold(Zero::zero(), |acc, x| acc + x),
-					<span class="string">&quot;wrong total exposure for the page.&quot;</span>,
+					<span class="string">"wrong total exposure for the page."</span>,
 				);
 
 				<span class="kw">let </span>metadata = exposures.get(<span class="kw-2">&amp;</span>validator).unwrap_or(<span class="kw-2">&amp;</span>accumulator_default);
@@ -4379,20 +4381,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.map(|(validator, metadata)| {
 				<span class="kw">let </span>actual_overview = ErasStakersOverview::&lt;T&gt;::get(era, validator);
 
-				<span class="macro">ensure!</span>(actual_overview.is_some(), <span class="string">&quot;No overview found for a paged exposure&quot;</span>);
+				<span class="macro">ensure!</span>(actual_overview.is_some(), <span class="string">"No overview found for a paged exposure"</span>);
 				<span class="kw">let </span>actual_overview = actual_overview.unwrap();
 
 				<span class="macro">ensure!</span>(
 					actual_overview.total == metadata.total + actual_overview.own,
-					<span class="string">&quot;Exposure metadata does not have correct total exposed stake.&quot;
+					<span class="string">"Exposure metadata does not have correct total exposed stake."
 				</span>);
 				<span class="macro">ensure!</span>(
 					actual_overview.nominator_count == metadata.nominator_count,
-					<span class="string">&quot;Exposure metadata does not have correct count of nominators.&quot;
+					<span class="string">"Exposure metadata does not have correct count of nominators."
 				</span>);
 				<span class="macro">ensure!</span>(
 					actual_overview.page_count == metadata.page_count,
-					<span class="string">&quot;Exposure metadata does not have correct count of pages.&quot;
+					<span class="string">"Exposure metadata does not have correct count of pages."
 				</span>);
 
 				<span class="prelude-val">Ok</span>(())
@@ -4438,7 +4440,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							<span class="number">1 </span>=&gt; sum += individual[<span class="number">0</span>].value,
 							<span class="kw">_ </span>=&gt;
 								<span class="kw">return </span><span class="prelude-val">Err</span>(
-									<span class="string">&quot;nominator cannot back a validator more than once.&quot;</span>.into()
+									<span class="string">"nominator cannot back a validator more than once."</span>.into()
 								),
 						};
 						<span class="prelude-val">Ok</span>(())
@@ -4449,7 +4451,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				// some of their stake that is still exposed in the current era.
 				</span><span class="kw">if </span>sum &lt;= <span class="self">Self</span>::ledger(Stash(nominator.clone()))<span class="question-mark">?</span>.total {
 					<span class="comment">// This can happen when there is a slash in the current era so we only warn.
-					</span><span class="macro">log!</span>(warn, <span class="string">&quot;nominator stake exceeds what is bonded.&quot;</span>);
+					</span><span class="macro">log!</span>(warn, <span class="string">"nominator stake exceeds what is bonded."</span>);
 				}
 
 				<span class="prelude-val">Ok</span>(())
@@ -4459,8 +4461,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Ok</span>(())
 	}
 
-	<span class="kw">fn </span>ensure_is_stash(who: <span class="kw-2">&amp;</span>T::AccountId) -&gt; <span class="prelude-ty">Result</span>&lt;(), <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; {
-		<span class="macro">ensure!</span>(<span class="self">Self</span>::bonded(who).is_some(), <span class="string">&quot;Not a stash.&quot;</span>);
+	<span class="kw">fn </span>ensure_is_stash(who: <span class="kw-2">&amp;</span>T::AccountId) -&gt; <span class="prelude-ty">Result</span>&lt;(), <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
+		<span class="macro">ensure!</span>(<span class="self">Self</span>::bonded(who).is_some(), <span class="string">"Not a stash."</span>);
 		<span class="prelude-val">Ok</span>(())
 	}
 
@@ -4470,7 +4472,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>real_total: BalanceOf&lt;T&gt; =
 			ledger.unlocking.iter().fold(ledger.active, |a, c| a + c.value);
-		<span class="macro">ensure!</span>(real_total == ledger.total, <span class="string">&quot;ledger.total corrupt&quot;</span>);
+		<span class="macro">ensure!</span>(real_total == ledger.total, <span class="string">"ledger.total corrupt"</span>);
 
 		<span class="prelude-val">Ok</span>(())
 	}

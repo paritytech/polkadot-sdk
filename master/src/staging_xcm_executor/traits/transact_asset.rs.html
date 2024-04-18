@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/xcm/xcm-executor/src/traits/transact_asset.rs`."><title>transact_asset.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/xcm/xcm-executor/src/traits/transact_asset.rs`."><title>transact_asset.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="staging_xcm_executor" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="staging_xcm_executor" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../staging_xcm_executor/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -616,7 +618,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// properly.
 	///
 	/// Implementation note: In general this will do one of two things: On chains where the asset is
-	/// native, it will reduce the assets from a special &quot;teleported&quot; account so that a)
+	/// native, it will reduce the assets from a special "teleported" account so that a)
 	/// total-issuance is preserved; and b) to ensure that no more assets can be teleported in than
 	/// were teleported out overall (this should not be needed if the teleporting chains are to be
 	/// trusted, but better to be safe than sorry). On chains where the asset is not native then it
@@ -638,7 +640,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// housekeeping is needed.
 	///
 	/// Implementation note: In general this will do one of two things: On chains where the asset is
-	/// native, it will increase the assets in a special &quot;teleported&quot; account so that a)
+	/// native, it will increase the assets in a special "teleported" account so that a)
 	/// total-issuance is preserved; and b) to ensure that no more assets can be teleported in than
 	/// were teleported out overall (this should not be needed if the teleporting chains are to be
 	/// trusted, but better to be safe than sorry). On chains where the asset is not native then it
@@ -680,7 +682,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// This function is meant to only be implemented by the type implementing `TransactAsset`, and
 	/// not be called directly. Most common API usages will instead call `transfer_asset`, which in
 	/// turn has a default implementation that calls `internal_transfer_asset`. As such, **please
-	/// do not call this method directly unless you know what you&#39;re doing**.
+	/// do not call this method directly unless you know what you're doing**.
 	</span><span class="kw">fn </span>internal_transfer_asset(
 		_asset: <span class="kw-2">&amp;</span>Asset,
 		_from: <span class="kw-2">&amp;</span>Location,
@@ -703,7 +705,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">match </span><span class="self">Self</span>::internal_transfer_asset(asset, from, to, context) {
 			<span class="prelude-val">Err</span>(XcmError::AssetNotFound | XcmError::Unimplemented) =&gt; {
 				<span class="kw">let </span>assets = <span class="self">Self</span>::withdraw_asset(asset, from, <span class="prelude-val">Some</span>(context))<span class="question-mark">?</span>;
-				<span class="comment">// Not a very forgiving attitude; once we implement roll-backs then it&#39;ll be nicer.
+				<span class="comment">// Not a very forgiving attitude; once we implement roll-backs then it'll be nicer.
 				</span><span class="self">Self</span>::deposit_asset(asset, to, <span class="prelude-val">Some</span>(context))<span class="question-mark">?</span>;
 				<span class="prelude-val">Ok</span>(assets)
 			},
@@ -722,8 +724,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			}
 		)* );
 		<span class="macro">log::trace!</span>(
-			target: <span class="string">&quot;xcm::TransactAsset::can_check_in&quot;</span>,
-			<span class="string">&quot;asset not found: what: {:?}, origin: {:?}, context: {:?}&quot;</span>,
+			target: <span class="string">"xcm::TransactAsset::can_check_in"</span>,
+			<span class="string">"asset not found: what: {:?}, origin: {:?}, context: {:?}"</span>,
 			what,
 			origin,
 			context,
@@ -745,8 +747,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			}
 		)* );
 		<span class="macro">log::trace!</span>(
-			target: <span class="string">&quot;xcm::TransactAsset::can_check_out&quot;</span>,
-			<span class="string">&quot;asset not found: what: {:?}, dest: {:?}, context: {:?}&quot;</span>,
+			target: <span class="string">"xcm::TransactAsset::can_check_out"</span>,
+			<span class="string">"asset not found: what: {:?}, dest: {:?}, context: {:?}"</span>,
 			what,
 			dest,
 			context,
@@ -768,8 +770,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			}
 		)* );
 		<span class="macro">log::trace!</span>(
-			target: <span class="string">&quot;xcm::TransactAsset::deposit_asset&quot;</span>,
-			<span class="string">&quot;did not deposit asset: what: {:?}, who: {:?}, context: {:?}&quot;</span>,
+			target: <span class="string">"xcm::TransactAsset::deposit_asset"</span>,
+			<span class="string">"did not deposit asset: what: {:?}, who: {:?}, context: {:?}"</span>,
 			what,
 			who,
 			context,
@@ -789,8 +791,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			}
 		)* );
 		<span class="macro">log::trace!</span>(
-			target: <span class="string">&quot;xcm::TransactAsset::withdraw_asset&quot;</span>,
-			<span class="string">&quot;did not withdraw asset: what: {:?}, who: {:?}, maybe_context: {:?}&quot;</span>,
+			target: <span class="string">"xcm::TransactAsset::withdraw_asset"</span>,
+			<span class="string">"did not withdraw asset: what: {:?}, who: {:?}, maybe_context: {:?}"</span>,
 			what,
 			who,
 			maybe_context,
@@ -811,8 +813,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			}
 		)* );
 		<span class="macro">log::trace!</span>(
-			target: <span class="string">&quot;xcm::TransactAsset::internal_transfer_asset&quot;</span>,
-			<span class="string">&quot;did not transfer asset: what: {:?}, from: {:?}, to: {:?}, context: {:?}&quot;</span>,
+			target: <span class="string">"xcm::TransactAsset::internal_transfer_asset"</span>,
+			<span class="string">"did not transfer asset: what: {:?}, from: {:?}, to: {:?}, context: {:?}"</span>,
 			what,
 			from,
 			to,

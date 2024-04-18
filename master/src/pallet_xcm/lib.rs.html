@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/xcm/pallet-xcm/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/xcm/pallet-xcm/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_xcm" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_xcm" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../pallet_xcm/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -3462,9 +3464,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="doccomment">//! Pallet to handle XCM messages.
 
-</span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
+</span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
-#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 </span><span class="kw">pub mod </span>benchmarking;
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>mock;
@@ -3509,7 +3511,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>xcm_fee_payment_runtime_api::Error <span class="kw">as </span>FeePaymentError;
 
-<span class="attr">#[cfg(any(feature = <span class="string">&quot;try-runtime&quot;</span>, test))]
+<span class="attr">#[cfg(any(feature = <span class="string">"try-runtime"</span>, test))]
 </span><span class="kw">use </span>sp_runtime::TryRuntimeError;
 
 <span class="kw">pub trait </span>WeightInfo {
@@ -3671,7 +3673,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">type </span>CurrencyMatcher: MatchesFungible&lt;BalanceOf&lt;<span class="self">Self</span>&gt;&gt;;
 
 		<span class="doccomment">/// Required origin for sending XCM messages. If successful, it resolves to `Location`
-		/// which exists as an interior location within this chain&#39;s XCM context.
+		/// which exists as an interior location within this chain's XCM context.
 		</span><span class="kw">type </span>SendXcmOrigin: EnsureOrigin&lt;&lt;<span class="self">Self </span><span class="kw">as </span>SysConfig&gt;::RuntimeOrigin, Success = Location&gt;;
 
 		<span class="doccomment">/// The type used to actually dispatch an XCM to its destination.
@@ -3679,7 +3681,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="doccomment">/// Required origin for executing XCM messages, including the teleport functionality. If
 		/// successful, then it resolves to `Location` which exists as an interior location
-		/// within this chain&#39;s XCM context.
+		/// within this chain's XCM context.
 		</span><span class="kw">type </span>ExecuteXcmOrigin: EnsureOrigin&lt;&lt;<span class="self">Self </span><span class="kw">as </span>SysConfig&gt;::RuntimeOrigin, Success = Location&gt;;
 
 		<span class="doccomment">/// Our XCM filter which messages to be executed using `XcmExecutor` must pass.
@@ -3698,7 +3700,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="doccomment">/// Means of measuring the weight consumed by an XCM message locally.
 		</span><span class="kw">type </span>Weigher: WeightBounds&lt;&lt;<span class="self">Self </span><span class="kw">as </span>Config&gt;::RuntimeCall&gt;;
 
-		<span class="doccomment">/// This chain&#39;s Universal Location.
+		<span class="doccomment">/// This chain's Universal Location.
 		</span><span class="kw">type </span>UniversalLocation: Get&lt;InteriorLocation&gt;;
 
 		<span class="doccomment">/// The runtime `Origin` type.
@@ -3758,7 +3760,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>message =
 				VersionedXcm::&lt;&lt;T <span class="kw">as </span>Config&gt;::RuntimeCall&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>encoded_message[..])
 					.map_err(|error| {
-						<span class="macro">log::error!</span>(target: <span class="string">&quot;xcm::execute_blob&quot;</span>, <span class="string">&quot;Unable to decode XCM, error: {:?}&quot;</span>, error);
+						<span class="macro">log::error!</span>(target: <span class="string">"xcm::execute_blob"</span>, <span class="string">"Unable to decode XCM, error: {:?}"</span>, error);
 						Error::&lt;T&gt;::UnableToDecode
 					})<span class="question-mark">?</span>;
 			<span class="self">Self</span>::execute_base(origin_location, Box::new(message), max_weight)
@@ -3781,7 +3783,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>origin_location = T::SendXcmOrigin::ensure_origin(origin)<span class="question-mark">?</span>;
 			<span class="kw">let </span>message =
 				VersionedXcm::&lt;()&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>encoded_message[..]).map_err(|error| {
-					<span class="macro">log::error!</span>(target: <span class="string">&quot;xcm::send_blob&quot;</span>, <span class="string">&quot;Unable to decode XCM, error: {:?}&quot;</span>, error);
+					<span class="macro">log::error!</span>(target: <span class="string">"xcm::send_blob"</span>, <span class="string">"Unable to decode XCM, error: {:?}"</span>, error);
 					Error::&lt;T&gt;::UnableToDecode
 				})<span class="question-mark">?</span>;
 			<span class="self">Self</span>::send_base(origin_location, dest, Box::new(message))
@@ -3946,7 +3948,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>SendFailure,
 		<span class="doccomment">/// The message execution fails the filter.
 		</span>Filtered,
-		<span class="doccomment">/// The message&#39;s weight could not be determined.
+		<span class="doccomment">/// The message's weight could not be determined.
 		</span>UnweighableMessage,
 		<span class="doccomment">/// The destination `Location` provided cannot be inverted.
 		</span>DestinationNotInvertible,
@@ -4041,9 +4043,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="attr">#[derive(Copy, Clone)]
-	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>LatestVersionedLocation&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Location);
-	<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; EncodeLike&lt;VersionedLocation&gt; <span class="kw">for </span>LatestVersionedLocation&lt;<span class="lifetime">&#39;a</span>&gt; {}
-	<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; Encode <span class="kw">for </span>LatestVersionedLocation&lt;<span class="lifetime">&#39;a</span>&gt; {
+	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>LatestVersionedLocation&lt;<span class="lifetime">'a</span>&gt;(<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Location);
+	<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; EncodeLike&lt;VersionedLocation&gt; <span class="kw">for </span>LatestVersionedLocation&lt;<span class="lifetime">'a</span>&gt; {}
+	<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; Encode <span class="kw">for </span>LatestVersionedLocation&lt;<span class="lifetime">'a</span>&gt; {
 		<span class="kw">fn </span>encode(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;u8&gt; {
 			<span class="kw">let </span><span class="kw-2">mut </span>r = VersionedLocation::from(Location::default()).encode();
 			r.truncate(<span class="number">1</span>);
@@ -4145,7 +4147,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		ValueQuery,
 	&gt;;
 
-	<span class="doccomment">/// The current migration&#39;s stage, if any.
+	<span class="doccomment">/// The current migration's stage, if any.
 	</span><span class="attr">#[pallet::storage]
 	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>CurrentMigration&lt;T: Config&gt; =
 		StorageValue&lt;<span class="kw">_</span>, VersionMigrationStage, OptionQuery&gt;;
@@ -4251,7 +4253,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					</span>}
 				}
 			}
-			<span class="comment">// Should never fail since we only removed items. But better safe than panicking as it&#39;s
+			<span class="comment">// Should never fail since we only removed items. But better safe than panicking as it's
 			// way better to drop the queue than panic on initialize.
 			</span><span class="kw">if let </span><span class="prelude-val">Ok</span>(q) = BoundedVec::try_from(q) {
 				VersionDiscoveryQueue::&lt;T&gt;::put(q);
@@ -4259,7 +4261,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			weight_used
 		}
 
-		<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+		<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 		</span><span class="kw">fn </span>try_state(_n: BlockNumberFor&lt;T&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
 			<span class="self">Self</span>::do_try_state()
 		}
@@ -4306,8 +4308,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		) -&gt; frame_support::weights::Weight {
 			<span class="kw">let </span>on_chain_storage_version = &lt;P <span class="kw">as </span>GetStorageVersion&gt;::on_chain_storage_version();
 			<span class="macro">log::info!</span>(
-				target: <span class="string">&quot;runtime::xcm&quot;</span>,
-				<span class="string">&quot;Running migration storage v1 for xcm with storage version {:?}&quot;</span>,
+				target: <span class="string">"runtime::xcm"</span>,
+				<span class="string">"Running migration storage v1 for xcm with storage version {:?}"</span>,
 				on_chain_storage_version,
 			);
 
@@ -4319,16 +4321,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				});
 				StorageVersion::new(<span class="number">1</span>).put::&lt;P&gt;();
 				<span class="macro">log::info!</span>(
-					target: <span class="string">&quot;runtime::xcm&quot;</span>,
-					<span class="string">&quot;Running migration storage v1 for xcm with storage version {:?} was complete&quot;</span>,
+					target: <span class="string">"runtime::xcm"</span>,
+					<span class="string">"Running migration storage v1 for xcm with storage version {:?} was complete"</span>,
 					on_chain_storage_version,
 				);
 				<span class="comment">// calculate and return migration weights
 				</span>T::DbWeight::get().reads_writes(count <span class="kw">as </span>u64 + <span class="number">1</span>, count <span class="kw">as </span>u64 + <span class="number">1</span>)
 			} <span class="kw">else </span>{
 				<span class="macro">log::warn!</span>(
-					target: <span class="string">&quot;runtime::xcm&quot;</span>,
-					<span class="string">&quot;Attempted to apply migration to v1 but failed because storage version is {:?}&quot;</span>,
+					target: <span class="string">"runtime::xcm"</span>,
+					<span class="string">"Attempted to apply migration to v1 but failed because storage version is {:?}"</span>,
 					on_chain_storage_version,
 				);
 				T::DbWeight::get().reads(<span class="number">1</span>)
@@ -4343,7 +4345,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			message: Box&lt;VersionedXcm&lt;&lt;T <span class="kw">as </span>Config&gt;::RuntimeCall&gt;&gt;,
 			max_weight: Weight,
 		) -&gt; <span class="prelude-ty">Result</span>&lt;Weight, DispatchErrorWithPostInfo&gt; {
-			<span class="macro">log::trace!</span>(target: <span class="string">&quot;xcm::pallet_xcm::execute&quot;</span>, <span class="string">&quot;message {:?}, max_weight {:?}&quot;</span>, message, max_weight);
+			<span class="macro">log::trace!</span>(target: <span class="string">"xcm::pallet_xcm::execute"</span>, <span class="string">"message {:?}, max_weight {:?}"</span>, message, max_weight);
 			<span class="kw">let </span>outcome = (|| {
 				<span class="kw">let </span><span class="kw-2">mut </span>hash = message.using_encoded(sp_io::hashing::blake2_256);
 				<span class="kw">let </span>message = (<span class="kw-2">*</span>message).try_into().map_err(|()| Error::&lt;T&gt;::BadVersion)<span class="question-mark">?</span>;
@@ -4363,7 +4365,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="self">Self</span>::deposit_event(Event::Attempted { outcome: outcome.clone() });
 			<span class="kw">let </span>weight_used = outcome.weight_used();
 			outcome.ensure_complete().map_err(|error| {
-				<span class="macro">log::error!</span>(target: <span class="string">&quot;xcm::pallet_xcm::execute&quot;</span>, <span class="string">&quot;XCM execution failed with error {:?}&quot;</span>, error);
+				<span class="macro">log::error!</span>(target: <span class="string">"xcm::pallet_xcm::execute"</span>, <span class="string">"XCM execution failed with error {:?}"</span>, error);
 				Error::&lt;T&gt;::LocalExecutionIncomplete
 					.with_weight(weight_used.saturating_add(T::WeightInfo::execute()))
 			})<span class="question-mark">?</span>;
@@ -4393,7 +4395,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
 		<span class="doccomment">/// WARNING: DEPRECATED. `send` will be removed after June 2024. Use `send_blob` instead.
 		</span><span class="attr">#[allow(deprecated)]
-		#[deprecated(note = <span class="string">&quot;`send` will be removed after June 2024. Use `send_blob` instead.&quot;</span>)]
+		#[deprecated(note = <span class="string">"`send` will be removed after June 2024. Use `send_blob` instead."</span>)]
 		#[pallet::call_index(<span class="number">0</span>)]
 		</span><span class="kw">pub fn </span>send(
 			origin: OriginFor&lt;T&gt;,
@@ -4426,7 +4428,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="attr">#[pallet::call_index(<span class="number">1</span>)]
 		#[allow(deprecated)]
 		#[deprecated(
-			note = <span class="string">&quot;This extrinsic uses `WeightLimit::Unlimited`, please migrate to `limited_teleport_assets` or `transfer_assets`&quot;
+			note = <span class="string">"This extrinsic uses `WeightLimit::Unlimited`, please migrate to `limited_teleport_assets` or `transfer_assets`"
 		</span>)]
 		</span><span class="kw">pub fn </span>teleport_assets(
 			origin: OriginFor&lt;T&gt;,
@@ -4446,10 +4448,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		///    chain and forward a notification XCM to `dest` to mint and deposit reserve-based
 		///    assets to `beneficiary`.
 		///  - `assets` have destination reserve: burn local assets and forward a notification to
-		///    `dest` chain to withdraw the reserve assets from this chain&#39;s sovereign account and
+		///    `dest` chain to withdraw the reserve assets from this chain's sovereign account and
 		///    deposit them to `beneficiary`.
 		///  - `assets` have remote reserve: burn local assets, forward XCM to reserve chain to move
-		///    reserves from this chain&#39;s SA to `dest` chain&#39;s SA, and forward another XCM to `dest`
+		///    reserves from this chain's SA to `dest` chain's SA, and forward another XCM to `dest`
 		///    to mint and deposit reserve-based assets to `beneficiary`.
 		///
 		/// **This function is deprecated: Use `limited_reserve_transfer_assets` instead.**
@@ -4471,7 +4473,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="attr">#[pallet::call_index(<span class="number">2</span>)]
 		#[allow(deprecated)]
 		#[deprecated(
-			note = <span class="string">&quot;This extrinsic uses `WeightLimit::Unlimited`, please migrate to `limited_reserve_transfer_assets` or `transfer_assets`&quot;
+			note = <span class="string">"This extrinsic uses `WeightLimit::Unlimited`, please migrate to `limited_reserve_transfer_assets` or `transfer_assets`"
 		</span>)]
 		</span><span class="kw">pub fn </span>reserve_transfer_assets(
 			origin: OriginFor&lt;T&gt;,
@@ -4503,7 +4505,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		/// instead.
 		</span><span class="attr">#[allow(deprecated)]
 		#[deprecated(
-			note = <span class="string">&quot;`execute` will be removed after June 2024. Use `execute_blob` instead.&quot;
+			note = <span class="string">"`execute` will be removed after June 2024. Use `execute_blob` instead."
 		</span>)]
 		#[pallet::call_index(<span class="number">3</span>)]
 		#[pallet::weight(max_weight.saturating_add(T::WeightInfo::execute()))]
@@ -4603,10 +4605,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		///    chain and forward a notification XCM to `dest` to mint and deposit reserve-based
 		///    assets to `beneficiary`.
 		///  - `assets` have destination reserve: burn local assets and forward a notification to
-		///    `dest` chain to withdraw the reserve assets from this chain&#39;s sovereign account and
+		///    `dest` chain to withdraw the reserve assets from this chain's sovereign account and
 		///    deposit them to `beneficiary`.
 		///  - `assets` have remote reserve: burn local assets, forward XCM to reserve chain to move
-		///    reserves from this chain&#39;s SA to `dest` chain&#39;s SA, and forward another XCM to `dest`
+		///    reserves from this chain's SA to `dest` chain's SA, and forward another XCM to `dest`
 		///    to mint and deposit reserve-based assets to `beneficiary`.
 		///
 		/// Fee payment on the destination side is made from the asset in the `assets` vector of
@@ -4708,10 +4710,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		///    forward a notification XCM to `dest` to mint and deposit reserve-based assets to
 		///    `beneficiary`.
 		///  - for destination reserve: burn local assets and forward a notification to `dest` chain
-		///    to withdraw the reserve assets from this chain&#39;s sovereign account and deposit them
+		///    to withdraw the reserve assets from this chain's sovereign account and deposit them
 		///    to `beneficiary`.
 		///  - for remote reserve: burn local assets, forward XCM to reserve chain to move reserves
-		///    from this chain&#39;s SA to `dest` chain&#39;s SA, and forward another XCM to `dest` to mint
+		///    from this chain's SA to `dest` chain's SA, and forward another XCM to `dest` to mint
 		///    and deposit reserve-based assets to `beneficiary`.
 		///  - for teleports: burn local assets and forward XCM to `dest` chain to mint/teleport
 		///    assets and deposit them to `beneficiary`.
@@ -4742,8 +4744,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				(<span class="kw-2">*</span>beneficiary).try_into().map_err(|()| Error::&lt;T&gt;::BadVersion)<span class="question-mark">?</span>;
 			<span class="kw">let </span>assets: Assets = (<span class="kw-2">*</span>assets).try_into().map_err(|()| Error::&lt;T&gt;::BadVersion)<span class="question-mark">?</span>;
 			<span class="macro">log::debug!</span>(
-				target: <span class="string">&quot;xcm::pallet_xcm::transfer_assets&quot;</span>,
-				<span class="string">&quot;origin {:?}, dest {:?}, beneficiary {:?}, assets {:?}, fee-idx {:?}, weight_limit {:?}&quot;</span>,
+				target: <span class="string">"xcm::pallet_xcm::transfer_assets"</span>,
+				<span class="string">"origin {:?}, dest {:?}, beneficiary {:?}, assets {:?}, fee-idx {:?}, weight_limit {:?}"</span>,
 				origin, dest, beneficiary, assets, fee_asset_item, weight_limit,
 			);
 
@@ -4779,7 +4781,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			beneficiary: Box&lt;VersionedLocation&gt;,
 		) -&gt; DispatchResult {
 			<span class="kw">let </span>origin_location = T::ExecuteXcmOrigin::ensure_origin(origin)<span class="question-mark">?</span>;
-			<span class="macro">log::debug!</span>(target: <span class="string">&quot;xcm::pallet_xcm::claim_assets&quot;</span>, <span class="string">&quot;origin: {:?}, assets: {:?}, beneficiary: {:?}&quot;</span>, origin_location, assets, beneficiary);
+			<span class="macro">log::debug!</span>(target: <span class="string">"xcm::pallet_xcm::claim_assets"</span>, <span class="string">"origin: {:?}, assets: {:?}, beneficiary: {:?}"</span>, origin_location, assets, beneficiary);
 			<span class="comment">// Extract version from `assets`.
 			</span><span class="kw">let </span>assets_version = assets.identify_version();
 			<span class="kw">let </span>assets: Assets = (<span class="kw-2">*</span>assets).try_into().map_err(|()| Error::&lt;T&gt;::BadVersion)<span class="question-mark">?</span>;
@@ -4802,7 +4804,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				weight,
 			);
 			outcome.ensure_complete().map_err(|error| {
-				<span class="macro">log::error!</span>(target: <span class="string">&quot;xcm::pallet_xcm::claim_assets&quot;</span>, <span class="string">&quot;XCM execution failed with error: {:?}&quot;</span>, error);
+				<span class="macro">log::error!</span>(target: <span class="string">"xcm::pallet_xcm::claim_assets"</span>, <span class="string">"XCM execution failed with error: {:?}"</span>, error);
 				Error::&lt;T&gt;::LocalExecutionIncomplete
 			})<span class="question-mark">?</span>;
 			<span class="prelude-val">Ok</span>(())
@@ -4858,10 +4860,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		///    chain and forward a notification XCM to `dest` to mint and deposit reserve-based
 		///    assets to `beneficiary`.
 		///  - `TransferType::DestinationReserve`: burn local assets and forward a notification to
-		///    `dest` chain to withdraw the reserve assets from this chain&#39;s sovereign account and
+		///    `dest` chain to withdraw the reserve assets from this chain's sovereign account and
 		///    deposit them to `beneficiary`.
 		///  - `TransferType::RemoteReserve(reserve)`: burn local assets, forward XCM to `reserve`
-		///    chain to move reserves from this chain&#39;s SA to `dest` chain&#39;s SA, and forward another
+		///    chain to move reserves from this chain's SA to `dest` chain's SA, and forward another
 		///    XCM to `dest` to mint and deposit reserve-based assets to `beneficiary`. Typically
 		///    the remote `reserve` is Asset Hub.
 		///  - `TransferType::Teleport`: burn local assets and forward XCM to `dest` chain to
@@ -4908,8 +4910,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>assets: Assets = (<span class="kw-2">*</span>assets).try_into().map_err(|()| Error::&lt;T&gt;::BadVersion)<span class="question-mark">?</span>;
 			<span class="kw">let </span>fees_id: AssetId = (<span class="kw-2">*</span>fees_id).try_into().map_err(|()| Error::&lt;T&gt;::BadVersion)<span class="question-mark">?</span>;
 			<span class="macro">log::debug!</span>(
-				target: <span class="string">&quot;xcm::pallet_xcm::transfer_assets_using_type&quot;</span>,
-				<span class="string">&quot;origin {:?}, dest {:?}, beneficiary {:?}, assets {:?} through {:?}, fees-id {:?} through {:?}&quot;</span>,
+				target: <span class="string">"xcm::pallet_xcm::transfer_assets_using_type"</span>,
+				<span class="string">"origin {:?}, dest {:?}, beneficiary {:?}, assets {:?} through {:?}, fees-id {:?} through {:?}"</span>,
 				origin_location, dest, beneficiary, assets, assets_transfer_type, fees_id, fees_transfer_type,
 			);
 
@@ -4945,12 +4947,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl</span>&lt;T: Config&gt; sp_std::fmt::Debug <span class="kw">for </span>FeesHandling&lt;T&gt; {
-	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; sp_std::fmt::Result {
+	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; sp_std::fmt::Result {
 		<span class="kw">match </span><span class="self">self </span>{
-			<span class="self">Self</span>::Batched { fees } =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;FeesHandling::Batched({:?})&quot;</span>, fees),
+			<span class="self">Self</span>::Batched { fees } =&gt; <span class="macro">write!</span>(f, <span class="string">"FeesHandling::Batched({:?})"</span>, fees),
 			<span class="self">Self</span>::Separate { local_xcm, remote_xcm } =&gt; <span class="macro">write!</span>(
 				f,
-				<span class="string">&quot;FeesHandling::Separate(local: {:?}, remote: {:?})&quot;</span>,
+				<span class="string">"FeesHandling::Separate(local: {:?}, remote: {:?})"</span>,
 				local_xcm, remote_xcm
 			),
 		}
@@ -5006,7 +5008,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">fn </span>expect_response(id: QueryId, response: Response) {
 		<span class="kw">let </span>response = response.into();
 		Queries::&lt;T&gt;::insert(
@@ -5072,8 +5074,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			(<span class="kw-2">*</span>beneficiary).try_into().map_err(|()| Error::&lt;T&gt;::BadVersion)<span class="question-mark">?</span>;
 		<span class="kw">let </span>assets: Assets = (<span class="kw-2">*</span>assets).try_into().map_err(|()| Error::&lt;T&gt;::BadVersion)<span class="question-mark">?</span>;
 		<span class="macro">log::debug!</span>(
-			target: <span class="string">&quot;xcm::pallet_xcm::do_reserve_transfer_assets&quot;</span>,
-			<span class="string">&quot;origin {:?}, dest {:?}, beneficiary {:?}, assets {:?}, fee-idx {:?}&quot;</span>,
+			target: <span class="string">"xcm::pallet_xcm::do_reserve_transfer_assets"</span>,
+			<span class="string">"origin {:?}, dest {:?}, beneficiary {:?}, assets {:?}, fee-idx {:?}"</span>,
 			origin_location, dest, beneficiary, assets, fee_asset_item,
 		);
 
@@ -5119,8 +5121,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			(<span class="kw-2">*</span>beneficiary).try_into().map_err(|()| Error::&lt;T&gt;::BadVersion)<span class="question-mark">?</span>;
 		<span class="kw">let </span>assets: Assets = (<span class="kw-2">*</span>assets).try_into().map_err(|()| Error::&lt;T&gt;::BadVersion)<span class="question-mark">?</span>;
 		<span class="macro">log::debug!</span>(
-			target: <span class="string">&quot;xcm::pallet_xcm::do_teleport_assets&quot;</span>,
-			<span class="string">&quot;origin {:?}, dest {:?}, beneficiary {:?}, assets {:?}, fee-idx {:?}, weight_limit {:?}&quot;</span>,
+			target: <span class="string">"xcm::pallet_xcm::do_teleport_assets"</span>,
+			<span class="string">"origin {:?}, dest {:?}, beneficiary {:?}, assets {:?}, fee-idx {:?}, weight_limit {:?}"</span>,
 			origin_location, dest, beneficiary, assets, fee_asset_item, weight_limit,
 		);
 
@@ -5164,7 +5166,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span>FeesHandling::Batched { fees }
 		} <span class="kw">else </span>{
 			<span class="comment">// Disallow _remote reserves_ unless assets &amp; fees have same remote reserve (covered
-			// by branch above). The reason for this is that we&#39;d need to send XCMs to separate
+			// by branch above). The reason for this is that we'd need to send XCMs to separate
 			// chains with no guarantee of delivery order on final destination; therefore we
 			// cannot guarantee to have fees in place on final destination chain to pay for
 			// assets transfer.
@@ -5223,9 +5225,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		weight_limit: WeightLimit,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(Xcm&lt;&lt;T <span class="kw">as </span>Config&gt;::RuntimeCall&gt;, <span class="prelude-ty">Option</span>&lt;Xcm&lt;()&gt;&gt;), Error&lt;T&gt;&gt; {
 		<span class="macro">log::debug!</span>(
-			target: <span class="string">&quot;xcm::pallet_xcm::build_xcm_transfer_type&quot;</span>,
-			<span class="string">&quot;origin {:?}, dest {:?}, beneficiary {:?}, assets {:?}, transfer_type {:?}, \
-			fees_handling {:?}, weight_limit: {:?}&quot;</span>,
+			target: <span class="string">"xcm::pallet_xcm::build_xcm_transfer_type"</span>,
+			<span class="string">"origin {:?}, dest {:?}, beneficiary {:?}, assets {:?}, transfer_type {:?}, \
+			fees_handling {:?}, weight_limit: {:?}"</span>,
 			origin, dest, beneficiary, assets, transfer_type, fees, weight_limit,
 		);
 		<span class="prelude-val">Ok</span>(<span class="kw">match </span>transfer_type {
@@ -5288,8 +5290,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		remote_xcm: <span class="prelude-ty">Option</span>&lt;Xcm&lt;()&gt;&gt;,
 	) -&gt; DispatchResult {
 		<span class="macro">log::debug!</span>(
-			target: <span class="string">&quot;xcm::pallet_xcm::execute_xcm_transfer&quot;</span>,
-			<span class="string">&quot;origin {:?}, dest {:?}, local_xcm {:?}, remote_xcm {:?}&quot;</span>,
+			target: <span class="string">"xcm::pallet_xcm::execute_xcm_transfer"</span>,
+			<span class="string">"origin {:?}, dest {:?}, local_xcm {:?}, remote_xcm {:?}"</span>,
 			origin, dest, local_xcm, remote_xcm,
 		);
 
@@ -5306,8 +5308,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">Self</span>::deposit_event(Event::Attempted { outcome: outcome.clone() });
 		outcome.ensure_complete().map_err(|error| {
 			<span class="macro">log::error!</span>(
-				target: <span class="string">&quot;xcm::pallet_xcm::execute_xcm_transfer&quot;</span>,
-				<span class="string">&quot;XCM execution failed with error {:?}&quot;</span>, error
+				target: <span class="string">"xcm::pallet_xcm::execute_xcm_transfer"</span>,
+				<span class="string">"XCM execution failed with error {:?}"</span>, error
 			);
 			Error::&lt;T&gt;::LocalExecutionIncomplete
 		})<span class="question-mark">?</span>;
@@ -5318,8 +5320,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">if </span>origin != Here.into_location() {
 				<span class="self">Self</span>::charge_fees(origin.clone(), price).map_err(|error| {
 					<span class="macro">log::error!</span>(
-						target: <span class="string">&quot;xcm::pallet_xcm::execute_xcm_transfer&quot;</span>,
-						<span class="string">&quot;Unable to charge fee with error {:?}&quot;</span>, error
+						target: <span class="string">"xcm::pallet_xcm::execute_xcm_transfer"</span>,
+						<span class="string">"Unable to charge fee with error {:?}"</span>, error
 					);
 					Error::&lt;T&gt;::FeesNotMet
 				})<span class="question-mark">?</span>;
@@ -5421,7 +5423,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">let </span><span class="kw-2">mut </span>xcm_on_dest = Xcm(<span class="macro">vec!</span>[
 			<span class="comment">// let (dest) chain know assets are in its SA on reserve
 			</span>ReserveAssetDeposited(reanchored_assets),
-			<span class="comment">// following instructions are not exec&#39;ed on behalf of origin chain anymore
+			<span class="comment">// following instructions are not exec'ed on behalf of origin chain anymore
 			</span>ClearOrigin,
 		]);
 		<span class="comment">// handle fees
@@ -5457,7 +5459,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span>BurnAsset(fees),
 		]);
 		<span class="kw">let </span>xcm_on_dest = Xcm(<span class="macro">vec!</span>[
-			<span class="comment">// withdraw `fees` from origin chain&#39;s sovereign account
+			<span class="comment">// withdraw `fees` from origin chain's sovereign account
 			</span>WithdrawAsset(reanchored_fees.clone().into()),
 			<span class="comment">// buy exec using `fees` in holding withdrawn in above instruction
 			</span>BuyExecution { fees: reanchored_fees, weight_limit },
@@ -5496,9 +5498,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		]);
 		<span class="comment">// XCM instructions to be executed on destination chain
 		</span><span class="kw">let </span><span class="kw-2">mut </span>xcm_on_dest = Xcm(<span class="macro">vec!</span>[
-			<span class="comment">// withdraw `assets` from origin chain&#39;s sovereign account
+			<span class="comment">// withdraw `assets` from origin chain's sovereign account
 			</span>WithdrawAsset(reanchored_assets),
-			<span class="comment">// following instructions are not exec&#39;ed on behalf of origin chain anymore
+			<span class="comment">// following instructions are not exec'ed on behalf of origin chain anymore
 			</span>ClearOrigin,
 		]);
 		<span class="comment">// handle fees
@@ -5582,7 +5584,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			XcmContext { origin: <span class="prelude-val">None</span>, message_id: Default::default(), topic: <span class="prelude-val">None </span>};
 		<span class="comment">// We should check that the asset can actually be teleported out (for this to
 		// be in error, there would need to be an accounting violation by ourselves,
-		// so it&#39;s unlikely, but we don&#39;t want to allow that kind of bug to leak into
+		// so it's unlikely, but we don't want to allow that kind of bug to leak into
 		// a trusted chain.
 		</span>&lt;T::XcmExecutor <span class="kw">as </span>XcmAssetTransfers&gt;::AssetTransactor::can_check_out(
 			<span class="kw-2">&amp;</span>dest,
@@ -5590,7 +5592,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw-2">&amp;</span>dummy_context,
 		)
 		.map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::CannotCheckOutTeleport)<span class="question-mark">?</span>;
-		<span class="comment">// safe to do this here, we&#39;re in a transactional call that will be reverted on any
+		<span class="comment">// safe to do this here, we're in a transactional call that will be reverted on any
 		// errors down the line
 		</span>&lt;T::XcmExecutor <span class="kw">as </span>XcmAssetTransfers&gt;::AssetTransactor::check_out(
 			<span class="kw-2">&amp;</span>dest,
@@ -5642,7 +5644,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">for </span>asset <span class="kw">in </span>assets.inner() {
 			<span class="comment">// We should check that the asset can actually be teleported out (for this to
 			// be in error, there would need to be an accounting violation by ourselves,
-			// so it&#39;s unlikely, but we don&#39;t want to allow that kind of bug to leak into
+			// so it's unlikely, but we don't want to allow that kind of bug to leak into
 			// a trusted chain.
 			</span>&lt;T::XcmExecutor <span class="kw">as </span>XcmAssetTransfers&gt;::AssetTransactor::can_check_out(
 				<span class="kw-2">&amp;</span>dest,
@@ -5652,7 +5654,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::CannotCheckOutTeleport)<span class="question-mark">?</span>;
 		}
 		<span class="kw">for </span>asset <span class="kw">in </span>assets.inner() {
-			<span class="comment">// safe to do this here, we&#39;re in a transactional call that will be reverted on any
+			<span class="comment">// safe to do this here, we're in a transactional call that will be reverted on any
 			// errors down the line
 			</span>&lt;T::XcmExecutor <span class="kw">as </span>XcmAssetTransfers&gt;::AssetTransactor::check_out(
 				<span class="kw-2">&amp;</span>dest,
@@ -5672,7 +5674,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">let </span><span class="kw-2">mut </span>xcm_on_dest = Xcm(<span class="macro">vec!</span>[
 			<span class="comment">// teleport `assets` in from origin chain
 			</span>ReceiveTeleportedAsset(reanchored_assets),
-			<span class="comment">// following instructions are not exec&#39;ed on behalf of origin chain anymore
+			<span class="comment">// following instructions are not exec'ed on behalf of origin chain anymore
 			</span>ClearOrigin,
 		]);
 		<span class="comment">// handle fees
@@ -5760,7 +5762,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">let </span>new_key: Location = <span class="kw">match </span>key.clone().try_into() {
 					<span class="prelude-val">Ok</span>(k) <span class="kw">if </span>target_xcm_version != xcm_version =&gt; k,
 					<span class="kw">_ </span>=&gt; {
-						<span class="comment">// We don&#39;t early return here since we need to be certain that we
+						<span class="comment">// We don't early return here since we need to be certain that we
 						// make some progress.
 						</span>weight_used.saturating_accrue(vnt_already_notified_weight);
 						<span class="kw">continue
@@ -5913,7 +5915,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		} <span class="kw">else </span>{
 			<span class="prelude-val">None
 		</span>};
-		<span class="macro">log::debug!</span>(target: <span class="string">&quot;xcm::send_xcm&quot;</span>, <span class="string">&quot;dest: {:?}, message: {:?}&quot;</span>, <span class="kw-2">&amp;</span>dest, <span class="kw-2">&amp;</span>message);
+		<span class="macro">log::debug!</span>(target: <span class="string">"xcm::send_xcm"</span>, <span class="string">"dest: {:?}, message: {:?}"</span>, <span class="kw-2">&amp;</span>dest, <span class="kw-2">&amp;</span>message);
 		<span class="kw">let </span>(ticket, price) = validate_send::&lt;T::XcmRouter&gt;(dest, message)<span class="question-mark">?</span>;
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(fee_payer) = maybe_fee_payer {
 			<span class="self">Self</span>::charge_fees(fee_payer, price).map_err(|<span class="kw">_</span>| SendError::Fees)<span class="question-mark">?</span>;
@@ -5922,7 +5924,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">pub fn </span>check_account() -&gt; T::AccountId {
-		<span class="kw">const </span>ID: PalletId = PalletId(<span class="kw-2">*</span><span class="string">b&quot;py/xcmch&quot;</span>);
+		<span class="kw">const </span>ID: PalletId = PalletId(<span class="kw-2">*</span><span class="string">b"py/xcmch"</span>);
 		AccountIdConversion::&lt;T::AccountId&gt;::into_account_truncating(<span class="kw-2">&amp;</span>ID)
 	}
 
@@ -5931,7 +5933,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			Xcm::&lt;()&gt;::try_from(message).map_err(|<span class="kw">_</span>| FeePaymentError::VersionedConversionFailed)<span class="question-mark">?</span>;
 
 		T::Weigher::weight(<span class="kw-2">&amp;mut </span>message.into()).map_err(|()| {
-			<span class="macro">log::error!</span>(target: <span class="string">&quot;xcm::pallet_xcm::query_xcm_weight&quot;</span>, <span class="string">&quot;Error when querying XCM weight&quot;</span>);
+			<span class="macro">log::error!</span>(target: <span class="string">"xcm::pallet_xcm::query_xcm_weight"</span>, <span class="string">"Error when querying XCM weight"</span>);
 			FeePaymentError::WeightNotComputable
 		})
 	}
@@ -5948,7 +5950,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>message = message.try_into().map_err(|<span class="kw">_</span>| FeePaymentError::VersionedConversionFailed)<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>(<span class="kw">_</span>, fees) = validate_send::&lt;T::XcmRouter&gt;(destination, message).map_err(|error| {
-			<span class="macro">log::error!</span>(target: <span class="string">&quot;xcm::pallet_xcm::query_delivery_fees&quot;</span>, <span class="string">&quot;Error when querying delivery fees: {:?}&quot;</span>, error);
+			<span class="macro">log::error!</span>(target: <span class="string">"xcm::pallet_xcm::query_delivery_fees"</span>, <span class="string">"Error when querying delivery fees: {:?}"</span>, error);
 			FeePaymentError::Unroutable
 		})<span class="question-mark">?</span>;
 
@@ -5989,7 +5991,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///   known. It may be a dispatchable in any pallet of the local chain, but other than the usual
 	///   origin, it must accept exactly two arguments: `query_id: QueryId` and `outcome: Response`,
 	///   and in that order. It should expect that the origin is `Origin::Response` and will contain
-	///   the responder&#39;s location.
+	///   the responder's location.
 	/// - `timeout`: The block number after which it is permissible for `notify` not to be called
 	///   even if a response is received.
 	///
@@ -6030,7 +6032,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		match_querier: <span class="kw">impl </span>Into&lt;Location&gt;,
 	) -&gt; u64 {
 		<span class="kw">let </span>notify = notify.into().using_encoded(|<span class="kw-2">mut </span>bytes| Decode::decode(<span class="kw-2">&amp;mut </span>bytes)).expect(
-			<span class="string">&quot;decode input is output of Call encode; Call guaranteed to have two enums; qed&quot;</span>,
+			<span class="string">"decode input is output of Call encode; Call guaranteed to have two enums; qed"</span>,
 		);
 		<span class="self">Self</span>::do_new_query(responder, <span class="prelude-val">Some</span>(notify), timeout, match_querier)
 	}
@@ -6039,8 +6041,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// and queue it for version discovery.
 	</span><span class="kw">fn </span>note_unknown_version(dest: <span class="kw-2">&amp;</span>Location) {
 		<span class="macro">log::trace!</span>(
-			target: <span class="string">&quot;xcm::pallet_xcm::note_unknown_version&quot;</span>,
-			<span class="string">&quot;XCM version is unknown for destination: {:?}&quot;</span>,
+			target: <span class="string">"xcm::pallet_xcm::note_unknown_version"</span>,
+			<span class="string">"XCM version is unknown for destination: {:?}"</span>,
 			dest,
 		);
 		<span class="kw">let </span>versioned_dest = VersionedLocation::from(dest.clone());
@@ -6075,7 +6077,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// All entries stored in the `SupportedVersion` / `VersionNotifiers` / `VersionNotifyTargets`
 	/// need to be migrated to the `XCM_VERSION`. If they are not, then `CurrentMigration` has to be
 	/// set.
-	</span><span class="attr">#[cfg(any(feature = <span class="string">&quot;try-runtime&quot;</span>, test))]
+	</span><span class="attr">#[cfg(any(feature = <span class="string">"try-runtime"</span>, test))]
 	</span><span class="kw">pub fn </span>do_try_state() -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
 		<span class="comment">// if migration has been already scheduled, everything is ok and data will be eventually
 		// migrated
@@ -6088,19 +6090,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">ensure!</span>(
 				SupportedVersion::&lt;T&gt;::iter_prefix(v).next().is_none(),
 				TryRuntimeError::Other(
-					<span class="string">&quot;`SupportedVersion` data should be migrated to the `XCM_VERSION`!`&quot;
+					<span class="string">"`SupportedVersion` data should be migrated to the `XCM_VERSION`!`"
 				</span>)
 			);
 			<span class="macro">ensure!</span>(
 				VersionNotifiers::&lt;T&gt;::iter_prefix(v).next().is_none(),
 				TryRuntimeError::Other(
-					<span class="string">&quot;`VersionNotifiers` data should be migrated to the `XCM_VERSION`!`&quot;
+					<span class="string">"`VersionNotifiers` data should be migrated to the `XCM_VERSION`!`"
 				</span>)
 			);
 			<span class="macro">ensure!</span>(
 				VersionNotifyTargets::&lt;T&gt;::iter_prefix(v).next().is_none(),
 				TryRuntimeError::Other(
-					<span class="string">&quot;`VersionNotifyTargets` data should be migrated to the `XCM_VERSION`!`&quot;
+					<span class="string">"`VersionNotifyTargets` data should be migrated to the `XCM_VERSION`!`"
 				</span>)
 			);
 		}
@@ -6134,7 +6136,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 		LockedFungibles::&lt;T&gt;::insert(<span class="kw-2">&amp;</span><span class="self">self</span>.sovereign_account, locks);
 		T::Currency::extend_lock(
-			<span class="kw-2">*</span><span class="string">b&quot;py/xcmlk&quot;</span>,
+			<span class="kw-2">*</span><span class="string">b"py/xcmlk"</span>,
 			<span class="kw-2">&amp;</span><span class="self">self</span>.sovereign_account,
 			<span class="self">self</span>.amount,
 			WithdrawReasons::all(),
@@ -6175,7 +6177,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 		LockedFungibles::&lt;T&gt;::insert(<span class="kw-2">&amp;</span><span class="self">self</span>.sovereign_account, locks);
 		<span class="kw">let </span>reasons = WithdrawReasons::all();
-		T::Currency::set_lock(<span class="kw-2">*</span><span class="string">b&quot;py/xcmlk&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.sovereign_account, locked, reasons);
+		T::Currency::set_lock(<span class="kw-2">*</span><span class="string">b"py/xcmlk"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.sovereign_account, locked, reasons);
 		<span class="prelude-val">Ok</span>(())
 	}
 }
@@ -6260,7 +6262,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span><span class="kw-2">mut </span>record =
 			RemoteLockedFungibleRecord { amount, owner, locker, consumers: BoundedVec::default() };
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(old) = RemoteLockedFungibles::&lt;T&gt;::get(<span class="kw-2">&amp;</span>key) {
-			<span class="comment">// Make sure that the new record wouldn&#39;t clobber any old data.
+			<span class="comment">// Make sure that the new record wouldn't clobber any old data.
 			</span><span class="macro">ensure!</span>(old.locker == record.locker &amp;&amp; old.owner == record.owner, WouldClobber);
 			record.consumers = old.consumers;
 			record.amount = record.amount.max(old.amount);
@@ -6287,7 +6289,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>key = (XCM_VERSION, sovereign_account, id);
 
 		<span class="kw">let </span>record = RemoteLockedFungibles::&lt;T&gt;::get(<span class="kw-2">&amp;</span>key).ok_or(NotLocked)<span class="question-mark">?</span>;
-		<span class="comment">// Make sure that the record contains what we expect and there&#39;s enough to unlock.
+		<span class="comment">// Make sure that the record contains what we expect and there's enough to unlock.
 		</span><span class="macro">ensure!</span>(locker == record.locker &amp;&amp; owner == record.owner, WouldClobber);
 		<span class="macro">ensure!</span>(record.amount &gt;= amount, NotEnoughLocked);
 		<span class="macro">ensure!</span>(
@@ -6310,8 +6312,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			})
 			.ok_or_else(|| {
 				<span class="macro">log::trace!</span>(
-					target: <span class="string">&quot;xcm::pallet_xcm::wrap_version&quot;</span>,
-					<span class="string">&quot;Could not determine a version to wrap XCM for destination: {:?}&quot;</span>,
+					target: <span class="string">"xcm::pallet_xcm::wrap_version"</span>,
+					<span class="string">"Could not determine a version to wrap XCM for destination: {:?}"</span>,
 					dest,
 				);
 				()
@@ -6488,7 +6490,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						},
 					);
 				}
-				<span class="comment">// We&#39;re being notified of a version change.
+				<span class="comment">// We're being notified of a version change.
 				</span>SupportedVersion::&lt;T&gt;::insert(XCM_VERSION, LatestVersionedLocation(<span class="kw-2">&amp;</span>origin), v);
 				<span class="self">Self</span>::deposit_event(Event::SupportedVersionChanged {
 					location: origin,
@@ -6575,7 +6577,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 										call_index,
 									};
 									<span class="self">Self</span>::deposit_event(e);
-									<span class="comment">// Not much to do with the result as it is. It&#39;s up to the
+									<span class="comment">// Not much to do with the result as it is. It's up to the
 									// parachain to ensure that the message makes sense.
 									</span>error_and_info.post_info.actual_weight
 								},
@@ -6694,7 +6696,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		})
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">fn </span>try_successful_origin() -&gt; <span class="prelude-ty">Result</span>&lt;O, ()&gt; {
 		<span class="prelude-val">Ok</span>(O::from(Origin::Xcm(Here.into())))
 	}
@@ -6718,14 +6720,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		})
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">fn </span>try_successful_origin() -&gt; <span class="prelude-ty">Result</span>&lt;O, ()&gt; {
 		<span class="prelude-val">Ok</span>(O::from(Origin::Response(Here.into())))
 	}
 }
 
 <span class="doccomment">/// A simple passthrough where we reuse the `Location`-typed XCM origin as the inner value of
-/// this crate&#39;s `Origin::Xcm` value.
+/// this crate's `Origin::Xcm` value.
 </span><span class="kw">pub struct </span>XcmPassthrough&lt;RuntimeOrigin&gt;(PhantomData&lt;RuntimeOrigin&gt;);
 <span class="kw">impl</span>&lt;RuntimeOrigin: From&lt;<span class="kw">crate</span>::Origin&gt;&gt; ConvertOrigin&lt;RuntimeOrigin&gt;
 	<span class="kw">for </span>XcmPassthrough&lt;RuntimeOrigin&gt;

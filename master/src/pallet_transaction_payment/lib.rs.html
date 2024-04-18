@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/transaction-payment/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/transaction-payment/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_transaction_payment" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_transaction_payment" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../pallet_transaction_payment/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1047,14 +1049,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -1089,7 +1091,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!     [`Config::FeeMultiplierUpdate`]
 //!   - How the fees are paid via [`Config::OnChargeTransaction`].
 
-</span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
+</span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
 </span><span class="kw">use </span>codec::{Decode, Encode, MaxEncodedLen};
 <span class="kw">use </span>scale_info::TypeInfo;
@@ -1136,22 +1138,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// given:
 /// 	s = previous block weight
-/// 	s&#39;= ideal block weight
+/// 	s'= ideal block weight
 /// 	m = maximum block weight
-/// 		diff = (s - s&#39;)/m
+/// 		diff = (s - s')/m
 /// 		v = 0.00001
 /// 		t1 = (v * diff)
 /// 		t2 = (v * diff)^2 / 2
 /// 	then:
 /// 	next_multiplier = prev_multiplier * (1 + t1 + t2)
 ///
-/// Where `(s&#39;, v)` must be given as the `Get` implementation of the `T` generic type. Moreover, `M`
+/// Where `(s', v)` must be given as the `Get` implementation of the `T` generic type. Moreover, `M`
 /// must provide the minimum allowed value for the multiplier. Note that a runtime should ensure
 /// with tests that the combination of this `M` and `V` is not such that the multiplier can drop to
 /// zero and never recover.
 ///
-/// Note that `s&#39;` is interpreted as a portion in the _normal transaction_ capacity of the block.
-/// For example, given `s&#39; == 0.25` and `AvailableBlockRatio = 0.75`, then the target fullness is
+/// Note that `s'` is interpreted as a portion in the _normal transaction_ capacity of the block.
+/// For example, given `s' == 0.25` and `AvailableBlockRatio = 0.75`, then the target fullness is
 /// _0.25 of the normal capacity_ and _0.1875 of the entire block_.
 ///
 /// Since block weight is multi-dimension, we use the scarcer resource, referred as limiting
@@ -1162,17 +1164,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// full.
 ///
 /// This implementation implies the bound:
-/// - `v ≤ p / k * (s − s&#39;)`
-/// - or, solving for `p`: `p &gt;= v * k * (s - s&#39;)`
+/// - `v ≤ p / k * (s − s')`
+/// - or, solving for `p`: `p &gt;= v * k * (s - s')`
 ///
 /// where `p` is the amount of change over `k` blocks.
 ///
 /// Hence:
-/// - in a fully congested chain: `p &gt;= v * k * (1 - s&#39;)`.
-/// - in an empty chain: `p &gt;= v * k * (-s&#39;)`.
+/// - in a fully congested chain: `p &gt;= v * k * (1 - s')`.
+/// - in an empty chain: `p &gt;= v * k * (-s')`.
 ///
 /// For example, when all blocks are full and there are 28800 blocks per day (default in
-/// `substrate-node`) and v == 0.00001, s&#39; == 0.1875, we&#39;d have:
+/// `substrate-node`) and v == 0.00001, s' == 0.1875, we'd have:
 ///
 /// p &gt;= 0.00001 * 28800 * 0.8125
 /// p &gt;= 0.234
@@ -1405,13 +1407,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="attr">#[pallet::no_default]
 		</span><span class="kw">type </span>LengthToFee: WeightToFee&lt;Balance = BalanceOf&lt;<span class="self">Self</span>&gt;&gt;;
 
-		<span class="doccomment">/// Update the multiplier of the next block, based on the previous block&#39;s weight.
+		<span class="doccomment">/// Update the multiplier of the next block, based on the previous block's weight.
 		</span><span class="kw">type </span>FeeMultiplierUpdate: MultiplierUpdate;
 
-		<span class="doccomment">/// A fee multiplier for `Operational` extrinsics to compute &quot;virtual tip&quot; to boost their
+		<span class="doccomment">/// A fee multiplier for `Operational` extrinsics to compute "virtual tip" to boost their
 		/// `priority`
 		///
-		/// This value is multiplied by the `final_fee` to obtain a &quot;virtual tip&quot; that is later
+		/// This value is multiplied by the `final_fee` to obtain a "virtual tip" that is later
 		/// added to a tip component in regular `priority` calculations.
 		/// It means that a `Normal` transaction can front-run a similarly-sized `Operational`
 		/// extrinsic (with no tip), by including a tip value greater than the virtual tip.
@@ -1483,7 +1485,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			});
 		}
 
-		<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+		<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 		</span><span class="kw">fn </span>integrity_test() {
 			<span class="comment">// given weight == u64, we build multipliers from `diff` of two weight values, which can
 			// at most be maximum block weight. Make sure that this can fit in a multiplier without
@@ -1498,8 +1500,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="kw">let </span>target = T::FeeMultiplierUpdate::target() *
 				T::BlockWeights::get().get(DispatchClass::Normal).max_total.expect(
-					<span class="string">&quot;Setting `max_total` for `Normal` dispatch class is not compatible with \
-					`transaction-payment` pallet.&quot;</span>,
+					<span class="string">"Setting `max_total` for `Normal` dispatch class is not compatible with \
+					`transaction-payment` pallet."</span>,
 				);
 			<span class="comment">// add 1 percent;
 			</span><span class="kw">let </span>addition = target / <span class="number">100</span>;
@@ -1520,9 +1522,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>next = T::FeeMultiplierUpdate::convert(min_value);
 			<span class="macro">assert!</span>(
 				next &gt; min_value,
-				<span class="string">&quot;The minimum bound of the multiplier is too low. When \
+				<span class="string">"The minimum bound of the multiplier is too low. When \
 				block saturation is more than target by 1% and multiplier is minimal then \
-				the multiplier doesn&#39;t increase.&quot;
+				the multiplier doesn't increase."
 			</span>);
 		}
 	}
@@ -1533,7 +1535,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// This pallet is not and cannot be aware of the internals of a signed extension, for example
 	/// a tip. It only interprets the extrinsic as some encoded value and accounts for its weight
-	/// and length, the runtime&#39;s extrinsic base weight, and the current fee multiplier.
+	/// and length, the runtime's extrinsic base weight, and the current fee multiplier.
 	///
 	/// All dispatchables must be annotated with weight and will have some fee info. This function
 	/// always returns.
@@ -1546,7 +1548,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	{
 		<span class="comment">// NOTE: we can actually make it understand `ChargeTransactionPayment`, but would be some
 		// hassle for sure. We have to make it aware of the index of `ChargeTransactionPayment` in
-		// `Extra`. Alternatively, we could actually execute the tx&#39;s per-dispatch and record the
+		// `Extra`. Alternatively, we could actually execute the tx's per-dispatch and record the
 		// balance of the sender before and after the pipeline.. but this is way too much hassle for
 		// a very very little potential gain in the future.
 		</span><span class="kw">let </span>dispatch_info = &lt;Extrinsic <span class="kw">as </span>GetDispatchInfo&gt;::get_dispatch_info(<span class="kw-2">&amp;</span>unchecked_extrinsic);
@@ -1780,10 +1782,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// The priority is based on the amount of `tip` the user is willing to pay per unit of either
 	/// `weight` or `length`, depending which one is more limiting. For `Operational` extrinsics
-	/// we add a &quot;virtual tip&quot; to the calculations.
+	/// we add a "virtual tip" to the calculations.
 	///
 	/// The formula should simply be `tip / bounded_{weight|length}`, but since we are using
-	/// integer division, we have no guarantees it&#39;s going to give results in any reasonable
+	/// integer division, we have no guarantees it's going to give results in any reasonable
 	/// range (might simply end up being zero). Hence we use a scaling factor:
 	/// `tip * (max_block_{weight|length} / bounded_{weight|length})`, since given current
 	/// state of-the-art blockchains, number of per-block transactions is expected to be in a
@@ -1806,7 +1808,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// returns the scarce resource, i.e. the one that is limiting the number of transactions.
 		</span><span class="kw">let </span>max_tx_per_block_weight = max_block_weight
 			.checked_div_per_component(<span class="kw-2">&amp;</span>bounded_weight)
-			.defensive_proof(<span class="string">&quot;bounded_weight is non-zero; qed&quot;</span>)
+			.defensive_proof(<span class="string">"bounded_weight is non-zero; qed"</span>)
 			.unwrap_or(<span class="number">1</span>);
 		<span class="kw">let </span>max_tx_per_block_length = max_block_length / bounded_length;
 		<span class="comment">// Given our current knowledge this value is going to be in a reasonable range - i.e.
@@ -1830,11 +1832,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			},
 			DispatchClass::Mandatory =&gt; {
 				<span class="comment">// Mandatory extrinsics should be prohibited (e.g. by the [`CheckWeight`]
-				// extensions), but just to be safe let&#39;s return the same priority as `Normal` here.
+				// extensions), but just to be safe let's return the same priority as `Normal` here.
 				</span>scaled_tip
 			},
 			DispatchClass::Operational =&gt; {
-				<span class="comment">// A &quot;virtual tip&quot; value added to an `Operational` extrinsic.
+				<span class="comment">// A "virtual tip" value added to an `Operational` extrinsic.
 				// This value should be kept high enough to allow `Operational` extrinsics
 				// to get in even during congestion period, but at the same time low
 				// enough to prevent a possible spam attack by sending invalid operational
@@ -1851,11 +1853,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl</span>&lt;T: Config&gt; sp_std::fmt::Debug <span class="kw">for </span>ChargeTransactionPayment&lt;T&gt; {
-	<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 	</span><span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter) -&gt; sp_std::fmt::Result {
-		<span class="macro">write!</span>(f, <span class="string">&quot;ChargeTransactionPayment&lt;{:?}&gt;&quot;</span>, <span class="self">self</span>.<span class="number">0</span>)
+		<span class="macro">write!</span>(f, <span class="string">"ChargeTransactionPayment&lt;{:?}&gt;"</span>, <span class="self">self</span>.<span class="number">0</span>)
 	}
-	<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+	<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
 	</span><span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw">_</span>: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter) -&gt; sp_std::fmt::Result {
 		<span class="prelude-val">Ok</span>(())
 	}
@@ -1866,7 +1868,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>BalanceOf&lt;T&gt;: Send + Sync + From&lt;u64&gt;,
 	T::RuntimeCall: Dispatchable&lt;Info = DispatchInfo, PostInfo = PostDispatchInfo&gt;,
 {
-	<span class="kw">const </span>IDENTIFIER: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;ChargeTransactionPayment&quot;</span>;
+	<span class="kw">const </span>IDENTIFIER: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"ChargeTransactionPayment"</span>;
 	<span class="kw">type </span>AccountId = T::AccountId;
 	<span class="kw">type </span>Call = T::RuntimeCall;
 	<span class="kw">type </span>AdditionalSigned = ();

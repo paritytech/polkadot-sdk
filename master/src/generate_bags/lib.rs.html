@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/utils/frame/generate-bags/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/utils/frame/generate-bags/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="generate_bags" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="generate_bags" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../generate_bags/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -414,14 +416,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -437,7 +439,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!
 //!    ```ignore
 //!    parameter_types!{
-//!         pub const BagThresholds: &amp;&#39;static [u64] = &amp;[];
+//!         pub const BagThresholds: &amp;'static [u64] = &amp;[];
 //!    }
 //!
 //!    impl pallet_bags_list::Config for Runtime {
@@ -460,8 +462,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!
 //!    ```diff,notrust
 //!    + mod output;
-//!    - pub const BagThresholds: &amp;&#39;static [u64] = &amp;[];
-//!    + pub const BagThresholds: &amp;&#39;static [u64] = &amp;output::THRESHOLDS;
+//!    - pub const BagThresholds: &amp;'static [u64] = &amp;[];
+//!    + pub const BagThresholds: &amp;'static [u64] = &amp;output::THRESHOLDS;
 //!    ```
 
 </span><span class="kw">use </span>frame_election_provider_support::VoteWeight;
@@ -485,26 +487,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	T::CurrencyToVote::to_vote(
 		minimum_balance
 			.try_into()
-			.map_err(|<span class="kw">_</span>| <span class="string">&quot;failed to convert minimum_balance to type Balance&quot;</span>)
+			.map_err(|<span class="kw">_</span>| <span class="string">"failed to convert minimum_balance to type Balance"</span>)
 			.unwrap(),
 		total_issuance
 			.try_into()
-			.map_err(|<span class="kw">_</span>| <span class="string">&quot;failed to convert total_issuance to type Balance&quot;</span>)
+			.map_err(|<span class="kw">_</span>| <span class="string">"failed to convert total_issuance to type Balance"</span>)
 			.unwrap(),
 	)
 }
 
 <span class="doccomment">/// Return the path to a header file used in this repository if is exists.
 ///
-/// Just searches the git working directory root for files matching certain patterns; it&#39;s
+/// Just searches the git working directory root for files matching certain patterns; it's
 /// pretty naive.
 </span><span class="kw">fn </span>path_to_header_file() -&gt; <span class="prelude-ty">Option</span>&lt;PathBuf&gt; {
 	<span class="kw">let </span><span class="kw-2">mut </span>workdir: <span class="kw-2">&amp;</span>Path = <span class="kw-2">&amp;</span>std::env::current_dir().ok()<span class="question-mark">?</span>;
-	<span class="kw">while </span>!workdir.join(<span class="string">&quot;.git&quot;</span>).exists() {
+	<span class="kw">while </span>!workdir.join(<span class="string">".git"</span>).exists() {
 		workdir = workdir.parent()<span class="question-mark">?</span>;
 	}
 
-	<span class="kw">for </span>file_name <span class="kw">in </span><span class="kw-2">&amp;</span>[<span class="string">&quot;HEADER-APACHE2&quot;</span>, <span class="string">&quot;HEADER-GPL3&quot;</span>, <span class="string">&quot;HEADER&quot;</span>, <span class="string">&quot;file_header.txt&quot;</span>] {
+	<span class="kw">for </span>file_name <span class="kw">in </span><span class="kw-2">&amp;</span>[<span class="string">"HEADER-APACHE2"</span>, <span class="string">"HEADER-GPL3"</span>, <span class="string">"HEADER"</span>, <span class="string">"file_header.txt"</span>] {
 		<span class="kw">let </span>path = workdir.join(file_name);
 		<span class="kw">if </span>path.exists() {
 			<span class="kw">return </span><span class="prelude-val">Some</span>(path)
@@ -517,9 +519,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">fn </span>underscore_formatter() -&gt; num_format::CustomFormat {
 	num_format::CustomFormat::builder()
 		.grouping(num_format::Grouping::Standard)
-		.separator(<span class="string">&quot;_&quot;</span>)
+		.separator(<span class="string">"_"</span>)
 		.build()
-		.expect(<span class="string">&quot;format described here meets all constraints&quot;</span>)
+		.expect(<span class="string">"format described here meets all constraints"</span>)
 }
 
 <span class="doccomment">/// Compute the constant ratio for the thresholds.
@@ -558,7 +560,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if </span>successor &lt; WEIGHT_LIMIT {
 			thresholds.push(successor <span class="kw">as </span>VoteWeight);
 		} <span class="kw">else </span>{
-			<span class="macro">eprintln!</span>(<span class="string">&quot;unexpectedly exceeded weight limit; breaking threshold generation loop&quot;</span>);
+			<span class="macro">eprintln!</span>(<span class="string">"unexpectedly exceeded weight limit; breaking threshold generation loop"</span>);
 			<span class="kw">break
 		</span>}
 	}
@@ -584,7 +586,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// This generated module contains, in order:
 ///
-/// - The contents of the header file in this repository&#39;s root, if found.
+/// - The contents of the header file in this repository's root, if found.
 /// - Module documentation noting that this is autogenerated and when.
 /// - Some associated constants.
 /// - The constant array of thresholds.
@@ -617,57 +619,57 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="comment">// module docs
 	</span><span class="kw">let </span>now = chrono::Utc::now();
 	<span class="macro">writeln!</span>(buf)<span class="question-mark">?</span>;
-	<span class="macro">writeln!</span>(buf, <span class="string">&quot;//! Autogenerated bag thresholds.&quot;</span>)<span class="question-mark">?</span>;
-	<span class="macro">writeln!</span>(buf, <span class="string">&quot;//!&quot;</span>)<span class="question-mark">?</span>;
-	<span class="macro">writeln!</span>(buf, <span class="string">&quot;//! Generated on {}&quot;</span>, now.to_rfc3339())<span class="question-mark">?</span>;
-	<span class="macro">writeln!</span>(buf, <span class="string">&quot;//! Arguments&quot;</span>)<span class="question-mark">?</span>;
-	<span class="macro">writeln!</span>(buf, <span class="string">&quot;//! Total issuance: {}&quot;</span>, <span class="kw-2">&amp;</span>total_issuance)<span class="question-mark">?</span>;
-	<span class="macro">writeln!</span>(buf, <span class="string">&quot;//! Minimum balance: {}&quot;</span>, <span class="kw-2">&amp;</span>minimum_balance)<span class="question-mark">?</span>;
+	<span class="macro">writeln!</span>(buf, <span class="string">"//! Autogenerated bag thresholds."</span>)<span class="question-mark">?</span>;
+	<span class="macro">writeln!</span>(buf, <span class="string">"//!"</span>)<span class="question-mark">?</span>;
+	<span class="macro">writeln!</span>(buf, <span class="string">"//! Generated on {}"</span>, now.to_rfc3339())<span class="question-mark">?</span>;
+	<span class="macro">writeln!</span>(buf, <span class="string">"//! Arguments"</span>)<span class="question-mark">?</span>;
+	<span class="macro">writeln!</span>(buf, <span class="string">"//! Total issuance: {}"</span>, <span class="kw-2">&amp;</span>total_issuance)<span class="question-mark">?</span>;
+	<span class="macro">writeln!</span>(buf, <span class="string">"//! Minimum balance: {}"</span>, <span class="kw-2">&amp;</span>minimum_balance)<span class="question-mark">?</span>;
 
 	<span class="macro">writeln!</span>(
 		buf,
-		<span class="string">&quot;//! for the {} runtime.&quot;</span>,
+		<span class="string">"//! for the {} runtime."</span>,
 		&lt;T <span class="kw">as </span>frame_system::Config&gt;::Version::get().spec_name,
 	)<span class="question-mark">?</span>;
 
 	<span class="kw">let </span>existential_weight = existential_weight::&lt;T&gt;(total_issuance, minimum_balance);
 	num_buf.write_formatted(<span class="kw-2">&amp;</span>existential_weight, <span class="kw-2">&amp;</span>format);
 	<span class="macro">writeln!</span>(buf)<span class="question-mark">?</span>;
-	<span class="macro">writeln!</span>(buf, <span class="string">&quot;/// Existential weight for this runtime.&quot;</span>)<span class="question-mark">?</span>;
-	<span class="macro">writeln!</span>(buf, <span class="string">&quot;#[cfg(any(test, feature = \&quot;std\&quot;))]&quot;</span>)<span class="question-mark">?</span>;
-	<span class="macro">writeln!</span>(buf, <span class="string">&quot;#[allow(unused)]&quot;</span>)<span class="question-mark">?</span>;
-	<span class="macro">writeln!</span>(buf, <span class="string">&quot;pub const EXISTENTIAL_WEIGHT: u64 = {};&quot;</span>, num_buf.as_str())<span class="question-mark">?</span>;
+	<span class="macro">writeln!</span>(buf, <span class="string">"/// Existential weight for this runtime."</span>)<span class="question-mark">?</span>;
+	<span class="macro">writeln!</span>(buf, <span class="string">"#[cfg(any(test, feature = \"std\"))]"</span>)<span class="question-mark">?</span>;
+	<span class="macro">writeln!</span>(buf, <span class="string">"#[allow(unused)]"</span>)<span class="question-mark">?</span>;
+	<span class="macro">writeln!</span>(buf, <span class="string">"pub const EXISTENTIAL_WEIGHT: u64 = {};"</span>, num_buf.as_str())<span class="question-mark">?</span>;
 
 	<span class="comment">// constant ratio
 	</span><span class="kw">let </span>constant_ratio = constant_ratio(existential_weight, n_bags);
 	<span class="macro">writeln!</span>(buf)<span class="question-mark">?</span>;
-	<span class="macro">writeln!</span>(buf, <span class="string">&quot;/// Constant ratio between bags for this runtime.&quot;</span>)<span class="question-mark">?</span>;
-	<span class="macro">writeln!</span>(buf, <span class="string">&quot;#[cfg(any(test, feature = \&quot;std\&quot;))]&quot;</span>)<span class="question-mark">?</span>;
-	<span class="macro">writeln!</span>(buf, <span class="string">&quot;#[allow(unused)]&quot;</span>)<span class="question-mark">?</span>;
-	<span class="macro">writeln!</span>(buf, <span class="string">&quot;pub const CONSTANT_RATIO: f64 = {:.16};&quot;</span>, constant_ratio)<span class="question-mark">?</span>;
+	<span class="macro">writeln!</span>(buf, <span class="string">"/// Constant ratio between bags for this runtime."</span>)<span class="question-mark">?</span>;
+	<span class="macro">writeln!</span>(buf, <span class="string">"#[cfg(any(test, feature = \"std\"))]"</span>)<span class="question-mark">?</span>;
+	<span class="macro">writeln!</span>(buf, <span class="string">"#[allow(unused)]"</span>)<span class="question-mark">?</span>;
+	<span class="macro">writeln!</span>(buf, <span class="string">"pub const CONSTANT_RATIO: f64 = {:.16};"</span>, constant_ratio)<span class="question-mark">?</span>;
 
 	<span class="comment">// thresholds
 	</span><span class="kw">let </span>thresholds = thresholds(existential_weight, constant_ratio, n_bags);
 	<span class="macro">writeln!</span>(buf)<span class="question-mark">?</span>;
-	<span class="macro">writeln!</span>(buf, <span class="string">&quot;/// Upper thresholds delimiting the bag list.&quot;</span>)<span class="question-mark">?</span>;
-	<span class="macro">writeln!</span>(buf, <span class="string">&quot;pub const THRESHOLDS: [u64; {}] = [&quot;</span>, thresholds.len())<span class="question-mark">?</span>;
+	<span class="macro">writeln!</span>(buf, <span class="string">"/// Upper thresholds delimiting the bag list."</span>)<span class="question-mark">?</span>;
+	<span class="macro">writeln!</span>(buf, <span class="string">"pub const THRESHOLDS: [u64; {}] = ["</span>, thresholds.len())<span class="question-mark">?</span>;
 	<span class="kw">for </span>threshold <span class="kw">in </span><span class="kw-2">&amp;</span>thresholds {
 		num_buf.write_formatted(threshold, <span class="kw-2">&amp;</span>format);
 		<span class="comment">// u64::MAX, with spacers every 3 digits, is 26 characters wide
-		</span><span class="macro">writeln!</span>(buf, <span class="string">&quot;	{:&gt;26},&quot;</span>, num_buf.as_str())<span class="question-mark">?</span>;
+		</span><span class="macro">writeln!</span>(buf, <span class="string">"	{:&gt;26},"</span>, num_buf.as_str())<span class="question-mark">?</span>;
 	}
-	<span class="macro">writeln!</span>(buf, <span class="string">&quot;];&quot;</span>)<span class="question-mark">?</span>;
+	<span class="macro">writeln!</span>(buf, <span class="string">"];"</span>)<span class="question-mark">?</span>;
 
 	<span class="comment">// thresholds balance
 	</span><span class="macro">writeln!</span>(buf)<span class="question-mark">?</span>;
-	<span class="macro">writeln!</span>(buf, <span class="string">&quot;/// Upper thresholds delimiting the bag list.&quot;</span>)<span class="question-mark">?</span>;
-	<span class="macro">writeln!</span>(buf, <span class="string">&quot;pub const THRESHOLDS_BALANCES: [u128; {}] = [&quot;</span>, thresholds.len())<span class="question-mark">?</span>;
+	<span class="macro">writeln!</span>(buf, <span class="string">"/// Upper thresholds delimiting the bag list."</span>)<span class="question-mark">?</span>;
+	<span class="macro">writeln!</span>(buf, <span class="string">"pub const THRESHOLDS_BALANCES: [u128; {}] = ["</span>, thresholds.len())<span class="question-mark">?</span>;
 	<span class="kw">for </span>threshold <span class="kw">in </span>thresholds {
 		num_buf.write_formatted(<span class="kw-2">&amp;</span>threshold, <span class="kw-2">&amp;</span>format);
 		<span class="comment">// u64::MAX, with spacers every 3 digits, is 26 characters wide
-		</span><span class="macro">writeln!</span>(buf, <span class="string">&quot;	{:&gt;26},&quot;</span>, num_buf.as_str())<span class="question-mark">?</span>;
+		</span><span class="macro">writeln!</span>(buf, <span class="string">"	{:&gt;26},"</span>, num_buf.as_str())<span class="question-mark">?</span>;
 	}
-	<span class="macro">writeln!</span>(buf, <span class="string">&quot;];&quot;</span>)<span class="question-mark">?</span>;
+	<span class="macro">writeln!</span>(buf, <span class="string">"];"</span>)<span class="question-mark">?</span>;
 
 	<span class="prelude-val">Ok</span>(())
 }

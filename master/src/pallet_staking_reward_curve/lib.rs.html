@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/staking/reward-curve/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/staking/reward-curve/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_staking_reward_curve" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_staking_reward_curve" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../pallet_staking_reward_curve/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -597,14 +599,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -654,7 +656,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// use sp_runtime::curve::PiecewiseLinear;
 ///
 /// pallet_staking_reward_curve::build! {
-///     const I_NPOS: PiecewiseLinear&lt;&#39;static&gt; = curve!(
+///     const I_NPOS: PiecewiseLinear&lt;'static&gt; = curve!(
 ///         min_inflation: 0_025_000,
 ///         max_inflation: 0_100_000,
 ///         ideal_stake: 0_500_000,
@@ -673,7 +675,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>declaration = generate_piecewise_linear(points);
 	<span class="kw">let </span>test_module = generate_test_module(<span class="kw-2">&amp;</span>input);
 
-	<span class="kw">let </span>imports = <span class="kw">match </span>crate_name(<span class="string">&quot;sp-runtime&quot;</span>) {
+	<span class="kw">let </span>imports = <span class="kw">match </span>crate_name(<span class="string">"sp-runtime"</span>) {
 		<span class="prelude-val">Ok</span>(FoundCrate::Itself) =&gt; <span class="macro">quote!</span>(
 			<span class="attr">#[doc(hidden)]
 			</span><span class="kw">pub use </span>sp_runtime <span class="kw">as </span>_sp_runtime;
@@ -740,14 +742,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl </span>core::fmt::Display <span class="kw">for </span>Bounds {
-	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; core::fmt::Result {
+	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; core::fmt::Result {
 		<span class="macro">write!</span>(
 			f,
-			<span class="string">&quot;{}{:07}; {:07}{}&quot;</span>,
-			<span class="kw">if </span><span class="self">self</span>.min_strict { <span class="string">&quot;]&quot; </span>} <span class="kw">else </span>{ <span class="string">&quot;[&quot; </span>},
+			<span class="string">"{}{:07}; {:07}{}"</span>,
+			<span class="kw">if </span><span class="self">self</span>.min_strict { <span class="string">"]" </span>} <span class="kw">else </span>{ <span class="string">"[" </span>},
 			<span class="self">self</span>.min,
 			<span class="self">self</span>.max,
-			<span class="kw">if </span><span class="self">self</span>.max_strict { <span class="string">&quot;[&quot; </span>} <span class="kw">else </span>{ <span class="string">&quot;]&quot; </span>},
+			<span class="kw">if </span><span class="self">self</span>.max_strict { <span class="string">"[" </span>} <span class="kw">else </span>{ <span class="string">"]" </span>},
 		)
 	}
 }
@@ -764,7 +766,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">return </span><span class="prelude-val">Err</span>(syn::Error::new(
 			value_lit.span(),
 			<span class="macro">format!</span>(
-				<span class="string">&quot;Invalid {}: {},  must be in {}&quot;</span>,
+				<span class="string">"Invalid {}: {},  must be in {}"</span>,
 				Token::default().to_token_stream(),
 				value,
 				bounds,
@@ -790,7 +792,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		&lt;<span class="macro">syn::Token!</span>[;]&gt;::parse(input)<span class="question-mark">?</span>;
 
 		<span class="kw">if </span>!input.is_empty() {
-			<span class="kw">return </span><span class="prelude-val">Err</span>(input.error(<span class="string">&quot;expected end of input stream, no token expected&quot;</span>))
+			<span class="kw">return </span><span class="prelude-val">Err</span>(input.error(<span class="string">"expected end of input stream, no token expected"</span>))
 		}
 
 		<span class="kw">let </span>min_inflation = parse_field::&lt;keyword::min_inflation&gt;(
@@ -825,7 +827,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		&lt;<span class="prelude-ty">Option</span>&lt;<span class="macro">syn::Token!</span>[,]&gt;&gt;::parse(<span class="kw-2">&amp;</span>args_input)<span class="question-mark">?</span>;
 
 		<span class="kw">if </span>!args_input.is_empty() {
-			<span class="kw">return </span><span class="prelude-val">Err</span>(args_input.error(<span class="string">&quot;expected end of input stream, no token expected&quot;</span>))
+			<span class="kw">return </span><span class="prelude-val">Err</span>(args_input.error(<span class="string">"expected end of input stream, no token expected"</span>))
 		}
 
 		<span class="prelude-val">Ok</span>(<span class="self">Self </span>{
@@ -884,7 +886,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span><span class="kw-2">mut </span>points = <span class="macro">vec!</span>[(<span class="number">0</span>, inpos.i_0), (inpos.x_ideal, inpos.i_ideal_times_x_ideal)];
 
 	<span class="comment">// For each point p: (next_p.0 - p.0) &lt; segment_length &amp;&amp; (next_p.1 - p.1) &lt; segment_length.
-	// This ensures that the total number of segment doesn&#39;t overflow max_piece_count.
+	// This ensures that the total number of segment doesn't overflow max_piece_count.
 	</span><span class="kw">let </span>max_length = (input.max_inflation - input.min_inflation + <span class="number">1_000_000 </span>- inpos.x_ideal) /
 		(input.max_piece_count - <span class="number">1</span>);
 
@@ -940,16 +942,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		.max()
 		.unwrap_or(<span class="number">0</span>)
 		.checked_mul(<span class="number">1_000</span>)
-		<span class="comment">// clip at 1.0 for sanity only since it&#39;ll panic later if too high.
+		<span class="comment">// clip at 1.0 for sanity only since it'll panic later if too high.
 		</span>.unwrap_or(<span class="number">1_000_000_000</span>);
 
 	<span class="kw">for </span>(x, y) <span class="kw">in </span>points {
 		<span class="kw">let </span>error = || {
 			<span class="macro">panic!</span>(
-				<span class="string">&quot;Generated reward curve approximation doesn&#39;t fit into [0, 1] -&gt; [0, 1] because \
+				<span class="string">"Generated reward curve approximation doesn't fit into [0, 1] -&gt; [0, 1] because \
 				 of point:
 			x = {:07} per million
-			y = {:07} per million&quot;</span>,
+			y = {:07} per million"</span>,
 				x, y
 			)
 		};
@@ -966,7 +968,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="macro">quote!</span>(
-		_sp_runtime::curve::PiecewiseLinear::&lt;<span class="lifetime">&#39;static</span>&gt; {
+		_sp_runtime::curve::PiecewiseLinear::&lt;<span class="lifetime">'static</span>&gt; {
 			points: &amp; [ #points_tokens ],
 			maximum: _sp_runtime::Perbill::from_parts(#max),
 		}
@@ -1013,12 +1015,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							/ float_res <span class="kw">as </span>u64
 						) <span class="kw">as </span>u32;
 						<span class="kw">if </span>err &gt; #precision {
-							<span class="macro">panic!</span>(<span class="string">&quot;\n\
+							<span class="macro">panic!</span>(<span class="string">"\n\
 								Generated reward curve approximation differ from real one:\n\t\
 								for i = {} and base = {}, f(i/base) * base = {},\n\t\
 								but approximation = {},\n\t\
 								err = {:07} millionth,\n\t\
-								try increase the number of segment: {} or the test_error: {}.\n&quot;</span>,
+								try increase the number of segment: {} or the test_error: {}.\n"</span>,
 								i, base, float_res, int_res, err, #max_piece_count, #precision
 							);
 						}
@@ -1030,8 +1032,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="kw">fn </span>reward_curve_piece_count() {
 				<span class="macro">assert!</span>(
 					<span class="kw">super</span>::#ident.points.len() <span class="kw">as </span>u32 - <span class="number">1 </span>&lt;= #max_piece_count,
-					<span class="string">&quot;Generated reward curve approximation is invalid: \
-					has more points than specified, please fill an issue.&quot;
+					<span class="string">"Generated reward curve approximation is invalid: \
+					has more points than specified, please fill an issue."
 				</span>);
 			}
 		}

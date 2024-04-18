@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/core/pvf/src/prepare/queue.rs`."><title>queue.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/core/pvf/src/prepare/queue.rs`."><title>queue.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_node_core_pvf" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_node_core_pvf" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../polkadot_node_core_pvf/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1015,7 +1017,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Offer the worker back to the pool. The passed worker ID must be considered unusable unless
-	/// it wasn&#39;t taken by the pool, in which case it will be returned as `Some`.
+	/// it wasn't taken by the pool, in which case it will be returned as `Some`.
 	</span><span class="kw">fn </span>should_cull(<span class="kw-2">&amp;mut </span><span class="self">self</span>, spawned_num: usize) -&gt; bool {
 		spawned_num &gt; <span class="self">self</span>.soft_capacity
 	}
@@ -1041,8 +1043,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="doccomment">/// A queue structured like this is prone to starving, however, we don&#39;t care that much since we
-/// expect there is going to be a limited number of critical jobs and we don&#39;t really care if
+<span class="doccomment">/// A queue structured like this is prone to starving, however, we don't care that much since we
+/// expect there is going to be a limited number of critical jobs and we don't really care if
 /// background starve.
 </span><span class="attr">#[derive(Default)]
 </span><span class="kw">struct </span>Unscheduled {
@@ -1172,14 +1174,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		validation_code_hash = <span class="question-mark">?</span>pvf.code_hash(),
 		<span class="question-mark">?</span>priority,
 		preparation_timeout = <span class="question-mark">?</span>pvf.prep_timeout(),
-		<span class="string">&quot;PVF is enqueued for preparation.&quot;</span>,
+		<span class="string">"PVF is enqueued for preparation."</span>,
 	);
 	queue.metrics.prepare_enqueued();
 
 	<span class="kw">let </span>artifact_id = ArtifactId::from_pvf_prep_data(<span class="kw-2">&amp;</span>pvf);
 	<span class="kw">if </span><span class="macro">never!</span>(
 		queue.artifact_id_to_job.contains_key(<span class="kw-2">&amp;</span>artifact_id),
-		<span class="string">&quot;second Enqueue sent for a known artifact&quot;
+		<span class="string">"second Enqueue sent for a known artifact"
 	</span>) {
 		<span class="comment">// This function is called in response to a `Enqueue` message;
 		// Precondition for `Enqueue` is that it is sent only once for a PVF;
@@ -1187,7 +1189,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		// qed.
 		</span><span class="macro">gum::warn!</span>(
 			target: LOG_TARGET,
-			<span class="string">&quot;duplicate `enqueue` command received for {:?}&quot;</span>,
+			<span class="string">"duplicate `enqueue` command received for {:?}"</span>,
 			artifact_id,
 		);
 		<span class="kw">return </span><span class="prelude-val">Ok</span>(())
@@ -1198,7 +1200,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">if let </span><span class="prelude-val">Some</span>(available) = find_idle_worker(queue) {
 		<span class="comment">// This may seem not fair (w.r.t priority) on the first glance, but it should be. This is
-		// because as soon as a worker finishes with the job it&#39;s immediately given the next one.
+		// because as soon as a worker finishes with the job it's immediately given the next one.
 		</span>assign(queue, available, job).<span class="kw">await</span><span class="question-mark">?</span>;
 	} <span class="kw">else </span>{
 		spawn_extra_worker(queue, priority.is_critical()).<span class="kw">await</span><span class="question-mark">?</span>;
@@ -1250,7 +1252,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="comment">// Precondition of calling this is that the `$expr` is never none;
 					// Assume the conditions holds, then this never is not hit;
 					// qed.
-					</span><span class="macro">never!</span>(<span class="string">&quot;never_none, {}&quot;</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$expr</span>));
+					</span><span class="macro">never!</span>(<span class="string">"never_none, {}"</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$expr</span>));
 					<span class="kw">return </span><span class="prelude-val">Ok</span>(())
 				},
 			}
@@ -1265,14 +1267,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	// concluded signal only comes from a spawned worker and only once;
 	// rip signal is not sent after conclusion with rip=true;
 	// the worker should be registered;
-	// this can&#39;t be None;
+	// this can't be None;
 	// qed.
 	</span><span class="kw">let </span>worker_data = <span class="macro">never_none!</span>(queue.workers.get_mut(worker));
 
 	<span class="comment">// worker_data.job is set only by `assign` and removed only here for a worker;
 	// concluded signal only comes for a worker that was previously assigned and only once;
 	// the worker should have the job;
-	// this can&#39;t be None;
+	// this can't be None;
 	// qed.
 	</span><span class="kw">let </span>job = <span class="macro">never_none!</span>(worker_data.job.take());
 
@@ -1281,7 +1283,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	// that implies that the job was enqueued;
 	// conclude signal only comes once;
 	// we are just to remove the job for the first and the only time;
-	// this can&#39;t be None;
+	// this can't be None;
 	// qed.
 	</span><span class="kw">let </span>job_data = <span class="macro">never_none!</span>(queue.jobs.remove(job));
 	<span class="kw">let </span>artifact_id = ArtifactId::from_pvf_prep_data(<span class="kw-2">&amp;</span>job_data.pvf);
@@ -1293,7 +1295,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		validation_code_hash = <span class="question-mark">?</span>artifact_id.code_hash,
 		<span class="question-mark">?</span>worker,
 		<span class="question-mark">?</span>rip,
-		<span class="string">&quot;prepare worker concluded&quot;</span>,
+		<span class="string">"prepare worker concluded"</span>,
 	);
 
 	reply(<span class="kw-2">&amp;mut </span>queue.from_queue_tx, FromQueue { artifact_id, result })<span class="question-mark">?</span>;
@@ -1301,7 +1303,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="comment">// Figure out what to do with the worker.
 	</span><span class="kw">if </span>rip {
 		<span class="kw">let </span>worker_data = queue.workers.remove(worker);
-		<span class="comment">// worker should exist, it&#39;s asserted above;
+		<span class="comment">// worker should exist, it's asserted above;
 		// qed.
 		</span><span class="macro">always!</span>(worker_data.is_some());
 
@@ -1325,7 +1327,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">async fn </span>handle_worker_rip(queue: <span class="kw-2">&amp;mut </span>Queue, worker: Worker) -&gt; <span class="prelude-ty">Result</span>&lt;(), Fatal&gt; {
-	<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="question-mark">?</span>worker, <span class="string">&quot;prepare worker ripped&quot;</span>);
+	<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="question-mark">?</span>worker, <span class="string">"prepare worker ripped"</span>);
 
 	<span class="kw">let </span>worker_data = queue.workers.remove(worker);
 	<span class="kw">if let </span><span class="prelude-val">Some</span>(WorkerData { job: <span class="prelude-val">Some</span>(job), .. }) = worker_data {
@@ -1338,7 +1340,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			// that means that the job still exists and is known;
 			// this path cannot be hit;
 			// qed.
-			</span><span class="macro">never!</span>(<span class="string">&quot;the job of the ripped worker must be known but it is not&quot;</span>);
+			</span><span class="macro">never!</span>(<span class="string">"the job of the ripped worker must be known but it is not"</span>);
 			Priority::Normal
 		});
 		queue.unscheduled.readd(priority, job);
@@ -1388,7 +1390,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">fn </span>reply(from_queue_tx: <span class="kw-2">&amp;mut </span>mpsc::UnboundedSender&lt;FromQueue&gt;, m: FromQueue) -&gt; <span class="prelude-ty">Result</span>&lt;(), Fatal&gt; {
 	from_queue_tx.unbounded_send(m).map_err(|<span class="kw">_</span>| {
-		<span class="comment">// The host has hung up and thus it&#39;s fatal and we should shutdown ourselves.
+		<span class="comment">// The host has hung up and thus it's fatal and we should shutdown ourselves.
 		</span>Fatal
 	})
 }
@@ -1455,7 +1457,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">if </span>start.elapsed() &gt; std::time::Duration::from_secs(<span class="number">1</span>) {
 				<span class="comment">// We expect that this will take only a couple of iterations and thus to take way
 				// less than a second.
-				</span><span class="macro">panic!</span>(<span class="string">&quot;timeout&quot;</span>);
+				</span><span class="macro">panic!</span>(<span class="string">"timeout"</span>);
 			}
 
 			<span class="kw">if let </span>Poll::Ready(r) = <span class="macro">futures::poll!</span>(<span class="kw-2">&amp;mut *</span>fut) {
@@ -1470,7 +1472,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">struct </span>Test {
 		_tempdir: tempfile::TempDir,
-		run: BoxFuture&lt;<span class="lifetime">&#39;static</span>, ()&gt;,
+		run: BoxFuture&lt;<span class="lifetime">'static</span>, ()&gt;,
 		workers: SlotMap&lt;Worker, ()&gt;,
 		from_pool_tx: mpsc::UnboundedSender&lt;pool::FromPool&gt;,
 		to_pool_rx: mpsc::Receiver&lt;pool::ToPool&gt;,
@@ -1535,7 +1537,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="macro">futures::select! </span>{
 						<span class="kw">_ </span>= Delay::new(Duration::from_millis(<span class="number">500</span>)).fuse() =&gt; (),
 						<span class="kw">_ </span>= to_pool_rx.next().fuse() =&gt; {
-							<span class="macro">panic!</span>(<span class="string">&quot;to pool supposed to be empty&quot;</span>)
+							<span class="macro">panic!</span>(<span class="string">"to pool supposed to be empty"</span>)
 						}
 					}
 				}
@@ -1634,10 +1636,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// However, before the new worker had a chance to spawn, the first worker finishes with its
 		// job. The old worker will be killed while the new worker will be let live, even though
-		// it&#39;s not instantiated.
+		// it's not instantiated.
 		//
-		// That&#39;s a bit silly in this context, but in production there will be an entire pool up
-		// to the `soft_capacity` of workers and it doesn&#39;t matter which one to cull. Either way,
+		// That's a bit silly in this context, but in production there will be an entire pool up
+		// to the `soft_capacity` of workers and it doesn't matter which one to cull. Either way,
 		// we just check that edge case of an edge case works.
 		</span>test.send_from_pool(pool::FromPool::Concluded {
 			worker: w1,
@@ -1707,7 +1709,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		test.send_from_pool(pool::FromPool::Concluded {
 			worker: w1,
 			rip: <span class="bool-val">true</span>,
-			result: <span class="prelude-val">Err</span>(PrepareError::IoErr(<span class="string">&quot;test&quot;</span>.into())),
+			result: <span class="prelude-val">Err</span>(PrepareError::IoErr(<span class="string">"test"</span>.into())),
 		});
 		test.poll_ensure_to_pool_is_empty().<span class="kw">await</span>;
 	}

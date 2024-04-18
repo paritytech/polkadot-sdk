@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `bridges/modules/beefy/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `bridges/modules/beefy/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_bridge_beefy" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_bridge_beefy" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../pallet_bridge_beefy/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -830,7 +832,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! (e.g. storage proofs, transaction inclusion proofs, etc.).
 
 </span><span class="attr">#![warn(missing_docs)]
-#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
+#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
 </span><span class="kw">use </span>bp_beefy::{ChainWithBeefy, InitializationData};
 <span class="kw">use </span>sp_std::{boxed::Box, prelude::<span class="kw-2">*</span>};
@@ -846,7 +848,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">mod </span>mock_chain;
 
 <span class="doccomment">/// The target that will be used when publishing logs related to this pallet.
-</span><span class="kw">pub const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;runtime::bridge-beefy&quot;</span>;
+</span><span class="kw">pub const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"runtime::bridge-beefy"</span>;
 
 <span class="doccomment">/// Configured bridged chain.
 </span><span class="kw">pub type </span>BridgedChain&lt;T, I&gt; = &lt;T <span class="kw">as </span>Config&lt;I&gt;&gt;::BridgedChain;
@@ -889,7 +891,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[derive(codec::Encode, codec::Decode, scale_info::TypeInfo)]
 </span><span class="kw">pub struct </span>ImportedCommitmentsInfoData&lt;BlockNumber&gt; {
 	<span class="doccomment">/// Best known block number, provided in a BEEFY commitment. However this is not
-	/// the best proven block. The best proven block is this block&#39;s parent.
+	/// the best proven block. The best proven block is this block's parent.
 	</span>best_block_number: BlockNumber,
 	<span class="doccomment">/// The head of the `ImportedBlockNumbers` ring buffer.
 	</span>next_block_number_index: u32,
@@ -903,7 +905,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use </span>frame_system::pallet_prelude::<span class="kw-2">*</span>;
 
 	<span class="attr">#[pallet::config]
-	</span><span class="kw">pub trait </span>Config&lt;I: <span class="lifetime">&#39;static </span>= ()&gt;: frame_system::Config {
+	</span><span class="kw">pub trait </span>Config&lt;I: <span class="lifetime">'static </span>= ()&gt;: frame_system::Config {
 		<span class="doccomment">/// The upper bound on the number of requests allowed by the pallet.
 		///
 		/// A request refers to an action which writes a header to storage.
@@ -917,7 +919,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		///
 		/// The setting is there to prevent growing the on-chain state indefinitely. Note
 		/// the setting does not relate to block numbers - we will simply keep as much items
-		/// in the storage, so it doesn&#39;t guarantee any fixed timeframe for imported commitments.
+		/// in the storage, so it doesn't guarantee any fixed timeframe for imported commitments.
 		</span><span class="attr">#[pallet::constant]
 		</span><span class="kw">type </span>CommitmentsToKeep: Get&lt;u32&gt;;
 
@@ -930,7 +932,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub struct </span>Pallet&lt;T, I = ()&gt;(PhantomData&lt;(T, I)&gt;);
 
 	<span class="attr">#[pallet::hooks]
-	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; Hooks&lt;BlockNumberFor&lt;T&gt;&gt; <span class="kw">for </span>Pallet&lt;T, I&gt; {
+	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Hooks&lt;BlockNumberFor&lt;T&gt;&gt; <span class="kw">for </span>Pallet&lt;T, I&gt; {
 		<span class="kw">fn </span>on_initialize(_n: BlockNumberFor&lt;T&gt;) -&gt; frame_support::weights::Weight {
 			&lt;RequestCount&lt;T, I&gt;&gt;::mutate(|count| <span class="kw-2">*</span>count = count.saturating_sub(<span class="number">1</span>));
 
@@ -940,17 +942,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; OwnedBridgeModule&lt;T&gt; <span class="kw">for </span>Pallet&lt;T, I&gt; {
-		<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = LOG_TARGET;
+	<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; OwnedBridgeModule&lt;T&gt; <span class="kw">for </span>Pallet&lt;T, I&gt; {
+		<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = LOG_TARGET;
 		<span class="kw">type </span>OwnerStorage = PalletOwner&lt;T, I&gt;;
 		<span class="kw">type </span>OperatingMode = BasicOperatingMode;
 		<span class="kw">type </span>OperatingModeStorage = PalletOperatingMode&lt;T, I&gt;;
 	}
 
 	<span class="attr">#[pallet::call]
-	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; Pallet&lt;T, I&gt;
+	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Pallet&lt;T, I&gt;
 	<span class="kw">where
-		</span>BridgedMmrHashing&lt;T, I&gt;: <span class="lifetime">&#39;static </span>+ Send + Sync,
+		</span>BridgedMmrHashing&lt;T, I&gt;: <span class="lifetime">'static </span>+ Send + Sync,
 	{
 		<span class="doccomment">/// Initialize pallet with BEEFY authority set and best known finalized block number.
 		</span><span class="attr">#[pallet::call_index(<span class="number">0</span>)]
@@ -964,7 +966,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>is_initialized = &lt;ImportedCommitmentsInfo&lt;T, I&gt;&gt;::exists();
 			<span class="macro">ensure!</span>(!is_initialized, &lt;Error&lt;T, I&gt;&gt;::AlreadyInitialized);
 
-			<span class="macro">log::info!</span>(target: LOG_TARGET, <span class="string">&quot;Initializing bridge BEEFY pallet: {:?}&quot;</span>, init_data);
+			<span class="macro">log::info!</span>(target: LOG_TARGET, <span class="string">"Initializing bridge BEEFY pallet: {:?}"</span>, init_data);
 			<span class="prelude-val">Ok</span>(initialize::&lt;T, I&gt;(init_data)<span class="question-mark">?</span>)
 		}
 
@@ -1059,7 +1061,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">if let </span><span class="prelude-val">Ok</span>(old_block_number) = to_prune {
 				<span class="macro">log::debug!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Pruning commitment for old block: {:?}.&quot;</span>,
+					<span class="string">"Pruning commitment for old block: {:?}."</span>,
 					old_block_number
 				);
 				ImportedCommitments::&lt;T, I&gt;::remove(old_block_number);
@@ -1067,7 +1069,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="macro">log::info!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;Successfully imported commitment for block {:?}&quot;</span>,
+				<span class="string">"Successfully imported commitment for block {:?}"</span>,
 				commitment.commitment.block_number,
 			);
 
@@ -1084,7 +1086,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// that the pallet can always make progress.
 	</span><span class="attr">#[pallet::storage]
 	#[pallet::getter(<span class="kw">fn </span>request_count)]
-	</span><span class="kw">pub type </span>RequestCount&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; = StorageValue&lt;<span class="kw">_</span>, u32, ValueQuery&gt;;
+	</span><span class="kw">pub type </span>RequestCount&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; = StorageValue&lt;<span class="kw">_</span>, u32, ValueQuery&gt;;
 
 	<span class="doccomment">/// High level info about the imported commitments.
 	///
@@ -1092,23 +1094,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// - best known block number of the bridged chain, finalized by BEEFY
 	/// - the head of the `ImportedBlockNumbers` ring buffer
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub type </span>ImportedCommitmentsInfo&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; =
+	</span><span class="kw">pub type </span>ImportedCommitmentsInfo&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; =
 		StorageValue&lt;<span class="kw">_</span>, ImportedCommitmentsInfoData&lt;BridgedBlockNumber&lt;T, I&gt;&gt;&gt;;
 
 	<span class="doccomment">/// A ring buffer containing the block numbers of the commitments that we have imported,
 	/// ordered by the insertion time.
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>ImportedBlockNumbers&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; =
+	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>ImportedBlockNumbers&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; =
 		StorageMap&lt;<span class="kw">_</span>, Identity, u32, BridgedBlockNumber&lt;T, I&gt;&gt;;
 
-	<span class="doccomment">/// All the commitments that we have imported and haven&#39;t been pruned yet.
+	<span class="doccomment">/// All the commitments that we have imported and haven't been pruned yet.
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub type </span>ImportedCommitments&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; =
+	</span><span class="kw">pub type </span>ImportedCommitments&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; =
 		StorageMap&lt;<span class="kw">_</span>, Blake2_128Concat, BridgedBlockNumber&lt;T, I&gt;, ImportedCommitment&lt;T, I&gt;&gt;;
 
 	<span class="doccomment">/// The current BEEFY authority set at the bridged chain.
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub type </span>CurrentAuthoritySetInfo&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; =
+	</span><span class="kw">pub type </span>CurrentAuthoritySetInfo&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; =
 		StorageValue&lt;<span class="kw">_</span>, BridgedBeefyAuthoritySetInfo&lt;T, I&gt;, ValueQuery&gt;;
 
 	<span class="doccomment">/// Optional pallet owner.
@@ -1118,19 +1120,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// runtime methods may still be used to do that (i.e. `democracy::referendum` to update halt
 	/// flag directly or calling `halt_operations`).
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub type </span>PalletOwner&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; =
+	</span><span class="kw">pub type </span>PalletOwner&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; =
 		StorageValue&lt;<span class="kw">_</span>, T::AccountId, OptionQuery&gt;;
 
 	<span class="doccomment">/// The current operating mode of the pallet.
 	///
 	/// Depending on the mode either all, or no transactions will be allowed.
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub type </span>PalletOperatingMode&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; =
+	</span><span class="kw">pub type </span>PalletOperatingMode&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; =
 		StorageValue&lt;<span class="kw">_</span>, BasicOperatingMode, ValueQuery&gt;;
 
 	<span class="attr">#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
-	</span><span class="kw">pub struct </span>GenesisConfig&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; {
+	</span><span class="kw">pub struct </span>GenesisConfig&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; {
 		<span class="doccomment">/// Optional module owner account.
 		</span><span class="kw">pub </span>owner: <span class="prelude-ty">Option</span>&lt;T::AccountId&gt;,
 		<span class="doccomment">/// Optional module initialization data.
@@ -1138,7 +1140,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="attr">#[pallet::genesis_build]
-	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; BuildGenesisConfig <span class="kw">for </span>GenesisConfig&lt;T, I&gt; {
+	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; BuildGenesisConfig <span class="kw">for </span>GenesisConfig&lt;T, I&gt; {
 		<span class="kw">fn </span>build(<span class="kw-2">&amp;</span><span class="self">self</span>) {
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>owner) = <span class="self">self</span>.owner {
 				&lt;PalletOwner&lt;T, I&gt;&gt;::put(owner);
@@ -1146,9 +1148,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(init_data) = <span class="self">self</span>.init_data.clone() {
 				initialize::&lt;T, I&gt;(init_data)
-					.expect(<span class="string">&quot;invalid initialization data of BEEFY bridge pallet&quot;</span>);
+					.expect(<span class="string">"invalid initialization data of BEEFY bridge pallet"</span>);
 			} <span class="kw">else </span>{
-				<span class="comment">// Since the bridge hasn&#39;t been initialized we shouldn&#39;t allow anyone to perform
+				<span class="comment">// Since the bridge hasn't been initialized we shouldn't allow anyone to perform
 				// transactions.
 				</span>&lt;PalletOperatingMode&lt;T, I&gt;&gt;::put(BasicOperatingMode::Halted);
 			}
@@ -1175,7 +1177,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>InvalidCommitmentSignaturesLen,
 		<span class="doccomment">/// The number of validator ids provided is invalid.
 		</span>InvalidValidatorSetLen,
-		<span class="doccomment">/// There aren&#39;t enough correct signatures in the commitment to finalize the block.
+		<span class="doccomment">/// There aren't enough correct signatures in the commitment to finalize the block.
 		</span>NotEnoughCorrectSignatures,
 		<span class="doccomment">/// MMR root is missing from the commitment.
 		</span>MmrRootMissingFromCommitment,
@@ -1188,7 +1190,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Initialize pallet with given parameters.
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>initialize&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt;(
+	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>initialize&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt;(
 		init_data: InitializationDataOf&lt;T, I&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&lt;T, I&gt;&gt; {
 		<span class="kw">if </span>init_data.authority_set.len == <span class="number">0 </span>{
@@ -1309,11 +1311,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				Error::&lt;TestRuntime, ()&gt;::TooManyRequests,
 			);
 
-			<span class="comment">// when next block is &quot;started&quot;, we allow import of next header
+			<span class="comment">// when next block is "started", we allow import of next header
 			</span>next_block();
 			<span class="macro">assert_ok!</span>(import_commitment(chain.header(max_requests + <span class="number">1</span>)));
 
-			<span class="comment">// but we can&#39;t import two headers until next block and so on
+			<span class="comment">// but we can't import two headers until next block and so on
 			</span><span class="macro">assert_noop!</span>(
 				import_commitment(chain.header(max_requests + <span class="number">2</span>)),
 				Error::&lt;TestRuntime, ()&gt;::TooManyRequests,
@@ -1379,7 +1381,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="kw">for </span>index <span class="kw">in </span><span class="number">0</span>..commitments_to_keep {
 				next_block();
 				import_commitment(commitments_to_import[index <span class="kw">as </span>usize].clone())
-					.expect(<span class="string">&quot;must succeed&quot;</span>);
+					.expect(<span class="string">"must succeed"</span>);
 				<span class="macro">assert_eq!</span>(
 					ImportedCommitmentsInfo::&lt;TestRuntime&gt;::get().unwrap().next_block_number_index,
 					(index + <span class="number">1</span>) % commitments_to_keep
@@ -1409,7 +1411,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// import next commitment
 			</span>next_block();
 			import_commitment(commitments_to_import[commitments_to_keep <span class="kw">as </span>usize].clone())
-				.expect(<span class="string">&quot;must succeed&quot;</span>);
+				.expect(<span class="string">"must succeed"</span>);
 			<span class="macro">assert_eq!</span>(
 				ImportedCommitmentsInfo::&lt;TestRuntime&gt;::get().unwrap().next_block_number_index,
 				<span class="number">1
@@ -1428,7 +1430,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// import next commitment
 			</span>next_block();
 			import_commitment(commitments_to_import[commitments_to_keep <span class="kw">as </span>usize + <span class="number">1</span>].clone())
-				.expect(<span class="string">&quot;must succeed&quot;</span>);
+				.expect(<span class="string">"must succeed"</span>);
 			<span class="macro">assert_eq!</span>(
 				ImportedCommitmentsInfo::&lt;TestRuntime&gt;::get().unwrap().next_block_number_index,
 				<span class="number">2

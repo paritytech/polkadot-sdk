@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/support/procedural/src/construct_runtime/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/support/procedural/src/construct_runtime/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="frame_support_procedural" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="frame_support_procedural" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../frame_support_procedural/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -961,14 +963,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -1183,7 +1185,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>syn::{spanned::Spanned, Ident, <span class="prelude-ty">Result</span>};
 
 <span class="doccomment">/// The fixed name of the system pallet.
-</span><span class="kw">const </span>SYSTEM_PALLET_NAME: <span class="kw-2">&amp;</span>str = <span class="string">&quot;System&quot;</span>;
+</span><span class="kw">const </span>SYSTEM_PALLET_NAME: <span class="kw-2">&amp;</span>str = <span class="string">"System"</span>;
 
 <span class="doccomment">/// Implementation of `construct_runtime` macro. Either expand to some code which will call
 /// `construct_runtime` again, or expand to the final runtime definition.
@@ -1223,17 +1225,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		res
 	};
 
-	<span class="kw">let </span>res = expander::Expander::new(<span class="string">&quot;construct_runtime&quot;</span>)
-		.dry(std::env::var(<span class="string">&quot;EXPAND_MACROS&quot;</span>).is_err())
+	<span class="kw">let </span>res = expander::Expander::new(<span class="string">"construct_runtime"</span>)
+		.dry(std::env::var(<span class="string">"EXPAND_MACROS"</span>).is_err())
 		.verbose(<span class="bool-val">true</span>)
 		.write_to_out_dir(res)
-		.expect(<span class="string">&quot;Does not fail because of IO in OUT_DIR; qed&quot;</span>);
+		.expect(<span class="string">"Does not fail because of IO in OUT_DIR; qed"</span>);
 
 	res.into()
 }
 
 <span class="doccomment">/// All pallets that have implicit pallet parts (ie `System: frame_system`) are
-/// expanded with the default parts defined by the pallet&#39;s `tt_default_parts` macro.
+/// expanded with the default parts defined by the pallet's `tt_default_parts` macro.
 ///
 /// This function transforms the [`RuntimeDeclaration::Implicit`] into
 /// [`RuntimeDeclaration::Explicit`] that is not yet fully expanded.
@@ -1243,7 +1245,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	input: TokenStream2,
 	definition: ImplicitRuntimeDeclaration,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;TokenStream2&gt; {
-	<span class="kw">let </span>frame_support = generate_access_from_frame_or_crate(<span class="string">&quot;frame-support&quot;</span>)<span class="question-mark">?</span>;
+	<span class="kw">let </span>frame_support = generate_access_from_frame_or_crate(<span class="string">"frame-support"</span>)<span class="question-mark">?</span>;
 	<span class="kw">let </span><span class="kw-2">mut </span>expansion = <span class="macro">quote::quote!</span>(
 		#<span class="macro">frame_support::construct_runtime! </span>{ #input }
 	);
@@ -1269,7 +1271,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// All pallets that have
 ///   (I): explicit pallet parts (ie `System: frame_system::{Pallet, Call}`) and
 ///   (II): are not fully expanded (ie do not include the `Error` expansion part)
-/// are fully expanded by including the parts from the pallet&#39;s `tt_extra_parts` macro.
+/// are fully expanded by including the parts from the pallet's `tt_extra_parts` macro.
 ///
 /// This function transforms the [`RuntimeDeclaration::Explicit`] that is not yet fully expanded
 /// into [`RuntimeDeclaration::ExplicitExpanded`] fully expanded.
@@ -1279,7 +1281,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	input: TokenStream2,
 	definition: ExplicitRuntimeDeclaration,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;TokenStream2&gt; {
-	<span class="kw">let </span>frame_support = generate_access_from_frame_or_crate(<span class="string">&quot;frame-support&quot;</span>)<span class="question-mark">?</span>;
+	<span class="kw">let </span>frame_support = generate_access_from_frame_or_crate(<span class="string">"frame-support"</span>)<span class="question-mark">?</span>;
 	<span class="kw">let </span><span class="kw-2">mut </span>expansion = <span class="macro">quote::quote!</span>(
 		#<span class="macro">frame_support::construct_runtime! </span>{ #input }
 	);
@@ -1312,14 +1314,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		pallets.iter().find(|decl| decl.name == SYSTEM_PALLET_NAME).ok_or_else(|| {
 			syn::Error::new(
 				pallets_token.span.join(),
-				<span class="string">&quot;`System` pallet declaration is missing. \
-			 Please add this line: `System: frame_system,`&quot;</span>,
+				<span class="string">"`System` pallet declaration is missing. \
+			 Please add this line: `System: frame_system,`"</span>,
 			)
 		})<span class="question-mark">?</span>;
 	<span class="kw">if </span>!system_pallet.cfg_pattern.is_empty() {
 		<span class="kw">return </span><span class="prelude-val">Err</span>(syn::Error::new(
 			system_pallet.name.span(),
-			<span class="string">&quot;`System` pallet declaration is feature gated, please remove any `#[cfg]` attributes&quot;</span>,
+			<span class="string">"`System` pallet declaration is feature gated, please remove any `#[cfg]` attributes"</span>,
 		))
 	}
 
@@ -1330,7 +1332,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				decl.cfg_pattern.iter().flat_map(|attr| {
 					attr.predicates().filter_map(|pred| <span class="kw">match </span>pred {
 						Predicate::Feature(feat) =&gt; <span class="prelude-val">Some</span>(feat),
-						Predicate::Test =&gt; <span class="prelude-val">Some</span>(<span class="string">&quot;test&quot;</span>),
+						Predicate::Test =&gt; <span class="prelude-val">Some</span>(<span class="string">"test"</span>),
 						<span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
 					})
 				})
@@ -1339,11 +1341,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		.flatten()
 		.collect::&lt;HashSet&lt;<span class="kw">_</span>&gt;&gt;();
 
-	<span class="kw">let </span>hidden_crate_name = <span class="string">&quot;construct_runtime&quot;</span>;
-	<span class="kw">let </span>scrate = generate_crate_access(hidden_crate_name, <span class="string">&quot;frame-support&quot;</span>);
-	<span class="kw">let </span>scrate_decl = generate_hidden_includes(hidden_crate_name, <span class="string">&quot;frame-support&quot;</span>);
+	<span class="kw">let </span>hidden_crate_name = <span class="string">"construct_runtime"</span>;
+	<span class="kw">let </span>scrate = generate_crate_access(hidden_crate_name, <span class="string">"frame-support"</span>);
+	<span class="kw">let </span>scrate_decl = generate_hidden_includes(hidden_crate_name, <span class="string">"frame-support"</span>);
 
-	<span class="kw">let </span>frame_system = generate_access_from_frame_or_crate(<span class="string">&quot;frame-system&quot;</span>)<span class="question-mark">?</span>;
+	<span class="kw">let </span>frame_system = generate_access_from_frame_or_crate(<span class="string">"frame-system"</span>)<span class="question-mark">?</span>;
 	<span class="kw">let </span>block = <span class="macro">quote!</span>(&lt;#name <span class="kw">as </span>#frame_system::Config&gt;::Block);
 	<span class="kw">let </span>unchecked_extrinsic = <span class="macro">quote!</span>(&lt;#block <span class="kw">as </span>#scrate::sp_runtime::traits::Block&gt;::Extrinsic);
 
@@ -1378,13 +1380,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">let </span>warning = where_section.map_or(<span class="prelude-val">None</span>, |where_section| {
 		<span class="prelude-val">Some</span>(
-			proc_macro_warning::Warning::new_deprecated(<span class="string">&quot;WhereSection&quot;</span>)
-				.old(<span class="string">&quot;use a `where` clause in `construct_runtime`&quot;</span>)
+			proc_macro_warning::Warning::new_deprecated(<span class="string">"WhereSection"</span>)
+				.old(<span class="string">"use a `where` clause in `construct_runtime`"</span>)
 				.new(
-					<span class="string">&quot;use `frame_system::Config` to set the `Block` type and delete this clause.
-				It is planned to be removed in December 2023&quot;</span>,
+					<span class="string">"use `frame_system::Config` to set the `Block` type and delete this clause.
+				It is planned to be removed in December 2023"</span>,
 				)
-				.help_links(<span class="kw-2">&amp;</span>[<span class="string">&quot;https://github.com/paritytech/substrate/pull/14437&quot;</span>])
+				.help_links(<span class="kw-2">&amp;</span>[<span class="string">"https://github.com/paritytech/substrate/pull/14437"</span>])
 				.span(where_section.span)
 				.build_or_panic(),
 		)
@@ -1473,9 +1475,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="prelude-val">Ok</span>(res)
 }
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>decl_all_pallets&lt;<span class="lifetime">&#39;a</span>&gt;(
-	runtime: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Ident,
-	pallet_declarations: <span class="kw">impl </span>Iterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Pallet&gt;,
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>decl_all_pallets&lt;<span class="lifetime">'a</span>&gt;(
+	runtime: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Ident,
+	pallet_declarations: <span class="kw">impl </span>Iterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Pallet&gt;,
 	features: <span class="kw-2">&amp;</span>HashSet&lt;<span class="kw-2">&amp;</span>str&gt;,
 ) -&gt; TokenStream2 {
 	<span class="kw">let </span><span class="kw-2">mut </span>types = TokenStream2::new();
@@ -1495,8 +1497,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		generics.extend(pallet_declaration.instance.iter().map(|name| <span class="macro">quote!</span>(#pallet::#name)));
 		<span class="kw">let </span><span class="kw-2">mut </span>attrs = Vec::new();
 		<span class="kw">for </span>cfg <span class="kw">in </span><span class="kw-2">&amp;</span>pallet_declaration.cfg_pattern {
-			<span class="kw">let </span>feat = <span class="macro">format!</span>(<span class="string">&quot;#[cfg({})]\n&quot;</span>, cfg.original());
-			attrs.extend(TokenStream2::from_str(<span class="kw-2">&amp;</span>feat).expect(<span class="string">&quot;was parsed successfully; qed&quot;</span>));
+			<span class="kw">let </span>feat = <span class="macro">format!</span>(<span class="string">"#[cfg({})]\n"</span>, cfg.original());
+			attrs.extend(TokenStream2::from_str(<span class="kw-2">&amp;</span>feat).expect(<span class="string">"was parsed successfully; qed"</span>));
 		}
 		<span class="kw">let </span>type_decl = <span class="macro">quote!</span>(
 			#(#attrs)*
@@ -1516,7 +1518,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				</span><span class="kw">let </span>is_feature_active = pallet_declaration.cfg_pattern.iter().all(|expr| {
 					expr.eval(|pred| <span class="kw">match </span>pred {
 						Predicate::Feature(f) =&gt; feature_set.contains(f),
-						Predicate::Test =&gt; feature_set.contains(<span class="kw-2">&amp;</span><span class="string">&quot;test&quot;</span>),
+						Predicate::Test =&gt; feature_set.contains(<span class="kw-2">&amp;</span><span class="string">"test"</span>),
 						<span class="kw">_ </span>=&gt; <span class="bool-val">false</span>,
 					})
 				});
@@ -1540,13 +1542,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			// features. So, we ensure that there is some type declared when all features are not
 			// enabled.
 			</span><span class="kw">if </span>features.is_empty() {
-				<span class="kw">let </span>test_cfg = all_features.remove(<span class="string">&quot;test&quot;</span>).then_some(<span class="macro">quote!</span>(test)).into_iter();
+				<span class="kw">let </span>test_cfg = all_features.remove(<span class="string">"test"</span>).then_some(<span class="macro">quote!</span>(test)).into_iter();
 				<span class="kw">let </span>features = all_features.iter();
 				<span class="kw">let </span>attr = <span class="macro">quote!</span>(<span class="attr">#[cfg(all( #(not(#test_cfg)),* #(not(feature = #features)),* ))]</span>);
 
 				(attr, names)
 			} <span class="kw">else </span>{
-				<span class="kw">let </span>test_cfg = features.remove(<span class="string">&quot;test&quot;</span>).then_some(<span class="macro">quote!</span>(test)).into_iter();
+				<span class="kw">let </span>test_cfg = features.remove(<span class="string">"test"</span>).then_some(<span class="macro">quote!</span>(test)).into_iter();
 				<span class="kw">let </span>disabled_features = all_features.difference(<span class="kw-2">&amp;</span>features);
 				<span class="kw">let </span>features = features.iter();
 				<span class="kw">let </span>attr = <span class="macro">quote!</span>(<span class="attr">#[cfg(all( #(#test_cfg,)* #(feature = #features,)* #(not(feature = #disabled_features)),* ))]</span>);
@@ -1607,8 +1609,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		.iter()
 		.map(|pallet| {
 			pallet.cfg_pattern.iter().fold(TokenStream2::new(), |acc, pattern| {
-				<span class="kw">let </span>attr = TokenStream2::from_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;#[cfg({})]&quot;</span>, pattern.original()))
-					.expect(<span class="string">&quot;was successfully parsed before; qed&quot;</span>);
+				<span class="kw">let </span>attr = TokenStream2::from_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"#[cfg({})]"</span>, pattern.original()))
+					.expect(<span class="string">"was successfully parsed before; qed"</span>);
 				<span class="macro">quote! </span>{
 					#acc
 					#attr
@@ -1624,7 +1626,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">impl </span>#scrate::traits::PalletInfo <span class="kw">for </span>PalletInfo {
 
-			<span class="kw">fn </span>index&lt;P: <span class="lifetime">&#39;static</span>&gt;() -&gt; <span class="prelude-ty">Option</span>&lt;usize&gt; {
+			<span class="kw">fn </span>index&lt;P: <span class="lifetime">'static</span>&gt;() -&gt; <span class="prelude-ty">Option</span>&lt;usize&gt; {
 				<span class="kw">let </span>type_id = #scrate::__private::sp_std::any::TypeId::of::&lt;P&gt;();
 				#(
 					#pallet_attrs
@@ -1636,7 +1638,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="prelude-val">None
 			</span>}
 
-			<span class="kw">fn </span>name&lt;P: <span class="lifetime">&#39;static</span>&gt;() -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; {
+			<span class="kw">fn </span>name&lt;P: <span class="lifetime">'static</span>&gt;() -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
 				<span class="kw">let </span>type_id = #scrate::__private::sp_std::any::TypeId::of::&lt;P&gt;();
 				#(
 					#pallet_attrs
@@ -1648,7 +1650,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="prelude-val">None
 			</span>}
 
-			<span class="kw">fn </span>name_hash&lt;P: <span class="lifetime">&#39;static</span>&gt;() -&gt; <span class="prelude-ty">Option</span>&lt;[u8; <span class="number">16</span>]&gt; {
+			<span class="kw">fn </span>name_hash&lt;P: <span class="lifetime">'static</span>&gt;() -&gt; <span class="prelude-ty">Option</span>&lt;[u8; <span class="number">16</span>]&gt; {
 				<span class="kw">let </span>type_id = #scrate::__private::sp_std::any::TypeId::of::&lt;P&gt;();
 				#(
 					#pallet_attrs
@@ -1660,7 +1662,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="prelude-val">None
 			</span>}
 
-			<span class="kw">fn </span>module_name&lt;P: <span class="lifetime">&#39;static</span>&gt;() -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; {
+			<span class="kw">fn </span>module_name&lt;P: <span class="lifetime">'static</span>&gt;() -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
 				<span class="kw">let </span>type_id = #scrate::__private::sp_std::any::TypeId::of::&lt;P&gt;();
 				#(
 					#pallet_attrs
@@ -1672,7 +1674,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="prelude-val">None
 			</span>}
 
-			<span class="kw">fn </span>crate_version&lt;P: <span class="lifetime">&#39;static</span>&gt;() -&gt; <span class="prelude-ty">Option</span>&lt;#scrate::traits::CrateVersion&gt; {
+			<span class="kw">fn </span>crate_version&lt;P: <span class="lifetime">'static</span>&gt;() -&gt; <span class="prelude-ty">Option</span>&lt;#scrate::traits::CrateVersion&gt; {
 				<span class="kw">let </span>type_id = #scrate::__private::sp_std::any::TypeId::of::&lt;P&gt;();
 				#(
 					#pallet_attrs
@@ -1712,8 +1714,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>error_encoded_size_check = pallet_decls.iter().map(|decl| {
 		<span class="kw">let </span>path = <span class="kw-2">&amp;</span>decl.path;
 		<span class="kw">let </span>assert_message = <span class="macro">format!</span>(
-			<span class="string">&quot;The maximum encoded size of the error type in the `{}` pallet exceeds \
-			`MAX_MODULE_ERROR_ENCODED_SIZE`&quot;</span>,
+			<span class="string">"The maximum encoded size of the error type in the `{}` pallet exceeds \
+			`MAX_MODULE_ERROR_ENCODED_SIZE`"</span>,
 			decl.name,
 		);
 
@@ -1737,9 +1739,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>check_pallet_number(input: TokenStream2, pallet_num: usize) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
 	<span class="kw">let </span>max_pallet_num = {
-		<span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">&quot;tuples-96&quot;</span>) {
+		<span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">"tuples-96"</span>) {
 			<span class="number">96
-		</span>} <span class="kw">else if </span><span class="macro">cfg!</span>(feature = <span class="string">&quot;tuples-128&quot;</span>) {
+		</span>} <span class="kw">else if </span><span class="macro">cfg!</span>(feature = <span class="string">"tuples-128"</span>) {
 			<span class="number">128
 		</span>} <span class="kw">else </span>{
 			<span class="number">64
@@ -1751,13 +1753,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">return </span><span class="prelude-val">Err</span>(syn::Error::new(
 			input.span(),
 			<span class="macro">format!</span>(
-				<span class="string">&quot;{} To increase this limit, enable the tuples-{} feature of [frame_support]. {}&quot;</span>,
-				<span class="string">&quot;The number of pallets exceeds the maximum number of tuple elements.&quot;</span>,
+				<span class="string">"{} To increase this limit, enable the tuples-{} feature of [frame_support]. {}"</span>,
+				<span class="string">"The number of pallets exceeds the maximum number of tuple elements."</span>,
 				max_pallet_num + <span class="number">32</span>,
 				<span class="kw">if </span>no_feature {
-					<span class="string">&quot;If the feature does not exist - it needs to be implemented.&quot;
+					<span class="string">"If the feature does not exist - it needs to be implemented."
 				</span>} <span class="kw">else </span>{
-					<span class="string">&quot;&quot;
+					<span class="string">""
 				</span>},
 			),
 		))

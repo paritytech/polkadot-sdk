@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/state-db/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/state-db/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_state_db" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_state_db" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sc_state_db/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1120,7 +1122,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! Canonicalization window tracks a tree of blocks identified by header hash. The in-memory
 //! overlay allows to get any trie node that was inserted in any of the blocks within the window.
 //! The overlay is journaled to the backing database and rebuilt on startup.
-//! There&#39;s a limit of 32 blocks that may have the same block number in the canonicalization window.
+//! There's a limit of 32 blocks that may have the same block number in the canonicalization window.
 //!
 //! Canonicalization function selects one root from the top of the tree and discards all other roots
 //! and their subtrees. Upon canonicalization all trie nodes that were inserted in the block are
@@ -1129,9 +1131,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!
 //! # Canonicalization vs Finality
 //! Database engine uses a notion of canonicality, rather then finality. A canonical block may not
-//! be yet finalized from the perspective of the consensus engine, but it still can&#39;t be reverted in
+//! be yet finalized from the perspective of the consensus engine, but it still can't be reverted in
 //! the database. Most of the time during normal operation last canonical block is the same as last
-//! finalized. However if finality stall for a long duration for some reason, there&#39;s only a certain
+//! finalized. However if finality stall for a long duration for some reason, there's only a certain
 //! number of blocks that can fit in the non-canonical overlay, so canonicalization of an
 //! unfinalized block may be forced.
 //!
@@ -1154,12 +1156,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	fmt,
 };
 
-<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;state-db&quot;</span>;
-<span class="kw">const </span>LOG_TARGET_PIN: <span class="kw-2">&amp;</span>str = <span class="string">&quot;state-db::pin&quot;</span>;
-<span class="kw">const </span>PRUNING_MODE: <span class="kw-2">&amp;</span>[u8] = <span class="string">b&quot;mode&quot;</span>;
-<span class="kw">const </span>PRUNING_MODE_ARCHIVE: <span class="kw-2">&amp;</span>[u8] = <span class="string">b&quot;archive&quot;</span>;
-<span class="kw">const </span>PRUNING_MODE_ARCHIVE_CANON: <span class="kw-2">&amp;</span>[u8] = <span class="string">b&quot;archive_canonical&quot;</span>;
-<span class="kw">const </span>PRUNING_MODE_CONSTRAINED: <span class="kw-2">&amp;</span>[u8] = <span class="string">b&quot;constrained&quot;</span>;
+<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"state-db"</span>;
+<span class="kw">const </span>LOG_TARGET_PIN: <span class="kw-2">&amp;</span>str = <span class="string">"state-db::pin"</span>;
+<span class="kw">const </span>PRUNING_MODE: <span class="kw-2">&amp;</span>[u8] = <span class="string">b"mode"</span>;
+<span class="kw">const </span>PRUNING_MODE_ARCHIVE: <span class="kw-2">&amp;</span>[u8] = <span class="string">b"archive"</span>;
+<span class="kw">const </span>PRUNING_MODE_ARCHIVE_CANON: <span class="kw-2">&amp;</span>[u8] = <span class="string">b"archive_canonical"</span>;
+<span class="kw">const </span>PRUNING_MODE_CONSTRAINED: <span class="kw-2">&amp;</span>[u8] = <span class="string">b"constrained"</span>;
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>DEFAULT_MAX_BLOCK_CONSTRAINT: u32 = <span class="number">256</span>;
 
 <span class="doccomment">/// Database value type.
@@ -1177,7 +1179,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	+ fmt::Debug
 	+ Codec
 	+ std::hash::Hash
-	+ <span class="lifetime">&#39;static
+	+ <span class="lifetime">'static
 </span>{
 }
 <span class="kw">impl</span>&lt;
@@ -1191,7 +1193,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			+ fmt::Debug
 			+ Codec
 			+ std::hash::Hash
-			+ <span class="lifetime">&#39;static</span>,
+			+ <span class="lifetime">'static</span>,
 	&gt; Hash <span class="kw">for </span>T
 {
 }
@@ -1276,24 +1278,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl </span>fmt::Debug <span class="kw">for </span>StateDbError {
 	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter) -&gt; fmt::Result {
 		<span class="kw">match </span><span class="self">self </span>{
-			<span class="self">Self</span>::Decoding(e) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Error decoding sliceable value: {}&quot;</span>, e),
-			<span class="self">Self</span>::InvalidBlock =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Trying to canonicalize invalid block&quot;</span>),
-			<span class="self">Self</span>::InvalidBlockNumber =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Trying to insert block with invalid number&quot;</span>),
-			<span class="self">Self</span>::InvalidParent =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Trying to insert block with unknown parent&quot;</span>),
+			<span class="self">Self</span>::Decoding(e) =&gt; <span class="macro">write!</span>(f, <span class="string">"Error decoding sliceable value: {}"</span>, e),
+			<span class="self">Self</span>::InvalidBlock =&gt; <span class="macro">write!</span>(f, <span class="string">"Trying to canonicalize invalid block"</span>),
+			<span class="self">Self</span>::InvalidBlockNumber =&gt; <span class="macro">write!</span>(f, <span class="string">"Trying to insert block with invalid number"</span>),
+			<span class="self">Self</span>::InvalidParent =&gt; <span class="macro">write!</span>(f, <span class="string">"Trying to insert block with unknown parent"</span>),
 			<span class="self">Self</span>::IncompatiblePruningModes { stored, requested } =&gt; <span class="macro">write!</span>(
 				f,
-				<span class="string">&quot;Incompatible pruning modes [stored: {:?}; requested: {:?}]&quot;</span>,
+				<span class="string">"Incompatible pruning modes [stored: {:?}; requested: {:?}]"</span>,
 				stored, requested
 			),
 			<span class="self">Self</span>::TooManySiblingBlocks { number } =&gt; {
-				<span class="macro">write!</span>(f, <span class="string">&quot;Too many sibling blocks at #{number} inserted&quot;</span>)
+				<span class="macro">write!</span>(f, <span class="string">"Too many sibling blocks at #{number} inserted"</span>)
 			},
-			<span class="self">Self</span>::BlockAlreadyExists =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Block already exists&quot;</span>),
-			<span class="self">Self</span>::Metadata(message) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Invalid metadata: {}&quot;</span>, message),
+			<span class="self">Self</span>::BlockAlreadyExists =&gt; <span class="macro">write!</span>(f, <span class="string">"Block already exists"</span>),
+			<span class="self">Self</span>::Metadata(message) =&gt; <span class="macro">write!</span>(f, <span class="string">"Invalid metadata: {}"</span>, message),
 			<span class="self">Self</span>::BlockUnavailable =&gt; {
-				<span class="macro">write!</span>(f, <span class="string">&quot;Trying to get a block record from db while it is not commit to db yet&quot;</span>)
+				<span class="macro">write!</span>(f, <span class="string">"Trying to get a block record from db while it is not commit to db yet"</span>)
 			},
-			<span class="self">Self</span>::BlockMissing =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Block record is missing from the pruning window&quot;</span>),
+			<span class="self">Self</span>::BlockMissing =&gt; <span class="macro">write!</span>(f, <span class="string">"Block record is missing from the pruning window"</span>),
 		}
 	}
 }
@@ -1411,7 +1413,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		ref_counting: bool,
 		db: D,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;StateDbSync&lt;BlockHash, Key, D&gt;, Error&lt;D::Error&gt;&gt; {
-		<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">&quot;StateDb settings: {:?}. Ref-counting: {}&quot;</span>, mode, ref_counting);
+		<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">"StateDb settings: {:?}. Ref-counting: {}"</span>, mode, ref_counting);
 
 		<span class="kw">let </span>non_canonical: NonCanonicalOverlay&lt;BlockHash, Key&gt; = NonCanonicalOverlay::new(<span class="kw-2">&amp;</span>db)<span class="question-mark">?</span>;
 		<span class="kw">let </span>pruning: <span class="prelude-ty">Option</span>&lt;RefWindow&lt;BlockHash, Key, D&gt;&gt; = <span class="kw">match </span>mode {
@@ -1492,7 +1494,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					}
 				} <span class="kw">else </span>{
 					<span class="kw">match </span><span class="self">self</span>.pruning.as_ref() {
-						<span class="comment">// We don&#39;t know for sure.
+						<span class="comment">// We don't know for sure.
 						</span><span class="prelude-val">None </span>=&gt; IsPruned::MaybePruned,
 						<span class="prelude-val">Some</span>(pruning) =&gt; <span class="kw">match </span>pruning.have_block(hash, number) {
 							HaveBlock::No =&gt; IsPruned::Pruned,
@@ -1524,7 +1526,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						</span>},
 				}
 				<span class="kw">match </span>pruning.prune_one(commit) {
-					<span class="comment">// this branch should not reach as previous `next_hash` don&#39;t return error
+					<span class="comment">// this branch should not reach as previous `next_hash` don't return error
 					// keeping it for robustness
 					</span><span class="prelude-val">Err</span>(Error::StateDb(StateDbError::BlockUnavailable)) =&gt; <span class="kw">break</span>,
 					res =&gt; res<span class="question-mark">?</span>,
@@ -1572,7 +1574,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">if </span>have_block {
 					<span class="kw">let </span>refs = <span class="self">self</span>.pinned.entry(hash.clone()).or_default();
 					<span class="kw">if </span><span class="kw-2">*</span>refs == <span class="number">0 </span>{
-						<span class="macro">trace!</span>(target: LOG_TARGET_PIN, <span class="string">&quot;Pinned block: {:?}&quot;</span>, hash);
+						<span class="macro">trace!</span>(target: LOG_TARGET_PIN, <span class="string">"Pinned block: {:?}"</span>, hash);
 						<span class="self">self</span>.non_canonical.pin(hash);
 					}
 					<span class="kw-2">*</span>refs += <span class="number">1</span>;
@@ -1589,11 +1591,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			Entry::Occupied(<span class="kw-2">mut </span>entry) =&gt; {
 				<span class="kw-2">*</span>entry.get_mut() -= <span class="number">1</span>;
 				<span class="kw">if </span><span class="kw-2">*</span>entry.get() == <span class="number">0 </span>{
-					<span class="macro">trace!</span>(target: LOG_TARGET_PIN, <span class="string">&quot;Unpinned block: {:?}&quot;</span>, hash);
+					<span class="macro">trace!</span>(target: LOG_TARGET_PIN, <span class="string">"Unpinned block: {:?}"</span>, hash);
 					entry.remove();
 					<span class="self">self</span>.non_canonical.unpin(hash);
 				} <span class="kw">else </span>{
-					<span class="macro">trace!</span>(target: LOG_TARGET_PIN, <span class="string">&quot;Releasing reference for {:?}&quot;</span>, hash);
+					<span class="macro">trace!</span>(target: LOG_TARGET_PIN, <span class="string">"Releasing reference for {:?}"</span>, hash);
 				}
 			},
 			Entry::Vacant(<span class="kw">_</span>) =&gt; {},
@@ -1639,13 +1641,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>selected_mode = <span class="kw">match </span>(should_init, stored_mode, requested_mode) {
 			(<span class="bool-val">true</span>, stored_mode, requested_mode) =&gt; {
-				<span class="macro">assert!</span>(stored_mode.is_none(), <span class="string">&quot;The storage has just been initialized. No meta-data is expected to be found in it.&quot;</span>);
+				<span class="macro">assert!</span>(stored_mode.is_none(), <span class="string">"The storage has just been initialized. No meta-data is expected to be found in it."</span>);
 				requested_mode.unwrap_or_default()
 			},
 
 			(<span class="bool-val">false</span>, <span class="prelude-val">None</span>, <span class="kw">_</span>) =&gt;
 				<span class="kw">return </span><span class="prelude-val">Err</span>(StateDbError::Metadata(
-					<span class="string">&quot;An existing StateDb does not have PRUNING_MODE stored in its meta-data&quot;</span>.into(),
+					<span class="string">"An existing StateDb does not have PRUNING_MODE stored in its meta-data"</span>.into(),
 				)
 				.into()),
 
@@ -1776,7 +1778,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(mode))
 		} <span class="kw">else </span>{
 			<span class="prelude-val">Err</span>(StateDbError::Metadata(<span class="macro">format!</span>(
-				<span class="string">&quot;Invalid value stored for PRUNING_MODE: {:02x?}&quot;</span>,
+				<span class="string">"Invalid value stored for PRUNING_MODE: {:02x?}"</span>,
 				stored_mode
 			))
 			.into())

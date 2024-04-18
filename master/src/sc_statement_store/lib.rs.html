@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/statement-store/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/statement-store/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_statement_store" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_statement_store" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sc_statement_store/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1469,7 +1471,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! Constraint management.
 //!
 //! Each time a new statement is inserted into the store, it is first validated with the runtime
-//! Validation function computes `global_priority`, &#39;max_count&#39; and `max_size` for a statement.
+//! Validation function computes `global_priority`, 'max_count' and `max_size` for a statement.
 //! The following constraints are then checked:
 //! * For a given account id, there may be at most `max_count` statements with `max_size` total data
 //!   size. To satisfy this, statements for this account ID are removed from the store starting with
@@ -1486,7 +1488,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!
 //! Each time a statement is removed from the store (Either evicted by higher priority statement or
 //! explicitly with the `remove` function) the statement is marked as expired. Expired statements
-//! can&#39;t be added to the store for `Options::purge_after_sec` seconds. This is to prevent old
+//! can't be added to the store for `Options::purge_after_sec` seconds. This is to prevent old
 //! statements from being propagated on the network.
 
 </span><span class="attr">#![warn(missing_docs)]
@@ -1516,10 +1518,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	sync::Arc,
 };
 
-<span class="kw">const </span>KEY_VERSION: <span class="kw-2">&amp;</span>[u8] = <span class="string">b&quot;version&quot;</span>.as_slice();
+<span class="kw">const </span>KEY_VERSION: <span class="kw-2">&amp;</span>[u8] = <span class="string">b"version"</span>.as_slice();
 <span class="kw">const </span>CURRENT_VERSION: u32 = <span class="number">1</span>;
 
-<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;statement-store&quot;</span>;
+<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"statement-store"</span>;
 
 <span class="kw">const </span>DEFAULT_PURGE_AFTER_SEC: u64 = <span class="number">2 </span>* <span class="number">24 </span>* <span class="number">60 </span>* <span class="number">60</span>; <span class="comment">//48h
 </span><span class="kw">const </span>DEFAULT_MAX_TOTAL_STATEMENTS: usize = <span class="number">8192</span>;
@@ -1580,7 +1582,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Maximum total data size allowed in the store. Once this limit is reached lower-priority
 	/// statements may be evicted.
 	</span>max_total_size: usize,
-	<span class="doccomment">/// Number of seconds for which removed statements won&#39;t be allowed to be added back in.
+	<span class="doccomment">/// Number of seconds for which removed statements won't be allowed to be added back in.
 	</span>purge_after_sec: u64,
 }
 
@@ -1615,7 +1617,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">where
 	</span>Block: BlockT,
 	Block::Hash: From&lt;BlockHash&gt;,
-	Client: ProvideRuntimeApi&lt;Block&gt; + HeaderBackend&lt;Block&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
+	Client: ProvideRuntimeApi&lt;Block&gt; + HeaderBackend&lt;Block&gt; + Send + Sync + <span class="lifetime">'static</span>,
 	Client::Api: ValidateStatement&lt;Block&gt;,
 {
 	<span class="kw">fn </span>validate_statement(
@@ -1725,14 +1727,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// Key does not exist in the index.
 			</span><span class="kw">return </span><span class="prelude-val">Ok</span>(())
 		}
-		sets[<span class="number">0</span>] = key_set.expect(<span class="string">&quot;Function returns if key_set is None&quot;</span>);
+		sets[<span class="number">0</span>] = key_set.expect(<span class="string">"Function returns if key_set is None"</span>);
 		<span class="kw">for </span>(i, t) <span class="kw">in </span>match_all_topics.iter().enumerate() {
 			<span class="kw">let </span>set = <span class="self">self</span>.by_topic.get(t);
 			<span class="kw">if </span>set.map_or(<span class="number">0</span>, |s| s.len()) == <span class="number">0 </span>{
 				<span class="comment">// At least one of the match_all_topics does not exist in the index.
 				</span><span class="kw">return </span><span class="prelude-val">Ok</span>(())
 			}
-			sets[i + <span class="number">1</span>] = set.expect(<span class="string">&quot;Function returns if set is None&quot;</span>);
+			sets[i + <span class="number">1</span>] = set.expect(<span class="string">"Function returns if set is None"</span>);
 		}
 		<span class="kw">let </span>sets = <span class="kw-2">&amp;mut </span>sets[<span class="number">0</span>..match_all_topics.len() + <span class="number">1</span>];
 		<span class="comment">// Start with the smallest topic set or the key set.
@@ -1741,7 +1743,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">if </span>sets[<span class="number">1</span>..].iter().all(|set| set.contains(item)) {
 				<span class="macro">log::trace!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Iterating by topic/key: statement {:?}&quot;</span>,
+					<span class="string">"Iterating by topic/key: statement {:?}"</span>,
 					HexDisplay::from(item)
 				);
 				f(item)<span class="question-mark">?
@@ -1756,7 +1758,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">self</span>.expired.retain(|hash, timestamp| {
 			<span class="kw">if </span><span class="kw-2">*</span>timestamp + <span class="self">self</span>.options.purge_after_sec &lt;= current_time {
 				purged.push(<span class="kw-2">*</span>hash);
-				<span class="macro">log::trace!</span>(target: LOG_TARGET, <span class="string">&quot;Purged statement {:?}&quot;</span>, HexDisplay::from(hash));
+				<span class="macro">log::trace!</span>(target: LOG_TARGET, <span class="string">"Purged statement {:?}"</span>, HexDisplay::from(hash));
 				<span class="bool-val">false
 			</span>} <span class="kw">else </span>{
 				<span class="bool-val">true
@@ -1803,7 +1805,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					account_rec.remove_entry();
 				}
 			}
-			<span class="macro">log::trace!</span>(target: LOG_TARGET, <span class="string">&quot;Expired statement {:?}&quot;</span>, HexDisplay::from(hash));
+			<span class="macro">log::trace!</span>(target: LOG_TARGET, <span class="string">"Expired statement {:?}"</span>, HexDisplay::from(hash));
 			<span class="bool-val">true
 		</span>} <span class="kw">else </span>{
 			<span class="bool-val">false
@@ -1822,7 +1824,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if </span>statement_len &gt; validation.max_size <span class="kw">as </span>usize {
 			<span class="macro">log::debug!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;Ignored oversize message: {:?} ({} bytes)&quot;</span>,
+				<span class="string">"Ignored oversize message: {:?} ({} bytes)"</span>,
 				HexDisplay::from(<span class="kw-2">&amp;</span>hash),
 				statement_len,
 			);
@@ -1833,7 +1835,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span><span class="kw-2">mut </span>would_free_size = <span class="number">0</span>;
 		<span class="kw">let </span>priority = Priority(statement.priority().unwrap_or(<span class="number">0</span>));
 		<span class="kw">let </span>(max_size, max_count) = (validation.max_size <span class="kw">as </span>usize, validation.max_count <span class="kw">as </span>usize);
-		<span class="comment">// It may happen that we can&#39;t delete enough lower priority messages
+		<span class="comment">// It may happen that we can't delete enough lower priority messages
 		// to satisfy size constraints. We check for that before deleting anything,
 		// taking into account channel message replacement.
 		</span><span class="kw">if let </span><span class="prelude-val">Some</span>(account_rec) = <span class="self">self</span>.accounts.get(account) {
@@ -1843,7 +1845,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="comment">// Trying to replace channel message with lower priority
 						</span><span class="macro">log::debug!</span>(
 							target: LOG_TARGET,
-							<span class="string">&quot;Ignored lower priority channel message: {:?} {:?} &lt;= {:?}&quot;</span>,
+							<span class="string">"Ignored lower priority channel message: {:?} {:?} &lt;= {:?}"</span>,
 							HexDisplay::from(<span class="kw-2">&amp;</span>hash),
 							priority,
 							channel_record.priority,
@@ -1854,7 +1856,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						// below.
 						</span><span class="macro">log::debug!</span>(
 							target: LOG_TARGET,
-							<span class="string">&quot;Replacing higher priority channel message: {:?} ({:?}) &gt; {:?} ({:?})&quot;</span>,
+							<span class="string">"Replacing higher priority channel message: {:?} ({:?}) &gt; {:?} ({:?})"</span>,
 							HexDisplay::from(<span class="kw-2">&amp;</span>hash),
 							priority,
 							HexDisplay::from(<span class="kw-2">&amp;</span>channel_record.hash),
@@ -1886,7 +1888,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">if </span>entry.priority &gt;= priority {
 					<span class="macro">log::debug!</span>(
 						target: LOG_TARGET,
-						<span class="string">&quot;Ignored message due to constraints {:?} {:?} &lt; {:?}&quot;</span>,
+						<span class="string">"Ignored message due to constraints {:?} {:?} &lt; {:?}"</span>,
 						HexDisplay::from(<span class="kw-2">&amp;</span>hash),
 						priority,
 						entry.priority,
@@ -1903,7 +1905,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		{
 			<span class="macro">log::debug!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;Ignored statement {} because the store is full (size={}, count={})&quot;</span>,
+				<span class="string">"Ignored statement {} because the store is full (size={}, count={})"</span>,
 				HexDisplay::from(<span class="kw-2">&amp;</span>hash),
 				<span class="self">self</span>.total_size,
 				<span class="self">self</span>.entries.len(),
@@ -1938,7 +1940,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			+ sc_client_api::ExecutorProvider&lt;Block&gt;
 			+ Send
 			+ Sync
-			+ <span class="lifetime">&#39;static</span>,
+			+ <span class="lifetime">'static</span>,
 		Client::Api: ValidateStatement&lt;Block&gt;,
 	{
 		<span class="kw">let </span>store = Arc::new(<span class="self">Self</span>::new(path, options, client, keystore, prometheus)<span class="question-mark">?</span>);
@@ -1946,8 +1948,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// Perform periodic statement store maintenance
 		</span><span class="kw">let </span>worker_store = store.clone();
 		task_spawner.spawn(
-			<span class="string">&quot;statement-store-maintenance&quot;</span>,
-			<span class="prelude-val">Some</span>(<span class="string">&quot;statement-store&quot;</span>),
+			<span class="string">"statement-store-maintenance"</span>,
+			<span class="prelude-val">Some</span>(<span class="string">"statement-store"</span>),
 			Box::pin(<span class="kw">async move </span>{
 				<span class="kw">let </span><span class="kw-2">mut </span>interval = tokio::time::interval(MAINTENANCE_PERIOD);
 				<span class="kw">loop </span>{
@@ -1972,11 +1974,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">where
 		</span>Block: BlockT,
 		Block::Hash: From&lt;BlockHash&gt;,
-		Client: ProvideRuntimeApi&lt;Block&gt; + HeaderBackend&lt;Block&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
+		Client: ProvideRuntimeApi&lt;Block&gt; + HeaderBackend&lt;Block&gt; + Send + Sync + <span class="lifetime">'static</span>,
 		Client::Api: ValidateStatement&lt;Block&gt;,
 	{
 		<span class="kw">let </span><span class="kw-2">mut </span>path: std::path::PathBuf = path.into();
-		path.push(<span class="string">&quot;statements&quot;</span>);
+		path.push(<span class="string">"statements"</span>);
 
 		<span class="kw">let </span><span class="kw-2">mut </span>config = parity_db::Options::with_columns(<span class="kw-2">&amp;</span>path, col::COUNT);
 
@@ -1990,10 +1992,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">let </span>version = u32::from_le_bytes(
 					version
 						.try_into()
-						.map_err(|<span class="kw">_</span>| Error::Db(<span class="string">&quot;Error reading database version&quot;</span>.into()))<span class="question-mark">?</span>,
+						.map_err(|<span class="kw">_</span>| Error::Db(<span class="string">"Error reading database version"</span>.into()))<span class="question-mark">?</span>,
 				);
 				<span class="kw">if </span>version != CURRENT_VERSION {
-					<span class="kw">return </span><span class="prelude-val">Err</span>(Error::Db(<span class="macro">format!</span>(<span class="string">&quot;Unsupported database version: {version}&quot;</span>)))
+					<span class="kw">return </span><span class="prelude-val">Err</span>(Error::Db(<span class="macro">format!</span>(<span class="string">"Unsupported database version: {version}"</span>)))
 				}
 			},
 			<span class="prelude-val">None </span>=&gt; {
@@ -2037,7 +2039,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="kw">let </span>hash = statement.hash();
 						<span class="macro">log::trace!</span>(
 							target: LOG_TARGET,
-							<span class="string">&quot;Statement loaded {:?}&quot;</span>,
+							<span class="string">"Statement loaded {:?}"</span>,
 							HexDisplay::from(<span class="kw-2">&amp;</span>hash)
 						);
 						<span class="kw">if let </span><span class="prelude-val">Some</span>(account_id) = statement.account_id() {
@@ -2045,7 +2047,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						} <span class="kw">else </span>{
 							<span class="macro">log::debug!</span>(
 								target: LOG_TARGET,
-								<span class="string">&quot;Error decoding statement loaded from the DB: {:?}&quot;</span>,
+								<span class="string">"Error decoding statement loaded from the DB: {:?}"</span>,
 								HexDisplay::from(<span class="kw-2">&amp;</span>hash)
 							);
 						}
@@ -2061,7 +2063,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					{
 						<span class="macro">log::trace!</span>(
 							target: LOG_TARGET,
-							<span class="string">&quot;Statement loaded (expired): {:?}&quot;</span>,
+							<span class="string">"Statement loaded (expired): {:?}"</span>,
 							HexDisplay::from(<span class="kw-2">&amp;</span>hash)
 						);
 						index.insert_expired(hash, timestamp);
@@ -2094,7 +2096,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="comment">// DB inconsistency
 						</span><span class="macro">log::warn!</span>(
 							target: LOG_TARGET,
-							<span class="string">&quot;Corrupt statement {:?}&quot;</span>,
+							<span class="string">"Corrupt statement {:?}"</span>,
 							HexDisplay::from(hash)
 						);
 					}
@@ -2103,7 +2105,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="comment">// DB inconsistency
 					</span><span class="macro">log::warn!</span>(
 						target: LOG_TARGET,
-						<span class="string">&quot;Missing statement {:?}&quot;</span>,
+						<span class="string">"Missing statement {:?}"</span>,
 						HexDisplay::from(hash)
 					);
 				},
@@ -2115,19 +2117,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Perform periodic store maintenance
 	</span><span class="kw">pub fn </span>maintain(<span class="kw-2">&amp;</span><span class="self">self</span>) {
-		<span class="macro">log::trace!</span>(target: LOG_TARGET, <span class="string">&quot;Started store maintenance&quot;</span>);
+		<span class="macro">log::trace!</span>(target: LOG_TARGET, <span class="string">"Started store maintenance"</span>);
 		<span class="kw">let </span>deleted = <span class="self">self</span>.index.write().maintain(<span class="self">self</span>.timestamp());
 		<span class="kw">let </span>deleted: Vec&lt;<span class="kw">_</span>&gt; =
 			deleted.into_iter().map(|hash| (col::EXPIRED, hash.to_vec(), <span class="prelude-val">None</span>)).collect();
 		<span class="kw">let </span>count = deleted.len() <span class="kw">as </span>u64;
 		<span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.db.commit(deleted) {
-			<span class="macro">log::warn!</span>(target: LOG_TARGET, <span class="string">&quot;Error writing to the statement database: {:?}&quot;</span>, e);
+			<span class="macro">log::warn!</span>(target: LOG_TARGET, <span class="string">"Error writing to the statement database: {:?}"</span>, e);
 		} <span class="kw">else </span>{
 			<span class="self">self</span>.metrics.report(|metrics| metrics.statements_pruned.inc_by(count));
 		}
 		<span class="macro">log::trace!</span>(
 			target: LOG_TARGET,
-			<span class="string">&quot;Completed store maintenance. Purged: {}, Active: {}, Expired: {}&quot;</span>,
+			<span class="string">"Completed store maintenance. Purged: {}, Active: {}, Expired: {}"</span>,
 			count,
 			<span class="self">self</span>.index.read().entries.len(),
 			<span class="self">self</span>.index.read().expired.len()
@@ -2182,7 +2184,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="prelude-val">Some</span>(entry) =&gt; {
 					<span class="macro">log::trace!</span>(
 						target: LOG_TARGET,
-						<span class="string">&quot;Queried statement {:?}&quot;</span>,
+						<span class="string">"Queried statement {:?}"</span>,
 						HexDisplay::from(hash)
 					);
 					<span class="prelude-val">Some</span>(
@@ -2193,7 +2195,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="prelude-val">None </span>=&gt; {
 					<span class="macro">log::trace!</span>(
 						target: LOG_TARGET,
-						<span class="string">&quot;Queried missing statement {:?}&quot;</span>,
+						<span class="string">"Queried missing statement {:?}"</span>,
 						HexDisplay::from(hash)
 					);
 					<span class="prelude-val">None
@@ -2226,7 +2228,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="prelude-val">Err</span>(e) =&gt; {
 						<span class="macro">log::debug!</span>(
 							target: LOG_TARGET,
-							<span class="string">&quot;Keystore error: {:?}, for statement {:?}&quot;</span>,
+							<span class="string">"Keystore error: {:?}, for statement {:?}"</span>,
 							e,
 							HexDisplay::from(<span class="kw-2">&amp;</span>statement.hash())
 						);
@@ -2235,7 +2237,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>) =&gt; {
 						<span class="macro">log::debug!</span>(
 							target: LOG_TARGET,
-							<span class="string">&quot;Keystore is missing key for statement {:?}&quot;</span>,
+							<span class="string">"Keystore is missing key for statement {:?}"</span>,
 							HexDisplay::from(<span class="kw-2">&amp;</span>statement.hash())
 						);
 						<span class="prelude-val">None
@@ -2245,7 +2247,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="prelude-val">Err</span>(e) =&gt; {
 							<span class="macro">log::debug!</span>(
 								target: LOG_TARGET,
-								<span class="string">&quot;Decryption error: {:?}, for statement {:?}&quot;</span>,
+								<span class="string">"Decryption error: {:?}, for statement {:?}"</span>,
 								e,
 								HexDisplay::from(<span class="kw-2">&amp;</span>statement.hash())
 							);
@@ -2277,11 +2279,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span><span class="prelude-val">Some</span>(account_id) = statement.account_id() <span class="kw">else </span>{
 			<span class="macro">log::debug!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;Statement validation failed: Missing proof ({:?})&quot;</span>,
+				<span class="string">"Statement validation failed: Missing proof ({:?})"</span>,
 				HexDisplay::from(<span class="kw-2">&amp;</span>hash),
 			);
 			<span class="self">self</span>.metrics.report(|metrics| metrics.validations_invalid.inc());
-			<span class="kw">return </span>SubmitResult::Bad(<span class="string">&quot;No statement proof&quot;</span>)
+			<span class="kw">return </span>SubmitResult::Bad(<span class="string">"No statement proof"</span>)
 		};
 
 		<span class="comment">// Validate.
@@ -2296,20 +2298,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Err</span>(InvalidStatement::BadProof) =&gt; {
 				<span class="macro">log::debug!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Statement validation failed: BadProof, {:?}&quot;</span>,
+					<span class="string">"Statement validation failed: BadProof, {:?}"</span>,
 					HexDisplay::from(<span class="kw-2">&amp;</span>hash),
 				);
 				<span class="self">self</span>.metrics.report(|metrics| metrics.validations_invalid.inc());
-				<span class="kw">return </span>SubmitResult::Bad(<span class="string">&quot;Bad statement proof&quot;</span>)
+				<span class="kw">return </span>SubmitResult::Bad(<span class="string">"Bad statement proof"</span>)
 			},
 			<span class="prelude-val">Err</span>(InvalidStatement::NoProof) =&gt; {
 				<span class="macro">log::debug!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Statement validation failed: NoProof, {:?}&quot;</span>,
+					<span class="string">"Statement validation failed: NoProof, {:?}"</span>,
 					HexDisplay::from(<span class="kw-2">&amp;</span>hash),
 				);
 				<span class="self">self</span>.metrics.report(|metrics| metrics.validations_invalid.inc());
-				<span class="kw">return </span>SubmitResult::Bad(<span class="string">&quot;Missing statement proof&quot;</span>)
+				<span class="kw">return </span>SubmitResult::Bad(<span class="string">"Missing statement proof"</span>)
 			},
 			<span class="prelude-val">Err</span>(InvalidStatement::InternalError) =&gt;
 				<span class="kw">return </span>SubmitResult::InternalError(Error::Runtime),
@@ -2334,7 +2336,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.db.commit(commit) {
 				<span class="macro">log::debug!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Statement validation failed: database error {}, {:?}&quot;</span>,
+					<span class="string">"Statement validation failed: database error {}, {:?}"</span>,
 					e,
 					statement
 				);
@@ -2343,7 +2345,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		} <span class="comment">// Release index lock
 		</span><span class="self">self</span>.metrics.report(|metrics| metrics.submitted_statements.inc());
 		<span class="kw">let </span>network_priority = NetworkPriority::High;
-		<span class="macro">log::trace!</span>(target: LOG_TARGET, <span class="string">&quot;Statement submitted: {:?}&quot;</span>, HexDisplay::from(<span class="kw-2">&amp;</span>hash));
+		<span class="macro">log::trace!</span>(target: LOG_TARGET, <span class="string">"Statement submitted: {:?}"</span>, HexDisplay::from(<span class="kw-2">&amp;</span>hash));
 		SubmitResult::New(network_priority)
 	}
 
@@ -2360,7 +2362,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.db.commit(commit) {
 					<span class="macro">log::debug!</span>(
 						target: LOG_TARGET,
-						<span class="string">&quot;Error removing statement: database error {}, {:?}&quot;</span>,
+						<span class="string">"Error removing statement: database error {}, {:?}"</span>,
 						e,
 						HexDisplay::from(hash),
 					);
@@ -2468,11 +2470,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">fn </span>test_store() -&gt; (Store, tempfile::TempDir) {
 		<span class="kw">let _ </span>= env_logger::try_init();
-		<span class="kw">let </span>temp_dir = tempfile::Builder::new().tempdir().expect(<span class="string">&quot;Error creating test dir&quot;</span>);
+		<span class="kw">let </span>temp_dir = tempfile::Builder::new().tempdir().expect(<span class="string">"Error creating test dir"</span>);
 
 		<span class="kw">let </span>client = std::sync::Arc::new(TestClient);
 		<span class="kw">let </span><span class="kw-2">mut </span>path: std::path::PathBuf = temp_dir.path().into();
-		path.push(<span class="string">&quot;db&quot;</span>);
+		path.push(<span class="string">"db"</span>);
 		<span class="kw">let </span>keystore = std::sync::Arc::new(sc_keystore::LocalKeystore::in_memory());
 		<span class="kw">let </span>store = Store::new(<span class="kw-2">&amp;</span>path, Default::default(), client, keystore, <span class="prelude-val">None</span>).unwrap();
 		(store, temp_dir) <span class="comment">// return order is important. Store must be dropped before TempDir
@@ -2495,7 +2497,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(key) = dec_key {
 			statement.set_decryption_key(key);
 		}
-		<span class="kw">let </span>kp = sp_core::ed25519::Pair::from_string(<span class="string">&quot;//Alice&quot;</span>, <span class="prelude-val">None</span>).unwrap();
+		<span class="kw">let </span>kp = sp_core::ed25519::Pair::from_string(<span class="string">"//Alice"</span>, <span class="prelude-val">None</span>).unwrap();
 		statement.sign_ed25519_private(<span class="kw-2">&amp;</span>kp);
 		statement
 	}
@@ -2582,7 +2584,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>client = std::sync::Arc::new(TestClient);
 		<span class="kw">let </span><span class="kw-2">mut </span>path: std::path::PathBuf = temp.path().into();
-		path.push(<span class="string">&quot;db&quot;</span>);
+		path.push(<span class="string">"db"</span>);
 		<span class="kw">let </span>store = Store::new(<span class="kw-2">&amp;</span>path, Default::default(), client, keystore, <span class="prelude-val">None</span>).unwrap();
 		<span class="macro">assert_eq!</span>(store.statements().unwrap().len(), <span class="number">3</span>);
 		<span class="macro">assert_eq!</span>(store.broadcasts(<span class="kw-2">&amp;</span>[]).unwrap().len(), <span class="number">3</span>);
@@ -2716,7 +2718,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>client = std::sync::Arc::new(TestClient);
 		<span class="kw">let </span><span class="kw-2">mut </span>path: std::path::PathBuf = temp.path().into();
-		path.push(<span class="string">&quot;db&quot;</span>);
+		path.push(<span class="string">"db"</span>);
 		<span class="kw">let </span>store = Store::new(<span class="kw-2">&amp;</span>path, Default::default(), client, keystore, <span class="prelude-val">None</span>).unwrap();
 		<span class="macro">assert_eq!</span>(store.statements().unwrap().len(), <span class="number">0</span>);
 		<span class="macro">assert_eq!</span>(store.index.read().expired.len(), <span class="number">0</span>);
@@ -2731,7 +2733,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.unwrap();
 		<span class="kw">let </span>statement1 = statement(<span class="number">1</span>, <span class="number">1</span>, <span class="prelude-val">None</span>, <span class="number">100</span>);
 		<span class="kw">let </span><span class="kw-2">mut </span>statement2 = statement(<span class="number">1</span>, <span class="number">2</span>, <span class="prelude-val">None</span>, <span class="number">0</span>);
-		<span class="kw">let </span>plain = <span class="string">b&quot;The most valuable secret&quot;</span>.to_vec();
+		<span class="kw">let </span>plain = <span class="string">b"The most valuable secret"</span>.to_vec();
 		statement2.encrypt(<span class="kw-2">&amp;</span>plain, <span class="kw-2">&amp;</span>public).unwrap();
 		store.submit(statement1, StatementSource::Network);
 		store.submit(statement2, StatementSource::Network);

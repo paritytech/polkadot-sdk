@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `bridges/relays/lib-substrate-relay/src/messages_metrics.rs`."><title>messages_metrics.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `bridges/relays/lib-substrate-relay/src/messages_metrics.rs`."><title>messages_metrics.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="substrate_relay_helper" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="substrate_relay_helper" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../substrate_relay_helper/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -387,23 +389,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">return </span><span class="prelude-val">Ok</span>(())
 	}
 
-	<span class="comment">// if `tokenDecimals` is missing from system properties, we&#39;ll be using
+	<span class="comment">// if `tokenDecimals` is missing from system properties, we'll be using
 	</span><span class="kw">let </span>token_decimals = client
 		.token_decimals()
 		.<span class="kw">await</span><span class="question-mark">?
 		</span>.map(|token_decimals| {
-			<span class="macro">log::info!</span>(target: <span class="string">&quot;bridge&quot;</span>, <span class="string">&quot;Read `tokenDecimals` for {}: {}&quot;</span>, C::NAME, token_decimals);
+			<span class="macro">log::info!</span>(target: <span class="string">"bridge"</span>, <span class="string">"Read `tokenDecimals` for {}: {}"</span>, C::NAME, token_decimals);
 			token_decimals
 		})
 		.unwrap_or_else(|| {
 			<span class="comment">// turns out it is normal not to have this property - e.g. when polkadot binary is
-			// started using `polkadot-local` chain. Let&#39;s use minimal nominal here
-			</span><span class="macro">log::info!</span>(target: <span class="string">&quot;bridge&quot;</span>, <span class="string">&quot;Using default (zero) `tokenDecimals` value for {}&quot;</span>, C::NAME);
+			// started using `polkadot-local` chain. Let's use minimal nominal here
+			</span><span class="macro">log::info!</span>(target: <span class="string">"bridge"</span>, <span class="string">"Using default (zero) `tokenDecimals` value for {}"</span>, C::NAME);
 			<span class="number">0
 		</span>});
 	<span class="kw">let </span>token_decimals = u32::try_from(token_decimals).map_err(|e| {
 		<span class="macro">anyhow::format_err!</span>(
-			<span class="string">&quot;Token decimals value ({}) of {} doesn&#39;t fit into u32: {:?}&quot;</span>,
+			<span class="string">"Token decimals value ({}) of {} doesn't fit into u32: {:?}"</span>,
 			token_decimals,
 			C::NAME,
 			e,
@@ -415,8 +417,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			AccountBalanceFromAccountInfo::&lt;C&gt; { token_decimals, _phantom: Default::default() },
 			client.clone(),
 			C::account_info_storage_key(account.id()),
-			<span class="macro">format!</span>(<span class="string">&quot;at_{}_relay_{}_balance&quot;</span>, C::NAME, account.tag()),
-			<span class="macro">format!</span>(<span class="string">&quot;Balance of the {} relay account at the {}&quot;</span>, account.tag(), C::NAME),
+			<span class="macro">format!</span>(<span class="string">"at_{}_relay_{}_balance"</span>, C::NAME, account.tag()),
+			<span class="macro">format!</span>(<span class="string">"Balance of the {} relay account at the {}"</span>, account.tag(), C::NAME),
 		)<span class="question-mark">?</span>;
 		relay_account_balance_metric.register_and_spawn(<span class="kw-2">&amp;</span>metrics.registry)<span class="question-mark">?</span>;
 
@@ -430,8 +432,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						account.id(),
 						<span class="kw-2">&amp;</span>RewardsAccountParams::new(<span class="kw-2">*</span>lane, BC::ID, RewardsAccountOwner::ThisChain),
 					),
-					<span class="macro">format!</span>(<span class="string">&quot;at_{}_relay_{}_reward_for_msgs_from_{}_on_lane_{}&quot;</span>, C::NAME, account.tag(), BC::NAME, hex::encode(lane.as_ref())),
-					<span class="macro">format!</span>(<span class="string">&quot;Reward of the {} relay account at {} for delivering messages from {} on lane {:?}&quot;</span>, account.tag(), C::NAME, BC::NAME, lane),
+					<span class="macro">format!</span>(<span class="string">"at_{}_relay_{}_reward_for_msgs_from_{}_on_lane_{}"</span>, C::NAME, account.tag(), BC::NAME, hex::encode(lane.as_ref())),
+					<span class="macro">format!</span>(<span class="string">"Reward of the {} relay account at {} for delivering messages from {} on lane {:?}"</span>, account.tag(), C::NAME, BC::NAME, lane),
 				)<span class="question-mark">?</span>.register_and_spawn(<span class="kw-2">&amp;</span>metrics.registry)<span class="question-mark">?</span>;
 
 				FloatStorageValueMetric::new(
@@ -442,8 +444,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						account.id(),
 						<span class="kw-2">&amp;</span>RewardsAccountParams::new(<span class="kw-2">*</span>lane, BC::ID, RewardsAccountOwner::BridgedChain),
 					),
-					<span class="macro">format!</span>(<span class="string">&quot;at_{}_relay_{}_reward_for_msgs_to_{}_on_lane_{}&quot;</span>, C::NAME, account.tag(), BC::NAME, hex::encode(lane.as_ref())),
-					<span class="macro">format!</span>(<span class="string">&quot;Reward of the {} relay account at {} for delivering messages confirmations from {} on lane {:?}&quot;</span>, account.tag(), C::NAME, BC::NAME, lane),
+					<span class="macro">format!</span>(<span class="string">"at_{}_relay_{}_reward_for_msgs_to_{}_on_lane_{}"</span>, C::NAME, account.tag(), BC::NAME, hex::encode(lane.as_ref())),
+					<span class="macro">format!</span>(<span class="string">"Reward of the {} relay account at {} for delivering messages confirmations from {} on lane {:?}"</span>, account.tag(), C::NAME, BC::NAME, lane),
 				)<span class="question-mark">?</span>.register_and_spawn(<span class="kw-2">&amp;</span>metrics.registry)<span class="question-mark">?</span>;
 			}
 		}

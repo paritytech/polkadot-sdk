@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/state-machine/src/overlayed_changes/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/state-machine/src/overlayed_changes/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sp_state_machine" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sp_state_machine" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../sp_state_machine/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1305,14 +1307,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -1332,16 +1334,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	offchain::OffchainOverlayedChange,
 	storage::{well_known_keys::EXTRINSIC_INDEX, ChildInfo, StateVersion},
 };
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">use </span>sp_externalities::{Extension, Extensions};
 <span class="kw">use </span>sp_trie::{empty_child_trie_root, LayoutV1};
 
-<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
 </span><span class="kw">use </span>alloc::collections::btree_map::BTreeMap <span class="kw">as </span>Map;
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">use </span>std::collections::{hash_map::Entry <span class="kw">as </span>MapEntry, HashMap <span class="kw">as </span>Map};
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">use </span>std::{
 	any::{Any, TypeId},
 	boxed::Box,
@@ -1406,7 +1408,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>collect_extrinsics: bool,
 	<span class="doccomment">/// Collect statistic on this execution.
 	</span>stats: StateMachineStats,
-	<span class="doccomment">/// Caches the &quot;storage transaction&quot; that is created while calling `storage_root`.
+	<span class="doccomment">/// Caches the "storage transaction" that is created while calling `storage_root`.
 	///
 	/// This transaction can be applied to the backend to persist the state changes.
 	</span>storage_transaction_cache: <span class="prelude-ty">Option</span>&lt;StorageTransactionCache&lt;H&gt;&gt;,
@@ -1441,15 +1443,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl</span>&lt;H: Hasher&gt; core::fmt::Debug <span class="kw">for </span>OverlayedChanges&lt;H&gt; {
-	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; core::fmt::Result {
-		f.debug_struct(<span class="string">&quot;OverlayedChanges&quot;</span>)
-			.field(<span class="string">&quot;top&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.top)
-			.field(<span class="string">&quot;children&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.children)
-			.field(<span class="string">&quot;offchain&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.offchain)
-			.field(<span class="string">&quot;transaction_index_ops&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.transaction_index_ops)
-			.field(<span class="string">&quot;collect_extrinsics&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.collect_extrinsics)
-			.field(<span class="string">&quot;stats&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.stats)
-			.field(<span class="string">&quot;storage_transaction_cache&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.storage_transaction_cache)
+	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; core::fmt::Result {
+		f.debug_struct(<span class="string">"OverlayedChanges"</span>)
+			.field(<span class="string">"top"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.top)
+			.field(<span class="string">"children"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.children)
+			.field(<span class="string">"offchain"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.offchain)
+			.field(<span class="string">"transaction_index_ops"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.transaction_index_ops)
+			.field(<span class="string">"collect_extrinsics"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.collect_extrinsics)
+			.field(<span class="string">"stats"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.stats)
+			.field(<span class="string">"storage_transaction_cache"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.storage_transaction_cache)
 			.finish()
 	}
 }
@@ -1496,11 +1498,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// The storage root after applying the transaction.
 	</span><span class="kw">pub </span>transaction_storage_root: H::Out,
 	<span class="doccomment">/// Changes to the transaction index,
-	</span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+	</span><span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 	</span><span class="kw">pub </span>transaction_index_changes: Vec&lt;IndexOperation&gt;,
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">impl</span>&lt;H: Hasher&gt; StorageChanges&lt;H&gt; {
 	<span class="doccomment">/// Deconstruct into the inner values
 	</span><span class="kw">pub fn </span>into_inner(
@@ -1532,7 +1534,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			offchain_storage_changes: Default::default(),
 			transaction: Default::default(),
 			transaction_storage_root: Default::default(),
-			<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+			<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 			</span>transaction_index_changes: Default::default(),
 		}
 	}
@@ -1564,14 +1566,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl</span>&lt;H: Hasher&gt; core::fmt::Debug <span class="kw">for </span>StorageTransactionCache&lt;H&gt; {
-	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; core::fmt::Result {
-		<span class="kw">let </span><span class="kw-2">mut </span>debug = f.debug_struct(<span class="string">&quot;StorageTransactionCache&quot;</span>);
+	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; core::fmt::Result {
+		<span class="kw">let </span><span class="kw-2">mut </span>debug = f.debug_struct(<span class="string">"StorageTransactionCache"</span>);
 
-		<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
-		</span>debug.field(<span class="string">&quot;transaction_storage_root&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.transaction_storage_root);
+		<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
+		</span>debug.field(<span class="string">"transaction_storage_root"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.transaction_storage_root);
 
-		<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
-		</span>debug.field(<span class="string">&quot;transaction_storage_root&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.transaction_storage_root.as_ref());
+		<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
+		</span>debug.field(<span class="string">"transaction_storage_root"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.transaction_storage_root.as_ref());
 
 		debug.finish()
 	}
@@ -1611,7 +1613,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// Warning this function registers a change, so the mutable reference MUST be modified.
 	///
 	/// Can be rolled back or committed when called inside a transaction.
-	</span><span class="attr">#[must_use = <span class="string">&quot;A change was registered, so this value MUST be modified.&quot;</span>]
+	</span><span class="attr">#[must_use = <span class="string">"A change was registered, so this value MUST be modified."</span>]
 	</span><span class="kw">pub fn </span>value_mut_or_insert_with(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		key: <span class="kw-2">&amp;</span>[u8],
@@ -1754,13 +1756,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		retain_map(<span class="kw-2">&amp;mut </span><span class="self">self</span>.children, |<span class="kw">_</span>, (changeset, <span class="kw">_</span>)| {
 			changeset
 				.rollback_transaction()
-				.expect(<span class="string">&quot;Top and children changesets are started in lockstep; qed&quot;</span>);
+				.expect(<span class="string">"Top and children changesets are started in lockstep; qed"</span>);
 			!changeset.is_empty()
 		});
 		<span class="self">self</span>.offchain
 			.overlay_mut()
 			.rollback_transaction()
-			.expect(<span class="string">&quot;Top and offchain changesets are started in lockstep; qed&quot;</span>);
+			.expect(<span class="string">"Top and offchain changesets are started in lockstep; qed"</span>);
 		<span class="prelude-val">Ok</span>(())
 	}
 
@@ -1773,12 +1775,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">for </span>(<span class="kw">_</span>, (changeset, <span class="kw">_</span>)) <span class="kw">in </span><span class="self">self</span>.children.iter_mut() {
 			changeset
 				.commit_transaction()
-				.expect(<span class="string">&quot;Top and children changesets are started in lockstep; qed&quot;</span>);
+				.expect(<span class="string">"Top and children changesets are started in lockstep; qed"</span>);
 		}
 		<span class="self">self</span>.offchain
 			.overlay_mut()
 			.commit_transaction()
-			.expect(<span class="string">&quot;Top and offchain changesets are started in lockstep; qed&quot;</span>);
+			.expect(<span class="string">"Top and offchain changesets are started in lockstep; qed"</span>);
 		<span class="prelude-val">Ok</span>(())
 	}
 
@@ -1791,12 +1793,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">for </span>(<span class="kw">_</span>, (changeset, <span class="kw">_</span>)) <span class="kw">in </span><span class="self">self</span>.children.iter_mut() {
 			changeset
 				.enter_runtime()
-				.expect(<span class="string">&quot;Top and children changesets are entering runtime in lockstep; qed&quot;</span>)
+				.expect(<span class="string">"Top and children changesets are entering runtime in lockstep; qed"</span>)
 		}
 		<span class="self">self</span>.offchain
 			.overlay_mut()
 			.enter_runtime()
-			.expect(<span class="string">&quot;Top and offchain changesets are started in lockstep; qed&quot;</span>);
+			.expect(<span class="string">"Top and offchain changesets are started in lockstep; qed"</span>);
 		<span class="prelude-val">Ok</span>(())
 	}
 
@@ -1809,12 +1811,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">for </span>(<span class="kw">_</span>, (changeset, <span class="kw">_</span>)) <span class="kw">in </span><span class="self">self</span>.children.iter_mut() {
 			changeset
 				.exit_runtime()
-				.expect(<span class="string">&quot;Top and children changesets are entering runtime in lockstep; qed&quot;</span>);
+				.expect(<span class="string">"Top and children changesets are entering runtime in lockstep; qed"</span>);
 		}
 		<span class="self">self</span>.offchain
 			.overlay_mut()
 			.exit_runtime()
-			.expect(<span class="string">&quot;Top and offchain changesets are started in lockstep; qed&quot;</span>);
+			.expect(<span class="string">"Top and offchain changesets are started in lockstep; qed"</span>);
 		<span class="prelude-val">Ok</span>(())
 	}
 
@@ -1862,7 +1864,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		state_version: StateVersion,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;StorageChanges&lt;H&gt;, DefaultError&gt;
 	<span class="kw">where
-		</span>H::Out: Ord + Encode + <span class="lifetime">&#39;static</span>,
+		</span>H::Out: Ord + Encode + <span class="lifetime">'static</span>,
 	{
 		<span class="kw">let </span>(transaction, transaction_storage_root) = <span class="kw">match </span><span class="self">self</span>.storage_transaction_cache.take() {
 			<span class="prelude-val">Some</span>(cache) =&gt; cache.into_inner(),
@@ -1871,7 +1873,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="self">self</span>.storage_root(backend, state_version);
 				<span class="self">self</span>.storage_transaction_cache
 					.take()
-					.expect(<span class="string">&quot;`storage_transaction_cache` was just initialized; qed&quot;</span>)
+					.expect(<span class="string">"`storage_transaction_cache` was just initialized; qed"</span>)
 					.into_inner()
 			},
 		};
@@ -1884,7 +1886,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>offchain_storage_changes = <span class="self">self</span>.offchain_drain_committed().collect();
 
-		<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+		<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 		</span><span class="kw">let </span>transaction_index_changes = std::mem::take(<span class="kw-2">&amp;mut </span><span class="self">self</span>.transaction_index_ops);
 
 		<span class="prelude-val">Ok</span>(StorageChanges {
@@ -1895,7 +1897,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			offchain_storage_changes,
 			transaction,
 			transaction_storage_root,
-			<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+			<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 			</span>transaction_index_changes,
 		})
 	}
@@ -1988,10 +1990,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>root = <span class="kw">if let </span><span class="prelude-val">Some</span>((root, is_empty, <span class="kw">_</span>)) = root {
 			<span class="comment">// We store update in the overlay in order to be able to use
-			// &#39;self.storage_transaction&#39; cache. This is brittle as it rely on Ext only querying
+			// 'self.storage_transaction' cache. This is brittle as it rely on Ext only querying
 			// the trie backend for storage root.
-			// A better design would be to manage &#39;child_storage_transaction&#39; in a
-			// similar way as &#39;storage_transaction&#39; but for each child trie.
+			// A better design would be to manage 'child_storage_transaction' in a
+			// similar way as 'storage_transaction' but for each child trie.
 			</span><span class="self">self</span>.set_storage(prefixed_storage_key.into_inner(), (!is_empty).then(|| root.encode()));
 
 			<span class="self">self</span>.mark_dirty();
@@ -2051,7 +2053,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">impl</span>&lt;H: Hasher&gt; From&lt;sp_core::storage::Storage&gt; <span class="kw">for </span>OverlayedChanges&lt;H&gt; {
 	<span class="kw">fn </span>from(storage: sp_core::storage::Storage) -&gt; <span class="self">Self </span>{
 		<span class="self">Self </span>{
@@ -2066,7 +2068,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">fn </span>retain_map&lt;K, V, F&gt;(map: <span class="kw-2">&amp;mut </span>Map&lt;K, V&gt;, f: F)
 <span class="kw">where
 	</span>K: std::cmp::Eq + std::hash::Hash,
@@ -2075,7 +2077,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	map.retain(f);
 }
 
-<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
 </span><span class="kw">fn </span>retain_map&lt;K, V, F&gt;(map: <span class="kw-2">&amp;mut </span>Map&lt;K, V&gt;, <span class="kw-2">mut </span>f: F)
 <span class="kw">where
 	</span>K: Ord,
@@ -2091,9 +2093,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// An overlayed extension is either a mutable reference
 /// or an owned extension.
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
-</span><span class="kw">pub enum </span>OverlayedExtension&lt;<span class="lifetime">&#39;a</span>&gt; {
-	MutRef(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>Box&lt;<span class="kw">dyn </span>Extension&gt;),
+</span><span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
+</span><span class="kw">pub enum </span>OverlayedExtension&lt;<span class="lifetime">'a</span>&gt; {
+	MutRef(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>Box&lt;<span class="kw">dyn </span>Extension&gt;),
 	Owned(Box&lt;<span class="kw">dyn </span>Extension&gt;),
 }
 
@@ -2104,15 +2106,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// as owned references. After the execution of a runtime function, we
 /// can safely drop this object while not having modified the original
 /// list.
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
-</span><span class="kw">pub struct </span>OverlayedExtensions&lt;<span class="lifetime">&#39;a</span>&gt; {
-	extensions: Map&lt;TypeId, OverlayedExtension&lt;<span class="lifetime">&#39;a</span>&gt;&gt;,
+</span><span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
+</span><span class="kw">pub struct </span>OverlayedExtensions&lt;<span class="lifetime">'a</span>&gt; {
+	extensions: Map&lt;TypeId, OverlayedExtension&lt;<span class="lifetime">'a</span>&gt;&gt;,
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
-</span><span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; OverlayedExtensions&lt;<span class="lifetime">&#39;a</span>&gt; {
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
+</span><span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; OverlayedExtensions&lt;<span class="lifetime">'a</span>&gt; {
 	<span class="doccomment">/// Create a new instance of overlaid extensions from the given extensions.
-	</span><span class="kw">pub fn </span>new(extensions: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>Extensions) -&gt; <span class="self">Self </span>{
+	</span><span class="kw">pub fn </span>new(extensions: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>Extensions) -&gt; <span class="self">Self </span>{
 		<span class="self">Self </span>{
 			extensions: extensions
 				.iter_mut()
@@ -2261,10 +2263,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>overlayed_storage_root_works() {
 		<span class="kw">let </span>state_version = StateVersion::default();
 		<span class="kw">let </span>initial: BTreeMap&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt; = <span class="macro">vec!</span>[
-			(<span class="string">b&quot;doe&quot;</span>.to_vec(), <span class="string">b&quot;reindeer&quot;</span>.to_vec()),
-			(<span class="string">b&quot;dog&quot;</span>.to_vec(), <span class="string">b&quot;puppyXXX&quot;</span>.to_vec()),
-			(<span class="string">b&quot;dogglesworth&quot;</span>.to_vec(), <span class="string">b&quot;catXXX&quot;</span>.to_vec()),
-			(<span class="string">b&quot;doug&quot;</span>.to_vec(), <span class="string">b&quot;notadog&quot;</span>.to_vec()),
+			(<span class="string">b"doe"</span>.to_vec(), <span class="string">b"reindeer"</span>.to_vec()),
+			(<span class="string">b"dog"</span>.to_vec(), <span class="string">b"puppyXXX"</span>.to_vec()),
+			(<span class="string">b"dogglesworth"</span>.to_vec(), <span class="string">b"catXXX"</span>.to_vec()),
+			(<span class="string">b"doug"</span>.to_vec(), <span class="string">b"notadog"</span>.to_vec()),
 		]
 		.into_iter()
 		.collect();
@@ -2272,36 +2274,36 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span><span class="kw-2">mut </span>overlay = OverlayedChanges::default();
 
 		overlay.start_transaction();
-		overlay.set_storage(<span class="string">b&quot;dog&quot;</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b&quot;puppy&quot;</span>.to_vec()));
-		overlay.set_storage(<span class="string">b&quot;dogglesworth&quot;</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b&quot;catYYY&quot;</span>.to_vec()));
-		overlay.set_storage(<span class="string">b&quot;doug&quot;</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="macro">vec!</span>[]));
+		overlay.set_storage(<span class="string">b"dog"</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b"puppy"</span>.to_vec()));
+		overlay.set_storage(<span class="string">b"dogglesworth"</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b"catYYY"</span>.to_vec()));
+		overlay.set_storage(<span class="string">b"doug"</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="macro">vec!</span>[]));
 		overlay.commit_transaction().unwrap();
 
 		overlay.start_transaction();
-		overlay.set_storage(<span class="string">b&quot;dogglesworth&quot;</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b&quot;cat&quot;</span>.to_vec()));
-		overlay.set_storage(<span class="string">b&quot;doug&quot;</span>.to_vec(), <span class="prelude-val">None</span>);
+		overlay.set_storage(<span class="string">b"dogglesworth"</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b"cat"</span>.to_vec()));
+		overlay.set_storage(<span class="string">b"doug"</span>.to_vec(), <span class="prelude-val">None</span>);
 
 		{
 			<span class="kw">let </span><span class="kw-2">mut </span>ext = Ext::new(<span class="kw-2">&amp;mut </span>overlay, <span class="kw-2">&amp;</span>backend, <span class="prelude-val">None</span>);
-			<span class="kw">let </span>root = <span class="string">&quot;39245109cef3758c2eed2ccba8d9b370a917850af3824bc8348d505df2c298fa&quot;</span>;
+			<span class="kw">let </span>root = <span class="string">"39245109cef3758c2eed2ccba8d9b370a917850af3824bc8348d505df2c298fa"</span>;
 
-			<span class="macro">assert_eq!</span>(bytes2hex(<span class="string">&quot;&quot;</span>, <span class="kw-2">&amp;</span>ext.storage_root(state_version)), root);
+			<span class="macro">assert_eq!</span>(bytes2hex(<span class="string">""</span>, <span class="kw-2">&amp;</span>ext.storage_root(state_version)), root);
 			<span class="comment">// Calling a second time should use it from the cache
-			</span><span class="macro">assert_eq!</span>(bytes2hex(<span class="string">&quot;&quot;</span>, <span class="kw-2">&amp;</span>ext.storage_root(state_version)), root);
+			</span><span class="macro">assert_eq!</span>(bytes2hex(<span class="string">""</span>, <span class="kw-2">&amp;</span>ext.storage_root(state_version)), root);
 		}
 
 		<span class="comment">// Check that the storage root is recalculated
-		</span>overlay.set_storage(<span class="string">b&quot;doug2&quot;</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b&quot;yes&quot;</span>.to_vec()));
+		</span>overlay.set_storage(<span class="string">b"doug2"</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b"yes"</span>.to_vec()));
 
 		<span class="kw">let </span><span class="kw-2">mut </span>ext = Ext::new(<span class="kw-2">&amp;mut </span>overlay, <span class="kw-2">&amp;</span>backend, <span class="prelude-val">None</span>);
-		<span class="kw">let </span>root = <span class="string">&quot;5c0a4e35cb967de785e1cb8743e6f24b6ff6d45155317f2078f6eb3fc4ff3e3d&quot;</span>;
-		<span class="macro">assert_eq!</span>(bytes2hex(<span class="string">&quot;&quot;</span>, <span class="kw-2">&amp;</span>ext.storage_root(state_version)), root);
+		<span class="kw">let </span>root = <span class="string">"5c0a4e35cb967de785e1cb8743e6f24b6ff6d45155317f2078f6eb3fc4ff3e3d"</span>;
+		<span class="macro">assert_eq!</span>(bytes2hex(<span class="string">""</span>, <span class="kw-2">&amp;</span>ext.storage_root(state_version)), root);
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>overlayed_child_storage_root_works() {
 		<span class="kw">let </span>state_version = StateVersion::default();
-		<span class="kw">let </span>child_info = ChildInfo::new_default(<span class="string">b&quot;Child1&quot;</span>);
+		<span class="kw">let </span>child_info = ChildInfo::new_default(<span class="string">b"Child1"</span>);
 		<span class="kw">let </span>child_info = <span class="kw-2">&amp;</span>child_info;
 		<span class="kw">let </span>backend = new_in_mem::&lt;Blake2Hasher&gt;();
 		<span class="kw">let </span><span class="kw-2">mut </span>overlay = OverlayedChanges::&lt;Blake2Hasher&gt;::default();
@@ -2315,19 +2317,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		{
 			<span class="kw">let </span><span class="kw-2">mut </span>ext = Ext::new(<span class="kw-2">&amp;mut </span>overlay, <span class="kw-2">&amp;</span>backend, <span class="prelude-val">None</span>);
-			<span class="kw">let </span>child_root = <span class="string">&quot;c02965e1df4dc5baf6977390ce67dab1d7a9b27a87c1afe27b50d29cc990e0f5&quot;</span>;
-			<span class="kw">let </span>root = <span class="string">&quot;eafb765909c3ed5afd92a0c564acf4620d0234b31702e8e8e9b48da72a748838&quot;</span>;
+			<span class="kw">let </span>child_root = <span class="string">"c02965e1df4dc5baf6977390ce67dab1d7a9b27a87c1afe27b50d29cc990e0f5"</span>;
+			<span class="kw">let </span>root = <span class="string">"eafb765909c3ed5afd92a0c564acf4620d0234b31702e8e8e9b48da72a748838"</span>;
 
 			<span class="macro">assert_eq!</span>(
-				bytes2hex(<span class="string">&quot;&quot;</span>, <span class="kw-2">&amp;</span>ext.child_storage_root(child_info, state_version)),
+				bytes2hex(<span class="string">""</span>, <span class="kw-2">&amp;</span>ext.child_storage_root(child_info, state_version)),
 				child_root,
 			);
 
-			<span class="macro">assert_eq!</span>(bytes2hex(<span class="string">&quot;&quot;</span>, <span class="kw-2">&amp;</span>ext.storage_root(state_version)), root);
+			<span class="macro">assert_eq!</span>(bytes2hex(<span class="string">""</span>, <span class="kw-2">&amp;</span>ext.storage_root(state_version)), root);
 
 			<span class="comment">// Calling a second time should use it from the cache
 			</span><span class="macro">assert_eq!</span>(
-				bytes2hex(<span class="string">&quot;&quot;</span>, <span class="kw-2">&amp;</span>ext.child_storage_root(child_info, state_version)),
+				bytes2hex(<span class="string">""</span>, <span class="kw-2">&amp;</span>ext.child_storage_root(child_info, state_version)),
 				child_root,
 			);
 		}
@@ -2414,7 +2416,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>next_child_storage_key_change_works() {
-		<span class="kw">let </span>child_info = ChildInfo::new_default(<span class="string">b&quot;Child1&quot;</span>);
+		<span class="kw">let </span>child_info = ChildInfo::new_default(<span class="string">b"Child1"</span>);
 		<span class="kw">let </span>child_info = <span class="kw-2">&amp;</span>child_info;
 		<span class="kw">let </span>child = child_info.storage_key();
 		<span class="kw">let </span><span class="kw-2">mut </span>overlay = OverlayedChanges::&lt;Blake2Hasher&gt;::default();

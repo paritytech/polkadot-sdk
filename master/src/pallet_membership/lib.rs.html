@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/membership/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/membership/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_membership" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_membership" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../pallet_membership/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1002,14 +1004,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -1019,8 +1021,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! Allows control of membership of a set of `AccountId`s, useful for managing membership of a
 //! collective. A prime member may be set
 
-</span><span class="comment">// Ensure we&#39;re `no_std` when compiling for Wasm.
-</span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
+</span><span class="comment">// Ensure we're `no_std` when compiling for Wasm.
+</span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
 </span><span class="kw">use </span>frame_support::{
 	traits::{ChangeMembers, Contains, Get, InitializeMembers, SortedMembers},
@@ -1035,7 +1037,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">pub use </span>pallet::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>weights::WeightInfo;
 
-<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;runtime::membership&quot;</span>;
+<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"runtime::membership"</span>;
 
 <span class="kw">type </span>AccountIdLookupOf&lt;T&gt; = &lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::Lookup <span class="kw">as </span>StaticLookup&gt;::Source;
 
@@ -1053,7 +1055,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub struct </span>Pallet&lt;T, I = ()&gt;(PhantomData&lt;(T, I)&gt;);
 
 	<span class="attr">#[pallet::config]
-	</span><span class="kw">pub trait </span>Config&lt;I: <span class="lifetime">&#39;static </span>= ()&gt;: frame_system::Config {
+	</span><span class="kw">pub trait </span>Config&lt;I: <span class="lifetime">'static </span>= ()&gt;: frame_system::Config {
 		<span class="doccomment">/// The overarching event type.
 		</span><span class="kw">type </span>RuntimeEvent: From&lt;Event&lt;<span class="self">Self</span>, I&gt;&gt;
 			+ IsType&lt;&lt;<span class="self">Self </span><span class="kw">as </span>frame_system::Config&gt;::RuntimeEvent&gt;;
@@ -1095,31 +1097,31 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// The current membership, stored as an ordered Vec.
 	</span><span class="attr">#[pallet::storage]
 	#[pallet::getter(<span class="kw">fn </span>members)]
-	</span><span class="kw">pub type </span>Members&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; =
+	</span><span class="kw">pub type </span>Members&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; =
 		StorageValue&lt;<span class="kw">_</span>, BoundedVec&lt;T::AccountId, T::MaxMembers&gt;, ValueQuery&gt;;
 
 	<span class="doccomment">/// The current prime member, if one exists.
 	</span><span class="attr">#[pallet::storage]
 	#[pallet::getter(<span class="kw">fn </span>prime)]
-	</span><span class="kw">pub type </span>Prime&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; = StorageValue&lt;<span class="kw">_</span>, T::AccountId, OptionQuery&gt;;
+	</span><span class="kw">pub type </span>Prime&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; = StorageValue&lt;<span class="kw">_</span>, T::AccountId, OptionQuery&gt;;
 
 	<span class="attr">#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
-	</span><span class="kw">pub struct </span>GenesisConfig&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; {
+	</span><span class="kw">pub struct </span>GenesisConfig&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; {
 		<span class="kw">pub </span>members: BoundedVec&lt;T::AccountId, T::MaxMembers&gt;,
 		<span class="attr">#[serde(skip)]
 		</span><span class="kw">pub </span>phantom: PhantomData&lt;I&gt;,
 	}
 
 	<span class="attr">#[pallet::genesis_build]
-	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; BuildGenesisConfig <span class="kw">for </span>GenesisConfig&lt;T, I&gt; {
+	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; BuildGenesisConfig <span class="kw">for </span>GenesisConfig&lt;T, I&gt; {
 		<span class="kw">fn </span>build(<span class="kw-2">&amp;</span><span class="self">self</span>) {
 			<span class="kw">use </span>sp_std::collections::btree_set::BTreeSet;
 			<span class="kw">let </span>members_set: BTreeSet&lt;<span class="kw">_</span>&gt; = <span class="self">self</span>.members.iter().collect();
 			<span class="macro">assert_eq!</span>(
 				members_set.len(),
 				<span class="self">self</span>.members.len(),
-				<span class="string">&quot;Members cannot contain duplicate accounts.&quot;
+				<span class="string">"Members cannot contain duplicate accounts."
 			</span>);
 
 			<span class="kw">let </span><span class="kw-2">mut </span>members = <span class="self">self</span>.members.clone();
@@ -1131,7 +1133,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[pallet::event]
 	#[pallet::generate_deposit(<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>deposit_event)]
-	</span><span class="kw">pub enum </span>Event&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; {
+	</span><span class="kw">pub enum </span>Event&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; {
 		<span class="doccomment">/// The given member was added; see the transaction for who.
 		</span>MemberAdded,
 		<span class="doccomment">/// The given member was removed; see the transaction for who.
@@ -1140,7 +1142,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>MembersSwapped,
 		<span class="doccomment">/// The membership was reset; see the transaction for who the new set is.
 		</span>MembersReset,
-		<span class="doccomment">/// One of the members&#39; keys changed.
+		<span class="doccomment">/// One of the members' keys changed.
 		</span>KeyChanged,
 		<span class="doccomment">/// Phantom member, never used.
 		</span>Dummy { _phantom_data: PhantomData&lt;(T::AccountId, &lt;T <span class="kw">as </span>Config&lt;I&gt;&gt;::RuntimeEvent)&gt; },
@@ -1157,7 +1159,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="attr">#[pallet::call]
-	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; Pallet&lt;T, I&gt; {
+	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Pallet&lt;T, I&gt; {
 		<span class="doccomment">/// Add a member `who` to the set.
 		///
 		/// May only be called from `T::AddOrigin`.
@@ -1343,7 +1345,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; Pallet&lt;T, I&gt; {
+<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Pallet&lt;T, I&gt; {
 	<span class="kw">fn </span>rejig_prime(members: <span class="kw-2">&amp;</span>[T::AccountId]) {
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(prime) = Prime::&lt;T, I&gt;::get() {
 			<span class="kw">match </span>members.binary_search(<span class="kw-2">&amp;</span>prime) {
@@ -1354,13 +1356,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; Contains&lt;T::AccountId&gt; <span class="kw">for </span>Pallet&lt;T, I&gt; {
+<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Contains&lt;T::AccountId&gt; <span class="kw">for </span>Pallet&lt;T, I&gt; {
 	<span class="kw">fn </span>contains(t: <span class="kw-2">&amp;</span>T::AccountId) -&gt; bool {
 		<span class="self">Self</span>::members().binary_search(t).is_ok()
 	}
 }
 
-<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; SortedMembers&lt;T::AccountId&gt; <span class="kw">for </span>Pallet&lt;T, I&gt; {
+<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; SortedMembers&lt;T::AccountId&gt; <span class="kw">for </span>Pallet&lt;T, I&gt; {
 	<span class="kw">fn </span>sorted_members() -&gt; Vec&lt;T::AccountId&gt; {
 		<span class="self">Self</span>::members().to_vec()
 	}
@@ -1369,7 +1371,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		Members::&lt;T, I&gt;::decode_len().unwrap_or(<span class="number">0</span>)
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">fn </span>add(new_member: <span class="kw-2">&amp;</span>T::AccountId) {
 		<span class="kw">use </span>frame_support::{assert_ok, traits::EnsureOrigin};
 		<span class="kw">let </span>new_member_lookup = T::Lookup::unlookup(new_member.clone());
@@ -1377,12 +1379,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if let </span><span class="prelude-val">Ok</span>(origin) = T::AddOrigin::try_successful_origin() {
 			<span class="macro">assert_ok!</span>(Pallet::&lt;T, I&gt;::add_member(origin, new_member_lookup,));
 		} <span class="kw">else </span>{
-			<span class="macro">log::error!</span>(target: LOG_TARGET, <span class="string">&quot;Failed to add `{new_member:?}` in `SortedMembers::add`.&quot;</span>)
+			<span class="macro">log::error!</span>(target: LOG_TARGET, <span class="string">"Failed to add `{new_member:?}` in `SortedMembers::add`."</span>)
 		}
 	}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 </span><span class="kw">mod </span>benchmark {
 	<span class="kw">use super</span>::{Pallet <span class="kw">as </span>Membership, <span class="kw-2">*</span>};
 	<span class="kw">use </span>frame_benchmarking::v1::{account, benchmarks_instance_pallet, whitelist, BenchmarkError};
@@ -1391,11 +1393,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">const </span>SEED: u32 = <span class="number">0</span>;
 
-	<span class="kw">fn </span>set_members&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt;(members: Vec&lt;T::AccountId&gt;, prime: <span class="prelude-ty">Option</span>&lt;usize&gt;) {
+	<span class="kw">fn </span>set_members&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt;(members: Vec&lt;T::AccountId&gt;, prime: <span class="prelude-ty">Option</span>&lt;usize&gt;) {
 		<span class="kw">let </span>reset_origin = T::ResetOrigin::try_successful_origin()
-			.expect(<span class="string">&quot;ResetOrigin has no successful origin required for the benchmark&quot;</span>);
+			.expect(<span class="string">"ResetOrigin has no successful origin required for the benchmark"</span>);
 		<span class="kw">let </span>prime_origin = T::PrimeOrigin::try_successful_origin()
-			.expect(<span class="string">&quot;PrimeOrigin has no successful origin required for the benchmark&quot;</span>);
+			.expect(<span class="string">"PrimeOrigin has no successful origin required for the benchmark"</span>);
 
 		<span class="macro">assert_ok!</span>(&lt;Membership&lt;T, I&gt;&gt;::reset_members(reset_origin, members.clone()));
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(prime) = prime.map(|i| members[i].clone()) {
@@ -1410,9 +1412,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		add_member {
 			<span class="kw">let </span>m <span class="kw">in </span><span class="number">1 </span>.. (T::MaxMembers::get() - <span class="number">1</span>);
 
-			<span class="kw">let </span>members = (<span class="number">0</span>..m).map(|i| account(<span class="string">&quot;member&quot;</span>, i, SEED)).collect::&lt;Vec&lt;T::AccountId&gt;&gt;();
+			<span class="kw">let </span>members = (<span class="number">0</span>..m).map(|i| account(<span class="string">"member"</span>, i, SEED)).collect::&lt;Vec&lt;T::AccountId&gt;&gt;();
 			set_members::&lt;T, I&gt;(members, <span class="prelude-val">None</span>);
-			<span class="kw">let </span>new_member = account::&lt;T::AccountId&gt;(<span class="string">&quot;add&quot;</span>, m, SEED);
+			<span class="kw">let </span>new_member = account::&lt;T::AccountId&gt;(<span class="string">"add"</span>, m, SEED);
 			<span class="kw">let </span>new_member_lookup = T::Lookup::unlookup(new_member.clone());
 		}: {
 			<span class="macro">assert_ok!</span>(&lt;Membership&lt;T, I&gt;&gt;::add_member(
@@ -1429,7 +1431,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>remove_member {
 			<span class="kw">let </span>m <span class="kw">in </span><span class="number">2 </span>.. T::MaxMembers::get();
 
-			<span class="kw">let </span>members = (<span class="number">0</span>..m).map(|i| account(<span class="string">&quot;member&quot;</span>, i, SEED)).collect::&lt;Vec&lt;T::AccountId&gt;&gt;();
+			<span class="kw">let </span>members = (<span class="number">0</span>..m).map(|i| account(<span class="string">"member"</span>, i, SEED)).collect::&lt;Vec&lt;T::AccountId&gt;&gt;();
 			set_members::&lt;T, I&gt;(members.clone(), <span class="prelude-val">Some</span>(members.len() - <span class="number">1</span>));
 
 			<span class="kw">let </span>to_remove = members.first().cloned().unwrap();
@@ -1450,9 +1452,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>swap_member {
 			<span class="kw">let </span>m <span class="kw">in </span><span class="number">2 </span>.. T::MaxMembers::get();
 
-			<span class="kw">let </span>members = (<span class="number">0</span>..m).map(|i| account(<span class="string">&quot;member&quot;</span>, i, SEED)).collect::&lt;Vec&lt;T::AccountId&gt;&gt;();
+			<span class="kw">let </span>members = (<span class="number">0</span>..m).map(|i| account(<span class="string">"member"</span>, i, SEED)).collect::&lt;Vec&lt;T::AccountId&gt;&gt;();
 			set_members::&lt;T, I&gt;(members.clone(), <span class="prelude-val">Some</span>(members.len() - <span class="number">1</span>));
-			<span class="kw">let </span>add = account::&lt;T::AccountId&gt;(<span class="string">&quot;member&quot;</span>, m, SEED);
+			<span class="kw">let </span>add = account::&lt;T::AccountId&gt;(<span class="string">"member"</span>, m, SEED);
 			<span class="kw">let </span>add_lookup = T::Lookup::unlookup(add.clone());
 			<span class="kw">let </span>remove = members.first().cloned().unwrap();
 			<span class="kw">let </span>remove_lookup = T::Lookup::unlookup(remove.clone());
@@ -1474,9 +1476,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>reset_members {
 			<span class="kw">let </span>m <span class="kw">in </span><span class="number">1 </span>.. T::MaxMembers::get();
 
-			<span class="kw">let </span>members = (<span class="number">1</span>..m+<span class="number">1</span>).map(|i| account(<span class="string">&quot;member&quot;</span>, i, SEED)).collect::&lt;Vec&lt;T::AccountId&gt;&gt;();
+			<span class="kw">let </span>members = (<span class="number">1</span>..m+<span class="number">1</span>).map(|i| account(<span class="string">"member"</span>, i, SEED)).collect::&lt;Vec&lt;T::AccountId&gt;&gt;();
 			set_members::&lt;T, I&gt;(members.clone(), <span class="prelude-val">Some</span>(members.len() - <span class="number">1</span>));
-			<span class="kw">let </span><span class="kw-2">mut </span>new_members = (m..<span class="number">2</span><span class="kw-2">*</span>m).map(|i| account(<span class="string">&quot;member&quot;</span>, i, SEED)).collect::&lt;Vec&lt;T::AccountId&gt;&gt;();
+			<span class="kw">let </span><span class="kw-2">mut </span>new_members = (m..<span class="number">2</span><span class="kw-2">*</span>m).map(|i| account(<span class="string">"member"</span>, i, SEED)).collect::&lt;Vec&lt;T::AccountId&gt;&gt;();
 		}: {
 			<span class="macro">assert_ok!</span>(&lt;Membership&lt;T, I&gt;&gt;::reset_members(
 				T::ResetOrigin::try_successful_origin().map_err(|<span class="kw">_</span>| BenchmarkError::Weightless)<span class="question-mark">?</span>,
@@ -1494,11 +1496,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>m <span class="kw">in </span><span class="number">1 </span>.. T::MaxMembers::get();
 
 			<span class="comment">// worse case would be to change the prime
-			</span><span class="kw">let </span>members = (<span class="number">0</span>..m).map(|i| account(<span class="string">&quot;member&quot;</span>, i, SEED)).collect::&lt;Vec&lt;T::AccountId&gt;&gt;();
+			</span><span class="kw">let </span>members = (<span class="number">0</span>..m).map(|i| account(<span class="string">"member"</span>, i, SEED)).collect::&lt;Vec&lt;T::AccountId&gt;&gt;();
 			<span class="kw">let </span>prime = members.last().cloned().unwrap();
 			set_members::&lt;T, I&gt;(members.clone(), <span class="prelude-val">Some</span>(members.len() - <span class="number">1</span>));
 
-			<span class="kw">let </span>add = account::&lt;T::AccountId&gt;(<span class="string">&quot;member&quot;</span>, m, SEED);
+			<span class="kw">let </span>add = account::&lt;T::AccountId&gt;(<span class="string">"member"</span>, m, SEED);
 			<span class="kw">let </span>add_lookup = T::Lookup::unlookup(add.clone());
 			<span class="macro">whitelist!</span>(prime);
 		}: {
@@ -1513,7 +1515,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		set_prime {
 			<span class="kw">let </span>m <span class="kw">in </span><span class="number">1 </span>.. T::MaxMembers::get();
-			<span class="kw">let </span>members = (<span class="number">0</span>..m).map(|i| account(<span class="string">&quot;member&quot;</span>, i, SEED)).collect::&lt;Vec&lt;T::AccountId&gt;&gt;();
+			<span class="kw">let </span>members = (<span class="number">0</span>..m).map(|i| account(<span class="string">"member"</span>, i, SEED)).collect::&lt;Vec&lt;T::AccountId&gt;&gt;();
 			<span class="kw">let </span>prime = members.last().cloned().unwrap();
 			<span class="kw">let </span>prime_lookup = T::Lookup::unlookup(prime.clone());
 			set_members::&lt;T, I&gt;(members, <span class="prelude-val">None</span>);
@@ -1529,7 +1531,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 
 		clear_prime {
-			<span class="kw">let </span>members = (<span class="number">0</span>..T::MaxMembers::get()).map(|i| account(<span class="string">&quot;member&quot;</span>, i, SEED)).collect::&lt;Vec&lt;T::AccountId&gt;&gt;();
+			<span class="kw">let </span>members = (<span class="number">0</span>..T::MaxMembers::get()).map(|i| account(<span class="string">"member"</span>, i, SEED)).collect::&lt;Vec&lt;T::AccountId&gt;&gt;();
 			<span class="kw">let </span>prime = members.last().cloned().unwrap();
 			set_members::&lt;T, I&gt;(members, <span class="prelude-val">None</span>);
 		}: {
@@ -1640,12 +1642,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		t.into()
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new_bench_ext() -&gt; sp_io::TestExternalities {
 		frame_system::GenesisConfig::&lt;Test&gt;::default().build_storage().unwrap().into()
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>clean() {
 		Members::set(<span class="macro">vec!</span>[]);
 		Prime::set(<span class="prelude-val">None</span>);
@@ -1816,7 +1818,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="attr">#[test]
-	#[should_panic(expected = <span class="string">&quot;Members cannot contain duplicate accounts.&quot;</span>)]
+	#[should_panic(expected = <span class="string">"Members cannot contain duplicate accounts."</span>)]
 	</span><span class="kw">fn </span>genesis_build_panics_with_duplicate_members() {
 		pallet_membership::GenesisConfig::&lt;Test&gt; {
 			members: <span class="macro">bounded_vec!</span>[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">1</span>],
@@ -1830,7 +1832,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>migration_v4() {
 		new_test_ext().execute_with(|| {
 			<span class="kw">use </span>frame_support::traits::PalletInfo;
-			<span class="kw">let </span>old_pallet_name = <span class="string">&quot;OldMembership&quot;</span>;
+			<span class="kw">let </span>old_pallet_name = <span class="string">"OldMembership"</span>;
 			<span class="kw">let </span>new_pallet_name =
 				&lt;Test <span class="kw">as </span>frame_system::Config&gt;::PalletInfo::name::&lt;Membership&gt;().unwrap();
 

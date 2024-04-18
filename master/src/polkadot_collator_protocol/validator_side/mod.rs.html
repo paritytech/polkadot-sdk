@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/network/collator-protocol/src/validator_side/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/network/collator-protocol/src/validator_side/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_collator_protocol" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_collator_protocol" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../polkadot_collator_protocol/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -2209,6 +2211,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2060" id="2060">2060</a>
 <a href="#2061" id="2061">2061</a>
 <a href="#2062" id="2062">2062</a>
+<a href="#2063" id="2063">2063</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2288,19 +2291,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">pub use </span>metrics::Metrics;
 
-<span class="kw">const </span>COST_UNEXPECTED_MESSAGE: Rep = Rep::CostMinor(<span class="string">&quot;An unexpected message&quot;</span>);
+<span class="kw">const </span>COST_UNEXPECTED_MESSAGE: Rep = Rep::CostMinor(<span class="string">"An unexpected message"</span>);
 <span class="doccomment">/// Message could not be decoded properly.
-</span><span class="kw">const </span>COST_CORRUPTED_MESSAGE: Rep = Rep::CostMinor(<span class="string">&quot;Message was corrupt&quot;</span>);
+</span><span class="kw">const </span>COST_CORRUPTED_MESSAGE: Rep = Rep::CostMinor(<span class="string">"Message was corrupt"</span>);
 <span class="doccomment">/// Network errors that originated at the remote host should have same cost as timeout.
-</span><span class="kw">const </span>COST_NETWORK_ERROR: Rep = Rep::CostMinor(<span class="string">&quot;Some network error&quot;</span>);
-<span class="kw">const </span>COST_INVALID_SIGNATURE: Rep = Rep::Malicious(<span class="string">&quot;Invalid network message signature&quot;</span>);
-<span class="kw">const </span>COST_REPORT_BAD: Rep = Rep::Malicious(<span class="string">&quot;A collator was reported by another subsystem&quot;</span>);
-<span class="kw">const </span>COST_WRONG_PARA: Rep = Rep::Malicious(<span class="string">&quot;A collator provided a collation for the wrong para&quot;</span>);
+</span><span class="kw">const </span>COST_NETWORK_ERROR: Rep = Rep::CostMinor(<span class="string">"Some network error"</span>);
+<span class="kw">const </span>COST_INVALID_SIGNATURE: Rep = Rep::Malicious(<span class="string">"Invalid network message signature"</span>);
+<span class="kw">const </span>COST_REPORT_BAD: Rep = Rep::Malicious(<span class="string">"A collator was reported by another subsystem"</span>);
+<span class="kw">const </span>COST_WRONG_PARA: Rep = Rep::Malicious(<span class="string">"A collator provided a collation for the wrong para"</span>);
 <span class="kw">const </span>COST_PROTOCOL_MISUSE: Rep =
-	Rep::Malicious(<span class="string">&quot;A collator advertising a collation for an async backing relay parent using V1&quot;</span>);
-<span class="kw">const </span>COST_UNNEEDED_COLLATOR: Rep = Rep::CostMinor(<span class="string">&quot;An unneeded collator connected&quot;</span>);
+	Rep::Malicious(<span class="string">"A collator advertising a collation for an async backing relay parent using V1"</span>);
+<span class="kw">const </span>COST_UNNEEDED_COLLATOR: Rep = Rep::CostMinor(<span class="string">"An unneeded collator connected"</span>);
 <span class="kw">const </span>BENEFIT_NOTIFY_GOOD: Rep =
-	Rep::BenefitMinor(<span class="string">&quot;A collator was noted good by another subsystem&quot;</span>);
+	Rep::BenefitMinor(<span class="string">"A collator was noted good by another subsystem"</span>);
 
 <span class="doccomment">/// Time after starting a collation download from a collator we will start another one from the
 /// next collator even if the upload was not finished yet.
@@ -2332,7 +2335,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	para_id: ParaId,
 	<span class="doccomment">/// Collations advertised by peer per relay parent.
 	///
-	/// V1 network protocol doesn&#39;t include candidate hash in
+	/// V1 network protocol doesn't include candidate hash in
 	/// advertisements, we store an empty set in this case to occupy
 	/// a slot in map.
 	</span>advertisements: HashMap&lt;Hash, HashSet&lt;CandidateHash&gt;&gt;,
@@ -2484,8 +2487,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							<span class="kw">if </span><span class="self">self</span>.version != CollationVersion::V1 {
 								<span class="macro">gum::error!</span>(
 									target: LOG_TARGET,
-									<span class="string">&quot;Programming error, `candidate_hash` can not be `None` \
-									 for non `V1` networking.&quot;</span>,
+									<span class="string">"Programming error, `candidate_hash` can not be `None` \
+									 for non `V1` networking."</span>,
 								);
 							}
 
@@ -2598,9 +2601,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">struct </span>State {
 	<span class="doccomment">/// Leaves that do support asynchronous backing along with
 	/// implicit ancestry. Leaves from the implicit view are present in
-	/// `active_leaves`, the opposite doesn&#39;t hold true.
+	/// `active_leaves`, the opposite doesn't hold true.
 	///
-	/// Relay-chain blocks which don&#39;t support prospective parachains are
+	/// Relay-chain blocks which don't support prospective parachains are
 	/// never included in the fragment trees of active leaves which do. In
 	/// particular, this means that if a given relay parent belongs to implicit
 	/// ancestry of some active leaf, then it does support prospective parachains.
@@ -2618,7 +2621,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Track all active collators and their data.
 	</span>peer_data: HashMap&lt;PeerId, PeerData&gt;,
 
-	<span class="doccomment">/// Parachains we&#39;re currently assigned to. With async backing enabled
+	<span class="doccomment">/// Parachains we're currently assigned to. With async backing enabled
 	/// this includes assignments from the implicit view.
 	</span>current_assignments: HashMap&lt;ParaId, usize&gt;,
 
@@ -2636,7 +2639,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Advertisements that were accepted as valid by collator protocol but rejected by backing.
 	///
-	/// It&#39;s only legal to fetch collations that are either built on top of the root
+	/// It's only legal to fetch collations that are either built on top of the root
 	/// of some fragment tree or have a parent node which represents backed candidate.
 	/// Otherwise, a validator will keep such advertisement in the memory and re-trigger
 	/// requests to backing on new backed candidates and activations.
@@ -2648,7 +2651,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// A triggering timer means that the fetching took too long for our taste and we should give
 	/// another collator the chance to be faster (dequeue next fetch request as well).
 	</span>collation_fetch_timeouts:
-		FuturesUnordered&lt;BoxFuture&lt;<span class="lifetime">&#39;static</span>, (CollatorId, <span class="prelude-ty">Option</span>&lt;CandidateHash&gt;, Hash)&gt;&gt;,
+		FuturesUnordered&lt;BoxFuture&lt;<span class="lifetime">'static</span>, (CollatorId, <span class="prelude-ty">Option</span>&lt;CandidateHash&gt;, Hash)&gt;&gt;,
 
 	<span class="doccomment">/// Collations that we have successfully requested from peers and waiting
 	/// on validation.
@@ -2717,19 +2720,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			})
 		},
 		<span class="prelude-val">None </span>=&gt; {
-			<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>relay_parent, <span class="string">&quot;Not a validator&quot;</span>);
+			<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>relay_parent, <span class="string">"Not a validator"</span>);
 
 			<span class="kw">return </span><span class="prelude-val">Ok</span>(())
 		},
 	};
 
-	<span class="comment">// This code won&#39;t work well, if at all for on-demand parachains. For on-demand we&#39;ll
+	<span class="comment">// This code won't work well, if at all for on-demand parachains. For on-demand we'll
 	// have to be aware of which core the on-demand claim is going to be multiplexed
 	// onto. The on-demand claim will also have a known collator, and we should always
 	// allow an incoming connection from that collator. If not even connecting to them
 	// directly.
 	//
-	// However, this&#39;ll work fine for parachains, as each parachain gets a dedicated
+	// However, this'll work fine for parachains, as each parachain gets a dedicated
 	// core.
 	</span><span class="kw">if let </span><span class="prelude-val">Some</span>(para_id) = para_now.as_ref() {
 		<span class="kw">let </span>entry = current_assignments.entry(<span class="kw-2">*</span>para_id).or_default();
@@ -2739,7 +2742,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				target: LOG_TARGET,
 				<span class="question-mark">?</span>relay_parent,
 				para_id = <span class="question-mark">?</span>para_id,
-				<span class="string">&quot;Assigned to a parachain&quot;</span>,
+				<span class="string">"Assigned to a parachain"</span>,
 			);
 		}
 	}
@@ -2763,7 +2766,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="macro">gum::debug!</span>(
 					target: LOG_TARGET,
 					para_id = <span class="question-mark">?</span>cur,
-					<span class="string">&quot;Unassigned from a parachain&quot;</span>,
+					<span class="string">"Unassigned from a parachain"</span>,
 				);
 			}
 		}
@@ -2861,7 +2864,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		.<span class="kw">await</span>;
 }
 
-<span class="doccomment">/// A peer&#39;s view has changed. A number of things should be done:
+<span class="doccomment">/// A peer's view has changed. A number of things should be done:
 ///  - Ongoing collation requests have to be canceled.
 ///  - Advertisements by this peer that are no longer relevant have to be removed.
 </span><span class="kw">fn </span>handle_peer_view_change(state: <span class="kw-2">&amp;mut </span>State, peer_id: PeerId, view: View) {
@@ -2939,7 +2942,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		span: state
 			.span_per_relay_parent
 			.get(<span class="kw-2">&amp;</span>relay_parent)
-			.map(|s| s.child(<span class="string">&quot;collation-request&quot;</span>).with_para_id(para_id)),
+			.map(|s| s.child(<span class="string">"collation-request"</span>).with_para_id(para_id)),
 		_lifetime_timer: state.metrics.time_collation_request_duration(),
 	};
 
@@ -2953,7 +2956,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		peer_id = %peer_id,
 		%para_id,
 		<span class="question-mark">?</span>relay_parent,
-		<span class="string">&quot;Requesting collation&quot;</span>,
+		<span class="string">"Requesting collation"</span>,
 	);
 
 	<span class="kw">let </span>maybe_candidate_hash =
@@ -3007,7 +3010,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						target: LOG_TARGET,
 						peer_id = <span class="question-mark">?</span>origin,
 						<span class="question-mark">?</span>para_id,
-						<span class="string">&quot;Unknown peer&quot;</span>,
+						<span class="string">"Unknown peer"</span>,
 					);
 					modify_reputation(
 						<span class="kw-2">&amp;mut </span>state.reputation,
@@ -3025,7 +3028,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					target: LOG_TARGET,
 					peer_id = <span class="question-mark">?</span>origin,
 					<span class="question-mark">?</span>para_id,
-					<span class="string">&quot;Peer is already in the collating state&quot;</span>,
+					<span class="string">"Peer is already in the collating state"</span>,
 				);
 				modify_reputation(
 					<span class="kw-2">&amp;mut </span>state.reputation,
@@ -3042,7 +3045,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					target: LOG_TARGET,
 					peer_id = <span class="question-mark">?</span>origin,
 					<span class="question-mark">?</span>para_id,
-					<span class="string">&quot;Signature verification failure&quot;</span>,
+					<span class="string">"Signature verification failure"</span>,
 				);
 				modify_reputation(
 					<span class="kw-2">&amp;mut </span>state.reputation,
@@ -3060,7 +3063,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					peer_id = <span class="question-mark">?</span>origin,
 					<span class="question-mark">?</span>collator_id,
 					<span class="question-mark">?</span>para_id,
-					<span class="string">&quot;Declared as collator for current para&quot;</span>,
+					<span class="string">"Declared as collator for current para"</span>,
 				);
 
 				peer_data.set_collating(collator_id, para_id);
@@ -3070,7 +3073,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					peer_id = <span class="question-mark">?</span>origin,
 					<span class="question-mark">?</span>collator_id,
 					<span class="question-mark">?</span>para_id,
-					<span class="string">&quot;Declared as collator for unneeded para&quot;</span>,
+					<span class="string">"Declared as collator for unneeded para"</span>,
 				);
 
 				modify_reputation(
@@ -3080,7 +3083,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					COST_UNNEEDED_COLLATOR,
 				)
 				.<span class="kw">await</span>;
-				<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="string">&quot;Disconnecting unneeded collator&quot;</span>);
+				<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="string">"Disconnecting unneeded collator"</span>);
 				disconnect_peer(ctx.sender(), origin).<span class="kw">await</span>;
 			}
 		},
@@ -3093,7 +3096,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					peer_id = <span class="question-mark">?</span>origin,
 					<span class="question-mark">?</span>relay_parent,
 					error = <span class="question-mark">?</span>err,
-					<span class="string">&quot;Rejected v1 advertisement&quot;</span>,
+					<span class="string">"Rejected v1 advertisement"</span>,
 				);
 
 				<span class="kw">if let </span><span class="prelude-val">Some</span>(rep) = err.reputation_changes() {
@@ -3125,7 +3128,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="question-mark">?</span>relay_parent,
 					<span class="question-mark">?</span>candidate_hash,
 					error = <span class="question-mark">?</span>err,
-					<span class="string">&quot;Rejected v2 advertisement&quot;</span>,
+					<span class="string">"Rejected v2 advertisement"</span>,
 				);
 
 				<span class="kw">if let </span><span class="prelude-val">Some</span>(rep) = err.reputation_changes() {
@@ -3139,7 +3142,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">gum::warn!</span>(
 				target: LOG_TARGET,
 				peer_id = <span class="question-mark">?</span>origin,
-				<span class="string">&quot;Unexpected `CollationSeconded` message, decreasing reputation&quot;</span>,
+				<span class="string">"Unexpected `CollationSeconded` message, decreasing reputation"</span>,
 			);
 
 			modify_reputation(<span class="kw-2">&amp;mut </span>state.reputation, ctx.sender(), origin, COST_UNEXPECTED_MESSAGE)
@@ -3156,7 +3159,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>UnknownPeer,
 	<span class="doccomment">/// Peer has not declared its para id.
 	</span>UndeclaredCollator,
-	<span class="doccomment">/// We&#39;re assigned to a different para at the given relay parent.
+	<span class="doccomment">/// We're assigned to a different para at the given relay parent.
 	</span>InvalidAssignment,
 	<span class="doccomment">/// Para reached a limit of seconded candidates for this relay parent.
 	</span>SecondedLimitReached,
@@ -3164,6 +3167,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// parent.
 	</span>ProtocolMisuse,
 	<span class="doccomment">/// Advertisement is invalid.
+	</span><span class="attr">#[allow(dead_code)]
 	</span>Invalid(InsertAdvertisementError),
 }
 
@@ -3206,7 +3210,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="question-mark">?</span>candidate_relay_parent,
 			<span class="question-mark">?</span>candidate_para_id,
 			<span class="question-mark">?</span>candidate_hash,
-			<span class="string">&quot;CanSecond-request responder was dropped&quot;</span>,
+			<span class="string">"CanSecond-request responder was dropped"</span>,
 		);
 
 		<span class="bool-val">false
@@ -3252,7 +3256,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						para_id = <span class="question-mark">?</span>para_id,
 						peer_id = <span class="question-mark">?</span>blocked.peer_id,
 						error = %fetch_error,
-						<span class="string">&quot;Failed to request unblocked collation&quot;</span>,
+						<span class="string">"Failed to request unblocked collation"</span>,
 					);
 				}
 			} <span class="kw">else </span>{
@@ -3280,7 +3284,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>_span = state
 		.span_per_relay_parent
 		.get(<span class="kw-2">&amp;</span>relay_parent)
-		.map(|s| s.child(<span class="string">&quot;advertise-collation&quot;</span>));
+		.map(|s| s.child(<span class="string">"advertise-collation"</span>));
 
 	<span class="kw">let </span>peer_data = state.peer_data.get_mut(<span class="kw-2">&amp;</span>peer_id).ok_or(AdvertisementError::UnknownPeer)<span class="question-mark">?</span>;
 
@@ -3341,7 +3345,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				relay_parent = <span class="question-mark">?</span>relay_parent,
 				para_id = <span class="question-mark">?</span>para_id,
 				<span class="question-mark">?</span>candidate_hash,
-				<span class="string">&quot;Seconding is not allowed by backing, queueing advertisement&quot;</span>,
+				<span class="string">"Seconding is not allowed by backing, queueing advertisement"</span>,
 			);
 			state
 				.blocked_advertisements
@@ -3376,7 +3380,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			para_id = <span class="question-mark">?</span>para_id,
 			peer_id = <span class="question-mark">?</span>peer_id,
 			error = %fetch_error,
-			<span class="string">&quot;Failed to request advertised collation&quot;</span>,
+			<span class="string">"Failed to request advertised collation"</span>,
 		);
 	}
 
@@ -3402,7 +3406,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		peer_id = <span class="question-mark">?</span>peer_id,
 		%para_id,
 		<span class="question-mark">?</span>relay_parent,
-		<span class="string">&quot;Received advertise collation&quot;</span>,
+		<span class="string">"Received advertise collation"</span>,
 	);
 	<span class="kw">let </span>per_relay_parent = <span class="kw">match </span>state.per_relay_parent.get_mut(<span class="kw-2">&amp;</span>relay_parent) {
 		<span class="prelude-val">Some</span>(rp_state) =&gt; rp_state,
@@ -3414,7 +3418,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				%para_id,
 				<span class="question-mark">?</span>relay_parent,
 				<span class="question-mark">?</span>prospective_candidate,
-				<span class="string">&quot;Candidate relay parent went out of view for valid advertisement&quot;</span>,
+				<span class="string">"Candidate relay parent went out of view for valid advertisement"</span>,
 			);
 			<span class="kw">return </span><span class="prelude-val">Ok</span>(())
 		},
@@ -3433,7 +3437,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			peer_id = <span class="question-mark">?</span>peer_id,
 			%para_id,
 			<span class="question-mark">?</span>relay_parent,
-			<span class="string">&quot;Limit of seconded collations reached for valid advertisement&quot;</span>,
+			<span class="string">"Limit of seconded collations reached for valid advertisement"</span>,
 		);
 		<span class="kw">return </span><span class="prelude-val">Ok</span>(())
 	}
@@ -3448,7 +3452,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				peer_id = <span class="question-mark">?</span>peer_id,
 				%para_id,
 				<span class="question-mark">?</span>relay_parent,
-				<span class="string">&quot;Added collation to the pending list&quot;
+				<span class="string">"Added collation to the pending list"
 			</span>);
 			collations.waiting_queue.push_back((pending_collation, collator_id));
 		},
@@ -3456,7 +3460,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			fetch_collation(sender, state, pending_collation, collator_id).<span class="kw">await</span><span class="question-mark">?</span>;
 		},
 		CollationStatus::Seconded <span class="kw">if </span>relay_parent_mode.is_enabled() =&gt; {
-			<span class="comment">// Limit is not reached, it&#39;s allowed to second another
+			<span class="comment">// Limit is not reached, it's allowed to second another
 			// collation.
 			</span>fetch_collation(sender, state, pending_collation, collator_id).<span class="kw">await</span><span class="question-mark">?</span>;
 		},
@@ -3467,7 +3471,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				%para_id,
 				<span class="question-mark">?</span>relay_parent,
 				<span class="question-mark">?</span>relay_parent_mode,
-				<span class="string">&quot;A collation has already been seconded&quot;</span>,
+				<span class="string">"A collation has already been seconded"</span>,
 			);
 		},
 	}
@@ -3494,7 +3498,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>mode = prospective_parachains_mode(sender, <span class="kw-2">*</span>leaf).<span class="kw">await</span><span class="question-mark">?</span>;
 
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(span) = view.span_per_head().get(leaf).cloned() {
-			<span class="kw">let </span>per_leaf_span = PerLeafSpan::new(span, <span class="string">&quot;validator-side&quot;</span>);
+			<span class="kw">let </span>per_leaf_span = PerLeafSpan::new(span, <span class="string">"validator-side"</span>);
 			state.span_per_relay_parent.insert(<span class="kw-2">*</span>leaf, per_leaf_span);
 		}
 
@@ -3594,7 +3598,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// Disconnect peers who are not relevant to our current or next para.
 		//
-		// If the peer hasn&#39;t declared yet, they will be disconnected if they do not
+		// If the peer hasn't declared yet, they will be disconnected if they do not
 		// declare.
 		</span><span class="kw">if let </span><span class="prelude-val">Some</span>(para_id) = peer_data.collating_para() {
 			<span class="kw">if </span>!state.current_assignments.contains_key(<span class="kw-2">&amp;</span>para_id) {
@@ -3602,7 +3606,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					target: LOG_TARGET,
 					<span class="question-mark">?</span>peer_id,
 					<span class="question-mark">?</span>para_id,
-					<span class="string">&quot;Disconnecting peer on view change (not current parachain id)&quot;
+					<span class="string">"Disconnecting peer on view change (not current parachain id)"
 				</span>);
 				disconnect_peer(sender, <span class="kw-2">*</span>peer_id).<span class="kw">await</span>;
 			}
@@ -3633,7 +3637,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="question-mark">?</span>peer_id,
 						<span class="question-mark">?</span>observed_role,
 						<span class="question-mark">?</span>err,
-						<span class="string">&quot;Unsupported protocol version&quot;
+						<span class="string">"Unsupported protocol version"
 					</span>);
 					<span class="kw">return </span><span class="prelude-val">Ok</span>(())
 				},
@@ -3662,7 +3666,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			process_incoming_peer_message(ctx, state, remote, msg).<span class="kw">await</span>;
 		},
 		UpdatedAuthorityIds { .. } =&gt; {
-			<span class="comment">// The validator side doesn&#39;t deal with `AuthorityDiscoveryId`s.
+			<span class="comment">// The validator side doesn't deal with `AuthorityDiscoveryId`s.
 		</span>},
 	}
 
@@ -3686,13 +3690,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">gum::warn!</span>(
 				target: LOG_TARGET,
 				para_id = %id,
-				<span class="string">&quot;CollateOn message is not expected on the validator side of the protocol&quot;</span>,
+				<span class="string">"CollateOn message is not expected on the validator side of the protocol"</span>,
 			);
 		},
 		DistributeCollation { .. } =&gt; {
 			<span class="macro">gum::warn!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;DistributeCollation message is not expected on the validator side of the protocol&quot;</span>,
+				<span class="string">"DistributeCollation message is not expected on the validator side of the protocol"</span>,
 			);
 		},
 		ReportCollator(id) =&gt; {
@@ -3703,7 +3707,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="macro">gum::warn!</span>(
 					target: LOG_TARGET,
 					err = <span class="question-mark">?</span>e,
-					<span class="string">&quot;Failed to handle incoming network message&quot;</span>,
+					<span class="string">"Failed to handle incoming network message"</span>,
 				);
 			}
 		},
@@ -3715,7 +3719,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						target: LOG_TARGET,
 						<span class="question-mark">?</span>stmt,
 						relay_parent = %parent,
-						<span class="string">&quot;Seconded message received with a `Valid` statement&quot;</span>,
+						<span class="string">"Seconded message received with a `Valid` statement"</span>,
 					);
 					<span class="kw">return
 				</span>},
@@ -3762,7 +3766,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="macro">gum::debug!</span>(
 					target: LOG_TARGET,
 					relay_parent = <span class="question-mark">?</span>parent,
-					<span class="string">&quot;Collation has been seconded, but the relay parent is deactivated&quot;</span>,
+					<span class="string">"Collation has been seconded, but the relay parent is deactivated"</span>,
 				);
 			}
 		},
@@ -3783,7 +3787,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						target: LOG_TARGET,
 						relay_parent = <span class="question-mark">?</span>parent,
 						candidate = <span class="question-mark">?</span>candidate_receipt.hash(),
-						<span class="string">&quot;Reported invalid candidate for unknown `pending_candidate`!&quot;</span>,
+						<span class="string">"Reported invalid candidate for unknown `pending_candidate`!"</span>,
 					);
 					<span class="kw">return
 				</span>},
@@ -3846,7 +3850,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			res = ctx.recv().fuse() =&gt; {
 				<span class="kw">match </span>res {
 					<span class="prelude-val">Ok</span>(FromOrchestra::Communication { msg }) =&gt; {
-						<span class="macro">gum::trace!</span>(target: LOG_TARGET, msg = <span class="question-mark">?</span>msg, <span class="string">&quot;received a message&quot;</span>);
+						<span class="macro">gum::trace!</span>(target: LOG_TARGET, msg = <span class="question-mark">?</span>msg, <span class="string">"received a message"</span>);
 						process_msg(
 							<span class="kw-2">&amp;mut </span>ctx,
 							<span class="kw-2">&amp;</span>keystore,
@@ -3887,7 +3891,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						para_id = <span class="question-mark">?</span>pending_collation.para_id,
 						peer_id = <span class="question-mark">?</span>pending_collation.peer_id,
 						error = %err,
-						<span class="string">&quot;Seconding aborted due to an error&quot;</span>,
+						<span class="string">"Seconding aborted due to an error"</span>,
 					);
 
 					<span class="kw">if </span>err.is_malicious() {
@@ -3911,7 +3915,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					target: LOG_TARGET,
 					<span class="question-mark">?</span>relay_parent,
 					<span class="question-mark">?</span>collator_id,
-					<span class="string">&quot;Timeout hit - already seconded?&quot;
+					<span class="string">"Timeout hit - already seconded?"
 				</span>);
 				dequeue_next_collation_and_fetch(
 					<span class="kw-2">&amp;mut </span>ctx,
@@ -3945,7 +3949,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			target: LOG_TARGET,
 			<span class="question-mark">?</span>relay_parent,
 			<span class="question-mark">?</span>id,
-			<span class="string">&quot;Successfully dequeued next advertisement - fetching ...&quot;
+			<span class="string">"Successfully dequeued next advertisement - fetching ..."
 		</span>);
 		<span class="kw">if let </span><span class="prelude-val">Err</span>(err) = fetch_collation(ctx.sender(), state, next, id).<span class="kw">await </span>{
 			<span class="macro">gum::debug!</span>(
@@ -3954,7 +3958,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				para_id = <span class="question-mark">?</span>next.para_id,
 				peer_id = <span class="question-mark">?</span>next.peer_id,
 				error = %err,
-				<span class="string">&quot;Failed to request a collation, dequeueing next one&quot;</span>,
+				<span class="string">"Failed to request a collation, dequeueing next one"</span>,
 			);
 		} <span class="kw">else </span>{
 			<span class="kw">break
@@ -4028,7 +4032,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="macro">gum::trace!</span>(
 				target: LOG_TARGET,
 				relay_parent = <span class="question-mark">?</span>relay_parent,
-				<span class="string">&quot;Fetched collation for a parent out of view&quot;</span>,
+				<span class="string">"Fetched collation for a parent out of view"</span>,
 			);
 			<span class="kw">return </span><span class="prelude-val">Ok</span>(())
 		},
@@ -4089,7 +4093,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			pov,
 		))
 		.<span class="kw">await</span>;
-		<span class="comment">// There&#39;s always a single collation being fetched at any moment of time.
+		<span class="comment">// There's always a single collation being fetched at any moment of time.
 		// In case of a failure, we reset the status back to waiting.
 		</span>collations.status = CollationStatus::WaitingOnValidation;
 
@@ -4110,7 +4114,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ) {
 	<span class="kw">for </span>(peer, peer_data) <span class="kw">in </span>peers {
 		<span class="kw">if </span>peer_data.is_inactive(<span class="kw-2">&amp;</span>eviction_policy) {
-			<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>peer, <span class="string">&quot;Disconnecting inactive peer&quot;</span>);
+			<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>peer, <span class="string">"Disconnecting inactive peer"</span>);
 			disconnect_peer(sender, <span class="kw-2">*</span>peer).<span class="kw">await</span>;
 		}
 	}
@@ -4135,7 +4139,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				hash = <span class="question-mark">?</span>pending_collation.relay_parent,
 				para_id = <span class="question-mark">?</span>pending_collation.para_id,
 				peer_id = <span class="question-mark">?</span>pending_collation.peer_id,
-				<span class="string">&quot;Request was cancelled from the validator side&quot;
+				<span class="string">"Request was cancelled from the validator side"
 			</span>);
 			<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="prelude-val">None</span>)
 		},
@@ -4146,7 +4150,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>_span = state
 		.span_per_relay_parent
 		.get(<span class="kw-2">&amp;</span>pending_collation.relay_parent)
-		.map(|s| s.child(<span class="string">&quot;received-collation&quot;</span>));
+		.map(|s| s.child(<span class="string">"received-collation"</span>));
 	<span class="kw">let </span>_timer = state.metrics.time_handle_collation_request_result();
 
 	<span class="kw">let </span><span class="kw-2">mut </span>metrics_result = <span class="prelude-val">Err</span>(());
@@ -4159,7 +4163,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				para_id = <span class="question-mark">?</span>pending_collation.para_id,
 				peer_id = <span class="question-mark">?</span>pending_collation.peer_id,
 				err = <span class="question-mark">?</span>err,
-				<span class="string">&quot;Collator provided response that could not be decoded&quot;
+				<span class="string">"Collator provided response that could not be decoded"
 			</span>);
 			<span class="prelude-val">Err</span>(<span class="prelude-val">Some</span>((pending_collation.peer_id, COST_CORRUPTED_MESSAGE)))
 		},
@@ -4169,9 +4173,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				hash = <span class="question-mark">?</span>pending_collation.relay_parent,
 				para_id = <span class="question-mark">?</span>pending_collation.para_id,
 				peer_id = <span class="question-mark">?</span>pending_collation.peer_id,
-				<span class="string">&quot;Request timed out&quot;
+				<span class="string">"Request timed out"
 			</span>);
-			<span class="comment">// For now we don&#39;t want to change reputation on timeout, to mitigate issues like
+			<span class="comment">// For now we don't want to change reputation on timeout, to mitigate issues like
 			// this: https://github.com/paritytech/polkadot/issues/4617
 			</span><span class="prelude-val">Err</span>(<span class="prelude-val">None</span>)
 		},
@@ -4184,7 +4188,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				para_id = <span class="question-mark">?</span>pending_collation.para_id,
 				peer_id = <span class="question-mark">?</span>pending_collation.peer_id,
 				err = <span class="question-mark">?</span>err,
-				<span class="string">&quot;Fetching collation failed due to network error&quot;
+				<span class="string">"Fetching collation failed due to network error"
 			</span>);
 			<span class="comment">// A minor decrease in reputation for any network failure seems
 			// sensible. In theory this could be exploited, by DoSing this node,
@@ -4201,7 +4205,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				para_id = <span class="question-mark">?</span>pending_collation.para_id,
 				peer_id = <span class="question-mark">?</span>pending_collation.peer_id,
 				err = <span class="question-mark">?</span>err,
-				<span class="string">&quot;Canceled should be handled by `is_timed_out` above - this is a bug!&quot;
+				<span class="string">"Canceled should be handled by `is_timed_out` above - this is a bug!"
 			</span>);
 			<span class="prelude-val">Err</span>(<span class="prelude-val">None</span>)
 		},
@@ -4214,7 +4218,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				expected_para_id = <span class="question-mark">?</span>pending_collation.para_id,
 				got_para_id = <span class="question-mark">?</span>receipt.descriptor().para_id,
 				peer_id = <span class="question-mark">?</span>pending_collation.peer_id,
-				<span class="string">&quot;Got wrong para ID for requested collation.&quot;
+				<span class="string">"Got wrong para ID for requested collation."
 			</span>);
 
 			<span class="prelude-val">Err</span>(<span class="prelude-val">Some</span>((pending_collation.peer_id, COST_WRONG_PARA)))
@@ -4225,9 +4229,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				para_id = %pending_collation.para_id,
 				hash = <span class="question-mark">?</span>pending_collation.relay_parent,
 				candidate_hash = <span class="question-mark">?</span>candidate_receipt.hash(),
-				<span class="string">&quot;Received collation&quot;</span>,
+				<span class="string">"Received collation"</span>,
 			);
-			<span class="kw">let </span>_span = jaeger::Span::new(<span class="kw-2">&amp;</span>pov, <span class="string">&quot;received-collation&quot;</span>);
+			<span class="kw">let </span>_span = jaeger::Span::new(<span class="kw-2">&amp;</span>pov, <span class="string">"received-collation"</span>);
 
 			metrics_result = <span class="prelude-val">Ok</span>(());
 			<span class="prelude-val">Ok</span>(PendingCollationFetch {
@@ -4251,9 +4255,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				para_id = %pending_collation.para_id,
 				hash = <span class="question-mark">?</span>pending_collation.relay_parent,
 				candidate_hash = <span class="question-mark">?</span>receipt.hash(),
-				<span class="string">&quot;Received collation (v3)&quot;</span>,
+				<span class="string">"Received collation (v3)"</span>,
 			);
-			<span class="kw">let </span>_span = jaeger::Span::new(<span class="kw-2">&amp;</span>pov, <span class="string">&quot;received-collation&quot;</span>);
+			<span class="kw">let </span>_span = jaeger::Span::new(<span class="kw-2">&amp;</span>pov, <span class="string">"received-collation"</span>);
 
 			metrics_result = <span class="prelude-val">Ok</span>(());
 			<span class="prelude-val">Ok</span>(PendingCollationFetch {

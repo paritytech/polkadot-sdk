@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/mixnet/src/run.rs`."><title>run.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/mixnet/src/run.rs`."><title>run.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_mixnet" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_mixnet" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sc_mixnet/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -604,7 +606,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	time::{Duration, Instant},
 };
 
-<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;mixnet&quot;</span>;
+<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"mixnet"</span>;
 
 <span class="kw">const </span>MIN_BLOCKS_BETWEEN_REGISTRATION_ATTEMPTS: u32 = <span class="number">3</span>;
 
@@ -632,8 +634,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">match </span>data.as_slice() {
 				[SUBMIT_EXTRINSIC, encoded_extrinsic @ ..] =&gt; {
 					<span class="kw">if </span>!extrinsic_queue.has_space() {
-						<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;No space in extrinsic queue; dropping request&quot;</span>);
-						<span class="comment">// We don&#39;t send a reply in this case; we want the requester to retry
+						<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"No space in extrinsic queue; dropping request"</span>);
+						<span class="comment">// We don't send a reply in this case; we want the requester to retry
 						</span>reply_manager.abandon(reply_context);
 						<span class="kw">return
 					</span>}
@@ -646,7 +648,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							complete_submit_extrinsic(
 								reply_manager,
 								reply_context,
-								<span class="prelude-val">Err</span>(RemoteErr::Decode(<span class="macro">format!</span>(<span class="string">&quot;Bad extrinsic: {}&quot;</span>, err))),
+								<span class="prelude-val">Err</span>(RemoteErr::Decode(<span class="macro">format!</span>(<span class="string">"Bad extrinsic: {}"</span>, err))),
 								mixnet,
 							);
 							<span class="kw">return
@@ -658,8 +660,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					extrinsic_queue.insert(deadline, extrinsic, reply_context);
 				},
 				<span class="kw">_ </span>=&gt; {
-					<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;Unrecognised request; discarding&quot;</span>);
-					<span class="comment">// To keep things simple we don&#39;t bother sending a reply in this case. The
+					<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"Unrecognised request; discarding"</span>);
+					<span class="comment">// To keep things simple we don't bother sending a reply in this case. The
 					// requester will give up and try another mixnode eventually.
 					</span>reply_manager.abandon(reply_context);
 				},
@@ -669,7 +671,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span><span class="prelude-val">Some</span>(request) = request_manager.remove(<span class="kw-2">&amp;</span>message.request_id) <span class="kw">else </span>{
 				<span class="macro">trace!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Received reply to already-completed request with message ID {:x?}&quot;</span>,
+					<span class="string">"Received reply to already-completed request with message ID {:x?}"</span>,
 					message.request_id
 				);
 				<span class="kw">return
@@ -701,13 +703,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	C: BlockchainEvents&lt;B&gt; + ProvideRuntimeApi&lt;B&gt; + HeaderBackend&lt;B&gt;,
 	C::Api: MixnetApi&lt;B&gt;,
 	S: SyncOracle,
-	P: TransactionPool&lt;Block = B&gt; + LocalTransactionPool&lt;Block = B&gt; + <span class="lifetime">&#39;static</span>,
+	P: TransactionPool&lt;Block = B&gt; + LocalTransactionPool&lt;Block = B&gt; + <span class="lifetime">'static</span>,
 {
 	<span class="kw">let </span>local_peer_id = network.local_peer_id();
 	<span class="kw">let </span><span class="prelude-val">Some</span>(local_peer_id) = to_core_peer_id(<span class="kw-2">&amp;</span>local_peer_id) <span class="kw">else </span>{
 		<span class="macro">error!</span>(target: LOG_TARGET,
-			<span class="string">&quot;Failed to convert libp2p local peer ID {local_peer_id} to mixnet peer ID; \
-			mixnet not running&quot;</span>);
+			<span class="string">"Failed to convert libp2p local peer ID {local_peer_id} to mixnet peer ID; \
+			mixnet not running"</span>);
 		<span class="kw">return
 	</span>};
 
@@ -715,8 +717,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		OffchainTransactionPoolFactory::new(transaction_pool.clone());
 
 	<span class="kw">let </span><span class="kw-2">mut </span>mixnet = Mixnet::new(config.core);
-	<span class="comment">// It would make sense to reset this to 0 when the session changes, but registrations aren&#39;t
-	// allowed at the start of a session anyway, so it doesn&#39;t really matter
+	<span class="comment">// It would make sense to reset this to 0 when the session changes, but registrations aren't
+	// allowed at the start of a session anyway, so it doesn't really matter
 	</span><span class="kw">let </span><span class="kw-2">mut </span>min_register_block = <span class="number">0u32</span>.into();
 	<span class="kw">let </span><span class="kw-2">mut </span>packet_dispatcher = PacketDispatcher::new(<span class="kw-2">&amp;</span>local_peer_id);
 	<span class="kw">let </span><span class="kw-2">mut </span>request_manager = RequestManager::new(config.request_manager);
@@ -768,7 +770,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">if </span>notification.is_new_best &amp;&amp; (<span class="kw-2">*</span>notification.header.number() &gt;= min_register_block) {
 					<span class="kw">let </span><span class="kw-2">mut </span>api = client.runtime_api();
 					api.register_extension(KeystoreExt(keystore.clone().expect(
-						<span class="string">&quot;Import notification stream only setup if we have a keystore&quot;</span>)));
+						<span class="string">"Import notification stream only setup if we have a keystore"</span>)));
 					api.register_extension(offchain_transaction_pool_factory
 						.offchain_transaction_pool(notification.hash));
 					<span class="kw">let </span>session_index = mixnet.session_status().current_index;
@@ -783,7 +785,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							MIN_BLOCKS_BETWEEN_REGISTRATION_ATTEMPTS.into()),
 						<span class="prelude-val">Ok</span>(<span class="bool-val">false</span>) =&gt; (),
 						<span class="prelude-val">Err</span>(err) =&gt; <span class="macro">debug!</span>(target: LOG_TARGET,
-							<span class="string">&quot;Error trying to register for the next session: {err}&quot;</span>),
+							<span class="string">"Error trying to register for the next session: {err}"</span>),
 					}
 				}
 			}
@@ -807,7 +809,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							<span class="kw-2">&amp;mut </span>mixnet, <span class="kw-2">&amp;mut </span>request_manager, <span class="kw-2">&amp;mut </span>reply_manager,
 							<span class="kw-2">&amp;mut </span>extrinsic_queue, <span class="kw-2">&amp;</span>config.substrate),
 						<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="macro">debug!</span>(target: LOG_TARGET,
-							<span class="string">&quot;Dropped incorrectly sized packet ({} bytes) from {peer}&quot;</span>,
+							<span class="string">"Dropped incorrectly sized packet ({} bytes) from {peer}"</span>,
 							notification.len(),
 						),
 					}
@@ -823,8 +825,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					}
 				} <span class="kw">else </span>{
 					<span class="macro">warn!</span>(target: LOG_TARGET,
-						<span class="string">&quot;Next forward packet deadline reached, but no packet in queue; \
-						this is a bug&quot;</span>);
+						<span class="string">"Next forward packet deadline reached, but no packet in queue; \
+						this is a bug"</span>);
 				}
 			}
 
@@ -849,8 +851,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">_ </span>= next_retry_delay =&gt; {
 				<span class="kw">if </span>!request_manager.pop_next_retry(<span class="kw-2">&amp;mut </span>mixnet, <span class="kw-2">&amp;</span>packet_dispatcher, <span class="kw-2">&amp;</span>config.substrate) {
 					<span class="macro">warn!</span>(target: LOG_TARGET,
-						<span class="string">&quot;Next retry deadline reached, but no request in retry queue; \
-						this is a bug&quot;</span>);
+						<span class="string">"Next retry deadline reached, but no request in retry queue; \
+						this is a bug"</span>);
 				}
 			}
 
@@ -866,15 +868,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						});
 					} <span class="kw">else </span>{
 						<span class="comment">// There are already too many pending extrinsics, just drop this one. We
-						// don&#39;t send a reply; we want the requester to retry.
+						// don't send a reply; we want the requester to retry.
 						</span><span class="macro">debug!</span>(target: LOG_TARGET,
-							<span class="string">&quot;Too many pending extrinsics; dropped submit extrinsic request&quot;</span>);
+							<span class="string">"Too many pending extrinsics; dropped submit extrinsic request"</span>);
 						reply_manager.abandon(reply_context);
 					}
 				} <span class="kw">else </span>{
 					<span class="macro">warn!</span>(target: LOG_TARGET,
-						<span class="string">&quot;Next extrinsic deadline reached, but no extrinsic in queue; \
-						this is a bug&quot;</span>);
+						<span class="string">"Next extrinsic deadline reached, but no extrinsic in queue; \
+						this is a bug"</span>);
 				}
 			}
 
@@ -899,7 +901,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">if let </span><span class="prelude-val">Err</span>(err) =
 					network.set_reserved_peers(protocol_name.clone(), reserved_peer_addrs)
 				{
-					<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;Setting reserved peers failed: {err}&quot;</span>);
+					<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"Setting reserved peers failed: {err}"</span>);
 				}
 			}
 			<span class="kw">if </span>events.contains(Events::NEXT_FORWARD_PACKET_DEADLINE_CHANGED) {

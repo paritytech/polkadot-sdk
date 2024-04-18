@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/network/approval-distribution/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/network/approval-distribution/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_approval_distribution" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_approval_distribution" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../polkadot_approval_distribution/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -2887,6 +2889,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#2738" id="2738">2738</a>
 <a href="#2739" id="2739">2739</a>
 <a href="#2740" id="2740">2740</a>
+<a href="#2741" id="2741">2741</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -2906,7 +2909,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! [`ApprovalDistribution`] implementation.
 //!
 //! See the documentation on [approval distribution][approval-distribution-page] in the
-//! implementers&#39; guide.
+//! implementers' guide.
 //!
 //! [approval-distribution-page]: https://paritytech.github.io/polkadot-sdk/book/node/approval/approval-distribution.html
 
@@ -2955,19 +2958,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests;
 
-<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;parachain::approval-distribution&quot;</span>;
+<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"parachain::approval-distribution"</span>;
 
 <span class="kw">const </span>COST_UNEXPECTED_MESSAGE: Rep =
-	Rep::CostMinor(<span class="string">&quot;Peer sent an out-of-view assignment or approval&quot;</span>);
-<span class="kw">const </span>COST_DUPLICATE_MESSAGE: Rep = Rep::CostMinorRepeated(<span class="string">&quot;Peer sent identical messages&quot;</span>);
+	Rep::CostMinor(<span class="string">"Peer sent an out-of-view assignment or approval"</span>);
+<span class="kw">const </span>COST_DUPLICATE_MESSAGE: Rep = Rep::CostMinorRepeated(<span class="string">"Peer sent identical messages"</span>);
 <span class="kw">const </span>COST_ASSIGNMENT_TOO_FAR_IN_THE_FUTURE: Rep =
-	Rep::CostMinor(<span class="string">&quot;The vote was valid but too far in the future&quot;</span>);
-<span class="kw">const </span>COST_INVALID_MESSAGE: Rep = Rep::CostMajor(<span class="string">&quot;The vote was bad&quot;</span>);
-<span class="kw">const </span>COST_OVERSIZED_BITFIELD: Rep = Rep::CostMajor(<span class="string">&quot;Oversized certificate or candidate bitfield&quot;</span>);
+	Rep::CostMinor(<span class="string">"The vote was valid but too far in the future"</span>);
+<span class="kw">const </span>COST_INVALID_MESSAGE: Rep = Rep::CostMajor(<span class="string">"The vote was bad"</span>);
+<span class="kw">const </span>COST_OVERSIZED_BITFIELD: Rep = Rep::CostMajor(<span class="string">"Oversized certificate or candidate bitfield"</span>);
 
-<span class="kw">const </span>BENEFIT_VALID_MESSAGE: Rep = Rep::BenefitMinor(<span class="string">&quot;Peer sent a valid message&quot;</span>);
+<span class="kw">const </span>BENEFIT_VALID_MESSAGE: Rep = Rep::BenefitMinor(<span class="string">"Peer sent a valid message"</span>);
 <span class="kw">const </span>BENEFIT_VALID_MESSAGE_FIRST: Rep =
-	Rep::BenefitMinorFirst(<span class="string">&quot;Valid message with new information&quot;</span>);
+	Rep::BenefitMinorFirst(<span class="string">"Valid message with new information"</span>);
 
 <span class="comment">// Maximum valid size for the `CandidateBitfield` in the assignment messages.
 </span><span class="kw">const </span>MAX_BITFIELD_SIZE: usize = <span class="number">500</span>;
@@ -3037,7 +3040,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	InvalidCandidateIndex,
 	DuplicateApproval,
 	UnknownAssignment,
-	AssignmentsFollowedDifferentPaths(RequiredRouting, RequiredRouting),
+	<span class="attr">#[allow(dead_code)]
+	</span>AssignmentsFollowedDifferentPaths(RequiredRouting, RequiredRouting),
 }
 
 <span class="kw">impl </span>ApprovalEntry {
@@ -3141,7 +3145,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">pub </span>version: ProtocolVersion,
 }
 
-<span class="comment">// In case the original grid topology mechanisms don&#39;t work on their own, we need to trade bandwidth
+<span class="comment">// In case the original grid topology mechanisms don't work on their own, we need to trade bandwidth
 // for protocol liveliness by introducing aggression.
 //
 // Aggression has 3 levels:
@@ -3206,7 +3210,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// The [`State`] struct is responsible for tracking the overall state of the subsystem.
 ///
 /// It tracks metadata about our view of the unfinalized chain,
-/// which assignments and approvals we have seen, and our peers&#39; views.
+/// which assignments and approvals we have seen, and our peers' views.
 </span><span class="attr">#[derive(Default)]
 </span><span class="kw">struct </span>State {
 	<span class="doccomment">/// These two fields are used in conjunction to construct a view over the unfinalized chain.
@@ -3217,7 +3221,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// against the directly mentioned blocks in our view in this map until `NewBlocks` is
 	/// received.
 	///
-	/// As long as the parent is already in the `blocks` map and `NewBlocks` messages aren&#39;t
+	/// As long as the parent is already in the `blocks` map and `NewBlocks` messages aren't
 	/// delayed by more than a block length, this strategy will work well for mitigating the race.
 	/// This is also a race that occurs typically on local networks.
 	</span>pending_known: HashMap&lt;Hash, Vec&lt;(PeerId, PendingMessage)&gt;&gt;,
@@ -3302,7 +3306,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="self">self</span>.insert(
 						MessageSubject(
 							message.<span class="number">0</span>,
-							<span class="macro">vec!</span>[candidate_index <span class="kw">as </span>u32].try_into().expect(<span class="string">&quot;Non-empty vec; qed&quot;</span>),
+							<span class="macro">vec!</span>[candidate_index <span class="kw">as </span>u32].try_into().expect(<span class="string">"Non-empty vec; qed"</span>),
 							message.<span class="number">2</span>,
 						),
 						kind,
@@ -3316,9 +3320,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Information that has been circulated to and from a peer.
 </span><span class="attr">#[derive(Debug, Clone, Default)]
 </span><span class="kw">struct </span>PeerKnowledge {
-	<span class="doccomment">/// The knowledge we&#39;ve sent to the peer.
+	<span class="doccomment">/// The knowledge we've sent to the peer.
 	</span>sent: Knowledge,
-	<span class="doccomment">/// The knowledge we&#39;ve received from the peer.
+	<span class="doccomment">/// The knowledge we've received from the peer.
 	</span>received: Knowledge,
 }
 
@@ -3408,7 +3412,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						target: LOG_TARGET,
 						hash = <span class="question-mark">?</span>entry.assignment.block_hash,
 						<span class="question-mark">?</span>claimed_candidate_index,
-						<span class="string">&quot;Missing candidate entry on `import_and_circulate_assignment`&quot;</span>,
+						<span class="string">"Missing candidate entry on `import_and_circulate_assignment`"</span>,
 					);
 				},
 			};
@@ -3464,7 +3468,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 				<span class="kw">if let </span><span class="prelude-val">Some</span>(required_routing) = required_routing {
 					<span class="kw">if </span>required_routing != approval_entry.routing_info().required_routing {
-						<span class="comment">// This shouldn&#39;t happen since the required routing is computed based on the
+						<span class="comment">// This shouldn't happen since the required routing is computed based on the
 						// validator_index, so two assignments from the same validators will have
 						// the same required routing.
 						</span><span class="kw">return </span><span class="prelude-val">Err</span>(ApprovalEntryError::AssignmentsFollowedDifferentPaths(
@@ -3559,7 +3563,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) {
 		<span class="kw">match </span>event {
 			NetworkBridgeEvent::PeerConnected(peer_id, role, version, authority_ids) =&gt; {
-				<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>peer_id, <span class="question-mark">?</span>role, <span class="question-mark">?</span>authority_ids, <span class="string">&quot;Peer connected&quot;</span>);
+				<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>peer_id, <span class="question-mark">?</span>role, <span class="question-mark">?</span>authority_ids, <span class="string">"Peer connected"</span>);
 				<span class="kw">if let </span><span class="prelude-val">Some</span>(authority_ids) = authority_ids {
 					<span class="self">self</span>.topologies.update_authority_ids(peer_id, <span class="kw-2">&amp;</span>authority_ids);
 				}
@@ -3569,7 +3573,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					.or_insert(PeerEntry { view: Default::default(), version });
 			},
 			NetworkBridgeEvent::PeerDisconnected(peer_id) =&gt; {
-				<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>peer_id, <span class="string">&quot;Peer disconnected&quot;</span>);
+				<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>peer_id, <span class="string">"Peer disconnected"</span>);
 				<span class="self">self</span>.peer_views.remove(<span class="kw-2">&amp;</span>peer_id);
 				<span class="self">self</span>.blocks.iter_mut().for_each(|(_hash, entry)| {
 					entry.known_by.remove(<span class="kw-2">&amp;</span>peer_id);
@@ -3588,7 +3592,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="self">self</span>.handle_peer_view_change(ctx, metrics, peer_id, view, rng).<span class="kw">await</span>;
 			},
 			NetworkBridgeEvent::OurViewChange(view) =&gt; {
-				<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>view, <span class="string">&quot;Own view change&quot;</span>);
+				<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>view, <span class="string">"Own view change"</span>);
 				<span class="kw">for </span>head <span class="kw">in </span>view.iter() {
 					<span class="kw">if </span>!<span class="self">self</span>.blocks.contains_key(head) {
 						<span class="self">self</span>.pending_known.entry(<span class="kw-2">*</span>head).or_default();
@@ -3601,7 +3605,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="macro">gum::trace!</span>(
 							target: LOG_TARGET,
 							block_hash = <span class="question-mark">?</span>h,
-							<span class="string">&quot;Cleaning up stale pending messages&quot;</span>,
+							<span class="string">"Cleaning up stale pending messages"</span>,
 						);
 					}
 					live
@@ -3611,7 +3615,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="self">self</span>.process_incoming_peer_message(ctx, metrics, peer_id, message, rng).<span class="kw">await</span>;
 			},
 			NetworkBridgeEvent::UpdatedAuthorityIds(peer_id, authority_ids) =&gt; {
-				<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="question-mark">?</span>peer_id, <span class="question-mark">?</span>authority_ids, <span class="string">&quot;Update Authority Ids&quot;</span>);
+				<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="question-mark">?</span>peer_id, <span class="question-mark">?</span>authority_ids, <span class="string">"Update Authority Ids"</span>);
 				<span class="comment">// If we learn about a new PeerId for an authority ids we need to try to route the
 				// messages that should have sent to that validator according to the topology.
 				</span><span class="kw">if </span><span class="self">self</span>.topologies.update_authority_ids(peer_id, <span class="kw-2">&amp;</span>authority_ids) {
@@ -3661,15 +3665,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span><span class="kw-2">mut </span>span = <span class="self">self
 				</span>.spans
 				.get(<span class="kw-2">&amp;</span>meta.hash)
-				.map(|span| span.child(<span class="kw-2">&amp;</span><span class="string">&quot;handle-new-blocks&quot;</span>))
-				.unwrap_or_else(|| jaeger::Span::new(meta.hash, <span class="kw-2">&amp;</span><span class="string">&quot;handle-new-blocks&quot;</span>))
-				.with_string_tag(<span class="string">&quot;block-hash&quot;</span>, <span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, meta.hash))
+				.map(|span| span.child(<span class="kw-2">&amp;</span><span class="string">"handle-new-blocks"</span>))
+				.unwrap_or_else(|| jaeger::Span::new(meta.hash, <span class="kw-2">&amp;</span><span class="string">"handle-new-blocks"</span>))
+				.with_string_tag(<span class="string">"block-hash"</span>, <span class="macro">format!</span>(<span class="string">"{:?}"</span>, meta.hash))
 				.with_stage(jaeger::Stage::ApprovalDistribution);
 
 			<span class="kw">match </span><span class="self">self</span>.blocks.entry(meta.hash) {
 				hash_map::Entry::Vacant(entry) =&gt; {
 					<span class="kw">let </span>candidates_count = meta.candidates.len();
-					span.add_uint_tag(<span class="string">&quot;candidates-count&quot;</span>, candidates_count <span class="kw">as </span>u64);
+					span.add_uint_tag(<span class="string">"candidates-count"</span>, candidates_count <span class="kw">as </span>u64);
 					<span class="kw">let </span><span class="kw-2">mut </span>candidates = Vec::with_capacity(candidates_count);
 					candidates.resize_with(candidates_count, Default::default);
 
@@ -3697,7 +3701,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="macro">gum::debug!</span>(
 			target: LOG_TARGET,
-			<span class="string">&quot;Got new blocks {:?}&quot;</span>,
+			<span class="string">"Got new blocks {:?}"</span>,
 			metas.iter().map(|m| (m.hash, m.number)).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
 		);
 
@@ -3734,7 +3738,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="macro">gum::trace!</span>(
 						target: LOG_TARGET,
 						block_hash = <span class="question-mark">?</span>h,
-						<span class="string">&quot;Extracting pending messages for new block&quot;
+						<span class="string">"Extracting pending messages for new block"
 					</span>)
 				})
 				.filter_map(|k| <span class="self">self</span>.pending_known.remove(<span class="kw-2">&amp;</span>k))
@@ -3745,7 +3749,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="macro">gum::debug!</span>(
 					target: LOG_TARGET,
 					num = to_import.len(),
-					<span class="string">&quot;Processing pending assignment/approvals&quot;</span>,
+					<span class="string">"Processing pending assignment/approvals"</span>,
 				);
 
 				<span class="kw">let </span>_timer = metrics.time_import_pending_now_known();
@@ -3793,7 +3797,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>}
 
 		<span class="self">self</span>.topologies.insert_topology(session, topology, local_index);
-		<span class="kw">let </span>topology = <span class="self">self</span>.topologies.get_topology(session).expect(<span class="string">&quot;just inserted above; qed&quot;</span>);
+		<span class="kw">let </span>topology = <span class="self">self</span>.topologies.get_topology(session).expect(<span class="string">"just inserted above; qed"</span>);
 
 		adjust_required_routing_and_propagate(
 			ctx,
@@ -3835,7 +3839,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="question-mark">?</span>block_hash,
 					<span class="question-mark">?</span>claimed_indices,
 					<span class="question-mark">?</span>validator_index,
-					<span class="string">&quot;Pending assignment&quot;</span>,
+					<span class="string">"Pending assignment"</span>,
 				);
 
 				pending.push((peer_id, PendingMessage::Assignment(assignment, claimed_indices)));
@@ -3867,7 +3871,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			target: LOG_TARGET,
 			peer_id = %peer_id,
 			num = approvals.len(),
-			<span class="string">&quot;Processing approvals from a peer&quot;</span>,
+			<span class="string">"Processing approvals from a peer"</span>,
 		);
 		<span class="kw">for </span>approval_vote <span class="kw">in </span>approvals.into_iter() {
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(pending) = <span class="self">self</span>.pending_known.get_mut(<span class="kw-2">&amp;</span>approval_vote.block_hash) {
@@ -3879,7 +3883,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					%peer_id,
 					<span class="question-mark">?</span>block_hash,
 					<span class="question-mark">?</span>validator_index,
-					<span class="string">&quot;Pending assignment candidates {:?}&quot;</span>,
+					<span class="string">"Pending assignment candidates {:?}"</span>,
 					approval_vote.candidate_indices,
 				);
 
@@ -3918,7 +3922,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					target: LOG_TARGET,
 					peer_id = %peer_id,
 					num = assignments.len(),
-					<span class="string">&quot;Processing assignments from a peer&quot;</span>,
+					<span class="string">"Processing assignments from a peer"</span>,
 				);
 				<span class="kw">let </span>sanitized_assignments =
 					<span class="self">self</span>.sanitize_v2_assignments(peer_id, ctx.sender(), assignments).<span class="kw">await</span>;
@@ -3938,7 +3942,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					target: LOG_TARGET,
 					peer_id = %peer_id,
 					num = assignments.len(),
-					<span class="string">&quot;Processing assignments from a peer&quot;</span>,
+					<span class="string">"Processing assignments from a peer"</span>,
 				);
 
 				<span class="kw">let </span>sanitized_assignments =
@@ -3981,19 +3985,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) <span class="kw">where
 		</span>R: CryptoRng + Rng,
 	{
-		<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>view, <span class="string">&quot;Peer view change&quot;</span>);
+		<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>view, <span class="string">"Peer view change"</span>);
 		<span class="kw">let </span>finalized_number = view.finalized_number;
 
 		<span class="kw">let </span>(old_view, protocol_version) =
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(peer_entry) = <span class="self">self</span>.peer_views.get_mut(<span class="kw-2">&amp;</span>peer_id) {
 				(<span class="prelude-val">Some</span>(std::mem::replace(<span class="kw-2">&amp;mut </span>peer_entry.view, view.clone())), peer_entry.version)
 			} <span class="kw">else </span>{
-				<span class="comment">// This shouldn&#39;t happen, but if it does we assume protocol version 1.
+				<span class="comment">// This shouldn't happen, but if it does we assume protocol version 1.
 				</span><span class="macro">gum::warn!</span>(
 					target: LOG_TARGET,
 					<span class="question-mark">?</span>peer_id,
 					<span class="question-mark">?</span>view,
-					<span class="string">&quot;Peer view change for missing `peer_entry`&quot;
+					<span class="string">"Peer view change for missing `peer_entry`"
 				</span>);
 
 				(<span class="prelude-val">None</span>, ValidationVersion::V1.into())
@@ -4004,9 +4008,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// we want to prune every block known_by peer up to (including) view.finalized_number
 		</span><span class="kw">let </span>blocks = <span class="kw-2">&amp;mut </span><span class="self">self</span>.blocks;
 		<span class="comment">// the `BTreeMap::range` is constrained by stored keys
-		// so the loop won&#39;t take ages if the new finalized_number skyrockets
+		// so the loop won't take ages if the new finalized_number skyrockets
 		// but we need to make sure the range is not empty, otherwise it will panic
-		// it shouldn&#39;t be, we make sure of this in the network bridge
+		// it shouldn't be, we make sure of this in the network bridge
 		</span><span class="kw">let </span>range = old_finalized_number..=finalized_number;
 		<span class="kw">if </span>!range.is_empty() &amp;&amp; !blocks.is_empty() {
 			<span class="self">self</span>.blocks_by_number
@@ -4049,7 +4053,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// after split_off old_blocks actually contains new blocks, we need to swap
 		</span>std::mem::swap(<span class="kw-2">&amp;mut </span><span class="self">self</span>.blocks_by_number, <span class="kw-2">&amp;mut </span>old_blocks);
 
-		<span class="comment">// now that we pruned `self.blocks_by_number`, let&#39;s clean up `self.blocks` too
+		<span class="comment">// now that we pruned `self.blocks_by_number`, let's clean up `self.blocks` too
 		</span>old_blocks.values().flatten().for_each(|relay_block| {
 			<span class="self">self</span>.recent_outdated_blocks.note_outdated(<span class="kw-2">*</span>relay_block);
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(block_entry) = <span class="self">self</span>.blocks.remove(relay_block) {
@@ -4079,13 +4083,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.get(<span class="kw-2">&amp;</span>assignment.block_hash)
 			.map(|span| {
 				span.child(<span class="kw">if </span>source.peer_id().is_some() {
-					<span class="string">&quot;peer-import-and-distribute-assignment&quot;
+					<span class="string">"peer-import-and-distribute-assignment"
 				</span>} <span class="kw">else </span>{
-					<span class="string">&quot;local-import-and-distribute-assignment&quot;
+					<span class="string">"local-import-and-distribute-assignment"
 				</span>})
 			})
-			.unwrap_or_else(|| jaeger::Span::new(<span class="kw-2">&amp;</span>assignment.block_hash, <span class="string">&quot;distribute-assignment&quot;</span>))
-			.with_string_tag(<span class="string">&quot;block-hash&quot;</span>, <span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, assignment.block_hash))
+			.unwrap_or_else(|| jaeger::Span::new(<span class="kw-2">&amp;</span>assignment.block_hash, <span class="string">"distribute-assignment"</span>))
+			.with_string_tag(<span class="string">"block-hash"</span>, <span class="macro">format!</span>(<span class="string">"{:?}"</span>, assignment.block_hash))
 			.with_optional_peer_id(source.peer_id().as_ref())
 			.with_stage(jaeger::Stage::ApprovalDistribution);
 
@@ -4101,7 +4105,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="question-mark">?</span>peer_id,
 						hash = <span class="question-mark">?</span>block_hash,
 						<span class="question-mark">?</span>validator_index,
-						<span class="string">&quot;Unexpected assignment&quot;</span>,
+						<span class="string">"Unexpected assignment"</span>,
 					);
 					<span class="kw">if </span>!<span class="self">self</span>.recent_outdated_blocks.is_recent_outdated(<span class="kw-2">&amp;</span>block_hash) {
 						modify_reputation(
@@ -4111,7 +4115,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							COST_UNEXPECTED_MESSAGE,
 						)
 						.<span class="kw">await</span>;
-						<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="string">&quot;Received assignment for invalid block&quot;</span>);
+						<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="string">"Received assignment for invalid block"</span>);
 						metrics.on_assignment_recent_outdated();
 					}
 				}
@@ -4132,13 +4136,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				hash_map::Entry::Occupied(<span class="kw-2">mut </span>peer_knowledge) =&gt; {
 					<span class="kw">let </span>peer_knowledge = peer_knowledge.get_mut();
 					<span class="kw">if </span>peer_knowledge.contains(<span class="kw-2">&amp;</span>message_subject, message_kind) {
-						<span class="comment">// wasn&#39;t included before
+						<span class="comment">// wasn't included before
 						</span><span class="kw">if </span>!peer_knowledge.received.insert(message_subject.clone(), message_kind) {
 							<span class="macro">gum::debug!</span>(
 								target: LOG_TARGET,
 								<span class="question-mark">?</span>peer_id,
 								<span class="question-mark">?</span>message_subject,
-								<span class="string">&quot;Duplicate assignment&quot;</span>,
+								<span class="string">"Duplicate assignment"</span>,
 							);
 
 							modify_reputation(
@@ -4156,7 +4160,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 								hash = <span class="question-mark">?</span>block_hash,
 								<span class="question-mark">?</span>validator_index,
 								<span class="question-mark">?</span>message_subject,
-								<span class="string">&quot;We sent the message to the peer while peer was sending it to us. Known race condition.&quot;</span>,
+								<span class="string">"We sent the message to the peer while peer was sending it to us. Known race condition."</span>,
 							);
 						}
 						<span class="kw">return
@@ -4167,7 +4171,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						target: LOG_TARGET,
 						<span class="question-mark">?</span>peer_id,
 						<span class="question-mark">?</span>message_subject,
-						<span class="string">&quot;Assignment from a peer is out of view&quot;</span>,
+						<span class="string">"Assignment from a peer is out of view"</span>,
 					);
 					modify_reputation(
 						<span class="kw-2">&amp;mut </span><span class="self">self</span>.reputation,
@@ -4190,7 +4194,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				)
 				.<span class="kw">await</span>;
 				<span class="kw">if let </span><span class="prelude-val">Some</span>(peer_knowledge) = entry.known_by.get_mut(<span class="kw-2">&amp;</span>peer_id) {
-					<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>peer_id, <span class="question-mark">?</span>message_subject, <span class="string">&quot;Known assignment&quot;</span>);
+					<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>peer_id, <span class="question-mark">?</span>message_subject, <span class="string">"Known assignment"</span>);
 					peer_knowledge.received.insert(message_subject, message_kind);
 				}
 				metrics.on_assignment_good_known();
@@ -4210,7 +4214,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>result = <span class="kw">match </span>rx.<span class="kw">await </span>{
 				<span class="prelude-val">Ok</span>(result) =&gt; result,
 				<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
-					<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="string">&quot;The approval voting subsystem is down&quot;</span>);
+					<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="string">"The approval voting subsystem is down"</span>);
 					<span class="kw">return
 				</span>},
 			};
@@ -4221,7 +4225,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="question-mark">?</span>source,
 				<span class="question-mark">?</span>message_subject,
 				<span class="question-mark">?</span>result,
-				<span class="string">&quot;Checked assignment&quot;</span>,
+				<span class="string">"Checked assignment"</span>,
 			);
 			<span class="kw">match </span>result {
 				AssignmentCheckResult::Accepted =&gt; {
@@ -4238,7 +4242,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					}
 				},
 				AssignmentCheckResult::AcceptedDuplicate =&gt; {
-					<span class="comment">// &quot;duplicate&quot; assignments aren&#39;t necessarily equal.
+					<span class="comment">// "duplicate" assignments aren't necessarily equal.
 					// There is more than one way each validator can be assigned to each core.
 					// cf. https://github.com/paritytech/polkadot/pull/2160#discussion_r557628699
 					</span><span class="kw">if let </span><span class="prelude-val">Some</span>(peer_knowledge) = entry.known_by.get_mut(<span class="kw-2">&amp;</span>peer_id) {
@@ -4248,7 +4252,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						target: LOG_TARGET,
 						hash = <span class="question-mark">?</span>block_hash,
 						<span class="question-mark">?</span>peer_id,
-						<span class="string">&quot;Got an `AcceptedDuplicate` assignment&quot;</span>,
+						<span class="string">"Got an `AcceptedDuplicate` assignment"</span>,
 					);
 					metrics.on_assignment_duplicatevoting();
 
@@ -4259,7 +4263,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						target: LOG_TARGET,
 						hash = <span class="question-mark">?</span>block_hash,
 						<span class="question-mark">?</span>peer_id,
-						<span class="string">&quot;Got an assignment too far in the future&quot;</span>,
+						<span class="string">"Got an assignment too far in the future"</span>,
 					);
 					modify_reputation(
 						<span class="kw-2">&amp;mut </span><span class="self">self</span>.reputation,
@@ -4278,7 +4282,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						hash = <span class="question-mark">?</span>block_hash,
 						<span class="question-mark">?</span>peer_id,
 						%error,
-						<span class="string">&quot;Got a bad assignment from peer&quot;</span>,
+						<span class="string">"Got a bad assignment from peer"</span>,
 					);
 					modify_reputation(
 						<span class="kw-2">&amp;mut </span><span class="self">self</span>.reputation,
@@ -4297,14 +4301,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				</span><span class="macro">gum::warn!</span>(
 					target: LOG_TARGET,
 					<span class="question-mark">?</span>message_subject,
-					<span class="string">&quot;Importing locally an already known assignment&quot;</span>,
+					<span class="string">"Importing locally an already known assignment"</span>,
 				);
 				<span class="kw">return
 			</span>} <span class="kw">else </span>{
 				<span class="macro">gum::debug!</span>(
 					target: LOG_TARGET,
 					<span class="question-mark">?</span>message_subject,
-					<span class="string">&quot;Importing locally a new assignment&quot;</span>,
+					<span class="string">"Importing locally a new assignment"</span>,
 				);
 			}
 		}
@@ -4337,7 +4341,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// Dispatch the message to all peers in the routing set which
 		// know the block.
 		//
-		// If the topology isn&#39;t known yet (race with networking subsystems)
+		// If the topology isn't known yet (race with networking subsystems)
 		// then messages will be sent when we get it.
 
 		</span><span class="kw">let </span>assignments = <span class="macro">vec!</span>[(assignment, claimed_candidate_indices.clone())];
@@ -4365,8 +4369,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">continue
 			</span>}
 
-			<span class="comment">// Note: at this point, we haven&#39;t received the message from any peers
-			// other than the source peer, and we just got it, so we haven&#39;t sent it
+			<span class="comment">// Note: at this point, we haven't received the message from any peers
+			// other than the source peer, and we just got it, so we haven't sent it
 			// to any peers either.
 			</span><span class="kw">let </span>route_random =
 				approval_entry.routing_info().random_routing.sample(n_peers_total, rng);
@@ -4392,7 +4396,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="question-mark">?</span>claimed_candidate_indices,
 				local = source.peer_id().is_none(),
 				num_peers = peers.len(),
-				<span class="string">&quot;Sending an assignment to peers&quot;</span>,
+				<span class="string">"Sending an assignment to peers"</span>,
 			);
 
 			<span class="kw">let </span>peers = peers
@@ -4423,7 +4427,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					target: LOG_TARGET,
 					<span class="question-mark">?</span>peer_id,
 					<span class="question-mark">?</span>message_subject,
-					<span class="string">&quot;Unknown approval assignment&quot;</span>,
+					<span class="string">"Unknown approval assignment"</span>,
 				);
 				modify_reputation(reputation, ctx.sender(), peer_id, COST_UNEXPECTED_MESSAGE).<span class="kw">await</span>;
 				metrics.on_approval_unknown_assignment();
@@ -4444,7 +4448,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							target: LOG_TARGET,
 							<span class="question-mark">?</span>peer_id,
 							<span class="question-mark">?</span>approval_knowledge_key,
-							<span class="string">&quot;Duplicate approval&quot;</span>,
+							<span class="string">"Duplicate approval"</span>,
 						);
 
 						modify_reputation(
@@ -4464,7 +4468,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					target: LOG_TARGET,
 					<span class="question-mark">?</span>peer_id,
 					<span class="question-mark">?</span>approval_knowledge_key,
-					<span class="string">&quot;Approval from a peer is out of view&quot;</span>,
+					<span class="string">"Approval from a peer is out of view"</span>,
 				);
 				modify_reputation(reputation, ctx.sender(), peer_id, COST_UNEXPECTED_MESSAGE).<span class="kw">await</span>;
 				metrics.on_approval_out_of_view();
@@ -4479,7 +4483,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			}
 
 			<span class="comment">// We already processed this approval no need to continue.
-			</span><span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>peer_id, <span class="question-mark">?</span>approval_knowledge_key, <span class="string">&quot;Known approval&quot;</span>);
+			</span><span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>peer_id, <span class="question-mark">?</span>approval_knowledge_key, <span class="string">"Known approval"</span>);
 			metrics.on_approval_good_known();
 			modify_reputation(reputation, ctx.sender(), peer_id, BENEFIT_VALID_MESSAGE).<span class="kw">await</span>;
 			<span class="bool-val">false
@@ -4500,13 +4504,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.get(<span class="kw-2">&amp;</span>vote.block_hash)
 			.map(|span| {
 				span.child(<span class="kw">if </span>source.peer_id().is_some() {
-					<span class="string">&quot;peer-import-and-distribute-approval&quot;
+					<span class="string">"peer-import-and-distribute-approval"
 				</span>} <span class="kw">else </span>{
-					<span class="string">&quot;local-import-and-distribute-approval&quot;
+					<span class="string">"local-import-and-distribute-approval"
 				</span>})
 			})
-			.unwrap_or_else(|| jaeger::Span::new(<span class="kw-2">&amp;</span>vote.block_hash, <span class="string">&quot;distribute-approval&quot;</span>))
-			.with_string_tag(<span class="string">&quot;block-hash&quot;</span>, <span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, vote.block_hash))
+			.unwrap_or_else(|| jaeger::Span::new(<span class="kw-2">&amp;</span>vote.block_hash, <span class="string">"distribute-approval"</span>))
+			.with_string_tag(<span class="string">"block-hash"</span>, <span class="macro">format!</span>(<span class="string">"{:?}"</span>, vote.block_hash))
 			.with_optional_peer_id(source.peer_id().as_ref())
 			.with_stage(jaeger::Stage::ApprovalDistribution);
 
@@ -4524,7 +4528,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							<span class="question-mark">?</span>block_hash,
 							<span class="question-mark">?</span>validator_index,
 							<span class="question-mark">?</span>candidate_indices,
-							<span class="string">&quot;Approval from a peer is out of view&quot;</span>,
+							<span class="string">"Approval from a peer is out of view"</span>,
 						);
 						modify_reputation(
 							<span class="kw-2">&amp;mut </span><span class="self">self</span>.reputation,
@@ -4570,7 +4574,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>result = <span class="kw">match </span>rx.<span class="kw">await </span>{
 				<span class="prelude-val">Ok</span>(result) =&gt; result,
 				<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
-					<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="string">&quot;The approval voting subsystem is down&quot;</span>);
+					<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="string">"The approval voting subsystem is down"</span>);
 					<span class="kw">return
 				</span>},
 			};
@@ -4581,7 +4585,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="question-mark">?</span>peer_id,
 				<span class="question-mark">?</span>result,
 				<span class="question-mark">?</span>vote,
-				<span class="string">&quot;Checked approval&quot;</span>,
+				<span class="string">"Checked approval"</span>,
 			);
 			<span class="kw">match </span>result {
 				ApprovalCheckResult::Accepted =&gt; {
@@ -4614,7 +4618,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						target: LOG_TARGET,
 						<span class="question-mark">?</span>peer_id,
 						%error,
-						<span class="string">&quot;Got a bad approval from peer&quot;</span>,
+						<span class="string">"Got a bad approval from peer"</span>,
 					);
 					metrics.on_approval_bad();
 					<span class="kw">return
@@ -4628,13 +4632,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="comment">// if we already imported all approvals, there is no need to distribute it again
 				</span><span class="macro">gum::warn!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Importing locally an already known approval&quot;</span>,
+					<span class="string">"Importing locally an already known approval"</span>,
 				);
 				<span class="kw">return
 			</span>} <span class="kw">else </span>{
 				<span class="macro">gum::debug!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Importing locally a new approval&quot;</span>,
+					<span class="string">"Importing locally a new approval"</span>,
 				);
 			}
 		}
@@ -4648,7 +4652,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					validator_index = <span class="question-mark">?</span>vote.validator,
 					candidate_bitfield = <span class="question-mark">?</span>vote.candidate_indices,
 					<span class="question-mark">?</span>err,
-					<span class="string">&quot;Possible bug: Vote import failed&quot;</span>,
+					<span class="string">"Possible bug: Vote import failed"</span>,
 				);
 				metrics.on_approval_bug();
 				<span class="kw">return
@@ -4669,12 +4673,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">return </span><span class="bool-val">false
 			</span>}
 
-			<span class="comment">// Here we&#39;re leaning on a few behaviors of assignment propagation:
-			//   1. At this point, the only peer we&#39;re aware of which has the approval message is
+			<span class="comment">// Here we're leaning on a few behaviors of assignment propagation:
+			//   1. At this point, the only peer we're aware of which has the approval message is
 			//      the source peer.
 			//   2. We have sent the assignment message to every peer in the required routing which
 			//      is aware of this block _unless_ the peer we originally received the assignment
-			//      from was part of the required routing. In that case, we&#39;ve sent the assignment
+			//      from was part of the required routing. In that case, we've sent the assignment
 			//      to all aware peers in the required routing _except_ the original source of the
 			//      assignment. Hence the `in_topology_check`.
 			//   3. Any randomly selected peers have been sent the assignment already.
@@ -4705,7 +4709,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="question-mark">?</span>block_hash,
 				local = source.peer_id().is_none(),
 				num_peers = peers.len(),
-				<span class="string">&quot;Sending an approval to peers&quot;</span>,
+				<span class="string">"Sending an approval to peers"</span>,
 			);
 			send_approvals_batched(ctx.sender(), approvals, <span class="kw-2">&amp;</span>peers).<span class="kw">await</span>;
 		}
@@ -4721,9 +4725,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>_span = <span class="self">self
 				</span>.spans
 				.get(<span class="kw-2">&amp;</span>hash)
-				.map(|span| span.child(<span class="string">&quot;get-approval-signatures&quot;</span>))
-				.unwrap_or_else(|| jaeger::Span::new(<span class="kw-2">&amp;</span>hash, <span class="string">&quot;get-approval-signatures&quot;</span>))
-				.with_string_tag(<span class="string">&quot;block-hash&quot;</span>, <span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, hash))
+				.map(|span| span.child(<span class="string">"get-approval-signatures"</span>))
+				.unwrap_or_else(|| jaeger::Span::new(<span class="kw-2">&amp;</span>hash, <span class="string">"get-approval-signatures"</span>))
+				.with_string_tag(<span class="string">"block-hash"</span>, <span class="macro">format!</span>(<span class="string">"{:?}"</span>, hash))
 				.with_stage(jaeger::Stage::ApprovalDistribution);
 
 			<span class="kw">let </span>block_entry = <span class="kw">match </span><span class="self">self</span>.blocks.get(<span class="kw-2">&amp;</span>hash) {
@@ -4731,7 +4735,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="macro">gum::debug!</span>(
 						target: LOG_TARGET,
 						<span class="question-mark">?</span>hash,
-						<span class="string">&quot;`get_approval_signatures`: could not find block entry for given hash!&quot;
+						<span class="string">"`get_approval_signatures`: could not find block entry for given hash!"
 					</span>);
 					<span class="kw">continue
 				</span>},
@@ -4787,7 +4791,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				};
 
 				<span class="comment">// Any peer which is in the `known_by` see and we know its peer_id authority id
-				// mapping has already been sent all messages it&#39;s meant to get for that block and
+				// mapping has already been sent all messages it's meant to get for that block and
 				// all in-scope prior blocks. In case, we just learnt about its peer_id
 				// authority-id mapping we have to retry sending the messages that should be sent
 				// to it for all un-finalized blocks.
@@ -4839,7 +4843,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw">let </span>(assignment_knowledge, message_kind) =
 						approval_entry.create_assignment_knowledge(block);
 
-					<span class="comment">// Only send stuff a peer doesn&#39;t know in the context of a relay chain
+					<span class="comment">// Only send stuff a peer doesn't know in the context of a relay chain
 					// block.
 					</span><span class="kw">if </span>!peer_knowledge.contains(<span class="kw-2">&amp;</span>assignment_knowledge, message_kind) {
 						peer_knowledge.sent.insert(assignment_knowledge, message_kind);
@@ -4868,7 +4872,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="question-mark">?</span>peer_id,
 				<span class="question-mark">?</span>protocol_version,
 				num = assignments_to_send.len(),
-				<span class="string">&quot;Sending assignments to unified peer&quot;</span>,
+				<span class="string">"Sending assignments to unified peer"</span>,
 			);
 
 			send_assignments_batched(
@@ -4885,7 +4889,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="question-mark">?</span>peer_id,
 				<span class="question-mark">?</span>protocol_version,
 				num = approvals_to_send.len(),
-				<span class="string">&quot;Sending approvals to unified peer&quot;</span>,
+				<span class="string">"Sending approvals to unified peer"</span>,
 			);
 
 			send_approvals_batched(sender, approvals_to_send, <span class="kw-2">&amp;</span><span class="macro">vec!</span>[(peer_id, protocol_version)])
@@ -4898,8 +4902,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	// missing votes to validators requires that we always trigger on finality lag, even if
 	// we have have the approval lag value. The reason for this, is to avoid finality stall
 	// when more than 1/3 nodes go offline for a period o time. When they come back
-	// there wouldn&#39;t get any of the approvals since the on-line nodes would never trigger
-	// aggression as they have approved all the candidates and don&#39;t detect any approval lag.
+	// there wouldn't get any of the approvals since the on-line nodes would never trigger
+	// aggression as they have approved all the candidates and don't detect any approval lag.
 	//
 	// In order to switch to using approval lag as a trigger we need a request/response protocol
 	// to fetch votes from validators rather than use gossip.
@@ -4913,7 +4917,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>min_age = <span class="self">self</span>.blocks_by_number.iter().next().map(|(num, <span class="kw">_</span>)| num);
 		<span class="kw">let </span>max_age = <span class="self">self</span>.blocks_by_number.iter().rev().next().map(|(num, <span class="kw">_</span>)| num);
 
-		<span class="comment">// Return if we don&#39;t have at least 1 block.
+		<span class="comment">// Return if we don't have at least 1 block.
 		</span><span class="kw">let </span>(min_age, max_age) = <span class="kw">match </span>(min_age, max_age) {
 			(<span class="prelude-val">Some</span>(min), <span class="prelude-val">Some</span>(max)) =&gt; (<span class="kw-2">*</span>min, <span class="kw-2">*</span>max),
 			<span class="kw">_ </span>=&gt; <span class="kw">return</span>, <span class="comment">// empty.
@@ -4927,11 +4931,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				target: LOG_TARGET,
 				approval_checking_lag = <span class="self">self</span>.approval_checking_lag,
 				age,
-				<span class="string">&quot;Aggression not enabled&quot;</span>,
+				<span class="string">"Aggression not enabled"</span>,
 			);
 			<span class="kw">return
 		</span>}
-		<span class="macro">gum::debug!</span>(target: LOG_TARGET, min_age, max_age, <span class="string">&quot;Aggression enabled&quot;</span>,);
+		<span class="macro">gum::debug!</span>(target: LOG_TARGET, min_age, max_age, <span class="string">"Aggression enabled"</span>,);
 
 		adjust_required_routing_and_propagate(
 			ctx,
@@ -4974,12 +4978,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				</span>block_entry.number == min_age
 			},
 			|required_routing, local, <span class="kw">_</span>| {
-				<span class="comment">// It&#39;s a bit surprising not to have a topology at this age.
+				<span class="comment">// It's a bit surprising not to have a topology at this age.
 				</span><span class="kw">if </span><span class="kw-2">*</span>required_routing == RequiredRouting::PendingTopology {
 					<span class="macro">gum::debug!</span>(
 						target: LOG_TARGET,
 						lag = <span class="question-mark">?</span><span class="self">self</span>.approval_checking_lag,
-						<span class="string">&quot;Encountered old block pending gossip topology&quot;</span>,
+						<span class="string">"Encountered old block pending gossip topology"</span>,
 					);
 					<span class="kw">return </span><span class="kw-2">*</span>required_routing
 				}
@@ -5020,7 +5024,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">for </span>(cert, candidate_index) <span class="kw">in </span>assignments.into_iter() {
 			<span class="kw">let </span>cert_bitfield_bits = <span class="kw">match </span>cert.cert.kind {
 				AssignmentCertKind::RelayVRFDelay { core_index } =&gt; core_index.<span class="number">0 </span><span class="kw">as </span>usize + <span class="number">1</span>,
-				<span class="comment">// We don&#39;t want to run the VRF yet, but the output is always bounded by `n_cores`.
+				<span class="comment">// We don't want to run the VRF yet, but the output is always bounded by `n_cores`.
 				// We assume `candidate_bitfield` length for the core bitfield and we just check
 				// against `MAX_BITFIELD_SIZE` later.
 				</span>AssignmentCertKind::RelayVRFModulo { .. } =&gt; candidate_index <span class="kw">as </span>usize + <span class="number">1</span>,
@@ -5034,7 +5038,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="comment">// Punish the peer for the invalid message.
 				</span>modify_reputation(<span class="kw-2">&amp;mut </span><span class="self">self</span>.reputation, sender, peer_id, COST_OVERSIZED_BITFIELD)
 					.<span class="kw">await</span>;
-				<span class="macro">gum::debug!</span>(target: LOG_TARGET, block_hash = <span class="question-mark">?</span>cert.block_hash, <span class="question-mark">?</span>candidate_index, validator_index = <span class="question-mark">?</span>cert.validator, kind = <span class="question-mark">?</span>cert.cert.kind, <span class="string">&quot;Bad assignment v1, invalid candidate index&quot;</span>);
+				<span class="macro">gum::debug!</span>(target: LOG_TARGET, block_hash = <span class="question-mark">?</span>cert.block_hash, <span class="question-mark">?</span>candidate_index, validator_index = <span class="question-mark">?</span>cert.validator, kind = <span class="question-mark">?</span>cert.cert.kind, <span class="string">"Bad assignment v1, invalid candidate index"</span>);
 			} <span class="kw">else </span>{
 				sanitized_assignments.push((cert.into(), candidate_index.into()))
 			}
@@ -5055,7 +5059,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">for </span>(cert, candidate_bitfield) <span class="kw">in </span>assignments.into_iter() {
 			<span class="kw">let </span>cert_bitfield_bits = <span class="kw">match </span><span class="kw-2">&amp;</span>cert.cert.kind {
 				AssignmentCertKindV2::RelayVRFDelay { core_index } =&gt; core_index.<span class="number">0 </span><span class="kw">as </span>usize + <span class="number">1</span>,
-				<span class="comment">// We don&#39;t want to run the VRF yet, but the output is always bounded by `n_cores`.
+				<span class="comment">// We don't want to run the VRF yet, but the output is always bounded by `n_cores`.
 				// We assume `candidate_bitfield` length for the core bitfield and we just check
 				// against `MAX_BITFIELD_SIZE` later.
 				</span>AssignmentCertKindV2::RelayVRFModulo { .. } =&gt; candidate_bitfield.len(),
@@ -5078,7 +5082,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				</span>modify_reputation(<span class="kw-2">&amp;mut </span><span class="self">self</span>.reputation, sender, peer_id, COST_OVERSIZED_BITFIELD)
 					.<span class="kw">await</span>;
 				<span class="kw">for </span>candidate_index <span class="kw">in </span>candidate_bitfield.iter_ones() {
-					<span class="macro">gum::debug!</span>(target: LOG_TARGET, block_hash = <span class="question-mark">?</span>cert.block_hash, <span class="question-mark">?</span>candidate_index, validator_index = <span class="question-mark">?</span>cert.validator, <span class="string">&quot;Bad assignment v2, oversized bitfield&quot;</span>);
+					<span class="macro">gum::debug!</span>(target: LOG_TARGET, block_hash = <span class="question-mark">?</span>cert.block_hash, <span class="question-mark">?</span>candidate_index, validator_index = <span class="question-mark">?</span>cert.validator, <span class="string">"Bad assignment v2, oversized bitfield"</span>);
 				}
 			} <span class="kw">else </span>{
 				sanitized_assignments.push((cert, candidate_bitfield))
@@ -5105,7 +5109,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					target: LOG_TARGET,
 					block_hash = <span class="question-mark">?</span>approval.block_hash,
 					candidate_index = <span class="question-mark">?</span>approval.candidate_index,
-					<span class="string">&quot;Bad approval v1, invalid candidate index&quot;
+					<span class="string">"Bad approval v1, invalid candidate index"
 				</span>);
 			} <span class="kw">else </span>{
 				sanitized_approvals.push(approval.into())
@@ -5132,7 +5136,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					target: LOG_TARGET,
 					block_hash = <span class="question-mark">?</span>approval.block_hash,
 					candidate_indices_len = <span class="question-mark">?</span>approval.candidate_indices.len(),
-					<span class="string">&quot;Bad approval v2, invalid candidate indices size&quot;
+					<span class="string">"Bad approval v2, invalid candidate indices size"
 				</span>);
 			} <span class="kw">else </span>{
 				sanitized_approvals.push(approval)
@@ -5210,7 +5214,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw">continue
 				</span>}
 
-				<span class="comment">// Only send stuff a peer doesn&#39;t know in the context of a relay chain block.
+				<span class="comment">// Only send stuff a peer doesn't know in the context of a relay chain block.
 				</span><span class="kw">if </span>!peer_knowledge.contains(<span class="kw-2">&amp;</span>assignment_knowledge, message_kind) {
 					peer_knowledge.sent.insert(assignment_knowledge.clone(), message_kind);
 					peer_assignments
@@ -5246,7 +5250,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.<span class="kw">await</span>;
 		} <span class="kw">else </span>{
 			<span class="comment">// This should never happen.
-			</span><span class="macro">gum::warn!</span>(target: LOG_TARGET, <span class="question-mark">?</span>peer, <span class="string">&quot;Unknown protocol version for peer&quot;</span>,);
+			</span><span class="macro">gum::warn!</span>(target: LOG_TARGET, <span class="question-mark">?</span>peer, <span class="string">"Unknown protocol version for peer"</span>,);
 		}
 	}
 
@@ -5260,7 +5264,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.<span class="kw">await</span>;
 		} <span class="kw">else </span>{
 			<span class="comment">// This should never happen.
-			</span><span class="macro">gum::warn!</span>(target: LOG_TARGET, <span class="question-mark">?</span>peer, <span class="string">&quot;Unknown protocol version for peer&quot;</span>,);
+			</span><span class="macro">gum::warn!</span>(target: LOG_TARGET, <span class="question-mark">?</span>peer, <span class="string">"Unknown protocol version for peer"</span>,);
 		}
 	}
 }
@@ -5276,7 +5280,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		target: LOG_TARGET,
 		reputation = <span class="question-mark">?</span>rep,
 		<span class="question-mark">?</span>peer_id,
-		<span class="string">&quot;Reputation change for peer&quot;</span>,
+		<span class="string">"Reputation change for peer"</span>,
 	);
 	reputation.modify(sender, peer_id, rep).<span class="kw">await</span>;
 }
@@ -5318,7 +5322,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw">let </span>message = <span class="kw">match </span>message {
 						<span class="prelude-val">Ok</span>(message) =&gt; message,
 						<span class="prelude-val">Err</span>(e) =&gt; {
-							<span class="macro">gum::debug!</span>(target: LOG_TARGET, err = <span class="question-mark">?</span>e, <span class="string">&quot;Failed to receive a message from Overseer, exiting&quot;</span>);
+							<span class="macro">gum::debug!</span>(target: LOG_TARGET, err = <span class="question-mark">?</span>e, <span class="string">"Failed to receive a message from Overseer, exiting"</span>);
 							<span class="kw">return
 						</span>},
 					};
@@ -5326,7 +5330,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						FromOrchestra::Communication { msg } =&gt;
 							<span class="self">Self</span>::handle_incoming(<span class="kw-2">&amp;mut </span>ctx, state, msg, <span class="kw-2">&amp;</span><span class="self">self</span>.metrics, rng).<span class="kw">await</span>,
 						FromOrchestra::Signal(OverseerSignal::ActiveLeaves(update)) =&gt; {
-							<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="string">&quot;active leaves signal (ignored)&quot;</span>);
+							<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="string">"active leaves signal (ignored)"</span>);
 							<span class="comment">// the relay chain blocks relevant to the approval subsystems
 							// are those that are available, but not finalized yet
 							// activated and deactivated heads hence are irrelevant to this subsystem, other than
@@ -5334,12 +5338,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							</span><span class="kw">if let </span><span class="prelude-val">Some</span>(activated) = update.activated {
 								<span class="kw">let </span>head = activated.hash;
 								<span class="kw">let </span>approval_distribution_span =
-									jaeger::PerLeafSpan::new(activated.span, <span class="string">&quot;approval-distribution&quot;</span>);
+									jaeger::PerLeafSpan::new(activated.span, <span class="string">"approval-distribution"</span>);
 								state.spans.insert(head, approval_distribution_span);
 							}
 						},
 						FromOrchestra::Signal(OverseerSignal::BlockFinalized(_hash, number)) =&gt; {
-							<span class="macro">gum::trace!</span>(target: LOG_TARGET, number = %number, <span class="string">&quot;finalized signal&quot;</span>);
+							<span class="macro">gum::trace!</span>(target: LOG_TARGET, number = %number, <span class="string">"finalized signal"</span>);
 							state.handle_block_finalized(<span class="kw-2">&amp;mut </span>ctx, <span class="kw-2">&amp;</span><span class="self">self</span>.metrics, number).<span class="kw">await</span>;
 						},
 						FromOrchestra::Signal(OverseerSignal::Conclude) =&gt; <span class="kw">return</span>,
@@ -5367,9 +5371,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">let </span>_span = state
 					.spans
 					.get(<span class="kw-2">&amp;</span>cert.block_hash)
-					.map(|span| span.child(<span class="string">&quot;import-and-distribute-assignment&quot;</span>))
-					.unwrap_or_else(|| jaeger::Span::new(<span class="kw-2">&amp;</span>cert.block_hash, <span class="string">&quot;distribute-assignment&quot;</span>))
-					.with_string_tag(<span class="string">&quot;block-hash&quot;</span>, <span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, cert.block_hash))
+					.map(|span| span.child(<span class="string">"import-and-distribute-assignment"</span>))
+					.unwrap_or_else(|| jaeger::Span::new(<span class="kw-2">&amp;</span>cert.block_hash, <span class="string">"distribute-assignment"</span>))
+					.with_string_tag(<span class="string">"block-hash"</span>, <span class="macro">format!</span>(<span class="string">"{:?}"</span>, cert.block_hash))
 					.with_stage(jaeger::Stage::ApprovalDistribution);
 
 				<span class="macro">gum::debug!</span>(
@@ -5377,7 +5381,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="question-mark">?</span>candidate_indices,
 					block_hash = <span class="question-mark">?</span>cert.block_hash,
 					assignment_kind = <span class="question-mark">?</span>cert.cert.kind,
-					<span class="string">&quot;Distributing our assignment on candidates&quot;</span>,
+					<span class="string">"Distributing our assignment on candidates"</span>,
 				);
 
 				state
@@ -5394,7 +5398,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			ApprovalDistributionMessage::DistributeApproval(vote) =&gt; {
 				<span class="macro">gum::debug!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Distributing our approval vote on candidate (block={}, index={:?})&quot;</span>,
+					<span class="string">"Distributing our approval vote on candidate (block={}, index={:?})"</span>,
 					vote.block_hash,
 					vote.candidate_indices,
 				);
@@ -5408,12 +5412,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">if let </span><span class="prelude-val">Err</span>(<span class="kw">_</span>) = tx.send(sigs) {
 					<span class="macro">gum::debug!</span>(
 						target: LOG_TARGET,
-						<span class="string">&quot;Sending back approval signatures failed, oneshot got closed&quot;
+						<span class="string">"Sending back approval signatures failed, oneshot got closed"
 					</span>);
 				}
 			},
 			ApprovalDistributionMessage::ApprovalCheckingLagUpdate(lag) =&gt; {
-				<span class="macro">gum::debug!</span>(target: LOG_TARGET, lag, <span class="string">&quot;Received `ApprovalCheckingLagUpdate`&quot;</span>);
+				<span class="macro">gum::debug!</span>(target: LOG_TARGET, lag, <span class="string">"Received `ApprovalCheckingLagUpdate`"</span>);
 				state.approval_checking_lag = lag;
 			},
 		}
@@ -5425,14 +5429,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>start(<span class="self">self</span>, ctx: Context) -&gt; SpawnedSubsystem {
 		<span class="kw">let </span>future = <span class="self">self</span>.run(ctx).map(|<span class="kw">_</span>| <span class="prelude-val">Ok</span>(())).boxed();
 
-		SpawnedSubsystem { name: <span class="string">&quot;approval-distribution-subsystem&quot;</span>, future }
+		SpawnedSubsystem { name: <span class="string">"approval-distribution-subsystem"</span>, future }
 	}
 }
 
 <span class="doccomment">/// Ensures the batch size is always at least 1 element.
 </span><span class="kw">const fn </span>ensure_size_not_zero(size: usize) -&gt; usize {
 	<span class="kw">if </span><span class="number">0 </span>== size {
-		<span class="macro">panic!</span>(<span class="string">&quot;Batch size must be at least 1 (MAX_NOTIFICATION_SIZE constant is too low)&quot;</span>,);
+		<span class="macro">panic!</span>(<span class="string">"Batch size must be at least 1 (MAX_NOTIFICATION_SIZE constant is too low)"</span>,);
 	}
 
 	size
@@ -5484,7 +5488,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						</span>candidates
 							.first_one()
 							.map(|index| index <span class="kw">as </span>CandidateIndex)
-							.expect(<span class="string">&quot;Assignment was checked for not being empty; qed&quot;</span>),
+							.expect(<span class="string">"Assignment was checked for not being empty; qed"</span>),
 					)
 				})
 			})
@@ -5507,7 +5511,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Send assignments while honoring the `max_notification_size` of the protocol.
 ///
 /// Splitting the messages into multiple notifications allows more granular processing at the
-/// destination, such that the subsystem doesn&#39;t get stuck for long processing a batch
+/// destination, such that the subsystem doesn't get stuck for long processing a batch
 /// of assignments and can `select!` other tasks.
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>send_assignments_batched(
 	sender: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>overseer::ApprovalDistributionSenderTrait,

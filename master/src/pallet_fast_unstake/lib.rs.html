@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/fast-unstake/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/fast-unstake/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_fast_unstake" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_fast_unstake" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../pallet_fast_unstake/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -780,14 +782,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -809,13 +811,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! ## Overview
 //!
 //! If a nominator is not exposed anywhere in the staking system, checked via
-//! [`StakingInterface::is_exposed_in_era`] (i.e. &quot;has not actively backed any validators in the
-//! last [`StakingInterface::bonding_duration`] days&quot;), then they can register themselves in this
+//! [`StakingInterface::is_exposed_in_era`] (i.e. "has not actively backed any validators in the
+//! last [`StakingInterface::bonding_duration`] days"), then they can register themselves in this
 //! pallet and unstake faster than having to wait an entire bonding duration.
 //!
 //! *Being exposed with validator* from the point of view of the staking system means earning
 //! rewards with the validator, and also being at the risk of slashing with the validator. This is
-//! equivalent to the &quot;Active Nominator&quot; role explained in
+//! equivalent to the "Active Nominator" role explained in
 //! [here](https://polkadot.network/blog/staking-update-february-2022/).
 //!
 //! Stakers who are certain about NOT being exposed can register themselves with
@@ -827,7 +829,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! and further).
 //!
 //! Once registered as a fast-unstaker, the staker will be queued and checked by the system. This
-//! can take a variable number of blocks based on demand, but will almost certainly be &quot;faster&quot; (as
+//! can take a variable number of blocks based on demand, but will almost certainly be "faster" (as
 //! the name suggest) than waiting the standard bonding duration.
 //!
 //! A fast-unstaker is either in [`Queue`] or actively being checked, at which point it lives in
@@ -848,10 +850,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! ### Example
 //!
 //! 1. Fast-unstake with multiple participants in the queue.
-</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;src/tests.rs&quot;</span>, successful_multi_queue)]
+</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">"src/tests.rs"</span>, successful_multi_queue)]
 </span><span class="doccomment">//!
 //! 2. Fast unstake failing because a nominator is exposed.
-</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;src/tests.rs&quot;</span>, exposed_nominator_cannot_unstake)]
+</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">"src/tests.rs"</span>, exposed_nominator_cannot_unstake)]
 </span><span class="doccomment">//!
 //! ## Pallet API
 //!
@@ -887,7 +889,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!   [`Event::InternalError`] and set [`ErasToCheckPerBlock`] back to 0, which essentially means
 //!   the pallet will halt/disable itself.
 
-</span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
+</span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
 </span><span class="kw">pub use </span>pallet::<span class="kw-2">*</span>;
 
@@ -898,7 +900,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">mod </span>tests;
 
 <span class="comment">// NOTE: enable benchmarking in tests as well.
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+</span><span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 </span><span class="kw">mod </span>benchmarking;
 <span class="kw">pub mod </span>migrations;
 <span class="kw">pub mod </span>types;
@@ -911,14 +913,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub use </span>sp_staking::StakingInterface;
 
 <span class="doccomment">/// The logging target of this pallet.
-</span><span class="kw">pub const </span>LOG_TARGET: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;runtime::fast-unstake&quot;</span>;
+</span><span class="kw">pub const </span>LOG_TARGET: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"runtime::fast-unstake"</span>;
 
 <span class="attr">#[macro_export]
 </span><span class="macro">macro_rules! </span>log {
 	(<span class="macro-nonterminal">$level</span>:tt, <span class="macro-nonterminal">$patter</span>:expr $(, <span class="macro-nonterminal">$values</span>:expr)* $(,)<span class="question-mark">?</span>) =&gt; {
 		log::<span class="macro-nonterminal">$</span><span class="macro">level!</span>(
 			<span class="macro-nonterminal">target</span>: <span class="kw">crate</span>::LOG_TARGET,
-			<span class="macro">concat!</span>(<span class="string">&quot;[{:?}] 💨 &quot;</span>, <span class="macro-nonterminal">$patter</span>), &lt;frame_system::Pallet&lt;T&gt;&gt;::block_number() $(, <span class="macro-nonterminal">$values</span>)*
+			<span class="macro">concat!</span>(<span class="string">"[{:?}] 💨 "</span>, <span class="macro-nonterminal">$patter</span>), &lt;frame_system::Pallet&lt;T&gt;&gt;::block_number() $(, <span class="macro-nonterminal">$values</span>)*
 		)
 	};
 }
@@ -937,7 +939,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use </span>sp_std::{prelude::<span class="kw-2">*</span>, vec::Vec};
 	<span class="kw">pub use </span>weights::WeightInfo;
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 	</span><span class="kw">use </span>sp_runtime::TryRuntimeError;
 
 	<span class="kw">const </span>STORAGE_VERSION: StorageVersion = StorageVersion::new(<span class="number">1</span>);
@@ -956,7 +958,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="doccomment">/// The currency used for deposits.
 		</span><span class="kw">type </span>Currency: ReservableCurrency&lt;<span class="self">Self</span>::AccountId&gt;;
 
-		<span class="doccomment">/// Deposit to take for unstaking, to make sure we&#39;re able to slash the it in order to cover
+		<span class="doccomment">/// Deposit to take for unstaking, to make sure we're able to slash the it in order to cover
 		/// the costs of resources on unsuccessful unstake.
 		</span><span class="attr">#[pallet::constant]
 		</span><span class="kw">type </span>Deposit: Get&lt;BalanceOf&lt;<span class="self">Self</span>&gt;&gt;;
@@ -982,7 +984,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">type </span>WeightInfo: WeightInfo;
 	}
 
-	<span class="doccomment">/// The current &quot;head of the queue&quot; being unstaked.
+	<span class="doccomment">/// The current "head of the queue" being unstaked.
 	///
 	/// The head in itself can be a batch of up to [`Config::BatchSize`] stakers.
 	</span><span class="attr">#[pallet::storage]
@@ -990,7 +992,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// The map of all accounts wishing to be unstaked.
 	///
-	/// Keeps track of `AccountId` wishing to unstake and it&#39;s corresponding deposit.
+	/// Keeps track of `AccountId` wishing to unstake and it's corresponding deposit.
 	</span><span class="comment">// Hasher: Twox safe since `AccountId` is a secure hash.
 	</span><span class="attr">#[pallet::storage]
 	</span><span class="kw">pub type </span>Queue&lt;T: Config&gt; = CountedStorageMap&lt;<span class="kw">_</span>, Twox64Concat, T::AccountId, BalanceOf&lt;T&gt;&gt;;
@@ -1059,17 +1061,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			// `T::MaxErasToCheckPerBlock`.
 			</span><span class="macro">assert!</span>(
 				ErasToCheckPerBlock::&lt;T&gt;::get() &lt;= T::MaxErasToCheckPerBlock::get(),
-				<span class="string">&quot;the value of `ErasToCheckPerBlock` is greater than `T::MaxErasToCheckPerBlock`&quot;</span>,
+				<span class="string">"the value of `ErasToCheckPerBlock` is greater than `T::MaxErasToCheckPerBlock`"</span>,
 			);
 		}
 
-		<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+		<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 		</span><span class="kw">fn </span>try_state(_n: BlockNumberFor&lt;T&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
 			<span class="comment">// ensure that the value of `ErasToCheckPerBlock` is less than
 			// `T::MaxErasToCheckPerBlock`.
 			</span><span class="macro">ensure!</span>(
 				ErasToCheckPerBlock::&lt;T&gt;::get() &lt;= T::MaxErasToCheckPerBlock::get(),
-				<span class="string">&quot;the value of `ErasToCheckPerBlock` is greater than `T::MaxErasToCheckPerBlock`&quot;</span>,
+				<span class="string">"the value of `ErasToCheckPerBlock` is greater than `T::MaxErasToCheckPerBlock`"</span>,
 			);
 
 			<span class="prelude-val">Ok</span>(())
@@ -1099,7 +1101,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		///
 		/// If the check fails, the stash remains chilled and waiting for being unbonded as in with
 		/// the normal staking system, but they lose part of their unbonding chunks due to consuming
-		/// the chain&#39;s resources.
+		/// the chain's resources.
 		///
 		/// ## Events
 		///
@@ -1161,7 +1163,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(deposit) = deposit.defensive() {
 				<span class="kw">let </span>remaining = T::Currency::unreserve(<span class="kw-2">&amp;</span>stash_account, deposit);
 				<span class="kw">if </span>!remaining.is_zero() {
-					<span class="self">Self</span>::halt(<span class="string">&quot;not enough balance to unreserve&quot;</span>);
+					<span class="self">Self</span>::halt(<span class="string">"not enough balance to unreserve"</span>);
 				}
 			}
 
@@ -1200,7 +1202,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 
 		<span class="doccomment">/// Halt the operations of this pallet.
-		</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>halt(reason: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str) {
+		</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>halt(reason: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str) {
 			<span class="macro">frame_support::defensive!</span>(reason);
 			ErasToCheckPerBlock::&lt;T&gt;::put(<span class="number">0</span>);
 			<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::InternalError)
@@ -1218,7 +1220,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		///
 		/// 2. We will only mark a staker as unstaked if at the beginning of a check cycle, they are
 		/// found out to have no eras to check. At the end of a check cycle, even if they are fully
-		/// checked, we don&#39;t finish the process.
+		/// checked, we don't finish the process.
 		</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>do_on_idle(remaining_weight: Weight) -&gt; Weight {
 			<span class="comment">// any weight that is unaccounted for
 			</span><span class="kw">let </span><span class="kw-2">mut </span>unaccounted_weight = Weight::from_parts(<span class="number">0</span>, <span class="number">0</span>);
@@ -1228,7 +1230,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">return </span>T::DbWeight::get().reads(<span class="number">1</span>).saturating_add(unaccounted_weight)
 			}
 
-			<span class="comment">// NOTE: here we&#39;re assuming that the number of validators has only ever increased,
+			<span class="comment">// NOTE: here we're assuming that the number of validators has only ever increased,
 			// meaning that the number of exposures to check is either this per era, or less.
 			</span><span class="kw">let </span>validator_count = T::Staking::desired_validator_count();
 			<span class="kw">let </span>(next_batch_size, reads_from_queue) = Head::&lt;T&gt;::get()
@@ -1250,7 +1252,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			};
 
 			<span class="kw">if </span>max_weight(validator_count, next_batch_size).any_gt(remaining_weight) {
-				<span class="macro">log!</span>(debug, <span class="string">&quot;early exit because eras_to_check_per_block is zero&quot;</span>);
+				<span class="macro">log!</span>(debug, <span class="string">"early exit because eras_to_check_per_block is zero"</span>);
 				<span class="kw">return </span>T::DbWeight::get().reads(<span class="number">3</span>).saturating_add(unaccounted_weight)
 			}
 
@@ -1258,7 +1260,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="comment">// NOTE: we assume `ongoing` does not consume any weight.
 				// there is an ongoing election -- we better not do anything. Imagine someone is not
 				// exposed anywhere in the last era, and the snapshot for the election is already
-				// taken. In this time period, we don&#39;t want to accidentally unstake them.
+				// taken. In this time period, we don't want to accidentally unstake them.
 				</span><span class="kw">return </span>T::DbWeight::get().reads(<span class="number">4</span>).saturating_add(unaccounted_weight)
 			}
 
@@ -1268,7 +1270,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					.take(T::BatchSize::get() <span class="kw">as </span>usize)
 					.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
 					.try_into()
-					.expect(<span class="string">&quot;take ensures bound is met; qed&quot;</span>);
+					.expect(<span class="string">"take ensures bound is met; qed"</span>);
 				unaccounted_weight.saturating_accrue(
 					T::DbWeight::get().reads_writes(stashes.len() <span class="kw">as </span>u64, stashes.len() <span class="kw">as </span>u64),
 				);
@@ -1279,7 +1281,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				}
 			}) {
 				<span class="prelude-val">None </span>=&gt; {
-					<span class="comment">// There&#39;s no `Head` and nothing in the `Queue`, nothing to do here.
+					<span class="comment">// There's no `Head` and nothing in the `Queue`, nothing to do here.
 					</span><span class="kw">return </span>T::DbWeight::get().reads(<span class="number">4</span>)
 				},
 				<span class="prelude-val">Some</span>(head) =&gt; head,
@@ -1287,18 +1289,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="macro">log!</span>(
 				debug,
-				<span class="string">&quot;checking {:?} stashes, eras_to_check_per_block = {:?}, checked {:?}, remaining_weight = {:?}&quot;</span>,
+				<span class="string">"checking {:?} stashes, eras_to_check_per_block = {:?}, checked {:?}, remaining_weight = {:?}"</span>,
 				stashes.len(),
 				eras_to_check_per_block,
 				checked,
 				remaining_weight,
 			);
 
-			<span class="comment">// the range that we&#39;re allowed to check in this round.
+			<span class="comment">// the range that we're allowed to check in this round.
 			</span><span class="kw">let </span>current_era = T::Staking::current_era();
 			<span class="kw">let </span>bonding_duration = T::Staking::bonding_duration();
 
-			<span class="comment">// prune all the old eras that we don&#39;t care about. This will help us keep the bound
+			<span class="comment">// prune all the old eras that we don't care about. This will help us keep the bound
 			// of `checked`.
 			</span>checked.retain(|e| <span class="kw-2">*</span>e &gt;= current_era.saturating_sub(bonding_duration));
 
@@ -1311,7 +1313,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 				<span class="macro">debug_assert!</span>(
 					total_check_range.len() &lt;= (bonding_duration + <span class="number">1</span>) <span class="kw">as </span>usize,
-					<span class="string">&quot;{:?}&quot;</span>,
+					<span class="string">"{:?}"</span>,
 					total_check_range
 				);
 
@@ -1326,7 +1328,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="macro">log!</span>(
 				debug,
-				<span class="string">&quot;{} eras to check: {:?}&quot;</span>,
+				<span class="string">"{} eras to check: {:?}"</span>,
 				unchecked_eras_to_check.len(),
 				unchecked_eras_to_check
 			);
@@ -1335,9 +1337,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">let </span>result = T::Staking::force_unstake(stash.clone());
 				<span class="kw">let </span>remaining = T::Currency::unreserve(<span class="kw-2">&amp;</span>stash, deposit);
 				<span class="kw">if </span>!remaining.is_zero() {
-					<span class="self">Self</span>::halt(<span class="string">&quot;not enough balance to unreserve&quot;</span>);
+					<span class="self">Self</span>::halt(<span class="string">"not enough balance to unreserve"</span>);
 				} <span class="kw">else </span>{
-					<span class="macro">log!</span>(debug, <span class="string">&quot;unstaked {:?}, outcome: {:?}&quot;</span>, stash, result);
+					<span class="macro">log!</span>(debug, <span class="string">"unstaked {:?}, outcome: {:?}"</span>, stash, result);
 					<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::Unstaked { stash, result });
 				}
 			};
@@ -1349,7 +1351,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 				<span class="kw">if </span>is_exposed {
 					<span class="kw">let _ </span>= T::Currency::slash_reserved(<span class="kw-2">&amp;</span>stash, deposit);
-					<span class="macro">log!</span>(info, <span class="string">&quot;slashed {:?} by {:?}&quot;</span>, stash, deposit);
+					<span class="macro">log!</span>(info, <span class="string">"slashed {:?} by {:?}"</span>, stash, deposit);
 					<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::Slashed { stash, amount: deposit });
 					<span class="bool-val">false
 				</span>} <span class="kw">else </span>{
@@ -1370,12 +1372,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					.filter(|(stash, deposit)| check_stash(stash.clone(), <span class="kw-2">*</span>deposit))
 					.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
 					.try_into()
-					.expect(<span class="string">&quot;filter can only lessen the length; still in bound; qed&quot;</span>);
+					.expect(<span class="string">"filter can only lessen the length; still in bound; qed"</span>);
 				<span class="kw">let </span>post_length = stashes.len();
 
 				<span class="macro">log!</span>(
 					debug,
-					<span class="string">&quot;checked {:?}, pre stashes: {:?}, post: {:?}&quot;</span>,
+					<span class="string">"checked {:?}, pre stashes: {:?}, post: {:?}"</span>,
 					unchecked_eras_to_check,
 					pre_length,
 					post_length,
@@ -1392,8 +1394,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							});
 						},
 					<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
-						<span class="comment">// don&#39;t put the head back in -- there is an internal error in the pallet.
-						</span><span class="self">Self</span>::halt(<span class="string">&quot;checked is pruned via retain above&quot;</span>)
+						<span class="comment">// don't put the head back in -- there is an internal error in the pallet.
+						</span><span class="self">Self</span>::halt(<span class="string">"checked is pruned via retain above"</span>)
 					},
 				}
 

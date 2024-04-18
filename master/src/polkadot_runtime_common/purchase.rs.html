@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/runtime/common/src/purchase.rs`."><title>purchase.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/runtime/common/src/purchase.rs`."><title>purchase.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_runtime_common" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_runtime_common" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../polkadot_runtime_common/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1498,9 +1500,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub enum </span>Event&lt;T: Config&gt; {
 		<span class="doccomment">/// A new account was created.
 		</span>AccountCreated { who: T::AccountId },
-		<span class="doccomment">/// Someone&#39;s account validity was updated.
+		<span class="doccomment">/// Someone's account validity was updated.
 		</span>ValidityUpdated { who: T::AccountId, validity: AccountValidity },
-		<span class="doccomment">/// Someone&#39;s purchase balance was updated.
+		<span class="doccomment">/// Someone's purchase balance was updated.
 		</span>BalanceUpdated { who: T::AccountId, free: BalanceOf&lt;T&gt;, locked: BalanceOf&lt;T&gt; },
 		<span class="doccomment">/// A payout was made to a purchaser.
 		</span>PaymentComplete { who: T::AccountId, free: BalanceOf&lt;T&gt;, locked: BalanceOf&lt;T&gt; },
@@ -1813,7 +1815,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>AccountId: Encode,
 {
 	<span class="kw">let </span>account_vec = account.encode();
-	<span class="macro">ensure!</span>(account_vec.len() == <span class="number">32</span>, <span class="string">&quot;AccountId must be 32 bytes.&quot;</span>);
+	<span class="macro">ensure!</span>(account_vec.len() == <span class="number">32</span>, <span class="string">"AccountId must be 32 bytes."</span>);
 	<span class="kw">let </span><span class="kw-2">mut </span>bytes = [<span class="number">0u8</span>; <span class="number">32</span>];
 	bytes.copy_from_slice(<span class="kw-2">&amp;</span>account_vec);
 	<span class="prelude-val">Ok</span>(bytes)
@@ -1828,13 +1830,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[allow(deprecated)]
 	</span><span class="kw">use </span>frame_support::migration::remove_storage_prefix;
 	<span class="attr">#[allow(deprecated)]
-	</span>remove_storage_prefix(<span class="string">b&quot;Purchase&quot;</span>, <span class="string">b&quot;Accounts&quot;</span>, <span class="string">b&quot;&quot;</span>);
+	</span>remove_storage_prefix(<span class="string">b"Purchase"</span>, <span class="string">b"Accounts"</span>, <span class="string">b""</span>);
 	<span class="attr">#[allow(deprecated)]
-	</span>remove_storage_prefix(<span class="string">b&quot;Purchase&quot;</span>, <span class="string">b&quot;PaymentAccount&quot;</span>, <span class="string">b&quot;&quot;</span>);
+	</span>remove_storage_prefix(<span class="string">b"Purchase"</span>, <span class="string">b"PaymentAccount"</span>, <span class="string">b""</span>);
 	<span class="attr">#[allow(deprecated)]
-	</span>remove_storage_prefix(<span class="string">b&quot;Purchase&quot;</span>, <span class="string">b&quot;Statement&quot;</span>, <span class="string">b&quot;&quot;</span>);
+	</span>remove_storage_prefix(<span class="string">b"Purchase"</span>, <span class="string">b"Statement"</span>, <span class="string">b""</span>);
 	<span class="attr">#[allow(deprecated)]
-	</span>remove_storage_prefix(<span class="string">b&quot;Purchase&quot;</span>, <span class="string">b&quot;UnlockBlock&quot;</span>, <span class="string">b&quot;&quot;</span>);
+	</span>remove_storage_prefix(<span class="string">b"Purchase"</span>, <span class="string">b"UnlockBlock"</span>, <span class="string">b""</span>);
 
 	&lt;T <span class="kw">as </span>frame_system::Config&gt;::BlockWeights::get().max_block
 }
@@ -1973,7 +1975,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">fn </span>setup() {
-		<span class="kw">let </span>statement = <span class="string">b&quot;Hello, World&quot;</span>.to_vec();
+		<span class="kw">let </span>statement = <span class="string">b"Hello, World"</span>.to_vec();
 		<span class="kw">let </span>unlock_block = <span class="number">100</span>;
 		Purchase::set_statement(RuntimeOrigin::signed(configuration_origin()), statement).unwrap();
 		Purchase::set_unlock_block(RuntimeOrigin::signed(configuration_origin()), unlock_block)
@@ -1990,8 +1992,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Helper function to generate a crypto pair from seed
 	</span><span class="kw">fn </span>get_from_seed&lt;TPublic: Public&gt;(seed: <span class="kw-2">&amp;</span>str) -&gt; &lt;TPublic::Pair <span class="kw">as </span>Pair&gt;::Public {
-		TPublic::Pair::from_string(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;//{}&quot;</span>, seed), <span class="prelude-val">None</span>)
-			.expect(<span class="string">&quot;static values are valid; qed&quot;</span>)
+		TPublic::Pair::from_string(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"//{}"</span>, seed), <span class="prelude-val">None</span>)
+			.expect(<span class="string">"static values are valid; qed"</span>)
 			.public()
 	}
 
@@ -2004,33 +2006,33 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">fn </span>alice() -&gt; AccountId {
-		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>)
+		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Alice"</span>)
 	}
 
 	<span class="kw">fn </span>alice_ed25519() -&gt; AccountId {
-		get_account_id_from_seed::&lt;ed25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>)
+		get_account_id_from_seed::&lt;ed25519::Public&gt;(<span class="string">"Alice"</span>)
 	}
 
 	<span class="kw">fn </span>bob() -&gt; AccountId {
-		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Bob&quot;</span>)
+		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Bob"</span>)
 	}
 
 	<span class="kw">fn </span>alice_signature() -&gt; [u8; <span class="number">64</span>] {
-		<span class="comment">// echo -n &quot;Hello, World&quot; | subkey -s sign &quot;bottom drive obey lake curtain smoke basket hold
-		// race lonely fit walk//Alice&quot;
-		</span><span class="macro">hex_literal::hex!</span>(<span class="string">&quot;20e0faffdf4dfe939f2faa560f73b1d01cde8472e2b690b7b40606a374244c3a2e9eb9c8107c10b605138374003af8819bd4387d7c24a66ee9253c2e688ab881&quot;</span>)
+		<span class="comment">// echo -n "Hello, World" | subkey -s sign "bottom drive obey lake curtain smoke basket hold
+		// race lonely fit walk//Alice"
+		</span><span class="macro">hex_literal::hex!</span>(<span class="string">"20e0faffdf4dfe939f2faa560f73b1d01cde8472e2b690b7b40606a374244c3a2e9eb9c8107c10b605138374003af8819bd4387d7c24a66ee9253c2e688ab881"</span>)
 	}
 
 	<span class="kw">fn </span>bob_signature() -&gt; [u8; <span class="number">64</span>] {
-		<span class="comment">// echo -n &quot;Hello, World&quot; | subkey -s sign &quot;bottom drive obey lake curtain smoke basket hold
-		// race lonely fit walk//Bob&quot;
-		</span><span class="macro">hex_literal::hex!</span>(<span class="string">&quot;d6d460187ecf530f3ec2d6e3ac91b9d083c8fbd8f1112d92a82e4d84df552d18d338e6da8944eba6e84afaacf8a9850f54e7b53a84530d649be2e0119c7ce889&quot;</span>)
+		<span class="comment">// echo -n "Hello, World" | subkey -s sign "bottom drive obey lake curtain smoke basket hold
+		// race lonely fit walk//Bob"
+		</span><span class="macro">hex_literal::hex!</span>(<span class="string">"d6d460187ecf530f3ec2d6e3ac91b9d083c8fbd8f1112d92a82e4d84df552d18d338e6da8944eba6e84afaacf8a9850f54e7b53a84530d649be2e0119c7ce889"</span>)
 	}
 
 	<span class="kw">fn </span>alice_signature_ed25519() -&gt; [u8; <span class="number">64</span>] {
-		<span class="comment">// echo -n &quot;Hello, World&quot; | subkey -e sign &quot;bottom drive obey lake curtain smoke basket hold
-		// race lonely fit walk//Alice&quot;
-		</span><span class="macro">hex_literal::hex!</span>(<span class="string">&quot;ee3f5a6cbfc12a8f00c18b811dc921b550ddf272354cda4b9a57b1d06213fcd8509f5af18425d39a279d13622f14806c3e978e2163981f2ec1c06e9628460b0e&quot;</span>)
+		<span class="comment">// echo -n "Hello, World" | subkey -e sign "bottom drive obey lake curtain smoke basket hold
+		// race lonely fit walk//Alice"
+		</span><span class="macro">hex_literal::hex!</span>(<span class="string">"ee3f5a6cbfc12a8f00c18b811dc921b550ddf272354cda4b9a57b1d06213fcd8509f5af18425d39a279d13622f14806c3e978e2163981f2ec1c06e9628460b0e"</span>)
 	}
 
 	<span class="kw">fn </span>validity_origin() -&gt; AccountId {
@@ -2048,7 +2050,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>set_statement_works_and_handles_basic_errors() {
 		new_test_ext().execute_with(|| {
-			<span class="kw">let </span>statement = <span class="string">b&quot;Test Set Statement&quot;</span>.to_vec();
+			<span class="kw">let </span>statement = <span class="string">b"Test Set Statement"</span>.to_vec();
 			<span class="comment">// Invalid origin
 			</span><span class="macro">assert_noop!</span>(
 				Purchase::set_statement(RuntimeOrigin::signed(alice()), statement.clone()),
@@ -2549,7 +2551,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				validity: AccountValidity::Completed,
 				free_balance: <span class="number">1234</span>,
 				locked_balance: <span class="number">4321</span>,
-				signature: <span class="string">b&quot;my signature&quot;</span>.to_vec(),
+				signature: <span class="string">b"my signature"</span>.to_vec(),
 				vat: Permill::from_percent(<span class="number">50</span>),
 			};
 
@@ -2557,7 +2559,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span>Accounts::&lt;Test&gt;::insert(alice(), account_status.clone());
 			Accounts::&lt;Test&gt;::insert(bob(), account_status);
 			PaymentAccount::&lt;Test&gt;::put(alice());
-			Statement::&lt;Test&gt;::put(<span class="string">b&quot;hello, world!&quot;</span>.to_vec());
+			Statement::&lt;Test&gt;::put(<span class="string">b"hello, world!"</span>.to_vec());
 			UnlockBlock::&lt;Test&gt;::put(<span class="number">4</span>);
 
 			<span class="comment">// Verify storage exists.

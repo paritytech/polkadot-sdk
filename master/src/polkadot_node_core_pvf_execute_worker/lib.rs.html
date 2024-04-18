@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/core/pvf/execute-worker/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/core/pvf/execute-worker/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_node_core_pvf_execute_worker" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_node_core_pvf_execute_worker" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../polkadot_node_core_pvf_execute_worker/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -823,7 +825,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="comment">// NOTE: Initializing logging in e.g. tests will not have an effect in the workers, as they are
 //       separate spawned processes. Run with e.g. `RUST_LOG=parachain::pvf-execute-worker=trace`.
-</span><span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;parachain::pvf-execute-worker&quot;</span>;
+</span><span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"parachain::pvf-execute-worker"</span>;
 
 <span class="kw">use </span>cpu_time::ProcessTime;
 <span class="kw">use </span>nix::{
@@ -876,7 +878,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>handshake = Handshake::decode(<span class="kw-2">&amp;mut &amp;</span>handshake_enc[..]).map_err(|<span class="kw">_</span>| {
 		io::Error::new(
 			io::ErrorKind::Other,
-			<span class="string">&quot;execute pvf recv_execute_handshake: failed to decode Handshake&quot;</span>.to_owned(),
+			<span class="string">"execute pvf recv_execute_handshake: failed to decode Handshake"</span>.to_owned(),
 		)
 	})<span class="question-mark">?</span>;
 	<span class="prelude-val">Ok</span>(handshake)
@@ -888,7 +890,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>execution_timeout = Duration::decode(<span class="kw-2">&amp;mut &amp;</span>execution_timeout[..]).map_err(|<span class="kw">_</span>| {
 		io::Error::new(
 			io::ErrorKind::Other,
-			<span class="string">&quot;execute pvf recv_request: failed to decode duration&quot;</span>.to_string(),
+			<span class="string">"execute pvf recv_request: failed to decode duration"</span>.to_string(),
 		)
 	})<span class="question-mark">?</span>;
 	<span class="prelude-val">Ok</span>((params, execution_timeout))
@@ -939,7 +941,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					target: LOG_TARGET,
 					<span class="question-mark">?</span>worker_info,
 					<span class="question-mark">?</span>security_status,
-					<span class="string">&quot;worker: validating artifact {}&quot;</span>,
+					<span class="string">"worker: validating artifact {}"</span>,
 					artifact_path.display(),
 				);
 
@@ -960,7 +962,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">let </span>usage_before = <span class="kw">match </span>nix::sys::resource::getrusage(UsageWho::RUSAGE_CHILDREN) {
 					<span class="prelude-val">Ok</span>(usage) =&gt; usage,
 					<span class="prelude-val">Err</span>(errno) =&gt; {
-						<span class="kw">let </span>response = internal_error_from_errno(<span class="string">&quot;getrusage before&quot;</span>, errno);
+						<span class="kw">let </span>response = internal_error_from_errno(<span class="string">"getrusage before"</span>, errno);
 						send_response(<span class="kw-2">&amp;mut </span>stream, response)<span class="question-mark">?</span>;
 						<span class="kw">continue
 					</span>},
@@ -971,7 +973,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">let </span>params = Arc::new(params);
 
 				<span class="macro">cfg_if::cfg_if! </span>{
-					<span class="kw">if </span><span class="attr">#[cfg(target_os = <span class="string">&quot;linux&quot;</span>)] </span>{
+					<span class="kw">if </span><span class="attr">#[cfg(target_os = <span class="string">"linux"</span>)] </span>{
 						<span class="kw">let </span>result = <span class="kw">if </span>security_status.can_do_secure_clone {
 							handle_clone(
 								pipe_write_fd,
@@ -1020,7 +1022,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="macro">gum::trace!</span>(
 					target: LOG_TARGET,
 					<span class="question-mark">?</span>worker_info,
-					<span class="string">&quot;worker: sending result to host: {:?}&quot;</span>,
+					<span class="string">"worker: sending result to host: {:?}"</span>,
 					result
 				);
 				send_response(<span class="kw-2">&amp;mut </span>stream, result)<span class="question-mark">?</span>;
@@ -1041,15 +1043,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>execute_artifact(compiled_artifact_blob, executor_params, params)
 	} {
 		<span class="prelude-val">Err</span>(ExecuteError::RuntimeConstruction(wasmerr)) =&gt;
-			<span class="kw">return </span>JobResponse::runtime_construction(<span class="string">&quot;execute&quot;</span>, <span class="kw-2">&amp;</span>wasmerr.to_string()),
-		<span class="prelude-val">Err</span>(err) =&gt; <span class="kw">return </span>JobResponse::format_invalid(<span class="string">&quot;execute&quot;</span>, <span class="kw-2">&amp;</span>err.to_string()),
+			<span class="kw">return </span>JobResponse::runtime_construction(<span class="string">"execute"</span>, <span class="kw-2">&amp;</span>wasmerr.to_string()),
+		<span class="prelude-val">Err</span>(err) =&gt; <span class="kw">return </span>JobResponse::format_invalid(<span class="string">"execute"</span>, <span class="kw-2">&amp;</span>err.to_string()),
 		<span class="prelude-val">Ok</span>(d) =&gt; d,
 	};
 
 	<span class="kw">let </span>result_descriptor = <span class="kw">match </span>ValidationResult::decode(<span class="kw-2">&amp;mut &amp;</span>descriptor_bytes[..]) {
 		<span class="prelude-val">Err</span>(err) =&gt;
 			<span class="kw">return </span>JobResponse::format_invalid(
-				<span class="string">&quot;validation result decoding failed&quot;</span>,
+				<span class="string">"validation result decoding failed"</span>,
 				<span class="kw-2">&amp;</span>err.to_string(),
 			),
 		<span class="prelude-val">Ok</span>(r) =&gt; r,
@@ -1058,7 +1060,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	JobResponse::Ok { result_descriptor }
 }
 
-<span class="attr">#[cfg(target_os = <span class="string">&quot;linux&quot;</span>)]
+<span class="attr">#[cfg(target_os = <span class="string">"linux"</span>)]
 </span><span class="kw">fn </span>handle_clone(
 	pipe_write_fd: i32,
 	pipe_read_fd: i32,
@@ -1075,7 +1077,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use </span>polkadot_node_core_pvf_common::worker::security;
 
 	<span class="comment">// SAFETY: new process is spawned within a single threaded process. This invariant
-	// is enforced by tests. Stack size being specified to ensure child doesn&#39;t overflow
+	// is enforced by tests. Stack size being specified to ensure child doesn't overflow
 	</span><span class="kw">match unsafe </span>{
 		security::clone::clone_on_worker(
 			worker_info,
@@ -1102,7 +1104,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			usage_before,
 			execution_timeout,
 		),
-		<span class="prelude-val">Err</span>(security::clone::Error::Clone(errno)) =&gt; <span class="prelude-val">Ok</span>(internal_error_from_errno(<span class="string">&quot;clone&quot;</span>, errno)),
+		<span class="prelude-val">Err</span>(security::clone::Error::Clone(errno)) =&gt; <span class="prelude-val">Ok</span>(internal_error_from_errno(<span class="string">"clone"</span>, errno)),
 	}
 }
 
@@ -1139,7 +1141,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			usage_before,
 			execution_timeout,
 		),
-		<span class="prelude-val">Err</span>(errno) =&gt; <span class="prelude-val">Ok</span>(internal_error_from_errno(<span class="string">&quot;fork&quot;</span>, errno)),
+		<span class="prelude-val">Err</span>(errno) =&gt; <span class="prelude-val">Ok</span>(internal_error_from_errno(<span class="string">"fork"</span>, errno)),
 	}
 }
 
@@ -1162,23 +1164,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="comment">// SAFETY: this is an open and owned file descriptor at this point.
 	</span><span class="kw">let </span><span class="kw-2">mut </span>pipe_write = <span class="kw">unsafe </span>{ PipeFd::from_raw_fd(pipe_write_fd) };
 
-	<span class="comment">// Drop the read end so we don&#39;t have too many FDs open.
+	<span class="comment">// Drop the read end so we don't have too many FDs open.
 	</span><span class="kw">if let </span><span class="prelude-val">Err</span>(errno) = nix::unistd::close(pipe_read_fd) {
-		send_child_response(<span class="kw-2">&amp;mut </span>pipe_write, job_error_from_errno(<span class="string">&quot;closing pipe&quot;</span>, errno));
+		send_child_response(<span class="kw-2">&amp;mut </span>pipe_write, job_error_from_errno(<span class="string">"closing pipe"</span>, errno));
 	}
 
 	<span class="comment">// Dropping the stream closes the underlying socket. We want to make sure
-	// that the sandboxed child can&#39;t get any kind of information from the
+	// that the sandboxed child can't get any kind of information from the
 	// outside world. The only IPC it should be able to do is sending its
 	// response over the pipe.
 	</span><span class="kw">if let </span><span class="prelude-val">Err</span>(errno) = nix::unistd::close(stream_fd) {
-		send_child_response(<span class="kw-2">&amp;mut </span>pipe_write, job_error_from_errno(<span class="string">&quot;closing stream&quot;</span>, errno));
+		send_child_response(<span class="kw-2">&amp;mut </span>pipe_write, job_error_from_errno(<span class="string">"closing stream"</span>, errno));
 	}
 
 	<span class="macro">gum::debug!</span>(
 		target: LOG_TARGET,
 		worker_job_pid = %process::id(),
-		<span class="string">&quot;worker job: executing artifact&quot;</span>,
+		<span class="string">"worker job: executing artifact"</span>,
 	);
 
 	<span class="comment">// Conditional variable to notify us when a thread is done.
@@ -1188,7 +1190,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="comment">// Spawn a new thread that runs the CPU time monitor.
 	</span><span class="kw">let </span>(cpu_time_monitor_tx, cpu_time_monitor_rx) = channel::&lt;()&gt;();
 	<span class="kw">let </span>cpu_time_monitor_thread = thread::spawn_worker_thread(
-		<span class="string">&quot;cpu time monitor thread&quot;</span>,
+		<span class="string">"cpu time monitor thread"</span>,
 		<span class="kw">move </span>|| cpu_time_monitor_loop(cpu_time_start, execution_timeout, cpu_time_monitor_rx),
 		Arc::clone(<span class="kw-2">&amp;</span>condvar),
 		WaitOutcome::TimedOut,
@@ -1198,7 +1200,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 
 	<span class="kw">let </span>execute_thread = thread::spawn_worker_thread_with_stack_size(
-		<span class="string">&quot;execute thread&quot;</span>,
+		<span class="string">"execute thread"</span>,
 		<span class="kw">move </span>|| validate_using_artifact(<span class="kw-2">&amp;</span>compiled_artifact_blob, <span class="kw-2">&amp;</span>executor_params, <span class="kw-2">&amp;</span>params),
 		Arc::clone(<span class="kw-2">&amp;</span>condvar),
 		WaitOutcome::Finished,
@@ -1220,12 +1222,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>WaitOutcome::TimedOut =&gt; <span class="kw">match </span>cpu_time_monitor_thread.join() {
 			<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(_cpu_time_elapsed)) =&gt; <span class="prelude-val">Err</span>(JobError::TimedOut),
 			<span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>) =&gt; <span class="prelude-val">Err</span>(JobError::CpuTimeMonitorThread(
-				<span class="string">&quot;error communicating over finished channel&quot;</span>.into(),
+				<span class="string">"error communicating over finished channel"</span>.into(),
 			)),
 			<span class="prelude-val">Err</span>(e) =&gt; <span class="prelude-val">Err</span>(JobError::CpuTimeMonitorThread(stringify_panic_payload(e))),
 		},
 		WaitOutcome::Pending =&gt;
-			<span class="macro">unreachable!</span>(<span class="string">&quot;we run wait_while until the outcome is no longer pending; qed&quot;</span>),
+			<span class="macro">unreachable!</span>(<span class="string">"we run wait_while until the outcome is no longer pending; qed"</span>),
 	};
 
 	send_child_response(<span class="kw-2">&amp;mut </span>pipe_write, response);
@@ -1260,7 +1262,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///    will abort and that will abort the process as well.
 ///
 /// Typically on Linux the main thread gets the stack size specified by the `ulimit` and
-/// typically it&#39;s configured to 8 MiB. Rust&#39;s spawned threads are 2 MiB. OTOH, the
+/// typically it's configured to 8 MiB. Rust's spawned threads are 2 MiB. OTOH, the
 /// DEFAULT_NATIVE_STACK_MAX is set to 256 MiB. Not nearly enough.
 ///
 /// Hence we need to increase it. The simplest way to fix that is to spawn an execute thread with
@@ -1288,13 +1290,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="comment">// the read end will wait until all write ends have been closed,
 	// this drop is necessary to avoid deadlock
 	</span><span class="kw">if let </span><span class="prelude-val">Err</span>(errno) = nix::unistd::close(pipe_write_fd) {
-		<span class="kw">return </span><span class="prelude-val">Ok</span>(internal_error_from_errno(<span class="string">&quot;closing pipe write fd&quot;</span>, errno));
+		<span class="kw">return </span><span class="prelude-val">Ok</span>(internal_error_from_errno(<span class="string">"closing pipe write fd"</span>, errno));
 	};
 
 	<span class="comment">// SAFETY: pipe_read_fd is an open and owned file descriptor at this point.
 	</span><span class="kw">let </span><span class="kw-2">mut </span>pipe_read = <span class="kw">unsafe </span>{ PipeFd::from_raw_fd(pipe_read_fd) };
 
-	<span class="comment">// Read from the child. Don&#39;t decode unless the process exited normally, which we check later.
+	<span class="comment">// Read from the child. Don't decode unless the process exited normally, which we check later.
 	</span><span class="kw">let </span><span class="kw-2">mut </span>received_data = Vec::new();
 	pipe_read
 		.read_to_end(<span class="kw-2">&amp;mut </span>received_data)
@@ -1307,13 +1309,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		target: LOG_TARGET,
 		<span class="question-mark">?</span>worker_info,
 		%job_pid,
-		<span class="string">&quot;execute worker received wait status from job: {:?}&quot;</span>,
+		<span class="string">"execute worker received wait status from job: {:?}"</span>,
 		status,
 	);
 
 	<span class="kw">let </span>usage_after = <span class="kw">match </span>nix::sys::resource::getrusage(UsageWho::RUSAGE_CHILDREN) {
 		<span class="prelude-val">Ok</span>(usage) =&gt; usage,
-		<span class="prelude-val">Err</span>(errno) =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(internal_error_from_errno(<span class="string">&quot;getrusage after&quot;</span>, errno)),
+		<span class="prelude-val">Err</span>(errno) =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(internal_error_from_errno(<span class="string">"getrusage after"</span>, errno)),
 	};
 
 	<span class="comment">// Using `getrusage` is needed to check whether child has timedout since we cannot rely on
@@ -1327,7 +1329,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			target: LOG_TARGET,
 			<span class="question-mark">?</span>worker_info,
 			%job_pid,
-			<span class="string">&quot;execute job took {}ms cpu time, exceeded execute timeout {}ms&quot;</span>,
+			<span class="string">"execute job took {}ms cpu time, exceeded execute timeout {}ms"</span>,
 			cpu_tv.as_millis(),
 			timeout.as_millis(),
 		);
@@ -1347,7 +1349,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="comment">// The exit status should have been zero if no error occurred.
 					</span><span class="kw">if </span>exit_status != <span class="number">0 </span>{
 						<span class="kw">return </span><span class="prelude-val">Ok</span>(WorkerResponse::JobError(<span class="macro">format!</span>(
-							<span class="string">&quot;unexpected exit status: {}&quot;</span>,
+							<span class="string">"unexpected exit status: {}"</span>,
 							exit_status
 						)))
 					}
@@ -1362,7 +1364,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						target: LOG_TARGET,
 						<span class="question-mark">?</span>worker_info,
 						%job_pid,
-						<span class="string">&quot;execute job error: {}&quot;</span>,
+						<span class="string">"execute job error: {}"</span>,
 						job_error,
 					);
 					<span class="kw">if </span><span class="macro">matches!</span>(job_error, JobError::TimedOut) {
@@ -1378,15 +1380,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		// The job gets SIGSYS on seccomp violations, but this signal may have been sent for some
 		// other reason, so we still need to check for seccomp violations elsewhere.
 		</span><span class="prelude-val">Ok</span>(WaitStatus::Signaled(_pid, signal, _core_dump)) =&gt; <span class="prelude-val">Ok</span>(WorkerResponse::JobDied {
-			err: <span class="macro">format!</span>(<span class="string">&quot;received signal: {signal:?}&quot;</span>),
+			err: <span class="macro">format!</span>(<span class="string">"received signal: {signal:?}"</span>),
 			job_pid: job_pid.as_raw(),
 		}),
-		<span class="prelude-val">Err</span>(errno) =&gt; <span class="prelude-val">Ok</span>(internal_error_from_errno(<span class="string">&quot;waitpid&quot;</span>, errno)),
+		<span class="prelude-val">Err</span>(errno) =&gt; <span class="prelude-val">Ok</span>(internal_error_from_errno(<span class="string">"waitpid"</span>, errno)),
 
-		<span class="comment">// It is within an attacker&#39;s power to send an unexpected exit status. So we cannot treat
+		<span class="comment">// It is within an attacker's power to send an unexpected exit status. So we cannot treat
 		// this as an internal error (which would make us abstain), but must vote against.
 		</span><span class="prelude-val">Ok</span>(unexpected_wait_status) =&gt; <span class="prelude-val">Ok</span>(WorkerResponse::JobDied {
-			err: <span class="macro">format!</span>(<span class="string">&quot;unexpected status from wait: {unexpected_wait_status:?}&quot;</span>),
+			err: <span class="macro">format!</span>(<span class="string">"unexpected status from wait: {unexpected_wait_status:?}"</span>),
 			job_pid: job_pid.as_raw(),
 		}),
 	}
@@ -1416,7 +1418,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	JobResult::decode(<span class="kw-2">&amp;mut </span>response_bytes.as_slice()).map_err(|e| {
 		io::Error::new(
 			io::ErrorKind::Other,
-			<span class="macro">format!</span>(<span class="string">&quot;execute pvf recv_child_response: decode error: {}&quot;</span>, e),
+			<span class="macro">format!</span>(<span class="string">"execute pvf recv_child_response: decode error: {}"</span>, e),
 		)
 	})
 }
@@ -1439,17 +1441,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">fn </span>internal_error_from_errno(context: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str, errno: Errno) -&gt; WorkerResponse {
+<span class="kw">fn </span>internal_error_from_errno(context: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str, errno: Errno) -&gt; WorkerResponse {
 	WorkerResponse::InternalError(InternalValidationError::Kernel(<span class="macro">format!</span>(
-		<span class="string">&quot;{}: {}: {}&quot;</span>,
+		<span class="string">"{}: {}: {}"</span>,
 		context,
 		errno,
 		io::Error::last_os_error()
 	)))
 }
 
-<span class="kw">fn </span>job_error_from_errno(context: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str, errno: Errno) -&gt; JobResult {
-	<span class="prelude-val">Err</span>(JobError::Kernel(<span class="macro">format!</span>(<span class="string">&quot;{}: {}: {}&quot;</span>, context, errno, io::Error::last_os_error())))
+<span class="kw">fn </span>job_error_from_errno(context: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str, errno: Errno) -&gt; JobResult {
+	<span class="prelude-val">Err</span>(JobError::Kernel(<span class="macro">format!</span>(<span class="string">"{}: {}: {}"</span>, context, errno, io::Error::last_os_error())))
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 

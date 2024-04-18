@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/support/src/traits/metadata.rs`."><title>metadata.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/support/src/traits/metadata.rs`."><title>metadata.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="frame_support" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="frame_support" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../frame_support/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -533,14 +535,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -558,15 +560,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// is configured in `construct_runtime!`.
 </span><span class="kw">pub trait </span>PalletInfo {
 	<span class="doccomment">/// Convert the given pallet `P` into its index as configured in the runtime.
-	</span><span class="kw">fn </span>index&lt;P: <span class="lifetime">&#39;static</span>&gt;() -&gt; <span class="prelude-ty">Option</span>&lt;usize&gt;;
+	</span><span class="kw">fn </span>index&lt;P: <span class="lifetime">'static</span>&gt;() -&gt; <span class="prelude-ty">Option</span>&lt;usize&gt;;
 	<span class="doccomment">/// Convert the given pallet `P` into its name as configured in the runtime.
-	</span><span class="kw">fn </span>name&lt;P: <span class="lifetime">&#39;static</span>&gt;() -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt;;
+	</span><span class="kw">fn </span>name&lt;P: <span class="lifetime">'static</span>&gt;() -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt;;
 	<span class="doccomment">/// The two128 hash of name.
-	</span><span class="kw">fn </span>name_hash&lt;P: <span class="lifetime">&#39;static</span>&gt;() -&gt; <span class="prelude-ty">Option</span>&lt;[u8; <span class="number">16</span>]&gt;;
+	</span><span class="kw">fn </span>name_hash&lt;P: <span class="lifetime">'static</span>&gt;() -&gt; <span class="prelude-ty">Option</span>&lt;[u8; <span class="number">16</span>]&gt;;
 	<span class="doccomment">/// Convert the given pallet `P` into its Rust module name as used in `construct_runtime!`.
-	</span><span class="kw">fn </span>module_name&lt;P: <span class="lifetime">&#39;static</span>&gt;() -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt;;
+	</span><span class="kw">fn </span>module_name&lt;P: <span class="lifetime">'static</span>&gt;() -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt;;
 	<span class="doccomment">/// Convert the given pallet `P` into its containing crate version.
-	</span><span class="kw">fn </span>crate_version&lt;P: <span class="lifetime">&#39;static</span>&gt;() -&gt; <span class="prelude-ty">Option</span>&lt;CrateVersion&gt;;
+	</span><span class="kw">fn </span>crate_version&lt;P: <span class="lifetime">'static</span>&gt;() -&gt; <span class="prelude-ty">Option</span>&lt;CrateVersion&gt;;
 }
 
 <span class="doccomment">/// Information regarding an instance of a pallet.
@@ -575,9 +577,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Index of the pallet as configured in the runtime.
 	</span><span class="kw">pub </span>index: usize,
 	<span class="doccomment">/// Name of the pallet as configured in the runtime.
-	</span><span class="kw">pub </span>name: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
+	</span><span class="kw">pub </span>name: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
 	<span class="doccomment">/// Name of the Rust module containing the pallet.
-	</span><span class="kw">pub </span>module_name: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
+	</span><span class="kw">pub </span>module_name: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
 	<span class="doccomment">/// Version of the crate containing the pallet.
 	</span><span class="kw">pub </span>crate_version: CrateVersion,
 }
@@ -590,32 +592,32 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Index of the pallet as configured in the runtime.
 	</span><span class="kw">fn </span>index() -&gt; usize;
 	<span class="doccomment">/// Name of the pallet as configured in the runtime.
-	</span><span class="kw">fn </span>name() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str;
+	</span><span class="kw">fn </span>name() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str;
 	<span class="doccomment">/// Two128 hash of name.
 	</span><span class="kw">fn </span>name_hash() -&gt; [u8; <span class="number">16</span>];
 	<span class="doccomment">/// Name of the Rust module containing the pallet.
-	</span><span class="kw">fn </span>module_name() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str;
+	</span><span class="kw">fn </span>module_name() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str;
 	<span class="doccomment">/// Version of the crate containing the pallet.
 	</span><span class="kw">fn </span>crate_version() -&gt; CrateVersion;
 }
 
 <span class="doccomment">/// Provide information about a bunch of pallets.
 </span><span class="kw">pub trait </span>PalletsInfoAccess {
-	<span class="doccomment">/// The number of pallets&#39; information that this type represents.
+	<span class="doccomment">/// The number of pallets' information that this type represents.
 	///
-	/// You probably don&#39;t want this function but `infos()` instead.
+	/// You probably don't want this function but `infos()` instead.
 	</span><span class="kw">fn </span>count() -&gt; usize {
 		<span class="comment">// for backwards compatibility with XCM-3, Mark as deprecated.
 		</span><span class="self">Self</span>::infos().len()
 	}
 
-	<span class="doccomment">/// All of the pallets&#39; information that this type represents.
+	<span class="doccomment">/// All of the pallets' information that this type represents.
 	</span><span class="kw">fn </span>infos() -&gt; Vec&lt;PalletInfoData&gt;;
 }
 
-<span class="attr">#[cfg_attr(all(not(feature = <span class="string">&quot;tuples-96&quot;</span>), not(feature = <span class="string">&quot;tuples-128&quot;</span>)), impl_for_tuples(<span class="number">64</span>))]
-#[cfg_attr(all(feature = <span class="string">&quot;tuples-96&quot;</span>, not(feature = <span class="string">&quot;tuples-128&quot;</span>)), impl_for_tuples(<span class="number">96</span>))]
-#[cfg_attr(feature = <span class="string">&quot;tuples-128&quot;</span>, impl_for_tuples(<span class="number">128</span>))]
+<span class="attr">#[cfg_attr(all(not(feature = <span class="string">"tuples-96"</span>), not(feature = <span class="string">"tuples-128"</span>)), impl_for_tuples(<span class="number">64</span>))]
+#[cfg_attr(all(feature = <span class="string">"tuples-96"</span>, not(feature = <span class="string">"tuples-128"</span>)), impl_for_tuples(<span class="number">96</span>))]
+#[cfg_attr(feature = <span class="string">"tuples-128"</span>, impl_for_tuples(<span class="number">128</span>))]
 </span><span class="kw">impl </span>PalletsInfoAccess <span class="kw">for </span>Tuple {
 	<span class="kw">fn </span>infos() -&gt; Vec&lt;PalletInfoData&gt; {
 		<span class="kw">let </span><span class="kw-2">mut </span>res = <span class="macro">vec!</span>[];
@@ -628,23 +630,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[derive(Clone, Eq, PartialEq, Default, RuntimeDebug)]
 </span><span class="kw">pub struct </span>CallMetadata {
 	<span class="doccomment">/// Name of the function.
-	</span><span class="kw">pub </span>function_name: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
+	</span><span class="kw">pub </span>function_name: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
 	<span class="doccomment">/// Name of the pallet to which the function belongs.
-	</span><span class="kw">pub </span>pallet_name: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
+	</span><span class="kw">pub </span>pallet_name: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
 }
 
 <span class="doccomment">/// Gets the function name of the Call.
 </span><span class="kw">pub trait </span>GetCallName {
 	<span class="doccomment">/// Return all function names in the same order as [`GetCallIndex`].
-	</span><span class="kw">fn </span>get_call_names() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str];
+	</span><span class="kw">fn </span>get_call_names() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>[<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str];
 	<span class="doccomment">/// Return the function name of the Call.
-	</span><span class="kw">fn </span>get_call_name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str;
+	</span><span class="kw">fn </span>get_call_name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str;
 }
 
 <span class="doccomment">/// Gets the function index of the Call.
 </span><span class="kw">pub trait </span>GetCallIndex {
 	<span class="doccomment">/// Return all call indices in the same order as [`GetCallName`].
-	</span><span class="kw">fn </span>get_call_indices() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8];
+	</span><span class="kw">fn </span>get_call_indices() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>[u8];
 	<span class="doccomment">/// Return the index of this Call.
 	</span><span class="kw">fn </span>get_call_index(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u8;
 }
@@ -652,9 +654,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Gets the metadata for the Call - function name and pallet name.
 </span><span class="kw">pub trait </span>GetCallMetadata {
 	<span class="doccomment">/// Return all module names.
-	</span><span class="kw">fn </span>get_module_names() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str];
+	</span><span class="kw">fn </span>get_module_names() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>[<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str];
 	<span class="doccomment">/// Return all function names for the given `module`.
-	</span><span class="kw">fn </span>get_call_names(module: <span class="kw-2">&amp;</span>str) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str];
+	</span><span class="kw">fn </span>get_call_names(module: <span class="kw-2">&amp;</span>str) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>[<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str];
 	<span class="doccomment">/// Return a [`CallMetadata`], containing function and pallet name of the Call.
 	</span><span class="kw">fn </span>get_call_metadata(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; CallMetadata;
 }
@@ -694,7 +696,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// The full storage key is built by using:
 /// Twox128([`PalletInfo::name`]) ++ Twox128([`STORAGE_VERSION_STORAGE_KEY_POSTFIX`])
-</span><span class="kw">pub const </span>STORAGE_VERSION_STORAGE_KEY_POSTFIX: <span class="kw-2">&amp;</span>[u8] = <span class="string">b&quot;:__STORAGE_VERSION__:&quot;</span>;
+</span><span class="kw">pub const </span>STORAGE_VERSION_STORAGE_KEY_POSTFIX: <span class="kw-2">&amp;</span>[u8] = <span class="string">b":__STORAGE_VERSION__:"</span>;
 
 <span class="doccomment">/// The storage version of a pallet.
 ///
@@ -727,7 +729,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// In a runtime that is put together using
 	/// [`construct_runtime!`](crate::construct_runtime) this should never happen.
 	///
-	/// It will also panic if this function isn&#39;t executed in an externalities
+	/// It will also panic if this function isn't executed in an externalities
 	/// provided environment.
 	</span><span class="kw">pub fn </span>put&lt;P: PalletInfoAccess&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>) {
 		<span class="kw">let </span>key = <span class="self">Self</span>::storage_key::&lt;P&gt;();
@@ -745,7 +747,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// In a runtime that is put together using
 	/// [`construct_runtime!`](crate::construct_runtime) this should never happen.
 	///
-	/// It will also panic if this function isn&#39;t executed in an externalities
+	/// It will also panic if this function isn't executed in an externalities
 	/// provided environment.
 	</span><span class="kw">pub fn </span>get&lt;P: PalletInfoAccess&gt;() -&gt; <span class="self">Self </span>{
 		<span class="kw">let </span>key = <span class="self">Self</span>::storage_key::&lt;P&gt;();
@@ -763,7 +765,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// In a runtime that is put together using
 	/// [`construct_runtime!`](crate::construct_runtime) this should never happen.
 	///
-	/// It will also panic if this function isn&#39;t executed in an externalities
+	/// It will also panic if this function isn't executed in an externalities
 	/// provided environment.
 	</span><span class="kw">pub fn </span>exists&lt;P: PalletInfoAccess&gt;() -&gt; bool {
 		<span class="kw">let </span>key = <span class="self">Self</span>::storage_key::&lt;P&gt;();
@@ -802,7 +804,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[derive(Debug, Default)]
 </span><span class="kw">pub struct </span>NoStorageVersionSet;
 
-<span class="doccomment">/// Provides information about a pallet&#39;s storage versions.
+<span class="doccomment">/// Provides information about a pallet's storage versions.
 ///
 /// Every pallet has two storage versions:
 /// 1. An in-code storage version
@@ -820,7 +822,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub trait </span>GetStorageVersion {
 	<span class="doccomment">/// This type is generated by the [`pallet`](crate::pallet) macro.
 	///
-	/// If the [`storage_version`](crate::pallet_macros::storage_version) attribute isn&#39;t specified,
+	/// If the [`storage_version`](crate::pallet_macros::storage_version) attribute isn't specified,
 	/// this is set to [`NoStorageVersionSet`] to signify that it is missing.
 	///
 	/// If the [`storage_version`](crate::pallet_macros::storage_version) attribute is specified,
@@ -833,7 +835,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">type </span>InCodeStorageVersion;
 
 	<span class="attr">#[deprecated(
-		note = <span class="string">&quot;This method has been renamed to `in_code_storage_version` and will be removed after March 2024.&quot;
+		note = <span class="string">"This method has been renamed to `in_code_storage_version` and will be removed after March 2024."
 	</span>)]
 	</span><span class="doccomment">/// DEPRECATED: Use [`Self::current_storage_version`] instead.
 	///
@@ -862,14 +864,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">fn </span>index() -&gt; usize {
 			<span class="number">1
 		</span>}
-		<span class="kw">fn </span>name() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str {
-			<span class="string">&quot;Pallet1&quot;
+		<span class="kw">fn </span>name() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
+			<span class="string">"Pallet1"
 		</span>}
 		<span class="kw">fn </span>name_hash() -&gt; [u8; <span class="number">16</span>] {
 			twox_128(<span class="self">Self</span>::name().as_bytes())
 		}
-		<span class="kw">fn </span>module_name() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str {
-			<span class="string">&quot;pallet1&quot;
+		<span class="kw">fn </span>module_name() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
+			<span class="string">"pallet1"
 		</span>}
 		<span class="kw">fn </span>crate_version() -&gt; CrateVersion {
 			CrateVersion::new(<span class="number">1</span>, <span class="number">0</span>, <span class="number">0</span>)
@@ -880,16 +882,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">fn </span>index() -&gt; usize {
 			<span class="number">2
 		</span>}
-		<span class="kw">fn </span>name() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str {
-			<span class="string">&quot;Pallet2&quot;
+		<span class="kw">fn </span>name() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
+			<span class="string">"Pallet2"
 		</span>}
 
 		<span class="kw">fn </span>name_hash() -&gt; [u8; <span class="number">16</span>] {
 			twox_128(<span class="self">Self</span>::name().as_bytes())
 		}
 
-		<span class="kw">fn </span>module_name() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str {
-			<span class="string">&quot;pallet2&quot;
+		<span class="kw">fn </span>module_name() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
+			<span class="string">"pallet2"
 		</span>}
 		<span class="kw">fn </span>crate_version() -&gt; CrateVersion {
 			CrateVersion::new(<span class="number">1</span>, <span class="number">0</span>, <span class="number">0</span>)

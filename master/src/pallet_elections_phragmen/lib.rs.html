@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/elections-phragmen/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/elections-phragmen/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_elections_phragmen" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_elections_phragmen" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../pallet_elections_phragmen/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -3458,14 +3460,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -3482,7 +3484,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! _round_ can be used interchangeably in this context.
 //!
 //! [`Config::TermDuration`] might change during a round. This can shorten or extend the length of
-//! the round. The next election round&#39;s block number is never stored but rather always checked on
+//! the round. The next election round's block number is never stored but rather always checked on
 //! the fly. Based on the current block number and [`Config::TermDuration`], the condition
 //! `BlockNumber % TermDuration == 0` being satisfied will always trigger a new election round.
 //!
@@ -3503,7 +3505,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! reserve a bond as they vote. Each vote defines a `value`. This amount is locked from the account
 //! of the voter and indicates the weight of the vote. Voters can update their votes at any time by
 //! calling `vote()` again. This can update the vote targets (which might update the deposit) or
-//! update the vote&#39;s stake ([`Voter::stake`]). After a round, votes are kept and might still be
+//! update the vote's stake ([`Voter::stake`]). After a round, votes are kept and might still be
 //! valid for further rounds. A voter is responsible for calling `remove_voter` once they are done
 //! to have their bond back and remove the lock.
 //!
@@ -3542,7 +3544,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! Note that with the members being the default candidates for the next round and votes persisting
 //! in storage, the election system is entirely stable given no further input. This means that if
 //! the system has a particular set of candidates `C` and voters `V` that lead to a set of members
-//! `M` being elected, as long as `V` and `C` don&#39;t remove their candidacy and votes, `M` will keep
+//! `M` being elected, as long as `V` and `C` don't remove their candidacy and votes, `M` will keep
 //! being re-elected at the end of each round.
 //!
 //! ### Module Information
@@ -3551,7 +3553,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! - [`Call`]
 //! - [`Module`]
 
-</span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
+</span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
 </span><span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>frame_support::{
@@ -3572,7 +3574,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sp_staking::currency_to_vote::CurrencyToVote;
 <span class="kw">use </span>sp_std::{cmp::Ordering, prelude::<span class="kw-2">*</span>};
 
-<span class="attr">#[cfg(any(feature = <span class="string">&quot;try-runtime&quot;</span>, test))]
+<span class="attr">#[cfg(any(feature = <span class="string">"try-runtime"</span>, test))]
 </span><span class="kw">use </span>sp_runtime::TryRuntimeError;
 
 <span class="kw">mod </span>benchmarking;
@@ -3582,7 +3584,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// All migrations.
 </span><span class="kw">pub mod </span>migrations;
 
-<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;runtime::elections-phragmen&quot;</span>;
+<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"runtime::elections-phragmen"</span>;
 
 <span class="kw">type </span>BalanceOf&lt;T&gt; =
 	&lt;&lt;T <span class="kw">as </span>Config&gt;::Currency <span class="kw">as </span>Currency&lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId&gt;&gt;::Balance;
@@ -3655,7 +3657,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub trait </span>Config: frame_system::Config {
 		<span class="kw">type </span>RuntimeEvent: From&lt;Event&lt;<span class="self">Self</span>&gt;&gt; + IsType&lt;&lt;<span class="self">Self </span><span class="kw">as </span>frame_system::Config&gt;::RuntimeEvent&gt;;
 
-		<span class="doccomment">/// Identifier for the elections-phragmen pallet&#39;s lock
+		<span class="doccomment">/// Identifier for the elections-phragmen pallet's lock
 		</span><span class="attr">#[pallet::constant]
 		</span><span class="kw">type </span>PalletId: Get&lt;LockIdentifier&gt;;
 
@@ -3673,7 +3675,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		/// This must fit into a `u64` but is allowed to be sensibly lossy.
 		</span><span class="kw">type </span>CurrencyToVote: CurrencyToVote&lt;BalanceOf&lt;<span class="self">Self</span>&gt;&gt;;
 
-		<span class="doccomment">/// How much should be locked up in order to submit one&#39;s candidacy.
+		<span class="doccomment">/// How much should be locked up in order to submit one's candidacy.
 		</span><span class="attr">#[pallet::constant]
 		</span><span class="kw">type </span>CandidacyBond: Get&lt;BalanceOf&lt;<span class="self">Self</span>&gt;&gt;;
 
@@ -3767,7 +3769,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="macro">log::debug!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;election weight {}s ({:?}) // chain&#39;s block weight {}s ({:?})&quot;</span>,
+				<span class="string">"election weight {}s ({:?}) // chain's block weight {}s ({:?})"</span>,
 				to_seconds(<span class="kw-2">&amp;</span>election_weight),
 				election_weight,
 				to_seconds(<span class="kw-2">&amp;</span>block_weight),
@@ -3775,7 +3777,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			);
 			<span class="macro">assert!</span>(
 				election_weight.all_lt(block_weight),
-				<span class="string">&quot;election weight {}s ({:?}) will exceed a {}s chain&#39;s block weight ({:?}) (MaxCandidates {}, MaxVoters {}, MaxVotesPerVoter {} -- tweak these parameters)&quot;</span>,
+				<span class="string">"election weight {}s ({:?}) will exceed a {}s chain's block weight ({:?}) (MaxCandidates {}, MaxVoters {}, MaxVotesPerVoter {} -- tweak these parameters)"</span>,
 				election_weight,
 				to_seconds(<span class="kw-2">&amp;</span>election_weight),
 				to_seconds(<span class="kw-2">&amp;</span>block_weight),
@@ -3786,7 +3788,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			);
 		}
 
-		<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+		<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 		</span><span class="kw">fn </span>try_state(_n: BlockNumberFor&lt;T&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
 			<span class="self">Self</span>::do_try_state()
 		}
@@ -3797,7 +3799,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="doccomment">/// Vote for a set of candidates for the upcoming round of election. This can be called to
 		/// set the initial votes, or update already existing votes.
 		///
-		/// Upon initial voting, `value` units of `who`&#39;s balance is locked and a deposit amount is
+		/// Upon initial voting, `value` units of `who`'s balance is locked and a deposit amount is
 		/// reserved. The deposit is based on the number of votes and can be updated over time.
 		///
 		/// The `votes` should:
@@ -3805,7 +3807,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		///   - be less than the number of possible candidates. Note that all current members and
 		///     runners-up are also automatically candidates for the next round.
 		///
-		/// If `value` is more than `who`&#39;s free balance, then the maximum of the two is used.
+		/// If `value` is more than `who`'s free balance, then the maximum of the two is used.
 		///
 		/// The dispatch origin of this call must be signed.
 		///
@@ -3929,7 +3931,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Ok</span>(())
 		}
 
-		<span class="doccomment">/// Renounce one&#39;s intention to be a candidate for the next election round. 3 potential
+		<span class="doccomment">/// Renounce one's intention to be a candidate for the next election round. 3 potential
 		/// outcomes exist:
 		///
 		/// - `origin` is a candidate and not elected in any set. In this case, the deposit is
@@ -3969,7 +3971,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							.iter()
 							.position(|SeatHolder { who: r, .. }| r == <span class="kw-2">&amp;</span>who)
 							.ok_or(Error::&lt;T&gt;::InvalidRenouncing)<span class="question-mark">?</span>;
-						<span class="comment">// can&#39;t fail anymore.
+						<span class="comment">// can't fail anymore.
 						</span><span class="kw">let </span>SeatHolder { deposit, .. } = runners_up.remove(index);
 						<span class="kw">let </span>_remainder = T::Currency::unreserve(<span class="kw-2">&amp;</span>who, deposit);
 						<span class="macro">debug_assert!</span>(_remainder.is_zero());
@@ -4184,7 +4186,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">fn </span>build(<span class="kw-2">&amp;</span><span class="self">self</span>) {
 			<span class="macro">assert!</span>(
 				<span class="self">self</span>.members.len() <span class="kw">as </span>u32 &lt;= T::DesiredMembers::get(),
-				<span class="string">&quot;Cannot accept more than DesiredMembers genesis member&quot;</span>,
+				<span class="string">"Cannot accept more than DesiredMembers genesis member"</span>,
 			);
 			<span class="kw">let </span>members = <span class="self">self
 				</span>.members
@@ -4193,7 +4195,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="comment">// make sure they have enough stake.
 					</span><span class="macro">assert!</span>(
 						T::Currency::free_balance(member) &gt;= <span class="kw-2">*</span>stake,
-						<span class="string">&quot;Genesis member does not have enough stake.&quot;</span>,
+						<span class="string">"Genesis member does not have enough stake."</span>,
 					);
 
 					<span class="comment">// Note: all members will only vote for themselves, hence they must be given
@@ -4204,7 +4206,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="kw">match </span>members.binary_search_by(|m| m.who.cmp(member)) {
 							<span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; {
 								<span class="macro">panic!</span>(
-									<span class="string">&quot;Duplicate member in elections-phragmen genesis: {:?}&quot;</span>,
+									<span class="string">"Duplicate member in elections-phragmen genesis: {:?}"</span>,
 									member
 								)
 							},
@@ -4219,7 +4221,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						}
 					});
 
-					<span class="comment">// set self-votes to make persistent. Genesis voters don&#39;t have any bond, nor do
+					<span class="comment">// set self-votes to make persistent. Genesis voters don't have any bond, nor do
 					// they have any lock. NOTE: this means that we will still try to remove a lock
 					// once this genesis voter is removed, and for now it is okay because
 					// remove_lock is noop if lock is not there.
@@ -4294,7 +4296,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				} <span class="kw">else </span>{
 					<span class="comment">// overlap. This can never happen. If so, it seems like our intended replacement
 					// is already a member, so not much more to do.
-					</span><span class="macro">log::error!</span>(target: LOG_TARGET, <span class="string">&quot;A member seems to also be a runner-up.&quot;</span>);
+					</span><span class="macro">log::error!</span>(target: LOG_TARGET, <span class="string">"A member seems to also be a runner-up."</span>);
 				}
 				next_best
 			});
@@ -4357,7 +4359,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">Self</span>::runners_up().iter().any(|r| <span class="kw-2">&amp;</span>r.who == who)
 	}
 
-	<span class="doccomment">/// Get the members&#39; account ids.
+	<span class="doccomment">/// Get the members' account ids.
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>members_ids() -&gt; Vec&lt;T::AccountId&gt; {
 		<span class="self">Self</span>::members().into_iter().map(|m| m.who).collect::&lt;Vec&lt;T::AccountId&gt;&gt;()
 	}
@@ -4442,7 +4444,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
 				<span class="macro">log::error!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Failed to run election. Number of voters exceeded&quot;</span>,
+					<span class="string">"Failed to run election. Number of voters exceeded"</span>,
 				);
 				<span class="self">Self</span>::deposit_event(Event::ElectionError);
 				<span class="kw">return </span>T::DbWeight::get().reads(<span class="number">3 </span>+ max_voters <span class="kw">as </span>u64)
@@ -4486,7 +4488,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						.collect::&lt;Vec&lt;(T::AccountId, BalanceOf&lt;T&gt;)&gt;&gt;();
 
 					<span class="comment">// OPTIMIZATION NOTE: we could bail out here if `new_set.len() == 0`. There
-					// isn&#39;t much left to do. Yet, re-arranging the code would require duplicating
+					// isn't much left to do. Yet, re-arranging the code would require duplicating
 					// the slashing of exposed candidates, cleaning any previous members, and so on.
 					// For now, in favor of readability and veracity, we keep it simple.
 
@@ -4506,7 +4508,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					new_runners_up_ids_sorted.sort();
 
 					<span class="comment">// Now we select a prime member using a [Borda
-					// count](https://en.wikipedia.org/wiki/Borda_count). We weigh everyone&#39;s vote for
+					// count](https://en.wikipedia.org/wiki/Borda_count). We weigh everyone's vote for
 					// that new member by a multiplier based on the order of the votes. i.e. the
 					// first person a voter votes for gets a 16x multiplier, the next person gets a
 					// 15x multiplier, an so on... (assuming `T::MaxVotesPerVoter` = 16)
@@ -4528,7 +4530,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					}
 					<span class="comment">// We then select the new member with the highest weighted stake. In the case of
 					// a tie, the last person in the list with the tied score is selected. This is
-					// the person with the &quot;highest&quot; account id based on the sort above.
+					// the person with the "highest" account id based on the sort above.
 					</span><span class="kw">let </span>prime = prime_votes.into_iter().max_by_key(|x| x.<span class="number">1</span>).map(|x| x.<span class="number">0</span>.clone());
 
 					<span class="comment">// new_members_sorted_by_id is sorted by account id.
@@ -4605,7 +4607,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					&lt;ElectionRounds&lt;T&gt;&gt;::mutate(|v| <span class="kw-2">*</span>v += <span class="number">1</span>);
 				})
 				.map_err(|e| {
-					<span class="macro">log::error!</span>(target: LOG_TARGET, <span class="string">&quot;Failed to run election [{:?}].&quot;</span>, e,);
+					<span class="macro">log::error!</span>(target: LOG_TARGET, <span class="string">"Failed to run election [{:?}]."</span>, e,);
 					<span class="self">Self</span>::deposit_event(Event::ElectionError);
 				});
 
@@ -4630,7 +4632,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="comment">// A special function to populate members in this pallet for passing Origin
 	// checks in runtime benchmarking.
-	</span><span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	</span><span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">fn </span>add(who: <span class="kw-2">&amp;</span>T::AccountId) {
 		Members::&lt;T&gt;::mutate(|members| <span class="kw">match </span>members.binary_search_by(|m| m.who.cmp(who)) {
 			<span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; (),
@@ -4657,7 +4659,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="attr">#[cfg(any(feature = <span class="string">&quot;try-runtime&quot;</span>, test))]
+<span class="attr">#[cfg(any(feature = <span class="string">"try-runtime"</span>, test))]
 </span><span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
 	<span class="kw">fn </span>do_try_state() -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
 		<span class="self">Self</span>::try_state_members()<span class="question-mark">?</span>;
@@ -4677,7 +4679,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if </span>Members::&lt;T&gt;::get() == members {
 			<span class="prelude-val">Ok</span>(())
 		} <span class="kw">else </span>{
-			<span class="prelude-val">Err</span>(<span class="string">&quot;try_state checks: Members must be always sorted by account ID&quot;</span>.into())
+			<span class="prelude-val">Err</span>(<span class="string">"try_state checks: Members must be always sorted by account ID"</span>.into())
 		}
 	}
 
@@ -4691,7 +4693,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if </span>RunnersUp::&lt;T&gt;::get() == sorted {
 			<span class="prelude-val">Ok</span>(())
 		} <span class="kw">else </span>{
-			<span class="prelude-val">Err</span>(<span class="string">&quot;try_state checks: Runners Up must always be sorted by stake (worst to best)&quot;
+			<span class="prelude-val">Err</span>(<span class="string">"try_state checks: Runners Up must always be sorted by stake (worst to best)"
 				</span>.into())
 		}
 	}
@@ -4705,14 +4707,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if </span>Candidates::&lt;T&gt;::get() == candidates {
 			<span class="prelude-val">Ok</span>(())
 		} <span class="kw">else </span>{
-			<span class="prelude-val">Err</span>(<span class="string">&quot;try_state checks: Candidates must be always sorted by account ID&quot;</span>.into())
+			<span class="prelude-val">Err</span>(<span class="string">"try_state checks: Candidates must be always sorted by account ID"</span>.into())
 		}
 	}
 	<span class="comment">// [`Candidates`] and [`RunnersUp`] state checks. Invariants:
 	//  - Candidates and runners-ups sets are disjoint.
 	</span><span class="kw">fn </span>try_state_candidates_runners_up_disjoint() -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
 		<span class="kw">match </span><span class="self">Self</span>::intersects(<span class="kw-2">&amp;</span><span class="self">Self</span>::candidates_ids(), <span class="kw-2">&amp;</span><span class="self">Self</span>::runners_up_ids()) {
-			<span class="bool-val">true </span>=&gt; <span class="prelude-val">Err</span>(<span class="string">&quot;Candidates and runners up sets should always be disjoint&quot;</span>.into()),
+			<span class="bool-val">true </span>=&gt; <span class="prelude-val">Err</span>(<span class="string">"Candidates and runners up sets should always be disjoint"</span>.into()),
 			<span class="bool-val">false </span>=&gt; <span class="prelude-val">Ok</span>(()),
 		}
 	}
@@ -4725,7 +4727,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="self">Self</span>::intersects(<span class="kw-2">&amp;</span>Pallet::&lt;T&gt;::members_ids(), <span class="kw-2">&amp;</span><span class="self">Self</span>::runners_up_ids())
 		{
 			<span class="bool-val">true </span>=&gt;
-				<span class="prelude-val">Err</span>(<span class="string">&quot;Members set should be disjoint from candidates and runners-up sets&quot;</span>.into()),
+				<span class="prelude-val">Err</span>(<span class="string">"Members set should be disjoint from candidates and runners-up sets"</span>.into()),
 			<span class="bool-val">false </span>=&gt; <span class="prelude-val">Ok</span>(()),
 		}
 	}
@@ -4740,7 +4742,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.all(|s| s.stake != BalanceOf::&lt;T&gt;::zero())
 		{
 			<span class="bool-val">true </span>=&gt; <span class="prelude-val">Ok</span>(()),
-			<span class="bool-val">false </span>=&gt; <span class="prelude-val">Err</span>(<span class="string">&quot;Members and RunnersUp must have approval stake&quot;</span>.into()),
+			<span class="bool-val">false </span>=&gt; <span class="prelude-val">Err</span>(<span class="string">"Members and RunnersUp must have approval stake"</span>.into()),
 		}
 	}
 
@@ -4833,7 +4835,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			new_plus_outgoing.extend_from_slice(outgoing);
 			new_plus_outgoing.sort();
 
-			<span class="macro">assert_eq!</span>(old_plus_incoming, new_plus_outgoing, <span class="string">&quot;change members call is incorrect!&quot;</span>);
+			<span class="macro">assert_eq!</span>(old_plus_incoming, new_plus_outgoing, <span class="string">"change members call is incorrect!"</span>);
 
 			MEMBERS.with(|m| <span class="kw-2">*</span>m.borrow_mut() = new.to_vec());
 			PRIME.with(|p| <span class="kw-2">*</span>p.borrow_mut() = <span class="prelude-val">None</span>);
@@ -4849,7 +4851,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="macro">parameter_types! </span>{
-		<span class="kw">pub const </span>ElectionsPhragmenPalletId: LockIdentifier = <span class="kw-2">*</span><span class="string">b&quot;phrelect&quot;</span>;
+		<span class="kw">pub const </span>ElectionsPhragmenPalletId: LockIdentifier = <span class="kw-2">*</span><span class="string">b"phrelect"</span>;
 		<span class="kw">pub const </span>PhragmenMaxVoters: u32 = <span class="number">1000</span>;
 		<span class="kw">pub const </span>PhragmenMaxCandidates: u32 = <span class="number">100</span>;
 	}
@@ -4956,7 +4958,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			ext.execute_with(pre_conditions);
 			ext.execute_with(test);
 
-			<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+			<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 			</span>ext.execute_with(|| {
 				<span class="macro">assert_ok!</span>(&lt;Elections <span class="kw">as </span>frame_support::traits::Hooks&lt;u64&gt;&gt;::try_state(
 					System::block_number()
@@ -5035,7 +5037,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// historical note: helper function was created in a period of time in which the API of vote
 		// call was changing. Currently it is a wrapper for the original call and does not do much.
 		// Nonetheless, totally harmless.
-		</span>ensure_signed(origin.clone()).expect(<span class="string">&quot;vote origin must be signed&quot;</span>);
+		</span>ensure_signed(origin.clone()).expect(<span class="string">"vote origin must be signed"</span>);
 		Elections::vote(origin, votes, stake)
 	}
 
@@ -5153,7 +5155,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="attr">#[test]
-	#[should_panic = <span class="string">&quot;Genesis member does not have enough stake&quot;</span>]
+	#[should_panic = <span class="string">"Genesis member does not have enough stake"</span>]
 	</span><span class="kw">fn </span>genesis_members_cannot_over_stake_0() {
 		<span class="comment">// 10 cannot lock 20 as their stake and extra genesis will panic.
 		</span>ExtBuilder::default()
@@ -5162,7 +5164,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="attr">#[test]
-	#[should_panic = <span class="string">&quot;Duplicate member in elections-phragmen genesis: 2&quot;</span>]
+	#[should_panic = <span class="string">"Duplicate member in elections-phragmen genesis: 2"</span>]
 	</span><span class="kw">fn </span>genesis_members_cannot_be_duplicate() {
 		ExtBuilder::default()
 			.desired_members(<span class="number">3</span>)
@@ -5171,7 +5173,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="attr">#[test]
-	#[should_panic = <span class="string">&quot;Cannot accept more than DesiredMembers genesis member&quot;</span>]
+	#[should_panic = <span class="string">"Cannot accept more than DesiredMembers genesis member"</span>]
 	</span><span class="kw">fn </span>genesis_members_cannot_too_many() {
 		ExtBuilder::default()
 			.genesis_members(<span class="macro">vec!</span>[(<span class="number">1</span>, <span class="number">10</span>), (<span class="number">2</span>, <span class="number">10</span>), (<span class="number">3</span>, <span class="number">30</span>)])
@@ -5800,7 +5802,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		ExtBuilder::default().build_and_execute(|| {
 			<span class="macro">assert_ok!</span>(submit_candidacy(RuntimeOrigin::signed(<span class="number">5</span>)));
 
-			<span class="comment">// This guy&#39;s vote is pointless for this round.
+			<span class="comment">// This guy's vote is pointless for this round.
 			</span><span class="macro">assert_ok!</span>(vote(RuntimeOrigin::signed(<span class="number">3</span>), <span class="macro">vec!</span>[<span class="number">4</span>], <span class="number">30</span>));
 			<span class="macro">assert_ok!</span>(vote(RuntimeOrigin::signed(<span class="number">5</span>), <span class="macro">vec!</span>[<span class="number">5</span>], <span class="number">50</span>));
 
@@ -6524,9 +6526,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="macro">assert_eq!</span>(members_ids(), <span class="macro">vec!</span>[<span class="number">5</span>]);
 				<span class="macro">assert_eq!</span>(runners_up_ids(), <span class="macro">vec!</span>[<span class="number">3</span>, <span class="number">4</span>]);
 
-				<span class="comment">// 4 went from member to runner-up -- don&#39;t slash.
+				<span class="comment">// 4 went from member to runner-up -- don't slash.
 				</span><span class="macro">assert_eq!</span>(balances(<span class="kw-2">&amp;</span><span class="number">4</span>), (<span class="number">35</span>, <span class="number">5</span>));
-				<span class="comment">// 3 stayed runner-up -- don&#39;t slash.
+				<span class="comment">// 3 stayed runner-up -- don't slash.
 				</span><span class="macro">assert_eq!</span>(balances(<span class="kw-2">&amp;</span><span class="number">3</span>), (<span class="number">25</span>, <span class="number">5</span>));
 				<span class="comment">// 2 was removed -- slash.
 				</span><span class="macro">assert_eq!</span>(balances(<span class="kw-2">&amp;</span><span class="number">2</span>), (<span class="number">15</span>, <span class="number">2</span>));
@@ -6567,9 +6569,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="macro">assert_eq!</span>(members_ids(), <span class="macro">vec!</span>[<span class="number">2</span>]);
 				<span class="macro">assert_eq!</span>(runners_up_ids(), <span class="macro">vec!</span>[<span class="number">4</span>, <span class="number">3</span>]);
 
-				<span class="comment">// 2 went from runner to member, don&#39;t slash
+				<span class="comment">// 2 went from runner to member, don't slash
 				</span><span class="macro">assert_eq!</span>(balances(<span class="kw-2">&amp;</span><span class="number">2</span>), (<span class="number">15</span>, <span class="number">5</span>));
-				<span class="comment">// 4 went from member to runner, don&#39;t slash
+				<span class="comment">// 4 went from member to runner, don't slash
 				</span><span class="macro">assert_eq!</span>(balances(<span class="kw-2">&amp;</span><span class="number">4</span>), (<span class="number">35</span>, <span class="number">5</span>));
 				<span class="comment">// 3 stayed the same
 				</span><span class="macro">assert_eq!</span>(balances(<span class="kw-2">&amp;</span><span class="number">3</span>), (<span class="number">25</span>, <span class="number">5</span>));

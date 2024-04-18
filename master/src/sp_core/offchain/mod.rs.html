@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/core/src/offchain/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/core/src/offchain/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sp_core" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sp_core" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../sp_core/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -940,14 +942,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -962,13 +964,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">pub use </span><span class="kw">crate</span>::crypto::KeyTypeId;
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">pub mod </span>storage;
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">pub mod </span>testing;
 
 <span class="doccomment">/// Persistent storage prefix used by the Offchain Worker API when creating a DB key.
-</span><span class="kw">pub const </span>STORAGE_PREFIX: <span class="kw-2">&amp;</span>[u8] = <span class="string">b&quot;storage&quot;</span>;
+</span><span class="kw">pub const </span>STORAGE_PREFIX: <span class="kw-2">&amp;</span>[u8] = <span class="string">b"storage"</span>;
 
 <span class="doccomment">/// Offchain DB persistent (non-fork-aware) storage.
 </span><span class="kw">pub trait </span>OffchainStorage: Clone + Send + Sync {
@@ -995,7 +997,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// A type of supported crypto.
 </span><span class="attr">#[derive(Clone, Copy, PartialEq, Eq, Encode, Decode, RuntimeDebug, PassByEnum)]
-#[cfg_attr(feature = <span class="string">&quot;serde&quot;</span>, derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = <span class="string">"serde"</span>, derive(serde::Serialize, serde::Deserialize))]
 #[repr(C)]
 </span><span class="kw">pub enum </span>StorageKind {
 	<span class="doccomment">/// Persistent storage is non-revertible and not fork-aware. It means that any value
@@ -1034,7 +1036,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[derive(
 	Clone, Copy, PartialEq, Eq, PartialOrd, Ord, RuntimeDebug, Encode, Decode, PassByInner,
 )]
-#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(Hash))]
+#[cfg_attr(feature = <span class="string">"std"</span>, derive(Hash))]
 </span><span class="kw">pub struct </span>HttpRequestId(<span class="kw">pub </span>u16);
 
 <span class="kw">impl </span>From&lt;HttpRequestId&gt; <span class="kw">for </span>u32 {
@@ -1047,7 +1049,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[derive(Clone, Copy, PartialEq, Eq, RuntimeDebug, Encode, Decode, PassByEnum)]
 #[repr(C)]
 </span><span class="kw">pub enum </span>HttpError {
-	<span class="doccomment">/// The requested action couldn&#39;t been completed within a deadline.
+	<span class="doccomment">/// The requested action couldn't been completed within a deadline.
 	</span>DeadlineReached = <span class="number">1_isize</span>,
 	<span class="doccomment">/// There was an IO Error while processing the request.
 	</span>IoError = <span class="number">2_isize</span>,
@@ -1119,10 +1121,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="doccomment">/// A blob to hold information about the local node&#39;s network state
+<span class="doccomment">/// A blob to hold information about the local node's network state
 /// without committing to its format.
 </span><span class="attr">#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, PassByCodec, TypeInfo)]
-#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(Default))]
+#[cfg_attr(feature = <span class="string">"std"</span>, derive(Default))]
 </span><span class="kw">pub struct </span>OpaqueNetworkState {
 	<span class="doccomment">/// PeerId of the local node in SCALE encoded.
 	</span><span class="kw">pub </span>peer_id: OpaquePeerId,
@@ -1145,14 +1147,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[derive(
 	Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Default, RuntimeDebug, PassByInner, Encode, Decode,
 )]
-#[cfg_attr(feature = <span class="string">&quot;serde&quot;</span>, derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = <span class="string">"serde"</span>, derive(serde::Serialize, serde::Deserialize))]
 </span><span class="kw">pub struct </span>Timestamp(u64);
 
 <span class="doccomment">/// Duration type
 </span><span class="attr">#[derive(
 	Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Default, RuntimeDebug, PassByInner, Encode, Decode,
 )]
-#[cfg_attr(feature = <span class="string">&quot;serde&quot;</span>, derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = <span class="string">"serde"</span>, derive(serde::Serialize, serde::Deserialize))]
 </span><span class="kw">pub struct </span>Duration(u64);
 
 <span class="kw">impl </span>Duration {
@@ -1224,7 +1226,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// and that the validator is registered in the chain.
 	</span><span class="kw">fn </span>is_validator(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool;
 
-	<span class="doccomment">/// Returns information about the local node&#39;s network state.
+	<span class="doccomment">/// Returns information about the local node's network state.
 	</span><span class="kw">fn </span>network_state(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;OpaqueNetworkState, ()&gt;;
 
 	<span class="doccomment">/// Returns current UNIX timestamp (in millis)
@@ -1264,7 +1266,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// - You have called `http_request_write_body` on that request.
 	/// - The name or value contain invalid characters.
 	///
-	/// An error doesn&#39;t poison the request, and you can continue as if the call had never been
+	/// An error doesn't poison the request, and you can continue as if the call had never been
 	/// made.
 	</span><span class="kw">fn </span>http_request_add_header(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
@@ -1314,16 +1316,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// Returns a vector of pairs `(HeaderKey, HeaderValue)`.
 	///
-	/// Dispatches the request if it hasn&#39;t been done yet. It is no longer
+	/// Dispatches the request if it hasn't been done yet. It is no longer
 	/// valid to modify the headers or write data to the request.
 	///
-	/// Returns an empty list if the identifier is unknown/invalid, hasn&#39;t
+	/// Returns an empty list if the identifier is unknown/invalid, hasn't
 	/// received a response, or has finished.
 	</span><span class="kw">fn </span>http_response_headers(<span class="kw-2">&amp;mut </span><span class="self">self</span>, request_id: HttpRequestId) -&gt; Vec&lt;(Vec&lt;u8&gt;, Vec&lt;u8&gt;)&gt;;
 
 	<span class="doccomment">/// Read a chunk of body response to given buffer.
 	///
-	/// Dispatches the request if it hasn&#39;t been done yet. It is no longer
+	/// Dispatches the request if it hasn't been done yet. It is no longer
 	/// valid to modify the headers or write data to the request.
 	///
 	/// Returns the number of bytes written or an error in case a deadline
@@ -1331,7 +1333,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// Passing `None` as a deadline blocks forever.
 	///
 	/// If `Ok(0)` or `Err(IoError)` is returned, the request is considered
-	/// destroyed. Doing another read or getting the response&#39;s headers, for
+	/// destroyed. Doing another read or getting the response's headers, for
 	/// example, is then invalid.
 	///
 	/// Returns an error if:
@@ -1448,36 +1450,36 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Check if given capability is allowed.
 	///
 	/// Panics in case it is not.
-	</span><span class="kw">fn </span>check(<span class="kw-2">&amp;</span><span class="self">self</span>, capability: Capabilities, name: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str) {
+	</span><span class="kw">fn </span>check(<span class="kw-2">&amp;</span><span class="self">self</span>, capability: Capabilities, name: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str) {
 		<span class="kw">if </span>!<span class="self">self</span>.capabilities.contains(capability) {
-			<span class="macro">panic!</span>(<span class="string">&quot;Accessing a forbidden API: {}. No: {:?} capability.&quot;</span>, name, capability);
+			<span class="macro">panic!</span>(<span class="string">"Accessing a forbidden API: {}. No: {:?} capability."</span>, name, capability);
 		}
 	}
 }
 
 <span class="kw">impl</span>&lt;T: Externalities&gt; Externalities <span class="kw">for </span>LimitedExternalities&lt;T&gt; {
 	<span class="kw">fn </span>is_validator(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
-		<span class="self">self</span>.check(Capabilities::KEYSTORE, <span class="string">&quot;is_validator&quot;</span>);
+		<span class="self">self</span>.check(Capabilities::KEYSTORE, <span class="string">"is_validator"</span>);
 		<span class="self">self</span>.externalities.is_validator()
 	}
 
 	<span class="kw">fn </span>network_state(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;OpaqueNetworkState, ()&gt; {
-		<span class="self">self</span>.check(Capabilities::NETWORK_STATE, <span class="string">&quot;network_state&quot;</span>);
+		<span class="self">self</span>.check(Capabilities::NETWORK_STATE, <span class="string">"network_state"</span>);
 		<span class="self">self</span>.externalities.network_state()
 	}
 
 	<span class="kw">fn </span>timestamp(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; Timestamp {
-		<span class="self">self</span>.check(Capabilities::TIME, <span class="string">&quot;timestamp&quot;</span>);
+		<span class="self">self</span>.check(Capabilities::TIME, <span class="string">"timestamp"</span>);
 		<span class="self">self</span>.externalities.timestamp()
 	}
 
 	<span class="kw">fn </span>sleep_until(<span class="kw-2">&amp;mut </span><span class="self">self</span>, deadline: Timestamp) {
-		<span class="self">self</span>.check(Capabilities::TIME, <span class="string">&quot;sleep_until&quot;</span>);
+		<span class="self">self</span>.check(Capabilities::TIME, <span class="string">"sleep_until"</span>);
 		<span class="self">self</span>.externalities.sleep_until(deadline)
 	}
 
 	<span class="kw">fn </span>random_seed(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; [u8; <span class="number">32</span>] {
-		<span class="self">self</span>.check(Capabilities::RANDOMNESS, <span class="string">&quot;random_seed&quot;</span>);
+		<span class="self">self</span>.check(Capabilities::RANDOMNESS, <span class="string">"random_seed"</span>);
 		<span class="self">self</span>.externalities.random_seed()
 	}
 
@@ -1487,7 +1489,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		uri: <span class="kw-2">&amp;</span>str,
 		meta: <span class="kw-2">&amp;</span>[u8],
 	) -&gt; <span class="prelude-ty">Result</span>&lt;HttpRequestId, ()&gt; {
-		<span class="self">self</span>.check(Capabilities::HTTP, <span class="string">&quot;http_request_start&quot;</span>);
+		<span class="self">self</span>.check(Capabilities::HTTP, <span class="string">"http_request_start"</span>);
 		<span class="self">self</span>.externalities.http_request_start(method, uri, meta)
 	}
 
@@ -1497,7 +1499,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		name: <span class="kw-2">&amp;</span>str,
 		value: <span class="kw-2">&amp;</span>str,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), ()&gt; {
-		<span class="self">self</span>.check(Capabilities::HTTP, <span class="string">&quot;http_request_add_header&quot;</span>);
+		<span class="self">self</span>.check(Capabilities::HTTP, <span class="string">"http_request_add_header"</span>);
 		<span class="self">self</span>.externalities.http_request_add_header(request_id, name, value)
 	}
 
@@ -1507,7 +1509,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		chunk: <span class="kw-2">&amp;</span>[u8],
 		deadline: <span class="prelude-ty">Option</span>&lt;Timestamp&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), HttpError&gt; {
-		<span class="self">self</span>.check(Capabilities::HTTP, <span class="string">&quot;http_request_write_body&quot;</span>);
+		<span class="self">self</span>.check(Capabilities::HTTP, <span class="string">"http_request_write_body"</span>);
 		<span class="self">self</span>.externalities.http_request_write_body(request_id, chunk, deadline)
 	}
 
@@ -1516,12 +1518,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		ids: <span class="kw-2">&amp;</span>[HttpRequestId],
 		deadline: <span class="prelude-ty">Option</span>&lt;Timestamp&gt;,
 	) -&gt; Vec&lt;HttpRequestStatus&gt; {
-		<span class="self">self</span>.check(Capabilities::HTTP, <span class="string">&quot;http_response_wait&quot;</span>);
+		<span class="self">self</span>.check(Capabilities::HTTP, <span class="string">"http_response_wait"</span>);
 		<span class="self">self</span>.externalities.http_response_wait(ids, deadline)
 	}
 
 	<span class="kw">fn </span>http_response_headers(<span class="kw-2">&amp;mut </span><span class="self">self</span>, request_id: HttpRequestId) -&gt; Vec&lt;(Vec&lt;u8&gt;, Vec&lt;u8&gt;)&gt; {
-		<span class="self">self</span>.check(Capabilities::HTTP, <span class="string">&quot;http_response_headers&quot;</span>);
+		<span class="self">self</span>.check(Capabilities::HTTP, <span class="string">"http_response_headers"</span>);
 		<span class="self">self</span>.externalities.http_response_headers(request_id)
 	}
 
@@ -1531,26 +1533,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		buffer: <span class="kw-2">&amp;mut </span>[u8],
 		deadline: <span class="prelude-ty">Option</span>&lt;Timestamp&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;usize, HttpError&gt; {
-		<span class="self">self</span>.check(Capabilities::HTTP, <span class="string">&quot;http_response_read_body&quot;</span>);
+		<span class="self">self</span>.check(Capabilities::HTTP, <span class="string">"http_response_read_body"</span>);
 		<span class="self">self</span>.externalities.http_response_read_body(request_id, buffer, deadline)
 	}
 
 	<span class="kw">fn </span>set_authorized_nodes(<span class="kw-2">&amp;mut </span><span class="self">self</span>, nodes: Vec&lt;OpaquePeerId&gt;, authorized_only: bool) {
-		<span class="self">self</span>.check(Capabilities::NODE_AUTHORIZATION, <span class="string">&quot;set_authorized_nodes&quot;</span>);
+		<span class="self">self</span>.check(Capabilities::NODE_AUTHORIZATION, <span class="string">"set_authorized_nodes"</span>);
 		<span class="self">self</span>.externalities.set_authorized_nodes(nodes, authorized_only)
 	}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="macro">sp_externalities::decl_extension! </span>{
 	<span class="doccomment">/// The offchain worker extension that will be registered at the Substrate externalities.
 	</span><span class="kw">pub struct </span>OffchainWorkerExt(Box&lt;<span class="kw">dyn </span>Externalities&gt;);
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">impl </span>OffchainWorkerExt {
 	<span class="doccomment">/// Create a new instance of `Self`.
-	</span><span class="kw">pub fn </span>new&lt;O: Externalities + <span class="lifetime">&#39;static</span>&gt;(offchain: O) -&gt; <span class="self">Self </span>{
+	</span><span class="kw">pub fn </span>new&lt;O: Externalities + <span class="lifetime">'static</span>&gt;(offchain: O) -&gt; <span class="self">Self </span>{
 		<span class="self">Self</span>(Box::new(offchain))
 	}
 }
@@ -1559,13 +1561,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub trait </span>DbExternalities: Send {
 	<span class="doccomment">/// Sets a value in the local storage.
 	///
-	/// Note this storage is not part of the consensus, it&#39;s only accessible by
+	/// Note this storage is not part of the consensus, it's only accessible by
 	/// offchain worker tasks running on the same machine. It _is_ persisted between runs.
 	</span><span class="kw">fn </span>local_storage_set(<span class="kw-2">&amp;mut </span><span class="self">self</span>, kind: StorageKind, key: <span class="kw-2">&amp;</span>[u8], value: <span class="kw-2">&amp;</span>[u8]);
 
 	<span class="doccomment">/// Removes a value in the local storage.
 	///
-	/// Note this storage is not part of the consensus, it&#39;s only accessible by
+	/// Note this storage is not part of the consensus, it's only accessible by
 	/// offchain worker tasks running on the same machine. It _is_ persisted between runs.
 	</span><span class="kw">fn </span>local_storage_clear(<span class="kw-2">&amp;mut </span><span class="self">self</span>, kind: StorageKind, key: <span class="kw-2">&amp;</span>[u8]);
 
@@ -1576,7 +1578,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// Returns `true` if the value has been set, `false` otherwise.
 	///
-	/// Note this storage is not part of the consensus, it&#39;s only accessible by
+	/// Note this storage is not part of the consensus, it's only accessible by
 	/// offchain worker tasks running on the same machine. It _is_ persisted between runs.
 	</span><span class="kw">fn </span>local_storage_compare_and_set(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
@@ -1589,7 +1591,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Gets a value from the local storage.
 	///
 	/// If the value does not exist in the storage `None` will be returned.
-	/// Note this storage is not part of the consensus, it&#39;s only accessible by
+	/// Note this storage is not part of the consensus, it's only accessible by
 	/// offchain worker tasks running on the same machine. It _is_ persisted between runs.
 	</span><span class="kw">fn </span>local_storage_get(<span class="kw-2">&amp;mut </span><span class="self">self</span>, kind: StorageKind, key: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt;;
 }
@@ -1620,12 +1622,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl</span>&lt;T: DbExternalities&gt; DbExternalities <span class="kw">for </span>LimitedExternalities&lt;T&gt; {
 	<span class="kw">fn </span>local_storage_set(<span class="kw-2">&amp;mut </span><span class="self">self</span>, kind: StorageKind, key: <span class="kw-2">&amp;</span>[u8], value: <span class="kw-2">&amp;</span>[u8]) {
-		<span class="self">self</span>.check(Capabilities::OFFCHAIN_DB_WRITE, <span class="string">&quot;local_storage_set&quot;</span>);
+		<span class="self">self</span>.check(Capabilities::OFFCHAIN_DB_WRITE, <span class="string">"local_storage_set"</span>);
 		<span class="self">self</span>.externalities.local_storage_set(kind, key, value)
 	}
 
 	<span class="kw">fn </span>local_storage_clear(<span class="kw-2">&amp;mut </span><span class="self">self</span>, kind: StorageKind, key: <span class="kw-2">&amp;</span>[u8]) {
-		<span class="self">self</span>.check(Capabilities::OFFCHAIN_DB_WRITE, <span class="string">&quot;local_storage_clear&quot;</span>);
+		<span class="self">self</span>.check(Capabilities::OFFCHAIN_DB_WRITE, <span class="string">"local_storage_clear"</span>);
 		<span class="self">self</span>.externalities.local_storage_clear(kind, key)
 	}
 
@@ -1636,27 +1638,27 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		old_value: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>[u8]&gt;,
 		new_value: <span class="kw-2">&amp;</span>[u8],
 	) -&gt; bool {
-		<span class="self">self</span>.check(Capabilities::OFFCHAIN_DB_WRITE, <span class="string">&quot;local_storage_compare_and_set&quot;</span>);
+		<span class="self">self</span>.check(Capabilities::OFFCHAIN_DB_WRITE, <span class="string">"local_storage_compare_and_set"</span>);
 		<span class="self">self</span>.externalities
 			.local_storage_compare_and_set(kind, key, old_value, new_value)
 	}
 
 	<span class="kw">fn </span>local_storage_get(<span class="kw-2">&amp;mut </span><span class="self">self</span>, kind: StorageKind, key: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt; {
-		<span class="self">self</span>.check(Capabilities::OFFCHAIN_DB_READ, <span class="string">&quot;local_storage_get&quot;</span>);
+		<span class="self">self</span>.check(Capabilities::OFFCHAIN_DB_READ, <span class="string">"local_storage_get"</span>);
 		<span class="self">self</span>.externalities.local_storage_get(kind, key)
 	}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="macro">sp_externalities::decl_extension! </span>{
 	<span class="doccomment">/// The offchain database extension that will be registered at the Substrate externalities.
 	</span><span class="kw">pub struct </span>OffchainDbExt(Box&lt;<span class="kw">dyn </span>DbExternalities&gt;);
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">impl </span>OffchainDbExt {
 	<span class="doccomment">/// Create a new instance of `OffchainDbExt`.
-	</span><span class="kw">pub fn </span>new&lt;O: DbExternalities + <span class="lifetime">&#39;static</span>&gt;(offchain: O) -&gt; <span class="self">Self </span>{
+	</span><span class="kw">pub fn </span>new&lt;O: DbExternalities + <span class="lifetime">'static</span>&gt;(offchain: O) -&gt; <span class="self">Self </span>{
 		<span class="self">Self</span>(Box::new(offchain))
 	}
 }
@@ -1666,7 +1668,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// This trait is currently used within the `ExternalitiesExtension`
 /// to provide offchain calls with access to the transaction pool without
 /// tight coupling with any pool implementation.
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+</span><span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">pub trait </span>TransactionPool {
 	<span class="doccomment">/// Submit transaction.
 	///
@@ -1674,16 +1676,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>submit_transaction(<span class="kw-2">&amp;mut </span><span class="self">self</span>, extrinsic: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), ()&gt;;
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="macro">sp_externalities::decl_extension! </span>{
 	<span class="doccomment">/// An externalities extension to submit transactions to the pool.
 	</span><span class="kw">pub struct </span>TransactionPoolExt(Box&lt;<span class="kw">dyn </span>TransactionPool + Send&gt;);
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">impl </span>TransactionPoolExt {
 	<span class="doccomment">/// Create a new instance of `TransactionPoolExt`.
-	</span><span class="kw">pub fn </span>new&lt;O: TransactionPool + Send + <span class="lifetime">&#39;static</span>&gt;(pool: O) -&gt; <span class="self">Self </span>{
+	</span><span class="kw">pub fn </span>new&lt;O: TransactionPool + Send + <span class="lifetime">'static</span>&gt;(pool: O) -&gt; <span class="self">Self </span>{
 		<span class="self">Self</span>(Box::new(pool))
 	}
 }

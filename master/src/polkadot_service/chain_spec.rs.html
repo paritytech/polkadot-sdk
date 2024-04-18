@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/service/src/chain_spec.rs`."><title>chain_spec.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/service/src/chain_spec.rs`."><title>chain_spec.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_service" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_service" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../polkadot_service/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -882,46 +884,46 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="kw">use </span>beefy_primitives::ecdsa_crypto::AuthorityId <span class="kw">as </span>BeefyId;
 <span class="kw">use </span>grandpa::AuthorityId <span class="kw">as </span>GrandpaId;
-<span class="attr">#[cfg(feature = <span class="string">&quot;westend-native&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"westend-native"</span>)]
 </span><span class="kw">use </span>pallet_staking::Forcing;
 <span class="kw">use </span>polkadot_primitives::{AccountId, AccountPublic, AssignmentId, ValidatorId};
 <span class="kw">use </span>sp_authority_discovery::AuthorityId <span class="kw">as </span>AuthorityDiscoveryId;
 <span class="kw">use </span>sp_consensus_babe::AuthorityId <span class="kw">as </span>BabeId;
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;westend-native&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"westend-native"</span>)]
 </span><span class="kw">use </span>polkadot_primitives::vstaging::SchedulerParams;
-<span class="attr">#[cfg(feature = <span class="string">&quot;rococo-native&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"rococo-native"</span>)]
 </span><span class="kw">use </span>rococo_runtime <span class="kw">as </span>rococo;
 <span class="kw">use </span>sc_chain_spec::ChainSpecExtension;
-<span class="attr">#[cfg(any(feature = <span class="string">&quot;westend-native&quot;</span>, feature = <span class="string">&quot;rococo-native&quot;</span>))]
+<span class="attr">#[cfg(any(feature = <span class="string">"westend-native"</span>, feature = <span class="string">"rococo-native"</span>))]
 </span><span class="kw">use </span>sc_chain_spec::ChainType;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>sp_core::{sr25519, Pair, Public};
 <span class="kw">use </span>sp_runtime::traits::IdentifyAccount;
-<span class="attr">#[cfg(feature = <span class="string">&quot;westend-native&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"westend-native"</span>)]
 </span><span class="kw">use </span>sp_runtime::Perbill;
-<span class="attr">#[cfg(any(feature = <span class="string">&quot;westend-native&quot;</span>, feature = <span class="string">&quot;rococo-native&quot;</span>))]
+<span class="attr">#[cfg(any(feature = <span class="string">"westend-native"</span>, feature = <span class="string">"rococo-native"</span>))]
 </span><span class="kw">use </span>telemetry::TelemetryEndpoints;
-<span class="attr">#[cfg(feature = <span class="string">&quot;westend-native&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"westend-native"</span>)]
 </span><span class="kw">use </span>westend_runtime <span class="kw">as </span>westend;
-<span class="attr">#[cfg(feature = <span class="string">&quot;westend-native&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"westend-native"</span>)]
 </span><span class="kw">use </span>westend_runtime_constants::currency::UNITS <span class="kw">as </span>WND;
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;westend-native&quot;</span>)]
-</span><span class="kw">const </span>WESTEND_STAGING_TELEMETRY_URL: <span class="kw-2">&amp;</span>str = <span class="string">&quot;wss://telemetry.polkadot.io/submit/&quot;</span>;
-<span class="attr">#[cfg(feature = <span class="string">&quot;rococo-native&quot;</span>)]
-</span><span class="kw">const </span>ROCOCO_STAGING_TELEMETRY_URL: <span class="kw-2">&amp;</span>str = <span class="string">&quot;wss://telemetry.polkadot.io/submit/&quot;</span>;
-<span class="attr">#[cfg(feature = <span class="string">&quot;rococo-native&quot;</span>)]
-</span><span class="kw">const </span>VERSI_STAGING_TELEMETRY_URL: <span class="kw-2">&amp;</span>str = <span class="string">&quot;wss://telemetry.polkadot.io/submit/&quot;</span>;
-<span class="attr">#[cfg(any(feature = <span class="string">&quot;westend-native&quot;</span>, feature = <span class="string">&quot;rococo-native&quot;</span>))]
-</span><span class="kw">const </span>DEFAULT_PROTOCOL_ID: <span class="kw-2">&amp;</span>str = <span class="string">&quot;dot&quot;</span>;
+<span class="attr">#[cfg(feature = <span class="string">"westend-native"</span>)]
+</span><span class="kw">const </span>WESTEND_STAGING_TELEMETRY_URL: <span class="kw-2">&amp;</span>str = <span class="string">"wss://telemetry.polkadot.io/submit/"</span>;
+<span class="attr">#[cfg(feature = <span class="string">"rococo-native"</span>)]
+</span><span class="kw">const </span>ROCOCO_STAGING_TELEMETRY_URL: <span class="kw-2">&amp;</span>str = <span class="string">"wss://telemetry.polkadot.io/submit/"</span>;
+<span class="attr">#[cfg(feature = <span class="string">"rococo-native"</span>)]
+</span><span class="kw">const </span>VERSI_STAGING_TELEMETRY_URL: <span class="kw-2">&amp;</span>str = <span class="string">"wss://telemetry.polkadot.io/submit/"</span>;
+<span class="attr">#[cfg(any(feature = <span class="string">"westend-native"</span>, feature = <span class="string">"rococo-native"</span>))]
+</span><span class="kw">const </span>DEFAULT_PROTOCOL_ID: <span class="kw-2">&amp;</span>str = <span class="string">"dot"</span>;
 
 <span class="doccomment">/// Node `ChainSpec` extensions.
 ///
 /// Additional parameters for some Substrate core modules,
 /// customizable from the chain spec.
 </span><span class="attr">#[derive(Default, Clone, Serialize, Deserialize, ChainSpecExtension)]
-#[serde(rename_all = <span class="string">&quot;camelCase&quot;</span>)]
+#[serde(rename_all = <span class="string">"camelCase"</span>)]
 </span><span class="kw">pub struct </span>Extensions {
 	<span class="doccomment">/// Block numbers with known hashes.
 	</span><span class="kw">pub </span>fork_blocks: sc_client_api::ForkBlocks&lt;polkadot_primitives::Block&gt;,
@@ -933,54 +935,54 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>light_sync_state: sc_sync_state_rpc::LightSyncStateExtension,
 }
 
-<span class="comment">// Generic chain spec, in case when we don&#39;t have the native runtime.
+<span class="comment">// Generic chain spec, in case when we don't have the native runtime.
 </span><span class="kw">pub type </span>GenericChainSpec = service::GenericChainSpec&lt;(), Extensions&gt;;
 
 <span class="doccomment">/// The `ChainSpec` parameterized for the westend runtime.
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;westend-native&quot;</span>)]
+</span><span class="attr">#[cfg(feature = <span class="string">"westend-native"</span>)]
 </span><span class="kw">pub type </span>WestendChainSpec = service::GenericChainSpec&lt;(), Extensions&gt;;
 
 <span class="doccomment">/// The `ChainSpec` parameterized for the westend runtime.
-</span><span class="comment">// Dummy chain spec, but that is fine when we don&#39;t have the native runtime.
-</span><span class="attr">#[cfg(not(feature = <span class="string">&quot;westend-native&quot;</span>))]
+</span><span class="comment">// Dummy chain spec, but that is fine when we don't have the native runtime.
+</span><span class="attr">#[cfg(not(feature = <span class="string">"westend-native"</span>))]
 </span><span class="kw">pub type </span>WestendChainSpec = GenericChainSpec;
 
 <span class="doccomment">/// The `ChainSpec` parameterized for the rococo runtime.
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;rococo-native&quot;</span>)]
+</span><span class="attr">#[cfg(feature = <span class="string">"rococo-native"</span>)]
 </span><span class="kw">pub type </span>RococoChainSpec = service::GenericChainSpec&lt;(), Extensions&gt;;
 
 <span class="doccomment">/// The `ChainSpec` parameterized for the rococo runtime.
-</span><span class="comment">// Dummy chain spec, but that is fine when we don&#39;t have the native runtime.
-</span><span class="attr">#[cfg(not(feature = <span class="string">&quot;rococo-native&quot;</span>))]
+</span><span class="comment">// Dummy chain spec, but that is fine when we don't have the native runtime.
+</span><span class="attr">#[cfg(not(feature = <span class="string">"rococo-native"</span>))]
 </span><span class="kw">pub type </span>RococoChainSpec = GenericChainSpec;
 
 <span class="kw">pub fn </span>polkadot_config() -&gt; <span class="prelude-ty">Result</span>&lt;GenericChainSpec, String&gt; {
-	GenericChainSpec::from_json_bytes(<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">&quot;../chain-specs/polkadot.json&quot;</span>)[..])
+	GenericChainSpec::from_json_bytes(<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">"../chain-specs/polkadot.json"</span>)[..])
 }
 
 <span class="kw">pub fn </span>kusama_config() -&gt; <span class="prelude-ty">Result</span>&lt;GenericChainSpec, String&gt; {
-	GenericChainSpec::from_json_bytes(<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">&quot;../chain-specs/kusama.json&quot;</span>)[..])
+	GenericChainSpec::from_json_bytes(<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">"../chain-specs/kusama.json"</span>)[..])
 }
 
 <span class="kw">pub fn </span>westend_config() -&gt; <span class="prelude-ty">Result</span>&lt;WestendChainSpec, String&gt; {
-	WestendChainSpec::from_json_bytes(<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">&quot;../chain-specs/westend.json&quot;</span>)[..])
+	WestendChainSpec::from_json_bytes(<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">"../chain-specs/westend.json"</span>)[..])
 }
 
 <span class="kw">pub fn </span>paseo_config() -&gt; <span class="prelude-ty">Result</span>&lt;GenericChainSpec, String&gt; {
-	GenericChainSpec::from_json_bytes(<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">&quot;../chain-specs/paseo.json&quot;</span>)[..])
+	GenericChainSpec::from_json_bytes(<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">"../chain-specs/paseo.json"</span>)[..])
 }
 
 <span class="kw">pub fn </span>rococo_config() -&gt; <span class="prelude-ty">Result</span>&lt;RococoChainSpec, String&gt; {
-	RococoChainSpec::from_json_bytes(<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">&quot;../chain-specs/rococo.json&quot;</span>)[..])
+	RococoChainSpec::from_json_bytes(<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">"../chain-specs/rococo.json"</span>)[..])
 }
 
 <span class="doccomment">/// This is a temporary testnet that uses the same runtime as rococo.
 </span><span class="kw">pub fn </span>wococo_config() -&gt; <span class="prelude-ty">Result</span>&lt;RococoChainSpec, String&gt; {
-	RococoChainSpec::from_json_bytes(<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">&quot;../chain-specs/wococo.json&quot;</span>)[..])
+	RococoChainSpec::from_json_bytes(<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">"../chain-specs/wococo.json"</span>)[..])
 }
 
 <span class="doccomment">/// The default parachains host configuration.
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;westend-native&quot;</span>)]
+</span><span class="attr">#[cfg(feature = <span class="string">"westend-native"</span>)]
 </span><span class="kw">fn </span>default_parachains_host_configuration(
 ) -&gt; polkadot_runtime_parachains::configuration::HostConfiguration&lt;polkadot_primitives::BlockNumber&gt;
 {
@@ -1035,13 +1037,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;westend-native&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"westend-native"</span>)]
 #[test]
 </span><span class="kw">fn </span>default_parachains_host_configuration_is_consistent() {
 	default_parachains_host_configuration().panic_if_not_consistent();
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;westend-native&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"westend-native"</span>)]
 </span><span class="kw">fn </span>westend_session_keys(
 	babe: BabeId,
 	grandpa: GrandpaId,
@@ -1060,7 +1062,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;westend-native&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"westend-native"</span>)]
 </span><span class="kw">fn </span>westend_staging_testnet_config_genesis() -&gt; serde_json::Value {
 	<span class="kw">use </span>hex_literal::hex;
 	<span class="kw">use </span>sp_core::crypto::UncheckedInto;
@@ -1068,11 +1070,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="comment">// Following keys are used in genesis config for development chains.
 	// DO NOT use them in production chains as the secret seed is public.
 	//
-	// SECRET_SEED=&quot;slow awkward present example safe bundle science ocean cradle word tennis earn&quot;
-	// subkey inspect -n polkadot &quot;$SECRET_SEED&quot;
+	// SECRET_SEED="slow awkward present example safe bundle science ocean cradle word tennis earn"
+	// subkey inspect -n polkadot "$SECRET_SEED"
 	</span><span class="kw">let </span>endowed_accounts = <span class="macro">vec!</span>[
 		<span class="comment">// 15S75FkhCWEowEGfxWwVfrW3LQuy8w8PNhVmrzfsVhCMjUh1
-		</span><span class="macro">hex!</span>[<span class="string">&quot;c416837e232d9603e83162ef4bda08e61580eeefe60fe92fc044aa508559ae42&quot;</span>].into(),
+		</span><span class="macro">hex!</span>[<span class="string">"c416837e232d9603e83162ef4bda08e61580eeefe60fe92fc044aa508559ae42"</span>].into(),
 	];
 	<span class="comment">// SECRET=$SECRET_SEED ./scripts/prepare-test-net.sh 4
 	</span><span class="kw">let </span>initial_authorities: Vec&lt;(
@@ -1087,98 +1089,98 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	)&gt; = <span class="macro">vec!</span>[
 		(
 			<span class="comment">//5EvydUTtHvt39Khac3mMxNPgzcfu49uPDzUs3TL7KEzyrwbw
-			</span><span class="macro">hex!</span>[<span class="string">&quot;7ecfd50629cdd246649959d88d490b31508db511487e111a52a392e6e458f518&quot;</span>].into(),
+			</span><span class="macro">hex!</span>[<span class="string">"7ecfd50629cdd246649959d88d490b31508db511487e111a52a392e6e458f518"</span>].into(),
 			<span class="comment">//5HQyX5gyy77m9QLXguAhiwjTArHYjYspeY98dYDu1JDetfZg
-			</span><span class="macro">hex!</span>[<span class="string">&quot;eca2cca09bdc66a7e6d8c3d9499a0be2ad4690061be8a9834972e17d13d2fe7e&quot;</span>].into(),
+			</span><span class="macro">hex!</span>[<span class="string">"eca2cca09bdc66a7e6d8c3d9499a0be2ad4690061be8a9834972e17d13d2fe7e"</span>].into(),
 			<span class="comment">//5G13qYRudTyttwTJvHvnwp8StFtcfigyPnwfD4v7LNopsnX4
-			</span><span class="macro">hex!</span>[<span class="string">&quot;ae27367cb77850fb195fe1f9c60b73210409e68c5ad953088070f7d8513d464c&quot;</span>]
+			</span><span class="macro">hex!</span>[<span class="string">"ae27367cb77850fb195fe1f9c60b73210409e68c5ad953088070f7d8513d464c"</span>]
 				.unchecked_into(),
 			<span class="comment">//5Eb7wM65PNgtY6e33FEAzYtU5cRTXt6WQvZTnzaKQwkVcABk
-			</span><span class="macro">hex!</span>[<span class="string">&quot;6faae44b21c6f2681a7f60df708e9f79d340f7d441d28bd987fab8d05c6487e8&quot;</span>]
+			</span><span class="macro">hex!</span>[<span class="string">"6faae44b21c6f2681a7f60df708e9f79d340f7d441d28bd987fab8d05c6487e8"</span>]
 				.unchecked_into(),
 			<span class="comment">//5FqMLAgygdX9UqzukDp15Uid9PAKdFAR621U7xtp5ut2NfrW
-			</span><span class="macro">hex!</span>[<span class="string">&quot;a6c1a5b501985a83cb1c37630c5b41e6b0a15b3675b2fd94694758e6cfa6794d&quot;</span>]
+			</span><span class="macro">hex!</span>[<span class="string">"a6c1a5b501985a83cb1c37630c5b41e6b0a15b3675b2fd94694758e6cfa6794d"</span>]
 				.unchecked_into(),
 			<span class="comment">//5DhXAV75BKvF9o447ikWqLttyL2wHtLMFSX7GrsKF9Ny61Ta
-			</span><span class="macro">hex!</span>[<span class="string">&quot;485051748ab9c15732f19f3fbcf1fd00a6d9709635f084505107fbb059c33d2f&quot;</span>]
+			</span><span class="macro">hex!</span>[<span class="string">"485051748ab9c15732f19f3fbcf1fd00a6d9709635f084505107fbb059c33d2f"</span>]
 				.unchecked_into(),
 			<span class="comment">//5GNHfmrtWLTawnGCmc39rjAEiW97vKvE7DGePYe4am5JtE4i
-			</span><span class="macro">hex!</span>[<span class="string">&quot;be59ed75a72f7b47221ce081ba4262cf2e1ea7867e30e0b3781822f942b97677&quot;</span>]
+			</span><span class="macro">hex!</span>[<span class="string">"be59ed75a72f7b47221ce081ba4262cf2e1ea7867e30e0b3781822f942b97677"</span>]
 				.unchecked_into(),
 			<span class="comment">//5DA6Z8RUF626stn94aTRBCeobDCYcFbU7Pdk4Tz1R9vA8B8F
-			</span><span class="macro">hex!</span>[<span class="string">&quot;0207e43990799e1d02b0507451e342a1240ff836ea769c57297589a5fd072ad8f4&quot;</span>]
+			</span><span class="macro">hex!</span>[<span class="string">"0207e43990799e1d02b0507451e342a1240ff836ea769c57297589a5fd072ad8f4"</span>]
 				.unchecked_into(),
 		),
 		(
 			<span class="comment">//5DFpvDUdCgw54E3E357GR1PyJe3Ft9s7Qyp7wbELAoJH9RQa
-			</span><span class="macro">hex!</span>[<span class="string">&quot;34b7b3efd35fcc3c1926ca065381682b1af29b57dabbcd091042c6de1d541b7d&quot;</span>].into(),
+			</span><span class="macro">hex!</span>[<span class="string">"34b7b3efd35fcc3c1926ca065381682b1af29b57dabbcd091042c6de1d541b7d"</span>].into(),
 			<span class="comment">//5DZSSsND5wCjngvyXv27qvF3yPzt3MCU8rWnqNy4imqZmjT8
-			</span><span class="macro">hex!</span>[<span class="string">&quot;4226796fa792ac78875e023ff2e30e3c2cf79f0b7b3431254cd0f14a3007bc0e&quot;</span>].into(),
+			</span><span class="macro">hex!</span>[<span class="string">"4226796fa792ac78875e023ff2e30e3c2cf79f0b7b3431254cd0f14a3007bc0e"</span>].into(),
 			<span class="comment">//5CPrgfRNDQvQSnLRdeCphP3ibj5PJW9ESbqj2fw29vBMNQNn
-			</span><span class="macro">hex!</span>[<span class="string">&quot;0e9b60f04be3bffe362eb2212ea99d2b909b052f4bff7c714e13c2416a797f5d&quot;</span>]
+			</span><span class="macro">hex!</span>[<span class="string">"0e9b60f04be3bffe362eb2212ea99d2b909b052f4bff7c714e13c2416a797f5d"</span>]
 				.unchecked_into(),
 			<span class="comment">//5FXFsPReTUEYPRNKhbTdUathcWBsxTNsLbk2mTpYdKCJewjA
-			</span><span class="macro">hex!</span>[<span class="string">&quot;98f4d81cb383898c2c3d54dab28698c0f717c81b509cb32dc6905af3cc697b18&quot;</span>]
+			</span><span class="macro">hex!</span>[<span class="string">"98f4d81cb383898c2c3d54dab28698c0f717c81b509cb32dc6905af3cc697b18"</span>]
 				.unchecked_into(),
 			<span class="comment">//5CZjurB78XbSHf6SLkLhCdkqw52Zm7aBYUDdfkLqEDWJ9Zhj
-			</span><span class="macro">hex!</span>[<span class="string">&quot;162508accd470e379b04cb0c7c60b35a7d5357e84407a89ed2dd48db4b726960&quot;</span>]
+			</span><span class="macro">hex!</span>[<span class="string">"162508accd470e379b04cb0c7c60b35a7d5357e84407a89ed2dd48db4b726960"</span>]
 				.unchecked_into(),
 			<span class="comment">//5DkAqCtSjUMVoJFauuGoAbSEgn2aFCRGziKJiLGpPwYgE1pS
-			</span><span class="macro">hex!</span>[<span class="string">&quot;4a559c028b69a7f784ce553393e547bec0aa530352157603396d515f9c83463b&quot;</span>]
+			</span><span class="macro">hex!</span>[<span class="string">"4a559c028b69a7f784ce553393e547bec0aa530352157603396d515f9c83463b"</span>]
 				.unchecked_into(),
 			<span class="comment">//5GsBt9MhGwkg8Jfb1F9LAy2kcr88WNyNy4L5ezwbCr8NWKQU
-			</span><span class="macro">hex!</span>[<span class="string">&quot;d464908266c878acbf181bf8fda398b3aa3fd2d05508013e414aaece4cf0d702&quot;</span>]
+			</span><span class="macro">hex!</span>[<span class="string">"d464908266c878acbf181bf8fda398b3aa3fd2d05508013e414aaece4cf0d702"</span>]
 				.unchecked_into(),
 			<span class="comment">//5DtJVkz8AHevEnpszy3X4dUcPvACW6x1qBMQZtFxjexLr5bq
-			</span><span class="macro">hex!</span>[<span class="string">&quot;02fdf30222d2cb88f2376d558d3de9cb83f9fde3aa4b2dd40c93e3104e3488bcd2&quot;</span>]
+			</span><span class="macro">hex!</span>[<span class="string">"02fdf30222d2cb88f2376d558d3de9cb83f9fde3aa4b2dd40c93e3104e3488bcd2"</span>]
 				.unchecked_into(),
 		),
 		(
 			<span class="comment">//5E2cob2jrXsBkTih56pizwSqENjE4siaVdXhaD6akLdDyVq7
-			</span><span class="macro">hex!</span>[<span class="string">&quot;56e0f73c563d49ee4a3971c393e17c44eaa313dabad7fcf297dc3271d803f303&quot;</span>].into(),
+			</span><span class="macro">hex!</span>[<span class="string">"56e0f73c563d49ee4a3971c393e17c44eaa313dabad7fcf297dc3271d803f303"</span>].into(),
 			<span class="comment">//5D4rNYgP9uFNi5GMyDEXTfiaFLjXyDEEX2VvuqBVi3f1qgCh
-			</span><span class="macro">hex!</span>[<span class="string">&quot;2c58e5e1d5aef77774480cead4f6876b1a1a6261170166995184d7f86140572b&quot;</span>].into(),
+			</span><span class="macro">hex!</span>[<span class="string">"2c58e5e1d5aef77774480cead4f6876b1a1a6261170166995184d7f86140572b"</span>].into(),
 			<span class="comment">//5Ea2D65KXqe625sz4uV1jjhSfuigVnkezC8VgEj9LXN7ERAk
-			</span><span class="macro">hex!</span>[<span class="string">&quot;6ed45cb7af613be5d88a2622921e18d147225165f24538af03b93f2a03ce6e13&quot;</span>]
+			</span><span class="macro">hex!</span>[<span class="string">"6ed45cb7af613be5d88a2622921e18d147225165f24538af03b93f2a03ce6e13"</span>]
 				.unchecked_into(),
 			<span class="comment">//5G4kCbgqUhEyrRHCyFwFEkgBZXoYA8sbgsRxT9rY8Tp5Jj5F
-			</span><span class="macro">hex!</span>[<span class="string">&quot;b0f8d2b9e4e1eafd4dab6358e0b9d5380d78af27c094e69ae9d6d30ca300fd86&quot;</span>]
+			</span><span class="macro">hex!</span>[<span class="string">"b0f8d2b9e4e1eafd4dab6358e0b9d5380d78af27c094e69ae9d6d30ca300fd86"</span>]
 				.unchecked_into(),
 			<span class="comment">//5CS7thd2n54WfqeKU3cjvZzK4z5p7zku1Zw97mSzXgPioAAs
-			</span><span class="macro">hex!</span>[<span class="string">&quot;1055100a283968271a0781450b389b9093231be809be1e48a305ebad2a90497e&quot;</span>]
+			</span><span class="macro">hex!</span>[<span class="string">"1055100a283968271a0781450b389b9093231be809be1e48a305ebad2a90497e"</span>]
 				.unchecked_into(),
 			<span class="comment">//5DSaL4ZmSYarZSazhL5NQh7LT6pWhNRDcefk2QS9RxEXfsJe
-			</span><span class="macro">hex!</span>[<span class="string">&quot;3cea4ab74bab4adf176cf05a6e18c1599a7bc217d4c6c217275bfbe3b037a527&quot;</span>]
+			</span><span class="macro">hex!</span>[<span class="string">"3cea4ab74bab4adf176cf05a6e18c1599a7bc217d4c6c217275bfbe3b037a527"</span>]
 				.unchecked_into(),
 			<span class="comment">//5CaNLkYEbFYXZodXhd3UjV6RNLjFGNLiYafc8X5NooMkZiAq
-			</span><span class="macro">hex!</span>[<span class="string">&quot;169faa81aebfe74533518bda28567f2e2664014c8905aa07ea003336afda5a58&quot;</span>]
+			</span><span class="macro">hex!</span>[<span class="string">"169faa81aebfe74533518bda28567f2e2664014c8905aa07ea003336afda5a58"</span>]
 				.unchecked_into(),
 			<span class="comment">//5ERwhKiePayukzZStMuzGzRJGxGRFpwxYUXVarQpMSMrXzDS
-			</span><span class="macro">hex!</span>[<span class="string">&quot;03429d0d20f6ac5ca8b349f04d014f7b5b864acf382a744104d5d9a51108156c0f&quot;</span>]
+			</span><span class="macro">hex!</span>[<span class="string">"03429d0d20f6ac5ca8b349f04d014f7b5b864acf382a744104d5d9a51108156c0f"</span>]
 				.unchecked_into(),
 		),
 		(
 			<span class="comment">//5H6j9ovzYk9opckVjvM9SvVfaK37ASTtPTzWeRfqk1tgLJUN
-			</span><span class="macro">hex!</span>[<span class="string">&quot;deb804ed2ed2bb696a3dd4ed7de4cd5c496528a2b204051c6ace385bacd66a3a&quot;</span>].into(),
+			</span><span class="macro">hex!</span>[<span class="string">"deb804ed2ed2bb696a3dd4ed7de4cd5c496528a2b204051c6ace385bacd66a3a"</span>].into(),
 			<span class="comment">//5DJ51tMW916mGwjMpfS1o9skcNt6Sb28YnZQXaKVg4h89agE
-			</span><span class="macro">hex!</span>[<span class="string">&quot;366da6a748afedb31f07902f2de36ab265beccee37762d3ae1f237de234d9c36&quot;</span>].into(),
+			</span><span class="macro">hex!</span>[<span class="string">"366da6a748afedb31f07902f2de36ab265beccee37762d3ae1f237de234d9c36"</span>].into(),
 			<span class="comment">//5CSPYDYoCDGSoSLgSp4EHkJ52YasZLHG2woqhPZkdbtNQpke
-			</span><span class="macro">hex!</span>[<span class="string">&quot;1089bc0cd60237d061872925e81d36c9d9205d250d5d8b542c8e08a8ecf1b911&quot;</span>]
+			</span><span class="macro">hex!</span>[<span class="string">"1089bc0cd60237d061872925e81d36c9d9205d250d5d8b542c8e08a8ecf1b911"</span>]
 				.unchecked_into(),
 			<span class="comment">//5ChfdrAqmLjCeDJvynbMjcxYLHYzPe8UWXd3HnX9JDThUMbn
-			</span><span class="macro">hex!</span>[<span class="string">&quot;1c309a70b4e274314b84c9a0a1f973c9c4fc084df5479ef686c54b1ae4950424&quot;</span>]
+			</span><span class="macro">hex!</span>[<span class="string">"1c309a70b4e274314b84c9a0a1f973c9c4fc084df5479ef686c54b1ae4950424"</span>]
 				.unchecked_into(),
 			<span class="comment">//5D8C3HHEp5E8fJsXRD56494F413CdRSR9QKGXe7v5ZEfymdj
-			</span><span class="macro">hex!</span>[<span class="string">&quot;2ee4d78f328db178c54f205ac809da12e291a33bcbd4f29f081ce7e74bdc5044&quot;</span>]
+			</span><span class="macro">hex!</span>[<span class="string">"2ee4d78f328db178c54f205ac809da12e291a33bcbd4f29f081ce7e74bdc5044"</span>]
 				.unchecked_into(),
 			<span class="comment">//5GxeTYCGmp1C3ZRLDkRWqJc6gB2GYmuqnygweuH3vsivMQq6
-			</span><span class="macro">hex!</span>[<span class="string">&quot;d88e40e3c2c7a7c5abf96ffdd8f7b7bec8798cc277bc97e255881871ab73b529&quot;</span>]
+			</span><span class="macro">hex!</span>[<span class="string">"d88e40e3c2c7a7c5abf96ffdd8f7b7bec8798cc277bc97e255881871ab73b529"</span>]
 				.unchecked_into(),
 			<span class="comment">//5DoGpsgSLcJsHa9B8V4PKjxegWAqDZttWfxicAd68prUX654
-			</span><span class="macro">hex!</span>[<span class="string">&quot;4cb3863271b70daa38612acd5dae4f5afcb7c165fa277629e5150d2214df322a&quot;</span>]
+			</span><span class="macro">hex!</span>[<span class="string">"4cb3863271b70daa38612acd5dae4f5afcb7c165fa277629e5150d2214df322a"</span>]
 				.unchecked_into(),
 			<span class="comment">//5G1KLjqFyMsPAodnjSRkwRFJztTTEzmZWxow2Q3ZSRCPdthM
-			</span><span class="macro">hex!</span>[<span class="string">&quot;03be5ec86d10a94db89c9b7a396d3c7742e3bec5f85159d4cf308cef505966ddf5&quot;</span>]
+			</span><span class="macro">hex!</span>[<span class="string">"03be5ec86d10a94db89c9b7a396d3c7742e3bec5f85159d4cf308cef505966ddf5"</span>]
 				.unchecked_into(),
 		),
 	];
@@ -1187,15 +1189,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">const </span>STASH: u128 = <span class="number">100 </span>* WND;
 
 	<span class="macro">serde_json::json!</span>({
-		<span class="string">&quot;balances&quot;</span>: {
-			<span class="string">&quot;balances&quot;</span>: endowed_accounts
+		<span class="string">"balances"</span>: {
+			<span class="string">"balances"</span>: endowed_accounts
 				.iter()
 				.map(|k: <span class="kw-2">&amp;</span>AccountId| (k.clone(), ENDOWMENT))
 				.chain(initial_authorities.iter().map(|x| (x.<span class="number">0</span>.clone(), STASH)))
 				.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
 		},
-		<span class="string">&quot;session&quot;</span>: {
-			<span class="string">&quot;keys&quot;</span>: initial_authorities
+		<span class="string">"session"</span>: {
+			<span class="string">"keys"</span>: initial_authorities
 				.iter()
 				.map(|x| {
 					(
@@ -1213,63 +1215,63 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				})
 				.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
 		},
-		<span class="string">&quot;staking&quot;</span>: {
-			<span class="string">&quot;validatorCount&quot;</span>: <span class="number">50</span>,
-			<span class="string">&quot;minimumValidatorCount&quot;</span>: <span class="number">4</span>,
-			<span class="string">&quot;stakers&quot;</span>: initial_authorities
+		<span class="string">"staking"</span>: {
+			<span class="string">"validatorCount"</span>: <span class="number">50</span>,
+			<span class="string">"minimumValidatorCount"</span>: <span class="number">4</span>,
+			<span class="string">"stakers"</span>: initial_authorities
 				.iter()
 				.map(|x| (x.<span class="number">0</span>.clone(), x.<span class="number">0</span>.clone(), STASH, westend::StakerStatus::&lt;AccountId&gt;::Validator))
 				.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
-			<span class="string">&quot;invulnerables&quot;</span>: initial_authorities.iter().map(|x| x.<span class="number">0</span>.clone()).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
-			<span class="string">&quot;forceEra&quot;</span>: Forcing::ForceNone,
-			<span class="string">&quot;slashRewardFraction&quot;</span>: Perbill::from_percent(<span class="number">10</span>),
+			<span class="string">"invulnerables"</span>: initial_authorities.iter().map(|x| x.<span class="number">0</span>.clone()).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
+			<span class="string">"forceEra"</span>: Forcing::ForceNone,
+			<span class="string">"slashRewardFraction"</span>: Perbill::from_percent(<span class="number">10</span>),
 		},
-		<span class="string">&quot;babe&quot;</span>: {
-			<span class="string">&quot;epochConfig&quot;</span>: <span class="prelude-val">Some</span>(westend::BABE_GENESIS_EPOCH_CONFIG),
+		<span class="string">"babe"</span>: {
+			<span class="string">"epochConfig"</span>: <span class="prelude-val">Some</span>(westend::BABE_GENESIS_EPOCH_CONFIG),
 		},
-		<span class="string">&quot;sudo&quot;</span>: { <span class="string">&quot;key&quot;</span>: <span class="prelude-val">Some</span>(endowed_accounts[<span class="number">0</span>].clone()) },
-		<span class="string">&quot;configuration&quot;</span>: {
-			<span class="string">&quot;config&quot;</span>: default_parachains_host_configuration(),
+		<span class="string">"sudo"</span>: { <span class="string">"key"</span>: <span class="prelude-val">Some</span>(endowed_accounts[<span class="number">0</span>].clone()) },
+		<span class="string">"configuration"</span>: {
+			<span class="string">"config"</span>: default_parachains_host_configuration(),
 		},
-		<span class="string">&quot;registrar&quot;</span>: {
-			<span class="string">&quot;nextFreeParaId&quot;</span>: polkadot_primitives::LOWEST_PUBLIC_ID,
+		<span class="string">"registrar"</span>: {
+			<span class="string">"nextFreeParaId"</span>: polkadot_primitives::LOWEST_PUBLIC_ID,
 		},
 	})
 }
 
 <span class="doccomment">/// Westend staging testnet config.
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;westend-native&quot;</span>)]
+</span><span class="attr">#[cfg(feature = <span class="string">"westend-native"</span>)]
 </span><span class="kw">pub fn </span>westend_staging_testnet_config() -&gt; <span class="prelude-ty">Result</span>&lt;WestendChainSpec, String&gt; {
 	<span class="prelude-val">Ok</span>(WestendChainSpec::builder(
-		westend::WASM_BINARY.ok_or(<span class="string">&quot;Westend development wasm not available&quot;</span>)<span class="question-mark">?</span>,
+		westend::WASM_BINARY.ok_or(<span class="string">"Westend development wasm not available"</span>)<span class="question-mark">?</span>,
 		Default::default(),
 	)
-	.with_name(<span class="string">&quot;Westend Staging Testnet&quot;</span>)
-	.with_id(<span class="string">&quot;westend_staging_testnet&quot;</span>)
+	.with_name(<span class="string">"Westend Staging Testnet"</span>)
+	.with_id(<span class="string">"westend_staging_testnet"</span>)
 	.with_chain_type(ChainType::Live)
 	.with_genesis_config_patch(westend_staging_testnet_config_genesis())
 	.with_telemetry_endpoints(
 		TelemetryEndpoints::new(<span class="macro">vec!</span>[(WESTEND_STAGING_TELEMETRY_URL.to_string(), <span class="number">0</span>)])
-			.expect(<span class="string">&quot;Westend Staging telemetry url is valid; qed&quot;</span>),
+			.expect(<span class="string">"Westend Staging telemetry url is valid; qed"</span>),
 	)
 	.with_protocol_id(DEFAULT_PROTOCOL_ID)
 	.build())
 }
 
 <span class="doccomment">/// Rococo staging testnet config.
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;rococo-native&quot;</span>)]
+</span><span class="attr">#[cfg(feature = <span class="string">"rococo-native"</span>)]
 </span><span class="kw">pub fn </span>rococo_staging_testnet_config() -&gt; <span class="prelude-ty">Result</span>&lt;RococoChainSpec, String&gt; {
 	<span class="prelude-val">Ok</span>(RococoChainSpec::builder(
-		rococo::WASM_BINARY.ok_or(<span class="string">&quot;Rococo development wasm not available&quot;</span>)<span class="question-mark">?</span>,
+		rococo::WASM_BINARY.ok_or(<span class="string">"Rococo development wasm not available"</span>)<span class="question-mark">?</span>,
 		Default::default(),
 	)
-	.with_name(<span class="string">&quot;Rococo Staging Testnet&quot;</span>)
-	.with_id(<span class="string">&quot;rococo_staging_testnet&quot;</span>)
+	.with_name(<span class="string">"Rococo Staging Testnet"</span>)
+	.with_id(<span class="string">"rococo_staging_testnet"</span>)
 	.with_chain_type(ChainType::Live)
-	.with_genesis_config_preset_name(<span class="string">&quot;staging_testnet&quot;</span>)
+	.with_genesis_config_preset_name(<span class="string">"staging_testnet"</span>)
 	.with_telemetry_endpoints(
 		TelemetryEndpoints::new(<span class="macro">vec!</span>[(ROCOCO_STAGING_TELEMETRY_URL.to_string(), <span class="number">0</span>)])
-			.expect(<span class="string">&quot;Rococo Staging telemetry url is valid; qed&quot;</span>),
+			.expect(<span class="string">"Rococo Staging telemetry url is valid; qed"</span>),
 	)
 	.with_protocol_id(DEFAULT_PROTOCOL_ID)
 	.build())
@@ -1277,39 +1279,39 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">pub fn </span>versi_chain_spec_properties() -&gt; serde_json::map::Map&lt;String, serde_json::Value&gt; {
 	<span class="macro">serde_json::json!</span>({
-		<span class="string">&quot;ss58Format&quot;</span>: <span class="number">42</span>,
-		<span class="string">&quot;tokenDecimals&quot;</span>: <span class="number">12</span>,
-		<span class="string">&quot;tokenSymbol&quot;</span>: <span class="string">&quot;VRS&quot;</span>,
+		<span class="string">"ss58Format"</span>: <span class="number">42</span>,
+		<span class="string">"tokenDecimals"</span>: <span class="number">12</span>,
+		<span class="string">"tokenSymbol"</span>: <span class="string">"VRS"</span>,
 	})
 	.as_object()
-	.expect(<span class="string">&quot;Map given; qed&quot;</span>)
+	.expect(<span class="string">"Map given; qed"</span>)
 	.clone()
 }
 
 <span class="doccomment">/// Versi staging testnet config.
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;rococo-native&quot;</span>)]
+</span><span class="attr">#[cfg(feature = <span class="string">"rococo-native"</span>)]
 </span><span class="kw">pub fn </span>versi_staging_testnet_config() -&gt; <span class="prelude-ty">Result</span>&lt;RococoChainSpec, String&gt; {
 	<span class="prelude-val">Ok</span>(RococoChainSpec::builder(
-		rococo::WASM_BINARY.ok_or(<span class="string">&quot;Versi development wasm not available&quot;</span>)<span class="question-mark">?</span>,
+		rococo::WASM_BINARY.ok_or(<span class="string">"Versi development wasm not available"</span>)<span class="question-mark">?</span>,
 		Default::default(),
 	)
-	.with_name(<span class="string">&quot;Versi Staging Testnet&quot;</span>)
-	.with_id(<span class="string">&quot;versi_staging_testnet&quot;</span>)
+	.with_name(<span class="string">"Versi Staging Testnet"</span>)
+	.with_id(<span class="string">"versi_staging_testnet"</span>)
 	.with_chain_type(ChainType::Live)
-	.with_genesis_config_preset_name(<span class="string">&quot;staging_testnet&quot;</span>)
+	.with_genesis_config_preset_name(<span class="string">"staging_testnet"</span>)
 	.with_telemetry_endpoints(
 		TelemetryEndpoints::new(<span class="macro">vec!</span>[(VERSI_STAGING_TELEMETRY_URL.to_string(), <span class="number">0</span>)])
-			.expect(<span class="string">&quot;Versi Staging telemetry url is valid; qed&quot;</span>),
+			.expect(<span class="string">"Versi Staging telemetry url is valid; qed"</span>),
 	)
-	.with_protocol_id(<span class="string">&quot;versi&quot;</span>)
+	.with_protocol_id(<span class="string">"versi"</span>)
 	.with_properties(versi_chain_spec_properties())
 	.build())
 }
 
 <span class="doccomment">/// Helper function to generate a crypto pair from seed
 </span><span class="kw">pub fn </span>get_from_seed&lt;TPublic: Public&gt;(seed: <span class="kw-2">&amp;</span>str) -&gt; &lt;TPublic::Pair <span class="kw">as </span>Pair&gt;::Public {
-	TPublic::Pair::from_string(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;//{}&quot;</span>, seed), <span class="prelude-val">None</span>)
-		.expect(<span class="string">&quot;static values are valid; qed&quot;</span>)
+	TPublic::Pair::from_string(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"//{}"</span>, seed), <span class="prelude-val">None</span>)
+		.expect(<span class="string">"static values are valid; qed"</span>)
 		.public()
 }
 
@@ -1343,7 +1345,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	seed: <span class="kw-2">&amp;</span>str,
 ) -&gt; (AccountId, AccountId, BabeId, GrandpaId, ValidatorId, AssignmentId, AuthorityDiscoveryId) {
 	(
-		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}//stash&quot;</span>, seed)),
+		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{}//stash"</span>, seed)),
 		get_account_id_from_seed::&lt;sr25519::Public&gt;(seed),
 		get_from_seed::&lt;BabeId&gt;(seed),
 		get_from_seed::&lt;GrandpaId&gt;(seed),
@@ -1353,26 +1355,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	)
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;westend-native&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"westend-native"</span>)]
 </span><span class="kw">fn </span>testnet_accounts() -&gt; Vec&lt;AccountId&gt; {
 	<span class="macro">vec!</span>[
-		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>),
-		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Bob&quot;</span>),
-		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Charlie&quot;</span>),
-		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Dave&quot;</span>),
-		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Eve&quot;</span>),
-		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Ferdie&quot;</span>),
-		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice//stash&quot;</span>),
-		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Bob//stash&quot;</span>),
-		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Charlie//stash&quot;</span>),
-		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Dave//stash&quot;</span>),
-		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Eve//stash&quot;</span>),
-		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Ferdie//stash&quot;</span>),
+		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Alice"</span>),
+		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Bob"</span>),
+		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Charlie"</span>),
+		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Dave"</span>),
+		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Eve"</span>),
+		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Ferdie"</span>),
+		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Alice//stash"</span>),
+		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Bob//stash"</span>),
+		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Charlie//stash"</span>),
+		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Dave//stash"</span>),
+		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Eve//stash"</span>),
+		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Ferdie//stash"</span>),
 	]
 }
 
 <span class="doccomment">/// Helper function to create westend runtime `GenesisConfig` patch for testing
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;westend-native&quot;</span>)]
+</span><span class="attr">#[cfg(feature = <span class="string">"westend-native"</span>)]
 </span><span class="kw">pub fn </span>westend_testnet_genesis(
 	initial_authorities: Vec&lt;(
 		AccountId,
@@ -1393,11 +1395,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">const </span>STASH: u128 = <span class="number">100 </span>* WND;
 
 	<span class="macro">serde_json::json!</span>({
-		<span class="string">&quot;balances&quot;</span>: {
-			<span class="string">&quot;balances&quot;</span>: endowed_accounts.iter().map(|k| (k.clone(), ENDOWMENT)).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
+		<span class="string">"balances"</span>: {
+			<span class="string">"balances"</span>: endowed_accounts.iter().map(|k| (k.clone(), ENDOWMENT)).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
 		},
-		<span class="string">&quot;session&quot;</span>: {
-			<span class="string">&quot;keys&quot;</span>: initial_authorities
+		<span class="string">"session"</span>: {
+			<span class="string">"keys"</span>: initial_authorities
 				.iter()
 				.map(|x| {
 					(
@@ -1415,48 +1417,48 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				})
 				.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
 		},
-		<span class="string">&quot;staking&quot;</span>: {
-			<span class="string">&quot;minimumValidatorCount&quot;</span>: <span class="number">1</span>,
-			<span class="string">&quot;validatorCount&quot;</span>: initial_authorities.len() <span class="kw">as </span>u32,
-			<span class="string">&quot;stakers&quot;</span>: initial_authorities
+		<span class="string">"staking"</span>: {
+			<span class="string">"minimumValidatorCount"</span>: <span class="number">1</span>,
+			<span class="string">"validatorCount"</span>: initial_authorities.len() <span class="kw">as </span>u32,
+			<span class="string">"stakers"</span>: initial_authorities
 				.iter()
 				.map(|x| (x.<span class="number">0</span>.clone(), x.<span class="number">0</span>.clone(), STASH, westend::StakerStatus::&lt;AccountId&gt;::Validator))
 				.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
-			<span class="string">&quot;invulnerables&quot;</span>: initial_authorities.iter().map(|x| x.<span class="number">0</span>.clone()).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
-			<span class="string">&quot;forceEra&quot;</span>: Forcing::NotForcing,
-			<span class="string">&quot;slashRewardFraction&quot;</span>: Perbill::from_percent(<span class="number">10</span>),
+			<span class="string">"invulnerables"</span>: initial_authorities.iter().map(|x| x.<span class="number">0</span>.clone()).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
+			<span class="string">"forceEra"</span>: Forcing::NotForcing,
+			<span class="string">"slashRewardFraction"</span>: Perbill::from_percent(<span class="number">10</span>),
 		},
-		<span class="string">&quot;babe&quot;</span>: {
-			<span class="string">&quot;epochConfig&quot;</span>: <span class="prelude-val">Some</span>(westend::BABE_GENESIS_EPOCH_CONFIG),
+		<span class="string">"babe"</span>: {
+			<span class="string">"epochConfig"</span>: <span class="prelude-val">Some</span>(westend::BABE_GENESIS_EPOCH_CONFIG),
 		},
-		<span class="string">&quot;sudo&quot;</span>: { <span class="string">&quot;key&quot;</span>: <span class="prelude-val">Some</span>(root_key) },
-		<span class="string">&quot;configuration&quot;</span>: {
-			<span class="string">&quot;config&quot;</span>: default_parachains_host_configuration(),
+		<span class="string">"sudo"</span>: { <span class="string">"key"</span>: <span class="prelude-val">Some</span>(root_key) },
+		<span class="string">"configuration"</span>: {
+			<span class="string">"config"</span>: default_parachains_host_configuration(),
 		},
-		<span class="string">&quot;registrar&quot;</span>: {
-			<span class="string">&quot;nextFreeParaId&quot;</span>: polkadot_primitives::LOWEST_PUBLIC_ID,
+		<span class="string">"registrar"</span>: {
+			<span class="string">"nextFreeParaId"</span>: polkadot_primitives::LOWEST_PUBLIC_ID,
 		},
 	})
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;westend-native&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"westend-native"</span>)]
 </span><span class="kw">fn </span>westend_development_config_genesis() -&gt; serde_json::Value {
 	westend_testnet_genesis(
-		<span class="macro">vec!</span>[get_authority_keys_from_seed(<span class="string">&quot;Alice&quot;</span>)],
-		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>),
+		<span class="macro">vec!</span>[get_authority_keys_from_seed(<span class="string">"Alice"</span>)],
+		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Alice"</span>),
 		<span class="prelude-val">None</span>,
 	)
 }
 
 <span class="doccomment">/// Westend development config (single validator Alice)
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;westend-native&quot;</span>)]
+</span><span class="attr">#[cfg(feature = <span class="string">"westend-native"</span>)]
 </span><span class="kw">pub fn </span>westend_development_config() -&gt; <span class="prelude-ty">Result</span>&lt;WestendChainSpec, String&gt; {
 	<span class="prelude-val">Ok</span>(WestendChainSpec::builder(
-		westend::WASM_BINARY.ok_or(<span class="string">&quot;Westend development wasm not available&quot;</span>)<span class="question-mark">?</span>,
+		westend::WASM_BINARY.ok_or(<span class="string">"Westend development wasm not available"</span>)<span class="question-mark">?</span>,
 		Default::default(),
 	)
-	.with_name(<span class="string">&quot;Development&quot;</span>)
-	.with_id(<span class="string">&quot;westend_dev&quot;</span>)
+	.with_name(<span class="string">"Development"</span>)
+	.with_id(<span class="string">"westend_dev"</span>)
 	.with_chain_type(ChainType::Development)
 	.with_genesis_config_patch(westend_development_config_genesis())
 	.with_protocol_id(DEFAULT_PROTOCOL_ID)
@@ -1464,69 +1466,69 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Rococo development config (single validator Alice)
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;rococo-native&quot;</span>)]
+</span><span class="attr">#[cfg(feature = <span class="string">"rococo-native"</span>)]
 </span><span class="kw">pub fn </span>rococo_development_config() -&gt; <span class="prelude-ty">Result</span>&lt;RococoChainSpec, String&gt; {
 	<span class="prelude-val">Ok</span>(RococoChainSpec::builder(
-		rococo::WASM_BINARY.ok_or(<span class="string">&quot;Rococo development wasm not available&quot;</span>)<span class="question-mark">?</span>,
+		rococo::WASM_BINARY.ok_or(<span class="string">"Rococo development wasm not available"</span>)<span class="question-mark">?</span>,
 		Default::default(),
 	)
-	.with_name(<span class="string">&quot;Development&quot;</span>)
-	.with_id(<span class="string">&quot;rococo_dev&quot;</span>)
+	.with_name(<span class="string">"Development"</span>)
+	.with_id(<span class="string">"rococo_dev"</span>)
 	.with_chain_type(ChainType::Development)
-	.with_genesis_config_preset_name(<span class="string">&quot;development&quot;</span>)
+	.with_genesis_config_preset_name(<span class="string">"development"</span>)
 	.with_protocol_id(DEFAULT_PROTOCOL_ID)
 	.build())
 }
 
 <span class="doccomment">/// `Versi` development config (single validator Alice)
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;rococo-native&quot;</span>)]
+</span><span class="attr">#[cfg(feature = <span class="string">"rococo-native"</span>)]
 </span><span class="kw">pub fn </span>versi_development_config() -&gt; <span class="prelude-ty">Result</span>&lt;RococoChainSpec, String&gt; {
 	<span class="prelude-val">Ok</span>(RococoChainSpec::builder(
-		rococo::WASM_BINARY.ok_or(<span class="string">&quot;Versi development wasm not available&quot;</span>)<span class="question-mark">?</span>,
+		rococo::WASM_BINARY.ok_or(<span class="string">"Versi development wasm not available"</span>)<span class="question-mark">?</span>,
 		Default::default(),
 	)
-	.with_name(<span class="string">&quot;Development&quot;</span>)
-	.with_id(<span class="string">&quot;versi_dev&quot;</span>)
+	.with_name(<span class="string">"Development"</span>)
+	.with_id(<span class="string">"versi_dev"</span>)
 	.with_chain_type(ChainType::Development)
-	.with_genesis_config_preset_name(<span class="string">&quot;development&quot;</span>)
-	.with_protocol_id(<span class="string">&quot;versi&quot;</span>)
+	.with_genesis_config_preset_name(<span class="string">"development"</span>)
+	.with_protocol_id(<span class="string">"versi"</span>)
 	.build())
 }
 
 <span class="doccomment">/// Wococo development config (single validator Alice)
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;rococo-native&quot;</span>)]
+</span><span class="attr">#[cfg(feature = <span class="string">"rococo-native"</span>)]
 </span><span class="kw">pub fn </span>wococo_development_config() -&gt; <span class="prelude-ty">Result</span>&lt;RococoChainSpec, String&gt; {
-	<span class="kw">const </span>WOCOCO_DEV_PROTOCOL_ID: <span class="kw-2">&amp;</span>str = <span class="string">&quot;woco&quot;</span>;
+	<span class="kw">const </span>WOCOCO_DEV_PROTOCOL_ID: <span class="kw-2">&amp;</span>str = <span class="string">"woco"</span>;
 	<span class="prelude-val">Ok</span>(RococoChainSpec::builder(
-		rococo::WASM_BINARY.ok_or(<span class="string">&quot;Wococo development wasm not available&quot;</span>)<span class="question-mark">?</span>,
+		rococo::WASM_BINARY.ok_or(<span class="string">"Wococo development wasm not available"</span>)<span class="question-mark">?</span>,
 		Default::default(),
 	)
-	.with_name(<span class="string">&quot;Development&quot;</span>)
-	.with_id(<span class="string">&quot;wococo_dev&quot;</span>)
+	.with_name(<span class="string">"Development"</span>)
+	.with_id(<span class="string">"wococo_dev"</span>)
 	.with_chain_type(ChainType::Development)
-	.with_genesis_config_preset_name(<span class="string">&quot;development&quot;</span>)
+	.with_genesis_config_preset_name(<span class="string">"development"</span>)
 	.with_protocol_id(WOCOCO_DEV_PROTOCOL_ID)
 	.build())
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;westend-native&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"westend-native"</span>)]
 </span><span class="kw">fn </span>westend_local_testnet_genesis() -&gt; serde_json::Value {
 	westend_testnet_genesis(
-		<span class="macro">vec!</span>[get_authority_keys_from_seed(<span class="string">&quot;Alice&quot;</span>), get_authority_keys_from_seed(<span class="string">&quot;Bob&quot;</span>)],
-		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>),
+		<span class="macro">vec!</span>[get_authority_keys_from_seed(<span class="string">"Alice"</span>), get_authority_keys_from_seed(<span class="string">"Bob"</span>)],
+		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Alice"</span>),
 		<span class="prelude-val">None</span>,
 	)
 }
 
 <span class="doccomment">/// Westend local testnet config (multivalidator Alice + Bob)
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;westend-native&quot;</span>)]
+</span><span class="attr">#[cfg(feature = <span class="string">"westend-native"</span>)]
 </span><span class="kw">pub fn </span>westend_local_testnet_config() -&gt; <span class="prelude-ty">Result</span>&lt;WestendChainSpec, String&gt; {
 	<span class="prelude-val">Ok</span>(WestendChainSpec::builder(
-		westend::WASM_BINARY.ok_or(<span class="string">&quot;Westend development wasm not available&quot;</span>)<span class="question-mark">?</span>,
+		westend::WASM_BINARY.ok_or(<span class="string">"Westend development wasm not available"</span>)<span class="question-mark">?</span>,
 		Default::default(),
 	)
-	.with_name(<span class="string">&quot;Westend Local Testnet&quot;</span>)
-	.with_id(<span class="string">&quot;westend_local_testnet&quot;</span>)
+	.with_name(<span class="string">"Westend Local Testnet"</span>)
+	.with_id(<span class="string">"westend_local_testnet"</span>)
 	.with_chain_type(ChainType::Local)
 	.with_genesis_config_patch(westend_local_testnet_genesis())
 	.with_protocol_id(DEFAULT_PROTOCOL_ID)
@@ -1534,47 +1536,47 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Rococo local testnet config (multivalidator Alice + Bob)
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;rococo-native&quot;</span>)]
+</span><span class="attr">#[cfg(feature = <span class="string">"rococo-native"</span>)]
 </span><span class="kw">pub fn </span>rococo_local_testnet_config() -&gt; <span class="prelude-ty">Result</span>&lt;RococoChainSpec, String&gt; {
 	<span class="prelude-val">Ok</span>(RococoChainSpec::builder(
-		rococo::fast_runtime_binary::WASM_BINARY.ok_or(<span class="string">&quot;Rococo development wasm not available&quot;</span>)<span class="question-mark">?</span>,
+		rococo::fast_runtime_binary::WASM_BINARY.ok_or(<span class="string">"Rococo development wasm not available"</span>)<span class="question-mark">?</span>,
 		Default::default(),
 	)
-	.with_name(<span class="string">&quot;Rococo Local Testnet&quot;</span>)
-	.with_id(<span class="string">&quot;rococo_local_testnet&quot;</span>)
+	.with_name(<span class="string">"Rococo Local Testnet"</span>)
+	.with_id(<span class="string">"rococo_local_testnet"</span>)
 	.with_chain_type(ChainType::Local)
-	.with_genesis_config_preset_name(<span class="string">&quot;local_testnet&quot;</span>)
+	.with_genesis_config_preset_name(<span class="string">"local_testnet"</span>)
 	.with_protocol_id(DEFAULT_PROTOCOL_ID)
 	.build())
 }
 
 <span class="doccomment">/// Wococo local testnet config (multivalidator Alice + Bob + Charlie + Dave)
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;rococo-native&quot;</span>)]
+</span><span class="attr">#[cfg(feature = <span class="string">"rococo-native"</span>)]
 </span><span class="kw">pub fn </span>wococo_local_testnet_config() -&gt; <span class="prelude-ty">Result</span>&lt;RococoChainSpec, String&gt; {
 	<span class="prelude-val">Ok</span>(RococoChainSpec::builder(
-		rococo::WASM_BINARY.ok_or(<span class="string">&quot;Rococo development wasm (used for wococo) not available&quot;</span>)<span class="question-mark">?</span>,
+		rococo::WASM_BINARY.ok_or(<span class="string">"Rococo development wasm (used for wococo) not available"</span>)<span class="question-mark">?</span>,
 		Default::default(),
 	)
-	.with_name(<span class="string">&quot;Wococo Local Testnet&quot;</span>)
-	.with_id(<span class="string">&quot;wococo_local_testnet&quot;</span>)
+	.with_name(<span class="string">"Wococo Local Testnet"</span>)
+	.with_id(<span class="string">"wococo_local_testnet"</span>)
 	.with_chain_type(ChainType::Local)
-	.with_genesis_config_preset_name(<span class="string">&quot;wococo_local_testnet&quot;</span>)
+	.with_genesis_config_preset_name(<span class="string">"wococo_local_testnet"</span>)
 	.with_protocol_id(DEFAULT_PROTOCOL_ID)
 	.build())
 }
 
 <span class="doccomment">/// `Versi` local testnet config (multivalidator Alice + Bob + Charlie + Dave)
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;rococo-native&quot;</span>)]
+</span><span class="attr">#[cfg(feature = <span class="string">"rococo-native"</span>)]
 </span><span class="kw">pub fn </span>versi_local_testnet_config() -&gt; <span class="prelude-ty">Result</span>&lt;RococoChainSpec, String&gt; {
 	<span class="prelude-val">Ok</span>(RococoChainSpec::builder(
-		rococo::WASM_BINARY.ok_or(<span class="string">&quot;Rococo development wasm (used for versi) not available&quot;</span>)<span class="question-mark">?</span>,
+		rococo::WASM_BINARY.ok_or(<span class="string">"Rococo development wasm (used for versi) not available"</span>)<span class="question-mark">?</span>,
 		Default::default(),
 	)
-	.with_name(<span class="string">&quot;Versi Local Testnet&quot;</span>)
-	.with_id(<span class="string">&quot;versi_local_testnet&quot;</span>)
+	.with_name(<span class="string">"Versi Local Testnet"</span>)
+	.with_id(<span class="string">"versi_local_testnet"</span>)
 	.with_chain_type(ChainType::Local)
-	.with_genesis_config_preset_name(<span class="string">&quot;versi_local_testnet&quot;</span>)
-	.with_protocol_id(<span class="string">&quot;versi&quot;</span>)
+	.with_genesis_config_preset_name(<span class="string">"versi_local_testnet"</span>)
+	.with_protocol_id(<span class="string">"versi"</span>)
 	.build())
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

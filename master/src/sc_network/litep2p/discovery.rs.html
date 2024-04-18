@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/network/src/litep2p/discovery.rs`."><title>discovery.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/network/src/litep2p/discovery.rs`."><title>discovery.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sc_network" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sc_network" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../sc_network/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -734,7 +736,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 
 <span class="doccomment">/// Logging target for the file.
-</span><span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;sub-libp2p::discovery&quot;</span>;
+</span><span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"sub-libp2p::discovery"</span>;
 
 <span class="doccomment">/// Kademlia query interval.
 </span><span class="kw">const </span>KADEMLIA_QUERY_INTERVAL: Duration = Duration::from_secs(<span class="number">5</span>);
@@ -867,7 +869,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Legacy (fallback) Kademlia protocol name based on `protocol_id`.
 </span><span class="kw">fn </span>legacy_kademlia_protocol_name(id: <span class="kw-2">&amp;</span>ProtocolId) -&gt; ProtocolName {
-	ProtocolName::from(<span class="macro">format!</span>(<span class="string">&quot;/{}/kad&quot;</span>, id.as_ref()))
+	ProtocolName::from(<span class="macro">format!</span>(<span class="string">"/{}/kad"</span>, id.as_ref()))
 }
 
 <span class="doccomment">/// Kademlia protocol name based on `genesis_hash` and `fork_id`.
@@ -875,11 +877,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	genesis_hash: Hash,
 	fork_id: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
 ) -&gt; ProtocolName {
-	<span class="kw">let </span>genesis_hash_hex = bytes2hex(<span class="string">&quot;&quot;</span>, genesis_hash.as_ref());
+	<span class="kw">let </span>genesis_hash_hex = bytes2hex(<span class="string">""</span>, genesis_hash.as_ref());
 	<span class="kw">let </span>protocol = <span class="kw">if let </span><span class="prelude-val">Some</span>(fork_id) = fork_id {
-		<span class="macro">format!</span>(<span class="string">&quot;/{}/{}/kad&quot;</span>, genesis_hash_hex, fork_id)
+		<span class="macro">format!</span>(<span class="string">"/{}/{}/kad"</span>, genesis_hash_hex, fork_id)
 	} <span class="kw">else </span>{
-		<span class="macro">format!</span>(<span class="string">&quot;/{}/kad&quot;</span>, genesis_hash_hex)
+		<span class="macro">format!</span>(<span class="string">"/{}/kad"</span>, genesis_hash_hex)
 	};
 
 	ProtocolName::from(protocol)
@@ -900,9 +902,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		_peerstore_handle: Arc&lt;<span class="kw">dyn </span>PeerStoreProvider&gt;,
 	) -&gt; (<span class="self">Self</span>, PingConfig, IdentifyConfig, KademliaConfig, <span class="prelude-ty">Option</span>&lt;MdnsConfig&gt;) {
 		<span class="kw">let </span>(ping_config, ping_event_stream) = PingConfig::default();
-		<span class="kw">let </span>user_agent = <span class="macro">format!</span>(<span class="string">&quot;{} ({})&quot;</span>, config.client_version, config.node_name);
+		<span class="kw">let </span>user_agent = <span class="macro">format!</span>(<span class="string">"{} ({})"</span>, config.client_version, config.node_name);
 		<span class="kw">let </span>(identify_config, identify_event_stream) = IdentifyConfig::new(
-			<span class="string">&quot;/substrate/1.0&quot;</span>.to_string(),
+			<span class="string">"/substrate/1.0"</span>.to_string(),
 			<span class="prelude-val">Some</span>(user_agent),
 			config.public_addresses.clone(),
 		);
@@ -915,7 +917,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				},
 				<span class="bool-val">false </span>=&gt; (<span class="prelude-val">None</span>, <span class="prelude-val">None</span>),
 			},
-			<span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;memory transport not supported&quot;</span>),
+			<span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"memory transport not supported"</span>),
 		};
 
 		<span class="kw">let </span>(kademlia_config, kademlia_handle) = {
@@ -981,7 +983,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">if </span>!<span class="self">self</span>.allow_non_global_addresses &amp;&amp; !Discovery::can_add_to_dht(<span class="kw-2">&amp;</span>address) {
 					<span class="macro">log::trace!</span>(
 						target: LOG_TARGET,
-						<span class="string">&quot;ignoring self-reported non-global address {address} from {peer}.&quot;
+						<span class="string">"ignoring self-reported non-global address {address} from {peer}."
 					</span>);
 
 					<span class="kw">return </span><span class="prelude-val">None
@@ -993,7 +995,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="macro">log::trace!</span>(
 			target: LOG_TARGET,
-			<span class="string">&quot;add self-reported addresses for {peer:?}: {addresses:?}&quot;</span>,
+			<span class="string">"add self-reported addresses for {peer:?}: {addresses:?}"</span>,
 		);
 
 		<span class="self">self</span>.kademlia_handle.add_known_peer(peer, addresses).<span class="kw">await</span>;
@@ -1044,7 +1046,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Check if `address` can be considered a new external address.
 	</span><span class="kw">fn </span>is_new_external_address(<span class="kw-2">&amp;mut </span><span class="self">self</span>, address: <span class="kw-2">&amp;</span>Multiaddr) -&gt; bool {
-		<span class="macro">log::trace!</span>(target: LOG_TARGET, <span class="string">&quot;verify new external address: {address}&quot;</span>);
+		<span class="macro">log::trace!</span>(target: LOG_TARGET, <span class="string">"verify new external address: {address}"</span>);
 
 		<span class="comment">// is the address one of our known addresses
 		</span><span class="kw">if </span><span class="self">self
@@ -1077,7 +1079,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl </span>Stream <span class="kw">for </span>Discovery {
 	<span class="kw">type </span>Item = DiscoveryEvent;
 
-	<span class="kw">fn </span>poll_next(<span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;<span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::Item&gt;&gt; {
+	<span class="kw">fn </span>poll_next(<span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">'_</span>&gt;) -&gt; Poll&lt;<span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::Item&gt;&gt; {
 		<span class="kw">let </span>this = Pin::into_inner(<span class="self">self</span>);
 
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(event) = this.pending_events.pop_front() {
@@ -1092,7 +1094,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				Poll::Ready(()) =&gt; {
 					<span class="kw">let </span>peer = PeerId::random();
 
-					<span class="macro">log::trace!</span>(target: LOG_TARGET, <span class="string">&quot;start next kademlia query for {peer:?}&quot;</span>);
+					<span class="macro">log::trace!</span>(target: LOG_TARGET, <span class="string">"start next kademlia query for {peer:?}"</span>);
 
 					<span class="kw">match </span>this.kademlia_handle.try_find_node(peer) {
 						<span class="prelude-val">Ok</span>(query_id) =&gt; {
@@ -1118,7 +1120,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="comment">// the addresses are already inserted into the DHT and in `TransportManager` so
 				// there is no need to add them again. The found peers must be registered to
 				// `Peerstore` so other protocols are aware of them through `Peerset`.
-				</span><span class="macro">log::trace!</span>(target: LOG_TARGET, <span class="string">&quot;dht random walk yielded {} peers&quot;</span>, peers.len());
+				</span><span class="macro">log::trace!</span>(target: LOG_TARGET, <span class="string">"dht random walk yielded {} peers"</span>, peers.len());
 
 				this.next_kad_query = <span class="prelude-val">Some</span>(Delay::new(KADEMLIA_QUERY_INTERVAL));
 
@@ -1127,7 +1129,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				}))
 			},
 			Poll::Ready(<span class="prelude-val">Some</span>(KademliaEvent::RoutingTableUpdate { peers })) =&gt; {
-				<span class="macro">log::trace!</span>(target: LOG_TARGET, <span class="string">&quot;routing table update, discovered {} peers&quot;</span>, peers.len());
+				<span class="macro">log::trace!</span>(target: LOG_TARGET, <span class="string">"routing table update, discovered {} peers"</span>, peers.len());
 
 				<span class="kw">return </span>Poll::Ready(<span class="prelude-val">Some</span>(DiscoveryEvent::RoutingTableUpdate {
 					peers: peers.into_iter().collect(),
@@ -1136,7 +1138,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			Poll::Ready(<span class="prelude-val">Some</span>(KademliaEvent::GetRecordSuccess { query_id, record })) =&gt; {
 				<span class="macro">log::trace!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;`GET_RECORD` succeeded for {query_id:?}: {record:?}&quot;</span>,
+					<span class="string">"`GET_RECORD` succeeded for {query_id:?}: {record:?}"</span>,
 				);
 
 				<span class="kw">return </span>Poll::Ready(<span class="prelude-val">Some</span>(DiscoveryEvent::GetRecordSuccess { query_id, record }));

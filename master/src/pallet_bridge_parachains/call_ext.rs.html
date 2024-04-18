@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `bridges/modules/parachains/src/call_ext.rs`."><title>call_ext.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `bridges/modules/parachains/src/call_ext.rs`."><title>call_ext.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_bridge_parachains" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_bridge_parachains" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../pallet_bridge_parachains/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -448,11 +450,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Helper struct that provides methods for working with the `SubmitParachainHeads` call.
-</span><span class="kw">pub struct </span>SubmitParachainHeadsHelper&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; {
+</span><span class="kw">pub struct </span>SubmitParachainHeadsHelper&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; {
 	_phantom_data: sp_std::marker::PhantomData&lt;(T, I)&gt;,
 }
 
-<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; SubmitParachainHeadsHelper&lt;T, I&gt; {
+<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; SubmitParachainHeadsHelper&lt;T, I&gt; {
 	<span class="doccomment">/// Check if the para head provided by the `SubmitParachainHeads` is better than the best one
 	/// we know.
 	</span><span class="kw">pub fn </span>is_obsolete(update: <span class="kw-2">&amp;</span>SubmitParachainHeadsInfo) -&gt; bool {
@@ -464,8 +466,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if </span>stored_best_head.best_head_hash.at_relay_block_number &gt;= update.at_relay_block_number {
 			<span class="macro">log::trace!</span>(
 				target: <span class="kw">crate</span>::LOG_TARGET,
-				<span class="string">&quot;The parachain head can&#39;t be updated. The parachain head for {:?} \
-					was already updated at better relay chain block {} &gt;= {}.&quot;</span>,
+				<span class="string">"The parachain head can't be updated. The parachain head for {:?} \
+					was already updated at better relay chain block {} &gt;= {}."</span>,
 				update.para_id,
 				stored_best_head.best_head_hash.at_relay_block_number,
 				update.at_relay_block_number
@@ -476,8 +478,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if </span>stored_best_head.best_head_hash.head_hash == update.para_head_hash {
 			<span class="macro">log::trace!</span>(
 				target: <span class="kw">crate</span>::LOG_TARGET,
-				<span class="string">&quot;The parachain head can&#39;t be updated. The parachain head hash for {:?} \
-				was already updated to {} at block {} &lt; {}.&quot;</span>,
+				<span class="string">"The parachain head can't be updated. The parachain head hash for {:?} \
+				was already updated to {} at block {} &lt; {}."</span>,
 				update.para_id,
 				update.para_head_hash,
 				stored_best_head.best_head_hash.at_relay_block_number,
@@ -503,8 +505,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="doccomment">/// Trait representing a call that is a sub type of this pallet&#39;s call.
-</span><span class="kw">pub trait </span>CallSubType&lt;T: Config&lt;I, RuntimeCall = <span class="self">Self</span>&gt;, I: <span class="lifetime">&#39;static</span>&gt;:
+<span class="doccomment">/// Trait representing a call that is a sub type of this pallet's call.
+</span><span class="kw">pub trait </span>CallSubType&lt;T: Config&lt;I, RuntimeCall = <span class="self">Self</span>&gt;, I: <span class="lifetime">'static</span>&gt;:
 	IsSubType&lt;CallableCallFor&lt;Pallet&lt;T, I&gt;, T&gt;&gt;
 {
 	<span class="doccomment">/// Create a new instance of `SubmitParachainHeadsInfo` from a `SubmitParachainHeads` call with
@@ -535,14 +537,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.filter(|update| update.para_id.<span class="number">0 </span>== para_id)
 	}
 
-	<span class="doccomment">/// Validate parachain heads in order to avoid &quot;mining&quot; transactions that provide
+	<span class="doccomment">/// Validate parachain heads in order to avoid "mining" transactions that provide
 	/// outdated bridged parachain heads. Without this validation, even honest relayers
 	/// may lose their funds if there are multiple relays running and submitting the
 	/// same information.
 	///
 	/// This validation only works with transactions that are updating single parachain
-	/// head. We can&#39;t use unbounded validation - it may take too long and either break
-	/// block production, or &quot;eat&quot; significant portion of block production time literally
+	/// head. We can't use unbounded validation - it may take too long and either break
+	/// block production, or "eat" significant portion of block production time literally
 	/// for nothing. In addition, the single-parachain-head-per-transaction is how the
 	/// pallet will be used in our environment.
 	</span><span class="kw">fn </span>check_obsolete_submit_parachain_heads(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TransactionValidity
@@ -566,7 +568,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;T, I: <span class="lifetime">&#39;static</span>&gt; CallSubType&lt;T, I&gt; <span class="kw">for </span>T::RuntimeCall
+<span class="kw">impl</span>&lt;T, I: <span class="lifetime">'static</span>&gt; CallSubType&lt;T, I&gt; <span class="kw">for </span>T::RuntimeCall
 <span class="kw">where
 	</span>T: Config&lt;I&gt;,
 	T::RuntimeCall: IsSubType&lt;CallableCallFor&lt;Pallet&lt;T, I&gt;, T&gt;&gt;,
@@ -612,7 +614,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>extension_rejects_header_from_the_obsolete_relay_block() {
 		run_test(|| {
-			<span class="comment">// when current best finalized is #10 and we&#39;re trying to import header#5 =&gt; tx is
+			<span class="comment">// when current best finalized is #10 and we're trying to import header#5 =&gt; tx is
 			// rejected
 			</span>sync_to_relay_header_10();
 			<span class="macro">assert!</span>(!validate_submit_parachain_heads(<span class="number">5</span>, <span class="macro">vec!</span>[(ParaId(<span class="number">1</span>), [<span class="number">1u8</span>; <span class="number">32</span>].into())]));
@@ -622,7 +624,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>extension_rejects_header_from_the_same_relay_block() {
 		run_test(|| {
-			<span class="comment">// when current best finalized is #10 and we&#39;re trying to import header#10 =&gt; tx is
+			<span class="comment">// when current best finalized is #10 and we're trying to import header#10 =&gt; tx is
 			// rejected
 			</span>sync_to_relay_header_10();
 			<span class="macro">assert!</span>(!validate_submit_parachain_heads(<span class="number">10</span>, <span class="macro">vec!</span>[(ParaId(<span class="number">1</span>), [<span class="number">1u8</span>; <span class="number">32</span>].into())]));
@@ -632,7 +634,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>extension_rejects_header_from_new_relay_block_with_same_hash() {
 		run_test(|| {
-			<span class="comment">// when current best finalized is #10 and we&#39;re trying to import header#10 =&gt; tx is
+			<span class="comment">// when current best finalized is #10 and we're trying to import header#10 =&gt; tx is
 			// rejected
 			</span>sync_to_relay_header_10();
 			<span class="macro">assert!</span>(!validate_submit_parachain_heads(<span class="number">20</span>, <span class="macro">vec!</span>[(ParaId(<span class="number">1</span>), [<span class="number">1u8</span>; <span class="number">32</span>].into())]));
@@ -653,7 +655,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>extension_accepts_new_header() {
 		run_test(|| {
-			<span class="comment">// when current best finalized is #10 and we&#39;re trying to import header#15 =&gt; tx is
+			<span class="comment">// when current best finalized is #10 and we're trying to import header#15 =&gt; tx is
 			// accepted
 			</span>sync_to_relay_header_10();
 			<span class="macro">assert!</span>(validate_submit_parachain_heads(<span class="number">15</span>, <span class="macro">vec!</span>[(ParaId(<span class="number">1</span>), [<span class="number">2u8</span>; <span class="number">32</span>].into())]));
@@ -663,7 +665,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>extension_accepts_if_more_than_one_parachain_is_submitted() {
 		run_test(|| {
-			<span class="comment">// when current best finalized is #10 and we&#39;re trying to import header#5, but another
+			<span class="comment">// when current best finalized is #10 and we're trying to import header#5, but another
 			// parachain head is also supplied =&gt; tx is accepted
 			</span>sync_to_relay_header_10();
 			<span class="macro">assert!</span>(validate_submit_parachain_heads(

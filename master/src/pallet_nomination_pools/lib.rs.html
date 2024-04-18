@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/nomination-pools/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/nomination-pools/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_nomination_pools" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_nomination_pools" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../pallet_nomination_pools/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -3812,14 +3814,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -3833,7 +3835,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!
 //! * [Key terms](#key-terms)
 //! * [Usage](#usage)
-//! * [Implementor&#39;s Guide](#implementors-guide)
+//! * [Implementor's Guide](#implementors-guide)
 //! * [Design](#design)
 //!
 //! ## Key Terms
@@ -3848,7 +3850,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! * members: Accounts that are members of pools. See [`PoolMember`] and [`PoolMembers`].
 //! * roles: Administrative roles of each pool, capable of controlling nomination, and the state of
 //!   the pool.
-//! * point: A unit of measure for a members portion of a pool&#39;s funds. Points initially have a
+//! * point: A unit of measure for a members portion of a pool's funds. Points initially have a
 //!   ratio of 1 (as set by `POINTS_TO_BALANCE_INIT_RATIO`) to balance, but as slashing happens,
 //!   this can change.
 //! * kick: The act of a pool administrator forcibly ejecting a member.
@@ -3907,7 +3909,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! in the aforementioned range of eras will be affected by the slash. A member is slashed pro-rata
 //! based on its stake relative to the total slash amount.
 //!
-//! Slashing does not change any single member&#39;s balance. Instead, the slash will only reduce the
+//! Slashing does not change any single member's balance. Instead, the slash will only reduce the
 //! balance associated with a particular pool. But, we never change the total *points* of a pool
 //! because of slashing. Therefore, when a slash happens, the ratio of points to balance changes in
 //! a pool. In other words, the value of one point, which is initially 1-to-1 against a unit of
@@ -3953,7 +3955,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! [`Call::set_commission_change_rate`] can not be removed once set, and can only be set to more
 //! restrictive values (i.e. a lower max commission or a slower change rate) in subsequent updates.
 //!
-//! If set, a pool&#39;s commission is bound to [`GlobalMaxCommission`] at the time it is applied to
+//! If set, a pool's commission is bound to [`GlobalMaxCommission`] at the time it is applied to
 //! pending rewards. [`GlobalMaxCommission`] is intended to be updated only via governance.
 //!
 //! When a pool is dissolved, any outstanding pending commission that has not been claimed will be
@@ -3975,11 +3977,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!    `Destroying`, this can happen permissionlessly.
 //! 2. The depositor itself fully unbonds and withdraws.
 //!
-//! &gt; Note that at this point, based on the requirements of the staking system, the pool&#39;s bonded
-//! &gt; account&#39;s stake might not be able to ge below a certain threshold as a nominator. At this
+//! &gt; Note that at this point, based on the requirements of the staking system, the pool's bonded
+//! &gt; account's stake might not be able to ge below a certain threshold as a nominator. At this
 //! &gt; point, the pool should `chill` itself to allow the depositor to leave. See [`Call::chill`].
 //!
-//! ## Implementor&#39;s Guide
+//! ## Implementor's Guide
 //!
 //! Some notes and common mistakes that wallets/apps wishing to implement this pallet should be
 //! aware of:
@@ -4023,7 +4025,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! ## Design
 //!
 //! _Notes_: this section uses pseudo code to explain general design and does not necessarily
-//! reflect the exact implementation. Additionally, a working knowledge of `pallet-staking`&#39;s api is
+//! reflect the exact implementation. Additionally, a working knowledge of `pallet-staking`'s api is
 //! assumed.
 //!
 //! ### Goals
@@ -4044,7 +4046,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!
 //! When a member joins a pool, `amount_transferred` is transferred from the members account to the
 //! bonded pools account. Then the pool calls `staking::bond_extra(amount_transferred)` and issues
-//! new points which are tracked by the member and added to the bonded pool&#39;s points.
+//! new points which are tracked by the member and added to the bonded pool's points.
 //!
 //! When the pool already has some balance, we want the value of a point before the transfer to
 //! equal the value of a point after the transfer. So, when a member joins a bonded pool with a
@@ -4089,11 +4091,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!
 //! ### Unbonding sub pools
 //!
-//! When a member unbonds, it&#39;s balance is unbonded in the bonded pool&#39;s account and tracked in an
+//! When a member unbonds, it's balance is unbonded in the bonded pool's account and tracked in an
 //! unbonding pool associated with the active era. If no such pool exists, one is created. To track
-//! which unbonding sub pool a member belongs too, a member tracks it&#39;s `unbonding_era`.
+//! which unbonding sub pool a member belongs too, a member tracks it's `unbonding_era`.
 //!
-//! When a member initiates unbonding it&#39;s claim on the bonded pool (`balance_to_unbond`) is
+//! When a member initiates unbonding it's claim on the bonded pool (`balance_to_unbond`) is
 //! computed as:
 //!
 //! ```text
@@ -4119,12 +4121,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! unbounded_pool.points = unbounded_pool.points + unbonding_pool.points;
 //! ```
 //!
-//! This scheme &quot;averages&quot; out the points value in the unbonded pool.
+//! This scheme "averages" out the points value in the unbonded pool.
 //!
 //! Once a members `unbonding_era` is older than `current_era -
-//! [sp_staking::StakingInterface::bonding_duration]`, it can can cash it&#39;s points out of the
-//! corresponding unbonding pool. If it&#39;s `unbonding_era` is older than `current_era -
-//! TotalUnbondingPools`, it can cash it&#39;s points from the unbonded pool.
+//! [sp_staking::StakingInterface::bonding_duration]`, it can can cash it's points out of the
+//! corresponding unbonding pool. If it's `unbonding_era` is older than `current_era -
+//! TotalUnbondingPools`, it can cash it's points from the unbonded pool.
 //!
 //! **Relevant extrinsics:**
 //!
@@ -4142,7 +4144,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! unbond right after a validator equivocated with no consequences.
 //!
 //! This strategy is unfair to members who joined after the slash, because they get slashed as well,
-//! but spares members who unbond. The latter is much more important for security: if a pool&#39;s
+//! but spares members who unbond. The latter is much more important for security: if a pool's
 //! validators are attacking the network, their members need to unbond fast! Avoiding slashes gives
 //! them an incentive to do that if validators get repeatedly slashed.
 //!
@@ -4158,7 +4160,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! * PoolMembers cannot quickly transfer to another pool if they do no like nominations, instead
 //!   they must wait for the unbonding duration.
 
-</span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
+</span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
 </span><span class="kw">use </span>codec::Codec;
 <span class="kw">use </span>frame_support::{
@@ -4185,23 +4187,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sp_staking::{EraIndex, StakingInterface};
 <span class="kw">use </span>sp_std::{collections::btree_map::BTreeMap, fmt::Debug, ops::Div, vec::Vec};
 
-<span class="attr">#[cfg(any(feature = <span class="string">&quot;try-runtime&quot;</span>, feature = <span class="string">&quot;fuzzing&quot;</span>, test, debug_assertions))]
+<span class="attr">#[cfg(any(feature = <span class="string">"try-runtime"</span>, feature = <span class="string">"fuzzing"</span>, test, debug_assertions))]
 </span><span class="kw">use </span>sp_runtime::TryRuntimeError;
 
 <span class="doccomment">/// The log target of this pallet.
-</span><span class="kw">pub const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;runtime::nomination-pools&quot;</span>;
+</span><span class="kw">pub const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"runtime::nomination-pools"</span>;
 <span class="comment">// syntactic sugar for logging.
 </span><span class="attr">#[macro_export]
 </span><span class="macro">macro_rules! </span>log {
 	(<span class="macro-nonterminal">$level</span>:tt, <span class="macro-nonterminal">$patter</span>:expr $(, <span class="macro-nonterminal">$values</span>:expr)* $(,)<span class="question-mark">?</span>) =&gt; {
 		log::<span class="macro-nonterminal">$</span><span class="macro">level!</span>(
 			<span class="macro-nonterminal">target</span>: <span class="macro-nonterminal">$crate::LOG_TARGET</span>,
-			<span class="macro">concat!</span>(<span class="string">&quot;[{:?}] 🏊‍♂️ &quot;</span>, <span class="macro-nonterminal">$patter</span>), &lt;frame_system::Pallet&lt;T&gt;&gt;::block_number() $(, <span class="macro-nonterminal">$values</span>)*
+			<span class="macro">concat!</span>(<span class="string">"[{:?}] 🏊‍♂️ "</span>, <span class="macro-nonterminal">$patter</span>), &lt;frame_system::Pallet&lt;T&gt;&gt;::block_number() $(, <span class="macro-nonterminal">$values</span>)*
 		)
 	};
 }
 
-<span class="attr">#[cfg(any(test, feature = <span class="string">&quot;fuzzing&quot;</span>))]
+<span class="attr">#[cfg(any(test, feature = <span class="string">"fuzzing"</span>))]
 </span><span class="kw">pub mod </span>mock;
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests;
@@ -4225,7 +4227,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Possible operations on the configuration values of this pallet.
 </span><span class="attr">#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, RuntimeDebugNoBound, PartialEq, Clone)]
 </span><span class="kw">pub enum </span>ConfigOp&lt;T: Codec + Debug&gt; {
-	<span class="doccomment">/// Don&#39;t change.
+	<span class="doccomment">/// Don't change.
 	</span>Noop,
 	<span class="doccomment">/// Set the given value.
 	</span>Set(T),
@@ -4262,11 +4264,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub enum </span>ClaimPermission {
 	<span class="doccomment">/// Only the pool member themselves can claim their rewards.
 	</span>Permissioned,
-	<span class="doccomment">/// Anyone can compound rewards on a pool member&#39;s behalf.
+	<span class="doccomment">/// Anyone can compound rewards on a pool member's behalf.
 	</span>PermissionlessCompound,
-	<span class="doccomment">/// Anyone can withdraw rewards on a pool member&#39;s behalf.
+	<span class="doccomment">/// Anyone can withdraw rewards on a pool member's behalf.
 	</span>PermissionlessWithdraw,
-	<span class="doccomment">/// Anyone can withdraw and compound rewards on a pool member&#39;s behalf.
+	<span class="doccomment">/// Anyone can withdraw and compound rewards on a pool member's behalf.
 	</span>PermissionlessAll,
 }
 
@@ -4300,7 +4302,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	CloneNoBound,
 	frame_support::PartialEqNoBound,
 )]
-#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(DefaultNoBound))]
+#[cfg_attr(feature = <span class="string">"std"</span>, derive(DefaultNoBound))]
 #[codec(mel_bound(T: Config))]
 #[scale_info(skip_type_params(T))]
 </span><span class="kw">pub struct </span>PoolMember&lt;T: Config&gt; {
@@ -4309,7 +4311,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// The quantity of points this member has in the bonded pool or in a sub pool if
 	/// `Self::unbonding_era` is some.
 	</span><span class="kw">pub </span>points: BalanceOf&lt;T&gt;,
-	<span class="doccomment">/// The reward counter at the time of this member&#39;s last payout claim.
+	<span class="doccomment">/// The reward counter at the time of this member's last payout claim.
 	</span><span class="kw">pub </span>last_recorded_reward_counter: T::RewardCounter,
 	<span class="doccomment">/// The eras in which this member is unbonding, mapped from era index to the number of
 	/// points scheduled to unbond in the given era.
@@ -4357,8 +4359,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Total balance of the member, both active and unbonding.
-	/// Doesn&#39;t mutate state.
-	</span><span class="attr">#[cfg(any(feature = <span class="string">&quot;try-runtime&quot;</span>, feature = <span class="string">&quot;fuzzing&quot;</span>, test, debug_assertions))]
+	/// Doesn't mutate state.
+	</span><span class="attr">#[cfg(any(feature = <span class="string">"try-runtime"</span>, feature = <span class="string">"fuzzing"</span>, test, debug_assertions))]
 	</span><span class="kw">fn </span>total_balance(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; BalanceOf&lt;T&gt; {
 		<span class="kw">let </span>pool = BondedPool::&lt;T&gt;::get(<span class="self">self</span>.pool_id).unwrap();
 		<span class="kw">let </span>active_balance = pool.points_to_balance(<span class="self">self</span>.active_points());
@@ -4400,7 +4402,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Try and unbond `points_dissolved` from self, and in return mint `points_issued` into the
-	/// corresponding `era`&#39;s unlock schedule.
+	/// corresponding `era`'s unlock schedule.
 	///
 	/// In the absence of slashing, these two points are always the same. In the presence of
 	/// slashing, the value of points in different pools varies.
@@ -4422,7 +4424,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					.try_insert(unbonding_era, points_issued)
 					.map(|old| {
 						<span class="kw">if </span>old.is_some() {
-							<span class="macro">defensive!</span>(<span class="string">&quot;value checked to not exist in the map; qed&quot;</span>);
+							<span class="macro">defensive!</span>(<span class="string">"value checked to not exist in the map; qed"</span>);
 						}
 					})
 					.map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::MaxUnbondingLimit)<span class="question-mark">?</span>,
@@ -4434,7 +4436,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="doccomment">/// Withdraw any funds in [`Self::unbonding_eras`] who&#39;s deadline in reached and is fully
+	<span class="doccomment">/// Withdraw any funds in [`Self::unbonding_eras`] who's deadline in reached and is fully
 	/// unlocked.
 	///
 	/// Returns a a subset of [`Self::unbonding_eras`] that got withdrawn.
@@ -4453,7 +4455,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span>} <span class="kw">else </span>{
 				removed_points
 					.try_insert(<span class="kw-2">*</span>e, <span class="kw-2">*</span>p)
-					.expect(<span class="string">&quot;source map is bounded, this is a subset, will be bounded; qed&quot;</span>);
+					.expect(<span class="string">"source map is bounded, this is a subset, will be bounded; qed"</span>);
 				<span class="bool-val">false
 			</span>}
 		});
@@ -4461,7 +4463,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="doccomment">/// A pool&#39;s possible states.
+<span class="doccomment">/// A pool's possible states.
 </span><span class="attr">#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, PartialEq, RuntimeDebugNoBound, Clone, Copy)]
 </span><span class="kw">pub enum </span>PoolState {
 	<span class="doccomment">/// The pool is open to be joined, and is working normally.
@@ -4494,7 +4496,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>bouncer: <span class="prelude-ty">Option</span>&lt;AccountId&gt;,
 }
 
-<span class="comment">// A pool&#39;s possible commission claiming permissions.
+<span class="comment">// A pool's possible commission claiming permissions.
 </span><span class="attr">#[derive(PartialEq, Eq, Copy, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 </span><span class="kw">pub enum </span>CommissionClaimPermission&lt;AccountId&gt; {
 	Permissionless,
@@ -4564,7 +4566,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			// `change_rate` has already been set, so this scenario should never happen.
 			</span><span class="kw">return </span><span class="self">self</span>.throttle_from.map_or_else(
 				|| {
-					<span class="macro">defensive!</span>(<span class="string">&quot;throttle_from should exist if change_rate is set&quot;</span>);
+					<span class="macro">defensive!</span>(<span class="string">"throttle_from should exist if change_rate is set"</span>);
 					<span class="bool-val">true
 				</span>},
 				|f| {
@@ -4583,7 +4585,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="bool-val">false
 	</span>}
 
-	<span class="doccomment">/// Gets the pool&#39;s current commission, or returns Perbill::zero if none is set.
+	<span class="doccomment">/// Gets the pool's current commission, or returns Perbill::zero if none is set.
 	/// Bounded to global max if current is greater than `GlobalMaxCommission`.
 	</span><span class="kw">fn </span>current(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Perbill {
 		<span class="self">self</span>.current
@@ -4592,7 +4594,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.min(GlobalMaxCommission::&lt;T&gt;::get().unwrap_or(Bounded::max_value()))
 	}
 
-	<span class="doccomment">/// Set the pool&#39;s commission.
+	<span class="doccomment">/// Set the pool's commission.
 	///
 	/// Update commission based on `current`. If a `None` is supplied, allow the commission to be
 	/// removed without any change rate restrictions. Updates `throttle_from` to the current block.
@@ -4621,9 +4623,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Ok</span>(())
 	}
 
-	<span class="doccomment">/// Set the pool&#39;s maximum commission.
+	<span class="doccomment">/// Set the pool's maximum commission.
 	///
-	/// The pool&#39;s maximum commission can initially be set to any value, and only smaller values
+	/// The pool's maximum commission can initially be set to any value, and only smaller values
 	/// thereafter. If larger values are attempted, this function will return a dispatch error.
 	///
 	/// If `current.0` is larger than the updated max commission value, `current.0` will also be
@@ -4664,7 +4666,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Ok</span>(())
 	}
 
-	<span class="doccomment">/// Set the pool&#39;s commission `change_rate`.
+	<span class="doccomment">/// Set the pool's commission `change_rate`.
 	///
 	/// Once a change rate configuration has been set, only more restrictive values can be set
 	/// thereafter. These restrictions translate to increased `min_delay` values and decreased
@@ -4685,7 +4687,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Ok</span>(())
 	}
 
-	<span class="doccomment">/// Updates a commission&#39;s `throttle_from` field to the current block.
+	<span class="doccomment">/// Updates a commission's `throttle_from` field to the current block.
 	</span><span class="kw">fn </span>register_update(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
 		<span class="self">self</span>.throttle_from = <span class="prelude-val">Some</span>(&lt;frame_system::Pallet&lt;T&gt;&gt;::block_number());
 	}
@@ -4739,7 +4741,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// The main purpose of this is to wrap a [`BondedPoolInner`], with the account
 /// + id of the pool, for easier access.
 </span><span class="attr">#[derive(RuntimeDebugNoBound)]
-#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(Clone, PartialEq))]
+#[cfg_attr(feature = <span class="string">"std"</span>, derive(Clone, PartialEq))]
 </span><span class="kw">pub struct </span>BondedPool&lt;T: Config&gt; {
 	<span class="doccomment">/// The identifier of the pool.
 	</span>id: PoolId,
@@ -4864,7 +4866,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// The pools balance that is transferable provided it is expendable by staking pallet.
 	</span><span class="kw">fn </span>transferable_balance(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; BalanceOf&lt;T&gt; {
 		<span class="kw">let </span>account = <span class="self">self</span>.bonded_account();
-		<span class="comment">// Note on why we can&#39;t use `Currency::reducible_balance`: Since pooled account has a
+		<span class="comment">// Note on why we can't use `Currency::reducible_balance`: Since pooled account has a
 		// provider (staking pallet), the account can not be set expendable by
 		// `pallet-nomination-pool`. This means reducible balance always returns balance preserving
 		// ED in the account. What we want though is transferable balance given the account can be
@@ -4922,7 +4924,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">fn </span>is_destroying_and_only_depositor(<span class="kw-2">&amp;</span><span class="self">self</span>, alleged_depositor_points: BalanceOf&lt;T&gt;) -&gt; bool {
-		<span class="comment">// we need to ensure that `self.member_counter == 1` as well, because the depositor&#39;s
+		<span class="comment">// we need to ensure that `self.member_counter == 1` as well, because the depositor's
 		// initial `MinCreateBond` (or more) is what guarantees that the ledger of the pool does not
 		// get killed in the staking system, and that it does not fall below `MinimumNominatorBond`,
 		// which could prevent other non-depositor members from fully leaving. Thus, all members
@@ -5044,7 +5046,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		caller: <span class="kw-2">&amp;</span>T::AccountId,
 		target_account: <span class="kw-2">&amp;</span>T::AccountId,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), DispatchError&gt; {
-		<span class="comment">// This isn&#39;t a depositor
+		<span class="comment">// This isn't a depositor
 		</span><span class="kw">let </span>is_permissioned = caller == target_account;
 		<span class="macro">ensure!</span>(
 			is_permissioned || <span class="self">self</span>.can_kick(caller) || <span class="self">self</span>.is_destroying(),
@@ -5053,7 +5055,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Ok</span>(())
 	}
 
-	<span class="doccomment">/// Bond exactly `amount` from `who`&#39;s funds into this pool. Increases the [`TotalValueLocked`]
+	<span class="doccomment">/// Bond exactly `amount` from `who`'s funds into this pool. Increases the [`TotalValueLocked`]
 	/// by `amount`.
 	///
 	/// If the bond is [`BondType::Create`], [`Staking::bond`] is called, and `who` is allowed to be
@@ -5077,7 +5079,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				BondType::Later =&gt; Preservation::Preserve,
 			},
 		)<span class="question-mark">?</span>;
-		<span class="comment">// We must calculate the points issued *before* we bond who&#39;s funds, else points:balance
+		<span class="comment">// We must calculate the points issued *before* we bond who's funds, else points:balance
 		// ratio will be wrong.
 		</span><span class="kw">let </span>points_issued = <span class="self">self</span>.issue(amount);
 
@@ -5114,7 +5116,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// Rather, simply to fit nicely next to bonded pool and unbonding pools in terms of terminology. In
 /// reality, a reward pool is just a container for a few pool-dependent data related to the rewards.
 </span><span class="attr">#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, RuntimeDebugNoBound)]
-#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(Clone, PartialEq, DefaultNoBound))]
+#[cfg_attr(feature = <span class="string">"std"</span>, derive(Clone, PartialEq, DefaultNoBound))]
 #[codec(mel_bound(T: Config))]
 #[scale_info(skip_type_params(T))]
 </span><span class="kw">pub struct </span>RewardPool&lt;T: Config&gt; {
@@ -5274,7 +5276,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// An unbonding pool. This is always mapped with an era.
 </span><span class="attr">#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, DefaultNoBound, RuntimeDebugNoBound)]
-#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(Clone, PartialEq, Eq))]
+#[cfg_attr(feature = <span class="string">"std"</span>, derive(Clone, PartialEq, Eq))]
 #[codec(mel_bound(T: Config))]
 #[scale_info(skip_type_params(T))]
 </span><span class="kw">pub struct </span>UnbondPool&lt;T: Config&gt; {
@@ -5317,7 +5319,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="attr">#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, DefaultNoBound, RuntimeDebugNoBound)]
-#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(Clone, PartialEq))]
+#[cfg_attr(feature = <span class="string">"std"</span>, derive(Clone, PartialEq))]
 #[codec(mel_bound(T: Config))]
 #[scale_info(skip_type_params(T))]
 </span><span class="kw">pub struct </span>SubPools&lt;T: Config&gt; {
@@ -5336,7 +5338,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// `Self` for ergonomic purposes.
 	</span><span class="kw">fn </span>maybe_merge_pools(<span class="kw-2">mut </span><span class="self">self</span>, current_era: EraIndex) -&gt; <span class="self">Self </span>{
 		<span class="comment">// Ex: if `TotalUnbondingPools` is 5 and current era is 10, we only want to retain pools
-		// 6..=10. Note that in the first few eras where `checked_sub` is `None`, we don&#39;t remove
+		// 6..=10. Note that in the first few eras where `checked_sub` is `None`, we don't remove
 		// anything.
 		</span><span class="kw">if let </span><span class="prelude-val">Some</span>(newest_era_to_remove) =
 			current_era.checked_sub(T::PostUnbondingPoolsWindow::get())
@@ -5358,7 +5360,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>}
 
 	<span class="doccomment">/// The sum of all unbonding balance, regardless of whether they are actually unlocked or not.
-	</span><span class="attr">#[cfg(any(feature = <span class="string">&quot;try-runtime&quot;</span>, feature = <span class="string">&quot;fuzzing&quot;</span>, test, debug_assertions))]
+	</span><span class="attr">#[cfg(any(feature = <span class="string">"try-runtime"</span>, feature = <span class="string">"fuzzing"</span>, test, debug_assertions))]
 	</span><span class="kw">fn </span>sum_unbonding_balance(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; BalanceOf&lt;T&gt; {
 		<span class="self">self</span>.no_era.balance.saturating_add(
 			<span class="self">self</span>.with_era
@@ -5425,13 +5427,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		/// prevented via a reasonable `MaxPointsToBalance`), for many many years to come.
 		</span><span class="kw">type </span>RewardCounter: FixedPointNumber + MaxEncodedLen + TypeInfo + Default + codec::FullCodec;
 
-		<span class="doccomment">/// The nomination pool&#39;s pallet id.
+		<span class="doccomment">/// The nomination pool's pallet id.
 		</span><span class="attr">#[pallet::constant]
 		</span><span class="kw">type </span>PalletId: Get&lt;frame_support::PalletId&gt;;
 
 		<span class="doccomment">/// The maximum pool points-to-balance ratio that an `open` pool can have.
 		///
-		/// This is important in the event slashing takes place and the pool&#39;s points-to-balance
+		/// This is important in the event slashing takes place and the pool's points-to-balance
 		/// ratio becomes disproportional.
 		///
 		/// Moreover, this relates to the `RewardCounter` type as well, as the arithmetic operations
@@ -5474,8 +5476,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// The sum of funds across all pools.
 	///
 	/// This might be lower but never higher than the sum of `total_balance` of all [`PoolMembers`]
-	/// because calling `pool_withdraw_unbonded` might decrease the total stake of the pool&#39;s
-	/// `bonded_account` without adjusting the pallet-internal `UnbondingPool`&#39;s.
+	/// because calling `pool_withdraw_unbonded` might decrease the total stake of the pool's
+	/// `bonded_account` without adjusting the pallet-internal `UnbondingPool`'s.
 	</span><span class="attr">#[pallet::storage]
 	</span><span class="kw">pub type </span>TotalValueLocked&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, BalanceOf&lt;T&gt;, ValueQuery&gt;;
 
@@ -5486,7 +5488,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Minimum bond required to create a pool.
 	///
 	/// This is the amount that the depositor must put as their initial stake in the pool, as an
-	/// indication of &quot;skin in the game&quot;.
+	/// indication of "skin in the game".
 	///
 	/// This is the value that will always exist in the staking ledger of the pool bonded account
 	/// while all other accounts leave.
@@ -5546,7 +5548,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="attr">#[pallet::storage]
 	</span><span class="kw">pub type </span>LastPoolId&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, u32, ValueQuery&gt;;
 
-	<span class="doccomment">/// A reverse lookup from the pool&#39;s account id to its id.
+	<span class="doccomment">/// A reverse lookup from the pool's account id to its id.
 	///
 	/// This is only used for slashing and on automatic withdraw update. In all other instances, the
 	/// pool id is used, and the accounts are deterministically derived from it.
@@ -5662,11 +5664,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>PoolSlashed { pool_id: PoolId, balance: BalanceOf&lt;T&gt; },
 		<span class="doccomment">/// The unbond pool at `era` of pool `pool_id` has been slashed to `balance`.
 		</span>UnbondingPoolSlashed { pool_id: PoolId, era: EraIndex, balance: BalanceOf&lt;T&gt; },
-		<span class="doccomment">/// A pool&#39;s commission setting has been changed.
+		<span class="doccomment">/// A pool's commission setting has been changed.
 		</span>PoolCommissionUpdated { pool_id: PoolId, current: <span class="prelude-ty">Option</span>&lt;(Perbill, T::AccountId)&gt; },
-		<span class="doccomment">/// A pool&#39;s maximum commission setting has been changed.
+		<span class="doccomment">/// A pool's maximum commission setting has been changed.
 		</span>PoolMaxCommissionUpdated { pool_id: PoolId, max_commission: Perbill },
-		<span class="doccomment">/// A pool&#39;s commission `change_rate` has been changed.
+		<span class="doccomment">/// A pool's commission `change_rate` has been changed.
 		</span>PoolCommissionChangeRateUpdated {
 			pool_id: PoolId,
 			change_rate: CommissionChangeRate&lt;BlockNumberFor&lt;T&gt;&gt;,
@@ -5737,7 +5739,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>Defensive(DefensiveError),
 		<span class="doccomment">/// Partial unbonding now allowed permissionlessly.
 		</span>PartialUnbondNotAllowedPermissionlessly,
-		<span class="doccomment">/// The pool&#39;s max commission cannot be set higher than the existing value.
+		<span class="doccomment">/// The pool's max commission cannot be set higher than the existing value.
 		</span>MaxCommissionRestricted,
 		<span class="doccomment">/// The supplied commission exceeds the max allowed commission.
 		</span>CommissionExceedsMaximum,
@@ -5763,7 +5765,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[derive(Encode, Decode, PartialEq, TypeInfo, PalletError, RuntimeDebug)]
 	</span><span class="kw">pub enum </span>DefensiveError {
-		<span class="doccomment">/// There isn&#39;t enough space in the unbond pool.
+		<span class="doccomment">/// There isn't enough space in the unbond pool.
 		</span>NotEnoughSpaceInUnbondPool,
 		<span class="doccomment">/// A (bonded) pool id does not exist.
 		</span>PoolNotFound,
@@ -5877,10 +5879,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="doccomment">/// A bonded member can use this to claim their payout based on the rewards that the pool
 		/// has accumulated since their last claimed payout (OR since joining if this is their first
-		/// time claiming rewards). The payout will be transferred to the member&#39;s account.
+		/// time claiming rewards). The payout will be transferred to the member's account.
 		///
 		/// The member will earn rewards pro rata based on the members stake vs the sum of the
-		/// members in the pools stake. Rewards do not &quot;expire&quot;.
+		/// members in the pools stake. Rewards do not "expire".
 		///
 		/// See `claim_payout_other` to claim rewards on behalf of some `other` pool member.
 		</span><span class="attr">#[pallet::call_index(<span class="number">2</span>)]
@@ -5890,7 +5892,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="self">Self</span>::do_claim_payout(signer.clone(), signer)
 		}
 
-		<span class="doccomment">/// Unbond up to `unbonding_points` of the `member_account`&#39;s funds from the pool. It
+		<span class="doccomment">/// Unbond up to `unbonding_points` of the `member_account`'s funds from the pool. It
 		/// implicitly collects the rewards one last time, since not doing so would mean some
 		/// rewards would be forfeited.
 		///
@@ -5957,7 +5959,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="kw">let </span>unbonding_balance = bonded_pool.dissolve(unbonding_points);
 			T::Staking::unbond(<span class="kw-2">&amp;</span>bonded_pool.bonded_account(), unbonding_balance)<span class="question-mark">?</span>;
 
-			<span class="comment">// Note that we lazily create the unbonding pools here if they don&#39;t already exist
+			<span class="comment">// Note that we lazily create the unbonding pools here if they don't already exist
 			</span><span class="kw">let </span><span class="kw-2">mut </span>sub_pools = SubPoolsStorage::&lt;T&gt;::get(member.pool_id)
 				.unwrap_or_default()
 				.maybe_merge_pools(current_era);
@@ -6097,11 +6099,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						</span>accumulator.saturating_add(sub_pools.no_era.dissolve(<span class="kw-2">*</span>unlocked_points))
 					}
 				})
-				<span class="comment">// A call to this transaction may cause the pool&#39;s stash to get dusted. If this
+				<span class="comment">// A call to this transaction may cause the pool's stash to get dusted. If this
 				// happens before the last member has withdrawn, then all subsequent withdraws will
 				// be 0. However the unbond pools do no get updated to reflect this. In the
-				// aforementioned scenario, this check ensures we don&#39;t try to withdraw funds that
-				// don&#39;t exist. This check is also defensive in cases where the unbond pool does not
+				// aforementioned scenario, this check ensures we don't try to withdraw funds that
+				// don't exist. This check is also defensive in cases where the unbond pool does not
 				// update its balance (e.g. a bug in the slashing hook.) We gracefully proceed in
 				// order to ensure members can leave the pool and it can be destroyed.
 				</span>.min(bonded_pool.transferable_balance());
@@ -6141,7 +6143,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="prelude-val">Some</span>(T::WeightInfo::withdraw_unbonded_update(num_slashing_spans))
 				}
 			} <span class="kw">else </span>{
-				<span class="comment">// we certainly don&#39;t need to delete any pools, because no one is being removed.
+				<span class="comment">// we certainly don't need to delete any pools, because no one is being removed.
 				</span>SubPoolsStorage::&lt;T&gt;::insert(member.pool_id, sub_pools);
 				PoolMembers::&lt;T&gt;::insert(<span class="kw-2">&amp;</span>member_account, member);
 				<span class="prelude-val">Some</span>(T::WeightInfo::withdraw_unbonded_update(num_slashing_spans))
@@ -6220,7 +6222,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		///
 		/// # Note
 		///
-		/// In addition to a `root` or `nominator` role of `origin`, pool&#39;s depositor needs to have
+		/// In addition to a `root` or `nominator` role of `origin`, pool's depositor needs to have
 		/// at least `depositor_min_bond` in the pool to start nominating.
 		</span><span class="attr">#[pallet::call_index(<span class="number">8</span>)]
 		#[pallet::weight(T::WeightInfo::nominate(validators.len() <span class="kw">as </span>u32))]
@@ -6485,7 +6487,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Ok</span>(())
 		}
 
-		<span class="doccomment">/// `origin` can claim payouts on some pool member `other`&#39;s behalf.
+		<span class="doccomment">/// `origin` can claim payouts on some pool member `other`'s behalf.
 		///
 		/// Pool member `other` must have a `PermissionlessWithdraw` or `PermissionlessAll` claim
 		/// permission for this call to be successful.
@@ -6607,9 +6609,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="self">Self</span>::do_adjust_pool_deposit(who, pool_id)
 		}
 
-		<span class="doccomment">/// Set or remove a pool&#39;s commission claim permission.
+		<span class="doccomment">/// Set or remove a pool's commission claim permission.
 		///
-		/// Determines who can claim the pool&#39;s pending commission. Only the `Root` role of the pool
+		/// Determines who can claim the pool's pending commission. Only the `Root` role of the pool
 		/// is able to configure commission claim permissions.
 		</span><span class="attr">#[pallet::call_index(<span class="number">22</span>)]
 		#[pallet::weight(T::WeightInfo::set_commission_claim_permission())]
@@ -6636,7 +6638,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[pallet::hooks]
 	</span><span class="kw">impl</span>&lt;T: Config&gt; Hooks&lt;BlockNumberFor&lt;T&gt;&gt; <span class="kw">for </span>Pallet&lt;T&gt; {
-		<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+		<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 		</span><span class="kw">fn </span>try_state(_n: BlockNumberFor&lt;T&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
 			<span class="self">Self</span>::do_try_state(u8::MAX)
 		}
@@ -6644,13 +6646,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">fn </span>integrity_test() {
 			<span class="macro">assert!</span>(
 				T::MaxPointsToBalance::get() &gt; <span class="number">0</span>,
-				<span class="string">&quot;Minimum points to balance ratio must be greater than 0&quot;
+				<span class="string">"Minimum points to balance ratio must be greater than 0"
 			</span>);
 			<span class="macro">assert!</span>(
 				T::Staking::bonding_duration() &lt; TotalUnbondingPools::&lt;T&gt;::get(),
-				<span class="string">&quot;There must be more unbonding pools then the bonding duration /
+				<span class="string">"There must be more unbonding pools then the bonding duration /
 				so a slash can be applied to relevant unbonding pools. (We assume /
-				the bonding duration &gt; slash deffer duration.&quot;</span>,
+				the bonding duration &gt; slash deffer duration."</span>,
 			);
 		}
 	}
@@ -6687,25 +6689,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// Kill accounts from storage by making their balance go below ED. We assume that the
 		// accounts have no references that would prevent destruction once we get to this point. We
-		// don&#39;t work with the system pallet directly, but
+		// don't work with the system pallet directly, but
 		// 1. we drain the reward account and kill it. This account should never have any extra
 		// consumers anyway.
-		// 2. the bonded account should become a &#39;killed stash&#39; in the staking system, and all of
+		// 2. the bonded account should become a 'killed stash' in the staking system, and all of
 		//    its consumers removed.
 		</span><span class="macro">defensive_assert!</span>(
 			frame_system::Pallet::&lt;T&gt;::consumers(<span class="kw-2">&amp;</span>reward_account) == <span class="number">0</span>,
-			<span class="string">&quot;reward account of dissolving pool should have no consumers&quot;
+			<span class="string">"reward account of dissolving pool should have no consumers"
 		</span>);
 		<span class="macro">defensive_assert!</span>(
 			frame_system::Pallet::&lt;T&gt;::consumers(<span class="kw-2">&amp;</span>bonded_account) == <span class="number">0</span>,
-			<span class="string">&quot;bonded account of dissolving pool should have no consumers&quot;
+			<span class="string">"bonded account of dissolving pool should have no consumers"
 		</span>);
 		<span class="macro">defensive_assert!</span>(
 			T::Staking::total_stake(<span class="kw-2">&amp;</span>bonded_account).unwrap_or_default() == Zero::zero(),
-			<span class="string">&quot;dissolving pool should not have any stake in the staking pallet&quot;
+			<span class="string">"dissolving pool should not have any stake in the staking pallet"
 		</span>);
 
-		<span class="comment">// This shouldn&#39;t fail, but if it does we don&#39;t really care. Remaining balance can consist
+		<span class="comment">// This shouldn't fail, but if it does we don't really care. Remaining balance can consist
 		// of unclaimed pending commission, erroneous transfers to the reward account, etc.
 		</span><span class="kw">let </span>reward_pool_remaining = T::Currency::reducible_balance(
 			<span class="kw-2">&amp;</span>reward_account,
@@ -6721,11 +6723,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="macro">defensive_assert!</span>(
 			T::Currency::total_balance(<span class="kw-2">&amp;</span>reward_account) == Zero::zero(),
-			<span class="string">&quot;could not transfer all amount to depositor while dissolving pool&quot;
+			<span class="string">"could not transfer all amount to depositor while dissolving pool"
 		</span>);
 		<span class="macro">defensive_assert!</span>(
 			T::Currency::total_balance(<span class="kw-2">&amp;</span>bonded_pool.bonded_account()) == Zero::zero(),
-			<span class="string">&quot;dissolving pool should not have any balance&quot;
+			<span class="string">"dissolving pool should not have any balance"
 		</span>);
 		<span class="comment">// NOTE: Defensively force set balance to zero.
 		</span>T::Currency::set_balance(<span class="kw-2">&amp;</span>reward_account, Zero::zero());
@@ -7131,7 +7133,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// ## Invariants:
 	///
-	/// First, let&#39;s consider pools:
+	/// First, let's consider pools:
 	///
 	/// * `BondedPools` and `RewardPools` must all have the EXACT SAME key-set.
 	/// * `SubPoolsStorage` must be a subset of the above superset.
@@ -7150,9 +7152,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// Then, considering unbonding members:
 	///
 	/// for each pool:
-	///   * sum of the balance that&#39;s tracked in all unbonding pools must be the same as the
+	///   * sum of the balance that's tracked in all unbonding pools must be the same as the
 	///     unbonded balance of the main account, as reported by the staking interface.
-	///   * sum of the balance that&#39;s tracked in all unbonding pools, plus the bonded balance of the
+	///   * sum of the balance that's tracked in all unbonding pools, plus the bonded balance of the
 	///     main account should be less than or qual to the total balance of the main account.
 	///
 	/// ## Sanity check level
@@ -7160,7 +7162,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// To cater for tests that want to escape parts of these checks, this function is split into
 	/// multiple `level`s, where the higher the level, the more checks we performs. So,
 	/// `try_state(255)` is the strongest sanity check, and `0` performs no checks.
-	</span><span class="attr">#[cfg(any(feature = <span class="string">&quot;try-runtime&quot;</span>, feature = <span class="string">&quot;fuzzing&quot;</span>, test, debug_assertions))]
+	</span><span class="attr">#[cfg(any(feature = <span class="string">"try-runtime"</span>, feature = <span class="string">"fuzzing"</span>, test, debug_assertions))]
 	</span><span class="kw">pub fn </span>do_try_state(level: u8) -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
 		<span class="kw">if </span>level.is_zero() {
 			<span class="kw">return </span><span class="prelude-val">Ok</span>(())
@@ -7171,16 +7173,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>reward_pools = RewardPools::&lt;T&gt;::iter_keys().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 		<span class="macro">ensure!</span>(
 			bonded_pools == reward_pools,
-			<span class="string">&quot;`BondedPools` and `RewardPools` must all have the EXACT SAME key-set.&quot;
+			<span class="string">"`BondedPools` and `RewardPools` must all have the EXACT SAME key-set."
 		</span>);
 
 		<span class="macro">ensure!</span>(
 			SubPoolsStorage::&lt;T&gt;::iter_keys().all(|k| bonded_pools.contains(<span class="kw-2">&amp;</span>k)),
-			<span class="string">&quot;`SubPoolsStorage` must be a subset of the above superset.&quot;
+			<span class="string">"`SubPoolsStorage` must be a subset of the above superset."
 		</span>);
 		<span class="macro">ensure!</span>(
 			Metadata::&lt;T&gt;::iter_keys().all(|k| bonded_pools.contains(<span class="kw-2">&amp;</span>k)),
-			<span class="string">&quot;`Metadata` keys must be a subset of the above superset.&quot;
+			<span class="string">"`Metadata` keys must be a subset of the above superset."
 		</span>);
 
 		<span class="macro">ensure!</span>(
@@ -7195,9 +7197,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			{
 				<span class="macro">log!</span>(
 					warn,
-					<span class="string">&quot;reward pool of {:?}: {:?} (ed = {:?}), should only happen because ED has \
+					<span class="string">"reward pool of {:?}: {:?} (ed = {:?}), should only happen because ED has \
 					changed recently. Pool operators should be notified to top up the reward \
-					account&quot;</span>,
+					account"</span>,
 					id,
 					T::Currency::reducible_balance(
 						<span class="kw-2">&amp;</span>account,
@@ -7215,7 +7217,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span><span class="kw-2">mut </span>total_balance_members = Default::default();
 		PoolMembers::&lt;T&gt;::iter().try_for_each(|(<span class="kw">_</span>, d)| -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
 			<span class="kw">let </span>bonded_pool = BondedPools::&lt;T&gt;::get(d.pool_id).unwrap();
-			<span class="macro">ensure!</span>(!d.total_points().is_zero(), <span class="string">&quot;No member should have zero points&quot;</span>);
+			<span class="macro">ensure!</span>(!d.total_points().is_zero(), <span class="string">"No member should have zero points"</span>);
 			<span class="kw-2">*</span>pools_members.entry(d.pool_id).or_default() += <span class="number">1</span>;
 			all_members += <span class="number">1</span>;
 
@@ -7243,7 +7245,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			// We warn about this in try-runtime checks but do not panic.
 			</span><span class="kw">if </span>!pending_rewards_lt_leftover_bal {
 				<span class="macro">log::warn!</span>(
-					<span class="string">&quot;pool {:?}, sum pending rewards = {:?}, remaining balance = {:?}&quot;</span>,
+					<span class="string">"pool {:?}, sum pending rewards = {:?}, remaining balance = {:?}"</span>,
 					id,
 					pools_members_pending_rewards.get(<span class="kw-2">&amp;</span>id),
 					RewardPool::&lt;T&gt;::current_balance(id)
@@ -7258,7 +7260,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">ensure!</span>(
 				pools_members.get(<span class="kw-2">&amp;</span>id).copied().unwrap_or_default() ==
 				bonded_pool.member_counter,
-				<span class="string">&quot;Each `BondedPool.member_counter` must be equal to the actual count of members of this pool&quot;
+				<span class="string">"Each `BondedPool.member_counter` must be equal to the actual count of members of this pool"
 			</span>);
 			<span class="macro">ensure!</span>(
 				MaxPoolMembersPerPool::&lt;T&gt;::get()
@@ -7270,8 +7272,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">ensure!</span>(
 				bonded_pool.is_destroying_and_only_depositor(depositor.active_points()) ||
 					depositor.active_points() &gt;= MinCreateBond::&lt;T&gt;::get(),
-				<span class="string">&quot;depositor must always have MinCreateBond stake in the pool, except for when the \
-				pool is being destroyed and the depositor is the last member&quot;</span>,
+				<span class="string">"depositor must always have MinCreateBond stake in the pool, except for when the \
+				pool is being destroyed and the depositor is the last member"</span>,
 			);
 
 			expected_tvl +=
@@ -7287,12 +7289,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="macro">ensure!</span>(
 			TotalValueLocked::&lt;T&gt;::get() == expected_tvl,
-			<span class="string">&quot;TVL deviates from the actual sum of funds of all Pools.&quot;
+			<span class="string">"TVL deviates from the actual sum of funds of all Pools."
 		</span>);
 
 		<span class="macro">ensure!</span>(
 			TotalValueLocked::&lt;T&gt;::get() &lt;= total_balance_members,
-			<span class="string">&quot;TVL must be equal to or less than the total balance of all PoolMembers.&quot;
+			<span class="string">"TVL must be equal to or less than the total balance of all PoolMembers."
 		</span>);
 
 		<span class="kw">if </span>level &lt;= <span class="number">1 </span>{
@@ -7309,7 +7311,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="macro">assert!</span>(
 				total_balance &gt;= bonded_balance + sum_unbonding_balance,
-				<span class="string">&quot;faulty pool: {:?} / {:?}, total_balance {:?} &gt;= bonded_balance {:?} + sum_unbonding_balance {:?}&quot;</span>,
+				<span class="string">"faulty pool: {:?} / {:?}, total_balance {:?} &gt;= bonded_balance {:?} + sum_unbonding_balance {:?}"</span>,
 				pool_id,
 				_pool,
 				total_balance,
@@ -7318,7 +7320,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			);
 		}
 
-		<span class="comment">// Warn if any pool has incorrect ED frozen. We don&#39;t want to fail hard as this could be a
+		<span class="comment">// Warn if any pool has incorrect ED frozen. We don't want to fail hard as this could be a
 		// result of an intentional ED change.
 		</span><span class="kw">let _ </span>= <span class="self">Self</span>::check_ed_imbalance()<span class="question-mark">?</span>;
 
@@ -7329,9 +7331,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// This can happen if the ED has changed since the pool was created.
 	</span><span class="attr">#[cfg(any(
-		feature = <span class="string">&quot;try-runtime&quot;</span>,
-		feature = <span class="string">&quot;runtime-benchmarks&quot;</span>,
-		feature = <span class="string">&quot;fuzzing&quot;</span>,
+		feature = <span class="string">"try-runtime"</span>,
+		feature = <span class="string">"runtime-benchmarks"</span>,
+		feature = <span class="string">"fuzzing"</span>,
 		test,
 		debug_assertions
 	))]
@@ -7346,7 +7348,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">if </span>frozen_balance != expected_frozen_balance {
 				failed += <span class="number">1</span>;
 				<span class="macro">log::warn!</span>(
-					<span class="string">&quot;pool {:?} has incorrect ED frozen that can result from change in ED. Expected  = {:?},  Actual = {:?}&quot;</span>,
+					<span class="string">"pool {:?} has incorrect ED frozen that can result from change in ED. Expected  = {:?},  Actual = {:?}"</span>,
 					id,
 					expected_frozen_balance,
 					frozen_balance,
@@ -7354,14 +7356,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			}
 		});
 
-		<span class="macro">ensure!</span>(failed == <span class="number">0</span>, <span class="string">&quot;Some pools do not have correct ED frozen&quot;</span>);
+		<span class="macro">ensure!</span>(failed == <span class="number">0</span>, <span class="string">"Some pools do not have correct ED frozen"</span>);
 		<span class="prelude-val">Ok</span>(())
 	}
 	<span class="doccomment">/// Fully unbond the shares of `member`, when executed from `origin`.
 	///
 	/// This is useful for backwards compatibility with the majority of tests that only deal with
 	/// full unbonding, not partial unbonding.
-	</span><span class="attr">#[cfg(any(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>, test))]
+	</span><span class="attr">#[cfg(any(feature = <span class="string">"runtime-benchmarks"</span>, test))]
 	</span><span class="kw">pub fn </span>fully_unbond(
 		origin: frame_system::pallet_prelude::OriginFor&lt;T&gt;,
 		member: T::AccountId,
@@ -7425,7 +7427,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// Emits the `PoolsSlashed` event.
 	</span><span class="kw">fn </span>on_slash(
 		pool_account: <span class="kw-2">&amp;</span>T::AccountId,
-		<span class="comment">// Bonded balance is always read directly from staking, therefore we don&#39;t need to update
+		<span class="comment">// Bonded balance is always read directly from staking, therefore we don't need to update
 		// anything here.
 		</span>slashed_bonded: BalanceOf&lt;T&gt;,
 		slashed_unlocking: <span class="kw-2">&amp;</span>BTreeMap&lt;EraIndex, BalanceOf&lt;T&gt;&gt;,
@@ -7452,7 +7454,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			});
 			SubPoolsStorage::&lt;T&gt;::insert(pool_id, sub_pools);
 		} <span class="kw">else if </span>!slashed_unlocking.is_empty() {
-			<span class="macro">defensive!</span>(<span class="string">&quot;Expected SubPools were not found&quot;</span>);
+			<span class="macro">defensive!</span>(<span class="string">"Expected SubPools were not found"</span>);
 		}
 		<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::PoolSlashed { pool_id, balance: slashed_bonded });
 	}

@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/contracts/src/migration/v14.rs`."><title>v14.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/contracts/src/migration/v14.rs`."><title>v14.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="pallet_contracts" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="pallet_contracts" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../pallet_contracts/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -426,14 +428,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -450,9 +452,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	BalanceOf, CodeHash, Config, Determinism, HoldReason, Pallet, Weight, LOG_TARGET,
 };
 <span class="kw">use </span>codec::{Decode, Encode};
-<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 </span><span class="kw">use </span>environmental::Vec;
-<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 </span><span class="kw">use </span>frame_support::traits::fungible::{Inspect, InspectHold};
 <span class="kw">use </span>frame_support::{
 	pallet_prelude::<span class="kw-2">*</span>,
@@ -462,10 +464,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	DefaultNoBound,
 };
 <span class="kw">use </span>sp_core::hexdisplay::HexDisplay;
-<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 </span><span class="kw">use </span>sp_runtime::TryRuntimeError;
 <span class="kw">use </span>sp_runtime::{traits::Zero, Saturating};
-<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 </span><span class="kw">use </span>sp_std::collections::btree_map::BTreeMap;
 
 <span class="kw">mod </span>v13 {
@@ -497,11 +499,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		StorageMap&lt;Pallet&lt;T&gt;, Identity, CodeHash&lt;T&gt;, CodeInfo&lt;T, OldCurrency&gt;&gt;;
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 </span><span class="kw">pub fn </span>store_dummy_code&lt;T: Config, OldCurrency&gt;(account: T::AccountId)
 <span class="kw">where
 	</span>T: Config,
-	OldCurrency: ReservableCurrency&lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId&gt; + <span class="lifetime">&#39;static</span>,
+	OldCurrency: ReservableCurrency&lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId&gt; + <span class="lifetime">'static</span>,
 {
 	<span class="kw">use </span>sp_runtime::traits::Hash;
 	<span class="kw">use </span>sp_std::vec;
@@ -520,7 +522,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	v13::CodeInfoOf::&lt;T, OldCurrency&gt;::insert(hash, info);
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 #[derive(Encode, Decode)]
 </span><span class="doccomment">/// Accounts for the balance allocation of a code owner.
 </span><span class="kw">struct </span>BalanceAllocation&lt;T, OldCurrency&gt;
@@ -547,7 +549,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl</span>&lt;T, OldCurrency&gt; MigrationStep <span class="kw">for </span>Migration&lt;T, OldCurrency&gt;
 <span class="kw">where
 	</span>T: Config,
-	OldCurrency: <span class="lifetime">&#39;static </span>+ ReservableCurrency&lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId&gt;,
+	OldCurrency: <span class="lifetime">'static </span>+ ReservableCurrency&lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId&gt;,
 	BalanceOf&lt;T&gt;: From&lt;OldCurrency::Balance&gt;,
 {
 	<span class="kw">const </span>VERSION: u16 = <span class="number">14</span>;
@@ -566,14 +568,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		};
 
 		<span class="kw">if let </span><span class="prelude-val">Some</span>((hash, code_info)) = iter.next() {
-			<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;Migrating code upload deposit for 0x{:?}&quot;</span>, HexDisplay::from(<span class="kw-2">&amp;</span>code_info.owner.encode()));
+			<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"Migrating code upload deposit for 0x{:?}"</span>, HexDisplay::from(<span class="kw-2">&amp;</span>code_info.owner.encode()));
 
 			<span class="kw">let </span>remaining = OldCurrency::unreserve(<span class="kw-2">&amp;</span>code_info.owner, code_info.deposit);
 
 			<span class="kw">if </span>remaining &gt; Zero::zero() {
 				<span class="macro">log::warn!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Code owner&#39;s account 0x{:?} for code {:?} has some non-unreservable deposit {:?} from a total of {:?} that will remain in reserved.&quot;</span>,
+					<span class="string">"Code owner's account 0x{:?} for code {:?} has some non-unreservable deposit {:?} from a total of {:?} that will remain in reserved."</span>,
 					HexDisplay::from(<span class="kw-2">&amp;</span>code_info.owner.encode()),
 					hash,
 					remaining,
@@ -586,7 +588,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="macro">log::debug!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;Holding {:?} on the code owner&#39;s account 0x{:?} for code {:?}.&quot;</span>,
+				<span class="string">"Holding {:?} on the code owner's account 0x{:?} for code {:?}."</span>,
 				amount,
 				HexDisplay::from(<span class="kw-2">&amp;</span>code_info.owner.encode()),
 				hash,
@@ -600,7 +602,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.unwrap_or_else(|err| {
 				<span class="macro">log::error!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Failed to hold {:?} from the code owner&#39;s account 0x{:?} for code {:?}, reason: {:?}.&quot;</span>,
+					<span class="string">"Failed to hold {:?} from the code owner's account 0x{:?} for code {:?}, reason: {:?}."</span>,
 					amount,
 					HexDisplay::from(<span class="kw-2">&amp;</span>code_info.owner.encode()),
 					hash,
@@ -612,13 +614,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			meter.consume(T::WeightInfo::v14_migration_step());
 			IsFinished::No
 		} <span class="kw">else </span>{
-			<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;No more code upload deposit to migrate&quot;</span>);
+			<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"No more code upload deposit to migrate"</span>);
 			meter.consume(T::WeightInfo::v14_migration_step());
 			IsFinished::Yes
 		}
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 	</span><span class="kw">fn </span>pre_upgrade_step() -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, TryRuntimeError&gt; {
 		<span class="kw">let </span>info: Vec&lt;<span class="kw">_</span>&gt; = v13::CodeInfoOf::&lt;T, OldCurrency&gt;::iter().collect();
 
@@ -642,13 +644,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Ok</span>(owner_balance_allocation.encode())
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 	</span><span class="kw">fn </span>post_upgrade_step(state: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
 		<span class="kw">let </span>owner_balance_allocation =
 			&lt;BTreeMap&lt;AccountIdOf&lt;T&gt;, BalanceAllocation&lt;T, OldCurrency&gt;&gt; <span class="kw">as </span>Decode&gt;::decode(
 				<span class="kw-2">&amp;mut &amp;</span>state[..],
 			)
-			.expect(<span class="string">&quot;pre_upgrade_step provides a valid state; qed&quot;</span>);
+			.expect(<span class="string">"pre_upgrade_step provides a valid state; qed"</span>);
 
 		<span class="kw">let </span><span class="kw-2">mut </span>total_held: BalanceOf&lt;T&gt; = Zero::zero();
 		<span class="kw">let </span>count = owner_balance_allocation.len();
@@ -657,16 +659,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				T::Currency::balance_on_hold(<span class="kw-2">&amp;</span>HoldReason::CodeUploadDepositReserve.into(), <span class="kw-2">&amp;</span>owner);
 			<span class="macro">log::debug!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;Validating code upload deposit for owner 0x{:?}, reserved: {:?}, held: {:?}&quot;</span>,
+				<span class="string">"Validating code upload deposit for owner 0x{:?}, reserved: {:?}, held: {:?}"</span>,
 				HexDisplay::from(<span class="kw-2">&amp;</span>owner.encode()),
 				old_balance_allocation.reserved,
 				held
 			);
-			<span class="macro">ensure!</span>(held == old_balance_allocation.reserved.into(), <span class="string">&quot;Held amount mismatch&quot;</span>);
+			<span class="macro">ensure!</span>(held == old_balance_allocation.reserved.into(), <span class="string">"Held amount mismatch"</span>);
 
 			<span class="macro">log::debug!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;Validating total balance for owner 0x{:?}, new: {:?}, old: {:?}&quot;</span>,
+				<span class="string">"Validating total balance for owner 0x{:?}, new: {:?}, old: {:?}"</span>,
 				HexDisplay::from(<span class="kw-2">&amp;</span>owner.encode()),
 				T::Currency::total_balance(<span class="kw-2">&amp;</span>owner),
 				old_balance_allocation.total
@@ -675,20 +677,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				T::Currency::total_balance(<span class="kw-2">&amp;</span>owner) ==
 					BalanceOf::&lt;T&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>old_balance_allocation.total.encode()[..])
 						.unwrap(),
-				<span class="string">&quot;Balance mismatch &quot;
+				<span class="string">"Balance mismatch "
 			</span>);
 			total_held += held;
 		}
 
 		<span class="macro">log::info!</span>(
 			target: LOG_TARGET,
-			<span class="string">&quot;Code owners processed: {:?}.&quot;</span>,
+			<span class="string">"Code owners processed: {:?}."</span>,
 			count
 		);
 
 		<span class="macro">log::info!</span>(
 			target: LOG_TARGET,
-			<span class="string">&quot;Total held amount for code upload deposit: {:?}&quot;</span>,
+			<span class="string">"Total held amount for code upload deposit: {:?}"</span>,
 			total_held
 		);
 

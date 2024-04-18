@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/sassafras/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/sassafras/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_sassafras" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_sassafras" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../pallet_sassafras/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1233,14 +1235,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -1265,17 +1267,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! production.
 //!
 //! To prevent submission of fake tickets, resulting in empty slots, the validator
-//! when submitting the ticket accompanies it with a SNARK of the statement: &quot;Here&#39;s
+//! when submitting the ticket accompanies it with a SNARK of the statement: "Here's
 //! my VRF output that has been generated using the given VRF input and my secret
-//! key. I&#39;m not telling you my keys, but my public key is among those of the
-//! nominated validators&quot;, that is validated before the lottery.
+//! key. I'm not telling you my keys, but my public key is among those of the
+//! nominated validators", that is validated before the lottery.
 //!
 //! To anonymously publish the ticket to the chain a validator sends their tickets
 //! to a random validator who later puts it on-chain as a transaction.
 
 </span><span class="attr">#![deny(warnings)]
 #![warn(unused_must_use, unsafe_code, unused_variables, unused_imports, missing_docs)]
-#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
+#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
 </span><span class="kw">use </span>log::{debug, error, trace, warn};
 <span class="kw">use </span>scale_codec::{Decode, Encode, MaxEncodedLen};
@@ -1304,11 +1306,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>sp_std::prelude::Vec;
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 </span><span class="kw">mod </span>benchmarking;
-<span class="attr">#[cfg(all(feature = <span class="string">&quot;std&quot;</span>, test))]
+<span class="attr">#[cfg(all(feature = <span class="string">"std"</span>, test))]
 </span><span class="kw">mod </span>mock;
-<span class="attr">#[cfg(all(feature = <span class="string">&quot;std&quot;</span>, test))]
+<span class="attr">#[cfg(all(feature = <span class="string">"std"</span>, test))]
 </span><span class="kw">mod </span>tests;
 
 <span class="kw">pub mod </span>weights;
@@ -1316,10 +1318,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">pub use </span>pallet::<span class="kw-2">*</span>;
 
-<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;sassafras::runtime&quot;</span>;
+<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"sassafras::runtime"</span>;
 
 <span class="comment">// Contextual string used by the VRF to generate per-block randomness.
-</span><span class="kw">const </span>RANDOMNESS_VRF_CONTEXT: <span class="kw-2">&amp;</span>[u8] = <span class="string">b&quot;SassafrasOnChainRandomness&quot;</span>;
+</span><span class="kw">const </span>RANDOMNESS_VRF_CONTEXT: <span class="kw-2">&amp;</span>[u8] = <span class="string">b"SassafrasOnChainRandomness"</span>;
 
 <span class="comment">// Max length for segments holding unsorted tickets.
 </span><span class="kw">const </span>SEGMENT_MAX_SIZE: u32 = <span class="number">128</span>;
@@ -1458,12 +1460,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// The map holds tickets ids for the current and next epoch.
 	///
 	/// The key is a tuple composed by:
-	/// - `u8` equal to epoch&#39;s index modulo 2;
-	/// - `u32` equal to the ticket&#39;s index in a sorted list of epoch&#39;s tickets.
+	/// - `u8` equal to epoch's index modulo 2;
+	/// - `u32` equal to the ticket's index in a sorted list of epoch's tickets.
 	///
 	/// Epoch X first N-th ticket has key (X mod 2, N)
 	///
-	/// Note that the ticket&#39;s index doesn&#39;t directly correspond to the slot index within the epoch.
+	/// Note that the ticket's index doesn't directly correspond to the slot index within the epoch.
 	/// The assignment is computed dynamically using an *outside-in* strategy.
 	///
 	/// Be aware that entries within this map are never removed, only overwritten.
@@ -1491,7 +1493,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub type </span>SortedCandidates&lt;T&gt; =
 		StorageValue&lt;<span class="kw">_</span>, BoundedVec&lt;TicketId, EpochLengthFor&lt;T&gt;&gt;, ValueQuery&gt;;
 
-	<span class="doccomment">/// Parameters used to construct the epoch&#39;s ring verifier.
+	<span class="doccomment">/// Parameters used to construct the epoch's ring verifier.
 	///
 	/// In practice: Updatable Universal Reference String and the seed.
 	</span><span class="attr">#[pallet::storage]
@@ -1527,9 +1529,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			EpochConfig::&lt;T&gt;::put(<span class="self">self</span>.epoch_config);
 			Pallet::&lt;T&gt;::genesis_authorities_initialize(<span class="kw-2">&amp;</span><span class="self">self</span>.authorities);
 
-			<span class="attr">#[cfg(feature = <span class="string">&quot;construct-dummy-ring-context&quot;</span>)]
+			<span class="attr">#[cfg(feature = <span class="string">"construct-dummy-ring-context"</span>)]
 			</span>{
-				<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;Constructing dummy ring context&quot;</span>);
+				<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"Constructing dummy ring context"</span>);
 				<span class="kw">let </span>ring_ctx = vrf::RingContext::new_testing();
 				RingContext::&lt;T&gt;::put(ring_ctx);
 				Pallet::&lt;T&gt;::update_ring_verifier(<span class="kw-2">&amp;</span><span class="self">self</span>.authorities);
@@ -1546,7 +1548,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.logs
 				.iter()
 				.find_map(|item| item.pre_runtime_try_to::&lt;SlotClaim&gt;(<span class="kw-2">&amp;</span>SASSAFRAS_ENGINE_ID))
-				.expect(<span class="string">&quot;Valid block must have a slot claim. qed&quot;</span>);
+				.expect(<span class="string">"Valid block must have a slot claim. qed"</span>);
 
 			CurrentSlot::&lt;T&gt;::put(claim.slot);
 
@@ -1558,7 +1560,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.vrf_signature
 				.pre_outputs
 				.get(<span class="number">0</span>)
-				.expect(<span class="string">&quot;Valid claim must have VRF signature; qed&quot;</span>);
+				.expect(<span class="string">"Valid claim must have VRF signature; qed"</span>);
 			ClaimTemporaryData::&lt;T&gt;::put(randomness_pre_output);
 
 			<span class="kw">let </span>trigger_weight = T::EpochChangeTrigger::trigger::&lt;T&gt;(block_num);
@@ -1568,7 +1570,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">fn </span>on_finalize(<span class="kw">_</span>: BlockNumberFor&lt;T&gt;) {
 			<span class="comment">// At the end of the block, we can safely include the current slot randomness
-			// to the accumulator. If we&#39;ve determined that this block was the first in
+			// to the accumulator. If we've determined that this block was the first in
 			// a new epoch, the changeover logic has already occurred at this point
 			// (i.e. `enact_epoch_change` has already been called).
 			</span><span class="kw">let </span>randomness_input = vrf::slot_claim_input(
@@ -1577,12 +1579,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				EpochIndex::&lt;T&gt;::get(),
 			);
 			<span class="kw">let </span>randomness_pre_output = ClaimTemporaryData::&lt;T&gt;::take()
-				.expect(<span class="string">&quot;Unconditionally populated in `on_initialize`; `on_finalize` is always called after; qed&quot;</span>);
+				.expect(<span class="string">"Unconditionally populated in `on_initialize`; `on_finalize` is always called after; qed"</span>);
 			<span class="kw">let </span>randomness = randomness_pre_output
 				.make_bytes::&lt;RANDOMNESS_LENGTH&gt;(RANDOMNESS_VRF_CONTEXT, <span class="kw-2">&amp;</span>randomness_input);
 			<span class="self">Self</span>::deposit_slot_randomness(<span class="kw-2">&amp;</span>randomness);
 
-			<span class="comment">// Check if we are in the epoch&#39;s second half.
+			<span class="comment">// Check if we are in the epoch's second half.
 			// If so, start sorting the next epoch tickets.
 			</span><span class="kw">let </span>epoch_length = T::EpochLength::get();
 			<span class="kw">let </span>current_slot_idx = <span class="self">Self</span>::current_slot_index();
@@ -1618,18 +1620,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		) -&gt; DispatchResultWithPostInfo {
 			ensure_none(origin)<span class="question-mark">?</span>;
 
-			<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;Received {} tickets&quot;</span>, tickets.len());
+			<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"Received {} tickets"</span>, tickets.len());
 
 			<span class="kw">let </span>epoch_length = T::EpochLength::get();
 			<span class="kw">let </span>current_slot_idx = <span class="self">Self</span>::current_slot_index();
 			<span class="kw">if </span>current_slot_idx &gt; epoch_length / <span class="number">2 </span>{
-				<span class="macro">warn!</span>(target: LOG_TARGET, <span class="string">&quot;Tickets shall be submitted in the first epoch half&quot;</span>,);
-				<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;Tickets shall be submitted in the first epoch half&quot;</span>.into())
+				<span class="macro">warn!</span>(target: LOG_TARGET, <span class="string">"Tickets shall be submitted in the first epoch half"</span>,);
+				<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Tickets shall be submitted in the first epoch half"</span>.into())
 			}
 
 			<span class="kw">let </span><span class="prelude-val">Some</span>(verifier) = RingVerifierData::&lt;T&gt;::get().map(|v| v.into()) <span class="kw">else </span>{
-				<span class="macro">warn!</span>(target: LOG_TARGET, <span class="string">&quot;Ring verifier key not initialized&quot;</span>);
-				<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;Ring verifier key not initialized&quot;</span>.into())
+				<span class="macro">warn!</span>(target: LOG_TARGET, <span class="string">"Ring verifier key not initialized"</span>);
+				<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Ring verifier key not initialized"</span>.into())
 			};
 
 			<span class="kw">let </span>next_authorities = <span class="self">Self</span>::next_authorities();
@@ -1650,10 +1652,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span><span class="kw-2">mut </span>valid_tickets = BoundedVec::with_bounded_capacity(tickets.len());
 
 			<span class="kw">for </span>ticket <span class="kw">in </span>tickets {
-				<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;Checking ring proof&quot;</span>);
+				<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"Checking ring proof"</span>);
 
 				<span class="kw">let </span><span class="prelude-val">Some</span>(ticket_id_pre_output) = ticket.signature.pre_outputs.get(<span class="number">0</span>) <span class="kw">else </span>{
-					<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;Missing ticket VRF pre-output from ring signature&quot;</span>);
+					<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"Missing ticket VRF pre-output from ring signature"</span>);
 					<span class="kw">continue
 				</span>};
 				<span class="kw">let </span>ticket_id_input =
@@ -1662,25 +1664,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="comment">// Check threshold constraint
 				</span><span class="kw">let </span>ticket_id = vrf::make_ticket_id(<span class="kw-2">&amp;</span>ticket_id_input, <span class="kw-2">&amp;</span>ticket_id_pre_output);
 				<span class="kw">if </span>ticket_id &gt;= ticket_threshold {
-					<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;Ignoring ticket over threshold ({:032x} &gt;= {:032x})&quot;</span>, ticket_id, ticket_threshold);
+					<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"Ignoring ticket over threshold ({:032x} &gt;= {:032x})"</span>, ticket_id, ticket_threshold);
 					<span class="kw">continue
 				</span>}
 
 				<span class="comment">// Check for duplicates
 				</span><span class="kw">if </span>TicketsData::&lt;T&gt;::contains_key(ticket_id) {
-					<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;Ignoring duplicate ticket ({:032x})&quot;</span>, ticket_id);
+					<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"Ignoring duplicate ticket ({:032x})"</span>, ticket_id);
 					<span class="kw">continue
 				</span>}
 
 				<span class="comment">// Check ring signature
 				</span><span class="kw">let </span>sign_data = vrf::ticket_body_sign_data(<span class="kw-2">&amp;</span>ticket.body, ticket_id_input);
 				<span class="kw">if </span>!ticket.signature.ring_vrf_verify(<span class="kw-2">&amp;</span>sign_data, <span class="kw-2">&amp;</span>verifier) {
-					<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;Proof verification failure for ticket ({:032x})&quot;</span>, ticket_id);
+					<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"Proof verification failure for ticket ({:032x})"</span>, ticket_id);
 					<span class="kw">continue
 				</span>}
 
 				<span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="kw">_</span>) = valid_tickets.try_push(ticket_id).defensive_proof(
-					<span class="string">&quot;Input segment has same length as bounded destination vector; qed&quot;</span>,
+					<span class="string">"Input segment has same length as bounded destination vector; qed"</span>,
 				) {
 					TicketsData::&lt;T&gt;::set(ticket_id, <span class="prelude-val">Some</span>(ticket.body));
 				}
@@ -1731,7 +1733,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="kw">if </span>source == TransactionSource::External {
 				<span class="macro">warn!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Rejecting unsigned `submit_tickets` transaction from external source&quot;</span>,
+					<span class="string">"Rejecting unsigned `submit_tickets` transaction from external source"</span>,
 				);
 				<span class="kw">return </span>InvalidTransaction::BadSigner.into()
 			}
@@ -1740,7 +1742,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="kw">let </span>epoch_length = T::EpochLength::get();
 			<span class="kw">let </span>current_slot_idx = <span class="self">Self</span>::current_slot_index();
 			<span class="kw">if </span>current_slot_idx &gt; epoch_length / <span class="number">2 </span>{
-				<span class="macro">warn!</span>(target: LOG_TARGET, <span class="string">&quot;Tickets shall be proposed in the first epoch half&quot;</span>,);
+				<span class="macro">warn!</span>(target: LOG_TARGET, <span class="string">"Tickets shall be proposed in the first epoch half"</span>,);
 				<span class="kw">return </span>InvalidTransaction::Stale.into()
 			}
 
@@ -1748,7 +1750,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="kw">let </span>tickets_longevity = epoch_length / <span class="number">2 </span>- current_slot_idx;
 			<span class="kw">let </span>tickets_tag = tickets.using_encoded(|bytes| hashing::blake2_256(bytes));
 
-			ValidTransaction::with_tag_prefix(<span class="string">&quot;Sassafras&quot;</span>)
+			ValidTransaction::with_tag_prefix(<span class="string">"Sassafras"</span>)
 				.priority(TransactionPriority::max_value())
 				.longevity(tickets_longevity <span class="kw">as </span>u64)
 				.and_provides(tickets_tag)
@@ -1765,12 +1767,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// Assumes that initialization has already taken place.
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>should_end_epoch(block_num: BlockNumberFor&lt;T&gt;) -&gt; bool {
 		<span class="comment">// The epoch has technically ended during the passage of time between this block and the
-		// last, but we have to &quot;end&quot; the epoch now, since there is no earlier possible block we
+		// last, but we have to "end" the epoch now, since there is no earlier possible block we
 		// could have done it.
 		//
 		// The exception is for block 1: the genesis has slot 0, so we treat epoch 0 as having
 		// started at the slot of block 1. We want to use the same randomness and validator set as
-		// signalled in the genesis, so we don&#39;t rotate the epoch.
+		// signalled in the genesis, so we don't rotate the epoch.
 		</span>block_num &gt; One::one() &amp;&amp; <span class="self">Self</span>::current_slot_index() &gt;= T::EpochLength::get()
 	}
 
@@ -1794,28 +1796,28 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">Self</span>::epoch_start(EpochIndex::&lt;T&gt;::get())
 	}
 
-	<span class="doccomment">/// Get the epoch&#39;s first slot.
+	<span class="doccomment">/// Get the epoch's first slot.
 	</span><span class="kw">fn </span>epoch_start(epoch_index: u64) -&gt; Slot {
-		<span class="kw">const </span>PROOF: <span class="kw-2">&amp;</span>str = <span class="string">&quot;slot number is u64; it should relate in some way to wall clock time; \
-							 if u64 is not enough we should crash for safety; qed.&quot;</span>;
+		<span class="kw">const </span>PROOF: <span class="kw-2">&amp;</span>str = <span class="string">"slot number is u64; it should relate in some way to wall clock time; \
+							 if u64 is not enough we should crash for safety; qed."</span>;
 
 		<span class="kw">let </span>epoch_start = epoch_index.checked_mul(T::EpochLength::get() <span class="kw">as </span>u64).expect(PROOF);
 		GenesisSlot::&lt;T&gt;::get().checked_add(epoch_start).expect(PROOF).into()
 	}
 
 	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>update_ring_verifier(authorities: <span class="kw-2">&amp;</span>[AuthorityId]) {
-		<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;Loading ring context&quot;</span>);
+		<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"Loading ring context"</span>);
 		<span class="kw">let </span><span class="prelude-val">Some</span>(ring_ctx) = RingContext::&lt;T&gt;::get() <span class="kw">else </span>{
-			<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;Ring context not initialized&quot;</span>);
+			<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"Ring context not initialized"</span>);
 			<span class="kw">return
 		</span>};
 
 		<span class="kw">let </span>pks: Vec&lt;<span class="kw">_</span>&gt; = authorities.iter().map(|auth| <span class="kw-2">*</span>auth.as_ref()).collect();
 
-		<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;Building ring verifier (ring size: {})&quot;</span>, pks.len());
+		<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"Building ring verifier (ring size: {})"</span>, pks.len());
 		<span class="kw">let </span>verifier_data = ring_ctx
 			.verifier_data(<span class="kw-2">&amp;</span>pks)
-			.expect(<span class="string">&quot;Failed to build ring verifier. This is a bug&quot;</span>);
+			.expect(<span class="string">"Failed to build ring verifier. This is a bug"</span>);
 
 		RingVerifierData::&lt;T&gt;::put(verifier_data);
 	}
@@ -1850,7 +1852,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			epoch_idx += skipped_epochs;
 			<span class="macro">warn!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;Detected {} skipped epochs, resuming from epoch {}&quot;</span>,
+				<span class="string">"Detected {} skipped epochs, resuming from epoch {}"</span>,
 				skipped_epochs,
 				epoch_idx
 			);
@@ -1892,7 +1894,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			metadata_dirty = <span class="bool-val">true</span>;
 		}
 
-		<span class="comment">// Clear the &quot;prev ≡ next (mod 2)&quot; epoch tickets counter and bodies.
+		<span class="comment">// Clear the "prev ≡ next (mod 2)" epoch tickets counter and bodies.
 		// Ids are left since are just cyclically overwritten on-the-go.
 		</span><span class="kw">let </span>prev_epoch_tag = epoch_tag ^ <span class="number">1</span>;
 		<span class="kw">let </span>prev_epoch_tickets_count = <span class="kw-2">&amp;mut </span>metadata.tickets_count[prev_epoch_tag <span class="kw">as </span>usize];
@@ -1963,12 +1965,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="kw">if </span>prev_authorities.as_slice() == authorities {
 				<span class="kw">return
 			</span>} <span class="kw">else </span>{
-				<span class="macro">panic!</span>(<span class="string">&quot;Authorities were already initialized&quot;</span>);
+				<span class="macro">panic!</span>(<span class="string">"Authorities were already initialized"</span>);
 			}
 		}
 
 		<span class="kw">let </span>authorities = WeakBoundedVec::try_from(authorities.to_vec())
-			.expect(<span class="string">&quot;Initial number of authorities should be lower than T::MaxAuthorities&quot;</span>);
+			.expect(<span class="string">"Initial number of authorities should be lower than T::MaxAuthorities"</span>);
 		Authorities::&lt;T&gt;::put(<span class="kw-2">&amp;</span>authorities);
 		NextAuthorities::&lt;T&gt;::put(<span class="kw-2">&amp;</span>authorities);
 	}
@@ -2025,7 +2027,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="doccomment">/// Fetch expected ticket-id for the given slot according to an &quot;outside-in&quot; sorting strategy.
+	<span class="doccomment">/// Fetch expected ticket-id for the given slot according to an "outside-in" sorting strategy.
 	///
 	/// Given an ordered sequence of tickets [t0, t1, t2, ..., tk] to be assigned to n slots,
 	/// with n &gt;= k, then the tickets are assigned to the slots according to the following
@@ -2041,7 +2043,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// If `slot` value falls within the next epoch then we fetch tickets from the next epoch
 	/// tickets ids list. Note that in this case we may have not finished receiving all the tickets
-	/// for that epoch yet. The next epoch tickets should be considered &quot;stable&quot; only after the
+	/// for that epoch yet. The next epoch tickets should be considered "stable" only after the
 	/// current epoch first half slots were elapsed (see `submit_tickets_unsigned_extrinsic`).
 	///
 	/// Returns `None` if, according to the sorting strategy, there is no ticket associated to the
@@ -2066,7 +2068,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			};
 			<span class="macro">debug!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;slot-idx {} &lt;-&gt; ticket-idx {}&quot;</span>,
+				<span class="string">"slot-idx {} &lt;-&gt; ticket-idx {}"</span>,
 				slot_idx,
 				ticket_idx
 			);
@@ -2160,7 +2162,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			// the sort and truncation operations only when we reach some bigger threshold
 			// (currently set as twice the capacity of `SortCandidate`).
 			//
-			// The more is the protocol&#39;s redundancy factor (i.e. the ratio between tickets allowed
+			// The more is the protocol's redundancy factor (i.e. the ratio between tickets allowed
 			// to be submitted and the epoch length) the more this check becomes relevant.
 			</span><span class="kw">if </span>candidates.len() &gt; <span class="number">2 </span>* max_tickets {
 				upper_bound = <span class="self">Self</span>::sort_and_truncate(<span class="kw-2">&amp;mut </span>candidates, max_tickets);
@@ -2188,8 +2190,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Append a set of tickets to the segments map.
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>append_tickets(<span class="kw-2">mut </span>tickets: BoundedVec&lt;TicketId, EpochLengthFor&lt;T&gt;&gt;) {
-		<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;Appending batch with {} tickets&quot;</span>, tickets.len());
-		tickets.iter().for_each(|t| <span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">&quot;  + {t:032x}&quot;</span>));
+		<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"Appending batch with {} tickets"</span>, tickets.len());
+		tickets.iter().for_each(|t| <span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">"  + {t:032x}"</span>));
 
 		<span class="kw">let </span><span class="kw-2">mut </span>metadata = TicketsMeta::&lt;T&gt;::get();
 		<span class="kw">let </span><span class="kw-2">mut </span>segment_idx = metadata.unsorted_tickets_count / SEGMENT_MAX_SIZE;
@@ -2201,7 +2203,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span><span class="kw-2">mut </span>segment = UnsortedSegments::&lt;T&gt;::get(segment_idx);
 			<span class="kw">let _ </span>= segment
 				.try_extend(tickets.drain(..to_be_added))
-				.defensive_proof(<span class="string">&quot;We don&#39;t add more than `SEGMENT_MAX_SIZE` and this is the maximum bound for the vector.&quot;</span>);
+				.defensive_proof(<span class="string">"We don't add more than `SEGMENT_MAX_SIZE` and this is the maximum bound for the vector."</span>);
 			UnsortedSegments::&lt;T&gt;::insert(segment_idx, segment);
 
 			metadata.unsorted_tickets_count += to_be_added <span class="kw">as </span>u32;
@@ -2251,7 +2253,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">match </span>SubmitTransaction::&lt;T, Call&lt;T&gt;&gt;::submit_unsigned_transaction(call.into()) {
 			<span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; <span class="bool-val">true</span>,
 			<span class="prelude-val">Err</span>(e) =&gt; {
-				<span class="macro">error!</span>(target: LOG_TARGET, <span class="string">&quot;Error submitting tickets {:?}&quot;</span>, e);
+				<span class="macro">error!</span>(target: LOG_TARGET, <span class="string">"Error submitting tickets {:?}"</span>, e);
 				<span class="bool-val">false
 			</span>},
 		}

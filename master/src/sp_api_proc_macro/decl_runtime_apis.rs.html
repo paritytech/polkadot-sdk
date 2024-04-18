@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/api/proc-macro/src/decl_runtime_apis.rs`."><title>decl_runtime_apis.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/api/proc-macro/src/decl_runtime_apis.rs`."><title>decl_runtime_apis.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_api_proc_macro" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_api_proc_macro" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sp_api_proc_macro/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -888,14 +890,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -959,7 +961,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Remove all attributes from the vector that are supported by us in the declaration of a runtime
 /// api trait. The returned hashmap contains all found attribute names as keys and the rest of the
 /// attribute body as `TokenStream`.
-</span><span class="kw">fn </span>remove_supported_attributes(attrs: <span class="kw-2">&amp;mut </span>Vec&lt;Attribute&gt;) -&gt; HashMap&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str, Attribute&gt; {
+</span><span class="kw">fn </span>remove_supported_attributes(attrs: <span class="kw-2">&amp;mut </span>Vec&lt;Attribute&gt;) -&gt; HashMap&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str, Attribute&gt; {
 	<span class="kw">let </span><span class="kw-2">mut </span>result = HashMap::new();
 	attrs.retain(|v| <span class="kw">match </span>SUPPORTED_ATTRIBUTE_NAMES.iter().find(|a| v.path().is_ident(a)) {
 		<span class="prelude-val">Some</span>(attribute) =&gt; {
@@ -980,7 +982,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// // The trait version implicitly is 1
 /// decl_runtime_apis!(
 /// 	trait SomeApi {
-/// 		fn method1(); 	// this is a &#39;stable method&#39;
+/// 		fn method1(); 	// this is a 'stable method'
 ///
 /// 		#[api_version(2)]
 /// 		fn method2();
@@ -1026,7 +1028,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		versioned_trait.ident = versioned_trait_name(<span class="kw-2">&amp;</span>versioned_trait.ident, <span class="kw-2">*</span>version);
 		versioned_trait.items = Vec::new();
 		<span class="comment">// Add the methods from the current version and all previous one. Versions are sorted so
-		// it&#39;s safe to stop early.
+		// it's safe to stop early.
 		</span><span class="kw">for </span>(<span class="kw">_</span>, m) <span class="kw">in </span>methods.iter().take_while(|(v, <span class="kw">_</span>)| v &lt;= <span class="kw-2">&amp;</span>version) {
 			versioned_trait.items.extend(m.iter().cloned().map(|m| TraitItem::Fn(m)));
 		}
@@ -1043,8 +1045,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		Error::new(
 			renamed.span(),
 			<span class="kw-2">&amp;</span><span class="macro">format!</span>(
-				<span class="string">&quot;Unexpected `{RENAMED_ATTRIBUTE}` attribute. \
-				 The supported format is `{RENAMED_ATTRIBUTE}(\&quot;old_name\&quot;, version_it_was_renamed)`&quot;</span>,
+				<span class="string">"Unexpected `{RENAMED_ATTRIBUTE}` attribute. \
+				 The supported format is `{RENAMED_ATTRIBUTE}(\"old_name\", version_it_was_renamed)`"</span>,
 			),
 		)
 	};
@@ -1056,7 +1058,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>version: LitInt = input.parse()<span class="question-mark">?</span>;
 
 			<span class="kw">if </span>!input.is_empty() {
-				<span class="kw">return </span><span class="prelude-val">Err</span>(input.error(<span class="string">&quot;No more arguments expected&quot;</span>))
+				<span class="kw">return </span><span class="prelude-val">Err</span>(input.error(<span class="string">"No more arguments expected"</span>))
 			}
 
 			<span class="prelude-val">Ok</span>((old_name.value(), version.base10_parse()<span class="question-mark">?</span>))
@@ -1100,18 +1102,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							<span class="kw">let </span><span class="kw-2">mut </span>err1 = Error::new(
 								version_attribute.span(),
 								<span class="macro">format!</span>(
-										<span class="string">&quot;Method version `{}` is older than (or equal to) trait version `{}`.\
-										 Methods can&#39;t define versions older than the trait version.&quot;</span>,
+										<span class="string">"Method version `{}` is older than (or equal to) trait version `{}`.\
+										 Methods can't define versions older than the trait version."</span>,
 										method_ver,
 										trait_ver,
 									),
 							);
 
 							<span class="kw">let </span>err2 = <span class="kw">match </span>found_attributes.get(<span class="kw-2">&amp;</span>API_VERSION_ATTRIBUTE) {
-								<span class="prelude-val">Some</span>(attr) =&gt; Error::new(attr.span(), <span class="string">&quot;Trait version is set here.&quot;</span>),
+								<span class="prelude-val">Some</span>(attr) =&gt; Error::new(attr.span(), <span class="string">"Trait version is set here."</span>),
 								<span class="prelude-val">None </span>=&gt; Error::new(
 									decl_span,
-									<span class="string">&quot;Trait version is not set so it is implicitly equal to 1.&quot;</span>,
+									<span class="string">"Trait version is not set so it is implicitly equal to 1."</span>,
 								),
 							};
 							err1.combine(err2);
@@ -1127,7 +1129,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					};
 				}
 
-				<span class="comment">// Any method with the `changed_in` attribute isn&#39;t required for the runtime
+				<span class="comment">// Any method with the `changed_in` attribute isn't required for the runtime
 				// anymore.
 				</span><span class="kw">if </span>!method_attrs.contains_key(CHANGED_IN_ATTRIBUTE) {
 					<span class="comment">// Make sure we replace all the wild card parameter names.
@@ -1145,7 +1147,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>main_api_ident = decl.ident.clone();
 		<span class="kw">let </span>versioned_ident = <span class="kw-2">&amp;</span>versioned_api_traits
 			.first()
-			.expect(<span class="string">&quot;There should always be at least one version.&quot;</span>)
+			.expect(<span class="string">"There should always be at least one version."</span>)
 			.ident;
 
 		result.push(<span class="macro">quote!</span>(
@@ -1172,16 +1174,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Modify the given runtime api declaration to be usable on the client side.
-</span><span class="kw">struct </span>ToClientSideDecl&lt;<span class="lifetime">&#39;a</span>&gt; {
-	block_hash: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>TokenStream,
-	crate_: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>TokenStream,
-	found_attributes: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>HashMap&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str, Attribute&gt;,
+</span><span class="kw">struct </span>ToClientSideDecl&lt;<span class="lifetime">'a</span>&gt; {
+	block_hash: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>TokenStream,
+	crate_: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>TokenStream,
+	found_attributes: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>HashMap&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str, Attribute&gt;,
 	<span class="doccomment">/// Any error that we found while converting this declaration.
-	</span>errors: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>Vec&lt;TokenStream&gt;,
-	trait_: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Ident,
+	</span>errors: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>Vec&lt;TokenStream&gt;,
+	trait_: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Ident,
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; ToClientSideDecl&lt;<span class="lifetime">&#39;a</span>&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; ToClientSideDecl&lt;<span class="lifetime">'a</span>&gt; {
 	<span class="doccomment">/// Process the given [`ItemTrait`].
 	</span><span class="kw">fn </span>process(<span class="kw-2">mut </span><span class="self">self</span>, decl: ItemTrait) -&gt; ItemTrait {
 		<span class="kw">let </span><span class="kw-2">mut </span>decl = <span class="self">self</span>.fold_item_trait(decl);
@@ -1198,7 +1200,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw-2">&amp;</span><span class="self">self</span>,
 				at: #block_hash,
 				params: std::vec::Vec&lt;u8&gt;,
-				fn_name: <span class="kw-2">&amp;</span><span class="kw">dyn </span>Fn(#crate_::RuntimeVersion) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
+				fn_name: <span class="kw-2">&amp;</span><span class="kw">dyn </span>Fn(#crate_::RuntimeVersion) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
 			) -&gt; std::result::Result&lt;std::vec::Vec&lt;u8&gt;, #crate_::ApiError&gt;;
 		});
 
@@ -1206,7 +1208,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; ToClientSideDecl&lt;<span class="lifetime">&#39;a</span>&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; ToClientSideDecl&lt;<span class="lifetime">'a</span>&gt; {
 	<span class="kw">fn </span>fold_item_trait_items(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		items: Vec&lt;TraitItem&gt;,
@@ -1285,14 +1287,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="self">self</span>.errors.push(
 						Error::new(
 							method.span(),
-							<span class="string">&quot;`changed_in` version can not be greater than the `api_version`&quot;</span>,
+							<span class="string">"`changed_in` version can not be greater than the `api_version`"</span>,
 						)
 						.to_compile_error(),
 					);
 				}
 
 				<span class="kw">let </span>ident = Ident::new(
-					<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}_before_version_{}&quot;</span>, method.sig.ident, version),
+					<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{}_before_version_{}"</span>, method.sig.ident, version),
 					method.sig.ident.span(),
 				);
 				method.sig.ident = ident;
@@ -1349,7 +1351,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; Fold <span class="kw">for </span>ToClientSideDecl&lt;<span class="lifetime">&#39;a</span>&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; Fold <span class="kw">for </span>ToClientSideDecl&lt;<span class="lifetime">'a</span>&gt; {
 	<span class="kw">fn </span>fold_item_trait(<span class="kw-2">&amp;mut </span><span class="self">self</span>, <span class="kw-2">mut </span>input: ItemTrait) -&gt; ItemTrait {
 		extend_generics_with_block(<span class="kw-2">&amp;mut </span>input.generics);
 
@@ -1360,7 +1362,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">if </span>is_core_trait {
 			<span class="comment">// Add all the supertraits we want to have for `Core`.
-			</span>input.supertraits = <span class="macro">parse_quote!</span>(<span class="lifetime">&#39;static </span>+ Send);
+			</span>input.supertraits = <span class="macro">parse_quote!</span>(<span class="lifetime">'static </span>+ Send);
 		} <span class="kw">else </span>{
 			<span class="comment">// Add the `Core` runtime api as super trait.
 			</span><span class="kw">let </span>crate_ = <span class="kw-2">&amp;</span><span class="self">self</span>.crate_;
@@ -1422,7 +1424,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Get changed in version from the user given attribute or `Ok(None)`, if no attribute was given.
-</span><span class="kw">fn </span>get_changed_in(found_attributes: <span class="kw-2">&amp;</span>HashMap&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str, Attribute&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;u64&gt;&gt; {
+</span><span class="kw">fn </span>get_changed_in(found_attributes: <span class="kw-2">&amp;</span>HashMap&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str, Attribute&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;u64&gt;&gt; {
 	found_attributes
 		.get(<span class="kw-2">&amp;</span>CHANGED_IN_ATTRIBUTE)
 		.map(|v| parse_runtime_api_version(v).map(<span class="prelude-val">Some</span>))
@@ -1430,7 +1432,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Get the api version from the user given attribute or `Ok(1)`, if no attribute was given.
-</span><span class="kw">fn </span>get_api_version(found_attributes: <span class="kw-2">&amp;</span>HashMap&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str, Attribute&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;u64&gt; {
+</span><span class="kw">fn </span>get_api_version(found_attributes: <span class="kw-2">&amp;</span>HashMap&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str, Attribute&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;u64&gt; {
 	found_attributes
 		.get(<span class="kw-2">&amp;</span>API_VERSION_ATTRIBUTE)
 		.map(parse_runtime_api_version)
@@ -1494,7 +1496,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Check that the given method declarations are correct.
 	///
 	/// Any error is stored in `self.errors`.
-	</span><span class="kw">fn </span>check_method_declarations&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, methods: <span class="kw">impl </span>Iterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>TraitItemFn&gt;) {
+	</span><span class="kw">fn </span>check_method_declarations&lt;<span class="lifetime">'a</span>&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, methods: <span class="kw">impl </span>Iterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">'a </span>TraitItemFn&gt;) {
 		<span class="kw">let </span><span class="kw-2">mut </span>method_to_signature_changed = HashMap::&lt;Ident, Vec&lt;<span class="prelude-ty">Option</span>&lt;u64&gt;&gt;&gt;::new();
 
 		methods.into_iter().for_each(|method| {
@@ -1516,41 +1518,41 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">if </span>method.default.is_some() {
 				<span class="self">self</span>.errors.push(Error::new(
 					method.default.span(),
-					<span class="string">&quot;A runtime API function cannot have a default implementation!&quot;</span>,
+					<span class="string">"A runtime API function cannot have a default implementation!"</span>,
 				));
 			}
 		});
 
 		method_to_signature_changed.into_iter().for_each(|(f, changed)| {
-			<span class="comment">// If `changed_in` is `None`, it means it is the current &quot;default&quot; method that calls
+			<span class="comment">// If `changed_in` is `None`, it means it is the current "default" method that calls
 			// into the latest implementation.
 			</span><span class="kw">if </span>changed.iter().filter(|c| c.is_none()).count() == <span class="number">0 </span>{
 				<span class="self">self</span>.errors.push(Error::new(
 					f.span(),
-					<span class="string">&quot;There is no &#39;default&#39; method with this name (without `changed_in` attribute).\n\
-					 The &#39;default&#39; method is used to call into the latest implementation.&quot;</span>,
+					<span class="string">"There is no 'default' method with this name (without `changed_in` attribute).\n\
+					 The 'default' method is used to call into the latest implementation."</span>,
 				));
 			}
 		});
 	}
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;ast</span>&gt; Visit&lt;<span class="lifetime">&#39;ast</span>&gt; <span class="kw">for </span>CheckTraitDecl {
-	<span class="kw">fn </span>visit_fn_arg(<span class="kw-2">&amp;mut </span><span class="self">self</span>, input: <span class="kw-2">&amp;</span><span class="lifetime">&#39;ast </span>FnArg) {
+<span class="kw">impl</span>&lt;<span class="lifetime">'ast</span>&gt; Visit&lt;<span class="lifetime">'ast</span>&gt; <span class="kw">for </span>CheckTraitDecl {
+	<span class="kw">fn </span>visit_fn_arg(<span class="kw-2">&amp;mut </span><span class="self">self</span>, input: <span class="kw-2">&amp;</span><span class="lifetime">'ast </span>FnArg) {
 		<span class="kw">if let </span>FnArg::Receiver(<span class="kw">_</span>) = input {
-			<span class="self">self</span>.errors.push(Error::new(input.span(), <span class="string">&quot;`self` as argument not supported.&quot;</span>))
+			<span class="self">self</span>.errors.push(Error::new(input.span(), <span class="string">"`self` as argument not supported."</span>))
 		}
 
 		visit::visit_fn_arg(<span class="self">self</span>, input);
 	}
 
-	<span class="kw">fn </span>visit_generic_param(<span class="kw-2">&amp;mut </span><span class="self">self</span>, input: <span class="kw-2">&amp;</span><span class="lifetime">&#39;ast </span>GenericParam) {
+	<span class="kw">fn </span>visit_generic_param(<span class="kw-2">&amp;mut </span><span class="self">self</span>, input: <span class="kw-2">&amp;</span><span class="lifetime">'ast </span>GenericParam) {
 		<span class="kw">match </span>input {
 			GenericParam::Type(ty) <span class="kw">if </span>ty.ident == BLOCK_GENERIC_IDENT =&gt;
 				<span class="self">self</span>.errors.push(Error::new(
 					input.span(),
-					<span class="string">&quot;`Block: BlockT` generic parameter will be added automatically by the \
-						`decl_runtime_apis!` macro!&quot;</span>,
+					<span class="string">"`Block: BlockT` generic parameter will be added automatically by the \
+						`decl_runtime_apis!` macro!"</span>,
 				)),
 			<span class="kw">_ </span>=&gt; {},
 		}
@@ -1558,14 +1560,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		visit::visit_generic_param(<span class="self">self</span>, input);
 	}
 
-	<span class="kw">fn </span>visit_trait_bound(<span class="kw-2">&amp;mut </span><span class="self">self</span>, input: <span class="kw-2">&amp;</span><span class="lifetime">&#39;ast </span>TraitBound) {
+	<span class="kw">fn </span>visit_trait_bound(<span class="kw-2">&amp;mut </span><span class="self">self</span>, input: <span class="kw-2">&amp;</span><span class="lifetime">'ast </span>TraitBound) {
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(last_ident) = input.path.segments.last().map(|v| <span class="kw-2">&amp;</span>v.ident) {
-			<span class="kw">if </span>last_ident == <span class="string">&quot;BlockT&quot; </span>|| last_ident == BLOCK_GENERIC_IDENT {
+			<span class="kw">if </span>last_ident == <span class="string">"BlockT" </span>|| last_ident == BLOCK_GENERIC_IDENT {
 				<span class="self">self</span>.errors.push(Error::new(
 					input.span(),
-					<span class="string">&quot;`Block: BlockT` generic parameter will be added automatically by the \
+					<span class="string">"`Block: BlockT` generic parameter will be added automatically by the \
 						`decl_runtime_apis!` macro! If you try to use a different trait than the \
-						substrate `Block` trait, please rename it locally.&quot;</span>,
+						substrate `Block` trait, please rename it locally."</span>,
 				))
 			}
 		}
@@ -1611,11 +1613,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		#client_side_decls
 	};
 
-	<span class="kw">let </span>decl = expander::Expander::new(<span class="string">&quot;decl_runtime_apis&quot;</span>)
-		.dry(std::env::var(<span class="string">&quot;EXPAND_MACROS&quot;</span>).is_err())
+	<span class="kw">let </span>decl = expander::Expander::new(<span class="string">"decl_runtime_apis"</span>)
+		.dry(std::env::var(<span class="string">"EXPAND_MACROS"</span>).is_err())
 		.verbose(<span class="bool-val">true</span>)
 		.write_to_out_dir(decl)
-		.expect(<span class="string">&quot;Does not fail because of IO in OUT_DIR; qed&quot;</span>);
+		.expect(<span class="string">"Does not fail because of IO in OUT_DIR; qed"</span>);
 
 	<span class="prelude-val">Ok</span>(decl)
 }

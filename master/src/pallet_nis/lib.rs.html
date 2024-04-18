@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/nis/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/nis/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_nis" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_nis" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../pallet_nis/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1308,14 +1310,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -1343,32 +1345,32 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! bid size so that smaller bids fall off as it gets too large.
 //!
 //! Account may enqueue a balance with some number of `Period`s lock up, up to a maximum of
-//! `QueueCount`. The balance gets reserved. There&#39;s a minimum of `MinBid` to avoid dust.
+//! `QueueCount`. The balance gets reserved. There's a minimum of `MinBid` to avoid dust.
 //!
 //! Until your bid is consolidated and you receive a receipt, you can retract it instantly and the
 //! funds are unreserved.
 //!
-//! There&#39;s a target proportion of effective total issuance (i.e. accounting for existing receipts)
+//! There's a target proportion of effective total issuance (i.e. accounting for existing receipts)
 //! which the pallet attempts to have frozen at any one time. It will likely be gradually increased
 //! over time by governance.
 //!
 //! As the proportion of effective total issuance represented by outstanding receipts drops below
 //! `FrozenFraction`, then bids are taken from queues and consolidated into receipts, with the queue
-//! of the greatest period taking priority. If the item in the queue&#39;s locked amount is greater than
+//! of the greatest period taking priority. If the item in the queue's locked amount is greater than
 //! the amount remaining to achieve `FrozenFraction`, then it is split up into multiple bids and
 //! becomes partially consolidated.
 //!
 //! With the consolidation of a bid, the bid amount is taken from the owner and a receipt is issued.
 //! The receipt records the proportion of the bid compared to effective total issuance at the time
-//! of consolidation. The receipt has two independent elements: a &quot;main&quot; non-fungible receipt and
-//! a second set of fungible &quot;counterpart&quot; tokens. The accounting functionality of the latter must
+//! of consolidation. The receipt has two independent elements: a "main" non-fungible receipt and
+//! a second set of fungible "counterpart" tokens. The accounting functionality of the latter must
 //! be provided through the `Counterpart` trait item. The main non-fungible receipt may have its
-//! owner transferred through the pallet&#39;s implementation of `nonfungible::Transfer`.
+//! owner transferred through the pallet's implementation of `nonfungible::Transfer`.
 //!
 //! A later `thaw` function may be called in order to reduce the recorded proportion or entirely
 //! remove the receipt in return for the appropriate proportion of the effective total issuance.
-//! This may happen no earlier than queue&#39;s period after the point at which the receipt was issued.
-//! The call must be made by the owner of both the &quot;main&quot; non-fungible receipt and the appropriate
+//! This may happen no earlier than queue's period after the point at which the receipt was issued.
+//! The call must be made by the owner of both the "main" non-fungible receipt and the appropriate
 //! amount of counterpart tokens.
 //!
 //! `NoCounterpart` may be provided as an implementation for the counterpart token system in which
@@ -1379,7 +1381,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! - *Effective total issuance*: The total issuance of balances in the system, equal to the active
 //!   issuance plus the value of all outstanding receipts, less `IgnoredIssuance`.
 
-</span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
+</span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
 </span><span class="kw">use </span>frame_support::traits::{
 	fungible::{<span class="self">self</span>, Inspect <span class="kw">as </span>FunInspect, Mutate <span class="kw">as </span>FunMutate},
@@ -1519,7 +1521,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="doccomment">/// Overarching event type.
 		</span><span class="kw">type </span>RuntimeEvent: From&lt;Event&lt;<span class="self">Self</span>&gt;&gt; + IsType&lt;&lt;<span class="self">Self </span><span class="kw">as </span>frame_system::Config&gt;::RuntimeEvent&gt;;
 
-		<span class="doccomment">/// The treasury&#39;s pallet id, used for deriving its sovereign account ID.
+		<span class="doccomment">/// The treasury's pallet id, used for deriving its sovereign account ID.
 		</span><span class="attr">#[pallet::constant]
 		</span><span class="kw">type </span>PalletId: Get&lt;PalletId&gt;;
 
@@ -1539,7 +1541,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="doccomment">/// Origin required for auto-funding the deficit.
 		</span><span class="kw">type </span>FundOrigin: EnsureOrigin&lt;<span class="self">Self</span>::RuntimeOrigin&gt;;
 
-		<span class="doccomment">/// The issuance to ignore. This is subtracted from the `Currency`&#39;s `total_issuance` to get
+		<span class="doccomment">/// The issuance to ignore. This is subtracted from the `Currency`'s `total_issuance` to get
 		/// the issuance with which we determine the thawed value of a given proportion.
 		</span><span class="kw">type </span>IgnoredIssuance: Get&lt;BalanceOf&lt;<span class="self">Self</span>&gt;&gt;;
 
@@ -1549,7 +1551,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="doccomment">/// The system to convert an overall proportion of issuance into a number of fungible
 		/// counterpart tokens.
 		///
-		/// In general it&#39;s best to use `WithMaximumOf`.
+		/// In general it's best to use `WithMaximumOf`.
 		</span><span class="kw">type </span>CounterpartAmount: ConvertBack&lt;
 			Perquintill,
 			&lt;<span class="self">Self</span>::Counterpart <span class="kw">as </span>FunInspect&lt;<span class="self">Self</span>::AccountId&gt;&gt;::Balance,
@@ -1559,7 +1561,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		/// freezing period).
 		</span><span class="kw">type </span>Deficit: OnUnbalanced&lt;DebtOf&lt;<span class="self">Self</span>&gt;&gt;;
 
-		<span class="doccomment">/// The target sum of all receipts&#39; proportions.
+		<span class="doccomment">/// The target sum of all receipts' proportions.
 		</span><span class="kw">type </span>Target: Get&lt;Perquintill&gt;;
 
 		<span class="doccomment">/// Number of duration queues in total. This sets the maximum duration supported, which is
@@ -1616,7 +1618,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">type </span>ThawThrottle: Get&lt;(Perquintill, BlockNumberFor&lt;<span class="self">Self</span>&gt;)&gt;;
 
 		<span class="doccomment">/// Setup the state for benchmarking.
-		</span><span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+		</span><span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 		</span><span class="kw">type </span>BenchmarkSetup: <span class="kw">crate</span>::BenchmarkSetup;
 	}
 
@@ -1670,9 +1672,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">pub </span>index: ReceiptIndex,
 		<span class="doccomment">/// The amount (as a proportion of ETI) which has been thawed in this period so far.
 		</span><span class="kw">pub </span>thawed: Perquintill,
-		<span class="doccomment">/// The current thaw period&#39;s beginning.
+		<span class="doccomment">/// The current thaw period's beginning.
 		</span><span class="kw">pub </span>last_period: BlockNumber,
-		<span class="doccomment">/// The total amount of funds on hold for receipts. This doesn&#39;t include the pot or funds
+		<span class="doccomment">/// The total amount of funds on hold for receipts. This doesn't include the pot or funds
 		/// on hold for bids.
 		</span><span class="kw">pub </span>receipts_on_hold: Balance,
 	}
@@ -1759,7 +1761,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>DurationTooBig,
 		<span class="doccomment">/// The amount of the bid is less than the minimum allowed.
 		</span>AmountTooSmall,
-		<span class="doccomment">/// The queue for the bid&#39;s duration is full and the amount bid is too low to get in
+		<span class="doccomment">/// The queue for the bid's duration is full and the amount bid is too low to get in
 		/// through replacing an existing bid.
 		</span>BidTooLow,
 		<span class="doccomment">/// Receipt index is unknown.
@@ -1892,7 +1894,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						});
 						(<span class="number">0</span>, amount - bid.amount)
 					} <span class="kw">else </span>{
-						q.try_insert(<span class="number">0</span>, bid).expect(<span class="string">&quot;verified queue was not full above. qed.&quot;</span>);
+						q.try_insert(<span class="number">0</span>, bid).expect(<span class="string">"verified queue was not full above. qed."</span>);
 						(<span class="number">1</span>, amount)
 					};
 
@@ -2057,8 +2059,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						Polite,
 					)
 					.map(|<span class="kw">_</span>| ())
-					<span class="comment">// We ignore this error as it just means the amount we&#39;re trying to deposit is
-					// dust and the beneficiary account doesn&#39;t exist.
+					<span class="comment">// We ignore this error as it just means the amount we're trying to deposit is
+					// dust and the beneficiary account doesn't exist.
 					</span>.or_else(
 						|e| <span class="kw">if </span>e == TokenError::CannotCreate.into() { <span class="prelude-val">Ok</span>(()) } <span class="kw">else </span>{ <span class="prelude-val">Err</span>(e) },
 					)<span class="question-mark">?</span>;
@@ -2149,7 +2151,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="kw">let </span><span class="kw-2">mut </span>receipt: ReceiptRecordOf&lt;T&gt; =
 				Receipts::&lt;T&gt;::get(index).ok_or(Error::&lt;T&gt;::UnknownReceipt)<span class="question-mark">?</span>;
 
-			<span class="comment">// Check it&#39;s not already communal and make it so.
+			<span class="comment">// Check it's not already communal and make it so.
 			</span><span class="kw">let </span>(owner, on_hold) = receipt.owner.take().ok_or(Error::&lt;T&gt;::AlreadyCommunal)<span class="question-mark">?</span>;
 
 			<span class="comment">// If found, check the owner is `who`.
@@ -2161,7 +2163,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			T::Currency::transfer_on_hold(<span class="kw-2">&amp;</span>reason, <span class="kw-2">&amp;</span>who, <span class="kw-2">&amp;</span>us, on_hold, Exact, Free, Polite)
 				.map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::Unfunded)<span class="question-mark">?</span>;
 
-			<span class="comment">// Record that we&#39;ve moved the amount reserved.
+			<span class="comment">// Record that we've moved the amount reserved.
 			</span><span class="kw">let </span><span class="kw-2">mut </span>summary: SummaryRecordOf&lt;T&gt; = Summary::&lt;T&gt;::get();
 			summary.receipts_on_hold.saturating_reduce(on_hold);
 			Summary::&lt;T&gt;::put(<span class="kw-2">&amp;</span>summary);
@@ -2195,7 +2197,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>our_account = <span class="self">Self</span>::account_id();
 			<span class="kw">let </span>effective_issuance = <span class="self">Self</span>::issuance_with(<span class="kw-2">&amp;</span>our_account, <span class="kw-2">&amp;</span>summary).effective;
 			<span class="kw">let </span>max_amount = receipt.proportion * effective_issuance;
-			<span class="comment">// Avoid trying to place more in the account&#39;s reserve than we have available in the pot
+			<span class="comment">// Avoid trying to place more in the account's reserve than we have available in the pot
 			</span><span class="kw">let </span>amount = max_amount.min(T::Currency::balance(<span class="kw-2">&amp;</span>our_account));
 
 			<span class="comment">// Burn fungible counterparts.
@@ -2211,7 +2213,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>us = <span class="self">Self</span>::account_id();
 			T::Currency::transfer_and_hold(<span class="kw-2">&amp;</span>reason, <span class="kw-2">&amp;</span>us, <span class="kw-2">&amp;</span>who, amount, Exact, Expendable, Polite)<span class="question-mark">?</span>;
 
-			<span class="comment">// Record that we&#39;ve moved the amount reserved.
+			<span class="comment">// Record that we've moved the amount reserved.
 			</span>summary.receipts_on_hold.saturating_accrue(amount);
 
 			receipt.owner = <span class="prelude-val">Some</span>((who, amount));
@@ -2229,7 +2231,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="doccomment">/// The balance held by this pallet instance together with the balances on hold across
 		/// all receipt-owning accounts.
 		</span><span class="kw">pub </span>holdings: Balance,
-		<span class="doccomment">/// The (non-ignored) issuance in the system, not including this pallet&#39;s account.
+		<span class="doccomment">/// The (non-ignored) issuance in the system, not including this pallet's account.
 		</span><span class="kw">pub </span>other: Balance,
 		<span class="doccomment">/// The effective total issuance, hypothetically if all outstanding receipts were thawed at
 		/// present.
@@ -2249,10 +2251,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">fn </span>attribute(item: <span class="kw-2">&amp;</span><span class="self">Self</span>::ItemId, key: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt; {
 			<span class="kw">let </span>item = Receipts::&lt;T&gt;::get(item)<span class="question-mark">?</span>;
 			<span class="kw">match </span>key {
-				<span class="string">b&quot;proportion&quot; </span>=&gt; <span class="prelude-val">Some</span>(item.proportion.encode()),
-				<span class="string">b&quot;expiry&quot; </span>=&gt; <span class="prelude-val">Some</span>(item.expiry.encode()),
-				<span class="string">b&quot;owner&quot; </span>=&gt; item.owner.as_ref().map(|x| x.<span class="number">0</span>.encode()),
-				<span class="string">b&quot;on_hold&quot; </span>=&gt; item.owner.as_ref().map(|x| x.<span class="number">1</span>.encode()),
+				<span class="string">b"proportion" </span>=&gt; <span class="prelude-val">Some</span>(item.proportion.encode()),
+				<span class="string">b"expiry" </span>=&gt; <span class="prelude-val">Some</span>(item.expiry.encode()),
+				<span class="string">b"owner" </span>=&gt; item.owner.as_ref().map(|x| x.<span class="number">0</span>.encode()),
+				<span class="string">b"on_hold" </span>=&gt; item.owner.as_ref().map(|x| x.<span class="number">1</span>.encode()),
 				<span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
 			}
 		}
@@ -2346,7 +2348,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				</span>}
 				<span class="kw">if </span>remaining.is_zero() || queues_hit &gt;= max_queues
 					|| !weight.check_accrue(T::WeightInfo::process_queue())
-					<span class="comment">// No point trying to process a queue if we can&#39;t process a single bid.
+					<span class="comment">// No point trying to process a queue if we can't process a single bid.
 					</span>|| !weight.can_accrue(T::WeightInfo::process_bid())
 				{
 					<span class="kw">break
@@ -2404,9 +2406,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw-2">&amp;mut </span>queue_total.<span class="number">1</span>,
 					summary,
 				) {
-					queue.try_push(bid).expect(<span class="string">&quot;just popped, so there must be space. qed&quot;</span>);
+					queue.try_push(bid).expect(<span class="string">"just popped, so there must be space. qed"</span>);
 					<span class="comment">// This should exit at the next iteration (though nothing will break if it
-					// doesn&#39;t).
+					// doesn't).
 				</span>}
 				count.saturating_inc();
 			}
@@ -2437,7 +2439,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// Can never overflow due to block above.
 			</span>remaining.saturating_reduce(amount);
 			<span class="comment">// Should never underflow since it should track the total of the
-			// bids exactly, but we&#39;ll be defensive.
+			// bids exactly, but we'll be defensive.
 			</span>queue_amount.defensive_saturating_reduce(amount);
 
 			<span class="comment">// Now to activate the bid...

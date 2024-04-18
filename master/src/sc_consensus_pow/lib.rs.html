@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/consensus/pow/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/consensus/pow/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_consensus_pow" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_consensus_pow" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sc_consensus_pow/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -864,7 +866,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! the actual difficulty for each particular blocks), you can take a client
 //! reference in your [`PowAlgorithm`] implementation, and use a separate prefix
 //! for the auxiliary storage. It is also possible to just use the runtime
-//! as the storage, but it is not recommended as it won&#39;t work well with light
+//! as the storage, but it is not recommended as it won't work well with light
 //! clients.
 
 </span><span class="kw">mod </span>worker;
@@ -894,52 +896,52 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>std::{cmp::Ordering, marker::PhantomData, sync::Arc, time::Duration};
 
-<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;pow&quot;</span>;
+<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"pow"</span>;
 
 <span class="attr">#[derive(Debug, thiserror::Error)]
 </span><span class="kw">pub enum </span>Error&lt;B: BlockT&gt; {
-	<span class="attr">#[error(<span class="string">&quot;Header uses the wrong engine {0:?}&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Header uses the wrong engine {0:?}"</span>)]
 	</span>WrongEngine([u8; <span class="number">4</span>]),
-	<span class="attr">#[error(<span class="string">&quot;Header {0:?} is unsealed&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Header {0:?} is unsealed"</span>)]
 	</span>HeaderUnsealed(B::Hash),
-	<span class="attr">#[error(<span class="string">&quot;PoW validation error: invalid seal&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"PoW validation error: invalid seal"</span>)]
 	</span>InvalidSeal,
-	<span class="attr">#[error(<span class="string">&quot;PoW validation error: preliminary verification failed&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"PoW validation error: preliminary verification failed"</span>)]
 	</span>FailedPreliminaryVerify,
-	<span class="attr">#[error(<span class="string">&quot;Rejecting block too far in future&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Rejecting block too far in future"</span>)]
 	</span>TooFarInFuture,
-	<span class="attr">#[error(<span class="string">&quot;Fetching best header failed using select chain: {0}&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Fetching best header failed using select chain: {0}"</span>)]
 	</span>BestHeaderSelectChain(ConsensusError),
-	<span class="attr">#[error(<span class="string">&quot;Fetching best header failed: {0}&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Fetching best header failed: {0}"</span>)]
 	</span>BestHeader(sp_blockchain::Error),
-	<span class="attr">#[error(<span class="string">&quot;Best header does not exist&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Best header does not exist"</span>)]
 	</span>NoBestHeader,
-	<span class="attr">#[error(<span class="string">&quot;Block proposing error: {0}&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Block proposing error: {0}"</span>)]
 	</span>BlockProposingError(String),
-	<span class="attr">#[error(<span class="string">&quot;Fetch best hash failed via select chain: {0}&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Fetch best hash failed via select chain: {0}"</span>)]
 	</span>BestHashSelectChain(ConsensusError),
-	<span class="attr">#[error(<span class="string">&quot;Error with block built on {0:?}: {1}&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Error with block built on {0:?}: {1}"</span>)]
 	</span>BlockBuiltError(B::Hash, ConsensusError),
-	<span class="attr">#[error(<span class="string">&quot;Creating inherents failed: {0}&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Creating inherents failed: {0}"</span>)]
 	</span>CreateInherents(sp_inherents::Error),
-	<span class="attr">#[error(<span class="string">&quot;Checking inherents failed: {0}&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Checking inherents failed: {0}"</span>)]
 	</span>CheckInherents(sp_inherents::Error),
 	<span class="attr">#[error(
-		<span class="string">&quot;Checking inherents unknown error for identifier: {}&quot;</span>,
+		<span class="string">"Checking inherents unknown error for identifier: {}"</span>,
 		String::from_utf8_lossy(.<span class="number">0</span>)
 	)]
 	</span>CheckInherentsUnknownError(sp_inherents::InherentIdentifier),
-	<span class="attr">#[error(<span class="string">&quot;Multiple pre-runtime digests&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Multiple pre-runtime digests"</span>)]
 	</span>MultiplePreRuntimeDigests,
 	<span class="attr">#[error(transparent)]
 	</span>Client(sp_blockchain::Error),
 	<span class="attr">#[error(transparent)]
 	</span>Codec(codec::Error),
-	<span class="attr">#[error(<span class="string">&quot;{0}&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"{0}"</span>)]
 	</span>Environment(String),
-	<span class="attr">#[error(<span class="string">&quot;{0}&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"{0}"</span>)]
 	</span>Runtime(RuntimeString),
-	<span class="attr">#[error(<span class="string">&quot;{0}&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"{0}"</span>)]
 	</span>Other(String),
 }
 
@@ -956,7 +958,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Auxiliary storage prefix for PoW engine.
-</span><span class="kw">pub const </span>POW_AUX_PREFIX: [u8; <span class="number">4</span>] = <span class="kw-2">*</span><span class="string">b&quot;PoW:&quot;</span>;
+</span><span class="kw">pub const </span>POW_AUX_PREFIX: [u8; <span class="number">4</span>] = <span class="kw-2">*</span><span class="string">b"PoW:"</span>;
 
 <span class="doccomment">/// Get the auxiliary storage key used by engine to store total difficulty.
 </span><span class="kw">fn </span>aux_key&lt;T: AsRef&lt;[u8]&gt;&gt;(hash: <span class="kw-2">&amp;</span>T) -&gt; Vec&lt;u8&gt; {
@@ -971,7 +973,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Intermediate key for PoW engine.
-</span><span class="kw">pub static </span>INTERMEDIATE_KEY: <span class="kw-2">&amp;</span>[u8] = <span class="string">b&quot;pow1&quot;</span>;
+</span><span class="kw">pub static </span>INTERMEDIATE_KEY: <span class="kw-2">&amp;</span>[u8] = <span class="string">b"pow1"</span>;
 
 <span class="doccomment">/// Auxiliary storage data for PoW.
 </span><span class="attr">#[derive(Encode, Decode, Clone, Debug, Default)]
@@ -1002,7 +1004,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Difficulty for the algorithm.
 	</span><span class="kw">type </span>Difficulty: TotalDifficulty + Default + Encode + Decode + Ord + Clone + Copy;
 
-	<span class="doccomment">/// Get the next block&#39;s difficulty.
+	<span class="doccomment">/// Get the next block's difficulty.
 	///
 	/// This function will be called twice during the import process, so the implementation
 	/// should be properly cached.
@@ -1135,7 +1137,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	C: ProvideRuntimeApi&lt;B&gt; + Send + Sync + HeaderBackend&lt;B&gt; + AuxStore + BlockOf,
 	C::Api: BlockBuilderApi&lt;B&gt;,
 	Algorithm: PowAlgorithm&lt;B&gt; + Send + Sync,
-	Algorithm::Difficulty: <span class="lifetime">&#39;static </span>+ Send,
+	Algorithm::Difficulty: <span class="lifetime">'static </span>+ Send,
 	CIDP: CreateInherentDataProviders&lt;B, ()&gt; + Send + Sync,
 {
 	<span class="kw">type </span>Error = ConsensusError;
@@ -1155,7 +1157,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span>.select_chain
 			.best_chain()
 			.<span class="kw">await
-			</span>.map_err(|e| <span class="macro">format!</span>(<span class="string">&quot;Fetch best chain failed via select chain: {}&quot;</span>, e))
+			</span>.map_err(|e| <span class="macro">format!</span>(<span class="string">"Fetch best chain failed via select chain: {}"</span>, e))
 			.map_err(ConsensusError::ChainLookup)<span class="question-mark">?</span>;
 		<span class="kw">let </span>best_hash = best_header.hash();
 
@@ -1267,7 +1269,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">impl</span>&lt;B: BlockT, Algorithm&gt; Verifier&lt;B&gt; <span class="kw">for </span>PowVerifier&lt;B, Algorithm&gt;
 <span class="kw">where
 	</span>Algorithm: PowAlgorithm&lt;B&gt; + Send + Sync,
-	Algorithm::Difficulty: <span class="lifetime">&#39;static </span>+ Send,
+	Algorithm::Difficulty: <span class="lifetime">'static </span>+ Send,
 {
 	<span class="kw">async fn </span>verify(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
@@ -1299,7 +1301,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ) -&gt; <span class="prelude-ty">Result</span>&lt;PowImportQueue&lt;B&gt;, sp_consensus::Error&gt;
 <span class="kw">where
 	</span>B: BlockT,
-	Algorithm: PowAlgorithm&lt;B&gt; + Clone + Send + Sync + <span class="lifetime">&#39;static</span>,
+	Algorithm: PowAlgorithm&lt;B&gt; + Clone + Send + Sync + <span class="lifetime">'static</span>,
 	Algorithm::Difficulty: Send,
 {
 	<span class="kw">let </span>verifier = PowVerifier::new(algorithm);
@@ -1334,14 +1336,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 )
 <span class="kw">where
 	</span>Block: BlockT,
-	C: BlockchainEvents&lt;Block&gt; + <span class="lifetime">&#39;static</span>,
-	S: SelectChain&lt;Block&gt; + <span class="lifetime">&#39;static</span>,
+	C: BlockchainEvents&lt;Block&gt; + <span class="lifetime">'static</span>,
+	S: SelectChain&lt;Block&gt; + <span class="lifetime">'static</span>,
 	Algorithm: PowAlgorithm&lt;Block&gt; + Clone,
-	Algorithm::Difficulty: Send + <span class="lifetime">&#39;static</span>,
-	E: Environment&lt;Block&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
+	Algorithm::Difficulty: Send + <span class="lifetime">'static</span>,
+	E: Environment&lt;Block&gt; + Send + Sync + <span class="lifetime">'static</span>,
 	E::Error: std::fmt::Debug,
 	E::Proposer: Proposer&lt;Block&gt;,
-	SO: SyncOracle + Clone + Send + Sync + <span class="lifetime">&#39;static</span>,
+	SO: SyncOracle + Clone + Send + Sync + <span class="lifetime">'static</span>,
 	L: sc_consensus::JustificationSyncLink&lt;Block&gt;,
 	CIDP: CreateInherentDataProviders&lt;Block, ()&gt;,
 {
@@ -1356,7 +1358,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span>}
 
 			<span class="kw">if </span>sync_oracle.is_major_syncing() {
-				<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;Skipping proposal due to sync.&quot;</span>);
+				<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"Skipping proposal due to sync."</span>);
 				worker.on_major_syncing();
 				<span class="kw">continue
 			</span>}
@@ -1366,8 +1368,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="prelude-val">Err</span>(err) =&gt; {
 					<span class="macro">warn!</span>(
 						target: LOG_TARGET,
-						<span class="string">&quot;Unable to pull new block for authoring. \
-						 Select best chain error: {}&quot;</span>,
+						<span class="string">"Unable to pull new block for authoring. \
+						 Select best chain error: {}"</span>,
 						err
 					);
 					<span class="kw">continue
@@ -1387,8 +1389,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="prelude-val">Err</span>(err) =&gt; {
 					<span class="macro">warn!</span>(
 						target: LOG_TARGET,
-						<span class="string">&quot;Unable to propose new block for authoring. \
-						 Fetch difficulty failed: {}&quot;</span>,
+						<span class="string">"Unable to propose new block for authoring. \
+						 Fetch difficulty failed: {}"</span>,
 						err,
 					);
 					<span class="kw">continue
@@ -1403,8 +1405,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="prelude-val">Err</span>(err) =&gt; {
 					<span class="macro">warn!</span>(
 						target: LOG_TARGET,
-						<span class="string">&quot;Unable to propose new block for authoring. \
-						 Creating inherent data providers failed: {}&quot;</span>,
+						<span class="string">"Unable to propose new block for authoring. \
+						 Creating inherent data providers failed: {}"</span>,
 						err,
 					);
 					<span class="kw">continue
@@ -1416,8 +1418,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="prelude-val">Err</span>(e) =&gt; {
 					<span class="macro">warn!</span>(
 						target: LOG_TARGET,
-						<span class="string">&quot;Unable to propose new block for authoring. \
-						 Creating inherent data failed: {}&quot;</span>,
+						<span class="string">"Unable to propose new block for authoring. \
+						 Creating inherent data failed: {}"</span>,
 						e,
 					);
 					<span class="kw">continue
@@ -1436,8 +1438,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="prelude-val">Err</span>(err) =&gt; {
 					<span class="macro">warn!</span>(
 						target: LOG_TARGET,
-						<span class="string">&quot;Unable to propose new block for authoring. \
-						 Creating proposer failed: {:?}&quot;</span>,
+						<span class="string">"Unable to propose new block for authoring. \
+						 Creating proposer failed: {:?}"</span>,
 						err,
 					);
 					<span class="kw">continue
@@ -1450,8 +1452,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="prelude-val">Err</span>(err) =&gt; {
 						<span class="macro">warn!</span>(
 							target: LOG_TARGET,
-							<span class="string">&quot;Unable to propose new block for authoring. \
-							 Creating proposal failed: {}&quot;</span>,
+							<span class="string">"Unable to propose new block for authoring. \
+							 Creating proposal failed: {}"</span>,
 							err,
 						);
 						<span class="kw">continue
@@ -1479,14 +1481,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">fn </span>find_pre_digest&lt;B: BlockT&gt;(header: <span class="kw-2">&amp;</span>B::Header) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt;, Error&lt;B&gt;&gt; {
 	<span class="kw">let </span><span class="kw-2">mut </span>pre_digest: <span class="prelude-ty">Option</span>&lt;<span class="kw">_</span>&gt; = <span class="prelude-val">None</span>;
 	<span class="kw">for </span>log <span class="kw">in </span>header.digest().logs() {
-		<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">&quot;Checking log {:?}, looking for pre runtime digest&quot;</span>, log);
+		<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">"Checking log {:?}, looking for pre runtime digest"</span>, log);
 		<span class="kw">match </span>(log, pre_digest.is_some()) {
 			(DigestItem::PreRuntime(POW_ENGINE_ID, <span class="kw">_</span>), <span class="bool-val">true</span>) =&gt;
 				<span class="kw">return </span><span class="prelude-val">Err</span>(Error::MultiplePreRuntimeDigests),
 			(DigestItem::PreRuntime(POW_ENGINE_ID, v), <span class="bool-val">false</span>) =&gt; {
 				pre_digest = <span class="prelude-val">Some</span>(v.clone());
 			},
-			(<span class="kw">_</span>, <span class="kw">_</span>) =&gt; <span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">&quot;Ignoring digest not meant for us&quot;</span>),
+			(<span class="kw">_</span>, <span class="kw">_</span>) =&gt; <span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">"Ignoring digest not meant for us"</span>),
 		}
 	}
 

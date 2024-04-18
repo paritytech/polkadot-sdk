@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/arithmetic/src/biguint.rs`."><title>biguint.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/arithmetic/src/biguint.rs`."><title>biguint.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_arithmetic" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_arithmetic" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sp_arithmetic/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -906,14 +908,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -1092,7 +1094,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// This function does not strip the output and returns the original allocated `n + 1`
 	/// limbs. The caller may strip the output if desired.
 	///
-	/// Taken from &quot;The Art of Computer Programming&quot; by D.E. Knuth, vol 2, chapter 4.
+	/// Taken from "The Art of Computer Programming" by D.E. Knuth, vol 2, chapter 4.
 	</span><span class="kw">pub fn </span>add(<span class="self">self</span>, other: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; <span class="self">Self </span>{
 		<span class="kw">let </span>n = <span class="self">self</span>.len().max(other.len());
 		<span class="kw">let </span><span class="kw-2">mut </span>k: Double = <span class="number">0</span>;
@@ -1116,7 +1118,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// If `other` is bigger than `self`, `Err(B - borrow)` is returned.
 	///
-	/// Taken from &quot;The Art of Computer Programming&quot; by D.E. Knuth, vol 2, chapter 4.
+	/// Taken from "The Art of Computer Programming" by D.E. Knuth, vol 2, chapter 4.
 	</span><span class="kw">pub fn </span>sub(<span class="self">self</span>, other: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>&gt; {
 		<span class="kw">let </span>n = <span class="self">self</span>.len().max(other.len());
 		<span class="kw">let </span><span class="kw-2">mut </span>k = <span class="number">0</span>;
@@ -1136,7 +1138,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="comment">// borrow is needed. Add a `B` to u, before subtracting.
 					// PROOF: addition: `u + B &lt; 2*B`, thus can fit in double.
 					// PROOF: subtraction: if `u - v - k &lt; 0`, then `u + B - v - k &lt; B`.
-					// NOTE: the order of operations is critical to ensure underflow won&#39;t happen.
+					// NOTE: the order of operations is critical to ensure underflow won't happen.
 					</span><span class="kw">let </span>t = u + B - v - k;
 					k = <span class="number">1</span>;
 
@@ -1160,7 +1162,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// This function does not strip the output and returns the original allocated `n + m`
 	/// limbs. The caller may strip the output if desired.
 	///
-	/// Taken from &quot;The Art of Computer Programming&quot; by D.E. Knuth, vol 2, chapter 4.
+	/// Taken from "The Art of Computer Programming" by D.E. Knuth, vol 2, chapter 4.
 	</span><span class="kw">pub fn </span>mul(<span class="self">self</span>, other: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; <span class="self">Self </span>{
 		<span class="kw">let </span>n = <span class="self">self</span>.len();
 		<span class="kw">let </span>m = other.len();
@@ -1209,7 +1211,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Divides an `n + m` limb self by a `n` limb `other`. The result is a `m + 1` limb
 	/// quotient and a `n` limb remainder, if enabled by passing `true` in `rem` argument, both
-	/// in the form of an option&#39;s `Ok`.
+	/// in the form of an option's `Ok`.
 	///
 	/// - requires `other` to be stripped and have no leading zeros.
 	/// - requires `self` to be stripped and have no leading zeros.
@@ -1219,7 +1221,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// All arguments are examined without being stripped for the above conditions. If any of
 	/// the above fails, `None` is returned.`
 	///
-	/// Taken from &quot;The Art of Computer Programming&quot; by D.E. Knuth, vol 2, chapter 4.
+	/// Taken from "The Art of Computer Programming" by D.E. Knuth, vol 2, chapter 4.
 	</span><span class="kw">pub fn </span>div(<span class="self">self</span>, other: <span class="kw-2">&amp;</span><span class="self">Self</span>, rem: bool) -&gt; <span class="prelude-ty">Option</span>&lt;(<span class="self">Self</span>, <span class="self">Self</span>)&gt; {
 		<span class="kw">if </span>other.len() &lt;= <span class="number">1 </span>|| other.msb() == <span class="number">0 </span>|| <span class="self">self</span>.msb() == <span class="number">0 </span>|| <span class="self">self</span>.len() &lt;= other.len() {
 			<span class="kw">return </span><span class="prelude-val">None
@@ -1287,7 +1289,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			}
 
 			<span class="kw">let </span>qhat = qhat.into_inner();
-			<span class="comment">// we don&#39;t need rhat anymore. just let it go out of scope when it does.
+			<span class="comment">// we don't need rhat anymore. just let it go out of scope when it does.
 
 			// step D4
 			</span><span class="kw">let </span>lhs = <span class="self">Self </span>{ digits: (j..=j + n).rev().map(|d| self_norm.get(d)).collect() };
@@ -1343,18 +1345,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl </span>core::fmt::Debug <span class="kw">for </span>BigUint {
-	<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
-	</span><span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; core::fmt::Result {
+	<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
+	</span><span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; core::fmt::Result {
 		<span class="macro">write!</span>(
 			f,
-			<span class="string">&quot;BigUint {{ {:?} ({:?})}}&quot;</span>,
+			<span class="string">"BigUint {{ {:?} ({:?})}}"</span>,
 			<span class="self">self</span>.digits,
 			u128::try_from(<span class="self">self</span>.clone()).unwrap_or(<span class="number">0</span>),
 		)
 	}
 
-	<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
-	</span><span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw">_</span>: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; core::fmt::Result {
+	<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
+	</span><span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw">_</span>: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; core::fmt::Result {
 		<span class="prelude-val">Ok</span>(())
 	}
 }
@@ -1438,10 +1440,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	($([<span class="macro-nonterminal">$</span><span class="kw">type</span>:<span class="macro-nonterminal">ty</span>, <span class="macro-nonterminal">$len</span>:expr]),+) =&gt; {
 		$(
 			<span class="kw">impl </span>TryFrom&lt;BigUint&gt; <span class="kw">for </span><span class="macro-nonterminal">$</span><span class="kw">type </span>{
-				<span class="kw">type </span><span class="macro-nonterminal">Error </span>= <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str;
+				<span class="kw">type </span><span class="macro-nonterminal">Error </span>= <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str;
 				<span class="kw">fn </span>try_from(<span class="kw-2">mut </span>value: BigUint) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="macro-nonterminal">$</span><span class="kw">type</span>, <span class="macro-nonterminal">Self::Error</span>&gt; {
 					value.lstrip();
-					<span class="kw">let </span>error_message = <span class="macro">concat!</span>(<span class="string">&quot;cannot fit a number into &quot;</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$</span><span class="kw">type</span>));
+					<span class="kw">let </span>error_message = <span class="macro">concat!</span>(<span class="string">"cannot fit a number into "</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$</span><span class="kw">type</span>));
 					<span class="kw">if </span><span class="macro-nonterminal">value</span>.len() * SHIFT &gt; <span class="macro-nonterminal">$len </span>{
 						<span class="prelude-val">Err</span>(error_message)
 					} <span class="kw">else </span>{
@@ -1570,7 +1572,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>can_try_build_numbers_from_types() {
 		<span class="macro">assert_eq!</span>(u64::try_from(with_limbs(<span class="number">1</span>)).unwrap(), <span class="number">1</span>);
 		<span class="macro">assert_eq!</span>(u64::try_from(with_limbs(<span class="number">2</span>)).unwrap(), u32::MAX <span class="kw">as </span>u64 + <span class="number">2</span>);
-		<span class="macro">assert_eq!</span>(u64::try_from(with_limbs(<span class="number">3</span>)).unwrap_err(), <span class="string">&quot;cannot fit a number into u64&quot;</span>);
+		<span class="macro">assert_eq!</span>(u64::try_from(with_limbs(<span class="number">3</span>)).unwrap_err(), <span class="string">"cannot fit a number into u64"</span>);
 		<span class="macro">assert_eq!</span>(u128::try_from(with_limbs(<span class="number">3</span>)).unwrap(), u32::MAX <span class="kw">as </span>u128 + u64::MAX <span class="kw">as </span>u128 + <span class="number">3</span>);
 	}
 

@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/test-utils/client/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/test-utils/client/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="substrate_test_client" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="substrate_test_client" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../substrate_test_client/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -611,14 +613,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -670,7 +672,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// A builder for creating a test client instance.
-</span><span class="kw">pub struct </span>TestClientBuilder&lt;Block: BlockT, ExecutorDispatch, Backend: <span class="lifetime">&#39;static</span>, G: GenesisInit&gt; {
+</span><span class="kw">pub struct </span>TestClientBuilder&lt;Block: BlockT, ExecutorDispatch, Backend: <span class="lifetime">'static</span>, G: GenesisInit&gt; {
 	genesis_init: G,
 	<span class="doccomment">/// The key is an unprefixed storage key, this only contains
 	/// default child trie content.
@@ -797,9 +799,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	)
 	<span class="kw">where
 		</span>ExecutorDispatch:
-			sc_client_api::CallExecutor&lt;Block&gt; + sc_executor::RuntimeVersionOf + Clone + <span class="lifetime">&#39;static</span>,
+			sc_client_api::CallExecutor&lt;Block&gt; + sc_executor::RuntimeVersionOf + Clone + <span class="lifetime">'static</span>,
 		Backend: sc_client_api::backend::Backend&lt;Block&gt;,
-		&lt;Backend <span class="kw">as </span>sc_client_api::backend::Backend&lt;Block&gt;&gt;::OffchainStorage: <span class="lifetime">&#39;static</span>,
+		&lt;Backend <span class="kw">as </span>sc_client_api::backend::Backend&lt;Block&gt;&gt;::OffchainStorage: <span class="lifetime">'static</span>,
 	{
 		<span class="kw">let </span>storage = {
 			<span class="kw">let </span><span class="kw-2">mut </span>storage = <span class="self">self</span>.genesis_init.genesis_storage();
@@ -830,7 +832,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="self">self</span>.backend.clone(),
 			executor.clone(),
 		)
-		.expect(<span class="string">&quot;Creates genesis block builder&quot;</span>);
+		.expect(<span class="string">"Creates genesis block builder"</span>);
 
 		<span class="kw">let </span>spawn_handle = Box::new(TaskExecutor::new());
 
@@ -845,7 +847,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">None</span>,
 			client_config,
 		)
-		.expect(<span class="string">&quot;Creates new client&quot;</span>);
+		.expect(<span class="string">"Creates new client"</span>);
 
 		<span class="kw">let </span>longest_chain = sc_consensus::LongestChain::new(<span class="self">self</span>.backend);
 
@@ -877,8 +879,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	)
 	<span class="kw">where
 		</span>I: Into&lt;<span class="prelude-ty">Option</span>&lt;NativeElseWasmExecutor&lt;D&gt;&gt;&gt;,
-		D: sc_executor::NativeExecutionDispatch + <span class="lifetime">&#39;static</span>,
-		Backend: sc_client_api::backend::Backend&lt;Block&gt; + <span class="lifetime">&#39;static</span>,
+		D: sc_executor::NativeExecutionDispatch + <span class="lifetime">'static</span>,
+		Backend: sc_client_api::backend::Backend&lt;Block&gt; + <span class="lifetime">'static</span>,
 	{
 		<span class="kw">let </span><span class="kw-2">mut </span>executor = executor.into().unwrap_or_else(|| {
 			NativeElseWasmExecutor::new_with_wasm_executor(WasmExecutor::builder().build())
@@ -890,7 +892,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			Default::default(),
 			ExecutionExtensions::new(<span class="prelude-val">None</span>, Arc::new(executor)),
 		)
-		.expect(<span class="string">&quot;Creates LocalCallExecutor&quot;</span>);
+		.expect(<span class="string">"Creates LocalCallExecutor"</span>);
 
 		<span class="self">self</span>.build_with_executor(executor)
 	}
@@ -906,7 +908,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl </span>std::fmt::Debug <span class="kw">for </span>RpcTransactionOutput {
 	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter) -&gt; std::fmt::Result {
-		<span class="macro">write!</span>(f, <span class="string">&quot;RpcTransactionOutput {{ result: {:?}, receiver }}&quot;</span>, <span class="self">self</span>.result)
+		<span class="macro">write!</span>(f, <span class="string">"RpcTransactionOutput {{ result: {:?}, receiver }}"</span>, <span class="self">self</span>.result)
 	}
 }
 
@@ -945,16 +947,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; <span class="prelude-ty">Result</span>&lt;RpcTransactionOutput, RpcTransactionError&gt; {
 		<span class="kw">let </span>(result, rx) = <span class="self">self
 			</span>.rpc_query(<span class="kw-2">&amp;</span><span class="macro">format!</span>(
-				<span class="string">r#&quot;{{
-						&quot;jsonrpc&quot;: &quot;2.0&quot;,
-						&quot;method&quot;: &quot;author_submitExtrinsic&quot;,
-						&quot;params&quot;: [&quot;0x{}&quot;],
-						&quot;id&quot;: 0
-					}}&quot;#</span>,
-				array_bytes::bytes2hex(<span class="string">&quot;&quot;</span>, <span class="kw-2">&amp;</span>extrinsic.encode())
+				<span class="string">r#"{{
+						"jsonrpc": "2.0",
+						"method": "author_submitExtrinsic",
+						"params": ["0x{}"],
+						"id": 0
+					}}"#</span>,
+				array_bytes::bytes2hex(<span class="string">""</span>, <span class="kw-2">&amp;</span>extrinsic.encode())
 			))
 			.<span class="kw">await
-			</span>.expect(<span class="string">&quot;valid JSON-RPC request object; qed&quot;</span>);
+			</span>.expect(<span class="string">"valid JSON-RPC request object; qed"</span>);
 		parse_rpc_result(result, rx)
 	}
 }
@@ -964,12 +966,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	receiver: tokio::sync::mpsc::Receiver&lt;String&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;RpcTransactionOutput, RpcTransactionError&gt; {
 	<span class="kw">let </span>json: serde_json::Value =
-		serde_json::from_str(<span class="kw-2">&amp;</span>result).expect(<span class="string">&quot;the result can only be a JSONRPC string; qed&quot;</span>);
-	<span class="kw">let </span>error = json.as_object().expect(<span class="string">&quot;JSON result is always an object; qed&quot;</span>).get(<span class="string">&quot;error&quot;</span>);
+		serde_json::from_str(<span class="kw-2">&amp;</span>result).expect(<span class="string">"the result can only be a JSONRPC string; qed"</span>);
+	<span class="kw">let </span>error = json.as_object().expect(<span class="string">"JSON result is always an object; qed"</span>).get(<span class="string">"error"</span>);
 
 	<span class="kw">if let </span><span class="prelude-val">Some</span>(error) = error {
 		<span class="kw">return </span><span class="prelude-val">Err</span>(serde_json::from_value(error.clone())
-			.expect(<span class="string">&quot;the JSONRPC result&#39;s error is always valid; qed&quot;</span>))
+			.expect(<span class="string">"the JSONRPC result's error is always valid; qed"</span>))
 	}
 
 	<span class="prelude-val">Ok</span>(RpcTransactionOutput { result, receiver })
@@ -993,7 +995,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	B: BlockT,
 {
 	<span class="kw">fn </span>wait_for_blocks(<span class="kw-2">&amp;</span><span class="self">self</span>, count: usize) -&gt; Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = ()&gt; + Send&gt;&gt; {
-		<span class="macro">assert!</span>(count &gt; <span class="number">0</span>, <span class="string">&quot;&#39;count&#39; argument must be greater than 0&quot;</span>);
+		<span class="macro">assert!</span>(count &gt; <span class="number">0</span>, <span class="string">"'count' argument must be greater than 0"</span>);
 
 		<span class="kw">let </span><span class="kw-2">mut </span>import_notification_stream = <span class="self">self</span>.import_notification_stream();
 		<span class="kw">let </span><span class="kw-2">mut </span>blocks = HashSet::new();
@@ -1017,11 +1019,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>parses_error_properly() {
 		<span class="kw">let </span>(<span class="kw">_</span>, rx) = tokio::sync::mpsc::channel(<span class="number">1</span>);
 		<span class="macro">assert!</span>(<span class="kw">super</span>::parse_rpc_result(
-			<span class="string">r#&quot;{
-				&quot;jsonrpc&quot;: &quot;2.0&quot;,
-				&quot;result&quot;: 19,
-				&quot;id&quot;: 1
-			}&quot;#
+			<span class="string">r#"{
+				"jsonrpc": "2.0",
+				"result": 19,
+				"id": 1
+			}"#
 			</span>.to_string(),
 			rx
 		)
@@ -1029,39 +1031,39 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>(<span class="kw">_</span>, rx) = tokio::sync::mpsc::channel(<span class="number">1</span>);
 		<span class="kw">let </span>error = <span class="kw">super</span>::parse_rpc_result(
-			<span class="string">r#&quot;{
-				&quot;jsonrpc&quot;: &quot;2.0&quot;,
-				&quot;error&quot;: {
-					&quot;code&quot;: -32601,
-					&quot;message&quot;: &quot;Method not found&quot;
+			<span class="string">r#"{
+				"jsonrpc": "2.0",
+				"error": {
+					"code": -32601,
+					"message": "Method not found"
 				},
-				&quot;id&quot;: 1
-			}&quot;#
+				"id": 1
+			}"#
 			</span>.to_string(),
 			rx,
 		)
 		.unwrap_err();
 		<span class="macro">assert_eq!</span>(error.code, -<span class="number">32601</span>);
-		<span class="macro">assert_eq!</span>(error.message, <span class="string">&quot;Method not found&quot;</span>);
+		<span class="macro">assert_eq!</span>(error.message, <span class="string">"Method not found"</span>);
 		<span class="macro">assert!</span>(error.data.is_none());
 
 		<span class="kw">let </span>(<span class="kw">_</span>, rx) = tokio::sync::mpsc::channel(<span class="number">1</span>);
 		<span class="kw">let </span>error = <span class="kw">super</span>::parse_rpc_result(
-			<span class="string">r#&quot;{
-				&quot;jsonrpc&quot;: &quot;2.0&quot;,
-				&quot;error&quot;: {
-					&quot;code&quot;: -32601,
-					&quot;message&quot;: &quot;Method not found&quot;,
-					&quot;data&quot;: 42
+			<span class="string">r#"{
+				"jsonrpc": "2.0",
+				"error": {
+					"code": -32601,
+					"message": "Method not found",
+					"data": 42
 				},
-				&quot;id&quot;: 1
-			}&quot;#
+				"id": 1
+			}"#
 			</span>.to_string(),
 			rx,
 		)
 		.unwrap_err();
 		<span class="macro">assert_eq!</span>(error.code, -<span class="number">32601</span>);
-		<span class="macro">assert_eq!</span>(error.message, <span class="string">&quot;Method not found&quot;</span>);
+		<span class="macro">assert_eq!</span>(error.message, <span class="string">"Method not found"</span>);
 		<span class="macro">assert!</span>(error.data.is_some());
 	}
 }

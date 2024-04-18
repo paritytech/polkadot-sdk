@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/runtime/parachains/src/disputes/slashing.rs`."><title>slashing.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/runtime/parachains/src/disputes/slashing.rs`."><title>slashing.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_runtime_parachains" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_runtime_parachains" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../polkadot_runtime_parachains/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -903,10 +905,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! Currently, the interface expects us to provide staking information including
 //! nominator exposure in order to submit an offence.
 //!
-//! Normally, we&#39;d able to fetch this information from the runtime as soon as
+//! Normally, we'd able to fetch this information from the runtime as soon as
 //! the dispute is concluded. This is also what `im-online` pallet does.
 //! However, since a dispute can conclude several sessions after the candidate
-//! was backed (see `dispute_period` in `HostConfiguration`), we can&#39;t rely on
+//! was backed (see `dispute_period` in `HostConfiguration`), we can't rely on
 //! this information being available in the context of the current block. The
 //! `babe` and `grandpa` equivocation handlers also have to deal with this
 //! problem.
@@ -947,15 +949,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	prelude::<span class="kw-2">*</span>,
 };
 
-<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;runtime::parachains::slashing&quot;</span>;
+<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"runtime::parachains::slashing"</span>;
 
 <span class="comment">// These are constants, but we want to make them configurable
 // via `HostConfiguration` in the future.
 </span><span class="kw">const </span>SLASH_FOR_INVALID: Perbill = Perbill::from_percent(<span class="number">100</span>);
 <span class="kw">const </span>SLASH_AGAINST_VALID: Perbill = Perbill::zero();
-<span class="kw">const </span>DEFENSIVE_PROOF: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;disputes module should bail on old session&quot;</span>;
+<span class="kw">const </span>DEFENSIVE_PROOF: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"disputes module should bail on old session"</span>;
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 </span><span class="kw">pub mod </span>benchmarking;
 
 <span class="doccomment">/// The benchmarking configuration.
@@ -971,7 +973,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// An offence that is filed when a series of validators lost a dispute.
 </span><span class="attr">#[derive(TypeInfo)]
-#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(Clone, PartialEq, Eq))]
+#[cfg_attr(feature = <span class="string">"std"</span>, derive(Clone, PartialEq, Eq))]
 </span><span class="kw">pub struct </span>SlashingOffence&lt;KeyOwnerIdentification&gt; {
 	<span class="doccomment">/// The size of the validator set in that session.
 	</span><span class="kw">pub </span>validator_set_count: ValidatorSetCount,
@@ -991,7 +993,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">where
 	</span>Offender: Clone,
 {
-	<span class="kw">const </span>ID: Kind = <span class="kw-2">*</span><span class="string">b&quot;disputes:slashin&quot;</span>;
+	<span class="kw">const </span>ID: Kind = <span class="kw-2">*</span><span class="string">b"disputes:slashin"</span>;
 
 	<span class="kw">type </span>TimeSlot = DisputesTimeSlot;
 
@@ -1096,7 +1098,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) {
 		<span class="comment">// sanity check for the current implementation
 		</span><span class="kw">if </span>kind == SlashingOffenceKind::AgainstValid {
-			<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>, <span class="string">&quot;should only slash ForInvalid disputes&quot;</span>);
+			<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>, <span class="string">"should only slash ForInvalid disputes"</span>);
 			<span class="kw">return
 		</span>}
 		<span class="kw">let </span>losers: BTreeSet&lt;<span class="kw">_</span>&gt; = losers.into_iter().collect();
@@ -1278,7 +1280,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		/// offence (after the slashing report has been validated) and for
 		/// submitting a transaction to report a slash (from an offchain
 		/// context). NOTE: when enabling slashing report handling (i.e. this
-		/// type isn&#39;t set to `()`) you must use this pallet&#39;s
+		/// type isn't set to `()`) you must use this pallet's
 		/// `ValidateUnsigned` in the runtime definition.
 		</span><span class="kw">type </span>HandleReports: HandleReports&lt;<span class="self">Self</span>&gt;;
 
@@ -1341,7 +1343,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			ensure_none(origin)<span class="question-mark">?</span>;
 
 			<span class="kw">let </span>validator_set_count = key_owner_proof.validator_count() <span class="kw">as </span>ValidatorSetCount;
-			<span class="comment">// check the membership proof to extract the offender&#39;s id
+			<span class="comment">// check the membership proof to extract the offender's id
 			</span><span class="kw">let </span>key = (primitives::PARACHAIN_KEY_TYPE_ID, dispute_proof.validator_id.clone());
 			<span class="kw">let </span>offender = T::KeyOwnerProofSystem::check_proof(key, key_owner_proof)
 				.ok_or(Error::&lt;T&gt;::InvalidKeyOwnershipProof)<span class="question-mark">?</span>;
@@ -1456,7 +1458,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">_ </span>=&gt; {
 					<span class="macro">log::warn!</span>(
 						target: LOG_TARGET,
-						<span class="string">&quot;rejecting unsigned transaction because it is not local/in-block.&quot;
+						<span class="string">"rejecting unsigned transaction because it is not local/in-block."
 					</span>);
 
 					<span class="kw">return </span>InvalidTransaction::Call.into()
@@ -1469,8 +1471,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>longevity = &lt;T::HandleReports <span class="kw">as </span>HandleReports&lt;T&gt;&gt;::ReportLongevity::get();
 
 			<span class="kw">let </span>tag_prefix = <span class="kw">match </span>dispute_proof.kind {
-				SlashingOffenceKind::ForInvalid =&gt; <span class="string">&quot;DisputeForInvalid&quot;</span>,
-				SlashingOffenceKind::AgainstValid =&gt; <span class="string">&quot;DisputeAgainstValid&quot;</span>,
+				SlashingOffenceKind::ForInvalid =&gt; <span class="string">"DisputeForInvalid"</span>,
+				SlashingOffenceKind::AgainstValid =&gt; <span class="string">"DisputeAgainstValid"</span>,
 			};
 
 			ValidTransaction::with_tag_prefix(tag_prefix)
@@ -1479,7 +1481,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="comment">// Only one report for the same offender at the same slot.
 				</span>.and_provides((dispute_proof.time_slot.clone(), dispute_proof.validator_id.clone()))
 				.longevity(longevity)
-				<span class="comment">// We don&#39;t propagate this. This can never be included on a remote node.
+				<span class="comment">// We don't propagate this. This can never be included on a remote node.
 				</span>.propagate(<span class="bool-val">false</span>)
 				.build()
 		} <span class="kw">else </span>{
@@ -1500,7 +1502,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	dispute_proof: <span class="kw-2">&amp;</span>DisputeProof,
 	key_owner_proof: <span class="kw-2">&amp;</span>T::KeyOwnerProof,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(), TransactionValidityError&gt; {
-	<span class="comment">// check the membership proof to extract the offender&#39;s id
+	<span class="comment">// check the membership proof to extract the offender's id
 	</span><span class="kw">let </span>key = (primitives::PARACHAIN_KEY_TYPE_ID, dispute_proof.validator_id.clone());
 
 	<span class="kw">let </span>offender = T::KeyOwnerProofSystem::check_proof(key, key_owner_proof.clone())
@@ -1583,7 +1585,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Ok</span>(()) =&gt; {
 				<span class="macro">log::info!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Submitted dispute slashing report, session({}), index({}), kind({:?})&quot;</span>,
+					<span class="string">"Submitted dispute slashing report, session({}), index({}), kind({:?})"</span>,
 					session_index,
 					validator_index,
 					kind,
@@ -1593,12 +1595,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Err</span>(()) =&gt; {
 				<span class="macro">log::error!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Error submitting dispute slashing report, session({}), index({}), kind({:?})&quot;</span>,
+					<span class="string">"Error submitting dispute slashing report, session({}), index({}), kind({:?})"</span>,
 					session_index,
 					validator_index,
 					kind,
 				);
-				<span class="prelude-val">Err</span>(sp_runtime::DispatchError::Other(<span class="string">&quot;&quot;</span>))
+				<span class="prelude-val">Err</span>(sp_runtime::DispatchError::Other(<span class="string">""</span>))
 			},
 		}
 	}

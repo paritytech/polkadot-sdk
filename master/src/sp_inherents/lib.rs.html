@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/inherents/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/inherents/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_inherents" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_inherents" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sp_inherents/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -660,14 +662,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -694,7 +696,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!
 //! On block import the inherents in the block are checked by calling the `check_inherents` runtime
 //! API. This will also pass an instance of [`InherentData`] which the runtime can use to validate
-//! all inherents. If some inherent data isn&#39;t required for validating an inherent, it can be
+//! all inherents. If some inherent data isn't required for validating an inherent, it can be
 //! omitted when providing the inherent data providers for block import.
 //!
 //! # Providing inherent data
@@ -706,7 +708,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! use sp_inherents::{InherentIdentifier, InherentData};
 //!
 //! // This needs to be unique for the runtime.
-//! const INHERENT_IDENTIFIER: InherentIdentifier = *b&quot;testinh0&quot;;
+//! const INHERENT_IDENTIFIER: InherentIdentifier = *b"testinh0";
 //!
 //! /// Some custom inherent data provider
 //! struct InherentDataProvider;
@@ -718,7 +720,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! 		inherent_data: &amp;mut InherentData,
 //! 	) -&gt; Result&lt;(), sp_inherents::Error&gt; {
 //! 		// We can insert any data that implements [`codec::Encode`].
-//! 		inherent_data.put_data(INHERENT_IDENTIFIER, &amp;&quot;hello&quot;)
+//! 		inherent_data.put_data(INHERENT_IDENTIFIER, &amp;"hello")
 //! 	}
 //!
 //! 	/// When validating the inherents, the runtime implementation can throw errors. We support
@@ -759,12 +761,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! # use sp_inherents::{InherentIdentifier, InherentData};
 //! # use futures::FutureExt;
 //! # type Block = sp_runtime::testing::Block&lt;ExtrinsicWrapper&lt;()&gt;&gt;;
-//! # const INHERENT_IDENTIFIER: InherentIdentifier = *b&quot;testinh0&quot;;
+//! # const INHERENT_IDENTIFIER: InherentIdentifier = *b"testinh0";
 //! # struct InherentDataProvider;
 //! # #[async_trait::async_trait]
 //! # impl sp_inherents::InherentDataProvider for InherentDataProvider {
 //! # 	async fn provide_inherent_data(&amp;self, inherent_data: &amp;mut InherentData) -&gt; Result&lt;(), sp_inherents::Error&gt; {
-//! # 		inherent_data.put_data(INHERENT_IDENTIFIER, &amp;&quot;hello&quot;)
+//! # 		inherent_data.put_data(INHERENT_IDENTIFIER, &amp;"hello")
 //! # 	}
 //! # 	async fn try_handle_error(
 //! # 		&amp;self,
@@ -790,7 +792,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! }
 //!
 //! async fn build_service(is_validator: bool) {
-//! 	// For block import we don&#39;t pass any inherent data provider, because our runtime
+//! 	// For block import we don't pass any inherent data provider, because our runtime
 //! 	// does not need any inherent data to validate the inherents.
 //! 	let block_import = cool_consensus_block_import(|_parent, ()| async { Ok(()) });
 //!
@@ -816,7 +818,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! and expects the runtime to construct the inherents out of it. When validating the inherents,
 //! [`CheckInherentsResult`] is used to communicate the result client side.
 
-</span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
+</span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 #![warn(missing_docs)]
 
 </span><span class="kw">extern crate </span>alloc;
@@ -828,33 +830,33 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	vec::Vec,
 };
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">mod </span>client_side;
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">pub use </span>client_side::<span class="kw-2">*</span>;
 
 <span class="doccomment">/// Errors that occur in context of inherents.
 </span><span class="attr">#[derive(Debug)]
-#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(thiserror::Error))]
+#[cfg_attr(feature = <span class="string">"std"</span>, derive(thiserror::Error))]
 #[allow(missing_docs)]
 </span><span class="kw">pub enum </span>Error {
 	<span class="attr">#[cfg_attr(
-		feature = <span class="string">&quot;std&quot;</span>,
-		error(<span class="string">&quot;Inherent data already exists for identifier: {}&quot;</span>, <span class="string">&quot;String::from_utf8_lossy(_0)&quot;</span>)
+		feature = <span class="string">"std"</span>,
+		error(<span class="string">"Inherent data already exists for identifier: {}"</span>, <span class="string">"String::from_utf8_lossy(_0)"</span>)
 	)]
 	</span>InherentDataExists(InherentIdentifier),
 	<span class="attr">#[cfg_attr(
-		feature = <span class="string">&quot;std&quot;</span>,
-		error(<span class="string">&quot;Failed to decode inherent data for identifier: {}&quot;</span>, <span class="string">&quot;String::from_utf8_lossy(_1)&quot;</span>)
+		feature = <span class="string">"std"</span>,
+		error(<span class="string">"Failed to decode inherent data for identifier: {}"</span>, <span class="string">"String::from_utf8_lossy(_1)"</span>)
 	)]
-	</span>DecodingFailed(<span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, source)] </span>codec::Error, InherentIdentifier),
+	</span>DecodingFailed(<span class="attr">#[cfg_attr(feature = <span class="string">"std"</span>, source)] </span>codec::Error, InherentIdentifier),
 	<span class="attr">#[cfg_attr(
-		feature = <span class="string">&quot;std&quot;</span>,
-		error(<span class="string">&quot;There was already a fatal error reported and no other errors are allowed&quot;</span>)
+		feature = <span class="string">"std"</span>,
+		error(<span class="string">"There was already a fatal error reported and no other errors are allowed"</span>)
 	)]
 	</span>FatalErrorReported,
-	<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 	#[error(transparent)]
 	</span>Application(<span class="attr">#[from] </span>Box&lt;<span class="kw">dyn </span>std::error::Error + Send + Sync&gt;),
 }
@@ -970,7 +972,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		identifier: InherentIdentifier,
 		error: <span class="kw-2">&amp;</span>E,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
-		<span class="comment">// Don&#39;t accept any other error
+		<span class="comment">// Don't accept any other error
 		</span><span class="kw">if </span><span class="self">self</span>.fatal_error {
 			<span class="kw">return </span><span class="prelude-val">Err</span>(Error::FatalErrorReported)
 		}
@@ -1017,7 +1019,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">impl </span>PartialEq <span class="kw">for </span>CheckInherentsResult {
 	<span class="kw">fn </span>eq(<span class="kw-2">&amp;</span><span class="self">self</span>, other: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; bool {
 		<span class="self">self</span>.fatal_error == other.fatal_error &amp;&amp;
@@ -1060,8 +1062,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use </span>codec::{Decode, Encode};
 
-	<span class="kw">const </span>TEST_INHERENT_0: InherentIdentifier = <span class="kw-2">*</span><span class="string">b&quot;testinh0&quot;</span>;
-	<span class="kw">const </span>TEST_INHERENT_1: InherentIdentifier = <span class="kw-2">*</span><span class="string">b&quot;testinh1&quot;</span>;
+	<span class="kw">const </span>TEST_INHERENT_0: InherentIdentifier = <span class="kw-2">*</span><span class="string">b"testinh0"</span>;
+	<span class="kw">const </span>TEST_INHERENT_1: InherentIdentifier = <span class="kw-2">*</span><span class="string">b"testinh1"</span>;
 
 	<span class="attr">#[derive(Encode)]
 	</span><span class="kw">struct </span>NoFatalError&lt;E: codec::Encode&gt;(E);
@@ -1098,7 +1100,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[derive(Clone)]
 	</span><span class="kw">struct </span>TestInherentDataProvider;
 
-	<span class="kw">const </span>ERROR_TO_STRING: <span class="kw-2">&amp;</span>str = <span class="string">&quot;Found error!&quot;</span>;
+	<span class="kw">const </span>ERROR_TO_STRING: <span class="kw-2">&amp;</span>str = <span class="string">"Found error!"</span>;
 
 	<span class="attr">#[async_trait::async_trait]
 	</span><span class="kw">impl </span>InherentDataProvider <span class="kw">for </span>TestInherentDataProvider {
@@ -1159,7 +1161,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		result.into_errors().for_each(|(i, e)| <span class="kw">match </span>i {
 			TEST_INHERENT_1 =&gt; <span class="macro">assert_eq!</span>(u32::decode(<span class="kw-2">&amp;mut &amp;</span>e[..]).unwrap(), <span class="number">4</span>),
-			<span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;There should be no other error!&quot;</span>),
+			<span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"There should be no other error!"</span>),
 		});
 	}
 }

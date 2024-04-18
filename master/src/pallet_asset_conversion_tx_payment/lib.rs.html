@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/transaction-payment/asset-conversion-tx-payment/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/transaction-payment/asset-conversion-tx-payment/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_asset_conversion_tx_payment" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_asset_conversion_tx_payment" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../pallet_asset_conversion_tx_payment/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -498,14 +500,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -513,7 +515,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! # Asset Conversion Transaction Payment Pallet
 //!
 //! This pallet allows runtimes that include it to pay for transactions in assets other than the
-//! chain&#39;s native asset.
+//! chain's native asset.
 //!
 //! ## Overview
 //!
@@ -526,9 +528,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!
 //! ## Pallet API
 //!
-//! This pallet does not have any dispatchable calls or storage. It wraps FRAME&#39;s Transaction
+//! This pallet does not have any dispatchable calls or storage. It wraps FRAME's Transaction
 //! Payment pallet and functions as a replacement. This means you should include both pallets in
-//! your `construct_runtime` macro, but only include this pallet&#39;s [`SignedExtension`]
+//! your `construct_runtime` macro, but only include this pallet's [`SignedExtension`]
 //! ([`ChargeAssetTxPayment`]).
 //!
 //! ## Terminology
@@ -537,7 +539,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!   for transaction fee payment, deposits, inflation, etc.
 //! - Other assets: Other assets that may exist on chain, for example under the Assets pallet.
 
-</span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
+</span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
 </span><span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 
@@ -571,7 +573,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Type aliases used for interaction with `OnChargeTransaction`.
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>OnChargeTransactionOf&lt;T&gt; =
 	&lt;T <span class="kw">as </span>pallet_transaction_payment::Config&gt;::OnChargeTransaction;
-<span class="doccomment">/// Balance type alias for balances of the chain&#39;s native asset.
+<span class="doccomment">/// Balance type alias for balances of the chain's native asset.
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>BalanceOf&lt;T&gt; = &lt;OnChargeTransactionOf&lt;T&gt; <span class="kw">as </span>OnChargeTransaction&lt;T&gt;&gt;::Balance;
 <span class="doccomment">/// Liquidity info type alias.
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>LiquidityInfoOf&lt;T&gt; =
@@ -679,7 +681,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		len: usize,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(BalanceOf&lt;T&gt;, InitialPayment&lt;T&gt;), TransactionValidityError&gt; {
 		<span class="kw">let </span>fee = pallet_transaction_payment::Pallet::&lt;T&gt;::compute_fee(len <span class="kw">as </span>u32, info, <span class="self">self</span>.tip);
-		<span class="macro">debug_assert!</span>(<span class="self">self</span>.tip &lt;= fee, <span class="string">&quot;tip should be included in the computed fee&quot;</span>);
+		<span class="macro">debug_assert!</span>(<span class="self">self</span>.tip &lt;= fee, <span class="string">"tip should be included in the computed fee"</span>);
 		<span class="kw">if </span>fee.is_zero() {
 			<span class="prelude-val">Ok</span>((fee, InitialPayment::Nothing))
 		} <span class="kw">else if let </span><span class="prelude-val">Some</span>(asset_id) = <span class="kw-2">&amp;</span><span class="self">self</span>.asset_id {
@@ -712,11 +714,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl</span>&lt;T: Config&gt; sp_std::fmt::Debug <span class="kw">for </span>ChargeAssetTxPayment&lt;T&gt; {
-	<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 	</span><span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter) -&gt; sp_std::fmt::Result {
-		<span class="macro">write!</span>(f, <span class="string">&quot;ChargeAssetTxPayment&lt;{:?}, {:?}&gt;&quot;</span>, <span class="self">self</span>.tip, <span class="self">self</span>.asset_id.encode())
+		<span class="macro">write!</span>(f, <span class="string">"ChargeAssetTxPayment&lt;{:?}, {:?}&gt;"</span>, <span class="self">self</span>.tip, <span class="self">self</span>.asset_id.encode())
 	}
-	<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+	<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
 	</span><span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw">_</span>: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter) -&gt; sp_std::fmt::Result {
 		<span class="prelude-val">Ok</span>(())
 	}
@@ -734,7 +736,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		+ From&lt;ChargeAssetLiquidityOf&lt;T&gt;&gt;,
 	ChargeAssetIdOf&lt;T&gt;: Send + Sync,
 {
-	<span class="kw">const </span>IDENTIFIER: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;ChargeAssetTxPayment&quot;</span>;
+	<span class="kw">const </span>IDENTIFIER: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"ChargeAssetTxPayment"</span>;
 	<span class="kw">type </span>AccountId = T::AccountId;
 	<span class="kw">type </span>Call = T::RuntimeCall;
 	<span class="kw">type </span>AdditionalSigned = ();
@@ -789,7 +791,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				InitialPayment::Native(already_withdrawn) =&gt; {
 					<span class="macro">debug_assert!</span>(
 						asset_id.is_none(),
-						<span class="string">&quot;For that payment type the `asset_id` should be None&quot;
+						<span class="string">"For that payment type the `asset_id` should be None"
 					</span>);
 					pallet_transaction_payment::ChargeTransactionPayment::&lt;T&gt;::post_dispatch(
 						<span class="prelude-val">Some</span>((tip, who, already_withdrawn)),
@@ -802,7 +804,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				InitialPayment::Asset(already_withdrawn) =&gt; {
 					<span class="macro">debug_assert!</span>(
 						asset_id.is_some(),
-						<span class="string">&quot;For that payment type the `asset_id` should be set&quot;
+						<span class="string">"For that payment type the `asset_id` should be set"
 					</span>);
 					<span class="kw">let </span>actual_fee = pallet_transaction_payment::Pallet::&lt;T&gt;::compute_actual_fee(
 						len <span class="kw">as </span>u32, info, post_info, tip,
@@ -832,10 +834,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				},
 				InitialPayment::Nothing =&gt; {
 					<span class="comment">// `actual_fee` should be zero here for any signed extrinsic. It would be
-					// non-zero here in case of unsigned extrinsics as they don&#39;t pay fees but
-					// `compute_actual_fee` is not aware of them. In both cases it&#39;s fine to just
+					// non-zero here in case of unsigned extrinsics as they don't pay fees but
+					// `compute_actual_fee` is not aware of them. In both cases it's fine to just
 					// move ahead without adjusting the fee, though, so we do nothing.
-					</span><span class="macro">debug_assert!</span>(tip.is_zero(), <span class="string">&quot;tip should be zero if initial fee was zero.&quot;</span>);
+					</span><span class="macro">debug_assert!</span>(tip.is_zero(), <span class="string">"tip should be zero if initial fee was zero."</span>);
 				},
 			}
 		}

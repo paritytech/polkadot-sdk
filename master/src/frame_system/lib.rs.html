@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/system/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/system/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="frame_system" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="frame_system" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../frame_system/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -2407,14 +2409,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -2445,7 +2447,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! low-level or privileged functionality of a Substrate-based runtime.
 //!
 //! - `remark`: Make some on-chain remark.
-//! - `set_heap_pages`: Set the number of pages in the WebAssembly environment&#39;s heap.
+//! - `set_heap_pages`: Set the number of pages in the WebAssembly environment's heap.
 //! - `set_code`: Set the new runtime code.
 //! - `set_code_without_checks`: Set the new runtime code without any checks.
 //! - `set_storage`: Set some items of storage.
@@ -2466,7 +2468,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! (application may have to be scheduled, depending on the context and implementation of the
 //! `OnSetCode` trait).
 //!
-//! The `authorize_upgrade` route allows the authorization of a runtime&#39;s code hash. Once
+//! The `authorize_upgrade` route allows the authorization of a runtime's code hash. Once
 //! authorized, anyone may upload the correct runtime to apply the code. This pattern is useful when
 //! providing the runtime ahead of time may be unwieldy, for example when a large preimage (the
 //! code) would need to be stored on-chain or sent over a message transport protocol such as a
@@ -2499,13 +2501,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! Look up the runtime aggregator file (e.g. `node/runtime`) to see the full list of signed
 //! extensions included in a chain.
 
-</span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
+</span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
 </span><span class="kw">use </span>pallet_prelude::{BlockNumberFor, HeaderFor};
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">use </span>serde::Serialize;
 <span class="kw">use </span>sp_io::hashing::blake2_256;
-<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 </span><span class="kw">use </span>sp_runtime::traits::TrailingZeroInput;
 <span class="kw">use </span>sp_runtime::{
 	generic,
@@ -2520,13 +2522,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	},
 	DispatchError, RuntimeDebug,
 };
-<span class="attr">#[cfg(any(feature = <span class="string">&quot;std&quot;</span>, test))]
+<span class="attr">#[cfg(any(feature = <span class="string">"std"</span>, test))]
 </span><span class="kw">use </span>sp_std::map;
 <span class="kw">use </span>sp_std::{fmt::Debug, marker::PhantomData, prelude::<span class="kw-2">*</span>};
 <span class="kw">use </span>sp_version::RuntimeVersion;
 
 <span class="kw">use </span>codec::{Decode, Encode, EncodeLike, FullCodec, MaxEncodedLen};
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">use </span>frame_support::traits::BuildGenesisConfig;
 <span class="kw">use </span>frame_support::{
 	dispatch::{
@@ -2548,7 +2550,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sp_core::storage::well_known_keys;
 <span class="kw">use </span>sp_weights::{RuntimeDbWeight, Weight};
 
-<span class="attr">#[cfg(any(feature = <span class="string">&quot;std&quot;</span>, test))]
+<span class="attr">#[cfg(any(feature = <span class="string">"std"</span>, test))]
 </span><span class="kw">use </span>sp_io::TestExternalities;
 
 <span class="kw">pub mod </span>limits;
@@ -2558,7 +2560,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">pub mod </span>offchain;
 
 <span class="kw">mod </span>extensions;
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">pub mod </span>mocking;
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests;
@@ -2578,7 +2580,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>frame_support::traits::{PostInherents, PostTransactions, PreInherents};
 <span class="kw">pub use </span>weights::WeightInfo;
 
-<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;runtime::system&quot;</span>;
+<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"runtime::system"</span>;
 
 <span class="doccomment">/// Compute the trie root of a list of extrinsics.
 ///
@@ -2621,7 +2623,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// The maximum number of additional consumers expected to be over be added at once using
 	/// `inc_consumers_without_limit`.
 	///
-	/// Note: This is not enforced and it&#39;s up to the chain&#39;s author to ensure this reflects the
+	/// Note: This is not enforced and it's up to the chain's author to ensure this reflects the
 	/// actual situation.
 	</span><span class="kw">fn </span>max_overflow() -&gt; RefCount;
 }
@@ -2672,7 +2674,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		/// [`derive_impl`](`frame_support::derive_impl`) to derive a testing pallet config
 		/// based on this one.
 		///
-		/// See `Test` in the `default-config` example pallet&#39;s `test.rs` for an example of
+		/// See `Test` in the `default-config` example pallet's `test.rs` for an example of
 		/// a downstream user of this particular `TestDefaultConfig`
 		</span><span class="kw">pub struct </span>TestDefaultConfig;
 
@@ -2720,8 +2722,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		/// By default, this type makes the following choices:
 		///
 		/// * Use a normal 32 byte account id, with a [`DefaultConfig::Lookup`] that implies no
-		///   &#39;account-indexing&#39; pallet is being used.
-		/// * Given that we don&#39;t know anything about the existence of a currency system in scope,
+		///   'account-indexing' pallet is being used.
+		/// * Given that we don't know anything about the existence of a currency system in scope,
 		///   an [`DefaultConfig::AccountData`] is chosen that has no addition data. Overwrite this
 		///   if you use `pallet-balances` or similar.
 		/// * Make sure to overwrite [`DefaultConfig::Version`].
@@ -2803,7 +2805,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			/// Using 256 as default.
 			</span><span class="kw">type </span>BlockHashCount = frame_support::traits::ConstU32&lt;<span class="number">256</span>&gt;;
 
-			<span class="doccomment">/// The set code logic, just the default since we&#39;re not a parachain.
+			<span class="doccomment">/// The set code logic, just the default since we're not a parachain.
 			</span><span class="kw">type </span>OnSetCode = ();
 			<span class="kw">type </span>SingleBlockMigrations = ();
 			<span class="kw">type </span>MultiBlockMigrator = ();
@@ -2832,7 +2834,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// System configuration trait. Implemented by runtime.
 	</span><span class="attr">#[pallet::config(with_default)]
 	#[pallet::disable_frame_system_supertrait_check]
-	</span><span class="kw">pub trait </span>Config: <span class="lifetime">&#39;static </span>+ Eq + Clone {
+	</span><span class="kw">pub trait </span>Config: <span class="lifetime">'static </span>+ Eq + Clone {
 		<span class="doccomment">/// The aggregated event type of the runtime.
 		</span><span class="attr">#[pallet::no_default_bounds]
 		</span><span class="kw">type </span>RuntimeEvent: Parameter
@@ -2923,7 +2925,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="doccomment">/// Converting trait to take a source type and convert to `AccountId`.
 		///
 		/// Used to define the type and conversion mechanism for referencing accounts in
-		/// transactions. It&#39;s perfectly reasonable for this to be an identity conversion (with the
+		/// transactions. It's perfectly reasonable for this to be an identity conversion (with the
 		/// source type being `AccountId`), but other pallets (e.g. Indices pallet) may provide more
 		/// functional/efficient alternatives.
 		</span><span class="kw">type </span>Lookup: StaticLookup&lt;Target = <span class="self">Self</span>::AccountId&gt;;
@@ -2942,7 +2944,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="attr">#[pallet::constant]
 		</span><span class="kw">type </span>DbWeight: Get&lt;RuntimeDbWeight&gt;;
 
-		<span class="doccomment">/// Get the chain&#39;s in-code version.
+		<span class="doccomment">/// Get the chain's in-code version.
 		</span><span class="attr">#[pallet::constant]
 		</span><span class="kw">type </span>Version: Get&lt;RuntimeVersion&gt;;
 
@@ -2951,7 +2953,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		/// Expects the `PalletInfo` type that is being generated by `construct_runtime!` in the
 		/// runtime.
 		///
-		/// For tests it is okay to use `()` as type, however it will provide &quot;useless&quot; data.
+		/// For tests it is okay to use `()` as type, however it will provide "useless" data.
 		</span><span class="attr">#[pallet::no_default_bounds]
 		</span><span class="kw">type </span>PalletInfo: PalletInfo;
 
@@ -2971,7 +2973,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="doccomment">/// The designated SS58 prefix of this chain.
 		///
-		/// This replaces the &quot;ss58Format&quot; property declared in the chain spec. Reason is
+		/// This replaces the "ss58Format" property declared in the chain spec. Reason is
 		/// that the runtime should know about the prefix in order to make use of it as
 		/// an identifier of the chain.
 		</span><span class="attr">#[pallet::constant]
@@ -2982,7 +2984,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		/// The default (`()`) implementation is responsible for setting the correct storage
 		/// entry and emitting corresponding event and log item. (see
 		/// [`Pallet::update_code_in_storage`]).
-		/// It&#39;s unlikely that this needs to be customized, unless you are writing a parachain using
+		/// It's unlikely that this needs to be customized, unless you are writing a parachain using
 		/// `Cumulus`, where the actual code change is deferred.
 		</span><span class="attr">#[pallet::no_default_bounds]
 		</span><span class="kw">type </span>OnSetCode: SetCode&lt;<span class="self">Self</span>&gt;;
@@ -3025,9 +3027,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[pallet::hooks]
 	</span><span class="kw">impl</span>&lt;T: Config&gt; Hooks&lt;BlockNumberFor&lt;T&gt;&gt; <span class="kw">for </span>Pallet&lt;T&gt; {
-		<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+		<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 		</span><span class="kw">fn </span>integrity_test() {
-			T::BlockWeights::get().validate().expect(<span class="string">&quot;The weights are invalid.&quot;</span>);
+			T::BlockWeights::get().validate().expect(<span class="string">"The weights are invalid."</span>);
 		}
 	}
 
@@ -3043,7 +3045,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="prelude-val">Ok</span>(().into())
 		}
 
-		<span class="doccomment">/// Set the number of pages in the WebAssembly environment&#39;s heap.
+		<span class="doccomment">/// Set the number of pages in the WebAssembly environment's heap.
 		</span><span class="attr">#[pallet::call_index(<span class="number">1</span>)]
 		#[pallet::weight((T::SystemWeightInfo::set_heap_pages(), DispatchClass::Operational))]
 		</span><span class="kw">pub fn </span>set_heap_pages(origin: OriginFor&lt;T&gt;, pages: u64) -&gt; DispatchResultWithPostInfo {
@@ -3142,7 +3144,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Ok</span>(().into())
 		}
 
-		<span class="attr">#[cfg(feature = <span class="string">&quot;experimental&quot;</span>)]
+		<span class="attr">#[cfg(feature = <span class="string">"experimental"</span>)]
 		#[pallet::call_index(<span class="number">8</span>)]
 		#[pallet::weight(task.weight())]
 		</span><span class="kw">pub fn </span>do_task(origin: OriginFor&lt;T&gt;, task: T::RuntimeTask) -&gt; DispatchResultWithPostInfo {
@@ -3201,7 +3203,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		/// If the authorization required a version check, this call will ensure the spec name
 		/// remains unchanged and that the spec version has increased.
 		///
-		/// Depending on the runtime&#39;s `OnSetCode` configuration, this function may directly apply
+		/// Depending on the runtime's `OnSetCode` configuration, this function may directly apply
 		/// the new `code` in the same block or attempt to schedule the upgrade.
 		///
 		/// All origins are allowed.
@@ -3231,13 +3233,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>KilledAccount { account: T::AccountId },
 		<span class="doccomment">/// On on-chain remark happened.
 		</span>Remarked { sender: T::AccountId, hash: T::Hash },
-		<span class="attr">#[cfg(feature = <span class="string">&quot;experimental&quot;</span>)]
+		<span class="attr">#[cfg(feature = <span class="string">"experimental"</span>)]
 		</span><span class="doccomment">/// A [`Task`] has started executing
 		</span>TaskStarted { task: T::RuntimeTask },
-		<span class="attr">#[cfg(feature = <span class="string">&quot;experimental&quot;</span>)]
+		<span class="attr">#[cfg(feature = <span class="string">"experimental"</span>)]
 		</span><span class="doccomment">/// A [`Task`] has finished executing.
 		</span>TaskCompleted { task: T::RuntimeTask },
-		<span class="attr">#[cfg(feature = <span class="string">&quot;experimental&quot;</span>)]
+		<span class="attr">#[cfg(feature = <span class="string">"experimental"</span>)]
 		</span><span class="doccomment">/// A [`Task`] failed during execution.
 		</span>TaskFailed { task: T::RuntimeTask, err: DispatchError },
 		<span class="doccomment">/// An upgrade was authorized.
@@ -3265,10 +3267,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>CallFiltered,
 		<span class="doccomment">/// A multi-block migration is ongoing and prevents the current code from being replaced.
 		</span>MultiBlockMigrationsOngoing,
-		<span class="attr">#[cfg(feature = <span class="string">&quot;experimental&quot;</span>)]
+		<span class="attr">#[cfg(feature = <span class="string">"experimental"</span>)]
 		</span><span class="doccomment">/// The specified [`Task`] is not valid.
 		</span>InvalidTask,
-		<span class="attr">#[cfg(feature = <span class="string">&quot;experimental&quot;</span>)]
+		<span class="attr">#[cfg(feature = <span class="string">"experimental"</span>)]
 		</span><span class="doccomment">/// The specified [`Task`] failed during execution.
 		</span>FailedTask,
 		<span class="doccomment">/// No upgrade authorized.
@@ -3316,7 +3318,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub type </span>BlockHash&lt;T: Config&gt; =
 		StorageMap&lt;<span class="kw">_</span>, Twox64Concat, BlockNumberFor&lt;T&gt;, T::Hash, ValueQuery&gt;;
 
-	<span class="doccomment">/// Extrinsics data for the current block (maps an extrinsic&#39;s index to its data).
+	<span class="doccomment">/// Extrinsics data for the current block (maps an extrinsic's index to its data).
 	</span><span class="attr">#[pallet::storage]
 	#[pallet::getter(<span class="kw">fn </span>extrinsic_data)]
 	#[pallet::unbounded]
@@ -3444,9 +3446,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">pub type </span>Key = Vec&lt;u8&gt;;
 <span class="kw">pub type </span>KeyValue = (Vec&lt;u8&gt;, Vec&lt;u8&gt;);
 
-<span class="doccomment">/// A phase of a block&#39;s execution.
+<span class="doccomment">/// A phase of a block's execution.
 </span><span class="attr">#[derive(Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
-#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(Serialize, PartialEq, Eq, Clone))]
+#[cfg_attr(feature = <span class="string">"std"</span>, derive(Serialize, PartialEq, Eq, Clone))]
 </span><span class="kw">pub enum </span>Phase {
 	<span class="doccomment">/// Applying an extrinsic.
 	</span>ApplyExtrinsic(u32),
@@ -3464,7 +3466,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Record of an event happening.
 </span><span class="attr">#[derive(Encode, Decode, RuntimeDebug, TypeInfo)]
-#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(Serialize, PartialEq, Eq, Clone))]
+#[cfg_attr(feature = <span class="string">"std"</span>, derive(Serialize, PartialEq, Eq, Clone))]
 </span><span class="kw">pub struct </span>EventRecord&lt;E: Parameter + Member, T&gt; {
 	<span class="doccomment">/// The phase of the block it happened in.
 	</span><span class="kw">pub </span>phase: Phase,
@@ -3485,7 +3487,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// This type alias represents an index of an event.
 ///
 /// We use `u32` here because this index is used as index for `Events&lt;T&gt;`
-/// which can&#39;t contain more than `u32::MAX` items.
+/// which can't contain more than `u32::MAX` items.
 </span><span class="kw">type </span>EventIndex = u32;
 
 <span class="doccomment">/// Type used to encode the number of references an account has.
@@ -3496,7 +3498,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub struct </span>AccountInfo&lt;Nonce, AccountData&gt; {
 	<span class="doccomment">/// The number of transactions this account has sent.
 	</span><span class="kw">pub </span>nonce: Nonce,
-	<span class="doccomment">/// The number of other modules that currently depend on this account&#39;s existence. The account
+	<span class="doccomment">/// The number of other modules that currently depend on this account's existence. The account
 	/// cannot be reaped until this is zero.
 	</span><span class="kw">pub </span>consumers: RefCount,
 	<span class="doccomment">/// The number of other modules that allow this account to exist. The account may not be reaped
@@ -3513,7 +3515,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Stores the `spec_version` and `spec_name` of when the last runtime upgrade
 /// happened.
 </span><span class="attr">#[derive(sp_runtime::RuntimeDebug, Encode, Decode, TypeInfo)]
-#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(PartialEq))]
+#[cfg_attr(feature = <span class="string">"std"</span>, derive(PartialEq))]
 </span><span class="kw">pub struct </span>LastRuntimeUpgradeInfo {
 	<span class="kw">pub </span>spec_version: codec::Compact&lt;u32&gt;,
 	<span class="kw">pub </span>spec_name: sp_runtime::RuntimeString,
@@ -3547,7 +3549,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		})
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">fn </span>try_successful_origin() -&gt; <span class="prelude-ty">Result</span>&lt;O, ()&gt; {
 		<span class="prelude-val">Ok</span>(O::from(RawOrigin::Root))
 	}
@@ -3577,7 +3579,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		})
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">fn </span>try_successful_origin() -&gt; <span class="prelude-ty">Result</span>&lt;O, ()&gt; {
 		<span class="prelude-val">Ok</span>(O::from(RawOrigin::Root))
 	}
@@ -3607,7 +3609,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		Ensure::try_origin(o).map(|<span class="kw">_</span>| Success::get())
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">fn </span>try_successful_origin() -&gt; <span class="prelude-ty">Result</span>&lt;O, ()&gt; {
 		Ensure::try_successful_origin()
 	}
@@ -3626,7 +3628,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		})
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">fn </span>try_successful_origin() -&gt; <span class="prelude-ty">Result</span>&lt;O, ()&gt; {
 		<span class="kw">let </span>zero_account_id =
 			AccountId::decode(<span class="kw-2">&amp;mut </span>TrailingZeroInput::zeroes()).map_err(|<span class="kw">_</span>| ())<span class="question-mark">?</span>;
@@ -3656,7 +3658,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		})
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">fn </span>try_successful_origin() -&gt; <span class="prelude-ty">Result</span>&lt;O, ()&gt; {
 		<span class="kw">let </span>first_member = <span class="kw">match </span>Who::sorted_members().first() {
 			<span class="prelude-val">Some</span>(account) =&gt; account.clone(),
@@ -3685,7 +3687,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		})
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">fn </span>try_successful_origin() -&gt; <span class="prelude-ty">Result</span>&lt;O, ()&gt; {
 		<span class="prelude-val">Ok</span>(O::from(RawOrigin::None))
 	}
@@ -3705,7 +3707,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Err</span>(o)
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">fn </span>try_successful_origin() -&gt; <span class="prelude-ty">Result</span>&lt;O, ()&gt; {
 		<span class="prelude-val">Err</span>(())
 	}
@@ -3797,7 +3799,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Returns the `spec_version` of the last runtime upgrade.
 	///
 	/// This function is useful for writing guarded runtime migrations in the runtime. A runtime
-	/// migration can use the `spec_version` to ensure that it isn&#39;t applied twice. This works
+	/// migration can use the `spec_version` to ensure that it isn't applied twice. This works
 	/// similar as the storage version for pallets.
 	///
 	/// This functions returns the `spec_version` of the last runtime upgrade while executing the
@@ -3807,7 +3809,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// current runtime until there is another runtime upgrade.
 	///
 	/// Example:
-	</span><span class="attr">#[doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;src/tests.rs&quot;</span>, last_runtime_upgrade_spec_version_usage)]
+	</span><span class="attr">#[doc = <span class="macro">docify::embed!</span>(<span class="string">"src/tests.rs"</span>, last_runtime_upgrade_spec_version_usage)]
 	</span><span class="kw">pub fn </span>last_runtime_upgrade_spec_version() -&gt; u32 {
 		LastRuntimeUpgrade::&lt;T&gt;::get().map_or(<span class="number">0</span>, |l| l.spec_version.<span class="number">0</span>)
 	}
@@ -3842,26 +3844,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Increment the reference counter on an account.
-	</span><span class="attr">#[deprecated = <span class="string">&quot;Use `inc_consumers` instead&quot;</span>]
+	</span><span class="attr">#[deprecated = <span class="string">"Use `inc_consumers` instead"</span>]
 	</span><span class="kw">pub fn </span>inc_ref(who: <span class="kw-2">&amp;</span>T::AccountId) {
 		<span class="kw">let _ </span>= <span class="self">Self</span>::inc_consumers(who);
 	}
 
 	<span class="doccomment">/// Decrement the reference counter on an account. This *MUST* only be done once for every time
 	/// you called `inc_consumers` on `who`.
-	</span><span class="attr">#[deprecated = <span class="string">&quot;Use `dec_consumers` instead&quot;</span>]
+	</span><span class="attr">#[deprecated = <span class="string">"Use `dec_consumers` instead"</span>]
 	</span><span class="kw">pub fn </span>dec_ref(who: <span class="kw-2">&amp;</span>T::AccountId) {
 		<span class="kw">let _ </span>= <span class="self">Self</span>::dec_consumers(who);
 	}
 
 	<span class="doccomment">/// The number of outstanding references for the account `who`.
-	</span><span class="attr">#[deprecated = <span class="string">&quot;Use `consumers` instead&quot;</span>]
+	</span><span class="attr">#[deprecated = <span class="string">"Use `consumers` instead"</span>]
 	</span><span class="kw">pub fn </span>refs(who: <span class="kw-2">&amp;</span>T::AccountId) -&gt; RefCount {
 		<span class="self">Self</span>::consumers(who)
 	}
 
 	<span class="doccomment">/// True if the account has no outstanding references.
-	</span><span class="attr">#[deprecated = <span class="string">&quot;Use `!is_provider_required` instead&quot;</span>]
+	</span><span class="attr">#[deprecated = <span class="string">"Use `!is_provider_required` instead"</span>]
 	</span><span class="kw">pub fn </span>allow_death(who: <span class="kw-2">&amp;</span>T::AccountId) -&gt; bool {
 		!<span class="self">Self</span>::is_provider_required(who)
 	}
@@ -3891,7 +3893,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="comment">// Logic error - cannot decrement beyond zero.
 					</span><span class="macro">log::error!</span>(
 						target: LOG_TARGET,
-						<span class="string">&quot;Logic error: Unexpected underflow in reducing provider&quot;</span>,
+						<span class="string">"Logic error: Unexpected underflow in reducing provider"</span>,
 					);
 					account.providers = <span class="number">1</span>;
 				}
@@ -3917,7 +3919,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			} <span class="kw">else </span>{
 				<span class="macro">log::error!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Logic error: Account already dead when reducing provider&quot;</span>,
+					<span class="string">"Logic error: Account already dead when reducing provider"</span>,
 				);
 				<span class="prelude-val">Ok</span>(DecRefStatus::Reaped)
 			}
@@ -3949,7 +3951,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="comment">// Logic error - cannot decrement beyond zero.
 					</span><span class="macro">log::error!</span>(
 						target: LOG_TARGET,
-						<span class="string">&quot;Logic error: Unexpected underflow in reducing sufficients&quot;</span>,
+						<span class="string">"Logic error: Unexpected underflow in reducing sufficients"</span>,
 					);
 				}
 				<span class="kw">match </span>(account.sufficients, account.providers) {
@@ -3966,7 +3968,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			} <span class="kw">else </span>{
 				<span class="macro">log::error!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Logic error: Account already dead when reducing provider&quot;</span>,
+					<span class="string">"Logic error: Account already dead when reducing provider"</span>,
 				);
 				DecRefStatus::Reaped
 			}
@@ -3991,7 +3993,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Increment the reference counter on an account.
 	///
-	/// The account `who`&#39;s `providers` must be non-zero and the current number of consumers must
+	/// The account `who`'s `providers` must be non-zero and the current number of consumers must
 	/// be less than `MaxConsumers::max_consumers()` or this will return an error.
 	</span><span class="kw">pub fn </span>inc_consumers(who: <span class="kw-2">&amp;</span>T::AccountId) -&gt; <span class="prelude-ty">Result</span>&lt;(), DispatchError&gt; {
 		Account::&lt;T&gt;::try_mutate(who, |a| {
@@ -4010,7 +4012,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Increment the reference counter on an account, ignoring the `MaxConsumers` limits.
 	///
-	/// The account `who`&#39;s `providers` must be non-zero or this will return an error.
+	/// The account `who`'s `providers` must be non-zero or this will return an error.
 	</span><span class="kw">pub fn </span>inc_consumers_without_limit(who: <span class="kw-2">&amp;</span>T::AccountId) -&gt; <span class="prelude-ty">Result</span>&lt;(), DispatchError&gt; {
 		Account::&lt;T&gt;::try_mutate(who, |a| {
 			<span class="kw">if </span>a.providers &gt; <span class="number">0 </span>{
@@ -4031,7 +4033,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			} <span class="kw">else </span>{
 				<span class="macro">log::error!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Logic error: Unexpected underflow in reducing consumer&quot;</span>,
+					<span class="string">"Logic error: Unexpected underflow in reducing consumer"</span>,
 				);
 			}
 		})
@@ -4069,14 +4071,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">Self</span>::can_accrue_consumers(who, <span class="number">1</span>)
 	}
 
-	<span class="doccomment">/// Deposits an event into this block&#39;s event record.
+	<span class="doccomment">/// Deposits an event into this block's event record.
 	///
 	/// NOTE: Events not registered at the genesis block and quietly omitted.
 	</span><span class="kw">pub fn </span>deposit_event(event: <span class="kw">impl </span>Into&lt;T::RuntimeEvent&gt;) {
 		<span class="self">Self</span>::deposit_event_indexed(<span class="kw-2">&amp;</span>[], event.into());
 	}
 
-	<span class="doccomment">/// Deposits an event into this block&#39;s event record adding this event
+	<span class="doccomment">/// Deposits an event into this block's event record adding this event
 	/// to the corresponding topic indexes.
 	///
 	/// This will update storage entries that correspond to the specified topics.
@@ -4086,7 +4088,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub fn </span>deposit_event_indexed(topics: <span class="kw-2">&amp;</span>[T::Hash], event: T::RuntimeEvent) {
 		<span class="kw">let </span>block_number = <span class="self">Self</span>::block_number();
 
-		<span class="comment">// Don&#39;t populate events on genesis.
+		<span class="comment">// Don't populate events on genesis.
 		</span><span class="kw">if </span>block_number.is_zero() {
 			<span class="kw">return
 		</span>}
@@ -4098,8 +4100,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">let </span>event_idx = {
 			<span class="kw">let </span>old_event_count = EventCount::&lt;T&gt;::get();
 			<span class="kw">let </span>new_event_count = <span class="kw">match </span>old_event_count.checked_add(<span class="number">1</span>) {
-				<span class="comment">// We&#39;ve reached the maximum number of events at this block, just
-				// don&#39;t do anything and leave the event_count unaltered.
+				<span class="comment">// We've reached the maximum number of events at this block, just
+				// don't do anything and leave the event_count unaltered.
 				</span><span class="prelude-val">None </span>=&gt; <span class="kw">return</span>,
 				<span class="prelude-val">Some</span>(nc) =&gt; nc,
 			};
@@ -4136,7 +4138,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// stick to static weights. A typical use case for this is inner calls or smart contract calls.
 	/// Furthermore, it only makes sense to use this when it is presumably  _cheap_ to provide the
 	/// argument `weight`; In other words, if this function is to be used to account for some
-	/// unknown, user provided call&#39;s weight, it would only make sense to use it if you are sure you
+	/// unknown, user provided call's weight, it would only make sense to use it if you are sure you
 	/// can rapidly compute the weight of the inner call.
 	///
 	/// Even more dangerous is to note that this function does NOT take any action, if the new sum
@@ -4154,7 +4156,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// populate environment
 		</span>ExecutionPhase::&lt;T&gt;::put(Phase::Initialization);
 		storage::unhashed::put(well_known_keys::EXTRINSIC_INDEX, <span class="kw-2">&amp;</span><span class="number">0u32</span>);
-		<span class="kw">let </span>entropy = (<span class="string">b&quot;frame_system::initialize&quot;</span>, parent_hash).using_encoded(blake2_256);
+		<span class="kw">let </span>entropy = (<span class="string">b"frame_system::initialize"</span>, parent_hash).using_encoded(blake2_256);
 		storage::unhashed::put_raw(well_known_keys::INTRABLOCK_ENTROPY, <span class="kw-2">&amp;</span>entropy[..]);
 		&lt;Number&lt;T&gt;&gt;::put(number);
 		&lt;Digest&lt;T&gt;&gt;::put(digest);
@@ -4166,13 +4168,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>BlockWeight::&lt;T&gt;::kill();
 	}
 
-	<span class="doccomment">/// Remove temporary &quot;environment&quot; entries in storage, compute the storage root and return the
+	<span class="doccomment">/// Remove temporary "environment" entries in storage, compute the storage root and return the
 	/// resulting header for this block.
 	</span><span class="kw">pub fn </span>finalize() -&gt; HeaderFor&lt;T&gt; {
 		<span class="macro">log::debug!</span>(
 			target: LOG_TARGET,
-			<span class="string">&quot;[{:?}] {} extrinsics, length: {} (normal {}%, op: {}%, mandatory {}%) / normal weight:\
-			 {} ({}%) op weight {} ({}%) / mandatory weight {} ({}%)&quot;</span>,
+			<span class="string">"[{:?}] {} extrinsics, length: {} (normal {}%, op: {}%, mandatory {}%) / normal weight:\
+			 {} ({}%) op weight {} ({}%) / mandatory weight {} ({}%)"</span>,
 			<span class="self">Self</span>::block_number(),
 			<span class="self">Self</span>::extrinsic_index().unwrap_or_default(),
 			<span class="self">Self</span>::all_extrinsics_len(),
@@ -4239,18 +4241,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>version = T::Version::get().state_version();
 		<span class="kw">let </span>storage_root = T::Hash::decode(<span class="kw-2">&amp;mut &amp;</span>sp_io::storage::root(version)[..])
-			.expect(<span class="string">&quot;Node is configured to use the same hash; qed&quot;</span>);
+			.expect(<span class="string">"Node is configured to use the same hash; qed"</span>);
 
 		HeaderFor::&lt;T&gt;::new(number, extrinsics_root, storage_root, parent_hash, digest)
 	}
 
-	<span class="doccomment">/// Deposits a log and ensures it matches the block&#39;s log data.
+	<span class="doccomment">/// Deposits a log and ensures it matches the block's log data.
 	</span><span class="kw">pub fn </span>deposit_log(item: generic::DigestItem) {
 		&lt;Digest&lt;T&gt;&gt;::append(item);
 	}
 
 	<span class="doccomment">/// Get the basic externalities for this pallet, useful for tests.
-	</span><span class="attr">#[cfg(any(feature = <span class="string">&quot;std&quot;</span>, test))]
+	</span><span class="attr">#[cfg(any(feature = <span class="string">"std"</span>, test))]
 	</span><span class="kw">pub fn </span>externalities() -&gt; TestExternalities {
 		TestExternalities::new(sp_core::storage::Storage {
 			top: <span class="macro">map!</span>[
@@ -4269,7 +4271,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// items for any behavior like this.
 	///
 	/// NOTE: Events not registered at the genesis block and quietly omitted.
-	</span><span class="attr">#[cfg(any(feature = <span class="string">&quot;std&quot;</span>, feature = <span class="string">&quot;runtime-benchmarks&quot;</span>, test))]
+	</span><span class="attr">#[cfg(any(feature = <span class="string">"std"</span>, feature = <span class="string">"runtime-benchmarks"</span>, test))]
 	</span><span class="kw">pub fn </span>events() -&gt; Vec&lt;EventRecord&lt;T::RuntimeEvent, T::Hash&gt;&gt; {
 		<span class="comment">// Dereferencing the events here is fine since we are not in the memory-restricted runtime.
 		</span><span class="self">Self</span>::read_events_no_consensus().map(|e| <span class="kw-2">*</span>e).collect()
@@ -4308,27 +4310,27 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Set the block number to something in particular. Can be used as an alternative to
-	/// `initialize` for tests that don&#39;t need to bother with the other environment entries.
-	</span><span class="attr">#[cfg(any(feature = <span class="string">&quot;std&quot;</span>, feature = <span class="string">&quot;runtime-benchmarks&quot;</span>, test))]
+	/// `initialize` for tests that don't need to bother with the other environment entries.
+	</span><span class="attr">#[cfg(any(feature = <span class="string">"std"</span>, feature = <span class="string">"runtime-benchmarks"</span>, test))]
 	</span><span class="kw">pub fn </span>set_block_number(n: BlockNumberFor&lt;T&gt;) {
 		&lt;Number&lt;T&gt;&gt;::put(n);
 	}
 
 	<span class="doccomment">/// Sets the index of extrinsic that is currently executing.
-	</span><span class="attr">#[cfg(any(feature = <span class="string">&quot;std&quot;</span>, test))]
+	</span><span class="attr">#[cfg(any(feature = <span class="string">"std"</span>, test))]
 	</span><span class="kw">pub fn </span>set_extrinsic_index(extrinsic_index: u32) {
 		storage::unhashed::put(well_known_keys::EXTRINSIC_INDEX, <span class="kw-2">&amp;</span>extrinsic_index)
 	}
 
 	<span class="doccomment">/// Set the parent hash number to something in particular. Can be used as an alternative to
-	/// `initialize` for tests that don&#39;t need to bother with the other environment entries.
-	</span><span class="attr">#[cfg(any(feature = <span class="string">&quot;std&quot;</span>, test))]
+	/// `initialize` for tests that don't need to bother with the other environment entries.
+	</span><span class="attr">#[cfg(any(feature = <span class="string">"std"</span>, test))]
 	</span><span class="kw">pub fn </span>set_parent_hash(n: T::Hash) {
 		&lt;ParentHash&lt;T&gt;&gt;::put(n);
 	}
 
 	<span class="doccomment">/// Set the current block weight. This should only be used in some integration tests.
-	</span><span class="attr">#[cfg(any(feature = <span class="string">&quot;std&quot;</span>, test))]
+	</span><span class="attr">#[cfg(any(feature = <span class="string">"std"</span>, test))]
 	</span><span class="kw">pub fn </span>set_block_consumed_resources(weight: Weight, len: usize) {
 		BlockWeight::&lt;T&gt;::mutate(|current_weight| {
 			current_weight.set(weight, DispatchClass::Normal)
@@ -4349,28 +4351,28 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Assert the given `event` exists.
 	///
 	/// NOTE: Events not registered at the genesis block and quietly omitted.
-	</span><span class="attr">#[cfg(any(feature = <span class="string">&quot;std&quot;</span>, feature = <span class="string">&quot;runtime-benchmarks&quot;</span>, test))]
+	</span><span class="attr">#[cfg(any(feature = <span class="string">"std"</span>, feature = <span class="string">"runtime-benchmarks"</span>, test))]
 	</span><span class="kw">pub fn </span>assert_has_event(event: T::RuntimeEvent) {
 		<span class="kw">let </span>events = <span class="self">Self</span>::events();
 		<span class="macro">assert!</span>(
 			events.iter().any(|record| record.event == event),
-			<span class="string">&quot;expected event {event:?} not found in events {events:?}&quot;</span>,
+			<span class="string">"expected event {event:?} not found in events {events:?}"</span>,
 		);
 	}
 
 	<span class="doccomment">/// Assert the last event equal to the given `event`.
 	///
 	/// NOTE: Events not registered at the genesis block and quietly omitted.
-	</span><span class="attr">#[cfg(any(feature = <span class="string">&quot;std&quot;</span>, feature = <span class="string">&quot;runtime-benchmarks&quot;</span>, test))]
+	</span><span class="attr">#[cfg(any(feature = <span class="string">"std"</span>, feature = <span class="string">"runtime-benchmarks"</span>, test))]
 	</span><span class="kw">pub fn </span>assert_last_event(event: T::RuntimeEvent) {
-		<span class="kw">let </span>last_event = <span class="self">Self</span>::events().last().expect(<span class="string">&quot;events expected&quot;</span>).event.clone();
+		<span class="kw">let </span>last_event = <span class="self">Self</span>::events().last().expect(<span class="string">"events expected"</span>).event.clone();
 		<span class="macro">assert_eq!</span>(
 			last_event, event,
-			<span class="string">&quot;expected event {event:?} is not equal to the last event {last_event:?}&quot;</span>,
+			<span class="string">"expected event {event:?} is not equal to the last event {last_event:?}"</span>,
 		);
 	}
 
-	<span class="doccomment">/// Return the chain&#39;s current runtime version.
+	<span class="doccomment">/// Return the chain's current runtime version.
 	</span><span class="kw">pub fn </span>runtime_version() -&gt; RuntimeVersion {
 		T::Version::get()
 	}
@@ -4380,7 +4382,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		Account::&lt;T&gt;::get(who).nonce
 	}
 
-	<span class="doccomment">/// Increment a particular account&#39;s nonce by 1.
+	<span class="doccomment">/// Increment a particular account's nonce by 1.
 	</span><span class="kw">pub fn </span>inc_account_nonce(who: <span class="kw">impl </span>EncodeLike&lt;T::AccountId&gt;) {
 		Account::&lt;T&gt;::mutate(who, |a| a.nonce += T::Nonce::one());
 	}
@@ -4408,7 +4410,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Err</span>(err) =&gt; {
 				<span class="macro">log::trace!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Extrinsic failed at block({:?}): {:?}&quot;</span>,
+					<span class="string">"Extrinsic failed at block({:?}): {:?}"</span>,
 					<span class="self">Self</span>::block_number(),
 					err,
 				);
@@ -4465,8 +4467,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.ok_or(Error::&lt;T&gt;::FailedToExtractRuntimeVersion)<span class="question-mark">?</span>;
 
 		<span class="macro">cfg_if::cfg_if! </span>{
-			<span class="kw">if </span><span class="attr">#[cfg(all(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>, not(test)))] </span>{
-					<span class="comment">// Let&#39;s ensure the compiler doesn&#39;t optimize our fetching of the runtime version away.
+			<span class="kw">if </span><span class="attr">#[cfg(all(feature = <span class="string">"runtime-benchmarks"</span>, not(test)))] </span>{
+					<span class="comment">// Let's ensure the compiler doesn't optimize our fetching of the runtime version away.
 					</span>core::hint::black_box((new_version, current_version));
 					<span class="prelude-val">Ok</span>(())
 			} <span class="kw">else </span>{
@@ -4524,7 +4526,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub fn </span>unique(entropy: <span class="kw">impl </span>Encode) -&gt; [u8; <span class="number">32</span>] {
 	<span class="kw">let </span><span class="kw-2">mut </span>last = [<span class="number">0u8</span>; <span class="number">32</span>];
 	sp_io::storage::read(well_known_keys::INTRABLOCK_ENTROPY, <span class="kw-2">&amp;mut </span>last[..], <span class="number">0</span>);
-	<span class="kw">let </span>next = (<span class="string">b&quot;frame_system::unique&quot;</span>, entropy, last).using_encoded(blake2_256);
+	<span class="kw">let </span>next = (<span class="string">b"frame_system::unique"</span>, entropy, last).using_encoded(blake2_256);
 	sp_io::storage::set(well_known_keys::INTRABLOCK_ENTROPY, <span class="kw-2">&amp;</span>next);
 	next
 }
@@ -4573,14 +4575,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		Pallet::&lt;T&gt;::block_number()
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">fn </span>set_block_number(n: BlockNumberFor&lt;T&gt;) {
 		<span class="self">Self</span>::set_block_number(n)
 	}
 }
 
 <span class="doccomment">/// Implement StoredMap for a simple single-item, provide-when-not-default system. This works fine
-/// for storing a single item which allows the account to continue existing as long as it&#39;s not
+/// for storing a single item which allows the account to continue existing as long as it's not
 /// empty/default.
 ///
 /// Anything more complex will need more sophisticated logic.

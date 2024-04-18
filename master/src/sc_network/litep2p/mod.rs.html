@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/network/src/litep2p/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/network/src/litep2p/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sc_network" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sc_network" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../sc_network/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1259,13 +1261,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		(<span class="self">self</span>.executor)(future)
 	}
 
-	<span class="kw">fn </span>run_with_name(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw">_</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str, future: Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = ()&gt; + Send&gt;&gt;) {
+	<span class="kw">fn </span>run_with_name(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw">_</span>: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str, future: Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = ()&gt; + Send&gt;&gt;) {
 		(<span class="self">self</span>.executor)(future)
 	}
 }
 
 <span class="doccomment">/// Logging target for the file.
-</span><span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;sub-libp2p&quot;</span>;
+</span><span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"sub-libp2p"</span>;
 
 <span class="doccomment">/// Peer context.
 </span><span class="kw">struct </span>ConnectionContext {
@@ -1367,7 +1369,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">if </span><span class="self">self</span>.litep2p.add_known_address(peer.into(), addresses.clone().into_iter()) == <span class="number">0 </span>{
 					<span class="macro">log::warn!</span>(
 						target: LOG_TARGET,
-						<span class="string">&quot;couldn&#39;t add any addresses for {peer:?} and it won&#39;t be added as reserved peer&quot;</span>,
+						<span class="string">"couldn't add any addresses for {peer:?} and it won't be added as reserved peer"</span>,
 					);
 					<span class="kw">return </span><span class="prelude-val">None
 				</span>}
@@ -1384,7 +1386,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>get_keypair(node_key: <span class="kw-2">&amp;</span>NodeKeyConfig) -&gt; <span class="prelude-ty">Result</span>&lt;(Keypair, litep2p::PeerId), Error&gt; {
 		<span class="kw">let </span>secret = libp2p::identity::Keypair::try_into_ed25519(node_key.clone().into_keypair()<span class="question-mark">?</span>)
 			.map_err(|error| {
-				<span class="macro">log::error!</span>(target: LOG_TARGET, <span class="string">&quot;failed to convert to ed25519: {error:?}&quot;</span>);
+				<span class="macro">log::error!</span>(target: LOG_TARGET, <span class="string">"failed to convert to ed25519: {error:?}"</span>);
 				Error::Io(io::ErrorKind::InvalidInput.into())
 			})<span class="question-mark">?
 			</span>.secret();
@@ -1400,11 +1402,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Configure transport protocols for `Litep2pNetworkBackend`.
-	</span><span class="kw">fn </span>configure_transport&lt;B: BlockT + <span class="lifetime">&#39;static</span>, H: ExHashT&gt;(
+	</span><span class="kw">fn </span>configure_transport&lt;B: BlockT + <span class="lifetime">'static</span>, H: ExHashT&gt;(
 		config: <span class="kw-2">&amp;</span>FullNetworkConfiguration&lt;B, H, <span class="self">Self</span>&gt;,
 	) -&gt; ConfigBuilder {
 		<span class="kw">let _ </span>= <span class="kw">match </span>config.network_config.transport {
-			TransportConfig::MemoryOnly =&gt; <span class="macro">panic!</span>(<span class="string">&quot;memory transport not supported&quot;</span>),
+			TransportConfig::MemoryOnly =&gt; <span class="macro">panic!</span>(<span class="string">"memory transport not supported"</span>),
 			TransportConfig::Normal { .. } =&gt; <span class="bool-val">false</span>,
 		};
 		<span class="kw">let </span>config_builder = ConfigBuilder::new();
@@ -1429,7 +1431,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.iter()
 				.map(|cfg| usize::try_from(cfg.max_notification_size()).unwrap_or(usize::MAX));
 
-			<span class="comment">// A &quot;default&quot; max is added to cover all the other protocols: ping, identify,
+			<span class="comment">// A "default" max is added to cover all the other protocols: ping, identify,
 			// kademlia, block announces, and transactions.
 			</span><span class="kw">let </span>default_max = cmp::max(
 				<span class="number">1024 </span>* <span class="number">1024</span>,
@@ -1442,7 +1444,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.chain(responses_max)
 				.chain(notifs_max)
 				.max()
-				.expect(<span class="string">&quot;iterator known to always yield at least one element; qed&quot;</span>)
+				.expect(<span class="string">"iterator known to always yield at least one element; qed"</span>)
 				.saturating_add(<span class="number">10</span>)
 		};
 
@@ -1472,7 +1474,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					protocol =&gt; {
 						<span class="macro">log::error!</span>(
 							target: LOG_TARGET,
-							<span class="string">&quot;unknown protocol {protocol:?}, ignoring {address:?}&quot;</span>,
+							<span class="string">"unknown protocol {protocol:?}, ignoring {address:?}"</span>,
 						);
 
 						<span class="kw">return </span><span class="prelude-val">None
@@ -1487,7 +1489,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						protocol =&gt; {
 							<span class="macro">log::error!</span>(
 								target: LOG_TARGET,
-								<span class="string">&quot;unknown protocol {protocol:?}, ignoring {address:?}&quot;</span>,
+								<span class="string">"unknown protocol {protocol:?}, ignoring {address:?}"</span>,
 							);
 							<span class="prelude-val">None
 						</span>},
@@ -1495,7 +1497,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					protocol =&gt; {
 						<span class="macro">log::error!</span>(
 							target: LOG_TARGET,
-							<span class="string">&quot;unknown protocol {protocol:?}, ignoring {address:?}&quot;</span>,
+							<span class="string">"unknown protocol {protocol:?}, ignoring {address:?}"</span>,
 						);
 						<span class="prelude-val">None
 					</span>},
@@ -1518,7 +1520,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="attr">#[async_trait::async_trait]
-</span><span class="kw">impl</span>&lt;B: BlockT + <span class="lifetime">&#39;static</span>, H: ExHashT&gt; NetworkBackend&lt;B, H&gt; <span class="kw">for </span>Litep2pNetworkBackend {
+</span><span class="kw">impl</span>&lt;B: BlockT + <span class="lifetime">'static</span>, H: ExHashT&gt; NetworkBackend&lt;B, H&gt; <span class="kw">for </span>Litep2pNetworkBackend {
 	<span class="kw">type </span>NotificationProtocolConfig = NotificationProtocolConfig;
 	<span class="kw">type </span>RequestResponseProtocolConfig = RequestResponseConfig;
 	<span class="kw">type </span>NetworkService&lt;Block, Hash&gt; = Arc&lt;Litep2pNetworkService&gt;;
@@ -1531,7 +1533,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	{
 		<span class="kw">let </span>(keypair, local_peer_id) =
 			<span class="self">Self</span>::get_keypair(<span class="kw-2">&amp;</span>params.network_config.network_config.node_key)<span class="question-mark">?</span>;
-		<span class="kw">let </span>(cmd_tx, cmd_rx) = tracing_unbounded(<span class="string">&quot;mpsc_network_worker&quot;</span>, <span class="number">100_000</span>);
+		<span class="kw">let </span>(cmd_tx, cmd_rx) = tracing_unbounded(<span class="string">"mpsc_network_worker"</span>, <span class="number">100_000</span>);
 
 		params.network_config.network_config.boot_nodes = params
 			.network_config
@@ -1550,7 +1552,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">if </span>reserved_node.peer_id == local_peer_id.into() {
 					<span class="macro">log::warn!</span>(
 						target: LOG_TARGET,
-						<span class="string">&quot;Local peer ID used in reserved node, ignoring: {reserved_node}&quot;</span>,
+						<span class="string">"Local peer ID used in reserved node, ignoring: {reserved_node}"</span>,
 					);
 					<span class="bool-val">false
 				</span>} <span class="kw">else </span>{
@@ -1563,8 +1565,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			fs::create_dir_all(path)<span class="question-mark">?</span>;
 		}
 
-		<span class="macro">log::info!</span>(target: LOG_TARGET, <span class="string">&quot;Local node identity is: {local_peer_id}&quot;</span>);
-		<span class="macro">log::info!</span>(target: LOG_TARGET, <span class="string">&quot;Running litep2p network backend&quot;</span>);
+		<span class="macro">log::info!</span>(target: LOG_TARGET, <span class="string">"Local node identity is: {local_peer_id}"</span>);
+		<span class="macro">log::info!</span>(target: LOG_TARGET, <span class="string">"Running litep2p network backend"</span>);
 
 		params.network_config.sanity_check_addresses()<span class="question-mark">?</span>;
 		params.network_config.sanity_check_bootnodes()<span class="question-mark">?</span>;
@@ -1585,7 +1587,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// initialize notification protocols
 		//
 		// pass the protocol configuration to `Litep2pConfigBuilder` and save the TX channel
-		// to the protocol&#39;s `Peerset` together with the protocol name to allow other subsystems
+		// to the protocol's `Peerset` together with the protocol name to allow other subsystems
 		// of Polkadot SDK to control connectivity of the notification protocol
 		</span><span class="kw">let </span>block_announce_protocol = params.block_announce_config.protocol_name().clone();
 		<span class="kw">let </span><span class="kw-2">mut </span>notif_protocols = HashMap::from_iter([(
@@ -1613,7 +1615,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// create channels that are used to send request before initializing protocols so the
 		// senders can be passed onto all request-response protocols
 		//
-		// all protocols must have each others&#39; senders so they can send the fallback request in
+		// all protocols must have each others' senders so they can send the fallback request in
 		// case the main protocol is not supported by the remote peer and user specified a fallback
 		</span><span class="kw">let </span>(<span class="kw-2">mut </span>request_response_receivers, request_response_senders): (
 			HashMap&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;,
@@ -1621,7 +1623,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		) = request_response_protocols
 			.iter()
 			.map(|config| {
-				<span class="kw">let </span>(tx, rx) = tracing_unbounded(<span class="string">&quot;outbound-requests&quot;</span>, <span class="number">10_000</span>);
+				<span class="kw">let </span>(tx, rx) = tracing_unbounded(<span class="string">"outbound-requests"</span>, <span class="number">10_000</span>);
 				((config.protocol_name.clone(), rx), (config.protocol_name.clone(), tx))
 			})
 			.unzip();
@@ -1644,7 +1646,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					config.inbound_queue,
 					request_response_receivers
 						.remove(<span class="kw-2">&amp;</span>config.protocol_name)
-						.expect(<span class="string">&quot;receiver exists as it was just added and there are no duplicate protocols; qed&quot;</span>),
+						.expect(<span class="string">"receiver exists as it was just added and there are no duplicate protocols; qed"</span>),
 					request_response_senders.clone(),
 					metrics.clone(),
 				);
@@ -1708,7 +1710,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			HashSet::from_iter(network_config.public_addresses.iter().cloned()),
 		));
 		litep2p.listen_addresses().for_each(|address| {
-			<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;listening on: {address}&quot;</span>);
+			<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"listening on: {address}"</span>);
 
 			listen_addresses.write().insert(address.clone());
 		});
@@ -1813,7 +1815,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Start [`Litep2pNetworkBackend`] event loop.
 	</span><span class="kw">async fn </span>run(<span class="kw-2">mut </span><span class="self">self</span>) {
-		<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;starting litep2p network backend&quot;</span>);
+		<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"starting litep2p network backend"</span>);
 
 		<span class="kw">loop </span>{
 			<span class="kw">let </span>num_connected_peers = <span class="self">self
@@ -1857,7 +1859,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 								<span class="prelude-val">Some</span>(handle) =&gt; {
 									<span class="kw">let _ </span>= handle.tx.unbounded_send(PeersetCommand::AddReservedPeers { peers });
 								}
-								<span class="prelude-val">None </span>=&gt; <span class="macro">log::warn!</span>(target: LOG_TARGET, <span class="string">&quot;protocol {protocol} doens&#39;t exist&quot;</span>),
+								<span class="prelude-val">None </span>=&gt; <span class="macro">log::warn!</span>(target: LOG_TARGET, <span class="string">"protocol {protocol} doens't exist"</span>),
 							};
 						}
 						NetworkServiceCommand::AddKnownAddress { peer, <span class="kw-2">mut </span>address } =&gt; {
@@ -1868,7 +1870,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							<span class="kw">if </span><span class="self">self</span>.litep2p.add_known_address(peer.into(), iter::once(address.clone())) == <span class="number">0usize </span>{
 								<span class="macro">log::warn!</span>(
 									target: LOG_TARGET,
-									<span class="string">&quot;couldn&#39;t add known address ({address}) for {peer:?}, unsupported transport&quot;
+									<span class="string">"couldn't add known address ({address}) for {peer:?}, unsupported transport"
 								</span>);
 							}
 						},
@@ -1879,7 +1881,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 								<span class="prelude-val">Some</span>(handle) =&gt; {
 									<span class="kw">let _ </span>= handle.tx.unbounded_send(PeersetCommand::SetReservedPeers { peers });
 								}
-								<span class="prelude-val">None </span>=&gt; <span class="macro">log::warn!</span>(target: LOG_TARGET, <span class="string">&quot;protocol {protocol} doens&#39;t exist&quot;</span>),
+								<span class="prelude-val">None </span>=&gt; <span class="macro">log::warn!</span>(target: LOG_TARGET, <span class="string">"protocol {protocol} doens't exist"</span>),
 							}
 
 						},
@@ -1888,7 +1890,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							peer,
 						} =&gt; {
 							<span class="kw">let </span><span class="prelude-val">Some</span>(handle) = <span class="self">self</span>.peerset_handles.get(<span class="kw-2">&amp;</span>protocol) <span class="kw">else </span>{
-								<span class="macro">log::warn!</span>(target: LOG_TARGET, <span class="string">&quot;protocol {protocol} doens&#39;t exist&quot;</span>);
+								<span class="macro">log::warn!</span>(target: LOG_TARGET, <span class="string">"protocol {protocol} doens't exist"</span>);
 								<span class="kw">continue
 							</span>};
 
@@ -1899,7 +1901,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							reserved_only,
 						} =&gt; {
 							<span class="kw">let </span><span class="prelude-val">Some</span>(handle) = <span class="self">self</span>.peerset_handles.get(<span class="kw-2">&amp;</span>protocol) <span class="kw">else </span>{
-								<span class="macro">log::warn!</span>(target: LOG_TARGET, <span class="string">&quot;protocol {protocol} doens&#39;t exist&quot;</span>);
+								<span class="macro">log::warn!</span>(target: LOG_TARGET, <span class="string">"protocol {protocol} doens't exist"</span>);
 								<span class="kw">continue
 							</span>};
 
@@ -1910,7 +1912,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							peers,
 						} =&gt; {
 							<span class="kw">let </span><span class="prelude-val">Some</span>(handle) = <span class="self">self</span>.peerset_handles.get(<span class="kw-2">&amp;</span>protocol) <span class="kw">else </span>{
-								<span class="macro">log::warn!</span>(target: LOG_TARGET, <span class="string">&quot;protocol {protocol} doens&#39;t exist&quot;</span>);
+								<span class="macro">log::warn!</span>(target: LOG_TARGET, <span class="string">"protocol {protocol} doens't exist"</span>);
 								<span class="kw">continue
 							</span>};
 
@@ -1937,12 +1939,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="kw">match </span><span class="self">self</span>.pending_get_values.remove(<span class="kw-2">&amp;</span>query_id) {
 							<span class="prelude-val">None </span>=&gt; <span class="macro">log::warn!</span>(
 								target: LOG_TARGET,
-								<span class="string">&quot;`GET_VALUE` succeeded for a non-existent query&quot;</span>,
+								<span class="string">"`GET_VALUE` succeeded for a non-existent query"</span>,
 							),
 							<span class="prelude-val">Some</span>((_key, started)) =&gt; {
 								<span class="macro">log::trace!</span>(
 									target: LOG_TARGET,
-									<span class="string">&quot;`GET_VALUE` for {:?} ({query_id:?}) succeeded&quot;</span>,
+									<span class="string">"`GET_VALUE` for {:?} ({query_id:?}) succeeded"</span>,
 									record.key,
 								);
 
@@ -1955,7 +1957,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 								<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>metrics) = <span class="self">self</span>.metrics {
 									metrics
 										.kademlia_query_duration
-										.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">&quot;value-get&quot;</span>])
+										.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">"value-get"</span>])
 										.observe(started.elapsed().as_secs_f64());
 								}
 							}
@@ -1965,18 +1967,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="kw">match </span><span class="self">self</span>.pending_put_values.remove(<span class="kw-2">&amp;</span>query_id) {
 							<span class="prelude-val">None </span>=&gt; <span class="macro">log::warn!</span>(
 								target: LOG_TARGET,
-								<span class="string">&quot;`PUT_VALUE` succeeded for a non-existent query&quot;</span>,
+								<span class="string">"`PUT_VALUE` succeeded for a non-existent query"</span>,
 							),
 							<span class="prelude-val">Some</span>((key, started)) =&gt; {
 								<span class="macro">log::trace!</span>(
 									target: LOG_TARGET,
-									<span class="string">&quot;`PUT_VALUE` for {key:?} ({query_id:?}) succeeded&quot;</span>,
+									<span class="string">"`PUT_VALUE` for {key:?} ({query_id:?}) succeeded"</span>,
 								);
 
 								<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>metrics) = <span class="self">self</span>.metrics {
 									metrics
 										.kademlia_query_duration
-										.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">&quot;value-put&quot;</span>])
+										.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">"value-put"</span>])
 										.observe(started.elapsed().as_secs_f64());
 								}
 							}
@@ -1987,12 +1989,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							<span class="prelude-val">None </span>=&gt; <span class="kw">match </span><span class="self">self</span>.pending_put_values.remove(<span class="kw-2">&amp;</span>query_id) {
 								<span class="prelude-val">None </span>=&gt; <span class="macro">log::warn!</span>(
 									target: LOG_TARGET,
-									<span class="string">&quot;non-existent query failed ({query_id:?})&quot;</span>,
+									<span class="string">"non-existent query failed ({query_id:?})"</span>,
 								),
 								<span class="prelude-val">Some</span>((key, started)) =&gt; {
 									<span class="macro">log::debug!</span>(
 										target: LOG_TARGET,
-										<span class="string">&quot;`PUT_VALUE` ({query_id:?}) failed for key {key:?}&quot;</span>,
+										<span class="string">"`PUT_VALUE` ({query_id:?}) failed for key {key:?}"</span>,
 									);
 
 									<span class="self">self</span>.event_streams.send(Event::Dht(
@@ -2002,7 +2004,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 									<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>metrics) = <span class="self">self</span>.metrics {
 										metrics
 											.kademlia_query_duration
-											.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">&quot;value-put-failed&quot;</span>])
+											.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">"value-put-failed"</span>])
 											.observe(started.elapsed().as_secs_f64());
 									}
 								}
@@ -2010,7 +2012,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							<span class="prelude-val">Some</span>((key, started)) =&gt; {
 								<span class="macro">log::debug!</span>(
 									target: LOG_TARGET,
-									<span class="string">&quot;`GET_VALUE` ({query_id:?}) failed for key {key:?}&quot;</span>,
+									<span class="string">"`GET_VALUE` ({query_id:?}) failed for key {key:?}"</span>,
 								);
 
 								<span class="self">self</span>.event_streams.send(Event::Dht(
@@ -2020,7 +2022,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 								<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>metrics) = <span class="self">self</span>.metrics {
 									metrics
 										.kademlia_query_duration
-										.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">&quot;value-get-failed&quot;</span>])
+										.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">"value-get-failed"</span>])
 										.observe(started.elapsed().as_secs_f64());
 								}
 							}
@@ -2033,13 +2035,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="kw">let </span><span class="kw-2">mut </span>addresses = <span class="self">self</span>.external_addresses.write();
 
 						<span class="kw">if </span>addresses.insert(address.clone()) {
-							<span class="macro">log::info!</span>(target: LOG_TARGET, <span class="string">&quot;discovered new external address for our node: {address}&quot;</span>);
+							<span class="macro">log::info!</span>(target: LOG_TARGET, <span class="string">"discovered new external address for our node: {address}"</span>);
 						}
 					}
 					<span class="prelude-val">Some</span>(DiscoveryEvent::Ping { peer, rtt }) =&gt; {
 						<span class="macro">log::trace!</span>(
 							target: LOG_TARGET,
-							<span class="string">&quot;ping time with {peer:?}: {rtt:?}&quot;</span>,
+							<span class="string">"ping time with {peer:?}: {rtt:?}"</span>,
 						);
 					}
 				},
@@ -2050,8 +2052,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						};
 
 						<span class="kw">let </span>direction = <span class="kw">match </span>endpoint {
-							Endpoint::Dialer { .. } =&gt; <span class="string">&quot;out&quot;</span>,
-							Endpoint::Listener { .. } =&gt; <span class="string">&quot;in&quot;</span>,
+							Endpoint::Dialer { .. } =&gt; <span class="string">"out"</span>,
+							Endpoint::Listener { .. } =&gt; <span class="string">"in"</span>,
 						};
 						metrics.connections_opened_total.with_label_values(<span class="kw-2">&amp;</span>[direction]).inc();
 
@@ -2076,26 +2078,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						};
 
 						<span class="kw">let </span><span class="prelude-val">Some</span>(context) = <span class="self">self</span>.peers.get_mut(<span class="kw-2">&amp;</span>peer) <span class="kw">else </span>{
-							<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;unknown peer disconnected: {peer:?} ({connection_id:?})&quot;</span>);
+							<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"unknown peer disconnected: {peer:?} ({connection_id:?})"</span>);
 							<span class="kw">continue
 						</span>};
 
 						<span class="kw">let </span>direction = <span class="kw">match </span>context.endpoints.remove(<span class="kw-2">&amp;</span>connection_id) {
 							<span class="prelude-val">None </span>=&gt; {
-								<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;connection {connection_id:?} doesn&#39;t exist for {peer:?} &quot;</span>);
+								<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"connection {connection_id:?} doesn't exist for {peer:?} "</span>);
 								<span class="kw">continue
 							</span>}
 							<span class="prelude-val">Some</span>(endpoint) =&gt; {
 								context.num_connections -= <span class="number">1</span>;
 
 								<span class="kw">match </span>endpoint {
-									Endpoint::Dialer { .. } =&gt; <span class="string">&quot;out&quot;</span>,
-									Endpoint::Listener { .. } =&gt; <span class="string">&quot;in&quot;</span>,
+									Endpoint::Dialer { .. } =&gt; <span class="string">"out"</span>,
+									Endpoint::Listener { .. } =&gt; <span class="string">"in"</span>,
 								}
 							}
 						};
 
-						metrics.connections_closed_total.with_label_values(<span class="kw-2">&amp;</span>[direction, <span class="string">&quot;actively-closed&quot;</span>]).inc();
+						metrics.connections_closed_total.with_label_values(<span class="kw-2">&amp;</span>[direction, <span class="string">"actively-closed"</span>]).inc();
 
 						<span class="kw">if </span>context.num_connections == <span class="number">0 </span>{
 							<span class="self">self</span>.peers.remove(<span class="kw-2">&amp;</span>peer);
@@ -2105,14 +2107,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="prelude-val">Some</span>(Litep2pEvent::DialFailure { address, error }) =&gt; {
 						<span class="macro">log::trace!</span>(
 							target: LOG_TARGET,
-							<span class="string">&quot;failed to dial peer at {address:?}: {error:?}&quot;</span>,
+							<span class="string">"failed to dial peer at {address:?}: {error:?}"</span>,
 						);
 
 						<span class="kw">let </span>reason = <span class="kw">match </span>error {
-							Litep2pError::PeerIdMismatch(<span class="kw">_</span>, <span class="kw">_</span>) =&gt; <span class="string">&quot;invalid-peer-id&quot;</span>,
+							Litep2pError::PeerIdMismatch(<span class="kw">_</span>, <span class="kw">_</span>) =&gt; <span class="string">"invalid-peer-id"</span>,
 							Litep2pError::Timeout | Litep2pError::TransportError(<span class="kw">_</span>) |
-							Litep2pError::IoError(<span class="kw">_</span>) | Litep2pError::WebSocket(<span class="kw">_</span>) =&gt; <span class="string">&quot;transport-error&quot;</span>,
-							<span class="kw">_ </span>=&gt; <span class="string">&quot;other&quot;</span>,
+							Litep2pError::IoError(<span class="kw">_</span>) | Litep2pError::WebSocket(<span class="kw">_</span>) =&gt; <span class="string">"transport-error"</span>,
+							<span class="kw">_ </span>=&gt; <span class="string">"other"</span>,
 						};
 
 						<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="kw-2">&amp;</span><span class="self">self</span>.metrics {

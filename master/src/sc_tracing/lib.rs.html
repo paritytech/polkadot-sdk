@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/tracing/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/tracing/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_tracing" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_tracing" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sc_tracing/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -990,7 +992,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">fn </span>record_debug(<span class="kw-2">&amp;mut </span><span class="self">self</span>, field: <span class="kw-2">&amp;</span>Field, value: <span class="kw-2">&amp;</span><span class="kw">dyn </span>std::fmt::Debug) {
-		<span class="self">self</span>.string_values.insert(field.name().to_string(), <span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, value));
+		<span class="self">self</span>.string_values.insert(field.name().to_string(), <span class="macro">format!</span>(<span class="string">"{:?}"</span>, value));
 	}
 }
 
@@ -1021,18 +1023,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl </span>fmt::Display <span class="kw">for </span>Values {
-	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; fmt::Result {
-		<span class="kw">let </span>bool_iter = <span class="self">self</span>.bool_values.iter().map(|(k, v)| <span class="macro">format!</span>(<span class="string">&quot;{}={}&quot;</span>, k, v));
-		<span class="kw">let </span>i64_iter = <span class="self">self</span>.i64_values.iter().map(|(k, v)| <span class="macro">format!</span>(<span class="string">&quot;{}={}&quot;</span>, k, v));
-		<span class="kw">let </span>u64_iter = <span class="self">self</span>.u64_values.iter().map(|(k, v)| <span class="macro">format!</span>(<span class="string">&quot;{}={}&quot;</span>, k, v));
-		<span class="kw">let </span>string_iter = <span class="self">self</span>.string_values.iter().map(|(k, v)| <span class="macro">format!</span>(<span class="string">&quot;{}=\&quot;{}\&quot;&quot;</span>, k, v));
+	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; fmt::Result {
+		<span class="kw">let </span>bool_iter = <span class="self">self</span>.bool_values.iter().map(|(k, v)| <span class="macro">format!</span>(<span class="string">"{}={}"</span>, k, v));
+		<span class="kw">let </span>i64_iter = <span class="self">self</span>.i64_values.iter().map(|(k, v)| <span class="macro">format!</span>(<span class="string">"{}={}"</span>, k, v));
+		<span class="kw">let </span>u64_iter = <span class="self">self</span>.u64_values.iter().map(|(k, v)| <span class="macro">format!</span>(<span class="string">"{}={}"</span>, k, v));
+		<span class="kw">let </span>string_iter = <span class="self">self</span>.string_values.iter().map(|(k, v)| <span class="macro">format!</span>(<span class="string">"{}=\"{}\""</span>, k, v));
 		<span class="kw">let </span>values = bool_iter
 			.chain(i64_iter)
 			.chain(u64_iter)
 			.chain(string_iter)
 			.collect::&lt;Vec&lt;String&gt;&gt;()
-			.join(<span class="string">&quot;, &quot;</span>);
-		<span class="macro">write!</span>(f, <span class="string">&quot;{}&quot;</span>, values)
+			.join(<span class="string">", "</span>);
+		<span class="macro">write!</span>(f, <span class="string">"{}"</span>, values)
 	}
 }
 
@@ -1047,8 +1049,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl </span>ProfilingLayer {
 	<span class="doccomment">/// Takes a `TracingReceiver` and a comma separated list of targets,
-	/// either with a level: &quot;pallet=trace,frame=debug&quot;
-	/// or without: &quot;pallet,frame&quot; in which case the level defaults to `trace`.
+	/// either with a level: "pallet=trace,frame=debug"
+	/// or without: "pallet,frame" in which case the level defaults to `trace`.
 	/// wasm_tracing indicates whether to enable wasm traces
 	</span><span class="kw">pub fn </span>new(receiver: TracingReceiver, targets: <span class="kw-2">&amp;</span>str) -&gt; <span class="self">Self </span>{
 		<span class="kw">match </span>receiver {
@@ -1058,11 +1060,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Allows use of a custom TraceHandler to create a new instance of ProfilingSubscriber.
 	/// Takes a comma separated list of targets,
-	/// either with a level, eg: &quot;pallet=trace&quot;
-	/// or without: &quot;pallet&quot; in which case the level defaults to `trace`.
+	/// either with a level, eg: "pallet=trace"
+	/// or without: "pallet" in which case the level defaults to `trace`.
 	/// wasm_tracing indicates whether to enable wasm traces
 	</span><span class="kw">pub fn </span>new_with_handler(trace_handler: Box&lt;<span class="kw">dyn </span>TraceHandler&gt;, targets: <span class="kw-2">&amp;</span>str) -&gt; <span class="self">Self </span>{
-		<span class="kw">let </span>targets: Vec&lt;<span class="kw">_</span>&gt; = targets.split(<span class="string">&#39;,&#39;</span>).map(parse_target).collect();
+		<span class="kw">let </span>targets: Vec&lt;<span class="kw">_</span>&gt; = targets.split(<span class="string">','</span>).map(parse_target).collect();
 		<span class="self">Self </span>{ targets, trace_handlers: <span class="macro">vec!</span>[trace_handler] }
 	}
 
@@ -1096,7 +1098,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="comment">// Default to TRACE if no level given or unable to parse Level
 // We do not support a global `Level` currently
 </span><span class="kw">fn </span>parse_target(s: <span class="kw-2">&amp;</span>str) -&gt; (String, Level) {
-	<span class="kw">match </span>s.find(<span class="string">&#39;=&#39;</span>) {
+	<span class="kw">match </span>s.find(<span class="string">'='</span>) {
 		<span class="prelude-val">Some</span>(i) =&gt; {
 			<span class="kw">let </span>target = s[<span class="number">0</span>..i].to_string();
 			<span class="kw">if </span>s.len() &gt; i {
@@ -1112,9 +1114,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl</span>&lt;S&gt; Layer&lt;S&gt; <span class="kw">for </span>ProfilingLayer
 <span class="kw">where
-	</span>S: Subscriber + <span class="kw">for</span>&lt;<span class="lifetime">&#39;span</span>&gt; LookupSpan&lt;<span class="lifetime">&#39;span</span>&gt;,
+	</span>S: Subscriber + <span class="kw">for</span>&lt;<span class="lifetime">'span</span>&gt; LookupSpan&lt;<span class="lifetime">'span</span>&gt;,
 {
-	<span class="kw">fn </span>on_new_span(<span class="kw-2">&amp;</span><span class="self">self</span>, attrs: <span class="kw-2">&amp;</span>Attributes&lt;<span class="lifetime">&#39;_</span>&gt;, id: <span class="kw-2">&amp;</span>Id, ctx: Context&lt;S&gt;) {
+	<span class="kw">fn </span>on_new_span(<span class="kw-2">&amp;</span><span class="self">self</span>, attrs: <span class="kw-2">&amp;</span>Attributes&lt;<span class="lifetime">'_</span>&gt;, id: <span class="kw-2">&amp;</span>Id, ctx: Context&lt;S&gt;) {
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(span) = ctx.span(id) {
 			<span class="kw">let </span><span class="kw-2">mut </span>extension = span.extensions_mut();
 			<span class="kw">let </span>parent_id = attrs.parent().cloned().or_else(|| {
@@ -1142,7 +1144,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="kw">fn </span>on_record(<span class="kw-2">&amp;</span><span class="self">self</span>, id: <span class="kw-2">&amp;</span>Id, values: <span class="kw-2">&amp;</span>Record&lt;<span class="lifetime">&#39;_</span>&gt;, ctx: Context&lt;S&gt;) {
+	<span class="kw">fn </span>on_record(<span class="kw-2">&amp;</span><span class="self">self</span>, id: <span class="kw-2">&amp;</span>Id, values: <span class="kw-2">&amp;</span>Record&lt;<span class="lifetime">'_</span>&gt;, ctx: Context&lt;S&gt;) {
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(span) = ctx.span(id) {
 			<span class="kw">let </span><span class="kw-2">mut </span>extensions = span.extensions_mut();
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(s) = extensions.get_mut::&lt;SpanDatum&gt;() {
@@ -1151,7 +1153,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="kw">fn </span>on_event(<span class="kw-2">&amp;</span><span class="self">self</span>, event: <span class="kw-2">&amp;</span>Event&lt;<span class="lifetime">&#39;_</span>&gt;, ctx: Context&lt;S&gt;) {
+	<span class="kw">fn </span>on_event(<span class="kw-2">&amp;</span><span class="self">self</span>, event: <span class="kw-2">&amp;</span>Event&lt;<span class="lifetime">'_</span>&gt;, ctx: Context&lt;S&gt;) {
 		<span class="kw">if </span>!<span class="self">self</span>.check_target(event.metadata().target(), <span class="kw-2">&amp;</span>event.metadata().level()) {
 			<span class="kw">return
 		</span>}
@@ -1193,7 +1195,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">mut </span>span_datum) = extensions.remove::&lt;SpanDatum&gt;() {
 				span_datum.overall_time += end_time - span_datum.start_time;
 				<span class="kw">if </span>span_datum.name == WASM_TRACE_IDENTIFIER {
-					span_datum.values.bool_values.insert(<span class="string">&quot;wasm&quot;</span>.to_owned(), <span class="bool-val">true</span>);
+					span_datum.values.bool_values.insert(<span class="string">"wasm"</span>.to_owned(), <span class="bool-val">true</span>);
 					<span class="kw">if let </span><span class="prelude-val">Some</span>(n) = span_datum.values.string_values.remove(WASM_NAME_KEY) {
 						span_datum.name = n;
 					}
@@ -1231,7 +1233,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if </span>span_datum.values.is_empty() {
 			<span class="macro">log::log!</span>(
 				log_level(span_datum.level),
-				<span class="string">&quot;{}: {}, time: {}, id: {}, parent_id: {:?}&quot;</span>,
+				<span class="string">"{}: {}, time: {}, id: {}, parent_id: {:?}"</span>,
 				span_datum.target,
 				span_datum.name,
 				span_datum.overall_time.as_nanos(),
@@ -1241,7 +1243,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		} <span class="kw">else </span>{
 			<span class="macro">log::log!</span>(
 				log_level(span_datum.level),
-				<span class="string">&quot;{}: {}, time: {}, id: {}, parent_id: {:?}, values: {}&quot;</span>,
+				<span class="string">"{}: {}, time: {}, id: {}, parent_id: {:?}, values: {}"</span>,
 				span_datum.target,
 				span_datum.name,
 				span_datum.overall_time.as_nanos(),
@@ -1255,7 +1257,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>handle_event(<span class="kw-2">&amp;</span><span class="self">self</span>, event: <span class="kw-2">&amp;</span>TraceEvent) {
 		<span class="macro">log::log!</span>(
 			log_level(event.level),
-			<span class="string">&quot;{}, parent_id: {:?}, {}&quot;</span>,
+			<span class="string">"{}, parent_id: {:?}, {}"</span>,
 			event.target,
 			event.parent_id.as_ref().map(|s| s.into_u64()),
 			event.values,
@@ -1276,7 +1278,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl </span>From&lt;SpanDatum&gt; <span class="kw">for </span>sp_rpc::tracing::Span {
 	<span class="kw">fn </span>from(span_datum: SpanDatum) -&gt; <span class="self">Self </span>{
-		<span class="kw">let </span>wasm = span_datum.values.bool_values.get(<span class="string">&quot;wasm&quot;</span>).is_some();
+		<span class="kw">let </span>wasm = span_datum.values.bool_values.get(<span class="string">"wasm"</span>).is_some();
 		sp_rpc::tracing::Span {
 			id: span_datum.id.into_u64(),
 			parent_id: span_datum.parent_id.map(|id| id.into_u64()),
@@ -1320,7 +1322,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>spans = Arc::new(Mutex::new(Vec::new()));
 		<span class="kw">let </span>events = Arc::new(Mutex::new(Vec::new()));
 		<span class="kw">let </span>handler = TestTraceHandler { spans: spans.clone(), events: events.clone() };
-		<span class="kw">let </span>layer = ProfilingLayer::new_with_handler(Box::new(handler), <span class="string">&quot;test_target&quot;</span>);
+		<span class="kw">let </span>layer = ProfilingLayer::new_with_handler(Box::new(handler), <span class="string">"test_target"</span>);
 		<span class="kw">let </span>subscriber = tracing_subscriber::fmt().with_writer(std::io::sink).finish().with(layer);
 		(subscriber, spans, events)
 	}
@@ -1329,7 +1331,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>test_span() {
 		<span class="kw">let </span>(sub, spans, events) = setup_subscriber();
 		<span class="kw">let </span>_sub_guard = tracing::subscriber::set_default(sub);
-		<span class="kw">let </span>span = <span class="macro">tracing::info_span!</span>(target: <span class="string">&quot;test_target&quot;</span>, <span class="string">&quot;test_span1&quot;</span>);
+		<span class="kw">let </span>span = <span class="macro">tracing::info_span!</span>(target: <span class="string">"test_target"</span>, <span class="string">"test_span1"</span>);
 		<span class="macro">assert_eq!</span>(spans.lock().len(), <span class="number">0</span>);
 		<span class="macro">assert_eq!</span>(events.lock().len(), <span class="number">0</span>);
 		<span class="kw">let </span>_guard = span.enter();
@@ -1340,8 +1342,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">assert_eq!</span>(spans.lock().len(), <span class="number">1</span>);
 		<span class="macro">assert_eq!</span>(events.lock().len(), <span class="number">0</span>);
 		<span class="kw">let </span>sd = spans.lock().remove(<span class="number">0</span>);
-		<span class="macro">assert_eq!</span>(sd.name, <span class="string">&quot;test_span1&quot;</span>);
-		<span class="macro">assert_eq!</span>(sd.target, <span class="string">&quot;test_target&quot;</span>);
+		<span class="macro">assert_eq!</span>(sd.name, <span class="string">"test_span1"</span>);
+		<span class="macro">assert_eq!</span>(sd.target, <span class="string">"test_target"</span>);
 		<span class="kw">let </span>time: u128 = sd.overall_time.as_nanos();
 		<span class="macro">assert!</span>(time &gt; <span class="number">0</span>);
 	}
@@ -1350,9 +1352,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>test_span_parent_id() {
 		<span class="kw">let </span>(sub, spans, _events) = setup_subscriber();
 		<span class="kw">let </span>_sub_guard = tracing::subscriber::set_default(sub);
-		<span class="kw">let </span>span1 = <span class="macro">tracing::info_span!</span>(target: <span class="string">&quot;test_target&quot;</span>, <span class="string">&quot;test_span1&quot;</span>);
+		<span class="kw">let </span>span1 = <span class="macro">tracing::info_span!</span>(target: <span class="string">"test_target"</span>, <span class="string">"test_span1"</span>);
 		<span class="kw">let </span>_guard1 = span1.enter();
-		<span class="kw">let </span>span2 = <span class="macro">tracing::info_span!</span>(target: <span class="string">&quot;test_target&quot;</span>, <span class="string">&quot;test_span2&quot;</span>);
+		<span class="kw">let </span>span2 = <span class="macro">tracing::info_span!</span>(target: <span class="string">"test_target"</span>, <span class="string">"test_span2"</span>);
 		<span class="kw">let </span>_guard2 = span2.enter();
 		drop(_guard2);
 		drop(span2);
@@ -1370,10 +1372,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>test_bool = <span class="bool-val">true</span>;
 		<span class="kw">let </span>test_u64 = <span class="number">1u64</span>;
 		<span class="kw">let </span>test_i64 = <span class="number">2i64</span>;
-		<span class="kw">let </span>test_str = <span class="string">&quot;test_str&quot;</span>;
+		<span class="kw">let </span>test_str = <span class="string">"test_str"</span>;
 		<span class="kw">let </span>span = <span class="macro">tracing::info_span!</span>(
-			target: <span class="string">&quot;test_target&quot;</span>,
-			<span class="string">&quot;test_span1&quot;</span>,
+			target: <span class="string">"test_target"</span>,
+			<span class="string">"test_span1"</span>,
 			test_bool,
 			test_u64,
 			test_i64,
@@ -1383,24 +1385,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		drop(_guard);
 		drop(span);
 		<span class="kw">let </span>sd = spans.lock().remove(<span class="number">0</span>);
-		<span class="macro">assert_eq!</span>(sd.name, <span class="string">&quot;test_span1&quot;</span>);
-		<span class="macro">assert_eq!</span>(sd.target, <span class="string">&quot;test_target&quot;</span>);
+		<span class="macro">assert_eq!</span>(sd.name, <span class="string">"test_span1"</span>);
+		<span class="macro">assert_eq!</span>(sd.target, <span class="string">"test_target"</span>);
 		<span class="kw">let </span>values = sd.values;
-		<span class="macro">assert_eq!</span>(values.bool_values.get(<span class="string">&quot;test_bool&quot;</span>).unwrap(), <span class="kw-2">&amp;</span>test_bool);
-		<span class="macro">assert_eq!</span>(values.u64_values.get(<span class="string">&quot;test_u64&quot;</span>).unwrap(), <span class="kw-2">&amp;</span>test_u64);
-		<span class="macro">assert_eq!</span>(values.i64_values.get(<span class="string">&quot;test_i64&quot;</span>).unwrap(), <span class="kw-2">&amp;</span>test_i64);
-		<span class="macro">assert_eq!</span>(values.string_values.get(<span class="string">&quot;test_str&quot;</span>).unwrap(), <span class="kw-2">&amp;</span>test_str.to_owned());
+		<span class="macro">assert_eq!</span>(values.bool_values.get(<span class="string">"test_bool"</span>).unwrap(), <span class="kw-2">&amp;</span>test_bool);
+		<span class="macro">assert_eq!</span>(values.u64_values.get(<span class="string">"test_u64"</span>).unwrap(), <span class="kw-2">&amp;</span>test_u64);
+		<span class="macro">assert_eq!</span>(values.i64_values.get(<span class="string">"test_i64"</span>).unwrap(), <span class="kw-2">&amp;</span>test_i64);
+		<span class="macro">assert_eq!</span>(values.string_values.get(<span class="string">"test_str"</span>).unwrap(), <span class="kw-2">&amp;</span>test_str.to_owned());
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>test_event() {
 		<span class="kw">let </span>(sub, _spans, events) = setup_subscriber();
 		<span class="kw">let </span>_sub_guard = tracing::subscriber::set_default(sub);
-		<span class="macro">tracing::event!</span>(target: <span class="string">&quot;test_target&quot;</span>, tracing::Level::INFO, <span class="string">&quot;test_event&quot;</span>);
+		<span class="macro">tracing::event!</span>(target: <span class="string">"test_target"</span>, tracing::Level::INFO, <span class="string">"test_event"</span>);
 		<span class="kw">let </span><span class="kw-2">mut </span>te1 = events.lock().remove(<span class="number">0</span>);
 		<span class="macro">assert_eq!</span>(
-			te1.values.string_values.remove(<span class="kw-2">&amp;</span><span class="string">&quot;message&quot;</span>.to_owned()).unwrap(),
-			<span class="string">&quot;test_event&quot;</span>.to_owned()
+			te1.values.string_values.remove(<span class="kw-2">&amp;</span><span class="string">"message"</span>.to_owned()).unwrap(),
+			<span class="string">"test_event"</span>.to_owned()
 		);
 	}
 
@@ -1410,11 +1412,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>_sub_guard = tracing::subscriber::set_default(sub);
 
 		<span class="comment">// enter span
-		</span><span class="kw">let </span>span1 = <span class="macro">tracing::info_span!</span>(target: <span class="string">&quot;test_target&quot;</span>, <span class="string">&quot;test_span1&quot;</span>);
+		</span><span class="kw">let </span>span1 = <span class="macro">tracing::info_span!</span>(target: <span class="string">"test_target"</span>, <span class="string">"test_span1"</span>);
 		<span class="kw">let </span>_guard1 = span1.enter();
 
 		<span class="comment">// emit event
-		</span><span class="macro">tracing::event!</span>(target: <span class="string">&quot;test_target&quot;</span>, tracing::Level::INFO, <span class="string">&quot;test_event&quot;</span>);
+		</span><span class="macro">tracing::event!</span>(target: <span class="string">"test_target"</span>, tracing::Level::INFO, <span class="string">"test_event"</span>);
 
 		<span class="comment">// exit span
 		</span>drop(_guard1);
@@ -1430,13 +1432,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>test_parent_id_with_threads() {
 		<span class="kw">use </span>std::{sync::mpsc, thread};
 
-		<span class="kw">if </span>std::env::var(<span class="string">&quot;RUN_TEST_PARENT_ID_WITH_THREADS&quot;</span>).is_err() {
+		<span class="kw">if </span>std::env::var(<span class="string">"RUN_TEST_PARENT_ID_WITH_THREADS"</span>).is_err() {
 			<span class="kw">let </span>executable = std::env::current_exe().unwrap();
 			<span class="kw">let </span><span class="kw-2">mut </span>command = std::process::Command::new(executable);
 
 			<span class="kw">let </span>res = command
-				.env(<span class="string">&quot;RUN_TEST_PARENT_ID_WITH_THREADS&quot;</span>, <span class="string">&quot;1&quot;</span>)
-				.args(<span class="kw-2">&amp;</span>[<span class="string">&quot;--nocapture&quot;</span>, <span class="string">&quot;test_parent_id_with_threads&quot;</span>])
+				.env(<span class="string">"RUN_TEST_PARENT_ID_WITH_THREADS"</span>, <span class="string">"1"</span>)
+				.args(<span class="kw-2">&amp;</span>[<span class="string">"--nocapture"</span>, <span class="string">"test_parent_id_with_threads"</span>])
 				.output()
 				.unwrap()
 				.status;
@@ -1444,15 +1446,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		} <span class="kw">else </span>{
 			<span class="kw">let </span>(sub, spans, events) = setup_subscriber();
 			<span class="kw">let </span>_sub_guard = tracing::subscriber::set_global_default(sub);
-			<span class="kw">let </span>span1 = <span class="macro">tracing::info_span!</span>(target: <span class="string">&quot;test_target&quot;</span>, <span class="string">&quot;test_span1&quot;</span>);
+			<span class="kw">let </span>span1 = <span class="macro">tracing::info_span!</span>(target: <span class="string">"test_target"</span>, <span class="string">"test_span1"</span>);
 			<span class="kw">let </span>_guard1 = span1.enter();
 
 			<span class="kw">let </span>(tx, rx): (Sender&lt;bool&gt;, Receiver&lt;bool&gt;) = mpsc::channel();
 			<span class="kw">let </span>handle = thread::spawn(<span class="kw">move </span>|| {
-				<span class="kw">let </span>span2 = <span class="macro">tracing::info_span!</span>(target: <span class="string">&quot;test_target&quot;</span>, <span class="string">&quot;test_span2&quot;</span>);
+				<span class="kw">let </span>span2 = <span class="macro">tracing::info_span!</span>(target: <span class="string">"test_target"</span>, <span class="string">"test_span2"</span>);
 				<span class="kw">let </span>_guard2 = span2.enter();
 				<span class="comment">// emit event
-				</span><span class="macro">tracing::event!</span>(target: <span class="string">&quot;test_target&quot;</span>, tracing::Level::INFO, <span class="string">&quot;test_event1&quot;</span>);
+				</span><span class="macro">tracing::event!</span>(target: <span class="string">"test_target"</span>, tracing::Level::INFO, <span class="string">"test_event1"</span>);
 				<span class="kw">let _ </span>= rx.recv();
 				<span class="comment">// guard2 and span2 dropped / exited
 			</span>});
@@ -1463,7 +1465,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			}
 
 			<span class="comment">// emit new event (will be second item in Vec) while span2 still active in other thread
-			</span><span class="macro">tracing::event!</span>(target: <span class="string">&quot;test_target&quot;</span>, tracing::Level::INFO, <span class="string">&quot;test_event2&quot;</span>);
+			</span><span class="macro">tracing::event!</span>(target: <span class="string">"test_target"</span>, tracing::Level::INFO, <span class="string">"test_event2"</span>);
 
 			<span class="comment">// stop thread and drop span
 			</span><span class="kw">let _ </span>= tx.send(<span class="bool-val">false</span>);
@@ -1479,13 +1481,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			drop(span1);
 
 			<span class="comment">// emit event with no parent
-			</span><span class="macro">tracing::event!</span>(target: <span class="string">&quot;test_target&quot;</span>, tracing::Level::INFO, <span class="string">&quot;test_event3&quot;</span>);
+			</span><span class="macro">tracing::event!</span>(target: <span class="string">"test_target"</span>, tracing::Level::INFO, <span class="string">"test_event3"</span>);
 
 			<span class="kw">let </span>span1 = spans.lock().remove(<span class="number">0</span>);
 			<span class="kw">let </span>event2 = events.lock().remove(<span class="number">0</span>);
 
-			<span class="macro">assert_eq!</span>(event1.values.string_values.get(<span class="string">&quot;message&quot;</span>).unwrap(), <span class="string">&quot;test_event1&quot;</span>);
-			<span class="macro">assert_eq!</span>(event2.values.string_values.get(<span class="string">&quot;message&quot;</span>).unwrap(), <span class="string">&quot;test_event2&quot;</span>);
+			<span class="macro">assert_eq!</span>(event1.values.string_values.get(<span class="string">"message"</span>).unwrap(), <span class="string">"test_event1"</span>);
+			<span class="macro">assert_eq!</span>(event2.values.string_values.get(<span class="string">"message"</span>).unwrap(), <span class="string">"test_event2"</span>);
 			<span class="macro">assert!</span>(span1.parent_id.is_none());
 			<span class="macro">assert!</span>(span2.parent_id.is_none());
 			<span class="macro">assert_eq!</span>(span2.id, event1.parent_id.unwrap());

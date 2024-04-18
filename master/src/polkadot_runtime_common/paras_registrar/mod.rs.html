@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/runtime/common/src/paras_registrar/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/runtime/common/src/paras_registrar/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_runtime_common" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_runtime_common" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../polkadot_runtime_common/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1950,13 +1952,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">type </span>RuntimeEvent: From&lt;Event&lt;<span class="self">Self</span>&gt;&gt; + IsType&lt;&lt;<span class="self">Self </span><span class="kw">as </span>frame_system::Config&gt;::RuntimeEvent&gt;;
 
 		<span class="doccomment">/// The aggregated origin type must support the `parachains` origin. We require that we can
-		/// infallibly convert between this origin and the system origin, but in reality, they&#39;re
-		/// the same type, we just can&#39;t express that to the Rust type system without writing a
+		/// infallibly convert between this origin and the system origin, but in reality, they're
+		/// the same type, we just can't express that to the Rust type system without writing a
 		/// `where` clause everywhere.
 		</span><span class="kw">type </span>RuntimeOrigin: From&lt;&lt;<span class="self">Self </span><span class="kw">as </span>frame_system::Config&gt;::RuntimeOrigin&gt;
 			+ Into&lt;result::Result&lt;Origin, &lt;<span class="self">Self </span><span class="kw">as </span>Config&gt;::RuntimeOrigin&gt;&gt;;
 
-		<span class="doccomment">/// The system&#39;s currency for on-demand parachain payment.
+		<span class="doccomment">/// The system's currency for on-demand parachain payment.
 		</span><span class="kw">type </span>Currency: ReservableCurrency&lt;<span class="self">Self</span>::AccountId&gt;;
 
 		<span class="doccomment">/// Runtime hook for when a lease holding parachain and on-demand parachain swap.
@@ -2025,7 +2027,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Amount held on deposit for each para and the original depositor.
 	///
 	/// The given account ID is responsible for registering the code and initial head data, but may
-	/// only do so if it isn&#39;t yet registered. (After that, it&#39;s up to governance to do so.)
+	/// only do so if it isn't yet registered. (After that, it's up to governance to do so.)
 	</span><span class="attr">#[pallet::storage]
 	</span><span class="kw">pub type </span>Paras&lt;T: Config&gt; =
 		StorageMap&lt;<span class="kw">_</span>, Twox64Concat, ParaId, ParaInfo&lt;T::AccountId, BalanceOf&lt;T&gt;&gt;&gt;;
@@ -2132,15 +2134,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		/// the swap will be stored in the pending swaps map, ready for a later confirmatory swap.
 		///
 		/// The `ParaId`s remain mapped to the same head data and code so external code can rely on
-		/// `ParaId` to be a long-term identifier of a notional &quot;parachain&quot;. However, their
-		/// scheduling info (i.e. whether they&#39;re an on-demand parachain or lease holding
+		/// `ParaId` to be a long-term identifier of a notional "parachain". However, their
+		/// scheduling info (i.e. whether they're an on-demand parachain or lease holding
 		/// parachain), auction information and the auction deposit are switched.
 		</span><span class="attr">#[pallet::call_index(<span class="number">3</span>)]
 		#[pallet::weight(&lt;T <span class="kw">as </span>Config&gt;::WeightInfo::swap())]
 		</span><span class="kw">pub fn </span>swap(origin: OriginFor&lt;T&gt;, id: ParaId, other: ParaId) -&gt; DispatchResult {
 			<span class="self">Self</span>::ensure_root_para_or_owner(origin, id)<span class="question-mark">?</span>;
 
-			<span class="comment">// If `id` and `other` is the same id, we treat this as a &quot;clear&quot; function, and exit
+			<span class="comment">// If `id` and `other` is the same id, we treat this as a "clear" function, and exit
 			// early, since swapping the same id would otherwise be a noop.
 			</span><span class="kw">if </span>id == other {
 				PendingSwap::&lt;T&gt;::remove(id);
@@ -2262,7 +2264,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Ok</span>(())
 		}
 
-		<span class="doccomment">/// Set the parachain&#39;s current head.
+		<span class="doccomment">/// Set the parachain's current head.
 		///
 		/// Can be called by Root, the parachain, or the parachain manager if the parachain is
 		/// unlocked.
@@ -2357,22 +2359,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Ok</span>(())
 	}
 
-	<span class="attr">#[cfg(any(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>, test))]
+	<span class="attr">#[cfg(any(feature = <span class="string">"runtime-benchmarks"</span>, test))]
 	</span><span class="kw">fn </span>worst_head_data() -&gt; HeadData {
 		<span class="kw">let </span>max_head_size = configuration::ActiveConfig::&lt;T&gt;::get().max_head_data_size;
-		<span class="macro">assert!</span>(max_head_size &gt; <span class="number">0</span>, <span class="string">&quot;max_head_data can&#39;t be zero for generating worst head data.&quot;</span>);
+		<span class="macro">assert!</span>(max_head_size &gt; <span class="number">0</span>, <span class="string">"max_head_data can't be zero for generating worst head data."</span>);
 		<span class="macro">vec!</span>[<span class="number">0u8</span>; max_head_size <span class="kw">as </span>usize].into()
 	}
 
-	<span class="attr">#[cfg(any(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>, test))]
+	<span class="attr">#[cfg(any(feature = <span class="string">"runtime-benchmarks"</span>, test))]
 	</span><span class="kw">fn </span>worst_validation_code() -&gt; ValidationCode {
 		<span class="kw">let </span>max_code_size = configuration::ActiveConfig::&lt;T&gt;::get().max_code_size;
-		<span class="macro">assert!</span>(max_code_size &gt; <span class="number">0</span>, <span class="string">&quot;max_code_size can&#39;t be zero for generating worst code data.&quot;</span>);
+		<span class="macro">assert!</span>(max_code_size &gt; <span class="number">0</span>, <span class="string">"max_code_size can't be zero for generating worst code data."</span>);
 		<span class="kw">let </span>validation_code = <span class="macro">vec!</span>[<span class="number">0u8</span>; max_code_size <span class="kw">as </span>usize];
 		validation_code.into()
 	}
 
-	<span class="attr">#[cfg(any(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>, test))]
+	<span class="attr">#[cfg(any(feature = <span class="string">"runtime-benchmarks"</span>, test))]
 	</span><span class="kw">fn </span>execute_pending_transitions() {
 		<span class="kw">use </span>runtime_parachains::shared;
 		shared::Pallet::&lt;T&gt;::set_session_index(shared::Pallet::&lt;T&gt;::scheduled_session());
@@ -2859,7 +2861,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			run_to_session(START_SESSION_INDEX + <span class="number">2</span>);
 			<span class="macro">assert!</span>(Parachains::is_parathread(para_id));
 			<span class="comment">// Even though the registered validation code has a smaller size than the maximum the
-			// para manager&#39;s deposit is reserved as though they registered the maximum-sized code.
+			// para manager's deposit is reserved as though they registered the maximum-sized code.
 			// Consequently, they can upgrade their code to the maximum size at any point without
 			// additional cost.
 			</span><span class="kw">let </span>validation_code_deposit =
@@ -2951,12 +2953,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				test_genesis_head(max_head_size() <span class="kw">as </span>usize),
 				test_validation_code(max_code_size() <span class="kw">as </span>usize),
 			));
-			<span class="comment">// Can skip pre-check and deregister para which&#39;s still onboarding.
+			<span class="comment">// Can skip pre-check and deregister para which's still onboarding.
 			</span>run_to_session(<span class="number">2</span>);
 
 			<span class="macro">assert_ok!</span>(Registrar::deregister(RuntimeOrigin::root(), para_id));
 
-			<span class="comment">// Can&#39;t do it again
+			<span class="comment">// Can't do it again
 			</span><span class="macro">assert_noop!</span>(
 				Registrar::register(
 					RuntimeOrigin::signed(<span class="number">1</span>),
@@ -3215,7 +3217,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// Owner can pass origin check again
 			</span><span class="macro">assert_ok!</span>(Registrar::ensure_root_para_or_owner(RuntimeOrigin::signed(<span class="number">1</span>), para_id));
 
-			<span class="comment">// Won&#39;t lock again after it is unlocked
+			<span class="comment">// Won't lock again after it is unlocked
 			</span>Registrar::on_new_head(para_id, <span class="kw-2">&amp;</span>Default::default());
 
 			<span class="macro">assert_ok!</span>(Registrar::ensure_root_para_or_owner(RuntimeOrigin::signed(<span class="number">1</span>), para_id));
@@ -3352,7 +3354,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 </span><span class="kw">mod </span>benchmarking {
 	<span class="kw">use super</span>::{Pallet <span class="kw">as </span>Registrar, <span class="kw-2">*</span>};
 	<span class="kw">use </span><span class="kw">crate</span>::traits::Registrar <span class="kw">as </span>RegistrarT;
@@ -3435,7 +3437,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 
 		force_register {
-			<span class="kw">let </span>manager: T::AccountId = account(<span class="string">&quot;manager&quot;</span>, <span class="number">0</span>, <span class="number">0</span>);
+			<span class="kw">let </span>manager: T::AccountId = account(<span class="string">"manager"</span>, <span class="number">0</span>, <span class="number">0</span>);
 			<span class="kw">let </span>deposit = <span class="number">0u32</span>.into();
 			<span class="kw">let </span>para = ParaId::from(<span class="number">69</span>);
 			<span class="kw">let </span>genesis_head = Registrar::&lt;T&gt;::worst_head_data();

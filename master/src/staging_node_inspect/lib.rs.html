@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/bin/node/inspect/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/bin/node/inspect/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="staging_node_inspect" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="staging_node_inspect" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../staging_node_inspect/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -515,12 +517,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub struct </span>DebugPrinter;
 <span class="kw">impl</span>&lt;TBlock: Block&gt; PrettyPrinter&lt;TBlock&gt; <span class="kw">for </span>DebugPrinter {
 	<span class="kw">fn </span>fmt_block(<span class="kw-2">&amp;</span><span class="self">self</span>, fmt: <span class="kw-2">&amp;mut </span>fmt::Formatter, block: <span class="kw-2">&amp;</span>TBlock) -&gt; fmt::Result {
-		<span class="macro">writeln!</span>(fmt, <span class="string">&quot;Header:&quot;</span>)<span class="question-mark">?</span>;
-		<span class="macro">writeln!</span>(fmt, <span class="string">&quot;{:?}&quot;</span>, block.header())<span class="question-mark">?</span>;
-		<span class="macro">writeln!</span>(fmt, <span class="string">&quot;Block bytes: {:?}&quot;</span>, HexDisplay::from(<span class="kw-2">&amp;</span>block.encode()))<span class="question-mark">?</span>;
-		<span class="macro">writeln!</span>(fmt, <span class="string">&quot;Extrinsics ({})&quot;</span>, block.extrinsics().len())<span class="question-mark">?</span>;
+		<span class="macro">writeln!</span>(fmt, <span class="string">"Header:"</span>)<span class="question-mark">?</span>;
+		<span class="macro">writeln!</span>(fmt, <span class="string">"{:?}"</span>, block.header())<span class="question-mark">?</span>;
+		<span class="macro">writeln!</span>(fmt, <span class="string">"Block bytes: {:?}"</span>, HexDisplay::from(<span class="kw-2">&amp;</span>block.encode()))<span class="question-mark">?</span>;
+		<span class="macro">writeln!</span>(fmt, <span class="string">"Extrinsics ({})"</span>, block.extrinsics().len())<span class="question-mark">?</span>;
 		<span class="kw">for </span>(idx, ex) <span class="kw">in </span>block.extrinsics().iter().enumerate() {
-			<span class="macro">writeln!</span>(fmt, <span class="string">&quot;- {}:&quot;</span>, idx)<span class="question-mark">?</span>;
+			<span class="macro">writeln!</span>(fmt, <span class="string">"- {}:"</span>, idx)<span class="question-mark">?</span>;
 			&lt;DebugPrinter <span class="kw">as </span>PrettyPrinter&lt;TBlock&gt;&gt;::fmt_extrinsic(<span class="self">self</span>, fmt, ex)<span class="question-mark">?</span>;
 		}
 		<span class="prelude-val">Ok</span>(())
@@ -531,8 +533,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		fmt: <span class="kw-2">&amp;mut </span>fmt::Formatter,
 		extrinsic: <span class="kw-2">&amp;</span>TBlock::Extrinsic,
 	) -&gt; fmt::Result {
-		<span class="macro">writeln!</span>(fmt, <span class="string">&quot; {:#?}&quot;</span>, extrinsic)<span class="question-mark">?</span>;
-		<span class="macro">writeln!</span>(fmt, <span class="string">&quot; Bytes: {:?}&quot;</span>, HexDisplay::from(<span class="kw-2">&amp;</span>extrinsic.encode()))<span class="question-mark">?</span>;
+		<span class="macro">writeln!</span>(fmt, <span class="string">" {:#?}"</span>, extrinsic)<span class="question-mark">?</span>;
+		<span class="macro">writeln!</span>(fmt, <span class="string">" Bytes: {:?}"</span>, HexDisplay::from(<span class="kw-2">&amp;</span>extrinsic.encode()))<span class="question-mark">?</span>;
 		<span class="prelude-val">Ok</span>(())
 	}
 }
@@ -547,7 +549,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="attr">#[error(transparent)]
 	</span>Blockchain(<span class="attr">#[from] </span>sp_blockchain::Error),
 	<span class="doccomment">/// Given block has not been found.
-	</span><span class="attr">#[error(<span class="string">&quot;{0}&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"{0}"</span>)]
 	</span>NotFound(String),
 }
 
@@ -570,7 +572,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl</span>&lt;TBlock: Block, TPrinter: PrettyPrinter&lt;TBlock&gt;&gt; Inspector&lt;TBlock, TPrinter&gt; {
 	<span class="doccomment">/// Create new instance of the inspector with default printer.
-	</span><span class="kw">pub fn </span>new(chain: <span class="kw">impl </span>ChainAccess&lt;TBlock&gt; + <span class="lifetime">&#39;static</span>) -&gt; <span class="self">Self
+	</span><span class="kw">pub fn </span>new(chain: <span class="kw">impl </span>ChainAccess&lt;TBlock&gt; + <span class="lifetime">'static</span>) -&gt; <span class="self">Self
 	</span><span class="kw">where
 		</span>TPrinter: Default,
 	{
@@ -578,21 +580,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Customize pretty-printing of the data.
-	</span><span class="kw">pub fn </span>with_printer(chain: <span class="kw">impl </span>ChainAccess&lt;TBlock&gt; + <span class="lifetime">&#39;static</span>, printer: TPrinter) -&gt; <span class="self">Self </span>{
+	</span><span class="kw">pub fn </span>with_printer(chain: <span class="kw">impl </span>ChainAccess&lt;TBlock&gt; + <span class="lifetime">'static</span>, printer: TPrinter) -&gt; <span class="self">Self </span>{
 		Inspector { chain: Box::new(chain) <span class="kw">as _</span>, printer, _block: Default::default() }
 	}
 
 	<span class="doccomment">/// Get a pretty-printed block.
 	</span><span class="kw">pub fn </span>block(<span class="kw-2">&amp;</span><span class="self">self</span>, input: BlockAddressFor&lt;TBlock&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;String, Error&gt; {
-		<span class="kw">struct </span>BlockPrinter&lt;<span class="lifetime">&#39;a</span>, A, B&gt;(A, <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>B);
-		<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, A: Block, B: PrettyPrinter&lt;A&gt;&gt; fmt::Display <span class="kw">for </span>BlockPrinter&lt;<span class="lifetime">&#39;a</span>, A, B&gt; {
+		<span class="kw">struct </span>BlockPrinter&lt;<span class="lifetime">'a</span>, A, B&gt;(A, <span class="kw-2">&amp;</span><span class="lifetime">'a </span>B);
+		<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, A: Block, B: PrettyPrinter&lt;A&gt;&gt; fmt::Display <span class="kw">for </span>BlockPrinter&lt;<span class="lifetime">'a</span>, A, B&gt; {
 			<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, fmt: <span class="kw-2">&amp;mut </span>fmt::Formatter) -&gt; fmt::Result {
 				<span class="self">self</span>.<span class="number">1</span>.fmt_block(fmt, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>)
 			}
 		}
 
 		<span class="kw">let </span>block = <span class="self">self</span>.get_block(input)<span class="question-mark">?</span>;
-		<span class="prelude-val">Ok</span>(<span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, BlockPrinter(block, <span class="kw-2">&amp;</span><span class="self">self</span>.printer)))
+		<span class="prelude-val">Ok</span>(<span class="macro">format!</span>(<span class="string">"{}"</span>, BlockPrinter(block, <span class="kw-2">&amp;</span><span class="self">self</span>.printer)))
 	}
 
 	<span class="kw">fn </span>get_block(<span class="kw-2">&amp;</span><span class="self">self</span>, input: BlockAddressFor&lt;TBlock&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;TBlock, Error&gt; {
@@ -601,7 +603,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			BlockAddress::Number(number) =&gt; {
 				<span class="kw">let </span>id = BlockId::number(number);
 				<span class="kw">let </span>hash = <span class="self">self</span>.chain.expect_block_hash_from_id(<span class="kw-2">&amp;</span>id)<span class="question-mark">?</span>;
-				<span class="kw">let </span>not_found = <span class="macro">format!</span>(<span class="string">&quot;Could not find block {:?}&quot;</span>, id);
+				<span class="kw">let </span>not_found = <span class="macro">format!</span>(<span class="string">"Could not find block {:?}"</span>, id);
 				<span class="kw">let </span>body = <span class="self">self
 					</span>.chain
 					.block_body(hash)<span class="question-mark">?
@@ -611,7 +613,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				TBlock::new(header, body)
 			},
 			BlockAddress::Hash(hash) =&gt; {
-				<span class="kw">let </span>not_found = <span class="macro">format!</span>(<span class="string">&quot;Could not find block {:?}&quot;</span>, BlockId::&lt;TBlock&gt;::Hash(hash));
+				<span class="kw">let </span>not_found = <span class="macro">format!</span>(<span class="string">"Could not find block {:?}"</span>, BlockId::&lt;TBlock&gt;::Hash(hash));
 				<span class="kw">let </span>body = <span class="self">self
 					</span>.chain
 					.block_body(hash)<span class="question-mark">?
@@ -628,8 +630,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		input: ExtrinsicAddress&lt;&lt;HashingFor&lt;TBlock&gt; <span class="kw">as </span>Hash&gt;::Output, NumberFor&lt;TBlock&gt;&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;String, Error&gt; {
-		<span class="kw">struct </span>ExtrinsicPrinter&lt;<span class="lifetime">&#39;a</span>, A: Block, B&gt;(A::Extrinsic, <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>B);
-		<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, A: Block, B: PrettyPrinter&lt;A&gt;&gt; fmt::Display <span class="kw">for </span>ExtrinsicPrinter&lt;<span class="lifetime">&#39;a</span>, A, B&gt; {
+		<span class="kw">struct </span>ExtrinsicPrinter&lt;<span class="lifetime">'a</span>, A: Block, B&gt;(A::Extrinsic, <span class="kw-2">&amp;</span><span class="lifetime">'a </span>B);
+		<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, A: Block, B: PrettyPrinter&lt;A&gt;&gt; fmt::Display <span class="kw">for </span>ExtrinsicPrinter&lt;<span class="lifetime">'a</span>, A, B&gt; {
 			<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, fmt: <span class="kw-2">&amp;mut </span>fmt::Formatter) -&gt; fmt::Result {
 				<span class="self">self</span>.<span class="number">1</span>.fmt_extrinsic(fmt, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>)
 			}
@@ -640,7 +642,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">let </span>block = <span class="self">self</span>.get_block(block)<span class="question-mark">?</span>;
 				block.extrinsics().get(index).cloned().ok_or_else(|| {
 					Error::NotFound(<span class="macro">format!</span>(
-						<span class="string">&quot;Could not find extrinsic {} in block {:?}&quot;</span>,
+						<span class="string">"Could not find extrinsic {} in block {:?}"</span>,
 						index, block
 					))
 				})<span class="question-mark">?
@@ -648,7 +650,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			ExtrinsicAddress::Bytes(bytes) =&gt; TBlock::Extrinsic::decode(<span class="kw-2">&amp;mut &amp;*</span>bytes)<span class="question-mark">?</span>,
 		};
 
-		<span class="prelude-val">Ok</span>(<span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, ExtrinsicPrinter(ext, <span class="kw-2">&amp;</span><span class="self">self</span>.printer)))
+		<span class="prelude-val">Ok</span>(<span class="macro">format!</span>(<span class="string">"{}"</span>, ExtrinsicPrinter(ext, <span class="kw-2">&amp;</span><span class="self">self</span>.printer)))
 	}
 }
 
@@ -677,10 +679,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="self">Self</span>::Number(number))
 		}
 
-		<span class="comment">// then assume it&#39;s bytes (hex-encoded)
+		<span class="comment">// then assume it's bytes (hex-encoded)
 		</span>sp_core::bytes::from_hex(s).map(<span class="self">Self</span>::Bytes).map_err(|e| {
 			<span class="macro">format!</span>(
-				<span class="string">&quot;Given string does not look like hash or number. It could not be parsed as bytes either: {}&quot;</span>,
+				<span class="string">"Given string does not look like hash or number. It could not be parsed as bytes either: {}"</span>,
 				e
 			)
 		})
@@ -706,17 +708,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 
 		<span class="comment">// split by a bunch of different characters
-		</span><span class="kw">let </span><span class="kw-2">mut </span>it = s.split(|c| c == <span class="string">&#39;.&#39; </span>|| c == <span class="string">&#39;:&#39; </span>|| c == <span class="string">&#39; &#39;</span>);
+		</span><span class="kw">let </span><span class="kw-2">mut </span>it = s.split(|c| c == <span class="string">'.' </span>|| c == <span class="string">':' </span>|| c == <span class="string">' '</span>);
 		<span class="kw">let </span>block = it
 			.next()
-			.expect(<span class="string">&quot;First element of split iterator is never empty; qed&quot;</span>)
+			.expect(<span class="string">"First element of split iterator is never empty; qed"</span>)
 			.parse()<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>index = it
 			.next()
-			.ok_or(<span class="string">&quot;Extrinsic index missing: example \&quot;5:0\&quot;&quot;</span>)<span class="question-mark">?
+			.ok_or(<span class="string">"Extrinsic index missing: example \"5:0\""</span>)<span class="question-mark">?
 			</span>.parse()
-			.map_err(|e| <span class="macro">format!</span>(<span class="string">&quot;Invalid index format: {}&quot;</span>, e))<span class="question-mark">?</span>;
+			.map_err(|e| <span class="macro">format!</span>(<span class="string">"Invalid index format: {}"</span>, e))<span class="question-mark">?</span>;
 
 		<span class="prelude-val">Ok</span>(<span class="self">Self</span>::Block(block, index))
 	}
@@ -731,14 +733,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>should_parse_block_strings() {
 		<span class="kw">type </span>BlockAddress = <span class="kw">super</span>::BlockAddress&lt;Hash, u64&gt;;
 
-		<span class="kw">let </span>b0 = BlockAddress::from_str(<span class="string">&quot;3BfC20f0B9aFcAcE800D73D2191166FF16540258&quot;</span>);
-		<span class="kw">let </span>b1 = BlockAddress::from_str(<span class="string">&quot;1234&quot;</span>);
-		<span class="kw">let </span>b2 = BlockAddress::from_str(<span class="string">&quot;0&quot;</span>);
-		<span class="kw">let </span>b3 = BlockAddress::from_str(<span class="string">&quot;0x0012345f&quot;</span>);
+		<span class="kw">let </span>b0 = BlockAddress::from_str(<span class="string">"3BfC20f0B9aFcAcE800D73D2191166FF16540258"</span>);
+		<span class="kw">let </span>b1 = BlockAddress::from_str(<span class="string">"1234"</span>);
+		<span class="kw">let </span>b2 = BlockAddress::from_str(<span class="string">"0"</span>);
+		<span class="kw">let </span>b3 = BlockAddress::from_str(<span class="string">"0x0012345f"</span>);
 
 		<span class="macro">assert_eq!</span>(
 			b0,
-			<span class="prelude-val">Ok</span>(BlockAddress::Hash(<span class="string">&quot;3BfC20f0B9aFcAcE800D73D2191166FF16540258&quot;</span>.parse().unwrap()))
+			<span class="prelude-val">Ok</span>(BlockAddress::Hash(<span class="string">"3BfC20f0B9aFcAcE800D73D2191166FF16540258"</span>.parse().unwrap()))
 		);
 		<span class="macro">assert_eq!</span>(b1, <span class="prelude-val">Ok</span>(BlockAddress::Number(<span class="number">1234</span>)));
 		<span class="macro">assert_eq!</span>(b2, <span class="prelude-val">Ok</span>(BlockAddress::Number(<span class="number">0</span>)));
@@ -750,17 +752,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">type </span>BlockAddress = <span class="kw">super</span>::BlockAddress&lt;Hash, u64&gt;;
 		<span class="kw">type </span>ExtrinsicAddress = <span class="kw">super</span>::ExtrinsicAddress&lt;Hash, u64&gt;;
 
-		<span class="kw">let </span>e0 = ExtrinsicAddress::from_str(<span class="string">&quot;1234&quot;</span>);
-		<span class="kw">let </span>b0 = ExtrinsicAddress::from_str(<span class="string">&quot;3BfC20f0B9aFcAcE800D73D2191166FF16540258:5&quot;</span>);
-		<span class="kw">let </span>b1 = ExtrinsicAddress::from_str(<span class="string">&quot;1234:0&quot;</span>);
-		<span class="kw">let </span>b2 = ExtrinsicAddress::from_str(<span class="string">&quot;0 0&quot;</span>);
-		<span class="kw">let </span>b3 = ExtrinsicAddress::from_str(<span class="string">&quot;0x0012345f&quot;</span>);
+		<span class="kw">let </span>e0 = ExtrinsicAddress::from_str(<span class="string">"1234"</span>);
+		<span class="kw">let </span>b0 = ExtrinsicAddress::from_str(<span class="string">"3BfC20f0B9aFcAcE800D73D2191166FF16540258:5"</span>);
+		<span class="kw">let </span>b1 = ExtrinsicAddress::from_str(<span class="string">"1234:0"</span>);
+		<span class="kw">let </span>b2 = ExtrinsicAddress::from_str(<span class="string">"0 0"</span>);
+		<span class="kw">let </span>b3 = ExtrinsicAddress::from_str(<span class="string">"0x0012345f"</span>);
 
 		<span class="macro">assert_eq!</span>(e0, <span class="prelude-val">Ok</span>(ExtrinsicAddress::Bytes(<span class="macro">vec!</span>[<span class="number">0x12</span>, <span class="number">0x34</span>])));
 		<span class="macro">assert_eq!</span>(
 			b0,
 			<span class="prelude-val">Ok</span>(ExtrinsicAddress::Block(
-				BlockAddress::Hash(<span class="string">&quot;3BfC20f0B9aFcAcE800D73D2191166FF16540258&quot;</span>.parse().unwrap()),
+				BlockAddress::Hash(<span class="string">"3BfC20f0B9aFcAcE800D73D2191166FF16540258"</span>.parse().unwrap()),
 				<span class="number">5
 			</span>))
 		);

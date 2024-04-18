@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/arithmetic/src/fixed_point.rs`."><title>fixed_point.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/arithmetic/src/fixed_point.rs`."><title>fixed_point.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_arithmetic" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_arithmetic" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sp_arithmetic/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -2394,14 +2396,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -2409,7 +2411,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! Decimal Fixed Point implementations for Substrate runtime.
 //! Similar to types that implement [`PerThing`](crate::per_things), these are also
 //! fixed-point types, however, they are able to represent larger fractions:
-</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;./src/lib.rs&quot;</span>, fixed_u64)]
+</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">"./src/lib.rs"</span>, fixed_u64)]
 </span><span class="doccomment">//!
 //! ### Fixed Point Types in Practice
 //!
@@ -2418,11 +2420,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! Take for example this very rudimentary pricing mechanism, where we wish to calculate the demand
 //! / supply to get a price for some on-chain compute:
 </span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(
-	<span class="string">&quot;./src/lib.rs&quot;</span>,
+	<span class="string">"./src/lib.rs"</span>,
 	fixed_u64_block_computation_example
 )]
 </span><span class="doccomment">//!
-//! For a much more comprehensive example, be sure to look at the source for broker (the &quot;coretime&quot;)
+//! For a much more comprehensive example, be sure to look at the source for broker (the "coretime")
 //! pallet.
 //!
 //! #### Fixed Point Types in Practice
@@ -2430,7 +2432,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! Just as with [`PerThing`](PerThing), you can also perform regular mathematical
 //! expressions:
 </span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(
-	<span class="string">&quot;./src/lib.rs&quot;</span>,
+	<span class="string">"./src/lib.rs"</span>,
 	fixed_u64_operation_example
 )]
 </span><span class="doccomment">//!
@@ -2449,10 +2451,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	ops::{<span class="self">self</span>, Add, Div, Mul, Sub},
 };
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;serde&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"serde"</span>)]
 </span><span class="kw">use </span>serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
-<span class="attr">#[cfg(all(not(feature = <span class="string">&quot;std&quot;</span>), feature = <span class="string">&quot;serde&quot;</span>))]
+<span class="attr">#[cfg(all(not(feature = <span class="string">"std"</span>), feature = <span class="string">"serde"</span>))]
 </span><span class="kw">use </span>alloc::string::{String, ToString};
 
 <span class="doccomment">/// Integer types that can be used to interact with `FixedPointNumber` implementations.
@@ -2553,7 +2555,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// Panics if `d = 0`. Returns `Self::max` or `Self::min` if `n / d` exceeds accuracy.
 	</span><span class="kw">fn </span>saturating_from_rational&lt;N: FixedPointOperand, D: FixedPointOperand&gt;(n: N, d: D) -&gt; <span class="self">Self </span>{
 		<span class="kw">if </span>d == D::zero() {
-			<span class="macro">panic!</span>(<span class="string">&quot;attempt to divide by zero&quot;</span>)
+			<span class="macro">panic!</span>(<span class="string">"attempt to divide by zero"</span>)
 		}
 		<span class="self">Self</span>::checked_from_rational(n, d).unwrap_or_else(|| to_bound(n, d))
 	}
@@ -2626,7 +2628,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// Panics if `d == 0`. Returns `N::min` or `N::max` if the result does not fit in `N`.
 	</span><span class="kw">fn </span>saturating_div_int&lt;N: FixedPointOperand&gt;(<span class="self">self</span>, d: N) -&gt; N {
 		<span class="kw">if </span>d == N::zero() {
-			<span class="macro">panic!</span>(<span class="string">&quot;attempt to divide by zero&quot;</span>)
+			<span class="macro">panic!</span>(<span class="string">"attempt to divide by zero"</span>)
 		}
 		<span class="self">self</span>.checked_div_int(d).unwrap_or_else(|| to_bound(<span class="self">self</span>.into_inner(), d))
 	}
@@ -2681,10 +2683,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>trunc(<span class="self">self</span>) -&gt; <span class="self">Self </span>{
 		<span class="self">self</span>.into_inner()
 			.checked_div(<span class="kw-2">&amp;</span><span class="self">Self</span>::DIV)
-			.expect(<span class="string">&quot;panics only if DIV is zero, DIV is not zero; qed&quot;</span>)
+			.expect(<span class="string">"panics only if DIV is zero, DIV is not zero; qed"</span>)
 			.checked_mul(<span class="kw-2">&amp;</span><span class="self">Self</span>::DIV)
 			.map(<span class="self">Self</span>::from_inner)
-			.expect(<span class="string">&quot;can not overflow since fixed number is &gt;= integer part&quot;</span>)
+			.expect(<span class="string">"can not overflow since fixed number is &gt;= integer part"</span>)
 	}
 
 	<span class="doccomment">/// Returns the fractional part.
@@ -2843,7 +2845,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="self">Self</span>(inner)
 			}
 
-			<span class="doccomment">/// Return the instance&#39;s inner value.
+			<span class="doccomment">/// Return the instance's inner value.
 			///
 			/// `const` version of `FixedPointNumber::into_inner`.
 			</span><span class="kw">pub const fn </span>into_inner(<span class="self">self</span>) -&gt; <span class="macro-nonterminal">$inner_type </span>{
@@ -2859,7 +2861,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			}
 
 			<span class="doccomment">/// Convert from a `float` value.
-			</span><span class="attr">#[cfg(any(feature = <span class="string">&quot;std&quot;</span>, test))]
+			</span><span class="attr">#[cfg(any(feature = <span class="string">"std"</span>, test))]
 			</span><span class="kw">pub fn </span>from_float(x: f64) -&gt; <span class="self">Self </span>{
 				<span class="self">Self</span>((x * (&lt;<span class="self">Self </span><span class="kw">as </span>FixedPointNumber&gt;::DIV <span class="kw">as </span>f64)) <span class="kw">as </span><span class="macro-nonterminal">$inner_type</span>)
 			}
@@ -2885,9 +2887,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="prelude-val">Some</span>(value) =&gt; {
 							<span class="kw">if </span>value &gt; (u32::max_value() <span class="kw">as </span>u128) {
 								<span class="macro">panic!</span>(
-									<span class="string">&quot;prior logic ensures 0&lt;self.0&lt;DIV; \
+									<span class="string">"prior logic ensures 0&lt;self.0&lt;DIV; \
 									multiply ensures 0&lt;self.0&lt;1000000000; \
-									qed&quot;
+									qed"
 								</span>);
 							}
 							Perbill::from_parts(value <span class="kw">as </span>u32)
@@ -2898,7 +2900,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			}
 
 			<span class="doccomment">/// Convert into a `float` value.
-			</span><span class="attr">#[cfg(any(feature = <span class="string">&quot;std&quot;</span>, test))]
+			</span><span class="attr">#[cfg(any(feature = <span class="string">"std"</span>, test))]
 			</span><span class="kw">pub fn </span>to_float(<span class="self">self</span>) -&gt; f64 {
 				<span class="self">self</span>.<span class="number">0 </span><span class="kw">as </span>f64 / &lt;<span class="self">Self </span><span class="kw">as </span>FixedPointNumber&gt;::DIV <span class="kw">as </span>f64
 			}
@@ -2943,7 +2945,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="kw">pub const fn </span>sqrt(<span class="self">self</span>) -&gt; <span class="self">Self </span>{
 				<span class="kw">match </span><span class="self">self</span>.try_sqrt() {
 					<span class="prelude-val">Some</span>(v) =&gt; v,
-					<span class="prelude-val">None </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;sqrt overflow or negative input&quot;</span>),
+					<span class="prelude-val">None </span>=&gt; <span class="macro">panic!</span>(<span class="string">"sqrt overflow or negative input"</span>),
 				}
 			}
 
@@ -2958,12 +2960,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				</span>}
 				<span class="kw">let </span>v = <span class="self">self</span>.<span class="number">0 </span><span class="kw">as </span>u128;
 
-				<span class="comment">// Want x&#39; = sqrt(x) where x = n/D and x&#39; = n&#39;/D (D is fixed)
+				<span class="comment">// Want x' = sqrt(x) where x = n/D and x' = n'/D (D is fixed)
 				// Our preferred way is:
 				//   sqrt(n/D) = sqrt(nD / D^2) = sqrt(nD)/sqrt(D^2) = sqrt(nD)/D
-				//   ergo n&#39; = sqrt(nD)
+				//   ergo n' = sqrt(nD)
 				// but this requires nD to fit into our type.
-				// if nD doesn&#39;t fit then we can fall back on:
+				// if nD doesn't fit then we can fall back on:
 				//   sqrt(nD) = sqrt(n)*sqrt(D)
 				// computing them individually and taking the product at the end. we will lose some
 				// precision though.
@@ -2998,7 +3000,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="kw">pub const fn </span>mul(<span class="self">self</span>, rhs: <span class="self">Self</span>) -&gt; <span class="self">Self </span>{
 				<span class="kw">match </span><span class="macro-nonterminal">$name::const_checked_mul</span>(<span class="self">self</span>, rhs) {
 					<span class="prelude-val">Some</span>(v) =&gt; v,
-					<span class="prelude-val">None </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;attempt to multiply with overflow&quot;</span>),
+					<span class="prelude-val">None </span>=&gt; <span class="macro">panic!</span>(<span class="string">"attempt to multiply with overflow"</span>),
 				}
 			}
 
@@ -3012,7 +3014,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="kw">pub const fn </span>div(<span class="self">self</span>, rhs: <span class="self">Self</span>) -&gt; <span class="self">Self </span>{
 				<span class="kw">match </span><span class="macro-nonterminal">$name::const_checked_div</span>(<span class="self">self</span>, rhs) {
 					<span class="prelude-val">Some</span>(v) =&gt; v,
-					<span class="prelude-val">None </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;attempt to divide with overflow or NaN&quot;</span>),
+					<span class="prelude-val">None </span>=&gt; <span class="macro">panic!</span>(<span class="string">"attempt to divide with overflow or NaN"</span>),
 				}
 			}
 
@@ -3076,14 +3078,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			/// will panic on overflow. Ensure that any inputs are sensible.
 			</span><span class="kw">pub const fn </span>from_rational_with_rounding(a: u128, b: u128, rounding: Rounding) -&gt; <span class="self">Self </span>{
 				<span class="kw">if </span>b == <span class="number">0 </span>{
-					<span class="macro">panic!</span>(<span class="string">&quot;attempt to divide by zero in from_rational&quot;</span>)
+					<span class="macro">panic!</span>(<span class="string">"attempt to divide by zero in from_rational"</span>)
 				}
 				<span class="kw">match </span>multiply_by_rational_with_rounding(<span class="self">Self</span>::DIV <span class="kw">as </span>u128, a, b, rounding) {
 					<span class="prelude-val">Some</span>(value) =&gt; <span class="kw">match </span><span class="self">Self</span>::from_i129(I129 { value, negative: <span class="bool-val">false </span>}) {
 						<span class="prelude-val">Some</span>(x) =&gt; x,
-						<span class="prelude-val">None </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;overflow in from_rational&quot;</span>),
+						<span class="prelude-val">None </span>=&gt; <span class="macro">panic!</span>(<span class="string">"overflow in from_rational"</span>),
 					},
-					<span class="prelude-val">None </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;overflow in from_rational&quot;</span>),
+					<span class="prelude-val">None </span>=&gt; <span class="macro">panic!</span>(<span class="string">"overflow in from_rational"</span>),
 				}
 			}
 
@@ -3220,7 +3222,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="kw">fn </span>mul(<span class="self">self</span>, rhs: <span class="self">Self</span>) -&gt; <span class="self">Self</span>::Output {
 				<span class="self">self</span>.checked_mul(<span class="kw-2">&amp;</span>rhs)
-					.unwrap_or_else(|| <span class="macro">panic!</span>(<span class="string">&quot;attempt to multiply with overflow&quot;</span>))
+					.unwrap_or_else(|| <span class="macro">panic!</span>(<span class="string">"attempt to multiply with overflow"</span>))
 			}
 		}
 
@@ -3229,10 +3231,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="kw">fn </span>div(<span class="self">self</span>, rhs: <span class="self">Self</span>) -&gt; <span class="self">Self</span>::Output {
 				<span class="kw">if </span>rhs.<span class="number">0 </span>== <span class="number">0 </span>{
-					<span class="macro">panic!</span>(<span class="string">&quot;attempt to divide by zero&quot;</span>)
+					<span class="macro">panic!</span>(<span class="string">"attempt to divide by zero"</span>)
 				}
 				<span class="self">self</span>.checked_div(<span class="kw-2">&amp;</span>rhs)
-					.unwrap_or_else(|| <span class="macro">panic!</span>(<span class="string">&quot;attempt to divide with overflow&quot;</span>))
+					.unwrap_or_else(|| <span class="macro">panic!</span>(<span class="string">"attempt to divide with overflow"</span>))
 			}
 		}
 
@@ -3317,23 +3319,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 
 		<span class="kw">impl </span>::core::fmt::Debug <span class="kw">for </span><span class="macro-nonterminal">$name </span>{
-			<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+			<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 			</span><span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>::core::fmt::Formatter) -&gt; ::core::fmt::Result {
 				<span class="kw">let </span>integral = {
 					<span class="kw">let </span>int = <span class="self">self</span>.<span class="number">0 </span>/ <span class="self">Self</span>::accuracy();
-					<span class="kw">let </span>signum_for_zero = <span class="kw">if </span>int == <span class="number">0 </span>&amp;&amp; <span class="self">self</span>.is_negative() { <span class="string">&quot;-&quot; </span>} <span class="kw">else </span>{ <span class="string">&quot;&quot; </span>};
-					<span class="macro">format!</span>(<span class="string">&quot;{}{}&quot;</span>, signum_for_zero, int)
+					<span class="kw">let </span>signum_for_zero = <span class="kw">if </span>int == <span class="number">0 </span>&amp;&amp; <span class="self">self</span>.is_negative() { <span class="string">"-" </span>} <span class="kw">else </span>{ <span class="string">"" </span>};
+					<span class="macro">format!</span>(<span class="string">"{}{}"</span>, signum_for_zero, int)
 				};
 				<span class="kw">let </span>precision = (<span class="self">Self</span>::accuracy() <span class="kw">as </span>f64).log10() <span class="kw">as </span>usize;
 				<span class="kw">let </span>fractional = <span class="macro">format!</span>(
-					<span class="string">&quot;{:0&gt;weight$}&quot;</span>,
+					<span class="string">"{:0&gt;weight$}"</span>,
 					((<span class="self">self</span>.<span class="number">0 </span>% <span class="self">Self</span>::accuracy()) <span class="kw">as </span>i128).abs(),
 					weight = precision
 				);
-				<span class="macro">write!</span>(f, <span class="string">&quot;{}({}.{})&quot;</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$name</span>), integral, fractional)
+				<span class="macro">write!</span>(f, <span class="string">"{}({}.{})"</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$name</span>), integral, fractional)
 			}
 
-			<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+			<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
 			</span><span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw">_</span>: <span class="kw-2">&amp;mut </span>::core::fmt::Formatter) -&gt; ::core::fmt::Result {
 				<span class="prelude-val">Ok</span>(())
 			}
@@ -3352,23 +3354,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">impl </span>::core::fmt::Display <span class="kw">for </span><span class="macro-nonterminal">$name </span>{
 			<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>::core::fmt::Formatter) -&gt; ::core::fmt::Result {
-				<span class="macro">write!</span>(f, <span class="string">&quot;{}&quot;</span>, <span class="self">self</span>.<span class="number">0</span>)
+				<span class="macro">write!</span>(f, <span class="string">"{}"</span>, <span class="self">self</span>.<span class="number">0</span>)
 			}
 		}
 
 		<span class="kw">impl </span>::core::str::FromStr <span class="kw">for </span><span class="macro-nonterminal">$name </span>{
-			<span class="kw">type </span><span class="prelude-val">Err </span>= <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str;
+			<span class="kw">type </span><span class="prelude-val">Err </span>= <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str;
 
 			<span class="kw">fn </span>from_str(s: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Err&gt; {
 				<span class="kw">let </span>inner: &lt;<span class="self">Self </span><span class="kw">as </span>FixedPointNumber&gt;::Inner =
-					s.parse().map_err(|<span class="kw">_</span>| <span class="string">&quot;invalid string input for fixed point number&quot;</span>)<span class="question-mark">?</span>;
+					s.parse().map_err(|<span class="kw">_</span>| <span class="string">"invalid string input for fixed point number"</span>)<span class="question-mark">?</span>;
 				<span class="prelude-val">Ok</span>(<span class="self">Self</span>::from_inner(inner))
 			}
 		}
 
 		<span class="comment">// Manual impl `Serialize` as serde_json does not support i128.
 		// TODO: remove impl if issue https://github.com/serde-rs/json/issues/548 fixed.
-		</span><span class="attr">#[cfg(feature = <span class="string">&quot;serde&quot;</span>)]
+		</span><span class="attr">#[cfg(feature = <span class="string">"serde"</span>)]
 		</span><span class="kw">impl </span>Serialize <span class="kw">for </span><span class="macro-nonterminal">$name </span>{
 			<span class="kw">fn </span>serialize&lt;S&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, serializer: S) -&gt; <span class="prelude-ty">Result</span>&lt;S::Ok, S::Error&gt;
 			<span class="kw">where
@@ -3380,11 +3382,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// Manual impl `Deserialize` as serde_json does not support i128.
 		// TODO: remove impl if issue https://github.com/serde-rs/json/issues/548 fixed.
-		</span><span class="attr">#[cfg(feature = <span class="string">&quot;serde&quot;</span>)]
-		</span><span class="kw">impl</span>&lt;<span class="lifetime">&#39;de</span>&gt; Deserialize&lt;<span class="lifetime">&#39;de</span>&gt; <span class="kw">for </span><span class="macro-nonterminal">$name </span>{
+		</span><span class="attr">#[cfg(feature = <span class="string">"serde"</span>)]
+		</span><span class="kw">impl</span>&lt;<span class="lifetime">'de</span>&gt; Deserialize&lt;<span class="lifetime">'de</span>&gt; <span class="kw">for </span><span class="macro-nonterminal">$name </span>{
 			<span class="kw">fn </span>deserialize&lt;D&gt;(deserializer: D) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, D::Error&gt;
 			<span class="kw">where
-				</span>D: Deserializer&lt;<span class="lifetime">&#39;de</span>&gt;,
+				</span>D: Deserializer&lt;<span class="lifetime">'de</span>&gt;,
 			{
 				<span class="kw">use </span>::core::str::FromStr;
 				<span class="kw">let </span>s = String::deserialize(deserializer)<span class="question-mark">?</span>;
@@ -3427,7 +3429,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="kw">fn </span>from_i129_works() {
 				<span class="kw">let </span>a = I129 { value: <span class="number">1</span>, negative: <span class="bool-val">true </span>};
 
-				<span class="comment">// Can&#39;t convert negative number to unsigned.
+				<span class="comment">// Can't convert negative number to unsigned.
 				</span><span class="macro">assert_eq!</span>(from_i129::&lt;u128&gt;(a), <span class="prelude-val">None</span>);
 
 				<span class="kw">let </span>a = I129 { value: u128::MAX - <span class="number">1</span>, negative: <span class="bool-val">false </span>};
@@ -3581,7 +3583,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			}
 
 			<span class="attr">#[test]
-			#[should_panic(expected = <span class="string">&quot;attempt to divide by zero&quot;</span>)]
+			#[should_panic(expected = <span class="string">"attempt to divide by zero"</span>)]
 			</span><span class="kw">fn </span>op_div_panics_on_zero_divisor() {
 				<span class="kw">let </span>a = <span class="macro-nonterminal">$name::saturating_from_integer</span>(<span class="number">1</span>);
 				<span class="kw">let </span>b = <span class="number">0</span>.into();
@@ -3640,7 +3642,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">let </span>a = <span class="macro-nonterminal">$name::saturating_from_integer</span>(inner_min / accuracy);
 				<span class="macro">assert_eq!</span>(a.into_inner(), (inner_min / accuracy) * accuracy);
 
-				<span class="comment">// Cases where integer doesn&#39;t fit, so it saturates.
+				<span class="comment">// Cases where integer doesn't fit, so it saturates.
 				</span><span class="kw">let </span>a = <span class="macro-nonterminal">$name::saturating_from_integer</span>(inner_max / accuracy + <span class="number">1</span>);
 				<span class="macro">assert_eq!</span>(a.into_inner(), inner_max);
 
@@ -3656,30 +3658,30 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 				<span class="comment">// Case where integer fits.
 				</span><span class="kw">let </span>a = <span class="macro-nonterminal">$name::checked_from_integer</span>::&lt;<span class="macro-nonterminal">$inner_type</span>&gt;(<span class="number">42</span>)
-					.expect(<span class="string">&quot;42 * accuracy &lt;= inner_max; qed&quot;</span>);
+					.expect(<span class="string">"42 * accuracy &lt;= inner_max; qed"</span>);
 				<span class="macro">assert_eq!</span>(a.into_inner(), <span class="number">42 </span>* accuracy);
 
 				<span class="comment">// Max integer that fit.
 				</span><span class="kw">let </span>a = <span class="macro-nonterminal">$name::checked_from_integer</span>::&lt;<span class="macro-nonterminal">$inner_type</span>&gt;(inner_max / accuracy)
-					.expect(<span class="string">&quot;(inner_max / accuracy) * accuracy &lt;= inner_max; qed&quot;</span>);
+					.expect(<span class="string">"(inner_max / accuracy) * accuracy &lt;= inner_max; qed"</span>);
 				<span class="macro">assert_eq!</span>(a.into_inner(), (inner_max / accuracy) * accuracy);
 
-				<span class="comment">// Case where integer doesn&#39;t fit, so it returns `None`.
+				<span class="comment">// Case where integer doesn't fit, so it returns `None`.
 				</span><span class="kw">let </span>a = <span class="macro-nonterminal">$name::checked_from_integer</span>::&lt;<span class="macro-nonterminal">$inner_type</span>&gt;(inner_max / accuracy + <span class="number">1</span>);
 				<span class="macro">assert_eq!</span>(a, <span class="prelude-val">None</span>);
 
 				<span class="kw">if </span><span class="macro-nonterminal">$name::SIGNED </span>{
 					<span class="comment">// Case where integer fits.
 					</span><span class="kw">let </span>a = <span class="macro-nonterminal">$name::checked_from_integer</span>::&lt;<span class="macro-nonterminal">$inner_type</span>&gt;(<span class="number">0</span>.saturating_sub(<span class="number">42</span>))
-						.expect(<span class="string">&quot;-42 * accuracy &gt;= inner_min; qed&quot;</span>);
+						.expect(<span class="string">"-42 * accuracy &gt;= inner_min; qed"</span>);
 					<span class="macro">assert_eq!</span>(a.into_inner(), <span class="number">0 </span>- <span class="number">42 </span>* accuracy);
 
 					<span class="comment">// Min integer that fit.
 					</span><span class="kw">let </span>a = <span class="macro-nonterminal">$name::checked_from_integer</span>::&lt;<span class="macro-nonterminal">$inner_type</span>&gt;(inner_min / accuracy)
-						.expect(<span class="string">&quot;(inner_min / accuracy) * accuracy &lt;= inner_min; qed&quot;</span>);
+						.expect(<span class="string">"(inner_min / accuracy) * accuracy &lt;= inner_min; qed"</span>);
 					<span class="macro">assert_eq!</span>(a.into_inner(), (inner_min / accuracy) * accuracy);
 
-					<span class="comment">// Case where integer doesn&#39;t fit, so it returns `None`.
+					<span class="comment">// Case where integer doesn't fit, so it returns `None`.
 					</span><span class="kw">let </span>a = <span class="macro-nonterminal">$name::checked_from_integer</span>::&lt;<span class="macro-nonterminal">$inner_type</span>&gt;(inner_min / accuracy - <span class="number">1</span>);
 					<span class="macro">assert_eq!</span>(a, <span class="prelude-val">None</span>);
 				}
@@ -3695,7 +3697,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			}
 
 			<span class="attr">#[test]
-			#[should_panic(expected = <span class="string">&quot;attempt to divide by zero&quot;</span>)]
+			#[should_panic(expected = <span class="string">"attempt to divide by zero"</span>)]
 			</span><span class="kw">fn </span>saturating_from_rational_panics_on_zero_divisor() {
 				<span class="kw">let _ </span>= <span class="macro-nonterminal">$name::saturating_from_rational</span>(<span class="number">1</span>, <span class="number">0</span>);
 			}
@@ -4196,7 +4198,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			}
 
 			<span class="attr">#[test]
-			#[should_panic(expected = <span class="string">&quot;attempt to divide by zero&quot;</span>)]
+			#[should_panic(expected = <span class="string">"attempt to divide by zero"</span>)]
 			</span><span class="kw">fn </span>saturating_div_int_panics_when_divisor_is_zero() {
 				<span class="kw">let _ </span>= <span class="macro-nonterminal">$name::one</span>().saturating_div_int(<span class="number">0</span>);
 			}
@@ -4548,45 +4550,45 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="kw">fn </span>fmt_should_work() {
 				<span class="kw">let </span>zero = <span class="macro-nonterminal">$name::zero</span>();
 				<span class="macro">assert_eq!</span>(
-					<span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, zero),
-					<span class="macro">format!</span>(<span class="string">&quot;{}(0.{:0&gt;weight$})&quot;</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$name</span>), <span class="number">0</span>, weight = precision())
+					<span class="macro">format!</span>(<span class="string">"{:?}"</span>, zero),
+					<span class="macro">format!</span>(<span class="string">"{}(0.{:0&gt;weight$})"</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$name</span>), <span class="number">0</span>, weight = precision())
 				);
 
 				<span class="kw">let </span>one = <span class="macro-nonterminal">$name::one</span>();
 				<span class="macro">assert_eq!</span>(
-					<span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, one),
-					<span class="macro">format!</span>(<span class="string">&quot;{}(1.{:0&gt;weight$})&quot;</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$name</span>), <span class="number">0</span>, weight = precision())
+					<span class="macro">format!</span>(<span class="string">"{:?}"</span>, one),
+					<span class="macro">format!</span>(<span class="string">"{}(1.{:0&gt;weight$})"</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$name</span>), <span class="number">0</span>, weight = precision())
 				);
 
 				<span class="kw">let </span>frac = <span class="macro-nonterminal">$name::saturating_from_rational</span>(<span class="number">1</span>, <span class="number">2</span>);
 				<span class="macro">assert_eq!</span>(
-					<span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, frac),
-					<span class="macro">format!</span>(<span class="string">&quot;{}(0.{:0&lt;weight$})&quot;</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$name</span>), <span class="number">5</span>, weight = precision())
+					<span class="macro">format!</span>(<span class="string">"{:?}"</span>, frac),
+					<span class="macro">format!</span>(<span class="string">"{}(0.{:0&lt;weight$})"</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$name</span>), <span class="number">5</span>, weight = precision())
 				);
 
 				<span class="kw">let </span>frac = <span class="macro-nonterminal">$name::saturating_from_rational</span>(<span class="number">5</span>, <span class="number">2</span>);
 				<span class="macro">assert_eq!</span>(
-					<span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, frac),
-					<span class="macro">format!</span>(<span class="string">&quot;{}(2.{:0&lt;weight$})&quot;</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$name</span>), <span class="number">5</span>, weight = precision())
+					<span class="macro">format!</span>(<span class="string">"{:?}"</span>, frac),
+					<span class="macro">format!</span>(<span class="string">"{}(2.{:0&lt;weight$})"</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$name</span>), <span class="number">5</span>, weight = precision())
 				);
 
 				<span class="kw">let </span>frac = <span class="macro-nonterminal">$name::saturating_from_rational</span>(<span class="number">314</span>, <span class="number">100</span>);
 				<span class="macro">assert_eq!</span>(
-					<span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, frac),
-					<span class="macro">format!</span>(<span class="string">&quot;{}(3.{:0&lt;weight$})&quot;</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$name</span>), <span class="number">14</span>, weight = precision())
+					<span class="macro">format!</span>(<span class="string">"{:?}"</span>, frac),
+					<span class="macro">format!</span>(<span class="string">"{}(3.{:0&lt;weight$})"</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$name</span>), <span class="number">14</span>, weight = precision())
 				);
 
 				<span class="kw">if </span><span class="macro-nonterminal">$name::SIGNED </span>{
 					<span class="kw">let </span>neg = -<span class="macro-nonterminal">$name::one</span>();
 					<span class="macro">assert_eq!</span>(
-						<span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, neg),
-						<span class="macro">format!</span>(<span class="string">&quot;{}(-1.{:0&gt;weight$})&quot;</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$name</span>), <span class="number">0</span>, weight = precision())
+						<span class="macro">format!</span>(<span class="string">"{:?}"</span>, neg),
+						<span class="macro">format!</span>(<span class="string">"{}(-1.{:0&gt;weight$})"</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$name</span>), <span class="number">0</span>, weight = precision())
 					);
 
 					<span class="kw">let </span>frac = <span class="macro-nonterminal">$name::saturating_from_rational</span>(-<span class="number">314</span>, <span class="number">100</span>);
 					<span class="macro">assert_eq!</span>(
-						<span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, frac),
-						<span class="macro">format!</span>(<span class="string">&quot;{}(-3.{:0&lt;weight$})&quot;</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$name</span>), <span class="number">14</span>, weight = precision())
+						<span class="macro">format!</span>(<span class="string">"{:?}"</span>, frac),
+						<span class="macro">format!</span>(<span class="string">"{}(-3.{:0&lt;weight$})"</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$name</span>), <span class="number">14</span>, weight = precision())
 					);
 				}
 			}
@@ -4600,7 +4602,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	i64,
 	<span class="bool-val">true</span>,
 	<span class="number">1_000_000_000</span>,
-	<span class="string">&quot;_Fixed Point 64 bits signed, range = [-9223372036.854775808, 9223372036.854775807]_&quot;</span>,
+	<span class="string">"_Fixed Point 64 bits signed, range = [-9223372036.854775808, 9223372036.854775807]_"</span>,
 );
 
 <span class="macro">implement_fixed!</span>(
@@ -4609,7 +4611,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	u64,
 	<span class="bool-val">false</span>,
 	<span class="number">1_000_000_000</span>,
-	<span class="string">&quot;_Fixed Point 64 bits unsigned, range = [0.000000000, 18446744073.709551615]_&quot;</span>,
+	<span class="string">"_Fixed Point 64 bits unsigned, range = [0.000000000, 18446744073.709551615]_"</span>,
 );
 
 <span class="macro">implement_fixed!</span>(
@@ -4618,8 +4620,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	i128,
 	<span class="bool-val">true</span>,
 	<span class="number">1_000_000_000_000_000_000</span>,
-	<span class="string">&quot;_Fixed Point 128 bits signed, range = \
-		[-170141183460469231731.687303715884105728, 170141183460469231731.687303715884105727]_&quot;</span>,
+	<span class="string">"_Fixed Point 128 bits signed, range = \
+		[-170141183460469231731.687303715884105728, 170141183460469231731.687303715884105727]_"</span>,
 );
 
 <span class="macro">implement_fixed!</span>(
@@ -4628,8 +4630,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	u128,
 	<span class="bool-val">false</span>,
 	<span class="number">1_000_000_000_000_000_000</span>,
-	<span class="string">&quot;_Fixed Point 128 bits unsigned, range = \
-		[0.000000000000000000, 340282366920938463463.374607431768211455]_&quot;</span>,
+	<span class="string">"_Fixed Point 128 bits unsigned, range = \
+		[0.000000000000000000, 340282366920938463463.374607431768211455]_"</span>,
 );
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 

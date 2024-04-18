@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/network/statement-distribution/src/legacy_v1/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/network/statement-distribution/src/legacy_v1/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_statement_distribution" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_statement_distribution" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../polkadot_statement_distribution/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -2427,30 +2429,30 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests;
 
-<span class="kw">const </span>COST_UNEXPECTED_STATEMENT: Rep = Rep::CostMinor(<span class="string">&quot;Unexpected Statement&quot;</span>);
+<span class="kw">const </span>COST_UNEXPECTED_STATEMENT: Rep = Rep::CostMinor(<span class="string">"Unexpected Statement"</span>);
 <span class="kw">const </span>COST_UNEXPECTED_STATEMENT_MISSING_KNOWLEDGE: Rep =
-	Rep::CostMinor(<span class="string">&quot;Unexpected Statement, missing knowlege for relay parent&quot;</span>);
+	Rep::CostMinor(<span class="string">"Unexpected Statement, missing knowlege for relay parent"</span>);
 <span class="kw">const </span>COST_UNEXPECTED_STATEMENT_UNKNOWN_CANDIDATE: Rep =
-	Rep::CostMinor(<span class="string">&quot;Unexpected Statement, unknown candidate&quot;</span>);
+	Rep::CostMinor(<span class="string">"Unexpected Statement, unknown candidate"</span>);
 <span class="kw">const </span>COST_UNEXPECTED_STATEMENT_REMOTE: Rep =
-	Rep::CostMinor(<span class="string">&quot;Unexpected Statement, remote not allowed&quot;</span>);
+	Rep::CostMinor(<span class="string">"Unexpected Statement, remote not allowed"</span>);
 
 <span class="kw">const </span>COST_FETCH_FAIL: Rep =
-	Rep::CostMinor(<span class="string">&quot;Requesting `CommittedCandidateReceipt` from peer failed&quot;</span>);
-<span class="kw">const </span>COST_INVALID_SIGNATURE: Rep = Rep::CostMajor(<span class="string">&quot;Invalid Statement Signature&quot;</span>);
-<span class="kw">const </span>COST_WRONG_HASH: Rep = Rep::CostMajor(<span class="string">&quot;Received candidate had wrong hash&quot;</span>);
+	Rep::CostMinor(<span class="string">"Requesting `CommittedCandidateReceipt` from peer failed"</span>);
+<span class="kw">const </span>COST_INVALID_SIGNATURE: Rep = Rep::CostMajor(<span class="string">"Invalid Statement Signature"</span>);
+<span class="kw">const </span>COST_WRONG_HASH: Rep = Rep::CostMajor(<span class="string">"Received candidate had wrong hash"</span>);
 <span class="kw">const </span>COST_DUPLICATE_STATEMENT: Rep =
-	Rep::CostMajorRepeated(<span class="string">&quot;Statement sent more than once by peer&quot;</span>);
-<span class="kw">const </span>COST_APPARENT_FLOOD: Rep = Rep::Malicious(<span class="string">&quot;Peer appears to be flooding us with statements&quot;</span>);
+	Rep::CostMajorRepeated(<span class="string">"Statement sent more than once by peer"</span>);
+<span class="kw">const </span>COST_APPARENT_FLOOD: Rep = Rep::Malicious(<span class="string">"Peer appears to be flooding us with statements"</span>);
 
-<span class="kw">const </span>BENEFIT_VALID_STATEMENT: Rep = Rep::BenefitMajor(<span class="string">&quot;Peer provided a valid statement&quot;</span>);
+<span class="kw">const </span>BENEFIT_VALID_STATEMENT: Rep = Rep::BenefitMajor(<span class="string">"Peer provided a valid statement"</span>);
 <span class="kw">const </span>BENEFIT_VALID_STATEMENT_FIRST: Rep =
-	Rep::BenefitMajorFirst(<span class="string">&quot;Peer was the first to provide a valid statement&quot;</span>);
+	Rep::BenefitMajorFirst(<span class="string">"Peer was the first to provide a valid statement"</span>);
 <span class="kw">const </span>BENEFIT_VALID_RESPONSE: Rep =
-	Rep::BenefitMajor(<span class="string">&quot;Peer provided a valid large statement response&quot;</span>);
+	Rep::BenefitMajor(<span class="string">"Peer provided a valid large statement response"</span>);
 
 <span class="doccomment">/// The maximum amount of candidates each validator is allowed to second at any relay-parent.
-/// Short for &quot;Validator Candidate Threshold&quot;.
+/// Short for "Validator Candidate Threshold".
 ///
 /// This is the amount of candidates we keep per validator at any relay-parent.
 /// Typically we will only keep 1, but when a validator equivocates we will need to track 2.
@@ -2509,7 +2511,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="doccomment">/// Tracks our impression of a single peer&#39;s view of the candidates a validator has seconded
+<span class="doccomment">/// Tracks our impression of a single peer's view of the candidates a validator has seconded
 /// for a given relay-parent.
 ///
 /// It is expected to receive at most `VC_THRESHOLD` from us and be aware of at most `VC_THRESHOLD`
@@ -2527,8 +2529,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if </span>!note_hash(<span class="kw-2">&amp;mut </span><span class="self">self</span>.local_observed, h) {
 			<span class="macro">gum::warn!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;Statement distribution is erroneously attempting to distribute more \
-				than {} candidate(s) per validator index. Ignoring&quot;</span>,
+				<span class="string">"Statement distribution is erroneously attempting to distribute more \
+				than {} candidate(s) per validator index. Ignoring"</span>,
 				VC_THRESHOLD,
 			);
 		}
@@ -2575,7 +2577,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>received_statements: HashSet&lt;(CompactStatement, ValidatorIndex)&gt;,
 	<span class="doccomment">/// How many candidates this peer is aware of for each given validator index.
 	</span>seconded_counts: HashMap&lt;ValidatorIndex, VcPerPeerTracker&gt;,
-	<span class="doccomment">/// How many statements we&#39;ve received for each candidate that we&#39;re aware of.
+	<span class="doccomment">/// How many statements we've received for each candidate that we're aware of.
 	</span>received_message_count: HashMap&lt;CandidateHash, usize&gt;,
 
 	<span class="doccomment">/// How many large statements this peer already sent us.
@@ -2585,7 +2587,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// Reason: We keep messages around until we fetched the payload, but if a node makes up
 	/// statements and never provides the data, we will keep it around for the slot duration. Not
 	/// even signature checking would help, as the sender, if a validator, can just sign arbitrary
-	/// invalid statements and will not face any consequences as long as it won&#39;t provide the
+	/// invalid statements and will not face any consequences as long as it won't provide the
 	/// payload.
 	///
 	/// Quick and temporary fix, only accept `MAX_LARGE_STATEMENTS_PER_SENDER` per connected node.
@@ -2606,7 +2608,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl </span>PeerRelayParentKnowledge {
-	<span class="doccomment">/// Updates our view of the peer&#39;s knowledge with this statement&#39;s fingerprint based
+	<span class="doccomment">/// Updates our view of the peer's knowledge with this statement's fingerprint based
 	/// on something that we would like to send to the peer.
 	///
 	/// NOTE: assumes `self.can_send` returned true before this call.
@@ -2618,7 +2620,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>send(<span class="kw-2">&amp;mut </span><span class="self">self</span>, fingerprint: <span class="kw-2">&amp;</span>(CompactStatement, ValidatorIndex)) -&gt; bool {
 		<span class="macro">debug_assert!</span>(
 			<span class="self">self</span>.can_send(fingerprint),
-			<span class="string">&quot;send is only called after `can_send` returns true; qed&quot;</span>,
+			<span class="string">"send is only called after `can_send` returns true; qed"</span>,
 		);
 
 		<span class="kw">let </span>new_known = <span class="kw">match </span>fingerprint.<span class="number">0 </span>{
@@ -2657,7 +2659,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="doccomment">/// Attempt to update our view of the peer&#39;s knowledge with this statement&#39;s fingerprint based
+	<span class="doccomment">/// Attempt to update our view of the peer's knowledge with this statement's fingerprint based
 	/// on a message we are receiving from the peer.
 	///
 	/// Provide the maximum message count that we can receive per candidate. In practice we should
@@ -2678,7 +2680,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		fingerprint: <span class="kw-2">&amp;</span>(CompactStatement, ValidatorIndex),
 		max_message_count: usize,
 	) -&gt; std::result::Result&lt;bool, Rep&gt; {
-		<span class="comment">// We don&#39;t check `sent_statements` because a statement could be in-flight from both
+		<span class="comment">// We don't check `sent_statements` because a statement could be in-flight from both
 		// sides at the same time.
 		</span><span class="kw">if </span><span class="self">self</span>.received_statements.contains(fingerprint) {
 			<span class="kw">return </span><span class="prelude-val">Err</span>(COST_DUPLICATE_STATEMENT)
@@ -2740,7 +2742,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		fingerprint: <span class="kw-2">&amp;</span>(CompactStatement, ValidatorIndex),
 		max_message_count: usize,
 	) -&gt; std::result::Result&lt;(), Rep&gt; {
-		<span class="comment">// We don&#39;t check `sent_statements` because a statement could be in-flight from both
+		<span class="comment">// We don't check `sent_statements` because a statement could be in-flight from both
 		// sides at the same time.
 		</span><span class="kw">if </span><span class="self">self</span>.received_statements.contains(fingerprint) {
 			<span class="kw">return </span><span class="prelude-val">Err</span>(COST_DUPLICATE_STATEMENT)
@@ -2793,7 +2795,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl </span>PeerData {
-	<span class="doccomment">/// Updates our view of the peer&#39;s knowledge with this statement&#39;s fingerprint based
+	<span class="doccomment">/// Updates our view of the peer's knowledge with this statement's fingerprint based
 	/// on something that we would like to send to the peer.
 	///
 	/// NOTE: assumes `self.can_send` returned true before this call.
@@ -2809,11 +2811,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; bool {
 		<span class="macro">debug_assert!</span>(
 			<span class="self">self</span>.can_send(relay_parent, fingerprint),
-			<span class="string">&quot;send is only called after `can_send` returns true; qed&quot;</span>,
+			<span class="string">"send is only called after `can_send` returns true; qed"</span>,
 		);
 		<span class="self">self</span>.view_knowledge
 			.get_mut(relay_parent)
-			.expect(<span class="string">&quot;send is only called after `can_send` returns true; qed&quot;</span>)
+			.expect(<span class="string">"send is only called after `can_send` returns true; qed"</span>)
 			.send(fingerprint)
 	}
 
@@ -2827,7 +2829,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">self</span>.view_knowledge.get(relay_parent).map_or(<span class="bool-val">false</span>, |k| k.can_send(fingerprint))
 	}
 
-	<span class="doccomment">/// Attempt to update our view of the peer&#39;s knowledge with this statement&#39;s fingerprint based
+	<span class="doccomment">/// Attempt to update our view of the peer's knowledge with this statement's fingerprint based
 	/// on a message we are receiving from the peer.
 	///
 	/// Provide the maximum message count that we can receive per candidate. In practice we should
@@ -2892,9 +2894,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="comment">// A statement stored while a relay chain head is active.
 </span><span class="attr">#[derive(Debug, Copy, Clone)]
-</span><span class="kw">struct </span>StoredStatement&lt;<span class="lifetime">&#39;a</span>&gt; {
-	comparator: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>StoredStatementComparator,
-	statement: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>SignedFullStatement,
+</span><span class="kw">struct </span>StoredStatement&lt;<span class="lifetime">'a</span>&gt; {
+	comparator: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>StoredStatementComparator,
+	statement: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>SignedFullStatement,
 }
 
 <span class="comment">// A value used for comparison of stored statements to each other.
@@ -2910,16 +2912,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	signature: ValidatorSignature,
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; From&lt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>StoredStatementComparator, <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>SignedFullStatement)&gt; <span class="kw">for </span>StoredStatement&lt;<span class="lifetime">&#39;a</span>&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; From&lt;(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>StoredStatementComparator, <span class="kw-2">&amp;</span><span class="lifetime">'a </span>SignedFullStatement)&gt; <span class="kw">for </span>StoredStatement&lt;<span class="lifetime">'a</span>&gt; {
 	<span class="kw">fn </span>from(
-		(comparator, statement): (<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>StoredStatementComparator, <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>SignedFullStatement),
+		(comparator, statement): (<span class="kw-2">&amp;</span><span class="lifetime">'a </span>StoredStatementComparator, <span class="kw-2">&amp;</span><span class="lifetime">'a </span>SignedFullStatement),
 	) -&gt; <span class="self">Self </span>{
 		<span class="self">Self </span>{ comparator, statement }
 	}
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; StoredStatement&lt;<span class="lifetime">&#39;a</span>&gt; {
-	<span class="kw">fn </span>compact(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>CompactStatement {
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; StoredStatement&lt;<span class="lifetime">'a</span>&gt; {
+	<span class="kw">fn </span>compact(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'a </span>CompactStatement {
 		<span class="kw-2">&amp;</span><span class="self">self</span>.comparator.compact
 	}
 
@@ -2929,9 +2931,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="attr">#[derive(Debug)]
-</span><span class="kw">enum </span>NotedStatement&lt;<span class="lifetime">&#39;a</span>&gt; {
+</span><span class="kw">enum </span>NotedStatement&lt;<span class="lifetime">'a</span>&gt; {
 	NotUseful,
-	Fresh(StoredStatement&lt;<span class="lifetime">&#39;a</span>&gt;),
+	Fresh(StoredStatement&lt;<span class="lifetime">'a</span>&gt;),
 	UsefulButKnown,
 }
 
@@ -2981,11 +2983,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>statements: IndexMap&lt;StoredStatementComparator, SignedFullStatement&gt;,
 	<span class="doccomment">/// Large statements we are waiting for with associated meta data.
 	</span>waiting_large_statements: HashMap&lt;CandidateHash, LargeStatementStatus&gt;,
-	<span class="doccomment">/// The parachain validators at the head&#39;s child session index.
+	<span class="doccomment">/// The parachain validators at the head's child session index.
 	</span>validators: IndexedVec&lt;ValidatorIndex, ValidatorId&gt;,
 	<span class="doccomment">/// The current session index of this fork.
 	</span>session_index: sp_staking::SessionIndex,
-	<span class="doccomment">/// How many `Seconded` statements we&#39;ve seen per validator.
+	<span class="doccomment">/// How many `Seconded` statements we've seen per validator.
 	</span>seconded_counts: HashMap&lt;ValidatorIndex, usize&gt;,
 	<span class="doccomment">/// A Jaeger span for this head, so we can attach data to it.
 	</span>span: PerLeafSpan,
@@ -3073,7 +3075,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						target: LOG_TARGET,
 						<span class="question-mark">?</span>validator_index,
 						<span class="question-mark">?</span>statement,
-						<span class="string">&quot;Extra statement is ignored&quot;
+						<span class="string">"Extra statement is ignored"
 					</span>);
 					<span class="kw">return </span>NotedStatement::NotUseful
 				}
@@ -3084,7 +3086,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						target: LOG_TARGET,
 						<span class="question-mark">?</span>validator_index,
 						statement = <span class="question-mark">?</span>old,
-						<span class="string">&quot;Known statement&quot;
+						<span class="string">"Known statement"
 					</span>);
 					NotedStatement::UsefulButKnown
 				} <span class="kw">else </span>{
@@ -3093,14 +3095,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="macro">gum::trace!</span>(
 						target: LOG_TARGET,
 						<span class="question-mark">?</span>validator_index,
-						statement = <span class="question-mark">?</span><span class="self">self</span>.statements.last().expect(<span class="string">&quot;Just inserted&quot;</span>).<span class="number">1</span>,
-						<span class="string">&quot;Noted new statement&quot;
+						statement = <span class="question-mark">?</span><span class="self">self</span>.statements.last().expect(<span class="string">"Just inserted"</span>).<span class="number">1</span>,
+						<span class="string">"Noted new statement"
 					</span>);
 					<span class="comment">// This will always return `Some` because it was just inserted.
 					</span><span class="kw">let </span>key_value = <span class="self">self
 						</span>.statements
 						.get_key_value(<span class="kw-2">&amp;</span>comparator)
-						.expect(<span class="string">&quot;Statement was just inserted; qed&quot;</span>);
+						.expect(<span class="string">"Statement was just inserted; qed"</span>);
 
 					NotedStatement::Fresh(key_value.into())
 				}
@@ -3111,7 +3113,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						target: LOG_TARGET,
 						<span class="question-mark">?</span>validator_index,
 						<span class="question-mark">?</span>statement,
-						<span class="string">&quot;Statement for unknown candidate&quot;
+						<span class="string">"Statement for unknown candidate"
 					</span>);
 					<span class="kw">return </span>NotedStatement::NotUseful
 				}
@@ -3121,21 +3123,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						target: LOG_TARGET,
 						<span class="question-mark">?</span>validator_index,
 						statement = <span class="question-mark">?</span>old,
-						<span class="string">&quot;Known statement&quot;
+						<span class="string">"Known statement"
 					</span>);
 					NotedStatement::UsefulButKnown
 				} <span class="kw">else </span>{
 					<span class="macro">gum::trace!</span>(
 						target: LOG_TARGET,
 						<span class="question-mark">?</span>validator_index,
-						statement = <span class="question-mark">?</span><span class="self">self</span>.statements.last().expect(<span class="string">&quot;Just inserted&quot;</span>).<span class="number">1</span>,
-						<span class="string">&quot;Noted new statement&quot;
+						statement = <span class="question-mark">?</span><span class="self">self</span>.statements.last().expect(<span class="string">"Just inserted"</span>).<span class="number">1</span>,
+						<span class="string">"Noted new statement"
 					</span>);
 					<span class="comment">// This will always return `Some` because it was just inserted.
 					</span>NotedStatement::Fresh(
 						<span class="self">self</span>.statements
 							.get_key_value(<span class="kw-2">&amp;</span>comparator)
-							.expect(<span class="string">&quot;Statement was just inserted; qed&quot;</span>)
+							.expect(<span class="string">"Statement was just inserted; qed"</span>)
 							.into(),
 					)
 				}
@@ -3165,7 +3167,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						target: LOG_TARGET,
 						<span class="question-mark">?</span>validator_index,
 						<span class="question-mark">?</span>statement,
-						<span class="string">&quot;Extra statement is ignored&quot;</span>,
+						<span class="string">"Extra statement is ignored"</span>,
 					);
 					<span class="kw">return </span><span class="prelude-val">Err</span>(DeniedStatement::NotUseful)
 				}
@@ -3175,7 +3177,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						target: LOG_TARGET,
 						<span class="question-mark">?</span>validator_index,
 						<span class="question-mark">?</span>statement,
-						<span class="string">&quot;Known statement&quot;</span>,
+						<span class="string">"Known statement"</span>,
 					);
 					<span class="kw">return </span><span class="prelude-val">Err</span>(DeniedStatement::UsefulButKnown)
 				}
@@ -3186,7 +3188,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						target: LOG_TARGET,
 						<span class="question-mark">?</span>validator_index,
 						<span class="question-mark">?</span>statement,
-						<span class="string">&quot;Statement for unknown candidate&quot;</span>,
+						<span class="string">"Statement for unknown candidate"</span>,
 					);
 					<span class="kw">return </span><span class="prelude-val">Err</span>(DeniedStatement::NotUseful)
 				}
@@ -3196,7 +3198,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						target: LOG_TARGET,
 						<span class="question-mark">?</span>validator_index,
 						<span class="question-mark">?</span>statement,
-						<span class="string">&quot;Known statement&quot;</span>,
+						<span class="string">"Known statement"</span>,
 					);
 					<span class="kw">return </span><span class="prelude-val">Err</span>(DeniedStatement::UsefulButKnown)
 				}
@@ -3206,7 +3208,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Get an iterator over all statements for the active head. Seconded statements come first.
-	</span><span class="kw">fn </span>statements(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw">impl </span>Iterator&lt;Item = StoredStatement&lt;<span class="lifetime">&#39;_</span>&gt;&gt; + <span class="lifetime">&#39;_ </span>{
+	</span><span class="kw">fn </span>statements(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw">impl </span>Iterator&lt;Item = StoredStatement&lt;<span class="lifetime">'_</span>&gt;&gt; + <span class="lifetime">'_ </span>{
 		<span class="self">self</span>.statements.iter().map(Into::into)
 	}
 
@@ -3214,7 +3216,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>statements_about(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		candidate_hash: CandidateHash,
-	) -&gt; <span class="kw">impl </span>Iterator&lt;Item = StoredStatement&lt;<span class="lifetime">&#39;_</span>&gt;&gt; + <span class="lifetime">&#39;_ </span>{
+	) -&gt; <span class="kw">impl </span>Iterator&lt;Item = StoredStatement&lt;<span class="lifetime">'_</span>&gt;&gt; + <span class="lifetime">'_ </span>{
 		<span class="self">self</span>.statements()
 			.filter(<span class="kw">move </span>|s| s.compact().candidate_hash() == <span class="kw-2">&amp;</span>candidate_hash)
 	}
@@ -3258,7 +3260,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">let </span>_span = active_head
 		.span
-		.child(<span class="string">&quot;circulate-statement&quot;</span>)
+		.child(<span class="string">"circulate-statement"</span>)
 		.with_candidate(statement.payload().candidate_hash())
 		.with_stage(jaeger::Stage::StatementDistribution);
 
@@ -3288,12 +3290,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	};
 
-	<span class="kw">let </span>_span = _span.child(<span class="string">&quot;send-to-peers&quot;</span>);
+	<span class="kw">let </span>_span = _span.child(<span class="string">"send-to-peers"</span>);
 	<span class="comment">// Now send dependent statements to all peers needing them, if any.
 	</span><span class="kw">if let </span><span class="prelude-val">Some</span>((candidate_hash, peers_needing_dependents)) = outputs {
 		<span class="kw">for </span>peer <span class="kw">in </span>peers_needing_dependents {
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(peer_data) = peers.get_mut(<span class="kw-2">&amp;</span>peer) {
-				<span class="kw">let </span>_span_loop = _span.child(<span class="string">&quot;to-peer&quot;</span>).with_peer_id(<span class="kw-2">&amp;</span>peer);
+				<span class="kw">let </span>_span_loop = _span.child(<span class="string">"to-peer"</span>).with_peer_id(<span class="kw-2">&amp;</span>peer);
 				<span class="comment">// defensive: the peer data should always be some because the iterator
 				// of peers is derived from the set of peers.
 				</span>send_statements_about(
@@ -3359,13 +3361,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Circulates a statement to all peers who have not seen it yet, and returns
 /// an iterator over peers who need to have dependent statements sent.
 </span><span class="attr">#[overseer::contextbounds(StatementDistribution, prefix=<span class="self">self</span>::overseer)]
-</span><span class="kw">async fn </span>circulate_statement&lt;<span class="lifetime">&#39;a</span>, Context&gt;(
+</span><span class="kw">async fn </span>circulate_statement&lt;<span class="lifetime">'a</span>, Context&gt;(
 	required_routing: RequiredRouting,
 	topology: <span class="kw-2">&amp;</span>GridNeighbors,
 	peers: <span class="kw-2">&amp;mut </span>HashMap&lt;PeerId, PeerData&gt;,
 	ctx: <span class="kw-2">&amp;mut </span>Context,
 	relay_parent: Hash,
-	stored: StoredStatement&lt;<span class="lifetime">&#39;a</span>&gt;,
+	stored: StoredStatement&lt;<span class="lifetime">'a</span>&gt;,
 	<span class="kw-2">mut </span>priority_peers: Vec&lt;PeerId&gt;,
 	metrics: <span class="kw-2">&amp;</span>Metrics,
 	rng: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>rand::Rng,
@@ -3400,7 +3402,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		MIN_GOSSIP_PEERS,
 	);
 
-	<span class="comment">// We don&#39;t want to use less peers, than we would without any priority peers:
+	<span class="comment">// We don't want to use less peers, than we would without any priority peers:
 	</span><span class="kw">let </span>min_size = std::cmp::max(peers_to_send.len(), MIN_GOSSIP_PEERS);
 	<span class="comment">// Make set full:
 	</span><span class="kw">let </span>needed_peers = min_size <span class="kw">as </span>i64 - priority_peers.len() <span class="kw">as </span>i64;
@@ -3415,14 +3417,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="comment">// We must not have duplicates:
 	</span><span class="macro">debug_assert!</span>(
 		peers_to_send.len() == peers_to_send.clone().into_iter().collect::&lt;HashSet&lt;<span class="kw">_</span>&gt;&gt;().len(),
-		<span class="string">&quot;We filter out duplicates above. qed.&quot;</span>,
+		<span class="string">"We filter out duplicates above. qed."</span>,
 	);
 
 	<span class="kw">let </span>(v1_peers_to_send, non_v1_peers_to_send) = peers_to_send
 		.into_iter()
 		.map(|peer_id| {
 			<span class="kw">let </span>peer_data =
-				peers.get_mut(<span class="kw-2">&amp;</span>peer_id).expect(<span class="string">&quot;a subset is taken above, so it exists; qed&quot;</span>);
+				peers.get_mut(<span class="kw-2">&amp;</span>peer_id).expect(<span class="string">"a subset is taken above, so it exists; qed"</span>);
 
 			<span class="kw">let </span>new = peer_data.send(<span class="kw-2">&amp;</span>relay_parent, <span class="kw-2">&amp;</span>fingerprint);
 
@@ -3442,7 +3444,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="question-mark">?</span>v1_peers_to_send,
 			<span class="question-mark">?</span>relay_parent,
 			statement = <span class="question-mark">?</span>stored.statement,
-			<span class="string">&quot;Sending statement to v1 peers&quot;</span>,
+			<span class="string">"Sending statement to v1 peers"</span>,
 		);
 		ctx.send_message(NetworkBridgeTxMessage::SendValidationMessage(
 			v1_peers_to_send.iter().map(|(p, <span class="kw">_</span>, <span class="kw">_</span>)| <span class="kw-2">*</span>p).collect(),
@@ -3471,7 +3473,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="question-mark">?</span>v2_peers_to_send,
 			<span class="question-mark">?</span>relay_parent,
 			statement = <span class="question-mark">?</span>stored.statement,
-			<span class="string">&quot;Sending statement to v2 peers&quot;</span>,
+			<span class="string">"Sending statement to v2 peers"</span>,
 		);
 		ctx.send_message(NetworkBridgeTxMessage::SendValidationMessage(
 			v2_peers_to_send,
@@ -3486,7 +3488,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="question-mark">?</span>v3_to_send,
 			<span class="question-mark">?</span>relay_parent,
 			statement = <span class="question-mark">?</span>stored.statement,
-			<span class="string">&quot;Sending statement to v3 peers&quot;</span>,
+			<span class="string">"Sending statement to v3 peers"</span>,
 		);
 		ctx.send_message(NetworkBridgeTxMessage::SendValidationMessage(
 			v3_to_send,
@@ -3523,7 +3525,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="question-mark">?</span>relay_parent,
 			<span class="question-mark">?</span>candidate_hash,
 			statement = <span class="question-mark">?</span>statement.statement,
-			<span class="string">&quot;Sending statement&quot;</span>,
+			<span class="string">"Sending statement"</span>,
 		);
 		ctx.send_message(NetworkBridgeTxMessage::SendValidationMessage(
 			<span class="macro">vec!</span>[peer],
@@ -3558,7 +3560,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="question-mark">?</span>peer,
 			<span class="question-mark">?</span>relay_parent,
 			statement = <span class="question-mark">?</span>statement.statement,
-			<span class="string">&quot;Sending statement&quot;
+			<span class="string">"Sending statement"
 		</span>);
 		ctx.send_message(NetworkBridgeTxMessage::SendValidationMessage(
 			<span class="macro">vec!</span>[peer],
@@ -3588,11 +3590,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// If the message was large, but the result has been fetched already that one is returned.
 </span><span class="attr">#[overseer::contextbounds(StatementDistribution, prefix=<span class="self">self</span>::overseer)]
-</span><span class="kw">async fn </span>retrieve_statement_from_message&lt;<span class="lifetime">&#39;a</span>, Context&gt;(
+</span><span class="kw">async fn </span>retrieve_statement_from_message&lt;<span class="lifetime">'a</span>, Context&gt;(
 	peer: PeerId,
 	peer_version: ValidationVersion,
 	message: protocol_v1::StatementDistributionMessage,
-	active_head: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>ActiveHeadData,
+	active_head: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>ActiveHeadData,
 	ctx: <span class="kw-2">&amp;mut </span>Context,
 	req_sender: <span class="kw-2">&amp;</span>mpsc::Sender&lt;RequesterMessage&gt;,
 	metrics: <span class="kw-2">&amp;</span>Metrics,
@@ -3644,7 +3646,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw">match </span>message {
 						protocol_v1::StatementDistributionMessage::Statement(<span class="kw">_</span>, s) =&gt; {
 							<span class="comment">// We can now immediately return any statements (should only be
-							// `Statement::Valid` ones, but we don&#39;t care at this point.)
+							// `Statement::Valid` ones, but we don't care at this point.)
 							</span><span class="kw">return </span><span class="prelude-val">Some</span>(s)
 						},
 						protocol_v1::StatementDistributionMessage::LargeStatement(metadata) =&gt;
@@ -3674,7 +3676,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					}
 				},
 				protocol_v1::StatementDistributionMessage::Statement(<span class="kw">_</span>, s) =&gt; {
-					<span class="comment">// No fetch in progress, safe to return any statement immediately (we don&#39;t
+					<span class="comment">// No fetch in progress, safe to return any statement immediately (we don't
 					// bother about normal network jitter which might cause `Valid` statements to
 					// arrive early for now.).
 					</span><span class="kw">return </span><span class="prelude-val">Some</span>(s)
@@ -3701,9 +3703,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		fetch(meta.relay_parent, meta.candidate_hash, <span class="macro">vec!</span>[peer], req_sender, metrics.clone())
 			.remote_handle();
 
-	<span class="kw">let </span>result = ctx.spawn(<span class="string">&quot;large-statement-fetcher&quot;</span>, task.boxed());
+	<span class="kw">let </span>result = ctx.spawn(<span class="string">"large-statement-fetcher"</span>, task.boxed());
 	<span class="kw">if let </span><span class="prelude-val">Err</span>(err) = result {
-		<span class="macro">gum::error!</span>(target: LOG_TARGET, <span class="question-mark">?</span>err, <span class="string">&quot;Spawning task failed.&quot;</span>);
+		<span class="macro">gum::error!</span>(target: LOG_TARGET, <span class="question-mark">?</span>err, <span class="string">"Spawning task failed."</span>);
 		<span class="kw">return </span><span class="prelude-val">None
 	</span>}
 	<span class="kw">let </span>available_peers = {
@@ -3727,11 +3729,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Handle incoming message and circulate it to peers, if we did not know it already.
 </span><span class="attr">#[overseer::contextbounds(StatementDistribution, prefix=<span class="self">self</span>::overseer)]
-</span><span class="kw">async fn </span>handle_incoming_message_and_circulate&lt;<span class="lifetime">&#39;a</span>, Context, R&gt;(
+</span><span class="kw">async fn </span>handle_incoming_message_and_circulate&lt;<span class="lifetime">'a</span>, Context, R&gt;(
 	peer: PeerId,
 	topology_storage: <span class="kw-2">&amp;</span>SessionBoundGridTopologyStorage,
 	peers: <span class="kw-2">&amp;mut </span>HashMap&lt;PeerId, PeerData&gt;,
-	active_heads: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>HashMap&lt;Hash, ActiveHeadData&gt;,
+	active_heads: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>HashMap&lt;Hash, ActiveHeadData&gt;,
 	recent_outdated_heads: <span class="kw-2">&amp;</span>RecentOutdatedHeads,
 	ctx: <span class="kw-2">&amp;mut </span>Context,
 	message: net_protocol::StatementDistributionMessage,
@@ -3769,7 +3771,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		// statement before a `Seconded` statement. `Seconded` statements are the only ones
 		// that require dependents. Thus, if this is a `Seconded` statement for a candidate we
 		// were not aware of before, we cannot have any dependent statements from the candidate.
-		</span><span class="kw">let _ </span>= metrics.time_network_bridge_update(<span class="string">&quot;circulate_statement&quot;</span>);
+		</span><span class="kw">let _ </span>= metrics.time_network_bridge_update(<span class="string">"circulate_statement"</span>);
 
 		<span class="kw">let </span>session_index = runtime.get_session_index_for_child(ctx.sender(), relay_parent).<span class="kw">await</span>;
 		<span class="kw">let </span>topology = <span class="kw">match </span>session_index {
@@ -3779,7 +3781,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="macro">gum::debug!</span>(
 					target: LOG_TARGET,
 					%relay_parent,
-					<span class="string">&quot;cannot get session index for the specific relay parent: {:?}&quot;</span>,
+					<span class="string">"cannot get session index for the specific relay parent: {:?}"</span>,
 					e
 				);
 
@@ -3810,18 +3812,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // This function checks the signature and ensures the statement is compatible with our
 // view. It also notifies candidate backing if the statement was previously unknown.
 </span><span class="attr">#[overseer::contextbounds(StatementDistribution, prefix=<span class="self">self</span>::overseer)]
-</span><span class="kw">async fn </span>handle_incoming_message&lt;<span class="lifetime">&#39;a</span>, Context&gt;(
+</span><span class="kw">async fn </span>handle_incoming_message&lt;<span class="lifetime">'a</span>, Context&gt;(
 	peer: PeerId,
 	peer_data: <span class="kw-2">&amp;mut </span>PeerData,
-	active_heads: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>HashMap&lt;Hash, ActiveHeadData&gt;,
+	active_heads: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>HashMap&lt;Hash, ActiveHeadData&gt;,
 	recent_outdated_heads: <span class="kw-2">&amp;</span>RecentOutdatedHeads,
 	ctx: <span class="kw-2">&amp;mut </span>Context,
 	message: net_protocol::StatementDistributionMessage,
 	req_sender: <span class="kw-2">&amp;</span>mpsc::Sender&lt;RequesterMessage&gt;,
 	metrics: <span class="kw-2">&amp;</span>Metrics,
 	reputation: <span class="kw-2">&amp;mut </span>ReputationAggregator,
-) -&gt; <span class="prelude-ty">Option</span>&lt;(Hash, StoredStatement&lt;<span class="lifetime">&#39;a</span>&gt;)&gt; {
-	<span class="kw">let _ </span>= metrics.time_network_bridge_update(<span class="string">&quot;handle_incoming_message&quot;</span>);
+) -&gt; <span class="prelude-ty">Option</span>&lt;(Hash, StoredStatement&lt;<span class="lifetime">'a</span>&gt;)&gt; {
+	<span class="kw">let _ </span>= metrics.time_network_bridge_update(<span class="string">"handle_incoming_message"</span>);
 
 	<span class="kw">let </span>message = <span class="kw">match </span>message {
 		Versioned::V1(m) =&gt; m,
@@ -3832,7 +3834,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			// all non v1 messages.
 			</span><span class="macro">gum::debug!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;Legacy statement-distribution code received unintended v2 message&quot;
+				<span class="string">"Legacy statement-distribution code received unintended v2 message"
 			</span>);
 
 			<span class="kw">return </span><span class="prelude-val">None
@@ -3847,7 +3849,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">gum::debug!</span>(
 				target: LOG_TARGET,
 				%relay_parent,
-				<span class="string">&quot;our view out-of-sync with active heads; head not found&quot;</span>,
+				<span class="string">"our view out-of-sync with active heads; head not found"</span>,
 			);
 
 			<span class="kw">if </span>!recent_outdated_heads.is_recent_outdated(<span class="kw-2">&amp;</span>relay_parent) {
@@ -3860,7 +3862,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">if let </span>protocol_v1::StatementDistributionMessage::LargeStatement(<span class="kw">_</span>) = message {
 		<span class="kw">if let </span><span class="prelude-val">Err</span>(rep) = peer_data.receive_large_statement(<span class="kw-2">&amp;</span>relay_parent) {
-			<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="question-mark">?</span>peer, <span class="question-mark">?</span>message, <span class="question-mark">?</span>rep, <span class="string">&quot;Unexpected large statement.&quot;</span>,);
+			<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="question-mark">?</span>peer, <span class="question-mark">?</span>message, <span class="question-mark">?</span>rep, <span class="string">"Unexpected large statement."</span>,);
 			modify_reputation(reputation, ctx.sender(), peer, rep).<span class="kw">await</span>;
 			<span class="kw">return </span><span class="prelude-val">None
 		</span>}
@@ -3870,16 +3872,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>candidate_hash = <span class="kw-2">*</span>fingerprint.<span class="number">0</span>.candidate_hash();
 	<span class="kw">let </span>handle_incoming_span = active_head
 		.span
-		.child(<span class="string">&quot;handle-incoming&quot;</span>)
+		.child(<span class="string">"handle-incoming"</span>)
 		.with_candidate(candidate_hash)
 		.with_peer_id(<span class="kw-2">&amp;</span>peer);
 
 	<span class="kw">let </span>max_message_count = active_head.validators.len() * <span class="number">2</span>;
 
 	<span class="comment">// perform only basic checks before verifying the signature
-	// as it&#39;s more computationally heavy
+	// as it's more computationally heavy
 	</span><span class="kw">if let </span><span class="prelude-val">Err</span>(rep) = peer_data.check_can_receive(<span class="kw-2">&amp;</span>relay_parent, <span class="kw-2">&amp;</span>fingerprint, max_message_count) {
-		<span class="comment">// This situation can happen when a peer&#39;s Seconded message was lost
+		<span class="comment">// This situation can happen when a peer's Seconded message was lost
 		// but we have received the Valid statement.
 		// So we check it once and then ignore repeated violation to avoid
 		// reputation change flood.
@@ -3892,7 +3894,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="question-mark">?</span>message,
 			<span class="question-mark">?</span>rep,
 			<span class="question-mark">?</span>unexpected_count,
-			<span class="string">&quot;Error inserting received statement&quot;
+			<span class="string">"Error inserting received statement"
 		</span>);
 
 		<span class="kw">match </span>rep {
@@ -3932,7 +3934,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="comment">// Note a received statement in the peer data
 				</span>peer_data
 					.receive(<span class="kw-2">&amp;</span>relay_parent, <span class="kw-2">&amp;</span>fingerprint, max_message_count)
-					.expect(<span class="string">&quot;checked in `check_can_receive` above; qed&quot;</span>);
+					.expect(<span class="string">"checked in `check_can_receive` above; qed"</span>);
 				modify_reputation(reputation, ctx.sender(), peer, BENEFIT_VALID_STATEMENT).<span class="kw">await</span>;
 
 				<span class="kw">return </span><span class="prelude-val">None
@@ -3942,7 +3944,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// check the signature on the statement.
 		</span><span class="kw">match </span>check_statement_signature(<span class="kw-2">&amp;</span>active_head, relay_parent, unchecked_compact) {
 			<span class="prelude-val">Err</span>(statement) =&gt; {
-				<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="question-mark">?</span>peer, <span class="question-mark">?</span>statement, <span class="string">&quot;Invalid statement signature&quot;</span>);
+				<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="question-mark">?</span>peer, <span class="question-mark">?</span>statement, <span class="string">"Invalid statement signature"</span>);
 				modify_reputation(reputation, ctx.sender(), peer, COST_INVALID_SIGNATURE).<span class="kw">await</span>;
 				<span class="kw">return </span><span class="prelude-val">None
 			</span>},
@@ -3966,7 +3968,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>payload = statement.unchecked_into_payload();
 
 	<span class="comment">// Upgrade the `Signed` wrapper from the compact payload to the full payload.
-	// This fails if the payload doesn&#39;t encode correctly.
+	// This fails if the payload doesn't encode correctly.
 	</span><span class="kw">let </span>statement: SignedFullStatement = <span class="kw">match </span>checked_compact.convert_to_superpayload(payload) {
 		<span class="prelude-val">Err</span>((compact, <span class="kw">_</span>)) =&gt; {
 			<span class="macro">gum::debug!</span>(
@@ -3974,7 +3976,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="question-mark">?</span>peer,
 				<span class="question-mark">?</span>compact,
 				is_large_statement,
-				<span class="string">&quot;Full statement had bad payload.&quot;
+				<span class="string">"Full statement had bad payload."
 			</span>);
 			modify_reputation(reputation, ctx.sender(), peer, COST_WRONG_HASH).<span class="kw">await</span>;
 			<span class="kw">return </span><span class="prelude-val">None
@@ -3988,10 +3990,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	// it will not be kept within their log.
 	</span><span class="kw">match </span>peer_data.receive(<span class="kw-2">&amp;</span>relay_parent, <span class="kw-2">&amp;</span>fingerprint, max_message_count) {
 		<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
-			<span class="macro">unreachable!</span>(<span class="string">&quot;checked in `check_can_receive` above; qed&quot;</span>);
+			<span class="macro">unreachable!</span>(<span class="string">"checked in `check_can_receive` above; qed"</span>);
 		},
 		<span class="prelude-val">Ok</span>(<span class="bool-val">true</span>) =&gt; {
-			<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>peer, <span class="question-mark">?</span>statement, <span class="string">&quot;Statement accepted&quot;</span>);
+			<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>peer, <span class="question-mark">?</span>statement, <span class="string">"Statement accepted"</span>);
 			<span class="comment">// Send the peer all statements concerning the candidate that we have,
 			// since it appears to have just learned about the candidate.
 			</span>send_statements_about(
@@ -4008,8 +4010,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Ok</span>(<span class="bool-val">false</span>) =&gt; {},
 	}
 
-	<span class="comment">// For `Seconded` statements `None` or `Err` means we couldn&#39;t fetch the PVD, which
-	// means the statement shouldn&#39;t be accepted.
+	<span class="comment">// For `Seconded` statements `None` or `Err` means we couldn't fetch the PVD, which
+	// means the statement shouldn't be accepted.
 	//
 	// In case of `Valid` we should have it cached prior, therefore this performs
 	// no Runtime API calls and always returns `Ok(Some(_))`.
@@ -4031,30 +4033,30 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="comment">// Extend the payload with persisted validation data required by the backing
 	// subsystem.
 	//
-	// Do it in advance before noting the statement because we don&#39;t want to borrow active
+	// Do it in advance before noting the statement because we don't want to borrow active
 	// head mutable and use the cache.
 	</span><span class="kw">let </span>statement_with_pvd = statement
 		.clone()
 		.convert_to_superpayload_with(<span class="kw">move </span>|statement| <span class="kw">match </span>statement {
 			Statement::Seconded(receipt) =&gt; {
 				<span class="kw">let </span>persisted_validation_data = pvd
-					.expect(<span class="string">&quot;PVD is ensured to be `Some` for all `Seconded` messages above; qed&quot;</span>);
+					.expect(<span class="string">"PVD is ensured to be `Some` for all `Seconded` messages above; qed"</span>);
 				StatementWithPVD::Seconded(receipt, persisted_validation_data)
 			},
 			Statement::Valid(candidate_hash) =&gt; StatementWithPVD::Valid(candidate_hash),
 		})
-		.expect(<span class="string">&quot;payload was checked with conversion from compact; qed&quot;</span>);
+		.expect(<span class="string">"payload was checked with conversion from compact; qed"</span>);
 
 	<span class="comment">// Note: `peer_data.receive` already ensures that the statement is not an unbounded equivocation
 	// or unpinned to a seconded candidate. So it is safe to place it into the storage.
 	</span><span class="kw">match </span>active_head.note_statement(statement) {
 		NotedStatement::NotUseful | NotedStatement::UsefulButKnown =&gt; {
-			<span class="macro">unreachable!</span>(<span class="string">&quot;checked in `is_useful_or_unknown` above; qed&quot;</span>);
+			<span class="macro">unreachable!</span>(<span class="string">"checked in `is_useful_or_unknown` above; qed"</span>);
 		},
 		NotedStatement::Fresh(statement) =&gt; {
 			modify_reputation(reputation, ctx.sender(), peer, BENEFIT_VALID_STATEMENT_FIRST).<span class="kw">await</span>;
 
-			<span class="kw">let </span><span class="kw-2">mut </span>_span = handle_incoming_span.child(<span class="string">&quot;notify-backing&quot;</span>);
+			<span class="kw">let </span><span class="kw-2">mut </span>_span = handle_incoming_span.child(<span class="string">"notify-backing"</span>);
 
 			<span class="comment">// When we receive a new message from a peer, we forward it to the
 			// candidate backing subsystem.
@@ -4066,7 +4068,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="doccomment">/// Update a peer&#39;s view. Sends all newly unlocked statements based on the previous
+<span class="doccomment">/// Update a peer's view. Sends all newly unlocked statements based on the previous
 </span><span class="attr">#[overseer::contextbounds(StatementDistribution, prefix=<span class="self">self</span>::overseer)]
 </span><span class="kw">async fn </span>update_peer_view_and_maybe_send_unlocked&lt;Context, R&gt;(
 	peer: PeerId,
@@ -4132,7 +4134,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">match </span>update {
 		NetworkBridgeEvent::PeerConnected(peer, role, protocol_version, maybe_authority) =&gt; {
-			<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>peer, <span class="question-mark">?</span>role, <span class="question-mark">?</span>protocol_version, <span class="string">&quot;Peer connected&quot;</span>);
+			<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>peer, <span class="question-mark">?</span>role, <span class="question-mark">?</span>protocol_version, <span class="string">"Peer connected"</span>);
 
 			<span class="kw">let </span>protocol_version = <span class="kw">match </span>ValidationVersion::try_from(protocol_version).ok() {
 				<span class="prelude-val">Some</span>(v) =&gt; v,
@@ -4141,7 +4143,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						target: LOG_TARGET,
 						<span class="question-mark">?</span>peer,
 						<span class="question-mark">?</span>protocol_version,
-						<span class="string">&quot;unknown protocol version, ignoring&quot;
+						<span class="string">"unknown protocol version, ignoring"
 					</span>);
 					<span class="kw">return
 				</span>},
@@ -4163,7 +4165,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			}
 		},
 		NetworkBridgeEvent::PeerDisconnected(peer) =&gt; {
-			<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>peer, <span class="string">&quot;Peer disconnected&quot;</span>);
+			<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>peer, <span class="string">"Peer disconnected"</span>);
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(auth_ids) = peers.remove(<span class="kw-2">&amp;</span>peer).and_then(|p| p.maybe_authority) {
 				auth_ids.into_iter().for_each(|a| {
 					authorities.remove(<span class="kw-2">&amp;</span>a);
@@ -4171,7 +4173,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			}
 		},
 		NetworkBridgeEvent::NewGossipTopology(topology) =&gt; {
-			<span class="kw">let _ </span>= metrics.time_network_bridge_update(<span class="string">&quot;new_gossip_topology&quot;</span>);
+			<span class="kw">let _ </span>= metrics.time_network_bridge_update(<span class="string">"new_gossip_topology"</span>);
 
 			<span class="kw">let </span>new_session_index = topology.session;
 			<span class="kw">let </span>new_topology = topology.topology;
@@ -4219,8 +4221,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.<span class="kw">await</span>;
 		},
 		NetworkBridgeEvent::PeerViewChange(peer, view) =&gt; {
-			<span class="kw">let _ </span>= metrics.time_network_bridge_update(<span class="string">&quot;peer_view_change&quot;</span>);
-			<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>peer, <span class="question-mark">?</span>view, <span class="string">&quot;Peer view change&quot;</span>);
+			<span class="kw">let _ </span>= metrics.time_network_bridge_update(<span class="string">"peer_view_change"</span>);
+			<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>peer, <span class="question-mark">?</span>view, <span class="string">"Peer view change"</span>);
 			<span class="kw">match </span>peers.get_mut(<span class="kw-2">&amp;</span>peer) {
 				<span class="prelude-val">Some</span>(data) =&gt;
 					update_peer_view_and_maybe_send_unlocked(
@@ -4245,13 +4247,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				target: LOG_TARGET,
 				<span class="question-mark">?</span>peer,
 				<span class="question-mark">?</span>authority_ids,
-				<span class="string">&quot;Updated `AuthorityDiscoveryId`s&quot;
+				<span class="string">"Updated `AuthorityDiscoveryId`s"
 			</span>);
 			topology_storage
 				.get_current_topology_mut()
 				.update_authority_ids(peer, <span class="kw-2">&amp;</span>authority_ids);
 			<span class="comment">// Remove the authority IDs which were previously mapped to the peer
-			// but aren&#39;t part of the new set.
+			// but aren't part of the new set.
 			</span>authorities.retain(|a, p| p != <span class="kw-2">&amp;</span>peer || authority_ids.contains(a));
 
 			<span class="comment">// Map the new authority IDs to the peer.
@@ -4389,7 +4391,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="prelude-val">Some</span>(LargeStatementStatus::Fetching(info)) =&gt; info,
 				<span class="prelude-val">Some</span>(LargeStatementStatus::FetchedOrShared(<span class="kw">_</span>)) =&gt; {
 					<span class="comment">// This task is going to die soon - no need to send it anything.
-					</span><span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="string">&quot;Zombie task wanted more peers.&quot;</span>);
+					</span><span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="string">"Zombie task wanted more peers."</span>);
 					<span class="kw">return </span><span class="prelude-val">Ok</span>(())
 				},
 				<span class="prelude-val">None </span>=&gt;
@@ -4418,7 +4420,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">gum::trace!</span>(
 			target: LOG_TARGET,
 			hash = <span class="question-mark">?</span>deactivated,
-			<span class="string">&quot;Deactivating leaf&quot;</span>,
+			<span class="string">"Deactivating leaf"</span>,
 		);
 
 		state.recent_outdated_heads.note_outdated(deactivated);
@@ -4434,11 +4436,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	activated: ActivatedLeaf,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
 	<span class="kw">let </span>relay_parent = activated.hash;
-	<span class="kw">let </span>span = PerLeafSpan::new(activated.span, <span class="string">&quot;statement-distribution-legacy&quot;</span>);
+	<span class="kw">let </span>span = PerLeafSpan::new(activated.span, <span class="string">"statement-distribution-legacy"</span>);
 	<span class="macro">gum::trace!</span>(
 		target: LOG_TARGET,
 		hash = <span class="question-mark">?</span>relay_parent,
-		<span class="string">&quot;New active leaf&quot;</span>,
+		<span class="string">"New active leaf"</span>,
 	);
 
 	<span class="comment">// Retrieve the parachain validators at the child of the head we track.
@@ -4496,7 +4498,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>our_group = <span class="kw-2">&amp;</span>session_info
 				.validator_groups
 				.get(our_group)
-				.expect(<span class="string">&quot;`our_group` is derived from `validator_groups`; qed&quot;</span>);
+				.expect(<span class="string">"`our_group` is derived from `validator_groups`; qed"</span>);
 
 			our_group
 				.into_iter()

@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `cumulus/client/relay-chain-rpc-interface/src/tokio_platform.rs`."><title>tokio_platform.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `cumulus/client/relay-chain-rpc-interface/src/tokio_platform.rs`."><title>tokio_platform.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="cumulus_relay_chain_rpc_interface" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="cumulus_relay_chain_rpc_interface" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../cumulus_relay_chain_rpc_interface/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -403,19 +405,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl </span>PlatformRef <span class="kw">for </span>TokioPlatform {
-	<span class="kw">type </span>Delay = future::BoxFuture&lt;<span class="lifetime">&#39;static</span>, ()&gt;;
+	<span class="kw">type </span>Delay = future::BoxFuture&lt;<span class="lifetime">'static</span>, ()&gt;;
 	<span class="kw">type </span>Instant = Instant;
 	<span class="kw">type </span>MultiStream = std::convert::Infallible;
 	<span class="kw">type </span>Stream = Stream;
-	<span class="kw">type </span>StreamConnectFuture = future::BoxFuture&lt;<span class="lifetime">&#39;static</span>, <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Stream, ConnectError&gt;&gt;;
+	<span class="kw">type </span>StreamConnectFuture = future::BoxFuture&lt;<span class="lifetime">'static</span>, <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Stream, ConnectError&gt;&gt;;
 	<span class="kw">type </span>MultiStreamConnectFuture = future::BoxFuture&lt;
-		<span class="lifetime">&#39;static</span>,
+		<span class="lifetime">'static</span>,
 		<span class="prelude-ty">Result</span>&lt;MultiStreamWebRtcConnection&lt;<span class="self">Self</span>::MultiStream&gt;, ConnectError&gt;,
 	&gt;;
-	<span class="kw">type </span>ReadWriteAccess&lt;<span class="lifetime">&#39;a</span>&gt; = with_buffers::ReadWriteAccess&lt;<span class="lifetime">&#39;a</span>&gt;;
-	<span class="kw">type </span>StreamUpdateFuture&lt;<span class="lifetime">&#39;a</span>&gt; = future::BoxFuture&lt;<span class="lifetime">&#39;a</span>, ()&gt;;
-	<span class="kw">type </span>StreamErrorRef&lt;<span class="lifetime">&#39;a</span>&gt; = <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>std::io::Error;
-	<span class="kw">type </span>NextSubstreamFuture&lt;<span class="lifetime">&#39;a</span>&gt; = future::Pending&lt;<span class="prelude-ty">Option</span>&lt;(<span class="self">Self</span>::Stream, SubstreamDirection)&gt;&gt;;
+	<span class="kw">type </span>ReadWriteAccess&lt;<span class="lifetime">'a</span>&gt; = with_buffers::ReadWriteAccess&lt;<span class="lifetime">'a</span>&gt;;
+	<span class="kw">type </span>StreamUpdateFuture&lt;<span class="lifetime">'a</span>&gt; = future::BoxFuture&lt;<span class="lifetime">'a</span>, ()&gt;;
+	<span class="kw">type </span>StreamErrorRef&lt;<span class="lifetime">'a</span>&gt; = <span class="kw-2">&amp;</span><span class="lifetime">'a </span>std::io::Error;
+	<span class="kw">type </span>NextSubstreamFuture&lt;<span class="lifetime">'a</span>&gt; = future::Pending&lt;<span class="prelude-ty">Option</span>&lt;(<span class="self">Self</span>::Stream, SubstreamDirection)&gt;&gt;;
 
 	<span class="kw">fn </span>now_from_unix_epoch(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Duration {
 		<span class="comment">// Intentionally panic if the time is configured earlier than the UNIX EPOCH.
@@ -464,7 +466,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				(either::Left(SocketAddr::from((ip, port))), <span class="prelude-val">None</span>),
 			Address::WebSocketDns { hostname, port, secure: <span class="bool-val">false </span>} =&gt; (
 				either::Right((hostname.to_string(), port)),
-				<span class="prelude-val">Some</span>(<span class="macro">format!</span>(<span class="string">&quot;{}:{}&quot;</span>, hostname, port)),
+				<span class="prelude-val">Some</span>(<span class="macro">format!</span>(<span class="string">"{}:{}"</span>, hostname, port)),
 			),
 			Address::WebSocketIp { ip: IpAddr::V4(ip), port } =&gt; {
 				<span class="kw">let </span>addr = SocketAddr::from((ip, port));
@@ -476,7 +478,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			},
 
 			<span class="comment">// The API user of the `PlatformRef` trait is never supposed to open connections of
-			// a type that isn&#39;t supported.
+			// a type that isn't supported.
 			</span><span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(),
 		};
 
@@ -495,16 +497,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					websocket::websocket_client_handshake(websocket::Config {
 						tcp_socket: tcp_socket.compat(),
 						host: <span class="kw-2">&amp;</span>host,
-						url: <span class="string">&quot;/&quot;</span>,
+						url: <span class="string">"/"</span>,
 					})
 					.<span class="kw">await
 					</span>.map_err(|err| ConnectError {
-						message: <span class="macro">format!</span>(<span class="string">&quot;Failed to negotiate WebSocket: {err}&quot;</span>),
+						message: <span class="macro">format!</span>(<span class="string">"Failed to negotiate WebSocket: {err}"</span>),
 					})<span class="question-mark">?</span>,
 				),
 				(<span class="prelude-val">Ok</span>(tcp_socket), <span class="prelude-val">None</span>) =&gt; future::Either::Left(tcp_socket.compat()),
 				(<span class="prelude-val">Err</span>(err), <span class="kw">_</span>) =&gt;
-					<span class="kw">return </span><span class="prelude-val">Err</span>(ConnectError { message: <span class="macro">format!</span>(<span class="string">&quot;Failed to reach peer: {err}&quot;</span>) }),
+					<span class="kw">return </span><span class="prelude-val">Err</span>(ConnectError { message: <span class="macro">format!</span>(<span class="string">"Failed to reach peer: {err}"</span>) }),
 			};
 
 			<span class="prelude-val">Ok</span>(Stream(with_buffers::WithBuffers::new(socket)))
@@ -512,12 +514,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">fn </span>open_out_substream(<span class="kw-2">&amp;</span><span class="self">self</span>, _c: <span class="kw-2">&amp;mut </span><span class="self">Self</span>::MultiStream) {
-		<span class="comment">// This function can only be called with so-called &quot;multi-stream&quot; connections. We never
+		<span class="comment">// This function can only be called with so-called "multi-stream" connections. We never
 		// open such connection.
 	</span>}
 
-	<span class="kw">fn </span>next_substream&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, c: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span><span class="self">Self</span>::MultiStream) -&gt; <span class="self">Self</span>::NextSubstreamFuture&lt;<span class="lifetime">&#39;a</span>&gt; {
-		<span class="comment">// This function can only be called with so-called &quot;multi-stream&quot; connections. We never
+	<span class="kw">fn </span>next_substream&lt;<span class="lifetime">'a</span>&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, c: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span><span class="self">Self</span>::MultiStream) -&gt; <span class="self">Self</span>::NextSubstreamFuture&lt;<span class="lifetime">'a</span>&gt; {
+		<span class="comment">// This function can only be called with so-called "multi-stream" connections. We never
 		// open such connection.
 		</span><span class="kw">match </span><span class="kw-2">*</span>c {}
 	}
@@ -525,38 +527,38 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>spawn_task(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		<span class="kw">_</span>: std::borrow::Cow&lt;str&gt;,
-		task: <span class="kw">impl </span>Future&lt;Output = ()&gt; + Send + <span class="lifetime">&#39;static</span>,
+		task: <span class="kw">impl </span>Future&lt;Output = ()&gt; + Send + <span class="lifetime">'static</span>,
 	) {
-		<span class="self">self</span>.spawner.spawn(<span class="string">&quot;cumulus-internal-light-client-task&quot;</span>, <span class="prelude-val">None</span>, task)
+		<span class="self">self</span>.spawner.spawn(<span class="string">"cumulus-internal-light-client-task"</span>, <span class="prelude-val">None</span>, task)
 	}
 
 	<span class="kw">fn </span>client_name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; std::borrow::Cow&lt;str&gt; {
-		<span class="string">&quot;cumulus-relay-chain-light-client&quot;</span>.into()
+		<span class="string">"cumulus-relay-chain-light-client"</span>.into()
 	}
 
 	<span class="kw">fn </span>client_version(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; std::borrow::Cow&lt;str&gt; {
-		<span class="macro">env!</span>(<span class="string">&quot;CARGO_PKG_VERSION&quot;</span>).into()
+		<span class="macro">env!</span>(<span class="string">"CARGO_PKG_VERSION"</span>).into()
 	}
 
 	<span class="kw">fn </span>connect_multistream(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		_address: smoldot_light::platform::MultiStreamAddress,
 	) -&gt; <span class="self">Self</span>::MultiStreamConnectFuture {
-		<span class="macro">unimplemented!</span>(<span class="string">&quot;Multistream not supported!&quot;</span>)
+		<span class="macro">unimplemented!</span>(<span class="string">"Multistream not supported!"</span>)
 	}
 
-	<span class="kw">fn </span>read_write_access&lt;<span class="lifetime">&#39;a</span>&gt;(
+	<span class="kw">fn </span>read_write_access&lt;<span class="lifetime">'a</span>&gt;(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		stream: Pin&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span><span class="self">Self</span>::Stream&gt;,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::ReadWriteAccess&lt;<span class="lifetime">&#39;a</span>&gt;, <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>std::io::Error&gt; {
+		stream: Pin&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span><span class="self">Self</span>::Stream&gt;,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::ReadWriteAccess&lt;<span class="lifetime">'a</span>&gt;, <span class="kw-2">&amp;</span><span class="lifetime">'a </span>std::io::Error&gt; {
 		<span class="kw">let </span>stream = stream.project();
 		stream.<span class="number">0</span>.read_write_access(Instant::now())
 	}
 
-	<span class="kw">fn </span>wait_read_write_again&lt;<span class="lifetime">&#39;a</span>&gt;(
+	<span class="kw">fn </span>wait_read_write_again&lt;<span class="lifetime">'a</span>&gt;(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		stream: Pin&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span><span class="self">Self</span>::Stream&gt;,
-	) -&gt; <span class="self">Self</span>::StreamUpdateFuture&lt;<span class="lifetime">&#39;a</span>&gt; {
+		stream: Pin&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span><span class="self">Self</span>::Stream&gt;,
+	) -&gt; <span class="self">Self</span>::StreamUpdateFuture&lt;<span class="lifetime">'a</span>&gt; {
 		<span class="kw">let </span>stream = stream.project();
 		Box::pin(stream.<span class="number">0</span>.wait_read_write_again(|when| <span class="kw">async move </span>{
 			tokio::time::sleep_until(when.into()).<span class="kw">await</span>;

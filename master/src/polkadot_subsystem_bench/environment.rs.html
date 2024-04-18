@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/subsystem-bench/src/lib/environment.rs`."><title>environment.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/subsystem-bench/src/lib/environment.rs`."><title>environment.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_subsystem_bench" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_subsystem_bench" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../polkadot_subsystem_bench/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -597,7 +599,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>std::net::{Ipv4Addr, SocketAddr};
 <span class="kw">use </span>tokio::runtime::Handle;
 
-<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;subsystem-bench::environment&quot;</span>;
+<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"subsystem-bench::environment"</span>;
 
 <span class="doccomment">/// Test environment/configuration metrics
 </span><span class="attr">#[derive(Clone)]
@@ -617,36 +619,36 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl </span>TestEnvironmentMetrics {
 	<span class="kw">pub fn </span>new(registry: <span class="kw-2">&amp;</span>Registry) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, PrometheusError&gt; {
 		<span class="kw">let </span>buckets = prometheus::exponential_buckets(<span class="number">16384.0</span>, <span class="number">2.0</span>, <span class="number">9</span>)
-			.expect(<span class="string">&quot;arguments are always valid; qed&quot;</span>);
+			.expect(<span class="string">"arguments are always valid; qed"</span>);
 
 		<span class="prelude-val">Ok</span>(<span class="self">Self </span>{
 			n_validators: prometheus::register(
 				Gauge::new(
-					<span class="string">&quot;subsystem_benchmark_n_validators&quot;</span>,
-					<span class="string">&quot;Total number of validators in the test&quot;</span>,
+					<span class="string">"subsystem_benchmark_n_validators"</span>,
+					<span class="string">"Total number of validators in the test"</span>,
 				)<span class="question-mark">?</span>,
 				registry,
 			)<span class="question-mark">?</span>,
 			n_cores: prometheus::register(
 				Gauge::new(
-					<span class="string">&quot;subsystem_benchmark_n_cores&quot;</span>,
-					<span class="string">&quot;Number of cores we fetch availability for each block&quot;</span>,
+					<span class="string">"subsystem_benchmark_n_cores"</span>,
+					<span class="string">"Number of cores we fetch availability for each block"</span>,
 				)<span class="question-mark">?</span>,
 				registry,
 			)<span class="question-mark">?</span>,
 			current_block: prometheus::register(
-				Gauge::new(<span class="string">&quot;subsystem_benchmark_current_block&quot;</span>, <span class="string">&quot;The current test block&quot;</span>)<span class="question-mark">?</span>,
+				Gauge::new(<span class="string">"subsystem_benchmark_current_block"</span>, <span class="string">"The current test block"</span>)<span class="question-mark">?</span>,
 				registry,
 			)<span class="question-mark">?</span>,
 			block_time: prometheus::register(
-				Gauge::new(<span class="string">&quot;subsystem_benchmark_block_time&quot;</span>, <span class="string">&quot;The time it takes for the target subsystems(s) to complete all the requests in a block&quot;</span>)<span class="question-mark">?</span>,
+				Gauge::new(<span class="string">"subsystem_benchmark_block_time"</span>, <span class="string">"The time it takes for the target subsystems(s) to complete all the requests in a block"</span>)<span class="question-mark">?</span>,
 				registry,
 			)<span class="question-mark">?</span>,
 			pov_size: prometheus::register(
 				Histogram::with_opts(
 					prometheus::HistogramOpts::new(
-						<span class="string">&quot;subsystem_benchmark_pov_size&quot;</span>,
-						<span class="string">&quot;The compressed size of the proof of validity of a candidate&quot;</span>,
+						<span class="string">"subsystem_benchmark_pov_size"</span>,
+						<span class="string">"The compressed size of the proof of validity of a candidate"</span>,
 					)
 					.buckets(buckets),
 				)<span class="question-mark">?</span>,
@@ -678,7 +680,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">fn </span>new_runtime() -&gt; tokio::runtime::Runtime {
 	tokio::runtime::Builder::new_multi_thread()
-		.thread_name(<span class="string">&quot;subsystem-bench&quot;</span>)
+		.thread_name(<span class="string">"subsystem-bench"</span>)
 		.enable_all()
 		.thread_stack_size(<span class="number">3 </span>* <span class="number">1024 </span>* <span class="number">1024</span>)
 		.worker_threads(<span class="number">4</span>)
@@ -720,7 +722,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// real subsystems instances and the corresponding mocked instances such that the real
 /// subsystems can get their messages answered.
 ///
-/// As the subsystem&#39;s performance depends on network connectivity, the test environment
+/// As the subsystem's performance depends on network connectivity, the test environment
 /// emulates validator nodes on the network, see `NetworkEmulator`. The network emulation
 /// is configurable in terms of peer bandwidth, latency and connection error rate using
 /// uniform distribution sampling.
@@ -768,16 +770,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		with_prometheus_endpoint: bool,
 	) -&gt; <span class="self">Self </span>{
 		<span class="kw">let </span>metrics = TestEnvironmentMetrics::new(<span class="kw-2">&amp;</span>dependencies.registry)
-			.expect(<span class="string">&quot;Metrics need to be registered&quot;</span>);
+			.expect(<span class="string">"Metrics need to be registered"</span>);
 
 		<span class="kw">let </span>spawn_handle = dependencies.task_manager.spawn_handle();
-		spawn_handle.spawn_blocking(<span class="string">&quot;overseer&quot;</span>, <span class="string">&quot;overseer&quot;</span>, overseer.run().boxed());
+		spawn_handle.spawn_blocking(<span class="string">"overseer"</span>, <span class="string">"overseer"</span>, overseer.run().boxed());
 
 		<span class="kw">if </span>with_prometheus_endpoint {
 			<span class="kw">let </span>registry_clone = dependencies.registry.clone();
 			dependencies.task_manager.spawn_handle().spawn_blocking(
-				<span class="string">&quot;prometheus&quot;</span>,
-				<span class="string">&quot;test-environment&quot;</span>,
+				<span class="string">"prometheus"</span>,
+				<span class="string">"test-environment"</span>,
 				<span class="kw">async move </span>{
 					prometheus_endpoint::init_prometheus(
 						SocketAddr::new(std::net::IpAddr::V4(Ipv4Addr::LOCALHOST), <span class="number">9999</span>),
@@ -822,22 +824,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Spawn a named task in the `test-environment` task group.
 	</span><span class="attr">#[allow(unused)]
-	</span><span class="kw">pub fn </span>spawn(<span class="kw-2">&amp;</span><span class="self">self</span>, name: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str, task: <span class="kw">impl </span>Future&lt;Output = ()&gt; + Send + <span class="lifetime">&#39;static</span>) {
+	</span><span class="kw">pub fn </span>spawn(<span class="kw-2">&amp;</span><span class="self">self</span>, name: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str, task: <span class="kw">impl </span>Future&lt;Output = ()&gt; + Send + <span class="lifetime">'static</span>) {
 		<span class="self">self</span>.dependencies
 			.task_manager
 			.spawn_handle()
-			.spawn(name, <span class="string">&quot;test-environment&quot;</span>, task);
+			.spawn(name, <span class="string">"test-environment"</span>, task);
 	}
 
 	<span class="doccomment">/// Spawn a blocking named task in the `test-environment` task group.
 	</span><span class="kw">pub fn </span>spawn_blocking(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		name: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
-		task: <span class="kw">impl </span>Future&lt;Output = ()&gt; + Send + <span class="lifetime">&#39;static</span>,
+		name: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
+		task: <span class="kw">impl </span>Future&lt;Output = ()&gt; + Send + <span class="lifetime">'static</span>,
 	) {
 		<span class="self">self</span>.dependencies.task_manager.spawn_handle().spawn_blocking(
 			name,
-			<span class="string">&quot;test-environment&quot;</span>,
+			<span class="string">"test-environment"</span>,
 			task,
 		);
 	}
@@ -863,7 +865,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.timeout(MAX_TIME_OF_FLIGHT)
 			.<span class="kw">await
 			</span>.unwrap_or_else(|| {
-				<span class="macro">panic!</span>(<span class="string">&quot;{}ms maximum time of flight breached&quot;</span>, MAX_TIME_OF_FLIGHT.as_millis())
+				<span class="macro">panic!</span>(<span class="string">"{}ms maximum time of flight breached"</span>, MAX_TIME_OF_FLIGHT.as_millis())
 			});
 	}
 
@@ -874,7 +876,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.timeout(MAX_TIME_OF_FLIGHT)
 			.<span class="kw">await
 			</span>.unwrap_or_else(|| {
-				<span class="macro">panic!</span>(<span class="string">&quot;{}ms maximum time of flight breached&quot;</span>, MAX_TIME_OF_FLIGHT.as_millis())
+				<span class="macro">panic!</span>(<span class="string">"{}ms maximum time of flight breached"</span>, MAX_TIME_OF_FLIGHT.as_millis())
 			});
 	}
 
@@ -905,7 +907,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			};
 			<span class="kw">let </span>current_value = test_metrics.sum_by(metric_name);
 
-			<span class="macro">gum::debug!</span>(target: LOG_TARGET, metric_name, current_value, <span class="string">&quot;Waiting for metric&quot;</span>);
+			<span class="macro">gum::debug!</span>(target: LOG_TARGET, metric_name, current_value, <span class="string">"Waiting for metric"</span>);
 			<span class="kw">if </span>condition(current_value) {
 				<span class="kw">break
 			</span>}
@@ -934,12 +936,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="macro">vec!</span>[
 			ResourceUsage {
-				resource_name: <span class="string">&quot;Received from peers&quot;</span>.to_string(),
+				resource_name: <span class="string">"Received from peers"</span>.to_string(),
 				total: total_node_received,
 				per_block: total_node_received / num_blocks,
 			},
 			ResourceUsage {
-				resource_name: <span class="string">&quot;Sent to peers&quot;</span>.to_string(),
+				resource_name: <span class="string">"Sent to peers"</span>.to_string(),
 				total: total_node_sent,
 				per_block: total_node_sent / num_blocks,
 			},
@@ -953,8 +955,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">for </span>subsystem <span class="kw">in </span>subsystems_under_test.iter() {
 			<span class="kw">let </span>subsystem_cpu_metrics =
-				test_metrics.subset_with_label_value(<span class="string">&quot;task_group&quot;</span>, subsystem);
-			<span class="kw">let </span>total_cpu = subsystem_cpu_metrics.sum_by(<span class="string">&quot;substrate_tasks_polling_duration_sum&quot;</span>);
+				test_metrics.subset_with_label_value(<span class="string">"task_group"</span>, subsystem);
+			<span class="kw">let </span>total_cpu = subsystem_cpu_metrics.sum_by(<span class="string">"substrate_tasks_polling_duration_sum"</span>);
 			usage.push(ResourceUsage {
 				resource_name: subsystem.to_string(),
 				total: total_cpu,
@@ -963,11 +965,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 
 		<span class="kw">let </span>test_env_cpu_metrics =
-			test_metrics.subset_with_label_value(<span class="string">&quot;task_group&quot;</span>, <span class="string">&quot;test-environment&quot;</span>);
-		<span class="kw">let </span>total_cpu = test_env_cpu_metrics.sum_by(<span class="string">&quot;substrate_tasks_polling_duration_sum&quot;</span>);
+			test_metrics.subset_with_label_value(<span class="string">"task_group"</span>, <span class="string">"test-environment"</span>);
+		<span class="kw">let </span>total_cpu = test_env_cpu_metrics.sum_by(<span class="string">"substrate_tasks_polling_duration_sum"</span>);
 
 		usage.push(ResourceUsage {
-			resource_name: <span class="string">&quot;test-environment&quot;</span>.to_string(),
+			resource_name: <span class="string">"test-environment"</span>.to_string(),
 			total: total_cpu,
 			per_block: total_cpu / num_blocks,
 		});

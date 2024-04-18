@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/runtime-interface/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/runtime-interface/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_runtime_interface" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_runtime_interface" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sp_runtime_interface/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -566,21 +568,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
 // Custom inner attributes are unstable, so we need to faky disable the attribute.
 // rustfmt still honors the attribute to not format the rustdocs below.
-</span><span class="attr">#![cfg_attr(feature = <span class="string">&quot;never&quot;</span>, rustfmt::skip)]
+</span><span class="attr">#![cfg_attr(feature = <span class="string">"never"</span>, rustfmt::skip)]
 </span><span class="doccomment">//! Substrate runtime interface
 //!
 //! This crate provides types, traits and macros around runtime interfaces. A runtime interface is
@@ -670,12 +672,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!
 //! `Identity` means that the value is converted directly into the corresponding FFI type.
 
-</span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
+</span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
 </span><span class="kw">extern crate </span><span class="self">self </span><span class="kw">as </span>sp_runtime_interface;
 
 <span class="attr">#[doc(hidden)]
-#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">pub use </span>sp_wasm_interface;
 
 <span class="attr">#[doc(hidden)]
@@ -746,10 +748,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 ///     /// A function can be gated behind a configuration (`cfg`) attribute.
 ///     /// To prevent ambiguity and confusion about what will be the final exposed host
-///     /// functions list, conditionally compiled functions can&#39;t be versioned.
+///     /// functions list, conditionally compiled functions can't be versioned.
 ///     /// That is, conditionally compiled functions with `version`s greater than 1
 ///     /// are not allowed.
-///     #[cfg(feature = &quot;experimental-function&quot;)]
+///     #[cfg(feature = "experimental-function")]
 ///     fn gated_call(data: &amp;[u8]) -&gt; Vec&lt;u8&gt; {
 ///         [42].to_vec()
 ///     }
@@ -769,7 +771,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///         fn call_version_2(data: &amp;[u8]) -&gt; Vec&lt;u8&gt;;
 ///         fn call_version_3(data: &amp;[u8]) -&gt; Vec&lt;u8&gt;;
 ///         fn set_or_clear_version_1(&amp;mut self, optional: Option&lt;Vec&lt;u8&gt;&gt;);
-///         #[cfg(feature = &quot;experimental-function&quot;)]
+///         #[cfg(feature = "experimental-function")]
 ///         fn gated_call_version_1(data: &amp;[u8]) -&gt; Vec&lt;u8&gt;;
 ///     }
 ///
@@ -783,7 +785,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///                 None =&gt; self.clear_storage(&amp;[1, 2, 3, 4]),
 ///             }
 ///         }
-///         #[cfg(feature = &quot;experimental-function&quot;)]
+///         #[cfg(feature = "experimental-function")]
 ///         fn gated_call_version_1(data: &amp;[u8]) -&gt; Vec&lt;u8&gt; { [42].to_vec() }
 ///     }
 ///
@@ -810,15 +812,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 ///     fn set_or_clear_version_1(optional: Option&lt;Vec&lt;u8&gt;&gt;) {
 ///         sp_externalities::with_externalities(|mut ext| Interface::set_or_clear_version_1(&amp;mut ext, optional))
-///             .expect(&quot;`set_or_clear` called outside of an Externalities-provided environment.&quot;)
+///             .expect("`set_or_clear` called outside of an Externalities-provided environment.")
 ///     }
 ///
-///     #[cfg(feature = &quot;experimental-function&quot;)]
+///     #[cfg(feature = "experimental-function")]
 ///     pub fn gated_call(data: &amp;[u8]) -&gt; Vec&lt;u8&gt; {
 ///         gated_call_version_1(data)
 ///     }
 ///
-///     #[cfg(feature = &quot;experimental-function&quot;)]
+///     #[cfg(feature = "experimental-function")]
 ///     fn gated_call_version_1(data: &amp;[u8]) -&gt; Vec&lt;u8&gt; {
 ///         &lt;&amp;mut dyn sp_externalities::Externalities as Interface&gt;::gated_call_version_1(data)
 ///     }
@@ -845,7 +847,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///         ///
 ///         /// `key` holds the pointer and the length to the `data` slice.
 ///         pub fn call(data: &amp;[u8]) -&gt; Vec&lt;u8&gt; {
-///             extern &quot;C&quot; { pub fn ext_call_version_2(key: u64); }
+///             extern "C" { pub fn ext_call_version_2(key: u64); }
 ///             // Should call into external `ext_call_version_2(&lt;[u8] as IntoFFIValue&gt;::into_ffi_value(key))`
 ///             // But this is too much to replicate in a doc test so here we just return a dummy vector.
 ///             // Note that we jump into the latest version not marked as `register_only` (i.e. version 2).
@@ -854,14 +856,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 ///         /// `key` holds the pointer and the length of the `option` value.
 ///         pub fn set_or_clear(option: Option&lt;Vec&lt;u8&gt;&gt;) {
-///             extern &quot;C&quot; { pub fn ext_set_or_clear_version_1(key: u64); }
+///             extern "C" { pub fn ext_set_or_clear_version_1(key: u64); }
 ///             // Same as above
 ///         }
 ///
 ///         /// `key` holds the pointer and the length to the `data` slice.
-///         #[cfg(feature = &quot;experimental-function&quot;)]
+///         #[cfg(feature = "experimental-function")]
 ///         pub fn gated_call(data: &amp;[u8]) -&gt; Vec&lt;u8&gt; {
-///             extern &quot;C&quot; { pub fn ext_gated_call_version_1(key: u64); }
+///             extern "C" { pub fn ext_gated_call_version_1(key: u64); }
 ///             /// Same as above
 ///             Vec::new()
 ///         }
@@ -880,7 +882,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///     /// `host_call.replace_implementation(some_other_impl)`
 ///     pub static host_call: () = ();
 ///     pub static host_set_or_clear: () = ();
-///     #[cfg(feature = &quot;experimental-feature&quot;)]
+///     #[cfg(feature = "experimental-feature")]
 ///     pub static gated_call: () = ();
 ///
 ///     pub fn call(data: &amp;[u8]) -&gt; Vec&lt;u8&gt; {
@@ -895,7 +897,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///         // Same as above
 ///     }
 ///
-///     #[cfg(feature = &quot;experimental-feature&quot;)]
+///     #[cfg(feature = "experimental-feature")]
 ///     pub fn gated_call(data: &amp;[u8]) -&gt; Vec&lt;u8&gt; {
 ///         // Same as above
 ///         Vec::new()
@@ -925,12 +927,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// By adding `no_tracing` to the list of options you can prevent the wasm-side interface from
 /// generating the default `sp-tracing`-calls. Note that this is rarely needed but only meant
 /// for the case when that would create a circular dependency. You usually _do not_ want to add
-/// this flag, as tracing doesn&#39;t cost you anything by default anyways (it is added as a no-op)
+/// this flag, as tracing doesn't cost you anything by default anyways (it is added as a no-op)
 /// but is super useful for debugging later.
 </span><span class="kw">pub use </span>sp_runtime_interface_proc_macro::runtime_interface;
 
 <span class="attr">#[doc(hidden)]
-#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">pub use </span>sp_externalities::{
 	set_and_run_with_externalities, with_externalities, ExtensionStore, Externalities,
 	ExternalitiesExt,
@@ -939,14 +941,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[doc(hidden)]
 </span><span class="kw">pub use </span>codec;
 
-<span class="attr">#[cfg(all(any(target_arch = <span class="string">&quot;riscv32&quot;</span>, target_arch = <span class="string">&quot;riscv64&quot;</span>), substrate_runtime))]
+<span class="attr">#[cfg(all(any(target_arch = <span class="string">"riscv32"</span>, target_arch = <span class="string">"riscv64"</span>), substrate_runtime))]
 </span><span class="kw">pub mod </span>polkavm;
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">pub mod </span>host;
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>impls;
 <span class="kw">pub mod </span>pass_by;
-<span class="attr">#[cfg(any(not(feature = <span class="string">&quot;std&quot;</span>), doc))]
+<span class="attr">#[cfg(any(not(feature = <span class="string">"std"</span>), doc))]
 </span><span class="kw">pub mod </span>wasm;
 
 <span class="kw">mod </span>util;
@@ -960,20 +962,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// this trait.
 </span><span class="kw">pub trait </span>RIType {
 	<span class="doccomment">/// The ffi type that is used to represent `Self`.
-	</span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+	</span><span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 	</span><span class="kw">type </span>FFIType: sp_wasm_interface::IntoValue
 		+ sp_wasm_interface::TryFromValue
 		+ sp_wasm_interface::WasmTy;
-	<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+	<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
 	</span><span class="kw">type </span>FFIType;
 }
 
 <span class="doccomment">/// A pointer that can be used in a runtime interface function signature.
-</span><span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+</span><span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
 </span><span class="kw">pub type </span>Pointer&lt;T&gt; = <span class="kw-2">*mut </span>T;
 
 <span class="doccomment">/// A pointer that can be used in a runtime interface function signature.
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+</span><span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">pub type </span>Pointer&lt;T&gt; = sp_wasm_interface::Pointer&lt;T&gt;;
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 

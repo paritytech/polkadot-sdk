@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/balances/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/balances/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_balances" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_balances" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../pallet_balances/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1321,14 +1323,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -1414,7 +1416,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! # fn main() {}
 //! ```
 //!
-//! The Staking pallet uses the `LockableCurrency` trait to lock a stash account&#39;s funds:
+//! The Staking pallet uses the `LockableCurrency` trait to lock a stash account's funds:
 //!
 //! ```
 //! use frame_support::traits::{WithdrawReasons, LockableCurrency};
@@ -1427,7 +1429,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! #   total: &lt;&lt;T as Config&gt;::Currency as frame_support::traits::Currency&lt;&lt;T as frame_system::Config&gt;::AccountId&gt;&gt;::Balance,
 //! #   phantom: std::marker::PhantomData&lt;T&gt;,
 //! # }
-//! # const STAKING_ID: [u8; 8] = *b&quot;staking &quot;;
+//! # const STAKING_ID: [u8; 8] = *b"staking ";
 //!
 //! fn update_ledger&lt;T: Config&gt;(
 //!     controller: &amp;T::AccountId,
@@ -1439,7 +1441,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!         ledger.total,
 //!         WithdrawReasons::all()
 //!     );
-//!     // &lt;Ledger&lt;T&gt;&gt;::insert(controller, ledger); // Commented out as we don&#39;t have access to Staking&#39;s storage here.
+//!     // &lt;Ledger&lt;T&gt;&gt;::insert(controller, ledger); // Commented out as we don't have access to Staking's storage here.
 //! }
 //! # fn main() {}
 //! ```
@@ -1459,7 +1461,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!
 //! [`frame_tokens`]: ../polkadot_sdk_docs/reference_docs/frame_tokens/index.html
 
-</span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
+</span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 </span><span class="kw">mod </span>benchmarking;
 <span class="kw">mod </span>impl_currency;
 <span class="kw">mod </span>impl_fungible;
@@ -1502,7 +1504,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">pub use </span>pallet::<span class="kw-2">*</span>;
 
-<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;runtime::balances&quot;</span>;
+<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"runtime::balances"</span>;
 
 <span class="kw">type </span>AccountIdLookupOf&lt;T&gt; = &lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::Lookup <span class="kw">as </span>StaticLookup&gt;::Source;
 
@@ -1553,7 +1555,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="attr">#[pallet::config(with_default)]
-	</span><span class="kw">pub trait </span>Config&lt;I: <span class="lifetime">&#39;static </span>= ()&gt;: frame_system::Config {
+	</span><span class="kw">pub trait </span>Config&lt;I: <span class="lifetime">'static </span>= ()&gt;: frame_system::Config {
 		<span class="doccomment">/// The overarching event type.
 		</span><span class="attr">#[pallet::no_default_bounds]
 		</span><span class="kw">type </span>RuntimeEvent: From&lt;Event&lt;<span class="self">Self</span>, I&gt;&gt;
@@ -1639,7 +1641,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[pallet::event]
 	#[pallet::generate_deposit(<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>deposit_event)]
-	</span><span class="kw">pub enum </span>Event&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; {
+	</span><span class="kw">pub enum </span>Event&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; {
 		<span class="doccomment">/// An account was created with some free balance.
 		</span>Endowed { account: T::AccountId, free_balance: T::Balance },
 		<span class="doccomment">/// An account was removed whose balance was non-zero but below ExistentialDeposit,
@@ -1725,13 +1727,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="attr">#[pallet::storage]
 	#[pallet::getter(<span class="kw">fn </span>total_issuance)]
 	#[pallet::whitelist_storage]
-	</span><span class="kw">pub type </span>TotalIssuance&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; = StorageValue&lt;<span class="kw">_</span>, T::Balance, ValueQuery&gt;;
+	</span><span class="kw">pub type </span>TotalIssuance&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; = StorageValue&lt;<span class="kw">_</span>, T::Balance, ValueQuery&gt;;
 
 	<span class="doccomment">/// The total units of outstanding deactivated balance in the system.
 	</span><span class="attr">#[pallet::storage]
 	#[pallet::getter(<span class="kw">fn </span>inactive_issuance)]
 	#[pallet::whitelist_storage]
-	</span><span class="kw">pub type </span>InactiveIssuance&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; =
+	</span><span class="kw">pub type </span>InactiveIssuance&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; =
 		StorageValue&lt;<span class="kw">_</span>, T::Balance, ValueQuery&gt;;
 
 	<span class="doccomment">/// The Balances pallet example of storing the balance of an account.
@@ -1759,7 +1761,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// `Balances` pallet, which uses a `StorageMap` to store balances data only.
 	/// NOTE: This is only used in the case that this pallet is used to store balances.
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub type </span>Account&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; =
+	</span><span class="kw">pub type </span>Account&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; =
 		StorageMap&lt;<span class="kw">_</span>, Blake2_128Concat, T::AccountId, AccountData&lt;T::Balance&gt;, ValueQuery&gt;;
 
 	<span class="doccomment">/// Any liquidity locks on some account balances.
@@ -1768,7 +1770,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// Use of locks is deprecated in favour of freezes. See `https://github.com/paritytech/substrate/pull/12951/`
 	</span><span class="attr">#[pallet::storage]
 	#[pallet::getter(<span class="kw">fn </span>locks)]
-	</span><span class="kw">pub type </span>Locks&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; = StorageMap&lt;
+	</span><span class="kw">pub type </span>Locks&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; = StorageMap&lt;
 		<span class="kw">_</span>,
 		Blake2_128Concat,
 		T::AccountId,
@@ -1781,7 +1783,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// Use of reserves is deprecated in favour of holds. See `https://github.com/paritytech/substrate/pull/12951/`
 	</span><span class="attr">#[pallet::storage]
 	#[pallet::getter(<span class="kw">fn </span>reserves)]
-	</span><span class="kw">pub type </span>Reserves&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; = StorageMap&lt;
+	</span><span class="kw">pub type </span>Reserves&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; = StorageMap&lt;
 		<span class="kw">_</span>,
 		Blake2_128Concat,
 		T::AccountId,
@@ -1791,7 +1793,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Holds on account balances.
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub type </span>Holds&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; = StorageMap&lt;
+	</span><span class="kw">pub type </span>Holds&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; = StorageMap&lt;
 		<span class="kw">_</span>,
 		Blake2_128Concat,
 		T::AccountId,
@@ -1804,7 +1806,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Freeze locks on account balances.
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub type </span>Freezes&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; = StorageMap&lt;
+	</span><span class="kw">pub type </span>Freezes&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; = StorageMap&lt;
 		<span class="kw">_</span>,
 		Blake2_128Concat,
 		T::AccountId,
@@ -1813,18 +1815,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	&gt;;
 
 	<span class="attr">#[pallet::genesis_config]
-	</span><span class="kw">pub struct </span>GenesisConfig&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; {
+	</span><span class="kw">pub struct </span>GenesisConfig&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; {
 		<span class="kw">pub </span>balances: Vec&lt;(T::AccountId, T::Balance)&gt;,
 	}
 
-	<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; Default <span class="kw">for </span>GenesisConfig&lt;T, I&gt; {
+	<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Default <span class="kw">for </span>GenesisConfig&lt;T, I&gt; {
 		<span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
 			<span class="self">Self </span>{ balances: Default::default() }
 		}
 	}
 
 	<span class="attr">#[pallet::genesis_build]
-	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; BuildGenesisConfig <span class="kw">for </span>GenesisConfig&lt;T, I&gt; {
+	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; BuildGenesisConfig <span class="kw">for </span>GenesisConfig&lt;T, I&gt; {
 		<span class="kw">fn </span>build(<span class="kw-2">&amp;</span><span class="self">self</span>) {
 			<span class="kw">let </span>total = <span class="self">self</span>.balances.iter().fold(Zero::zero(), |acc: T::Balance, <span class="kw-2">&amp;</span>(<span class="kw">_</span>, n)| acc + n);
 
@@ -1833,7 +1835,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">for </span>(<span class="kw">_</span>, balance) <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.balances {
 				<span class="macro">assert!</span>(
 					<span class="kw-2">*</span>balance &gt;= &lt;T <span class="kw">as </span>Config&lt;I&gt;&gt;::ExistentialDeposit::get(),
-					<span class="string">&quot;the balance of any account should always be at least the existential deposit.&quot;</span>,
+					<span class="string">"the balance of any account should always be at least the existential deposit."</span>,
 				)
 			}
 
@@ -1847,7 +1849,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="macro">assert!</span>(
 				endowed_accounts.len() == <span class="self">self</span>.balances.len(),
-				<span class="string">&quot;duplicate balances in genesis.&quot;
+				<span class="string">"duplicate balances in genesis."
 			</span>);
 
 			<span class="kw">for </span><span class="kw-2">&amp;</span>(<span class="kw-2">ref </span>who, free) <span class="kw">in </span><span class="self">self</span>.balances.iter() {
@@ -1859,28 +1861,28 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="attr">#[pallet::hooks]
-	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; Hooks&lt;BlockNumberFor&lt;T&gt;&gt; <span class="kw">for </span>Pallet&lt;T, I&gt; {
-		<span class="attr">#[cfg(not(feature = <span class="string">&quot;insecure_zero_ed&quot;</span>))]
+	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Hooks&lt;BlockNumberFor&lt;T&gt;&gt; <span class="kw">for </span>Pallet&lt;T, I&gt; {
+		<span class="attr">#[cfg(not(feature = <span class="string">"insecure_zero_ed"</span>))]
 		</span><span class="kw">fn </span>integrity_test() {
 			<span class="macro">assert!</span>(
 				!&lt;T <span class="kw">as </span>Config&lt;I&gt;&gt;::ExistentialDeposit::get().is_zero(),
-				<span class="string">&quot;The existential deposit must be greater than zero!&quot;
+				<span class="string">"The existential deposit must be greater than zero!"
 			</span>);
 
 			<span class="macro">assert!</span>(
 				T::MaxFreezes::get() &gt;= &lt;T::RuntimeFreezeReason <span class="kw">as </span>VariantCount&gt;::VARIANT_COUNT,
-				<span class="string">&quot;MaxFreezes should be greater than or equal to the number of freeze reasons: {} &lt; {}&quot;</span>,
+				<span class="string">"MaxFreezes should be greater than or equal to the number of freeze reasons: {} &lt; {}"</span>,
 				T::MaxFreezes::get(), &lt;T::RuntimeFreezeReason <span class="kw">as </span>VariantCount&gt;::VARIANT_COUNT,
 			);
 		}
 	}
 
 	<span class="attr">#[pallet::call(weight(&lt;T <span class="kw">as </span>Config&lt;I&gt;&gt;::WeightInfo))]
-	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; Pallet&lt;T, I&gt; {
+	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Pallet&lt;T, I&gt; {
 		<span class="doccomment">/// Transfer some liquid free balance to another account.
 		///
 		/// `transfer_allow_death` will set the `FreeBalance` of the sender and receiver.
-		/// If the sender&#39;s account is below the existential deposit as a result
+		/// If the sender's account is below the existential deposit as a result
 		/// of the transfer, the account will be reaped.
 		///
 		/// The dispatch origin for this call must be `Signed` by the transactor.
@@ -2036,7 +2038,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>wipeout = new_free &lt; existential_deposit;
 			<span class="kw">let </span>new_free = <span class="kw">if </span>wipeout { Zero::zero() } <span class="kw">else </span>{ new_free };
 
-			<span class="comment">// First we try to modify the account&#39;s balance to the forced balance.
+			<span class="comment">// First we try to modify the account's balance to the forced balance.
 			</span><span class="kw">let </span>old_free = <span class="self">Self</span>::mutate_account_handling_dust(<span class="kw-2">&amp;</span>who, |account| {
 				<span class="kw">let </span>old_free = account.free;
 				account.free = new_free;
@@ -2060,7 +2062,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		/// Can only be called by root and always needs a positive `delta`.
 		///
 		/// # Example
-		</span><span class="attr">#[doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;./src/tests/dispatchable_tests.rs&quot;</span>, force_adjust_total_issuance_example)]
+		</span><span class="attr">#[doc = <span class="macro">docify::embed!</span>(<span class="string">"./src/tests/dispatchable_tests.rs"</span>, force_adjust_total_issuance_example)]
 		#[pallet::call_index(<span class="number">9</span>)]
 		#[pallet::weight(T::WeightInfo::force_adjust_total_issuance())]
 		</span><span class="kw">pub fn </span>force_adjust_total_issuance(
@@ -2087,13 +2089,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; Pallet&lt;T, I&gt; {
+	<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Pallet&lt;T, I&gt; {
 		<span class="kw">fn </span>ed() -&gt; T::Balance {
 			T::ExistentialDeposit::get()
 		}
 		<span class="doccomment">/// Ensure the account `who` is using the new logic.
 		///
-		/// Returns `true` if the account did get upgraded, `false` if it didn&#39;t need upgrading.
+		/// Returns `true` if the account did get upgraded, `false` if it didn't need upgrading.
 		</span><span class="kw">pub fn </span>ensure_upgraded(who: <span class="kw-2">&amp;</span>T::AccountId) -&gt; bool {
 			<span class="kw">let </span><span class="kw-2">mut </span>a = T::AccountStore::get(who);
 			<span class="kw">if </span>a.flags.is_new_logic() {
@@ -2103,11 +2105,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">if </span>!a.reserved.is_zero() &amp;&amp; a.frozen.is_zero() {
 				<span class="kw">if </span>system::Pallet::&lt;T&gt;::providers(who) == <span class="number">0 </span>{
 					<span class="comment">// Gah!! We have no provider refs :(
-					// This shouldn&#39;t practically happen, but we need a failsafe anyway: let&#39;s give
+					// This shouldn't practically happen, but we need a failsafe anyway: let's give
 					// them enough for an ED.
 					</span><span class="macro">log::warn!</span>(
 						target: LOG_TARGET,
-						<span class="string">&quot;account with a non-zero reserve balance has no provider refs, account_id: &#39;{:?}&#39;.&quot;</span>,
+						<span class="string">"account with a non-zero reserve balance has no provider refs, account_id: '{:?}'."</span>,
 						who
 					);
 					a.free = a.free.max(<span class="self">Self</span>::ed());
@@ -2115,7 +2117,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				}
 				<span class="kw">let _ </span>= system::Pallet::&lt;T&gt;::inc_consumers_without_limit(who).defensive();
 			}
-			<span class="comment">// Should never fail - we&#39;re only setting a bit.
+			<span class="comment">// Should never fail - we're only setting a bit.
 			</span><span class="kw">let _ </span>= T::AccountStore::try_mutate_exists(who, |account| -&gt; DispatchResult {
 				<span class="kw-2">*</span>account = <span class="prelude-val">Some</span>(a);
 				<span class="prelude-val">Ok</span>(())
@@ -2161,7 +2163,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		/// It returns the result from the closure. Any dust is handled through the low-level
 		/// `fungible::Unbalanced` trap-door for legacy dust management.
 		///
-		/// NOTE: Doesn&#39;t do any preparatory work for creating a new account, so should only be used
+		/// NOTE: Doesn't do any preparatory work for creating a new account, so should only be used
 		/// when it is known that the account already exists.
 		///
 		/// NOTE: LOW-LEVEL: This will not attempt to maintain total issuance. It is expected that
@@ -2183,7 +2185,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		/// It returns the result from the closure. Any dust is handled through the low-level
 		/// `fungible::Unbalanced` trap-door for legacy dust management.
 		///
-		/// NOTE: Doesn&#39;t do any preparatory work for creating a new account, so should only be used
+		/// NOTE: Doesn't do any preparatory work for creating a new account, so should only be used
 		/// when it is known that the account already exists.
 		///
 		/// NOTE: LOW-LEVEL: This will not attempt to maintain total issuance. It is expected that
@@ -2206,7 +2208,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		/// which should be handled once it is known that all nested mutates that could affect
 		/// storage items what the dust handler touches have completed.
 		///
-		/// NOTE: Doesn&#39;t do any preparatory work for creating a new account, so should only be used
+		/// NOTE: Doesn't do any preparatory work for creating a new account, so should only be used
 		/// when it is known that the account already exists.
 		///
 		/// NOTE: LOW-LEVEL: This will not attempt to maintain total issuance. It is expected that
@@ -2220,14 +2222,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="doccomment">/// Returns `true` when `who` has some providers or `insecure_zero_ed` feature is disabled.
 		/// Returns `false` otherwise.
-		</span><span class="attr">#[cfg(not(feature = <span class="string">&quot;insecure_zero_ed&quot;</span>))]
+		</span><span class="attr">#[cfg(not(feature = <span class="string">"insecure_zero_ed"</span>))]
 		</span><span class="kw">fn </span>have_providers_or_no_zero_ed(<span class="kw">_</span>: <span class="kw-2">&amp;</span>T::AccountId) -&gt; bool {
 			<span class="bool-val">true
 		</span>}
 
 		<span class="doccomment">/// Returns `true` when `who` has some providers or `insecure_zero_ed` feature is disabled.
 		/// Returns `false` otherwise.
-		</span><span class="attr">#[cfg(feature = <span class="string">&quot;insecure_zero_ed&quot;</span>)]
+		</span><span class="attr">#[cfg(feature = <span class="string">"insecure_zero_ed"</span>)]
 		</span><span class="kw">fn </span>have_providers_or_no_zero_ed(who: <span class="kw-2">&amp;</span>T::AccountId) -&gt; bool {
 			frame_system::Pallet::&lt;T&gt;::providers(who) &gt; <span class="number">0
 		</span>}
@@ -2240,7 +2242,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		/// which should be handled once it is known that all nested mutates that could affect
 		/// storage items what the dust handler touches have completed.
 		///
-		/// NOTE: Doesn&#39;t do any preparatory work for creating a new account, so should only be used
+		/// NOTE: Doesn't do any preparatory work for creating a new account, so should only be used
 		/// when it is known that the account already exists.
 		///
 		/// NOTE: LOW-LEVEL: This will not attempt to maintain total issuance. It is expected that
@@ -2290,7 +2292,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 				<span class="comment">// Handle any steps needed after mutating an account.
 				//
-				// This includes DustRemoval unbalancing, in the case than the `new` account&#39;s total
+				// This includes DustRemoval unbalancing, in the case than the `new` account's total
 				// balance is non-zero but below ED.
 				//
 				// Updates `maybe_account` to `Some` iff the account has sufficient balance.
@@ -2333,14 +2335,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>update_locks(who: <span class="kw-2">&amp;</span>T::AccountId, locks: <span class="kw-2">&amp;</span>[BalanceLock&lt;T::Balance&gt;]) {
 			<span class="kw">let </span>bounded_locks = WeakBoundedVec::&lt;<span class="kw">_</span>, T::MaxLocks&gt;::force_from(
 				locks.to_vec(),
-				<span class="prelude-val">Some</span>(<span class="string">&quot;Balances Update Locks&quot;</span>),
+				<span class="prelude-val">Some</span>(<span class="string">"Balances Update Locks"</span>),
 			);
 
 			<span class="kw">if </span>locks.len() <span class="kw">as </span>u32 &gt; T::MaxLocks::get() {
 				<span class="macro">log::warn!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Warning: A user has more currency locks than expected. \
-					A runtime configuration adjustment may be needed.&quot;
+					<span class="string">"Warning: A user has more currency locks than expected. \
+					A runtime configuration adjustment may be needed."
 				</span>);
 			}
 			<span class="kw">let </span>freezes = Freezes::&lt;T, I&gt;::get(who);
@@ -2361,7 +2363,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			});
 			<span class="macro">debug_assert!</span>(res.is_ok());
 			<span class="kw">if let </span><span class="prelude-val">Ok</span>((<span class="kw">_</span>, maybe_dust)) = res {
-				<span class="macro">debug_assert!</span>(maybe_dust.is_none(), <span class="string">&quot;Not altering main balance; qed&quot;</span>);
+				<span class="macro">debug_assert!</span>(maybe_dust.is_none(), <span class="string">"Not altering main balance; qed"</span>);
 			}
 
 			<span class="kw">match </span>locks.is_empty() {
@@ -2396,7 +2398,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				}
 				after_frozen = b.frozen;
 			})<span class="question-mark">?</span>;
-			<span class="macro">debug_assert!</span>(maybe_dust.is_none(), <span class="string">&quot;Not altering main balance; qed&quot;</span>);
+			<span class="macro">debug_assert!</span>(maybe_dust.is_none(), <span class="string">"Not altering main balance; qed"</span>);
 			<span class="kw">if </span>freezes.is_empty() {
 				Freezes::&lt;T, I&gt;::remove(who);
 			} <span class="kw">else </span>{

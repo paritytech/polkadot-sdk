@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/rpc-api/src/state/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/rpc-api/src/state/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sc_rpc_api" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sc_rpc_api" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../sc_rpc_api/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -485,13 +487,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Substrate state API
 </span><span class="attr">#[rpc(client, server)]
 </span><span class="kw">pub trait </span>StateApi&lt;Hash&gt; {
-	<span class="doccomment">/// Call a method from the runtime API at a block&#39;s state.
-	</span><span class="attr">#[method(name = <span class="string">&quot;state_call&quot;</span>, aliases = [<span class="string">&quot;state_callAt&quot;</span>]</span>, blocking)]
+	<span class="doccomment">/// Call a method from the runtime API at a block's state.
+	</span><span class="attr">#[method(name = <span class="string">"state_call"</span>, aliases = [<span class="string">"state_callAt"</span>]</span>, blocking)]
 	<span class="kw">fn </span>call(<span class="kw-2">&amp;</span><span class="self">self</span>, name: String, bytes: Bytes, hash: <span class="prelude-ty">Option</span>&lt;Hash&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;Bytes, Error&gt;;
 
 	<span class="doccomment">/// Returns the keys with prefix, leave empty to get all the keys.
-	</span><span class="attr">#[method(name = <span class="string">&quot;state_getKeys&quot;</span>, blocking)]
-	#[deprecated(since = <span class="string">&quot;2.0.0&quot;</span>, note = <span class="string">&quot;Please use `getKeysPaged` with proper paging support&quot;</span>)]
+	</span><span class="attr">#[method(name = <span class="string">"state_getKeys"</span>, blocking)]
+	#[deprecated(since = <span class="string">"2.0.0"</span>, note = <span class="string">"Please use `getKeysPaged` with proper paging support"</span>)]
 	</span><span class="kw">fn </span>storage_keys(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		prefix: StorageKey,
@@ -499,7 +501,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;StorageKey&gt;, Error&gt;;
 
 	<span class="doccomment">/// Returns the keys with prefix, leave empty to get all the keys
-	</span><span class="attr">#[method(name = <span class="string">&quot;state_getPairs&quot;</span>, blocking)]
+	</span><span class="attr">#[method(name = <span class="string">"state_getPairs"</span>, blocking)]
 	</span><span class="kw">fn </span>storage_pairs(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		prefix: StorageKey,
@@ -509,7 +511,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Returns the keys with prefix with pagination support.
 	/// Up to `count` keys will be returned.
 	/// If `start_key` is passed, return next keys in storage in lexicographic order.
-	</span><span class="attr">#[method(name = <span class="string">&quot;state_getKeysPaged&quot;</span>, aliases = [<span class="string">&quot;state_getKeysPagedAt&quot;</span>]</span>, blocking)]
+	</span><span class="attr">#[method(name = <span class="string">"state_getKeysPaged"</span>, aliases = [<span class="string">"state_getKeysPagedAt"</span>]</span>, blocking)]
 	<span class="kw">fn </span>storage_keys_paged(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		prefix: <span class="prelude-ty">Option</span>&lt;StorageKey&gt;,
@@ -518,25 +520,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		hash: <span class="prelude-ty">Option</span>&lt;Hash&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;StorageKey&gt;, Error&gt;;
 
-	<span class="doccomment">/// Returns a storage entry at a specific block&#39;s state.
-	</span><span class="attr">#[method(name = <span class="string">&quot;state_getStorage&quot;</span>, aliases = [<span class="string">&quot;state_getStorageAt&quot;</span>]</span>, blocking)]
+	<span class="doccomment">/// Returns a storage entry at a specific block's state.
+	</span><span class="attr">#[method(name = <span class="string">"state_getStorage"</span>, aliases = [<span class="string">"state_getStorageAt"</span>]</span>, blocking)]
 	<span class="kw">fn </span>storage(<span class="kw-2">&amp;</span><span class="self">self</span>, key: StorageKey, hash: <span class="prelude-ty">Option</span>&lt;Hash&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;StorageData&gt;, Error&gt;;
 
-	<span class="doccomment">/// Returns the hash of a storage entry at a block&#39;s state.
-	</span><span class="attr">#[method(name = <span class="string">&quot;state_getStorageHash&quot;</span>, aliases = [<span class="string">&quot;state_getStorageHashAt&quot;</span>]</span>, blocking)]
+	<span class="doccomment">/// Returns the hash of a storage entry at a block's state.
+	</span><span class="attr">#[method(name = <span class="string">"state_getStorageHash"</span>, aliases = [<span class="string">"state_getStorageHashAt"</span>]</span>, blocking)]
 	<span class="kw">fn </span>storage_hash(<span class="kw-2">&amp;</span><span class="self">self</span>, key: StorageKey, hash: <span class="prelude-ty">Option</span>&lt;Hash&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Hash&gt;, Error&gt;;
 
-	<span class="doccomment">/// Returns the size of a storage entry at a block&#39;s state.
-	</span><span class="attr">#[method(name = <span class="string">&quot;state_getStorageSize&quot;</span>, aliases = [<span class="string">&quot;state_getStorageSizeAt&quot;</span>]</span>)]
+	<span class="doccomment">/// Returns the size of a storage entry at a block's state.
+	</span><span class="attr">#[method(name = <span class="string">"state_getStorageSize"</span>, aliases = [<span class="string">"state_getStorageSizeAt"</span>]</span>)]
 	<span class="kw">async fn </span>storage_size(<span class="kw-2">&amp;</span><span class="self">self</span>, key: StorageKey, hash: <span class="prelude-ty">Option</span>&lt;Hash&gt;)
 		-&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;u64&gt;, Error&gt;;
 
 	<span class="doccomment">/// Returns the runtime metadata as an opaque blob.
-	</span><span class="attr">#[method(name = <span class="string">&quot;state_getMetadata&quot;</span>, blocking)]
+	</span><span class="attr">#[method(name = <span class="string">"state_getMetadata"</span>, blocking)]
 	</span><span class="kw">fn </span>metadata(<span class="kw-2">&amp;</span><span class="self">self</span>, hash: <span class="prelude-ty">Option</span>&lt;Hash&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;Bytes, Error&gt;;
 
 	<span class="doccomment">/// Get the runtime version.
-	</span><span class="attr">#[method(name = <span class="string">&quot;state_getRuntimeVersion&quot;</span>, aliases = [<span class="string">&quot;chain_getRuntimeVersion&quot;</span>]</span>, blocking)]
+	</span><span class="attr">#[method(name = <span class="string">"state_getRuntimeVersion"</span>, aliases = [<span class="string">"chain_getRuntimeVersion"</span>]</span>, blocking)]
 	<span class="kw">fn </span>runtime_version(<span class="kw-2">&amp;</span><span class="self">self</span>, hash: <span class="prelude-ty">Option</span>&lt;Hash&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;RuntimeVersion, Error&gt;;
 
 	<span class="doccomment">/// Query historical storage entries (by key) starting from a block given as the second
@@ -546,7 +548,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// Subsequent values in the vector represent changes to the previous state (diffs).
 	/// WARNING: The time complexity of this query is O(|keys|*dist(block, hash)), and the
 	/// memory complexity is O(dist(block, hash)) -- use with caution.
-	</span><span class="attr">#[method(name = <span class="string">&quot;state_queryStorage&quot;</span>, blocking)]
+	</span><span class="attr">#[method(name = <span class="string">"state_queryStorage"</span>, blocking)]
 	</span><span class="kw">fn </span>query_storage(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		keys: Vec&lt;StorageKey&gt;,
@@ -557,15 +559,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Query storage entries (by key) at a block hash given as the second parameter.
 	/// NOTE: Each StorageChangeSet in the result corresponds to exactly one element --
 	/// the storage value under an input key at the input block hash.
-	</span><span class="attr">#[method(name = <span class="string">&quot;state_queryStorageAt&quot;</span>, blocking)]
+	</span><span class="attr">#[method(name = <span class="string">"state_queryStorageAt"</span>, blocking)]
 	</span><span class="kw">fn </span>query_storage_at(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		keys: Vec&lt;StorageKey&gt;,
 		at: <span class="prelude-ty">Option</span>&lt;Hash&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;StorageChangeSet&lt;Hash&gt;&gt;, Error&gt;;
 
-	<span class="doccomment">/// Returns proof of storage entries at a specific block&#39;s state.
-	</span><span class="attr">#[method(name = <span class="string">&quot;state_getReadProof&quot;</span>, blocking)]
+	<span class="doccomment">/// Returns proof of storage entries at a specific block's state.
+	</span><span class="attr">#[method(name = <span class="string">"state_getReadProof"</span>, blocking)]
 	</span><span class="kw">fn </span>read_proof(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		keys: Vec&lt;StorageKey&gt;,
@@ -574,18 +576,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// New runtime version subscription
 	</span><span class="attr">#[subscription(
-		name = <span class="string">&quot;state_subscribeRuntimeVersion&quot; </span>=&gt; <span class="string">&quot;state_runtimeVersion&quot;</span>,
-		unsubscribe = <span class="string">&quot;state_unsubscribeRuntimeVersion&quot;</span>,
-		aliases = [<span class="string">&quot;chain_subscribeRuntimeVersion&quot;</span>]</span>,
-		unsubscribe_aliases = [<span class="string">&quot;chain_unsubscribeRuntimeVersion&quot;</span>],
+		name = <span class="string">"state_subscribeRuntimeVersion" </span>=&gt; <span class="string">"state_runtimeVersion"</span>,
+		unsubscribe = <span class="string">"state_unsubscribeRuntimeVersion"</span>,
+		aliases = [<span class="string">"chain_subscribeRuntimeVersion"</span>]</span>,
+		unsubscribe_aliases = [<span class="string">"chain_unsubscribeRuntimeVersion"</span>],
 		item = RuntimeVersion,
 	)]
 	<span class="kw">fn </span>subscribe_runtime_version(<span class="kw-2">&amp;</span><span class="self">self</span>);
 
 	<span class="doccomment">/// New storage subscription
 	</span><span class="attr">#[subscription(
-		name = <span class="string">&quot;state_subscribeStorage&quot; </span>=&gt; <span class="string">&quot;state_storage&quot;</span>,
-		unsubscribe = <span class="string">&quot;state_unsubscribeStorage&quot;</span>,
+		name = <span class="string">"state_subscribeStorage" </span>=&gt; <span class="string">"state_storage"</span>,
+		unsubscribe = <span class="string">"state_unsubscribeStorage"</span>,
 		item = StorageChangeSet&lt;Hash&gt;,
 	)]
 	</span><span class="kw">fn </span>subscribe_storage(<span class="kw-2">&amp;</span><span class="self">self</span>, keys: <span class="prelude-ty">Option</span>&lt;Vec&lt;StorageKey&gt;&gt;);
@@ -595,7 +597,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// The Spans and Events are conceptually equivalent to those from the [Tracing][1] crate.
 	///
 	/// The structure of the traces follows that of the block execution pipeline, so meaningful
-	/// interpretation of the traces requires an understanding of the Substrate chain&#39;s block
+	/// interpretation of the traces requires an understanding of the Substrate chain's block
 	/// execution.
 	///
 	/// [Link to conceptual map of trace structure for Polkadot and Kusama block execution.][2]
@@ -605,7 +607,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// ## Node requirements
 	///
-	/// - Fully synced archive node (i.e. a node that is not actively doing a &quot;major&quot; sync).
+	/// - Fully synced archive node (i.e. a node that is not actively doing a "major" sync).
 	/// - [Tracing enabled WASM runtimes](#creating-tracing-enabled-wasm-runtimes) for all runtime
 	///   versions
 	/// for which tracing is desired.
@@ -620,8 +622,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// - Checkout commit of chain version to compile with WASM traces
 	/// - [diener][1] can help to peg commit of substrate to what the chain expects.
 	/// - Navigate to the `runtime` folder/package of the chain
-	/// - Add feature `with-tracing = [&quot;frame-executive/with-tracing&quot;, &quot;sp-io/with-tracing&quot;]`
-	/// under `[features]` to the `runtime` packages&#39; `Cargo.toml`.
+	/// - Add feature `with-tracing = ["frame-executive/with-tracing", "sp-io/with-tracing"]`
+	/// under `[features]` to the `runtime` packages' `Cargo.toml`.
 	/// - Compile the runtime with `cargo build --release --features with-tracing`
 	/// - Tracing-enabled WASM runtime should be found in
 	///   `./target/release/wbuild/{{chain}}-runtime`
@@ -654,46 +656,46 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// - Get tracing spans and events
 	/// ```text
 	/// curl \
-	/// 	-H &quot;Content-Type: application/json&quot; \
-	/// 	-d &#39;{&quot;id&quot;:1, &quot;jsonrpc&quot;:&quot;2.0&quot;, &quot;method&quot;: &quot;state_traceBlock&quot;, \
-	/// 		&quot;params&quot;: [&quot;0xb246acf1adea1f801ce15c77a5fa7d8f2eb8fed466978bcee172cc02cf64e264&quot;, &quot;pallet,frame,state&quot;, &quot;&quot;, &quot;&quot;]}&#39; \
+	/// 	-H "Content-Type: application/json" \
+	/// 	-d '{"id":1, "jsonrpc":"2.0", "method": "state_traceBlock", \
+	/// 		"params": ["0xb246acf1adea1f801ce15c77a5fa7d8f2eb8fed466978bcee172cc02cf64e264", "pallet,frame,state", "", ""]}' \
 	/// 	http://localhost:9933/
 	/// ```
 	///
 	/// - Get tracing events with all `storage_keys`
 	/// ```text
 	/// curl \
-	/// 	-H &quot;Content-Type: application/json&quot; \
-	/// 	-d &#39;{&quot;id&quot;:1, &quot;jsonrpc&quot;:&quot;2.0&quot;, &quot;method&quot;: &quot;state_traceBlock&quot;, \
-	/// 		&quot;params&quot;: [&quot;0xb246acf1adea1f801ce15c77a5fa7d8f2eb8fed466978bcee172cc02cf64e264&quot;, &quot;state&quot;, &quot;&quot;, &quot;&quot;]}&#39; \
+	/// 	-H "Content-Type: application/json" \
+	/// 	-d '{"id":1, "jsonrpc":"2.0", "method": "state_traceBlock", \
+	/// 		"params": ["0xb246acf1adea1f801ce15c77a5fa7d8f2eb8fed466978bcee172cc02cf64e264", "state", "", ""]}' \
 	/// 	http://localhost:9933/
 	/// ```
 	///
-	/// - Get tracing events with `storage_keys` (&#39;f0c365c3cf59d671eb72da0e7a4113c4&#39;)
+	/// - Get tracing events with `storage_keys` ('f0c365c3cf59d671eb72da0e7a4113c4')
 	/// ```text
 	/// curl \
-	/// 	-H &quot;Content-Type: application/json&quot; \
-	/// 	-d &#39;{&quot;id&quot;:1, &quot;jsonrpc&quot;:&quot;2.0&quot;, &quot;method&quot;: &quot;state_traceBlock&quot;, \
-	/// 		&quot;params&quot;: [&quot;0xb246acf1adea1f801ce15c77a5fa7d8f2eb8fed466978bcee172cc02cf64e264&quot;, &quot;state&quot;, &quot;f0c365c3cf59d671eb72da0e7a4113c4&quot;, &quot;&quot;]}&#39; \
+	/// 	-H "Content-Type: application/json" \
+	/// 	-d '{"id":1, "jsonrpc":"2.0", "method": "state_traceBlock", \
+	/// 		"params": ["0xb246acf1adea1f801ce15c77a5fa7d8f2eb8fed466978bcee172cc02cf64e264", "state", "f0c365c3cf59d671eb72da0e7a4113c4", ""]}' \
 	/// 	http://localhost:9933/
 	/// ```
 	///
-	/// - Get tracing events with `storage_keys` (&#39;f0c365c3cf59d671eb72da0e7a4113c4&#39;) and method
-	///   (&#39;Put&#39;)
+	/// - Get tracing events with `storage_keys` ('f0c365c3cf59d671eb72da0e7a4113c4') and method
+	///   ('Put')
 	/// ```text
 	/// curl \
-	/// 	-H &quot;Content-Type: application/json&quot; \
-	/// 	-d &#39;{&quot;id&quot;:1, &quot;jsonrpc&quot;:&quot;2.0&quot;, &quot;method&quot;: &quot;state_traceBlock&quot;, \
-	/// 		&quot;params&quot;: [&quot;0xb246acf1adea1f801ce15c77a5fa7d8f2eb8fed466978bcee172cc02cf64e264&quot;, &quot;state&quot;, &quot;f0c365c3cf59d671eb72da0e7a4113c4&quot;, &quot;Put&quot;]}&#39; \
+	/// 	-H "Content-Type: application/json" \
+	/// 	-d '{"id":1, "jsonrpc":"2.0", "method": "state_traceBlock", \
+	/// 		"params": ["0xb246acf1adea1f801ce15c77a5fa7d8f2eb8fed466978bcee172cc02cf64e264", "state", "f0c365c3cf59d671eb72da0e7a4113c4", "Put"]}' \
 	/// 	http://localhost:9933/
 	/// ```
 	///
-	/// - Get tracing events with all `storage_keys` and method (&#39;Put&#39;)
+	/// - Get tracing events with all `storage_keys` and method ('Put')
 	/// ```text
 	/// curl \
-	/// 	-H &quot;Content-Type: application/json&quot; \
-	/// 	-d &#39;{&quot;id&quot;:1, &quot;jsonrpc&quot;:&quot;2.0&quot;, &quot;method&quot;: &quot;state_traceBlock&quot;, \
-	/// 		&quot;params&quot;: [&quot;0xb246acf1adea1f801ce15c77a5fa7d8f2eb8fed466978bcee172cc02cf64e264&quot;, &quot;state&quot;, &quot;&quot;, &quot;Put&quot;]}&#39; \
+	/// 	-H "Content-Type: application/json" \
+	/// 	-d '{"id":1, "jsonrpc":"2.0", "method": "state_traceBlock", \
+	/// 		"params": ["0xb246acf1adea1f801ce15c77a5fa7d8f2eb8fed466978bcee172cc02cf64e264", "state", "", "Put"]}' \
 	/// 	http://localhost:9933/
 	/// ```
 	///
@@ -704,8 +706,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// targets match with trace targets by prefix (i.e if a target is in the beginning
 	/// of a trace target it is considered a match). If an empty string is specified no
 	/// targets will be filtered out. The majority of targets correspond to Rust module names,
-	/// and the ones that do not are typically &quot;hardcoded&quot; into span or event location
-	/// somewhere in the Substrate source code. (&quot;Non-hardcoded&quot; targets typically come from frame
+	/// and the ones that do not are typically "hardcoded" into span or event location
+	/// somewhere in the Substrate source code. ("Non-hardcoded" targets typically come from frame
 	/// support macros.)
 	/// - `storage_keys` (param index 2): String of comma separated (no spaces) hex encoded
 	/// (no `0x` prefix) storage keys. If an empty string is specified no events will
@@ -742,7 +744,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// If you are having issues with maximum payload size you can use the flag
 	/// `-ltracing=trace` to get some logging during tracing.
-	</span><span class="attr">#[method(name = <span class="string">&quot;state_traceBlock&quot;</span>, blocking)]
+	</span><span class="attr">#[method(name = <span class="string">"state_traceBlock"</span>, blocking)]
 	</span><span class="kw">fn </span>trace_block(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		block: Hash,

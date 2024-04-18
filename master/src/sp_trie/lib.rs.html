@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/trie/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/trie/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_trie" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_trie" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sp_trie/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1228,36 +1230,36 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-</span><span class="doccomment">//! Utility functions to interact with Substrate&#39;s Base-16 Modified Merkle Patricia tree (&quot;trie&quot;).
+</span><span class="doccomment">//! Utility functions to interact with Substrate's Base-16 Modified Merkle Patricia tree ("trie").
 
-</span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
+</span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
 </span><span class="kw">extern crate </span>alloc;
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">pub mod </span>cache;
 <span class="kw">mod </span>error;
 <span class="kw">mod </span>node_codec;
 <span class="kw">mod </span>node_header;
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">pub mod </span>recorder;
 <span class="kw">mod </span>storage_proof;
 <span class="kw">mod </span>trie_codec;
 <span class="kw">mod </span>trie_stream;
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">pub mod </span>proof_size_extension;
 
 <span class="kw">use </span>alloc::{borrow::Borrow, boxed::Box, vec, vec::Vec};
@@ -1385,15 +1387,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// across operations on different [`trie_db::TrieDB`] instances.
 </span><span class="kw">pub trait </span>TrieRecorderProvider&lt;H: Hasher&gt; {
 	<span class="doccomment">/// Recorder type that is going to be returned by implementors of this trait.
-	</span><span class="kw">type </span>Recorder&lt;<span class="lifetime">&#39;a</span>&gt;: trie_db::TrieRecorder&lt;H::Out&gt; + <span class="lifetime">&#39;a
+	</span><span class="kw">type </span>Recorder&lt;<span class="lifetime">'a</span>&gt;: trie_db::TrieRecorder&lt;H::Out&gt; + <span class="lifetime">'a
 	</span><span class="kw">where
-		</span><span class="self">Self</span>: <span class="lifetime">&#39;a</span>;
+		</span><span class="self">Self</span>: <span class="lifetime">'a</span>;
 
 	<span class="doccomment">/// Create a [`StorageProof`] derived from the internal state.
 	</span><span class="kw">fn </span>drain_storage_proof(<span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;StorageProof&gt;;
 
 	<span class="doccomment">/// Provide a recorder implementing [`trie_db::TrieRecorder`].
-	</span><span class="kw">fn </span>as_trie_recorder(<span class="kw-2">&amp;</span><span class="self">self</span>, storage_root: H::Out) -&gt; <span class="self">Self</span>::Recorder&lt;<span class="lifetime">&#39;_</span>&gt;;
+	</span><span class="kw">fn </span>as_trie_recorder(<span class="kw-2">&amp;</span><span class="self">self</span>, storage_root: H::Out) -&gt; <span class="self">Self</span>::Recorder&lt;<span class="lifetime">'_</span>&gt;;
 }
 
 <span class="doccomment">/// Type that is able to provide a proof size estimation.
@@ -1408,7 +1410,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub trait </span>AsHashDB&lt;H: Hasher&gt;: hash_db::AsHashDB&lt;H, trie_db::DBValue&gt; {}
 <span class="kw">impl</span>&lt;H: Hasher, T: hash_db::AsHashDB&lt;H, trie_db::DBValue&gt;&gt; AsHashDB&lt;H&gt; <span class="kw">for </span>T {}
 <span class="doccomment">/// Reexport from `hash_db`, with genericity set for `Hasher` trait.
-</span><span class="kw">pub type </span>HashDB&lt;<span class="lifetime">&#39;a</span>, H&gt; = <span class="kw">dyn </span>hash_db::HashDB&lt;H, trie_db::DBValue&gt; + <span class="lifetime">&#39;a</span>;
+</span><span class="kw">pub type </span>HashDB&lt;<span class="lifetime">'a</span>, H&gt; = <span class="kw">dyn </span>hash_db::HashDB&lt;H, trie_db::DBValue&gt; + <span class="lifetime">'a</span>;
 <span class="doccomment">/// Reexport from `hash_db`, with genericity set for `Hasher` trait.
 /// This uses a `KeyFunction` for prefixing keys internally (avoiding
 /// key conflict for non random keys).
@@ -1421,15 +1423,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub type </span>GenericMemoryDB&lt;H, KF&gt; = memory_db::MemoryDB&lt;H, KF, trie_db::DBValue&gt;;
 
 <span class="doccomment">/// Persistent trie database read-access interface for the a given hasher.
-</span><span class="kw">pub type </span>TrieDB&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;cache</span>, L&gt; = trie_db::TrieDB&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;cache</span>, L&gt;;
+</span><span class="kw">pub type </span>TrieDB&lt;<span class="lifetime">'a</span>, <span class="lifetime">'cache</span>, L&gt; = trie_db::TrieDB&lt;<span class="lifetime">'a</span>, <span class="lifetime">'cache</span>, L&gt;;
 <span class="doccomment">/// Builder for creating a [`TrieDB`].
-</span><span class="kw">pub type </span>TrieDBBuilder&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;cache</span>, L&gt; = trie_db::TrieDBBuilder&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;cache</span>, L&gt;;
+</span><span class="kw">pub type </span>TrieDBBuilder&lt;<span class="lifetime">'a</span>, <span class="lifetime">'cache</span>, L&gt; = trie_db::TrieDBBuilder&lt;<span class="lifetime">'a</span>, <span class="lifetime">'cache</span>, L&gt;;
 <span class="doccomment">/// Persistent trie database write-access interface for the a given hasher.
-</span><span class="kw">pub type </span>TrieDBMut&lt;<span class="lifetime">&#39;a</span>, L&gt; = trie_db::TrieDBMut&lt;<span class="lifetime">&#39;a</span>, L&gt;;
+</span><span class="kw">pub type </span>TrieDBMut&lt;<span class="lifetime">'a</span>, L&gt; = trie_db::TrieDBMut&lt;<span class="lifetime">'a</span>, L&gt;;
 <span class="doccomment">/// Builder for creating a [`TrieDBMut`].
-</span><span class="kw">pub type </span>TrieDBMutBuilder&lt;<span class="lifetime">&#39;a</span>, L&gt; = trie_db::TrieDBMutBuilder&lt;<span class="lifetime">&#39;a</span>, L&gt;;
+</span><span class="kw">pub type </span>TrieDBMutBuilder&lt;<span class="lifetime">'a</span>, L&gt; = trie_db::TrieDBMutBuilder&lt;<span class="lifetime">'a</span>, L&gt;;
 <span class="doccomment">/// Querying interface, as in `trie_db` but less generic.
-</span><span class="kw">pub type </span>Lookup&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;cache</span>, L, Q&gt; = trie_db::Lookup&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;cache</span>, L, Q&gt;;
+</span><span class="kw">pub type </span>Lookup&lt;<span class="lifetime">'a</span>, <span class="lifetime">'cache</span>, L, Q&gt; = trie_db::Lookup&lt;<span class="lifetime">'a</span>, <span class="lifetime">'cache</span>, L, Q&gt;;
 <span class="doccomment">/// Hash type for a trie layout.
 </span><span class="kw">pub type </span>TrieHash&lt;L&gt; = &lt;&lt;L <span class="kw">as </span>TrieLayout&gt;::Hash <span class="kw">as </span>Hasher&gt;::Out;
 <span class="doccomment">/// This module is for non generic definition of trie type.
@@ -1440,19 +1442,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Persistent trie database read-access interface for the a given hasher.
 	///
 	/// Read only V1 and V0 are compatible, thus we always use V1.
-	</span><span class="kw">pub type </span>TrieDB&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;cache</span>, H&gt; = <span class="kw">super</span>::TrieDB&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;cache</span>, LayoutV1&lt;H&gt;&gt;;
+	</span><span class="kw">pub type </span>TrieDB&lt;<span class="lifetime">'a</span>, <span class="lifetime">'cache</span>, H&gt; = <span class="kw">super</span>::TrieDB&lt;<span class="lifetime">'a</span>, <span class="lifetime">'cache</span>, LayoutV1&lt;H&gt;&gt;;
 	<span class="doccomment">/// Builder for creating a [`TrieDB`].
-	</span><span class="kw">pub type </span>TrieDBBuilder&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;cache</span>, H&gt; = <span class="kw">super</span>::TrieDBBuilder&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;cache</span>, LayoutV1&lt;H&gt;&gt;;
+	</span><span class="kw">pub type </span>TrieDBBuilder&lt;<span class="lifetime">'a</span>, <span class="lifetime">'cache</span>, H&gt; = <span class="kw">super</span>::TrieDBBuilder&lt;<span class="lifetime">'a</span>, <span class="lifetime">'cache</span>, LayoutV1&lt;H&gt;&gt;;
 	<span class="doccomment">/// Persistent trie database write-access interface for the a given hasher.
-	</span><span class="kw">pub type </span>TrieDBMutV0&lt;<span class="lifetime">&#39;a</span>, H&gt; = <span class="kw">super</span>::TrieDBMut&lt;<span class="lifetime">&#39;a</span>, LayoutV0&lt;H&gt;&gt;;
+	</span><span class="kw">pub type </span>TrieDBMutV0&lt;<span class="lifetime">'a</span>, H&gt; = <span class="kw">super</span>::TrieDBMut&lt;<span class="lifetime">'a</span>, LayoutV0&lt;H&gt;&gt;;
 	<span class="doccomment">/// Builder for creating a [`TrieDBMutV0`].
-	</span><span class="kw">pub type </span>TrieDBMutBuilderV0&lt;<span class="lifetime">&#39;a</span>, H&gt; = <span class="kw">super</span>::TrieDBMutBuilder&lt;<span class="lifetime">&#39;a</span>, LayoutV0&lt;H&gt;&gt;;
+	</span><span class="kw">pub type </span>TrieDBMutBuilderV0&lt;<span class="lifetime">'a</span>, H&gt; = <span class="kw">super</span>::TrieDBMutBuilder&lt;<span class="lifetime">'a</span>, LayoutV0&lt;H&gt;&gt;;
 	<span class="doccomment">/// Persistent trie database write-access interface for the a given hasher.
-	</span><span class="kw">pub type </span>TrieDBMutV1&lt;<span class="lifetime">&#39;a</span>, H&gt; = <span class="kw">super</span>::TrieDBMut&lt;<span class="lifetime">&#39;a</span>, LayoutV1&lt;H&gt;&gt;;
+	</span><span class="kw">pub type </span>TrieDBMutV1&lt;<span class="lifetime">'a</span>, H&gt; = <span class="kw">super</span>::TrieDBMut&lt;<span class="lifetime">'a</span>, LayoutV1&lt;H&gt;&gt;;
 	<span class="doccomment">/// Builder for creating a [`TrieDBMutV1`].
-	</span><span class="kw">pub type </span>TrieDBMutBuilderV1&lt;<span class="lifetime">&#39;a</span>, H&gt; = <span class="kw">super</span>::TrieDBMutBuilder&lt;<span class="lifetime">&#39;a</span>, LayoutV1&lt;H&gt;&gt;;
+	</span><span class="kw">pub type </span>TrieDBMutBuilderV1&lt;<span class="lifetime">'a</span>, H&gt; = <span class="kw">super</span>::TrieDBMutBuilder&lt;<span class="lifetime">'a</span>, LayoutV1&lt;H&gt;&gt;;
 	<span class="doccomment">/// Querying interface, as in `trie_db` but less generic.
-	</span><span class="kw">pub type </span>Lookup&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;cache</span>, H, Q&gt; = trie_db::Lookup&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;cache</span>, LayoutV1&lt;H&gt;, Q&gt;;
+	</span><span class="kw">pub type </span>Lookup&lt;<span class="lifetime">'a</span>, <span class="lifetime">'cache</span>, H, Q&gt; = trie_db::Lookup&lt;<span class="lifetime">'a</span>, <span class="lifetime">'cache</span>, LayoutV1&lt;H&gt;, Q&gt;;
 	<span class="doccomment">/// As in `trie_db`, but less generic, error type for the crate.
 	</span><span class="kw">pub type </span>TrieError&lt;H&gt; = trie_db::TrieError&lt;H, <span class="kw">super</span>::Error&lt;H&gt;&gt;;
 }
@@ -1465,15 +1467,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// For a key `K` that is included in the `db` a proof of inclusion is generated.
 /// For a key `K` that is not included in the `db` a proof of non-inclusion is generated.
 /// These can be later checked in `verify_trie_proof`.
-</span><span class="kw">pub fn </span>generate_trie_proof&lt;<span class="lifetime">&#39;a</span>, L, I, K, DB&gt;(
+</span><span class="kw">pub fn </span>generate_trie_proof&lt;<span class="lifetime">'a</span>, L, I, K, DB&gt;(
 	db: <span class="kw-2">&amp;</span>DB,
 	root: TrieHash&lt;L&gt;,
 	keys: I,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Vec&lt;u8&gt;&gt;, Box&lt;TrieError&lt;L&gt;&gt;&gt;
 <span class="kw">where
 	</span>L: TrieConfiguration,
-	I: IntoIterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>K&gt;,
-	K: <span class="lifetime">&#39;a </span>+ AsRef&lt;[u8]&gt;,
+	I: IntoIterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">'a </span>K&gt;,
+	K: <span class="lifetime">'a </span>+ AsRef&lt;[u8]&gt;,
 	DB: hash_db::HashDBRef&lt;L::Hash, trie_db::DBValue&gt;,
 {
 	generate_proof::&lt;<span class="kw">_</span>, L, <span class="kw">_</span>, <span class="kw">_</span>&gt;(db, <span class="kw-2">&amp;</span>root, keys)
@@ -1487,16 +1489,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// checked for inclusion in the proof.
 /// If the value is omitted (`(key, None)`), this key will be checked for non-inclusion in the
 /// proof.
-</span><span class="kw">pub fn </span>verify_trie_proof&lt;<span class="lifetime">&#39;a</span>, L, I, K, V&gt;(
+</span><span class="kw">pub fn </span>verify_trie_proof&lt;<span class="lifetime">'a</span>, L, I, K, V&gt;(
 	root: <span class="kw-2">&amp;</span>TrieHash&lt;L&gt;,
 	proof: <span class="kw-2">&amp;</span>[Vec&lt;u8&gt;],
 	items: I,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(), VerifyError&lt;TrieHash&lt;L&gt;, CError&lt;L&gt;&gt;&gt;
 <span class="kw">where
 	</span>L: TrieConfiguration,
-	I: IntoIterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>(K, <span class="prelude-ty">Option</span>&lt;V&gt;)&gt;,
-	K: <span class="lifetime">&#39;a </span>+ AsRef&lt;[u8]&gt;,
-	V: <span class="lifetime">&#39;a </span>+ AsRef&lt;[u8]&gt;,
+	I: IntoIterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">'a </span>(K, <span class="prelude-ty">Option</span>&lt;V&gt;)&gt;,
+	K: <span class="lifetime">'a </span>+ AsRef&lt;[u8]&gt;,
+	V: <span class="lifetime">'a </span>+ AsRef&lt;[u8]&gt;,
 {
 	verify_proof::&lt;L, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;(root, proof, items)
 }
@@ -1624,7 +1626,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	DB: hash_db::HashDB&lt;L::Hash, trie_db::DBValue&gt;,
 {
 	<span class="kw">let </span><span class="kw-2">mut </span>root = TrieHash::&lt;L&gt;::default();
-	<span class="comment">// root is fetched from DB, not writable by runtime, so it&#39;s always valid.
+	<span class="comment">// root is fetched from DB, not writable by runtime, so it's always valid.
 	</span>root.as_mut().copy_from_slice(root_data.as_ref());
 
 	<span class="kw">let </span><span class="kw-2">mut </span>db = KeySpacedDBMut::new(db, keyspace);
@@ -1707,7 +1709,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	DB: hash_db::HashDBRef&lt;L::Hash, trie_db::DBValue&gt;,
 {
 	<span class="kw">let </span><span class="kw-2">mut </span>root = TrieHash::&lt;L&gt;::default();
-	<span class="comment">// root is fetched from DB, not writable by runtime, so it&#39;s always valid.
+	<span class="comment">// root is fetched from DB, not writable by runtime, so it's always valid.
 	</span>root.as_mut().copy_from_slice(root_slice);
 
 	<span class="kw">let </span>db = KeySpacedDB::new(db, keyspace);
@@ -1719,13 +1721,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// `HashDB` implementation that append a encoded prefix (unique id bytes) in addition to the
 /// prefix of every key value.
-</span><span class="kw">pub struct </span>KeySpacedDB&lt;<span class="lifetime">&#39;a</span>, DB: <span class="question-mark">?</span>Sized, H&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>DB, <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8], PhantomData&lt;H&gt;);
+</span><span class="kw">pub struct </span>KeySpacedDB&lt;<span class="lifetime">'a</span>, DB: <span class="question-mark">?</span>Sized, H&gt;(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>DB, <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8], PhantomData&lt;H&gt;);
 
 <span class="doccomment">/// `HashDBMut` implementation that append a encoded prefix (unique id bytes) in addition to the
 /// prefix of every key value.
 ///
 /// Mutable variant of `KeySpacedDB`, see [`KeySpacedDB`].
-</span><span class="kw">pub struct </span>KeySpacedDBMut&lt;<span class="lifetime">&#39;a</span>, DB: <span class="question-mark">?</span>Sized, H&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>DB, <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8], PhantomData&lt;H&gt;);
+</span><span class="kw">pub struct </span>KeySpacedDBMut&lt;<span class="lifetime">'a</span>, DB: <span class="question-mark">?</span>Sized, H&gt;(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>DB, <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8], PhantomData&lt;H&gt;);
 
 <span class="doccomment">/// Utility function used to merge some byte data (keyspace) and `prefix` data
 /// before calling key value database primitives.
@@ -1736,26 +1738,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	(result, prefix.<span class="number">1</span>)
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, DB: <span class="question-mark">?</span>Sized, H&gt; KeySpacedDB&lt;<span class="lifetime">&#39;a</span>, DB, H&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, DB: <span class="question-mark">?</span>Sized, H&gt; KeySpacedDB&lt;<span class="lifetime">'a</span>, DB, H&gt; {
 	<span class="doccomment">/// instantiate new keyspaced db
 	</span><span class="attr">#[inline]
-	</span><span class="kw">pub fn </span>new(db: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>DB, ks: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8]) -&gt; <span class="self">Self </span>{
+	</span><span class="kw">pub fn </span>new(db: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>DB, ks: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8]) -&gt; <span class="self">Self </span>{
 		KeySpacedDB(db, ks, PhantomData)
 	}
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, DB: <span class="question-mark">?</span>Sized, H&gt; KeySpacedDBMut&lt;<span class="lifetime">&#39;a</span>, DB, H&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, DB: <span class="question-mark">?</span>Sized, H&gt; KeySpacedDBMut&lt;<span class="lifetime">'a</span>, DB, H&gt; {
 	<span class="doccomment">/// instantiate new keyspaced db
-	</span><span class="kw">pub fn </span>new(db: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>DB, ks: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8]) -&gt; <span class="self">Self </span>{
+	</span><span class="kw">pub fn </span>new(db: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>DB, ks: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8]) -&gt; <span class="self">Self </span>{
 		KeySpacedDBMut(db, ks, PhantomData)
 	}
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, DB, H, T&gt; hash_db::HashDBRef&lt;H, T&gt; <span class="kw">for </span>KeySpacedDB&lt;<span class="lifetime">&#39;a</span>, DB, H&gt;
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, DB, H, T&gt; hash_db::HashDBRef&lt;H, T&gt; <span class="kw">for </span>KeySpacedDB&lt;<span class="lifetime">'a</span>, DB, H&gt;
 <span class="kw">where
 	</span>DB: hash_db::HashDBRef&lt;H, T&gt; + <span class="question-mark">?</span>Sized,
 	H: Hasher,
-	T: From&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8]&gt;,
+	T: From&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>[u8]&gt;,
 {
 	<span class="kw">fn </span>get(<span class="kw-2">&amp;</span><span class="self">self</span>, key: <span class="kw-2">&amp;</span>H::Out, prefix: Prefix) -&gt; <span class="prelude-ty">Option</span>&lt;T&gt; {
 		<span class="kw">let </span>derived_prefix = keyspace_as_prefix_alloc(<span class="self">self</span>.<span class="number">1</span>, prefix);
@@ -1768,11 +1770,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, DB, H, T&gt; hash_db::HashDB&lt;H, T&gt; <span class="kw">for </span>KeySpacedDBMut&lt;<span class="lifetime">&#39;a</span>, DB, H&gt;
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, DB, H, T&gt; hash_db::HashDB&lt;H, T&gt; <span class="kw">for </span>KeySpacedDBMut&lt;<span class="lifetime">'a</span>, DB, H&gt;
 <span class="kw">where
 	</span>DB: hash_db::HashDB&lt;H, T&gt;,
 	H: Hasher,
-	T: Default + PartialEq&lt;T&gt; + <span class="kw">for</span>&lt;<span class="lifetime">&#39;b</span>&gt; From&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;b </span>[u8]&gt; + Clone + Send + Sync,
+	T: Default + PartialEq&lt;T&gt; + <span class="kw">for</span>&lt;<span class="lifetime">'b</span>&gt; From&lt;<span class="kw-2">&amp;</span><span class="lifetime">'b </span>[u8]&gt; + Clone + Send + Sync,
 {
 	<span class="kw">fn </span>get(<span class="kw-2">&amp;</span><span class="self">self</span>, key: <span class="kw-2">&amp;</span>H::Out, prefix: Prefix) -&gt; <span class="prelude-ty">Option</span>&lt;T&gt; {
 		<span class="kw">let </span>derived_prefix = keyspace_as_prefix_alloc(<span class="self">self</span>.<span class="number">1</span>, prefix);
@@ -1800,17 +1802,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, DB, H, T&gt; hash_db::AsHashDB&lt;H, T&gt; <span class="kw">for </span>KeySpacedDBMut&lt;<span class="lifetime">&#39;a</span>, DB, H&gt;
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, DB, H, T&gt; hash_db::AsHashDB&lt;H, T&gt; <span class="kw">for </span>KeySpacedDBMut&lt;<span class="lifetime">'a</span>, DB, H&gt;
 <span class="kw">where
 	</span>DB: hash_db::HashDB&lt;H, T&gt;,
 	H: Hasher,
-	T: Default + PartialEq&lt;T&gt; + <span class="kw">for</span>&lt;<span class="lifetime">&#39;b</span>&gt; From&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;b </span>[u8]&gt; + Clone + Send + Sync,
+	T: Default + PartialEq&lt;T&gt; + <span class="kw">for</span>&lt;<span class="lifetime">'b</span>&gt; From&lt;<span class="kw-2">&amp;</span><span class="lifetime">'b </span>[u8]&gt; + Clone + Send + Sync,
 {
 	<span class="kw">fn </span>as_hash_db(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="kw">dyn </span>hash_db::HashDB&lt;H, T&gt; {
 		<span class="self">self
 	</span>}
 
-	<span class="kw">fn </span>as_hash_db_mut&lt;<span class="lifetime">&#39;b</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;b </span><span class="kw-2">mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;b </span><span class="kw-2">mut </span>(<span class="kw">dyn </span>hash_db::HashDB&lt;H, T&gt; + <span class="lifetime">&#39;b</span>) {
+	<span class="kw">fn </span>as_hash_db_mut&lt;<span class="lifetime">'b</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">'b </span><span class="kw-2">mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'b </span><span class="kw-2">mut </span>(<span class="kw">dyn </span>hash_db::HashDB&lt;H, T&gt; + <span class="lifetime">'b</span>) {
 		<span class="kw-2">&amp;mut *</span><span class="self">self
 	</span>}
 }
@@ -1849,7 +1851,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		{
 			<span class="kw">let </span>closed_form = T::trie_root(input.clone());
 			<span class="kw">let </span>d = T::trie_root_unhashed(input.clone());
-			<span class="macro">println!</span>(<span class="string">&quot;Data: {:#x?}, {:#x?}&quot;</span>, d, Blake2Hasher::hash(<span class="kw-2">&amp;</span>d[..]));
+			<span class="macro">println!</span>(<span class="string">"Data: {:#x?}, {:#x?}"</span>, d, Blake2Hasher::hash(<span class="kw-2">&amp;</span>d[..]));
 			<span class="kw">let </span>persistent = {
 				<span class="kw">let </span><span class="kw-2">mut </span>memdb = MemoryDBMeta::default();
 				<span class="kw">let </span><span class="kw-2">mut </span>root = Default::default();
@@ -1976,7 +1978,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>input: Vec&lt;(<span class="kw-2">&amp;</span>[u8], <span class="kw-2">&amp;</span>[u8])&gt; = <span class="macro">vec!</span>[
 			(
 				<span class="kw-2">&amp;</span>[<span class="number">0xaa</span>][..],
-				<span class="kw-2">&amp;</span><span class="string">b&quot;ABCABCABCABCABCABCABCABCABCABCABCABCABCABCABCABCABCABCABCABCABCABCABCABC&quot;</span>[..],
+				<span class="kw-2">&amp;</span><span class="string">b"ABCABCABCABCABCABCABCABCABCABCABCABCABCABCABCABCABCABCABCABCABCABCABCABC"</span>[..],
 			),
 			(<span class="kw-2">&amp;</span>[<span class="number">0xba</span>][..], <span class="kw-2">&amp;</span>[<span class="number">0x11</span>][..]),
 		];
@@ -1988,21 +1990,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>input: Vec&lt;(<span class="kw-2">&amp;</span>[u8], <span class="kw-2">&amp;</span>[u8])&gt; = <span class="macro">vec!</span>[
 			(
 				<span class="kw-2">&amp;</span>[<span class="number">0xaa</span>][..],
-				<span class="kw-2">&amp;</span><span class="string">b&quot;ABCABCABCABCABCABCABCABCABCABCABCABCABCABCABCABCABCABCABCABCABCABCABCABC&quot;</span>[..],
+				<span class="kw-2">&amp;</span><span class="string">b"ABCABCABCABCABCABCABCABCABCABCABCABCABCABCABCABCABCABCABCABCABCABCABCABC"</span>[..],
 			),
 			(
 				<span class="kw-2">&amp;</span>[<span class="number">0xba</span>][..],
-				<span class="kw-2">&amp;</span><span class="string">b&quot;ABCABCABCABCABCABCABCABCABCABCABCABCABCABCABCABCABCABCABCABCABCABCABCABC&quot;</span>[..],
+				<span class="kw-2">&amp;</span><span class="string">b"ABCABCABCABCABCABCABCABCABCABCABCABCABCABCABCABCABCABCABCABCABCABCABCABC"</span>[..],
 			),
 		];
 		check_input(<span class="kw-2">&amp;</span>input);
 	}
 
-	<span class="kw">fn </span>populate_trie&lt;<span class="lifetime">&#39;db</span>, T: TrieConfiguration&gt;(
-		db: <span class="kw-2">&amp;</span><span class="lifetime">&#39;db </span><span class="kw-2">mut </span><span class="kw">dyn </span>HashDB&lt;T::Hash, DBValue&gt;,
-		root: <span class="kw-2">&amp;</span><span class="lifetime">&#39;db </span><span class="kw-2">mut </span>TrieHash&lt;T&gt;,
+	<span class="kw">fn </span>populate_trie&lt;<span class="lifetime">'db</span>, T: TrieConfiguration&gt;(
+		db: <span class="kw-2">&amp;</span><span class="lifetime">'db </span><span class="kw-2">mut </span><span class="kw">dyn </span>HashDB&lt;T::Hash, DBValue&gt;,
+		root: <span class="kw-2">&amp;</span><span class="lifetime">'db </span><span class="kw-2">mut </span>TrieHash&lt;T&gt;,
 		v: <span class="kw-2">&amp;</span>[(Vec&lt;u8&gt;, Vec&lt;u8&gt;)],
-	) -&gt; TrieDBMut&lt;<span class="lifetime">&#39;db</span>, T&gt; {
+	) -&gt; TrieDBMut&lt;<span class="lifetime">'db</span>, T&gt; {
 		<span class="kw">let </span><span class="kw-2">mut </span>t = TrieDBMutBuilder::&lt;T&gt;::new(db, root).build();
 		<span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..v.len() {
 			<span class="kw">let </span>key: <span class="kw-2">&amp;</span>[u8] = <span class="kw-2">&amp;</span>v[i].<span class="number">0</span>;
@@ -2012,7 +2014,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		t
 	}
 
-	<span class="kw">fn </span>unpopulate_trie&lt;T: TrieConfiguration&gt;(t: <span class="kw-2">&amp;mut </span>TrieDBMut&lt;<span class="lifetime">&#39;_</span>, T&gt;, v: <span class="kw-2">&amp;</span>[(Vec&lt;u8&gt;, Vec&lt;u8&gt;)]) {
+	<span class="kw">fn </span>unpopulate_trie&lt;T: TrieConfiguration&gt;(t: <span class="kw-2">&amp;mut </span>TrieDBMut&lt;<span class="lifetime">'_</span>, T&gt;, v: <span class="kw-2">&amp;</span>[(Vec&lt;u8&gt;, Vec&lt;u8&gt;)]) {
 		<span class="kw">for </span>i <span class="kw">in </span>v {
 			<span class="kw">let </span>key: <span class="kw-2">&amp;</span>[u8] = <span class="kw-2">&amp;</span>i.<span class="number">0</span>;
 			t.remove(key).unwrap();
@@ -2028,10 +2030,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span><span class="kw-2">mut </span>seed = &lt;Blake2Hasher <span class="kw">as </span>Hasher&gt;::Out::zero();
 		<span class="kw">for </span>test_i <span class="kw">in </span><span class="number">0</span>..<span class="number">10_000 </span>{
 			<span class="kw">if </span>test_i % <span class="number">50 </span>== <span class="number">0 </span>{
-				<span class="macro">println!</span>(<span class="string">&quot;{:?} of 10000 stress tests done&quot;</span>, test_i);
+				<span class="macro">println!</span>(<span class="string">"{:?} of 10000 stress tests done"</span>, test_i);
 			}
 			<span class="kw">let </span>x = StandardMap {
-				alphabet: Alphabet::Custom(<span class="string">b&quot;@QWERTYUIOPASDFGHJKLZXCVBNM[/]^_&quot;</span>.to_vec()),
+				alphabet: Alphabet::Custom(<span class="string">b"@QWERTYUIOPASDFGHJKLZXCVBNM[/]^_"</span>.to_vec()),
 				min_key: <span class="number">5</span>,
 				journal_key: <span class="number">0</span>,
 				value_mode: ValueMode::Index,
@@ -2047,11 +2049,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			memtrie.commit();
 			<span class="kw">if </span><span class="kw-2">*</span>memtrie.root() != real {
-				<span class="macro">println!</span>(<span class="string">&quot;TRIE MISMATCH&quot;</span>);
+				<span class="macro">println!</span>(<span class="string">"TRIE MISMATCH"</span>);
 				<span class="macro">println!</span>();
-				<span class="macro">println!</span>(<span class="string">&quot;{:?} vs {:?}&quot;</span>, memtrie.root(), real);
+				<span class="macro">println!</span>(<span class="string">"{:?} vs {:?}"</span>, memtrie.root(), real);
 				<span class="kw">for </span>i <span class="kw">in </span><span class="kw-2">&amp;</span>x {
-					<span class="macro">println!</span>(<span class="string">&quot;{:#x?} -&gt; {:#x?}&quot;</span>, i.<span class="number">0</span>, i.<span class="number">1</span>);
+					<span class="macro">println!</span>(<span class="string">"{:#x?} -&gt; {:#x?}"</span>, i.<span class="number">0</span>, i.<span class="number">1</span>);
 				}
 			}
 			<span class="macro">assert_eq!</span>(<span class="kw-2">*</span>memtrie.root(), real);
@@ -2059,11 +2061,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			memtrie.commit();
 			<span class="kw">let </span>hashed_null_node = hashed_null_node::&lt;L&gt;();
 			<span class="kw">if </span><span class="kw-2">*</span>memtrie.root() != hashed_null_node {
-				<span class="macro">println!</span>(<span class="string">&quot;- TRIE MISMATCH&quot;</span>);
+				<span class="macro">println!</span>(<span class="string">"- TRIE MISMATCH"</span>);
 				<span class="macro">println!</span>();
-				<span class="macro">println!</span>(<span class="string">&quot;{:?} vs {:?}&quot;</span>, memtrie.root(), hashed_null_node);
+				<span class="macro">println!</span>(<span class="string">"{:?} vs {:?}"</span>, memtrie.root(), hashed_null_node);
 				<span class="kw">for </span>i <span class="kw">in </span><span class="kw-2">&amp;</span>x {
-					<span class="macro">println!</span>(<span class="string">&quot;{:#x?} -&gt; {:#x?}&quot;</span>, i.<span class="number">0</span>, i.<span class="number">1</span>);
+					<span class="macro">println!</span>(<span class="string">"{:#x?} -&gt; {:#x?}"</span>, i.<span class="number">0</span>, i.<span class="number">1</span>);
 				}
 			}
 			<span class="macro">assert_eq!</span>(<span class="kw-2">*</span>memtrie.root(), hashed_null_node);
@@ -2078,7 +2080,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>codec_trie_empty() {
 		<span class="kw">let </span>input: Vec&lt;(<span class="kw-2">&amp;</span>[u8], <span class="kw-2">&amp;</span>[u8])&gt; = <span class="macro">vec!</span>[];
 		<span class="kw">let </span>trie = LayoutV1::trie_root_unhashed(input);
-		<span class="macro">println!</span>(<span class="string">&quot;trie: {:#x?}&quot;</span>, trie);
+		<span class="macro">println!</span>(<span class="string">"trie: {:#x?}"</span>, trie);
 		<span class="macro">assert_eq!</span>(trie, <span class="macro">vec!</span>[<span class="number">0x0</span>]);
 	}
 
@@ -2086,7 +2088,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>codec_trie_single_tuple() {
 		<span class="kw">let </span>input = <span class="macro">vec!</span>[(<span class="macro">vec!</span>[<span class="number">0xaa</span>], <span class="macro">vec!</span>[<span class="number">0xbb</span>])];
 		<span class="kw">let </span>trie = LayoutV1::trie_root_unhashed(input);
-		<span class="macro">println!</span>(<span class="string">&quot;trie: {:#x?}&quot;</span>, trie);
+		<span class="macro">println!</span>(<span class="string">"trie: {:#x?}"</span>, trie);
 		<span class="macro">assert_eq!</span>(
 			trie,
 			<span class="macro">vec!</span>[
@@ -2102,7 +2104,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>codec_trie_two_tuples_disjoint_keys() {
 		<span class="kw">let </span>input = <span class="macro">vec!</span>[(<span class="kw-2">&amp;</span>[<span class="number">0x48</span>, <span class="number">0x19</span>], <span class="kw-2">&amp;</span>[<span class="number">0xfe</span>]), (<span class="kw-2">&amp;</span>[<span class="number">0x13</span>, <span class="number">0x14</span>], <span class="kw-2">&amp;</span>[<span class="number">0xff</span>])];
 		<span class="kw">let </span>trie = LayoutV1::trie_root_unhashed(input);
-		<span class="macro">println!</span>(<span class="string">&quot;trie: {:#x?}&quot;</span>, trie);
+		<span class="macro">println!</span>(<span class="string">"trie: {:#x?}"</span>, trie);
 		<span class="kw">let </span><span class="kw-2">mut </span>ex = Vec::&lt;u8&gt;::new();
 		ex.push(<span class="number">0x80</span>); <span class="comment">// branch, no value (0b_10..) no nibble
 		</span>ex.push(<span class="number">0x12</span>); <span class="comment">// slots 1 &amp; 4 are taken from 0-7
@@ -2131,12 +2133,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>iterator_works_inner&lt;Layout: TrieConfiguration&gt;() {
 		<span class="kw">let </span>pairs = <span class="macro">vec!</span>[
 			(
-				array_bytes::hex2bytes_unchecked(<span class="string">&quot;0103000000000000000464&quot;</span>),
-				array_bytes::hex2bytes_unchecked(<span class="string">&quot;0400000000&quot;</span>),
+				array_bytes::hex2bytes_unchecked(<span class="string">"0103000000000000000464"</span>),
+				array_bytes::hex2bytes_unchecked(<span class="string">"0400000000"</span>),
 			),
 			(
-				array_bytes::hex2bytes_unchecked(<span class="string">&quot;0103000000000000000469&quot;</span>),
-				array_bytes::hex2bytes_unchecked(<span class="string">&quot;0401000000&quot;</span>),
+				array_bytes::hex2bytes_unchecked(<span class="string">"0103000000000000000469"</span>),
+				array_bytes::hex2bytes_unchecked(<span class="string">"0401000000"</span>),
 			),
 		];
 
@@ -2159,15 +2161,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>proof_non_inclusion_works() {
 		<span class="kw">let </span>pairs = <span class="macro">vec!</span>[
-			(array_bytes::hex2bytes_unchecked(<span class="string">&quot;0102&quot;</span>), array_bytes::hex2bytes_unchecked(<span class="string">&quot;01&quot;</span>)),
-			(array_bytes::hex2bytes_unchecked(<span class="string">&quot;0203&quot;</span>), array_bytes::hex2bytes_unchecked(<span class="string">&quot;0405&quot;</span>)),
+			(array_bytes::hex2bytes_unchecked(<span class="string">"0102"</span>), array_bytes::hex2bytes_unchecked(<span class="string">"01"</span>)),
+			(array_bytes::hex2bytes_unchecked(<span class="string">"0203"</span>), array_bytes::hex2bytes_unchecked(<span class="string">"0405"</span>)),
 		];
 
 		<span class="kw">let </span><span class="kw-2">mut </span>memdb = MemoryDB::default();
 		<span class="kw">let </span><span class="kw-2">mut </span>root = Default::default();
 		populate_trie::&lt;LayoutV1&gt;(<span class="kw-2">&amp;mut </span>memdb, <span class="kw-2">&amp;mut </span>root, <span class="kw-2">&amp;</span>pairs);
 
-		<span class="kw">let </span>non_included_key: Vec&lt;u8&gt; = array_bytes::hex2bytes_unchecked(<span class="string">&quot;0909&quot;</span>);
+		<span class="kw">let </span>non_included_key: Vec&lt;u8&gt; = array_bytes::hex2bytes_unchecked(<span class="string">"0909"</span>);
 		<span class="kw">let </span>proof =
 			generate_trie_proof::&lt;LayoutV1, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;(<span class="kw-2">&amp;</span>memdb, root, <span class="kw-2">&amp;</span>[non_included_key.clone()])
 				.unwrap();
@@ -2184,7 +2186,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="macro">assert!</span>(verify_trie_proof::&lt;LayoutV1, <span class="kw">_</span>, <span class="kw">_</span>, Vec&lt;u8&gt;&gt;(
 			<span class="kw-2">&amp;</span>root,
 			<span class="kw-2">&amp;</span>proof,
-			<span class="kw-2">&amp;</span>[(non_included_key, <span class="prelude-val">Some</span>(array_bytes::hex2bytes_unchecked(<span class="string">&quot;1010&quot;</span>)))],
+			<span class="kw-2">&amp;</span>[(non_included_key, <span class="prelude-val">Some</span>(array_bytes::hex2bytes_unchecked(<span class="string">"1010"</span>)))],
 		)
 		.is_err());
 	}
@@ -2192,8 +2194,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>proof_inclusion_works() {
 		<span class="kw">let </span>pairs = <span class="macro">vec!</span>[
-			(array_bytes::hex2bytes_unchecked(<span class="string">&quot;0102&quot;</span>), array_bytes::hex2bytes_unchecked(<span class="string">&quot;01&quot;</span>)),
-			(array_bytes::hex2bytes_unchecked(<span class="string">&quot;0203&quot;</span>), array_bytes::hex2bytes_unchecked(<span class="string">&quot;0405&quot;</span>)),
+			(array_bytes::hex2bytes_unchecked(<span class="string">"0102"</span>), array_bytes::hex2bytes_unchecked(<span class="string">"01"</span>)),
+			(array_bytes::hex2bytes_unchecked(<span class="string">"0203"</span>), array_bytes::hex2bytes_unchecked(<span class="string">"0405"</span>)),
 		];
 
 		<span class="kw">let </span><span class="kw-2">mut </span>memdb = MemoryDB::default();
@@ -2223,7 +2225,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="macro">assert!</span>(verify_trie_proof::&lt;LayoutV1, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;(
 			<span class="kw-2">&amp;</span>root,
 			<span class="kw-2">&amp;</span>proof,
-			<span class="kw-2">&amp;</span>[(array_bytes::hex2bytes_unchecked(<span class="string">&quot;4242&quot;</span>), <span class="prelude-val">Some</span>(pairs[<span class="number">0</span>].<span class="number">1</span>.clone()))]
+			<span class="kw-2">&amp;</span>[(array_bytes::hex2bytes_unchecked(<span class="string">"4242"</span>), <span class="prelude-val">Some</span>(pairs[<span class="number">0</span>].<span class="number">1</span>.clone()))]
 		)
 		.is_err());
 
@@ -2238,17 +2240,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>generate_storage_root_with_proof_works_independently_from_the_delta_order() {
-		<span class="kw">let </span>proof = StorageProof::decode(<span class="kw-2">&amp;mut &amp;</span><span class="macro">include_bytes!</span>(<span class="string">&quot;../test-res/proof&quot;</span>)[..]).unwrap();
+		<span class="kw">let </span>proof = StorageProof::decode(<span class="kw-2">&amp;mut &amp;</span><span class="macro">include_bytes!</span>(<span class="string">"../test-res/proof"</span>)[..]).unwrap();
 		<span class="kw">let </span>storage_root =
-			sp_core::H256::decode(<span class="kw-2">&amp;mut &amp;</span><span class="macro">include_bytes!</span>(<span class="string">&quot;../test-res/storage_root&quot;</span>)[..]).unwrap();
-		<span class="comment">// Delta order that is &quot;invalid&quot; so that it would require a different proof.
+			sp_core::H256::decode(<span class="kw-2">&amp;mut &amp;</span><span class="macro">include_bytes!</span>(<span class="string">"../test-res/storage_root"</span>)[..]).unwrap();
+		<span class="comment">// Delta order that is "invalid" so that it would require a different proof.
 		</span><span class="kw">let </span>invalid_delta = Vec::&lt;(Vec&lt;u8&gt;, <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt;)&gt;::decode(
-			<span class="kw-2">&amp;mut &amp;</span><span class="macro">include_bytes!</span>(<span class="string">&quot;../test-res/invalid-delta-order&quot;</span>)[..],
+			<span class="kw-2">&amp;mut &amp;</span><span class="macro">include_bytes!</span>(<span class="string">"../test-res/invalid-delta-order"</span>)[..],
 		)
 		.unwrap();
-		<span class="comment">// Delta order that is &quot;valid&quot;
+		<span class="comment">// Delta order that is "valid"
 		</span><span class="kw">let </span>valid_delta = Vec::&lt;(Vec&lt;u8&gt;, <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt;)&gt;::decode(
-			<span class="kw-2">&amp;mut &amp;</span><span class="macro">include_bytes!</span>(<span class="string">&quot;../test-res/valid-delta-order&quot;</span>)[..],
+			<span class="kw-2">&amp;mut &amp;</span><span class="macro">include_bytes!</span>(<span class="string">"../test-res/valid-delta-order"</span>)[..],
 		)
 		.unwrap();
 
@@ -2291,10 +2293,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>node_with_no_children_fail_decoding() {
 		<span class="kw">let </span>branch = NodeCodec::&lt;Blake2Hasher&gt;::branch_node_nibbled(
-			<span class="string">b&quot;some_partial&quot;</span>.iter().copied(),
+			<span class="string">b"some_partial"</span>.iter().copied(),
 			<span class="number">24</span>,
 			<span class="macro">vec!</span>[<span class="prelude-val">None</span>; <span class="number">16</span>].into_iter(),
-			<span class="prelude-val">Some</span>(trie_db::node::Value::Inline(<span class="string">b&quot;value&quot;</span>[..].into())),
+			<span class="prelude-val">Some</span>(trie_db::node::Value::Inline(<span class="string">b"value"</span>[..].into())),
 		);
 		<span class="macro">assert!</span>(NodeCodec::&lt;Blake2Hasher&gt;::decode(branch.as_slice()).is_err());
 	}

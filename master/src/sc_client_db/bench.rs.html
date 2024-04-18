@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/db/src/bench.rs`."><title>bench.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/db/src/bench.rs`."><title>bench.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_client_db" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_client_db" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sc_client_db/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -893,7 +895,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see &lt;https://www.gnu.org/licenses/&gt;.
 
-</span><span class="doccomment">//! State backend that&#39;s useful for benchmarking
+</span><span class="doccomment">//! State backend that's useful for benchmarking
 
 </span><span class="kw">use crate</span>::{DbState, DbStateBuilder};
 <span class="kw">use </span>hash_db::{Hasher <span class="kw">as </span>DbHasher, Prefix};
@@ -931,7 +933,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>prefixed_key = prefixed_key::&lt;Hasher&gt;(key, prefix);
 		<span class="self">self</span>.db
 			.get(<span class="number">0</span>, <span class="kw-2">&amp;</span>prefixed_key)
-			.map_err(|e| <span class="macro">format!</span>(<span class="string">&quot;Database backend error: {:?}&quot;</span>, e))
+			.map_err(|e| <span class="macro">format!</span>(<span class="string">"Database backend error: {:?}"</span>, e))
 	}
 }
 
@@ -1142,11 +1144,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if </span>should_log {
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(childtrie) = childtrie {
 				<span class="macro">log::trace!</span>(
-					target: <span class="string">&quot;benchmark&quot;</span>,
-					<span class="string">&quot;Childtrie Read: {} {}&quot;</span>, HexDisplay::from(<span class="kw-2">&amp;</span>childtrie), HexDisplay::from(<span class="kw-2">&amp;</span>key)
+					target: <span class="string">"benchmark"</span>,
+					<span class="string">"Childtrie Read: {} {}"</span>, HexDisplay::from(<span class="kw-2">&amp;</span>childtrie), HexDisplay::from(<span class="kw-2">&amp;</span>key)
 				);
 			} <span class="kw">else </span>{
-				<span class="macro">log::trace!</span>(target: <span class="string">&quot;benchmark&quot;</span>, <span class="string">&quot;Read: {}&quot;</span>, HexDisplay::from(<span class="kw-2">&amp;</span>key));
+				<span class="macro">log::trace!</span>(target: <span class="string">"benchmark"</span>, <span class="string">"Read: {}"</span>, HexDisplay::from(<span class="kw-2">&amp;</span>key));
 			}
 		}
 	}
@@ -1184,11 +1186,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if </span>should_log {
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(childtrie) = childtrie {
 				<span class="macro">log::trace!</span>(
-					target: <span class="string">&quot;benchmark&quot;</span>,
-					<span class="string">&quot;Childtrie Write: {} {}&quot;</span>, HexDisplay::from(<span class="kw-2">&amp;</span>childtrie), HexDisplay::from(<span class="kw-2">&amp;</span>key)
+					target: <span class="string">"benchmark"</span>,
+					<span class="string">"Childtrie Write: {} {}"</span>, HexDisplay::from(<span class="kw-2">&amp;</span>childtrie), HexDisplay::from(<span class="kw-2">&amp;</span>key)
 				);
 			} <span class="kw">else </span>{
-				<span class="macro">log::trace!</span>(target: <span class="string">&quot;benchmark&quot;</span>, <span class="string">&quot;Write: {}&quot;</span>, HexDisplay::from(<span class="kw-2">&amp;</span>key));
+				<span class="macro">log::trace!</span>(target: <span class="string">"benchmark"</span>, <span class="string">"Write: {}"</span>, HexDisplay::from(<span class="kw-2">&amp;</span>key));
 			}
 		}
 	}
@@ -1212,7 +1214,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">fn </span>state_err() -&gt; String {
-	<span class="string">&quot;State is not open&quot;</span>.into()
+	<span class="string">"State is not open"</span>.into()
 }
 
 <span class="kw">impl</span>&lt;Hasher: Hash&gt; StateBackend&lt;Hasher&gt; <span class="kw">for </span>BenchmarkingState&lt;Hasher&gt; {
@@ -1313,9 +1315,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span>.next_child_storage_key(child_info, key)
 	}
 
-	<span class="kw">fn </span>storage_root&lt;<span class="lifetime">&#39;a</span>&gt;(
+	<span class="kw">fn </span>storage_root&lt;<span class="lifetime">'a</span>&gt;(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		delta: <span class="kw">impl </span>Iterator&lt;Item = (<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8], <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8]&gt;)&gt;,
+		delta: <span class="kw">impl </span>Iterator&lt;Item = (<span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8], <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8]&gt;)&gt;,
 		state_version: StateVersion,
 	) -&gt; (Hasher::Output, BackendTransaction&lt;Hasher&gt;) {
 		<span class="self">self</span>.state
@@ -1324,10 +1326,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.map_or(Default::default(), |s| s.storage_root(delta, state_version))
 	}
 
-	<span class="kw">fn </span>child_storage_root&lt;<span class="lifetime">&#39;a</span>&gt;(
+	<span class="kw">fn </span>child_storage_root&lt;<span class="lifetime">'a</span>&gt;(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		child_info: <span class="kw-2">&amp;</span>ChildInfo,
-		delta: <span class="kw">impl </span>Iterator&lt;Item = (<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8], <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8]&gt;)&gt;,
+		delta: <span class="kw">impl </span>Iterator&lt;Item = (<span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8], <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8]&gt;)&gt;,
 		state_version: StateVersion,
 	) -&gt; (Hasher::Output, bool, BackendTransaction&lt;Hasher&gt;) {
 		<span class="self">self</span>.state
@@ -1374,7 +1376,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			record.extend(keys);
 			<span class="self">self</span>.record.set(record);
 			db.write(db_transaction)
-				.map_err(|<span class="kw">_</span>| String::from(<span class="string">&quot;Error committing transaction&quot;</span>))<span class="question-mark">?</span>;
+				.map_err(|<span class="kw">_</span>| String::from(<span class="string">"Error committing transaction"</span>))<span class="question-mark">?</span>;
 			<span class="self">self</span>.root.set(storage_root);
 			<span class="self">self</span>.db.set(<span class="prelude-val">Some</span>(db));
 
@@ -1388,7 +1390,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				})
 			});
 		} <span class="kw">else </span>{
-			<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;Trying to commit to a closed db&quot;</span>.into())
+			<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Trying to commit to a closed db"</span>.into())
 		}
 		<span class="self">self</span>.reopen()
 	}
@@ -1405,7 +1407,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				}
 			}
 			db.write(db_transaction)
-				.map_err(|<span class="kw">_</span>| String::from(<span class="string">&quot;Error committing transaction&quot;</span>))<span class="question-mark">?</span>;
+				.map_err(|<span class="kw">_</span>| String::from(<span class="string">"Error committing transaction"</span>))<span class="question-mark">?</span>;
 			<span class="self">self</span>.db.set(<span class="prelude-val">Some</span>(db));
 		}
 
@@ -1505,17 +1507,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>proof_recorder_root = <span class="self">self</span>.proof_recorder_root.get();
 			<span class="kw">if </span>proof_recorder_root == Default::default() || proof_size == <span class="number">1 </span>{
 				<span class="comment">// empty trie
-				</span><span class="macro">log::debug!</span>(target: <span class="string">&quot;benchmark&quot;</span>, <span class="string">&quot;Some proof size: {}&quot;</span>, <span class="kw-2">&amp;</span>proof_size);
+				</span><span class="macro">log::debug!</span>(target: <span class="string">"benchmark"</span>, <span class="string">"Some proof size: {}"</span>, <span class="kw-2">&amp;</span>proof_size);
 				proof_size
 			} <span class="kw">else </span>{
 				<span class="kw">if let </span><span class="prelude-val">Some</span>(size) = proof.encoded_compact_size::&lt;Hasher&gt;(proof_recorder_root) {
 					size <span class="kw">as </span>u32
 				} <span class="kw">else if </span>proof_recorder_root == <span class="self">self</span>.root.get() {
-					<span class="macro">log::debug!</span>(target: <span class="string">&quot;benchmark&quot;</span>, <span class="string">&quot;No changes - no proof&quot;</span>);
+					<span class="macro">log::debug!</span>(target: <span class="string">"benchmark"</span>, <span class="string">"No changes - no proof"</span>);
 					<span class="number">0
 				</span>} <span class="kw">else </span>{
 					<span class="macro">panic!</span>(
-						<span class="string">&quot;proof rec root {:?}, root {:?}, genesis {:?}, rec_len {:?}&quot;</span>,
+						<span class="string">"proof rec root {:?}, root {:?}, genesis {:?}, rec_len {:?}"</span>,
 						<span class="self">self</span>.proof_recorder_root.get(),
 						<span class="self">self</span>.root.get(),
 						<span class="self">self</span>.genesis_root,
@@ -1528,8 +1530,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl</span>&lt;Hasher: Hash&gt; std::fmt::Debug <span class="kw">for </span>BenchmarkingState&lt;Hasher&gt; {
-	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
-		<span class="macro">write!</span>(f, <span class="string">&quot;Bench DB&quot;</span>)
+	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; std::fmt::Result {
+		<span class="macro">write!</span>(f, <span class="string">"Bench DB"</span>)
 	}
 }
 
@@ -1547,8 +1549,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>iteration_is_also_counted_in_rw_counts() {
 		<span class="kw">let </span>storage = sp_runtime::Storage {
 			top: <span class="macro">vec!</span>[(
-				hex(<span class="string">&quot;ce6e1397e668c7fcf47744350dc59688455a2c2dbd2e2a649df4e55d93cd7158&quot;</span>),
-				hex(<span class="string">&quot;0102030405060708&quot;</span>),
+				hex(<span class="string">"ce6e1397e668c7fcf47744350dc59688455a2c2dbd2e2a649df4e55d93cd7158"</span>),
+				hex(<span class="string">"0102030405060708"</span>),
 			)]
 			.into_iter()
 			.collect(),
@@ -1574,23 +1576,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		.unwrap();
 
 		<span class="kw">for _ in </span><span class="number">0</span>..<span class="number">2 </span>{
-			<span class="kw">let </span>child1 = sp_core::storage::ChildInfo::new_default(<span class="string">b&quot;child1&quot;</span>);
-			<span class="kw">let </span>child2 = sp_core::storage::ChildInfo::new_default(<span class="string">b&quot;child2&quot;</span>);
+			<span class="kw">let </span>child1 = sp_core::storage::ChildInfo::new_default(<span class="string">b"child1"</span>);
+			<span class="kw">let </span>child2 = sp_core::storage::ChildInfo::new_default(<span class="string">b"child2"</span>);
 
-			bench_state.storage(<span class="string">b&quot;foo&quot;</span>).unwrap();
-			bench_state.child_storage(<span class="kw-2">&amp;</span>child1, <span class="string">b&quot;foo&quot;</span>).unwrap();
-			bench_state.child_storage(<span class="kw-2">&amp;</span>child2, <span class="string">b&quot;foo&quot;</span>).unwrap();
+			bench_state.storage(<span class="string">b"foo"</span>).unwrap();
+			bench_state.child_storage(<span class="kw-2">&amp;</span>child1, <span class="string">b"foo"</span>).unwrap();
+			bench_state.child_storage(<span class="kw-2">&amp;</span>child2, <span class="string">b"foo"</span>).unwrap();
 
-			bench_state.storage(<span class="string">b&quot;bar&quot;</span>).unwrap();
-			bench_state.child_storage(<span class="kw-2">&amp;</span>child1, <span class="string">b&quot;bar&quot;</span>).unwrap();
-			bench_state.child_storage(<span class="kw-2">&amp;</span>child2, <span class="string">b&quot;bar&quot;</span>).unwrap();
+			bench_state.storage(<span class="string">b"bar"</span>).unwrap();
+			bench_state.child_storage(<span class="kw-2">&amp;</span>child1, <span class="string">b"bar"</span>).unwrap();
+			bench_state.child_storage(<span class="kw-2">&amp;</span>child2, <span class="string">b"bar"</span>).unwrap();
 
 			bench_state
 				.commit(
 					Default::default(),
 					Default::default(),
-					<span class="macro">vec!</span>[(<span class="string">&quot;foo&quot;</span>.as_bytes().to_vec(), <span class="prelude-val">None</span>)],
-					<span class="macro">vec!</span>[(<span class="string">&quot;child1&quot;</span>.as_bytes().to_vec(), <span class="macro">vec!</span>[(<span class="string">&quot;foo&quot;</span>.as_bytes().to_vec(), <span class="prelude-val">None</span>)])],
+					<span class="macro">vec!</span>[(<span class="string">"foo"</span>.as_bytes().to_vec(), <span class="prelude-val">None</span>)],
+					<span class="macro">vec!</span>[(<span class="string">"child1"</span>.as_bytes().to_vec(), <span class="macro">vec!</span>[(<span class="string">"foo"</span>.as_bytes().to_vec(), <span class="prelude-val">None</span>)])],
 				)
 				.unwrap();
 

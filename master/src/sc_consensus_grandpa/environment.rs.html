@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/consensus/grandpa/src/environment.rs`."><title>environment.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/consensus/grandpa/src/environment.rs`."><title>environment.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_consensus_grandpa" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_consensus_grandpa" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sc_consensus_grandpa/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1837,7 +1839,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub fn </span>last(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>CompletedRound&lt;Block&gt; {
 		<span class="self">self</span>.rounds
 			.first()
-			.expect(<span class="string">&quot;inner is never empty; always contains at least genesis; qed&quot;</span>)
+			.expect(<span class="string">"inner is never empty; always contains at least genesis; qed"</span>)
 	}
 
 	<span class="doccomment">/// Push a new completed round, oldest round is evicted if number of rounds
@@ -1929,7 +1931,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Returns the voter set state validating that it includes the given round
-	/// in current rounds and that the voter isn&#39;t paused.
+	/// in current rounds and that the voter isn't paused.
 	</span><span class="kw">pub fn </span>with_current_round(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		round: RoundNumber,
@@ -1938,17 +1940,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">if </span>current_rounds.contains_key(<span class="kw-2">&amp;</span>round) {
 				<span class="prelude-val">Ok</span>((completed_rounds, current_rounds))
 			} <span class="kw">else </span>{
-				<span class="kw">let </span>msg = <span class="string">&quot;Voter acting on a live round we are not tracking.&quot;</span>;
+				<span class="kw">let </span>msg = <span class="string">"Voter acting on a live round we are not tracking."</span>;
 				<span class="prelude-val">Err</span>(Error::Safety(msg.to_string()))
 			}
 		} <span class="kw">else </span>{
-			<span class="kw">let </span>msg = <span class="string">&quot;Voter acting while in paused state.&quot;</span>;
+			<span class="kw">let </span>msg = <span class="string">"Voter acting while in paused state."</span>;
 			<span class="prelude-val">Err</span>(Error::Safety(msg.to_string()))
 		}
 	}
 }
 
-<span class="doccomment">/// Whether we&#39;ve voted already during a prior run of the program.
+<span class="doccomment">/// Whether we've voted already during a prior run of the program.
 </span><span class="attr">#[derive(Clone, Debug, Decode, Encode, PartialEq)]
 </span><span class="kw">pub enum </span>HasVoted&lt;Header: HeaderT&gt; {
 	<span class="doccomment">/// Has not voted already in this round.
@@ -2096,20 +2098,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, PrometheusError&gt; {
 		<span class="prelude-val">Ok</span>(<span class="self">Self </span>{
 			finality_grandpa_round: register(
-				Gauge::new(<span class="string">&quot;substrate_finality_grandpa_round&quot;</span>, <span class="string">&quot;Highest completed GRANDPA round.&quot;</span>)<span class="question-mark">?</span>,
+				Gauge::new(<span class="string">"substrate_finality_grandpa_round"</span>, <span class="string">"Highest completed GRANDPA round."</span>)<span class="question-mark">?</span>,
 				registry,
 			)<span class="question-mark">?</span>,
 			finality_grandpa_prevotes: register(
 				Counter::new(
-					<span class="string">&quot;substrate_finality_grandpa_prevotes_total&quot;</span>,
-					<span class="string">&quot;Total number of GRANDPA prevotes cast locally.&quot;</span>,
+					<span class="string">"substrate_finality_grandpa_prevotes_total"</span>,
+					<span class="string">"Total number of GRANDPA prevotes cast locally."</span>,
 				)<span class="question-mark">?</span>,
 				registry,
 			)<span class="question-mark">?</span>,
 			finality_grandpa_precommits: register(
 				Counter::new(
-					<span class="string">&quot;substrate_finality_grandpa_precommits_total&quot;</span>,
-					<span class="string">&quot;Total number of GRANDPA precommits cast locally.&quot;</span>,
+					<span class="string">"substrate_finality_grandpa_precommits_total"</span>,
+					<span class="string">"Total number of GRANDPA precommits cast locally."</span>,
 				)<span class="question-mark">?</span>,
 				registry,
 			)<span class="question-mark">?</span>,
@@ -2147,7 +2149,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	Environment&lt;BE, Block, C, N, S, SC, VR&gt;
 {
 	<span class="doccomment">/// Updates the voter set state using the given closure. The write lock is
-	/// held during evaluation of the closure and the environment&#39;s voter set
+	/// held during evaluation of the closure and the environment's voter set
 	/// state is set to its result if successful.
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>update_voter_set_state&lt;F&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, f: F) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt;
 	<span class="kw">where
@@ -2164,7 +2166,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							.iter()
 							.map(|round| round.number)
 							.max()
-							.expect(<span class="string">&quot;There is always one completed round (genesis); qed&quot;</span>);
+							.expect(<span class="string">"There is always one completed round (genesis); qed"</span>);
 
 						metrics.finality_grandpa_round.set(highest);
 					}
@@ -2189,7 +2191,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// generates a session membership proof of the offender and then submits an
 	/// extrinsic to report the equivocation. In particular, the session membership
 	/// proof must be generated at the block at which the given set was active which
-	/// isn&#39;t necessarily the best block if there are pending authority set changes.
+	/// isn't necessarily the best block if there are pending authority set changes.
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>report_equivocation(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		equivocation: Equivocation&lt;Block::Hash, NumberFor&lt;Block&gt;&gt;,
@@ -2197,7 +2199,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(local_id) = <span class="self">self</span>.voter_set_state.voting_on(equivocation.round_number()) {
 			<span class="kw">if </span><span class="kw-2">*</span>equivocation.offender() == local_id {
 				<span class="kw">return </span><span class="prelude-val">Err</span>(Error::Safety(
-					<span class="string">&quot;Refraining from sending equivocation report for our own equivocation.&quot;</span>.into(),
+					<span class="string">"Refraining from sending equivocation report for our own equivocation."</span>.into(),
 				))
 			}
 		}
@@ -2222,7 +2224,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// find the hash of the latest block in the current set
 		</span><span class="kw">let </span>current_set_latest_hash = <span class="kw">match </span>next_change {
 			<span class="prelude-val">Some</span>((<span class="kw">_</span>, n)) <span class="kw">if </span>n.is_zero() =&gt;
-				<span class="kw">return </span><span class="prelude-val">Err</span>(Error::Safety(<span class="string">&quot;Authority set change signalled at genesis.&quot;</span>.to_string())),
+				<span class="kw">return </span><span class="prelude-val">Err</span>(Error::Safety(<span class="string">"Authority set change signalled at genesis."</span>.to_string())),
 			<span class="comment">// the next set starts at `n` so the current one lasts until `n - 1`. if
 			// `n` is later than the best block, then the current set is still live
 			// at best block.
@@ -2230,8 +2232,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Some</span>((h, <span class="kw">_</span>)) =&gt; {
 				<span class="comment">// this is the header at which the new set will start
 				</span><span class="kw">let </span>header = <span class="self">self</span>.client.header(h)<span class="question-mark">?</span>.expect(
-					<span class="string">&quot;got block hash from registered pending change; \
-					 pending changes are only registered on block import; qed.&quot;</span>,
+					<span class="string">"got block hash from registered pending change; \
+					 pending changes are only registered on block import; qed."</span>,
 				);
 
 				<span class="comment">// its parent block is the last block in the current set
@@ -2257,7 +2259,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">None </span>=&gt; {
 				<span class="macro">debug!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Equivocation offender is not part of the authority set.&quot;
+					<span class="string">"Equivocation offender is not part of the authority set."
 				</span>);
 				<span class="kw">return </span><span class="prelude-val">Ok</span>(())
 			},
@@ -2324,7 +2326,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Err</span>(e) =&gt; {
 			<span class="macro">debug!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;Encountered error computing ancestry between block {:?} and base {:?}: {}&quot;</span>,
+				<span class="string">"Encountered error computing ancestry between block {:?} and base {:?}: {}"</span>,
 				block,
 				base,
 				e
@@ -2348,12 +2350,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">where
 	</span>Block: BlockT,
 	B: BackendT&lt;Block&gt;,
-	C: ClientForGrandpa&lt;Block, B&gt; + <span class="lifetime">&#39;static</span>,
+	C: ClientForGrandpa&lt;Block, B&gt; + <span class="lifetime">'static</span>,
 	C::Api: GrandpaApi&lt;Block&gt;,
 	N: NetworkT&lt;Block&gt;,
 	S: SyncingT&lt;Block&gt;,
-	SC: SelectChainT&lt;Block&gt; + <span class="lifetime">&#39;static</span>,
-	VR: VotingRuleT&lt;Block, C&gt; + Clone + <span class="lifetime">&#39;static</span>,
+	SC: SelectChainT&lt;Block&gt; + <span class="lifetime">'static</span>,
+	VR: VotingRuleT&lt;Block, C&gt; + Clone + <span class="lifetime">'static</span>,
 	NumberFor&lt;Block&gt;: BlockNumberOps,
 {
 	<span class="kw">type </span>Timer = Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = <span class="prelude-ty">Result</span>&lt;(), <span class="self">Self</span>::Error&gt;&gt; + Send&gt;&gt;;
@@ -2435,12 +2437,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			HasVoted::No =&gt; HasVoted::No,
 		};
 
-		<span class="comment">// NOTE: we cache the local authority id that we&#39;ll be using to vote on the
+		<span class="comment">// NOTE: we cache the local authority id that we'll be using to vote on the
 		// given round. this is done to make sure we only check for available keys
 		// from the keystore in this method when beginning the round, otherwise if
 		// the keystore state changed during the round (e.g. a key was removed) it
 		// could lead to internal state inconsistencies in the voter environment
-		// (e.g. we wouldn&#39;t update the voter set state after prevoting since there&#39;s
+		// (e.g. we wouldn't update the voter set state after prevoting since there's
 		// no local authority id).
 		</span><span class="kw">if let </span><span class="prelude-val">Some</span>(id) = local_id.as_ref() {
 			<span class="self">self</span>.voter_set_state.started_voting_on(round, id.clone());
@@ -2469,7 +2471,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="self">self</span>.network.clone(),
 				<span class="self">self</span>.client.clone(),
 				incoming,
-				<span class="string">&quot;round&quot;</span>,
+				<span class="string">"round"</span>,
 				<span class="prelude-val">None</span>,
 			)
 			.map_err(Into::into),
@@ -2501,11 +2503,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>(completed_rounds, current_rounds) = voter_set_state.with_current_round(round)<span class="question-mark">?</span>;
 			<span class="kw">let </span>current_round = current_rounds
 				.get(<span class="kw-2">&amp;</span>round)
-				.expect(<span class="string">&quot;checked in with_current_round that key exists; qed.&quot;</span>);
+				.expect(<span class="string">"checked in with_current_round that key exists; qed."</span>);
 
 			<span class="kw">if </span>!current_round.can_propose() {
-				<span class="comment">// we&#39;ve already proposed in this round (in a previous run),
-				// ignore the given vote and don&#39;t update the voter set
+				<span class="comment">// we've already proposed in this round (in a previous run),
+				// ignore the given vote and don't update the voter set
 				// state
 				</span><span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
 			}
@@ -2513,7 +2515,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span><span class="kw-2">mut </span>current_rounds = current_rounds.clone();
 			<span class="kw">let </span>current_round = current_rounds
 				.get_mut(<span class="kw-2">&amp;</span>round)
-				.expect(<span class="string">&quot;checked previously that key exists; qed.&quot;</span>);
+				.expect(<span class="string">"checked previously that key exists; qed."</span>);
 
 			<span class="kw-2">*</span>current_round = HasVoted::Yes(local_id, Vote::Propose(propose));
 
@@ -2544,10 +2546,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">telemetry!</span>(
 				<span class="self">self</span>.telemetry;
 				CONSENSUS_DEBUG;
-				<span class="string">&quot;afg.prevote_issued&quot;</span>;
-				<span class="string">&quot;round&quot; </span>=&gt; round,
-				<span class="string">&quot;target_number&quot; </span>=&gt; <span class="question-mark">?</span>prevote.target_number,
-				<span class="string">&quot;target_hash&quot; </span>=&gt; <span class="question-mark">?</span>prevote.target_hash,
+				<span class="string">"afg.prevote_issued"</span>;
+				<span class="string">"round" </span>=&gt; round,
+				<span class="string">"target_number" </span>=&gt; <span class="question-mark">?</span>prevote.target_number,
+				<span class="string">"target_hash" </span>=&gt; <span class="question-mark">?</span>prevote.target_hash,
 			);
 
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="self">self</span>.metrics.as_ref() {
@@ -2559,11 +2561,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>(completed_rounds, current_rounds) = voter_set_state.with_current_round(round)<span class="question-mark">?</span>;
 			<span class="kw">let </span>current_round = current_rounds
 				.get(<span class="kw-2">&amp;</span>round)
-				.expect(<span class="string">&quot;checked in with_current_round that key exists; qed.&quot;</span>);
+				.expect(<span class="string">"checked in with_current_round that key exists; qed."</span>);
 
 			<span class="kw">if </span>!current_round.can_prevote() {
-				<span class="comment">// we&#39;ve already prevoted in this round (in a previous run),
-				// ignore the given vote and don&#39;t update the voter set
+				<span class="comment">// we've already prevoted in this round (in a previous run),
+				// ignore the given vote and don't update the voter set
 				// state
 				</span><span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
 			}
@@ -2576,7 +2578,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span><span class="kw-2">mut </span>current_rounds = current_rounds.clone();
 			<span class="kw">let </span>current_round = current_rounds
 				.get_mut(<span class="kw-2">&amp;</span>round)
-				.expect(<span class="string">&quot;checked previously that key exists; qed.&quot;</span>);
+				.expect(<span class="string">"checked previously that key exists; qed."</span>);
 
 			<span class="kw-2">*</span>current_round = HasVoted::Yes(local_id, Vote::Prevote(propose.cloned(), prevote));
 
@@ -2607,10 +2609,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">telemetry!</span>(
 				<span class="self">self</span>.telemetry;
 				CONSENSUS_DEBUG;
-				<span class="string">&quot;afg.precommit_issued&quot;</span>;
-				<span class="string">&quot;round&quot; </span>=&gt; round,
-				<span class="string">&quot;target_number&quot; </span>=&gt; <span class="question-mark">?</span>precommit.target_number,
-				<span class="string">&quot;target_hash&quot; </span>=&gt; <span class="question-mark">?</span>precommit.target_hash,
+				<span class="string">"afg.precommit_issued"</span>;
+				<span class="string">"round" </span>=&gt; round,
+				<span class="string">"target_number" </span>=&gt; <span class="question-mark">?</span>precommit.target_number,
+				<span class="string">"target_hash" </span>=&gt; <span class="question-mark">?</span>precommit.target_hash,
 			);
 
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="self">self</span>.metrics.as_ref() {
@@ -2622,11 +2624,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>(completed_rounds, current_rounds) = voter_set_state.with_current_round(round)<span class="question-mark">?</span>;
 			<span class="kw">let </span>current_round = current_rounds
 				.get(<span class="kw-2">&amp;</span>round)
-				.expect(<span class="string">&quot;checked in with_current_round that key exists; qed.&quot;</span>);
+				.expect(<span class="string">"checked in with_current_round that key exists; qed."</span>);
 
 			<span class="kw">if </span>!current_round.can_precommit() {
-				<span class="comment">// we&#39;ve already precommitted in this round (in a previous run),
-				// ignore the given vote and don&#39;t update the voter set
+				<span class="comment">// we've already precommitted in this round (in a previous run),
+				// ignore the given vote and don't update the voter set
 				// state
 				</span><span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
 			}
@@ -2638,7 +2640,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>prevote = <span class="kw">match </span>current_round {
 				HasVoted::Yes(<span class="kw">_</span>, Vote::Prevote(<span class="kw">_</span>, prevote)) =&gt; prevote,
 				<span class="kw">_ </span>=&gt; {
-					<span class="kw">let </span>msg = <span class="string">&quot;Voter precommitting before prevoting.&quot;</span>;
+					<span class="kw">let </span>msg = <span class="string">"Voter precommitting before prevoting."</span>;
 					<span class="kw">return </span><span class="prelude-val">Err</span>(Error::Safety(msg.to_string()))
 				},
 			};
@@ -2646,7 +2648,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span><span class="kw-2">mut </span>current_rounds = current_rounds.clone();
 			<span class="kw">let </span>current_round = current_rounds
 				.get_mut(<span class="kw-2">&amp;</span>round)
-				.expect(<span class="string">&quot;checked previously that key exists; qed.&quot;</span>);
+				.expect(<span class="string">"checked previously that key exists; qed."</span>);
 
 			<span class="kw-2">*</span>current_round = HasVoted::Yes(
 				local_id,
@@ -2675,7 +2677,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), <span class="self">Self</span>::Error&gt; {
 		<span class="macro">debug!</span>(
 			target: LOG_TARGET,
-			<span class="string">&quot;Voter {} completed round {} in set {}. Estimate = {:?}, Finalized in round = {:?}&quot;</span>,
+			<span class="string">"Voter {} completed round {} in set {}. Estimate = {:?}, Finalized in round = {:?}"</span>,
 			<span class="self">self</span>.config.name(),
 			round,
 			<span class="self">self</span>.set_id,
@@ -2684,14 +2686,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		);
 
 		<span class="self">self</span>.update_voter_set_state(|voter_set_state| {
-			<span class="comment">// NOTE: we don&#39;t use `with_current_round` here, it is possible that
+			<span class="comment">// NOTE: we don't use `with_current_round` here, it is possible that
 			// we are not currently tracking this round if it is a round we
 			// caught up to.
 			</span><span class="kw">let </span>(completed_rounds, current_rounds) =
 				<span class="kw">if let </span>VoterSetState::Live { completed_rounds, current_rounds } = voter_set_state {
 					(completed_rounds, current_rounds)
 				} <span class="kw">else </span>{
-					<span class="kw">let </span>msg = <span class="string">&quot;Voter acting while in paused state.&quot;</span>;
+					<span class="kw">let </span>msg = <span class="string">"Voter acting while in paused state."</span>;
 					<span class="kw">return </span><span class="prelude-val">Err</span>(Error::Safety(msg.to_string()))
 				};
 
@@ -2712,7 +2714,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			current_rounds.remove(<span class="kw-2">&amp;</span>round);
 
 			<span class="comment">// NOTE: this entry should always exist as GRANDPA rounds are always
-			// started in increasing order, still it&#39;s better to play it safe.
+			// started in increasing order, still it's better to play it safe.
 			</span>current_rounds.entry(round + <span class="number">1</span>).or_insert(HasVoted::No);
 
 			<span class="kw">let </span>set_state = VoterSetState::&lt;Block&gt;::Live { completed_rounds, current_rounds };
@@ -2737,7 +2739,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), <span class="self">Self</span>::Error&gt; {
 		<span class="macro">debug!</span>(
 			target: LOG_TARGET,
-			<span class="string">&quot;Voter {} concluded round {} in set {}. Estimate = {:?}, Finalized in round = {:?}&quot;</span>,
+			<span class="string">"Voter {} concluded round {} in set {}. Estimate = {:?}, Finalized in round = {:?}"</span>,
 			<span class="self">self</span>.config.name(),
 			round,
 			<span class="self">self</span>.set_id,
@@ -2746,13 +2748,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		);
 
 		<span class="self">self</span>.update_voter_set_state(|voter_set_state| {
-			<span class="comment">// NOTE: we don&#39;t use `with_current_round` here, because a concluded
+			<span class="comment">// NOTE: we don't use `with_current_round` here, because a concluded
 			// round is completed and cannot be current.
 			</span><span class="kw">let </span>(completed_rounds, current_rounds) =
 				<span class="kw">if let </span>VoterSetState::Live { completed_rounds, current_rounds } = voter_set_state {
 					(completed_rounds, current_rounds)
 				} <span class="kw">else </span>{
-					<span class="kw">let </span>msg = <span class="string">&quot;Voter acting while in paused state.&quot;</span>;
+					<span class="kw">let </span>msg = <span class="string">"Voter acting while in paused state."</span>;
 					<span class="kw">return </span><span class="prelude-val">Err</span>(Error::Safety(msg.to_string()))
 				};
 
@@ -2825,10 +2827,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) {
 		<span class="macro">warn!</span>(
 			target: LOG_TARGET,
-			<span class="string">&quot;Detected prevote equivocation in the finality worker: {:?}&quot;</span>, equivocation
+			<span class="string">"Detected prevote equivocation in the finality worker: {:?}"</span>, equivocation
 		);
 		<span class="kw">if let </span><span class="prelude-val">Err</span>(err) = <span class="self">self</span>.report_equivocation(equivocation.into()) {
-			<span class="macro">warn!</span>(target: LOG_TARGET, <span class="string">&quot;Error reporting prevote equivocation: {}&quot;</span>, err);
+			<span class="macro">warn!</span>(target: LOG_TARGET, <span class="string">"Error reporting prevote equivocation: {}"</span>, err);
 		}
 	}
 
@@ -2843,10 +2845,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) {
 		<span class="macro">warn!</span>(
 			target: LOG_TARGET,
-			<span class="string">&quot;Detected precommit equivocation in the finality worker: {:?}&quot;</span>, equivocation
+			<span class="string">"Detected precommit equivocation in the finality worker: {:?}"</span>, equivocation
 		);
 		<span class="kw">if let </span><span class="prelude-val">Err</span>(err) = <span class="self">self</span>.report_equivocation(equivocation.into()) {
-			<span class="macro">warn!</span>(target: LOG_TARGET, <span class="string">&quot;Error reporting precommit equivocation: {}&quot;</span>, err);
+			<span class="macro">warn!</span>(target: LOG_TARGET, <span class="string">"Error reporting precommit equivocation: {}"</span>, err);
 		}
 	}
 }
@@ -2879,7 +2881,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>Backend: BackendT&lt;Block&gt;,
 	Block: BlockT,
 	Client: ClientForGrandpa&lt;Block, Backend&gt;,
-	SelectChain: SelectChainT&lt;Block&gt; + <span class="lifetime">&#39;static</span>,
+	SelectChain: SelectChainT&lt;Block&gt; + <span class="lifetime">'static</span>,
 	VotingRule: VotingRuleT&lt;Block, Client&gt;,
 {
 	<span class="kw">let </span>base_header = <span class="kw">match </span>client.header(block)<span class="question-mark">? </span>{
@@ -2887,7 +2889,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">None </span>=&gt; {
 			<span class="macro">warn!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;Encountered error finding best chain containing {:?}: couldn&#39;t find base block&quot;</span>,
+				<span class="string">"Encountered error finding best chain containing {:?}: couldn't find base block"</span>,
 				block,
 			);
 
@@ -2902,17 +2904,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">let </span>limit = authority_set.current_limit(<span class="kw-2">*</span>base_header.number());
 	<span class="macro">debug!</span>(
 		target: LOG_TARGET,
-		<span class="string">&quot;Finding best chain containing block {:?} with number limit {:?}&quot;</span>, block, limit
+		<span class="string">"Finding best chain containing block {:?} with number limit {:?}"</span>, block, limit
 	);
 
 	<span class="kw">let </span><span class="kw-2">mut </span>target_header = <span class="kw">match </span>select_chain.finality_target(block, <span class="prelude-val">None</span>).<span class="kw">await </span>{
 		<span class="prelude-val">Ok</span>(target_hash) =&gt; client
 			.header(target_hash)<span class="question-mark">?
-			</span>.expect(<span class="string">&quot;Header known to exist after `finality_target` call; qed&quot;</span>),
+			</span>.expect(<span class="string">"Header known to exist after `finality_target` call; qed"</span>),
 		<span class="prelude-val">Err</span>(err) =&gt; {
 			<span class="macro">warn!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;Encountered error finding best chain containing {:?}: couldn&#39;t find target block: {}&quot;</span>,
+				<span class="string">"Encountered error finding best chain containing {:?}: couldn't find target block: {}"</span>,
 				block,
 				err,
 			);
@@ -2929,7 +2931,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Err</span>(err) =&gt; {
 			<span class="macro">warn!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;Encountered error finding best chain containing {:?}: couldn&#39;t find best block: {}&quot;</span>,
+				<span class="string">"Encountered error finding best chain containing {:?}: couldn't find best block: {}"</span>,
 				block,
 				err,
 			);
@@ -2947,7 +2949,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>{
 		<span class="macro">debug!</span>(
 			target: LOG_TARGET,
-			<span class="string">&quot;SelectChain returned a finality target inconsistent with its best block. Restricting best block to target block&quot;
+			<span class="string">"SelectChain returned a finality target inconsistent with its best block. Restricting best block to target block"
 		</span>);
 
 		best_header = target_header.clone();
@@ -2955,7 +2957,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="macro">debug!</span>(
 		target: LOG_TARGET,
-		<span class="string">&quot;SelectChain: finality target: #{} ({}), best block: #{} ({})&quot;</span>,
+		<span class="string">"SelectChain: finality target: #{} ({}), best block: #{} ({})"</span>,
 		target_header.number(),
 		target_header.hash(),
 		best_header.number(),
@@ -2969,9 +2971,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">loop </span>{
 			<span class="kw">if </span><span class="kw-2">*</span>target_header.number() &lt; target_number {
 				<span class="macro">unreachable!</span>(
-					<span class="string">&quot;we are traversing backwards from a known block; \
+					<span class="string">"we are traversing backwards from a known block; \
 					 blocks are stored contiguously; \
-					 qed&quot;
+					 qed"
 				</span>);
 			}
 
@@ -2981,19 +2983,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			target_header = client
 				.header(<span class="kw-2">*</span>target_header.parent_hash())<span class="question-mark">?
-				</span>.expect(<span class="string">&quot;Header known to exist after `finality_target` call; qed&quot;</span>);
+				</span>.expect(<span class="string">"Header known to exist after `finality_target` call; qed"</span>);
 		}
 
 		<span class="macro">debug!</span>(
 			target: LOG_TARGET,
-			<span class="string">&quot;Finality target restricted to #{} ({}) due to pending authority set change&quot;</span>,
+			<span class="string">"Finality target restricted to #{} ({}) due to pending authority set change"</span>,
 			target_header.number(),
 			target_header.hash()
 		)
 	}
 
 	<span class="comment">// restrict vote according to the given voting rule, if the voting rule
-	// doesn&#39;t restrict the vote then we keep the previous target.
+	// doesn't restrict the vote then we keep the previous target.
 	//
 	// we also make sure that the restricted vote is higher than the round base
 	// (i.e. last finalized), otherwise the value returned by the given voting
@@ -3013,7 +3015,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// This can be used to decide whether to import a justification (when
 /// importing a block), or whether to generate a justification from a
 /// commit (when validating). Justifications for blocks that change the
-/// authority set will always be processed, otherwise we&#39;ll only process
+/// authority set will always be processed, otherwise we'll only process
 /// justifications if the last one was `justification_period` blocks ago.
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>should_process_justification&lt;BE, Block, Client&gt;(
 	client: <span class="kw-2">&amp;</span>Client,
@@ -3071,7 +3073,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// This can happen after a forced change (triggered manually from the runtime when
 		// finality is stalled), since the voter will be restarted at the median last finalized
 		// block, which can be lower than the local best finalized block.
-		</span><span class="macro">warn!</span>(target: LOG_TARGET, <span class="string">&quot;Re-finalized block #{:?} ({:?}) in the canonical chain, current best finalized is #{:?}&quot;</span>,
+		</span><span class="macro">warn!</span>(target: LOG_TARGET, <span class="string">"Re-finalized block #{:?} ({:?}) in the canonical chain, current best finalized is #{:?}"</span>,
 				hash,
 				number,
 				status.finalized_number,
@@ -3103,14 +3105,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">if let </span><span class="prelude-val">Err</span>(err) = sender.notify(justification) {
 					<span class="macro">warn!</span>(
 						target: LOG_TARGET,
-						<span class="string">&quot;Error creating justification for subscriber: {}&quot;</span>, err
+						<span class="string">"Error creating justification for subscriber: {}"</span>, err
 					);
 				}
 			}
 		}
 
 		<span class="comment">// NOTE: this code assumes that honest voters will never vote past a
-		// transition block, thus we don&#39;t have to worry about the case where
+		// transition block, thus we don't have to worry about the case where
 		// we have a transition with `effective_block = N`, but we finalize
 		// `N+1`. this assumption is required to make sure we store
 		// justifications for transition blocks which will be requested by
@@ -3148,20 +3150,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.map_err(|e| {
 				<span class="macro">warn!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Error applying finality to block {:?}: {}&quot;</span>,
+					<span class="string">"Error applying finality to block {:?}: {}"</span>,
 					(hash, number),
 					e
 				);
 				e
 			})<span class="question-mark">?</span>;
 
-		<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;Finalizing blocks up to ({:?}, {})&quot;</span>, number, hash);
+		<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"Finalizing blocks up to ({:?}, {})"</span>, number, hash);
 
 		<span class="macro">telemetry!</span>(
 			telemetry;
 			CONSENSUS_INFO;
-			<span class="string">&quot;afg.finalized_blocks_up_to&quot;</span>;
-			<span class="string">&quot;number&quot; </span>=&gt; <span class="question-mark">?</span>number, <span class="string">&quot;hash&quot; </span>=&gt; <span class="question-mark">?</span>hash,
+			<span class="string">"afg.finalized_blocks_up_to"</span>;
+			<span class="string">"number" </span>=&gt; <span class="question-mark">?</span>number, <span class="string">"hash" </span>=&gt; <span class="question-mark">?</span>hash,
 		);
 
 		<span class="kw">crate</span>::aux_schema::update_best_justification(<span class="kw-2">&amp;</span>justification, |insert| {
@@ -3175,13 +3177,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">if </span>set_ref.len() &gt; <span class="number">16 </span>{
 				<span class="macro">grandpa_log!</span>(
 					initial_sync,
-					<span class="string">&quot;👴 Applying GRANDPA set change to new set with {} authorities&quot;</span>,
+					<span class="string">"👴 Applying GRANDPA set change to new set with {} authorities"</span>,
 					set_ref.len(),
 				);
 			} <span class="kw">else </span>{
 				<span class="macro">grandpa_log!</span>(
 					initial_sync,
-					<span class="string">&quot;👴 Applying GRANDPA set change to new set {:?}&quot;</span>,
+					<span class="string">"👴 Applying GRANDPA set change to new set {:?}"</span>,
 					set_ref
 				);
 			}
@@ -3189,10 +3191,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">telemetry!</span>(
 				telemetry;
 				CONSENSUS_INFO;
-				<span class="string">&quot;afg.generating_new_authority_set&quot;</span>;
-				<span class="string">&quot;number&quot; </span>=&gt; <span class="question-mark">?</span>canon_number, <span class="string">&quot;hash&quot; </span>=&gt; <span class="question-mark">?</span>canon_hash,
-				<span class="string">&quot;authorities&quot; </span>=&gt; <span class="question-mark">?</span>set_ref.to_vec(),
-				<span class="string">&quot;set_id&quot; </span>=&gt; <span class="question-mark">?</span>new_id,
+				<span class="string">"afg.generating_new_authority_set"</span>;
+				<span class="string">"number" </span>=&gt; <span class="question-mark">?</span>canon_number, <span class="string">"hash" </span>=&gt; <span class="question-mark">?</span>canon_hash,
+				<span class="string">"authorities" </span>=&gt; <span class="question-mark">?</span>set_ref.to_vec(),
+				<span class="string">"set_id" </span>=&gt; <span class="question-mark">?</span>new_id,
 			);
 			<span class="prelude-val">Some</span>(NewAuthoritySet {
 				canon_hash,
@@ -3214,9 +3216,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">if let </span><span class="prelude-val">Err</span>(e) = write_result {
 				<span class="macro">warn!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Failed to write updated authority set to disk. Bailing.&quot;
+					<span class="string">"Failed to write updated authority set to disk. Bailing."
 				</span>);
-				<span class="macro">warn!</span>(target: LOG_TARGET, <span class="string">&quot;Node is in a potentially inconsistent state.&quot;</span>);
+				<span class="macro">warn!</span>(target: LOG_TARGET, <span class="string">"Node is in a potentially inconsistent state."</span>);
 
 				<span class="kw">return </span><span class="prelude-val">Err</span>(e.into())
 			}

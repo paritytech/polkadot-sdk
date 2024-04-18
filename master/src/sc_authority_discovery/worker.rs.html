@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/authority-discovery/src/worker.rs`."><title>worker.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/authority-discovery/src/worker.rs`."><title>worker.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_authority_discovery" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_authority_discovery" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sc_authority_discovery/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1086,12 +1088,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[cfg(test)]
 	</span><span class="kw">mod </span>tests;
 
-	<span class="macro">include!</span>(<span class="macro">concat!</span>(<span class="macro">env!</span>(<span class="string">&quot;OUT_DIR&quot;</span>), <span class="string">&quot;/authority_discovery_v2.rs&quot;</span>));
+	<span class="macro">include!</span>(<span class="macro">concat!</span>(<span class="macro">env!</span>(<span class="string">"OUT_DIR"</span>), <span class="string">"/authority_discovery_v2.rs"</span>));
 }
 <span class="attr">#[cfg(test)]
 </span><span class="kw">pub mod </span>tests;
 
-<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;sub-authority-discovery&quot;</span>;
+<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"sub-authority-discovery"</span>;
 
 <span class="doccomment">/// Maximum number of addresses cached per authority. Additional addresses are discarded.
 </span><span class="kw">const </span>MAX_ADDRESSES_PER_AUTHORITY: usize = <span class="number">10</span>;
@@ -1107,7 +1109,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>Discover,
 }
 
-<span class="doccomment">/// An authority discovery [`Worker`] can publish the local node&#39;s addresses as well as discover
+<span class="doccomment">/// An authority discovery [`Worker`] can publish the local node's addresses as well as discover
 /// those of other nodes via a Kademlia DHT.
 ///
 /// When constructed with [`Role::PublishAndDiscover`] a [`Worker`] will
@@ -1219,8 +1221,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl</span>&lt;Client, Block, DhtEventStream&gt; Worker&lt;Client, Block, DhtEventStream&gt;
 <span class="kw">where
-	</span>Block: BlockT + Unpin + <span class="lifetime">&#39;static</span>,
-	Client: AuthorityDiscovery&lt;Block&gt; + <span class="lifetime">&#39;static</span>,
+	</span>Block: BlockT + Unpin + <span class="lifetime">'static</span>,
+	Client: AuthorityDiscovery&lt;Block&gt; + <span class="lifetime">'static</span>,
 	DhtEventStream: Stream&lt;Item = DhtEvent&gt; + Unpin,
 {
 	<span class="doccomment">/// Construct a [`Worker`].
@@ -1254,7 +1256,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Some</span>(registry) =&gt; <span class="kw">match </span>Metrics::register(<span class="kw-2">&amp;</span>registry) {
 				<span class="prelude-val">Ok</span>(metrics) =&gt; <span class="prelude-val">Some</span>(metrics),
 				<span class="prelude-val">Err</span>(e) =&gt; {
-					<span class="macro">error!</span>(target: LOG_TARGET, <span class="string">&quot;Failed to register metrics: {}&quot;</span>, e);
+					<span class="macro">error!</span>(target: LOG_TARGET, <span class="string">"Failed to register metrics: {}"</span>, e);
 					<span class="prelude-val">None
 				</span>},
 			},
@@ -1272,7 +1274,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="kw">if </span>peer_id != local_peer_id {
 							<span class="macro">error!</span>(
 								target: LOG_TARGET,
-								<span class="string">&quot;Discarding invalid local peer ID in public address {address}.&quot;</span>,
+								<span class="string">"Discarding invalid local peer ID in public address {address}."</span>,
 							);
 						}
 						<span class="comment">// Always discard `/p2p/...` protocol for proper address comparison (local
@@ -1334,7 +1336,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.publish_ext_addresses(only_if_changed).<span class="kw">await </span>{
 						<span class="macro">error!</span>(
 							target: LOG_TARGET,
-							<span class="string">&quot;Failed to publish external addresses: {}&quot;</span>, e,
+							<span class="string">"Failed to publish external addresses: {}"</span>, e,
 						);
 					}
 				},
@@ -1343,7 +1345,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.refill_pending_lookups_queue().<span class="kw">await </span>{
 						<span class="macro">error!</span>(
 							target: LOG_TARGET,
-							<span class="string">&quot;Failed to request addresses of authorities: {}&quot;</span>, e,
+							<span class="string">"Failed to request addresses of authorities: {}"</span>, e,
 						);
 					}
 				},
@@ -1378,8 +1380,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw">if </span>peer_id != <span class="kw-2">*</span>local_peer_id.as_ref() {
 						<span class="macro">error!</span>(
 							target: LOG_TARGET,
-							<span class="string">&quot;Network returned external address &#39;{address}&#39; with peer id \
-							 not matching the local peer id &#39;{local_peer_id}&#39;.&quot;</span>,
+							<span class="string">"Network returned external address '{address}' with peer id \
+							 not matching the local peer id '{local_peer_id}'."</span>,
 						);
 						<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
 					}
@@ -1400,7 +1402,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 				address.iter().all(|protocol| <span class="kw">match </span>protocol {
 					<span class="comment">// The `ip_network` library is used because its `is_global()` method is stable,
-					// while `is_global()` in the standard library currently isn&#39;t.
+					// while `is_global()` in the standard library currently isn't.
 					</span>multiaddr::Protocol::Ip4(ip) <span class="kw">if </span>!IpNetwork::from(ip).is_global() =&gt; <span class="bool-val">false</span>,
 					multiaddr::Protocol::Ip6(ip) <span class="kw">if </span>!IpNetwork::from(ip).is_global() =&gt; <span class="bool-val">false</span>,
 					<span class="kw">_ </span>=&gt; <span class="bool-val">true</span>,
@@ -1410,7 +1412,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="macro">debug!</span>(
 			target: LOG_TARGET,
-			<span class="string">&quot;Authority DHT record peer_id=&#39;{local_peer_id}&#39; addresses=&#39;{addresses:?}&#39;&quot;</span>,
+			<span class="string">"Authority DHT record peer_id='{local_peer_id}' addresses='{addresses:?}'"</span>,
 		);
 
 		<span class="comment">// The address must include the local peer id.
@@ -1545,12 +1547,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">match </span>event {
 			DhtEvent::ValueFound(v) =&gt; {
 				<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="kw-2">&amp;</span><span class="self">self</span>.metrics {
-					metrics.dht_event_received.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">&quot;value_found&quot;</span>]).inc();
+					metrics.dht_event_received.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">"value_found"</span>]).inc();
 				}
 
 				<span class="kw">if </span><span class="macro">log_enabled!</span>(log::Level::Debug) {
 					<span class="kw">let </span>hashes: Vec&lt;<span class="kw">_</span>&gt; = v.iter().map(|(hash, _value)| hash.clone()).collect();
-					<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;Value for hash &#39;{:?}&#39; found on Dht.&quot;</span>, hashes);
+					<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"Value for hash '{:?}' found on Dht."</span>, hashes);
 				}
 
 				<span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.handle_dht_value_found_event(v) {
@@ -1558,20 +1560,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						metrics.handle_value_found_event_failure.inc();
 					}
 
-					<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;Failed to handle Dht value found event: {}&quot;</span>, e);
+					<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"Failed to handle Dht value found event: {}"</span>, e);
 				}
 			},
 			DhtEvent::ValueNotFound(hash) =&gt; {
 				<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="kw-2">&amp;</span><span class="self">self</span>.metrics {
-					metrics.dht_event_received.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">&quot;value_not_found&quot;</span>]).inc();
+					metrics.dht_event_received.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">"value_not_found"</span>]).inc();
 				}
 
 				<span class="kw">if </span><span class="self">self</span>.in_flight_lookups.remove(<span class="kw-2">&amp;</span>hash).is_some() {
-					<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;Value for hash &#39;{:?}&#39; not found on Dht.&quot;</span>, hash)
+					<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"Value for hash '{:?}' not found on Dht."</span>, hash)
 				} <span class="kw">else </span>{
 					<span class="macro">debug!</span>(
 						target: LOG_TARGET,
-						<span class="string">&quot;Received &#39;ValueNotFound&#39; for unexpected hash &#39;{:?}&#39;.&quot;</span>, hash
+						<span class="string">"Received 'ValueNotFound' for unexpected hash '{:?}'."</span>, hash
 					)
 				}
 			},
@@ -1586,10 +1588,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				</span><span class="self">self</span>.publish_interval.set_to_max();
 
 				<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="kw-2">&amp;</span><span class="self">self</span>.metrics {
-					metrics.dht_event_received.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">&quot;value_put&quot;</span>]).inc();
+					metrics.dht_event_received.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">"value_put"</span>]).inc();
 				}
 
-				<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;Successfully put hash &#39;{:?}&#39; on Dht.&quot;</span>, hash)
+				<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"Successfully put hash '{:?}' on Dht."</span>, hash)
 			},
 			DhtEvent::ValuePutFailed(hash) =&gt; {
 				<span class="kw">if </span>!<span class="self">self</span>.latest_published_kad_keys.contains(<span class="kw-2">&amp;</span>hash) {
@@ -1598,10 +1600,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				}
 
 				<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="kw-2">&amp;</span><span class="self">self</span>.metrics {
-					metrics.dht_event_received.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">&quot;value_put_failed&quot;</span>]).inc();
+					metrics.dht_event_received.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">"value_put_failed"</span>]).inc();
 				}
 
-				<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;Failed to put hash &#39;{:?}&#39; on Dht.&quot;</span>, hash)
+				<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"Failed to put hash '{:?}' on Dht."</span>, hash)
 			},
 		}
 	}
@@ -1677,7 +1679,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				} <span class="kw">else </span>{
 					<span class="macro">debug!</span>(
 						target: LOG_TARGET,
-						<span class="string">&quot;Received unsigned authority discovery record from {}&quot;</span>, authority_id
+						<span class="string">"Received unsigned authority discovery record from {}"</span>, authority_id
 					);
 				}
 				<span class="prelude-val">Ok</span>(addresses)
@@ -1779,7 +1781,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ) -&gt; <span class="prelude-ty">Result</span>&lt;schema::PeerSignature&gt; {
 	<span class="kw">let </span>signature = network
 		.sign_with_local_identity(serialized_record.to_vec())
-		.map_err(|e| Error::CannotSign(<span class="macro">format!</span>(<span class="string">&quot;{} (network packet)&quot;</span>, e)))<span class="question-mark">?</span>;
+		.map_err(|e| Error::CannotSign(<span class="macro">format!</span>(<span class="string">"{} (network packet)"</span>, e)))<span class="question-mark">?</span>;
 	<span class="kw">let </span>public_key = signature.public_key.encode_protobuf();
 	<span class="kw">let </span>signature = signature.bytes;
 	<span class="prelude-val">Ok</span>(schema::PeerSignature { signature, public_key })
@@ -1796,9 +1798,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">for </span>key <span class="kw">in </span>keys.iter() {
 		<span class="kw">let </span>auth_signature = key_store
 			.sr25519_sign(key_types::AUTHORITY_DISCOVERY, key.as_ref(), <span class="kw-2">&amp;</span>serialized_record)
-			.map_err(|e| Error::CannotSign(<span class="macro">format!</span>(<span class="string">&quot;{}. Key: {:?}&quot;</span>, e, key)))<span class="question-mark">?
+			.map_err(|e| Error::CannotSign(<span class="macro">format!</span>(<span class="string">"{}. Key: {:?}"</span>, e, key)))<span class="question-mark">?
 			</span>.ok_or_else(|| {
-				Error::CannotSign(<span class="macro">format!</span>(<span class="string">&quot;Could not find key in keystore. Key: {:?}&quot;</span>, key))
+				Error::CannotSign(<span class="macro">format!</span>(<span class="string">"Could not find key in keystore. Key: {:?}"</span>, key))
 			})<span class="question-mark">?</span>;
 
 		<span class="comment">// Scale encode
@@ -1834,55 +1836,55 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Ok</span>(<span class="self">Self </span>{
 			publish: register(
 				Counter::new(
-					<span class="string">&quot;substrate_authority_discovery_times_published_total&quot;</span>,
-					<span class="string">&quot;Number of times authority discovery has published external addresses.&quot;</span>,
+					<span class="string">"substrate_authority_discovery_times_published_total"</span>,
+					<span class="string">"Number of times authority discovery has published external addresses."</span>,
 				)<span class="question-mark">?</span>,
 				registry,
 			)<span class="question-mark">?</span>,
 			amount_addresses_last_published: register(
 				Gauge::new(
-					<span class="string">&quot;substrate_authority_discovery_amount_external_addresses_last_published&quot;</span>,
-					<span class="string">&quot;Number of external addresses published when authority discovery last \
-					 published addresses.&quot;</span>,
+					<span class="string">"substrate_authority_discovery_amount_external_addresses_last_published"</span>,
+					<span class="string">"Number of external addresses published when authority discovery last \
+					 published addresses."</span>,
 				)<span class="question-mark">?</span>,
 				registry,
 			)<span class="question-mark">?</span>,
 			requests: register(
 				Counter::new(
-					<span class="string">&quot;substrate_authority_discovery_authority_addresses_requested_total&quot;</span>,
-					<span class="string">&quot;Number of times authority discovery has requested external addresses of a \
-					 single authority.&quot;</span>,
+					<span class="string">"substrate_authority_discovery_authority_addresses_requested_total"</span>,
+					<span class="string">"Number of times authority discovery has requested external addresses of a \
+					 single authority."</span>,
 				)<span class="question-mark">?</span>,
 				registry,
 			)<span class="question-mark">?</span>,
 			requests_pending: register(
 				Gauge::new(
-					<span class="string">&quot;substrate_authority_discovery_authority_address_requests_pending&quot;</span>,
-					<span class="string">&quot;Number of pending authority address requests.&quot;</span>,
+					<span class="string">"substrate_authority_discovery_authority_address_requests_pending"</span>,
+					<span class="string">"Number of pending authority address requests."</span>,
 				)<span class="question-mark">?</span>,
 				registry,
 			)<span class="question-mark">?</span>,
 			dht_event_received: register(
 				CounterVec::new(
 					Opts::new(
-						<span class="string">&quot;substrate_authority_discovery_dht_event_received&quot;</span>,
-						<span class="string">&quot;Number of dht events received by authority discovery.&quot;</span>,
+						<span class="string">"substrate_authority_discovery_dht_event_received"</span>,
+						<span class="string">"Number of dht events received by authority discovery."</span>,
 					),
-					<span class="kw-2">&amp;</span>[<span class="string">&quot;name&quot;</span>],
+					<span class="kw-2">&amp;</span>[<span class="string">"name"</span>],
 				)<span class="question-mark">?</span>,
 				registry,
 			)<span class="question-mark">?</span>,
 			handle_value_found_event_failure: register(
 				Counter::new(
-					<span class="string">&quot;substrate_authority_discovery_handle_value_found_event_failure&quot;</span>,
-					<span class="string">&quot;Number of times handling a dht value found event failed.&quot;</span>,
+					<span class="string">"substrate_authority_discovery_handle_value_found_event_failure"</span>,
+					<span class="string">"Number of times handling a dht value found event failed."</span>,
 				)<span class="question-mark">?</span>,
 				registry,
 			)<span class="question-mark">?</span>,
 			known_authorities_count: register(
 				Gauge::new(
-					<span class="string">&quot;substrate_authority_discovery_known_authorities_count&quot;</span>,
-					<span class="string">&quot;Number of authorities known by authority discovery.&quot;</span>,
+					<span class="string">"substrate_authority_discovery_known_authorities_count"</span>,
+					<span class="string">"Number of authorities known by authority discovery."</span>,
 				)<span class="question-mark">?</span>,
 				registry,
 			)<span class="question-mark">?</span>,

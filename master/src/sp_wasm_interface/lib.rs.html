@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/wasm-interface/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/wasm-interface/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_wasm_interface" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_wasm_interface" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sp_wasm_interface/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -778,34 +780,34 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
 </span><span class="doccomment">//! Types and traits for interfacing between the host and the wasm runtime.
 
-</span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
+</span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
 </span><span class="kw">extern crate </span>alloc;
 
 <span class="kw">use </span>alloc::{borrow::Cow, vec, vec::Vec};
 <span class="kw">use </span>core::{iter::Iterator, marker::PhantomData, mem, result};
 
-<span class="attr">#[cfg(not(all(feature = <span class="string">&quot;std&quot;</span>, feature = <span class="string">&quot;wasmtime&quot;</span>)))]
+<span class="attr">#[cfg(not(all(feature = <span class="string">"std"</span>, feature = <span class="string">"wasmtime"</span>)))]
 #[macro_export]
 </span><span class="macro">macro_rules! </span>if_wasmtime_is_enabled {
 	($(<span class="macro-nonterminal">$token</span>:tt)<span class="kw-2">*</span>) =&gt; {};
 }
 
-<span class="attr">#[cfg(all(feature = <span class="string">&quot;std&quot;</span>, feature = <span class="string">&quot;wasmtime&quot;</span>))]
+<span class="attr">#[cfg(all(feature = <span class="string">"std"</span>, feature = <span class="string">"wasmtime"</span>))]
 #[macro_export]
 </span><span class="macro">macro_rules! </span>if_wasmtime_is_enabled {
     ($(<span class="macro-nonterminal">$token</span>:tt)<span class="kw-2">*</span>) =&gt; {
@@ -817,15 +819,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="comment">// Reexport wasmtime so that its types are accessible from the procedural macro.
 	</span><span class="kw">pub use </span>wasmtime;
 
-	<span class="comment">// Wasmtime uses anyhow types but doesn&#39;t reexport them.
+	<span class="comment">// Wasmtime uses anyhow types but doesn't reexport them.
 	</span><span class="kw">pub use </span>anyhow;
 }
 
 <span class="doccomment">/// Result type used by traits in this crate.
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+</span><span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">pub type </span><span class="prelude-ty">Result</span>&lt;T&gt; = result::Result&lt;T, String&gt;;
-<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
-</span><span class="kw">pub type </span><span class="prelude-ty">Result</span>&lt;T&gt; = result::Result&lt;T, <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt;;
+<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
+</span><span class="kw">pub type </span><span class="prelude-ty">Result</span>&lt;T&gt; = result::Result&lt;T, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt;;
 
 <span class="doccomment">/// Value types supported by Substrate on the boundary between host/Wasm.
 </span><span class="attr">#[derive(Copy, Clone, PartialEq, Debug, Eq)]
@@ -1013,14 +1015,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[derive(Eq, PartialEq, Debug, Clone)]
 </span><span class="kw">pub struct </span>Signature {
 	<span class="doccomment">/// The arguments of a function.
-	</span><span class="kw">pub </span>args: Cow&lt;<span class="lifetime">&#39;static</span>, [ValueType]&gt;,
+	</span><span class="kw">pub </span>args: Cow&lt;<span class="lifetime">'static</span>, [ValueType]&gt;,
 	<span class="doccomment">/// The optional return value of a function.
 	</span><span class="kw">pub </span>return_value: <span class="prelude-ty">Option</span>&lt;ValueType&gt;,
 }
 
 <span class="kw">impl </span>Signature {
 	<span class="doccomment">/// Create a new instance of `Signature`.
-	</span><span class="kw">pub fn </span>new&lt;T: Into&lt;Cow&lt;<span class="lifetime">&#39;static</span>, [ValueType]&gt;&gt;&gt;(
+	</span><span class="kw">pub fn </span>new&lt;T: Into&lt;Cow&lt;<span class="lifetime">'static</span>, [ValueType]&gt;&gt;&gt;(
 		args: T,
 		return_value: <span class="prelude-ty">Option</span>&lt;ValueType&gt;,
 	) -&gt; <span class="self">Self </span>{
@@ -1028,21 +1030,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Create a new instance of `Signature` with the given `args` and without any return value.
-	</span><span class="kw">pub fn </span>new_with_args&lt;T: Into&lt;Cow&lt;<span class="lifetime">&#39;static</span>, [ValueType]&gt;&gt;&gt;(args: T) -&gt; <span class="self">Self </span>{
+	</span><span class="kw">pub fn </span>new_with_args&lt;T: Into&lt;Cow&lt;<span class="lifetime">'static</span>, [ValueType]&gt;&gt;&gt;(args: T) -&gt; <span class="self">Self </span>{
 		<span class="self">Self </span>{ args: args.into(), return_value: <span class="prelude-val">None </span>}
 	}
 }
 
 <span class="doccomment">/// A trait that requires `RefUnwindSafe` when `feature = std`.
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+</span><span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">pub trait </span>MaybeRefUnwindSafe: std::panic::RefUnwindSafe {}
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">impl</span>&lt;T: std::panic::RefUnwindSafe&gt; MaybeRefUnwindSafe <span class="kw">for </span>T {}
 
 <span class="doccomment">/// A trait that requires `RefUnwindSafe` when `feature = std`.
-</span><span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+</span><span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
 </span><span class="kw">pub trait </span>MaybeRefUnwindSafe {}
-<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
 </span><span class="kw">impl</span>&lt;T&gt; MaybeRefUnwindSafe <span class="kw">for </span>T {}
 
 <span class="doccomment">/// Something that provides a function implementation on the host for a wasm function.
@@ -1090,7 +1092,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// instruction which causes an unconditional trap and immediately aborts
 	/// the execution. It does not however allow for any diagnostics to be
 	/// passed through to the host, so while we do know that *something* went
-	/// wrong we don&#39;t have any direct indication of what *exactly* went wrong.
+	/// wrong we don't have any direct indication of what *exactly* went wrong.
 	///
 	/// As a workaround we use this method right before the execution is
 	/// actually aborted to pass an error message to the host so that it
@@ -1110,7 +1112,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// so that they call be called from within the runtime with minimal overhead.
 	///
 	/// This is used internally to interface the wasmtime-based executor with the
-	/// host functions&#39; definitions generated through the runtime interface macro,
+	/// host functions' definitions generated through the runtime interface macro,
 	/// and is not meant to be used directly.
 	</span><span class="kw">pub trait </span>HostFunctionRegistry {
 		<span class="kw">type </span>State;
@@ -1131,15 +1133,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">fn </span>register_static&lt;Params, Results&gt;(
 			<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 			fn_name: <span class="kw-2">&amp;</span>str,
-			func: <span class="kw">impl </span>wasmtime::IntoFunc&lt;<span class="self">Self</span>::State, Params, Results&gt; + <span class="lifetime">&#39;static</span>,
+			func: <span class="kw">impl </span>wasmtime::IntoFunc&lt;<span class="self">Self</span>::State, Params, Results&gt; + <span class="lifetime">'static</span>,
 		) -&gt; core::result::Result&lt;(), <span class="self">Self</span>::Error&gt;;
 	}
 }
 
 <span class="doccomment">/// Something that provides implementations for host functions.
-</span><span class="kw">pub trait </span>HostFunctions: <span class="lifetime">&#39;static </span>+ Send + Sync {
+</span><span class="kw">pub trait </span>HostFunctions: <span class="lifetime">'static </span>+ Send + Sync {
 	<span class="doccomment">/// Returns the host functions `Self` provides.
-	</span><span class="kw">fn </span>host_functions() -&gt; Vec&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span><span class="kw">dyn </span>Function&gt;;
+	</span><span class="kw">fn </span>host_functions() -&gt; Vec&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span><span class="kw">dyn </span>Function&gt;;
 
 	<span class="macro">if_wasmtime_is_enabled! </span>{
 		<span class="doccomment">/// Statically registers the host functions.
@@ -1151,7 +1153,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="attr">#[impl_trait_for_tuples::impl_for_tuples(<span class="number">30</span>)]
 </span><span class="kw">impl </span>HostFunctions <span class="kw">for </span>Tuple {
-	<span class="kw">fn </span>host_functions() -&gt; Vec&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span><span class="kw">dyn </span>Function&gt; {
+	<span class="kw">fn </span>host_functions() -&gt; Vec&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span><span class="kw">dyn </span>Function&gt; {
 		<span class="kw">let </span><span class="kw-2">mut </span>host_functions = Vec::new();
 
 		<span class="macro">for_tuples!</span>( #( host_functions.extend(Tuple::host_functions()); )* );
@@ -1159,7 +1161,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		host_functions
 	}
 
-	<span class="attr">#[cfg(all(feature = <span class="string">&quot;std&quot;</span>, feature = <span class="string">&quot;wasmtime&quot;</span>))]
+	<span class="attr">#[cfg(all(feature = <span class="string">"std"</span>, feature = <span class="string">"wasmtime"</span>))]
 	</span><span class="kw">fn </span>register_static&lt;T&gt;(registry: <span class="kw-2">&amp;mut </span>T) -&gt; core::result::Result&lt;(), T::Error&gt;
 	<span class="kw">where
 		</span>T: HostFunctionRegistry,
@@ -1183,7 +1185,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>Base: HostFunctions,
 	Overlay: HostFunctions,
 {
-	<span class="kw">fn </span>host_functions() -&gt; Vec&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span><span class="kw">dyn </span>Function&gt; {
+	<span class="kw">fn </span>host_functions() -&gt; Vec&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span><span class="kw">dyn </span>Function&gt; {
 		<span class="kw">let </span><span class="kw-2">mut </span>base = Base::host_functions();
 		<span class="kw">let </span>overlay = Overlay::host_functions();
 		base.retain(|host_fn| {
@@ -1198,14 +1200,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">where
 			</span>T: HostFunctionRegistry,
 		{
-			<span class="kw">struct </span>Proxy&lt;<span class="lifetime">&#39;a</span>, T&gt; {
-				registry: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>T,
+			<span class="kw">struct </span>Proxy&lt;<span class="lifetime">'a</span>, T&gt; {
+				registry: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>T,
 				seen_overlay: std::collections::HashSet&lt;String&gt;,
 				seen_base: std::collections::HashSet&lt;String&gt;,
 				overlay_registered: bool,
 			}
 
-			<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, T&gt; HostFunctionRegistry <span class="kw">for </span>Proxy&lt;<span class="lifetime">&#39;a</span>, T&gt;
+			<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, T&gt; HostFunctionRegistry <span class="kw">for </span>Proxy&lt;<span class="lifetime">'a</span>, T&gt;
 			<span class="kw">where
 				</span>T: HostFunctionRegistry,
 			{
@@ -1223,13 +1225,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">fn </span>register_static&lt;Params, Results&gt;(
 					<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 					fn_name: <span class="kw-2">&amp;</span>str,
-					func: <span class="kw">impl </span>wasmtime::IntoFunc&lt;<span class="self">Self</span>::State, Params, Results&gt; + <span class="lifetime">&#39;static</span>,
+					func: <span class="kw">impl </span>wasmtime::IntoFunc&lt;<span class="self">Self</span>::State, Params, Results&gt; + <span class="lifetime">'static</span>,
 				) -&gt; core::result::Result&lt;(), <span class="self">Self</span>::Error&gt; {
 					<span class="kw">if </span><span class="self">self</span>.overlay_registered {
 						<span class="kw">if </span>!<span class="self">self</span>.seen_base.insert(fn_name.to_owned()) {
 							<span class="macro">log::warn!</span>(
-								target: <span class="string">&quot;extended_host_functions&quot;</span>,
-								<span class="string">&quot;Duplicate base host function: &#39;{}&#39;&quot;</span>,
+								target: <span class="string">"extended_host_functions"</span>,
+								<span class="string">"Duplicate base host function: '{}'"</span>,
 								fn_name,
 							);
 
@@ -1240,8 +1242,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="kw">if </span><span class="self">self</span>.seen_overlay.contains(fn_name) {
 							<span class="comment">// Was already registered when we went through the overlay, so just ignore it.
 							</span><span class="macro">log::debug!</span>(
-								target: <span class="string">&quot;extended_host_functions&quot;</span>,
-								<span class="string">&quot;Overriding base host function: &#39;{}&#39;&quot;</span>,
+								target: <span class="string">"extended_host_functions"</span>,
+								<span class="string">"Overriding base host function: '{}'"</span>,
 								fn_name,
 							);
 
@@ -1249,8 +1251,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						}
 					} <span class="kw">else if </span>!<span class="self">self</span>.seen_overlay.insert(fn_name.to_owned()) {
 						<span class="macro">log::warn!</span>(
-							target: <span class="string">&quot;extended_host_functions&quot;</span>,
-							<span class="string">&quot;Duplicate overlay host function: &#39;{}&#39;&quot;</span>,
+							target: <span class="string">"extended_host_functions"</span>,
+							<span class="string">"Duplicate overlay host function: '{}'"</span>,
 							fn_name,
 						);
 
@@ -1284,13 +1286,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// A trait for types directly usable at the WASM FFI boundary without any conversion at all.
 ///
 /// This trait is sealed and should not be implemented downstream.
-</span><span class="attr">#[cfg(all(feature = <span class="string">&quot;std&quot;</span>, feature = <span class="string">&quot;wasmtime&quot;</span>))]
+</span><span class="attr">#[cfg(all(feature = <span class="string">"std"</span>, feature = <span class="string">"wasmtime"</span>))]
 </span><span class="kw">pub trait </span>WasmTy: wasmtime::WasmTy + private::Sealed {}
 
 <span class="doccomment">/// A trait for types directly usable at the WASM FFI boundary without any conversion at all.
 ///
 /// This trait is sealed and should not be implemented downstream.
-</span><span class="attr">#[cfg(not(all(feature = <span class="string">&quot;std&quot;</span>, feature = <span class="string">&quot;wasmtime&quot;</span>)))]
+</span><span class="attr">#[cfg(not(all(feature = <span class="string">"std"</span>, feature = <span class="string">"wasmtime"</span>)))]
 </span><span class="kw">pub trait </span>WasmTy: private::Sealed {}
 
 <span class="kw">impl </span>WasmTy <span class="kw">for </span>i32 {}

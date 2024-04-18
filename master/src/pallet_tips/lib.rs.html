@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/tips/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/tips/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_tips" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_tips" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../pallet_tips/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -823,14 +825,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -839,7 +841,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!
 //! &gt; NOTE: This pallet is tightly coupled with pallet-treasury.
 //!
-//! A subsystem to allow for an agile &quot;tipping&quot; process, whereby a reward may be given without first
+//! A subsystem to allow for an agile "tipping" process, whereby a reward may be given without first
 //! having a pre-determined stakeholder group come to consensus on how much should be paid.
 //!
 //! A group of `Tippers` is determined through the config `Config`. After half of these have
@@ -872,7 +874,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! - `tip` - Declare or redeclare an amount to tip for a particular reason.
 //! - `close_tip` - Close and pay out a tip.
 
-</span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
+</span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
 </span><span class="kw">mod </span>benchmarking;
 <span class="kw">mod </span>tests;
@@ -897,19 +899,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>frame_system::pallet_prelude::BlockNumberFor;
 
-<span class="attr">#[cfg(any(feature = <span class="string">&quot;try-runtime&quot;</span>, test))]
+<span class="attr">#[cfg(any(feature = <span class="string">"try-runtime"</span>, test))]
 </span><span class="kw">use </span>sp_runtime::TryRuntimeError;
 
 <span class="kw">pub use </span>pallet::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>weights::WeightInfo;
 
-<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;runtime::tips&quot;</span>;
+<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"runtime::tips"</span>;
 
 <span class="kw">pub type </span>BalanceOf&lt;T, I = ()&gt; = pallet_treasury::BalanceOf&lt;T, I&gt;;
 <span class="kw">pub type </span>NegativeImbalanceOf&lt;T, I = ()&gt; = pallet_treasury::NegativeImbalanceOf&lt;T, I&gt;;
 <span class="kw">type </span>AccountIdLookupOf&lt;T&gt; = &lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::Lookup <span class="kw">as </span>StaticLookup&gt;::Source;
 
-<span class="doccomment">/// An open tipping &quot;motion&quot;. Retains all details of a tip including information on the finder
+<span class="doccomment">/// An open tipping "motion". Retains all details of a tip including information on the finder
 /// and the members who have voted.
 </span><span class="attr">#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, scale_info::TypeInfo)]
 </span><span class="kw">pub struct </span>OpenTip&lt;
@@ -951,7 +953,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub struct </span>Pallet&lt;T, I = ()&gt;(<span class="kw">_</span>);
 
 	<span class="attr">#[pallet::config]
-	</span><span class="kw">pub trait </span>Config&lt;I: <span class="lifetime">&#39;static </span>= ()&gt;: frame_system::Config + pallet_treasury::Config&lt;I&gt; {
+	</span><span class="kw">pub trait </span>Config&lt;I: <span class="lifetime">'static </span>= ()&gt;: frame_system::Config + pallet_treasury::Config&lt;I&gt; {
 		<span class="doccomment">/// The overarching event type.
 		</span><span class="kw">type </span>RuntimeEvent: From&lt;Event&lt;<span class="self">Self</span>, I&gt;&gt;
 			+ IsType&lt;&lt;<span class="self">Self </span><span class="kw">as </span>frame_system::Config&gt;::RuntimeEvent&gt;;
@@ -998,7 +1000,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// guaranteed to be a secure hash.
 	</span><span class="attr">#[pallet::storage]
 	#[pallet::getter(<span class="kw">fn </span>tips)]
-	</span><span class="kw">pub type </span>Tips&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; = StorageMap&lt;
+	</span><span class="kw">pub type </span>Tips&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; = StorageMap&lt;
 		<span class="kw">_</span>,
 		Twox64Concat,
 		T::Hash,
@@ -1006,16 +1008,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		OptionQuery,
 	&gt;;
 
-	<span class="doccomment">/// Simple preimage lookup from the reason&#39;s hash to the original data. Again, has an
+	<span class="doccomment">/// Simple preimage lookup from the reason's hash to the original data. Again, has an
 	/// insecure enumerable hash since the key is guaranteed to be the result of a secure hash.
 	</span><span class="attr">#[pallet::storage]
 	#[pallet::getter(<span class="kw">fn </span>reasons)]
-	</span><span class="kw">pub type </span>Reasons&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; =
+	</span><span class="kw">pub type </span>Reasons&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; =
 		StorageMap&lt;<span class="kw">_</span>, Identity, T::Hash, Vec&lt;u8&gt;, OptionQuery&gt;;
 
 	<span class="attr">#[pallet::event]
 	#[pallet::generate_deposit(<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>deposit_event)]
-	</span><span class="kw">pub enum </span>Event&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; {
+	</span><span class="kw">pub enum </span>Event&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; {
 		<span class="doccomment">/// A new tip suggestion has been opened.
 		</span>NewTip { tip_hash: T::Hash },
 		<span class="doccomment">/// A tip suggestion has reached threshold and is closing.
@@ -1042,13 +1044,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>NotFinder,
 		<span class="doccomment">/// The tip cannot be claimed/closed because there are not enough tippers yet.
 		</span>StillOpen,
-		<span class="doccomment">/// The tip cannot be claimed/closed because it&#39;s still in the countdown period.
+		<span class="doccomment">/// The tip cannot be claimed/closed because it's still in the countdown period.
 		</span>Premature,
 	}
 
 	<span class="attr">#[pallet::call]
-	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; Pallet&lt;T, I&gt; {
-		<span class="doccomment">/// Report something `reason` that deserves a tip and claim any eventual the finder&#39;s fee.
+	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Pallet&lt;T, I&gt; {
+		<span class="doccomment">/// Report something `reason` that deserves a tip and claim any eventual the finder's fee.
 		///
 		/// The dispatch origin for this call must be _Signed_.
 		///
@@ -1063,7 +1065,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		///
 		/// ## Complexity
 		/// - `O(R)` where `R` length of `reason`.
-		///   - encoding and hashing of &#39;reason&#39;
+		///   - encoding and hashing of 'reason'
 		</span><span class="attr">#[pallet::call_index(<span class="number">0</span>)]
 		#[pallet::weight(&lt;T <span class="kw">as </span>Config&lt;I&gt;&gt;::WeightInfo::report_awesome(reason.len() <span class="kw">as </span>u32))]
 		</span><span class="kw">pub fn </span>report_awesome(
@@ -1136,7 +1138,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Ok</span>(())
 		}
 
-		<span class="doccomment">/// Give a tip for something new; no finder&#39;s fee will be taken.
+		<span class="doccomment">/// Give a tip for something new; no finder's fee will be taken.
 		///
 		/// The dispatch origin for this call must be _Signed_ and the signing account must be a
 		/// member of the `Tippers` set.
@@ -1291,22 +1293,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="attr">#[pallet::hooks]
-	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; Hooks&lt;BlockNumberFor&lt;T&gt;&gt; <span class="kw">for </span>Pallet&lt;T, I&gt; {
+	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Hooks&lt;BlockNumberFor&lt;T&gt;&gt; <span class="kw">for </span>Pallet&lt;T, I&gt; {
 		<span class="kw">fn </span>integrity_test() {
 			<span class="macro">assert!</span>(
 				!T::TipReportDepositBase::get().is_zero(),
-				<span class="string">&quot;`TipReportDepositBase` should not be zero&quot;</span>,
+				<span class="string">"`TipReportDepositBase` should not be zero"</span>,
 			);
 		}
 
-		<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+		<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 		</span><span class="kw">fn </span>try_state(_n: BlockNumberFor&lt;T&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
 			<span class="self">Self</span>::do_try_state()
 		}
 	}
 }
 
-<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; Pallet&lt;T, I&gt; {
+<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Pallet&lt;T, I&gt; {
 	<span class="comment">// Add public immutables and private mutables.
 
 	</span><span class="doccomment">/// The account ID of the treasury pot.
@@ -1383,10 +1385,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 
 		<span class="kw">if </span>tip.finders_fee &amp;&amp; tip.finder != tip.who {
-			<span class="comment">// pay out the finder&#39;s fee.
+			<span class="comment">// pay out the finder's fee.
 			</span><span class="kw">let </span>finders_fee = T::TipFindersFee::get() * payout;
 			payout -= finders_fee;
-			<span class="comment">// this should go through given we checked it&#39;s at most the free balance, but still
+			<span class="comment">// this should go through given we checked it's at most the free balance, but still
 			// we only make a best-effort.
 			</span><span class="kw">let </span>res = T::Currency::transfer(<span class="kw-2">&amp;</span>treasury, <span class="kw-2">&amp;</span>tip.finder, finders_fee, KeepAlive);
 			<span class="macro">debug_assert!</span>(res.is_ok());
@@ -1399,7 +1401,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">pub fn </span>migrate_retract_tip_for_tip_new(module: <span class="kw-2">&amp;</span>[u8], item: <span class="kw-2">&amp;</span>[u8]) {
-		<span class="doccomment">/// An open tipping &quot;motion&quot;. Retains all details of a tip including information on the
+		<span class="doccomment">/// An open tipping "motion". Retains all details of a tip including information on the
 		/// finder and the members who have voted.
 		</span><span class="attr">#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug)]
 		</span><span class="kw">pub struct </span>OldOpenTip&lt;
@@ -1425,7 +1427,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">use </span>frame_support::{migration::storage_key_iter, Twox64Concat};
 
 		<span class="kw">let </span>zero_account = T::AccountId::decode(<span class="kw-2">&amp;mut </span>TrailingZeroInput::new(<span class="kw-2">&amp;</span>[][..]))
-			.expect(<span class="string">&quot;infinite input; qed&quot;</span>);
+			.expect(<span class="string">"infinite input; qed"</span>);
 
 		<span class="kw">for </span>(hash, old_tip) <span class="kw">in </span>storage_key_iter::&lt;
 			T::Hash,
@@ -1459,31 +1461,31 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// 1. The number of entries in `Tips` should be equal to `Reasons`.
 	/// 2. Reasons exists for each Tip[`OpenTip.reason`].
 	/// 3. If `OpenTip.finders_fee` is true, then OpenTip.deposit should be greater than zero.
-	</span><span class="attr">#[cfg(any(feature = <span class="string">&quot;try-runtime&quot;</span>, test))]
+	</span><span class="attr">#[cfg(any(feature = <span class="string">"try-runtime"</span>, test))]
 	</span><span class="kw">pub fn </span>do_try_state() -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
 		<span class="kw">let </span>reasons = Reasons::&lt;T, I&gt;::iter_keys().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 		<span class="kw">let </span>tips = Tips::&lt;T, I&gt;::iter_keys().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 
 		<span class="macro">ensure!</span>(
 			reasons.len() == tips.len(),
-			TryRuntimeError::Other(<span class="string">&quot;Equal length of entries in `Tips` and `Reasons` Storage&quot;</span>)
+			TryRuntimeError::Other(<span class="string">"Equal length of entries in `Tips` and `Reasons` Storage"</span>)
 		);
 
 		<span class="kw">for </span>tip <span class="kw">in </span>Tips::&lt;T, I&gt;::iter_keys() {
-			<span class="kw">let </span>open_tip = Tips::&lt;T, I&gt;::get(<span class="kw-2">&amp;</span>tip).expect(<span class="string">&quot;All map keys are valid; qed&quot;</span>);
+			<span class="kw">let </span>open_tip = Tips::&lt;T, I&gt;::get(<span class="kw-2">&amp;</span>tip).expect(<span class="string">"All map keys are valid; qed"</span>);
 
 			<span class="kw">if </span>open_tip.finders_fee {
 				<span class="macro">ensure!</span>(
 					!open_tip.deposit.is_zero(),
 					TryRuntimeError::Other(
-						<span class="string">&quot;Tips with `finders_fee` should have non-zero `deposit`.&quot;
+						<span class="string">"Tips with `finders_fee` should have non-zero `deposit`."
 					</span>)
 				)
 			}
 
 			<span class="macro">ensure!</span>(
 				reasons.contains(<span class="kw-2">&amp;</span>open_tip.reason),
-				TryRuntimeError::Other(<span class="string">&quot;no reason for this tip&quot;</span>)
+				TryRuntimeError::Other(<span class="string">"no reason for this tip"</span>)
 			);
 		}
 		<span class="prelude-val">Ok</span>(())

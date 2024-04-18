@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/contracts/src/wasm/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/contracts/src/wasm/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="pallet_contracts" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="pallet_contracts" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../pallet_contracts/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -3674,14 +3676,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -3736,7 +3738,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 #[scale_info(skip_type_params(T))]
 </span><span class="kw">pub struct </span>WasmBlob&lt;T: Config&gt; {
 	code: CodeVec&lt;T&gt;,
-	<span class="comment">// This isn&#39;t needed for contract execution and is not stored alongside it.
+	<span class="comment">// This isn't needed for contract execution and is not stored alongside it.
 	</span><span class="attr">#[codec(skip)]
 	</span>code_info: CodeInfo&lt;T&gt;,
 	<span class="comment">// This is for not calculating the hash every time we need it.
@@ -3797,8 +3799,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// The wasm export name for the function.
 	</span><span class="kw">fn </span>identifier(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>str {
 		<span class="kw">match </span><span class="self">self </span>{
-			<span class="self">Self</span>::Constructor =&gt; <span class="string">&quot;deploy&quot;</span>,
-			<span class="self">Self</span>::Call =&gt; <span class="string">&quot;call&quot;</span>,
+			<span class="self">Self</span>::Constructor =&gt; <span class="string">"deploy"</span>,
+			<span class="self">Self</span>::Call =&gt; <span class="string">"call"</span>,
 		}
 	}
 }
@@ -3813,7 +3815,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// When loading the contract, we already covered the general costs of
 		// calling the storage but still need to account for the actual size of the
 		// contract code. This is why we subtract `T::*::(0)`. We need to do this at this
-		// point because when charging the general weight for calling the contract we don&#39;t know the
+		// point because when charging the general weight for calling the contract we don't know the
 		// size of the contract.
 		</span>T::WeightInfo::call_with_code_per_byte(<span class="self">self</span>.<span class="number">0</span>)
 			.saturating_sub(T::WeightInfo::call_with_code_per_byte(<span class="number">0</span>))
@@ -3827,9 +3829,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		schedule: <span class="kw-2">&amp;</span>Schedule&lt;T&gt;,
 		owner: AccountIdOf&lt;T&gt;,
 		determinism: Determinism,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, (DispatchError, <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str)&gt; {
+	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, (DispatchError, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str)&gt; {
 		prepare::prepare::&lt;runtime::Env, T&gt;(
-			code.try_into().map_err(|<span class="kw">_</span>| (&lt;Error&lt;T&gt;&gt;::CodeTooLarge.into(), <span class="string">&quot;&quot;</span>))<span class="question-mark">?</span>,
+			code.try_into().map_err(|<span class="kw">_</span>| (&lt;Error&lt;T&gt;&gt;::CodeTooLarge.into(), <span class="string">""</span>))<span class="question-mark">?</span>,
 			schedule,
 			owner,
 			determinism,
@@ -3876,7 +3878,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		host_state: H,
 		schedule: <span class="kw-2">&amp;</span>Schedule&lt;T&gt;,
 		allow_deprecated: AllowDeprecatedInterface,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;(Store&lt;H&gt;, Memory, InstancePre), <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt;
+	) -&gt; <span class="prelude-ty">Result</span>&lt;(Store&lt;H&gt;, Memory, InstancePre), <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt;
 	<span class="kw">where
 		</span>E: Environment&lt;H&gt;,
 	{
@@ -3892,15 +3894,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			},
 			allow_deprecated,
 		)
-		.map_err(|<span class="kw">_</span>| <span class="string">&quot;can&#39;t define host functions to Linker&quot;</span>)<span class="question-mark">?</span>;
+		.map_err(|<span class="kw">_</span>| <span class="string">"can't define host functions to Linker"</span>)<span class="question-mark">?</span>;
 
-		<span class="comment">// Query wasmi for memory limits specified in the module&#39;s import entry.
+		<span class="comment">// Query wasmi for memory limits specified in the module's import entry.
 		</span><span class="kw">let </span>memory_limits = contract.scan_imports::&lt;T&gt;(schedule)<span class="question-mark">?</span>;
 		<span class="comment">// Here we allocate this memory in the _store_. It allocates _inital_ value, but allows it
 		// to grow up to maximum number of memory pages, if necessary.
-		</span><span class="kw">let </span>qed = <span class="string">&quot;We checked the limits versus our Schedule,
+		</span><span class="kw">let </span>qed = <span class="string">"We checked the limits versus our Schedule,
 					 which specifies the max amount of memory pages
-					 well below u16::MAX; qed&quot;</span>;
+					 well below u16::MAX; qed"</span>;
 		<span class="kw">let </span>memory = Memory::new(
 			<span class="kw-2">&amp;mut </span>store,
 			MemoryType::new(memory_limits.<span class="number">0</span>, <span class="prelude-val">Some</span>(memory_limits.<span class="number">1</span>)).expect(qed),
@@ -3908,12 +3910,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		.expect(qed);
 
 		linker
-			.define(<span class="string">&quot;env&quot;</span>, <span class="string">&quot;memory&quot;</span>, memory)
-			.expect(<span class="string">&quot;We just created the Linker. It has no definitions with this name; qed&quot;</span>);
+			.define(<span class="string">"env"</span>, <span class="string">"memory"</span>, memory)
+			.expect(<span class="string">"We just created the Linker. It has no definitions with this name; qed"</span>);
 
 		<span class="kw">let </span>instance = linker.instantiate(<span class="kw-2">&amp;mut </span>store, <span class="kw-2">&amp;</span>contract.module).map_err(|err| {
-			<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;failed to instantiate module: {:?}&quot;</span>, err);
-			<span class="string">&quot;can&#39;t instantiate module with provided definitions&quot;
+			<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"failed to instantiate module: {:?}"</span>, err);
+			<span class="string">"can't instantiate module with provided definitions"
 		</span>})<span class="question-mark">?</span>;
 
 		<span class="prelude-val">Ok</span>((store, memory, instance))
@@ -3960,10 +3962,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// # Note
 	///
-	/// This is useful for benchmarking where we don&#39;t want validation of the module to skew
+	/// This is useful for benchmarking where we don't want validation of the module to skew
 	/// our results. This also does not collect any deposit from the `owner`. Also useful
 	/// during testing when we want to deploy codes that do not pass the instantiation checks.
-	</span><span class="attr">#[cfg(any(test, feature = <span class="string">&quot;runtime-benchmarks&quot;</span>))]
+	</span><span class="attr">#[cfg(any(test, feature = <span class="string">"runtime-benchmarks"</span>))]
 	</span><span class="kw">pub fn </span>from_code_unchecked(
 		code: Vec&lt;u8&gt;,
 		schedule: <span class="kw-2">&amp;</span>Schedule&lt;T&gt;,
@@ -4008,26 +4010,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">use crate</span>::{ExecError, ExecReturnValue};
 <span class="kw">use </span>wasmi::Func;
-<span class="kw">enum </span>InstanceOrExecReturn&lt;<span class="lifetime">&#39;a</span>, E: Ext&gt; {
-	Instance((Func, Store&lt;Runtime&lt;<span class="lifetime">&#39;a</span>, E&gt;&gt;)),
+<span class="kw">enum </span>InstanceOrExecReturn&lt;<span class="lifetime">'a</span>, E: Ext&gt; {
+	Instance((Func, Store&lt;Runtime&lt;<span class="lifetime">'a</span>, E&gt;&gt;)),
 	ExecReturn(ExecReturnValue),
 }
 
-<span class="kw">type </span>PreExecResult&lt;<span class="lifetime">&#39;a</span>, E&gt; = <span class="prelude-ty">Result</span>&lt;InstanceOrExecReturn&lt;<span class="lifetime">&#39;a</span>, E&gt;, ExecError&gt;;
+<span class="kw">type </span>PreExecResult&lt;<span class="lifetime">'a</span>, E&gt; = <span class="prelude-ty">Result</span>&lt;InstanceOrExecReturn&lt;<span class="lifetime">'a</span>, E&gt;, ExecError&gt;;
 
 <span class="kw">impl</span>&lt;T: Config&gt; WasmBlob&lt;T&gt; {
-	<span class="doccomment">/// Sync the frame&#39;s gas meter with the engine&#39;s one.
+	<span class="doccomment">/// Sync the frame's gas meter with the engine's one.
 	</span><span class="kw">pub fn </span>process_result&lt;E: Ext&lt;T = T&gt;&gt;(
 		<span class="kw-2">mut </span>store: Store&lt;Runtime&lt;E&gt;&gt;,
 		result: <span class="prelude-ty">Result</span>&lt;(), wasmi::Error&gt;,
 	) -&gt; ExecResult {
-		<span class="kw">let </span>engine_consumed_total = store.fuel_consumed().expect(<span class="string">&quot;Fuel metering is enabled; qed&quot;</span>);
+		<span class="kw">let </span>engine_consumed_total = store.fuel_consumed().expect(<span class="string">"Fuel metering is enabled; qed"</span>);
 		<span class="kw">let </span>gas_meter = store.data_mut().ext().gas_meter_mut();
 		<span class="kw">let _ </span>= gas_meter.sync_from_executor(engine_consumed_total)<span class="question-mark">?</span>;
 		store.into_data().to_execution_result(result)
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">pub fn </span>bench_prepare_call&lt;E: Ext&lt;T = T&gt;&gt;(
 		<span class="self">self</span>,
 		ext: <span class="kw-2">&amp;mut </span>E,
@@ -4035,18 +4037,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; (Func, Store&lt;Runtime&lt;E&gt;&gt;) {
 		<span class="kw">use </span>InstanceOrExecReturn::<span class="kw-2">*</span>;
 		<span class="kw">match </span><span class="self">Self</span>::prepare_execute(<span class="self">self</span>, Runtime::new(ext, input_data), <span class="kw-2">&amp;</span>ExportedFunction::Call)
-			.expect(<span class="string">&quot;Benchmark should provide valid module&quot;</span>)
+			.expect(<span class="string">"Benchmark should provide valid module"</span>)
 		{
 			Instance((func, store)) =&gt; (func, store),
-			ExecReturn(<span class="kw">_</span>) =&gt; <span class="macro">panic!</span>(<span class="string">&quot;Expected Instance&quot;</span>),
+			ExecReturn(<span class="kw">_</span>) =&gt; <span class="macro">panic!</span>(<span class="string">"Expected Instance"</span>),
 		}
 	}
 
-	<span class="kw">fn </span>prepare_execute&lt;<span class="lifetime">&#39;a</span>, E: Ext&lt;T = T&gt;&gt;(
+	<span class="kw">fn </span>prepare_execute&lt;<span class="lifetime">'a</span>, E: Ext&lt;T = T&gt;&gt;(
 		<span class="self">self</span>,
-		runtime: Runtime&lt;<span class="lifetime">&#39;a</span>, E&gt;,
-		function: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ExportedFunction,
-	) -&gt; PreExecResult&lt;<span class="lifetime">&#39;a</span>, E&gt; {
+		runtime: Runtime&lt;<span class="lifetime">'a</span>, E&gt;,
+		function: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>ExportedFunction,
+	) -&gt; PreExecResult&lt;<span class="lifetime">'a</span>, E&gt; {
 		<span class="kw">let </span>code = <span class="self">self</span>.code.as_slice();
 		<span class="comment">// Instantiate the Wasm module to the engine.
 		</span><span class="kw">let </span>schedule = &lt;T&gt;::Schedule::get();
@@ -4058,7 +4060,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			LoadingMode::Unchecked,
 		)
 		.map_err(|err| {
-			<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;failed to create wasmi module: {err:?}&quot;</span>);
+			<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"failed to create wasmi module: {err:?}"</span>);
 			Error::&lt;T&gt;::CodeRejected
 		})<span class="question-mark">?</span>;
 
@@ -4072,7 +4074,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			},
 		)
 		.map_err(|msg| {
-			<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;failed to instantiate code to wasmi: {}&quot;</span>, msg);
+			<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"failed to instantiate code to wasmi: {}"</span>, msg);
 			Error::&lt;T&gt;::CodeRejected
 		})<span class="question-mark">?</span>;
 		store.data_mut().set_memory(memory);
@@ -4089,7 +4091,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.ok_or(Error::&lt;T&gt;::InvalidSchedule)<span class="question-mark">?</span>;
 		store
 			.add_fuel(fuel_limit)
-			.expect(<span class="string">&quot;We&#39;ve set up engine to fuel consuming mode; qed&quot;</span>);
+			.expect(<span class="string">"We've set up engine to fuel consuming mode; qed"</span>);
 
 		<span class="comment">// Start function should already see the correct refcount in case it will be ever inspected.
 		</span><span class="kw">if let </span><span class="kw-2">&amp;</span>ExportedFunction::Constructor = function {
@@ -4105,7 +4107,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					.get_export(<span class="kw-2">&amp;</span>store, function.identifier())
 					.and_then(|export| export.into_func())
 					.ok_or_else(|| {
-						<span class="macro">log::error!</span>(target: LOG_TARGET, <span class="string">&quot;failed to find entry point&quot;</span>);
+						<span class="macro">log::error!</span>(target: LOG_TARGET, <span class="string">"failed to find entry point"</span>);
 						Error::&lt;T&gt;::CodeRejected
 					})<span class="question-mark">?</span>;
 
@@ -4528,7 +4530,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// In our test config unstable functions are disabled so that we can test them.
 	/// In order to test that code using them is properly rejected we temporarily disable
 	/// them when this test is run.
-	</span><span class="attr">#[cfg(not(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>))]
+	</span><span class="attr">#[cfg(not(feature = <span class="string">"runtime-benchmarks"</span>))]
 	</span><span class="kw">fn </span>execute_no_unstable&lt;E: BorrowMut&lt;MockExt&gt;&gt;(
 		wat: <span class="kw-2">&amp;</span>str,
 		input_data: Vec&lt;u8&gt;,
@@ -4552,7 +4554,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Execute instantiation entry point of code without validating it first.
 	///
 	/// Same as `execute_unvalidated` except that the `deploy` entry point is ran.
-	</span><span class="attr">#[cfg(not(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>))]
+	</span><span class="attr">#[cfg(not(feature = <span class="string">"runtime-benchmarks"</span>))]
 	</span><span class="kw">fn </span>execute_instantiate_unvalidated&lt;E: BorrowMut&lt;MockExt&gt;&gt;(
 		wat: <span class="kw-2">&amp;</span>str,
 		input_data: Vec&lt;u8&gt;,
@@ -4561,7 +4563,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		execute_internal(wat, input_data, ext, <span class="kw-2">&amp;</span>ExportedFunction::Constructor, <span class="bool-val">false</span>, <span class="bool-val">true</span>)
 	}
 
-	<span class="kw">const </span>CODE_TRANSFER: <span class="kw-2">&amp;</span>str = <span class="string">r#&quot;
+	<span class="kw">const </span>CODE_TRANSFER: <span class="kw-2">&amp;</span>str = <span class="string">r#"
 (module
 	;; seal_transfer(
 	;;    account_ptr: u32,
@@ -4569,31 +4571,31 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	;;    value_ptr: u32,
 	;;    value_len: u32,
 	;;) -&gt; u32
-	(import &quot;seal0&quot; &quot;seal_transfer&quot; (func $seal_transfer (param i32 i32 i32 i32) (result i32)))
-	(import &quot;env&quot; &quot;memory&quot; (memory 1 1))
-	(func (export &quot;call&quot;)
+	(import "seal0" "seal_transfer" (func $seal_transfer (param i32 i32 i32 i32) (result i32)))
+	(import "env" "memory" (memory 1 1))
+	(func (export "call")
 		(drop
 			(call $seal_transfer
-				(i32.const 4)  ;; Pointer to &quot;account&quot; address.
-				(i32.const 32)  ;; Length of &quot;account&quot; address.
+				(i32.const 4)  ;; Pointer to "account" address.
+				(i32.const 32)  ;; Length of "account" address.
 				(i32.const 36) ;; Pointer to the buffer with value to transfer
 				(i32.const 8)  ;; Length of the buffer with value to transfer.
 			)
 		)
 	)
-	(func (export &quot;deploy&quot;))
+	(func (export "deploy"))
 
 	;; Destination AccountId (ALICE)
 	(data (i32.const 4)
-		&quot;\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01&quot;
-		&quot;\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01&quot;
+		"\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01"
+		"\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01"
 	)
 
 	;; Amount of value to transfer.
 	;; Represented by u64 (8 bytes long) in little endian.
-	(data (i32.const 36) &quot;\99\00\00\00\00\00\00\00&quot;)
+	(data (i32.const 36) "\99\00\00\00\00\00\00\00")
 )
-&quot;#</span>;
+"#</span>;
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>contract_transfer() {
@@ -4603,7 +4605,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span>mock_ext.transfers, <span class="kw-2">&amp;</span>[TransferEntry { to: ALICE, value: <span class="number">153 </span>}]);
 	}
 
-	<span class="kw">const </span>CODE_CALL: <span class="kw-2">&amp;</span>str = <span class="string">r#&quot;
+	<span class="kw">const </span>CODE_CALL: <span class="kw-2">&amp;</span>str = <span class="string">r#"
 (module
 	;; seal_call(
 	;;    callee_ptr: u32,
@@ -4616,13 +4618,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	;;    output_ptr: u32,
 	;;    output_len_ptr: u32
 	;;) -&gt; u32
-	(import &quot;seal0&quot; &quot;seal_call&quot; (func $seal_call (param i32 i32 i64 i32 i32 i32 i32 i32 i32) (result i32)))
-	(import &quot;env&quot; &quot;memory&quot; (memory 1 1))
-	(func (export &quot;call&quot;)
+	(import "seal0" "seal_call" (func $seal_call (param i32 i32 i64 i32 i32 i32 i32 i32 i32) (result i32)))
+	(import "env" "memory" (memory 1 1))
+	(func (export "call")
 		(drop
 			(call $seal_call
-				(i32.const 4)  ;; Pointer to &quot;callee&quot; address.
-				(i32.const 32)  ;; Length of &quot;callee&quot; address.
+				(i32.const 4)  ;; Pointer to "callee" address.
+				(i32.const 32)  ;; Length of "callee" address.
 				(i64.const 0)  ;; How much gas to devote for the execution. 0 = all.
 				(i32.const 36) ;; Pointer to the buffer with value to transfer
 				(i32.const 8)  ;; Length of the buffer with value to transfer.
@@ -4633,21 +4635,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			)
 		)
 	)
-	(func (export &quot;deploy&quot;))
+	(func (export "deploy"))
 
 	;; Destination AccountId (ALICE)
 	(data (i32.const 4)
-		&quot;\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01&quot;
-		&quot;\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01&quot;
+		"\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01"
+		"\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01"
 	)
 
 	;; Amount of value to transfer.
 	;; Represented by u64 (8 bytes long) in little endian.
-	(data (i32.const 36) &quot;\06\00\00\00\00\00\00\00&quot;)
+	(data (i32.const 36) "\06\00\00\00\00\00\00\00")
 
-	(data (i32.const 44) &quot;\01\02\03\04&quot;)
+	(data (i32.const 44) "\01\02\03\04")
 )
-&quot;#</span>;
+"#</span>;
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>contract_call() {
@@ -4662,7 +4664,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>contract_delegate_call() {
-		<span class="kw">const </span>CODE: <span class="kw-2">&amp;</span>str = <span class="string">r#&quot;
+		<span class="kw">const </span>CODE: <span class="kw-2">&amp;</span>str = <span class="string">r#"
 (module
 	;; seal_delegate_call(
 	;;    flags: u32,
@@ -4672,13 +4674,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	;;    output_ptr: u32,
 	;;    output_len_ptr: u32
 	;;) -&gt; u32
-	(import &quot;seal0&quot; &quot;seal_delegate_call&quot; (func $seal_delegate_call (param i32 i32 i32 i32 i32 i32) (result i32)))
-	(import &quot;env&quot; &quot;memory&quot; (memory 1 1))
-	(func (export &quot;call&quot;)
+	(import "seal0" "seal_delegate_call" (func $seal_delegate_call (param i32 i32 i32 i32 i32 i32) (result i32)))
+	(import "env" "memory" (memory 1 1))
+	(func (export "call")
 		(drop
 			(call $seal_delegate_call
 				(i32.const 0) ;; No flags are set
-				(i32.const 4)  ;; Pointer to &quot;callee&quot; code_hash.
+				(i32.const 4)  ;; Pointer to "callee" code_hash.
 				(i32.const 36) ;; Pointer to input data buffer address
 				(i32.const 4)  ;; Length of input data buffer
 				(i32.const 4294967295) ;; u32 max value is the sentinel value: do not copy output
@@ -4686,17 +4688,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			)
 		)
 	)
-	(func (export &quot;deploy&quot;))
+	(func (export "deploy"))
 
 	;; Callee code_hash
 	(data (i32.const 4)
-		&quot;\11\11\11\11\11\11\11\11\11\11\11\11\11\11\11\11&quot;
-		&quot;\11\11\11\11\11\11\11\11\11\11\11\11\11\11\11\11&quot;
+		"\11\11\11\11\11\11\11\11\11\11\11\11\11\11\11\11"
+		"\11\11\11\11\11\11\11\11\11\11\11\11\11\11\11\11"
 	)
 
-	(data (i32.const 36) &quot;\01\02\03\04&quot;)
+	(data (i32.const 36) "\01\02\03\04")
 )
-&quot;#</span>;
+"#</span>;
 		<span class="kw">let </span><span class="kw-2">mut </span>mock_ext = MockExt::default();
 		<span class="macro">assert_ok!</span>(execute(CODE, <span class="macro">vec!</span>[], <span class="kw-2">&amp;mut </span>mock_ext));
 
@@ -4708,16 +4710,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>contract_call_forward_input() {
-		<span class="kw">const </span>CODE: <span class="kw-2">&amp;</span>str = <span class="string">r#&quot;
+		<span class="kw">const </span>CODE: <span class="kw-2">&amp;</span>str = <span class="string">r#"
 (module
-	(import &quot;seal1&quot; &quot;seal_call&quot; (func $seal_call (param i32 i32 i64 i32 i32 i32 i32 i32) (result i32)))
-	(import &quot;seal0&quot; &quot;seal_input&quot; (func $seal_input (param i32 i32)))
-	(import &quot;env&quot; &quot;memory&quot; (memory 1 1))
-	(func (export &quot;call&quot;)
+	(import "seal1" "seal_call" (func $seal_call (param i32 i32 i64 i32 i32 i32 i32 i32) (result i32)))
+	(import "seal0" "seal_input" (func $seal_input (param i32 i32)))
+	(import "env" "memory" (memory 1 1))
+	(func (export "call")
 		(drop
 			(call $seal_call
 				(i32.const 1) ;; Set FORWARD_INPUT bit
-				(i32.const 4)  ;; Pointer to &quot;callee&quot; address.
+				(i32.const 4)  ;; Pointer to "callee" address.
 				(i64.const 0)  ;; How much gas to devote for the execution. 0 = all.
 				(i32.const 36) ;; Pointer to the buffer with value to transfer
 				(i32.const 44) ;; Pointer to input data buffer address
@@ -4731,22 +4733,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		(call $seal_input (i32.const 1) (i32.const 44))
 	)
 
-	(func (export &quot;deploy&quot;))
+	(func (export "deploy"))
 
 	;; Destination AccountId (ALICE)
 	(data (i32.const 4)
-		&quot;\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01&quot;
-		&quot;\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01&quot;
+		"\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01"
+		"\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01"
 	)
 
 	;; Amount of value to transfer.
 	;; Represented by u64 (8 bytes long) in little endian.
-	(data (i32.const 36) &quot;\2A\00\00\00\00\00\00\00&quot;)
+	(data (i32.const 36) "\2A\00\00\00\00\00\00\00")
 
 	;; The input is ignored because we forward our own input
-	(data (i32.const 44) &quot;\01\02\03\04&quot;)
+	(data (i32.const 44) "\01\02\03\04")
 )
-&quot;#</span>;
+"#</span>;
 		<span class="kw">let </span><span class="kw-2">mut </span>mock_ext = MockExt::default();
 		<span class="kw">let </span>input = <span class="macro">vec!</span>[<span class="number">0xff</span>, <span class="number">0x2a</span>, <span class="number">0x99</span>, <span class="number">0x88</span>];
 		<span class="macro">assert_err!</span>(execute(CODE, input.clone(), <span class="kw-2">&amp;mut </span>mock_ext), &lt;Error&lt;Test&gt;&gt;::InputForwarded,);
@@ -4759,17 +4761,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>contract_call_clone_input() {
-		<span class="kw">const </span>CODE: <span class="kw-2">&amp;</span>str = <span class="string">r#&quot;
+		<span class="kw">const </span>CODE: <span class="kw-2">&amp;</span>str = <span class="string">r#"
 (module
-	(import &quot;seal1&quot; &quot;seal_call&quot; (func $seal_call (param i32 i32 i64 i32 i32 i32 i32 i32) (result i32)))
-	(import &quot;seal0&quot; &quot;seal_input&quot; (func $seal_input (param i32 i32)))
-	(import &quot;seal0&quot; &quot;seal_return&quot; (func $seal_return (param i32 i32 i32)))
-	(import &quot;env&quot; &quot;memory&quot; (memory 1 1))
-	(func (export &quot;call&quot;)
+	(import "seal1" "seal_call" (func $seal_call (param i32 i32 i64 i32 i32 i32 i32 i32) (result i32)))
+	(import "seal0" "seal_input" (func $seal_input (param i32 i32)))
+	(import "seal0" "seal_return" (func $seal_return (param i32 i32 i32)))
+	(import "env" "memory" (memory 1 1))
+	(func (export "call")
 		(drop
 			(call $seal_call
 				(i32.const 11) ;; Set FORWARD_INPUT | CLONE_INPUT | ALLOW_REENTRY bits
-				(i32.const 4)  ;; Pointer to &quot;callee&quot; address.
+				(i32.const 4)  ;; Pointer to "callee" address.
 				(i64.const 0)  ;; How much gas to devote for the execution. 0 = all.
 				(i32.const 36) ;; Pointer to the buffer with value to transfer
 				(i32.const 44) ;; Pointer to input data buffer address
@@ -4786,22 +4788,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		(call $seal_return (i32.const 0) (i32.const 0) (i32.load (i32.const 44)))
 	)
 
-	(func (export &quot;deploy&quot;))
+	(func (export "deploy"))
 
 	;; Destination AccountId (ALICE)
 	(data (i32.const 4)
-		&quot;\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01&quot;
-		&quot;\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01&quot;
+		"\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01"
+		"\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01"
 	)
 
 	;; Amount of value to transfer.
 	;; Represented by u64 (8 bytes long) in little endian.
-	(data (i32.const 36) &quot;\2A\00\00\00\00\00\00\00&quot;)
+	(data (i32.const 36) "\2A\00\00\00\00\00\00\00")
 
 	;; The input is ignored because we forward our own input
-	(data (i32.const 44) &quot;\01\02\03\04&quot;)
+	(data (i32.const 44) "\01\02\03\04")
 )
-&quot;#</span>;
+"#</span>;
 		<span class="kw">let </span><span class="kw-2">mut </span>mock_ext = MockExt::default();
 		<span class="kw">let </span>input = <span class="macro">vec!</span>[<span class="number">0xff</span>, <span class="number">0x2a</span>, <span class="number">0x99</span>, <span class="number">0x88</span>];
 		<span class="kw">let </span>result = execute(CODE, input.clone(), <span class="kw-2">&amp;mut </span>mock_ext).unwrap();
@@ -4814,15 +4816,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>contract_call_tail_call() {
-		<span class="kw">const </span>CODE: <span class="kw-2">&amp;</span>str = <span class="string">r#&quot;
+		<span class="kw">const </span>CODE: <span class="kw-2">&amp;</span>str = <span class="string">r#"
 (module
-	(import &quot;seal1&quot; &quot;seal_call&quot; (func $seal_call (param i32 i32 i64 i32 i32 i32 i32 i32) (result i32)))
-	(import &quot;env&quot; &quot;memory&quot; (memory 1 1))
-	(func (export &quot;call&quot;)
+	(import "seal1" "seal_call" (func $seal_call (param i32 i32 i64 i32 i32 i32 i32 i32) (result i32)))
+	(import "env" "memory" (memory 1 1))
+	(func (export "call")
 		(drop
 			(call $seal_call
 				(i32.const 5) ;; Set FORWARD_INPUT | TAIL_CALL bit
-				(i32.const 4)  ;; Pointer to &quot;callee&quot; address.
+				(i32.const 4)  ;; Pointer to "callee" address.
 				(i64.const 0)  ;; How much gas to devote for the execution. 0 = all.
 				(i32.const 36) ;; Pointer to the buffer with value to transfer
 				(i32.const 0) ;; Pointer to input data buffer address
@@ -4836,19 +4838,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		(unreachable)
 	)
 
-	(func (export &quot;deploy&quot;))
+	(func (export "deploy"))
 
 	;; Destination AccountId (ALICE)
 	(data (i32.const 4)
-		&quot;\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01&quot;
-		&quot;\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01&quot;
+		"\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01"
+		"\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01"
 	)
 
 	;; Amount of value to transfer.
 	;; Represented by u64 (8 bytes long) in little endian.
-	(data (i32.const 36) &quot;\2A\00\00\00\00\00\00\00&quot;)
+	(data (i32.const 36) "\2A\00\00\00\00\00\00\00")
 )
-&quot;#</span>;
+"#</span>;
 		<span class="kw">let </span><span class="kw-2">mut </span>mock_ext = MockExt::default();
 		<span class="kw">let </span>input = <span class="macro">vec!</span>[<span class="number">0xff</span>, <span class="number">0x2a</span>, <span class="number">0x99</span>, <span class="number">0x88</span>];
 		<span class="kw">let </span>result = execute(CODE, input.clone(), <span class="kw-2">&amp;mut </span>mock_ext).unwrap();
@@ -4861,21 +4863,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>contains_storage_works() {
-		<span class="kw">const </span>CODE: <span class="kw-2">&amp;</span>str = <span class="string">r#&quot;
+		<span class="kw">const </span>CODE: <span class="kw-2">&amp;</span>str = <span class="string">r#"
 (module
-	(import &quot;seal0&quot; &quot;seal_return&quot; (func $seal_return (param i32 i32 i32)))
-	(import &quot;seal0&quot; &quot;seal_input&quot; (func $seal_input (param i32 i32)))
-	(import &quot;seal1&quot; &quot;contains_storage&quot; (func $contains_storage (param i32 i32) (result i32)))
-	(import &quot;env&quot; &quot;memory&quot; (memory 1 1))
+	(import "seal0" "seal_return" (func $seal_return (param i32 i32 i32)))
+	(import "seal0" "seal_input" (func $seal_input (param i32 i32)))
+	(import "seal1" "contains_storage" (func $contains_storage (param i32 i32) (result i32)))
+	(import "env" "memory" (memory 1 1))
 
 
 	;; size of input buffer
 	;; [0, 4) size of input buffer (128+32 = 160 bytes = 0xA0)
-	(data (i32.const 0) &quot;\A0&quot;)
+	(data (i32.const 0) "\A0")
 
 	;; [4, 164) input buffer
 
-	(func (export &quot;call&quot;)
+	(func (export "call")
 		;; Receive key
 		(call $seal_input
 			(i32.const 4)	;; Where we take input and store it
@@ -4895,9 +4897,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		)
 	)
 
-	(func (export &quot;deploy&quot;))
+	(func (export "deploy"))
 )
-&quot;#</span>;
+"#</span>;
 
 		<span class="kw">let </span><span class="kw-2">mut </span>ext = MockExt::default();
 		ext.set_storage(
@@ -4936,7 +4938,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="macro">assert_eq!</span>(ext.storage.get(<span class="kw-2">&amp;</span>[<span class="number">2u8</span>; <span class="number">19</span>].to_vec()).unwrap(), <span class="kw-2">&amp;</span>([] <span class="kw">as </span>[u8; <span class="number">0</span>]));
 	}
 
-	<span class="kw">const </span>CODE_INSTANTIATE: <span class="kw-2">&amp;</span>str = <span class="string">r#&quot;
+	<span class="kw">const </span>CODE_INSTANTIATE: <span class="kw-2">&amp;</span>str = <span class="string">r#"
 (module
 	;; seal_instantiate(
 	;;     code_ptr: u32,
@@ -4952,11 +4954,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	;;     output_ptr: u32,
 	;;     output_len_ptr: u32
 	;; ) -&gt; u32
-	(import &quot;seal0&quot; &quot;seal_instantiate&quot; (func $seal_instantiate
+	(import "seal0" "seal_instantiate" (func $seal_instantiate
 		(param i32 i32 i64 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32) (result i32)
 	))
-	(import &quot;env&quot; &quot;memory&quot; (memory 1 1))
-	(func (export &quot;call&quot;)
+	(import "env" "memory" (memory 1 1))
+	(func (export "call")
 		(drop
 			(call $seal_instantiate
 				(i32.const 16)   ;; Pointer to `code_hash`
@@ -4975,22 +4977,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			)
 		)
 	)
-	(func (export &quot;deploy&quot;))
+	(func (export "deploy"))
 
 	;; Salt
-	(data (i32.const 0) &quot;\42\43\44\45&quot;)
+	(data (i32.const 0) "\42\43\44\45")
 	;; Amount of value to transfer.
 	;; Represented by u64 (8 bytes long) in little endian.
-	(data (i32.const 4) &quot;\03\00\00\00\00\00\00\00&quot;)
+	(data (i32.const 4) "\03\00\00\00\00\00\00\00")
 	;; Input data to pass to the contract being instantiated.
-	(data (i32.const 12) &quot;\01\02\03\04&quot;)
+	(data (i32.const 12) "\01\02\03\04")
 	;; Hash of code.
 	(data (i32.const 16)
-		&quot;\11\11\11\11\11\11\11\11\11\11\11\11\11\11\11\11&quot;
-		&quot;\11\11\11\11\11\11\11\11\11\11\11\11\11\11\11\11&quot;
+		"\11\11\11\11\11\11\11\11\11\11\11\11\11\11\11\11"
+		"\11\11\11\11\11\11\11\11\11\11\11\11\11\11\11\11"
 	)
 )
-&quot;#</span>;
+"#</span>;
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>contract_instantiate() {
@@ -5012,29 +5014,29 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		);
 	}
 
-	<span class="kw">const </span>CODE_TERMINATE: <span class="kw-2">&amp;</span>str = <span class="string">r#&quot;
+	<span class="kw">const </span>CODE_TERMINATE: <span class="kw-2">&amp;</span>str = <span class="string">r#"
 (module
 	;; seal_terminate(
 	;;     beneficiary_ptr: u32,
 	;;     beneficiary_len: u32,
 	;; )
-	(import &quot;seal0&quot; &quot;seal_terminate&quot; (func $seal_terminate (param i32 i32)))
-	(import &quot;env&quot; &quot;memory&quot; (memory 1 1))
-	(func (export &quot;call&quot;)
+	(import "seal0" "seal_terminate" (func $seal_terminate (param i32 i32)))
+	(import "env" "memory" (memory 1 1))
+	(func (export "call")
 		(call $seal_terminate
-			(i32.const 4)  ;; Pointer to &quot;beneficiary&quot; address.
-			(i32.const 32)  ;; Length of &quot;beneficiary&quot; address.
+			(i32.const 4)  ;; Pointer to "beneficiary" address.
+			(i32.const 32)  ;; Length of "beneficiary" address.
 		)
 	)
-	(func (export &quot;deploy&quot;))
+	(func (export "deploy"))
 
 	;; Beneficiary AccountId to transfer the funds.
 	(data (i32.const 4)
-		&quot;\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01&quot;
-		&quot;\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01&quot;
+		"\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01"
+		"\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01"
 	)
 )
-&quot;#</span>;
+"#</span>;
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>contract_terminate() {
@@ -5044,7 +5046,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span>mock_ext.terminations, <span class="kw-2">&amp;</span>[TerminationEntry { beneficiary: ALICE }]);
 	}
 
-	<span class="kw">const </span>CODE_TRANSFER_LIMITED_GAS: <span class="kw-2">&amp;</span>str = <span class="string">r#&quot;
+	<span class="kw">const </span>CODE_TRANSFER_LIMITED_GAS: <span class="kw-2">&amp;</span>str = <span class="string">r#"
 (module
 	;; seal_call(
 	;;    callee_ptr: u32,
@@ -5057,13 +5059,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	;;    output_ptr: u32,
 	;;    output_len_ptr: u32
 	;;) -&gt; u32
-	(import &quot;seal0&quot; &quot;seal_call&quot; (func $seal_call (param i32 i32 i64 i32 i32 i32 i32 i32 i32) (result i32)))
-	(import &quot;env&quot; &quot;memory&quot; (memory 1 1))
-	(func (export &quot;call&quot;)
+	(import "seal0" "seal_call" (func $seal_call (param i32 i32 i64 i32 i32 i32 i32 i32 i32) (result i32)))
+	(import "env" "memory" (memory 1 1))
+	(func (export "call")
 		(drop
 			(call $seal_call
-				(i32.const 4)  ;; Pointer to &quot;callee&quot; address.
-				(i32.const 32)  ;; Length of &quot;callee&quot; address.
+				(i32.const 4)  ;; Pointer to "callee" address.
+				(i32.const 32)  ;; Length of "callee" address.
 				(i64.const 228)  ;; How much gas to devote for the execution.
 				(i32.const 36)  ;; Pointer to the buffer with value to transfer
 				(i32.const 8)   ;; Length of the buffer with value to transfer.
@@ -5074,20 +5076,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			)
 		)
 	)
-	(func (export &quot;deploy&quot;))
+	(func (export "deploy"))
 
 	;; Destination AccountId to transfer the funds.
 	(data (i32.const 4)
-		&quot;\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01&quot;
-		&quot;\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01&quot;
+		"\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01"
+		"\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01"
 	)
 	;; Amount of value to transfer.
 	;; Represented by u64 (8 bytes long) in little endian.
-	(data (i32.const 36) &quot;\06\00\00\00\00\00\00\00&quot;)
+	(data (i32.const 36) "\06\00\00\00\00\00\00\00")
 
-	(data (i32.const 44) &quot;\01\02\03\04&quot;)
+	(data (i32.const 44) "\01\02\03\04")
 )
-&quot;#</span>;
+"#</span>;
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>contract_call_limited_gas() {
@@ -5100,16 +5102,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		);
 	}
 
-	<span class="kw">const </span>CODE_ECDSA_RECOVER: <span class="kw-2">&amp;</span>str = <span class="string">r#&quot;
+	<span class="kw">const </span>CODE_ECDSA_RECOVER: <span class="kw-2">&amp;</span>str = <span class="string">r#"
 (module
 	;; seal_ecdsa_recover(
 	;;    signature_ptr: u32,
 	;;    message_hash_ptr: u32,
 	;;    output_ptr: u32
 	;; ) -&gt; u32
-	(import &quot;seal0&quot; &quot;seal_ecdsa_recover&quot; (func $seal_ecdsa_recover (param i32 i32 i32) (result i32)))
-	(import &quot;env&quot; &quot;memory&quot; (memory 1 1))
-	(func (export &quot;call&quot;)
+	(import "seal0" "seal_ecdsa_recover" (func $seal_ecdsa_recover (param i32 i32 i32) (result i32)))
+	(import "env" "memory" (memory 1 1))
+	(func (export "call")
 		(drop
 			(call $seal_ecdsa_recover
 				(i32.const 36) ;; Pointer to signature.
@@ -5118,23 +5120,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			)
 		)
 	)
-	(func (export &quot;deploy&quot;))
+	(func (export "deploy"))
 
 	;; Hash of message.
 	(data (i32.const 4)
-		&quot;\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01&quot;
-		&quot;\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01&quot;
+		"\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01"
+		"\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01"
 	)
 	;; Signature
 	(data (i32.const 36)
-		&quot;\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01&quot;
-		&quot;\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01&quot;
-		&quot;\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01&quot;
-		&quot;\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01&quot;
-		&quot;\01&quot;
+		"\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01"
+		"\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01"
+		"\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01"
+		"\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01"
+		"\01"
 	)
 )
-&quot;#</span>;
+"#</span>;
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>contract_ecdsa_recover() {
@@ -5147,13 +5149,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>contract_ecdsa_to_eth_address() {
 		<span class="doccomment">/// calls `seal_ecdsa_to_eth_address` for the constant and ensures the result equals the
 		/// expected one.
-		</span><span class="kw">const </span>CODE_ECDSA_TO_ETH_ADDRESS: <span class="kw-2">&amp;</span>str = <span class="string">r#&quot;
+		</span><span class="kw">const </span>CODE_ECDSA_TO_ETH_ADDRESS: <span class="kw-2">&amp;</span>str = <span class="string">r#"
 (module
-	(import &quot;seal0&quot; &quot;seal_ecdsa_to_eth_address&quot; (func $seal_ecdsa_to_eth_address (param i32 i32) (result i32)))
-	(import &quot;seal0&quot; &quot;seal_return&quot; (func $seal_return (param i32 i32 i32)))
-	(import &quot;env&quot; &quot;memory&quot; (memory 1 1))
+	(import "seal0" "seal_ecdsa_to_eth_address" (func $seal_ecdsa_to_eth_address (param i32 i32) (result i32)))
+	(import "seal0" "seal_return" (func $seal_return (param i32 i32 i32)))
+	(import "env" "memory" (memory 1 1))
 
-	(func (export &quot;call&quot;)
+	(func (export "call")
 		;; fill the buffer with the eth address.
 		(call $seal_ecdsa_to_eth_address (i32.const 0) (i32.const 0))
 
@@ -5164,12 +5166,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			(i32.const 20)
 		)
 
-		;; seal_return doesn&#39;t return, so this is effectively unreachable.
+		;; seal_return doesn't return, so this is effectively unreachable.
 		(unreachable)
 	)
-	(func (export &quot;deploy&quot;))
+	(func (export "deploy"))
 )
-&quot;#</span>;
+"#</span>;
 
 		<span class="kw">let </span>output = execute(CODE_ECDSA_TO_ETH_ADDRESS, <span class="macro">vec!</span>[], MockExt::default()).unwrap();
 		<span class="macro">assert_eq!</span>(
@@ -5180,11 +5182,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>contract_sr25519() {
-		<span class="kw">const </span>CODE_SR25519: <span class="kw-2">&amp;</span>str = <span class="string">r#&quot;
+		<span class="kw">const </span>CODE_SR25519: <span class="kw-2">&amp;</span>str = <span class="string">r#"
 (module
-	(import &quot;seal0&quot; &quot;sr25519_verify&quot; (func $sr25519_verify (param i32 i32 i32 i32) (result i32)))
-	(import &quot;env&quot; &quot;memory&quot; (memory 1 1))
-	(func (export &quot;call&quot;)
+	(import "seal0" "sr25519_verify" (func $sr25519_verify (param i32 i32 i32 i32) (result i32)))
+	(import "env" "memory" (memory 1 1))
+	(func (export "call")
 		(drop
 			(call $sr25519_verify
 				(i32.const 0) ;; Pointer to signature.
@@ -5194,47 +5196,47 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			)
 		)
 	)
-	(func (export &quot;deploy&quot;))
+	(func (export "deploy"))
 
 	;; Signature (64 bytes)
 	(data (i32.const 0)
-		&quot;\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01&quot;
-		&quot;\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01&quot;
-		&quot;\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01&quot;
-		&quot;\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01&quot;
+		"\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01"
+		"\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01"
+		"\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01"
+		"\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01"
 	)
 
 	;;  public key (32 bytes)
 	(data (i32.const 64)
-		&quot;\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01&quot;
-		&quot;\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01&quot;
+		"\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01"
+		"\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01"
 	)
 
 	;;  message. (16 bytes)
 	(data (i32.const 96)
-		&quot;\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01&quot;
+		"\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01"
 	)
 )
-&quot;#</span>;
+"#</span>;
 		<span class="kw">let </span><span class="kw-2">mut </span>mock_ext = MockExt::default();
 		<span class="macro">assert_ok!</span>(execute(<span class="kw-2">&amp;</span>CODE_SR25519, <span class="macro">vec!</span>[], <span class="kw-2">&amp;mut </span>mock_ext));
 		<span class="macro">assert_eq!</span>(mock_ext.sr25519_verify.into_inner(), [([<span class="number">1</span>; <span class="number">64</span>], [<span class="number">1</span>; <span class="number">16</span>].to_vec(), [<span class="number">1</span>; <span class="number">32</span>])]);
 	}
 
-	<span class="kw">const </span>CODE_GET_STORAGE: <span class="kw-2">&amp;</span>str = <span class="string">r#&quot;
+	<span class="kw">const </span>CODE_GET_STORAGE: <span class="kw-2">&amp;</span>str = <span class="string">r#"
 (module
-	(import &quot;seal0&quot; &quot;seal_get_storage&quot; (func $seal_get_storage (param i32 i32 i32) (result i32)))
-	(import &quot;seal0&quot; &quot;seal_return&quot; (func $seal_return (param i32 i32 i32)))
-	(import &quot;env&quot; &quot;memory&quot; (memory 1 1))
+	(import "seal0" "seal_get_storage" (func $seal_get_storage (param i32 i32 i32) (result i32)))
+	(import "seal0" "seal_return" (func $seal_return (param i32 i32 i32)))
+	(import "env" "memory" (memory 1 1))
 
 	;; [0, 32) key for get storage
 	(data (i32.const 0)
-		&quot;\11\11\11\11\11\11\11\11\11\11\11\11\11\11\11\11&quot;
-		&quot;\11\11\11\11\11\11\11\11\11\11\11\11\11\11\11\11&quot;
+		"\11\11\11\11\11\11\11\11\11\11\11\11\11\11\11\11"
+		"\11\11\11\11\11\11\11\11\11\11\11\11\11\11\11\11"
 	)
 
 	;; [32, 36) buffer size = 4k in little endian
-	(data (i32.const 32) &quot;\00\10&quot;)
+	(data (i32.const 32) "\00\10")
 
 	;; [36; inf) buffer where the result is copied
 
@@ -5247,7 +5249,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		)
 	)
 
-	(func (export &quot;call&quot;)
+	(func (export "call")
 		(local $buf_size i32)
 
 		;; Load a storage value into contract memory.
@@ -5277,13 +5279,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			(local.get $buf_size)
 		)
 
-		;; env:seal_return doesn&#39;t return, so this is effectively unreachable.
+		;; env:seal_return doesn't return, so this is effectively unreachable.
 		(unreachable)
 	)
 
-	(func (export &quot;deploy&quot;))
+	(func (export "deploy"))
 )
-&quot;#</span>;
+"#</span>;
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>get_storage_puts_data_into_buf() {
@@ -5298,14 +5300,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		);
 	}
 
-	<span class="doccomment">/// calls `seal_caller` and compares the result with the constant (ALICE&#39;s address part).
-	</span><span class="kw">const </span>CODE_CALLER: <span class="kw-2">&amp;</span>str = <span class="string">r#&quot;
+	<span class="doccomment">/// calls `seal_caller` and compares the result with the constant (ALICE's address part).
+	</span><span class="kw">const </span>CODE_CALLER: <span class="kw-2">&amp;</span>str = <span class="string">r#"
 (module
-	(import &quot;seal0&quot; &quot;seal_caller&quot; (func $seal_caller (param i32 i32)))
-	(import &quot;env&quot; &quot;memory&quot; (memory 1 1))
+	(import "seal0" "seal_caller" (func $seal_caller (param i32 i32)))
+	(import "env" "memory" (memory 1 1))
 
 	;; size of our buffer is 32 bytes
-	(data (i32.const 32) &quot;\20&quot;)
+	(data (i32.const 32) "\20")
 
 	(func $assert (param i32)
 		(block $ok
@@ -5316,7 +5318,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		)
 	)
 
-	(func (export &quot;call&quot;)
+	(func (export "call")
 		;; fill the buffer with the caller.
 		(call $seal_caller (i32.const 0) (i32.const 32))
 
@@ -5328,7 +5330,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			)
 		)
 
-		;; assert that the first 8 bytes are the beginning of &quot;ALICE&quot;
+		;; assert that the first 8 bytes are the beginning of "ALICE"
 		(call $assert
 			(i64.eq
 				(i64.load (i32.const 0))
@@ -5337,9 +5339,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		)
 	)
 
-	(func (export &quot;deploy&quot;))
+	(func (export "deploy"))
 )
-&quot;#</span>;
+"#</span>;
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>caller() {
@@ -5356,14 +5358,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		);
 	}
 
-	<span class="doccomment">/// calls `seal_address` and compares the result with the constant (BOB&#39;s address part).
-	</span><span class="kw">const </span>CODE_ADDRESS: <span class="kw-2">&amp;</span>str = <span class="string">r#&quot;
+	<span class="doccomment">/// calls `seal_address` and compares the result with the constant (BOB's address part).
+	</span><span class="kw">const </span>CODE_ADDRESS: <span class="kw-2">&amp;</span>str = <span class="string">r#"
 (module
-	(import &quot;seal0&quot; &quot;seal_address&quot; (func $seal_address (param i32 i32)))
-	(import &quot;env&quot; &quot;memory&quot; (memory 1 1))
+	(import "seal0" "seal_address" (func $seal_address (param i32 i32)))
+	(import "env" "memory" (memory 1 1))
 
 	;; size of our buffer is 32 bytes
-	(data (i32.const 32) &quot;\20&quot;)
+	(data (i32.const 32) "\20")
 
 	(func $assert (param i32)
 		(block $ok
@@ -5374,7 +5376,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		)
 	)
 
-	(func (export &quot;call&quot;)
+	(func (export "call")
 		;; fill the buffer with the self address.
 		(call $seal_address (i32.const 0) (i32.const 32))
 
@@ -5386,7 +5388,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			)
 		)
 
-		;; assert that the first 8 bytes are the beginning of &quot;BOB&quot;
+		;; assert that the first 8 bytes are the beginning of "BOB"
 		(call $assert
 			(i64.eq
 				(i64.load (i32.const 0))
@@ -5395,22 +5397,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		)
 	)
 
-	(func (export &quot;deploy&quot;))
+	(func (export "deploy"))
 )
-&quot;#</span>;
+"#</span>;
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>address() {
 		<span class="macro">assert_ok!</span>(execute(CODE_ADDRESS, <span class="macro">vec!</span>[], MockExt::default()));
 	}
 
-	<span class="kw">const </span>CODE_BALANCE: <span class="kw-2">&amp;</span>str = <span class="string">r#&quot;
+	<span class="kw">const </span>CODE_BALANCE: <span class="kw-2">&amp;</span>str = <span class="string">r#"
 (module
-	(import &quot;seal0&quot; &quot;seal_balance&quot; (func $seal_balance (param i32 i32)))
-	(import &quot;env&quot; &quot;memory&quot; (memory 1 1))
+	(import "seal0" "seal_balance" (func $seal_balance (param i32 i32)))
+	(import "env" "memory" (memory 1 1))
 
 	;; size of our buffer is 32 bytes
-	(data (i32.const 32) &quot;\20&quot;)
+	(data (i32.const 32) "\20")
 
 	(func $assert (param i32)
 		(block $ok
@@ -5421,7 +5423,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		)
 	)
 
-	(func (export &quot;call&quot;)
+	(func (export "call")
 		;; This stores the balance in the buffer
 		(call $seal_balance (i32.const 0) (i32.const 32))
 
@@ -5441,22 +5443,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			)
 		)
 	)
-	(func (export &quot;deploy&quot;))
+	(func (export "deploy"))
 )
-&quot;#</span>;
+"#</span>;
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>balance() {
 		<span class="macro">assert_ok!</span>(execute(CODE_BALANCE, <span class="macro">vec!</span>[], MockExt::default()));
 	}
 
-	<span class="kw">const </span>CODE_GAS_PRICE: <span class="kw-2">&amp;</span>str = <span class="string">r#&quot;
+	<span class="kw">const </span>CODE_GAS_PRICE: <span class="kw-2">&amp;</span>str = <span class="string">r#"
 (module
-	(import &quot;seal1&quot; &quot;weight_to_fee&quot; (func $seal_weight_to_fee (param i64 i64 i32 i32)))
-	(import &quot;env&quot; &quot;memory&quot; (memory 1 1))
+	(import "seal1" "weight_to_fee" (func $seal_weight_to_fee (param i64 i64 i32 i32)))
+	(import "env" "memory" (memory 1 1))
 
 	;; size of our buffer is 32 bytes
-	(data (i32.const 32) &quot;\20&quot;)
+	(data (i32.const 32) "\20")
 
 	(func $assert (param i32)
 		(block $ok
@@ -5467,7 +5469,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		)
 	)
 
-	(func (export &quot;call&quot;)
+	(func (export "call")
 		;; This stores the gas price in the buffer
 		(call $seal_weight_to_fee (i64.const 2) (i64.const 1) (i32.const 0) (i32.const 32))
 
@@ -5487,24 +5489,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			)
 		)
 	)
-	(func (export &quot;deploy&quot;))
+	(func (export "deploy"))
 )
-&quot;#</span>;
+"#</span>;
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>gas_price() {
 		<span class="macro">assert_ok!</span>(execute(CODE_GAS_PRICE, <span class="macro">vec!</span>[], MockExt::default()));
 	}
 
-	<span class="kw">const </span>CODE_GAS_LEFT: <span class="kw-2">&amp;</span>str = <span class="string">r#&quot;
+	<span class="kw">const </span>CODE_GAS_LEFT: <span class="kw-2">&amp;</span>str = <span class="string">r#"
 (module
-	(import &quot;seal1&quot; &quot;gas_left&quot; (func $seal_gas_left (param i32 i32)))
-	(import &quot;seal0&quot; &quot;clear_storage&quot; (func $clear_storage (param i32)))
-	(import &quot;seal0&quot; &quot;seal_return&quot; (func $seal_return (param i32 i32 i32)))
-	(import &quot;env&quot; &quot;memory&quot; (memory 1 1))
+	(import "seal1" "gas_left" (func $seal_gas_left (param i32 i32)))
+	(import "seal0" "clear_storage" (func $clear_storage (param i32)))
+	(import "seal0" "seal_return" (func $seal_return (param i32 i32 i32)))
+	(import "env" "memory" (memory 1 1))
 
 	;; Make output buffer size 20 bytes
-	(data (i32.const 20) &quot;\14&quot;)
+	(data (i32.const 20) "\14")
 
 	(func $assert (param i32)
 		(block $ok
@@ -5515,7 +5517,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		)
 	)
 
-	(func (export &quot;call&quot;)
+	(func (export "call")
 		;; Burn some PoV, clear_storage consumes some PoV as in order to clear the storage we need to we need to read its size first.
 		(call $clear_storage (i32.const 0))
 
@@ -5538,9 +5540,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		(unreachable)
 	)
-	(func (export &quot;deploy&quot;))
+	(func (export "deploy"))
 )
-&quot;#</span>;
+"#</span>;
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>gas_left() {
@@ -5552,17 +5554,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>weight_left = Weight::decode(<span class="kw-2">&amp;mut &amp;*</span>output.data).unwrap();
 		<span class="kw">let </span>actual_left = ext.gas_meter.gas_left();
 
-		<span class="macro">assert!</span>(weight_left.all_lt(gas_limit), <span class="string">&quot;gas_left must be less than initial&quot;</span>);
-		<span class="macro">assert!</span>(weight_left.all_gt(actual_left), <span class="string">&quot;gas_left must be greater than final&quot;</span>);
+		<span class="macro">assert!</span>(weight_left.all_lt(gas_limit), <span class="string">"gas_left must be less than initial"</span>);
+		<span class="macro">assert!</span>(weight_left.all_gt(actual_left), <span class="string">"gas_left must be greater than final"</span>);
 	}
 
-	<span class="kw">const </span>CODE_VALUE_TRANSFERRED: <span class="kw-2">&amp;</span>str = <span class="string">r#&quot;
+	<span class="kw">const </span>CODE_VALUE_TRANSFERRED: <span class="kw-2">&amp;</span>str = <span class="string">r#"
 (module
-	(import &quot;seal0&quot; &quot;seal_value_transferred&quot; (func $seal_value_transferred (param i32 i32)))
-	(import &quot;env&quot; &quot;memory&quot; (memory 1 1))
+	(import "seal0" "seal_value_transferred" (func $seal_value_transferred (param i32 i32)))
+	(import "env" "memory" (memory 1 1))
 
 	;; size of our buffer is 32 bytes
-	(data (i32.const 32) &quot;\20&quot;)
+	(data (i32.const 32) "\20")
 
 	(func $assert (param i32)
 		(block $ok
@@ -5573,7 +5575,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		)
 	)
 
-	(func (export &quot;call&quot;)
+	(func (export "call")
 		;; This stores the value transferred in the buffer
 		(call $seal_value_transferred (i32.const 0) (i32.const 32))
 
@@ -5593,19 +5595,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			)
 		)
 	)
-	(func (export &quot;deploy&quot;))
+	(func (export "deploy"))
 )
-&quot;#</span>;
+"#</span>;
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>value_transferred() {
 		<span class="macro">assert_ok!</span>(execute(CODE_VALUE_TRANSFERRED, <span class="macro">vec!</span>[], MockExt::default()));
 	}
 
-	<span class="kw">const </span>START_FN_DOES_RUN: <span class="kw-2">&amp;</span>str = <span class="string">r#&quot;
+	<span class="kw">const </span>START_FN_DOES_RUN: <span class="kw-2">&amp;</span>str = <span class="string">r#"
 (module
-	(import &quot;seal0&quot; &quot;seal_deposit_event&quot; (func $seal_deposit_event (param i32 i32 i32 i32)))
-	(import &quot;env&quot; &quot;memory&quot; (memory 1 1))
+	(import "seal0" "seal_deposit_event" (func $seal_deposit_event (param i32 i32 i32 i32)))
+	(import "env" "memory" (memory 1 1))
 
 	(start $start)
 	(func $start
@@ -5617,13 +5619,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		)
 	)
 
-	(func (export &quot;call&quot;))
+	(func (export "call"))
 
-	(func (export &quot;deploy&quot;))
+	(func (export "deploy"))
 
-	(data (i32.const 0) &quot;\00\01\2A\00\00\00\00\00\00\00\E5\14\00&quot;)
+	(data (i32.const 0) "\00\01\2A\00\00\00\00\00\00\00\E5\14\00")
 )
-&quot;#</span>;
+"#</span>;
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>start_fn_does_run_on_call() {
@@ -5645,13 +5647,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		);
 	}
 
-	<span class="kw">const </span>CODE_TIMESTAMP_NOW: <span class="kw-2">&amp;</span>str = <span class="string">r#&quot;
+	<span class="kw">const </span>CODE_TIMESTAMP_NOW: <span class="kw-2">&amp;</span>str = <span class="string">r#"
 (module
-	(import &quot;seal0&quot; &quot;seal_now&quot; (func $seal_now (param i32 i32)))
-	(import &quot;env&quot; &quot;memory&quot; (memory 1 1))
+	(import "seal0" "seal_now" (func $seal_now (param i32 i32)))
+	(import "env" "memory" (memory 1 1))
 
 	;; size of our buffer is 32 bytes
-	(data (i32.const 32) &quot;\20&quot;)
+	(data (i32.const 32) "\20")
 
 	(func $assert (param i32)
 		(block $ok
@@ -5662,7 +5664,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		)
 	)
 
-	(func (export &quot;call&quot;)
+	(func (export "call")
 		;; This stores the block timestamp in the buffer
 		(call $seal_now (i32.const 0) (i32.const 32))
 
@@ -5682,17 +5684,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			)
 		)
 	)
-	(func (export &quot;deploy&quot;))
+	(func (export "deploy"))
 )
-&quot;#</span>;
+"#</span>;
 
-	<span class="kw">const </span>CODE_TIMESTAMP_NOW_UNPREFIXED: <span class="kw-2">&amp;</span>str = <span class="string">r#&quot;
+	<span class="kw">const </span>CODE_TIMESTAMP_NOW_UNPREFIXED: <span class="kw-2">&amp;</span>str = <span class="string">r#"
 (module
-	(import &quot;seal0&quot; &quot;now&quot; (func $now (param i32 i32)))
-	(import &quot;env&quot; &quot;memory&quot; (memory 1 1))
+	(import "seal0" "now" (func $now (param i32 i32)))
+	(import "env" "memory" (memory 1 1))
 
 	;; size of our buffer is 32 bytes
-	(data (i32.const 32) &quot;\20&quot;)
+	(data (i32.const 32) "\20")
 
 	(func $assert (param i32)
 		(block $ok
@@ -5703,7 +5705,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		)
 	)
 
-	(func (export &quot;call&quot;)
+	(func (export "call")
 		;; This stores the block timestamp in the buffer
 		(call $now (i32.const 0) (i32.const 32))
 
@@ -5723,9 +5725,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			)
 		)
 	)
-	(func (export &quot;deploy&quot;))
+	(func (export "deploy"))
 )
-&quot;#</span>;
+"#</span>;
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>now() {
@@ -5733,13 +5735,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">assert_ok!</span>(execute(CODE_TIMESTAMP_NOW_UNPREFIXED, <span class="macro">vec!</span>[], MockExt::default()));
 	}
 
-	<span class="kw">const </span>CODE_MINIMUM_BALANCE: <span class="kw-2">&amp;</span>str = <span class="string">r#&quot;
+	<span class="kw">const </span>CODE_MINIMUM_BALANCE: <span class="kw-2">&amp;</span>str = <span class="string">r#"
 (module
-	(import &quot;seal0&quot; &quot;seal_minimum_balance&quot; (func $seal_minimum_balance (param i32 i32)))
-	(import &quot;env&quot; &quot;memory&quot; (memory 1 1))
+	(import "seal0" "seal_minimum_balance" (func $seal_minimum_balance (param i32 i32)))
+	(import "env" "memory" (memory 1 1))
 
 	;; size of our buffer is 32 bytes
-	(data (i32.const 32) &quot;\20&quot;)
+	(data (i32.const 32) "\20")
 
 	(func $assert (param i32)
 		(block $ok
@@ -5750,7 +5752,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		)
 	)
 
-	(func (export &quot;call&quot;)
+	(func (export "call")
 		(call $seal_minimum_balance (i32.const 0) (i32.const 32))
 
 		;; assert len == 8
@@ -5769,31 +5771,31 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			)
 		)
 	)
-	(func (export &quot;deploy&quot;))
+	(func (export "deploy"))
 )
-&quot;#</span>;
+"#</span>;
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>minimum_balance() {
 		<span class="macro">assert_ok!</span>(execute(CODE_MINIMUM_BALANCE, <span class="macro">vec!</span>[], MockExt::default()));
 	}
 
-	<span class="kw">const </span>CODE_RANDOM: <span class="kw-2">&amp;</span>str = <span class="string">r#&quot;
+	<span class="kw">const </span>CODE_RANDOM: <span class="kw-2">&amp;</span>str = <span class="string">r#"
 (module
-	(import &quot;seal0&quot; &quot;seal_random&quot; (func $seal_random (param i32 i32 i32 i32)))
-	(import &quot;seal0&quot; &quot;seal_return&quot; (func $seal_return (param i32 i32 i32)))
-	(import &quot;env&quot; &quot;memory&quot; (memory 1 1))
+	(import "seal0" "seal_random" (func $seal_random (param i32 i32 i32 i32)))
+	(import "seal0" "seal_return" (func $seal_return (param i32 i32 i32)))
+	(import "env" "memory" (memory 1 1))
 
 	;; [0,128) is reserved for the result of PRNG.
 
 	;; the subject used for the PRNG. [128,160)
 	(data (i32.const 128)
-		&quot;\00\01\02\03\04\05\06\07\08\09\0A\0B\0C\0D\0E\0F&quot;
-		&quot;\00\01\02\03\04\05\06\07\08\09\0A\0B\0C\0D\0E\0F&quot;
+		"\00\01\02\03\04\05\06\07\08\09\0A\0B\0C\0D\0E\0F"
+		"\00\01\02\03\04\05\06\07\08\09\0A\0B\0C\0D\0E\0F"
 	)
 
 	;; size of our buffer is 128 bytes
-	(data (i32.const 160) &quot;\80&quot;)
+	(data (i32.const 160) "\80")
 
 	(func $assert (param i32)
 		(block $ok
@@ -5804,11 +5806,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		)
 	)
 
-	(func (export &quot;call&quot;)
+	(func (export "call")
 		;; This stores the block random seed in the buffer
 		(call $seal_random
 			(i32.const 128) ;; Pointer in memory to the start of the subject buffer
-			(i32.const 32) ;; The subject buffer&#39;s length
+			(i32.const 32) ;; The subject buffer's length
 			(i32.const 0) ;; Pointer to the output buffer
 			(i32.const 160) ;; Pointer to the output buffer length
 		)
@@ -5828,9 +5830,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			(i32.const 32)
 		)
 	)
-	(func (export &quot;deploy&quot;))
+	(func (export "deploy"))
 )
-&quot;#</span>;
+"#</span>;
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>random() {
@@ -5842,28 +5844,28 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			ExecReturnValue {
 				flags: ReturnFlags::empty(),
 				data: array_bytes::hex_into_unchecked(
-					<span class="string">&quot;000102030405060708090A0B0C0D0E0F000102030405060708090A0B0C0D0E0F&quot;
+					<span class="string">"000102030405060708090A0B0C0D0E0F000102030405060708090A0B0C0D0E0F"
 				</span>)
 			},
 		);
 	}
 
-	<span class="kw">const </span>CODE_RANDOM_V1: <span class="kw-2">&amp;</span>str = <span class="string">r#&quot;
+	<span class="kw">const </span>CODE_RANDOM_V1: <span class="kw-2">&amp;</span>str = <span class="string">r#"
 (module
-	(import &quot;seal1&quot; &quot;seal_random&quot; (func $seal_random (param i32 i32 i32 i32)))
-	(import &quot;seal0&quot; &quot;seal_return&quot; (func $seal_return (param i32 i32 i32)))
-	(import &quot;env&quot; &quot;memory&quot; (memory 1 1))
+	(import "seal1" "seal_random" (func $seal_random (param i32 i32 i32 i32)))
+	(import "seal0" "seal_return" (func $seal_return (param i32 i32 i32)))
+	(import "env" "memory" (memory 1 1))
 
 	;; [0,128) is reserved for the result of PRNG.
 
 	;; the subject used for the PRNG. [128,160)
 	(data (i32.const 128)
-		&quot;\00\01\02\03\04\05\06\07\08\09\0A\0B\0C\0D\0E\0F&quot;
-		&quot;\00\01\02\03\04\05\06\07\08\09\0A\0B\0C\0D\0E\0F&quot;
+		"\00\01\02\03\04\05\06\07\08\09\0A\0B\0C\0D\0E\0F"
+		"\00\01\02\03\04\05\06\07\08\09\0A\0B\0C\0D\0E\0F"
 	)
 
 	;; size of our buffer is 128 bytes
-	(data (i32.const 160) &quot;\80&quot;)
+	(data (i32.const 160) "\80")
 
 	(func $assert (param i32)
 		(block $ok
@@ -5874,11 +5876,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		)
 	)
 
-	(func (export &quot;call&quot;)
+	(func (export "call")
 		;; This stores the block random seed in the buffer
 		(call $seal_random
 			(i32.const 128) ;; Pointer in memory to the start of the subject buffer
-			(i32.const 32) ;; The subject buffer&#39;s length
+			(i32.const 32) ;; The subject buffer's length
 			(i32.const 0) ;; Pointer to the output buffer
 			(i32.const 160) ;; Pointer to the output buffer length
 		)
@@ -5898,9 +5900,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			(i32.const 40)
 		)
 	)
-	(func (export &quot;deploy&quot;))
+	(func (export "deploy"))
 )
-&quot;#</span>;
+"#</span>;
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>random_v1() {
@@ -5913,7 +5915,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				flags: ReturnFlags::empty(),
 				data: (
 					array_bytes::hex2array_unchecked::&lt;<span class="kw">_</span>, <span class="number">32</span>&gt;(
-						<span class="string">&quot;000102030405060708090A0B0C0D0E0F000102030405060708090A0B0C0D0E0F&quot;
+						<span class="string">"000102030405060708090A0B0C0D0E0F000102030405060708090A0B0C0D0E0F"
 					</span>),
 					<span class="number">42u64</span>,
 				)
@@ -5922,12 +5924,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		);
 	}
 
-	<span class="kw">const </span>CODE_DEPOSIT_EVENT: <span class="kw-2">&amp;</span>str = <span class="string">r#&quot;
+	<span class="kw">const </span>CODE_DEPOSIT_EVENT: <span class="kw-2">&amp;</span>str = <span class="string">r#"
 (module
-	(import &quot;seal0&quot; &quot;seal_deposit_event&quot; (func $seal_deposit_event (param i32 i32 i32 i32)))
-	(import &quot;env&quot; &quot;memory&quot; (memory 1 1))
+	(import "seal0" "seal_deposit_event" (func $seal_deposit_event (param i32 i32 i32 i32)))
+	(import "env" "memory" (memory 1 1))
 
-	(func (export &quot;call&quot;)
+	(func (export "call")
 		(call $seal_deposit_event
 			(i32.const 32) ;; Pointer to the start of topics buffer
 			(i32.const 33) ;; The length of the topics buffer.
@@ -5935,15 +5937,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			(i32.const 13) ;; Length of the buffer
 		)
 	)
-	(func (export &quot;deploy&quot;))
+	(func (export "deploy"))
 
-	(data (i32.const 8) &quot;\00\01\2A\00\00\00\00\00\00\00\E5\14\00&quot;)
+	(data (i32.const 8) "\00\01\2A\00\00\00\00\00\00\00\E5\14\00")
 
 	;; Encoded Vec&lt;TopicOf&lt;T&gt;&gt;, the buffer has length of 33 bytes.
-	(data (i32.const 32) &quot;\04\33\33\33\33\33\33\33\33\33\33\33\33\33\33\33\33\33\33\33\33\33\33\33&quot;
-	&quot;\33\33\33\33\33\33\33\33\33&quot;)
+	(data (i32.const 32) "\04\33\33\33\33\33\33\33\33\33\33\33\33\33\33\33\33\33\33\33\33\33\33\33"
+	"\33\33\33\33\33\33\33\33\33")
 )
-&quot;#</span>;
+"#</span>;
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>deposit_event() {
@@ -5961,12 +5963,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">assert!</span>(mock_ext.gas_meter.gas_left().ref_time() &gt; <span class="number">0</span>);
 	}
 
-	<span class="kw">const </span>CODE_DEPOSIT_EVENT_DUPLICATES: <span class="kw-2">&amp;</span>str = <span class="string">r#&quot;
+	<span class="kw">const </span>CODE_DEPOSIT_EVENT_DUPLICATES: <span class="kw-2">&amp;</span>str = <span class="string">r#"
 (module
-	(import &quot;seal0&quot; &quot;seal_deposit_event&quot; (func $seal_deposit_event (param i32 i32 i32 i32)))
-	(import &quot;env&quot; &quot;memory&quot; (memory 1 1))
+	(import "seal0" "seal_deposit_event" (func $seal_deposit_event (param i32 i32 i32 i32)))
+	(import "env" "memory" (memory 1 1))
 
-	(func (export &quot;call&quot;)
+	(func (export "call")
 		(call $seal_deposit_event
 			(i32.const 32) ;; Pointer to the start of topics buffer
 			(i32.const 129) ;; The length of the topics buffer.
@@ -5974,18 +5976,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			(i32.const 13) ;; Length of the buffer
 		)
 	)
-	(func (export &quot;deploy&quot;))
+	(func (export "deploy"))
 
-	(data (i32.const 8) &quot;\00\01\2A\00\00\00\00\00\00\00\E5\14\00&quot;)
+	(data (i32.const 8) "\00\01\2A\00\00\00\00\00\00\00\E5\14\00")
 
 	;; Encoded Vec&lt;TopicOf&lt;T&gt;&gt;, the buffer has length of 129 bytes.
-	(data (i32.const 32) &quot;\10&quot;
-&quot;\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01&quot;
-&quot;\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02&quot;
-&quot;\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01&quot;
-&quot;\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04&quot;)
+	(data (i32.const 32) "\10"
+"\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01"
+"\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02"
+"\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01"
+"\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04")
 )
-&quot;#</span>;
+"#</span>;
 
 	<span class="doccomment">/// Checks that the runtime allows duplicate topics.
 	</span><span class="attr">#[test]
@@ -6007,12 +6009,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		);
 	}
 
-	<span class="kw">const </span>CODE_DEPOSIT_EVENT_MAX_TOPICS: <span class="kw-2">&amp;</span>str = <span class="string">r#&quot;
+	<span class="kw">const </span>CODE_DEPOSIT_EVENT_MAX_TOPICS: <span class="kw-2">&amp;</span>str = <span class="string">r#"
 (module
-	(import &quot;seal0&quot; &quot;seal_deposit_event&quot; (func $seal_deposit_event (param i32 i32 i32 i32)))
-	(import &quot;env&quot; &quot;memory&quot; (memory 1 1))
+	(import "seal0" "seal_deposit_event" (func $seal_deposit_event (param i32 i32 i32 i32)))
+	(import "env" "memory" (memory 1 1))
 
-	(func (export &quot;call&quot;)
+	(func (export "call")
 		(call $seal_deposit_event
 			(i32.const 32) ;; Pointer to the start of topics buffer
 			(i32.const 161) ;; The length of the topics buffer.
@@ -6020,19 +6022,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			(i32.const 13) ;; Length of the buffer
 		)
 	)
-	(func (export &quot;deploy&quot;))
+	(func (export "deploy"))
 
-	(data (i32.const 8) &quot;\00\01\2A\00\00\00\00\00\00\00\E5\14\00&quot;)
+	(data (i32.const 8) "\00\01\2A\00\00\00\00\00\00\00\E5\14\00")
 
 	;; Encoded Vec&lt;TopicOf&lt;T&gt;&gt;, the buffer has length of 161 bytes.
-	(data (i32.const 32) &quot;\14&quot;
-&quot;\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01&quot;
-&quot;\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02&quot;
-&quot;\03\03\03\03\03\03\03\03\03\03\03\03\03\03\03\03\03\03\03\03\03\03\03\03\03\03\03\03\03\03\03\03&quot;
-&quot;\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04&quot;
-&quot;\05\05\05\05\05\05\05\05\05\05\05\05\05\05\05\05\05\05\05\05\05\05\05\05\05\05\05\05\05\05\05\05&quot;)
+	(data (i32.const 32) "\14"
+"\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01"
+"\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02"
+"\03\03\03\03\03\03\03\03\03\03\03\03\03\03\03\03\03\03\03\03\03\03\03\03\03\03\03\03\03\03\03\03"
+"\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04\04"
+"\05\05\05\05\05\05\05\05\05\05\05\05\05\05\05\05\05\05\05\05\05\05\05\05\05\05\05\05\05\05\05\05")
 )
-&quot;#</span>;
+"#</span>;
 
 	<span class="doccomment">/// Checks that the runtime traps if there are more than `max_topic_events` topics.
 	</span><span class="attr">#[test]
@@ -6047,13 +6049,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// calls `seal_block_number` compares the result with the constant 121.
-	</span><span class="kw">const </span>CODE_BLOCK_NUMBER: <span class="kw-2">&amp;</span>str = <span class="string">r#&quot;
+	</span><span class="kw">const </span>CODE_BLOCK_NUMBER: <span class="kw-2">&amp;</span>str = <span class="string">r#"
 (module
-	(import &quot;seal0&quot; &quot;seal_block_number&quot; (func $seal_block_number (param i32 i32)))
-	(import &quot;env&quot; &quot;memory&quot; (memory 1 1))
+	(import "seal0" "seal_block_number" (func $seal_block_number (param i32 i32)))
+	(import "env" "memory" (memory 1 1))
 
 	;; size of our buffer is 32 bytes
-	(data (i32.const 32) &quot;\20&quot;)
+	(data (i32.const 32) "\20")
 
 	(func $assert (param i32)
 		(block $ok
@@ -6064,7 +6066,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		)
 	)
 
-	(func (export &quot;call&quot;)
+	(func (export "call")
 		;; This stores the block height in the buffer
 		(call $seal_block_number (i32.const 0) (i32.const 32))
 
@@ -6085,30 +6087,30 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		)
 	)
 
-	(func (export &quot;deploy&quot;))
+	(func (export "deploy"))
 )
-&quot;#</span>;
+"#</span>;
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>block_number() {
 		<span class="kw">let _ </span>= execute(CODE_BLOCK_NUMBER, <span class="macro">vec!</span>[], MockExt::default()).unwrap();
 	}
 
-	<span class="kw">const </span>CODE_RETURN_WITH_DATA: <span class="kw-2">&amp;</span>str = <span class="string">r#&quot;
+	<span class="kw">const </span>CODE_RETURN_WITH_DATA: <span class="kw-2">&amp;</span>str = <span class="string">r#"
 (module
-	(import &quot;seal0&quot; &quot;seal_input&quot; (func $seal_input (param i32 i32)))
-	(import &quot;seal0&quot; &quot;seal_return&quot; (func $seal_return (param i32 i32 i32)))
-	(import &quot;env&quot; &quot;memory&quot; (memory 1 1))
+	(import "seal0" "seal_input" (func $seal_input (param i32 i32)))
+	(import "seal0" "seal_return" (func $seal_return (param i32 i32 i32)))
+	(import "env" "memory" (memory 1 1))
 
-	(data (i32.const 32) &quot;\20&quot;)
+	(data (i32.const 32) "\20")
 
 	;; Deploy routine is the same as call.
-	(func (export &quot;deploy&quot;)
+	(func (export "deploy")
 		(call $call)
 	)
 
 	;; Call reads the first 4 bytes (LE) as the exit status and returns the rest as output data.
-	(func $call (export &quot;call&quot;)
+	(func $call (export "call")
 		;; Copy input data this contract memory.
 		(call $seal_input
 			(i32.const 0)	;; Pointer where to store input
@@ -6124,13 +6126,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		(unreachable)
 	)
 )
-&quot;#</span>;
+"#</span>;
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>seal_return_with_success_status() {
 		<span class="kw">let </span>output = execute(
 			CODE_RETURN_WITH_DATA,
-			array_bytes::hex2bytes_unchecked(<span class="string">&quot;00000000445566778899&quot;</span>),
+			array_bytes::hex2bytes_unchecked(<span class="string">"00000000445566778899"</span>),
 			MockExt::default(),
 		)
 		.unwrap();
@@ -6139,7 +6141,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			output,
 			ExecReturnValue {
 				flags: ReturnFlags::empty(),
-				data: array_bytes::hex2bytes_unchecked(<span class="string">&quot;445566778899&quot;</span>),
+				data: array_bytes::hex2bytes_unchecked(<span class="string">"445566778899"</span>),
 			}
 		);
 		<span class="macro">assert!</span>(!output.did_revert());
@@ -6149,7 +6151,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>return_with_revert_status() {
 		<span class="kw">let </span>output = execute(
 			CODE_RETURN_WITH_DATA,
-			array_bytes::hex2bytes_unchecked(<span class="string">&quot;010000005566778899&quot;</span>),
+			array_bytes::hex2bytes_unchecked(<span class="string">"010000005566778899"</span>),
 			MockExt::default(),
 		)
 		.unwrap();
@@ -6158,27 +6160,27 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			output,
 			ExecReturnValue {
 				flags: ReturnFlags::REVERT,
-				data: array_bytes::hex2bytes_unchecked(<span class="string">&quot;5566778899&quot;</span>),
+				data: array_bytes::hex2bytes_unchecked(<span class="string">"5566778899"</span>),
 			}
 		);
 		<span class="macro">assert!</span>(output.did_revert());
 	}
 
-	<span class="kw">const </span>CODE_OUT_OF_BOUNDS_ACCESS: <span class="kw-2">&amp;</span>str = <span class="string">r#&quot;
+	<span class="kw">const </span>CODE_OUT_OF_BOUNDS_ACCESS: <span class="kw-2">&amp;</span>str = <span class="string">r#"
 (module
-	(import &quot;seal0&quot; &quot;seal_terminate&quot; (func $seal_terminate (param i32 i32)))
-	(import &quot;env&quot; &quot;memory&quot; (memory 1 1))
+	(import "seal0" "seal_terminate" (func $seal_terminate (param i32 i32)))
+	(import "env" "memory" (memory 1 1))
 
-	(func (export &quot;deploy&quot;))
+	(func (export "deploy"))
 
-	(func (export &quot;call&quot;)
+	(func (export "call")
 		(call $seal_terminate
-			(i32.const 65536)  ;; Pointer to &quot;account&quot; address (out of bound).
-			(i32.const 8)  ;; Length of &quot;account&quot; address.
+			(i32.const 65536)  ;; Pointer to "account" address (out of bound).
+			(i32.const 8)  ;; Length of "account" address.
 		)
 	)
 )
-&quot;#</span>;
+"#</span>;
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>contract_out_of_bounds_access() {
@@ -6194,21 +6196,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		);
 	}
 
-	<span class="kw">const </span>CODE_DECODE_FAILURE: <span class="kw-2">&amp;</span>str = <span class="string">r#&quot;
+	<span class="kw">const </span>CODE_DECODE_FAILURE: <span class="kw-2">&amp;</span>str = <span class="string">r#"
 (module
-	(import &quot;seal0&quot; &quot;seal_terminate&quot; (func $seal_terminate (param i32 i32)))
-	(import &quot;env&quot; &quot;memory&quot; (memory 1 1))
+	(import "seal0" "seal_terminate" (func $seal_terminate (param i32 i32)))
+	(import "env" "memory" (memory 1 1))
 
-	(func (export &quot;deploy&quot;))
+	(func (export "deploy"))
 
-	(func (export &quot;call&quot;)
+	(func (export "call")
 		(call $seal_terminate
-			(i32.const 0)  ;; Pointer to &quot;account&quot; address.
-			(i32.const 4)  ;; Length of &quot;account&quot; address (too small -&gt; decode fail).
+			(i32.const 0)  ;; Pointer to "account" address.
+			(i32.const 4)  ;; Length of "account" address (too small -&gt; decode fail).
 		)
 	)
 )
-&quot;#</span>;
+"#</span>;
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>contract_decode_length_ignored() {
@@ -6221,14 +6223,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>debug_message_works() {
-		<span class="kw">const </span>CODE_DEBUG_MESSAGE: <span class="kw-2">&amp;</span>str = <span class="string">r#&quot;
+		<span class="kw">const </span>CODE_DEBUG_MESSAGE: <span class="kw-2">&amp;</span>str = <span class="string">r#"
 (module
-	(import &quot;seal0&quot; &quot;seal_debug_message&quot; (func $seal_debug_message (param i32 i32) (result i32)))
-	(import &quot;env&quot; &quot;memory&quot; (memory 1 1))
+	(import "seal0" "seal_debug_message" (func $seal_debug_message (param i32 i32) (result i32)))
+	(import "env" "memory" (memory 1 1))
 
-	(data (i32.const 0) &quot;Hello World!&quot;)
+	(data (i32.const 0) "Hello World!")
 
-	(func (export &quot;call&quot;)
+	(func (export "call")
 		(call $seal_debug_message
 			(i32.const 0)	;; Pointer to the text buffer
 			(i32.const 12)	;; The size of the buffer
@@ -6236,25 +6238,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		drop
 	)
 
-	(func (export &quot;deploy&quot;))
+	(func (export "deploy"))
 )
-&quot;#</span>;
+"#</span>;
 		<span class="kw">let </span><span class="kw-2">mut </span>ext = MockExt::default();
 		execute(CODE_DEBUG_MESSAGE, <span class="macro">vec!</span>[], <span class="kw-2">&amp;mut </span>ext).unwrap();
 
-		<span class="macro">assert_eq!</span>(std::str::from_utf8(<span class="kw-2">&amp;</span>ext.debug_buffer).unwrap(), <span class="string">&quot;Hello World!&quot;</span>);
+		<span class="macro">assert_eq!</span>(std::str::from_utf8(<span class="kw-2">&amp;</span>ext.debug_buffer).unwrap(), <span class="string">"Hello World!"</span>);
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>debug_message_invalid_utf8_fails() {
-		<span class="kw">const </span>CODE_DEBUG_MESSAGE_FAIL: <span class="kw-2">&amp;</span>str = <span class="string">r#&quot;
+		<span class="kw">const </span>CODE_DEBUG_MESSAGE_FAIL: <span class="kw-2">&amp;</span>str = <span class="string">r#"
 (module
-	(import &quot;seal0&quot; &quot;seal_debug_message&quot; (func $seal_debug_message (param i32 i32) (result i32)))
-	(import &quot;env&quot; &quot;memory&quot; (memory 1 1))
+	(import "seal0" "seal_debug_message" (func $seal_debug_message (param i32 i32) (result i32)))
+	(import "env" "memory" (memory 1 1))
 
-	(data (i32.const 0) &quot;\fc&quot;)
+	(data (i32.const 0) "\fc")
 
-	(func (export &quot;call&quot;)
+	(func (export "call")
 		(call $seal_debug_message
 			(i32.const 0)	;; Pointer to the text buffer
 			(i32.const 1)	;; The size of the buffer
@@ -6262,27 +6264,27 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		drop
 	)
 
-	(func (export &quot;deploy&quot;))
+	(func (export "deploy"))
 )
-&quot;#</span>;
+"#</span>;
 		<span class="kw">let </span><span class="kw-2">mut </span>ext = MockExt::default();
 		<span class="kw">let </span>result = execute(CODE_DEBUG_MESSAGE_FAIL, <span class="macro">vec!</span>[], <span class="kw-2">&amp;mut </span>ext);
 		<span class="macro">assert_ok!</span>(result);
 		<span class="macro">assert!</span>(ext.debug_buffer.is_empty());
 	}
 
-	<span class="kw">const </span>CODE_CALL_RUNTIME: <span class="kw-2">&amp;</span>str = <span class="string">r#&quot;
+	<span class="kw">const </span>CODE_CALL_RUNTIME: <span class="kw-2">&amp;</span>str = <span class="string">r#"
 (module
-	(import &quot;seal0&quot; &quot;call_runtime&quot; (func $call_runtime (param i32 i32) (result i32)))
-	(import &quot;seal0&quot; &quot;seal_input&quot; (func $seal_input (param i32 i32)))
-	(import &quot;seal0&quot; &quot;seal_return&quot; (func $seal_return (param i32 i32 i32)))
-	(import &quot;env&quot; &quot;memory&quot; (memory 1 1))
+	(import "seal0" "call_runtime" (func $call_runtime (param i32 i32) (result i32)))
+	(import "seal0" "seal_input" (func $seal_input (param i32 i32)))
+	(import "seal0" "seal_return" (func $seal_return (param i32 i32 i32)))
+	(import "env" "memory" (memory 1 1))
 
 	;; 0x1000 = 4k in little endian
 	;; size of input buffer
-	(data (i32.const 0) &quot;\00\10&quot;)
+	(data (i32.const 0) "\00\10")
 
-	(func (export &quot;call&quot;)
+	(func (export "call")
 		;; Receive the encoded call
 		(call $seal_input
 			(i32.const 4)	;; Pointer to the input buffer
@@ -6302,14 +6304,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		)
 	)
 
-	(func (export &quot;deploy&quot;))
+	(func (export "deploy"))
 )
-&quot;#</span>;
+"#</span>;
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>call_runtime_works() {
 		<span class="kw">let </span>call =
-			RuntimeCall::System(frame_system::Call::remark { remark: <span class="string">b&quot;Hello World&quot;</span>.to_vec() });
+			RuntimeCall::System(frame_system::Call::remark { remark: <span class="string">b"Hello World"</span>.to_vec() });
 		<span class="kw">let </span><span class="kw-2">mut </span>ext = MockExt::default();
 		<span class="kw">let </span>result = execute(CODE_CALL_RUNTIME, call.encode(), <span class="kw-2">&amp;mut </span>ext).unwrap();
 		<span class="macro">assert_eq!</span>(<span class="kw-2">*</span>ext.runtime_calls.borrow(), <span class="macro">vec!</span>[call]);
@@ -6333,20 +6335,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>set_storage_works() {
-		<span class="kw">const </span>CODE: <span class="kw-2">&amp;</span>str = <span class="string">r#&quot;
+		<span class="kw">const </span>CODE: <span class="kw-2">&amp;</span>str = <span class="string">r#"
 (module
-	(import &quot;seal0&quot; &quot;seal_input&quot; (func $seal_input (param i32 i32)))
-	(import &quot;seal0&quot; &quot;seal_return&quot; (func $seal_return (param i32 i32 i32)))
-	(import &quot;seal2&quot; &quot;set_storage&quot; (func $set_storage (param i32 i32 i32 i32) (result i32)))
-	(import &quot;env&quot; &quot;memory&quot; (memory 1 1))
+	(import "seal0" "seal_input" (func $seal_input (param i32 i32)))
+	(import "seal0" "seal_return" (func $seal_return (param i32 i32 i32)))
+	(import "seal2" "set_storage" (func $set_storage (param i32 i32 i32 i32) (result i32)))
+	(import "env" "memory" (memory 1 1))
 
 	;; [0, 4) size of input buffer
 	;; 4k in little endian
-	(data (i32.const 0) &quot;\00\10&quot;)
+	(data (i32.const 0) "\00\10")
 
 	;; [4, 4100) input buffer
 
-	(func (export &quot;call&quot;)
+	(func (export "call")
 		;; Receive (key ++ value_to_write)
 		(call $seal_input
 			(i32.const 4)	;; Pointer to the input buffer
@@ -6376,9 +6378,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		)
 	)
 
-	(func (export &quot;deploy&quot;))
+	(func (export "deploy"))
 )
-&quot;#</span>;
+"#</span>;
 
 		<span class="kw">let </span><span class="kw-2">mut </span>ext = MockExt::default();
 
@@ -6403,24 +6405,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>get_storage_works() {
-		<span class="kw">const </span>CODE: <span class="kw-2">&amp;</span>str = <span class="string">r#&quot;
+		<span class="kw">const </span>CODE: <span class="kw-2">&amp;</span>str = <span class="string">r#"
 (module
-	(import &quot;seal0&quot; &quot;seal_input&quot; (func $seal_input (param i32 i32)))
-	(import &quot;seal0&quot; &quot;seal_return&quot; (func $seal_return (param i32 i32 i32)))
-	(import &quot;seal1&quot; &quot;get_storage&quot; (func $get_storage (param i32 i32 i32 i32) (result i32)))
-	(import &quot;env&quot; &quot;memory&quot; (memory 1 1))
+	(import "seal0" "seal_input" (func $seal_input (param i32 i32)))
+	(import "seal0" "seal_return" (func $seal_return (param i32 i32 i32)))
+	(import "seal1" "get_storage" (func $get_storage (param i32 i32 i32 i32) (result i32)))
+	(import "env" "memory" (memory 1 1))
 
 	;; [0, 4) size of input buffer (160 bytes as we copy the key+len here)
-	(data (i32.const 0) &quot;\A0&quot;)
+	(data (i32.const 0) "\A0")
 
 	;; [4, 8) size of output buffer
 	;; 4k in little endian
-	(data (i32.const 4) &quot;\00\10&quot;)
+	(data (i32.const 4) "\00\10")
 
 	;; [8, 168) input buffer
 	;; [168, 4264) output buffer
 
-	(func (export &quot;call&quot;)
+	(func (export "call")
 		;; Receive (key ++ value_to_write)
 		(call $seal_input
 			(i32.const 8)	;; Pointer to the input buffer
@@ -6445,9 +6447,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		)
 	)
 
-	(func (export &quot;deploy&quot;))
+	(func (export "deploy"))
 )
-&quot;#</span>;
+"#</span>;
 
 		<span class="kw">let </span><span class="kw-2">mut </span>ext = MockExt::default();
 
@@ -6496,20 +6498,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>clear_storage_works() {
-		<span class="kw">const </span>CODE: <span class="kw-2">&amp;</span>str = <span class="string">r#&quot;
+		<span class="kw">const </span>CODE: <span class="kw-2">&amp;</span>str = <span class="string">r#"
 (module
-	(import &quot;seal0&quot; &quot;seal_input&quot; (func $seal_input (param i32 i32)))
-	(import &quot;seal0&quot; &quot;seal_return&quot; (func $seal_return (param i32 i32 i32)))
-	(import &quot;seal1&quot; &quot;clear_storage&quot; (func $clear_storage (param i32 i32) (result i32)))
-	(import &quot;env&quot; &quot;memory&quot; (memory 1 1))
+	(import "seal0" "seal_input" (func $seal_input (param i32 i32)))
+	(import "seal0" "seal_return" (func $seal_return (param i32 i32 i32)))
+	(import "seal1" "clear_storage" (func $clear_storage (param i32 i32) (result i32)))
+	(import "env" "memory" (memory 1 1))
 
 	;; size of input buffer
 	;; [0, 4) size of input buffer (128+32 = 160 bytes = 0xA0)
-	(data (i32.const 0) &quot;\A0&quot;)
+	(data (i32.const 0) "\A0")
 
 	;; [4, 164) input buffer
 
-	(func (export &quot;call&quot;)
+	(func (export "call")
 		;; Receive key
 		(call $seal_input
 			(i32.const 4)	;; Where we take input and store it
@@ -6529,9 +6531,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		)
 	)
 
-	(func (export &quot;deploy&quot;))
+	(func (export "deploy"))
 )
-&quot;#</span>;
+"#</span>;
 
 		<span class="kw">let </span><span class="kw-2">mut </span>ext = MockExt::default();
 
@@ -6581,24 +6583,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>take_storage_works() {
-		<span class="kw">const </span>CODE: <span class="kw-2">&amp;</span>str = <span class="string">r#&quot;
+		<span class="kw">const </span>CODE: <span class="kw-2">&amp;</span>str = <span class="string">r#"
 (module
-	(import &quot;seal0&quot; &quot;seal_return&quot; (func $seal_return (param i32 i32 i32)))
-	(import &quot;seal0&quot; &quot;seal_input&quot; (func $seal_input (param i32 i32)))
-	(import &quot;seal0&quot; &quot;take_storage&quot; (func $take_storage (param i32 i32 i32 i32) (result i32)))
-	(import &quot;env&quot; &quot;memory&quot; (memory 1 1))
+	(import "seal0" "seal_return" (func $seal_return (param i32 i32 i32)))
+	(import "seal0" "seal_input" (func $seal_input (param i32 i32)))
+	(import "seal0" "take_storage" (func $take_storage (param i32 i32 i32 i32) (result i32)))
+	(import "env" "memory" (memory 1 1))
 
 	;; [0, 4) size of input buffer (160 bytes as we copy the key+len here)
-	(data (i32.const 0) &quot;\A0&quot;)
+	(data (i32.const 0) "\A0")
 
 	;; [4, 8) size of output buffer
 	;; 4k in little endian
-	(data (i32.const 4) &quot;\00\10&quot;)
+	(data (i32.const 4) "\00\10")
 
 	;; [8, 168) input buffer
 	;; [168, 4264) output buffer
 
-	(func (export &quot;call&quot;)
+	(func (export "call")
 		;; Receive key
 		(call $seal_input
 			(i32.const 8)	;; Pointer to the input buffer
@@ -6626,9 +6628,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		)
 	)
 
-	(func (export &quot;deploy&quot;))
+	(func (export "deploy"))
 )
-&quot;#</span>;
+"#</span>;
 
 		<span class="kw">let </span><span class="kw-2">mut </span>ext = MockExt::default();
 
@@ -6677,24 +6679,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>is_contract_works() {
-		<span class="kw">const </span>CODE_IS_CONTRACT: <span class="kw-2">&amp;</span>str = <span class="string">r#&quot;
+		<span class="kw">const </span>CODE_IS_CONTRACT: <span class="kw-2">&amp;</span>str = <span class="string">r#"
 ;; This runs `is_contract` check on zero account address
 (module
-	(import &quot;seal0&quot; &quot;seal_is_contract&quot; (func $seal_is_contract (param i32) (result i32)))
-	(import &quot;seal0&quot; &quot;seal_return&quot; (func $seal_return (param i32 i32 i32)))
-	(import &quot;env&quot; &quot;memory&quot; (memory 1 1))
+	(import "seal0" "seal_is_contract" (func $seal_is_contract (param i32) (result i32)))
+	(import "seal0" "seal_return" (func $seal_return (param i32 i32 i32)))
+	(import "env" "memory" (memory 1 1))
 
 	;; [0, 32) zero-adress
 	(data (i32.const 0)
-		&quot;\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00&quot;
-		&quot;\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00&quot;
+		"\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00"
+		"\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00"
 	)
 
 	;; [32, 36) here we store the return code of the `seal_is_contract`
 
-	(func (export &quot;deploy&quot;))
+	(func (export "deploy"))
 
-	(func (export &quot;call&quot;)
+	(func (export "call")
 		(i32.store
 			(i32.const 32)
 			(call $seal_is_contract
@@ -6705,7 +6707,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		(call $seal_return (i32.const 0) (i32.const 32) (i32.const 4))
 	)
 )
-&quot;#</span>;
+"#</span>;
 		<span class="kw">let </span>output = execute(CODE_IS_CONTRACT, <span class="macro">vec!</span>[], MockExt::default()).unwrap();
 
 		<span class="comment">// The mock ext just always returns 1u32 (`true`).
@@ -6715,13 +6717,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>code_hash_works() {
 		<span class="doccomment">/// calls `seal_code_hash` and compares the result with the constant.
-		</span><span class="kw">const </span>CODE_CODE_HASH: <span class="kw-2">&amp;</span>str = <span class="string">r#&quot;
+		</span><span class="kw">const </span>CODE_CODE_HASH: <span class="kw-2">&amp;</span>str = <span class="string">r#"
 (module
-	(import &quot;seal0&quot; &quot;seal_code_hash&quot; (func $seal_code_hash (param i32 i32 i32) (result i32)))
-	(import &quot;env&quot; &quot;memory&quot; (memory 1 1))
+	(import "seal0" "seal_code_hash" (func $seal_code_hash (param i32 i32 i32) (result i32)))
+	(import "env" "memory" (memory 1 1))
 
 	;; size of our buffer is 32 bytes
-	(data (i32.const 32) &quot;\20&quot;)
+	(data (i32.const 32) "\20")
 
 	(func $assert (param i32)
 		(block $ok
@@ -6732,7 +6734,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		)
 	)
 
-	(func (export &quot;call&quot;)
+	(func (export "call")
 		;; fill the buffer with the code hash.
 		(call $seal_code_hash
 			(i32.const 0) ;; input: address_ptr (before call)
@@ -6748,7 +6750,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			)
 		)
 
-		;; assert that the first 8 bytes are &quot;1111111111111111&quot;
+		;; assert that the first 8 bytes are "1111111111111111"
 		(call $assert
 			(i64.eq
 				(i64.load (i32.const 0))
@@ -6758,22 +6760,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		drop
 	)
 
-	(func (export &quot;deploy&quot;))
+	(func (export "deploy"))
 )
-&quot;#</span>;
+"#</span>;
 		<span class="macro">assert_ok!</span>(execute(CODE_CODE_HASH, <span class="macro">vec!</span>[], MockExt::default()));
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>own_code_hash_works() {
 		<span class="doccomment">/// calls `seal_own_code_hash` and compares the result with the constant.
-		</span><span class="kw">const </span>CODE_OWN_CODE_HASH: <span class="kw-2">&amp;</span>str = <span class="string">r#&quot;
+		</span><span class="kw">const </span>CODE_OWN_CODE_HASH: <span class="kw-2">&amp;</span>str = <span class="string">r#"
 (module
-	(import &quot;seal0&quot; &quot;seal_own_code_hash&quot; (func $seal_own_code_hash (param i32 i32)))
-	(import &quot;env&quot; &quot;memory&quot; (memory 1 1))
+	(import "seal0" "seal_own_code_hash" (func $seal_own_code_hash (param i32 i32)))
+	(import "env" "memory" (memory 1 1))
 
 	;; size of our buffer is 32 bytes
-	(data (i32.const 32) &quot;\20&quot;)
+	(data (i32.const 32) "\20")
 
 	(func $assert (param i32)
 		(block $ok
@@ -6784,7 +6786,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		)
 	)
 
-	(func (export &quot;call&quot;)
+	(func (export "call")
 		;; fill the buffer with the code hash
 		(call $seal_own_code_hash
 			(i32.const 0)  ;; output: code_hash_ptr
@@ -6799,7 +6801,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			)
 		)
 
-		;; assert that the first 8 bytes are &quot;1010101010101010&quot;
+		;; assert that the first 8 bytes are "1010101010101010"
 		(call $assert
 			(i64.eq
 				(i64.load (i32.const 0))
@@ -6808,28 +6810,28 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		)
 	)
 
-	(func (export &quot;deploy&quot;))
+	(func (export "deploy"))
 )
-&quot;#</span>;
+"#</span>;
 		<span class="macro">assert_ok!</span>(execute(CODE_OWN_CODE_HASH, <span class="macro">vec!</span>[], MockExt::default()));
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>caller_is_origin_works() {
-		<span class="kw">const </span>CODE_CALLER_IS_ORIGIN: <span class="kw-2">&amp;</span>str = <span class="string">r#&quot;
+		<span class="kw">const </span>CODE_CALLER_IS_ORIGIN: <span class="kw-2">&amp;</span>str = <span class="string">r#"
 ;; This runs `caller_is_origin` check on zero account address
 (module
-	(import &quot;seal0&quot; &quot;seal_caller_is_origin&quot; (func $seal_caller_is_origin (result i32)))
-	(import &quot;seal0&quot; &quot;seal_return&quot; (func $seal_return (param i32 i32 i32)))
-	(import &quot;env&quot; &quot;memory&quot; (memory 1 1))
+	(import "seal0" "seal_caller_is_origin" (func $seal_caller_is_origin (result i32)))
+	(import "seal0" "seal_return" (func $seal_return (param i32 i32 i32)))
+	(import "env" "memory" (memory 1 1))
 
 	;; [0, 4) here the return code of the `seal_caller_is_origin` will be stored
-	;; we initialize it with non-zero value to be sure that it&#39;s being overwritten below
-	(data (i32.const 0) &quot;\10\10\10\10&quot;)
+	;; we initialize it with non-zero value to be sure that it's being overwritten below
+	(data (i32.const 0) "\10\10\10\10")
 
-	(func (export &quot;deploy&quot;))
+	(func (export "deploy"))
 
-	(func (export &quot;call&quot;)
+	(func (export "call")
 		(i32.store
 			(i32.const 0)
 			(call $seal_caller_is_origin)
@@ -6838,7 +6840,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		(call $seal_return (i32.const 0) (i32.const 0) (i32.const 4))
 	)
 )
-&quot;#</span>;
+"#</span>;
 		<span class="kw">let </span>output = execute(CODE_CALLER_IS_ORIGIN, <span class="macro">vec!</span>[], MockExt::default()).unwrap();
 
 		<span class="comment">// The mock ext just always returns 0u32 (`false`)
@@ -6847,20 +6849,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>caller_is_root_works() {
-		<span class="kw">const </span>CODE_CALLER_IS_ROOT: <span class="kw-2">&amp;</span>str = <span class="string">r#&quot;
+		<span class="kw">const </span>CODE_CALLER_IS_ROOT: <span class="kw-2">&amp;</span>str = <span class="string">r#"
 ;; This runs `caller_is_root` check on zero account address
 (module
-	(import &quot;seal0&quot; &quot;caller_is_root&quot; (func $caller_is_root (result i32)))
-	(import &quot;seal0&quot; &quot;seal_return&quot; (func $seal_return (param i32 i32 i32)))
-	(import &quot;env&quot; &quot;memory&quot; (memory 1 1))
+	(import "seal0" "caller_is_root" (func $caller_is_root (result i32)))
+	(import "seal0" "seal_return" (func $seal_return (param i32 i32 i32)))
+	(import "env" "memory" (memory 1 1))
 
 	;; [0, 4) here the return code of the `caller_is_root` will be stored
-	;; we initialize it with non-zero value to be sure that it&#39;s being overwritten below
-	(data (i32.const 0) &quot;\10\10\10\10&quot;)
+	;; we initialize it with non-zero value to be sure that it's being overwritten below
+	(data (i32.const 0) "\10\10\10\10")
 
-	(func (export &quot;deploy&quot;))
+	(func (export "deploy"))
 
-	(func (export &quot;call&quot;)
+	(func (export "call")
 		(i32.store
 			(i32.const 0)
 			(call $caller_is_root)
@@ -6869,7 +6871,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		(call $seal_return (i32.const 0) (i32.const 0) (i32.const 4))
 	)
 )
-&quot;#</span>;
+"#</span>;
 		<span class="comment">// The default `caller` is ALICE. Therefore not root.
 		</span><span class="kw">let </span>output = execute(CODE_CALLER_IS_ROOT, <span class="macro">vec!</span>[], MockExt::default()).unwrap();
 		<span class="macro">assert_eq!</span>(output, ExecReturnValue { flags: ReturnFlags::empty(), data: <span class="number">0u32</span>.encode() },);
@@ -6886,10 +6888,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>set_code_hash() {
-		<span class="kw">const </span>CODE: <span class="kw-2">&amp;</span>str = <span class="string">r#&quot;
+		<span class="kw">const </span>CODE: <span class="kw-2">&amp;</span>str = <span class="string">r#"
 (module
-	(import &quot;seal0&quot; &quot;seal_set_code_hash&quot; (func $seal_set_code_hash (param i32) (result i32)))
-	(import &quot;env&quot; &quot;memory&quot; (memory 1 1))
+	(import "seal0" "seal_set_code_hash" (func $seal_set_code_hash (param i32) (result i32)))
+	(import "env" "memory" (memory 1 1))
 	(func $assert (param i32)
 		(block $ok
 			(br_if $ok
@@ -6898,7 +6900,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			(unreachable)
 		)
 	)
-	(func (export &quot;call&quot;)
+	(func (export "call")
 		(local $exit_code i32)
 		(local.set $exit_code
 			(call $seal_set_code_hash (i32.const 0))
@@ -6908,15 +6910,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		)
 	)
 
-	(func (export &quot;deploy&quot;))
+	(func (export "deploy"))
 
 	;; Hash of code.
 	(data (i32.const 0)
-		&quot;\11\11\11\11\11\11\11\11\11\11\11\11\11\11\11\11&quot;
-		&quot;\11\11\11\11\11\11\11\11\11\11\11\11\11\11\11\11&quot;
+		"\11\11\11\11\11\11\11\11\11\11\11\11\11\11\11\11"
+		"\11\11\11\11\11\11\11\11\11\11\11\11\11\11\11\11"
 	)
 )
-&quot;#</span>;
+"#</span>;
 
 		<span class="kw">let </span><span class="kw-2">mut </span>mock_ext = MockExt::default();
 		execute(CODE, [<span class="number">0u8</span>; <span class="number">32</span>].encode(), <span class="kw-2">&amp;mut </span>mock_ext).unwrap();
@@ -6926,10 +6928,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>reentrance_count_works() {
-		<span class="kw">const </span>CODE: <span class="kw-2">&amp;</span>str = <span class="string">r#&quot;
+		<span class="kw">const </span>CODE: <span class="kw-2">&amp;</span>str = <span class="string">r#"
 (module
-	(import &quot;seal0&quot; &quot;reentrance_count&quot; (func $reentrance_count (result i32)))
-	(import &quot;env&quot; &quot;memory&quot; (memory 1 1))
+	(import "seal0" "reentrance_count" (func $reentrance_count (result i32)))
+	(import "env" "memory" (memory 1 1))
 	(func $assert (param i32)
 		(block $ok
 			(br_if $ok
@@ -6938,7 +6940,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			(unreachable)
 		)
 	)
-	(func (export &quot;call&quot;)
+	(func (export "call")
 		(local $return_val i32)
 		(local.set $return_val
 			(call $reentrance_count)
@@ -6948,9 +6950,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		)
 	)
 
-	(func (export &quot;deploy&quot;))
+	(func (export "deploy"))
 )
-&quot;#</span>;
+"#</span>;
 
 		<span class="kw">let </span><span class="kw-2">mut </span>mock_ext = MockExt::default();
 		execute(CODE, <span class="macro">vec!</span>[], <span class="kw-2">&amp;mut </span>mock_ext).unwrap();
@@ -6958,10 +6960,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>account_reentrance_count_works() {
-		<span class="kw">const </span>CODE: <span class="kw-2">&amp;</span>str = <span class="string">r#&quot;
+		<span class="kw">const </span>CODE: <span class="kw-2">&amp;</span>str = <span class="string">r#"
 (module
-	(import &quot;seal0&quot; &quot;account_reentrance_count&quot; (func $account_reentrance_count (param i32) (result i32)))
-	(import &quot;env&quot; &quot;memory&quot; (memory 1 1))
+	(import "seal0" "account_reentrance_count" (func $account_reentrance_count (param i32) (result i32)))
+	(import "env" "memory" (memory 1 1))
 	(func $assert (param i32)
 		(block $ok
 			(br_if $ok
@@ -6970,7 +6972,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			(unreachable)
 		)
 	)
-	(func (export &quot;call&quot;)
+	(func (export "call")
 		(local $return_val i32)
 		(local.set $return_val
 			(call $account_reentrance_count (i32.const 0))
@@ -6980,9 +6982,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		)
 	)
 
-	(func (export &quot;deploy&quot;))
+	(func (export "deploy"))
 )
-&quot;#</span>;
+"#</span>;
 
 		<span class="kw">let </span><span class="kw-2">mut </span>mock_ext = MockExt::default();
 		execute(CODE, <span class="macro">vec!</span>[], <span class="kw-2">&amp;mut </span>mock_ext).unwrap();
@@ -6990,10 +6992,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>instantiation_nonce_works() {
-		<span class="kw">const </span>CODE: <span class="kw-2">&amp;</span>str = <span class="string">r#&quot;
+		<span class="kw">const </span>CODE: <span class="kw-2">&amp;</span>str = <span class="string">r#"
 (module
-	(import &quot;seal0&quot; &quot;instantiation_nonce&quot; (func $nonce (result i64)))
-	(import &quot;env&quot; &quot;memory&quot; (memory 1 1))
+	(import "seal0" "instantiation_nonce" (func $nonce (result i64)))
+	(import "env" "memory" (memory 1 1))
 
 	(func $assert (param i32)
 		(block $ok
@@ -7003,14 +7005,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			(unreachable)
 		)
 	)
-	(func (export &quot;call&quot;)
+	(func (export "call")
 		(call $assert
 			(i64.eq (call $nonce) (i64.const 995))
 		)
 	)
-	(func (export &quot;deploy&quot;))
+	(func (export "deploy"))
 )
-&quot;#</span>;
+"#</span>;
 
 		<span class="kw">let </span><span class="kw-2">mut </span>mock_ext = MockExt::default();
 		execute(CODE, <span class="macro">vec!</span>[], <span class="kw-2">&amp;mut </span>mock_ext).unwrap();
@@ -7019,18 +7021,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// This test check that an unstable interface cannot be deployed. In case of runtime
 	/// benchmarks we always allow unstable interfaces. This is why this test does not
 	/// work when this feature is enabled.
-	</span><span class="attr">#[cfg(not(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>))]
+	</span><span class="attr">#[cfg(not(feature = <span class="string">"runtime-benchmarks"</span>))]
 	#[test]
 	</span><span class="kw">fn </span>cannot_deploy_unstable() {
-		<span class="kw">const </span>CANNOT_DEPLOY_UNSTABLE: <span class="kw-2">&amp;</span>str = <span class="string">r#&quot;
+		<span class="kw">const </span>CANNOT_DEPLOY_UNSTABLE: <span class="kw-2">&amp;</span>str = <span class="string">r#"
 (module
-	(import &quot;seal0&quot; &quot;reentrance_count&quot; (func $reentrance_count (result i32)))
-	(import &quot;env&quot; &quot;memory&quot; (memory 1 1))
+	(import "seal0" "reentrance_count" (func $reentrance_count (result i32)))
+	(import "env" "memory" (memory 1 1))
 
-	(func (export &quot;call&quot;))
-	(func (export &quot;deploy&quot;))
+	(func (export "call"))
+	(func (export "deploy"))
 )
-&quot;#</span>;
+"#</span>;
 		<span class="macro">assert_err!</span>(
 			execute_no_unstable(CANNOT_DEPLOY_UNSTABLE, <span class="macro">vec!</span>[], MockExt::default()),
 			&lt;Error&lt;Test&gt;&gt;::CodeRejected,
@@ -7040,46 +7042,46 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// The random interface is deprecated and hence new contracts using it should not be deployed.
 	/// In case of runtime benchmarks we always allow deprecated interfaces. This is why this
-	/// test doesn&#39;t work if this feature is enabled.
-	</span><span class="attr">#[cfg(not(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>))]
+	/// test doesn't work if this feature is enabled.
+	</span><span class="attr">#[cfg(not(feature = <span class="string">"runtime-benchmarks"</span>))]
 	#[test]
 	</span><span class="kw">fn </span>cannot_deploy_deprecated() {
-		<span class="kw">const </span>CODE_RANDOM_0: <span class="kw-2">&amp;</span>str = <span class="string">r#&quot;
+		<span class="kw">const </span>CODE_RANDOM_0: <span class="kw-2">&amp;</span>str = <span class="string">r#"
 (module
-	(import &quot;seal0&quot; &quot;seal_random&quot; (func $seal_random (param i32 i32 i32 i32)))
-	(import &quot;env&quot; &quot;memory&quot; (memory 1 1))
+	(import "seal0" "seal_random" (func $seal_random (param i32 i32 i32 i32)))
+	(import "env" "memory" (memory 1 1))
 
-	(func (export &quot;call&quot;))
-	(func (export &quot;deploy&quot;))
+	(func (export "call"))
+	(func (export "deploy"))
 )
-	&quot;#</span>;
-		<span class="kw">const </span>CODE_RANDOM_1: <span class="kw-2">&amp;</span>str = <span class="string">r#&quot;
+	"#</span>;
+		<span class="kw">const </span>CODE_RANDOM_1: <span class="kw-2">&amp;</span>str = <span class="string">r#"
 (module
-	(import &quot;seal1&quot; &quot;seal_random&quot; (func $seal_random (param i32 i32 i32 i32)))
-	(import &quot;env&quot; &quot;memory&quot; (memory 1 1))
+	(import "seal1" "seal_random" (func $seal_random (param i32 i32 i32 i32)))
+	(import "env" "memory" (memory 1 1))
 
-	(func (export &quot;call&quot;))
-	(func (export &quot;deploy&quot;))
+	(func (export "call"))
+	(func (export "deploy"))
 )
-	&quot;#</span>;
-		<span class="kw">const </span>CODE_RANDOM_2: <span class="kw-2">&amp;</span>str = <span class="string">r#&quot;
+	"#</span>;
+		<span class="kw">const </span>CODE_RANDOM_2: <span class="kw-2">&amp;</span>str = <span class="string">r#"
 (module
-	(import &quot;seal0&quot; &quot;random&quot; (func $seal_random (param i32 i32 i32 i32)))
-	(import &quot;env&quot; &quot;memory&quot; (memory 1 1))
+	(import "seal0" "random" (func $seal_random (param i32 i32 i32 i32)))
+	(import "env" "memory" (memory 1 1))
 
-	(func (export &quot;call&quot;))
-	(func (export &quot;deploy&quot;))
+	(func (export "call"))
+	(func (export "deploy"))
 )
-	&quot;#</span>;
-		<span class="kw">const </span>CODE_RANDOM_3: <span class="kw-2">&amp;</span>str = <span class="string">r#&quot;
+	"#</span>;
+		<span class="kw">const </span>CODE_RANDOM_3: <span class="kw-2">&amp;</span>str = <span class="string">r#"
 (module
-	(import &quot;seal1&quot; &quot;random&quot; (func $seal_random (param i32 i32 i32 i32)))
-	(import &quot;env&quot; &quot;memory&quot; (memory 1 1))
+	(import "seal1" "random" (func $seal_random (param i32 i32 i32 i32)))
+	(import "env" "memory" (memory 1 1))
 
-	(func (export &quot;call&quot;))
-	(func (export &quot;deploy&quot;))
+	(func (export "call"))
+	(func (export "deploy"))
 )
-	&quot;#</span>;
+	"#</span>;
 
 		<span class="macro">assert_ok!</span>(execute_unvalidated(CODE_RANDOM_0, <span class="macro">vec!</span>[], MockExt::default()));
 		<span class="macro">assert_err!</span>(
@@ -7124,31 +7126,31 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>lock_unlock_delegate_dependency() {
-		<span class="kw">const </span>CODE_LOCK_UNLOCK_DELEGATE_DEPENDENCY: <span class="kw-2">&amp;</span>str = <span class="string">r#&quot;
+		<span class="kw">const </span>CODE_LOCK_UNLOCK_DELEGATE_DEPENDENCY: <span class="kw-2">&amp;</span>str = <span class="string">r#"
 (module
-	(import &quot;seal0&quot; &quot;lock_delegate_dependency&quot; (func $lock_delegate_dependency (param i32)))
-	(import &quot;seal0&quot; &quot;unlock_delegate_dependency&quot; (func $unlock_delegate_dependency (param i32)))
-	(import &quot;env&quot; &quot;memory&quot; (memory 1 1))
-	(func (export &quot;call&quot;)
+	(import "seal0" "lock_delegate_dependency" (func $lock_delegate_dependency (param i32)))
+	(import "seal0" "unlock_delegate_dependency" (func $unlock_delegate_dependency (param i32)))
+	(import "env" "memory" (memory 1 1))
+	(func (export "call")
 		(call $lock_delegate_dependency (i32.const 0))
 		(call $lock_delegate_dependency (i32.const 32))
 		(call $unlock_delegate_dependency (i32.const 32))
 	)
-	(func (export &quot;deploy&quot;))
+	(func (export "deploy"))
 
 	;;  hash1 (32 bytes)
 	(data (i32.const 0)
-		&quot;\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01&quot;
-		&quot;\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01&quot;
+		"\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01"
+		"\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01\01"
 	)
 
 	;;  hash2 (32 bytes)
 	(data (i32.const 32)
-		&quot;\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02&quot;
-		&quot;\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02&quot;
+		"\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02"
+		"\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02\02"
 	)
 )
-&quot;#</span>;
+"#</span>;
 		<span class="kw">let </span><span class="kw-2">mut </span>mock_ext = MockExt::default();
 		<span class="macro">assert_ok!</span>(execute(<span class="kw-2">&amp;</span>CODE_LOCK_UNLOCK_DELEGATE_DEPENDENCY, <span class="macro">vec!</span>[], <span class="kw-2">&amp;mut </span>mock_ext));
 		<span class="kw">let </span>delegate_dependencies: Vec&lt;<span class="kw">_</span>&gt; =
@@ -7175,18 +7177,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>run_out_of_gas_in_start_fn() {
-		<span class="kw">const </span>CODE: <span class="kw-2">&amp;</span>str = <span class="string">r#&quot;
+		<span class="kw">const </span>CODE: <span class="kw-2">&amp;</span>str = <span class="string">r#"
 (module
-	(import &quot;env&quot; &quot;memory&quot; (memory 1 1))
+	(import "env" "memory" (memory 1 1))
 	(start $start)
 	(func $start
 		(loop $inf (br $inf)) ;; just run out of gas
 		(unreachable)
 	)
-	(func (export &quot;call&quot;))
-	(func (export &quot;deploy&quot;))
+	(func (export "call"))
+	(func (export "deploy"))
 )
-&quot;#</span>;
+"#</span>;
 		<span class="kw">let </span><span class="kw-2">mut </span>mock_ext = MockExt::default();
 		<span class="macro">assert_err!</span>(execute(<span class="kw-2">&amp;</span>CODE, <span class="macro">vec!</span>[], <span class="kw-2">&amp;mut </span>mock_ext), &lt;Error&lt;Test&gt;&gt;::OutOfGas);
 	}

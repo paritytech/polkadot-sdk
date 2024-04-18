@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/staking/src/slashing.rs`."><title>slashing.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/staking/src/slashing.rs`."><title>slashing.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_staking" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_staking" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../pallet_staking/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1015,14 +1017,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -1038,7 +1040,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! There are 3 main difficulties to account for with slashing in NPoS:
 //!   - A nominator can nominate multiple validators and be slashed via any of them.
 //!   - Until slashed, stake is reused from era to era. Nominating with N coins for E eras in a row
-//!     does not mean you have N*E coins to be slashed - you&#39;ve only ever had N.
+//!     does not mean you have N*E coins to be slashed - you've only ever had N.
 //!   - Slashable offences can be found after the fact and out of order.
 //!
 //! The algorithm implemented in this module tries to balance these 3 difficulties.
@@ -1046,18 +1048,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! First, we only slash participants for the _maximum_ slash they receive in some time period,
 //! rather than the sum. This ensures a protection from overslashing.
 //!
-//! Second, we do not want the time period (or &quot;span&quot;) that the maximum is computed
+//! Second, we do not want the time period (or "span") that the maximum is computed
 //! over to last indefinitely. That would allow participants to begin acting with
 //! impunity after some point, fearing no further repercussions. For that reason, we
-//! automatically &quot;chill&quot; validators and withdraw a nominator&#39;s nomination after a slashing event,
+//! automatically "chill" validators and withdraw a nominator's nomination after a slashing event,
 //! requiring them to re-enlist voluntarily (acknowledging the slash) and begin a new
 //! slashing span.
 //!
 //! Typically, you will have a single slashing event per slashing span. Only in the case
-//! where a validator releases many misbehaviors at once, or goes &quot;back in time&quot; to misbehave in
+//! where a validator releases many misbehaviors at once, or goes "back in time" to misbehave in
 //! eras that have already passed, would you encounter situations where a slashing span
 //! has multiple misbehaviors. However, accounting for such cases is necessary
-//! to deter a class of &quot;rage-quit&quot; attacks.
+//! to deter a class of "rage-quit" attacks.
 //!
 //! Based on research at &lt;https://research.web3.foundation/en/latest/polkadot/slashing/npos.html&gt;
 
@@ -1101,7 +1103,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="doccomment">/// An encoding of all of a nominator&#39;s slashing spans.
+<span class="doccomment">/// An encoding of all of a nominator's slashing spans.
 </span><span class="attr">#[derive(Encode, Decode, RuntimeDebug, TypeInfo)]
 </span><span class="kw">pub struct </span>SlashingSpans {
 	<span class="comment">// the index of the current slashing span of the nominator. different for
@@ -1111,7 +1113,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>last_start: EraIndex,
 	<span class="comment">// the last era at which a non-zero slash occurred.
 	</span>last_nonzero_slash: EraIndex,
-	<span class="comment">// all prior slashing spans&#39; start indices, in reverse order (most recent first)
+	<span class="comment">// all prior slashing spans' start indices, in reverse order (most recent first)
 	// encoded as offsets relative to the slashing span after it.
 	</span>prior: Vec&lt;EraIndex&gt;,
 }
@@ -1148,7 +1150,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>}
 
 	<span class="comment">// an iterator over all slashing spans in _reverse_ order - most recent first.
-	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>iter(<span class="kw-2">&amp;</span><span class="lifetime">&#39;_ </span><span class="self">self</span>) -&gt; <span class="kw">impl </span>Iterator&lt;Item = SlashingSpan&gt; + <span class="lifetime">&#39;_ </span>{
+	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>iter(<span class="kw-2">&amp;</span><span class="lifetime">'_ </span><span class="self">self</span>) -&gt; <span class="kw">impl </span>Iterator&lt;Item = SlashingSpan&gt; + <span class="lifetime">'_ </span>{
 		<span class="kw">let </span><span class="kw-2">mut </span>last_start = <span class="self">self</span>.last_start;
 		<span class="kw">let </span><span class="kw-2">mut </span>index = <span class="self">self</span>.span_index;
 		<span class="kw">let </span>last = SlashingSpan { index, start: last_start, length: <span class="prelude-val">None </span>};
@@ -1216,13 +1218,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Parameters for performing a slash.
 </span><span class="attr">#[derive(Clone)]
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>SlashParams&lt;<span class="lifetime">&#39;a</span>, T: <span class="lifetime">&#39;a </span>+ Config&gt; {
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>SlashParams&lt;<span class="lifetime">'a</span>, T: <span class="lifetime">'a </span>+ Config&gt; {
 	<span class="doccomment">/// The stash account being slashed.
-	</span><span class="kw">pub</span>(<span class="kw">crate</span>) stash: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>T::AccountId,
+	</span><span class="kw">pub</span>(<span class="kw">crate</span>) stash: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>T::AccountId,
 	<span class="doccomment">/// The proportion of the slash.
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) slash: Perbill,
 	<span class="doccomment">/// The exposure of the stash and all nominators.
-	</span><span class="kw">pub</span>(<span class="kw">crate</span>) exposure: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Exposure&lt;T::AccountId, BalanceOf&lt;T&gt;&gt;,
+	</span><span class="kw">pub</span>(<span class="kw">crate</span>) exposure: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Exposure&lt;T::AccountId, BalanceOf&lt;T&gt;&gt;,
 	<span class="doccomment">/// The era where the offence occurred.
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) slash_era: EraIndex,
 	<span class="doccomment">/// The first era in the current bonding period.
@@ -1251,7 +1253,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="comment">// is the slash amount here a maximum for the era?
 	</span><span class="kw">let </span>own_slash = params.slash * params.exposure.own;
 	<span class="kw">if </span>params.slash * params.exposure.total == Zero::zero() {
-		<span class="comment">// kick out the validator even if they won&#39;t be slashed,
+		<span class="comment">// kick out the validator even if they won't be slashed,
 		// as long as the misbehavior is from their most recent slashing span.
 		</span>kick_out_if_recent::&lt;T&gt;(params);
 		<span class="kw">return </span><span class="prelude-val">None
@@ -1317,7 +1319,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	})
 }
 
-<span class="comment">// doesn&#39;t apply any slash, but kicks out the validator if the misbehavior is from
+<span class="comment">// doesn't apply any slash, but kicks out the validator if the misbehavior is from
 // the most recent slashing span.
 </span><span class="kw">fn </span>kick_out_if_recent&lt;T: Config&gt;(params: SlashParams&lt;T&gt;) {
 	<span class="comment">// these are not updated by era-span or end-span.
@@ -1373,7 +1375,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Ok</span>(index) =&gt; {
 				<span class="kw">if </span>disable &amp;&amp; !offending[index].<span class="number">1 </span>{
 					<span class="comment">// the validator had previously offended without being disabled,
-					// let&#39;s make sure we disable it now
+					// let's make sure we disable it now
 					</span>offending[index].<span class="number">1 </span>= <span class="bool-val">true</span>;
 					T::SessionInterface::disable_validator(validator_index_u32);
 				}
@@ -1425,7 +1427,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>target_span = spans.compare_and_update_span_slash(params.slash_era, era_slash);
 
 			<span class="kw">if </span>target_span == <span class="prelude-val">Some</span>(spans.span_index()) {
-				<span class="comment">// end the span, but don&#39;t chill the nominator.
+				<span class="comment">// end the span, but don't chill the nominator.
 				</span>spans.end_span(params.now);
 			}
 		}
@@ -1442,25 +1444,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // dropping this struct applies any necessary slashes, which can lead to free balance
 // being 0, and the account being garbage-collected -- a dead account should get no new
 // metadata.
-</span><span class="kw">struct </span>InspectingSpans&lt;<span class="lifetime">&#39;a</span>, T: Config + <span class="lifetime">&#39;a</span>&gt; {
+</span><span class="kw">struct </span>InspectingSpans&lt;<span class="lifetime">'a</span>, T: Config + <span class="lifetime">'a</span>&gt; {
 	dirty: bool,
 	window_start: EraIndex,
-	stash: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>T::AccountId,
+	stash: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>T::AccountId,
 	spans: SlashingSpans,
-	paid_out: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>BalanceOf&lt;T&gt;,
-	slash_of: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>BalanceOf&lt;T&gt;,
+	paid_out: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>BalanceOf&lt;T&gt;,
+	slash_of: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>BalanceOf&lt;T&gt;,
 	reward_proportion: Perbill,
 	_marker: sp_std::marker::PhantomData&lt;T&gt;,
 }
 
 <span class="comment">// fetches the slashing spans record for a stash account, initializing it if necessary.
-</span><span class="kw">fn </span>fetch_spans&lt;<span class="lifetime">&#39;a</span>, T: Config + <span class="lifetime">&#39;a</span>&gt;(
-	stash: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>T::AccountId,
+</span><span class="kw">fn </span>fetch_spans&lt;<span class="lifetime">'a</span>, T: Config + <span class="lifetime">'a</span>&gt;(
+	stash: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>T::AccountId,
 	window_start: EraIndex,
-	paid_out: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>BalanceOf&lt;T&gt;,
-	slash_of: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>BalanceOf&lt;T&gt;,
+	paid_out: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>BalanceOf&lt;T&gt;,
+	slash_of: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>BalanceOf&lt;T&gt;,
 	reward_proportion: Perbill,
-) -&gt; InspectingSpans&lt;<span class="lifetime">&#39;a</span>, T&gt; {
+) -&gt; InspectingSpans&lt;<span class="lifetime">'a</span>, T&gt; {
 	<span class="kw">let </span>spans = <span class="kw">crate</span>::SlashingSpans::&lt;T&gt;::get(stash).unwrap_or_else(|| {
 		<span class="kw">let </span>spans = SlashingSpans::new(window_start);
 		<span class="kw">crate</span>::SlashingSpans::&lt;T&gt;::insert(stash, <span class="kw-2">&amp;</span>spans);
@@ -1479,7 +1481,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, T: <span class="lifetime">&#39;a </span>+ Config&gt; InspectingSpans&lt;<span class="lifetime">&#39;a</span>, T&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, T: <span class="lifetime">'a </span>+ Config&gt; InspectingSpans&lt;<span class="lifetime">'a</span>, T&gt; {
 	<span class="kw">fn </span>span_index(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; SpanIndex {
 		<span class="self">self</span>.spans.span_index
 	}
@@ -1502,7 +1504,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="comment">// compares the slash in an era to the overall current span slash.
-	// if it&#39;s higher, applies the difference of the slashes and then updates the span on disk.
+	// if it's higher, applies the difference of the slashes and then updates the span on disk.
 	//
 	// returns the span index of the era where the slash occurred, if any.
 	</span><span class="kw">fn </span>compare_and_update_span_slash(
@@ -1550,7 +1552,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, T: <span class="lifetime">&#39;a </span>+ Config&gt; Drop <span class="kw">for </span>InspectingSpans&lt;<span class="lifetime">&#39;a</span>, T&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, T: <span class="lifetime">'a </span>+ Config&gt; Drop <span class="kw">for </span>InspectingSpans&lt;<span class="lifetime">'a</span>, T&gt; {
 	<span class="kw">fn </span>drop(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
 		<span class="comment">// only update on disk if we slashed this account.
 		</span><span class="kw">if </span>!<span class="self">self</span>.dirty {
@@ -1633,7 +1635,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let _ </span>= ledger
 			.update()
-			.defensive_proof(<span class="string">&quot;ledger fetched from storage so it exists in storage; qed.&quot;</span>);
+			.defensive_proof(<span class="string">"ledger fetched from storage so it exists in storage; qed."</span>);
 
 		<span class="comment">// trigger the event
 		</span>&lt;Pallet&lt;T&gt;&gt;::deposit_event(<span class="kw">super</span>::Event::&lt;T&gt;::Slashed {

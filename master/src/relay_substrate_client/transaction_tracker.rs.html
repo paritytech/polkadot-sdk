@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `bridges/relays/client-substrate/src/transaction_tracker.rs`."><title>transaction_tracker.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `bridges/relays/client-substrate/src/transaction_tracker.rs`."><title>transaction_tracker.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="relay_substrate_client" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="relay_substrate_client" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../relay_substrate_client/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -638,9 +640,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// Substrate node provides RPC API to submit and watch for transaction events. This way
 /// we may know when transaction is included into block, finalized or rejected. There are
-/// some edge cases, when we can&#39;t fully trust this mechanism - e.g. transaction may broadcasted
+/// some edge cases, when we can't fully trust this mechanism - e.g. transaction may broadcasted
 /// and then dropped out of node transaction pool (some other cases are also possible - node
-/// restarts, connection lost, ...). Then we can&#39;t know for sure - what is currently happening
+/// restarts, connection lost, ...). Then we can't know for sure - what is currently happening
 /// with our transaction. Is the transaction really lost? Is it still alive on the chain network?
 ///
 /// We have several options to handle such cases:
@@ -680,7 +682,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		wait_for_stall_timeout_rest: <span class="kw">impl </span>Future&lt;Output = ()&gt;,
 	) -&gt; (TrackedTransactionStatus&lt;HeaderIdOf&lt;C&gt;&gt;, <span class="prelude-ty">Option</span>&lt;InvalidationStatus&lt;HeaderIdOf&lt;C&gt;&gt;&gt;) {
 		<span class="comment">// sometimes we want to wait for the rest of the stall timeout even if
-		// `wait_for_invalidation` has been &quot;select&quot;ed first =&gt; it is shared
+		// `wait_for_invalidation` has been "select"ed first =&gt; it is shared
 		</span><span class="kw">let </span>wait_for_invalidation = watch_transaction_status::&lt;<span class="kw">_</span>, C, <span class="kw">_</span>&gt;(
 			<span class="self">self</span>.environment,
 			<span class="self">self</span>.transaction_hash,
@@ -691,8 +693,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">match </span>futures::future::select(wait_for_stall_timeout, wait_for_invalidation).<span class="kw">await </span>{
 			Either::Left((<span class="kw">_</span>, <span class="kw">_</span>)) =&gt; {
 				<span class="macro">log::trace!</span>(
-					target: <span class="string">&quot;bridge&quot;</span>,
-					<span class="string">&quot;{} transaction {:?} is considered lost after timeout (no status response from the node)&quot;</span>,
+					target: <span class="string">"bridge"</span>,
+					<span class="string">"{} transaction {:?} is considered lost after timeout (no status response from the node)"</span>,
 					C::NAME,
 					<span class="self">self</span>.transaction_hash,
 				);
@@ -705,14 +707,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				InvalidationStatus::Invalid =&gt;
 					(TrackedTransactionStatus::Lost, <span class="prelude-val">Some</span>(invalidation_status)),
 				InvalidationStatus::Lost =&gt; {
-					<span class="comment">// wait for the rest of stall timeout - this way we&#39;ll be sure that the
+					<span class="comment">// wait for the rest of stall timeout - this way we'll be sure that the
 					// transaction is actually dead if it has been crafted properly
 					</span>wait_for_stall_timeout_rest.<span class="kw">await</span>;
-					<span class="comment">// if someone is still watching for our transaction, then we&#39;re reporting
-					// an error here (which is treated as &quot;transaction lost&quot;)
+					<span class="comment">// if someone is still watching for our transaction, then we're reporting
+					// an error here (which is treated as "transaction lost")
 					</span><span class="macro">log::trace!</span>(
-						target: <span class="string">&quot;bridge&quot;</span>,
-						<span class="string">&quot;{} transaction {:?} is considered lost after timeout&quot;</span>,
+						target: <span class="string">"bridge"</span>,
+						<span class="string">"{} transaction {:?} is considered lost after timeout"</span>,
 						C::NAME,
 						<span class="self">self</span>.transaction_hash,
 					);
@@ -739,7 +741,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// Note that in places where the `TransactionTracker` is used, the finalization event will be
 /// ignored - relay loops are detecting the mining/finalization using their own
-/// techniques. That&#39;s why we&#39;re using `InvalidationStatus` here.
+/// techniques. That's why we're using `InvalidationStatus` here.
 </span><span class="attr">#[derive(Debug, PartialEq)]
 </span><span class="kw">enum </span>InvalidationStatus&lt;BlockId&gt; {
 	<span class="doccomment">/// Transaction has been included into block and finalized at given block.
@@ -765,11 +767,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">loop </span>{
 		<span class="kw">match </span>subscription.next().<span class="kw">await </span>{
 			<span class="prelude-val">Some</span>(TransactionStatusOf::&lt;C&gt;::Finalized((block_hash, <span class="kw">_</span>))) =&gt; {
-				<span class="comment">// the only &quot;successful&quot; outcome of this method is when the block with transaction
+				<span class="comment">// the only "successful" outcome of this method is when the block with transaction
 				// has been finalized
 				</span><span class="macro">log::trace!</span>(
-					target: <span class="string">&quot;bridge&quot;</span>,
-					<span class="string">&quot;{} transaction {:?} has been finalized at block: {:?}&quot;</span>,
+					target: <span class="string">"bridge"</span>,
+					<span class="string">"{} transaction {:?} has been finalized at block: {:?}"</span>,
 					C::NAME,
 					transaction_hash,
 					block_hash,
@@ -779,14 +781,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="prelude-val">Ok</span>(header_id) =&gt; header_id,
 					<span class="prelude-val">Err</span>(e) =&gt; {
 						<span class="macro">log::error!</span>(
-							target: <span class="string">&quot;bridge&quot;</span>,
-							<span class="string">&quot;Failed to read header {:?} when watching for {} transaction {:?}: {:?}&quot;</span>,
+							target: <span class="string">"bridge"</span>,
+							<span class="string">"Failed to read header {:?} when watching for {} transaction {:?}: {:?}"</span>,
 							block_hash,
 							C::NAME,
 							transaction_hash,
 							e,
 						);
-						<span class="comment">// that&#39;s the best option we have here
+						<span class="comment">// that's the best option we have here
 						</span><span class="kw">return </span>InvalidationStatus::Lost
 					},
 				};
@@ -796,12 +798,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="comment">// if node says that the transaction is invalid, there are still chances that
 				// it is not actually invalid - e.g. if the block where transaction has been
 				// revalidated is retracted and transaction (at some other node pool) becomes
-				// valid again on other fork. But let&#39;s assume that the chances of this event
-				// are almost zero - there&#39;s a lot of things that must happen for this to be the
+				// valid again on other fork. But let's assume that the chances of this event
+				// are almost zero - there's a lot of things that must happen for this to be the
 				// case.
 				</span><span class="macro">log::trace!</span>(
-					target: <span class="string">&quot;bridge&quot;</span>,
-					<span class="string">&quot;{} transaction {:?} has been invalidated&quot;</span>,
+					target: <span class="string">"bridge"</span>,
+					<span class="string">"{} transaction {:?} has been invalidated"</span>,
 					C::NAME,
 					transaction_hash,
 				);
@@ -817,8 +819,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				// here and use it later (on finality) for reporting invalid transaction
 				// https://github.com/paritytech/parity-bridges-common/issues/1464
 				</span><span class="macro">log::trace!</span>(
-					target: <span class="string">&quot;bridge&quot;</span>,
-					<span class="string">&quot;{} transaction {:?} has been included in block: {:?}&quot;</span>,
+					target: <span class="string">"bridge"</span>,
+					<span class="string">"{} transaction {:?} has been included in block: {:?}"</span>,
 					C::NAME,
 					transaction_hash,
 					block_hash,
@@ -826,18 +828,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			},
 			<span class="prelude-val">Some</span>(TransactionStatusOf::&lt;C&gt;::Retracted(block_hash)) =&gt; {
 				<span class="macro">log::trace!</span>(
-					target: <span class="string">&quot;bridge&quot;</span>,
-					<span class="string">&quot;{} transaction {:?} at block {:?} has been retracted&quot;</span>,
+					target: <span class="string">"bridge"</span>,
+					<span class="string">"{} transaction {:?} at block {:?} has been retracted"</span>,
 					C::NAME,
 					transaction_hash,
 					block_hash,
 				);
 			},
 			<span class="prelude-val">Some</span>(TransactionStatusOf::&lt;C&gt;::FinalityTimeout(block_hash)) =&gt; {
-				<span class="comment">// finality is lagging? let&#39;s wait a bit more and report a stall
+				<span class="comment">// finality is lagging? let's wait a bit more and report a stall
 				</span><span class="macro">log::trace!</span>(
-					target: <span class="string">&quot;bridge&quot;</span>,
-					<span class="string">&quot;{} transaction {:?} block {:?} has not been finalized for too long&quot;</span>,
+					target: <span class="string">"bridge"</span>,
+					<span class="string">"{} transaction {:?} block {:?} has not been finalized for too long"</span>,
 					C::NAME,
 					transaction_hash,
 					block_hash,
@@ -846,11 +848,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			},
 			<span class="prelude-val">Some</span>(TransactionStatusOf::&lt;C&gt;::Usurped(new_transaction_hash)) =&gt; {
 				<span class="comment">// this may be result of our transaction resubmitter work or some manual
-				// intervention. In both cases - let&#39;s start stall timeout, because the meaning
+				// intervention. In both cases - let's start stall timeout, because the meaning
 				// of transaction may have changed
 				</span><span class="macro">log::trace!</span>(
-					target: <span class="string">&quot;bridge&quot;</span>,
-					<span class="string">&quot;{} transaction {:?} has been usurped by new transaction: {:?}&quot;</span>,
+					target: <span class="string">"bridge"</span>,
+					<span class="string">"{} transaction {:?} has been usurped by new transaction: {:?}"</span>,
 					C::NAME,
 					transaction_hash,
 					new_transaction_hash,
@@ -858,11 +860,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">return </span>InvalidationStatus::Lost
 			},
 			<span class="prelude-val">Some</span>(TransactionStatusOf::&lt;C&gt;::Dropped) =&gt; {
-				<span class="comment">// the transaction has been removed from the pool because of its limits. Let&#39;s wait
+				<span class="comment">// the transaction has been removed from the pool because of its limits. Let's wait
 				// a bit and report a stall
 				</span><span class="macro">log::trace!</span>(
-					target: <span class="string">&quot;bridge&quot;</span>,
-					<span class="string">&quot;{} transaction {:?} has been dropped from the pool&quot;</span>,
+					target: <span class="string">"bridge"</span>,
+					<span class="string">"{} transaction {:?} has been dropped from the pool"</span>,
 					C::NAME,
 					transaction_hash,
 				);
@@ -870,7 +872,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			},
 			<span class="prelude-val">None </span>=&gt; {
 				<span class="comment">// the status of transaction is unknown to us (the subscription has been closed?).
-				// Let&#39;s wait a bit and report a stall
+				// Let's wait a bit and report a stall
 				</span><span class="kw">return </span>InvalidationStatus::Lost
 			},
 		}

@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/network/sync/src/engine.rs`."><title>engine.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/network/sync/src/engine.rs`."><title>engine.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_network_sync" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_network_sync" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sc_network_sync/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1646,17 +1648,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">mod </span>rep {
 	<span class="kw">use </span>sc_network::ReputationChange <span class="kw">as </span>Rep;
 	<span class="doccomment">/// Peer has different genesis.
-	</span><span class="kw">pub const </span>GENESIS_MISMATCH: Rep = Rep::new_fatal(<span class="string">&quot;Genesis mismatch&quot;</span>);
+	</span><span class="kw">pub const </span>GENESIS_MISMATCH: Rep = Rep::new_fatal(<span class="string">"Genesis mismatch"</span>);
 	<span class="doccomment">/// Peer send us a block announcement that failed at validation.
-	</span><span class="kw">pub const </span>BAD_BLOCK_ANNOUNCEMENT: Rep = Rep::new(-(<span class="number">1 </span>&lt;&lt; <span class="number">12</span>), <span class="string">&quot;Bad block announcement&quot;</span>);
+	</span><span class="kw">pub const </span>BAD_BLOCK_ANNOUNCEMENT: Rep = Rep::new(-(<span class="number">1 </span>&lt;&lt; <span class="number">12</span>), <span class="string">"Bad block announcement"</span>);
 	<span class="doccomment">/// We received a message that failed to decode.
-	</span><span class="kw">pub const </span>BAD_MESSAGE: Rep = Rep::new(-(<span class="number">1 </span>&lt;&lt; <span class="number">12</span>), <span class="string">&quot;Bad message&quot;</span>);
+	</span><span class="kw">pub const </span>BAD_MESSAGE: Rep = Rep::new(-(<span class="number">1 </span>&lt;&lt; <span class="number">12</span>), <span class="string">"Bad message"</span>);
 	<span class="doccomment">/// Peer is on unsupported protocol version.
-	</span><span class="kw">pub const </span>BAD_PROTOCOL: Rep = Rep::new_fatal(<span class="string">&quot;Unsupported protocol&quot;</span>);
+	</span><span class="kw">pub const </span>BAD_PROTOCOL: Rep = Rep::new_fatal(<span class="string">"Unsupported protocol"</span>);
 	<span class="doccomment">/// Reputation change when a peer refuses a request.
-	</span><span class="kw">pub const </span>REFUSED: Rep = Rep::new(-(<span class="number">1 </span>&lt;&lt; <span class="number">10</span>), <span class="string">&quot;Request refused&quot;</span>);
-	<span class="doccomment">/// Reputation change when a peer doesn&#39;t respond in time to our messages.
-	</span><span class="kw">pub const </span>TIMEOUT: Rep = Rep::new(-(<span class="number">1 </span>&lt;&lt; <span class="number">10</span>), <span class="string">&quot;Request timeout&quot;</span>);
+	</span><span class="kw">pub const </span>REFUSED: Rep = Rep::new(-(<span class="number">1 </span>&lt;&lt; <span class="number">10</span>), <span class="string">"Request refused"</span>);
+	<span class="doccomment">/// Reputation change when a peer doesn't respond in time to our messages.
+	</span><span class="kw">pub const </span>TIMEOUT: Rep = Rep::new(-(<span class="number">1 </span>&lt;&lt; <span class="number">10</span>), <span class="string">"Request timeout"</span>);
 }
 
 <span class="kw">struct </span>Metrics {
@@ -1670,20 +1672,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let _ </span>= MajorSyncingGauge::register(r, major_syncing)<span class="question-mark">?</span>;
 		<span class="prelude-val">Ok</span>(<span class="self">Self </span>{
 			peers: {
-				<span class="kw">let </span>g = Gauge::new(<span class="string">&quot;substrate_sync_peers&quot;</span>, <span class="string">&quot;Number of peers we sync with&quot;</span>)<span class="question-mark">?</span>;
+				<span class="kw">let </span>g = Gauge::new(<span class="string">"substrate_sync_peers"</span>, <span class="string">"Number of peers we sync with"</span>)<span class="question-mark">?</span>;
 				register(g, r)<span class="question-mark">?
 			</span>},
 			import_queue_blocks_submitted: {
 				<span class="kw">let </span>c = Counter::new(
-					<span class="string">&quot;substrate_sync_import_queue_blocks_submitted&quot;</span>,
-					<span class="string">&quot;Number of blocks submitted to the import queue.&quot;</span>,
+					<span class="string">"substrate_sync_import_queue_blocks_submitted"</span>,
+					<span class="string">"Number of blocks submitted to the import queue."</span>,
 				)<span class="question-mark">?</span>;
 				register(c, r)<span class="question-mark">?
 			</span>},
 			import_queue_justifications_submitted: {
 				<span class="kw">let </span>c = Counter::new(
-					<span class="string">&quot;substrate_sync_import_queue_justifications_submitted&quot;</span>,
-					<span class="string">&quot;Number of justifications submitted to the import queue.&quot;</span>,
+					<span class="string">"substrate_sync_import_queue_justifications_submitted"</span>,
+					<span class="string">"Number of justifications submitted to the import queue."</span>,
 				)<span class="question-mark">?</span>;
 				register(c, r)<span class="question-mark">?
 			</span>},
@@ -1691,7 +1693,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="doccomment">/// The &quot;major syncing&quot; metric.
+<span class="doccomment">/// The "major syncing" metric.
 </span><span class="attr">#[derive(Clone)]
 </span><span class="kw">pub struct </span>MajorSyncingGauge(Arc&lt;AtomicBool&gt;);
 
@@ -1702,8 +1704,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		prometheus_endpoint::register(
 			SourcedGauge::new(
 				<span class="kw-2">&amp;</span>Opts::new(
-					<span class="string">&quot;substrate_sub_libp2p_is_major_syncing&quot;</span>,
-					<span class="string">&quot;Whether the node is performing a major sync or not.&quot;</span>,
+					<span class="string">"substrate_sub_libp2p_is_major_syncing"</span>,
+					<span class="string">"Whether the node is performing a major sync or not."</span>,
 				),
 				MajorSyncingGauge(value),
 			)<span class="question-mark">?</span>,
@@ -1739,7 +1741,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Blockchain client.
 	</span>client: Arc&lt;Client&gt;,
 
-	<span class="doccomment">/// Number of peers we&#39;re connected to.
+	<span class="doccomment">/// Number of peers we're connected to.
 	</span>num_connected: Arc&lt;AtomicUsize&gt;,
 
 	<span class="doccomment">/// Are we actively catching up with the chain?
@@ -1795,12 +1797,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// A cache for the data that was associated to a block announcement.
 	</span>block_announce_data_cache: LruMap&lt;B::Hash, Vec&lt;u8&gt;&gt;,
 
-	<span class="doccomment">/// The `PeerId`&#39;s of all boot nodes.
+	<span class="doccomment">/// The `PeerId`'s of all boot nodes.
 	</span>boot_node_ids: HashSet&lt;PeerId&gt;,
 
 	<span class="doccomment">/// A channel to get target block header if we skip over proofs downloading during warp sync.
 	</span>warp_sync_target_block_header_rx_fused:
-		Fuse&lt;BoxFuture&lt;<span class="lifetime">&#39;static</span>, <span class="prelude-ty">Result</span>&lt;B::Header, oneshot::Canceled&gt;&gt;&gt;,
+		Fuse&lt;BoxFuture&lt;<span class="lifetime">'static</span>, <span class="prelude-ty">Result</span>&lt;B::Header, oneshot::Canceled&gt;&gt;&gt;,
 
 	<span class="doccomment">/// Protocol name used for block announcements
 	</span>block_announce_protocol_name: ProtocolName,
@@ -1839,7 +1841,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		+ ProofProvider&lt;B&gt;
 		+ Send
 		+ Sync
-		+ <span class="lifetime">&#39;static</span>,
+		+ <span class="lifetime">'static</span>,
 {
 	<span class="kw">pub fn </span>new&lt;N&gt;(
 		roles: Roles,
@@ -1867,7 +1869,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">if </span>net_config.network_config.max_blocks_per_request &gt; MAX_BLOCKS_IN_RESPONSE <span class="kw">as </span>u32 {
 				<span class="macro">log::info!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;clamping maximum blocks per request to {}&quot;</span>,
+					<span class="string">"clamping maximum blocks per request to {}"</span>,
 					MAX_BLOCKS_IN_RESPONSE,
 				);
 				MAX_BLOCKS_IN_RESPONSE <span class="kw">as </span>u32
@@ -1939,7 +1941,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					.block_hash(Zero::zero())
 					.ok()
 					.flatten()
-					.expect(<span class="string">&quot;Genesis block exists; qed&quot;</span>),
+					.expect(<span class="string">"Genesis block exists; qed"</span>),
 				<span class="kw-2">&amp;</span>net_config.network_config.default_peers_set,
 				network_metrics,
 				Arc::clone(<span class="kw-2">&amp;</span>peer_store_handle),
@@ -1962,14 +1964,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">let </span>strategy = SyncingStrategy::new(syncing_config, client.clone(), warp_sync_config)<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>block_announce_protocol_name = block_announce_config.protocol_name().clone();
-		<span class="kw">let </span>(tx, service_rx) = tracing_unbounded(<span class="string">&quot;mpsc_chain_sync&quot;</span>, <span class="number">100_000</span>);
+		<span class="kw">let </span>(tx, service_rx) = tracing_unbounded(<span class="string">"mpsc_chain_sync"</span>, <span class="number">100_000</span>);
 		<span class="kw">let </span>num_connected = Arc::new(AtomicUsize::new(<span class="number">0</span>));
 		<span class="kw">let </span>is_major_syncing = Arc::new(AtomicBool::new(<span class="bool-val">false</span>));
 		<span class="kw">let </span>genesis_hash = client
 			.block_hash(<span class="number">0u32</span>.into())
 			.ok()
 			.flatten()
-			.expect(<span class="string">&quot;Genesis block exists; qed&quot;</span>);
+			.expect(<span class="string">"Genesis block exists; qed"</span>);
 
 		<span class="comment">// `default_peers_set.in_peers` contains an unspecified amount of light peers so the number
 		// of full inbound peers must be calculated from the total full peer count
@@ -2016,7 +2018,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw">match </span>Metrics::register(r, is_major_syncing.clone()) {
 						<span class="prelude-val">Ok</span>(metrics) =&gt; <span class="prelude-val">Some</span>(metrics),
 						<span class="prelude-val">Err</span>(err) =&gt; {
-							<span class="macro">log::error!</span>(target: LOG_TARGET, <span class="string">&quot;Failed to register metrics {err:?}&quot;</span>);
+							<span class="macro">log::error!</span>(target: LOG_TARGET, <span class="string">"Failed to register metrics {err:?}"</span>);
 							<span class="prelude-val">None
 						</span>},
 					}
@@ -2099,7 +2101,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">None </span>=&gt; {
 				<span class="macro">log::error!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Received block announce from disconnected peer {peer_id}&quot;</span>,
+					<span class="string">"Received block announce from disconnected peer {peer_id}"</span>,
 				);
 				<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
 				<span class="kw">return
@@ -2126,22 +2128,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>header = <span class="kw">match </span><span class="self">self</span>.client.header(hash) {
 			<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(header)) =&gt; header,
 			<span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>) =&gt; {
-				<span class="macro">log::warn!</span>(target: LOG_TARGET, <span class="string">&quot;Trying to announce unknown block: {hash}&quot;</span>);
+				<span class="macro">log::warn!</span>(target: LOG_TARGET, <span class="string">"Trying to announce unknown block: {hash}"</span>);
 				<span class="kw">return
 			</span>},
 			<span class="prelude-val">Err</span>(e) =&gt; {
-				<span class="macro">log::warn!</span>(target: LOG_TARGET, <span class="string">&quot;Error reading block header {hash}: {e}&quot;</span>);
+				<span class="macro">log::warn!</span>(target: LOG_TARGET, <span class="string">"Error reading block header {hash}: {e}"</span>);
 				<span class="kw">return
 			</span>},
 		};
 
-		<span class="comment">// don&#39;t announce genesis block since it will be ignored
+		<span class="comment">// don't announce genesis block since it will be ignored
 		</span><span class="kw">if </span>header.number().is_zero() {
 			<span class="kw">return
 		</span>}
 
 		<span class="kw">let </span>is_best = <span class="self">self</span>.client.info().best_hash == hash;
-		<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;Reannouncing block {hash:?} is_best: {is_best}&quot;</span>);
+		<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"Reannouncing block {hash:?} is_best: {is_best}"</span>);
 
 		<span class="kw">let </span>data = data
 			.or_else(|| <span class="self">self</span>.block_announce_data_cache.get(<span class="kw-2">&amp;</span>hash).cloned())
@@ -2150,7 +2152,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">for </span>(peer_id, <span class="kw-2">ref mut </span>peer) <span class="kw">in </span><span class="self">self</span>.peers.iter_mut() {
 			<span class="kw">let </span>inserted = peer.known_blocks.insert(hash);
 			<span class="kw">if </span>inserted {
-				<span class="macro">log::trace!</span>(target: LOG_TARGET, <span class="string">&quot;Announcing block {hash:?} to {peer_id}&quot;</span>);
+				<span class="macro">log::trace!</span>(target: LOG_TARGET, <span class="string">"Announcing block {hash:?} to {peer_id}"</span>);
 				<span class="kw">let </span>message = BlockAnnounce {
 					header: header.clone(),
 					state: <span class="kw">if </span>is_best { <span class="prelude-val">Some</span>(BlockState::Best) } <span class="kw">else </span>{ <span class="prelude-val">Some</span>(BlockState::Normal) },
@@ -2178,7 +2180,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw">if let </span><span class="prelude-val">Err</span>(<span class="kw">_</span>) = <span class="self">self</span>.pass_warp_sync_target_block_header(warp_target_block_header) {
 						<span class="macro">error!</span>(
 							target: LOG_TARGET,
-							<span class="string">&quot;Failed to set warp sync target block header, terminating `SyncingEngine`.&quot;</span>,
+							<span class="string">"Failed to set warp sync target block header, terminating `SyncingEngine`."</span>,
 						);
 						<span class="kw">return
 					</span>}
@@ -2197,7 +2199,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.process_strategy_actions() {
 				<span class="macro">error!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Terminating `SyncingEngine` due to fatal error: {e:?}.&quot;</span>,
+					<span class="string">"Terminating `SyncingEngine` due to fatal error: {e:?}."</span>,
 				);
 				<span class="kw">return
 			</span>}
@@ -2216,8 +2218,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw">if </span>removed {
 						<span class="macro">warn!</span>(
 							target: LOG_TARGET,
-							<span class="string">&quot;Processed `ChainSyncAction::SendBlockRequest` to {} from {:?} with {:?}. \
-							 Stale response removed!&quot;</span>,
+							<span class="string">"Processed `ChainSyncAction::SendBlockRequest` to {} from {:?} with {:?}. \
+							 Stale response removed!"</span>,
 							peer_id,
 							key,
 							request,
@@ -2225,7 +2227,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					} <span class="kw">else </span>{
 						<span class="macro">trace!</span>(
 							target: LOG_TARGET,
-							<span class="string">&quot;Processed `ChainSyncAction::SendBlockRequest` to {} from {:?} with {:?}.&quot;</span>,
+							<span class="string">"Processed `ChainSyncAction::SendBlockRequest` to {} from {:?} with {:?}."</span>,
 							peer_id,
 							key,
 							request,
@@ -2237,7 +2239,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 					<span class="macro">trace!</span>(
 						target: LOG_TARGET,
-						<span class="string">&quot;Processed {action:?}, response removed: {removed}.&quot;</span>,
+						<span class="string">"Processed {action:?}, response removed: {removed}."</span>,
 					);
 				},
 				SyncingAction::SendStateRequest { peer_id, key, request } =&gt; {
@@ -2245,7 +2247,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 					<span class="macro">trace!</span>(
 						target: LOG_TARGET,
-						<span class="string">&quot;Processed `ChainSyncAction::SendStateRequest` to {peer_id}.&quot;</span>,
+						<span class="string">"Processed `ChainSyncAction::SendStateRequest` to {peer_id}."</span>,
 					);
 				},
 				SyncingAction::SendWarpProofRequest { peer_id, key, request } =&gt; {
@@ -2253,7 +2255,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 					<span class="macro">trace!</span>(
 						target: LOG_TARGET,
-						<span class="string">&quot;Processed `ChainSyncAction::SendWarpProofRequest` to {}, request: {:?}.&quot;</span>,
+						<span class="string">"Processed `ChainSyncAction::SendWarpProofRequest` to {}, request: {:?}."</span>,
 						peer_id,
 						request,
 					);
@@ -2264,7 +2266,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						.disconnect_peer(peer_id, <span class="self">self</span>.block_announce_protocol_name.clone());
 					<span class="self">self</span>.network_service.report_peer(peer_id, rep);
 
-					<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">&quot;{peer_id:?} dropped: {rep:?}.&quot;</span>);
+					<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">"{peer_id:?} dropped: {rep:?}."</span>);
 				},
 				SyncingAction::ImportBlocks { origin, blocks } =&gt; {
 					<span class="kw">let </span>count = blocks.len();
@@ -2272,7 +2274,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 					<span class="macro">trace!</span>(
 						target: LOG_TARGET,
-						<span class="string">&quot;Processed `ChainSyncAction::ImportBlocks` with {count} blocks.&quot;</span>,
+						<span class="string">"Processed `ChainSyncAction::ImportBlocks` with {count} blocks."</span>,
 					);
 				},
 				SyncingAction::ImportJustifications { peer_id, hash, number, justifications } =&gt; {
@@ -2280,7 +2282,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 					<span class="macro">trace!</span>(
 						target: LOG_TARGET,
-						<span class="string">&quot;Processed `ChainSyncAction::ImportJustifications` from peer {} for block {} ({}).&quot;</span>,
+						<span class="string">"Processed `ChainSyncAction::ImportJustifications` from peer {} for block {} ({})."</span>,
 						peer_id,
 						hash,
 						number,
@@ -2316,17 +2318,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">if </span>!success {
 					<span class="macro">log::info!</span>(
 						target: LOG_TARGET,
-						<span class="string">&quot;💔 Invalid justification provided by {peer_id} for #{hash}&quot;</span>,
+						<span class="string">"💔 Invalid justification provided by {peer_id} for #{hash}"</span>,
 					);
 					<span class="self">self</span>.network_service
 						.disconnect_peer(peer_id, <span class="self">self</span>.block_announce_protocol_name.clone());
 					<span class="self">self</span>.network_service
-						.report_peer(peer_id, ReputationChange::new_fatal(<span class="string">&quot;Invalid justification&quot;</span>));
+						.report_peer(peer_id, ReputationChange::new_fatal(<span class="string">"Invalid justification"</span>));
 				}
 			},
 			ToServiceCommand::AnnounceBlock(hash, data) =&gt; <span class="self">self</span>.announce_block(hash, data),
 			ToServiceCommand::NewBestBlockImported(hash, number) =&gt; {
-				<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;New best block imported {:?}/#{}&quot;</span>, hash, number);
+				<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"New best block imported {:?}/#{}"</span>, hash, number);
 
 				<span class="self">self</span>.strategy.update_chain_info(<span class="kw-2">&amp;</span>hash, number);
 				<span class="kw">let _ </span>= <span class="self">self</span>.notification_service.try_set_handshake(
@@ -2390,19 +2392,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			NotificationEvent::NotificationStreamOpened { peer, handshake, direction, .. } =&gt; {
 				<span class="macro">log::debug!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Substream opened for {peer}, handshake {handshake:?}&quot;
+					<span class="string">"Substream opened for {peer}, handshake {handshake:?}"
 				</span>);
 
 				<span class="kw">match </span><span class="self">self</span>.validate_connection(<span class="kw-2">&amp;</span>peer, handshake, direction) {
 					<span class="prelude-val">Ok</span>(handshake) =&gt; {
 						<span class="kw">if </span><span class="self">self</span>.on_sync_peer_connected(peer, <span class="kw-2">&amp;</span>handshake, direction).is_err() {
-							<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;Failed to register peer {peer}&quot;</span>);
+							<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"Failed to register peer {peer}"</span>);
 							<span class="self">self</span>.network_service
 								.disconnect_peer(peer, <span class="self">self</span>.block_announce_protocol_name.clone());
 						}
 					},
 					<span class="prelude-val">Err</span>(wrong_genesis) =&gt; {
-						<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;`SyncingEngine` rejected {peer}&quot;</span>);
+						<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"`SyncingEngine` rejected {peer}"</span>);
 
 						<span class="kw">if </span>wrong_genesis {
 							<span class="self">self</span>.peer_store_handle.report_peer(peer, rep::GENESIS_MISMATCH);
@@ -2420,13 +2422,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">if </span>!<span class="self">self</span>.peers.contains_key(<span class="kw-2">&amp;</span>peer) {
 					<span class="macro">log::error!</span>(
 						target: LOG_TARGET,
-						<span class="string">&quot;received notification from {peer} who had been earlier refused by `SyncingEngine`&quot;</span>,
+						<span class="string">"received notification from {peer} who had been earlier refused by `SyncingEngine`"</span>,
 					);
 					<span class="kw">return
 				</span>}
 
 				<span class="kw">let </span><span class="prelude-val">Ok</span>(announce) = BlockAnnounce::decode(<span class="kw-2">&amp;mut </span>notification.as_ref()) <span class="kw">else </span>{
-					<span class="macro">log::warn!</span>(target: LOG_TARGET, <span class="string">&quot;failed to decode block announce&quot;</span>);
+					<span class="macro">log::warn!</span>(target: LOG_TARGET, <span class="string">"failed to decode block announce"</span>);
 					<span class="kw">return
 				</span>};
 
@@ -2444,7 +2446,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Err</span>(err) =&gt; {
 				<span class="macro">error!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Failed to get target block for warp sync. Error: {err:?}&quot;</span>,
+					<span class="string">"Failed to get target block for warp sync. Error: {err:?}"</span>,
 				);
 				<span class="prelude-val">Err</span>(())
 			},
@@ -2456,14 +2458,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// Returns a result if the handshake of this peer was indeed accepted.
 	</span><span class="kw">fn </span>on_sync_peer_disconnected(<span class="kw-2">&amp;mut </span><span class="self">self</span>, peer_id: PeerId) {
 		<span class="kw">let </span><span class="prelude-val">Some</span>(info) = <span class="self">self</span>.peers.remove(<span class="kw-2">&amp;</span>peer_id) <span class="kw">else </span>{
-			<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;{peer_id} does not exist in `SyncingEngine`&quot;</span>);
+			<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"{peer_id} does not exist in `SyncingEngine`"</span>);
 			<span class="kw">return
 		</span>};
 
 		<span class="kw">if </span><span class="self">self</span>.important_peers.contains(<span class="kw-2">&amp;</span>peer_id) {
-			<span class="macro">log::warn!</span>(target: LOG_TARGET, <span class="string">&quot;Reserved peer {peer_id} disconnected&quot;</span>);
+			<span class="macro">log::warn!</span>(target: LOG_TARGET, <span class="string">"Reserved peer {peer_id} disconnected"</span>);
 		} <span class="kw">else </span>{
-			<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;{peer_id} disconnected&quot;</span>);
+			<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"{peer_id} disconnected"</span>);
 		}
 
 		<span class="kw">if </span>!<span class="self">self</span>.default_peers_set_no_slot_connected_peers.remove(<span class="kw-2">&amp;</span>peer_id) &amp;&amp;
@@ -2476,7 +2478,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="prelude-val">None </span>=&gt; {
 					<span class="macro">log::error!</span>(
 						target: LOG_TARGET,
-						<span class="string">&quot;trying to disconnect an inbound node which is not counted as inbound&quot;
+						<span class="string">"trying to disconnect an inbound node which is not counted as inbound"
 					</span>);
 					<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
 				},
@@ -2495,11 +2497,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		peer_id: <span class="kw-2">&amp;</span>PeerId,
 		handshake: Vec&lt;u8&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;BlockAnnouncesHandshake&lt;B&gt;, bool&gt; {
-		<span class="macro">log::trace!</span>(target: LOG_TARGET, <span class="string">&quot;Validate handshake for {peer_id}&quot;</span>);
+		<span class="macro">log::trace!</span>(target: LOG_TARGET, <span class="string">"Validate handshake for {peer_id}"</span>);
 
 		<span class="kw">let </span>handshake = &lt;BlockAnnouncesHandshake&lt;B&gt; <span class="kw">as </span>DecodeAll&gt;::decode_all(<span class="kw-2">&amp;mut &amp;</span>handshake[..])
 			.map_err(|error| {
-				<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;Failed to decode handshake for {peer_id}: {error:?}&quot;</span>);
+				<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"Failed to decode handshake for {peer_id}: {error:?}"</span>);
 				<span class="bool-val">false
 			</span>})<span class="question-mark">?</span>;
 
@@ -2507,21 +2509,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">if </span><span class="self">self</span>.important_peers.contains(<span class="kw-2">&amp;</span>peer_id) {
 				<span class="macro">log::error!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Reserved peer id `{peer_id}` is on a different chain (our genesis: {} theirs: {})&quot;</span>,
+					<span class="string">"Reserved peer id `{peer_id}` is on a different chain (our genesis: {} theirs: {})"</span>,
 					<span class="self">self</span>.genesis_hash,
 					handshake.genesis_hash,
 				);
 			} <span class="kw">else if </span><span class="self">self</span>.boot_node_ids.contains(<span class="kw-2">&amp;</span>peer_id) {
 				<span class="macro">log::error!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Bootnode with peer id `{peer_id}` is on a different chain (our genesis: {} theirs: {})&quot;</span>,
+					<span class="string">"Bootnode with peer id `{peer_id}` is on a different chain (our genesis: {} theirs: {})"</span>,
 					<span class="self">self</span>.genesis_hash,
 					handshake.genesis_hash,
 				);
 			} <span class="kw">else </span>{
 				<span class="macro">log::debug!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Peer is on different chain (our genesis: {} theirs: {})&quot;</span>,
+					<span class="string">"Peer is on different chain (our genesis: {} theirs: {})"</span>,
 					<span class="self">self</span>.genesis_hash,
 					handshake.genesis_hash
 				);
@@ -2552,14 +2554,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		handshake: Vec&lt;u8&gt;,
 		direction: Direction,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;BlockAnnouncesHandshake&lt;B&gt;, bool&gt; {
-		<span class="macro">log::trace!</span>(target: LOG_TARGET, <span class="string">&quot;New peer {peer_id} {handshake:?}&quot;</span>);
+		<span class="macro">log::trace!</span>(target: LOG_TARGET, <span class="string">"New peer {peer_id} {handshake:?}"</span>);
 
 		<span class="kw">let </span>handshake = <span class="self">self</span>.validate_handshake(peer_id, handshake)<span class="question-mark">?</span>;
 
 		<span class="kw">if </span><span class="self">self</span>.peers.contains_key(<span class="kw-2">&amp;</span>peer_id) {
 			<span class="macro">log::error!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;Called `validate_connection()` with already connected peer {peer_id}&quot;</span>,
+				<span class="string">"Called `validate_connection()` with already connected peer {peer_id}"</span>,
 			);
 			<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
 			<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="bool-val">false</span>)
@@ -2574,7 +2576,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="self">self</span>.default_peers_set_no_slot_connected_peers.len() +
 					this_peer_reserved_slot
 		{
-			<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;Too many full nodes, rejecting {peer_id}&quot;</span>);
+			<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"Too many full nodes, rejecting {peer_id}"</span>);
 			<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="bool-val">false</span>)
 		}
 
@@ -2584,7 +2586,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			direction.is_inbound() &amp;&amp;
 			<span class="self">self</span>.num_in_peers == <span class="self">self</span>.max_in_peers
 		{
-			<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;All inbound slots have been consumed, rejecting {peer_id}&quot;</span>);
+			<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"All inbound slots have been consumed, rejecting {peer_id}"</span>);
 			<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="bool-val">false</span>)
 		}
 
@@ -2595,7 +2597,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">if </span>handshake.roles.is_light() &amp;&amp;
 			(<span class="self">self</span>.peers.len() - <span class="self">self</span>.strategy.num_peers()) &gt;= <span class="self">self</span>.default_peers_set_num_light
 		{
-			<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;Too many light nodes, rejecting {peer_id}&quot;</span>);
+			<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"Too many light nodes, rejecting {peer_id}"</span>);
 			<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="bool-val">false</span>)
 		}
 
@@ -2613,7 +2615,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		status: <span class="kw-2">&amp;</span>BlockAnnouncesHandshake&lt;B&gt;,
 		direction: Direction,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), ()&gt; {
-		<span class="macro">log::trace!</span>(target: LOG_TARGET, <span class="string">&quot;New peer {peer_id} {status:?}&quot;</span>);
+		<span class="macro">log::trace!</span>(target: LOG_TARGET, <span class="string">"New peer {peer_id} {status:?}"</span>);
 
 		<span class="kw">let </span>peer = Peer {
 			info: ExtendedPeerInfo {
@@ -2622,7 +2624,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				best_number: status.best_number,
 			},
 			known_blocks: LruHashSet::new(
-				NonZeroUsize::new(MAX_KNOWN_BLOCKS).expect(<span class="string">&quot;Constant is nonzero&quot;</span>),
+				NonZeroUsize::new(MAX_KNOWN_BLOCKS).expect(<span class="string">"Constant is nonzero"</span>),
 			),
 			inbound: direction.is_inbound(),
 		};
@@ -2632,7 +2634,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="self">self</span>.strategy.add_peer(peer_id, peer.info.best_hash, peer.info.best_number);
 		}
 
-		<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;Connected {peer_id}&quot;</span>);
+		<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"Connected {peer_id}"</span>);
 
 		<span class="self">self</span>.peers.insert(peer_id, peer);
 		<span class="self">self</span>.peer_store_handle.set_peer_role(<span class="kw-2">&amp;</span>peer_id, status.roles.into());
@@ -2651,7 +2653,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">fn </span>send_block_request(<span class="kw-2">&amp;mut </span><span class="self">self</span>, peer_id: PeerId, key: StrategyKey, request: BlockRequest&lt;B&gt;) {
 		<span class="kw">if </span>!<span class="self">self</span>.peers.contains_key(<span class="kw-2">&amp;</span>peer_id) {
-			<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">&quot;Cannot send block request to unknown peer {peer_id}&quot;</span>);
+			<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">"Cannot send block request to unknown peer {peer_id}"</span>);
 			<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
 			<span class="kw">return
 		</span>}
@@ -2673,7 +2675,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		request: OpaqueStateRequest,
 	) {
 		<span class="kw">if </span>!<span class="self">self</span>.peers.contains_key(<span class="kw-2">&amp;</span>peer_id) {
-			<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">&quot;Cannot send state request to unknown peer {peer_id}&quot;</span>);
+			<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">"Cannot send state request to unknown peer {peer_id}"</span>);
 			<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
 			<span class="kw">return
 		</span>}
@@ -2695,7 +2697,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Err</span>(err) =&gt; {
 				<span class="macro">log::warn!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Failed to encode state request {request:?}: {err:?}&quot;</span>,
+					<span class="string">"Failed to encode state request {request:?}: {err:?}"</span>,
 				);
 			},
 		}
@@ -2708,7 +2710,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		request: WarpProofRequest&lt;B&gt;,
 	) {
 		<span class="kw">if </span>!<span class="self">self</span>.peers.contains_key(<span class="kw-2">&amp;</span>peer_id) {
-			<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">&quot;Cannot send warp proof request to unknown peer {peer_id}&quot;</span>);
+			<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">"Cannot send warp proof request to unknown peer {peer_id}"</span>);
 			<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
 			<span class="kw">return
 		</span>}
@@ -2728,7 +2730,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">None </span>=&gt; {
 				<span class="macro">log::warn!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Trying to send warp sync request when no protocol is configured {request:?}&quot;</span>,
+					<span class="string">"Trying to send warp sync request when no protocol is configured {request:?}"</span>,
 				);
 			},
 		}
@@ -2736,8 +2738,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">fn </span>encode_state_request(request: <span class="kw-2">&amp;</span>OpaqueStateRequest) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, String&gt; {
 		<span class="kw">let </span>request: <span class="kw-2">&amp;</span>StateRequest = request.<span class="number">0</span>.downcast_ref().ok_or_else(|| {
-			<span class="string">&quot;Failed to downcast opaque state response during encoding, this is an \
-				implementation bug.&quot;
+			<span class="string">"Failed to downcast opaque state response during encoding, this is an \
+				implementation bug."
 				</span>.to_string()
 		})<span class="question-mark">?</span>;
 
@@ -2746,7 +2748,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">fn </span>decode_state_response(response: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;OpaqueStateResponse, String&gt; {
 		<span class="kw">let </span>response = StateResponse::decode(response)
-			.map_err(|error| <span class="macro">format!</span>(<span class="string">&quot;Failed to decode state response: {error}&quot;</span>))<span class="question-mark">?</span>;
+			.map_err(|error| <span class="macro">format!</span>(<span class="string">"Failed to decode state response: {error}"</span>))<span class="question-mark">?</span>;
 
 		<span class="prelude-val">Ok</span>(OpaqueStateResponse(Box::new(response)))
 	}
@@ -2764,7 +2766,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="prelude-val">Err</span>(BlockResponseError::DecodeFailed(e)) =&gt; {
 							<span class="macro">debug!</span>(
 								target: LOG_TARGET,
-								<span class="string">&quot;Failed to decode block response from peer {:?}: {:?}.&quot;</span>,
+								<span class="string">"Failed to decode block response from peer {:?}: {:?}."</span>,
 								peer_id,
 								e
 							);
@@ -2778,7 +2780,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="prelude-val">Err</span>(BlockResponseError::ExtractionFailed(e)) =&gt; {
 							<span class="macro">debug!</span>(
 								target: LOG_TARGET,
-								<span class="string">&quot;Failed to extract blocks from peer response {:?}: {:?}.&quot;</span>,
+								<span class="string">"Failed to extract blocks from peer response {:?}: {:?}."</span>,
 								peer_id,
 								e
 							);
@@ -2793,7 +2795,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="prelude-val">Err</span>(e) =&gt; {
 							<span class="macro">debug!</span>(
 								target: LOG_TARGET,
-								<span class="string">&quot;Failed to decode state response from peer {peer_id:?}: {e:?}.&quot;</span>,
+								<span class="string">"Failed to decode state response from peer {peer_id:?}: {e:?}."</span>,
 							);
 							<span class="self">self</span>.network_service.report_peer(peer_id, rep::BAD_MESSAGE);
 							<span class="self">self</span>.network_service.disconnect_peer(
@@ -2811,7 +2813,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				},
 			},
 			<span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(e)) =&gt; {
-				<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;Request to peer {peer_id:?} failed: {e:?}.&quot;</span>);
+				<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"Request to peer {peer_id:?} failed: {e:?}."</span>);
 
 				<span class="kw">match </span>e {
 					RequestFailure::Network(OutboundFailure::Timeout) =&gt; {
@@ -2839,13 +2841,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							.disconnect_peer(peer_id, <span class="self">self</span>.block_announce_protocol_name.clone());
 					},
 					RequestFailure::UnknownProtocol =&gt; {
-						<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>, <span class="string">&quot;Block request protocol should always be known.&quot;</span>);
+						<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>, <span class="string">"Block request protocol should always be known."</span>);
 					},
 					RequestFailure::Obsolete =&gt; {
 						<span class="macro">debug_assert!</span>(
 							<span class="bool-val">false</span>,
-							<span class="string">&quot;Can not receive `RequestFailure::Obsolete` after dropping the \
-								response receiver.&quot;</span>,
+							<span class="string">"Can not receive `RequestFailure::Obsolete` after dropping the \
+								response receiver."</span>,
 						);
 					},
 				}
@@ -2853,7 +2855,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Err</span>(oneshot::Canceled) =&gt; {
 				<span class="macro">trace!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Request to peer {peer_id:?} failed due to oneshot being canceled.&quot;</span>,
+					<span class="string">"Request to peer {peer_id:?} failed due to oneshot being canceled."</span>,
 				);
 				<span class="self">self</span>.network_service
 					.disconnect_peer(peer_id, <span class="self">self</span>.block_announce_protocol_name.clone());
@@ -2861,7 +2863,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="doccomment">/// Returns the number of peers we&#39;re connected to and that are being queried.
+	<span class="doccomment">/// Returns the number of peers we're connected to and that are being queried.
 	</span><span class="kw">fn </span>num_active_peers(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
 		<span class="self">self</span>.pending_responses.len()
 	}
@@ -2882,18 +2884,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>genesis_hash = genesis_hash.as_ref();
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>fork_id) = fork_id {
 				<span class="macro">format!</span>(
-					<span class="string">&quot;/{}/{}/block-announces/1&quot;</span>,
-					array_bytes::bytes2hex(<span class="string">&quot;&quot;</span>, genesis_hash),
+					<span class="string">"/{}/{}/block-announces/1"</span>,
+					array_bytes::bytes2hex(<span class="string">""</span>, genesis_hash),
 					fork_id
 				)
 			} <span class="kw">else </span>{
-				<span class="macro">format!</span>(<span class="string">&quot;/{}/block-announces/1&quot;</span>, array_bytes::bytes2hex(<span class="string">&quot;&quot;</span>, genesis_hash))
+				<span class="macro">format!</span>(<span class="string">"/{}/block-announces/1"</span>, array_bytes::bytes2hex(<span class="string">""</span>, genesis_hash))
 			}
 		};
 
 		N::notification_config(
 			block_announces_protocol.into(),
-			iter::once(<span class="macro">format!</span>(<span class="string">&quot;/{}/block-announces/1&quot;</span>, protocol_id.as_ref()).into()).collect(),
+			iter::once(<span class="macro">format!</span>(<span class="string">"/{}/block-announces/1"</span>, protocol_id.as_ref()).into()).collect(),
 			MAX_BLOCK_ANNOUNCE_SIZE,
 			<span class="prelude-val">Some</span>(NotificationHandshake::new(BlockAnnouncesHandshake::&lt;B&gt;::build(
 				roles,

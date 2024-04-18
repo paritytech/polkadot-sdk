@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/bin/node/testing/src/bench.rs`."><title>bench.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/bin/node/testing/src/bench.rs`."><title>bench.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="node_testing" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="node_testing" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../node_testing/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -908,57 +910,57 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// Will panic if cache drop is impossible.
 </span><span class="kw">pub fn </span>drop_system_cache() {
-	<span class="attr">#[cfg(target_os = <span class="string">&quot;windows&quot;</span>)]
+	<span class="attr">#[cfg(target_os = <span class="string">"windows"</span>)]
 	</span>{
 		<span class="macro">log::warn!</span>(
-			target: <span class="string">&quot;bench-logistics&quot;</span>,
-			<span class="string">&quot;Clearing system cache on windows is not supported. Benchmark might totally be wrong.&quot;</span>,
+			target: <span class="string">"bench-logistics"</span>,
+			<span class="string">"Clearing system cache on windows is not supported. Benchmark might totally be wrong."</span>,
 		);
 		<span class="kw">return
 	</span>}
 
-	std::process::Command::new(<span class="string">&quot;sync&quot;</span>)
+	std::process::Command::new(<span class="string">"sync"</span>)
 		.output()
-		.expect(<span class="string">&quot;Failed to execute system cache clear&quot;</span>);
+		.expect(<span class="string">"Failed to execute system cache clear"</span>);
 
-	<span class="attr">#[cfg(target_os = <span class="string">&quot;linux&quot;</span>)]
+	<span class="attr">#[cfg(target_os = <span class="string">"linux"</span>)]
 	</span>{
-		<span class="macro">log::trace!</span>(target: <span class="string">&quot;bench-logistics&quot;</span>, <span class="string">&quot;Clearing system cache...&quot;</span>);
-		std::process::Command::new(<span class="string">&quot;echo&quot;</span>)
-			.args(<span class="kw-2">&amp;</span>[<span class="string">&quot;3&quot;</span>, <span class="string">&quot;&gt;&quot;</span>, <span class="string">&quot;/proc/sys/vm/drop_caches&quot;</span>, <span class="string">&quot;2&gt;&quot;</span>, <span class="string">&quot;/dev/null&quot;</span>])
+		<span class="macro">log::trace!</span>(target: <span class="string">"bench-logistics"</span>, <span class="string">"Clearing system cache..."</span>);
+		std::process::Command::new(<span class="string">"echo"</span>)
+			.args(<span class="kw-2">&amp;</span>[<span class="string">"3"</span>, <span class="string">"&gt;"</span>, <span class="string">"/proc/sys/vm/drop_caches"</span>, <span class="string">"2&gt;"</span>, <span class="string">"/dev/null"</span>])
 			.output()
-			.expect(<span class="string">&quot;Failed to execute system cache clear&quot;</span>);
+			.expect(<span class="string">"Failed to execute system cache clear"</span>);
 
-		<span class="kw">let </span>temp = tempfile::tempdir().expect(<span class="string">&quot;Failed to spawn tempdir&quot;</span>);
-		<span class="kw">let </span>temp_file_path = <span class="macro">format!</span>(<span class="string">&quot;of={}/buf&quot;</span>, temp.path().to_string_lossy());
+		<span class="kw">let </span>temp = tempfile::tempdir().expect(<span class="string">"Failed to spawn tempdir"</span>);
+		<span class="kw">let </span>temp_file_path = <span class="macro">format!</span>(<span class="string">"of={}/buf"</span>, temp.path().to_string_lossy());
 
 		<span class="comment">// this should refill write cache with 2GB of garbage
-		</span>std::process::Command::new(<span class="string">&quot;dd&quot;</span>)
-			.args(<span class="kw-2">&amp;</span>[<span class="string">&quot;if=/dev/urandom&quot;</span>, <span class="kw-2">&amp;</span>temp_file_path, <span class="string">&quot;bs=64M&quot;</span>, <span class="string">&quot;count=32&quot;</span>])
+		</span>std::process::Command::new(<span class="string">"dd"</span>)
+			.args(<span class="kw-2">&amp;</span>[<span class="string">"if=/dev/urandom"</span>, <span class="kw-2">&amp;</span>temp_file_path, <span class="string">"bs=64M"</span>, <span class="string">"count=32"</span>])
 			.output()
-			.expect(<span class="string">&quot;Failed to execute dd for cache clear&quot;</span>);
+			.expect(<span class="string">"Failed to execute dd for cache clear"</span>);
 
 		<span class="comment">// remove tempfile of previous command
-		</span>std::process::Command::new(<span class="string">&quot;rm&quot;</span>)
+		</span>std::process::Command::new(<span class="string">"rm"</span>)
 			.arg(<span class="kw-2">&amp;</span>temp_file_path)
 			.output()
-			.expect(<span class="string">&quot;Failed to remove temp file&quot;</span>);
+			.expect(<span class="string">"Failed to remove temp file"</span>);
 
-		std::process::Command::new(<span class="string">&quot;sync&quot;</span>)
+		std::process::Command::new(<span class="string">"sync"</span>)
 			.output()
-			.expect(<span class="string">&quot;Failed to execute system cache clear&quot;</span>);
+			.expect(<span class="string">"Failed to execute system cache clear"</span>);
 
-		<span class="macro">log::trace!</span>(target: <span class="string">&quot;bench-logistics&quot;</span>, <span class="string">&quot;Clearing system cache done!&quot;</span>);
+		<span class="macro">log::trace!</span>(target: <span class="string">"bench-logistics"</span>, <span class="string">"Clearing system cache done!"</span>);
 	}
 
-	<span class="attr">#[cfg(target_os = <span class="string">&quot;macos&quot;</span>)]
+	<span class="attr">#[cfg(target_os = <span class="string">"macos"</span>)]
 	</span>{
-		<span class="macro">log::trace!</span>(target: <span class="string">&quot;bench-logistics&quot;</span>, <span class="string">&quot;Clearing system cache...&quot;</span>);
-		<span class="kw">if let </span><span class="prelude-val">Err</span>(err) = std::process::Command::new(<span class="string">&quot;purge&quot;</span>).output() {
-			<span class="macro">log::error!</span>(<span class="string">&quot;purge error {:?}: &quot;</span>, err);
-			<span class="macro">panic!</span>(<span class="string">&quot;Could not clear system cache. Run under sudo?&quot;</span>);
+		<span class="macro">log::trace!</span>(target: <span class="string">"bench-logistics"</span>, <span class="string">"Clearing system cache..."</span>);
+		<span class="kw">if let </span><span class="prelude-val">Err</span>(err) = std::process::Command::new(<span class="string">"purge"</span>).output() {
+			<span class="macro">log::error!</span>(<span class="string">"purge error {:?}: "</span>, err);
+			<span class="macro">panic!</span>(<span class="string">"Could not clear system cache. Run under sudo?"</span>);
 		}
-		<span class="macro">log::trace!</span>(target: <span class="string">&quot;bench-logistics&quot;</span>, <span class="string">&quot;Clearing system cache done!&quot;</span>);
+		<span class="macro">log::trace!</span>(target: <span class="string">"bench-logistics"</span>, <span class="string">"Clearing system cache done!"</span>);
 	}
 }
 
@@ -976,22 +978,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>clone(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
 		<span class="kw">let </span>keyring = <span class="self">self</span>.keyring.clone();
 		<span class="kw">let </span>database_type = <span class="self">self</span>.database_type;
-		<span class="kw">let </span>dir = tempfile::tempdir().expect(<span class="string">&quot;temp dir creation failed&quot;</span>);
+		<span class="kw">let </span>dir = tempfile::tempdir().expect(<span class="string">"temp dir creation failed"</span>);
 
 		<span class="kw">let </span>seed_dir = <span class="self">self</span>.directory_guard.<span class="number">0</span>.path();
 
 		<span class="macro">log::trace!</span>(
-			target: <span class="string">&quot;bench-logistics&quot;</span>,
-			<span class="string">&quot;Copying seed db from {} to {}&quot;</span>,
+			target: <span class="string">"bench-logistics"</span>,
+			<span class="string">"Copying seed db from {} to {}"</span>,
 			seed_dir.to_string_lossy(),
 			dir.path().to_string_lossy(),
 		);
 		<span class="kw">let </span>seed_db_files = std::fs::read_dir(seed_dir)
-			.expect(<span class="string">&quot;failed to list file in seed dir&quot;</span>)
-			.map(|f_result| f_result.expect(<span class="string">&quot;failed to read file in seed db&quot;</span>).path())
+			.expect(<span class="string">"failed to list file in seed dir"</span>)
+			.map(|f_result| f_result.expect(<span class="string">"failed to read file in seed db"</span>).path())
 			.collect::&lt;Vec&lt;PathBuf&gt;&gt;();
 		fs_extra::copy_items(<span class="kw-2">&amp;</span>seed_db_files, dir.path(), <span class="kw-2">&amp;</span>fs_extra::dir::CopyOptions::new())
-			.expect(<span class="string">&quot;Copy of seed database is ok&quot;</span>);
+			.expect(<span class="string">"Copy of seed database is ok"</span>);
 
 		<span class="comment">// We clear system cache after db clone but before any warmups.
 		// This populates system cache with some data unrelated to actual
@@ -1011,7 +1013,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>RandomTransfersKeepAlive,
 	<span class="doccomment">/// Bunch of random transfers that drain all of the source balance.
 	</span>RandomTransfersReaping,
-	<span class="doccomment">/// Bunch of &quot;no-op&quot; calls.
+	<span class="doccomment">/// Bunch of "no-op" calls.
 	</span>Noop,
 }
 
@@ -1057,51 +1059,51 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl </span>TaskExecutor {
 	<span class="kw">fn </span>new() -&gt; <span class="self">Self </span>{
-		<span class="self">Self </span>{ pool: executor::ThreadPool::new().expect(<span class="string">&quot;Failed to create task executor&quot;</span>) }
+		<span class="self">Self </span>{ pool: executor::ThreadPool::new().expect(<span class="string">"Failed to create task executor"</span>) }
 	}
 }
 
 <span class="kw">impl </span>SpawnNamed <span class="kw">for </span>TaskExecutor {
 	<span class="kw">fn </span>spawn(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		<span class="kw">_</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
-		<span class="kw">_</span>: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt;,
-		future: futures::future::BoxFuture&lt;<span class="lifetime">&#39;static</span>, ()&gt;,
+		<span class="kw">_</span>: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
+		<span class="kw">_</span>: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt;,
+		future: futures::future::BoxFuture&lt;<span class="lifetime">'static</span>, ()&gt;,
 	) {
 		<span class="self">self</span>.pool.spawn_ok(future);
 	}
 
 	<span class="kw">fn </span>spawn_blocking(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		<span class="kw">_</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
-		<span class="kw">_</span>: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt;,
-		future: futures::future::BoxFuture&lt;<span class="lifetime">&#39;static</span>, ()&gt;,
+		<span class="kw">_</span>: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
+		<span class="kw">_</span>: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt;,
+		future: futures::future::BoxFuture&lt;<span class="lifetime">'static</span>, ()&gt;,
 	) {
 		<span class="self">self</span>.pool.spawn_ok(future);
 	}
 }
 
 <span class="doccomment">/// Iterator for block content.
-</span><span class="kw">pub struct </span>BlockContentIterator&lt;<span class="lifetime">&#39;a</span>&gt; {
+</span><span class="kw">pub struct </span>BlockContentIterator&lt;<span class="lifetime">'a</span>&gt; {
 	iteration: usize,
 	content: BlockContent,
 	runtime_version: sc_executor::RuntimeVersion,
 	genesis_hash: node_primitives::Hash,
-	keyring: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>BenchKeyring,
+	keyring: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>BenchKeyring,
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; BlockContentIterator&lt;<span class="lifetime">&#39;a</span>&gt; {
-	<span class="kw">fn </span>new(content: BlockContent, keyring: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>BenchKeyring, client: <span class="kw-2">&amp;</span>Client) -&gt; <span class="self">Self </span>{
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; BlockContentIterator&lt;<span class="lifetime">'a</span>&gt; {
+	<span class="kw">fn </span>new(content: BlockContent, keyring: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>BenchKeyring, client: <span class="kw-2">&amp;</span>Client) -&gt; <span class="self">Self </span>{
 		<span class="kw">let </span>genesis_hash = client.chain_info().genesis_hash;
 		<span class="kw">let </span>runtime_version = client
 			.runtime_version_at(genesis_hash)
-			.expect(<span class="string">&quot;There should be runtime version at 0&quot;</span>);
+			.expect(<span class="string">"There should be runtime version at 0"</span>);
 
 		BlockContentIterator { iteration: <span class="number">0</span>, content, keyring, runtime_version, genesis_hash }
 	}
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; Iterator <span class="kw">for </span>BlockContentIterator&lt;<span class="lifetime">&#39;a</span>&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; Iterator <span class="kw">for </span>BlockContentIterator&lt;<span class="lifetime">'a</span>&gt; {
 	<span class="kw">type </span>Item = OpaqueExtrinsic;
 
 	<span class="kw">fn </span>next(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::Item&gt; {
@@ -1111,7 +1113,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>sender = <span class="self">self</span>.keyring.at(<span class="self">self</span>.iteration);
 		<span class="kw">let </span>receiver = get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="kw-2">&amp;</span><span class="macro">format!</span>(
-			<span class="string">&quot;random-user//{}&quot;</span>,
+			<span class="string">"random-user//{}"</span>,
 			<span class="self">self</span>.iteration
 		));
 
@@ -1147,7 +1149,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>encoded = Encode::encode(<span class="kw-2">&amp;</span>signed);
 
-		<span class="kw">let </span>opaque = OpaqueExtrinsic::decode(<span class="kw-2">&amp;mut &amp;</span>encoded[..]).expect(<span class="string">&quot;Failed  to decode opaque&quot;</span>);
+		<span class="kw">let </span>opaque = OpaqueExtrinsic::decode(<span class="kw-2">&amp;mut &amp;</span>encoded[..]).expect(<span class="string">"Failed  to decode opaque"</span>);
 
 		<span class="self">self</span>.iteration += <span class="number">1</span>;
 
@@ -1167,10 +1169,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; <span class="self">Self </span>{
 		<span class="kw">let </span>keyring = BenchKeyring::new(keyring_length, key_types);
 
-		<span class="kw">let </span>dir = tempfile::tempdir().expect(<span class="string">&quot;temp dir creation failed&quot;</span>);
+		<span class="kw">let </span>dir = tempfile::tempdir().expect(<span class="string">"temp dir creation failed"</span>);
 		<span class="macro">log::trace!</span>(
-			target: <span class="string">&quot;bench-logistics&quot;</span>,
-			<span class="string">&quot;Created seed db at {}&quot;</span>,
+			target: <span class="string">"bench-logistics"</span>,
+			<span class="string">"Created seed db at {}"</span>,
 			dir.path().to_string_lossy(),
 		);
 		<span class="kw">let </span>(_client, _backend, _task_executor) =
@@ -1210,7 +1212,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		};
 		<span class="kw">let </span>task_executor = TaskExecutor::new();
 
-		<span class="kw">let </span>backend = sc_service::new_db_backend(db_config).expect(<span class="string">&quot;Should not fail&quot;</span>);
+		<span class="kw">let </span>backend = sc_service::new_db_backend(db_config).expect(<span class="string">"Should not fail"</span>);
 		<span class="kw">let </span>executor = sc_executor::WasmExecutor::builder()
 			.with_execution_method(WasmExecutionMethod::Compiled {
 				instantiation_strategy: WasmtimeInstantiationStrategy::PoolingCopyOnWrite,
@@ -1224,7 +1226,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			backend.clone(),
 			executor.clone(),
 		)
-		.expect(<span class="string">&quot;Failed to create genesis block builder&quot;</span>);
+		.expect(<span class="string">"Failed to create genesis block builder"</span>);
 
 		<span class="kw">let </span>client = sc_service::new_client(
 			backend.clone(),
@@ -1238,7 +1240,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">None</span>,
 			client_config,
 		)
-		.expect(<span class="string">&quot;Should not fail&quot;</span>);
+		.expect(<span class="string">"Should not fail"</span>);
 
 		(client, backend, task_executor)
 	}
@@ -1252,12 +1254,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		inherent_data
 			.put_data(sp_timestamp::INHERENT_IDENTIFIER, <span class="kw-2">&amp;</span>timestamp)
-			.expect(<span class="string">&quot;Put timestamp failed&quot;</span>);
+			.expect(<span class="string">"Put timestamp failed"</span>);
 
 		client
 			.runtime_api()
 			.inherent_extrinsics(client.chain_info().genesis_hash, inherent_data)
-			.expect(<span class="string">&quot;Get inherents failed&quot;</span>)
+			.expect(<span class="string">"Get inherents failed"</span>)
 	}
 
 	<span class="doccomment">/// Iterate over some block content with transaction signed using this database keyring.
@@ -1282,10 +1284,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.on_parent_block(chain.best_hash)
 			.with_parent_block_number(chain.best_number)
 			.build()
-			.expect(<span class="string">&quot;Failed to create block builder.&quot;</span>);
+			.expect(<span class="string">"Failed to create block builder."</span>);
 
 		<span class="kw">for </span>extrinsic <span class="kw">in </span><span class="self">self</span>.generate_inherents(<span class="kw-2">&amp;</span>client) {
-			block.push(extrinsic).expect(<span class="string">&quot;Push inherent failed&quot;</span>);
+			block.push(extrinsic).expect(<span class="string">"Push inherent failed"</span>);
 		}
 
 		<span class="kw">let </span>start = std::time::Instant::now();
@@ -1294,16 +1296,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="prelude-val">Err</span>(sp_blockchain::Error::ApplyExtrinsicFailed(
 					sp_blockchain::ApplyExtrinsicFailed::Validity(e),
 				)) <span class="kw">if </span>e.exhausted_resources() =&gt; <span class="kw">break</span>,
-				<span class="prelude-val">Err</span>(err) =&gt; <span class="macro">panic!</span>(<span class="string">&quot;Error pushing transaction: {:?}&quot;</span>, err),
+				<span class="prelude-val">Err</span>(err) =&gt; <span class="macro">panic!</span>(<span class="string">"Error pushing transaction: {:?}"</span>, err),
 				<span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; {},
 			}
 		}
 
-		<span class="kw">let </span>block = block.build().expect(<span class="string">&quot;Block build failed&quot;</span>).block;
+		<span class="kw">let </span>block = block.build().expect(<span class="string">"Block build failed"</span>).block;
 
 		<span class="macro">log::info!</span>(
-			target: <span class="string">&quot;bench-logistics&quot;</span>,
-			<span class="string">&quot;Block construction: {:#?} ({} tx)&quot;</span>,
+			target: <span class="string">"bench-logistics"</span>,
+			<span class="string">"Block construction: {:#?} ({} tx)"</span>,
 			start.elapsed(), block.extrinsics.len()
 		);
 
@@ -1346,11 +1348,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span><span class="kw-2">mut </span>accounts = BTreeMap::new();
 
 		<span class="kw">for </span>n <span class="kw">in </span><span class="number">0</span>..length {
-			<span class="kw">let </span>seed = <span class="macro">format!</span>(<span class="string">&quot;//endowed-user/{}&quot;</span>, n);
+			<span class="kw">let </span>seed = <span class="macro">format!</span>(<span class="string">"//endowed-user/{}"</span>, n);
 			<span class="kw">let </span>(account_id, pair) = <span class="kw">match </span>key_types {
 				KeyTypes::Sr25519 =&gt; {
 					<span class="kw">let </span>pair =
-						sr25519::Pair::from_string(<span class="kw-2">&amp;</span>seed, <span class="prelude-val">None</span>).expect(<span class="string">&quot;failed to generate pair&quot;</span>);
+						sr25519::Pair::from_string(<span class="kw-2">&amp;</span>seed, <span class="prelude-val">None</span>).expect(<span class="string">"failed to generate pair"</span>);
 					<span class="kw">let </span>account_id = AccountPublic::from(pair.public()).into_account();
 					(account_id, BenchPair::Sr25519(pair))
 				},
@@ -1373,7 +1375,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Get account id at position `index`
 	</span><span class="kw">pub fn </span>at(<span class="kw-2">&amp;</span><span class="self">self</span>, index: usize) -&gt; AccountId {
-		<span class="self">self</span>.accounts.keys().nth(index).expect(<span class="string">&quot;Failed to get account&quot;</span>).clone()
+		<span class="self">self</span>.accounts.keys().nth(index).expect(<span class="string">"Failed to get account"</span>).clone()
 	}
 
 	<span class="doccomment">/// Sign transaction with keypair from this keyring.
@@ -1394,7 +1396,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					genesis_hash,
 					genesis_hash,
 				);
-				<span class="kw">let </span>key = <span class="self">self</span>.accounts.get(<span class="kw-2">&amp;</span>signed).expect(<span class="string">&quot;Account id not found in keyring&quot;</span>);
+				<span class="kw">let </span>key = <span class="self">self</span>.accounts.get(<span class="kw-2">&amp;</span>signed).expect(<span class="string">"Account id not found in keyring"</span>);
 				<span class="kw">let </span>signature = payload.using_encoded(|b| {
 					<span class="kw">if </span>b.len() &gt; <span class="number">256 </span>{
 						key.sign(<span class="kw-2">&amp;</span>blake2_256(b))
@@ -1451,8 +1453,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">type </span>AccountPublic = &lt;Signature <span class="kw">as </span>Verify&gt;::Signer;
 
 <span class="kw">fn </span>get_from_seed&lt;TPublic: Public&gt;(seed: <span class="kw-2">&amp;</span>str) -&gt; &lt;TPublic::Pair <span class="kw">as </span>Pair&gt;::Public {
-	TPublic::Pair::from_string(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;//{}&quot;</span>, seed), <span class="prelude-val">None</span>)
-		.expect(<span class="string">&quot;static values are valid; qed&quot;</span>)
+	TPublic::Pair::from_string(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"//{}"</span>, seed), <span class="prelude-val">None</span>)
+		.expect(<span class="string">"static values are valid; qed"</span>)
 		.public()
 }
 
@@ -1475,7 +1477,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="macro">assert_eq!</span>(
 			futures::executor::block_on(<span class="self">self</span>.client.import_block(import_params))
-				.expect(<span class="string">&quot;Failed to import block&quot;</span>),
+				.expect(<span class="string">"Failed to import block"</span>),
 			ImportResult::Imported(ImportedAux {
 				header_only: <span class="bool-val">false</span>,
 				clear_justification_requests: <span class="bool-val">false</span>,

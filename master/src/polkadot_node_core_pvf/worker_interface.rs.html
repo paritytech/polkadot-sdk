@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/core/pvf/src/worker_interface.rs`."><title>worker_interface.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/core/pvf/src/worker_interface.rs`."><title>worker_interface.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_node_core_pvf" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_node_core_pvf" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../polkadot_node_core_pvf/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -626,7 +628,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// # Parameters
 ///
-/// - `debug_id`: An identifier for the process (e.g. &quot;execute&quot; or &quot;prepare&quot;).
+/// - `debug_id`: An identifier for the process (e.g. "execute" or "prepare").
 ///
 /// - `program_path`: The path to the program.
 ///
@@ -641,7 +643,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// - `security_status`: contains the detected status of security features.
 </span><span class="attr">#[doc(hidden)]
 </span><span class="kw">pub async fn </span>spawn_with_program_path(
-	debug_id: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
+	debug_id: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
 	program_path: <span class="kw">impl </span>Into&lt;PathBuf&gt;,
 	cache_path: <span class="kw-2">&amp;</span>Path,
 	extra_args: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>str],
@@ -690,7 +692,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			program_path = <span class="question-mark">?</span>program_path_clone,
 			extra_args = <span class="question-mark">?</span>extra_args_clone,
 			worker_dir = <span class="question-mark">?</span>worker_dir_clone,
-			<span class="string">&quot;error spawning worker: {}&quot;</span>,
+			<span class="string">"error spawning worker: {}"</span>,
 			err,
 		);
 		err
@@ -699,10 +701,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// A temporary, random, free path that is necessary only to establish socket communications. If a
 /// directory exists at the path at the end of this function, it is removed then.
-</span><span class="kw">async fn </span>with_transient_socket_path&lt;T, F, Fut&gt;(debug_id: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str, f: F) -&gt; <span class="prelude-ty">Result</span>&lt;T, SpawnErr&gt;
+</span><span class="kw">async fn </span>with_transient_socket_path&lt;T, F, Fut&gt;(debug_id: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str, f: F) -&gt; <span class="prelude-ty">Result</span>&lt;T, SpawnErr&gt;
 <span class="kw">where
 	</span>F: FnOnce(<span class="kw-2">&amp;</span>Path) -&gt; Fut,
-	Fut: futures::Future&lt;Output = <span class="prelude-ty">Result</span>&lt;T, SpawnErr&gt;&gt; + <span class="lifetime">&#39;static</span>,
+	Fut: futures::Future&lt;Output = <span class="prelude-ty">Result</span>&lt;T, SpawnErr&gt;&gt; + <span class="lifetime">'static</span>,
 {
 	<span class="doccomment">/// Returns a path under [`std::env::temp_dir`]. The path name will start with the given prefix.
 	///
@@ -719,7 +721,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			buf.extend(rand::thread_rng().sample_iter(<span class="kw-2">&amp;</span>Alphanumeric).take(DISCRIMINATOR_LEN));
 
 			<span class="kw">let </span>s = std::str::from_utf8(<span class="kw-2">&amp;</span>buf)
-				.expect(<span class="string">&quot;the string is collected from a valid utf-8 sequence; qed&quot;</span>);
+				.expect(<span class="string">"the string is collected from a valid utf-8 sequence; qed"</span>);
 
 			<span class="kw">let </span><span class="kw-2">mut </span>path = dir.to_owned();
 			path.push(s);
@@ -736,10 +738,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			}
 		}
 
-		<span class="prelude-val">Err</span>(io::Error::new(io::ErrorKind::Other, <span class="string">&quot;failed to create a temporary path&quot;</span>))
+		<span class="prelude-val">Err</span>(io::Error::new(io::ErrorKind::Other, <span class="string">"failed to create a temporary path"</span>))
 	}
 
-	<span class="kw">let </span>socket_path = tmppath(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;pvf-host-{}-&quot;</span>, debug_id))
+	<span class="kw">let </span>socket_path = tmppath(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"pvf-host-{}-"</span>, debug_id))
 		.<span class="kw">await
 		</span>.map_err(|<span class="kw">_</span>| SpawnErr::TmpPath)<span class="question-mark">?</span>;
 	<span class="kw">let </span>result = f(<span class="kw-2">&amp;</span>socket_path).<span class="kw">await</span>;
@@ -774,30 +776,30 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[derive(thiserror::Error, Clone, Debug)]
 #[doc(hidden)]
 </span><span class="kw">pub enum </span>SpawnErr {
-	<span class="attr">#[error(<span class="string">&quot;cannot obtain a temporary path location&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"cannot obtain a temporary path location"</span>)]
 	</span>TmpPath,
-	<span class="attr">#[error(<span class="string">&quot;cannot bind the socket to the given path {socket_path:?}: {err}&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"cannot bind the socket to the given path {socket_path:?}: {err}"</span>)]
 	</span>Bind { socket_path: PathBuf, err: String },
 	<span class="attr">#[error(
-		<span class="string">&quot;an error happened during accepting a connection to the socket {socket_path:?}: {err}&quot;
+		<span class="string">"an error happened during accepting a connection to the socket {socket_path:?}: {err}"
 	</span>)]
 	</span>Accept { socket_path: PathBuf, err: String },
-	<span class="attr">#[error(<span class="string">&quot;an error happened during spawning the process at path {program_path:?}: {err}&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"an error happened during spawning the process at path {program_path:?}: {err}"</span>)]
 	</span>ProcessSpawn { program_path: PathBuf, err: String },
-	<span class="attr">#[error(<span class="string">&quot;the deadline {}ms allotted for the worker spawning and connecting to the socket has elapsed&quot;</span>, .spawn_timeout.as_millis())]
+	<span class="attr">#[error(<span class="string">"the deadline {}ms allotted for the worker spawning and connecting to the socket has elapsed"</span>, .spawn_timeout.as_millis())]
 	</span>AcceptTimeout { spawn_timeout: Duration },
-	<span class="attr">#[error(<span class="string">&quot;failed to send handshake after successful spawning was signaled: {err}&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"failed to send handshake after successful spawning was signaled: {err}"</span>)]
 	</span>Handshake { err: String },
 }
 
 <span class="doccomment">/// This is a representation of a potentially running worker. Drop it and the process will be
 /// killed.
 ///
-/// A worker&#39;s handle is also a future that resolves when it&#39;s detected that the worker&#39;s process
+/// A worker's handle is also a future that resolves when it's detected that the worker's process
 /// has been terminated. Since the worker is running in another process it is obviously not
-/// necessary to poll this future to make the worker run, it&#39;s only for termination detection.
+/// necessary to poll this future to make the worker run, it's only for termination detection.
 ///
-/// This future relies on the fact that a child process&#39;s stdout `fd` is closed upon its
+/// This future relies on the fact that a child process's stdout `fd` is closed upon its
 /// termination.
 </span><span class="attr">#[pin_project]
 </span><span class="kw">pub struct </span>WorkerHandle {
@@ -820,15 +822,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">let </span><span class="kw-2">mut </span>command = process::Command::new(program.as_ref());
 		command.env_clear();
 		<span class="comment">// Add back any env vars we want to keep.
-		</span><span class="kw">if let </span><span class="prelude-val">Ok</span>(value) = std::env::var(<span class="string">&quot;RUST_LOG&quot;</span>) {
-			command.env(<span class="string">&quot;RUST_LOG&quot;</span>, value);
+		</span><span class="kw">if let </span><span class="prelude-val">Ok</span>(value) = std::env::var(<span class="string">"RUST_LOG"</span>) {
+			command.env(<span class="string">"RUST_LOG"</span>, value);
 		}
 
 		<span class="kw">let </span><span class="kw-2">mut </span>child = command
 			.args(extra_args)
-			.arg(<span class="string">&quot;--socket-path&quot;</span>)
+			.arg(<span class="string">"--socket-path"</span>)
 			.arg(socket_path.as_ref().as_os_str())
-			.arg(<span class="string">&quot;--worker-dir-path&quot;</span>)
+			.arg(<span class="string">"--worker-dir-path"</span>)
 			.arg(worker_dir_path.as_ref().as_os_str())
 			.stdout(std::process::Stdio::piped())
 			.kill_on_drop(<span class="bool-val">true</span>)
@@ -836,25 +838,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>child_id = child
 			.id()
-			.ok_or(io::Error::new(io::ErrorKind::Other, <span class="string">&quot;could not get id of spawned process&quot;</span>))<span class="question-mark">?</span>;
+			.ok_or(io::Error::new(io::ErrorKind::Other, <span class="string">"could not get id of spawned process"</span>))<span class="question-mark">?</span>;
 		<span class="kw">let </span>stdout = child
 			.stdout
 			.take()
-			.expect(<span class="string">&quot;the process spawned with piped stdout should have the stdout handle&quot;</span>);
+			.expect(<span class="string">"the process spawned with piped stdout should have the stdout handle"</span>);
 
 		<span class="prelude-val">Ok</span>(WorkerHandle {
 			child,
 			child_id,
 			stdout,
 			program: program.as_ref().to_path_buf(),
-			<span class="comment">// We don&#39;t expect the bytes to be ever read. But in case we do, we should not use a
+			<span class="comment">// We don't expect the bytes to be ever read. But in case we do, we should not use a
 			// buffer of a small size, because otherwise if the child process does return any data
 			// we will end up issuing a syscall for each byte. We also prefer not to do allocate
 			// that on the stack, since each poll the buffer will be allocated and initialized (and
-			// that&#39;s due `poll_read` takes &amp;mut [u8] and there are no guarantees that a `poll_read`
-			// won&#39;t ever read from there even though that&#39;s unlikely).
+			// that's due `poll_read` takes &amp;mut [u8] and there are no guarantees that a `poll_read`
+			// won't ever read from there even though that's unlikely).
 			//
-			// OTOH, we also don&#39;t want to be super smart here and we could just afford to allocate
+			// OTOH, we also don't want to be super smart here and we could just afford to allocate
 			// a buffer for that here.
 			</span>drop_box: <span class="macro">vec!</span>[<span class="number">0</span>; <span class="number">8192</span>].into_boxed_slice(),
 		})
@@ -869,7 +871,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl </span>futures::Future <span class="kw">for </span>WorkerHandle {
 	<span class="kw">type </span>Output = ();
 
-	<span class="kw">fn </span>poll(<span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;<span class="self">Self</span>::Output&gt; {
+	<span class="kw">fn </span>poll(<span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">'_</span>&gt;) -&gt; Poll&lt;<span class="self">Self</span>::Output&gt; {
 		<span class="kw">let </span>me = <span class="self">self</span>.project();
 		<span class="comment">// Create a `ReadBuf` here instead of storing it in `WorkerHandle` to avoid a lifetime
 		// parameter on `WorkerHandle`. Creating the `ReadBuf` is fairly cheap.
@@ -877,7 +879,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">match </span><span class="macro">futures::ready!</span>(AsyncRead::poll_read(me.stdout, cx, <span class="kw-2">&amp;mut </span>read_buf)) {
 			<span class="prelude-val">Ok</span>(()) =&gt; {
 				<span class="kw">if </span>read_buf.filled().len() &gt; <span class="number">0 </span>{
-					<span class="comment">// weird, we&#39;ve read something. Pretend that never happened and reschedule
+					<span class="comment">// weird, we've read something. Pretend that never happened and reschedule
 					// ourselves.
 					</span>cx.waker().wake_by_ref();
 					Poll::Pending
@@ -895,7 +897,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					target: LOG_TARGET,
 					worker_pid = %me.child_id,
 					status_code = <span class="question-mark">?</span>me.child.try_wait().ok().flatten().map(|c| c.to_string()),
-					<span class="string">&quot;pvf worker ({}): {:?}&quot;</span>,
+					<span class="string">"pvf worker ({}): {:?}"</span>,
 					me.program.display(),
 					err,
 				);
@@ -906,8 +908,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl </span>fmt::Debug <span class="kw">for </span>WorkerHandle {
-	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; fmt::Result {
-		<span class="macro">write!</span>(f, <span class="string">&quot;WorkerHandle(pid={})&quot;</span>, <span class="self">self</span>.id())
+	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; fmt::Result {
+		<span class="macro">write!</span>(f, <span class="string">"WorkerHandle(pid={})"</span>, <span class="self">self</span>.id())
 	}
 }
 
@@ -966,12 +968,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	tempdir: tempfile::TempDir,
 }
 
-<span class="kw">pub const </span>WORKER_DIR_PREFIX: <span class="kw-2">&amp;</span>str = <span class="string">&quot;worker-dir&quot;</span>;
+<span class="kw">pub const </span>WORKER_DIR_PREFIX: <span class="kw-2">&amp;</span>str = <span class="string">"worker-dir"</span>;
 
 <span class="kw">impl </span>WorkerDir {
 	<span class="doccomment">/// Creates a new, empty worker dir with a random name in the given cache dir.
-	</span><span class="kw">pub async fn </span>new(debug_id: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str, cache_dir: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, SpawnErr&gt; {
-		<span class="kw">let </span>prefix = <span class="macro">format!</span>(<span class="string">&quot;{WORKER_DIR_PREFIX}-{debug_id}-&quot;</span>);
+	</span><span class="kw">pub async fn </span>new(debug_id: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str, cache_dir: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, SpawnErr&gt; {
+		<span class="kw">let </span>prefix = <span class="macro">format!</span>(<span class="string">"{WORKER_DIR_PREFIX}-{debug_id}-"</span>);
 		<span class="kw">let </span>tempdir = tempfile::Builder::new()
 			.prefix(<span class="kw-2">&amp;</span>prefix)
 			.tempdir_in(cache_dir)
@@ -989,7 +991,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">/// Clear the temporary worker dir without deleting it. Not deleting is important because the worker
 /// has mounted its own separate filesystem here.
 ///
-/// Should be called right after a job has finished. We don&#39;t want jobs to have access to
+/// Should be called right after a job has finished. We don't want jobs to have access to
 /// artifacts from previous jobs.
 </span><span class="kw">pub fn </span>clear_worker_dir_path(worker_dir_path: <span class="kw-2">&amp;</span>Path) -&gt; io::Result&lt;()&gt; {
 	<span class="kw">fn </span>remove_dir_contents(path: <span class="kw-2">&amp;</span>Path) -&gt; io::Result&lt;()&gt; {

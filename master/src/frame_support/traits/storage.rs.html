@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/support/src/traits/storage.rs`."><title>storage.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/support/src/traits/storage.rs`."><title>storage.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="frame_support" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="frame_support" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../frame_support/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -456,19 +458,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-</span><span class="doccomment">//! Traits for encoding data related to pallet&#39;s storage items.
+</span><span class="doccomment">//! Traits for encoding data related to pallet's storage items.
 
 </span><span class="kw">use </span>codec::{Encode, FullCodec, MaxEncodedLen};
 <span class="kw">use </span>core::marker::PhantomData;
@@ -487,18 +489,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// It is required that these instances are unique, to support multiple instances per pallet in the
 /// same runtime!
 ///
-/// E.g. for module MyModule default instance will have prefix &quot;MyModule&quot; and other instances
-/// &quot;InstanceNMyModule&quot;.
-</span><span class="kw">pub trait </span>Instance: <span class="lifetime">&#39;static </span>{
-	<span class="doccomment">/// Unique module prefix. E.g. &quot;InstanceNMyModule&quot; or &quot;MyModule&quot;
-	</span><span class="kw">const </span>PREFIX: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str;
+/// E.g. for module MyModule default instance will have prefix "MyModule" and other instances
+/// "InstanceNMyModule".
+</span><span class="kw">pub trait </span>Instance: <span class="lifetime">'static </span>{
+	<span class="doccomment">/// Unique module prefix. E.g. "InstanceNMyModule" or "MyModule"
+	</span><span class="kw">const </span>PREFIX: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str;
 	<span class="doccomment">/// Unique numerical identifier for an instance.
 	</span><span class="kw">const </span>INDEX: u8;
 }
 
 <span class="comment">// Dummy implementation for `()`.
 </span><span class="kw">impl </span>Instance <span class="kw">for </span>() {
-	<span class="kw">const </span>PREFIX: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;&quot;</span>;
+	<span class="kw">const </span>PREFIX: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">""</span>;
 	<span class="kw">const </span>INDEX: u8 = <span class="number">0</span>;
 }
 
@@ -512,7 +514,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// can use keys after `twox_128(pallet_prefix())++twox_128(STORAGE_PREFIX)`
 </span><span class="kw">pub trait </span>StorageInstance {
 	<span class="doccomment">/// Prefix of a pallet to isolate it from other pallets.
-	</span><span class="kw">fn </span>pallet_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str;
+	</span><span class="kw">fn </span>pallet_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str;
 
 	<span class="doccomment">/// Return the prefix hash of pallet instance.
 	///
@@ -523,7 +525,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Prefix given to a storage to isolate from other storages in the pallet.
-	</span><span class="kw">const </span>STORAGE_PREFIX: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str;
+	</span><span class="kw">const </span>STORAGE_PREFIX: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str;
 
 	<span class="doccomment">/// Return the prefix hash of storage instance.
 	///
@@ -567,9 +569,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>storage_info() -&gt; Vec&lt;StorageInfo&gt;;
 }
 
-<span class="attr">#[cfg_attr(all(not(feature = <span class="string">&quot;tuples-96&quot;</span>), not(feature = <span class="string">&quot;tuples-128&quot;</span>)), impl_for_tuples(<span class="number">64</span>))]
-#[cfg_attr(all(feature = <span class="string">&quot;tuples-96&quot;</span>, not(feature = <span class="string">&quot;tuples-128&quot;</span>)), impl_for_tuples(<span class="number">96</span>))]
-#[cfg_attr(feature = <span class="string">&quot;tuples-128&quot;</span>, impl_for_tuples(<span class="number">128</span>))]
+<span class="attr">#[cfg_attr(all(not(feature = <span class="string">"tuples-96"</span>), not(feature = <span class="string">"tuples-128"</span>)), impl_for_tuples(<span class="number">64</span>))]
+#[cfg_attr(all(feature = <span class="string">"tuples-96"</span>, not(feature = <span class="string">"tuples-128"</span>)), impl_for_tuples(<span class="number">96</span>))]
+#[cfg_attr(feature = <span class="string">"tuples-128"</span>, impl_for_tuples(<span class="number">128</span>))]
 </span><span class="kw">impl </span>StorageInfoTrait <span class="kw">for </span>Tuple {
 	<span class="kw">fn </span>storage_info() -&gt; Vec&lt;StorageInfo&gt; {
 		<span class="kw">let </span><span class="kw-2">mut </span>res = <span class="macro">vec!</span>[];
@@ -580,7 +582,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Similar to [`StorageInfoTrait`], a trait to give partial information about storage.
 ///
-/// This is useful when a type can give some partial information with its generic parameter doesn&#39;t
+/// This is useful when a type can give some partial information with its generic parameter doesn't
 /// implement some bounds.
 </span><span class="kw">pub trait </span>PartialStorageInfoTrait {
 	<span class="kw">fn </span>partial_storage_info() -&gt; Vec&lt;StorageInfo&gt;;
@@ -596,9 +598,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>whitelisted_storage_keys() -&gt; Vec&lt;TrackedStorageKey&gt;;
 }
 
-<span class="attr">#[cfg_attr(all(not(feature = <span class="string">&quot;tuples-96&quot;</span>), not(feature = <span class="string">&quot;tuples-128&quot;</span>)), impl_for_tuples(<span class="number">64</span>))]
-#[cfg_attr(all(feature = <span class="string">&quot;tuples-96&quot;</span>, not(feature = <span class="string">&quot;tuples-128&quot;</span>)), impl_for_tuples(<span class="number">96</span>))]
-#[cfg_attr(feature = <span class="string">&quot;tuples-128&quot;</span>, impl_for_tuples(<span class="number">128</span>))]
+<span class="attr">#[cfg_attr(all(not(feature = <span class="string">"tuples-96"</span>), not(feature = <span class="string">"tuples-128"</span>)), impl_for_tuples(<span class="number">64</span>))]
+#[cfg_attr(all(feature = <span class="string">"tuples-96"</span>, not(feature = <span class="string">"tuples-128"</span>)), impl_for_tuples(<span class="number">96</span>))]
+#[cfg_attr(feature = <span class="string">"tuples-128"</span>, impl_for_tuples(<span class="number">128</span>))]
 </span><span class="kw">impl </span>WhitelistedStorageKeys <span class="kw">for </span>Tuple {
 	<span class="kw">fn </span>whitelisted_storage_keys() -&gt; Vec&lt;TrackedStorageKey&gt; {
 		<span class="comment">// de-duplicate the storage keys
@@ -656,7 +658,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// the ticket was created for.
 ///
 /// While not technically a linear type owing to the need for `FullCodec`, *this should be
-/// treated as one*. Don&#39;t type to duplicate it, and remember to drop it when you&#39;re done with
+/// treated as one*. Don't type to duplicate it, and remember to drop it when you're done with
 /// it.
 </span><span class="attr">#[must_use]
 </span><span class="kw">pub trait </span>Consideration&lt;AccountId&gt;: Member + FullCodec + TypeInfo + MaxEncodedLen {

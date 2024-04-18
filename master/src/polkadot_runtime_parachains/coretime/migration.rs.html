@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/runtime/parachains/src/coretime/migration.rs`."><title>migration.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/runtime/parachains/src/coretime/migration.rs`."><title>migration.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_runtime_parachains" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_runtime_parachains" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../polkadot_runtime_parachains/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -461,14 +463,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub use </span>v_coretime::{GetLegacyLease, MigrateToCoretime};
 
 <span class="kw">mod </span>v_coretime {
-	<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 	</span><span class="kw">use </span><span class="kw">crate</span>::scheduler::common::AssignmentProvider;
 	<span class="kw">use crate</span>::{
 		assigner_coretime, configuration,
 		coretime::{mk_coretime_call, Config, PartsOf57600, WeightInfo},
 		paras,
 	};
-	<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 	</span><span class="kw">use </span>frame_support::ensure;
 	<span class="kw">use </span>frame_support::{
 		traits::{OnRuntimeUpgrade, PalletInfoAccess, StorageVersion},
@@ -476,16 +478,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	};
 	<span class="kw">use </span>frame_system::pallet_prelude::BlockNumberFor;
 	<span class="kw">use </span>pallet_broker::{CoreAssignment, CoreMask, ScheduleItem};
-	<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 	</span><span class="kw">use </span>parity_scale_codec::Decode;
-	<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 	</span><span class="kw">use </span>parity_scale_codec::Encode;
 	<span class="kw">use </span>polkadot_parachain_primitives::primitives::IsSystem;
 	<span class="kw">use </span>primitives::{CoreIndex, Id <span class="kw">as </span>ParaId};
 	<span class="kw">use </span>sp_arithmetic::traits::SaturatedConversion;
 	<span class="kw">use </span>sp_core::Get;
 	<span class="kw">use </span>sp_runtime::BoundedVec;
-	<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 	</span><span class="kw">use </span>sp_std::vec::Vec;
 	<span class="kw">use </span>sp_std::{iter, prelude::<span class="kw-2">*</span>, result};
 	<span class="kw">use </span>xcm::v4::{send_xcm, Instruction, Junction, Location, SendError, WeightLimit, Xcm};
@@ -508,7 +510,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		MigrateToCoretime&lt;T, SendXcm, LegacyLease&gt;
 	{
 		<span class="kw">fn </span>already_migrated() -&gt; bool {
-			<span class="comment">// We are using the assigner coretime because the coretime pallet doesn&#39;t has any
+			<span class="comment">// We are using the assigner coretime because the coretime pallet doesn't has any
 			// storage data. But both pallets are introduced at the same time, so this is fine.
 			</span><span class="kw">let </span>name_hash = assigner_coretime::Pallet::&lt;T&gt;::name_hash();
 			<span class="kw">let </span><span class="kw-2">mut </span>next_key = name_hash.to_vec();
@@ -523,7 +525,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="comment">// If there is any other key with the prefix of the pallet,
 					// we already have executed the migration.
 					</span><span class="prelude-val">Some</span>(key) <span class="kw">if </span>key.starts_with(<span class="kw-2">&amp;</span>name_hash) =&gt; {
-						<span class="macro">log::info!</span>(<span class="string">&quot;`MigrateToCoretime` already executed!&quot;</span>);
+						<span class="macro">log::info!</span>(<span class="string">"`MigrateToCoretime` already executed!"</span>);
 						<span class="kw">return </span><span class="bool-val">true
 					</span>},
 					<span class="comment">// Any other key/no key means that we did not yet have migrated.
@@ -544,11 +546,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">return </span>Weight::zero()
 			}
 
-			<span class="macro">log::info!</span>(<span class="string">&quot;Migrating existing parachains to coretime.&quot;</span>);
+			<span class="macro">log::info!</span>(<span class="string">"Migrating existing parachains to coretime."</span>);
 			migrate_to_coretime::&lt;T, SendXcm, LegacyLease&gt;()
 		}
 
-		<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+		<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 		</span><span class="kw">fn </span>pre_upgrade() -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, sp_runtime::DispatchError&gt; {
 			<span class="kw">if </span><span class="self">Self</span>::already_migrated() {
 				<span class="kw">return </span><span class="prelude-val">Ok</span>(Vec::new())
@@ -566,13 +568,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Ok</span>((total_core_count, dmp_queue_size).encode())
 		}
 
-		<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+		<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 		</span><span class="kw">fn </span>post_upgrade(state: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), sp_runtime::DispatchError&gt; {
 			<span class="kw">if </span>state.is_empty() {
 				<span class="kw">return </span><span class="prelude-val">Ok</span>(())
 			}
 
-			<span class="macro">log::trace!</span>(<span class="string">&quot;Running post_upgrade()&quot;</span>);
+			<span class="macro">log::trace!</span>(<span class="string">"Running post_upgrade()"</span>);
 
 			<span class="kw">let </span>(prev_core_count, prev_dmp_queue_size) =
 				&lt;(u32, u32)&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>state[..]).unwrap();
@@ -580,10 +582,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>dmp_queue_size =
 				<span class="kw">crate</span>::dmp::Pallet::&lt;T&gt;::dmq_contents(T::BrokerId::get().into()).len() <span class="kw">as </span>u32;
 			<span class="kw">let </span>new_core_count = assigner_coretime::Pallet::&lt;T&gt;::session_core_count();
-			<span class="macro">ensure!</span>(new_core_count == prev_core_count, <span class="string">&quot;Total number of cores need to not change.&quot;</span>);
+			<span class="macro">ensure!</span>(new_core_count == prev_core_count, <span class="string">"Total number of cores need to not change."</span>);
 			<span class="macro">ensure!</span>(
 				dmp_queue_size &gt; prev_dmp_queue_size,
-				<span class="string">&quot;There should have been enqueued at least one DMP messages.&quot;
+				<span class="string">"There should have been enqueued at least one DMP messages."
 			</span>);
 
 			<span class="prelude-val">Ok</span>(())
@@ -610,7 +612,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			);
 			<span class="kw">if let </span><span class="prelude-val">Err</span>(err) = r {
 				<span class="macro">log::error!</span>(
-					<span class="string">&quot;Creating assignment for existing para failed: {:?}, error: {:?}&quot;</span>,
+					<span class="string">"Creating assignment for existing para failed: {:?}, error: {:?}"</span>,
 					para_id,
 					err
 				);
@@ -628,7 +630,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="prelude-val">None</span>,
 			);
 			<span class="kw">if let </span><span class="prelude-val">Err</span>(err) = r {
-				<span class="macro">log::error!</span>(<span class="string">&quot;Creating assignment for existing on-demand core, failed: {:?}&quot;</span>, err);
+				<span class="macro">log::error!</span>(<span class="string">"Creating assignment for existing on-demand core, failed: {:?}"</span>, err);
 			}
 		}
 		<span class="kw">let </span>total_cores = config.scheduler_params.num_cores + legacy_count;
@@ -637,7 +639,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		});
 
 		<span class="kw">if let </span><span class="prelude-val">Err</span>(err) = migrate_send_assignments_to_coretime_chain::&lt;T, SendXcm, LegacyLease&gt;() {
-			<span class="macro">log::error!</span>(<span class="string">&quot;Sending legacy chain data to coretime chain failed: {:?}&quot;</span>, err);
+			<span class="macro">log::error!</span>(<span class="string">"Sending legacy chain data to coretime chain failed: {:?}"</span>, err);
 		}
 
 		<span class="kw">let </span>single_weight = &lt;T <span class="kw">as </span>Config&gt;::WeightInfo::assign_core(<span class="number">1</span>);
@@ -668,15 +670,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		});
 
 		<span class="kw">let </span>leases = lease_holding.into_iter().filter_map(|p| {
-			<span class="macro">log::trace!</span>(target: <span class="string">&quot;coretime-migration&quot;</span>, <span class="string">&quot;Preparing sending of lease holding para {:?}&quot;</span>, p);
+			<span class="macro">log::trace!</span>(target: <span class="string">"coretime-migration"</span>, <span class="string">"Preparing sending of lease holding para {:?}"</span>, p);
 			<span class="kw">let </span><span class="prelude-val">Some</span>(valid_until) = LegacyLease::get_parachain_lease_in_blocks(p) <span class="kw">else </span>{
-				<span class="macro">log::error!</span>(<span class="string">&quot;Lease holding chain with no lease information?!&quot;</span>);
+				<span class="macro">log::error!</span>(<span class="string">"Lease holding chain with no lease information?!"</span>);
 				<span class="kw">return </span><span class="prelude-val">None
 			</span>};
 			<span class="kw">let </span>valid_until: u32 = <span class="kw">match </span>valid_until.try_into() {
 				<span class="prelude-val">Ok</span>(val) =&gt; val,
 				<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
-					<span class="macro">log::error!</span>(<span class="string">&quot;Converting block number to u32 failed!&quot;</span>);
+					<span class="macro">log::error!</span>(<span class="string">"Converting block number to u32 failed!"</span>);
 					<span class="kw">return </span><span class="prelude-val">None
 				</span>},
 			};
@@ -684,7 +686,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="kw">const </span>TIME_SLICE_PERIOD: u32 = <span class="number">80</span>;
 			<span class="kw">let </span>round_up = <span class="kw">if </span>valid_until % TIME_SLICE_PERIOD &gt; <span class="number">0 </span>{ <span class="number">1 </span>} <span class="kw">else </span>{ <span class="number">0 </span>};
 			<span class="kw">let </span>time_slice = valid_until / TIME_SLICE_PERIOD + TIME_SLICE_PERIOD * round_up;
-			<span class="macro">log::trace!</span>(target: <span class="string">&quot;coretime-migration&quot;</span>, <span class="string">&quot;Sending of lease holding para {:?}, valid_until: {:?}, time_slice: {:?}&quot;</span>, p, valid_until, time_slice);
+			<span class="macro">log::trace!</span>(target: <span class="string">"coretime-migration"</span>, <span class="string">"Sending of lease holding para {:?}, valid_until: {:?}, time_slice: {:?}"</span>, p, valid_until, time_slice);
 			<span class="prelude-val">Some</span>(mk_coretime_call(<span class="kw">crate</span>::coretime::CoretimeCalls::SetLease(p.into(), time_slice)))
 		});
 

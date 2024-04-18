@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/keyring/src/bandersnatch.rs`."><title>bandersnatch.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/keyring/src/bandersnatch.rs`."><title>bandersnatch.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_keyring" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_keyring" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sp_keyring/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -352,14 +354,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -367,7 +369,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! A set of well-known keys used for testing.
 
 </span><span class="kw">pub use </span>sp_core::bandersnatch;
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">use </span>sp_core::bandersnatch::Signature;
 <span class="kw">use </span>sp_core::{
 	bandersnatch::{Pair, Public},
@@ -412,14 +414,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		Public::from(<span class="self">self</span>).to_raw_vec()
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 	</span><span class="kw">pub fn </span>sign(<span class="self">self</span>, msg: <span class="kw-2">&amp;</span>[u8]) -&gt; Signature {
 		Pair::from(<span class="self">self</span>).sign(msg)
 	}
 
 	<span class="kw">pub fn </span>pair(<span class="self">self</span>) -&gt; Pair {
-		Pair::from_string(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;//{}&quot;</span>, &lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt;::from(<span class="self">self</span>)), <span class="prelude-val">None</span>)
-			.expect(<span class="string">&quot;static values are known good; qed&quot;</span>)
+		Pair::from_string(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"//{}"</span>, &lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt;::from(<span class="self">self</span>)), <span class="prelude-val">None</span>)
+			.expect(<span class="string">"static values are known good; qed"</span>)
 	}
 
 	<span class="doccomment">/// Returns an iterator over all test accounts.
@@ -432,26 +434,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">pub fn </span>to_seed(<span class="self">self</span>) -&gt; String {
-		<span class="macro">format!</span>(<span class="string">&quot;//{}&quot;</span>, <span class="self">self</span>)
+		<span class="macro">format!</span>(<span class="string">"//{}"</span>, <span class="self">self</span>)
 	}
 
 	<span class="doccomment">/// Create a crypto `Pair` from a numeric value.
 	</span><span class="kw">pub fn </span>numeric(idx: usize) -&gt; Pair {
-		Pair::from_string(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;//{}&quot;</span>, idx), <span class="prelude-val">None</span>).expect(<span class="string">&quot;numeric values are known good; qed&quot;</span>)
+		Pair::from_string(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"//{}"</span>, idx), <span class="prelude-val">None</span>).expect(<span class="string">"numeric values are known good; qed"</span>)
 	}
 }
 
-<span class="kw">impl </span>From&lt;Keyring&gt; <span class="kw">for </span><span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str {
+<span class="kw">impl </span>From&lt;Keyring&gt; <span class="kw">for </span><span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
 	<span class="kw">fn </span>from(k: Keyring) -&gt; <span class="self">Self </span>{
 		<span class="kw">match </span>k {
-			Keyring::Alice =&gt; <span class="string">&quot;Alice&quot;</span>,
-			Keyring::Bob =&gt; <span class="string">&quot;Bob&quot;</span>,
-			Keyring::Charlie =&gt; <span class="string">&quot;Charlie&quot;</span>,
-			Keyring::Dave =&gt; <span class="string">&quot;Dave&quot;</span>,
-			Keyring::Eve =&gt; <span class="string">&quot;Eve&quot;</span>,
-			Keyring::Ferdie =&gt; <span class="string">&quot;Ferdie&quot;</span>,
-			Keyring::One =&gt; <span class="string">&quot;One&quot;</span>,
-			Keyring::Two =&gt; <span class="string">&quot;Two&quot;</span>,
+			Keyring::Alice =&gt; <span class="string">"Alice"</span>,
+			Keyring::Bob =&gt; <span class="string">"Bob"</span>,
+			Keyring::Charlie =&gt; <span class="string">"Charlie"</span>,
+			Keyring::Dave =&gt; <span class="string">"Dave"</span>,
+			Keyring::Eve =&gt; <span class="string">"Eve"</span>,
+			Keyring::Ferdie =&gt; <span class="string">"Ferdie"</span>,
+			Keyring::One =&gt; <span class="string">"One"</span>,
+			Keyring::Two =&gt; <span class="string">"Two"</span>,
 		}
 	}
 }
@@ -460,8 +462,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub struct </span>ParseKeyringError;
 
 <span class="kw">impl </span>fmt::Display <span class="kw">for </span>ParseKeyringError {
-	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; fmt::Result {
-		<span class="macro">write!</span>(f, <span class="string">&quot;ParseKeyringError&quot;</span>)
+	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; fmt::Result {
+		<span class="macro">write!</span>(f, <span class="string">"ParseKeyringError"</span>)
 	}
 }
 
@@ -470,14 +472,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">fn </span>from_str(s: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, &lt;<span class="self">Self </span><span class="kw">as </span>FromStr&gt;::Err&gt; {
 		<span class="kw">match </span>s {
-			<span class="string">&quot;Alice&quot; </span>=&gt; <span class="prelude-val">Ok</span>(Keyring::Alice),
-			<span class="string">&quot;Bob&quot; </span>=&gt; <span class="prelude-val">Ok</span>(Keyring::Bob),
-			<span class="string">&quot;Charlie&quot; </span>=&gt; <span class="prelude-val">Ok</span>(Keyring::Charlie),
-			<span class="string">&quot;Dave&quot; </span>=&gt; <span class="prelude-val">Ok</span>(Keyring::Dave),
-			<span class="string">&quot;Eve&quot; </span>=&gt; <span class="prelude-val">Ok</span>(Keyring::Eve),
-			<span class="string">&quot;Ferdie&quot; </span>=&gt; <span class="prelude-val">Ok</span>(Keyring::Ferdie),
-			<span class="string">&quot;One&quot; </span>=&gt; <span class="prelude-val">Ok</span>(Keyring::One),
-			<span class="string">&quot;Two&quot; </span>=&gt; <span class="prelude-val">Ok</span>(Keyring::Two),
+			<span class="string">"Alice" </span>=&gt; <span class="prelude-val">Ok</span>(Keyring::Alice),
+			<span class="string">"Bob" </span>=&gt; <span class="prelude-val">Ok</span>(Keyring::Bob),
+			<span class="string">"Charlie" </span>=&gt; <span class="prelude-val">Ok</span>(Keyring::Charlie),
+			<span class="string">"Dave" </span>=&gt; <span class="prelude-val">Ok</span>(Keyring::Dave),
+			<span class="string">"Eve" </span>=&gt; <span class="prelude-val">Ok</span>(Keyring::Eve),
+			<span class="string">"Ferdie" </span>=&gt; <span class="prelude-val">Ok</span>(Keyring::Ferdie),
+			<span class="string">"One" </span>=&gt; <span class="prelude-val">Ok</span>(Keyring::One),
+			<span class="string">"Two" </span>=&gt; <span class="prelude-val">Ok</span>(Keyring::Two),
 			<span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(ParseKeyringError),
 		}
 	}
@@ -499,21 +501,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>from(k: Keyring) -&gt; <span class="self">Self </span>{
 		<span class="kw">match </span>k {
 			Keyring::Alice =&gt;
-				<span class="macro">hex2array!</span>(<span class="string">&quot;9c8af77d3a4e3f6f076853922985b9e6724fc9675329087f47aff1ceaaae772180&quot;</span>),
+				<span class="macro">hex2array!</span>(<span class="string">"9c8af77d3a4e3f6f076853922985b9e6724fc9675329087f47aff1ceaaae772180"</span>),
 			Keyring::Bob =&gt;
-				<span class="macro">hex2array!</span>(<span class="string">&quot;1abfbb76dc8374a1a6d93d59a5c81f07c18835f4681a6258aa0f514d363bff4780&quot;</span>),
+				<span class="macro">hex2array!</span>(<span class="string">"1abfbb76dc8374a1a6d93d59a5c81f07c18835f4681a6258aa0f514d363bff4780"</span>),
 			Keyring::Charlie =&gt;
-				<span class="macro">hex2array!</span>(<span class="string">&quot;0f4a9990aca3d39a7cd8bf187e2e81a9ea6f9cedb2db405f2fffff384c5dd02680&quot;</span>),
+				<span class="macro">hex2array!</span>(<span class="string">"0f4a9990aca3d39a7cd8bf187e2e81a9ea6f9cedb2db405f2fffff384c5dd02680"</span>),
 			Keyring::Dave =&gt;
-				<span class="macro">hex2array!</span>(<span class="string">&quot;bd7a87d4dfa89926a408b5acbed554ae3b053fa3532531053295cbabf07d337000&quot;</span>),
+				<span class="macro">hex2array!</span>(<span class="string">"bd7a87d4dfa89926a408b5acbed554ae3b053fa3532531053295cbabf07d337000"</span>),
 			Keyring::Eve =&gt;
-				<span class="macro">hex2array!</span>(<span class="string">&quot;f992d5b8eac8fc004d521bee6edc1174cfa7fae3a1baec8262511ee351f9f85e00&quot;</span>),
+				<span class="macro">hex2array!</span>(<span class="string">"f992d5b8eac8fc004d521bee6edc1174cfa7fae3a1baec8262511ee351f9f85e00"</span>),
 			Keyring::Ferdie =&gt;
-				<span class="macro">hex2array!</span>(<span class="string">&quot;1ce2613e89bc5c8e358aad884099cfb576a61176f2f9968cd0d486a04457245180&quot;</span>),
+				<span class="macro">hex2array!</span>(<span class="string">"1ce2613e89bc5c8e358aad884099cfb576a61176f2f9968cd0d486a04457245180"</span>),
 			Keyring::One =&gt;
-				<span class="macro">hex2array!</span>(<span class="string">&quot;a29e03ac273e521274d8e501a6242abd2ab393d7e197221a9113bdf8e2e5b34d00&quot;</span>),
+				<span class="macro">hex2array!</span>(<span class="string">"a29e03ac273e521274d8e501a6242abd2ab393d7e197221a9113bdf8e2e5b34d00"</span>),
 			Keyring::Two =&gt;
-				<span class="macro">hex2array!</span>(<span class="string">&quot;f968d47e819ddb18a9d0f2ebd16501680b1a3f07ee375c6f81310e5f99a04f4d00&quot;</span>),
+				<span class="macro">hex2array!</span>(<span class="string">"f968d47e819ddb18a9d0f2ebd16501680b1a3f07ee375c6f81310e5f99a04f4d00"</span>),
 		}
 	}
 }
@@ -526,18 +528,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>should_work() {
 		<span class="macro">assert!</span>(Pair::verify(
-			<span class="kw-2">&amp;</span>Keyring::Alice.sign(<span class="string">b&quot;I am Alice!&quot;</span>),
-			<span class="string">b&quot;I am Alice!&quot;</span>,
+			<span class="kw-2">&amp;</span>Keyring::Alice.sign(<span class="string">b"I am Alice!"</span>),
+			<span class="string">b"I am Alice!"</span>,
 			<span class="kw-2">&amp;</span>Keyring::Alice.public(),
 		));
 		<span class="macro">assert!</span>(!Pair::verify(
-			<span class="kw-2">&amp;</span>Keyring::Alice.sign(<span class="string">b&quot;I am Alice!&quot;</span>),
-			<span class="string">b&quot;I am Bob!&quot;</span>,
+			<span class="kw-2">&amp;</span>Keyring::Alice.sign(<span class="string">b"I am Alice!"</span>),
+			<span class="string">b"I am Bob!"</span>,
 			<span class="kw-2">&amp;</span>Keyring::Alice.public(),
 		));
 		<span class="macro">assert!</span>(!Pair::verify(
-			<span class="kw-2">&amp;</span>Keyring::Alice.sign(<span class="string">b&quot;I am Alice!&quot;</span>),
-			<span class="string">b&quot;I am Alice!&quot;</span>,
+			<span class="kw-2">&amp;</span>Keyring::Alice.sign(<span class="string">b"I am Alice!"</span>),
+			<span class="string">b"I am Alice!"</span>,
 			<span class="kw-2">&amp;</span>Keyring::Bob.public(),
 		));
 	}

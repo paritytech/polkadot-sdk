@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/core/approval-voting/src/import.rs`."><title>import.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/core/approval-voting/src/import.rs`."><title>import.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_node_core_approval_voting" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_node_core_approval_voting" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../polkadot_node_core_approval_voting/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1739,41 +1741,41 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	force_approve: <span class="prelude-ty">Option</span>&lt;BlockNumber&gt;,
 }
 
-<span class="kw">struct </span>ImportedBlockInfoEnv&lt;<span class="lifetime">&#39;a</span>&gt; {
-	runtime_info: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>RuntimeInfo,
-	assignment_criteria: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>(<span class="kw">dyn </span>AssignmentCriteria + Send + Sync),
-	keystore: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>LocalKeystore,
+<span class="kw">struct </span>ImportedBlockInfoEnv&lt;<span class="lifetime">'a</span>&gt; {
+	runtime_info: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>RuntimeInfo,
+	assignment_criteria: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>(<span class="kw">dyn </span>AssignmentCriteria + Send + Sync),
+	keystore: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>LocalKeystore,
 }
 
 <span class="attr">#[derive(Debug, thiserror::Error)]
 </span><span class="kw">enum </span>ImportedBlockInfoError {
 	<span class="comment">// NOTE: The `RuntimeApiError` already prints out which request it was,
-	//       so it&#39;s not necessary to include that here.
+	//       so it's not necessary to include that here.
 	</span><span class="attr">#[error(transparent)]
 	</span>RuntimeError(RuntimeApiError),
 
-	<span class="attr">#[error(<span class="string">&quot;future cancelled while requesting {0}&quot;</span>)]
-	</span>FutureCancelled(<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str, futures::channel::oneshot::Canceled),
+	<span class="attr">#[error(<span class="string">"future cancelled while requesting {0}"</span>)]
+	</span>FutureCancelled(<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str, futures::channel::oneshot::Canceled),
 
 	<span class="attr">#[error(transparent)]
 	</span>ApprovalError(approval_types::v1::ApprovalError),
 
-	<span class="attr">#[error(<span class="string">&quot;block is already finalized&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"block is already finalized"</span>)]
 	</span>BlockAlreadyFinalized,
 
-	<span class="attr">#[error(<span class="string">&quot;session info unavailable&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"session info unavailable"</span>)]
 	</span>SessionInfoUnavailable,
 
-	<span class="attr">#[error(<span class="string">&quot;VRF info unavailable&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"VRF info unavailable"</span>)]
 	</span>VrfInfoUnavailable,
 }
 
-<span class="doccomment">/// Computes information about the imported block. Returns an error if the info couldn&#39;t be
+<span class="doccomment">/// Computes information about the imported block. Returns an error if the info couldn't be
 /// extracted.
 </span><span class="attr">#[overseer::contextbounds(ApprovalVoting, prefix = <span class="self">self</span>::overseer)]
 </span><span class="kw">async fn </span>imported_block_info&lt;Context&gt;(
 	ctx: <span class="kw-2">&amp;mut </span>Context,
-	env: ImportedBlockInfoEnv&lt;<span class="lifetime">&#39;_</span>&gt;,
+	env: ImportedBlockInfoEnv&lt;<span class="lifetime">'_</span>&gt;,
 	block_hash: Hash,
 	block_header: <span class="kw-2">&amp;</span>Header,
 	last_finalized_height: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;BlockNumber&gt;,
@@ -1794,7 +1796,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(events)) =&gt; events,
 			<span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(error)) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(ImportedBlockInfoError::RuntimeError(error)),
 			<span class="prelude-val">Err</span>(error) =&gt;
-				<span class="kw">return </span><span class="prelude-val">Err</span>(ImportedBlockInfoError::FutureCancelled(<span class="string">&quot;CandidateEvents&quot;</span>, error)),
+				<span class="kw">return </span><span class="prelude-val">Err</span>(ImportedBlockInfoError::FutureCancelled(<span class="string">"CandidateEvents"</span>, error)),
 		};
 
 		events
@@ -1808,7 +1810,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	};
 
 	<span class="comment">// fetch session. ignore blocks that are too old, but unless sessions are really
-	// short, that shouldn&#39;t happen.
+	// short, that shouldn't happen.
 	</span><span class="kw">let </span>session_index = {
 		<span class="kw">let </span>(s_tx, s_rx) = oneshot::channel();
 		ctx.send_message(RuntimeApiMessage::Request(
@@ -1821,16 +1823,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(s)) =&gt; s,
 			<span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(error)) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(ImportedBlockInfoError::RuntimeError(error)),
 			<span class="prelude-val">Err</span>(error) =&gt;
-				<span class="kw">return </span><span class="prelude-val">Err</span>(ImportedBlockInfoError::FutureCancelled(<span class="string">&quot;SessionIndexForChild&quot;</span>, error)),
+				<span class="kw">return </span><span class="prelude-val">Err</span>(ImportedBlockInfoError::FutureCancelled(<span class="string">"SessionIndexForChild"</span>, error)),
 		};
 
-		<span class="comment">// We can&#39;t determine if the block is finalized or not - try processing it
+		<span class="comment">// We can't determine if the block is finalized or not - try processing it
 		</span><span class="kw">if </span>last_finalized_height.map_or(<span class="bool-val">false</span>, |finalized| block_header.number &lt; finalized) {
 			<span class="macro">gum::debug!</span>(
 				target: LOG_TARGET,
 				session = session_index,
 				finalized = <span class="question-mark">?</span>last_finalized_height,
-				<span class="string">&quot;Block {} is either finalized or last finalized height is unknown. Skipping&quot;</span>,
+				<span class="string">"Block {} is either finalized or last finalized height is unknown. Skipping"</span>,
 				block_hash,
 			);
 
@@ -1843,11 +1845,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>babe_epoch = {
 		<span class="kw">let </span>(s_tx, s_rx) = oneshot::channel();
 
-		<span class="comment">// It&#39;s not obvious whether to use the hash or the parent hash for this, intuitively. We
-		// want to use the block hash itself, and here&#39;s why:
+		<span class="comment">// It's not obvious whether to use the hash or the parent hash for this, intuitively. We
+		// want to use the block hash itself, and here's why:
 		//
-		// First off, &#39;epoch&#39; in BABE means &#39;session&#39; in other places. &#39;epoch&#39; is the terminology
-		// from the paper, which we fulfill using &#39;session&#39;s, which are a Substrate consensus
+		// First off, 'epoch' in BABE means 'session' in other places. 'epoch' is the terminology
+		// from the paper, which we fulfill using 'session's, which are a Substrate consensus
 		// concept.
 		//
 		// In BABE, the on-chain and off-chain view of the current epoch can differ at epoch
@@ -1856,9 +1858,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		// that every block in BABE has the epoch _it was authored in_ within its post-state. So we
 		// use the block, and not its parent.
 		//
-		// It&#39;s worth nothing that Polkadot session changes, at least for the purposes of
-		// parachains, would function the same way, except for the fact that they&#39;re always delayed
-		// by one block. This gives us the opposite invariant for sessions - the parent block&#39;s
+		// It's worth nothing that Polkadot session changes, at least for the purposes of
+		// parachains, would function the same way, except for the fact that they're always delayed
+		// by one block. This gives us the opposite invariant for sessions - the parent block's
 		// post-state gives us the canonical information about the session index for any of its
 		// children, regardless of which slot number they might be produced at.
 		</span>ctx.send_message(RuntimeApiMessage::Request(
@@ -1871,7 +1873,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(s)) =&gt; s,
 			<span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(error)) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(ImportedBlockInfoError::RuntimeError(error)),
 			<span class="prelude-val">Err</span>(error) =&gt;
-				<span class="kw">return </span><span class="prelude-val">Err</span>(ImportedBlockInfoError::FutureCancelled(<span class="string">&quot;CurrentBabeEpoch&quot;</span>, error)),
+				<span class="kw">return </span><span class="prelude-val">Err</span>(ImportedBlockInfoError::FutureCancelled(<span class="string">"CurrentBabeEpoch"</span>, error)),
 		}
 	};
 
@@ -1889,7 +1891,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		.<span class="kw">await
 		</span>.ok_or(ImportedBlockInfoError::SessionInfoUnavailable)<span class="question-mark">?</span>;
 
-	<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="question-mark">?</span>enable_v2_assignments, <span class="string">&quot;V2 assignments&quot;</span>);
+	<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="question-mark">?</span>enable_v2_assignments, <span class="string">"V2 assignments"</span>);
 	<span class="kw">let </span>(assignments, slot, relay_vrf_story) = {
 		<span class="kw">let </span>unsafe_vrf = approval_types::v1::babe_unsafe_vrf_info(<span class="kw-2">&amp;</span>block_header);
 
@@ -1922,7 +1924,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">None </span>=&gt; {
 				<span class="macro">gum::debug!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;BABE VRF info unavailable for block {}&quot;</span>,
+					<span class="string">"BABE VRF info unavailable for block {}"</span>,
 					block_hash,
 				);
 
@@ -1931,7 +1933,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	};
 
-	<span class="macro">gum::trace!</span>(target: LOG_TARGET, n_assignments = assignments.len(), <span class="string">&quot;Produced assignments&quot;</span>);
+	<span class="macro">gum::trace!</span>(target: LOG_TARGET, n_assignments = assignments.len(), <span class="string">"Produced assignments"</span>);
 
 	<span class="kw">let </span>force_approve =
 		block_header.digest.convert_first(|l| <span class="kw">match </span>ConsensusLog::from_digest_item(l) {
@@ -1941,7 +1943,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="question-mark">?</span>block_hash,
 					current_number = block_header.number,
 					approved_number = num,
-					<span class="string">&quot;Force-approving based on header digest&quot;
+					<span class="string">"Force-approving based on header digest"
 				</span>);
 
 				<span class="prelude-val">Some</span>(num)
@@ -1953,7 +1955,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					target: LOG_TARGET,
 					<span class="question-mark">?</span>err,
 					<span class="question-mark">?</span>block_hash,
-					<span class="string">&quot;Malformed consensus digest in header&quot;</span>,
+					<span class="string">"Malformed consensus digest in header"</span>,
 				);
 
 				<span class="prelude-val">None
@@ -1993,7 +1995,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>handle_new_head&lt;Context, B: Backend&gt;(
 	ctx: <span class="kw-2">&amp;mut </span>Context,
 	state: <span class="kw-2">&amp;</span>State,
-	db: <span class="kw-2">&amp;mut </span>OverlayedBackend&lt;<span class="lifetime">&#39;_</span>, B&gt;,
+	db: <span class="kw-2">&amp;mut </span>OverlayedBackend&lt;<span class="lifetime">'_</span>, B&gt;,
 	session_info_provider: <span class="kw-2">&amp;mut </span>RuntimeInfo,
 	head: Hash,
 	finalized_number: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;BlockNumber&gt;,
@@ -2002,9 +2004,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>_handle_new_head_span = state
 		.spans
 		.get(<span class="kw-2">&amp;</span>head)
-		.map(|span| span.child(<span class="string">&quot;handle-new-head&quot;</span>))
-		.unwrap_or_else(|| jaeger::Span::new(head, <span class="string">&quot;handle-new-head&quot;</span>))
-		.with_string_tag(<span class="string">&quot;head&quot;</span>, <span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, head))
+		.map(|span| span.child(<span class="string">"handle-new-head"</span>))
+		.unwrap_or_else(|| jaeger::Span::new(head, <span class="string">"handle-new-head"</span>))
+		.with_string_tag(<span class="string">"head"</span>, <span class="macro">format!</span>(<span class="string">"{:?}"</span>, head))
 		.with_stage(jaeger::Stage::ApprovalChecking);
 
 	<span class="kw">let </span>header = {
@@ -2014,14 +2016,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Err</span>(e) =&gt; {
 				<span class="macro">gum::debug!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Chain API subsystem temporarily unreachable {}&quot;</span>,
+					<span class="string">"Chain API subsystem temporarily unreachable {}"</span>,
 					e,
 				);
 				<span class="comment">// May be a better way of handling errors here.
 				</span><span class="kw">return </span><span class="prelude-val">Ok</span>(Vec::new())
 			},
 			<span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>) =&gt; {
-				<span class="macro">gum::warn!</span>(target: LOG_TARGET, <span class="string">&quot;Missing header for new head {}&quot;</span>, head);
+				<span class="macro">gum::warn!</span>(target: LOG_TARGET, <span class="string">"Missing header for new head {}"</span>, head);
 				<span class="comment">// May be a better way of handling warnings here.
 				</span><span class="kw">return </span><span class="prelude-val">Ok</span>(Vec::new())
 			},
@@ -2029,7 +2031,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	};
 
-	<span class="comment">// If we&#39;ve just started the node and are far behind,
+	<span class="comment">// If we've just started the node and are far behind,
 	// import at most `MAX_HEADS_LOOK_BACK` blocks.
 	</span><span class="kw">let </span>lower_bound_number = header.number.saturating_sub(MAX_HEADS_LOOK_BACK);
 	<span class="kw">let </span>lower_bound_number = finalized_number.unwrap_or(lower_bound_number).max(lower_bound_number);
@@ -2041,7 +2043,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw-2">&amp;</span>header,
 		lower_bound_number,
 	)
-	.map_err(|e| SubsystemError::with_origin(<span class="string">&quot;approval-voting&quot;</span>, e))
+	.map_err(|e| SubsystemError::with_origin(<span class="string">"approval-voting"</span>, e))
 	.<span class="kw">await</span><span class="question-mark">?</span>;
 
 	<span class="kw">if </span>new_blocks.is_empty() {
@@ -2064,7 +2066,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">match </span>imported_block_info(ctx, env, block_hash, <span class="kw-2">&amp;</span>block_header, finalized_number).<span class="kw">await </span>{
 				<span class="prelude-val">Ok</span>(i) =&gt; imported_blocks_and_info.push((block_hash, block_header, i)),
 				<span class="prelude-val">Err</span>(error) =&gt; {
-					<span class="comment">// It&#39;s possible that we&#39;ve lost a race with finality.
+					<span class="comment">// It's possible that we've lost a race with finality.
 					</span><span class="kw">let </span>(tx, rx) = oneshot::channel();
 					ctx.send_message(ChainApiMessage::FinalizedBlockHash(block_header.number, tx))
 						.<span class="kw">await</span>;
@@ -2079,7 +2081,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						// in the approval-db.
 						</span><span class="macro">gum::warn!</span>(
 							target: LOG_TARGET,
-							<span class="string">&quot;Skipping chain: unable to gather info about imported block {:?}: {}&quot;</span>,
+							<span class="string">"Skipping chain: unable to gather info about imported block {:?}: {}"</span>,
 							(block_hash, block_header.number),
 							error,
 						);
@@ -2096,7 +2098,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="macro">gum::trace!</span>(
 		target: LOG_TARGET,
 		imported_blocks = imported_blocks_and_info.len(),
-		<span class="string">&quot;Inserting imported blocks into database&quot;
+		<span class="string">"Inserting imported blocks into database"
 	</span>);
 
 	<span class="kw">for </span>(block_hash, block_header, imported_block_info) <span class="kw">in </span>imported_blocks_and_info {
@@ -2142,7 +2144,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="macro">gum::debug!</span>(
 					target: LOG_TARGET,
 					block_hash = <span class="question-mark">?</span>block_hash,
-					<span class="string">&quot;Insta-approving all candidates&quot;</span>,
+					<span class="string">"Insta-approving all candidates"</span>,
 				);
 				<span class="macro">bitvec::bitvec!</span>[u8, BitOrderLsb0; <span class="number">1</span>; num_candidates]
 			} <span class="kw">else </span>{
@@ -2151,7 +2153,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw">let </span>backing_group_size =
 						validator_group_lens.get(backing_group.<span class="number">0 </span><span class="kw">as </span>usize).copied().unwrap_or(<span class="number">0</span>);
 					<span class="kw">let </span>needed_approvals =
-						usize::try_from(needed_approvals).expect(<span class="string">&quot;usize is at least u32; qed&quot;</span>);
+						usize::try_from(needed_approvals).expect(<span class="string">"usize is at least u32; qed"</span>);
 					<span class="kw">if </span>n_validators.saturating_sub(backing_group_size) &lt; needed_approvals {
 						result.set(i, <span class="bool-val">true</span>);
 					}
@@ -2160,7 +2162,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="macro">gum::debug!</span>(
 						target: LOG_TARGET,
 						block_hash = <span class="question-mark">?</span>block_hash,
-						<span class="string">&quot;Insta-approving {}/{} candidates as the number of validators is too low&quot;</span>,
+						<span class="string">"Insta-approving {}/{} candidates as the number of validators is too low"</span>,
 						result.count_ones(),
 						result.len(),
 					);
@@ -2194,7 +2196,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			target: LOG_TARGET,
 			<span class="question-mark">?</span>block_hash,
 			block_number = block_header.number,
-			<span class="string">&quot;Writing BlockEntry&quot;</span>,
+			<span class="string">"Writing BlockEntry"</span>,
 		);
 
 		<span class="kw">let </span>candidate_entries =
@@ -2209,19 +2211,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					},
 				)
 			})
-			.map_err(|e| SubsystemError::with_origin(<span class="string">&quot;approval-voting&quot;</span>, e))<span class="question-mark">?</span>;
+			.map_err(|e| SubsystemError::with_origin(<span class="string">"approval-voting"</span>, e))<span class="question-mark">?</span>;
 
 		<span class="comment">// force-approve needs to load the current block entry as well as all
 		// ancestors. this can only be done after writing the block entry above.
 		</span><span class="kw">if let </span><span class="prelude-val">Some</span>(up_to) = force_approve {
-			<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="question-mark">?</span>block_hash, up_to, <span class="string">&quot;Enacting force-approve&quot;</span>);
+			<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="question-mark">?</span>block_hash, up_to, <span class="string">"Enacting force-approve"</span>);
 			<span class="kw">let </span>approved_hashes = <span class="kw">crate</span>::ops::force_approve(db, block_hash, up_to)
-				.map_err(|e| SubsystemError::with_origin(<span class="string">&quot;approval-voting&quot;</span>, e))<span class="question-mark">?</span>;
+				.map_err(|e| SubsystemError::with_origin(<span class="string">"approval-voting"</span>, e))<span class="question-mark">?</span>;
 			<span class="macro">gum::debug!</span>(
 				target: LOG_TARGET,
 				<span class="question-mark">?</span>block_hash,
 				up_to,
-				<span class="string">&quot;Force-approving {} blocks&quot;</span>,
+				<span class="string">"Force-approving {} blocks"</span>,
 				approved_hashes.len()
 			);
 
@@ -2256,7 +2258,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		target: LOG_TARGET,
 		head = <span class="question-mark">?</span>head,
 		chain_length = approval_meta.len(),
-		<span class="string">&quot;Informing distribution of newly imported chain&quot;</span>,
+		<span class="string">"Informing distribution of newly imported chain"</span>,
 	);
 
 	ctx.send_unbounded_message(ApprovalDistributionMessage::NewBlocks(approval_meta));
@@ -2307,7 +2309,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="number">42 </span><span class="comment">// chosen by fair dice roll
 		</span>}
 
-		<span class="kw">fn </span>wait(<span class="kw-2">&amp;</span><span class="self">self</span>, _tick: Tick) -&gt; Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = ()&gt; + Send + <span class="lifetime">&#39;static</span>&gt;&gt; {
+		<span class="kw">fn </span>wait(<span class="kw-2">&amp;</span><span class="self">self</span>, _tick: Tick) -&gt; Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = ()&gt; + Send + <span class="lifetime">'static</span>&gt;&gt; {
 			Box::pin(<span class="kw">async move </span>{ () })
 		}
 	}
@@ -2368,9 +2370,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="comment">// used for generating assignments where the validity of the VRF doesn&#39;t matter.
+	<span class="comment">// used for generating assignments where the validity of the VRF doesn't matter.
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>garbage_vrf_signature() -&gt; VrfSignature {
-		<span class="kw">let </span>transcript = VrfTranscript::new(<span class="string">b&quot;test-garbage&quot;</span>, <span class="kw-2">&amp;</span>[]);
+		<span class="kw">let </span>transcript = VrfTranscript::new(<span class="string">b"test-garbage"</span>, <span class="kw-2">&amp;</span>[]);
 		Sr25519Keyring::Alice.pair().vrf_sign(<span class="kw-2">&amp;</span>transcript.into())
 	}
 

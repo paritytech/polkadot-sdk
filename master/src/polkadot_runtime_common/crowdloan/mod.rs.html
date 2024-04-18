@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/runtime/common/src/crowdloan/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/runtime/common/src/crowdloan/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_runtime_common" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_runtime_common" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../polkadot_runtime_common/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -2443,7 +2445,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! contributors.
 //!
 //! Contributions must be of at least `MinContribution` (to account for the resources taken in
-//! tracking contributions), and may never tally greater than the fund&#39;s `cap`, set and fixed at the
+//! tracking contributions), and may never tally greater than the fund's `cap`, set and fixed at the
 //! time of creation. The `create` call may be used to create a new fund. In order to do this, then
 //! a deposit must be paid of the amount `SubmissionDeposit`. Substantial resources are taken on
 //! the main trie in tracking a fund and this accounts for that.
@@ -2553,7 +2555,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Information on a funding effort for a pre-existing parachain. We assume that the parachain ID
-/// is known as it&#39;s used for the key of the storage item for which this is the value (`Funds`).
+/// is known as it's used for the key of the storage item for which this is the value (`Funds`).
 </span><span class="attr">#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
 #[codec(dumb_trait_bound)]
 </span><span class="kw">pub struct </span>FundInfo&lt;AccountId, Balance, BlockNumber, LeasePeriod&gt; {
@@ -2577,10 +2579,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// If this is `Ending(n)`, this fund received a contribution during the current ending period,
 	/// where `n` is how far into the ending period the contribution was made.
 	</span><span class="kw">pub </span>last_contribution: LastContribution&lt;BlockNumber&gt;,
-	<span class="doccomment">/// First lease period in range to bid on; it&#39;s actually a `LeasePeriod`, but that&#39;s the same
+	<span class="doccomment">/// First lease period in range to bid on; it's actually a `LeasePeriod`, but that's the same
 	/// type as `BlockNumber`.
 	</span><span class="kw">pub </span>first_period: LeasePeriod,
-	<span class="doccomment">/// Last lease period in range to bid on; it&#39;s actually a `LeasePeriod`, but that&#39;s the same
+	<span class="doccomment">/// Last lease period in range to bid on; it's actually a `LeasePeriod`, but that's the same
 	/// type as `BlockNumber`.
 	</span><span class="kw">pub </span>last_period: LeasePeriod,
 	<span class="doccomment">/// Unique index used to represent this fund.
@@ -2606,7 +2608,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">type </span>RuntimeEvent: From&lt;Event&lt;<span class="self">Self</span>&gt;&gt; + IsType&lt;&lt;<span class="self">Self </span><span class="kw">as </span>frame_system::Config&gt;::RuntimeEvent&gt;;
 
 		<span class="doccomment">/// `PalletId` for the crowdloan pallet. An appropriate value could be
-		/// `PalletId(*b&quot;py/cfund&quot;)`
+		/// `PalletId(*b"py/cfund")`
 		</span><span class="attr">#[pallet::constant]
 		</span><span class="kw">type </span>PalletId: Get&lt;PalletId&gt;;
 
@@ -2718,7 +2720,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>NotParachain,
 		<span class="doccomment">/// This parachain lease is still active and retirement cannot yet begin.
 		</span>LeaseActive,
-		<span class="doccomment">/// This parachain&#39;s bid or lease is still active and withdraw cannot yet begin.
+		<span class="doccomment">/// This parachain's bid or lease is still active and withdraw cannot yet begin.
 		</span>BidOrLeaseActive,
 		<span class="doccomment">/// The crowdloan has not yet ended.
 		</span>FundNotEnded,
@@ -2813,7 +2815,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			};
 			<span class="macro">ensure!</span>(adjusted_lease_period_at_end &lt;= first_period, Error::&lt;T&gt;::EndTooFarInFuture);
 
-			<span class="comment">// Can&#39;t start a crowdloan for a lease period that already passed.
+			<span class="comment">// Can't start a crowdloan for a lease period that already passed.
 			</span><span class="kw">if let </span><span class="prelude-val">Some</span>((current_lease_period, <span class="kw">_</span>)) = T::Auctioneer::lease_period_index(now) {
 				<span class="macro">ensure!</span>(first_period &gt;= current_lease_period, Error::&lt;T&gt;::FirstPeriodInPast);
 			}
@@ -2879,9 +2881,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		/// - the amount of raised funds must be bigger than the _free_ balance of the account;
 		/// - and either:
 		///   - the block number must be at least `end`; or
-		///   - the current lease period must be greater than the fund&#39;s `last_period`.
+		///   - the current lease period must be greater than the fund's `last_period`.
 		///
-		/// In this case, the fund&#39;s retirement flag is set and its `end` is reset to the current
+		/// In this case, the fund's retirement flag is set and its `end` is reset to the current
 		/// block number.
 		///
 		/// - `who`: The account whose contribution should be withdrawn.
@@ -3096,7 +3098,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">pub fn </span>id_from_index(index: FundIndex) -&gt; child::ChildInfo {
 		<span class="kw">let </span><span class="kw-2">mut </span>buf = Vec::new();
-		buf.extend_from_slice(<span class="string">b&quot;crowdloan&quot;</span>);
+		buf.extend_from_slice(<span class="string">b"crowdloan"</span>);
 		buf.extend_from_slice(<span class="kw-2">&amp;</span>index.encode()[..]);
 		child::ChildInfo::new_default(T::Hashing::hash(<span class="kw-2">&amp;</span>buf[..]).as_ref())
 	}
@@ -3253,7 +3255,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="attr">#[cfg(any(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>, test))]
+<span class="attr">#[cfg(any(feature = <span class="string">"runtime-benchmarks"</span>, test))]
 </span><span class="kw">mod </span>crypto {
 	<span class="kw">use </span>sp_core::ed25519;
 	<span class="kw">use </span>sp_io::crypto::{ed25519_generate, ed25519_sign};
@@ -3405,7 +3407,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>ed = &lt;Test <span class="kw">as </span>pallet_balances::Config&gt;::ExistentialDeposit::get();
 			<span class="kw">let </span>free_balance = Balances::free_balance(<span class="kw-2">&amp;</span>account_id);
 			Balances::reserve(<span class="kw-2">&amp;</span>account_id, free_balance - ed)
-				.expect(<span class="string">&quot;should be able to reserve free balance minus ED&quot;</span>);
+				.expect(<span class="string">"should be able to reserve free balance minus ED"</span>);
 		} <span class="kw">else </span>{
 			<span class="kw">let </span>reserved_balance = Balances::reserved_balance(<span class="kw-2">&amp;</span>account_id);
 			Balances::unreserve(<span class="kw-2">&amp;</span>account_id, reserved_balance);
@@ -3422,7 +3424,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">fn </span>new_auction(duration: u64, lease_period_index: u64) -&gt; DispatchResult {
 			<span class="kw">let </span>now = System::block_number();
 			<span class="kw">let </span>(current_lease_period, <span class="kw">_</span>) =
-				<span class="self">Self</span>::lease_period_index(now).ok_or(<span class="string">&quot;no lease period yet&quot;</span>)<span class="question-mark">?</span>;
+				<span class="self">Self</span>::lease_period_index(now).ok_or(<span class="string">"no lease period yet"</span>)<span class="question-mark">?</span>;
 			<span class="macro">assert!</span>(lease_period_index &gt;= current_lease_period);
 
 			<span class="kw">let </span>ending = System::block_number().saturating_add(duration);
@@ -3497,7 +3499,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="macro">parameter_types! </span>{
 		<span class="kw">pub const </span>SubmissionDeposit: u64 = <span class="number">1</span>;
 		<span class="kw">pub const </span>MinContribution: u64 = <span class="number">10</span>;
-		<span class="kw">pub const </span>CrowdloanPalletId: PalletId = PalletId(<span class="kw-2">*</span><span class="string">b&quot;py/cfund&quot;</span>);
+		<span class="kw">pub const </span>CrowdloanPalletId: PalletId = PalletId(<span class="kw-2">*</span><span class="string">b"py/cfund"</span>);
 		<span class="kw">pub const </span>RemoveKeysLimit: u32 = <span class="number">10</span>;
 		<span class="kw">pub const </span>MaxMemoLength: u8 = <span class="number">32</span>;
 	}
@@ -3561,7 +3563,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">fn </span>last_event() -&gt; RuntimeEvent {
-		System::events().pop().expect(<span class="string">&quot;RuntimeEvent expected&quot;</span>).event
+		System::events().pop().expect(<span class="string">"RuntimeEvent expected"</span>).event
 	}
 
 	<span class="attr">#[test]
@@ -3628,7 +3630,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>create_with_verifier_works() {
 		new_test_ext().execute_with(|| {
-			<span class="kw">let </span>pubkey = crypto::create_ed25519_pubkey(<span class="string">b&quot;//verifier&quot;</span>.to_vec());
+			<span class="kw">let </span>pubkey = crypto::create_ed25519_pubkey(<span class="string">b"//verifier"</span>.to_vec());
 			<span class="kw">let </span>para = new_para();
 			<span class="comment">// Now try to create a crowdloan campaign
 			</span><span class="macro">assert_ok!</span>(Crowdloan::create(
@@ -3749,7 +3751,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		new_test_ext().execute_with(|| {
 			<span class="kw">let </span>para = new_para();
 			<span class="kw">let </span>index = NextFundIndex::&lt;Test&gt;::get();
-			<span class="kw">let </span>pubkey = crypto::create_ed25519_pubkey(<span class="string">b&quot;//verifier&quot;</span>.to_vec());
+			<span class="kw">let </span>pubkey = crypto::create_ed25519_pubkey(<span class="string">b"//verifier"</span>.to_vec());
 			<span class="comment">// Set up a crowdloan
 			</span><span class="macro">assert_ok!</span>(Crowdloan::create(
 				RuntimeOrigin::signed(<span class="number">1</span>),
@@ -3926,7 +3928,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">assert_ok!</span>(Crowdloan::contribute(RuntimeOrigin::signed(<span class="number">2</span>), para, <span class="number">250</span>, <span class="prelude-val">None</span>));
 
 			run_to_block(<span class="number">10</span>);
-			<span class="comment">// Can&#39;t contribute when auction is in the VRF delay period.
+			<span class="comment">// Can't contribute when auction is in the VRF delay period.
 			</span><span class="macro">assert!</span>(TestAuctioneer::auction_status(System::block_number()).is_vrf());
 			<span class="macro">assert_noop!</span>(
 				Crowdloan::contribute(RuntimeOrigin::signed(<span class="number">2</span>), para, <span class="number">250</span>, <span class="prelude-val">None</span>),
@@ -4002,7 +4004,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>account_id = Crowdloan::fund_account_id(index);
 			<span class="comment">// para has no reserved funds, indicating it did not win the auction.
 			</span><span class="macro">assert_eq!</span>(Balances::reserved_balance(<span class="kw-2">&amp;</span>account_id), <span class="number">0</span>);
-			<span class="comment">// but there&#39;s still the funds in its balance.
+			<span class="comment">// but there's still the funds in its balance.
 			</span><span class="macro">assert_eq!</span>(Balances::free_balance(<span class="kw-2">&amp;</span>account_id), <span class="number">150</span>);
 			<span class="macro">assert_eq!</span>(Balances::free_balance(<span class="number">2</span>), <span class="number">1900</span>);
 			<span class="macro">assert_eq!</span>(Balances::free_balance(<span class="number">3</span>), <span class="number">2950</span>);
@@ -4066,7 +4068,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="macro">assert_eq!</span>(Balances::free_balance(account_id), <span class="number">600</span>);
 
-			<span class="comment">// Can&#39;t refund before the crowdloan it has ended
+			<span class="comment">// Can't refund before the crowdloan it has ended
 			</span><span class="macro">assert_noop!</span>(
 				Crowdloan::refund(RuntimeOrigin::signed(<span class="number">1337</span>), para),
 				Error::&lt;Test&gt;::FundNotEnded,
@@ -4078,7 +4080,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="comment">// Funds are returned
 			</span><span class="macro">assert_eq!</span>(Balances::free_balance(account_id), <span class="number">0</span>);
-			<span class="comment">// 1 deposit for the crowdloan which hasn&#39;t dissolved yet.
+			<span class="comment">// 1 deposit for the crowdloan which hasn't dissolved yet.
 			</span><span class="macro">assert_eq!</span>(Balances::free_balance(<span class="number">1</span>), <span class="number">1000 </span>- <span class="number">1</span>);
 			<span class="macro">assert_eq!</span>(Balances::free_balance(<span class="number">2</span>), <span class="number">2000</span>);
 			<span class="macro">assert_eq!</span>(Balances::free_balance(<span class="number">3</span>), <span class="number">3000</span>);
@@ -4124,7 +4126,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="comment">// Funds are returned
 			</span><span class="macro">assert_eq!</span>(Balances::free_balance(account_id), <span class="number">0</span>);
-			<span class="comment">// 1 deposit for the crowdloan which hasn&#39;t dissolved yet.
+			<span class="comment">// 1 deposit for the crowdloan which hasn't dissolved yet.
 			</span><span class="kw">for </span>i <span class="kw">in </span><span class="number">1</span>..=RemoveKeysLimit::get() * <span class="number">2 </span>{
 				<span class="macro">assert_eq!</span>(Balances::free_balance(<span class="kw-2">&amp;</span>i.into()), i <span class="kw">as </span>u64 * <span class="number">1000</span>);
 			}
@@ -4201,7 +4203,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">assert_ok!</span>(Crowdloan::contribute(RuntimeOrigin::signed(<span class="number">2</span>), para, <span class="number">100</span>, <span class="prelude-val">None</span>));
 			<span class="macro">assert_ok!</span>(Crowdloan::contribute(RuntimeOrigin::signed(<span class="number">3</span>), para, <span class="number">50</span>, <span class="prelude-val">None</span>));
 
-			<span class="comment">// Can&#39;t dissolve before it ends
+			<span class="comment">// Can't dissolve before it ends
 			</span><span class="macro">assert_noop!</span>(
 				Crowdloan::dissolve(RuntimeOrigin::signed(<span class="number">1</span>), para),
 				Error::&lt;Test&gt;::NotReadyToDissolve
@@ -4209,14 +4211,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			run_to_block(<span class="number">10</span>);
 			set_winner(para, <span class="number">1</span>, <span class="bool-val">true</span>);
-			<span class="comment">// Can&#39;t dissolve when it won.
+			<span class="comment">// Can't dissolve when it won.
 			</span><span class="macro">assert_noop!</span>(
 				Crowdloan::dissolve(RuntimeOrigin::signed(<span class="number">1</span>), para),
 				Error::&lt;Test&gt;::NotReadyToDissolve
 			);
 			set_winner(para, <span class="number">1</span>, <span class="bool-val">false</span>);
 
-			<span class="comment">// Can&#39;t dissolve while it still has user funds
+			<span class="comment">// Can't dissolve while it still has user funds
 			</span><span class="macro">assert_noop!</span>(
 				Crowdloan::dissolve(RuntimeOrigin::signed(<span class="number">1</span>), para),
 				Error::&lt;Test&gt;::NotReadyToDissolve
@@ -4248,7 +4250,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// Fund crowdloans.
 			</span><span class="macro">assert_ok!</span>(Crowdloan::contribute(RuntimeOrigin::signed(<span class="number">2</span>), para, <span class="number">100</span>, <span class="prelude-val">None</span>));
 			<span class="macro">assert_ok!</span>(Crowdloan::contribute(RuntimeOrigin::signed(<span class="number">3</span>), para, <span class="number">50</span>, <span class="prelude-val">None</span>));
-			<span class="comment">// simulate the reserving of para&#39;s funds. this actually happens in the Slots pallet.
+			<span class="comment">// simulate the reserving of para's funds. this actually happens in the Slots pallet.
 			</span><span class="macro">assert_ok!</span>(Balances::reserve(<span class="kw-2">&amp;</span>account_id, <span class="number">149</span>));
 
 			run_to_block(<span class="number">19</span>);
@@ -4258,13 +4260,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			);
 
 			run_to_block(<span class="number">20</span>);
-			<span class="comment">// simulate the unreserving of para&#39;s funds, now that the lease expired. this actually
+			<span class="comment">// simulate the unreserving of para's funds, now that the lease expired. this actually
 			// happens in the Slots pallet.
 			</span>Balances::unreserve(<span class="kw-2">&amp;</span>account_id, <span class="number">150</span>);
 
 			<span class="comment">// para has no reserved funds, indicating it did ot win the auction.
 			</span><span class="macro">assert_eq!</span>(Balances::reserved_balance(<span class="kw-2">&amp;</span>account_id), <span class="number">0</span>);
-			<span class="comment">// but there&#39;s still the funds in its balance.
+			<span class="comment">// but there's still the funds in its balance.
 			</span><span class="macro">assert_eq!</span>(Balances::free_balance(<span class="kw-2">&amp;</span>account_id), <span class="number">150</span>);
 			<span class="macro">assert_eq!</span>(Balances::free_balance(<span class="number">2</span>), <span class="number">1900</span>);
 			<span class="macro">assert_eq!</span>(Balances::free_balance(<span class="number">3</span>), <span class="number">2950</span>);
@@ -4348,13 +4350,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">assert_ok!</span>(Crowdloan::create(RuntimeOrigin::signed(<span class="number">1</span>), para_1, <span class="number">1000</span>, <span class="number">1</span>, <span class="number">1</span>, <span class="number">9</span>, <span class="prelude-val">None</span>));
 			<span class="comment">// Cant add a memo before you have contributed.
 			</span><span class="macro">assert_noop!</span>(
-				Crowdloan::add_memo(RuntimeOrigin::signed(<span class="number">1</span>), para_1, <span class="string">b&quot;hello, world&quot;</span>.to_vec()),
+				Crowdloan::add_memo(RuntimeOrigin::signed(<span class="number">1</span>), para_1, <span class="string">b"hello, world"</span>.to_vec()),
 				Error::&lt;Test&gt;::NoContributions,
 			);
 			<span class="comment">// Make a contribution. Initially no memo.
 			</span><span class="macro">assert_ok!</span>(Crowdloan::contribute(RuntimeOrigin::signed(<span class="number">1</span>), para_1, <span class="number">100</span>, <span class="prelude-val">None</span>));
 			<span class="macro">assert_eq!</span>(Crowdloan::contribution_get(<span class="number">0u32</span>, <span class="kw-2">&amp;</span><span class="number">1</span>), (<span class="number">100</span>, <span class="macro">vec!</span>[]));
-			<span class="comment">// Can&#39;t place a memo that is too large.
+			<span class="comment">// Can't place a memo that is too large.
 			</span><span class="macro">assert_noop!</span>(
 				Crowdloan::add_memo(RuntimeOrigin::signed(<span class="number">1</span>), para_1, <span class="macro">vec!</span>[<span class="number">123</span>; <span class="number">123</span>]),
 				Error::&lt;Test&gt;::MemoTooLarge,
@@ -4363,12 +4365,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="macro">assert_ok!</span>(Crowdloan::add_memo(
 				RuntimeOrigin::signed(<span class="number">1</span>),
 				para_1,
-				<span class="string">b&quot;hello, world&quot;</span>.to_vec()
+				<span class="string">b"hello, world"</span>.to_vec()
 			));
-			<span class="macro">assert_eq!</span>(Crowdloan::contribution_get(<span class="number">0u32</span>, <span class="kw-2">&amp;</span><span class="number">1</span>), (<span class="number">100</span>, <span class="string">b&quot;hello, world&quot;</span>.to_vec()));
+			<span class="macro">assert_eq!</span>(Crowdloan::contribution_get(<span class="number">0u32</span>, <span class="kw-2">&amp;</span><span class="number">1</span>), (<span class="number">100</span>, <span class="string">b"hello, world"</span>.to_vec()));
 			<span class="comment">// Can contribute again and data persists
 			</span><span class="macro">assert_ok!</span>(Crowdloan::contribute(RuntimeOrigin::signed(<span class="number">1</span>), para_1, <span class="number">100</span>, <span class="prelude-val">None</span>));
-			<span class="macro">assert_eq!</span>(Crowdloan::contribution_get(<span class="number">0u32</span>, <span class="kw-2">&amp;</span><span class="number">1</span>), (<span class="number">200</span>, <span class="string">b&quot;hello, world&quot;</span>.to_vec()));
+			<span class="macro">assert_eq!</span>(Crowdloan::contribution_get(<span class="number">0u32</span>, <span class="kw-2">&amp;</span><span class="number">1</span>), (<span class="number">200</span>, <span class="string">b"hello, world"</span>.to_vec()));
 		});
 	}
 
@@ -4396,7 +4398,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 </span><span class="kw">mod </span>benchmarking {
 	<span class="kw">use super</span>::{Pallet <span class="kw">as </span>Crowdloan, <span class="kw-2">*</span>};
 	<span class="kw">use </span>frame_support::{assert_ok, traits::OnInitialize};
@@ -4428,11 +4430,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			lease_period_index + ((SlotRange::LEASE_PERIODS_PER_SLOT <span class="kw">as </span>u32) - <span class="number">1</span>).into();
 		<span class="kw">let </span>para_id = id.into();
 
-		<span class="kw">let </span>caller = account(<span class="string">&quot;fund_creator&quot;</span>, id, <span class="number">0</span>);
+		<span class="kw">let </span>caller = account(<span class="string">"fund_creator"</span>, id, <span class="number">0</span>);
 		CurrencyOf::&lt;T&gt;::make_free_balance_be(<span class="kw-2">&amp;</span>caller, BalanceOf::&lt;T&gt;::max_value());
 
 		<span class="comment">// Assume ed25519 is most complex signature format
-		</span><span class="kw">let </span>pubkey = crypto::create_ed25519_pubkey(<span class="string">b&quot;//verifier&quot;</span>.to_vec());
+		</span><span class="kw">let </span>pubkey = crypto::create_ed25519_pubkey(<span class="string">b"//verifier"</span>.to_vec());
 
 		<span class="kw">let </span>head_data = T::Registrar::worst_head_data();
 		<span class="kw">let </span>validation_code = T::Registrar::worst_validation_code();
@@ -4465,7 +4467,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		CurrencyOf::&lt;T&gt;::make_free_balance_be(<span class="kw-2">&amp;</span>who, BalanceOf::&lt;T&gt;::max_value());
 		<span class="kw">let </span>value = T::MinContribution::get();
 
-		<span class="kw">let </span>pubkey = crypto::create_ed25519_pubkey(<span class="string">b&quot;//verifier&quot;</span>.to_vec());
+		<span class="kw">let </span>pubkey = crypto::create_ed25519_pubkey(<span class="string">b"//verifier"</span>.to_vec());
 		<span class="kw">let </span>payload = (index, <span class="kw-2">&amp;</span>who, BalanceOf::&lt;T&gt;::default(), value);
 		<span class="kw">let </span>sig = crypto::create_ed25519_signature(<span class="kw-2">&amp;</span>payload.encode(), pubkey);
 
@@ -4492,7 +4494,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>head_data = T::Registrar::worst_head_data();
 			<span class="kw">let </span>validation_code = T::Registrar::worst_validation_code();
 
-			<span class="kw">let </span>verifier = MultiSigner::unchecked_from(account::&lt;[u8; <span class="number">32</span>]&gt;(<span class="string">&quot;verifier&quot;</span>, <span class="number">0</span>, <span class="number">0</span>));
+			<span class="kw">let </span>verifier = MultiSigner::unchecked_from(account::&lt;[u8; <span class="number">32</span>]&gt;(<span class="string">"verifier"</span>, <span class="number">0</span>, <span class="number">0</span>));
 
 			CurrencyOf::&lt;T&gt;::make_free_balance_be(<span class="kw-2">&amp;</span>caller, BalanceOf::&lt;T&gt;::max_value());
 			T::Registrar::register(caller.clone(), para_id, head_data, validation_code.clone())<span class="question-mark">?</span>;
@@ -4518,13 +4520,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			CurrencyOf::&lt;T&gt;::make_free_balance_be(<span class="kw-2">&amp;</span>caller, BalanceOf::&lt;T&gt;::max_value());
 			<span class="macro">assert!</span>(NewRaise::&lt;T&gt;::get().is_empty());
 
-			<span class="kw">let </span>pubkey = crypto::create_ed25519_pubkey(<span class="string">b&quot;//verifier&quot;</span>.to_vec());
+			<span class="kw">let </span>pubkey = crypto::create_ed25519_pubkey(<span class="string">b"//verifier"</span>.to_vec());
 			<span class="kw">let </span>payload = (fund_index, <span class="kw-2">&amp;</span>caller, BalanceOf::&lt;T&gt;::default(), contribution);
 			<span class="kw">let </span>sig = crypto::create_ed25519_signature(<span class="kw-2">&amp;</span>payload.encode(), pubkey);
 
 		}: <span class="kw">_</span>(RawOrigin::Signed(caller.clone()), fund_index, contribution, <span class="prelude-val">Some</span>(sig))
 		verify {
-			<span class="comment">// NewRaise is appended to, so we don&#39;t need to fill it up for worst case scenario.
+			<span class="comment">// NewRaise is appended to, so we don't need to fill it up for worst case scenario.
 			</span><span class="macro">assert!</span>(!NewRaise::&lt;T&gt;::get().is_empty());
 			assert_last_event::&lt;T&gt;(Event::&lt;T&gt;::Contributed { who: caller, fund_index, amount: contribution }.into());
 		}
@@ -4534,7 +4536,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>end = lpl + offset;
 			<span class="kw">let </span>fund_index = create_fund::&lt;T&gt;(<span class="number">1337</span>, end);
 			<span class="kw">let </span>caller: T::AccountId = whitelisted_caller();
-			<span class="kw">let </span>contributor = account(<span class="string">&quot;contributor&quot;</span>, <span class="number">0</span>, <span class="number">0</span>);
+			<span class="kw">let </span>contributor = account(<span class="string">"contributor"</span>, <span class="number">0</span>, <span class="number">0</span>);
 			contribute_fund::&lt;T&gt;(<span class="kw-2">&amp;</span>contributor, fund_index);
 			frame_system::Pallet::&lt;T&gt;::set_block_number(BlockNumberFor::&lt;T&gt;::max_value());
 		}: <span class="kw">_</span>(RawOrigin::Signed(caller), contributor.clone(), fund_index)
@@ -4552,7 +4554,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="comment">// Dissolve will remove at most `RemoveKeysLimit` at once.
 			</span><span class="kw">for </span>i <span class="kw">in </span><span class="number">0 </span>.. k {
-				contribute_fund::&lt;T&gt;(<span class="kw-2">&amp;</span>account(<span class="string">&quot;contributor&quot;</span>, i, <span class="number">0</span>), fund_index);
+				contribute_fund::&lt;T&gt;(<span class="kw-2">&amp;</span>account(<span class="string">"contributor"</span>, i, <span class="number">0</span>), fund_index);
 			}
 
 			<span class="kw">let </span>caller: T::AccountId = whitelisted_caller();
@@ -4585,7 +4587,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>head_data = T::Registrar::worst_head_data();
 			<span class="kw">let </span>validation_code = T::Registrar::worst_validation_code();
 
-			<span class="kw">let </span>verifier = MultiSigner::unchecked_from(account::&lt;[u8; <span class="number">32</span>]&gt;(<span class="string">&quot;verifier&quot;</span>, <span class="number">0</span>, <span class="number">0</span>));
+			<span class="kw">let </span>verifier = MultiSigner::unchecked_from(account::&lt;[u8; <span class="number">32</span>]&gt;(<span class="string">"verifier"</span>, <span class="number">0</span>, <span class="number">0</span>));
 
 			CurrencyOf::&lt;T&gt;::make_free_balance_be(<span class="kw-2">&amp;</span>caller, BalanceOf::&lt;T&gt;::max_value());
 			T::Registrar::register(caller.clone(), para_id, head_data, validation_code.clone())<span class="question-mark">?</span>;
@@ -4601,7 +4603,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				para_id, cap, first_period, last_period, end, <span class="prelude-val">Some</span>(verifier.clone()),
 			)<span class="question-mark">?</span>;
 
-			<span class="comment">// Doesn&#39;t matter what we edit to, so use the same values.
+			<span class="comment">// Doesn't matter what we edit to, so use the same values.
 		</span>}: <span class="kw">_</span>(RawOrigin::Root, para_id, cap, first_period, last_period, end, <span class="prelude-val">Some</span>(verifier))
 		verify {
 			assert_last_event::&lt;T&gt;(Event::&lt;T&gt;::Edited { para_id }.into())
@@ -4616,7 +4618,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>worst_memo = <span class="macro">vec!</span>[<span class="number">42</span>; T::MaxMemoLength::get().into()];
 		}: <span class="kw">_</span>(RawOrigin::Signed(caller.clone()), fund_index, worst_memo.clone())
 		verify {
-			<span class="kw">let </span>fund = Funds::&lt;T&gt;::get(fund_index).expect(<span class="string">&quot;fund was created...&quot;</span>);
+			<span class="kw">let </span>fund = Funds::&lt;T&gt;::get(fund_index).expect(<span class="string">"fund was created..."</span>);
 			<span class="macro">assert_eq!</span>(
 				Crowdloan::&lt;T&gt;::contribution_get(fund.fund_index, <span class="kw-2">&amp;</span>caller),
 				(T::MinContribution::get(), worst_memo),
@@ -4646,11 +4648,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>(lpl, offset) = T::Auctioneer::lease_period_length();
 			<span class="kw">let </span>end_block = lpl + offset - <span class="number">1u32</span>.into();
 
-			<span class="kw">let </span>pubkey = crypto::create_ed25519_pubkey(<span class="string">b&quot;//verifier&quot;</span>.to_vec());
+			<span class="kw">let </span>pubkey = crypto::create_ed25519_pubkey(<span class="string">b"//verifier"</span>.to_vec());
 
 			<span class="kw">for </span>i <span class="kw">in </span><span class="number">0 </span>.. n {
 				<span class="kw">let </span>fund_index = create_fund::&lt;T&gt;(i, end_block);
-				<span class="kw">let </span>contributor: T::AccountId = account(<span class="string">&quot;contributor&quot;</span>, i, <span class="number">0</span>);
+				<span class="kw">let </span>contributor: T::AccountId = account(<span class="string">"contributor"</span>, i, <span class="number">0</span>);
 				<span class="kw">let </span>contribution = T::MinContribution::get() * (i + <span class="number">1</span>).into();
 				<span class="kw">let </span>payload = (fund_index, <span class="kw-2">&amp;</span>contributor, BalanceOf::&lt;T&gt;::default(), contribution);
 				<span class="kw">let </span>sig = crypto::create_ed25519_signature(<span class="kw-2">&amp;</span>payload.encode(), pubkey.clone());
@@ -4663,7 +4665,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>(lease_period_index, <span class="kw">_</span>) = T::Auctioneer::lease_period_index(now).unwrap_or_default();
 			<span class="kw">let </span>duration = end_block
 				.checked_sub(<span class="kw-2">&amp;</span>frame_system::Pallet::&lt;T&gt;::block_number())
-				.ok_or(<span class="string">&quot;duration of auction less than zero&quot;</span>)<span class="question-mark">?</span>;
+				.ok_or(<span class="string">"duration of auction less than zero"</span>)<span class="question-mark">?</span>;
 			T::Auctioneer::new_auction(duration, lease_period_index)<span class="question-mark">?</span>;
 
 			<span class="macro">assert_eq!</span>(T::Auctioneer::auction_status(end_block).is_ending(), <span class="prelude-val">Some</span>((<span class="number">0u32</span>.into(), <span class="number">0u32</span>.into())));

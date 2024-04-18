@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/basic-authorship/src/basic_authorship.rs`."><title>basic_authorship.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/basic-authorship/src/basic_authorship.rs`."><title>basic_authorship.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_basic_authorship" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_basic_authorship" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sc_basic_authorship/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1318,7 +1320,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see &lt;https://www.gnu.org/licenses/&gt;.
 
-</span><span class="doccomment">//! A consensus proposer for &quot;basic&quot; chains which use the primitive inherent-data.
+</span><span class="doccomment">//! A consensus proposer for "basic" chains which use the primitive inherent-data.
 
 </span><span class="comment">// FIXME #1021 move this into sp-consensus
 
@@ -1352,13 +1354,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// Can be overwritten by [`ProposerFactory::set_default_block_size_limit`].
 ///
 /// Be aware that there is also an upper packet size on what the networking code
-/// will accept. If the block doesn&#39;t fit in such a package, it can not be
+/// will accept. If the block doesn't fit in such a package, it can not be
 /// transferred to other nodes.
 </span><span class="kw">pub const </span>DEFAULT_BLOCK_SIZE_LIMIT: usize = <span class="number">4 </span>* <span class="number">1024 </span>* <span class="number">1024 </span>+ <span class="number">512</span>;
 
 <span class="kw">const </span>DEFAULT_SOFT_DEADLINE_PERCENT: Percent = Percent::from_percent(<span class="number">50</span>);
 
-<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;basic-authorship&quot;</span>;
+<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"basic-authorship"</span>;
 
 <span class="doccomment">/// [`Proposer`] factory.
 </span><span class="kw">pub struct </span>ProposerFactory&lt;A, C, PR&gt; {
@@ -1411,7 +1413,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// Proof recording will be disabled when using proposers built by this instance to build
 	/// blocks.
 	</span><span class="kw">pub fn </span>new(
-		spawn_handle: <span class="kw">impl </span>SpawnNamed + <span class="lifetime">&#39;static</span>,
+		spawn_handle: <span class="kw">impl </span>SpawnNamed + <span class="lifetime">'static</span>,
 		client: Arc&lt;C&gt;,
 		transaction_pool: Arc&lt;A&gt;,
 		prometheus: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>PrometheusRegistry&gt;,
@@ -1439,7 +1441,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// This will also include the proof into the estimation of the block size. This can be disabled
 	/// by calling [`ProposerFactory::disable_proof_in_block_size_estimation`].
 	</span><span class="kw">pub fn </span>with_proof_recording(
-		spawn_handle: <span class="kw">impl </span>SpawnNamed + <span class="lifetime">&#39;static</span>,
+		spawn_handle: <span class="kw">impl </span>SpawnNamed + <span class="lifetime">'static</span>,
 		client: Arc&lt;C&gt;,
 		transaction_pool: Arc&lt;A&gt;,
 		prometheus: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>PrometheusRegistry&gt;,
@@ -1486,7 +1488,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// Setting the value too low will significantly limit the amount of transactions
 	/// we try in case they exhaust resources. Setting the value too high can
-	/// potentially open a DoS vector, where many &quot;exhaust resources&quot; transactions
+	/// potentially open a DoS vector, where many "exhaust resources" transactions
 	/// are being tried with no success, hence block producer ends up creating an empty block.
 	</span><span class="kw">pub fn </span>set_soft_deadline(<span class="kw-2">&amp;mut </span><span class="self">self</span>, percent: Percent) {
 		<span class="self">self</span>.soft_deadline_percent = percent;
@@ -1495,9 +1497,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl</span>&lt;Block, C, A, PR&gt; ProposerFactory&lt;A, C, PR&gt;
 <span class="kw">where
-	</span>A: TransactionPool&lt;Block = Block&gt; + <span class="lifetime">&#39;static</span>,
+	</span>A: TransactionPool&lt;Block = Block&gt; + <span class="lifetime">'static</span>,
 	Block: BlockT,
-	C: HeaderBackend&lt;Block&gt; + ProvideRuntimeApi&lt;Block&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
+	C: HeaderBackend&lt;Block&gt; + ProvideRuntimeApi&lt;Block&gt; + Send + Sync + <span class="lifetime">'static</span>,
 	C::Api: ApiExt&lt;Block&gt; + BlockBuilderApi&lt;Block&gt;,
 {
 	<span class="kw">fn </span>init_with_now(
@@ -1507,7 +1509,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; Proposer&lt;Block, C, A, PR&gt; {
 		<span class="kw">let </span>parent_hash = parent_header.hash();
 
-		<span class="macro">info!</span>(<span class="string">&quot;🙌 Starting consensus session on top of parent {:?}&quot;</span>, parent_hash);
+		<span class="macro">info!</span>(<span class="string">"🙌 Starting consensus session on top of parent {:?}"</span>, parent_hash);
 
 		<span class="kw">let </span>proposer = Proposer::&lt;<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, PR&gt; {
 			spawn_handle: <span class="self">self</span>.spawn_handle.clone(),
@@ -1530,9 +1532,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl</span>&lt;A, Block, C, PR&gt; sp_consensus::Environment&lt;Block&gt; <span class="kw">for </span>ProposerFactory&lt;A, C, PR&gt;
 <span class="kw">where
-	</span>A: TransactionPool&lt;Block = Block&gt; + <span class="lifetime">&#39;static</span>,
+	</span>A: TransactionPool&lt;Block = Block&gt; + <span class="lifetime">'static</span>,
 	Block: BlockT,
-	C: HeaderBackend&lt;Block&gt; + ProvideRuntimeApi&lt;Block&gt; + CallApiAt&lt;Block&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
+	C: HeaderBackend&lt;Block&gt; + ProvideRuntimeApi&lt;Block&gt; + CallApiAt&lt;Block&gt; + Send + Sync + <span class="lifetime">'static</span>,
 	C::Api: ApiExt&lt;Block&gt; + BlockBuilderApi&lt;Block&gt;,
 	PR: ProofRecording,
 {
@@ -1563,9 +1565,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl</span>&lt;A, Block, C, PR&gt; sp_consensus::Proposer&lt;Block&gt; <span class="kw">for </span>Proposer&lt;Block, C, A, PR&gt;
 <span class="kw">where
-	</span>A: TransactionPool&lt;Block = Block&gt; + <span class="lifetime">&#39;static</span>,
+	</span>A: TransactionPool&lt;Block = Block&gt; + <span class="lifetime">'static</span>,
 	Block: BlockT,
-	C: HeaderBackend&lt;Block&gt; + ProvideRuntimeApi&lt;Block&gt; + CallApiAt&lt;Block&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
+	C: HeaderBackend&lt;Block&gt; + ProvideRuntimeApi&lt;Block&gt; + CallApiAt&lt;Block&gt; + Send + Sync + <span class="lifetime">'static</span>,
 	C::Api: ApiExt&lt;Block&gt; + BlockBuilderApi&lt;Block&gt;,
 	PR: ProofRecording,
 {
@@ -1586,7 +1588,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>spawn_handle = <span class="self">self</span>.spawn_handle.clone();
 
 		spawn_handle.spawn_blocking(
-			<span class="string">&quot;basic-authorship-proposer&quot;</span>,
+			<span class="string">"basic-authorship-proposer"</span>,
 			<span class="prelude-val">None</span>,
 			Box::pin(<span class="kw">async move </span>{
 				<span class="comment">// leave some time for evaluation and block finalization (33%)
@@ -1597,7 +1599,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">if </span>tx.send(res).is_err() {
 					<span class="macro">trace!</span>(
 						target: LOG_TARGET,
-						<span class="string">&quot;Could not send block production result to proposer!&quot;
+						<span class="string">"Could not send block production result to proposer!"
 					</span>);
 				}
 			}),
@@ -1616,7 +1618,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">where
 	</span>A: TransactionPool&lt;Block = Block&gt;,
 	Block: BlockT,
-	C: HeaderBackend&lt;Block&gt; + ProvideRuntimeApi&lt;Block&gt; + CallApiAt&lt;Block&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
+	C: HeaderBackend&lt;Block&gt; + ProvideRuntimeApi&lt;Block&gt; + CallApiAt&lt;Block&gt; + Send + Sync + <span class="lifetime">'static</span>,
 	C::Api: ApiExt&lt;Block&gt; + BlockBuilderApi&lt;Block&gt;,
 	PR: ProofRecording,
 {
@@ -1656,7 +1658,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Apply all inherents to the block.
 	</span><span class="kw">fn </span>apply_inherents(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		block_builder: <span class="kw-2">&amp;mut </span>sc_block_builder::BlockBuilder&lt;<span class="lifetime">&#39;_</span>, Block, C&gt;,
+		block_builder: <span class="kw-2">&amp;mut </span>sc_block_builder::BlockBuilder&lt;<span class="lifetime">'_</span>, Block, C&gt;,
 		inherent_data: InherentData,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), sp_blockchain::Error&gt; {
 		<span class="kw">let </span>create_inherents_start = time::Instant::now();
@@ -1676,19 +1678,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="prelude-val">Err</span>(ApplyExtrinsicFailed(Validity(e))) <span class="kw">if </span>e.exhausted_resources() =&gt; {
 					<span class="macro">warn!</span>(
 						target: LOG_TARGET,
-						<span class="string">&quot;⚠️  Dropping non-mandatory inherent from overweight block.&quot;
+						<span class="string">"⚠️  Dropping non-mandatory inherent from overweight block."
 					</span>)
 				},
 				<span class="prelude-val">Err</span>(ApplyExtrinsicFailed(Validity(e))) <span class="kw">if </span>e.was_mandatory() =&gt; {
 					<span class="macro">error!</span>(
-						<span class="string">&quot;❌️ Mandatory inherent extrinsic returned error. Block cannot be produced.&quot;
+						<span class="string">"❌️ Mandatory inherent extrinsic returned error. Block cannot be produced."
 					</span>);
 					<span class="kw">return </span><span class="prelude-val">Err</span>(ApplyExtrinsicFailed(Validity(e)))
 				},
 				<span class="prelude-val">Err</span>(e) =&gt; {
 					<span class="macro">warn!</span>(
 						target: LOG_TARGET,
-						<span class="string">&quot;❗️ Inherent extrinsic returned unexpected error: {}. Dropping.&quot;</span>, e
+						<span class="string">"❗️ Inherent extrinsic returned unexpected error: {}. Dropping."</span>, e
 					);
 				},
 				<span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; {},
@@ -1700,7 +1702,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Apply as many extrinsics as possible to the block.
 	</span><span class="kw">async fn </span>apply_extrinsics(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		block_builder: <span class="kw-2">&amp;mut </span>sc_block_builder::BlockBuilder&lt;<span class="lifetime">&#39;_</span>, Block, C&gt;,
+		block_builder: <span class="kw-2">&amp;mut </span>sc_block_builder::BlockBuilder&lt;<span class="lifetime">'_</span>, Block, C&gt;,
 		deadline: time::Instant,
 		block_size_limit: <span class="prelude-ty">Option</span>&lt;usize&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;EndProposingReason, sp_blockchain::Error&gt; {
@@ -1722,8 +1724,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			res = t1 =&gt; res,
 			<span class="kw">_ </span>= t2 =&gt; {
 				<span class="macro">warn!</span>(target: LOG_TARGET,
-					<span class="string">&quot;Timeout fired waiting for transaction pool at block #{}. \
-					Proceeding with production.&quot;</span>,
+					<span class="string">"Timeout fired waiting for transaction pool at block #{}. \
+					Proceeding with production."</span>,
 					<span class="self">self</span>.parent_number,
 				);
 				<span class="self">self</span>.transaction_pool.ready()
@@ -1732,8 +1734,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>block_size_limit = block_size_limit.unwrap_or(<span class="self">self</span>.default_block_size_limit);
 
-		<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;Attempting to push transactions from the pool.&quot;</span>);
-		<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;Pool status: {:?}&quot;</span>, <span class="self">self</span>.transaction_pool.status());
+		<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"Attempting to push transactions from the pool."</span>);
+		<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"Pool status: {:?}"</span>, <span class="self">self</span>.transaction_pool.status());
 		<span class="kw">let </span><span class="kw-2">mut </span>transaction_pushed = <span class="bool-val">false</span>;
 
 		<span class="kw">let </span>end_reason = <span class="kw">loop </span>{
@@ -1742,7 +1744,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			} <span class="kw">else </span>{
 				<span class="macro">debug!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;No more transactions, proceeding with proposing.&quot;
+					<span class="string">"No more transactions, proceeding with proposing."
 				</span>);
 
 				<span class="kw">break </span>EndProposingReason::NoMoreTransactions
@@ -1752,8 +1754,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">if </span>now &gt; deadline {
 				<span class="macro">debug!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Consensus deadline reached when pushing block transactions, \
-				proceeding with proposing.&quot;
+					<span class="string">"Consensus deadline reached when pushing block transactions, \
+				proceeding with proposing."
 				</span>);
 				<span class="kw">break </span>EndProposingReason::HitDeadline
 			}
@@ -1769,51 +1771,51 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					skipped += <span class="number">1</span>;
 					<span class="macro">debug!</span>(
 						target: LOG_TARGET,
-						<span class="string">&quot;Transaction would overflow the block size limit, \
-					 but will try {} more transactions before quitting.&quot;</span>,
+						<span class="string">"Transaction would overflow the block size limit, \
+					 but will try {} more transactions before quitting."</span>,
 						MAX_SKIPPED_TRANSACTIONS - skipped,
 					);
 					<span class="kw">continue
 				</span>} <span class="kw">else if </span>now &lt; soft_deadline {
 					<span class="macro">debug!</span>(
 						target: LOG_TARGET,
-						<span class="string">&quot;Transaction would overflow the block size limit, \
+						<span class="string">"Transaction would overflow the block size limit, \
 					 but we still have time before the soft deadline, so \
-					 we will try a bit more.&quot;
+					 we will try a bit more."
 					</span>);
 					<span class="kw">continue
 				</span>} <span class="kw">else </span>{
 					<span class="macro">debug!</span>(
 						target: LOG_TARGET,
-						<span class="string">&quot;Reached block size limit, proceeding with proposing.&quot;
+						<span class="string">"Reached block size limit, proceeding with proposing."
 					</span>);
 					<span class="kw">break </span>EndProposingReason::HitBlockSizeLimit
 				}
 			}
 
-			<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">&quot;[{:?}] Pushing to the block.&quot;</span>, pending_tx_hash);
+			<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">"[{:?}] Pushing to the block."</span>, pending_tx_hash);
 			<span class="kw">match </span>sc_block_builder::BlockBuilder::push(block_builder, pending_tx_data) {
 				<span class="prelude-val">Ok</span>(()) =&gt; {
 					transaction_pushed = <span class="bool-val">true</span>;
-					<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;[{:?}] Pushed to the block.&quot;</span>, pending_tx_hash);
+					<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"[{:?}] Pushed to the block."</span>, pending_tx_hash);
 				},
 				<span class="prelude-val">Err</span>(ApplyExtrinsicFailed(Validity(e))) <span class="kw">if </span>e.exhausted_resources() =&gt; {
 					pending_iterator.report_invalid(<span class="kw-2">&amp;</span>pending_tx);
 					<span class="kw">if </span>skipped &lt; MAX_SKIPPED_TRANSACTIONS {
 						skipped += <span class="number">1</span>;
 						<span class="macro">debug!</span>(target: LOG_TARGET,
-							<span class="string">&quot;Block seems full, but will try {} more transactions before quitting.&quot;</span>,
+							<span class="string">"Block seems full, but will try {} more transactions before quitting."</span>,
 							MAX_SKIPPED_TRANSACTIONS - skipped,
 						);
 					} <span class="kw">else if </span>(<span class="self">self</span>.now)() &lt; soft_deadline {
 						<span class="macro">debug!</span>(target: LOG_TARGET,
-							<span class="string">&quot;Block seems full, but we still have time before the soft deadline, \
-							 so we will try a bit more before quitting.&quot;
+							<span class="string">"Block seems full, but we still have time before the soft deadline, \
+							 so we will try a bit more before quitting."
 						</span>);
 					} <span class="kw">else </span>{
 						<span class="macro">debug!</span>(
 							target: LOG_TARGET,
-							<span class="string">&quot;Reached block weight limit, proceeding with proposing.&quot;
+							<span class="string">"Reached block weight limit, proceeding with proposing."
 						</span>);
 						<span class="kw">break </span>EndProposingReason::HitBlockWeightLimit
 					}
@@ -1822,7 +1824,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					pending_iterator.report_invalid(<span class="kw-2">&amp;</span>pending_tx);
 					<span class="macro">debug!</span>(
 						target: LOG_TARGET,
-						<span class="string">&quot;[{:?}] Invalid transaction: {}&quot;</span>, pending_tx_hash, e
+						<span class="string">"[{:?}] Invalid transaction: {}"</span>, pending_tx_hash, e
 					);
 					unqueue_invalid.push(pending_tx_hash);
 				},
@@ -1832,7 +1834,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if </span><span class="macro">matches!</span>(end_reason, EndProposingReason::HitBlockSizeLimit) &amp;&amp; !transaction_pushed {
 			<span class="macro">warn!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;Hit block size limit of `{}` without including any transaction!&quot;</span>, block_size_limit,
+				<span class="string">"Hit block size limit of `{}` without including any transaction!"</span>, block_size_limit,
 			);
 		}
 
@@ -1862,21 +1864,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		});
 
 		<span class="kw">let </span>extrinsics_summary = <span class="kw">if </span>extrinsics.is_empty() {
-			<span class="string">&quot;no extrinsics&quot;</span>.to_string()
+			<span class="string">"no extrinsics"</span>.to_string()
 		} <span class="kw">else </span>{
 			<span class="macro">format!</span>(
-				<span class="string">&quot;extrinsics ({}): [{}]&quot;</span>,
+				<span class="string">"extrinsics ({}): [{}]"</span>,
 				extrinsics.len(),
 				extrinsics
 					.iter()
 					.map(|xt| BlakeTwo256::hash_of(xt).to_string())
 					.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
-					.join(<span class="string">&quot;, &quot;</span>)
+					.join(<span class="string">", "</span>)
 			)
 		};
 
 		<span class="macro">info!</span>(
-			<span class="string">&quot;🎁 Prepared block for proposing at {} ({} ms) [hash: {:?}; parent_hash: {}; {extrinsics_summary}&quot;</span>,
+			<span class="string">"🎁 Prepared block for proposing at {} ({} ms) [hash: {:?}; parent_hash: {}; {extrinsics_summary}"</span>,
 			block.header().number(),
 			block_took.as_millis(),
 			&lt;Block <span class="kw">as </span>BlockT&gt;::Hash::from(block.header().hash()),
@@ -1885,9 +1887,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">telemetry!</span>(
 			<span class="self">self</span>.telemetry;
 			CONSENSUS_INFO;
-			<span class="string">&quot;prepared_block_for_proposing&quot;</span>;
-			<span class="string">&quot;number&quot; </span>=&gt; <span class="question-mark">?</span>block.header().number(),
-			<span class="string">&quot;hash&quot; </span>=&gt; <span class="question-mark">?</span>&lt;Block <span class="kw">as </span>BlockT&gt;::Hash::from(block.header().hash()),
+			<span class="string">"prepared_block_for_proposing"</span>;
+			<span class="string">"number" </span>=&gt; <span class="question-mark">?</span>block.header().number(),
+			<span class="string">"hash" </span>=&gt; <span class="question-mark">?</span>&lt;Block <span class="kw">as </span>BlockT&gt;::Hash::from(block.header().hash()),
 		);
 	}
 }
@@ -1956,7 +1958,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			txpool.maintain(chain_event(
 				client
 					.expect_header(client.info().genesis_hash)
-					.expect(<span class="string">&quot;there should be header&quot;</span>),
+					.expect(<span class="string">"there should be header"</span>),
 			)),
 		);
 
@@ -2049,7 +2051,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			txpool.maintain(chain_event(
 				client
 					.expect_header(client.info().genesis_hash)
-					.expect(<span class="string">&quot;there should be header&quot;</span>),
+					.expect(<span class="string">"there should be header"</span>),
 			)),
 		);
 
@@ -2082,7 +2084,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="comment">// This test ensures that if one transaction of a user was rejected, because for example
-	// the weight limit was hit, we don&#39;t mark the other transactions of the user as invalid because
+	// the weight limit was hit, we don't mark the other transactions of the user as invalid because
 	// the nonce is not matching.
 	</span><span class="attr">#[test]
 	</span><span class="kw">fn </span>should_not_remove_invalid_transactions_from_the_same_sender_after_one_was_invalid() {
@@ -2137,13 +2139,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="macro">assert_eq!</span>(
 				txpool.ready().count(),
 				expected_pool_transactions,
-				<span class="string">&quot;at block: {}&quot;</span>,
+				<span class="string">"at block: {}"</span>,
 				block.header.number
 			);
 			<span class="macro">assert_eq!</span>(
 				block.extrinsics().len(),
 				expected_block_extrinsics,
-				<span class="string">&quot;at block: {}&quot;</span>,
+				<span class="string">"at block: {}"</span>,
 				block.header.number
 			);
 
@@ -2154,7 +2156,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>hash = block.hash();
 			block_on(client.import(BlockOrigin::Own, block)).unwrap();
 			block_on(txpool.maintain(chain_event(
-				client.expect_header(hash).expect(<span class="string">&quot;there should be header&quot;</span>),
+				client.expect_header(hash).expect(<span class="string">"there should be header"</span>),
 			)));
 		};
 
@@ -2162,32 +2164,32 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			txpool.maintain(chain_event(
 				client
 					.expect_header(client.info().genesis_hash)
-					.expect(<span class="string">&quot;there should be header&quot;</span>),
+					.expect(<span class="string">"there should be header"</span>),
 			)),
 		);
 		<span class="macro">assert_eq!</span>(txpool.ready().count(), <span class="number">7</span>);
 
-		<span class="comment">// let&#39;s create one block and import it
+		<span class="comment">// let's create one block and import it
 		</span><span class="kw">let </span>block = propose_block(<span class="kw-2">&amp;</span>client, <span class="number">0</span>, <span class="number">2</span>, <span class="number">7</span>);
 		import_and_maintain(client.clone(), block);
 		<span class="macro">assert_eq!</span>(txpool.ready().count(), <span class="number">5</span>);
 
-		<span class="comment">// now let&#39;s make sure that we can still make some progress
+		<span class="comment">// now let's make sure that we can still make some progress
 		</span><span class="kw">let </span>block = propose_block(<span class="kw-2">&amp;</span>client, <span class="number">1</span>, <span class="number">1</span>, <span class="number">5</span>);
 		import_and_maintain(client.clone(), block);
 		<span class="macro">assert_eq!</span>(txpool.ready().count(), <span class="number">4</span>);
 
-		<span class="comment">// again let&#39;s make sure that we can still make some progress
+		<span class="comment">// again let's make sure that we can still make some progress
 		</span><span class="kw">let </span>block = propose_block(<span class="kw-2">&amp;</span>client, <span class="number">2</span>, <span class="number">1</span>, <span class="number">4</span>);
 		import_and_maintain(client.clone(), block);
 		<span class="macro">assert_eq!</span>(txpool.ready().count(), <span class="number">3</span>);
 
-		<span class="comment">// again let&#39;s make sure that we can still make some progress
+		<span class="comment">// again let's make sure that we can still make some progress
 		</span><span class="kw">let </span>block = propose_block(<span class="kw-2">&amp;</span>client, <span class="number">3</span>, <span class="number">1</span>, <span class="number">3</span>);
 		import_and_maintain(client.clone(), block);
 		<span class="macro">assert_eq!</span>(txpool.ready().count(), <span class="number">2</span>);
 
-		<span class="comment">// again let&#39;s make sure that we can still make some progress
+		<span class="comment">// again let's make sure that we can still make some progress
 		</span><span class="kw">let </span>block = propose_block(<span class="kw-2">&amp;</span>client, <span class="number">4</span>, <span class="number">2</span>, <span class="number">2</span>);
 		import_and_maintain(client.clone(), block);
 		<span class="macro">assert_eq!</span>(txpool.ready().count(), <span class="number">0</span>);
@@ -2205,7 +2207,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			client.clone(),
 		);
 		<span class="kw">let </span>genesis_hash = client.info().genesis_hash;
-		<span class="kw">let </span>genesis_header = client.expect_header(genesis_hash).expect(<span class="string">&quot;there should be header&quot;</span>);
+		<span class="kw">let </span>genesis_header = client.expect_header(genesis_hash).expect(<span class="string">"there should be header"</span>);
 
 		<span class="kw">let </span>extrinsics_num = <span class="number">5</span>;
 		<span class="kw">let </span>extrinsics = std::iter::once(
@@ -2248,7 +2250,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		.map(|r| r.block)
 		.unwrap();
 
-		<span class="comment">// Based on the block limit, one transaction shouldn&#39;t be included.
+		<span class="comment">// Based on the block limit, one transaction shouldn't be included.
 		</span><span class="macro">assert_eq!</span>(block.extrinsics().len(), extrinsics_num - <span class="number">1</span>);
 
 		<span class="kw">let </span>proposer = block_on(proposer_factory.init(<span class="kw-2">&amp;</span>genesis_header)).unwrap();
@@ -2336,7 +2338,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		.unwrap();
 
 		block_on(txpool.maintain(chain_event(
-			client.expect_header(genesis_hash).expect(<span class="string">&quot;there should be header&quot;</span>),
+			client.expect_header(genesis_hash).expect(<span class="string">"there should be header"</span>),
 		)));
 		<span class="macro">assert_eq!</span>(txpool.ready().count(), MAX_SKIPPED_TRANSACTIONS * <span class="number">3</span>);
 
@@ -2407,7 +2409,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		.unwrap();
 
 		block_on(txpool.maintain(chain_event(
-			client.expect_header(genesis_hash).expect(<span class="string">&quot;there should be header&quot;</span>),
+			client.expect_header(genesis_hash).expect(<span class="string">"there should be header"</span>),
 		)));
 		<span class="macro">assert_eq!</span>(txpool.ready().count(), MAX_SKIPPED_TRANSACTIONS * <span class="number">2 </span>+ <span class="number">4</span>);
 
@@ -2445,11 +2447,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		// transactions guarantees that max two transactions will get to the block.
 		</span><span class="macro">assert!</span>(
 			(<span class="number">1</span>..<span class="number">3</span>).contains(<span class="kw-2">&amp;</span>block.extrinsics().len()),
-			<span class="string">&quot;Block shall contain one or two extrinsics.&quot;
+			<span class="string">"Block shall contain one or two extrinsics."
 		</span>);
 		<span class="macro">assert!</span>(
 			cell2.lock().<span class="number">0 </span>&gt; MAX_SKIPPED_TRANSACTIONS,
-			<span class="string">&quot;Not enough calls to current time, which indicates the test might have ended because of deadline, not soft deadline&quot;
+			<span class="string">"Not enough calls to current time, which indicates the test might have ended because of deadline, not soft deadline"
 		</span>);
 	}
 }

@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/network/statement-distribution/src/v2/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/network/statement-distribution/src/v2/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_statement_distribution" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_statement_distribution" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../polkadot_statement_distribution/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -3692,54 +3694,54 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">mod </span>tests;
 
 <span class="kw">const </span>COST_UNEXPECTED_STATEMENT_NOT_VALIDATOR: Rep =
-	Rep::CostMinor(<span class="string">&quot;Unexpected Statement, not a validator&quot;</span>);
+	Rep::CostMinor(<span class="string">"Unexpected Statement, not a validator"</span>);
 <span class="kw">const </span>COST_UNEXPECTED_STATEMENT_VALIDATOR_NOT_FOUND: Rep =
-	Rep::CostMinor(<span class="string">&quot;Unexpected Statement, validator not found&quot;</span>);
+	Rep::CostMinor(<span class="string">"Unexpected Statement, validator not found"</span>);
 <span class="kw">const </span>COST_UNEXPECTED_STATEMENT_INVALID_SENDER: Rep =
-	Rep::CostMinor(<span class="string">&quot;Unexpected Statement, invalid sender&quot;</span>);
+	Rep::CostMinor(<span class="string">"Unexpected Statement, invalid sender"</span>);
 <span class="kw">const </span>COST_UNEXPECTED_STATEMENT_BAD_ADVERTISE: Rep =
-	Rep::CostMinor(<span class="string">&quot;Unexpected Statement, bad advertise&quot;</span>);
+	Rep::CostMinor(<span class="string">"Unexpected Statement, bad advertise"</span>);
 <span class="kw">const </span>COST_UNEXPECTED_STATEMENT_CLUSTER_REJECTED: Rep =
-	Rep::CostMinor(<span class="string">&quot;Unexpected Statement, cluster rejected&quot;</span>);
+	Rep::CostMinor(<span class="string">"Unexpected Statement, cluster rejected"</span>);
 <span class="kw">const </span>COST_UNEXPECTED_STATEMENT_NOT_IN_GROUP: Rep =
-	Rep::CostMinor(<span class="string">&quot;Unexpected Statement, not in group&quot;</span>);
+	Rep::CostMinor(<span class="string">"Unexpected Statement, not in group"</span>);
 
 <span class="kw">const </span>COST_UNEXPECTED_STATEMENT_MISSING_KNOWLEDGE: Rep =
-	Rep::CostMinor(<span class="string">&quot;Unexpected Statement, missing knowledge for relay parent&quot;</span>);
-<span class="kw">const </span>COST_EXCESSIVE_SECONDED: Rep = Rep::CostMinor(<span class="string">&quot;Sent Excessive `Seconded` Statements&quot;</span>);
-<span class="kw">const </span>COST_DISABLED_VALIDATOR: Rep = Rep::CostMinor(<span class="string">&quot;Sent a statement from a disabled validator&quot;</span>);
+	Rep::CostMinor(<span class="string">"Unexpected Statement, missing knowledge for relay parent"</span>);
+<span class="kw">const </span>COST_EXCESSIVE_SECONDED: Rep = Rep::CostMinor(<span class="string">"Sent Excessive `Seconded` Statements"</span>);
+<span class="kw">const </span>COST_DISABLED_VALIDATOR: Rep = Rep::CostMinor(<span class="string">"Sent a statement from a disabled validator"</span>);
 
 <span class="kw">const </span>COST_UNEXPECTED_MANIFEST_MISSING_KNOWLEDGE: Rep =
-	Rep::CostMinor(<span class="string">&quot;Unexpected Manifest, missing knowledge for relay parent&quot;</span>);
+	Rep::CostMinor(<span class="string">"Unexpected Manifest, missing knowledge for relay parent"</span>);
 <span class="kw">const </span>COST_UNEXPECTED_MANIFEST_DISALLOWED: Rep =
-	Rep::CostMinor(<span class="string">&quot;Unexpected Manifest, Peer Disallowed&quot;</span>);
+	Rep::CostMinor(<span class="string">"Unexpected Manifest, Peer Disallowed"</span>);
 <span class="kw">const </span>COST_UNEXPECTED_MANIFEST_PEER_UNKNOWN: Rep =
-	Rep::CostMinor(<span class="string">&quot;Unexpected Manifest, Peer Unknown&quot;</span>);
-<span class="kw">const </span>COST_CONFLICTING_MANIFEST: Rep = Rep::CostMajor(<span class="string">&quot;Manifest conflicts with previous&quot;</span>);
+	Rep::CostMinor(<span class="string">"Unexpected Manifest, Peer Unknown"</span>);
+<span class="kw">const </span>COST_CONFLICTING_MANIFEST: Rep = Rep::CostMajor(<span class="string">"Manifest conflicts with previous"</span>);
 <span class="kw">const </span>COST_INSUFFICIENT_MANIFEST: Rep =
-	Rep::CostMajor(<span class="string">&quot;Manifest statements insufficient to back candidate&quot;</span>);
-<span class="kw">const </span>COST_MALFORMED_MANIFEST: Rep = Rep::CostMajor(<span class="string">&quot;Manifest is malformed&quot;</span>);
+	Rep::CostMajor(<span class="string">"Manifest statements insufficient to back candidate"</span>);
+<span class="kw">const </span>COST_MALFORMED_MANIFEST: Rep = Rep::CostMajor(<span class="string">"Manifest is malformed"</span>);
 <span class="kw">const </span>COST_UNEXPECTED_ACKNOWLEDGEMENT_UNKNOWN_CANDIDATE: Rep =
-	Rep::CostMinor(<span class="string">&quot;Unexpected acknowledgement, unknown candidate&quot;</span>);
+	Rep::CostMinor(<span class="string">"Unexpected acknowledgement, unknown candidate"</span>);
 
-<span class="kw">const </span>COST_INVALID_SIGNATURE: Rep = Rep::CostMajor(<span class="string">&quot;Invalid Statement Signature&quot;</span>);
+<span class="kw">const </span>COST_INVALID_SIGNATURE: Rep = Rep::CostMajor(<span class="string">"Invalid Statement Signature"</span>);
 <span class="kw">const </span>COST_IMPROPERLY_DECODED_RESPONSE: Rep =
-	Rep::CostMajor(<span class="string">&quot;Improperly Encoded Candidate Response&quot;</span>);
-<span class="kw">const </span>COST_INVALID_RESPONSE: Rep = Rep::CostMajor(<span class="string">&quot;Invalid Candidate Response&quot;</span>);
+	Rep::CostMajor(<span class="string">"Improperly Encoded Candidate Response"</span>);
+<span class="kw">const </span>COST_INVALID_RESPONSE: Rep = Rep::CostMajor(<span class="string">"Invalid Candidate Response"</span>);
 <span class="kw">const </span>COST_UNREQUESTED_RESPONSE_STATEMENT: Rep =
-	Rep::CostMajor(<span class="string">&quot;Un-requested Statement In Response&quot;</span>);
+	Rep::CostMajor(<span class="string">"Un-requested Statement In Response"</span>);
 <span class="kw">const </span>COST_INACCURATE_ADVERTISEMENT: Rep =
-	Rep::CostMajor(<span class="string">&quot;Peer advertised a candidate inaccurately&quot;</span>);
+	Rep::CostMajor(<span class="string">"Peer advertised a candidate inaccurately"</span>);
 
-<span class="kw">const </span>COST_INVALID_REQUEST: Rep = Rep::CostMajor(<span class="string">&quot;Peer sent unparsable request&quot;</span>);
+<span class="kw">const </span>COST_INVALID_REQUEST: Rep = Rep::CostMajor(<span class="string">"Peer sent unparsable request"</span>);
 <span class="kw">const </span>COST_INVALID_REQUEST_BITFIELD_SIZE: Rep =
-	Rep::CostMajor(<span class="string">&quot;Attested candidate request bitfields have wrong size&quot;</span>);
-<span class="kw">const </span>COST_UNEXPECTED_REQUEST: Rep = Rep::CostMajor(<span class="string">&quot;Unexpected attested candidate request&quot;</span>);
+	Rep::CostMajor(<span class="string">"Attested candidate request bitfields have wrong size"</span>);
+<span class="kw">const </span>COST_UNEXPECTED_REQUEST: Rep = Rep::CostMajor(<span class="string">"Unexpected attested candidate request"</span>);
 
-<span class="kw">const </span>BENEFIT_VALID_RESPONSE: Rep = Rep::BenefitMajor(<span class="string">&quot;Peer Answered Candidate Request&quot;</span>);
-<span class="kw">const </span>BENEFIT_VALID_STATEMENT: Rep = Rep::BenefitMajor(<span class="string">&quot;Peer provided a valid statement&quot;</span>);
+<span class="kw">const </span>BENEFIT_VALID_RESPONSE: Rep = Rep::BenefitMajor(<span class="string">"Peer Answered Candidate Request"</span>);
+<span class="kw">const </span>BENEFIT_VALID_STATEMENT: Rep = Rep::BenefitMajor(<span class="string">"Peer provided a valid statement"</span>);
 <span class="kw">const </span>BENEFIT_VALID_STATEMENT_FIRST: Rep =
-	Rep::BenefitMajorFirst(<span class="string">&quot;Peer was the first to provide a given valid statement&quot;</span>);
+	Rep::BenefitMajorFirst(<span class="string">"Peer was the first to provide a given valid statement"</span>);
 
 <span class="doccomment">/// The amount of time to wait before retrying when the node sends a request and it is dropped.
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>REQUEST_RETRY_DELAY: Duration = Duration::from_secs(<span class="number">1</span>);
@@ -3769,7 +3771,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="comment">// additional fields in case local node is an active validator.
 	</span>active: <span class="prelude-ty">Option</span>&lt;ActiveValidatorState&gt;,
 	<span class="comment">// local index actually exists in case node is inactive validator, however,
-	// it&#39;s not needed outside of `build_session_topology`, where it&#39;s known.
+	// it's not needed outside of `build_session_topology`, where it's known.
 </span>}
 
 <span class="kw">struct </span>ActiveValidatorState {
@@ -3779,7 +3781,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>group: GroupIndex,
 	<span class="comment">// the assignment of our validator group, if any.
 	</span>assignment: <span class="prelude-ty">Option</span>&lt;ParaId&gt;,
-	<span class="comment">// the &#39;direct-in-group&#39; communication at this relay-parent.
+	<span class="comment">// the 'direct-in-group' communication at this relay-parent.
 	</span>cluster_tracker: ClusterTracker,
 }
 
@@ -3853,7 +3855,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			target: LOG_TARGET,
 			index_in_gossip_topology = <span class="question-mark">?</span>local_index,
 			index_in_parachain_authorities = <span class="question-mark">?</span><span class="self">self</span>.local_validator,
-			<span class="string">&quot;Node uses the following topology indices&quot;
+			<span class="string">"Node uses the following topology indices"
 		</span>);
 	}
 
@@ -3936,7 +3938,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="comment">// For the provided validator index, if there is a connected peer controlling the given authority
-// ID, then return that peer&#39;s `PeerId`.
+// ID, then return that peer's `PeerId`.
 </span><span class="kw">fn </span>connected_validator_peer(
 	authorities: <span class="kw-2">&amp;</span>HashMap&lt;AuthorityDiscoveryId, PeerId&gt;,
 	per_session: <span class="kw-2">&amp;</span>PerSessionState,
@@ -3958,7 +3960,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl </span>PeerState {
-	<span class="comment">// Update the view, returning a vector of implicit relay-parents which weren&#39;t previously
+	<span class="comment">// Update the view, returning a vector of implicit relay-parents which weren't previously
 	// part of the view.
 	</span><span class="kw">fn </span>update_view(<span class="kw-2">&amp;mut </span><span class="self">self</span>, new_view: View, local_implicit: <span class="kw-2">&amp;</span>ImplicitView) -&gt; Vec&lt;Hash&gt; {
 		<span class="kw">let </span>next_implicit = new_view
@@ -3998,8 +4000,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="comment">// Whether we know that a peer knows a relay-parent.
 	// The peer knows the relay-parent if it is either implicit or explicit
-	// in their view. However, if it is implicit via an active-leaf we don&#39;t
-	// recognize, we will not accurately be able to recognize them as &#39;knowing&#39;
+	// in their view. However, if it is implicit via an active-leaf we don't
+	// recognize, we will not accurately be able to recognize them as 'knowing'
 	// the relay-parent.
 	</span><span class="kw">fn </span>knows_relay_parent(<span class="kw-2">&amp;</span><span class="self">self</span>, relay_parent: <span class="kw-2">&amp;</span>Hash) -&gt; bool {
 		<span class="self">self</span>.implicit_view.contains(relay_parent) || <span class="self">self</span>.view.contains(relay_parent)
@@ -4023,14 +4025,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ) {
 	<span class="kw">match </span>update {
 		NetworkBridgeEvent::PeerConnected(peer_id, role, protocol_version, <span class="kw-2">mut </span>authority_ids) =&gt; {
-			<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>peer_id, <span class="question-mark">?</span>role, <span class="question-mark">?</span>protocol_version, <span class="string">&quot;Peer connected&quot;</span>);
+			<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>peer_id, <span class="question-mark">?</span>role, <span class="question-mark">?</span>protocol_version, <span class="string">"Peer connected"</span>);
 
 			<span class="kw">let </span>versioned_protocol = <span class="kw">if </span>protocol_version != ValidationVersion::V2.into() &amp;&amp;
 				protocol_version != ValidationVersion::V3.into()
 			{
 				<span class="kw">return
 			</span>} <span class="kw">else </span>{
-				protocol_version.try_into().expect(<span class="string">&quot;Qed, we checked above&quot;</span>)
+				protocol_version.try_into().expect(<span class="string">"Qed, we checked above"</span>)
 			};
 
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref mut </span>authority_ids) = authority_ids {
@@ -4045,7 +4047,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							authority_id = <span class="question-mark">?</span>a,
 							existing_peer = <span class="question-mark">?</span>e.get(),
 							new_peer = <span class="question-mark">?</span>peer_id,
-							<span class="string">&quot;Ignoring new peer with duplicate authority ID as a bearer of that identity&quot;
+							<span class="string">"Ignoring new peer with duplicate authority ID as a bearer of that identity"
 						</span>);
 
 						<span class="bool-val">false
@@ -4128,7 +4130,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				target: LOG_TARGET,
 				<span class="question-mark">?</span>peer_id,
 				<span class="question-mark">?</span>authority_ids,
-				<span class="string">&quot;Updated `AuthorityDiscoveryId`s&quot;
+				<span class="string">"Updated `AuthorityDiscoveryId`s"
 			</span>);
 
 			<span class="comment">// defensive: ensure peers are actually connected
@@ -4138,7 +4140,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			};
 
 			<span class="comment">// Remove the authority IDs which were previously mapped to the peer
-			// but aren&#39;t part of the new set.
+			// but aren't part of the new set.
 			</span>state.authorities.retain(|a, p| p != <span class="kw-2">&amp;</span>peer_id || authority_ids.contains(a));
 
 			<span class="comment">// Map the new authority IDs to the peer.
@@ -4215,7 +4217,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="macro">gum::warn!</span>(
 						target: LOG_TARGET,
 						relay_parent = <span class="question-mark">?</span>new_relay_parent,
-						<span class="string">&quot;No session info available for current session&quot;
+						<span class="string">"No session info available for current session"
 					</span>);
 
 					<span class="kw">continue
@@ -4236,7 +4238,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>per_session = state
 			.per_session
 			.get_mut(<span class="kw-2">&amp;</span>session_index)
-			.expect(<span class="string">&quot;either existed or just inserted; qed&quot;</span>);
+			.expect(<span class="string">"either existed or just inserted; qed"</span>);
 
 		<span class="kw">if </span>cleared_disabled_validators.insert(session_index) {
 			per_session.clear_disabled_validators();
@@ -4248,7 +4250,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				relay_parent = <span class="question-mark">?</span>new_relay_parent,
 				<span class="question-mark">?</span>session_index,
 				<span class="question-mark">?</span>disabled_validators,
-				<span class="string">&quot;Disabled validators detected&quot;
+				<span class="string">"Disabled validators detected"
 			</span>);
 
 			per_session.extend_disabled_validators(disabled_validators);
@@ -4281,7 +4283,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>maybe_claim_queue = fetch_claim_queue(ctx.sender(), new_relay_parent)
 		.<span class="kw">await
 		</span>.unwrap_or_else(|err| {
-				<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="question-mark">?</span>new_relay_parent, <span class="question-mark">?</span>err, <span class="string">&quot;handle_active_leaves_update: `claim_queue` API not available&quot;</span>);
+				<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="question-mark">?</span>new_relay_parent, <span class="question-mark">?</span>err, <span class="string">"handle_active_leaves_update: `claim_queue` API not available"</span>);
 				<span class="prelude-val">None
 			</span>});
 
@@ -4323,12 +4325,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="macro">gum::debug!</span>(
 		target: LOG_TARGET,
-		<span class="string">&quot;Activated leaves. Now tracking {} relay-parents across {} sessions&quot;</span>,
+		<span class="string">"Activated leaves. Now tracking {} relay-parents across {} sessions"</span>,
 		state.per_relay_parent.len(),
 		state.per_session.len(),
 	);
 
-	<span class="comment">// Reconcile all peers&#39; views with the active leaf and any relay parents
+	<span class="comment">// Reconcile all peers' views with the active leaf and any relay parents
 	// it implies. If they learned about the block before we did, this reconciliation will give
 	// non-empty results and we should send them messages concerning all activated relay-parents.
 	</span>{
@@ -4390,7 +4392,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			group: our_group,
 			assignment: para_assigned_to_core,
 			cluster_tracker: ClusterTracker::new(group_validators, seconding_limit)
-				.expect(<span class="string">&quot;group is non-empty because we are in it; qed&quot;</span>),
+				.expect(<span class="string">"group is non-empty because we are in it; qed"</span>),
 		}),
 		grid_tracker: GridTracker::default(),
 	})
@@ -4449,9 +4451,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="comment">// Returns an iterator over known validator indices, given an iterator over discovery IDs
 // and a mapping from discovery IDs to validator indices.
-</span><span class="kw">fn </span>find_validator_ids&lt;<span class="lifetime">&#39;a</span>&gt;(
-	known_discovery_ids: <span class="kw">impl </span>IntoIterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>AuthorityDiscoveryId&gt;,
-	discovery_mapping: <span class="kw">impl </span>Fn(<span class="kw-2">&amp;</span>AuthorityDiscoveryId) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ValidatorIndex&gt;,
+</span><span class="kw">fn </span>find_validator_ids&lt;<span class="lifetime">'a</span>&gt;(
+	known_discovery_ids: <span class="kw">impl </span>IntoIterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">'a </span>AuthorityDiscoveryId&gt;,
+	discovery_mapping: <span class="kw">impl </span>Fn(<span class="kw-2">&amp;</span>AuthorityDiscoveryId) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>ValidatorIndex&gt;,
 ) -&gt; <span class="kw">impl </span>Iterator&lt;Item = ValidatorIndex&gt; {
 	known_discovery_ids.into_iter().filter_map(discovery_mapping).cloned()
 }
@@ -4462,8 +4464,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// In particular, we send all statements pertaining to our common cluster,
 /// as well as all manifests, acknowledgements, or other grid statements.
 ///
-/// Note that due to the way we handle views, our knowledge of peers&#39; relay parents
-/// may &quot;oscillate&quot; with relay parents repeatedly leaving and entering the
+/// Note that due to the way we handle views, our knowledge of peers' relay parents
+/// may "oscillate" with relay parents repeatedly leaving and entering the
 /// view of a peer based on the implicit view of active leaves.
 ///
 /// This function is designed to be cheap and not to send duplicate messages in repeated
@@ -4548,8 +4550,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		ValidationVersion::V1 =&gt; {
 			<span class="macro">gum::error!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;Bug ValidationVersion::V1 should not be used in statement-distribution v2,
-				legacy should have handled this&quot;
+				<span class="string">"Bug ValidationVersion::V1 should not be used in statement-distribution v2,
+				legacy should have handled this"
 			</span>);
 			<span class="prelude-val">None
 		</span>},
@@ -4658,7 +4660,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">let </span>grid = <span class="kw-2">&amp;mut </span>relay_parent_state
 					.local_validator
 					.as_mut()
-					.expect(<span class="string">&quot;determined to be some earlier in this function; qed&quot;</span>)
+					.expect(<span class="string">"determined to be some earlier in this function; qed"</span>)
 					.grid_tracker;
 
 				grid.manifest_sent_to(
@@ -4689,8 +4691,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					ValidationVersion::V1 =&gt; {
 						<span class="macro">gum::error!</span>(
 							target: LOG_TARGET,
-							<span class="string">&quot;Bug ValidationVersion::V1 should not be used in statement-distribution v2,
-							legacy should have handled this&quot;
+							<span class="string">"Bug ValidationVersion::V1 should not be used in statement-distribution v2,
+							legacy should have handled this"
 						</span>);
 					},
 				};
@@ -4711,15 +4713,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="comment">// Send all remaining pending grid statements for a validator, not just
-	// those for the acknowledgements we&#39;ve sent.
+	// those for the acknowledgements we've sent.
 	//
-	// otherwise, we might receive statements while the grid peer is &quot;out of view&quot; and then
-	// not send them when they get back &quot;in view&quot;. problem!
+	// otherwise, we might receive statements while the grid peer is "out of view" and then
+	// not send them when they get back "in view". problem!
 	</span>{
 		<span class="kw">let </span>grid_tracker = <span class="kw-2">&amp;mut </span>relay_parent_state
 			.local_validator
 			.as_mut()
-			.expect(<span class="string">&quot;checked earlier; qed&quot;</span>)
+			.expect(<span class="string">"checked earlier; qed"</span>)
 			.grid_tracker;
 
 		<span class="kw">let </span>pending_statements = grid_tracker.all_pending_statements_for(peer_validator_id);
@@ -4773,7 +4775,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="macro">gum::debug!</span>(
 		target: LOG_TARGET,
 		statement = <span class="question-mark">?</span>statement.payload().to_compact(),
-		<span class="string">&quot;Sharing Statement&quot;</span>,
+		<span class="string">"Sharing Statement"</span>,
 	);
 
 	<span class="kw">let </span>per_session = <span class="kw">match </span>state.per_session.get(<span class="kw-2">&amp;</span>per_relay_parent.session) {
@@ -4817,7 +4819,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">gum::warn!</span>(
 			target: LOG_TARGET,
 			limit = <span class="question-mark">?</span>per_relay_parent.seconding_limit,
-			<span class="string">&quot;Local node has issued too many `Seconded` statements&quot;</span>,
+			<span class="string">"Local node has issued too many `Seconded` statements"</span>,
 		);
 		<span class="kw">return </span><span class="prelude-val">Err</span>(JfyiError::InvalidShare)
 	}
@@ -4851,7 +4853,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="macro">gum::warn!</span>(
 					target: LOG_TARGET,
 					statement = <span class="question-mark">?</span>compact_statement.payload(),
-					<span class="string">&quot;Candidate backing issued redundant statement?&quot;</span>,
+					<span class="string">"Candidate backing issued redundant statement?"</span>,
 				);
 				<span class="kw">return </span><span class="prelude-val">Err</span>(JfyiError::InvalidShare)
 			},
@@ -4859,12 +4861,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 
 		{
-			<span class="kw">let </span>l = per_relay_parent.active_validator_state_mut().expect(<span class="string">&quot;checked above; qed&quot;</span>);
+			<span class="kw">let </span>l = per_relay_parent.active_validator_state_mut().expect(<span class="string">"checked above; qed"</span>);
 			l.cluster_tracker.note_issued(local_index, compact_statement.payload().clone());
 		}
 
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>session_topology) = per_session.grid_view {
-			<span class="kw">let </span>l = per_relay_parent.local_validator.as_mut().expect(<span class="string">&quot;checked above; qed&quot;</span>);
+			<span class="kw">let </span>l = per_relay_parent.local_validator.as_mut().expect(<span class="string">"checked above; qed"</span>);
 			l.grid_tracker.learned_fresh_statement(
 				<span class="kw-2">&amp;</span>per_session.groups,
 				session_topology,
@@ -4896,7 +4898,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="prelude-val">Ok</span>(())
 }
 
-<span class="comment">// two kinds of targets: those in our &#39;cluster&#39; (currently just those in the same group),
+<span class="comment">// two kinds of targets: those in our 'cluster' (currently just those in the same group),
 // and those we are propagating to through the grid.
 </span><span class="attr">#[derive(Debug)]
 </span><span class="kw">enum </span>DirectTargetKind {
@@ -4944,7 +4946,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>statement_group = per_session.groups.by_validator_index(originator);
 
-		<span class="comment">// We&#39;re not meant to circulate statements in the cluster until we have the confirmed
+		<span class="comment">// We're not meant to circulate statements in the cluster until we have the confirmed
 		// candidate.
 		//
 		// Cluster is only relevant if local node is an active validator.
@@ -5003,7 +5005,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw-2">*</span>p,
 				peers
 					.get(p)
-					.expect(<span class="string">&quot;Qed, can&#39;t fail because it was checked above&quot;</span>)
+					.expect(<span class="string">"Qed, can't fail because it was checked above"</span>)
 					.protocol_version
 					.into(),
 			),
@@ -5015,10 +5017,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">let </span>active = local_validator
 					.active
 					.as_mut()
-					.expect(<span class="string">&quot;cluster target means local is active validator; qed&quot;</span>);
+					.expect(<span class="string">"cluster target means local is active validator; qed"</span>);
 
-				<span class="comment">// At this point, all peers in the cluster should &#39;know&#39;
-				// the candidate, so we don&#39;t expect for this to fail.
+				<span class="comment">// At this point, all peers in the cluster should 'know'
+				// the candidate, so we don't expect for this to fail.
 				</span><span class="kw">if let </span><span class="prelude-val">Ok</span>(()) =
 					active.cluster_tracker.can_send(target, originator, compact_statement.clone())
 				{
@@ -5051,7 +5053,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			target: LOG_TARGET,
 			<span class="question-mark">?</span>compact_statement,
 			n_peers = <span class="question-mark">?</span>statement_to_v2_peers.len(),
-			<span class="string">&quot;Sending statement to v2 peers&quot;</span>,
+			<span class="string">"Sending statement to v2 peers"</span>,
 		);
 
 		ctx.send_message(NetworkBridgeTxMessage::SendValidationMessage(
@@ -5070,7 +5072,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			target: LOG_TARGET,
 			<span class="question-mark">?</span>compact_statement,
 			n_peers = <span class="question-mark">?</span>statement_to_peers.len(),
-			<span class="string">&quot;Sending statement to v3 peers&quot;</span>,
+			<span class="string">"Sending statement to v3 peers"</span>,
 		);
 
 		ctx.send_message(NetworkBridgeTxMessage::SendValidationMessage(
@@ -5157,7 +5159,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">gum::warn!</span>(
 				target: LOG_TARGET,
 				session = <span class="question-mark">?</span>per_relay_parent.session,
-				<span class="string">&quot;Missing expected session info.&quot;</span>,
+				<span class="string">"Missing expected session info."</span>,
 			);
 
 			<span class="kw">return
@@ -5168,7 +5170,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">let </span>local_validator = <span class="kw">match </span>per_relay_parent.local_validator.as_mut() {
 		<span class="prelude-val">None </span>=&gt; {
-			<span class="comment">// we shouldn&#39;t be receiving statements unless we&#39;re a validator
+			<span class="comment">// we shouldn't be receiving statements unless we're a validator
 			// this session.
 			</span><span class="kw">if </span>per_session.is_not_validator() {
 				modify_reputation(
@@ -5204,7 +5206,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			target: LOG_TARGET,
 			<span class="question-mark">?</span>relay_parent,
 			validator_index = <span class="question-mark">?</span>statement.unchecked_validator_index(),
-			<span class="string">&quot;Ignoring a statement from disabled validator.&quot;
+			<span class="string">"Ignoring a statement from disabled validator."
 		</span>);
 		modify_reputation(reputation, ctx.sender(), peer, COST_DISABLED_VALIDATOR).<span class="kw">await</span>;
 		<span class="kw">return
@@ -5360,7 +5362,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				target: LOG_TARGET,
 				<span class="question-mark">?</span>relay_parent,
 				validator_index = <span class="question-mark">?</span>originator_index,
-				<span class="string">&quot;Error - accepted message from unknown validator.&quot;
+				<span class="string">"Error - accepted message from unknown validator."
 			</span>);
 
 			<span class="kw">return
@@ -5437,7 +5439,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Err</span>(ClusterRejectIncoming::CandidateUnknown | ClusterRejectIncoming::Duplicate) =&gt;
 				<span class="kw">return </span><span class="prelude-val">Err</span>(COST_UNEXPECTED_STATEMENT_CLUSTER_REJECTED),
 			<span class="prelude-val">Err</span>(ClusterRejectIncoming::NotInGroup) =&gt; {
-				<span class="comment">// sanity: shouldn&#39;t be possible; we already filtered this
+				<span class="comment">// sanity: shouldn't be possible; we already filtered this
 				// out above.
 				</span><span class="kw">return </span><span class="prelude-val">Err</span>(COST_UNEXPECTED_STATEMENT_NOT_IN_GROUP)
 			},
@@ -5527,7 +5529,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				),
 				CompactStatement::Valid(c_hash) =&gt; FullStatementWithPVD::Valid(c_hash),
 			})
-			.expect(<span class="string">&quot;statements refer to same candidate; qed&quot;</span>);
+			.expect(<span class="string">"statements refer to same candidate; qed"</span>);
 
 		ctx.send_message(CandidateBackingMessage::Statement(<span class="kw-2">*</span>relay_parent, carrying_pvd))
 			.<span class="kw">await</span>;
@@ -5576,7 +5578,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">gum::debug!</span>(
 				target: LOG_TARGET,
 				session = relay_parent_state.session,
-				<span class="string">&quot;Cannot handle backable candidate due to lack of topology&quot;</span>,
+				<span class="string">"Cannot handle backable candidate due to lack of topology"</span>,
 			);
 
 			<span class="kw">return
@@ -5591,7 +5593,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="question-mark">?</span>relay_parent,
 				<span class="question-mark">?</span>group_index,
 				session = relay_parent_state.session,
-				<span class="string">&quot;Handled backed candidate with unknown group?&quot;</span>,
+				<span class="string">"Handled backed candidate with unknown group?"</span>,
 			);
 
 			<span class="kw">return
@@ -5635,7 +5637,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">None </span>=&gt; <span class="kw">continue</span>,
 			<span class="prelude-val">Some</span>(p) =&gt;
 				<span class="kw">if </span>peers.get(<span class="kw-2">&amp;</span>p).map_or(<span class="bool-val">false</span>, |d| d.knows_relay_parent(<span class="kw-2">&amp;</span>relay_parent)) {
-					(p, peers.get(<span class="kw-2">&amp;</span>p).expect(<span class="string">&quot;Qed, was checked above&quot;</span>).protocol_version.into())
+					(p, peers.get(<span class="kw-2">&amp;</span>p).expect(<span class="string">"Qed, was checked above"</span>).protocol_version.into())
 				} <span class="kw">else </span>{
 					<span class="kw">continue
 				</span>},
@@ -5661,7 +5663,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw-2">&amp;</span>per_session.groups,
 				group_index,
 				candidate_hash,
-				<span class="kw-2">&amp;</span>(p.<span class="number">0</span>, p.<span class="number">1</span>.try_into().expect(<span class="string">&quot;Qed, can not fail was checked above&quot;</span>)),
+				<span class="kw-2">&amp;</span>(p.<span class="number">0</span>, p.<span class="number">1</span>.try_into().expect(<span class="string">"Qed, can not fail was checked above"</span>)),
 			)
 			.into_iter()
 			.map(|m| (<span class="macro">vec!</span>[p.<span class="number">0</span>], m)),
@@ -5676,7 +5678,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="question-mark">?</span>candidate_hash,
 			local_validator = <span class="question-mark">?</span>per_session.local_validator,
 			n_peers = manifest_peers_v2.len(),
-			<span class="string">&quot;Sending manifest to v2 peers&quot;
+			<span class="string">"Sending manifest to v2 peers"
 		</span>);
 
 		ctx.send_message(NetworkBridgeTxMessage::SendValidationMessage(
@@ -5695,7 +5697,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="question-mark">?</span>candidate_hash,
 			local_validator = <span class="question-mark">?</span>per_session.local_validator,
 			n_peers = manifest_peers_v3.len(),
-			<span class="string">&quot;Sending manifest to v3 peers&quot;
+			<span class="string">"Sending manifest to v3 peers"
 		</span>);
 
 		ctx.send_message(NetworkBridgeTxMessage::SendValidationMessage(
@@ -5716,7 +5718,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="question-mark">?</span>candidate_hash,
 			local_validator = <span class="question-mark">?</span>per_session.local_validator,
 			n_peers = ack_peers_v2.len(),
-			<span class="string">&quot;Sending acknowledgement to v2 peers&quot;
+			<span class="string">"Sending acknowledgement to v2 peers"
 		</span>);
 
 		ctx.send_message(NetworkBridgeTxMessage::SendValidationMessage(
@@ -5735,7 +5737,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="question-mark">?</span>candidate_hash,
 			local_validator = <span class="question-mark">?</span>per_session.local_validator,
 			n_peers = ack_peers_v3.len(),
-			<span class="string">&quot;Sending acknowledgement to v3 peers&quot;
+			<span class="string">"Sending acknowledgement to v3 peers"
 		</span>);
 
 		ctx.send_message(NetworkBridgeTxMessage::SendValidationMessage(
@@ -5910,9 +5912,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	fragment_tree_update_inner(ctx, state, <span class="prelude-val">None</span>, <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(<span class="macro">vec!</span>[candidate])).<span class="kw">await
 </span>}
 
-<span class="kw">struct </span>ManifestImportSuccess&lt;<span class="lifetime">&#39;a</span>&gt; {
-	relay_parent_state: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>PerRelayParentState,
-	per_session: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>PerSessionState,
+<span class="kw">struct </span>ManifestImportSuccess&lt;<span class="lifetime">'a</span>&gt; {
+	relay_parent_state: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>PerRelayParentState,
+	per_session: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>PerSessionState,
 	acknowledge: bool,
 	sender_index: ValidatorIndex,
 }
@@ -5920,14 +5922,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Handles the common part of incoming manifests of both types (full &amp; acknowledgement)
 ///
 /// Basic sanity checks around data, importing the manifest into the grid tracker, finding the
-/// sending peer&#39;s validator index, reporting the peer for any misbehavior, etc.
+/// sending peer's validator index, reporting the peer for any misbehavior, etc.
 </span><span class="attr">#[overseer::contextbounds(StatementDistribution, prefix=<span class="self">self</span>::overseer)]
-</span><span class="kw">async fn </span>handle_incoming_manifest_common&lt;<span class="lifetime">&#39;a</span>, Context&gt;(
+</span><span class="kw">async fn </span>handle_incoming_manifest_common&lt;<span class="lifetime">'a</span>, Context&gt;(
 	ctx: <span class="kw-2">&amp;mut </span>Context,
 	peer: PeerId,
 	peers: <span class="kw-2">&amp;</span>HashMap&lt;PeerId, PeerState&gt;,
-	per_relay_parent: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>HashMap&lt;Hash, PerRelayParentState&gt;,
-	per_session: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>HashMap&lt;SessionIndex, PerSessionState&gt;,
+	per_relay_parent: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>HashMap&lt;Hash, PerRelayParentState&gt;,
+	per_session: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>HashMap&lt;SessionIndex, PerSessionState&gt;,
 	candidates: <span class="kw-2">&amp;mut </span>Candidates,
 	candidate_hash: CandidateHash,
 	relay_parent: Hash,
@@ -5935,7 +5937,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw-2">mut </span>manifest_summary: grid::ManifestSummary,
 	manifest_kind: grid::ManifestKind,
 	reputation: <span class="kw-2">&amp;mut </span>ReputationAggregator,
-) -&gt; <span class="prelude-ty">Option</span>&lt;ManifestImportSuccess&lt;<span class="lifetime">&#39;a</span>&gt;&gt; {
+) -&gt; <span class="prelude-ty">Option</span>&lt;ManifestImportSuccess&lt;<span class="lifetime">'a</span>&gt;&gt; {
 	<span class="comment">// 1. sanity checks: peer is connected, relay-parent in state, para ID matches group index.
 	</span><span class="kw">let </span>peer_state = <span class="kw">match </span>peers.get(<span class="kw-2">&amp;</span>peer) {
 		<span class="prelude-val">None </span>=&gt; <span class="kw">return </span><span class="prelude-val">None</span>,
@@ -6074,7 +6076,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			from = <span class="question-mark">?</span>sender_index,
 			local_index = <span class="question-mark">?</span>per_session.local_validator,
 			<span class="question-mark">?</span>manifest_kind,
-			<span class="string">&quot;immediate ack, known candidate&quot;
+			<span class="string">"immediate ack, known candidate"
 		</span>);
 	}
 
@@ -6127,8 +6129,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			ValidationVersion::V1 =&gt; {
 				<span class="macro">gum::error!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Bug ValidationVersion::V1 should not be used in statement-distribution v2,
-					legacy should have handled this&quot;
+					<span class="string">"Bug ValidationVersion::V1 should not be used in statement-distribution v2,
+					legacy should have handled this"
 				</span>);
 			},
 		};
@@ -6149,7 +6151,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		target: LOG_TARGET,
 		candidate_hash = <span class="question-mark">?</span>manifest.candidate_hash,
 		<span class="question-mark">?</span>peer,
-		<span class="string">&quot;Received incoming manifest&quot;</span>,
+		<span class="string">"Received incoming manifest"</span>,
 	);
 
 	<span class="kw">let </span>x = <span class="kw">match </span>handle_incoming_manifest_common(
@@ -6183,7 +6185,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="macro">gum::trace!</span>(
 			target: LOG_TARGET,
 			candidate_hash = <span class="question-mark">?</span>manifest.candidate_hash,
-			<span class="string">&quot;Known candidate - acknowledging manifest&quot;</span>,
+			<span class="string">"Known candidate - acknowledging manifest"</span>,
 		);
 
 		<span class="kw">let </span>local_knowledge = {
@@ -6207,7 +6209,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					.peers
 					.get(<span class="kw-2">&amp;</span>peer)
 					.map(|val| val.protocol_version)
-					<span class="comment">// Assume the latest stable version, if we don&#39;t have info about peer version.
+					<span class="comment">// Assume the latest stable version, if we don't have info about peer version.
 					</span>.unwrap_or(ValidationVersion::V2),
 			),
 			sender_index,
@@ -6227,7 +6229,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="macro">gum::trace!</span>(
 			target: LOG_TARGET,
 			candidate_hash = <span class="question-mark">?</span>manifest.candidate_hash,
-			<span class="string">&quot;Unknown candidate - requesting&quot;</span>,
+			<span class="string">"Unknown candidate - requesting"</span>,
 		);
 
 		state
@@ -6275,8 +6277,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		ValidationVersion::V1 =&gt; {
 			<span class="macro">gum::error!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;Bug ValidationVersion::V1 should not be used in statement-distribution v2,
-				legacy should have handled this&quot;
+				<span class="string">"Bug ValidationVersion::V1 should not be used in statement-distribution v2,
+				legacy should have handled this"
 			</span>);
 			<span class="kw">return </span>Vec::new()
 		},
@@ -6321,7 +6323,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		target: LOG_TARGET,
 		candidate_hash = <span class="question-mark">?</span>acknowledgement.candidate_hash,
 		<span class="question-mark">?</span>peer,
-		<span class="string">&quot;Received incoming acknowledgement&quot;</span>,
+		<span class="string">"Received incoming acknowledgement"</span>,
 	);
 
 	<span class="kw">let </span>candidate_hash = acknowledgement.candidate_hash;
@@ -6386,7 +6388,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.peers
 				.get(<span class="kw-2">&amp;</span>peer)
 				.map(|val| val.protocol_version)
-				<span class="comment">// Assume the latest stable version, if we don&#39;t have info about peer version.
+				<span class="comment">// Assume the latest stable version, if we don't have info about peer version.
 				</span>.unwrap_or(ValidationVersion::V2),
 		),
 	);
@@ -6406,14 +6408,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	state: <span class="kw-2">&amp;mut </span>State,
 	candidate_hash: CandidateHash,
 ) {
-	<span class="comment">// If the candidate is unknown or unconfirmed, it&#39;s a race (pruned before receiving message)
+	<span class="comment">// If the candidate is unknown or unconfirmed, it's a race (pruned before receiving message)
 	// or a bug. Ignore if so
 	</span><span class="kw">let </span>confirmed = <span class="kw">match </span>state.candidates.get_confirmed(<span class="kw-2">&amp;</span>candidate_hash) {
 		<span class="prelude-val">None </span>=&gt; {
 			<span class="macro">gum::debug!</span>(
 				target: LOG_TARGET,
 				<span class="question-mark">?</span>candidate_hash,
-				<span class="string">&quot;Received backed candidate notification for unknown or unconfirmed&quot;</span>,
+				<span class="string">"Received backed candidate notification for unknown or unconfirmed"</span>,
 			);
 
 			<span class="kw">return
@@ -6435,7 +6437,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		target: LOG_TARGET,
 		<span class="question-mark">?</span>candidate_hash,
 		group_index = <span class="question-mark">?</span>confirmed.group_index(),
-		<span class="string">&quot;Candidate Backed - initiating grid distribution &amp; child fetches&quot;
+		<span class="string">"Candidate Backed - initiating grid distribution &amp; child fetches"
 	</span>);
 
 	provide_candidate_to_grid(
@@ -6563,7 +6565,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">for </span>validator_id <span class="kw">in </span>find_validator_ids(peer_data.iter_known_discovery_ids(), |a| {
 			per_session.authority_lookup.get(a)
 		}) {
-			<span class="comment">// For cluster members, they haven&#39;t advertised any statements in particular,
+			<span class="comment">// For cluster members, they haven't advertised any statements in particular,
 			// but have surely sent us some.
 			</span><span class="kw">if let </span><span class="prelude-val">Some</span>(active) = local_validator.active.as_ref() {
 				<span class="kw">if </span>active.cluster_tracker.knows_candidate(validator_id, identifier.candidate_hash) {
@@ -6590,7 +6592,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>group = per_session.groups.get(group_index)<span class="question-mark">?</span>;
 		<span class="kw">let </span>seconding_limit = relay_parent_state.seconding_limit;
 
-		<span class="comment">// Request nothing which would be an &#39;over-seconded&#39; statement.
+		<span class="comment">// Request nothing which would be an 'over-seconded' statement.
 		</span><span class="kw">let </span><span class="kw-2">mut </span>unwanted_mask = StatementFilter::blank(group.len());
 		<span class="kw">for </span>(i, v) <span class="kw">in </span>group.iter().enumerate() {
 			<span class="kw">if </span>relay_parent_state.statement_store.seconded_count(v) &gt;= seconding_limit {
@@ -6601,11 +6603,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// Add disabled validators to the unwanted mask.
 		</span><span class="kw">let </span>disabled_mask = per_session
 			.disabled_bitmask(group_index)
-			.expect(<span class="string">&quot;group existence checked above; qed&quot;</span>);
+			.expect(<span class="string">"group existence checked above; qed"</span>);
 		unwanted_mask.seconded_in_group |= <span class="kw-2">&amp;</span>disabled_mask;
 		unwanted_mask.validated_in_group |= <span class="kw-2">&amp;</span>disabled_mask;
 
-		<span class="comment">// don&#39;t require a backing threshold for cluster candidates.
+		<span class="comment">// don't require a backing threshold for cluster candidates.
 		</span><span class="kw">let </span>local_validator = relay_parent_state.local_validator.as_ref()<span class="question-mark">?</span>;
 		<span class="kw">let </span>require_backing = local_validator
 			.active
@@ -6673,7 +6675,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		target: LOG_TARGET,
 		<span class="question-mark">?</span>candidate_hash,
 		peer = <span class="question-mark">?</span>response.requested_peer(),
-		<span class="string">&quot;Received response&quot;</span>,
+		<span class="string">"Received response"</span>,
 	);
 
 	<span class="kw">let </span>post_confirmation = {
@@ -6694,7 +6696,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>disabled_mask = per_session
 			.disabled_bitmask(group_index)
-			.expect(<span class="string">&quot;group_index checked above; qed&quot;</span>);
+			.expect(<span class="string">"group_index checked above; qed"</span>);
 
 		<span class="kw">let </span>res = response.validate_response(
 			<span class="kw-2">&amp;mut </span>state.request_manager,
@@ -6721,7 +6723,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="macro">gum::trace!</span>(
 					target: LOG_TARGET,
 					<span class="question-mark">?</span>candidate_hash,
-					<span class="string">&quot;Response incomplete. Retrying&quot;
+					<span class="string">"Response incomplete. Retrying"
 				</span>);
 
 				<span class="kw">return
@@ -6735,7 +6737,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					target: LOG_TARGET,
 					<span class="question-mark">?</span>candidate_hash,
 					n_statements = statements.len(),
-					<span class="string">&quot;Successfully received candidate&quot;
+					<span class="string">"Successfully received candidate"
 				</span>);
 
 				(candidate, persisted_validation_data, statements)
@@ -6758,7 +6760,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">gum::warn!</span>(
 				target: LOG_TARGET,
 				<span class="question-mark">?</span>candidate_hash,
-				<span class="string">&quot;Candidate re-confirmed by request/response: logic error&quot;</span>,
+				<span class="string">"Candidate re-confirmed by request/response: logic error"</span>,
 			);
 
 			<span class="kw">return
@@ -6768,9 +6770,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="comment">// Note that this implicitly circulates all statements via the cluster.
 	</span>apply_post_confirmation(ctx, state, post_confirmation, reputation).<span class="kw">await</span>;
 
-	<span class="kw">let </span>confirmed = state.candidates.get_confirmed(<span class="kw-2">&amp;</span>candidate_hash).expect(<span class="string">&quot;just confirmed; qed&quot;</span>);
+	<span class="kw">let </span>confirmed = state.candidates.get_confirmed(<span class="kw-2">&amp;</span>candidate_hash).expect(<span class="string">"just confirmed; qed"</span>);
 
-	<span class="comment">// Although the candidate is confirmed, it isn&#39;t yet on the
+	<span class="comment">// Although the candidate is confirmed, it isn't yet on the
 	// hypothetical frontier of the fragment tree. Later, when it is,
 	// we will import statements.
 	</span><span class="kw">if </span>!confirmed.is_importable(<span class="prelude-val">None</span>) {
@@ -6798,11 +6800,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	)
 	.<span class="kw">await</span>;
 
-	<span class="comment">// we don&#39;t need to send acknowledgement yet because
+	<span class="comment">// we don't need to send acknowledgement yet because
 	// 1. the candidate is not known yet, so cannot be backed. any previous confirmation is a bug,
 	//    because `apply_post_confirmation` is meant to clear requests.
-	// 2. providing the statements to backing will lead to &#39;Backed&#39; message.
-	// 3. on &#39;Backed&#39; we will send acknowledgements/follow up statements when this becomes
+	// 2. providing the statements to backing will lead to 'Backed' message.
+	// 3. on 'Backed' we will send acknowledgements/follow up statements when this becomes
 	//    includable.
 </span>}
 
@@ -6823,7 +6825,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		target: LOG_TARGET,
 		<span class="question-mark">?</span>candidate_hash,
 		peer = <span class="question-mark">?</span>request.peer,
-		<span class="string">&quot;Received request&quot;
+		<span class="string">"Received request"
 	</span>);
 
 	<span class="comment">// Signal to the responder that we started processing this request.
@@ -6858,7 +6860,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>group = per_session
 		.groups
 		.get(group_index)
-		.expect(<span class="string">&quot;group from session&#39;s candidate always known; qed&quot;</span>);
+		.expect(<span class="string">"group from session's candidate always known; qed"</span>);
 
 	<span class="kw">let </span>group_size = group.len();
 
@@ -6873,7 +6875,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">return
 	</span>}
 
-	<span class="comment">// check peer is allowed to request the candidate (i.e. they&#39;re in the cluster or we&#39;ve sent
+	<span class="comment">// check peer is allowed to request the candidate (i.e. they're in the cluster or we've sent
 	// them a manifest)
 	</span><span class="kw">let </span>(validator_id, is_cluster) = {
 		<span class="kw">let </span><span class="kw-2">mut </span>validator_id = <span class="prelude-val">None</span>;
@@ -6911,7 +6913,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	};
 
-	<span class="comment">// Transform mask with &#39;OR&#39; semantics into one with &#39;AND&#39; semantics for the API used
+	<span class="comment">// Transform mask with 'OR' semantics into one with 'AND' semantics for the API used
 	// below.
 	</span><span class="kw">let </span><span class="kw-2">mut </span>and_mask = StatementFilter {
 		seconded_in_group: !mask.seconded_in_group.clone(),
@@ -6920,7 +6922,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="comment">// Ignore disabled validators from the latest state when sending the response.
 	</span><span class="kw">let </span>disabled_mask =
-		per_session.disabled_bitmask(group_index).expect(<span class="string">&quot;group existence checked; qed&quot;</span>);
+		per_session.disabled_bitmask(group_index).expect(<span class="string">"group existence checked; qed"</span>);
 	and_mask.mask_seconded(<span class="kw-2">&amp;</span>disabled_mask);
 	and_mask.mask_valid(<span class="kw-2">&amp;</span>disabled_mask);
 
@@ -6951,7 +6953,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>threshold = per_session
 			.groups
 			.get_size_and_backing_threshold(group_index)
-			.expect(<span class="string">&quot;group existence checked above; qed&quot;</span>)
+			.expect(<span class="string">"group existence checked above; qed"</span>)
 			.<span class="number">1</span>;
 
 		<span class="kw">if </span>!seconded_and_sufficient(<span class="kw-2">&amp;</span>sent_filter, <span class="prelude-val">Some</span>(threshold)) {
@@ -6960,7 +6962,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="question-mark">?</span>candidate_hash,
 				relay_parent = <span class="question-mark">?</span>confirmed.relay_parent(),
 				<span class="question-mark">?</span>group_index,
-				<span class="string">&quot;Dropping a request from a grid peer because the backing threshold is no longer met.&quot;
+				<span class="string">"Dropping a request from a grid peer because the backing threshold is no longer met."
 			</span>);
 			<span class="kw">return
 		</span>}
@@ -6972,7 +6974,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			local_validator
 				.active
 				.as_mut()
-				.expect(<span class="string">&quot;cluster peer means local is active validator; qed&quot;</span>)
+				.expect(<span class="string">"cluster peer means local is active validator; qed"</span>)
 				.cluster_tracker
 				.note_sent(
 					validator_id,
@@ -7023,11 +7025,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>req = <span class="kw">match </span>receiver.recv(|| <span class="macro">vec!</span>[COST_INVALID_REQUEST]).<span class="kw">await</span>.into_nested() {
 			<span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(v)) =&gt; v,
 			<span class="prelude-val">Err</span>(fatal) =&gt; {
-				<span class="macro">gum::debug!</span>(target: LOG_TARGET, error = <span class="question-mark">?</span>fatal, <span class="string">&quot;Shutting down request responder&quot;</span>);
+				<span class="macro">gum::debug!</span>(target: LOG_TARGET, error = <span class="question-mark">?</span>fatal, <span class="string">"Shutting down request responder"</span>);
 				<span class="kw">return
 			</span>},
 			<span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(jfyi)) =&gt; {
-				<span class="macro">gum::debug!</span>(target: LOG_TARGET, error = <span class="question-mark">?</span>jfyi, <span class="string">&quot;Decoding request failed&quot;</span>);
+				<span class="macro">gum::debug!</span>(target: LOG_TARGET, error = <span class="question-mark">?</span>jfyi, <span class="string">"Decoding request failed"</span>);
 				<span class="kw">continue
 			</span>},
 		};
@@ -7037,7 +7039,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.feed(ResponderMessage { request: req, sent_feedback: pending_sent_tx })
 			.<span class="kw">await
 		</span>{
-			<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="question-mark">?</span>err, <span class="string">&quot;Shutting down responder&quot;</span>);
+			<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="question-mark">?</span>err, <span class="string">"Shutting down responder"</span>);
 			<span class="kw">return
 		</span>}
 		pending_out.push(pending_sent_rx);

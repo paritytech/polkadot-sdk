@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/referenda/src/types.rs`."><title>types.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/referenda/src/types.rs`."><title>types.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_referenda" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_referenda" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../pallet_referenda/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -912,14 +914,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -1006,11 +1008,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="attr">#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 </span><span class="kw">pub struct </span>DecidingStatus&lt;BlockNumber&gt; {
-	<span class="doccomment">/// When this referendum began being &quot;decided&quot;. If confirming, then the
+	<span class="doccomment">/// When this referendum began being "decided". If confirming, then the
 	/// end will actually be delayed until the end of the confirmation period.
 	</span><span class="kw">pub </span>since: BlockNumber,
 	<span class="doccomment">/// If `Some`, then the referendum has entered confirmation stage and will end at
-	/// the block number as long as it doesn&#39;t lose its approval in the meantime.
+	/// the block number as long as it doesn't lose its approval in the meantime.
 	</span><span class="kw">pub </span>confirming: <span class="prelude-ty">Option</span>&lt;BlockNumber&gt;,
 }
 
@@ -1023,7 +1025,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[derive(Clone, Encode, TypeInfo)]
 </span><span class="kw">pub struct </span>TrackInfo&lt;Balance, Moment&gt; {
 	<span class="doccomment">/// Name of this track.
-	</span><span class="kw">pub </span>name: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
+	</span><span class="kw">pub </span>name: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
 	<span class="doccomment">/// A limit for the number of referenda on this track that can be being decided at once.
 	/// For Root origin this should generally be just one.
 	</span><span class="kw">pub </span>max_deciding: u32,
@@ -1040,7 +1042,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Minimum aye votes as percentage of overall conviction-weighted votes needed for
 	/// approval as a function of time into decision period.
 	</span><span class="kw">pub </span>min_approval: Curve,
-	<span class="doccomment">/// Minimum pre-conviction aye-votes (&quot;support&quot;) as percentage of overall population that is
+	<span class="doccomment">/// Minimum pre-conviction aye-votes ("support") as percentage of overall population that is
 	/// needed for approval as a function of time into decision period.
 	</span><span class="kw">pub </span>min_support: Curve,
 }
@@ -1048,7 +1050,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Information on the voting tracks.
 </span><span class="kw">pub trait </span>TracksInfo&lt;Balance, Moment&gt; {
 	<span class="doccomment">/// The identifier for a track.
-	</span><span class="kw">type </span>Id: Copy + Parameter + Ord + PartialOrd + Send + Sync + <span class="lifetime">&#39;static </span>+ MaxEncodedLen;
+	</span><span class="kw">type </span>Id: Copy + Parameter + Ord + PartialOrd + Send + Sync + <span class="lifetime">'static </span>+ MaxEncodedLen;
 
 	<span class="doccomment">/// The origin type from which a track is implied.
 	</span><span class="kw">type </span>RuntimeOrigin;
@@ -1057,13 +1059,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// The array MUST be sorted by `Id`. Consumers of this trait are advised to assert
 	/// [`Self::check_integrity`] prior to any use.
-	</span><span class="kw">fn </span>tracks() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[(<span class="self">Self</span>::Id, TrackInfo&lt;Balance, Moment&gt;)];
+	</span><span class="kw">fn </span>tracks() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>[(<span class="self">Self</span>::Id, TrackInfo&lt;Balance, Moment&gt;)];
 
 	<span class="doccomment">/// Determine the voting track for the given `origin`.
 	</span><span class="kw">fn </span>track_for(origin: <span class="kw-2">&amp;</span><span class="self">Self</span>::RuntimeOrigin) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Id, ()&gt;;
 
 	<span class="doccomment">/// Return the track info for track `id`, by default this just looks it up in `Self::tracks()`.
-	</span><span class="kw">fn </span>info(id: <span class="self">Self</span>::Id) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>TrackInfo&lt;Balance, Moment&gt;&gt; {
+	</span><span class="kw">fn </span>info(id: <span class="self">Self</span>::Id) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>TrackInfo&lt;Balance, Moment&gt;&gt; {
 		<span class="kw">let </span>tracks = <span class="self">Self</span>::tracks();
 		<span class="kw">let </span>maybe_index = tracks.binary_search_by_key(<span class="kw-2">&amp;</span>id, |t| t.<span class="number">0</span>).ok()<span class="question-mark">?</span>;
 
@@ -1071,15 +1073,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Check assumptions about the static data that this trait provides.
-	</span><span class="kw">fn </span>check_integrity() -&gt; <span class="prelude-ty">Result</span>&lt;(), <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt;
+	</span><span class="kw">fn </span>check_integrity() -&gt; <span class="prelude-ty">Result</span>&lt;(), <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt;
 	<span class="kw">where
-		</span>Balance: <span class="lifetime">&#39;static</span>,
-		Moment: <span class="lifetime">&#39;static</span>,
+		</span>Balance: <span class="lifetime">'static</span>,
+		Moment: <span class="lifetime">'static</span>,
 	{
 		<span class="kw">if </span><span class="self">Self</span>::tracks().windows(<span class="number">2</span>).all(|w| w[<span class="number">0</span>].<span class="number">0 </span>&lt; w[<span class="number">1</span>].<span class="number">0</span>) {
 			<span class="prelude-val">Ok</span>(())
 		} <span class="kw">else </span>{
-			<span class="prelude-val">Err</span>(<span class="string">&quot;The tracks that were returned by `tracks` were not sorted by `Id`&quot;</span>)
+			<span class="prelude-val">Err</span>(<span class="string">"The tracks that were returned by `tracks` were not sorted by `Id`"</span>)
 		}
 	}
 }
@@ -1183,13 +1185,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="doccomment">/// Take the Submission Deposit from `self`, if there is one and it&#39;s in a valid state to be
+	<span class="doccomment">/// Take the Submission Deposit from `self`, if there is one and it's in a valid state to be
 	/// taken. Returns an `Err` if `self` is not in a valid state for the Submission Deposit to be
 	/// refunded.
 	</span><span class="kw">pub fn </span>take_submission_deposit(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Deposit&lt;AccountId, Balance&gt;&gt;, ()&gt; {
 		<span class="kw">use </span>ReferendumInfo::<span class="kw-2">*</span>;
 		<span class="kw">match </span><span class="self">self </span>{
-			<span class="comment">// Can only refund deposit if it&#39;s appoved or cancelled.
+			<span class="comment">// Can only refund deposit if it's appoved or cancelled.
 			</span>Approved(<span class="kw">_</span>, s, <span class="kw">_</span>) | Cancelled(<span class="kw">_</span>, s, <span class="kw">_</span>) =&gt; <span class="prelude-val">Ok</span>(s.take()),
 			<span class="comment">// Cannot refund deposit if Ongoing as this breaks assumptions.
 			</span>Ongoing(..) | Rejected(..) | TimedOut(..) | Killed(..) =&gt; <span class="prelude-val">Err</span>(()),
@@ -1200,7 +1202,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Type for describing a curve over the 2-dimensional space of axes between 0-1, as represented
 /// by `(Perbill, Perbill)`.
 </span><span class="attr">#[derive(Clone, Eq, PartialEq, Encode, Decode, TypeInfo, MaxEncodedLen)]
-#[cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), derive(RuntimeDebug))]
+#[cfg_attr(not(feature = <span class="string">"std"</span>), derive(RuntimeDebug))]
 </span><span class="kw">pub enum </span>Curve {
 	<span class="doccomment">/// Linear curve starting at `(0, ceil)`, proceeding linearly to `(length, floor)`, then
 	/// remaining at `floor` until the end of the period.
@@ -1290,60 +1292,60 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Print some info on the curve.
-	</span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+	</span><span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 	</span><span class="kw">pub fn </span>info(<span class="kw-2">&amp;</span><span class="self">self</span>, days: u32, name: <span class="kw">impl </span>std::fmt::Display) {
 		<span class="kw">let </span>hours = days * <span class="number">24</span>;
-		<span class="macro">println!</span>(<span class="string">&quot;Curve {} := {:?}:&quot;</span>, name, <span class="self">self</span>);
-		<span class="macro">println!</span>(<span class="string">&quot;   t + 0h:   {:?}&quot;</span>, <span class="self">self</span>.threshold(Perbill::zero()));
-		<span class="macro">println!</span>(<span class="string">&quot;   t + 1h:   {:?}&quot;</span>, <span class="self">self</span>.threshold(Perbill::from_rational(<span class="number">1</span>, hours)));
-		<span class="macro">println!</span>(<span class="string">&quot;   t + 2h:   {:?}&quot;</span>, <span class="self">self</span>.threshold(Perbill::from_rational(<span class="number">2</span>, hours)));
-		<span class="macro">println!</span>(<span class="string">&quot;   t + 3h:   {:?}&quot;</span>, <span class="self">self</span>.threshold(Perbill::from_rational(<span class="number">3</span>, hours)));
-		<span class="macro">println!</span>(<span class="string">&quot;   t + 6h:   {:?}&quot;</span>, <span class="self">self</span>.threshold(Perbill::from_rational(<span class="number">6</span>, hours)));
-		<span class="macro">println!</span>(<span class="string">&quot;   t + 12h:  {:?}&quot;</span>, <span class="self">self</span>.threshold(Perbill::from_rational(<span class="number">12</span>, hours)));
-		<span class="macro">println!</span>(<span class="string">&quot;   t + 24h:  {:?}&quot;</span>, <span class="self">self</span>.threshold(Perbill::from_rational(<span class="number">24</span>, hours)));
+		<span class="macro">println!</span>(<span class="string">"Curve {} := {:?}:"</span>, name, <span class="self">self</span>);
+		<span class="macro">println!</span>(<span class="string">"   t + 0h:   {:?}"</span>, <span class="self">self</span>.threshold(Perbill::zero()));
+		<span class="macro">println!</span>(<span class="string">"   t + 1h:   {:?}"</span>, <span class="self">self</span>.threshold(Perbill::from_rational(<span class="number">1</span>, hours)));
+		<span class="macro">println!</span>(<span class="string">"   t + 2h:   {:?}"</span>, <span class="self">self</span>.threshold(Perbill::from_rational(<span class="number">2</span>, hours)));
+		<span class="macro">println!</span>(<span class="string">"   t + 3h:   {:?}"</span>, <span class="self">self</span>.threshold(Perbill::from_rational(<span class="number">3</span>, hours)));
+		<span class="macro">println!</span>(<span class="string">"   t + 6h:   {:?}"</span>, <span class="self">self</span>.threshold(Perbill::from_rational(<span class="number">6</span>, hours)));
+		<span class="macro">println!</span>(<span class="string">"   t + 12h:  {:?}"</span>, <span class="self">self</span>.threshold(Perbill::from_rational(<span class="number">12</span>, hours)));
+		<span class="macro">println!</span>(<span class="string">"   t + 24h:  {:?}"</span>, <span class="self">self</span>.threshold(Perbill::from_rational(<span class="number">24</span>, hours)));
 		<span class="kw">let </span><span class="kw-2">mut </span>l = <span class="number">0</span>;
 		<span class="kw">for </span><span class="kw-2">&amp;</span>(n, d) <span class="kw">in </span>[(<span class="number">1</span>, <span class="number">12</span>), (<span class="number">1</span>, <span class="number">8</span>), (<span class="number">1</span>, <span class="number">4</span>), (<span class="number">1</span>, <span class="number">2</span>), (<span class="number">3</span>, <span class="number">4</span>), (<span class="number">1</span>, <span class="number">1</span>)].iter() {
 			<span class="kw">let </span>t = days * n / d;
 			<span class="kw">if </span>t != l {
-				<span class="macro">println!</span>(<span class="string">&quot;   t + {}d:   {:?}&quot;</span>, t, <span class="self">self</span>.threshold(Perbill::from_rational(t, days)));
+				<span class="macro">println!</span>(<span class="string">"   t + {}d:   {:?}"</span>, t, <span class="self">self</span>.threshold(Perbill::from_rational(t, days)));
 				l = t;
 			}
 		}
 		<span class="kw">let </span>t = |p: Perbill| -&gt; std::string::String {
 			<span class="kw">if </span>p.is_one() {
-				<span class="string">&quot;never&quot;</span>.into()
+				<span class="string">"never"</span>.into()
 			} <span class="kw">else </span>{
 				<span class="kw">let </span>minutes = p * (hours * <span class="number">60</span>);
 				<span class="kw">if </span>minutes &lt; <span class="number">60 </span>{
-					<span class="macro">format!</span>(<span class="string">&quot;{} minutes&quot;</span>, minutes)
+					<span class="macro">format!</span>(<span class="string">"{} minutes"</span>, minutes)
 				} <span class="kw">else if </span>minutes &lt; <span class="number">8 </span>* <span class="number">60 </span>&amp;&amp; minutes % <span class="number">60 </span>!= <span class="number">0 </span>{
-					<span class="macro">format!</span>(<span class="string">&quot;{} hours {} minutes&quot;</span>, minutes / <span class="number">60</span>, minutes % <span class="number">60</span>)
+					<span class="macro">format!</span>(<span class="string">"{} hours {} minutes"</span>, minutes / <span class="number">60</span>, minutes % <span class="number">60</span>)
 				} <span class="kw">else if </span>minutes &lt; <span class="number">72 </span>* <span class="number">60 </span>{
-					<span class="macro">format!</span>(<span class="string">&quot;{} hours&quot;</span>, minutes / <span class="number">60</span>)
+					<span class="macro">format!</span>(<span class="string">"{} hours"</span>, minutes / <span class="number">60</span>)
 				} <span class="kw">else if </span>minutes / <span class="number">60 </span>% <span class="number">24 </span>== <span class="number">0 </span>{
-					<span class="macro">format!</span>(<span class="string">&quot;{} days&quot;</span>, minutes / <span class="number">60 </span>/ <span class="number">24</span>)
+					<span class="macro">format!</span>(<span class="string">"{} days"</span>, minutes / <span class="number">60 </span>/ <span class="number">24</span>)
 				} <span class="kw">else </span>{
-					<span class="macro">format!</span>(<span class="string">&quot;{} days {} hours&quot;</span>, minutes / <span class="number">60 </span>/ <span class="number">24</span>, minutes / <span class="number">60 </span>% <span class="number">24</span>)
+					<span class="macro">format!</span>(<span class="string">"{} days {} hours"</span>, minutes / <span class="number">60 </span>/ <span class="number">24</span>, minutes / <span class="number">60 </span>% <span class="number">24</span>)
 				}
 			}
 		};
 		<span class="kw">if </span><span class="self">self</span>.delay(Perbill::from_percent(<span class="number">49</span>)) &lt; Perbill::one() {
-			<span class="macro">println!</span>(<span class="string">&quot;   30% threshold:   {}&quot;</span>, t(<span class="self">self</span>.delay(Perbill::from_percent(<span class="number">30</span>))));
-			<span class="macro">println!</span>(<span class="string">&quot;   10% threshold:   {}&quot;</span>, t(<span class="self">self</span>.delay(Perbill::from_percent(<span class="number">10</span>))));
-			<span class="macro">println!</span>(<span class="string">&quot;   3% threshold:    {}&quot;</span>, t(<span class="self">self</span>.delay(Perbill::from_percent(<span class="number">3</span>))));
-			<span class="macro">println!</span>(<span class="string">&quot;   1% threshold:    {}&quot;</span>, t(<span class="self">self</span>.delay(Perbill::from_percent(<span class="number">1</span>))));
-			<span class="macro">println!</span>(<span class="string">&quot;   0.1% threshold:  {}&quot;</span>, t(<span class="self">self</span>.delay(Perbill::from_rational(<span class="number">1u32</span>, <span class="number">1_000</span>))));
-			<span class="macro">println!</span>(<span class="string">&quot;   0.01% threshold: {}&quot;</span>, t(<span class="self">self</span>.delay(Perbill::from_rational(<span class="number">1u32</span>, <span class="number">10_000</span>))));
+			<span class="macro">println!</span>(<span class="string">"   30% threshold:   {}"</span>, t(<span class="self">self</span>.delay(Perbill::from_percent(<span class="number">30</span>))));
+			<span class="macro">println!</span>(<span class="string">"   10% threshold:   {}"</span>, t(<span class="self">self</span>.delay(Perbill::from_percent(<span class="number">10</span>))));
+			<span class="macro">println!</span>(<span class="string">"   3% threshold:    {}"</span>, t(<span class="self">self</span>.delay(Perbill::from_percent(<span class="number">3</span>))));
+			<span class="macro">println!</span>(<span class="string">"   1% threshold:    {}"</span>, t(<span class="self">self</span>.delay(Perbill::from_percent(<span class="number">1</span>))));
+			<span class="macro">println!</span>(<span class="string">"   0.1% threshold:  {}"</span>, t(<span class="self">self</span>.delay(Perbill::from_rational(<span class="number">1u32</span>, <span class="number">1_000</span>))));
+			<span class="macro">println!</span>(<span class="string">"   0.01% threshold: {}"</span>, t(<span class="self">self</span>.delay(Perbill::from_rational(<span class="number">1u32</span>, <span class="number">10_000</span>))));
 		} <span class="kw">else </span>{
 			<span class="macro">println!</span>(
-				<span class="string">&quot;   99.9% threshold: {}&quot;</span>,
+				<span class="string">"   99.9% threshold: {}"</span>,
 				t(<span class="self">self</span>.delay(Perbill::from_rational(<span class="number">999u32</span>, <span class="number">1_000</span>)))
 			);
-			<span class="macro">println!</span>(<span class="string">&quot;   99% threshold:   {}&quot;</span>, t(<span class="self">self</span>.delay(Perbill::from_percent(<span class="number">99</span>))));
-			<span class="macro">println!</span>(<span class="string">&quot;   95% threshold:   {}&quot;</span>, t(<span class="self">self</span>.delay(Perbill::from_percent(<span class="number">95</span>))));
-			<span class="macro">println!</span>(<span class="string">&quot;   90% threshold:   {}&quot;</span>, t(<span class="self">self</span>.delay(Perbill::from_percent(<span class="number">90</span>))));
-			<span class="macro">println!</span>(<span class="string">&quot;   75% threshold:   {}&quot;</span>, t(<span class="self">self</span>.delay(Perbill::from_percent(<span class="number">75</span>))));
-			<span class="macro">println!</span>(<span class="string">&quot;   60% threshold:   {}&quot;</span>, t(<span class="self">self</span>.delay(Perbill::from_percent(<span class="number">60</span>))));
+			<span class="macro">println!</span>(<span class="string">"   99% threshold:   {}"</span>, t(<span class="self">self</span>.delay(Perbill::from_percent(<span class="number">99</span>))));
+			<span class="macro">println!</span>(<span class="string">"   95% threshold:   {}"</span>, t(<span class="self">self</span>.delay(Perbill::from_percent(<span class="number">95</span>))));
+			<span class="macro">println!</span>(<span class="string">"   90% threshold:   {}"</span>, t(<span class="self">self</span>.delay(Perbill::from_percent(<span class="number">90</span>))));
+			<span class="macro">println!</span>(<span class="string">"   75% threshold:   {}"</span>, t(<span class="self">self</span>.delay(Perbill::from_percent(<span class="number">75</span>))));
+			<span class="macro">println!</span>(<span class="string">"   60% threshold:   {}"</span>, t(<span class="self">self</span>.delay(Perbill::from_percent(<span class="number">60</span>))));
 		}
 	}
 
@@ -1372,7 +1374,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="prelude-val">None </span>=&gt; Perbill::one(),
 				}
 			},
-			<span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;const_threshold cannot be used on this curve&quot;</span>),
+			<span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"const_threshold cannot be used on this curve"</span>),
 		}
 	}
 
@@ -1422,28 +1424,28 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">impl </span>Debug <span class="kw">for </span>Curve {
-	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; sp_std::fmt::Result {
+	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; sp_std::fmt::Result {
 		<span class="kw">match </span><span class="self">self </span>{
 			<span class="self">Self</span>::LinearDecreasing { length, floor, ceil } =&gt; {
 				<span class="macro">write!</span>(
 					f,
-					<span class="string">&quot;Linear[(0%, {:?}) -&gt; ({:?}, {:?}) -&gt; (100%, {:?})]&quot;</span>,
+					<span class="string">"Linear[(0%, {:?}) -&gt; ({:?}, {:?}) -&gt; (100%, {:?})]"</span>,
 					ceil, length, floor, floor,
 				)
 			},
 			<span class="self">Self</span>::SteppedDecreasing { begin, end, step, period } =&gt; {
 				<span class="macro">write!</span>(
 					f,
-					<span class="string">&quot;Stepped[(0%, {:?}) -&gt; (100%, {:?}) by ({:?}, {:?})]&quot;</span>,
+					<span class="string">"Stepped[(0%, {:?}) -&gt; (100%, {:?}) by ({:?}, {:?})]"</span>,
 					begin, end, period, step,
 				)
 			},
 			<span class="self">Self</span>::Reciprocal { factor, x_offset, y_offset } =&gt; {
 				<span class="macro">write!</span>(
 					f,
-					<span class="string">&quot;Reciprocal[factor of {:?}, x_offset of {:?}, y_offset of {:?}]&quot;</span>,
+					<span class="string">"Reciprocal[factor of {:?}, x_offset of {:?}, y_offset of {:?}]"</span>,
 					factor, x_offset, y_offset,
 				)
 			},
@@ -1486,24 +1488,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="attr">#[test]
 	#[should_panic]
 	</span><span class="kw">fn </span>check_curves() {
-		TIP_APP.info(<span class="number">28u32</span>, <span class="string">&quot;Tip Approval&quot;</span>);
-		TIP_SUP.info(<span class="number">28u32</span>, <span class="string">&quot;Tip Support&quot;</span>);
-		ROOT_APP.info(<span class="number">28u32</span>, <span class="string">&quot;Root Approval&quot;</span>);
-		ROOT_SUP.info(<span class="number">28u32</span>, <span class="string">&quot;Root Support&quot;</span>);
-		WHITE_APP.info(<span class="number">28u32</span>, <span class="string">&quot;Whitelist Approval&quot;</span>);
-		WHITE_SUP.info(<span class="number">28u32</span>, <span class="string">&quot;Whitelist Support&quot;</span>);
-		SMALL_APP.info(<span class="number">28u32</span>, <span class="string">&quot;Small Spend Approval&quot;</span>);
-		SMALL_SUP.info(<span class="number">28u32</span>, <span class="string">&quot;Small Spend Support&quot;</span>);
-		MID_APP.info(<span class="number">28u32</span>, <span class="string">&quot;Mid Spend Approval&quot;</span>);
-		MID_SUP.info(<span class="number">28u32</span>, <span class="string">&quot;Mid Spend Support&quot;</span>);
-		BIG_APP.info(<span class="number">28u32</span>, <span class="string">&quot;Big Spend Approval&quot;</span>);
-		BIG_SUP.info(<span class="number">28u32</span>, <span class="string">&quot;Big Spend Support&quot;</span>);
-		HUGE_APP.info(<span class="number">28u32</span>, <span class="string">&quot;Huge Spend Approval&quot;</span>);
-		HUGE_SUP.info(<span class="number">28u32</span>, <span class="string">&quot;Huge Spend Support&quot;</span>);
-		PARAM_APP.info(<span class="number">28u32</span>, <span class="string">&quot;Mid-tier Parameter Change Approval&quot;</span>);
-		PARAM_SUP.info(<span class="number">28u32</span>, <span class="string">&quot;Mid-tier Parameter Change Support&quot;</span>);
-		ADMIN_APP.info(<span class="number">28u32</span>, <span class="string">&quot;Admin (e.g. Cancel Slash) Approval&quot;</span>);
-		ADMIN_SUP.info(<span class="number">28u32</span>, <span class="string">&quot;Admin (e.g. Cancel Slash) Support&quot;</span>);
+		TIP_APP.info(<span class="number">28u32</span>, <span class="string">"Tip Approval"</span>);
+		TIP_SUP.info(<span class="number">28u32</span>, <span class="string">"Tip Support"</span>);
+		ROOT_APP.info(<span class="number">28u32</span>, <span class="string">"Root Approval"</span>);
+		ROOT_SUP.info(<span class="number">28u32</span>, <span class="string">"Root Support"</span>);
+		WHITE_APP.info(<span class="number">28u32</span>, <span class="string">"Whitelist Approval"</span>);
+		WHITE_SUP.info(<span class="number">28u32</span>, <span class="string">"Whitelist Support"</span>);
+		SMALL_APP.info(<span class="number">28u32</span>, <span class="string">"Small Spend Approval"</span>);
+		SMALL_SUP.info(<span class="number">28u32</span>, <span class="string">"Small Spend Support"</span>);
+		MID_APP.info(<span class="number">28u32</span>, <span class="string">"Mid Spend Approval"</span>);
+		MID_SUP.info(<span class="number">28u32</span>, <span class="string">"Mid Spend Support"</span>);
+		BIG_APP.info(<span class="number">28u32</span>, <span class="string">"Big Spend Approval"</span>);
+		BIG_SUP.info(<span class="number">28u32</span>, <span class="string">"Big Spend Support"</span>);
+		HUGE_APP.info(<span class="number">28u32</span>, <span class="string">"Huge Spend Approval"</span>);
+		HUGE_SUP.info(<span class="number">28u32</span>, <span class="string">"Huge Spend Support"</span>);
+		PARAM_APP.info(<span class="number">28u32</span>, <span class="string">"Mid-tier Parameter Change Approval"</span>);
+		PARAM_SUP.info(<span class="number">28u32</span>, <span class="string">"Mid-tier Parameter Change Support"</span>);
+		ADMIN_APP.info(<span class="number">28u32</span>, <span class="string">"Admin (e.g. Cancel Slash) Approval"</span>);
+		ADMIN_SUP.info(<span class="number">28u32</span>, <span class="string">"Admin (e.g. Cancel Slash) Support"</span>);
 		<span class="macro">assert!</span>(<span class="bool-val">false</span>);
 	}
 
@@ -1542,7 +1544,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			x_offset: FixedI64::from_float(<span class="number">0.0363306838226</span>),
 			y_offset: FixedI64::from_float(<span class="number">0.139845532427</span>),
 		};
-		c.info(<span class="number">28u32</span>, <span class="string">&quot;Test&quot;</span>);
+		c.info(<span class="number">28u32</span>, <span class="string">"Test"</span>);
 
 		<span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..<span class="number">9_696_969u32 </span>{
 			<span class="kw">let </span>query = Perbill::from_rational(i, <span class="number">9_696_969</span>);
@@ -1607,12 +1609,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">impl </span>TracksInfo&lt;u64, u64&gt; <span class="kw">for </span>BadTracksInfo {
 			<span class="kw">type </span>Id = u8;
 			<span class="kw">type </span>RuntimeOrigin = &lt;RuntimeOrigin <span class="kw">as </span>OriginTrait&gt;::PalletsOrigin;
-			<span class="kw">fn </span>tracks() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[(<span class="self">Self</span>::Id, TrackInfo&lt;u64, u64&gt;)] {
+			<span class="kw">fn </span>tracks() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>[(<span class="self">Self</span>::Id, TrackInfo&lt;u64, u64&gt;)] {
 				<span class="kw">static </span>DATA: [(u8, TrackInfo&lt;u64, u64&gt;); <span class="number">2</span>] = [
 					(
 						<span class="number">1u8</span>,
 						TrackInfo {
-							name: <span class="string">&quot;root&quot;</span>,
+							name: <span class="string">"root"</span>,
 							max_deciding: <span class="number">1</span>,
 							decision_deposit: <span class="number">10</span>,
 							prepare_period: <span class="number">4</span>,
@@ -1634,7 +1636,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					(
 						<span class="number">0u8</span>,
 						TrackInfo {
-							name: <span class="string">&quot;none&quot;</span>,
+							name: <span class="string">"none"</span>,
 							max_deciding: <span class="number">3</span>,
 							decision_deposit: <span class="number">1</span>,
 							prepare_period: <span class="number">2</span>,
@@ -1663,7 +1665,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="macro">assert_eq!</span>(
 			BadTracksInfo::check_integrity(),
-			<span class="prelude-val">Err</span>(<span class="string">&quot;The tracks that were returned by `tracks` were not sorted by `Id`&quot;</span>)
+			<span class="prelude-val">Err</span>(<span class="string">"The tracks that were returned by `tracks` were not sorted by `Id`"</span>)
 		);
 	}
 }

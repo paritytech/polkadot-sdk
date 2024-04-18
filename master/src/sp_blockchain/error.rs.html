@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/blockchain/src/error.rs`."><title>error.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/blockchain/src/error.rs`."><title>error.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_blockchain" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_blockchain" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sp_blockchain/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -376,14 +378,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -406,13 +408,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub enum </span>ApplyExtrinsicFailed {
 	<span class="doccomment">/// The transaction cannot be included into the current block.
 	///
-	/// This doesn&#39;t necessary mean that the transaction itself is invalid, but it might be just
+	/// This doesn't necessary mean that the transaction itself is invalid, but it might be just
 	/// unapplicable onto the current block.
-	</span><span class="attr">#[error(<span class="string">&quot;Extrinsic is not valid: {0:?}&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"Extrinsic is not valid: {0:?}"</span>)]
 	</span>Validity(<span class="attr">#[from] </span>TransactionValidityError),
 
-	<span class="attr">#[error(<span class="string">&quot;Application specific error&quot;</span>)]
-	</span>Application(<span class="attr">#[source] </span>Box&lt;<span class="kw">dyn </span><span class="lifetime">&#39;static </span>+ std::error::Error + Send + Sync&gt;),
+	<span class="attr">#[error(<span class="string">"Application specific error"</span>)]
+	</span>Application(<span class="attr">#[source] </span>Box&lt;<span class="kw">dyn </span><span class="lifetime">'static </span>+ std::error::Error + Send + Sync&gt;),
 }
 
 <span class="doccomment">/// Substrate Client error
@@ -420,140 +422,140 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 #[allow(missing_docs)]
 #[non_exhaustive]
 </span><span class="kw">pub enum </span>Error {
-	<span class="attr">#[error(<span class="string">&quot;Cancelled oneshot channel {0}&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Cancelled oneshot channel {0}"</span>)]
 	</span>OneShotCancelled(<span class="attr">#[from] </span>futures::channel::oneshot::Canceled),
 
 	<span class="attr">#[error(transparent)]
 	</span>Consensus(<span class="attr">#[from] </span>sp_consensus::Error),
 
-	<span class="attr">#[error(<span class="string">&quot;Backend error: {0}&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Backend error: {0}"</span>)]
 	</span>Backend(String),
 
-	<span class="attr">#[error(<span class="string">&quot;UnknownBlock: {0}&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"UnknownBlock: {0}"</span>)]
 	</span>UnknownBlock(String),
 
-	<span class="attr">#[error(<span class="string">&quot;UnknownBlocks: {0}&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"UnknownBlocks: {0}"</span>)]
 	</span>UnknownBlocks(String),
 
 	<span class="attr">#[error(transparent)]
 	</span>ApplyExtrinsicFailed(<span class="attr">#[from] </span>ApplyExtrinsicFailed),
 
-	<span class="attr">#[error(<span class="string">&quot;Child type is invalid&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Child type is invalid"</span>)]
 	</span>InvalidChildType,
 
-	<span class="attr">#[error(<span class="string">&quot;RemoteBodyRequest: invalid extrinsics root expected: {expected} but got {received}&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"RemoteBodyRequest: invalid extrinsics root expected: {expected} but got {received}"</span>)]
 	</span>ExtrinsicRootInvalid { received: String, expected: String },
 
 	<span class="comment">// `inner` cannot be made member, since it lacks `std::error::Error` trait bounds.
-	</span><span class="attr">#[error(<span class="string">&quot;Execution failed: {0}&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"Execution failed: {0}"</span>)]
 	</span>Execution(Box&lt;<span class="kw">dyn </span>sp_state_machine::Error&gt;),
 
-	<span class="attr">#[error(<span class="string">&quot;Blockchain&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Blockchain"</span>)]
 	</span>Blockchain(<span class="attr">#[source] </span>Box&lt;Error&gt;),
 
 	<span class="doccomment">/// A error used by various storage subsystems.
 	///
 	/// Eventually this will be replaced.
-	</span><span class="attr">#[error(<span class="string">&quot;{0}&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"{0}"</span>)]
 	</span>StorageChanges(sp_state_machine::DefaultError),
 
-	<span class="attr">#[error(<span class="string">&quot;Invalid child storage key&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Invalid child storage key"</span>)]
 	</span>InvalidChildStorageKey,
 
-	<span class="attr">#[error(<span class="string">&quot;Current state of blockchain has invalid authorities set&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Current state of blockchain has invalid authorities set"</span>)]
 	</span>InvalidAuthoritiesSet,
 
-	<span class="attr">#[error(<span class="string">&quot;Failed to get runtime version: {0}&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Failed to get runtime version: {0}"</span>)]
 	</span>VersionInvalid(String),
 
-	<span class="attr">#[error(<span class="string">&quot;Provided state is invalid&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Provided state is invalid"</span>)]
 	</span>InvalidState,
 
-	<span class="attr">#[error(<span class="string">&quot;error decoding justification for header&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"error decoding justification for header"</span>)]
 	</span>JustificationDecode,
 
-	<span class="attr">#[error(<span class="string">&quot;bad justification for header: {0}&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"bad justification for header: {0}"</span>)]
 	</span>BadJustification(String),
 
-	<span class="attr">#[error(<span class="string">&quot;This method is not currently available when running in light client mode&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"This method is not currently available when running in light client mode"</span>)]
 	</span>NotAvailableOnLightClient,
 
-	<span class="attr">#[error(<span class="string">&quot;Remote node has responded with invalid header proof&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Remote node has responded with invalid header proof"</span>)]
 	</span>InvalidCHTProof,
 
-	<span class="attr">#[error(<span class="string">&quot;Remote data fetch has been cancelled&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Remote data fetch has been cancelled"</span>)]
 	</span>RemoteFetchCancelled,
 
-	<span class="attr">#[error(<span class="string">&quot;Remote data fetch has been failed&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Remote data fetch has been failed"</span>)]
 	</span>RemoteFetchFailed,
 
-	<span class="attr">#[error(<span class="string">&quot;Error decoding call result of {0}&quot;</span>)]
-	</span>CallResultDecode(<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str, <span class="attr">#[source] </span>CodecError),
+	<span class="attr">#[error(<span class="string">"Error decoding call result of {0}"</span>)]
+	</span>CallResultDecode(<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str, <span class="attr">#[source] </span>CodecError),
 
-	<span class="attr">#[error(<span class="string">&quot;Error at calling runtime api: {0}&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Error at calling runtime api: {0}"</span>)]
 	</span>RuntimeApiError(<span class="attr">#[from] </span>ApiError),
 
-	<span class="attr">#[error(<span class="string">&quot;Runtime :code missing in storage&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Runtime :code missing in storage"</span>)]
 	</span>RuntimeCodeMissing,
 
-	<span class="attr">#[error(<span class="string">&quot;Changes tries are not supported by the runtime&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Changes tries are not supported by the runtime"</span>)]
 	</span>ChangesTriesNotSupported,
 
-	<span class="attr">#[error(<span class="string">&quot;Error reading changes tries configuration&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Error reading changes tries configuration"</span>)]
 	</span>ErrorReadingChangesTriesConfig,
 
-	<span class="attr">#[error(<span class="string">&quot;Failed to check changes proof: {0}&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Failed to check changes proof: {0}"</span>)]
 	</span>ChangesTrieAccessFailed(String),
 
-	<span class="attr">#[error(<span class="string">&quot;Did not finalize blocks in sequential order.&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Did not finalize blocks in sequential order."</span>)]
 	</span>NonSequentialFinalization(String),
 
-	<span class="attr">#[error(<span class="string">&quot;Potential long-range attack: block not in finalized chain.&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Potential long-range attack: block not in finalized chain."</span>)]
 	</span>NotInFinalizedChain,
 
-	<span class="attr">#[error(<span class="string">&quot;Failed to get hash of block for building CHT&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Failed to get hash of block for building CHT"</span>)]
 	</span>MissingHashRequiredForCHT,
 
-	<span class="attr">#[error(<span class="string">&quot;Calculated state root does not match.&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Calculated state root does not match."</span>)]
 	</span>InvalidStateRoot,
 
-	<span class="attr">#[error(<span class="string">&quot;Incomplete block import pipeline.&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Incomplete block import pipeline."</span>)]
 	</span>IncompletePipeline,
 
-	<span class="attr">#[error(<span class="string">&quot;Transaction pool not ready for block production.&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Transaction pool not ready for block production."</span>)]
 	</span>TransactionPoolNotReady,
 
-	<span class="attr">#[error(<span class="string">&quot;Database error: {0}&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Database error: {0}"</span>)]
 	</span>DatabaseError(<span class="attr">#[from] </span>sp_database::error::DatabaseError),
 
-	<span class="attr">#[error(<span class="string">&quot;Failed to get header for hash {0}&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Failed to get header for hash {0}"</span>)]
 	</span>MissingHeader(String),
 
-	<span class="attr">#[error(<span class="string">&quot;State Database error: {0}&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"State Database error: {0}"</span>)]
 	</span>StateDatabase(String),
 
-	<span class="attr">#[error(<span class="string">&quot;Statement store error: {0}&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Statement store error: {0}"</span>)]
 	</span>StatementStore(String),
 
-	<span class="attr">#[error(<span class="string">&quot;Failed to set the chain head to a block that&#39;s too old.&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Failed to set the chain head to a block that's too old."</span>)]
 	</span>SetHeadTooOld,
 
 	<span class="attr">#[error(transparent)]
-	</span>Application(<span class="attr">#[from] </span>Box&lt;<span class="kw">dyn </span>std::error::Error + Send + Sync + <span class="lifetime">&#39;static</span>&gt;),
+	</span>Application(<span class="attr">#[from] </span>Box&lt;<span class="kw">dyn </span>std::error::Error + Send + Sync + <span class="lifetime">'static</span>&gt;),
 
 	<span class="comment">// Should be removed/improved once
 	// the storage `fn`s returns typed errors.
-	</span><span class="attr">#[error(<span class="string">&quot;Runtime code error: {0}&quot;</span>)]
-	</span>RuntimeCode(<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str),
+	</span><span class="attr">#[error(<span class="string">"Runtime code error: {0}"</span>)]
+	</span>RuntimeCode(<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str),
 
 	<span class="comment">// Should be removed/improved once
 	// the storage `fn`s returns typed errors.
-	</span><span class="attr">#[error(<span class="string">&quot;Storage error: {0}&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"Storage error: {0}"</span>)]
 	</span>Storage(String),
 }
 
-<span class="kw">impl </span>From&lt;Box&lt;<span class="kw">dyn </span>sp_state_machine::Error + Send + Sync + <span class="lifetime">&#39;static</span>&gt;&gt; <span class="kw">for </span>Error {
-	<span class="kw">fn </span>from(e: Box&lt;<span class="kw">dyn </span>sp_state_machine::Error + Send + Sync + <span class="lifetime">&#39;static</span>&gt;) -&gt; <span class="self">Self </span>{
+<span class="kw">impl </span>From&lt;Box&lt;<span class="kw">dyn </span>sp_state_machine::Error + Send + Sync + <span class="lifetime">'static</span>&gt;&gt; <span class="kw">for </span>Error {
+	<span class="kw">fn </span>from(e: Box&lt;<span class="kw">dyn </span>sp_state_machine::Error + Send + Sync + <span class="lifetime">'static</span>&gt;) -&gt; <span class="self">Self </span>{
 		<span class="self">Self</span>::from_state(e)
 	}
 }
@@ -592,7 +594,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">where
 		</span>E: std::fmt::Debug,
 	{
-		Error::StateDatabase(<span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, e))
+		Error::StateDatabase(<span class="macro">format!</span>(<span class="string">"{:?}"</span>, e))
 	}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

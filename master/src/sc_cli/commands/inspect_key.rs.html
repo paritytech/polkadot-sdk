@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/cli/src/commands/inspect_key.rs`."><title>inspect_key.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/cli/src/commands/inspect_key.rs`."><title>inspect_key.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sc_cli" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sc_cli" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../sc_cli/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -415,14 +417,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -440,8 +442,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// The `inspect` command
 </span><span class="attr">#[derive(Debug, Parser)]
 #[command(
-	name = <span class="string">&quot;inspect&quot;</span>,
-	about = <span class="string">&quot;Gets a public key and a SS58 address from the provided Secret URI&quot;
+	name = <span class="string">"inspect"</span>,
+	about = <span class="string">"Gets a public key and a SS58 address from the provided Secret URI"
 </span>)]
 </span><span class="kw">pub struct </span>InspectKeyCmd {
 	<span class="doccomment">/// A Key URI to be inspected. May be a secret seed, secret URI
@@ -479,7 +481,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// key/account-id.
 	/// If there is no derivation in `--uri`, the public key will be checked against the public key
 	/// of `--uri` directly.
-	</span><span class="attr">#[arg(long, conflicts_with = <span class="string">&quot;public&quot;</span>)]
+	</span><span class="attr">#[arg(long, conflicts_with = <span class="string">"public"</span>)]
 	</span><span class="kw">pub </span>expect_public: <span class="prelude-ty">Option</span>&lt;String&gt;,
 }
 
@@ -523,7 +525,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Checks that `expect_public` is the public key of `suri`.
 ///
-/// If `suri` has any derivations, `expect_public` is checked against the public key of the &quot;bare&quot;
+/// If `suri` has any derivations, `expect_public` is checked against the public key of the "bare"
 /// `suri`, i.e. without any derivations.
 ///
 /// Returns an error if the public key does not match.
@@ -532,15 +534,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	suri: <span class="kw-2">&amp;</span>str,
 	password: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>SecretString&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
-	<span class="kw">let </span>secret_uri = SecretUri::from_str(suri).map_err(|e| <span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, e))<span class="question-mark">?</span>;
-	<span class="kw">let </span>expected_public = <span class="kw">if let </span><span class="prelude-val">Some</span>(public) = expect_public.strip_prefix(<span class="string">&quot;0x&quot;</span>) {
+	<span class="kw">let </span>secret_uri = SecretUri::from_str(suri).map_err(|e| <span class="macro">format!</span>(<span class="string">"{:?}"</span>, e))<span class="question-mark">?</span>;
+	<span class="kw">let </span>expected_public = <span class="kw">if let </span><span class="prelude-val">Some</span>(public) = expect_public.strip_prefix(<span class="string">"0x"</span>) {
 		<span class="kw">let </span>hex_public = array_bytes::hex2bytes(public)
-			.map_err(|<span class="kw">_</span>| <span class="macro">format!</span>(<span class="string">&quot;Invalid expected public key hex: `{}`&quot;</span>, expect_public))<span class="question-mark">?</span>;
+			.map_err(|<span class="kw">_</span>| <span class="macro">format!</span>(<span class="string">"Invalid expected public key hex: `{}`"</span>, expect_public))<span class="question-mark">?</span>;
 		Pair::Public::try_from(<span class="kw-2">&amp;</span>hex_public)
-			.map_err(|<span class="kw">_</span>| <span class="macro">format!</span>(<span class="string">&quot;Invalid expected public key: `{}`&quot;</span>, expect_public))<span class="question-mark">?
+			.map_err(|<span class="kw">_</span>| <span class="macro">format!</span>(<span class="string">"Invalid expected public key: `{}`"</span>, expect_public))<span class="question-mark">?
 	</span>} <span class="kw">else </span>{
 		Pair::Public::from_string_with_version(expect_public)
-			.map_err(|<span class="kw">_</span>| <span class="macro">format!</span>(<span class="string">&quot;Invalid expected account id: `{}`&quot;</span>, expect_public))<span class="question-mark">?
+			.map_err(|<span class="kw">_</span>| <span class="macro">format!</span>(<span class="string">"Invalid expected account id: `{}`"</span>, expect_public))<span class="question-mark">?
 			</span>.<span class="number">0
 	</span>};
 
@@ -550,13 +552,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.or_else(|| secret_uri.password.as_ref())
 			.map(|p| p.expose_secret().as_str()),
 	)
-	.map_err(|<span class="kw">_</span>| <span class="macro">format!</span>(<span class="string">&quot;Invalid secret uri: {}&quot;</span>, suri))<span class="question-mark">?
+	.map_err(|<span class="kw">_</span>| <span class="macro">format!</span>(<span class="string">"Invalid secret uri: {}"</span>, suri))<span class="question-mark">?
 	</span>.<span class="number">0</span>;
 
 	<span class="kw">if </span>pair.public() == expected_public {
 		<span class="prelude-val">Ok</span>(())
 	} <span class="kw">else </span>{
-		<span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">&quot;Expected public ({}) key does not match.&quot;</span>, expect_public).into())
+		<span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">"Expected public ({}) key does not match."</span>, expect_public).into())
 	}
 }
 
@@ -569,21 +571,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>inspect() {
 		<span class="kw">let </span>words =
-			<span class="string">&quot;remember fiber forum demise paper uniform squirrel feel access exclude casual effort&quot;</span>;
-		<span class="kw">let </span>seed = <span class="string">&quot;0xad1fb77243b536b90cfe5f0d351ab1b1ac40e3890b41dc64f766ee56340cfca5&quot;</span>;
+			<span class="string">"remember fiber forum demise paper uniform squirrel feel access exclude casual effort"</span>;
+		<span class="kw">let </span>seed = <span class="string">"0xad1fb77243b536b90cfe5f0d351ab1b1ac40e3890b41dc64f766ee56340cfca5"</span>;
 
-		<span class="kw">let </span>inspect = InspectKeyCmd::parse_from(<span class="kw-2">&amp;</span>[<span class="string">&quot;inspect-key&quot;</span>, words, <span class="string">&quot;--password&quot;</span>, <span class="string">&quot;12345&quot;</span>]);
+		<span class="kw">let </span>inspect = InspectKeyCmd::parse_from(<span class="kw-2">&amp;</span>[<span class="string">"inspect-key"</span>, words, <span class="string">"--password"</span>, <span class="string">"12345"</span>]);
 		<span class="macro">assert!</span>(inspect.run().is_ok());
 
-		<span class="kw">let </span>inspect = InspectKeyCmd::parse_from(<span class="kw-2">&amp;</span>[<span class="string">&quot;inspect-key&quot;</span>, seed]);
+		<span class="kw">let </span>inspect = InspectKeyCmd::parse_from(<span class="kw-2">&amp;</span>[<span class="string">"inspect-key"</span>, seed]);
 		<span class="macro">assert!</span>(inspect.run().is_ok());
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>inspect_public_key() {
-		<span class="kw">let </span>public = <span class="string">&quot;0x12e76e0ae8ce41b6516cce52b3f23a08dcb4cfeed53c6ee8f5eb9f7367341069&quot;</span>;
+		<span class="kw">let </span>public = <span class="string">"0x12e76e0ae8ce41b6516cce52b3f23a08dcb4cfeed53c6ee8f5eb9f7367341069"</span>;
 
-		<span class="kw">let </span>inspect = InspectKeyCmd::parse_from(<span class="kw-2">&amp;</span>[<span class="string">&quot;inspect-key&quot;</span>, <span class="string">&quot;--public&quot;</span>, public]);
+		<span class="kw">let </span>inspect = InspectKeyCmd::parse_from(<span class="kw-2">&amp;</span>[<span class="string">"inspect-key"</span>, <span class="string">"--public"</span>, public]);
 		<span class="macro">assert!</span>(inspect.run().is_ok());
 	}
 
@@ -591,8 +593,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>inspect_with_expected_public_key() {
 		<span class="kw">let </span>check_cmd = |seed, expected_public, success| {
 			<span class="kw">let </span>inspect = InspectKeyCmd::parse_from(<span class="kw-2">&amp;</span>[
-				<span class="string">&quot;inspect-key&quot;</span>,
-				<span class="string">&quot;--expect-public&quot;</span>,
+				<span class="string">"inspect-key"</span>,
+				<span class="string">"--expect-public"</span>,
 				expected_public,
 				seed,
 			]);
@@ -602,21 +604,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="macro">assert!</span>(res.is_ok());
 			} <span class="kw">else </span>{
 				<span class="macro">assert!</span>(res.unwrap_err().to_string().contains(<span class="kw-2">&amp;</span><span class="macro">format!</span>(
-					<span class="string">&quot;Expected public ({}) key does not match.&quot;</span>,
+					<span class="string">"Expected public ({}) key does not match."</span>,
 					expected_public
 				)));
 			}
 		};
 
 		<span class="kw">let </span>seed =
-			<span class="string">&quot;remember fiber forum demise paper uniform squirrel feel access exclude casual effort&quot;</span>;
-		<span class="kw">let </span>invalid_public = <span class="string">&quot;0x12e76e0ae8ce41b6516cce52b3f23a08dcb4cfeed53c6ee8f5eb9f7367341069&quot;</span>;
+			<span class="string">"remember fiber forum demise paper uniform squirrel feel access exclude casual effort"</span>;
+		<span class="kw">let </span>invalid_public = <span class="string">"0x12e76e0ae8ce41b6516cce52b3f23a08dcb4cfeed53c6ee8f5eb9f7367341069"</span>;
 		<span class="kw">let </span>valid_public = sp_core::sr25519::Pair::from_string_with_seed(seed, <span class="prelude-val">None</span>)
-			.expect(<span class="string">&quot;Valid&quot;</span>)
+			.expect(<span class="string">"Valid"</span>)
 			.<span class="number">0
 			</span>.public();
-		<span class="kw">let </span>valid_public_hex = array_bytes::bytes2hex(<span class="string">&quot;0x&quot;</span>, valid_public.as_slice());
-		<span class="kw">let </span>valid_accountid = <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, valid_public.into_account());
+		<span class="kw">let </span>valid_public_hex = array_bytes::bytes2hex(<span class="string">"0x"</span>, valid_public.as_slice());
+		<span class="kw">let </span>valid_accountid = <span class="macro">format!</span>(<span class="string">"{}"</span>, valid_public.into_account());
 
 		<span class="comment">// It should fail with the invalid public key
 		</span>check_cmd(seed, invalid_public, <span class="bool-val">false</span>);
@@ -625,17 +627,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>check_cmd(seed, <span class="kw-2">&amp;</span>valid_public_hex, <span class="bool-val">true</span>);
 		check_cmd(seed, <span class="kw-2">&amp;</span>valid_accountid, <span class="bool-val">true</span>);
 
-		<span class="kw">let </span>password = <span class="string">&quot;test12245&quot;</span>;
-		<span class="kw">let </span>seed_with_password = <span class="macro">format!</span>(<span class="string">&quot;{}///{}&quot;</span>, seed, password);
+		<span class="kw">let </span>password = <span class="string">"test12245"</span>;
+		<span class="kw">let </span>seed_with_password = <span class="macro">format!</span>(<span class="string">"{}///{}"</span>, seed, password);
 		<span class="kw">let </span>valid_public_with_password =
 			sp_core::sr25519::Pair::from_string_with_seed(<span class="kw-2">&amp;</span>seed_with_password, <span class="prelude-val">Some</span>(password))
-				.expect(<span class="string">&quot;Valid&quot;</span>)
+				.expect(<span class="string">"Valid"</span>)
 				.<span class="number">0
 				</span>.public();
 		<span class="kw">let </span>valid_public_hex_with_password =
-			array_bytes::bytes2hex(<span class="string">&quot;0x&quot;</span>, valid_public_with_password.as_slice());
+			array_bytes::bytes2hex(<span class="string">"0x"</span>, valid_public_with_password.as_slice());
 		<span class="kw">let </span>valid_accountid_with_password =
-			<span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, <span class="kw-2">&amp;</span>valid_public_with_password.into_account());
+			<span class="macro">format!</span>(<span class="string">"{}"</span>, <span class="kw-2">&amp;</span>valid_public_with_password.into_account());
 
 		<span class="comment">// Only the public key that corresponds to the seed with password should be accepted.
 		</span>check_cmd(<span class="kw-2">&amp;</span>seed_with_password, <span class="kw-2">&amp;</span>valid_public_hex, <span class="bool-val">false</span>);
@@ -644,18 +646,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		check_cmd(<span class="kw-2">&amp;</span>seed_with_password, <span class="kw-2">&amp;</span>valid_public_hex_with_password, <span class="bool-val">true</span>);
 		check_cmd(<span class="kw-2">&amp;</span>seed_with_password, <span class="kw-2">&amp;</span>valid_accountid_with_password, <span class="bool-val">true</span>);
 
-		<span class="kw">let </span>seed_with_password_and_derivation = <span class="macro">format!</span>(<span class="string">&quot;{}//test//account///{}&quot;</span>, seed, password);
+		<span class="kw">let </span>seed_with_password_and_derivation = <span class="macro">format!</span>(<span class="string">"{}//test//account///{}"</span>, seed, password);
 
 		<span class="kw">let </span>valid_public_with_password_and_derivation =
 			sp_core::sr25519::Pair::from_string_with_seed(
 				<span class="kw-2">&amp;</span>seed_with_password_and_derivation,
 				<span class="prelude-val">Some</span>(password),
 			)
-			.expect(<span class="string">&quot;Valid&quot;</span>)
+			.expect(<span class="string">"Valid"</span>)
 			.<span class="number">0
 			</span>.public();
 		<span class="kw">let </span>valid_public_hex_with_password_and_derivation =
-			array_bytes::bytes2hex(<span class="string">&quot;0x&quot;</span>, valid_public_with_password_and_derivation.as_slice());
+			array_bytes::bytes2hex(<span class="string">"0x"</span>, valid_public_with_password_and_derivation.as_slice());
 
 		<span class="comment">// They should still be valid, because we check the base secret key.
 		</span>check_cmd(<span class="kw-2">&amp;</span>seed_with_password_and_derivation, <span class="kw-2">&amp;</span>valid_public_hex_with_password, <span class="bool-val">true</span>);

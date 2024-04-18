@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/executor/src/wasm_runtime.rs`."><title>wasm_runtime.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/executor/src/wasm_runtime.rs`."><title>wasm_runtime.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_executor" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_executor" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sc_executor/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -821,15 +823,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="kw-2">&amp;</span>result {
 					<span class="kw">if </span>new_inst {
 						<span class="macro">tracing::warn!</span>(
-							target: <span class="string">&quot;wasm-runtime&quot;</span>,
+							target: <span class="string">"wasm-runtime"</span>,
 							error = %e,
-							<span class="string">&quot;Fresh runtime instance failed&quot;</span>,
+							<span class="string">"Fresh runtime instance failed"</span>,
 						)
 					} <span class="kw">else </span>{
 						<span class="macro">tracing::warn!</span>(
-							target: <span class="string">&quot;wasm-runtime&quot;</span>,
+							target: <span class="string">"wasm-runtime"</span>,
 							error = %e,
-							<span class="string">&quot;Evicting failed runtime instance&quot;</span>,
+							<span class="string">"Evicting failed runtime instance"</span>,
 						);
 					}
 				} <span class="kw">else </span>{
@@ -837,8 +839,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 					<span class="kw">if </span>new_inst {
 						<span class="macro">tracing::debug!</span>(
-							target: <span class="string">&quot;wasm-runtime&quot;</span>,
-							<span class="string">&quot;Allocated WASM instance {}/{}&quot;</span>,
+							target: <span class="string">"wasm-runtime"</span>,
+							<span class="string">"Allocated WASM instance {}/{}"</span>,
 							index + <span class="number">1</span>,
 							<span class="self">self</span>.instances.len(),
 						);
@@ -848,7 +850,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				result
 			},
 			<span class="prelude-val">None </span>=&gt; {
-				<span class="macro">tracing::warn!</span>(target: <span class="string">&quot;wasm-runtime&quot;</span>, <span class="string">&quot;Ran out of free WASM instances&quot;</span>);
+				<span class="macro">tracing::warn!</span>(target: <span class="string">"wasm-runtime"</span>, <span class="string">"Ran out of free WASM instances"</span>);
 
 				<span class="comment">// Allocate a new instance
 				</span><span class="kw">let </span><span class="kw-2">mut </span>instance = <span class="self">self</span>.module.new_instance()<span class="question-mark">?</span>;
@@ -926,9 +928,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// `Error::InvalidMemoryReference` is returned if no memory export with the
 	/// identifier `memory` can be found in the runtime.
-	</span><span class="kw">pub fn </span>with_instance&lt;<span class="lifetime">&#39;c</span>, H, R, F&gt;(
+	</span><span class="kw">pub fn </span>with_instance&lt;<span class="lifetime">'c</span>, H, R, F&gt;(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		runtime_code: <span class="kw-2">&amp;</span><span class="lifetime">&#39;c </span>RuntimeCode&lt;<span class="lifetime">&#39;c</span>&gt;,
+		runtime_code: <span class="kw-2">&amp;</span><span class="lifetime">'c </span>RuntimeCode&lt;<span class="lifetime">'c</span>&gt;,
 		ext: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>Externalities,
 		wasm_method: WasmExecutionMethod,
 		heap_alloc_strategy: HeapAllocStrategy,
@@ -971,14 +973,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">match </span>result {
 				<span class="prelude-val">Ok</span>(<span class="kw-2">ref </span>result) =&gt; {
 					<span class="macro">tracing::debug!</span>(
-						target: <span class="string">&quot;wasm-runtime&quot;</span>,
-						<span class="string">&quot;Prepared new runtime version {:?} in {} ms.&quot;</span>,
+						target: <span class="string">"wasm-runtime"</span>,
+						<span class="string">"Prepared new runtime version {:?} in {} ms."</span>,
 						result.version,
 						time.elapsed().as_millis(),
 					);
 				},
 				<span class="prelude-val">Err</span>(<span class="kw-2">ref </span>err) =&gt; {
-					<span class="macro">tracing::warn!</span>(target: <span class="string">&quot;wasm-runtime&quot;</span>, error = <span class="question-mark">?</span>err, <span class="string">&quot;Cannot create a runtime&quot;</span>);
+					<span class="macro">tracing::warn!</span>(target: <span class="string">"wasm-runtime"</span>, error = <span class="question-mark">?</span>err, <span class="string">"Cannot create a runtime"</span>);
 				},
 			}
 
@@ -1039,7 +1041,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">fn </span>decode_version(<span class="kw-2">mut </span>version: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;RuntimeVersion, WasmError&gt; {
 	Decode::decode(<span class="kw-2">&amp;mut </span>version).map_err(|<span class="kw">_</span>| {
 		WasmError::Instantiation(
-			<span class="string">&quot;failed to decode \&quot;Core_version\&quot; result using old runtime version&quot;</span>.into(),
+			<span class="string">"failed to decode \"Core_version\" result using old runtime version"</span>.into(),
 		)
 	})
 }
@@ -1050,10 +1052,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	apis.chunks(RUNTIME_API_INFO_SIZE)
 		.map(|chunk| {
 			<span class="comment">// `chunk` can be less than `RUNTIME_API_INFO_SIZE` if the total length of `apis`
-			// doesn&#39;t completely divide by `RUNTIME_API_INFO_SIZE`.
+			// doesn't completely divide by `RUNTIME_API_INFO_SIZE`.
 			</span>&lt;[u8; RUNTIME_API_INFO_SIZE]&gt;::try_from(chunk)
 				.map(sp_api::deserialize_runtime_api_info)
-				.map_err(|<span class="kw">_</span>| WasmError::Other(<span class="string">&quot;a clipped runtime api info declaration&quot;</span>.to_owned()))
+				.map_err(|<span class="kw">_</span>| WasmError::Other(<span class="string">"a clipped runtime api info declaration"</span>.to_owned()))
 		})
 		.collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, WasmError&gt;&gt;()
 }
@@ -1064,9 +1066,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// If there are no such sections, it returns `None`. If there is an error during decoding those
 /// sections, `Err` will be returned.
 </span><span class="kw">pub fn </span>read_embedded_version(blob: <span class="kw-2">&amp;</span>RuntimeBlob) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;RuntimeVersion&gt;, WasmError&gt; {
-	<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">mut </span>version_section) = blob.custom_section_contents(<span class="string">&quot;runtime_version&quot;</span>) {
+	<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">mut </span>version_section) = blob.custom_section_contents(<span class="string">"runtime_version"</span>) {
 		<span class="kw">let </span>apis = blob
-			.custom_section_contents(<span class="string">&quot;runtime_apis&quot;</span>)
+			.custom_section_contents(<span class="string">"runtime_apis"</span>)
 			.map(decode_runtime_apis)
 			.transpose()<span class="question-mark">?
 			</span>.map(Into::into);
@@ -1080,7 +1082,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw-2">&amp;mut </span>version_section,
 			core_version,
 		)
-		.map_err(|<span class="kw">_</span>| WasmError::Instantiation(<span class="string">&quot;failed to decode version section&quot;</span>.into()))<span class="question-mark">?</span>;
+		.map_err(|<span class="kw">_</span>| WasmError::Instantiation(<span class="string">"failed to decode version section"</span>.into()))<span class="question-mark">?</span>;
 
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(apis) = apis {
 			decoded_version.apis = apis;
@@ -1121,7 +1123,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		cache_path,
 	)<span class="question-mark">?</span>;
 
-	<span class="comment">// If the runtime blob doesn&#39;t embed the runtime version then use the legacy version query
+	<span class="comment">// If the runtime blob doesn't embed the runtime version then use the legacy version query
 	// mechanism: call the runtime.
 	</span><span class="kw">if </span>version.is_none() {
 		<span class="comment">// Call to determine runtime version.
@@ -1134,9 +1136,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			// runtime will be dropped.
 			</span><span class="kw">let </span>runtime = AssertUnwindSafe(runtime.as_ref());
 			<span class="kw">crate</span>::executor::with_externalities_safe(<span class="kw-2">&amp;mut **</span>ext, <span class="kw">move </span>|| {
-				runtime.new_instance()<span class="question-mark">?</span>.call(<span class="string">&quot;Core_version&quot;</span>.into(), <span class="kw-2">&amp;</span>[])
+				runtime.new_instance()<span class="question-mark">?</span>.call(<span class="string">"Core_version"</span>.into(), <span class="kw-2">&amp;</span>[])
 			})
-			.map_err(|<span class="kw">_</span>| WasmError::Instantiation(<span class="string">&quot;panic in call to get runtime version&quot;</span>.into()))<span class="question-mark">?
+			.map_err(|<span class="kw">_</span>| WasmError::Instantiation(<span class="string">"panic in call to get runtime version"</span>.into()))<span class="question-mark">?
 		</span>};
 
 		<span class="kw">if let </span><span class="prelude-val">Ok</span>(version_buf) = version_result {
@@ -1175,14 +1177,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>host_functions = sp_io::SubstrateHostFunctions::host_functions();
 
 		<span class="kw">let </span>equal = <span class="kw-2">&amp;</span>host_functions[..] == <span class="kw-2">&amp;</span>host_functions[..];
-		<span class="macro">assert!</span>(equal, <span class="string">&quot;Host functions are not equal&quot;</span>);
+		<span class="macro">assert!</span>(equal, <span class="string">"Host functions are not equal"</span>);
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>old_runtime_version_decodes() {
 		<span class="kw">let </span>old_runtime_version = OldRuntimeVersion {
-			spec_name: <span class="string">&quot;test&quot;</span>.into(),
-			impl_name: <span class="string">&quot;test&quot;</span>.into(),
+			spec_name: <span class="string">"test"</span>.into(),
+			impl_name: <span class="string">"test"</span>.into(),
 			authoring_version: <span class="number">1</span>,
 			spec_version: <span class="number">1</span>,
 			impl_version: <span class="number">1</span>,
@@ -1197,8 +1199,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>old_runtime_version_decodes_fails_with_version_3() {
 		<span class="kw">let </span>old_runtime_version = OldRuntimeVersion {
-			spec_name: <span class="string">&quot;test&quot;</span>.into(),
-			impl_name: <span class="string">&quot;test&quot;</span>.into(),
+			spec_name: <span class="string">"test"</span>.into(),
+			impl_name: <span class="string">"test"</span>.into(),
 			authoring_version: <span class="number">1</span>,
 			spec_version: <span class="number">1</span>,
 			impl_version: <span class="number">1</span>,
@@ -1211,8 +1213,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>new_runtime_version_decodes() {
 		<span class="kw">let </span>old_runtime_version = RuntimeVersion {
-			spec_name: <span class="string">&quot;test&quot;</span>.into(),
-			impl_name: <span class="string">&quot;test&quot;</span>.into(),
+			spec_name: <span class="string">"test"</span>.into(),
+			impl_name: <span class="string">"test"</span>.into(),
 			authoring_version: <span class="number">1</span>,
 			spec_version: <span class="number">1</span>,
 			impl_version: <span class="number">1</span>,
@@ -1226,8 +1228,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">assert_eq!</span>(<span class="number">0</span>, version.state_version);
 
 		<span class="kw">let </span>old_runtime_version = RuntimeVersion {
-			spec_name: <span class="string">&quot;test&quot;</span>.into(),
-			impl_name: <span class="string">&quot;test&quot;</span>.into(),
+			spec_name: <span class="string">"test"</span>.into(),
+			impl_name: <span class="string">"test"</span>.into(),
 			authoring_version: <span class="number">1</span>,
 			spec_version: <span class="number">1</span>,
 			impl_version: <span class="number">1</span>,
@@ -1247,10 +1249,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			substrate_test_runtime::wasm_binary_unwrap(),
 			sp_maybe_compressed_blob::CODE_BLOB_BOMB_LIMIT,
 		)
-		.expect(<span class="string">&quot;Decompressing works&quot;</span>);
+		.expect(<span class="string">"Decompressing works"</span>);
 		<span class="kw">let </span>runtime_version = RuntimeVersion {
-			spec_name: <span class="string">&quot;test_replace&quot;</span>.into(),
-			impl_name: <span class="string">&quot;test_replace&quot;</span>.into(),
+			spec_name: <span class="string">"test_replace"</span>.into(),
+			impl_name: <span class="string">"test_replace"</span>.into(),
 			authoring_version: <span class="number">100</span>,
 			spec_version: <span class="number">100</span>,
 			impl_version: <span class="number">100</span>,
@@ -1260,13 +1262,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		};
 
 		<span class="kw">let </span>embedded = sp_version::embed::embed_runtime_version(<span class="kw-2">&amp;</span>wasm, runtime_version.clone())
-			.expect(<span class="string">&quot;Embedding works&quot;</span>);
+			.expect(<span class="string">"Embedding works"</span>);
 
-		<span class="kw">let </span>blob = RuntimeBlob::new(<span class="kw-2">&amp;</span>embedded).expect(<span class="string">&quot;Embedded blob is valid&quot;</span>);
+		<span class="kw">let </span>blob = RuntimeBlob::new(<span class="kw-2">&amp;</span>embedded).expect(<span class="string">"Embedded blob is valid"</span>);
 		<span class="kw">let </span>read_version = read_embedded_version(<span class="kw-2">&amp;</span>blob)
 			.ok()
 			.flatten()
-			.expect(<span class="string">&quot;Reading embedded version works&quot;</span>);
+			.expect(<span class="string">"Reading embedded version works"</span>);
 
 		<span class="macro">assert_eq!</span>(runtime_version, read_version);
 	}

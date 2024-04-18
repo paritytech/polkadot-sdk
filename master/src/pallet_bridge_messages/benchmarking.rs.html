@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `bridges/modules/messages/src/benchmarking.rs`."><title>benchmarking.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `bridges/modules/messages/src/benchmarking.rs`."><title>benchmarking.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_bridge_messages" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_bridge_messages" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../pallet_bridge_messages/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -646,8 +648,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">const </span>SEED: u32 = <span class="number">0</span>;
 
-<span class="doccomment">/// Pallet we&#39;re benchmarking here.
-</span><span class="kw">pub struct </span>Pallet&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt;(<span class="kw">crate</span>::Pallet&lt;T, I&gt;);
+<span class="doccomment">/// Pallet we're benchmarking here.
+</span><span class="kw">pub struct </span>Pallet&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt;(<span class="kw">crate</span>::Pallet&lt;T, I&gt;);
 
 <span class="doccomment">/// Benchmark-specific message proof parameters.
 </span><span class="attr">#[derive(Debug)]
@@ -659,8 +661,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// If `Some`, the proof needs to include this outbound lane data.
 	</span><span class="kw">pub </span>outbound_lane_data: <span class="prelude-ty">Option</span>&lt;OutboundLaneData&gt;,
 	<span class="doccomment">/// If `true`, the caller expects that the proof will contain correct messages that will
-	/// be successfully dispatched. This is only called from the &quot;optional&quot;
-	/// `receive_single_message_proof_with_dispatch` benchmark. If you don&#39;t need it, just
+	/// be successfully dispatched. This is only called from the "optional"
+	/// `receive_single_message_proof_with_dispatch` benchmark. If you don't need it, just
 	/// return `true` from the `is_message_successfully_dispatched`.
 	</span><span class="kw">pub </span>is_successful_dispatch_expected: bool,
 	<span class="doccomment">/// Proof size requirements.
@@ -679,7 +681,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Trait that must be implemented by runtime.
-</span><span class="kw">pub trait </span>Config&lt;I: <span class="lifetime">&#39;static</span>&gt;: <span class="kw">crate</span>::Config&lt;I&gt; {
+</span><span class="kw">pub trait </span>Config&lt;I: <span class="lifetime">'static</span>&gt;: <span class="kw">crate</span>::Config&lt;I&gt; {
 	<span class="doccomment">/// Lane id to use in benchmarks.
 	///
 	/// By default, lane 00000000 is used.
@@ -733,7 +735,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	// This is base benchmark for all other message delivery benchmarks.
 	</span>receive_single_message_proof {
 		<span class="kw">let </span>relayer_id_on_source = T::bridged_relayer_id();
-		<span class="kw">let </span>relayer_id_on_target = account(<span class="string">&quot;relayer&quot;</span>, <span class="number">0</span>, SEED);
+		<span class="kw">let </span>relayer_id_on_target = account(<span class="string">"relayer"</span>, <span class="number">0</span>, SEED);
 		T::endow_account(<span class="kw-2">&amp;</span>relayer_id_on_target);
 
 		<span class="comment">// mark messages 1..=20 as delivered
@@ -762,11 +764,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	//
 	// The weight of single message delivery could be approximated as
 	// `weight(receive_two_messages_proof) - weight(receive_single_message_proof)`.
-	// This won&#39;t be super-accurate if message has non-zero dispatch weight, but estimation should
+	// This won't be super-accurate if message has non-zero dispatch weight, but estimation should
 	// be close enough to real weight.
 	</span>receive_two_messages_proof {
 		<span class="kw">let </span>relayer_id_on_source = T::bridged_relayer_id();
-		<span class="kw">let </span>relayer_id_on_target = account(<span class="string">&quot;relayer&quot;</span>, <span class="number">0</span>, SEED);
+		<span class="kw">let </span>relayer_id_on_target = account(<span class="string">"relayer"</span>, <span class="number">0</span>, SEED);
 		T::endow_account(<span class="kw-2">&amp;</span>relayer_id_on_target);
 
 		<span class="comment">// mark messages 1..=20 as delivered
@@ -795,11 +797,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	//
 	// The weight of outbound lane state delivery would be
 	// `weight(receive_single_message_proof_with_outbound_lane_state) - weight(receive_single_message_proof)`.
-	// This won&#39;t be super-accurate if message has non-zero dispatch weight, but estimation should
+	// This won't be super-accurate if message has non-zero dispatch weight, but estimation should
 	// be close enough to real weight.
 	</span>receive_single_message_proof_with_outbound_lane_state {
 		<span class="kw">let </span>relayer_id_on_source = T::bridged_relayer_id();
-		<span class="kw">let </span>relayer_id_on_target = account(<span class="string">&quot;relayer&quot;</span>, <span class="number">0</span>, SEED);
+		<span class="kw">let </span>relayer_id_on_target = account(<span class="string">"relayer"</span>, <span class="number">0</span>, SEED);
 		T::endow_account(<span class="kw-2">&amp;</span>relayer_id_on_target);
 
 		<span class="comment">// mark messages 1..=20 as delivered
@@ -834,7 +836,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	// `(receive_single_message_proof_16KB - receive_single_message_proof_1_kb) / 15`.
 	</span>receive_single_message_proof_1_kb {
 		<span class="kw">let </span>relayer_id_on_source = T::bridged_relayer_id();
-		<span class="kw">let </span>relayer_id_on_target = account(<span class="string">&quot;relayer&quot;</span>, <span class="number">0</span>, SEED);
+		<span class="kw">let </span>relayer_id_on_target = account(<span class="string">"relayer"</span>, <span class="number">0</span>, SEED);
 		T::endow_account(<span class="kw-2">&amp;</span>relayer_id_on_target);
 
 		<span class="comment">// mark messages 1..=20 as delivered
@@ -868,7 +870,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	// `(receive_single_message_proof_16KB - receive_single_message_proof) / 15`.
 	</span>receive_single_message_proof_16_kb {
 		<span class="kw">let </span>relayer_id_on_source = T::bridged_relayer_id();
-		<span class="kw">let </span>relayer_id_on_target = account(<span class="string">&quot;relayer&quot;</span>, <span class="number">0</span>, SEED);
+		<span class="kw">let </span>relayer_id_on_target = account(<span class="string">"relayer"</span>, <span class="number">0</span>, SEED);
 		T::endow_account(<span class="kw-2">&amp;</span>relayer_id_on_target);
 
 		<span class="comment">// mark messages 1..=20 as delivered
@@ -895,9 +897,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	//
 	// This is base benchmark for all other confirmations delivery benchmarks.
 	</span>receive_delivery_proof_for_single_message {
-		<span class="kw">let </span>relayer_id: T::AccountId = account(<span class="string">&quot;relayer&quot;</span>, <span class="number">0</span>, SEED);
+		<span class="kw">let </span>relayer_id: T::AccountId = account(<span class="string">"relayer"</span>, <span class="number">0</span>, SEED);
 
-		<span class="comment">// send message that we&#39;re going to confirm
+		<span class="comment">// send message that we're going to confirm
 		</span>send_regular_message::&lt;T, I&gt;();
 
 		<span class="kw">let </span>relayers_state = UnrewardedRelayersState {
@@ -931,9 +933,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	// as `weight(receive_delivery_proof_for_two_messages_by_single_relayer)
 	//   - weight(receive_delivery_proof_for_single_message)`.
 	</span>receive_delivery_proof_for_two_messages_by_single_relayer {
-		<span class="kw">let </span>relayer_id: T::AccountId = account(<span class="string">&quot;relayer&quot;</span>, <span class="number">0</span>, SEED);
+		<span class="kw">let </span>relayer_id: T::AccountId = account(<span class="string">"relayer"</span>, <span class="number">0</span>, SEED);
 
-		<span class="comment">// send message that we&#39;re going to confirm
+		<span class="comment">// send message that we're going to confirm
 		</span>send_regular_message::&lt;T, I&gt;();
 		send_regular_message::&lt;T, I&gt;();
 
@@ -970,10 +972,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	// as `weight(receive_delivery_proof_for_two_messages_by_two_relayers)
 	//   - weight(receive_delivery_proof_for_two_messages_by_single_relayer)`.
 	</span>receive_delivery_proof_for_two_messages_by_two_relayers {
-		<span class="kw">let </span>relayer1_id: T::AccountId = account(<span class="string">&quot;relayer1&quot;</span>, <span class="number">1</span>, SEED);
-		<span class="kw">let </span>relayer2_id: T::AccountId = account(<span class="string">&quot;relayer2&quot;</span>, <span class="number">2</span>, SEED);
+		<span class="kw">let </span>relayer1_id: T::AccountId = account(<span class="string">"relayer1"</span>, <span class="number">1</span>, SEED);
+		<span class="kw">let </span>relayer2_id: T::AccountId = account(<span class="string">"relayer2"</span>, <span class="number">2</span>, SEED);
 
-		<span class="comment">// send message that we&#39;re going to confirm
+		<span class="comment">// send message that we're going to confirm
 		</span>send_regular_message::&lt;T, I&gt;();
 		send_regular_message::&lt;T, I&gt;();
 
@@ -1026,7 +1028,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">let </span>i <span class="kw">in </span>EXPECTED_DEFAULT_MESSAGE_LENGTH .. EXPECTED_DEFAULT_MESSAGE_LENGTH * <span class="number">16</span>;
 
 		<span class="kw">let </span>relayer_id_on_source = T::bridged_relayer_id();
-		<span class="kw">let </span>relayer_id_on_target = account(<span class="string">&quot;relayer&quot;</span>, <span class="number">0</span>, SEED);
+		<span class="kw">let </span>relayer_id_on_target = account(<span class="string">"relayer"</span>, <span class="number">0</span>, SEED);
 		T::endow_account(<span class="kw-2">&amp;</span>relayer_id_on_target);
 
 		<span class="comment">// mark messages 1..=20 as delivered
@@ -1051,12 +1053,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="macro">impl_benchmark_test_suite!</span>(Pallet, <span class="kw">crate</span>::mock::new_test_ext(), <span class="kw">crate</span>::mock::TestRuntime)
 }
 
-<span class="kw">fn </span>send_regular_message&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt;() {
+<span class="kw">fn </span>send_regular_message&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt;() {
 	<span class="kw">let </span><span class="kw-2">mut </span>outbound_lane = outbound_lane::&lt;T, I&gt;(T::bench_lane_id());
-	outbound_lane.send_message(BoundedVec::try_from(<span class="macro">vec!</span>[]).expect(<span class="string">&quot;We craft valid messages&quot;</span>));
+	outbound_lane.send_message(BoundedVec::try_from(<span class="macro">vec!</span>[]).expect(<span class="string">"We craft valid messages"</span>));
 }
 
-<span class="kw">fn </span>receive_messages&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt;(nonce: MessageNonce) {
+<span class="kw">fn </span>receive_messages&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt;(nonce: MessageNonce) {
 	<span class="kw">let </span><span class="kw-2">mut </span>inbound_lane_storage =
 		RuntimeInboundLaneStorage::&lt;T, I&gt;::from_lane_id(T::bench_lane_id());
 	inbound_lane_storage.set_data(InboundLaneData {

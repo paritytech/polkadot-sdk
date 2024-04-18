@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `cumulus/client/service/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `cumulus/client/service/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="cumulus_client_service" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="cumulus_client_service" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../cumulus_client_service/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -811,7 +813,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // possibility to retry infinite times this value is more than enough.
 // In practice here we expect no more than one queued messages.
 </span><span class="kw">const </span>RECOVERY_CHAN_SIZE: usize = <span class="number">8</span>;
-<span class="kw">const </span>LOG_TARGET_SYNC: <span class="kw-2">&amp;</span>str = <span class="string">&quot;sync::cumulus&quot;</span>;
+<span class="kw">const </span>LOG_TARGET_SYNC: <span class="kw-2">&amp;</span>str = <span class="string">"sync::cumulus"</span>;
 
 <span class="doccomment">/// A hint about how long the node should wait before attempting to recover missing block data
 /// from the data availability layer.
@@ -825,14 +827,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>Other(RecoveryDelayRange),
 }
 
-<span class="kw">pub struct </span>StartCollatorParams&lt;<span class="lifetime">&#39;a</span>, Block: BlockT, BS, Client, RCInterface, Spawner&gt; {
+<span class="kw">pub struct </span>StartCollatorParams&lt;<span class="lifetime">'a</span>, Block: BlockT, BS, Client, RCInterface, Spawner&gt; {
 	<span class="kw">pub </span>block_status: Arc&lt;BS&gt;,
 	<span class="kw">pub </span>client: Arc&lt;Client&gt;,
 	<span class="kw">pub </span>announce_block: Arc&lt;<span class="kw">dyn </span>Fn(Block::Hash, <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt;) + Send + Sync&gt;,
 	<span class="kw">pub </span>spawner: Spawner,
 	<span class="kw">pub </span>para_id: ParaId,
 	<span class="kw">pub </span>relay_chain_interface: RCInterface,
-	<span class="kw">pub </span>task_manager: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>TaskManager,
+	<span class="kw">pub </span>task_manager: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>TaskManager,
 	<span class="kw">pub </span>parachain_consensus: Box&lt;<span class="kw">dyn </span>ParachainConsensus&lt;Block&gt;&gt;,
 	<span class="kw">pub </span>import_queue: Box&lt;<span class="kw">dyn </span>ImportQueueService&lt;Block&gt;&gt;,
 	<span class="kw">pub </span>collator_key: CollatorPair,
@@ -842,12 +844,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Parameters given to [`start_relay_chain_tasks`].
-</span><span class="kw">pub struct </span>StartRelayChainTasksParams&lt;<span class="lifetime">&#39;a</span>, Block: BlockT, Client, RCInterface&gt; {
+</span><span class="kw">pub struct </span>StartRelayChainTasksParams&lt;<span class="lifetime">'a</span>, Block: BlockT, Client, RCInterface&gt; {
 	<span class="kw">pub </span>client: Arc&lt;Client&gt;,
 	<span class="kw">pub </span>announce_block: Arc&lt;<span class="kw">dyn </span>Fn(Block::Hash, <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt;) + Send + Sync&gt;,
 	<span class="kw">pub </span>para_id: ParaId,
 	<span class="kw">pub </span>relay_chain_interface: RCInterface,
-	<span class="kw">pub </span>task_manager: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>TaskManager,
+	<span class="kw">pub </span>task_manager: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>TaskManager,
 	<span class="kw">pub </span>da_recovery_profile: DARecoveryProfile,
 	<span class="kw">pub </span>import_queue: Box&lt;<span class="kw">dyn </span>ImportQueueService&lt;Block&gt;&gt;,
 	<span class="kw">pub </span>relay_chain_slot_duration: Duration,
@@ -856,11 +858,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Parameters given to [`start_full_node`].
-</span><span class="kw">pub struct </span>StartFullNodeParams&lt;<span class="lifetime">&#39;a</span>, Block: BlockT, Client, RCInterface&gt; {
+</span><span class="kw">pub struct </span>StartFullNodeParams&lt;<span class="lifetime">'a</span>, Block: BlockT, Client, RCInterface&gt; {
 	<span class="kw">pub </span>para_id: ParaId,
 	<span class="kw">pub </span>client: Arc&lt;Client&gt;,
 	<span class="kw">pub </span>relay_chain_interface: RCInterface,
-	<span class="kw">pub </span>task_manager: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>TaskManager,
+	<span class="kw">pub </span>task_manager: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>TaskManager,
 	<span class="kw">pub </span>announce_block: Arc&lt;<span class="kw">dyn </span>Fn(Block::Hash, <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt;) + Send + Sync&gt;,
 	<span class="kw">pub </span>relay_chain_slot_duration: Duration,
 	<span class="kw">pub </span>import_queue: Box&lt;<span class="kw">dyn </span>ImportQueueService&lt;Block&gt;&gt;,
@@ -873,8 +875,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// A collator is similar to a validator in a normal blockchain.
 /// It is responsible for producing blocks and sending the blocks to a
 /// parachain validator for validation and inclusion into the relay chain.
-</span><span class="attr">#[deprecated = <span class="string">&quot;use start_relay_chain_tasks instead&quot;</span>]
-</span><span class="kw">pub async fn </span>start_collator&lt;<span class="lifetime">&#39;a</span>, Block, BS, Client, Backend, RCInterface, Spawner&gt;(
+</span><span class="attr">#[deprecated = <span class="string">"use start_relay_chain_tasks instead"</span>]
+</span><span class="kw">pub async fn </span>start_collator&lt;<span class="lifetime">'a</span>, Block, BS, Client, Backend, RCInterface, Spawner&gt;(
 	StartCollatorParams {
 		block_status,
 		client,
@@ -889,11 +891,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		relay_chain_slot_duration,
 		recovery_handle,
 		sync_service,
-	}: StartCollatorParams&lt;<span class="lifetime">&#39;a</span>, Block, BS, Client, RCInterface, Spawner&gt;,
+	}: StartCollatorParams&lt;<span class="lifetime">'a</span>, Block, BS, Client, RCInterface, Spawner&gt;,
 ) -&gt; sc_service::error::Result&lt;()&gt;
 <span class="kw">where
 	</span>Block: BlockT,
-	BS: BlockBackend&lt;Block&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
+	BS: BlockBackend&lt;Block&gt; + Send + Sync + <span class="lifetime">'static</span>,
 	Client: Finalizer&lt;Block, Backend&gt;
 		+ UsageProvider&lt;Block&gt;
 		+ HeaderBackend&lt;Block&gt;
@@ -902,12 +904,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		+ BlockBackend&lt;Block&gt;
 		+ BlockchainEvents&lt;Block&gt;
 		+ ProvideRuntimeApi&lt;Block&gt;
-		+ <span class="lifetime">&#39;static</span>,
+		+ <span class="lifetime">'static</span>,
 	Client::Api: CollectCollationInfo&lt;Block&gt;,
-	<span class="kw">for</span>&lt;<span class="lifetime">&#39;b</span>&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;b </span>Client: BlockImport&lt;Block&gt;,
-	Spawner: SpawnNamed + Clone + Send + Sync + <span class="lifetime">&#39;static</span>,
-	RCInterface: RelayChainInterface + Clone + <span class="lifetime">&#39;static</span>,
-	Backend: BackendT&lt;Block&gt; + <span class="lifetime">&#39;static</span>,
+	<span class="kw">for</span>&lt;<span class="lifetime">'b</span>&gt; <span class="kw-2">&amp;</span><span class="lifetime">'b </span>Client: BlockImport&lt;Block&gt;,
+	Spawner: SpawnNamed + Clone + Send + Sync + <span class="lifetime">'static</span>,
+	RCInterface: RelayChainInterface + Clone + <span class="lifetime">'static</span>,
+	Backend: BackendT&lt;Block&gt; + <span class="lifetime">'static</span>,
 {
 	<span class="kw">let </span>overseer_handle = relay_chain_interface
 		.overseer_handle()
@@ -945,7 +947,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Start necessary consensus tasks related to the relay chain.
 ///
 /// Parachain nodes need to track the state of the relay chain and use the
-/// relay chain&#39;s data availability service to fetch blocks if they don&#39;t
+/// relay chain's data availability service to fetch blocks if they don't
 /// arrive via the normal p2p layer (i.e. when authors withhold their blocks deliberately).
 ///
 /// This function spawns work for those side tasks.
@@ -971,10 +973,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		+ Sync
 		+ BlockBackend&lt;Block&gt;
 		+ BlockchainEvents&lt;Block&gt;
-		+ <span class="lifetime">&#39;static</span>,
-	<span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Client: BlockImport&lt;Block&gt;,
-	Backend: BackendT&lt;Block&gt; + <span class="lifetime">&#39;static</span>,
-	RCInterface: RelayChainInterface + Clone + <span class="lifetime">&#39;static</span>,
+		+ <span class="lifetime">'static</span>,
+	<span class="kw">for</span>&lt;<span class="lifetime">'a</span>&gt; <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Client: BlockImport&lt;Block&gt;,
+	Backend: BackendT&lt;Block&gt; + <span class="lifetime">'static</span>,
+	RCInterface: RelayChainInterface + Clone + <span class="lifetime">'static</span>,
 {
 	<span class="kw">let </span>(recovery_chan_tx, recovery_chan_rx) = mpsc::channel(RECOVERY_CHAN_SIZE);
 
@@ -988,7 +990,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	task_manager
 		.spawn_essential_handle()
-		.spawn_blocking(<span class="string">&quot;cumulus-consensus&quot;</span>, <span class="prelude-val">None</span>, consensus);
+		.spawn_blocking(<span class="string">"cumulus-consensus"</span>, <span class="prelude-val">None</span>, consensus);
 
 	<span class="kw">let </span>da_recovery_profile = <span class="kw">match </span>da_recovery_profile {
 		DARecoveryProfile::Collator =&gt; {
@@ -1004,8 +1006,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// Full nodes should at least wait 2.5 minutes (assuming 6 seconds slot duration) and
 			// in maximum 5 minutes before starting to recover blocks. Collators should already
 			// start the recovery way before full nodes try to recover a certain block and then
-			// share the block with the network using &quot;the normal way&quot;. Full nodes are just the
-			// &quot;last resort&quot; for block recovery.
+			// share the block with the network using "the normal way". Full nodes are just the
+			// "last resort" for block recovery.
 			</span>RecoveryDelayRange {
 				min: relay_chain_slot_duration * <span class="number">25</span>,
 				max: relay_chain_slot_duration * <span class="number">50</span>,
@@ -1027,7 +1029,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	task_manager
 		.spawn_essential_handle()
-		.spawn(<span class="string">&quot;cumulus-pov-recovery&quot;</span>, <span class="prelude-val">None</span>, pov_recovery.run());
+		.spawn(<span class="string">"cumulus-pov-recovery"</span>, <span class="prelude-val">None</span>, pov_recovery.run());
 
 	<span class="prelude-val">Ok</span>(())
 }
@@ -1036,7 +1038,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// A full node will only sync the given parachain and will follow the
 /// tip of the chain.
-</span><span class="attr">#[deprecated = <span class="string">&quot;use start_relay_chain_tasks instead&quot;</span>]
+</span><span class="attr">#[deprecated = <span class="string">"use start_relay_chain_tasks instead"</span>]
 </span><span class="kw">pub fn </span>start_full_node&lt;Block, Client, Backend, RCInterface&gt;(
 	StartFullNodeParams {
 		client,
@@ -1058,10 +1060,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		+ Sync
 		+ BlockBackend&lt;Block&gt;
 		+ BlockchainEvents&lt;Block&gt;
-		+ <span class="lifetime">&#39;static</span>,
-	<span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Client: BlockImport&lt;Block&gt;,
-	Backend: BackendT&lt;Block&gt; + <span class="lifetime">&#39;static</span>,
-	RCInterface: RelayChainInterface + Clone + <span class="lifetime">&#39;static</span>,
+		+ <span class="lifetime">'static</span>,
+	<span class="kw">for</span>&lt;<span class="lifetime">'a</span>&gt; <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Client: BlockImport&lt;Block&gt;,
+	Backend: BackendT&lt;Block&gt; + <span class="lifetime">'static</span>,
+	RCInterface: RelayChainInterface + Clone + <span class="lifetime">'static</span>,
 {
 	start_relay_chain_tasks(StartRelayChainTasksParams {
 		client,
@@ -1078,14 +1080,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Re-exports of old parachain consensus loop start logic.
-</span><span class="attr">#[deprecated = <span class="string">&quot;This is old consensus architecture only for backwards compatibility \
-	and will be removed in the future&quot;</span>]
+</span><span class="attr">#[deprecated = <span class="string">"This is old consensus architecture only for backwards compatibility \
+	and will be removed in the future"</span>]
 </span><span class="kw">pub mod </span>old_consensus {
 	<span class="attr">#[allow(deprecated)]
 	</span><span class="kw">pub use </span>cumulus_client_collator::{start_collator, start_collator_sync, StartCollatorParams};
 }
 
-<span class="doccomment">/// Prepare the parachain&#39;s node configuration
+<span class="doccomment">/// Prepare the parachain's node configuration
 ///
 /// This function will disable the default announcement of Substrate for the parachain in favor
 /// of the one of Cumulus.
@@ -1105,7 +1107,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	task_manager: <span class="kw-2">&amp;mut </span>TaskManager,
 	collator_options: CollatorOptions,
 	hwbench: <span class="prelude-ty">Option</span>&lt;sc_sysinfo::HwBench&gt;,
-) -&gt; RelayChainResult&lt;(Arc&lt;(<span class="kw">dyn </span>RelayChainInterface + <span class="lifetime">&#39;static</span>)&gt;, <span class="prelude-ty">Option</span>&lt;CollatorPair&gt;)&gt; {
+) -&gt; RelayChainResult&lt;(Arc&lt;(<span class="kw">dyn </span>RelayChainInterface + <span class="lifetime">'static</span>)&gt;, <span class="prelude-ty">Option</span>&lt;CollatorPair&gt;)&gt; {
 	<span class="kw">match </span>collator_options.relay_chain_mode {
 		cumulus_client_cli::RelayChainMode::Embedded =&gt; build_inprocess_relay_chain(
 			relay_chain_config,
@@ -1134,7 +1136,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// operate more efficiently.
 	</span>Resistant,
 	<span class="doccomment">/// There is no collator-selection protocol providing sybil-resistance.
-	/// In situations such as &quot;free-for-all&quot; collators, the network is unresistant
+	/// In situations such as "free-for-all" collators, the network is unresistant
 	/// and needs to attach more metadata to block announcements, relying on relay-chain
 	/// validators to avoid handling unbounded numbers of blocks.
 	</span>Unresistant,
@@ -1142,21 +1144,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Parameters given to [`build_network`].
 </span><span class="kw">pub struct </span>BuildNetworkParams&lt;
-	<span class="lifetime">&#39;a</span>,
+	<span class="lifetime">'a</span>,
 	Block: BlockT,
 	Client: ProvideRuntimeApi&lt;Block&gt;
 		+ BlockBackend&lt;Block&gt;
 		+ HeaderMetadata&lt;Block, Error = sp_blockchain::Error&gt;
 		+ HeaderBackend&lt;Block&gt;
 		+ BlockIdTo&lt;Block&gt;
-		+ <span class="lifetime">&#39;static</span>,
+		+ <span class="lifetime">'static</span>,
 	Network: NetworkBackend&lt;Block, &lt;Block <span class="kw">as </span>BlockT&gt;::Hash&gt;,
 	RCInterface,
 	IQ,
 &gt; <span class="kw">where
 	</span>Client::Api: sp_transaction_pool::runtime_api::TaggedTransactionQueue&lt;Block&gt;,
 {
-	<span class="kw">pub </span>parachain_config: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Configuration,
+	<span class="kw">pub </span>parachain_config: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Configuration,
 	<span class="kw">pub </span>net_config:
 		sc_network::config::FullNetworkConfiguration&lt;Block, &lt;Block <span class="kw">as </span>BlockT&gt;::Hash, Network&gt;,
 	<span class="kw">pub </span>client: Arc&lt;Client&gt;,
@@ -1169,7 +1171,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Build the network service, the network status sinks and an RPC sender.
-</span><span class="kw">pub async fn </span>build_network&lt;<span class="lifetime">&#39;a</span>, Block, Client, RCInterface, IQ, Network&gt;(
+</span><span class="kw">pub async fn </span>build_network&lt;<span class="lifetime">'a</span>, Block, Client, RCInterface, IQ, Network&gt;(
 	BuildNetworkParams {
 		parachain_config,
 		net_config,
@@ -1180,7 +1182,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		relay_chain_interface,
 		import_queue,
 		sybil_resistance_level,
-	}: BuildNetworkParams&lt;<span class="lifetime">&#39;a</span>, Block, Client, Network, RCInterface, IQ&gt;,
+	}: BuildNetworkParams&lt;<span class="lifetime">'a</span>, Block, Client, Network, RCInterface, IQ&gt;,
 ) -&gt; sc_service::error::Result&lt;(
 	Arc&lt;<span class="kw">dyn </span>NetworkService&gt;,
 	TracingUnboundedSender&lt;sc_rpc::system::Request&lt;Block&gt;&gt;,
@@ -1201,12 +1203,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		+ HeaderMetadata&lt;Block, Error = sp_blockchain::Error&gt;
 		+ BlockIdTo&lt;Block, Error = sp_blockchain::Error&gt;
 		+ ProofProvider&lt;Block&gt;
-		+ <span class="lifetime">&#39;static</span>,
+		+ <span class="lifetime">'static</span>,
 	Client::Api: CollectCollationInfo&lt;Block&gt;
 		+ sp_transaction_pool::runtime_api::TaggedTransactionQueue&lt;Block&gt;,
-	<span class="kw">for</span>&lt;<span class="lifetime">&#39;b</span>&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;b </span>Client: BlockImport&lt;Block&gt;,
-	RCInterface: RelayChainInterface + Clone + <span class="lifetime">&#39;static</span>,
-	IQ: ImportQueue&lt;Block&gt; + <span class="lifetime">&#39;static</span>,
+	<span class="kw">for</span>&lt;<span class="lifetime">'b</span>&gt; <span class="kw-2">&amp;</span><span class="lifetime">'b </span>Client: BlockImport&lt;Block&gt;,
+	RCInterface: RelayChainInterface + Clone + <span class="lifetime">'static</span>,
+	IQ: ImportQueue&lt;Block&gt; + <span class="lifetime">'static</span>,
 	Network: NetworkBackend&lt;Block, &lt;Block <span class="kw">as </span>BlockT&gt;::Hash&gt;,
 {
 	<span class="kw">let </span>warp_sync_params = <span class="kw">match </span>parachain_config.network.sync_mode {
@@ -1258,17 +1260,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	spawner: SpawnTaskHandle,
 ) -&gt; oneshot::Receiver&lt;&lt;B <span class="kw">as </span>BlockT&gt;::Header&gt;
 <span class="kw">where
-	</span>B: BlockT + <span class="lifetime">&#39;static</span>,
-	RCInterface: RelayChainInterface + <span class="lifetime">&#39;static</span>,
+	</span>B: BlockT + <span class="lifetime">'static</span>,
+	RCInterface: RelayChainInterface + <span class="lifetime">'static</span>,
 {
 	<span class="kw">let </span>(sender, receiver) = oneshot::channel::&lt;B::Header&gt;();
 	spawner.spawn(
-		<span class="string">&quot;cumulus-parachain-wait-for-target-block&quot;</span>,
+		<span class="string">"cumulus-parachain-wait-for-target-block"</span>,
 		<span class="prelude-val">None</span>,
 		<span class="kw">async move </span>{
 			<span class="macro">log::debug!</span>(
 				target: LOG_TARGET_SYNC,
-				<span class="string">&quot;waiting for announce block in a background task...&quot;</span>,
+				<span class="string">"waiting for announce block in a background task..."</span>,
 			);
 
 			<span class="kw">let _ </span>= wait_for_finalized_para_head::&lt;B, <span class="kw">_</span>&gt;(sender, para_id, relay_chain_interface)
@@ -1276,7 +1278,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				</span>.map_err(|e| {
 					<span class="macro">log::error!</span>(
 						target: LOG_TARGET_SYNC,
-						<span class="string">&quot;Unable to determine parachain target block {:?}&quot;</span>,
+						<span class="string">"Unable to determine parachain target block {:?}"</span>,
 						e
 					)
 				});
@@ -1295,14 +1297,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	relay_chain_interface: RCInterface,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Box&lt;<span class="kw">dyn </span>std::error::Error + Send + Sync&gt;&gt;
 <span class="kw">where
-	</span>B: BlockT + <span class="lifetime">&#39;static</span>,
-	RCInterface: RelayChainInterface + Send + <span class="lifetime">&#39;static</span>,
+	</span>B: BlockT + <span class="lifetime">'static</span>,
+	RCInterface: RelayChainInterface + Send + <span class="lifetime">'static</span>,
 {
 	<span class="kw">let </span><span class="kw-2">mut </span>imported_blocks = relay_chain_interface.import_notification_stream().<span class="kw">await</span><span class="question-mark">?</span>.fuse();
 	<span class="kw">while </span>imported_blocks.next().<span class="kw">await</span>.is_some() {
 		<span class="kw">let </span>is_syncing = relay_chain_interface.is_major_syncing().<span class="kw">await</span>.map_err(|e| {
 			Box::&lt;<span class="kw">dyn </span>std::error::Error + Send + Sync&gt;::from(<span class="macro">format!</span>(
-				<span class="string">&quot;Unable to determine sync status. {e}&quot;
+				<span class="string">"Unable to determine sync status. {e}"
 			</span>))
 		})<span class="question-mark">?</span>;
 
@@ -1319,14 +1321,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					OccupiedCoreAssumption::TimedOut,
 				)
 				.<span class="kw">await
-				</span>.map_err(|e| <span class="macro">format!</span>(<span class="string">&quot;{e:?}&quot;</span>))<span class="question-mark">?
-				</span>.ok_or(<span class="string">&quot;Could not find parachain head in relay chain&quot;</span>)<span class="question-mark">?</span>;
+				</span>.map_err(|e| <span class="macro">format!</span>(<span class="string">"{e:?}"</span>))<span class="question-mark">?
+				</span>.ok_or(<span class="string">"Could not find parachain head in relay chain"</span>)<span class="question-mark">?</span>;
 
 			<span class="kw">let </span>finalized_header = B::Header::decode(<span class="kw-2">&amp;mut &amp;</span>validation_data.parent_head.<span class="number">0</span>[..])
-				.map_err(|e| <span class="macro">format!</span>(<span class="string">&quot;Failed to decode parachain head: {e}&quot;</span>))<span class="question-mark">?</span>;
+				.map_err(|e| <span class="macro">format!</span>(<span class="string">"Failed to decode parachain head: {e}"</span>))<span class="question-mark">?</span>;
 
 			<span class="macro">log::info!</span>(
-				<span class="string">&quot;🎉 Received target parachain header #{} ({}) from the relay chain.&quot;</span>,
+				<span class="string">"🎉 Received target parachain header #{} ({}) from the relay chain."</span>,
 				finalized_header.number(),
 				finalized_header.hash()
 			);
@@ -1335,7 +1337,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="prelude-val">Err</span>(<span class="string">&quot;Stopping following imported blocks. Could not determine parachain target block&quot;</span>.into())
+	<span class="prelude-val">Err</span>(<span class="string">"Stopping following imported blocks. Could not determine parachain target block"</span>.into())
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 

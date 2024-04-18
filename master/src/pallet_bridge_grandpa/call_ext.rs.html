@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `bridges/modules/grandpa/src/call_ext.rs`."><title>call_ext.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `bridges/modules/grandpa/src/call_ext.rs`."><title>call_ext.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_bridge_grandpa" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_bridge_grandpa" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../pallet_bridge_grandpa/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -637,11 +639,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Helper struct that provides methods for working with the `SubmitFinalityProof` call.
-</span><span class="kw">pub struct </span>SubmitFinalityProofHelper&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; {
+</span><span class="kw">pub struct </span>SubmitFinalityProofHelper&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; {
 	_phantom_data: sp_std::marker::PhantomData&lt;(T, I)&gt;,
 }
 
-<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; SubmitFinalityProofHelper&lt;T, I&gt; {
+<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; SubmitFinalityProofHelper&lt;T, I&gt; {
 	<span class="doccomment">/// Check that the GRANDPA head provided by the `SubmitFinalityProof` is better than the best
 	/// one we know. Additionally, checks if `current_set_id` matches the current authority set
 	/// id, if specified.
@@ -652,7 +654,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>best_finalized = <span class="kw">crate</span>::BestFinalized::&lt;T, I&gt;::get().ok_or_else(|| {
 			<span class="macro">log::trace!</span>(
 				target: <span class="kw">crate</span>::LOG_TARGET,
-				<span class="string">&quot;Cannot finalize header {:?} because pallet is not yet initialized&quot;</span>,
+				<span class="string">"Cannot finalize header {:?} because pallet is not yet initialized"</span>,
 				finality_target,
 			);
 			&lt;Error&lt;T, I&gt;&gt;::NotInitialized
@@ -661,7 +663,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if </span>best_finalized.number() &gt;= finality_target {
 			<span class="macro">log::trace!</span>(
 				target: <span class="kw">crate</span>::LOG_TARGET,
-				<span class="string">&quot;Cannot finalize obsolete header: bundled {:?}, best {:?}&quot;</span>,
+				<span class="string">"Cannot finalize obsolete header: bundled {:?}, best {:?}"</span>,
 				finality_target,
 				best_finalized,
 			);
@@ -674,7 +676,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">if </span>current_set_id != actual_set_id {
 				<span class="macro">log::trace!</span>(
 					target: <span class="kw">crate</span>::LOG_TARGET,
-					<span class="string">&quot;Cannot finalize header signed by unknown authority set: bundled {:?}, best {:?}&quot;</span>,
+					<span class="string">"Cannot finalize header signed by unknown authority set: bundled {:?}, best {:?}"</span>,
 					current_set_id,
 					actual_set_id,
 				);
@@ -695,8 +697,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="doccomment">/// Trait representing a call that is a sub type of this pallet&#39;s call.
-</span><span class="kw">pub trait </span>CallSubType&lt;T: Config&lt;I, RuntimeCall = <span class="self">Self</span>&gt;, I: <span class="lifetime">&#39;static</span>&gt;:
+<span class="doccomment">/// Trait representing a call that is a sub type of this pallet's call.
+</span><span class="kw">pub trait </span>CallSubType&lt;T: Config&lt;I, RuntimeCall = <span class="self">Self</span>&gt;, I: <span class="lifetime">'static</span>&gt;:
 	IsSubType&lt;CallableCallFor&lt;Pallet&lt;T, I&gt;, T&gt;&gt;
 {
 	<span class="doccomment">/// Extract finality proof info from a runtime call.
@@ -727,7 +729,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">None
 	</span>}
 
-	<span class="doccomment">/// Validate Grandpa headers in order to avoid &quot;mining&quot; transactions that provide outdated
+	<span class="doccomment">/// Validate Grandpa headers in order to avoid "mining" transactions that provide outdated
 	/// bridged chain headers. Without this validation, even honest relayers may lose their funds
 	/// if there are multiple relays running and submitting the same information.
 	</span><span class="kw">fn </span>check_obsolete_submit_finality_proof(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TransactionValidity
@@ -754,13 +756,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; CallSubType&lt;T, I&gt; <span class="kw">for </span>T::RuntimeCall <span class="kw">where
+<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; CallSubType&lt;T, I&gt; <span class="kw">for </span>T::RuntimeCall <span class="kw">where
 	</span>T::RuntimeCall: IsSubType&lt;CallableCallFor&lt;Pallet&lt;T, I&gt;, T&gt;&gt;
 {
 }
 
 <span class="doccomment">/// Extract finality proof info from the submitted header and justification.
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>submit_finality_proof_info_from_args&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt;(
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>submit_finality_proof_info_from_args&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt;(
 	finality_target: <span class="kw-2">&amp;</span>BridgedHeader&lt;T, I&gt;,
 	justification: <span class="kw-2">&amp;</span>GrandpaJustification&lt;BridgedHeader&lt;T, I&gt;&gt;,
 	current_set_id: <span class="prelude-ty">Option</span>&lt;SetId&gt;,
@@ -768,14 +770,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>block_number = <span class="kw-2">*</span>finality_target.number();
 
 	<span class="comment">// the `submit_finality_proof` call will reject justifications with invalid, duplicate,
-	// unknown and extra signatures. It&#39;ll also reject justifications with less than necessary
+	// unknown and extra signatures. It'll also reject justifications with less than necessary
 	// signatures. So we do not care about extra weight because of additional signatures here.
 	</span><span class="kw">let </span>precommits_len = justification.commit.precommits.len().saturated_into();
 	<span class="kw">let </span>required_precommits = precommits_len;
 
 	<span class="comment">// We do care about extra weight because of more-than-expected headers in the votes
 	// ancestries. But we have problems computing extra weight for additional headers (weight of
-	// additional header is too small, so that our benchmarks aren&#39;t detecting that). So if there
+	// additional header is too small, so that our benchmarks aren't detecting that). So if there
 	// are more than expected headers in votes ancestries, we will treat the whole call weight
 	// as an extra weight.
 	</span><span class="kw">let </span>votes_ancestries_len = justification.votes_ancestries.len().saturated_into();
@@ -846,7 +848,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>extension_rejects_obsolete_header() {
 		run_test(|| {
-			<span class="comment">// when current best finalized is #10 and we&#39;re trying to import header#5 =&gt; tx is
+			<span class="comment">// when current best finalized is #10 and we're trying to import header#5 =&gt; tx is
 			// rejected
 			</span>sync_to_header_10();
 			<span class="macro">assert!</span>(!validate_block_submit(<span class="number">5</span>));
@@ -856,7 +858,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>extension_rejects_same_header() {
 		run_test(|| {
-			<span class="comment">// when current best finalized is #10 and we&#39;re trying to import header#10 =&gt; tx is
+			<span class="comment">// when current best finalized is #10 and we're trying to import header#10 =&gt; tx is
 			// rejected
 			</span>sync_to_header_10();
 			<span class="macro">assert!</span>(!validate_block_submit(<span class="number">10</span>));
@@ -889,7 +891,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>extension_accepts_new_header() {
 		run_test(|| {
-			<span class="comment">// when current best finalized is #10 and we&#39;re trying to import header#15 =&gt; tx is
+			<span class="comment">// when current best finalized is #10 and we're trying to import header#15 =&gt; tx is
 			// accepted
 			</span>sync_to_header_10();
 			<span class="macro">assert!</span>(validate_block_submit(<span class="number">15</span>));

@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/uniques/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/uniques/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_uniques" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_uniques" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../pallet_uniques/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1695,14 +1697,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -1716,11 +1718,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! * [`System`](../frame_system/index.html)
 //! * [`Support`](../frame_support/index.html)
 
-</span><span class="attr">#![recursion_limit = <span class="string">&quot;256&quot;</span>]
-</span><span class="comment">// Ensure we&#39;re `no_std` when compiling for Wasm.
-</span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
+</span><span class="attr">#![recursion_limit = <span class="string">"256"</span>]
+</span><span class="comment">// Ensure we're `no_std` when compiling for Wasm.
+</span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
-#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 </span><span class="kw">mod </span>benchmarking;
 <span class="attr">#[cfg(test)]
 </span><span class="kw">pub mod </span>mock;
@@ -1750,7 +1752,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">pub use </span>weights::WeightInfo;
 
 <span class="doccomment">/// The log target for this pallet.
-</span><span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;runtime::uniques&quot;</span>;
+</span><span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"runtime::uniques"</span>;
 
 <span class="doccomment">/// A type alias for the account ID type used in the dispatchable functions of this pallet.
 </span><span class="kw">type </span>AccountIdLookupOf&lt;T&gt; = &lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::Lookup <span class="kw">as </span>StaticLookup&gt;::Source;
@@ -1767,12 +1769,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	#[pallet::storage_version(STORAGE_VERSION)]
 	</span><span class="kw">pub struct </span>Pallet&lt;T, I = ()&gt;(<span class="kw">_</span>);
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">pub trait </span>BenchmarkHelper&lt;CollectionId, ItemId&gt; {
 		<span class="kw">fn </span>collection(i: u16) -&gt; CollectionId;
 		<span class="kw">fn </span>item(i: u16) -&gt; ItemId;
 	}
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">impl</span>&lt;CollectionId: From&lt;u16&gt;, ItemId: From&lt;u16&gt;&gt; BenchmarkHelper&lt;CollectionId, ItemId&gt; <span class="kw">for </span>() {
 		<span class="kw">fn </span>collection(i: u16) -&gt; CollectionId {
 			i.into()
@@ -1784,7 +1786,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[pallet::config]
 	</span><span class="doccomment">/// The module configuration trait.
-	</span><span class="kw">pub trait </span>Config&lt;I: <span class="lifetime">&#39;static </span>= ()&gt;: frame_system::Config {
+	</span><span class="kw">pub trait </span>Config&lt;I: <span class="lifetime">'static </span>= ()&gt;: frame_system::Config {
 		<span class="doccomment">/// The overarching event type.
 		</span><span class="kw">type </span>RuntimeEvent: From&lt;Event&lt;<span class="self">Self</span>, I&gt;&gt;
 			+ IsType&lt;&lt;<span class="self">Self </span><span class="kw">as </span>frame_system::Config&gt;::RuntimeEvent&gt;;
@@ -1830,7 +1832,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">type </span>AttributeDepositBase: Get&lt;DepositBalanceOf&lt;<span class="self">Self</span>, I&gt;&gt;;
 
 		<span class="doccomment">/// The additional funds that must be reserved for the number of bytes store in metadata,
-		/// either &quot;normal&quot; metadata or attribute metadata.
+		/// either "normal" metadata or attribute metadata.
 		</span><span class="attr">#[pallet::constant]
 		</span><span class="kw">type </span>DepositPerByte: Get&lt;DepositBalanceOf&lt;<span class="self">Self</span>, I&gt;&gt;;
 
@@ -1846,7 +1848,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="attr">#[pallet::constant]
 		</span><span class="kw">type </span>ValueLimit: Get&lt;u32&gt;;
 
-		<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+		<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 		</span><span class="doccomment">/// A set of helper functions for benchmarking.
 		</span><span class="kw">type </span>Helper: BenchmarkHelper&lt;<span class="self">Self</span>::CollectionId, <span class="self">Self</span>::ItemId&gt;;
 
@@ -1855,9 +1857,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="attr">#[pallet::storage]
-	#[pallet::storage_prefix = <span class="string">&quot;Class&quot;</span>]
+	#[pallet::storage_prefix = <span class="string">"Class"</span>]
 	</span><span class="doccomment">/// Details of a collection.
-	</span><span class="kw">pub type </span>Collection&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; = StorageMap&lt;
+	</span><span class="kw">pub type </span>Collection&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; = StorageMap&lt;
 		<span class="kw">_</span>,
 		Blake2_128Concat,
 		T::CollectionId,
@@ -1866,13 +1868,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[pallet::storage]
 	</span><span class="doccomment">/// The collection, if any, of which an account is willing to take ownership.
-	</span><span class="kw">pub type </span>OwnershipAcceptance&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; =
+	</span><span class="kw">pub type </span>OwnershipAcceptance&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; =
 		StorageMap&lt;<span class="kw">_</span>, Blake2_128Concat, T::AccountId, T::CollectionId&gt;;
 
 	<span class="attr">#[pallet::storage]
 	</span><span class="doccomment">/// The items held by any given account; set out this way so that items owned by a single
 	/// account can be enumerated.
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>Account&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; = StorageNMap&lt;
+	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>Account&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; = StorageNMap&lt;
 		<span class="kw">_</span>,
 		(
 			NMapKey&lt;Blake2_128Concat, T::AccountId&gt;, <span class="comment">// owner
@@ -1884,10 +1886,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	&gt;;
 
 	<span class="attr">#[pallet::storage]
-	#[pallet::storage_prefix = <span class="string">&quot;ClassAccount&quot;</span>]
+	#[pallet::storage_prefix = <span class="string">"ClassAccount"</span>]
 	</span><span class="doccomment">/// The collections owned by any given account; set out this way so that collections owned by
 	/// a single account can be enumerated.
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>CollectionAccount&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; = StorageDoubleMap&lt;
+	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>CollectionAccount&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; = StorageDoubleMap&lt;
 		<span class="kw">_</span>,
 		Blake2_128Concat,
 		T::AccountId,
@@ -1898,9 +1900,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	&gt;;
 
 	<span class="attr">#[pallet::storage]
-	#[pallet::storage_prefix = <span class="string">&quot;Asset&quot;</span>]
+	#[pallet::storage_prefix = <span class="string">"Asset"</span>]
 	</span><span class="doccomment">/// The items in existence and their ownership details.
-	</span><span class="kw">pub type </span>Item&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; = StorageDoubleMap&lt;
+	</span><span class="kw">pub type </span>Item&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; = StorageDoubleMap&lt;
 		<span class="kw">_</span>,
 		Blake2_128Concat,
 		T::CollectionId,
@@ -1911,9 +1913,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	&gt;;
 
 	<span class="attr">#[pallet::storage]
-	#[pallet::storage_prefix = <span class="string">&quot;ClassMetadataOf&quot;</span>]
+	#[pallet::storage_prefix = <span class="string">"ClassMetadataOf"</span>]
 	</span><span class="doccomment">/// Metadata of a collection.
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>CollectionMetadataOf&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; = StorageMap&lt;
+	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>CollectionMetadataOf&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; = StorageMap&lt;
 		<span class="kw">_</span>,
 		Blake2_128Concat,
 		T::CollectionId,
@@ -1922,9 +1924,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	&gt;;
 
 	<span class="attr">#[pallet::storage]
-	#[pallet::storage_prefix = <span class="string">&quot;InstanceMetadataOf&quot;</span>]
+	#[pallet::storage_prefix = <span class="string">"InstanceMetadataOf"</span>]
 	</span><span class="doccomment">/// Metadata of an item.
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>ItemMetadataOf&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; = StorageDoubleMap&lt;
+	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>ItemMetadataOf&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; = StorageDoubleMap&lt;
 		<span class="kw">_</span>,
 		Blake2_128Concat,
 		T::CollectionId,
@@ -1936,7 +1938,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[pallet::storage]
 	</span><span class="doccomment">/// Attributes of a collection.
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>Attribute&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; = StorageNMap&lt;
+	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>Attribute&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; = StorageNMap&lt;
 		<span class="kw">_</span>,
 		(
 			NMapKey&lt;Blake2_128Concat, T::CollectionId&gt;,
@@ -1949,7 +1951,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[pallet::storage]
 	</span><span class="doccomment">/// Price of an asset instance.
-	</span><span class="kw">pub type </span>ItemPriceOf&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; = StorageDoubleMap&lt;
+	</span><span class="kw">pub type </span>ItemPriceOf&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; = StorageDoubleMap&lt;
 		<span class="kw">_</span>,
 		Blake2_128Concat,
 		T::CollectionId,
@@ -1961,12 +1963,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[pallet::storage]
 	</span><span class="doccomment">/// Keeps track of the number of items a collection might have.
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>CollectionMaxSupply&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; =
+	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>CollectionMaxSupply&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; =
 		StorageMap&lt;<span class="kw">_</span>, Blake2_128Concat, T::CollectionId, u32, OptionQuery&gt;;
 
 	<span class="attr">#[pallet::event]
 	#[pallet::generate_deposit(<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>deposit_event)]
-	</span><span class="kw">pub enum </span>Event&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; {
+	</span><span class="kw">pub enum </span>Event&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; {
 		<span class="doccomment">/// A `collection` was created.
 		</span>Created { collection: T::CollectionId, creator: T::AccountId, owner: T::AccountId },
 		<span class="doccomment">/// A `collection` was force-created.
@@ -2114,7 +2116,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>BidTooLow,
 	}
 
-	<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; Pallet&lt;T, I&gt; {
+	<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Pallet&lt;T, I&gt; {
 		<span class="doccomment">/// Get the owner of the item, if the item exists.
 		</span><span class="kw">pub fn </span>owner(collection: T::CollectionId, item: T::ItemId) -&gt; <span class="prelude-ty">Option</span>&lt;T::AccountId&gt; {
 			Item::&lt;T, I&gt;::get(collection, item).map(|i| i.owner)
@@ -2127,7 +2129,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="attr">#[pallet::call]
-	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; Pallet&lt;T, I&gt; {
+	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Pallet&lt;T, I&gt; {
 		<span class="doccomment">/// Issue a new collection of non-fungible items from a public origin.
 		///
 		/// This new collection has no items initially and its owner is the origin.
@@ -2139,7 +2141,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		/// Parameters:
 		/// - `collection`: The identifier of the new collection. This must not be currently in use.
 		/// - `admin`: The admin of this collection. The admin is the initial address of each
-		/// member of the collection&#39;s admin team.
+		/// member of the collection's admin team.
 		///
 		/// Emits `Created` event when successful.
 		///
@@ -2353,9 +2355,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		///
 		/// NOTE: This exists as a best-effort function. Any items which are unknown or
 		/// in the case that the owner account does not have reservable funds to pay for a
-		/// deposit increase are ignored. Generally the owner isn&#39;t going to call this on items
+		/// deposit increase are ignored. Generally the owner isn't going to call this on items
 		/// whose existing deposit is less than the refreshed deposit as it would only cost them,
-		/// so it&#39;s of little consequence.
+		/// so it's of little consequence.
 		///
 		/// It will still return an error in the case that the collection is unknown of the signer
 		/// is not permitted to call it.
@@ -2663,7 +2665,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			details.approved = <span class="prelude-val">Some</span>(delegate);
 			Item::&lt;T, I&gt;::insert(<span class="kw-2">&amp;</span>collection, <span class="kw-2">&amp;</span>item, <span class="kw-2">&amp;</span>details);
 
-			<span class="kw">let </span>delegate = details.approved.expect(<span class="string">&quot;set as Some above; qed&quot;</span>);
+			<span class="kw">let </span>delegate = details.approved.expect(<span class="string">"set as Some above; qed"</span>);
 			<span class="self">Self</span>::deposit_event(Event::ApprovedTransfer {
 				collection,
 				item,
@@ -2785,7 +2787,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		/// `MetadataDepositBase + DepositPerByte * (key.len + value.len)` taking into
 		/// account any already reserved funds.
 		///
-		/// - `collection`: The identifier of the collection whose item&#39;s metadata to set.
+		/// - `collection`: The identifier of the collection whose item's metadata to set.
 		/// - `maybe_item`: The identifier of the item whose metadata to set.
 		/// - `key`: The key of the attribute.
 		/// - `value`: The value to which to set the attribute.
@@ -2848,9 +2850,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		/// Origin must be either `ForceOrigin` or Signed and the sender should be the Owner of the
 		/// `collection`.
 		///
-		/// Any deposit is freed for the collection&#39;s owner.
+		/// Any deposit is freed for the collection's owner.
 		///
-		/// - `collection`: The identifier of the collection whose item&#39;s metadata to clear.
+		/// - `collection`: The identifier of the collection whose item's metadata to clear.
 		/// - `maybe_item`: The identifier of the item whose metadata to clear.
 		/// - `key`: The key of the attribute.
 		///
@@ -2902,7 +2904,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		/// `MetadataDepositBase + DepositPerByte * data.len` taking into
 		/// account any already reserved funds.
 		///
-		/// - `collection`: The identifier of the collection whose item&#39;s metadata to set.
+		/// - `collection`: The identifier of the collection whose item's metadata to set.
 		/// - `item`: The identifier of the item whose metadata to set.
 		/// - `data`: The general information of this item. Limited in length by `StringLimit`.
 		/// - `is_frozen`: Whether the metadata should be frozen against further changes.
@@ -2965,9 +2967,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		/// Origin must be either `ForceOrigin` or Signed and the sender should be the Owner of the
 		/// `item`.
 		///
-		/// Any deposit is freed for the collection&#39;s owner.
+		/// Any deposit is freed for the collection's owner.
 		///
-		/// - `collection`: The identifier of the collection whose item&#39;s metadata to clear.
+		/// - `collection`: The identifier of the collection whose item's metadata to clear.
 		/// - `item`: The identifier of the item whose metadata to clear.
 		///
 		/// Emits `MetadataCleared`.
@@ -3074,7 +3076,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		/// Origin must be either `ForceOrigin` or `Signed` and the sender should be the Owner of
 		/// the `collection`.
 		///
-		/// Any deposit is freed for the collection&#39;s owner.
+		/// Any deposit is freed for the collection's owner.
 		///
 		/// - `collection`: The identifier of the collection whose metadata to clear.
 		///
@@ -3211,7 +3213,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="self">Self</span>::do_set_price(collection, item, origin, price, whitelisted_buyer)
 		}
 
-		<span class="doccomment">/// Allows to buy an item if it&#39;s up for sale.
+		<span class="doccomment">/// Allows to buy an item if it's up for sale.
 		///
 		/// Origin must be Signed and must not be the owner of the `item`.
 		///

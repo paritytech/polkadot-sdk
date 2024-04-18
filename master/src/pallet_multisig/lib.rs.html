@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/multisig/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/multisig/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_multisig" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_multisig" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../pallet_multisig/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -830,14 +832,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -867,8 +869,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! * `approve_as_multi` - Approve a call from a composite origin.
 //! * `cancel_as_multi` - Cancel a call from a composite origin.
 
-</span><span class="comment">// Ensure we&#39;re `no_std` when compiling for Wasm.
-</span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
+</span><span class="comment">// Ensure we're `no_std` when compiling for Wasm.
+</span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
 </span><span class="kw">mod </span>benchmarking;
 <span class="kw">pub mod </span>migrations;
@@ -899,7 +901,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">pub use </span>pallet::<span class="kw-2">*</span>;
 
 <span class="doccomment">/// The log target of this pallet.
-</span><span class="kw">pub const </span>LOG_TARGET: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;runtime::multisig&quot;</span>;
+</span><span class="kw">pub const </span>LOG_TARGET: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"runtime::multisig"</span>;
 
 <span class="comment">// syntactic sugar for logging.
 </span><span class="attr">#[macro_export]
@@ -907,7 +909,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	(<span class="macro-nonterminal">$level</span>:tt, <span class="macro-nonterminal">$patter</span>:expr $(, <span class="macro-nonterminal">$values</span>:expr)* $(,)<span class="question-mark">?</span>) =&gt; {
 		log::<span class="macro-nonterminal">$</span><span class="macro">level!</span>(
 			<span class="macro-nonterminal">target</span>: <span class="kw">crate</span>::LOG_TARGET,
-			<span class="macro">concat!</span>(<span class="string">&quot;[{:?}] ✍️ &quot;</span>, <span class="macro-nonterminal">$patter</span>), &lt;frame_system::Pallet&lt;T&gt;&gt;::block_number() $(, <span class="macro-nonterminal">$values</span>)*
+			<span class="macro">concat!</span>(<span class="string">"[{:?}] ✍️ "</span>, <span class="macro-nonterminal">$patter</span>), &lt;frame_system::Pallet&lt;T&gt;&gt;::block_number() $(, <span class="macro-nonterminal">$values</span>)*
 		)
 	};
 }
@@ -916,7 +918,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	&lt;&lt;T <span class="kw">as </span>Config&gt;::Currency <span class="kw">as </span>Currency&lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId&gt;&gt;::Balance;
 
 <span class="doccomment">/// A global extrinsic index, formed as the extrinsic index within a block, together with that
-/// block&#39;s height. This allows a transaction in which a multisig operation of a particular
+/// block's height. This allows a transaction in which a multisig operation of a particular
 /// composite was created to be uniquely identified.
 </span><span class="attr">#[derive(
 	Copy, Clone, Eq, PartialEq, Encode, Decode, Default, RuntimeDebug, TypeInfo, MaxEncodedLen,
@@ -1019,7 +1021,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>MinimumThreshold,
 		<span class="doccomment">/// Call is already approved by this signatory.
 		</span>AlreadyApproved,
-		<span class="doccomment">/// Call doesn&#39;t need any (more) approvals.
+		<span class="doccomment">/// Call doesn't need any (more) approvals.
 		</span>NoApprovalsNeeded,
 		<span class="doccomment">/// There are too few signatories in the list.
 		</span>TooFewSignatories,
@@ -1027,7 +1029,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>TooManySignatories,
 		<span class="doccomment">/// The signatories were provided out of order; they should be ordered.
 		</span>SignatoriesOutOfOrder,
-		<span class="doccomment">/// The sender was contained in the other signatories; it shouldn&#39;t be.
+		<span class="doccomment">/// The sender was contained in the other signatories; it shouldn't be.
 		</span>SenderInSignatories,
 		<span class="doccomment">/// Multisig operation not found when attempting to cancel.
 		</span>NotFound,
@@ -1327,11 +1329,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Derive a multi-account ID from the sorted list of accounts and the threshold that are
 	/// required.
 	///
-	/// NOTE: `who` must be sorted. If it is not, then you&#39;ll get the wrong answer.
+	/// NOTE: `who` must be sorted. If it is not, then you'll get the wrong answer.
 	</span><span class="kw">pub fn </span>multi_account_id(who: <span class="kw-2">&amp;</span>[T::AccountId], threshold: u16) -&gt; T::AccountId {
-		<span class="kw">let </span>entropy = (<span class="string">b&quot;modlpy/utilisuba&quot;</span>, who, threshold).using_encoded(blake2_256);
+		<span class="kw">let </span>entropy = (<span class="string">b"modlpy/utilisuba"</span>, who, threshold).using_encoded(blake2_256);
 		Decode::decode(<span class="kw-2">&amp;mut </span>TrailingZeroInput::new(entropy.as_ref()))
-			.expect(<span class="string">&quot;infinite length input; no invalid inputs for type; qed&quot;</span>)
+			.expect(<span class="string">"infinite length input; no invalid inputs for type; qed"</span>)
 	}
 
 	<span class="kw">fn </span>operate(
@@ -1351,7 +1353,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>id = <span class="self">Self</span>::multi_account_id(<span class="kw-2">&amp;</span>signatories, threshold);
 
-		<span class="comment">// Threshold &gt; 1; this means it&#39;s a multi-step operation. We extract the `call_hash`.
+		<span class="comment">// Threshold &gt; 1; this means it's a multi-step operation. We extract the `call_hash`.
 		</span><span class="kw">let </span>(call_hash, call_len, maybe_call) = <span class="kw">match </span>call_or_hash {
 			CallOrHash::Call(call) =&gt; {
 				<span class="kw">let </span>(call_hash, call_len) = call.using_encoded(|d| (blake2_256(d), d.len()));
@@ -1368,14 +1370,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="comment">// Ensure that either we have not yet signed or that it is at threshold.
 			</span><span class="kw">let </span><span class="kw-2">mut </span>approvals = m.approvals.len() <span class="kw">as </span>u16;
-			<span class="comment">// We only bother with the approval if we&#39;re below threshold.
+			<span class="comment">// We only bother with the approval if we're below threshold.
 			</span><span class="kw">let </span>maybe_pos = m.approvals.binary_search(<span class="kw-2">&amp;</span>who).err().filter(|<span class="kw">_</span>| approvals &lt; threshold);
 			<span class="comment">// Bump approvals if not yet voted and the vote is needed.
 			</span><span class="kw">if </span>maybe_pos.is_some() {
 				approvals += <span class="number">1</span>;
 			}
 
-			<span class="comment">// We only bother fetching/decoding call if we know that we&#39;re ready to execute.
+			<span class="comment">// We only bother fetching/decoding call if we know that we're ready to execute.
 			</span><span class="kw">if let </span><span class="prelude-val">Some</span>(call) = maybe_call.filter(|<span class="kw">_</span>| approvals &gt;= threshold) {
 				<span class="comment">// verify weight
 				</span><span class="macro">ensure!</span>(
@@ -1406,8 +1408,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					})
 					.into())
 			} <span class="kw">else </span>{
-				<span class="comment">// We cannot dispatch the call now; either it isn&#39;t available, or it is, but we
-				// don&#39;t have threshold approvals even with our signature.
+				<span class="comment">// We cannot dispatch the call now; either it isn't available, or it is, but we
+				// don't have threshold approvals even with our signature.
 
 				</span><span class="kw">if let </span><span class="prelude-val">Some</span>(pos) = maybe_pos {
 					<span class="comment">// Record approval.
@@ -1422,7 +1424,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						call_hash,
 					});
 				} <span class="kw">else </span>{
-					<span class="comment">// If we already approved and didn&#39;t store the Call, then this was useless and
+					<span class="comment">// If we already approved and didn't store the Call, then this was useless and
 					// we report an error.
 					</span><span class="prelude-val">Err</span>(Error::&lt;T&gt;::AlreadyApproved)<span class="question-mark">?
 				</span>}
@@ -1471,7 +1473,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="doccomment">/// Check that signatories is sorted and doesn&#39;t contain sender, then insert sender.
+	<span class="doccomment">/// Check that signatories is sorted and doesn't contain sender, then insert sender.
 	</span><span class="kw">fn </span>ensure_sorted_and_insert(
 		other_signatories: Vec&lt;T::AccountId&gt;,
 		who: T::AccountId,

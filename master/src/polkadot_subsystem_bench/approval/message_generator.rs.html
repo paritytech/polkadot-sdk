@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/subsystem-bench/src/lib/approval/message_generator.rs`."><title>message_generator.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/subsystem-bench/src/lib/approval/message_generator.rs`."><title>message_generator.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_subsystem_bench" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_subsystem_bench" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../polkadot_subsystem_bench/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -918,7 +920,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Generates messages by spawning a blocking task in the background which begins creating
 	/// the assignments/approvals and peer view changes at the begining of each block.
 	</span><span class="kw">pub fn </span>generate_messages(<span class="kw-2">mut </span><span class="self">self</span>, spawn_task_handle: <span class="kw-2">&amp;</span>SpawnTaskHandle) {
-		spawn_task_handle.spawn(<span class="string">&quot;generate-messages&quot;</span>, <span class="string">&quot;generate-messages&quot;</span>, <span class="kw">async move </span>{
+		spawn_task_handle.spawn(<span class="string">"generate-messages"</span>, <span class="string">"generate-messages"</span>, <span class="kw">async move </span>{
 			<span class="kw">for </span>block_info <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.blocks {
 				<span class="kw">let </span>assignments = <span class="self">self</span>.generate_assignments(block_info);
 
@@ -942,7 +944,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="self">self</span>.tx_messages
 					.send((block_info.hash, approvals))
 					.<span class="kw">await
-					</span>.expect(<span class="string">&quot;Should not fail&quot;</span>);
+					</span>.expect(<span class="string">"Should not fail"</span>);
 			}
 		})
 	}
@@ -970,7 +972,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		spawn_task_handle: <span class="kw-2">&amp;</span>SpawnTaskHandle,
 	) -&gt; PathBuf {
 		<span class="kw">let </span>path_name = <span class="macro">format!</span>(
-			<span class="string">&quot;{}/{}&quot;</span>,
+			<span class="string">"{}/{}"</span>,
 			options.workdir_prefix,
 			<span class="self">Self</span>::messages_fingerprint(configuration, options)
 		);
@@ -980,7 +982,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">return </span>path.to_path_buf();
 		}
 
-		<span class="macro">gum::info!</span>(<span class="string">&quot;Generate message because file does not exist&quot;</span>);
+		<span class="macro">gum::info!</span>(<span class="string">"Generate message because file does not exist"</span>);
 		<span class="kw">let </span>delta_to_first_slot_under_test = Timestamp::new(BUFFER_FOR_GENERATION_MILLIS);
 		<span class="kw">let </span>initial_slot = Slot::from_timestamp(
 			(<span class="kw-2">*</span>Timestamp::current() - <span class="kw-2">*</span>delta_to_first_slot_under_test).into(),
@@ -995,7 +997,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			initial_slot,
 		);
 
-		<span class="macro">gum::info!</span>(target: LOG_TARGET, <span class="string">&quot;Generate messages&quot;</span>);
+		<span class="macro">gum::info!</span>(target: LOG_TARGET, <span class="string">"Generate messages"</span>);
 		<span class="kw">let </span>topology = generate_topology(test_authorities);
 
 		<span class="kw">let </span>random_samplings = random_samplings_to_node(
@@ -1041,7 +1043,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="kw">let </span>block_info = blocks
 							.iter()
 							.find(|val| val.hash == block_hash)
-							.expect(<span class="string">&quot;Should find blocks&quot;</span>);
+							.expect(<span class="string">"Should find blocks"</span>);
 						<span class="kw">let </span>tick_to_send = tranche_to_tick(
 							SLOT_DURATION_MILLIS,
 							block_info.slot,
@@ -1059,14 +1061,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>all_messages = all_messages
 			.into_iter()
 			.flat_map(|(<span class="kw">_</span>, <span class="kw-2">mut </span>messages)| {
-				<span class="comment">// Shuffle the messages inside the same tick, so that we don&#39;t priorities messages
+				<span class="comment">// Shuffle the messages inside the same tick, so that we don't priorities messages
 				// for older nodes. we try to simulate the same behaviour as in real world.
 				</span>messages.shuffle(<span class="kw-2">&amp;mut </span>rand_chacha);
 				messages
 			})
 			.collect_vec();
 
-		<span class="macro">gum::info!</span>(<span class="string">&quot;Generated a number of {:} unique messages&quot;</span>, all_messages.len());
+		<span class="macro">gum::info!</span>(<span class="string">"Generated a number of {:} unique messages"</span>, all_messages.len());
 
 		<span class="kw">let </span>generated_state = GeneratedState { all_messages: <span class="prelude-val">Some</span>(all_messages), initial_slot };
 
@@ -1079,7 +1081,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		messages_file
 			.write_all(<span class="kw-2">&amp;</span>generated_state.encode())
-			.expect(<span class="string">&quot;Could not update message file&quot;</span>);
+			.expect(<span class="string">"Could not update message file"</span>);
 		path.to_path_buf()
 	}
 
@@ -1098,7 +1100,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				{
 					(candidate.hash(), core_index, group_index)
 				} <span class="kw">else </span>{
-					<span class="macro">todo!</span>(<span class="string">&quot;Variant is never created in this benchmark&quot;</span>)
+					<span class="macro">todo!</span>(<span class="string">"Variant is never created in this benchmark"</span>)
 				}
 			})
 			.collect_vec();
@@ -1131,7 +1133,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				ASSIGNMENT_KEY_TYPE_ID,
 				<span class="prelude-val">Some</span>(<span class="self">self</span>.test_authorities.key_seeds[<span class="self">self</span>.validator_index.<span class="number">0 </span><span class="kw">as </span>usize].as_str()),
 			)
-			.expect(<span class="string">&quot;should not fail&quot;</span>);
+			.expect(<span class="string">"should not fail"</span>);
 		<span class="kw">let </span>assignments = compute_assignments(
 			<span class="kw-2">&amp;</span>store,
 			block_info.relay_vrf_story.clone(),
@@ -1182,7 +1184,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							<span class="kw">if let </span>CandidateEvent::CandidateIncluded(<span class="kw">_</span>, <span class="kw">_</span>, core, <span class="kw">_</span>) = candidate {
 								assigned_cores.contains(core)
 							} <span class="kw">else </span>{
-								<span class="macro">panic!</span>(<span class="string">&quot;Should not happen&quot;</span>);
+								<span class="macro">panic!</span>(<span class="string">"Should not happen"</span>);
 							}
 						})
 						.map(|(index, <span class="kw">_</span>)| index <span class="kw">as </span>u32)
@@ -1278,7 +1280,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	max(
 		<span class="number">1</span>,
 		Normal::new(coalesce_mean, coalesce_std_dev)
-			.expect(<span class="string">&quot;normal distribution parameters are good&quot;</span>)
+			.expect(<span class="string">"normal distribution parameters are good"</span>)
 			.sample(rand_chacha)
 			.round() <span class="kw">as </span>i32,
 	) <span class="kw">as </span>usize
@@ -1351,13 +1353,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							assignment: message.clone(),
 						});
 					} <span class="kw">else </span>{
-						<span class="macro">todo!</span>(<span class="string">&quot;Other enum variants are not used in this benchmark&quot;</span>);
+						<span class="macro">todo!</span>(<span class="string">"Other enum variants are not used in this benchmark"</span>);
 					}
 				}
 				approvals_to_create
 			},
 			<span class="kw">_ </span>=&gt; {
-				<span class="macro">todo!</span>(<span class="string">&quot;Other enum variants are not used in this benchmark&quot;</span>);
+				<span class="macro">todo!</span>(<span class="string">"Other enum variants are not used in this benchmark"</span>);
 			},
 		})
 		.collect_vec();

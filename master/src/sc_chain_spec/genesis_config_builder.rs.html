@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/chain-spec/src/genesis_config_builder.rs`."><title>genesis_config_builder.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/chain-spec/src/genesis_config_builder.rs`."><title>genesis_config_builder.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_chain_spec" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_chain_spec" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sc_chain_spec/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -435,18 +437,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// A utility that facilitates calling the GenesisBuilder API from the runtime wasm code blob.
 ///
-/// `EHF` type allows to specify the extended host function required for building runtime&#39;s genesis
+/// `EHF` type allows to specify the extended host function required for building runtime's genesis
 /// config. The type will be combined with default `sp_io::SubstrateHostFunctions`.
-</span><span class="kw">pub struct </span>GenesisConfigBuilderRuntimeCaller&lt;<span class="lifetime">&#39;a</span>, EHF = ()&gt;
+</span><span class="kw">pub struct </span>GenesisConfigBuilderRuntimeCaller&lt;<span class="lifetime">'a</span>, EHF = ()&gt;
 <span class="kw">where
 	</span>EHF: HostFunctions,
 {
-	code: Cow&lt;<span class="lifetime">&#39;a</span>, [u8]&gt;,
+	code: Cow&lt;<span class="lifetime">'a</span>, [u8]&gt;,
 	code_hash: Vec&lt;u8&gt;,
 	executor: WasmExecutor&lt;(sp_io::SubstrateHostFunctions, EHF)&gt;,
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, EHF&gt; FetchRuntimeCode <span class="kw">for </span>GenesisConfigBuilderRuntimeCaller&lt;<span class="lifetime">&#39;a</span>, EHF&gt;
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, EHF&gt; FetchRuntimeCode <span class="kw">for </span>GenesisConfigBuilderRuntimeCaller&lt;<span class="lifetime">'a</span>, EHF&gt;
 <span class="kw">where
 	</span>EHF: HostFunctions,
 {
@@ -455,14 +457,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, EHF&gt; GenesisConfigBuilderRuntimeCaller&lt;<span class="lifetime">&#39;a</span>, EHF&gt;
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, EHF&gt; GenesisConfigBuilderRuntimeCaller&lt;<span class="lifetime">'a</span>, EHF&gt;
 <span class="kw">where
 	</span>EHF: HostFunctions,
 {
 	<span class="doccomment">/// Creates new instance using the provided code blob.
 	///
 	/// This code is later referred to as `runtime`.
-	</span><span class="kw">pub fn </span>new(code: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8]) -&gt; <span class="self">Self </span>{
+	</span><span class="kw">pub fn </span>new(code: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8]) -&gt; <span class="self">Self </span>{
 		GenesisConfigBuilderRuntimeCaller {
 			code: code.into(),
 			code_hash: sp_crypto_hashing::blake2_256(code).to_vec(),
@@ -500,16 +502,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub fn </span>get_named_preset(<span class="kw-2">&amp;</span><span class="self">self</span>, id: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>String&gt;) -&gt; core::result::Result&lt;Value, String&gt; {
 		<span class="kw">let </span><span class="kw-2">mut </span>t = BasicExternalities::new_empty();
 		<span class="kw">let </span>call_result = <span class="self">self
-			</span>.call(<span class="kw-2">&amp;mut </span>t, <span class="string">&quot;GenesisBuilder_get_preset&quot;</span>, <span class="kw-2">&amp;</span>id.encode())
-			.map_err(|e| <span class="macro">format!</span>(<span class="string">&quot;wasm call error {e}&quot;</span>))<span class="question-mark">?</span>;
+			</span>.call(<span class="kw-2">&amp;mut </span>t, <span class="string">"GenesisBuilder_get_preset"</span>, <span class="kw-2">&amp;</span>id.encode())
+			.map_err(|e| <span class="macro">format!</span>(<span class="string">"wasm call error {e}"</span>))<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>named_preset = <span class="prelude-ty">Option</span>::&lt;Vec&lt;u8&gt;&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>call_result[..])
-			.map_err(|e| <span class="macro">format!</span>(<span class="string">&quot;scale codec error: {e}&quot;</span>))<span class="question-mark">?</span>;
+			.map_err(|e| <span class="macro">format!</span>(<span class="string">"scale codec error: {e}"</span>))<span class="question-mark">?</span>;
 
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(named_preset) = named_preset {
-			<span class="prelude-val">Ok</span>(from_slice(<span class="kw-2">&amp;</span>named_preset[..]).expect(<span class="string">&quot;returned value is json. qed.&quot;</span>))
+			<span class="prelude-val">Ok</span>(from_slice(<span class="kw-2">&amp;</span>named_preset[..]).expect(<span class="string">"returned value is json. qed."</span>))
 		} <span class="kw">else </span>{
-			<span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">&quot;The preset with name {id:?} is not available.&quot;</span>))
+			<span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">"The preset with name {id:?} is not available."</span>))
 		}
 	}
 
@@ -518,15 +520,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span><span class="kw-2">mut </span>ext = BasicExternalities::new_empty();
 
 		<span class="kw">let </span>json_pretty_str = serde_json::to_string_pretty(<span class="kw-2">&amp;</span>config)
-			.map_err(|e| <span class="macro">format!</span>(<span class="string">&quot;json to string failed: {e}&quot;</span>))<span class="question-mark">?</span>;
+			.map_err(|e| <span class="macro">format!</span>(<span class="string">"json to string failed: {e}"</span>))<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>call_result = <span class="self">self
-			</span>.call(<span class="kw-2">&amp;mut </span>ext, <span class="string">&quot;GenesisBuilder_build_state&quot;</span>, <span class="kw-2">&amp;</span>json_pretty_str.encode())
-			.map_err(|e| <span class="macro">format!</span>(<span class="string">&quot;wasm call error {e}&quot;</span>))<span class="question-mark">?</span>;
+			</span>.call(<span class="kw-2">&amp;mut </span>ext, <span class="string">"GenesisBuilder_build_state"</span>, <span class="kw-2">&amp;</span>json_pretty_str.encode())
+			.map_err(|e| <span class="macro">format!</span>(<span class="string">"wasm call error {e}"</span>))<span class="question-mark">?</span>;
 
 		BuildResult::decode(<span class="kw-2">&amp;mut &amp;</span>call_result[..])
-			.map_err(|e| <span class="macro">format!</span>(<span class="string">&quot;scale codec error: {e}&quot;</span>))<span class="question-mark">?
-			</span>.map_err(|e| <span class="macro">format!</span>(<span class="string">&quot;{e} for blob:\n{}&quot;</span>, json_pretty_str))<span class="question-mark">?</span>;
+			.map_err(|e| <span class="macro">format!</span>(<span class="string">"scale codec error: {e}"</span>))<span class="question-mark">?
+			</span>.map_err(|e| <span class="macro">format!</span>(<span class="string">"{e} for blob:\n{}"</span>, json_pretty_str))<span class="question-mark">?</span>;
 
 		<span class="prelude-val">Ok</span>(ext.into_storages())
 	}
@@ -567,11 +569,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">pub fn </span>preset_names(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; core::result::Result&lt;Vec&lt;PresetId&gt;, String&gt; {
 		<span class="kw">let </span><span class="kw-2">mut </span>t = BasicExternalities::new_empty();
 		<span class="kw">let </span>call_result = <span class="self">self
-			</span>.call(<span class="kw-2">&amp;mut </span>t, <span class="string">&quot;GenesisBuilder_preset_names&quot;</span>, <span class="kw-2">&amp;</span><span class="macro">vec!</span>[])
-			.map_err(|e| <span class="macro">format!</span>(<span class="string">&quot;wasm call error {e}&quot;</span>))<span class="question-mark">?</span>;
+			</span>.call(<span class="kw-2">&amp;mut </span>t, <span class="string">"GenesisBuilder_preset_names"</span>, <span class="kw-2">&amp;</span><span class="macro">vec!</span>[])
+			.map_err(|e| <span class="macro">format!</span>(<span class="string">"wasm call error {e}"</span>))<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>preset_names = Vec::&lt;PresetId&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>call_result[..])
-			.map_err(|e| <span class="macro">format!</span>(<span class="string">&quot;scale codec error: {e}&quot;</span>))<span class="question-mark">?</span>;
+			.map_err(|e| <span class="macro">format!</span>(<span class="string">"scale codec error: {e}"</span>))<span class="question-mark">?</span>;
 
 		<span class="prelude-val">Ok</span>(preset_names)
 	}
@@ -591,7 +593,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			&lt;GenesisConfigBuilderRuntimeCaller&gt;::new(substrate_test_runtime::wasm_binary_unwrap())
 				.preset_names()
 				.unwrap();
-		<span class="macro">assert_eq!</span>(presets, <span class="macro">vec!</span>[PresetId::from(<span class="string">&quot;foobar&quot;</span>), PresetId::from(<span class="string">&quot;staging&quot;</span>),]);
+		<span class="macro">assert_eq!</span>(presets, <span class="macro">vec!</span>[PresetId::from(<span class="string">"foobar"</span>), PresetId::from(<span class="string">"staging"</span>),]);
 	}
 
 	<span class="attr">#[test]
@@ -600,7 +602,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			&lt;GenesisConfigBuilderRuntimeCaller&gt;::new(substrate_test_runtime::wasm_binary_unwrap())
 				.get_default_config()
 				.unwrap();
-		<span class="kw">let </span>expected = <span class="string">r#&quot;{&quot;babe&quot;: {&quot;authorities&quot;: [], &quot;epochConfig&quot;: {&quot;allowed_slots&quot;: &quot;PrimaryAndSecondaryVRFSlots&quot;, &quot;c&quot;: [1, 4]}}, &quot;balances&quot;: {&quot;balances&quot;: []}, &quot;substrateTest&quot;: {&quot;authorities&quot;: []}, &quot;system&quot;: {}}&quot;#</span>;
+		<span class="kw">let </span>expected = <span class="string">r#"{"babe": {"authorities": [], "epochConfig": {"allowed_slots": "PrimaryAndSecondaryVRFSlots", "c": [1, 4]}}, "balances": {"balances": []}, "substrateTest": {"authorities": []}, "system": {}}"#</span>;
 		<span class="macro">assert_eq!</span>(from_str::&lt;Value&gt;(expected).unwrap(), config);
 	}
 
@@ -609,22 +611,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		sp_tracing::try_init_simple();
 		<span class="kw">let </span>config =
 			&lt;GenesisConfigBuilderRuntimeCaller&gt;::new(substrate_test_runtime::wasm_binary_unwrap())
-				.get_named_preset(<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="string">&quot;foobar&quot;</span>.to_string()))
+				.get_named_preset(<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="string">"foobar"</span>.to_string()))
 				.unwrap();
-		<span class="kw">let </span>expected = <span class="string">r#&quot;{&quot;foo&quot;:&quot;bar&quot;}&quot;#</span>;
+		<span class="kw">let </span>expected = <span class="string">r#"{"foo":"bar"}"#</span>;
 		<span class="macro">assert_eq!</span>(from_str::&lt;Value&gt;(expected).unwrap(), config);
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>get_storage_for_patch_works() {
 		<span class="kw">let </span>patch = <span class="macro">json!</span>({
-			<span class="string">&quot;babe&quot;</span>: {
-				<span class="string">&quot;epochConfig&quot;</span>: {
-					<span class="string">&quot;c&quot;</span>: [
+			<span class="string">"babe"</span>: {
+				<span class="string">"epochConfig"</span>: {
+					<span class="string">"c"</span>: [
 						<span class="number">69</span>,
 						<span class="number">696
 					</span>],
-					<span class="string">&quot;allowed_slots&quot;</span>: <span class="string">&quot;PrimaryAndSecondaryPlainSlots&quot;
+					<span class="string">"allowed_slots"</span>: <span class="string">"PrimaryAndSecondaryPlainSlots"
 				</span>}
 			},
 		});
@@ -639,7 +641,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.top
 			.get(
 				<span class="kw-2">&amp;</span>array_bytes::hex2bytes(
-					<span class="string">&quot;1cb6f36e027abb2091cfb5110ab5087fdc6b171b77304263c292cc3ea5ed31ef&quot;</span>,
+					<span class="string">"1cb6f36e027abb2091cfb5110ab5087fdc6b171b77304263c292cc3ea5ed31ef"</span>,
 				)
 				.unwrap(),
 			)

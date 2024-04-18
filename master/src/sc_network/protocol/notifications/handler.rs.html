@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/network/src/protocol/notifications/handler.rs`."><title>handler.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/network/src/protocol/notifications/handler.rs`."><title>handler.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="sc_network" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="sc_network" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../../sc_network/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1848,14 +1850,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!
 //! Each protocol in the [`NotifsHandler`] can spontaneously switch between these states:
 //!
-//! - &quot;Closed substream&quot; to &quot;Closed substream but open desired&quot;. When that happens, a
+//! - "Closed substream" to "Closed substream but open desired". When that happens, a
 //! [`NotifsHandlerOut::OpenDesiredByRemote`] is emitted.
-//! - &quot;Closed substream but open desired&quot; to &quot;Closed substream&quot; (i.e. the remote has cancelled
+//! - "Closed substream but open desired" to "Closed substream" (i.e. the remote has cancelled
 //! their request). When that happens, a [`NotifsHandlerOut::CloseDesired`] is emitted.
-//! - &quot;Open substream&quot; to &quot;Open substream but close desired&quot;. When that happens, a
+//! - "Open substream" to "Open substream but close desired". When that happens, a
 //! [`NotifsHandlerOut::CloseDesired`] is emitted.
 //!
-//! The user can instruct a protocol in the `NotifsHandler` to switch from &quot;closed&quot; to &quot;open&quot; or
+//! The user can instruct a protocol in the `NotifsHandler` to switch from "closed" to "open" or
 //! vice-versa by sending either a [`NotifsHandlerIn::Open`] or a [`NotifsHandlerIn::Close`]. The
 //! `NotifsHandler` must answer with [`NotifsHandlerOut::OpenResultOk`] or
 //! [`NotifsHandlerOut::OpenResultErr`], or with [`NotifsHandlerOut::CloseResult`].
@@ -1865,7 +1867,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! the `NotifsHandler` is now (or remains) in the closed state.
 //!
 //! When a [`NotifsHandlerOut::OpenDesiredByRemote`] is emitted, the user should always send back
-//! either a [`NotifsHandlerIn::Open`] or a [`NotifsHandlerIn::Close`].If this isn&#39;t done, the
+//! either a [`NotifsHandlerIn::Open`] or a [`NotifsHandlerIn::Close`].If this isn't done, the
 //! remote will be left in a pending state.
 //!
 //! It is illegal to send a [`NotifsHandlerIn::Open`] before a previously-emitted
@@ -1981,7 +1983,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub struct </span>ProtocolConfig {
 	<span class="doccomment">/// Name of the protocol.
 	</span><span class="kw">pub </span>name: ProtocolName,
-	<span class="doccomment">/// Names of the protocol to use if the main one isn&#39;t available.
+	<span class="doccomment">/// Names of the protocol to use if the main one isn't available.
 	</span><span class="kw">pub </span>fallback_names: Vec&lt;ProtocolName&gt;,
 	<span class="doccomment">/// Handshake of the protocol. The `RwLock` is locked every time a new substream is opened.
 	</span><span class="kw">pub </span>handshake: Arc&lt;RwLock&lt;Vec&lt;u8&gt;&gt;&gt;,
@@ -2003,23 +2005,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// See the module-level documentation to learn about the meaning of these variants.
 </span><span class="kw">enum </span>State {
-	<span class="doccomment">/// Protocol is in the &quot;Closed&quot; state.
+	<span class="doccomment">/// Protocol is in the "Closed" state.
 	</span>Closed {
 		<span class="doccomment">/// True if an outgoing substream is still in the process of being opened.
 		</span>pending_opening: bool,
 	},
 
-	<span class="doccomment">/// Protocol is in the &quot;Closed&quot; state. A [`NotifsHandlerOut::OpenDesiredByRemote`] has been
+	<span class="doccomment">/// Protocol is in the "Closed" state. A [`NotifsHandlerOut::OpenDesiredByRemote`] has been
 	/// emitted.
 	</span>OpenDesiredByRemote {
-		<span class="doccomment">/// Substream opened by the remote and that hasn&#39;t been accepted/rejected yet.
+		<span class="doccomment">/// Substream opened by the remote and that hasn't been accepted/rejected yet.
 		</span>in_substream: NotificationsInSubstream&lt;NegotiatedSubstream&gt;,
 
 		<span class="doccomment">/// See [`State::Closed::pending_opening`].
 		</span>pending_opening: bool,
 	},
 
-	<span class="doccomment">/// Protocol is in the &quot;Closed&quot; state, but has received a [`NotifsHandlerIn::Open`] and is
+	<span class="doccomment">/// Protocol is in the "Closed" state, but has received a [`NotifsHandlerIn::Open`] and is
 	/// consequently trying to open the various notifications substreams.
 	///
 	/// A [`NotifsHandlerOut::OpenResultOk`] or a [`NotifsHandlerOut::OpenResultErr`] event must
@@ -2031,7 +2033,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>inbound: bool,
 	},
 
-	<span class="doccomment">/// Protocol is in the &quot;Open&quot; state.
+	<span class="doccomment">/// Protocol is in the "Open" state.
 	</span>Open {
 		<span class="doccomment">/// Contains the two `Receiver`s connected to the [`NotificationsSink`] that has been
 		/// sent out. The notifications to send out can be pulled from this receivers.
@@ -2093,12 +2095,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>OpenResultOk {
 		<span class="doccomment">/// Index of the protocol in the list of protocols passed at initialization.
 		</span>protocol_index: usize,
-		<span class="doccomment">/// Name of the protocol that was actually negotiated, if the default one wasn&#39;t available.
+		<span class="doccomment">/// Name of the protocol that was actually negotiated, if the default one wasn't available.
 		</span>negotiated_fallback: <span class="prelude-ty">Option</span>&lt;ProtocolName&gt;,
 		<span class="doccomment">/// The endpoint of the connection that is open for custom protocols.
 		</span>endpoint: ConnectedPoint,
 		<span class="doccomment">/// Handshake that was sent to us.
-		/// This is normally a &quot;Status&quot; message, but this out of the concern of this code.
+		/// This is normally a "Status" message, but this out of the concern of this code.
 		</span>received_handshake: Vec&lt;u8&gt;,
 		<span class="doccomment">/// How notifications can be sent to this node.
 		</span>notifications_sink: NotificationsSink,
@@ -2122,7 +2124,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// The remote would like the substreams to be open. Send a [`NotifsHandlerIn::Open`] or a
 	/// [`NotifsHandlerIn::Close`] in order to either accept or deny this request. If a
 	/// [`NotifsHandlerIn::Open`] or [`NotifsHandlerIn::Close`] has been sent before and has not
-	/// yet been acknowledged by a matching [`NotifsHandlerOut`], then you don&#39;t need to a send
+	/// yet been acknowledged by a matching [`NotifsHandlerOut`], then you don't need to a send
 	/// another [`NotifsHandlerIn`].
 	</span>OpenDesiredByRemote {
 		<span class="doccomment">/// Index of the protocol in the list of protocols passed at initialization.
@@ -2133,7 +2135,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// The remote would like the substreams to be closed. Send a [`NotifsHandlerIn::Close`] in
 	/// order to close them. If a [`NotifsHandlerIn::Close`] has been sent before and has not yet
-	/// been acknowledged by a [`NotifsHandlerOut::CloseResult`], then you don&#39;t need to a send
+	/// been acknowledged by a [`NotifsHandlerOut::CloseResult`], then you don't need to a send
 	/// another one.
 	</span>CloseDesired {
 		<span class="doccomment">/// Index of the protocol in the list of protocols passed at initialization.
@@ -2256,7 +2258,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// The protocol name is expected to be checked ahead of calling this method. It is a logic
 	/// error to send a notification using an unknown protocol.
-	</span><span class="kw">pub async fn </span>reserve_notification(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Ready&lt;<span class="lifetime">&#39;_</span>&gt;, ()&gt; {
+	</span><span class="kw">pub async fn </span>reserve_notification(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Ready&lt;<span class="lifetime">'_</span>&gt;, ()&gt; {
 		<span class="kw">let </span><span class="kw-2">mut </span>lock = <span class="self">self</span>.inner.async_channel.lock().<span class="kw">await</span>;
 
 		<span class="kw">let </span>poll_ready = future::poll_fn(|cx| lock.poll_ready(cx)).<span class="kw">await</span>;
@@ -2271,12 +2273,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Notification slot is reserved and the notification can actually be sent.
 </span><span class="attr">#[must_use]
 #[derive(Debug)]
-</span><span class="kw">pub struct </span>Ready&lt;<span class="lifetime">&#39;a</span>&gt; {
+</span><span class="kw">pub struct </span>Ready&lt;<span class="lifetime">'a</span>&gt; {
 	<span class="doccomment">/// Guarded channel. The channel inside is guaranteed to not be full.
-	</span>lock: FuturesMutexGuard&lt;<span class="lifetime">&#39;a</span>, mpsc::Sender&lt;NotificationsSinkMessage&gt;&gt;,
+	</span>lock: FuturesMutexGuard&lt;<span class="lifetime">'a</span>, mpsc::Sender&lt;NotificationsSinkMessage&gt;&gt;,
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; Ready&lt;<span class="lifetime">&#39;a</span>&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; Ready&lt;<span class="lifetime">'a</span>&gt; {
 	<span class="doccomment">/// Consumes this slots reservation and actually queues the notification.
 	///
 	/// Returns an error if the substream has been closed.
@@ -2290,7 +2292,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Error specific to the collection of protocols.
 </span><span class="attr">#[derive(Debug, thiserror::Error)]
 </span><span class="kw">pub enum </span>NotifsHandlerError {
-	<span class="attr">#[error(<span class="string">&quot;Channel of synchronous notifications is full.&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Channel of synchronous notifications is full."</span>)]
 	</span>SyncNotificationsClogged,
 }
 
@@ -2317,7 +2319,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>on_connection_event(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		event: ConnectionEvent&lt;
-			<span class="lifetime">&#39;_</span>,
+			<span class="lifetime">'_</span>,
 			<span class="self">Self</span>::InboundProtocol,
 			<span class="self">Self</span>::OutboundProtocol,
 			<span class="self">Self</span>::InboundOpenInfo,
@@ -2346,10 +2348,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					State::OpenDesiredByRemote { .. } =&gt; {
 						<span class="comment">// If a substream already exists, silently drop the new one.
 						// Note that we drop the substream, which will send an equivalent to a
-						// TCP &quot;RST&quot; to the remote and force-close the substream. It might
+						// TCP "RST" to the remote and force-close the substream. It might
 						// seem like an unclean way to get rid of a substream. However, keep
 						// in mind that it is invalid for the remote to open multiple such
-						// substreams, and therefore sending a &quot;RST&quot; is the most correct thing
+						// substreams, and therefore sending a "RST" is the most correct thing
 						// to do.
 						</span><span class="kw">return
 					</span>},
@@ -2378,7 +2380,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="kw-2">*</span>pending_opening = <span class="bool-val">false</span>;
 					},
 					State::Open { .. } =&gt; {
-						<span class="macro">error!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;☎️ State mismatch in notifications handler&quot;</span>);
+						<span class="macro">error!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"☎️ State mismatch in notifications handler"</span>);
 						<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
 					},
 					State::Opening { <span class="kw-2">ref mut </span>in_substream, inbound } =&gt; {
@@ -2499,7 +2501,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					State::Opening { .. } | State::Open { .. } =&gt; {
 						<span class="comment">// As documented, it is forbidden to send an `Open` while there is already
 						// one in the fly.
-						</span><span class="macro">error!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;opening already-opened handler&quot;</span>);
+						</span><span class="macro">error!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"opening already-opened handler"</span>);
 						<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
 					},
 				}
@@ -2568,7 +2570,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">loop </span>{
 					<span class="comment">// Only proceed with `out_substream.poll_ready_unpin` if there is an element
 					// available in `notifications_sink_rx`. This avoids waking up the task when
-					// a substream is ready to send if there isn&#39;t actually something to send.
+					// a substream is ready to send if there isn't actually something to send.
 					</span><span class="kw">match </span>Pin::new(<span class="kw-2">&amp;mut *</span>notifications_sink_rx).as_mut().poll_peek(cx) {
 						Poll::Ready(<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>NotificationsSinkMessage::ForceClose)) =&gt;
 							<span class="kw">return </span>Poll::Ready(ConnectionHandlerEvent::Close(
@@ -2780,7 +2782,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					Poll::Ready(<span class="prelude-val">Some</span>(message)),
 				Poll::Pending =&gt; Poll::Ready(<span class="prelude-val">None</span>),
 				Poll::Ready(<span class="prelude-val">Some</span>(NotificationsSinkMessage::ForceClose)) | Poll::Ready(<span class="prelude-val">None</span>) =&gt; {
-					<span class="macro">panic!</span>(<span class="string">&quot;sink closed&quot;</span>)
+					<span class="macro">panic!</span>(<span class="string">"sink closed"</span>)
 				},
 			})
 			.<span class="kw">await
@@ -2810,7 +2812,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>socket1 = SubstreamBox::new(socket1);
 			<span class="kw">let </span>socket2 = SubstreamBox::new(socket2);
 
-			<span class="kw">let </span>protos = <span class="macro">vec!</span>[<span class="string">b&quot;/echo/1.0.0&quot;</span>, <span class="string">b&quot;/echo/2.5.0&quot;</span>];
+			<span class="kw">let </span>protos = <span class="macro">vec!</span>[<span class="string">b"/echo/1.0.0"</span>, <span class="string">b"/echo/2.5.0"</span>];
 			<span class="kw">let </span>(res1, res2) = <span class="macro">tokio::join!</span>(
 				dialer_select_proto(socket1, protos.clone(), Version::V1),
 				listener_select_proto(socket2, protos),
@@ -2821,9 +2823,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">impl </span>AsyncWrite <span class="kw">for </span>MockSubstream {
-		<span class="kw">fn </span>poll_write&lt;<span class="lifetime">&#39;a</span>&gt;(
+		<span class="kw">fn </span>poll_write&lt;<span class="lifetime">'a</span>&gt;(
 			<span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;,
-			_cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;a</span>&gt;,
+			_cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">'a</span>&gt;,
 			buf: <span class="kw-2">&amp;</span>[u8],
 		) -&gt; Poll&lt;<span class="prelude-ty">Result</span>&lt;usize, Error&gt;&gt; {
 			<span class="kw">match </span><span class="self">self</span>.tx.try_send(buf.to_vec()) {
@@ -2832,27 +2834,27 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			}
 		}
 
-		<span class="kw">fn </span>poll_flush&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, _cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;a</span>&gt;) -&gt; Poll&lt;<span class="prelude-ty">Result</span>&lt;(), Error&gt;&gt; {
+		<span class="kw">fn </span>poll_flush&lt;<span class="lifetime">'a</span>&gt;(<span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, _cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">'a</span>&gt;) -&gt; Poll&lt;<span class="prelude-ty">Result</span>&lt;(), Error&gt;&gt; {
 			Poll::Ready(<span class="prelude-val">Ok</span>(()))
 		}
 
-		<span class="kw">fn </span>poll_close&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, _cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;a</span>&gt;) -&gt; Poll&lt;<span class="prelude-ty">Result</span>&lt;(), Error&gt;&gt; {
+		<span class="kw">fn </span>poll_close&lt;<span class="lifetime">'a</span>&gt;(<span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, _cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">'a</span>&gt;) -&gt; Poll&lt;<span class="prelude-ty">Result</span>&lt;(), Error&gt;&gt; {
 			Poll::Ready(<span class="prelude-val">Ok</span>(()))
 		}
 
-		<span class="kw">fn </span>poll_write_vectored&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>&gt;(
+		<span class="kw">fn </span>poll_write_vectored&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>&gt;(
 			<span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;,
-			_cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;a</span>&gt;,
-			_bufs: <span class="kw-2">&amp;</span>[IoSlice&lt;<span class="lifetime">&#39;b</span>&gt;],
+			_cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">'a</span>&gt;,
+			_bufs: <span class="kw-2">&amp;</span>[IoSlice&lt;<span class="lifetime">'b</span>&gt;],
 		) -&gt; Poll&lt;<span class="prelude-ty">Result</span>&lt;usize, Error&gt;&gt; {
 			<span class="macro">unimplemented!</span>();
 		}
 	}
 
 	<span class="kw">impl </span>AsyncRead <span class="kw">for </span>MockSubstream {
-		<span class="kw">fn </span>poll_read&lt;<span class="lifetime">&#39;a</span>&gt;(
+		<span class="kw">fn </span>poll_read&lt;<span class="lifetime">'a</span>&gt;(
 			<span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;,
-			cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;a</span>&gt;,
+			cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">'a</span>&gt;,
 			buf: <span class="kw-2">&amp;mut </span>[u8],
 		) -&gt; Poll&lt;<span class="prelude-ty">Result</span>&lt;usize, Error&gt;&gt; {
 			<span class="kw">match </span><span class="self">self</span>.rx.poll_recv(cx) {
@@ -2873,10 +2875,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			Poll::Pending
 		}
 
-		<span class="kw">fn </span>poll_read_vectored&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>&gt;(
+		<span class="kw">fn </span>poll_read_vectored&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>&gt;(
 			<span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;,
-			_cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;a</span>&gt;,
-			_bufs: <span class="kw-2">&amp;mut </span>[IoSliceMut&lt;<span class="lifetime">&#39;b</span>&gt;],
+			_cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">'a</span>&gt;,
+			_bufs: <span class="kw-2">&amp;mut </span>[IoSliceMut&lt;<span class="lifetime">'b</span>&gt;],
 		) -&gt; Poll&lt;<span class="prelude-ty">Result</span>&lt;usize, Error&gt;&gt; {
 			<span class="macro">unimplemented!</span>();
 		}
@@ -2886,12 +2888,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>notifs_handler() -&gt; NotifsHandler {
 		<span class="kw">let </span>proto = Protocol {
 			config: ProtocolConfig {
-				name: <span class="string">&quot;/foo&quot;</span>.into(),
+				name: <span class="string">"/foo"</span>.into(),
 				fallback_names: <span class="macro">vec!</span>[],
-				handshake: Arc::new(RwLock::new(<span class="string">b&quot;hello, world&quot;</span>.to_vec())),
+				handshake: Arc::new(RwLock::new(<span class="string">b"hello, world"</span>.to_vec())),
 				max_notification_size: u64::MAX,
 			},
-			in_upgrade: NotificationsIn::new(<span class="string">&quot;/foo&quot;</span>, Vec::new(), u64::MAX),
+			in_upgrade: NotificationsIn::new(<span class="string">"/foo"</span>, Vec::new(), u64::MAX),
 			state: State::Closed { pending_opening: <span class="bool-val">false </span>},
 		};
 
@@ -2918,7 +2920,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		codec.set_max_len(usize::MAX);
 
 		<span class="kw">let </span>notif_in = NotificationsInOpen {
-			handshake: <span class="string">b&quot;hello, world&quot;</span>.to_vec(),
+			handshake: <span class="string">b"hello, world"</span>.to_vec(),
 			negotiated_fallback: <span class="prelude-val">None</span>,
 			substream: NotificationsInSubstream::new(
 				Framed::new(io, codec),
@@ -2945,7 +2947,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		codec.set_max_len(usize::MAX);
 
 		<span class="kw">let </span>notif_in = NotificationsInOpen {
-			handshake: <span class="string">b&quot;hello, world&quot;</span>.to_vec(),
+			handshake: <span class="string">b"hello, world"</span>.to_vec(),
 			negotiated_fallback: <span class="prelude-val">None</span>,
 			substream: NotificationsInSubstream::new(
 				Framed::new(io, codec),
@@ -2978,7 +2980,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		codec.set_max_len(usize::MAX);
 
 		<span class="kw">let </span>notif_in = NotificationsInOpen {
-			handshake: <span class="string">b&quot;hello, world&quot;</span>.to_vec(),
+			handshake: <span class="string">b"hello, world"</span>.to_vec(),
 			negotiated_fallback: <span class="prelude-val">None</span>,
 			substream: NotificationsInSubstream::new(
 				Framed::new(io, codec),
@@ -2999,7 +3001,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		})
 		.<span class="kw">await</span>;
 
-		<span class="comment">// move the handler state to &#39;Opening&#39;
+		<span class="comment">// move the handler state to 'Opening'
 		</span>handler.on_behaviour_event(NotifsHandlerIn::Open { protocol_index: <span class="number">0 </span>});
 		<span class="macro">assert!</span>(<span class="macro">std::matches!</span>(
 			handler.protocols[<span class="number">0</span>].state,
@@ -3012,7 +3014,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		codec.set_max_len(usize::MAX);
 
 		<span class="kw">let </span>notif_in = NotificationsInOpen {
-			handshake: <span class="string">b&quot;hello, world&quot;</span>.to_vec(),
+			handshake: <span class="string">b"hello, world"</span>.to_vec(),
 			negotiated_fallback: <span class="prelude-val">None</span>,
 			substream: NotificationsInSubstream::new(
 				Framed::new(io, codec),
@@ -3032,7 +3034,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">if let </span>Poll::Ready(<span class="prelude-val">Err</span>(err)) = Pin::new(<span class="kw-2">&amp;mut </span>io2).poll_read(cx, <span class="kw-2">&amp;mut </span>buf) {
 				<span class="macro">assert_eq!</span>(err.kind(), std::io::ErrorKind::UnexpectedEof,);
 			} <span class="kw">else </span>{
-				<span class="macro">panic!</span>(<span class="string">&quot;unexpected result&quot;</span>);
+				<span class="macro">panic!</span>(<span class="string">"unexpected result"</span>);
 			}
 
 			Poll::Ready(())
@@ -3052,7 +3054,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		codec.set_max_len(usize::MAX);
 
 		<span class="kw">let </span>notif_in = NotificationsInOpen {
-			handshake: <span class="string">b&quot;hello, world&quot;</span>.to_vec(),
+			handshake: <span class="string">b"hello, world"</span>.to_vec(),
 			negotiated_fallback: <span class="prelude-val">None</span>,
 			substream: NotificationsInSubstream::new(
 				Framed::new(io, codec),
@@ -3072,7 +3074,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		})
 		.<span class="kw">await</span>;
 
-		<span class="comment">// move the handler state to &#39;Opening&#39;
+		<span class="comment">// move the handler state to 'Opening'
 		</span>handler.on_behaviour_event(NotifsHandlerIn::Open { protocol_index: <span class="number">0 </span>});
 		<span class="macro">assert!</span>(<span class="macro">std::matches!</span>(
 			handler.protocols[<span class="number">0</span>].state,
@@ -3085,7 +3087,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		codec.set_max_len(usize::MAX);
 
 		<span class="kw">let </span>notif_out = NotificationsOutOpen {
-			handshake: <span class="string">b&quot;hello, world&quot;</span>.to_vec(),
+			handshake: <span class="string">b"hello, world"</span>.to_vec(),
 			negotiated_fallback: <span class="prelude-val">None</span>,
 			substream: NotificationsOutSubstream::new(Framed::new(io, codec)),
 		};
@@ -3103,7 +3105,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span><span class="kw-2">mut </span>codec = UviBytes::default();
 		codec.set_max_len(usize::MAX);
 		<span class="kw">let </span>notif_in = NotificationsInOpen {
-			handshake: <span class="string">b&quot;hello, world&quot;</span>.to_vec(),
+			handshake: <span class="string">b"hello, world"</span>.to_vec(),
 			negotiated_fallback: <span class="prelude-val">None</span>,
 			substream: NotificationsInSubstream::new(
 				Framed::new(io, codec),
@@ -3122,7 +3124,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">if let </span>Poll::Ready(<span class="prelude-val">Err</span>(err)) = Pin::new(<span class="kw-2">&amp;mut </span>io2).poll_read(cx, <span class="kw-2">&amp;mut </span>buf) {
 				<span class="macro">assert_eq!</span>(err.kind(), std::io::ErrorKind::UnexpectedEof);
 			} <span class="kw">else </span>{
-				<span class="macro">panic!</span>(<span class="string">&quot;unexpected result&quot;</span>);
+				<span class="macro">panic!</span>(<span class="string">"unexpected result"</span>);
 			}
 
 			Poll::Ready(())
@@ -3142,7 +3144,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		codec.set_max_len(usize::MAX);
 
 		<span class="kw">let </span>notif_in = NotificationsInOpen {
-			handshake: <span class="string">b&quot;hello, world&quot;</span>.to_vec(),
+			handshake: <span class="string">b"hello, world"</span>.to_vec(),
 			negotiated_fallback: <span class="prelude-val">None</span>,
 			substream: NotificationsInSubstream::new(
 				Framed::new(io, codec),
@@ -3180,7 +3182,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		codec.set_max_len(usize::MAX);
 
 		<span class="kw">let </span>notif_out = NotificationsOutOpen {
-			handshake: <span class="string">b&quot;hello, world&quot;</span>.to_vec(),
+			handshake: <span class="string">b"hello, world"</span>.to_vec(),
 			negotiated_fallback: <span class="prelude-val">None</span>,
 			substream: NotificationsOutSubstream::new(Framed::new(io, codec)),
 		};
@@ -3202,7 +3204,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		codec.set_max_len(usize::MAX);
 
 		<span class="kw">let </span>notif_in = NotificationsInOpen {
-			handshake: <span class="string">b&quot;hello, world&quot;</span>.to_vec(),
+			handshake: <span class="string">b"hello, world"</span>.to_vec(),
 			negotiated_fallback: <span class="prelude-val">None</span>,
 			substream: NotificationsInSubstream::new(
 				Framed::new(io, codec),
@@ -3239,7 +3241,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		codec.set_max_len(usize::MAX);
 
 		<span class="kw">let </span>notif_in = NotificationsInOpen {
-			handshake: <span class="string">b&quot;hello, world&quot;</span>.to_vec(),
+			handshake: <span class="string">b"hello, world"</span>.to_vec(),
 			negotiated_fallback: <span class="prelude-val">None</span>,
 			substream: NotificationsInSubstream::new(
 				Framed::new(io, codec),
@@ -3262,7 +3264,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		codec.set_max_len(usize::MAX);
 
 		<span class="kw">let </span>notif_out = NotificationsOutOpen {
-			handshake: <span class="string">b&quot;hello, world&quot;</span>.to_vec(),
+			handshake: <span class="string">b"hello, world"</span>.to_vec(),
 			negotiated_fallback: <span class="prelude-val">None</span>,
 			substream: NotificationsOutSubstream::new(Framed::new(io, codec)),
 		};
@@ -3285,7 +3287,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		codec.set_max_len(usize::MAX);
 
 		<span class="kw">let </span>notif_in = NotificationsInOpen {
-			handshake: <span class="string">b&quot;hello, world&quot;</span>.to_vec(),
+			handshake: <span class="string">b"hello, world"</span>.to_vec(),
 			negotiated_fallback: <span class="prelude-val">None</span>,
 			substream: NotificationsInSubstream::new(
 				Framed::new(io, codec),
@@ -3334,7 +3336,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		codec.set_max_len(usize::MAX);
 
 		<span class="kw">let </span>notif_in = NotificationsInOpen {
-			handshake: <span class="string">b&quot;hello, world&quot;</span>.to_vec(),
+			handshake: <span class="string">b"hello, world"</span>.to_vec(),
 			negotiated_fallback: <span class="prelude-val">None</span>,
 			substream: NotificationsInSubstream::new(
 				Framed::new(io, codec),
@@ -3370,7 +3372,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		codec.set_max_len(usize::MAX);
 
 		<span class="kw">let </span>notif_in = NotificationsInOpen {
-			handshake: <span class="string">b&quot;hello, world&quot;</span>.to_vec(),
+			handshake: <span class="string">b"hello, world"</span>.to_vec(),
 			negotiated_fallback: <span class="prelude-val">None</span>,
 			substream: NotificationsInSubstream::new(
 				Framed::new(io, codec),
@@ -3444,7 +3446,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		codec.set_max_len(usize::MAX);
 
 		<span class="kw">let </span>notif_in = NotificationsInOpen {
-			handshake: <span class="string">b&quot;hello, world&quot;</span>.to_vec(),
+			handshake: <span class="string">b"hello, world"</span>.to_vec(),
 			negotiated_fallback: <span class="prelude-val">None</span>,
 			substream: NotificationsInSubstream::new(
 				Framed::new(io, codec),

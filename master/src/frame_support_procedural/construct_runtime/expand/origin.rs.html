@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/support/procedural/src/construct_runtime/expand/origin.rs`."><title>origin.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/support/procedural/src/construct_runtime/expand/origin.rs`."><title>origin.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="frame_support_procedural" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="frame_support_procedural" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../../frame_support_procedural/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -607,14 +609,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License
@@ -636,7 +638,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span><span class="kw-2">mut </span>query_origin_part_macros = Vec::new();
 
 	<span class="kw">for </span>pallet_decl <span class="kw">in </span>pallets.iter().filter(|pallet| pallet.name != SYSTEM_PALLET_NAME) {
-		<span class="kw">if let </span><span class="prelude-val">Some</span>(pallet_entry) = pallet_decl.find_part(<span class="string">&quot;Origin&quot;</span>) {
+		<span class="kw">if let </span><span class="prelude-val">Some</span>(pallet_entry) = pallet_decl.find_part(<span class="string">"Origin"</span>) {
 			<span class="kw">let </span>instance = pallet_decl.instance.as_ref();
 			<span class="kw">let </span>index = pallet_decl.index;
 			<span class="kw">let </span>generics = <span class="kw-2">&amp;</span>pallet_entry.generics;
@@ -645,8 +647,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="kw">if </span>instance.is_some() &amp;&amp; generics.params.is_empty() {
 				<span class="kw">let </span>msg = <span class="macro">format!</span>(
-					<span class="string">&quot;Instantiable pallet with no generic `Origin` cannot \
-					 be constructed: pallet `{}` must have generic `Origin`&quot;</span>,
+					<span class="string">"Instantiable pallet with no generic `Origin` cannot \
+					 be constructed: pallet `{}` must have generic `Origin`"</span>,
 					name
 				);
 				<span class="kw">return </span><span class="prelude-val">Err</span>(syn::Error::new(name.span(), msg))
@@ -679,24 +681,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>system_path_name = system_path.module_name();
 
 	<span class="kw">let </span>doc_string = get_intra_doc_string(
-		<span class="string">&quot;Origin is always created with the base filter configured in&quot;</span>,
+		<span class="string">"Origin is always created with the base filter configured in"</span>,
 		<span class="kw-2">&amp;</span>system_path_name,
 	);
 
 	<span class="kw">let </span>doc_string_none_origin =
-		get_intra_doc_string(<span class="string">&quot;Create with system none origin and&quot;</span>, <span class="kw-2">&amp;</span>system_path_name);
+		get_intra_doc_string(<span class="string">"Create with system none origin and"</span>, <span class="kw-2">&amp;</span>system_path_name);
 
 	<span class="kw">let </span>doc_string_root_origin =
-		get_intra_doc_string(<span class="string">&quot;Create with system root origin and&quot;</span>, <span class="kw-2">&amp;</span>system_path_name);
+		get_intra_doc_string(<span class="string">"Create with system root origin and"</span>, <span class="kw-2">&amp;</span>system_path_name);
 
 	<span class="kw">let </span>doc_string_signed_origin =
-		get_intra_doc_string(<span class="string">&quot;Create with system signed origin and&quot;</span>, <span class="kw-2">&amp;</span>system_path_name);
+		get_intra_doc_string(<span class="string">"Create with system signed origin and"</span>, <span class="kw-2">&amp;</span>system_path_name);
 
 	<span class="kw">let </span>doc_string_runtime_origin =
-		get_intra_doc_string(<span class="string">&quot;Convert to runtime origin, using as filter:&quot;</span>, <span class="kw-2">&amp;</span>system_path_name);
+		get_intra_doc_string(<span class="string">"Convert to runtime origin, using as filter:"</span>, <span class="kw-2">&amp;</span>system_path_name);
 
 	<span class="kw">let </span>doc_string_runtime_origin_with_caller = get_intra_doc_string(
-		<span class="string">&quot;Convert to runtime origin with caller being system signed or none and use filter&quot;</span>,
+		<span class="string">"Convert to runtime origin with caller being system signed or none and use filter"</span>,
 		<span class="kw-2">&amp;</span>system_path_name,
 	);
 
@@ -712,25 +714,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			filter: #scrate::__private::sp_std::rc::Rc&lt;Box&lt;<span class="kw">dyn </span>Fn(<span class="kw-2">&amp;</span>&lt;#runtime <span class="kw">as </span>#system_path::Config&gt;::RuntimeCall) -&gt; bool&gt;&gt;,
 		}
 
-		<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+		<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
 		</span><span class="kw">impl </span>#scrate::__private::sp_std::fmt::Debug <span class="kw">for </span>RuntimeOrigin {
 			<span class="kw">fn </span>fmt(
 				<span class="kw-2">&amp;</span><span class="self">self</span>,
 				fmt: <span class="kw-2">&amp;mut </span>#scrate::__private::sp_std::fmt::Formatter,
 			) -&gt; #scrate::__private::sp_std::result::Result&lt;(), #scrate::__private::sp_std::fmt::Error&gt; {
-				fmt.write_str(<span class="string">&quot;&lt;wasm:stripped&gt;&quot;</span>)
+				fmt.write_str(<span class="string">"&lt;wasm:stripped&gt;"</span>)
 			}
 		}
 
-		<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+		<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 		</span><span class="kw">impl </span>#scrate::__private::sp_std::fmt::Debug <span class="kw">for </span>RuntimeOrigin {
 			<span class="kw">fn </span>fmt(
 				<span class="kw-2">&amp;</span><span class="self">self</span>,
 				fmt: <span class="kw-2">&amp;mut </span>#scrate::__private::sp_std::fmt::Formatter,
 			) -&gt; #scrate::__private::sp_std::result::Result&lt;(), #scrate::__private::sp_std::fmt::Error&gt; {
-				fmt.debug_struct(<span class="string">&quot;Origin&quot;</span>)
-					.field(<span class="string">&quot;caller&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.caller)
-					.field(<span class="string">&quot;filter&quot;</span>, <span class="kw-2">&amp;</span><span class="string">&quot;[function ptr]&quot;</span>)
+				fmt.debug_struct(<span class="string">"Origin"</span>)
+					.field(<span class="string">"caller"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.caller)
+					.field(<span class="string">"filter"</span>, <span class="kw-2">&amp;</span><span class="string">"[function ptr]"</span>)
 					.finish()
 			}
 		}
@@ -740,7 +742,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">type </span>PalletsOrigin = OriginCaller;
 			<span class="kw">type </span>AccountId = &lt;#runtime <span class="kw">as </span>#system_path::Config&gt;::AccountId;
 
-			<span class="kw">fn </span>add_filter(<span class="kw-2">&amp;mut </span><span class="self">self</span>, filter: <span class="kw">impl </span>Fn(<span class="kw-2">&amp;</span><span class="self">Self</span>::Call) -&gt; bool + <span class="lifetime">&#39;static</span>) {
+			<span class="kw">fn </span>add_filter(<span class="kw-2">&amp;mut </span><span class="self">self</span>, filter: <span class="kw">impl </span>Fn(<span class="kw-2">&amp;</span><span class="self">Self</span>::Call) -&gt; bool + <span class="lifetime">'static</span>) {
 				<span class="kw">let </span>f = <span class="self">self</span>.filter.clone();
 
 				<span class="self">self</span>.filter = #scrate::__private::sp_std::rc::Rc::new(Box::new(<span class="kw">move </span>|call| {
@@ -920,8 +922,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>variant_name = <span class="kw-2">&amp;</span>pallet.name;
 	<span class="kw">let </span>path = <span class="kw-2">&amp;</span>pallet.path;
 	<span class="kw">let </span>attr = pallet.cfg_pattern.iter().fold(TokenStream::new(), |acc, pattern| {
-		<span class="kw">let </span>attr = TokenStream::from_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;#[cfg({})]&quot;</span>, pattern.original()))
-			.expect(<span class="string">&quot;was successfully parsed before; qed&quot;</span>);
+		<span class="kw">let </span>attr = TokenStream::from_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"#[cfg({})]"</span>, pattern.original()))
+			.expect(<span class="string">"was successfully parsed before; qed"</span>);
 		<span class="macro">quote! </span>{
 			#acc
 			#attr
@@ -970,10 +972,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">None </span>=&gt; <span class="macro">quote!</span>(#path::Origin),
 	};
 
-	<span class="kw">let </span>doc_string = get_intra_doc_string(<span class="string">&quot; Convert to runtime origin using&quot;</span>, <span class="kw-2">&amp;</span>path.module_name());
+	<span class="kw">let </span>doc_string = get_intra_doc_string(<span class="string">" Convert to runtime origin using"</span>, <span class="kw-2">&amp;</span>path.module_name());
 	<span class="kw">let </span>attr = pallet.cfg_pattern.iter().fold(TokenStream::new(), |acc, pattern| {
-		<span class="kw">let </span>attr = TokenStream::from_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;#[cfg({})]&quot;</span>, pattern.original()))
-			.expect(<span class="string">&quot;was successfully parsed before; qed&quot;</span>);
+		<span class="kw">let </span>attr = TokenStream::from_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"#[cfg({})]"</span>, pattern.original()))
+			.expect(<span class="string">"was successfully parsed before; qed"</span>);
 		<span class="macro">quote! </span>{
 			#acc
 			#attr
@@ -1024,11 +1026,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 
 		#attr
-		<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; TryFrom&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>OriginCaller&gt; <span class="kw">for </span><span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>#pallet_origin {
+		<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; TryFrom&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>OriginCaller&gt; <span class="kw">for </span><span class="kw-2">&amp;</span><span class="lifetime">'a </span>#pallet_origin {
 			<span class="kw">type </span>Error = ();
 			<span class="kw">fn </span>try_from(
-				x: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>OriginCaller,
-			) -&gt; #scrate::__private::sp_std::result::Result&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>#pallet_origin, ()&gt; {
+				x: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>OriginCaller,
+			) -&gt; #scrate::__private::sp_std::result::Result&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>#pallet_origin, ()&gt; {
 				<span class="kw">if let </span>OriginCaller::#variant_name(l) = x {
 					<span class="prelude-val">Ok</span>(<span class="kw-2">&amp;</span>l)
 				} <span class="kw">else </span>{
@@ -1038,11 +1040,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 
 		#attr
-		<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; TryFrom&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>RuntimeOrigin&gt; <span class="kw">for </span><span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>#pallet_origin {
+		<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; TryFrom&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>RuntimeOrigin&gt; <span class="kw">for </span><span class="kw-2">&amp;</span><span class="lifetime">'a </span>#pallet_origin {
 			<span class="kw">type </span>Error = ();
 			<span class="kw">fn </span>try_from(
-				x: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>RuntimeOrigin,
-			) -&gt; #scrate::__private::sp_std::result::Result&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>#pallet_origin, ()&gt; {
+				x: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>RuntimeOrigin,
+			) -&gt; #scrate::__private::sp_std::result::Result&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>#pallet_origin, ()&gt; {
 				<span class="kw">if let </span>OriginCaller::#variant_name(l) = <span class="kw-2">&amp;</span>x.caller {
 					<span class="prelude-val">Ok</span>(<span class="kw-2">&amp;</span>l)
 				} <span class="kw">else </span>{
@@ -1055,7 +1057,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="comment">// Get the actual documentation using the doc information and system path name
 </span><span class="kw">fn </span>get_intra_doc_string(doc_info: <span class="kw-2">&amp;</span>str, system_path_name: <span class="kw-2">&amp;</span>String) -&gt; String {
-	<span class="macro">format!</span>(<span class="string">&quot; {} [`{}::Config::BaseCallFilter`].&quot;</span>, doc_info, system_path_name)
+	<span class="macro">format!</span>(<span class="string">" {} [`{}::Config::BaseCallFilter`]."</span>, doc_info, system_path_name)
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 

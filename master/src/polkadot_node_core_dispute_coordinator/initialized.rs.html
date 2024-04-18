@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/core/dispute-coordinator/src/initialized.rs`."><title>initialized.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/core/dispute-coordinator/src/initialized.rs`."><title>initialized.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_node_core_dispute_coordinator" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_node_core_dispute_coordinator" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../polkadot_node_core_dispute_coordinator/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1922,7 +1924,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// How many blocks we import votes from per leaf update.
 ///
 /// Since vote import is relatively slow, we have to limit the maximum amount of work we do on leaf
-/// updates (and especially on startup) so the dispute coordinator won&#39;t be considered stalling.
+/// updates (and especially on startup) so the dispute coordinator won't be considered stalling.
 </span><span class="kw">const </span>CHAIN_IMPORT_MAX_BATCH_SIZE: usize = <span class="number">8</span>;
 
 <span class="comment">// Initial data for `dispute-coordinator`. It is provided only at first start.
@@ -1934,7 +1936,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// After the first active leaves update we transition to `Initialized` state.
 ///
-/// Before the first active leaves update we can&#39;t really do much. We cannot check incoming
+/// Before the first active leaves update we can't really do much. We cannot check incoming
 /// statements for validity, we cannot query orderings, we have no valid `SessionInfo`,
 /// ...
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>Initialized {
@@ -1943,7 +1945,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// We have the onchain state of disabled validators as well as the offchain
 	/// state that is based on the lost disputes.
 	</span>offchain_disabled_validators: OffchainDisabledValidators,
-	<span class="doccomment">/// This is the highest `SessionIndex` seen via `ActiveLeavesUpdate`. It doesn&#39;t matter if it
+	<span class="doccomment">/// This is the highest `SessionIndex` seen via `ActiveLeavesUpdate`. It doesn't matter if it
 	/// was cached successfully or not. It is used to detect ancient disputes.
 	</span>highest_session_seen: SessionIndex,
 	<span class="doccomment">/// Will be set to `true` if an error occurred during the last caching attempt
@@ -2015,7 +2017,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>res =
 				<span class="self">self</span>.run_until_error(<span class="kw-2">&amp;mut </span>ctx, <span class="kw-2">&amp;mut </span>backend, <span class="kw-2">&amp;mut </span>initial_data, <span class="kw-2">&amp;*</span>clock).<span class="kw">await</span>;
 			<span class="kw">if let </span><span class="prelude-val">Ok</span>(()) = res {
-				<span class="macro">gum::info!</span>(target: LOG_TARGET, <span class="string">&quot;received `Conclude` signal, exiting&quot;</span>);
+				<span class="macro">gum::info!</span>(target: LOG_TARGET, <span class="string">"received `Conclude` signal, exiting"</span>);
 				<span class="kw">return </span><span class="prelude-val">Ok</span>(())
 			}
 			log_error(res)<span class="question-mark">?</span>;
@@ -2067,13 +2069,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 
 		<span class="kw">loop </span>{
-			<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="string">&quot;Waiting for message&quot;</span>);
+			<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="string">"Waiting for message"</span>);
 			<span class="kw">let </span><span class="kw-2">mut </span>overlay_db = OverlayedBackend::new(backend);
 			<span class="kw">let </span>default_confirm = Box::new(|| <span class="prelude-val">Ok</span>(()));
 			<span class="kw">let </span>confirm_write =
 				<span class="kw">match </span>MuxedMessage::receive(ctx, <span class="kw-2">&amp;mut </span><span class="self">self</span>.participation_receiver).<span class="kw">await</span><span class="question-mark">? </span>{
 					MuxedMessage::Participation(msg) =&gt; {
-						<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="string">&quot;MuxedMessage::Participation&quot;</span>);
+						<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="string">"MuxedMessage::Participation"</span>);
 						<span class="kw">let </span>ParticipationStatement {
 							session,
 							candidate_hash,
@@ -2086,7 +2088,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 								<span class="question-mark">?</span>session,
 								<span class="question-mark">?</span>candidate_hash,
 								<span class="question-mark">?</span>valid,
-								<span class="string">&quot;Issuing local statement based on participation outcome.&quot;
+								<span class="string">"Issuing local statement based on participation outcome."
 							</span>);
 							<span class="self">self</span>.issue_local_statement(
 								ctx,
@@ -2099,14 +2101,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							)
 							.<span class="kw">await</span><span class="question-mark">?</span>;
 						} <span class="kw">else </span>{
-							<span class="macro">gum::warn!</span>(target: LOG_TARGET, <span class="question-mark">?</span>outcome, <span class="string">&quot;Dispute participation failed&quot;</span>);
+							<span class="macro">gum::warn!</span>(target: LOG_TARGET, <span class="question-mark">?</span>outcome, <span class="string">"Dispute participation failed"</span>);
 						}
 						default_confirm
 					},
 					MuxedMessage::Subsystem(msg) =&gt; <span class="kw">match </span>msg {
 						FromOrchestra::Signal(OverseerSignal::Conclude) =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(()),
 						FromOrchestra::Signal(OverseerSignal::ActiveLeaves(update)) =&gt; {
-							<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="string">&quot;OverseerSignal::ActiveLeaves&quot;</span>);
+							<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="string">"OverseerSignal::ActiveLeaves"</span>);
 							<span class="self">self</span>.process_active_leaves_update(
 								ctx,
 								<span class="kw-2">&amp;mut </span>overlay_db,
@@ -2117,7 +2119,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							default_confirm
 						},
 						FromOrchestra::Signal(OverseerSignal::BlockFinalized(<span class="kw">_</span>, n)) =&gt; {
-							<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="string">&quot;OverseerSignal::BlockFinalized&quot;</span>);
+							<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="string">"OverseerSignal::BlockFinalized"</span>);
 							<span class="self">self</span>.scraper.process_finalized_block(<span class="kw-2">&amp;</span>n);
 							default_confirm
 						},
@@ -2139,11 +2141,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">async fn </span>process_active_leaves_update&lt;Context&gt;(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		ctx: <span class="kw-2">&amp;mut </span>Context,
-		overlay_db: <span class="kw-2">&amp;mut </span>OverlayedBackend&lt;<span class="lifetime">&#39;_</span>, <span class="kw">impl </span>Backend&gt;,
+		overlay_db: <span class="kw-2">&amp;mut </span>OverlayedBackend&lt;<span class="lifetime">'_</span>, <span class="kw">impl </span>Backend&gt;,
 		update: ActiveLeavesUpdate,
 		now: u64,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-		<span class="macro">gum::trace!</span>(target: LOG_TARGET, timestamp = now, <span class="string">&quot;Processing ActiveLeavesUpdate&quot;</span>);
+		<span class="macro">gum::trace!</span>(target: LOG_TARGET, timestamp = now, <span class="string">"Processing ActiveLeavesUpdate"</span>);
 		<span class="kw">let </span>scraped_updates =
 			<span class="self">self</span>.scraper.process_active_leaves_update(ctx.sender(), <span class="kw-2">&amp;</span>update).<span class="kw">await</span><span class="question-mark">?</span>;
 		log_error(
@@ -2158,7 +2160,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				target: LOG_TARGET,
 				leaf_hash = <span class="question-mark">?</span>new_leaf.hash,
 				block_number = new_leaf.number,
-				<span class="string">&quot;Processing ActivatedLeaf&quot;
+				<span class="string">"Processing ActivatedLeaf"
 			</span>);
 
 			<span class="kw">let </span>session_idx =
@@ -2192,7 +2194,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 								session_idx,
 								leaf_hash = <span class="question-mark">?</span>new_leaf.hash,
 								<span class="question-mark">?</span>err,
-								<span class="string">&quot;Error caching SessionInfo on ActiveLeaves update&quot;
+								<span class="string">"Error caching SessionInfo on ActiveLeaves update"
 							</span>);
 							<span class="self">self</span>.gaps_in_cache = <span class="bool-val">true</span>;
 						}
@@ -2209,7 +2211,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="macro">gum::debug!</span>(
 						target: LOG_TARGET,
 						<span class="question-mark">?</span>err,
-						<span class="string">&quot;Failed to update session cache for disputes - can&#39;t fetch session index&quot;</span>,
+						<span class="string">"Failed to update session cache for disputes - can't fetch session index"</span>,
 					);
 				},
 			}
@@ -2221,7 +2223,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">gum::trace!</span>(
 				target: LOG_TARGET,
 				timestamp = now,
-				<span class="string">&quot;Will process {} onchain votes&quot;</span>,
+				<span class="string">"Will process {} onchain votes"</span>,
 				on_chain_votes.len()
 			);
 
@@ -2229,7 +2231,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.<span class="kw">await</span>;
 		}
 
-		<span class="macro">gum::trace!</span>(target: LOG_TARGET, timestamp = now, <span class="string">&quot;Done processing ActiveLeavesUpdate&quot;</span>);
+		<span class="macro">gum::trace!</span>(target: LOG_TARGET, timestamp = now, <span class="string">"Done processing ActiveLeavesUpdate"</span>);
 		<span class="prelude-val">Ok</span>(())
 	}
 
@@ -2247,7 +2249,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="question-mark">?</span>session_index,
 				<span class="question-mark">?</span>candidate_hash,
 				n_slashes = pending.keys.len(),
-				<span class="string">&quot;Processing unapplied validator slashes&quot;</span>,
+				<span class="string">"Processing unapplied validator slashes"</span>,
 			);
 
 			<span class="kw">let </span>pinned_hash = <span class="self">self</span>.runtime_info.get_block_in_session(session_index);
@@ -2256,7 +2258,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="macro">gum::info!</span>(
 					target: LOG_TARGET,
 					<span class="question-mark">?</span>session_index,
-					<span class="string">&quot;Couldn&#39;t find blocks in the session for an unapplied slash&quot;</span>,
+					<span class="string">"Couldn't find blocks in the session for an unapplied slash"</span>,
 				);
 				<span class="kw">return
 			</span>}
@@ -2295,7 +2297,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 								<span class="question-mark">?</span>session_index,
 								<span class="question-mark">?</span>candidate_hash,
 								<span class="question-mark">?</span>validator_id,
-								<span class="string">&quot;Key ownership proof not yet supported.&quot;</span>,
+								<span class="string">"Key ownership proof not yet supported."</span>,
 							);
 						},
 						<span class="prelude-val">Err</span>(error) =&gt; {
@@ -2305,7 +2307,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 								<span class="question-mark">?</span>session_index,
 								<span class="question-mark">?</span>candidate_hash,
 								<span class="question-mark">?</span>validator_id,
-								<span class="string">&quot;Could not generate key ownership proof&quot;</span>,
+								<span class="string">"Could not generate key ownership proof"</span>,
 							);
 						},
 					}
@@ -2326,7 +2328,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					target: LOG_TARGET,
 					<span class="question-mark">?</span>session_index,
 					<span class="question-mark">?</span>candidate_hash,
-					<span class="string">&quot;Could not generate key ownership proofs for {} keys&quot;</span>,
+					<span class="string">"Could not generate key ownership proofs for {} keys"</span>,
 					expected_keys - resolved_keys,
 				);
 			}
@@ -2342,7 +2344,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="question-mark">?</span>session_index,
 					<span class="question-mark">?</span>candidate_hash,
 					key_ownership_proof_len = key_ownership_proof.len(),
-					<span class="string">&quot;Trying to submit a slashing report&quot;</span>,
+					<span class="string">"Trying to submit a slashing report"</span>,
 				);
 
 				<span class="kw">let </span>res = submit_report_dispute_lost(
@@ -2361,7 +2363,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							target: LOG_TARGET,
 							<span class="question-mark">?</span>session_index,
 							<span class="question-mark">?</span>candidate_hash,
-							<span class="string">&quot;Reporting pending slash not yet supported&quot;</span>,
+							<span class="string">"Reporting pending slash not yet supported"</span>,
 						);
 					},
 					<span class="prelude-val">Err</span>(error) =&gt; {
@@ -2370,7 +2372,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							<span class="question-mark">?</span>error,
 							<span class="question-mark">?</span>session_index,
 							<span class="question-mark">?</span>candidate_hash,
-							<span class="string">&quot;Error reporting pending slash&quot;</span>,
+							<span class="string">"Error reporting pending slash"</span>,
 						);
 					},
 					<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(())) =&gt; {
@@ -2379,7 +2381,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							<span class="question-mark">?</span>session_index,
 							<span class="question-mark">?</span>candidate_hash,
 							<span class="question-mark">?</span>validator_id,
-							<span class="string">&quot;Successfully reported pending slash&quot;</span>,
+							<span class="string">"Successfully reported pending slash"</span>,
 						);
 					},
 					<span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>) =&gt; {
@@ -2388,7 +2390,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							<span class="question-mark">?</span>session_index,
 							<span class="question-mark">?</span>candidate_hash,
 							<span class="question-mark">?</span>validator_id,
-							<span class="string">&quot;Duplicate pending slash report&quot;</span>,
+							<span class="string">"Duplicate pending slash report"</span>,
 						);
 					},
 				}
@@ -2402,7 +2404,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">async fn </span>process_chain_import_backlog&lt;Context&gt;(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		ctx: <span class="kw-2">&amp;mut </span>Context,
-		overlay_db: <span class="kw-2">&amp;mut </span>OverlayedBackend&lt;<span class="lifetime">&#39;_</span>, <span class="kw">impl </span>Backend&gt;,
+		overlay_db: <span class="kw-2">&amp;mut </span>OverlayedBackend&lt;<span class="lifetime">'_</span>, <span class="kw">impl </span>Backend&gt;,
 		new_votes: Vec&lt;ScrapedOnChainVotes&gt;,
 		now: u64,
 		block_hash: Hash,
@@ -2418,7 +2420,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">match </span>res {
 				<span class="prelude-val">Ok</span>(()) =&gt; {},
 				<span class="prelude-val">Err</span>(error) =&gt; {
-					<span class="macro">gum::warn!</span>(target: LOG_TARGET, <span class="question-mark">?</span>error, <span class="string">&quot;Skipping scraping block due to error&quot;</span>,);
+					<span class="macro">gum::warn!</span>(target: LOG_TARGET, <span class="question-mark">?</span>error, <span class="string">"Skipping scraping block due to error"</span>,);
 				},
 			};
 		}
@@ -2430,7 +2432,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">async fn </span>process_on_chain_votes&lt;Context&gt;(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		ctx: <span class="kw-2">&amp;mut </span>Context,
-		overlay_db: <span class="kw-2">&amp;mut </span>OverlayedBackend&lt;<span class="lifetime">&#39;_</span>, <span class="kw">impl </span>Backend&gt;,
+		overlay_db: <span class="kw-2">&amp;mut </span>OverlayedBackend&lt;<span class="lifetime">'_</span>, <span class="kw">impl </span>Backend&gt;,
 		votes: ScrapedOnChainVotes,
 		now: u64,
 		block_hash: Hash,
@@ -2457,7 +2459,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						target: LOG_TARGET,
 						<span class="question-mark">?</span>session,
 						<span class="question-mark">?</span>err,
-						<span class="string">&quot;Could not retrieve session info from RuntimeInfo&quot;</span>,
+						<span class="string">"Could not retrieve session info from RuntimeInfo"</span>,
 					);
 					<span class="kw">return </span><span class="prelude-val">Ok</span>(())
 				},
@@ -2468,7 +2470,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				target: LOG_TARGET,
 				<span class="question-mark">?</span>candidate_hash,
 				<span class="question-mark">?</span>relay_parent,
-				<span class="string">&quot;Importing backing votes from chain for candidate&quot;
+				<span class="string">"Importing backing votes from chain for candidate"
 			</span>);
 			<span class="kw">let </span>statements = backers
 				.into_iter()
@@ -2481,7 +2483,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 								target: LOG_TARGET,
 								<span class="question-mark">?</span>session,
 								<span class="question-mark">?</span>validator_index,
-								<span class="string">&quot;Missing public key for validator&quot;</span>,
+								<span class="string">"Missing public key for validator"</span>,
 							);
 							<span class="prelude-val">None
 						</span>})
@@ -2502,7 +2504,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							validator_public.clone(),
 							validator_signature.clone(),
 						).is_ok(),
-						<span class="string">&quot;Scraped backing votes had invalid signature! candidate: {:?}, session: {:?}, validator_public: {:?}, validator_index: {}&quot;</span>,
+						<span class="string">"Scraped backing votes had invalid signature! candidate: {:?}, session: {:?}, validator_public: {:?}, validator_index: {}"</span>,
 						candidate_hash,
 						session,
 						validator_public,
@@ -2537,25 +2539,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					target: LOG_TARGET,
 					<span class="question-mark">?</span>relay_parent,
 					<span class="question-mark">?</span>session,
-					<span class="string">&quot;Imported backing votes from chain&quot;
+					<span class="string">"Imported backing votes from chain"
 				</span>),
 				ImportStatementsResult::InvalidImport =&gt; <span class="macro">gum::warn!</span>(
 					target: LOG_TARGET,
 					<span class="question-mark">?</span>relay_parent,
 					<span class="question-mark">?</span>session,
-					<span class="string">&quot;Attempted import of on-chain backing votes failed&quot;
+					<span class="string">"Attempted import of on-chain backing votes failed"
 				</span>),
 			}
 		}
 
-		<span class="comment">// Import disputes from on-chain, this already went through a vote so it&#39;s assumed
+		<span class="comment">// Import disputes from on-chain, this already went through a vote so it's assumed
 		// as verified. This will only be stored, gossiping it is not necessary.
 		</span><span class="kw">for </span>DisputeStatementSet { candidate_hash, session, statements } <span class="kw">in </span>disputes {
 			<span class="macro">gum::trace!</span>(
 				target: LOG_TARGET,
 				<span class="question-mark">?</span>candidate_hash,
 				<span class="question-mark">?</span>session,
-				<span class="string">&quot;Importing dispute votes from chain for candidate&quot;
+				<span class="string">"Importing dispute votes from chain for candidate"
 			</span>);
 			<span class="kw">let </span>session_info = <span class="kw">match </span><span class="self">self
 				</span>.runtime_info
@@ -2569,7 +2571,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="question-mark">?</span>candidate_hash,
 						<span class="question-mark">?</span>session,
 						<span class="question-mark">?</span>err,
-						<span class="string">&quot;Could not retrieve session info for recently concluded dispute&quot;
+						<span class="string">"Could not retrieve session info for recently concluded dispute"
 					</span>);
 					<span class="kw">continue
 				</span>},
@@ -2586,7 +2588,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 								target: LOG_TARGET,
 								<span class="question-mark">?</span>candidate_hash,
 								<span class="question-mark">?</span>session,
-								<span class="string">&quot;Missing public key for validator {:?} that participated in concluded dispute&quot;</span>,
+								<span class="string">"Missing public key for validator {:?} that participated in concluded dispute"</span>,
 								<span class="kw-2">&amp;</span>validator_index
 							);
 							<span class="prelude-val">None
@@ -2606,7 +2608,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				})
 				.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 			<span class="kw">if </span>statements.is_empty() {
-				<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="string">&quot;Skipping empty from chain dispute import&quot;</span>);
+				<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="string">"Skipping empty from chain dispute import"</span>);
 				<span class="kw">continue
 			</span>}
 			<span class="kw">let </span>import_result = <span class="self">self
@@ -2625,13 +2627,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					target: LOG_TARGET,
 					<span class="question-mark">?</span>candidate_hash,
 					<span class="question-mark">?</span>session,
-					<span class="string">&quot;Imported statement of dispute from on-chain&quot;
+					<span class="string">"Imported statement of dispute from on-chain"
 				</span>),
 				ImportStatementsResult::InvalidImport =&gt; <span class="macro">gum::warn!</span>(
 					target: LOG_TARGET,
 					<span class="question-mark">?</span>candidate_hash,
 					<span class="question-mark">?</span>session,
-					<span class="string">&quot;Attempted import of on-chain statement of dispute failed&quot;
+					<span class="string">"Attempted import of on-chain statement of dispute failed"
 				</span>),
 			}
 		}
@@ -2642,7 +2644,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">async fn </span>handle_incoming&lt;Context&gt;(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		ctx: <span class="kw-2">&amp;mut </span>Context,
-		overlay_db: <span class="kw-2">&amp;mut </span>OverlayedBackend&lt;<span class="lifetime">&#39;_</span>, <span class="kw">impl </span>Backend&gt;,
+		overlay_db: <span class="kw-2">&amp;mut </span>OverlayedBackend&lt;<span class="lifetime">'_</span>, <span class="kw">impl </span>Backend&gt;,
 		message: DisputeCoordinatorMessage,
 		now: Timestamp,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>FnOnce() -&gt; JfyiResult&lt;()&gt;&gt;&gt; {
@@ -2657,7 +2659,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					target: LOG_TARGET,
 					candidate_hash = <span class="question-mark">?</span>candidate_receipt.hash(),
 					<span class="question-mark">?</span>session,
-					<span class="string">&quot;DisputeCoordinatorMessage::ImportStatements&quot;
+					<span class="string">"DisputeCoordinatorMessage::ImportStatements"
 				</span>);
 				<span class="kw">let </span>outcome = <span class="self">self
 					</span>.handle_import_statements(
@@ -2685,20 +2687,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				}
 			},
 			DisputeCoordinatorMessage::RecentDisputes(tx) =&gt; {
-				<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="string">&quot;Loading recent disputes from db&quot;</span>);
+				<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="string">"Loading recent disputes from db"</span>);
 				<span class="kw">let </span>recent_disputes = <span class="kw">if let </span><span class="prelude-val">Some</span>(disputes) = overlay_db.load_recent_disputes()<span class="question-mark">? </span>{
 					disputes
 				} <span class="kw">else </span>{
 					BTreeMap::new()
 				};
-				<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="string">&quot;Loaded recent disputes from db&quot;</span>);
+				<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="string">"Loaded recent disputes from db"</span>);
 
 				<span class="kw">let _ </span>= tx.send(
 					recent_disputes.into_iter().map(|(k, v)| (k.<span class="number">0</span>, k.<span class="number">1</span>, v)).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
 				);
 			},
 			DisputeCoordinatorMessage::ActiveDisputes(tx) =&gt; {
-				<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="string">&quot;DisputeCoordinatorMessage::ActiveDisputes&quot;</span>);
+				<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="string">"DisputeCoordinatorMessage::ActiveDisputes"</span>);
 				<span class="kw">let </span>recent_disputes = <span class="kw">if let </span><span class="prelude-val">Some</span>(disputes) = overlay_db.load_recent_disputes()<span class="question-mark">? </span>{
 					disputes
 				} <span class="kw">else </span>{
@@ -2714,7 +2716,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				);
 			},
 			DisputeCoordinatorMessage::QueryCandidateVotes(query, tx) =&gt; {
-				<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="string">&quot;DisputeCoordinatorMessage::QueryCandidateVotes&quot;</span>);
+				<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="string">"DisputeCoordinatorMessage::QueryCandidateVotes"</span>);
 				<span class="kw">let </span><span class="kw-2">mut </span>query_output = Vec::new();
 				<span class="kw">for </span>(session_index, candidate_hash) <span class="kw">in </span>query {
 					<span class="kw">if let </span><span class="prelude-val">Some</span>(v) =
@@ -2725,7 +2727,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="macro">gum::debug!</span>(
 							target: LOG_TARGET,
 							session_index,
-							<span class="string">&quot;No votes found for candidate&quot;</span>,
+							<span class="string">"No votes found for candidate"</span>,
 						);
 					}
 				}
@@ -2737,7 +2739,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				candidate_receipt,
 				valid,
 			) =&gt; {
-				<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="string">&quot;DisputeCoordinatorMessage::IssueLocalStatement&quot;</span>);
+				<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="string">"DisputeCoordinatorMessage::IssueLocalStatement"</span>);
 				<span class="self">self</span>.issue_local_statement(
 					ctx,
 					overlay_db,
@@ -2756,7 +2758,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			} =&gt; {
 				<span class="macro">gum::trace!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;DisputeCoordinatorMessage::DetermineUndisputedChain&quot;
+					<span class="string">"DisputeCoordinatorMessage::DetermineUndisputedChain"
 				</span>);
 
 				<span class="kw">let </span>undisputed_chain = determine_undisputed_chain(
@@ -2780,13 +2782,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">async fn </span>handle_import_statements&lt;Context&gt;(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		ctx: <span class="kw-2">&amp;mut </span>Context,
-		overlay_db: <span class="kw-2">&amp;mut </span>OverlayedBackend&lt;<span class="lifetime">&#39;_</span>, <span class="kw">impl </span>Backend&gt;,
+		overlay_db: <span class="kw-2">&amp;mut </span>OverlayedBackend&lt;<span class="lifetime">'_</span>, <span class="kw">impl </span>Backend&gt;,
 		candidate_receipt: MaybeCandidateReceipt,
 		session: SessionIndex,
 		statements: Vec&lt;(SignedDisputeStatement, ValidatorIndex)&gt;,
 		now: Timestamp,
 	) -&gt; FatalResult&lt;ImportStatementsResult&gt; {
-		<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>statements, <span class="string">&quot;In handle import statements&quot;</span>);
+		<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>statements, <span class="string">"In handle import statements"</span>);
 		<span class="kw">if </span><span class="self">self</span>.session_is_ancient(session) {
 			<span class="comment">// It is not valid to participate in an ancient dispute (spam?) or too new.
 			</span><span class="kw">return </span><span class="prelude-val">Ok</span>(ImportStatementsResult::InvalidImport)
@@ -2804,7 +2806,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						target: LOG_TARGET,
 						session,
 						<span class="question-mark">?</span>candidate_hash,
-						<span class="string">&quot;Cannot obtain relay parent without `CandidateReceipt` available!&quot;
+						<span class="string">"Cannot obtain relay parent without `CandidateReceipt` available!"
 					</span>);
 					<span class="kw">return </span><span class="prelude-val">Ok</span>(ImportStatementsResult::InvalidImport)
 				},
@@ -2825,7 +2827,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="macro">gum::warn!</span>(
 					target: LOG_TARGET,
 					session,
-					<span class="string">&quot;We are lacking a `SessionInfo` for handling import of statements.&quot;
+					<span class="string">"We are lacking a `SessionInfo` for handling import of statements."
 				</span>);
 
 				<span class="kw">return </span><span class="prelude-val">Ok</span>(ImportStatementsResult::InvalidImport)
@@ -2840,7 +2842,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="question-mark">?</span>candidate_hash,
 			<span class="question-mark">?</span>session,
 			<span class="question-mark">?</span>n_validators,
-			<span class="string">&quot;Number of validators&quot;
+			<span class="string">"Number of validators"
 		</span>);
 
 		<span class="comment">// In case we are not provided with a candidate receipt
@@ -2861,13 +2863,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						target: LOG_TARGET,
 						session,
 						<span class="question-mark">?</span>candidate_hash,
-						<span class="string">&quot;Cannot import votes, without `CandidateReceipt` available!&quot;
+						<span class="string">"Cannot import votes, without `CandidateReceipt` available!"
 					</span>);
 					<span class="kw">return </span><span class="prelude-val">Ok</span>(ImportStatementsResult::InvalidImport)
 				},
 		};
 
-		<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>candidate_hash, <span class="question-mark">?</span>session, <span class="string">&quot;Loaded votes&quot;</span>);
+		<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>candidate_hash, <span class="question-mark">?</span>session, <span class="string">"Loaded votes"</span>);
 
 		<span class="kw">let </span>controlled_indices = env.controlled_indices();
 		<span class="kw">let </span>own_statements = statements
@@ -2893,7 +2895,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					target: LOG_TARGET,
 					<span class="question-mark">?</span>candidate_hash,
 					<span class="question-mark">?</span>session,
-					<span class="string">&quot;Requesting approval signatures&quot;
+					<span class="string">"Requesting approval signatures"
 				</span>);
 				<span class="kw">let </span>(tx, rx) = oneshot::channel();
 				<span class="comment">// Use of unbounded channels justified because:
@@ -2913,7 +2915,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
 						<span class="macro">gum::warn!</span>(
 							target: LOG_TARGET,
-							<span class="string">&quot;Fetch for approval votes got cancelled, only expected during shutdown!&quot;
+							<span class="string">"Fetch for approval votes got cancelled, only expected during shutdown!"
 						</span>);
 						intermediate_result
 					},
@@ -2921,7 +2923,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="macro">gum::trace!</span>(
 							target: LOG_TARGET,
 							count = votes.len(),
-							<span class="string">&quot;Successfully received approval votes.&quot;
+							<span class="string">"Successfully received approval votes."
 						</span>);
 						intermediate_result.import_approval_votes(<span class="kw-2">&amp;</span>env, votes, now)
 					},
@@ -2931,7 +2933,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					target: LOG_TARGET,
 					<span class="question-mark">?</span>candidate_hash,
 					<span class="question-mark">?</span>session,
-					<span class="string">&quot;Not requested approval signatures&quot;
+					<span class="string">"Not requested approval signatures"
 				</span>);
 				intermediate_result
 			}
@@ -2942,7 +2944,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="question-mark">?</span>candidate_hash,
 			<span class="question-mark">?</span>session,
 			<span class="question-mark">?</span>n_validators,
-			<span class="string">&quot;Import result ready&quot;
+			<span class="string">"Import result ready"
 		</span>);
 
 		<span class="kw">let </span>new_state = import_result.new_state();
@@ -2966,7 +2968,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			confirmed = <span class="question-mark">?</span>new_state.is_confirmed(),
 			has_invalid_voters = <span class="question-mark">?</span>!import_result.new_invalid_voters().is_empty(),
 			n_disabled_validators = <span class="question-mark">?</span>env.disabled_indices().len(),
-			<span class="string">&quot;Is spam?&quot;
+			<span class="string">"Is spam?"
 		</span>);
 
 		<span class="comment">// This check is responsible for all clearing of spam slots. It runs
@@ -2995,7 +2997,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="question-mark">?</span>candidate_hash,
 					<span class="question-mark">?</span>session,
 					invalid_voters = <span class="question-mark">?</span>import_result.new_invalid_voters(),
-					<span class="string">&quot;Rejecting import because of full spam slots.&quot;
+					<span class="string">"Rejecting import because of full spam slots."
 				</span>);
 				<span class="kw">return </span><span class="prelude-val">Ok</span>(ImportStatementsResult::InvalidImport)
 			}
@@ -3006,14 +3008,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		// refrain from participation:
 		// - `is_included` lands in prioritised queue
 		// - `is_confirmed` | `is_backed` lands in best effort queue
-		// We don&#39;t participate in disputes on finalized candidates.
+		// We don't participate in disputes on finalized candidates.
 		</span><span class="kw">if </span>own_vote_missing &amp;&amp; is_disputed &amp;&amp; allow_participation {
 			<span class="kw">let </span>priority = ParticipationPriority::with_priority_if(is_included);
 			<span class="macro">gum::trace!</span>(
 				target: LOG_TARGET,
 				<span class="question-mark">?</span>candidate_hash,
 				<span class="question-mark">?</span>priority,
-				<span class="string">&quot;Queuing participation for candidate&quot;
+				<span class="string">"Queuing participation for candidate"
 			</span>);
 			<span class="kw">if </span>priority.is_priority() {
 				<span class="self">self</span>.metrics.on_queued_priority_participation();
@@ -3045,7 +3047,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="question-mark">?</span>allow_participation,
 				<span class="question-mark">?</span>is_included,
 				<span class="question-mark">?</span>is_backed,
-				<span class="string">&quot;Will not queue participation for candidate&quot;
+				<span class="string">"Will not queue participation for candidate"
 			</span>);
 
 			<span class="kw">if </span>!allow_participation {
@@ -3063,7 +3065,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							target: LOG_TARGET,
 							<span class="question-mark">?</span>validator_index,
 							<span class="question-mark">?</span>session,
-							<span class="string">&quot;Could not find pub key in `SessionInfo` for our own approval vote!&quot;
+							<span class="string">"Could not find pub key in `SessionInfo` for our own approval vote!"
 						</span>);
 						<span class="kw">continue
 					</span>},
@@ -3081,7 +3083,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="question-mark">?</span>candidate_hash,
 					<span class="question-mark">?</span>session,
 					<span class="question-mark">?</span>validator_index,
-					<span class="string">&quot;Sending out own approval vote&quot;
+					<span class="string">"Sending out own approval vote"
 				</span>);
 				<span class="kw">match </span>make_dispute_message(
 					env.session_info(),
@@ -3093,7 +3095,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="macro">gum::error!</span>(
 							target: LOG_TARGET,
 							<span class="question-mark">?</span>err,
-							<span class="string">&quot;No ongoing dispute, but we checked there is one!&quot;
+							<span class="string">"No ongoing dispute, but we checked there is one!"
 						</span>);
 					},
 					<span class="prelude-val">Ok</span>(dispute_message) =&gt; {
@@ -3116,7 +3118,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							target: LOG_TARGET,
 							<span class="question-mark">?</span>candidate_hash,
 							session,
-							<span class="string">&quot;New dispute initiated for candidate.&quot;</span>,
+							<span class="string">"New dispute initiated for candidate."</span>,
 						);
 						DisputeStatus::active()
 					});
@@ -3129,14 +3131,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="question-mark">?</span>status,
 					has_concluded_for = <span class="question-mark">?</span>new_state.has_concluded_for(),
 					has_concluded_against = <span class="question-mark">?</span>new_state.has_concluded_against(),
-					<span class="string">&quot;Writing recent disputes with updates for candidate&quot;
+					<span class="string">"Writing recent disputes with updates for candidate"
 				</span>);
 				overlay_db.write_recent_disputes(recent_disputes);
 			}
 		}
 
 		<span class="comment">// Notify ChainSelection if a dispute has concluded against a candidate. ChainSelection
-		// will need to mark the candidate&#39;s relay parent as reverted.
+		// will need to mark the candidate's relay parent as reverted.
 		</span><span class="kw">if </span>import_result.has_fresh_byzantine_threshold_against() {
 			<span class="kw">let </span>blocks_including = <span class="self">self</span>.scraper.get_blocks_including_candidate(<span class="kw-2">&amp;</span>candidate_hash);
 			<span class="kw">for </span>(parent_block_number, parent_block_hash) <span class="kw">in </span><span class="kw-2">&amp;</span>blocks_including {
@@ -3145,7 +3147,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="question-mark">?</span>candidate_hash,
 					<span class="question-mark">?</span>parent_block_number,
 					<span class="question-mark">?</span>parent_block_hash,
-					<span class="string">&quot;Dispute has just concluded against the candidate hash noted. Its parent will be marked as reverted.&quot;
+					<span class="string">"Dispute has just concluded against the candidate hash noted. Its parent will be marked as reverted."
 				</span>);
 			}
 			<span class="kw">if </span>blocks_including.len() &gt; <span class="number">0 </span>{
@@ -3155,7 +3157,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					target: LOG_TARGET,
 					<span class="question-mark">?</span>candidate_hash,
 					<span class="question-mark">?</span>session,
-					<span class="string">&quot;Could not find an including block for candidate against which a dispute has concluded.&quot;
+					<span class="string">"Could not find an including block for candidate against which a dispute has concluded."
 				</span>);
 			}
 		}
@@ -3176,7 +3178,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			total_valid_votes = <span class="question-mark">?</span>import_result.new_state().votes().valid.raw().len(),
 			total_invalid_votes = <span class="question-mark">?</span>import_result.new_state().votes().invalid.len(),
 			confirmed = <span class="question-mark">?</span>import_result.new_state().is_confirmed(),
-			<span class="string">&quot;Import summary&quot;
+			<span class="string">"Import summary"
 		</span>);
 
 		<span class="self">self</span>.metrics.on_approval_votes(import_result.imported_approval_votes());
@@ -3185,7 +3187,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				target: LOG_TARGET,
 				<span class="question-mark">?</span>candidate_hash,
 				session,
-				<span class="string">&quot;Dispute on candidate concluded with &#39;valid&#39; result&quot;</span>,
+				<span class="string">"Dispute on candidate concluded with 'valid' result"</span>,
 			);
 			<span class="kw">for </span>(statement, validator_index) <span class="kw">in </span>own_statements.iter() {
 				<span class="kw">if </span>statement.statement().indicates_invalidity() {
@@ -3193,7 +3195,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						target: LOG_TARGET,
 						<span class="question-mark">?</span>candidate_hash,
 						<span class="question-mark">?</span>validator_index,
-						<span class="string">&quot;Voted against a candidate that was concluded valid.&quot;</span>,
+						<span class="string">"Voted against a candidate that was concluded valid."</span>,
 					);
 				}
 			}
@@ -3208,7 +3210,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				target: LOG_TARGET,
 				<span class="question-mark">?</span>candidate_hash,
 				session,
-				<span class="string">&quot;Dispute on candidate concluded with &#39;invalid&#39; result&quot;</span>,
+				<span class="string">"Dispute on candidate concluded with 'invalid' result"</span>,
 			);
 			<span class="kw">for </span>(statement, validator_index) <span class="kw">in </span>own_statements.iter() {
 				<span class="kw">if </span>statement.statement().indicates_validity() {
@@ -3216,7 +3218,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						target: LOG_TARGET,
 						<span class="question-mark">?</span>candidate_hash,
 						<span class="question-mark">?</span>validator_index,
-						<span class="string">&quot;Voted for a candidate that was concluded invalid.&quot;</span>,
+						<span class="string">"Voted for a candidate that was concluded invalid."</span>,
 					);
 				}
 			}
@@ -3242,7 +3244,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">async fn </span>issue_local_statement&lt;Context&gt;(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		ctx: <span class="kw-2">&amp;mut </span>Context,
-		overlay_db: <span class="kw-2">&amp;mut </span>OverlayedBackend&lt;<span class="lifetime">&#39;_</span>, <span class="kw">impl </span>Backend&gt;,
+		overlay_db: <span class="kw-2">&amp;mut </span>OverlayedBackend&lt;<span class="lifetime">'_</span>, <span class="kw">impl </span>Backend&gt;,
 		candidate_hash: CandidateHash,
 		candidate_receipt: CandidateReceipt,
 		session: SessionIndex,
@@ -3255,7 +3257,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="question-mark">?</span>session,
 			<span class="question-mark">?</span>valid,
 			<span class="question-mark">?</span>now,
-			<span class="string">&quot;Issuing local statement for candidate!&quot;
+			<span class="string">"Issuing local statement for candidate!"
 		</span>);
 
 		<span class="comment">// Load environment:
@@ -3273,7 +3275,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="macro">gum::warn!</span>(
 					target: LOG_TARGET,
 					session,
-					<span class="string">&quot;Missing info for session which has an active dispute&quot;</span>,
+					<span class="string">"Missing info for session which has an active dispute"</span>,
 				);
 
 				<span class="kw">return </span><span class="prelude-val">Ok</span>(())
@@ -3309,7 +3311,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				session,
 				env.validators()
 					.get(<span class="kw-2">*</span>index)
-					.expect(<span class="string">&quot;`controlled_indices` are derived from `validators`; qed&quot;</span>)
+					.expect(<span class="string">"`controlled_indices` are derived from `validators`; qed"</span>)
 					.clone(),
 			);
 
@@ -3322,7 +3324,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="macro">gum::error!</span>(
 						target: LOG_TARGET,
 						<span class="question-mark">?</span>err,
-						<span class="string">&quot;Encountered keystore error while signing dispute statement&quot;</span>,
+						<span class="string">"Encountered keystore error while signing dispute statement"</span>,
 					);
 				},
 			}
@@ -3333,7 +3335,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>dispute_message =
 				<span class="kw">match </span>make_dispute_message(env.session_info(), <span class="kw-2">&amp;</span>votes, statement.clone(), <span class="kw-2">*</span>index) {
 					<span class="prelude-val">Err</span>(err) =&gt; {
-						<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="question-mark">?</span>err, <span class="string">&quot;Creating dispute message failed.&quot;</span>);
+						<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="question-mark">?</span>err, <span class="string">"Creating dispute message failed."</span>);
 						<span class="kw">continue
 					</span>},
 					<span class="prelude-val">Ok</span>(dispute_message) =&gt; dispute_message,
@@ -3360,7 +3362,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						target: LOG_TARGET,
 						<span class="question-mark">?</span>candidate_hash,
 						<span class="question-mark">?</span>session,
-						<span class="string">&quot;`handle_import_statements` considers our own votes invalid!&quot;
+						<span class="string">"`handle_import_statements` considers our own votes invalid!"
 					</span>);
 				},
 				ImportStatementsResult::ValidImport =&gt; {
@@ -3368,7 +3370,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						target: LOG_TARGET,
 						<span class="question-mark">?</span>candidate_hash,
 						<span class="question-mark">?</span>session,
-						<span class="string">&quot;`handle_import_statements` successfully imported our vote!&quot;
+						<span class="string">"`handle_import_statements` successfully imported our vote!"
 					</span>);
 				},
 			}
@@ -3429,7 +3431,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// Assumes `block_descriptions` are sorted from the one
 /// with the lowest `BlockNumber` to the highest.
 </span><span class="kw">fn </span>determine_undisputed_chain(
-	overlay_db: <span class="kw-2">&amp;mut </span>OverlayedBackend&lt;<span class="lifetime">&#39;_</span>, <span class="kw">impl </span>Backend&gt;,
+	overlay_db: <span class="kw-2">&amp;mut </span>OverlayedBackend&lt;<span class="lifetime">'_</span>, <span class="kw">impl </span>Backend&gt;,
 	base_number: BlockNumber,
 	base_hash: Hash,
 	block_descriptions: Vec&lt;BlockDescription&gt;,
@@ -3476,8 +3478,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">struct </span>LostSessionDisputes {
-	<span class="comment">// We separate lost disputes to prioritize &quot;for invalid&quot; offenders. And among those, we
-	// prioritize backing votes the most. There&#39;s no need to limit the size of these sets, as they
+	<span class="comment">// We separate lost disputes to prioritize "for invalid" offenders. And among those, we
+	// prioritize backing votes the most. There's no need to limit the size of these sets, as they
 	// are already limited by the number of validators in the session. We use `LruMap` to ensure
 	// the iteration order prioritizes most recently disputes lost over older ones in case we reach
 	// the limit.
@@ -3533,7 +3535,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// The order of iteration prioritizes `for_invalid` offenders (and backers among those) over
 	/// `against_valid` offenders. And most recently lost disputes over older ones.
 	/// NOTE: the iterator might contain duplicates.
-	</span><span class="kw">fn </span>iter(<span class="kw-2">&amp;</span><span class="self">self</span>, session_index: SessionIndex) -&gt; <span class="kw">impl </span>Iterator&lt;Item = ValidatorIndex&gt; + <span class="lifetime">&#39;_ </span>{
+	</span><span class="kw">fn </span>iter(<span class="kw-2">&amp;</span><span class="self">self</span>, session_index: SessionIndex) -&gt; <span class="kw">impl </span>Iterator&lt;Item = ValidatorIndex&gt; + <span class="lifetime">'_ </span>{
 		<span class="self">self</span>.per_session.get(<span class="kw-2">&amp;</span>session_index).into_iter().flat_map(|e| {
 			e.backers_for_invalid
 				.iter()

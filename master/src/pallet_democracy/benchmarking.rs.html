@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/democracy/src/benchmarking.rs`."><title>benchmarking.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/democracy/src/benchmarking.rs`."><title>benchmarking.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_democracy" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_democracy" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../pallet_democracy/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1006,14 +1008,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -1035,7 +1037,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">const </span>REFERENDUM_COUNT_HINT: u32 = <span class="number">10</span>;
 <span class="kw">const </span>SEED: u32 = <span class="number">0</span>;
 
-<span class="kw">fn </span>funded_account&lt;T: Config&gt;(name: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str, index: u32) -&gt; T::AccountId {
+<span class="kw">fn </span>funded_account&lt;T: Config&gt;(name: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str, index: u32) -&gt; T::AccountId {
 	<span class="kw">let </span>caller: T::AccountId = account(name, index, SEED);
 	<span class="comment">// Give the account half of the maximum value of the `Balance` type.
 	// Otherwise some transfers will fail with an overflow error.
@@ -1048,8 +1050,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	&lt;T <span class="kw">as </span>Config&gt;::Preimages::bound(call).unwrap()
 }
 
-<span class="kw">fn </span>add_proposal&lt;T: Config&gt;(n: u32) -&gt; <span class="prelude-ty">Result</span>&lt;T::Hash, <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; {
-	<span class="kw">let </span>other = funded_account::&lt;T&gt;(<span class="string">&quot;proposer&quot;</span>, n);
+<span class="kw">fn </span>add_proposal&lt;T: Config&gt;(n: u32) -&gt; <span class="prelude-ty">Result</span>&lt;T::Hash, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
+	<span class="kw">let </span>other = funded_account::&lt;T&gt;(<span class="string">"proposer"</span>, n);
 	<span class="kw">let </span>value = T::MinimumDeposit::get();
 	<span class="kw">let </span>proposal = make_proposal::&lt;T&gt;(n);
 	Democracy::&lt;T&gt;::propose(RawOrigin::Signed(other).into(), proposal.clone(), value)<span class="question-mark">?</span>;
@@ -1105,37 +1107,37 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			add_proposal::&lt;T&gt;(i)<span class="question-mark">?</span>;
 		}
 
-		<span class="kw">let </span>caller = funded_account::&lt;T&gt;(<span class="string">&quot;caller&quot;</span>, <span class="number">0</span>);
+		<span class="kw">let </span>caller = funded_account::&lt;T&gt;(<span class="string">"caller"</span>, <span class="number">0</span>);
 		<span class="kw">let </span>proposal = make_proposal::&lt;T&gt;(<span class="number">0</span>);
 		<span class="kw">let </span>value = T::MinimumDeposit::get();
 		<span class="macro">whitelist_account!</span>(caller);
 	}: <span class="kw">_</span>(RawOrigin::Signed(caller), proposal, value)
 	verify {
-		<span class="macro">assert_eq!</span>(Democracy::&lt;T&gt;::public_props().len(), p <span class="kw">as </span>usize, <span class="string">&quot;Proposals not created.&quot;</span>);
+		<span class="macro">assert_eq!</span>(Democracy::&lt;T&gt;::public_props().len(), p <span class="kw">as </span>usize, <span class="string">"Proposals not created."</span>);
 	}
 
 	second {
-		<span class="kw">let </span>caller = funded_account::&lt;T&gt;(<span class="string">&quot;caller&quot;</span>, <span class="number">0</span>);
+		<span class="kw">let </span>caller = funded_account::&lt;T&gt;(<span class="string">"caller"</span>, <span class="number">0</span>);
 		add_proposal::&lt;T&gt;(<span class="number">0</span>)<span class="question-mark">?</span>;
 
-		<span class="comment">// Create s existing &quot;seconds&quot;
+		<span class="comment">// Create s existing "seconds"
 		// we must reserve one deposit for the `proposal` and one for our benchmarked `second` call.
 		</span><span class="kw">for </span>i <span class="kw">in </span><span class="number">0 </span>.. T::MaxDeposits::get() - <span class="number">2 </span>{
-			<span class="kw">let </span>seconder = funded_account::&lt;T&gt;(<span class="string">&quot;seconder&quot;</span>, i);
+			<span class="kw">let </span>seconder = funded_account::&lt;T&gt;(<span class="string">"seconder"</span>, i);
 			Democracy::&lt;T&gt;::second(RawOrigin::Signed(seconder).into(), <span class="number">0</span>)<span class="question-mark">?</span>;
 		}
 
-		<span class="kw">let </span>deposits = Democracy::&lt;T&gt;::deposit_of(<span class="number">0</span>).ok_or(<span class="string">&quot;Proposal not created&quot;</span>)<span class="question-mark">?</span>;
-		<span class="macro">assert_eq!</span>(deposits.<span class="number">0</span>.len(), (T::MaxDeposits::get() - <span class="number">1</span>) <span class="kw">as </span>usize, <span class="string">&quot;Seconds not recorded&quot;</span>);
+		<span class="kw">let </span>deposits = Democracy::&lt;T&gt;::deposit_of(<span class="number">0</span>).ok_or(<span class="string">"Proposal not created"</span>)<span class="question-mark">?</span>;
+		<span class="macro">assert_eq!</span>(deposits.<span class="number">0</span>.len(), (T::MaxDeposits::get() - <span class="number">1</span>) <span class="kw">as </span>usize, <span class="string">"Seconds not recorded"</span>);
 		<span class="macro">whitelist_account!</span>(caller);
 	}: <span class="kw">_</span>(RawOrigin::Signed(caller), <span class="number">0</span>)
 	verify {
-		<span class="kw">let </span>deposits = Democracy::&lt;T&gt;::deposit_of(<span class="number">0</span>).ok_or(<span class="string">&quot;Proposal not created&quot;</span>)<span class="question-mark">?</span>;
-		<span class="macro">assert_eq!</span>(deposits.<span class="number">0</span>.len(), (T::MaxDeposits::get()) <span class="kw">as </span>usize, <span class="string">&quot;`second` benchmark did not work&quot;</span>);
+		<span class="kw">let </span>deposits = Democracy::&lt;T&gt;::deposit_of(<span class="number">0</span>).ok_or(<span class="string">"Proposal not created"</span>)<span class="question-mark">?</span>;
+		<span class="macro">assert_eq!</span>(deposits.<span class="number">0</span>.len(), (T::MaxDeposits::get()) <span class="kw">as </span>usize, <span class="string">"`second` benchmark did not work"</span>);
 	}
 
 	vote_new {
-		<span class="kw">let </span>caller = funded_account::&lt;T&gt;(<span class="string">&quot;caller&quot;</span>, <span class="number">0</span>);
+		<span class="kw">let </span>caller = funded_account::&lt;T&gt;(<span class="string">"caller"</span>, <span class="number">0</span>);
 		<span class="kw">let </span>account_vote = account_vote::&lt;T&gt;(<span class="number">100u32</span>.into());
 
 		<span class="comment">// We need to create existing direct votes
@@ -1145,9 +1147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 		<span class="kw">let </span>votes = <span class="kw">match </span>VotingOf::&lt;T&gt;::get(<span class="kw-2">&amp;</span>caller) {
 			Voting::Direct { votes, .. } =&gt; votes,
-			<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;Votes are not direct&quot;</span>.into()),
+			<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Votes are not direct"</span>.into()),
 		};
-		<span class="macro">assert_eq!</span>(votes.len(), (T::MaxVotes::get() - <span class="number">1</span>) <span class="kw">as </span>usize, <span class="string">&quot;Votes were not recorded.&quot;</span>);
+		<span class="macro">assert_eq!</span>(votes.len(), (T::MaxVotes::get() - <span class="number">1</span>) <span class="kw">as </span>usize, <span class="string">"Votes were not recorded."</span>);
 
 		<span class="kw">let </span>ref_index = add_referendum::&lt;T&gt;(T::MaxVotes::get() - <span class="number">1</span>).<span class="number">0</span>;
 		<span class="macro">whitelist_account!</span>(caller);
@@ -1155,13 +1157,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	verify {
 		<span class="kw">let </span>votes = <span class="kw">match </span>VotingOf::&lt;T&gt;::get(<span class="kw-2">&amp;</span>caller) {
 			Voting::Direct { votes, .. } =&gt; votes,
-			<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;Votes are not direct&quot;</span>.into()),
+			<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Votes are not direct"</span>.into()),
 		};
-		<span class="macro">assert_eq!</span>(votes.len(), T::MaxVotes::get() <span class="kw">as </span>usize, <span class="string">&quot;Vote was not recorded.&quot;</span>);
+		<span class="macro">assert_eq!</span>(votes.len(), T::MaxVotes::get() <span class="kw">as </span>usize, <span class="string">"Vote was not recorded."</span>);
 	}
 
 	vote_existing {
-		<span class="kw">let </span>caller = funded_account::&lt;T&gt;(<span class="string">&quot;caller&quot;</span>, <span class="number">0</span>);
+		<span class="kw">let </span>caller = funded_account::&lt;T&gt;(<span class="string">"caller"</span>, <span class="number">0</span>);
 		<span class="kw">let </span>account_vote = account_vote::&lt;T&gt;(<span class="number">100u32</span>.into());
 
 		<span class="comment">// We need to create existing direct votes
@@ -1171,9 +1173,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 		<span class="kw">let </span>votes = <span class="kw">match </span>VotingOf::&lt;T&gt;::get(<span class="kw-2">&amp;</span>caller) {
 			Voting::Direct { votes, .. } =&gt; votes,
-			<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;Votes are not direct&quot;</span>.into()),
+			<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Votes are not direct"</span>.into()),
 		};
-		<span class="macro">assert_eq!</span>(votes.len(), T::MaxVotes::get() <span class="kw">as </span>usize, <span class="string">&quot;Votes were not recorded.&quot;</span>);
+		<span class="macro">assert_eq!</span>(votes.len(), T::MaxVotes::get() <span class="kw">as </span>usize, <span class="string">"Votes were not recorded."</span>);
 
 		<span class="comment">// Change vote from aye to nay
 		</span><span class="kw">let </span>nay = Vote { aye: <span class="bool-val">false</span>, conviction: Conviction::Locked1x };
@@ -1186,16 +1188,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	verify {
 		<span class="kw">let </span>votes = <span class="kw">match </span>VotingOf::&lt;T&gt;::get(<span class="kw-2">&amp;</span>caller) {
 			Voting::Direct { votes, .. } =&gt; votes,
-			<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;Votes are not direct&quot;</span>.into()),
+			<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Votes are not direct"</span>.into()),
 		};
-		<span class="macro">assert_eq!</span>(votes.len(), T::MaxVotes::get() <span class="kw">as </span>usize, <span class="string">&quot;Vote was incorrectly added&quot;</span>);
+		<span class="macro">assert_eq!</span>(votes.len(), T::MaxVotes::get() <span class="kw">as </span>usize, <span class="string">"Vote was incorrectly added"</span>);
 		<span class="kw">let </span>referendum_info = Democracy::&lt;T&gt;::referendum_info(ref_index)
-			.ok_or(<span class="string">&quot;referendum doesn&#39;t exist&quot;</span>)<span class="question-mark">?</span>;
+			.ok_or(<span class="string">"referendum doesn't exist"</span>)<span class="question-mark">?</span>;
 		<span class="kw">let </span>tally =  <span class="kw">match </span>referendum_info {
 			ReferendumInfo::Ongoing(r) =&gt; r.tally,
-			<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;referendum not ongoing&quot;</span>.into()),
+			<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"referendum not ongoing"</span>.into()),
 		};
-		<span class="macro">assert_eq!</span>(tally.nays, <span class="number">1000u32</span>.into(), <span class="string">&quot;changed vote was not recorded&quot;</span>);
+		<span class="macro">assert_eq!</span>(tally.nays, <span class="number">1000u32</span>.into(), <span class="string">"changed vote was not recorded"</span>);
 	}
 
 	emergency_cancel {
@@ -1217,11 +1219,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	blacklist {
-		<span class="comment">// Place our proposal at the end to make sure it&#39;s worst case.
+		<span class="comment">// Place our proposal at the end to make sure it's worst case.
 		</span><span class="kw">for </span>i <span class="kw">in </span><span class="number">0 </span>.. T::MaxProposals::get() - <span class="number">1 </span>{
 			add_proposal::&lt;T&gt;(i)<span class="question-mark">?</span>;
 		}
-		<span class="comment">// We should really add a lot of seconds here, but we&#39;re not doing it elsewhere.
+		<span class="comment">// We should really add a lot of seconds here, but we're not doing it elsewhere.
 
 		// Add a referendum of our proposal.
 		</span><span class="kw">let </span>(ref_index, hash, preimage_hash) = add_referendum::&lt;T&gt;(<span class="number">0</span>);
@@ -1229,7 +1231,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// Place our proposal in the external queue, too.
 		</span><span class="macro">assert_ok!</span>(Democracy::&lt;T&gt;::external_propose(
 			T::ExternalOrigin::try_successful_origin()
-				.expect(<span class="string">&quot;ExternalOrigin has no successful origin required for the benchmark&quot;</span>),
+				.expect(<span class="string">"ExternalOrigin has no successful origin required for the benchmark"</span>),
 			make_proposal::&lt;T&gt;(<span class="number">0</span>)
 		));
 		<span class="kw">let </span>origin =
@@ -1256,7 +1258,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		</span><span class="kw">let </span>addresses: BoundedVec&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt; = (<span class="number">0</span>..(T::MaxBlacklisted::get() - <span class="number">1</span>))
 			.into_iter()
-			.map(|i| account::&lt;T::AccountId&gt;(<span class="string">&quot;blacklist&quot;</span>, i, SEED))
+			.map(|i| account::&lt;T::AccountId&gt;(<span class="string">"blacklist"</span>, i, SEED))
 			.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
 			.try_into()
 			.unwrap();
@@ -1264,7 +1266,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}: <span class="kw">_</span>&lt;T::RuntimeOrigin&gt;(origin, proposal)
 	verify {
 		<span class="comment">// External proposal created
-		</span><span class="macro">ensure!</span>(&lt;NextExternal&lt;T&gt;&gt;::exists(), <span class="string">&quot;External proposal didn&#39;t work&quot;</span>);
+		</span><span class="macro">ensure!</span>(&lt;NextExternal&lt;T&gt;&gt;::exists(), <span class="string">"External proposal didn't work"</span>);
 	}
 
 	external_propose_majority {
@@ -1274,7 +1276,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}: <span class="kw">_</span>&lt;T::RuntimeOrigin&gt;(origin, proposal)
 	verify {
 		<span class="comment">// External proposal created
-		</span><span class="macro">ensure!</span>(&lt;NextExternal&lt;T&gt;&gt;::exists(), <span class="string">&quot;External proposal didn&#39;t work&quot;</span>);
+		</span><span class="macro">ensure!</span>(&lt;NextExternal&lt;T&gt;&gt;::exists(), <span class="string">"External proposal didn't work"</span>);
 	}
 
 	external_propose_default {
@@ -1284,12 +1286,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}: <span class="kw">_</span>&lt;T::RuntimeOrigin&gt;(origin, proposal)
 	verify {
 		<span class="comment">// External proposal created
-		</span><span class="macro">ensure!</span>(&lt;NextExternal&lt;T&gt;&gt;::exists(), <span class="string">&quot;External proposal didn&#39;t work&quot;</span>);
+		</span><span class="macro">ensure!</span>(&lt;NextExternal&lt;T&gt;&gt;::exists(), <span class="string">"External proposal didn't work"</span>);
 	}
 
 	fast_track {
 		<span class="kw">let </span>origin_propose = T::ExternalDefaultOrigin::try_successful_origin()
-			.expect(<span class="string">&quot;ExternalDefaultOrigin has no successful origin required for the benchmark&quot;</span>);
+			.expect(<span class="string">"ExternalDefaultOrigin has no successful origin required for the benchmark"</span>);
 		<span class="kw">let </span>proposal = make_proposal::&lt;T&gt;(<span class="number">0</span>);
 		<span class="kw">let </span>proposal_hash = proposal.hash();
 		Democracy::&lt;T&gt;::external_propose_default(origin_propose.clone(), proposal)<span class="question-mark">?</span>;
@@ -1306,7 +1308,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>delay = <span class="number">0u32</span>;
 	}: <span class="kw">_</span>&lt;T::RuntimeOrigin&gt;(origin_fast_track, proposal_hash, voting_period, delay.into())
 	verify {
-		<span class="macro">assert_eq!</span>(Democracy::&lt;T&gt;::referendum_count(), <span class="number">1</span>, <span class="string">&quot;referendum not created&quot;</span>);
+		<span class="macro">assert_eq!</span>(Democracy::&lt;T&gt;::referendum_count(), <span class="number">1</span>, <span class="string">"referendum not created"</span>);
 		assert_last_event::&lt;T&gt;(<span class="kw">crate</span>::Event::MetadataTransferred {
 			prev_owner: MetadataOwner::External,
 			owner: MetadataOwner::Referendum(<span class="number">0</span>),
@@ -1319,7 +1321,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>proposal_hash = proposal.hash();
 
 		<span class="kw">let </span>origin_propose = T::ExternalDefaultOrigin::try_successful_origin()
-			.expect(<span class="string">&quot;ExternalDefaultOrigin has no successful origin required for the benchmark&quot;</span>);
+			.expect(<span class="string">"ExternalDefaultOrigin has no successful origin required for the benchmark"</span>);
 		Democracy::&lt;T&gt;::external_propose_default(origin_propose.clone(), proposal)<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>preimage_hash = note_preimage::&lt;T&gt;();
@@ -1331,27 +1333,27 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span><span class="kw-2">mut </span>vetoers: BoundedVec&lt;T::AccountId, <span class="kw">_</span>&gt; = Default::default();
 		<span class="kw">for </span>i <span class="kw">in </span><span class="number">0 </span>.. (T::MaxBlacklisted::get() - <span class="number">1</span>) {
-			vetoers.try_push(account::&lt;T::AccountId&gt;(<span class="string">&quot;vetoer&quot;</span>, i, SEED)).unwrap();
+			vetoers.try_push(account::&lt;T::AccountId&gt;(<span class="string">"vetoer"</span>, i, SEED)).unwrap();
 		}
 		vetoers.sort();
 		Blacklist::&lt;T&gt;::insert(proposal_hash, (BlockNumberFor::&lt;T&gt;::zero(), vetoers));
 
 		<span class="kw">let </span>origin = T::VetoOrigin::try_successful_origin().map_err(|<span class="kw">_</span>| BenchmarkError::Weightless)<span class="question-mark">?</span>;
-		<span class="macro">ensure!</span>(NextExternal::&lt;T&gt;::get().is_some(), <span class="string">&quot;no external proposal&quot;</span>);
+		<span class="macro">ensure!</span>(NextExternal::&lt;T&gt;::get().is_some(), <span class="string">"no external proposal"</span>);
 	}: <span class="kw">_</span>&lt;T::RuntimeOrigin&gt;(origin, proposal_hash)
 	verify {
 		<span class="macro">assert!</span>(NextExternal::&lt;T&gt;::get().is_none());
-		<span class="kw">let </span>(<span class="kw">_</span>, new_vetoers) = &lt;Blacklist&lt;T&gt;&gt;::get(<span class="kw-2">&amp;</span>proposal_hash).ok_or(<span class="string">&quot;no blacklist&quot;</span>)<span class="question-mark">?</span>;
-		<span class="macro">assert_eq!</span>(new_vetoers.len(), T::MaxBlacklisted::get() <span class="kw">as </span>usize, <span class="string">&quot;vetoers not added&quot;</span>);
+		<span class="kw">let </span>(<span class="kw">_</span>, new_vetoers) = &lt;Blacklist&lt;T&gt;&gt;::get(<span class="kw-2">&amp;</span>proposal_hash).ok_or(<span class="string">"no blacklist"</span>)<span class="question-mark">?</span>;
+		<span class="macro">assert_eq!</span>(new_vetoers.len(), T::MaxBlacklisted::get() <span class="kw">as </span>usize, <span class="string">"vetoers not added"</span>);
 	}
 
 	cancel_proposal {
-		<span class="comment">// Place our proposal at the end to make sure it&#39;s worst case.
+		<span class="comment">// Place our proposal at the end to make sure it's worst case.
 		</span><span class="kw">for </span>i <span class="kw">in </span><span class="number">0 </span>.. T::MaxProposals::get() {
 			add_proposal::&lt;T&gt;(i)<span class="question-mark">?</span>;
 		}
 		<span class="comment">// Add metadata to the first proposal.
-		</span><span class="kw">let </span>proposer = funded_account::&lt;T&gt;(<span class="string">&quot;proposer&quot;</span>, <span class="number">0</span>);
+		</span><span class="kw">let </span>proposer = funded_account::&lt;T&gt;(<span class="string">"proposer"</span>, <span class="number">0</span>);
 		<span class="kw">let </span>preimage_hash = note_preimage::&lt;T&gt;();
 		<span class="macro">assert_ok!</span>(Democracy::&lt;T&gt;::set_metadata(
 			RawOrigin::Signed(proposer).into(),
@@ -1385,7 +1387,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			add_referendum::&lt;T&gt;(i);
 		}
 
-		<span class="macro">assert_eq!</span>(Democracy::&lt;T&gt;::referendum_count(), r, <span class="string">&quot;referenda not created&quot;</span>);
+		<span class="macro">assert_eq!</span>(Democracy::&lt;T&gt;::referendum_count(), r, <span class="string">"referenda not created"</span>);
 
 		<span class="comment">// Launch external
 		</span>LastTabledWasExternal::&lt;T&gt;::put(<span class="bool-val">false</span>);
@@ -1396,22 +1398,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>call = Call::&lt;T&gt;::external_propose_majority { proposal };
 		call.dispatch_bypass_filter(origin)<span class="question-mark">?</span>;
 		<span class="comment">// External proposal created
-		</span><span class="macro">ensure!</span>(&lt;NextExternal&lt;T&gt;&gt;::exists(), <span class="string">&quot;External proposal didn&#39;t work&quot;</span>);
+		</span><span class="macro">ensure!</span>(&lt;NextExternal&lt;T&gt;&gt;::exists(), <span class="string">"External proposal didn't work"</span>);
 
 		<span class="kw">let </span>block_number = T::LaunchPeriod::get();
 
 	}: { Democracy::&lt;T&gt;::on_initialize(block_number) }
 	verify {
 		<span class="comment">// One extra because of next external
-		</span><span class="macro">assert_eq!</span>(Democracy::&lt;T&gt;::referendum_count(), r + <span class="number">1</span>, <span class="string">&quot;referenda not created&quot;</span>);
-		<span class="macro">ensure!</span>(!&lt;NextExternal&lt;T&gt;&gt;::exists(), <span class="string">&quot;External wasn&#39;t taken&quot;</span>);
+		</span><span class="macro">assert_eq!</span>(Democracy::&lt;T&gt;::referendum_count(), r + <span class="number">1</span>, <span class="string">"referenda not created"</span>);
+		<span class="macro">ensure!</span>(!&lt;NextExternal&lt;T&gt;&gt;::exists(), <span class="string">"External wasn't taken"</span>);
 
 		<span class="comment">// All but the new next external should be finished
 		</span><span class="kw">for </span>i <span class="kw">in </span><span class="number">0 </span>.. r {
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(value) = ReferendumInfoOf::&lt;T&gt;::get(i) {
 				<span class="kw">match </span>value {
 					ReferendumInfo::Finished { .. } =&gt; (),
-					ReferendumInfo::Ongoing(<span class="kw">_</span>) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;Referendum was not finished&quot;</span>.into()),
+					ReferendumInfo::Ongoing(<span class="kw">_</span>) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Referendum was not finished"</span>.into()),
 				}
 			}
 		}
@@ -1425,10 +1427,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			add_referendum::&lt;T&gt;(i);
 		}
 
-		<span class="macro">assert_eq!</span>(Democracy::&lt;T&gt;::referendum_count(), r, <span class="string">&quot;referenda not created&quot;</span>);
+		<span class="macro">assert_eq!</span>(Democracy::&lt;T&gt;::referendum_count(), r, <span class="string">"referenda not created"</span>);
 
 		<span class="comment">// Launch public
-		</span><span class="macro">assert!</span>(add_proposal::&lt;T&gt;(r).is_ok(), <span class="string">&quot;proposal not created&quot;</span>);
+		</span><span class="macro">assert!</span>(add_proposal::&lt;T&gt;(r).is_ok(), <span class="string">"proposal not created"</span>);
 		LastTabledWasExternal::&lt;T&gt;::put(<span class="bool-val">true</span>);
 
 		<span class="kw">let </span>block_number = T::LaunchPeriod::get();
@@ -1436,14 +1438,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}: { Democracy::&lt;T&gt;::on_initialize(block_number) }
 	verify {
 		<span class="comment">// One extra because of next public
-		</span><span class="macro">assert_eq!</span>(Democracy::&lt;T&gt;::referendum_count(), r + <span class="number">1</span>, <span class="string">&quot;proposal not accepted&quot;</span>);
+		</span><span class="macro">assert_eq!</span>(Democracy::&lt;T&gt;::referendum_count(), r + <span class="number">1</span>, <span class="string">"proposal not accepted"</span>);
 
 		<span class="comment">// All should be finished
 		</span><span class="kw">for </span>i <span class="kw">in </span><span class="number">0 </span>.. r {
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(value) = ReferendumInfoOf::&lt;T&gt;::get(i) {
 				<span class="kw">match </span>value {
 					ReferendumInfo::Finished { .. } =&gt; (),
-					ReferendumInfo::Ongoing(<span class="kw">_</span>) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;Referendum was not finished&quot;</span>.into()),
+					ReferendumInfo::Ongoing(<span class="kw">_</span>) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Referendum was not finished"</span>.into()),
 				}
 			}
 		}
@@ -1464,8 +1466,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			ReferendumInfoOf::&lt;T&gt;::insert(key, info);
 		}
 
-		<span class="macro">assert_eq!</span>(Democracy::&lt;T&gt;::referendum_count(), r, <span class="string">&quot;referenda not created&quot;</span>);
-		<span class="macro">assert_eq!</span>(Democracy::&lt;T&gt;::lowest_unbaked(), <span class="number">0</span>, <span class="string">&quot;invalid referenda init&quot;</span>);
+		<span class="macro">assert_eq!</span>(Democracy::&lt;T&gt;::referendum_count(), r, <span class="string">"referenda not created"</span>);
+		<span class="macro">assert_eq!</span>(Democracy::&lt;T&gt;::lowest_unbaked(), <span class="number">0</span>, <span class="string">"invalid referenda init"</span>);
 
 	}: { Democracy::&lt;T&gt;::on_initialize(<span class="number">1u32</span>.into()) }
 	verify {
@@ -1473,7 +1475,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">for </span>i <span class="kw">in </span><span class="number">0 </span>.. r {
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(value) = ReferendumInfoOf::&lt;T&gt;::get(i) {
 				<span class="kw">match </span>value {
-					ReferendumInfo::Finished { .. } =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;Referendum has been finished&quot;</span>.into()),
+					ReferendumInfo::Finished { .. } =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Referendum has been finished"</span>.into()),
 					ReferendumInfo::Ongoing(<span class="kw">_</span>) =&gt; (),
 				}
 			}
@@ -1494,8 +1496,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			ReferendumInfoOf::&lt;T&gt;::insert(key, info);
 		}
 
-		<span class="macro">assert_eq!</span>(Democracy::&lt;T&gt;::referendum_count(), r, <span class="string">&quot;referenda not created&quot;</span>);
-		<span class="macro">assert_eq!</span>(Democracy::&lt;T&gt;::lowest_unbaked(), <span class="number">0</span>, <span class="string">&quot;invalid referenda init&quot;</span>);
+		<span class="macro">assert_eq!</span>(Democracy::&lt;T&gt;::referendum_count(), r, <span class="string">"referenda not created"</span>);
+		<span class="macro">assert_eq!</span>(Democracy::&lt;T&gt;::lowest_unbaked(), <span class="number">0</span>, <span class="string">"invalid referenda init"</span>);
 
 		<span class="kw">let </span>block_number = T::LaunchPeriod::get();
 
@@ -1505,7 +1507,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">for </span>i <span class="kw">in </span><span class="number">0 </span>.. r {
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(value) = ReferendumInfoOf::&lt;T&gt;::get(i) {
 				<span class="kw">match </span>value {
-					ReferendumInfo::Finished { .. } =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;Referendum has been finished&quot;</span>.into()),
+					ReferendumInfo::Finished { .. } =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Referendum has been finished"</span>.into()),
 					ReferendumInfo::Ongoing(<span class="kw">_</span>) =&gt; (),
 				}
 			}
@@ -1518,9 +1520,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>initial_balance: BalanceOf&lt;T&gt; = <span class="number">100u32</span>.into();
 		<span class="kw">let </span>delegated_balance: BalanceOf&lt;T&gt; = <span class="number">1000u32</span>.into();
 
-		<span class="kw">let </span>caller = funded_account::&lt;T&gt;(<span class="string">&quot;caller&quot;</span>, <span class="number">0</span>);
+		<span class="kw">let </span>caller = funded_account::&lt;T&gt;(<span class="string">"caller"</span>, <span class="number">0</span>);
 		<span class="comment">// Caller will initially delegate to `old_delegate`
-		</span><span class="kw">let </span>old_delegate: T::AccountId = funded_account::&lt;T&gt;(<span class="string">&quot;old_delegate&quot;</span>, r);
+		</span><span class="kw">let </span>old_delegate: T::AccountId = funded_account::&lt;T&gt;(<span class="string">"old_delegate"</span>, r);
 		<span class="kw">let </span>old_delegate_lookup = T::Lookup::unlookup(old_delegate.clone());
 		Democracy::&lt;T&gt;::delegate(
 			RawOrigin::Signed(caller.clone()).into(),
@@ -1530,12 +1532,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		)<span class="question-mark">?</span>;
 		<span class="kw">let </span>(target, balance) = <span class="kw">match </span>VotingOf::&lt;T&gt;::get(<span class="kw-2">&amp;</span>caller) {
 			Voting::Delegating { target, balance, .. } =&gt; (target, balance),
-			<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;Votes are not direct&quot;</span>.into()),
+			<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Votes are not direct"</span>.into()),
 		};
-		<span class="macro">assert_eq!</span>(target, old_delegate, <span class="string">&quot;delegation target didn&#39;t work&quot;</span>);
-		<span class="macro">assert_eq!</span>(balance, delegated_balance, <span class="string">&quot;delegation balance didn&#39;t work&quot;</span>);
+		<span class="macro">assert_eq!</span>(target, old_delegate, <span class="string">"delegation target didn't work"</span>);
+		<span class="macro">assert_eq!</span>(balance, delegated_balance, <span class="string">"delegation balance didn't work"</span>);
 		<span class="comment">// Caller will now switch to `new_delegate`
-		</span><span class="kw">let </span>new_delegate: T::AccountId = funded_account::&lt;T&gt;(<span class="string">&quot;new_delegate&quot;</span>, r);
+		</span><span class="kw">let </span>new_delegate: T::AccountId = funded_account::&lt;T&gt;(<span class="string">"new_delegate"</span>, r);
 		<span class="kw">let </span>new_delegate_lookup = T::Lookup::unlookup(new_delegate.clone());
 		<span class="kw">let </span>account_vote = account_vote::&lt;T&gt;(initial_balance);
 		<span class="comment">// We need to create existing direct votes for the `new_delegate`
@@ -1545,23 +1547,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 		<span class="kw">let </span>votes = <span class="kw">match </span>VotingOf::&lt;T&gt;::get(<span class="kw-2">&amp;</span>new_delegate) {
 			Voting::Direct { votes, .. } =&gt; votes,
-			<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;Votes are not direct&quot;</span>.into()),
+			<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Votes are not direct"</span>.into()),
 		};
-		<span class="macro">assert_eq!</span>(votes.len(), r <span class="kw">as </span>usize, <span class="string">&quot;Votes were not recorded.&quot;</span>);
+		<span class="macro">assert_eq!</span>(votes.len(), r <span class="kw">as </span>usize, <span class="string">"Votes were not recorded."</span>);
 		<span class="macro">whitelist_account!</span>(caller);
 	}: <span class="kw">_</span>(RawOrigin::Signed(caller.clone()), new_delegate_lookup, Conviction::Locked1x, delegated_balance)
 	verify {
 		<span class="kw">let </span>(target, balance) = <span class="kw">match </span>VotingOf::&lt;T&gt;::get(<span class="kw-2">&amp;</span>caller) {
 			Voting::Delegating { target, balance, .. } =&gt; (target, balance),
-			<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;Votes are not direct&quot;</span>.into()),
+			<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Votes are not direct"</span>.into()),
 		};
-		<span class="macro">assert_eq!</span>(target, new_delegate, <span class="string">&quot;delegation target didn&#39;t work&quot;</span>);
-		<span class="macro">assert_eq!</span>(balance, delegated_balance, <span class="string">&quot;delegation balance didn&#39;t work&quot;</span>);
+		<span class="macro">assert_eq!</span>(target, new_delegate, <span class="string">"delegation target didn't work"</span>);
+		<span class="macro">assert_eq!</span>(balance, delegated_balance, <span class="string">"delegation balance didn't work"</span>);
 		<span class="kw">let </span>delegations = <span class="kw">match </span>VotingOf::&lt;T&gt;::get(<span class="kw-2">&amp;</span>new_delegate) {
 			Voting::Direct { delegations, .. } =&gt; delegations,
-			<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;Votes are not direct&quot;</span>.into()),
+			<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Votes are not direct"</span>.into()),
 		};
-		<span class="macro">assert_eq!</span>(delegations.capital, delegated_balance, <span class="string">&quot;delegation was not recorded.&quot;</span>);
+		<span class="macro">assert_eq!</span>(delegations.capital, delegated_balance, <span class="string">"delegation was not recorded."</span>);
 	}
 
 	undelegate {
@@ -1570,9 +1572,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>initial_balance: BalanceOf&lt;T&gt; = <span class="number">100u32</span>.into();
 		<span class="kw">let </span>delegated_balance: BalanceOf&lt;T&gt; = <span class="number">1000u32</span>.into();
 
-		<span class="kw">let </span>caller = funded_account::&lt;T&gt;(<span class="string">&quot;caller&quot;</span>, <span class="number">0</span>);
+		<span class="kw">let </span>caller = funded_account::&lt;T&gt;(<span class="string">"caller"</span>, <span class="number">0</span>);
 		<span class="comment">// Caller will delegate
-		</span><span class="kw">let </span>the_delegate: T::AccountId = funded_account::&lt;T&gt;(<span class="string">&quot;delegate&quot;</span>, r);
+		</span><span class="kw">let </span>the_delegate: T::AccountId = funded_account::&lt;T&gt;(<span class="string">"delegate"</span>, r);
 		<span class="kw">let </span>the_delegate_lookup = T::Lookup::unlookup(the_delegate.clone());
 		Democracy::&lt;T&gt;::delegate(
 			RawOrigin::Signed(caller.clone()).into(),
@@ -1582,10 +1584,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		)<span class="question-mark">?</span>;
 		<span class="kw">let </span>(target, balance) = <span class="kw">match </span>VotingOf::&lt;T&gt;::get(<span class="kw-2">&amp;</span>caller) {
 			Voting::Delegating { target, balance, .. } =&gt; (target, balance),
-			<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;Votes are not direct&quot;</span>.into()),
+			<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Votes are not direct"</span>.into()),
 		};
-		<span class="macro">assert_eq!</span>(target, the_delegate, <span class="string">&quot;delegation target didn&#39;t work&quot;</span>);
-		<span class="macro">assert_eq!</span>(balance, delegated_balance, <span class="string">&quot;delegation balance didn&#39;t work&quot;</span>);
+		<span class="macro">assert_eq!</span>(target, the_delegate, <span class="string">"delegation target didn't work"</span>);
+		<span class="macro">assert_eq!</span>(balance, delegated_balance, <span class="string">"delegation balance didn't work"</span>);
 		<span class="comment">// We need to create votes direct votes for the `delegate`
 		</span><span class="kw">let </span>account_vote = account_vote::&lt;T&gt;(initial_balance);
 		<span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..r {
@@ -1598,16 +1600,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 		<span class="kw">let </span>votes = <span class="kw">match </span>VotingOf::&lt;T&gt;::get(<span class="kw-2">&amp;</span>the_delegate) {
 			Voting::Direct { votes, .. } =&gt; votes,
-			<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;Votes are not direct&quot;</span>.into()),
+			<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Votes are not direct"</span>.into()),
 		};
-		<span class="macro">assert_eq!</span>(votes.len(), r <span class="kw">as </span>usize, <span class="string">&quot;Votes were not recorded.&quot;</span>);
+		<span class="macro">assert_eq!</span>(votes.len(), r <span class="kw">as </span>usize, <span class="string">"Votes were not recorded."</span>);
 		<span class="macro">whitelist_account!</span>(caller);
 	}: <span class="kw">_</span>(RawOrigin::Signed(caller.clone()))
 	verify {
 		<span class="comment">// Voting should now be direct
 		</span><span class="kw">match </span>VotingOf::&lt;T&gt;::get(<span class="kw-2">&amp;</span>caller) {
 			Voting::Direct { .. } =&gt; (),
-			<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;undelegation failed&quot;</span>.into()),
+			<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"undelegation failed"</span>.into()),
 		}
 	}
 
@@ -1620,7 +1622,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>unlock_remove {
 		<span class="kw">let </span>r <span class="kw">in </span><span class="number">0 </span>.. (T::MaxVotes::get() - <span class="number">1</span>);
 
-		<span class="kw">let </span>locker = funded_account::&lt;T&gt;(<span class="string">&quot;locker&quot;</span>, <span class="number">0</span>);
+		<span class="kw">let </span>locker = funded_account::&lt;T&gt;(<span class="string">"locker"</span>, <span class="number">0</span>);
 		<span class="kw">let </span>locker_lookup = T::Lookup::unlookup(locker.clone());
 		<span class="comment">// Populate votes so things are locked
 		</span><span class="kw">let </span>base_balance: BalanceOf&lt;T&gt; = <span class="number">100u32</span>.into();
@@ -1632,7 +1634,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			Democracy::&lt;T&gt;::remove_vote(RawOrigin::Signed(locker.clone()).into(), ref_index)<span class="question-mark">?</span>;
 		}
 
-		<span class="kw">let </span>caller = funded_account::&lt;T&gt;(<span class="string">&quot;caller&quot;</span>, <span class="number">0</span>);
+		<span class="kw">let </span>caller = funded_account::&lt;T&gt;(<span class="string">"caller"</span>, <span class="number">0</span>);
 		<span class="macro">whitelist_account!</span>(caller);
 	}: unlock(RawOrigin::Signed(caller), locker_lookup)
 	verify {
@@ -1645,7 +1647,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>unlock_set {
 		<span class="kw">let </span>r <span class="kw">in </span><span class="number">0 </span>.. (T::MaxVotes::get() - <span class="number">1</span>);
 
-		<span class="kw">let </span>locker = funded_account::&lt;T&gt;(<span class="string">&quot;locker&quot;</span>, <span class="number">0</span>);
+		<span class="kw">let </span>locker = funded_account::&lt;T&gt;(<span class="string">"locker"</span>, <span class="number">0</span>);
 		<span class="kw">let </span>locker_lookup = T::Lookup::unlookup(locker.clone());
 		<span class="comment">// Populate votes so things are locked
 		</span><span class="kw">let </span>base_balance: BalanceOf&lt;T&gt; = <span class="number">100u32</span>.into();
@@ -1662,24 +1664,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>votes = <span class="kw">match </span>VotingOf::&lt;T&gt;::get(<span class="kw-2">&amp;</span>locker) {
 			Voting::Direct { votes, .. } =&gt; votes,
-			<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;Votes are not direct&quot;</span>.into()),
+			<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Votes are not direct"</span>.into()),
 		};
-		<span class="macro">assert_eq!</span>(votes.len(), (r + <span class="number">1</span>) <span class="kw">as </span>usize, <span class="string">&quot;Votes were not recorded.&quot;</span>);
+		<span class="macro">assert_eq!</span>(votes.len(), (r + <span class="number">1</span>) <span class="kw">as </span>usize, <span class="string">"Votes were not recorded."</span>);
 
 		<span class="kw">let </span>voting = VotingOf::&lt;T&gt;::get(<span class="kw-2">&amp;</span>locker);
 		<span class="macro">assert_eq!</span>(voting.locked_balance(), base_balance * <span class="number">10u32</span>.into());
 
 		Democracy::&lt;T&gt;::remove_vote(RawOrigin::Signed(locker.clone()).into(), ref_index)<span class="question-mark">?</span>;
 
-		<span class="kw">let </span>caller = funded_account::&lt;T&gt;(<span class="string">&quot;caller&quot;</span>, <span class="number">0</span>);
+		<span class="kw">let </span>caller = funded_account::&lt;T&gt;(<span class="string">"caller"</span>, <span class="number">0</span>);
 		<span class="macro">whitelist_account!</span>(caller);
 	}: unlock(RawOrigin::Signed(caller), locker_lookup)
 	verify {
 		<span class="kw">let </span>votes = <span class="kw">match </span>VotingOf::&lt;T&gt;::get(<span class="kw-2">&amp;</span>locker) {
 			Voting::Direct { votes, .. } =&gt; votes,
-			<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;Votes are not direct&quot;</span>.into()),
+			<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Votes are not direct"</span>.into()),
 		};
-		<span class="macro">assert_eq!</span>(votes.len(), r <span class="kw">as </span>usize, <span class="string">&quot;Vote was not removed&quot;</span>);
+		<span class="macro">assert_eq!</span>(votes.len(), r <span class="kw">as </span>usize, <span class="string">"Vote was not removed"</span>);
 
 		<span class="kw">let </span>voting = VotingOf::&lt;T&gt;::get(<span class="kw-2">&amp;</span>locker);
 		<span class="comment">// Note that we may want to add a `get_lock` api to actually verify
@@ -1689,7 +1691,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	remove_vote {
 		<span class="kw">let </span>r <span class="kw">in </span><span class="number">1 </span>.. T::MaxVotes::get();
 
-		<span class="kw">let </span>caller = funded_account::&lt;T&gt;(<span class="string">&quot;caller&quot;</span>, <span class="number">0</span>);
+		<span class="kw">let </span>caller = funded_account::&lt;T&gt;(<span class="string">"caller"</span>, <span class="number">0</span>);
 		<span class="kw">let </span>account_vote = account_vote::&lt;T&gt;(<span class="number">100u32</span>.into());
 
 		<span class="kw">for </span>i <span class="kw">in </span><span class="number">0 </span>.. r {
@@ -1699,9 +1701,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>votes = <span class="kw">match </span>VotingOf::&lt;T&gt;::get(<span class="kw-2">&amp;</span>caller) {
 			Voting::Direct { votes, .. } =&gt; votes,
-			<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;Votes are not direct&quot;</span>.into()),
+			<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Votes are not direct"</span>.into()),
 		};
-		<span class="macro">assert_eq!</span>(votes.len(), r <span class="kw">as </span>usize, <span class="string">&quot;Votes not created&quot;</span>);
+		<span class="macro">assert_eq!</span>(votes.len(), r <span class="kw">as </span>usize, <span class="string">"Votes not created"</span>);
 
 		<span class="kw">let </span>ref_index = r - <span class="number">1</span>;
 		<span class="macro">whitelist_account!</span>(caller);
@@ -1709,16 +1711,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	verify {
 		<span class="kw">let </span>votes = <span class="kw">match </span>VotingOf::&lt;T&gt;::get(<span class="kw-2">&amp;</span>caller) {
 			Voting::Direct { votes, .. } =&gt; votes,
-			<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;Votes are not direct&quot;</span>.into()),
+			<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Votes are not direct"</span>.into()),
 		};
-		<span class="macro">assert_eq!</span>(votes.len(), (r - <span class="number">1</span>) <span class="kw">as </span>usize, <span class="string">&quot;Vote was not removed&quot;</span>);
+		<span class="macro">assert_eq!</span>(votes.len(), (r - <span class="number">1</span>) <span class="kw">as </span>usize, <span class="string">"Vote was not removed"</span>);
 	}
 
 	<span class="comment">// Worst case is when target == caller and referendum is ongoing
 	</span>remove_other_vote {
 		<span class="kw">let </span>r <span class="kw">in </span><span class="number">1 </span>.. T::MaxVotes::get();
 
-		<span class="kw">let </span>caller = funded_account::&lt;T&gt;(<span class="string">&quot;caller&quot;</span>, r);
+		<span class="kw">let </span>caller = funded_account::&lt;T&gt;(<span class="string">"caller"</span>, r);
 		<span class="kw">let </span>caller_lookup = T::Lookup::unlookup(caller.clone());
 		<span class="kw">let </span>account_vote = account_vote::&lt;T&gt;(<span class="number">100u32</span>.into());
 
@@ -1729,9 +1731,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>votes = <span class="kw">match </span>VotingOf::&lt;T&gt;::get(<span class="kw-2">&amp;</span>caller) {
 			Voting::Direct { votes, .. } =&gt; votes,
-			<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;Votes are not direct&quot;</span>.into()),
+			<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Votes are not direct"</span>.into()),
 		};
-		<span class="macro">assert_eq!</span>(votes.len(), r <span class="kw">as </span>usize, <span class="string">&quot;Votes not created&quot;</span>);
+		<span class="macro">assert_eq!</span>(votes.len(), r <span class="kw">as </span>usize, <span class="string">"Votes not created"</span>);
 
 		<span class="kw">let </span>ref_index = r - <span class="number">1</span>;
 		<span class="macro">whitelist_account!</span>(caller);
@@ -1739,14 +1741,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	verify {
 		<span class="kw">let </span>votes = <span class="kw">match </span>VotingOf::&lt;T&gt;::get(<span class="kw-2">&amp;</span>caller) {
 			Voting::Direct { votes, .. } =&gt; votes,
-			<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;Votes are not direct&quot;</span>.into()),
+			<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Votes are not direct"</span>.into()),
 		};
-		<span class="macro">assert_eq!</span>(votes.len(), (r - <span class="number">1</span>) <span class="kw">as </span>usize, <span class="string">&quot;Vote was not removed&quot;</span>);
+		<span class="macro">assert_eq!</span>(votes.len(), (r - <span class="number">1</span>) <span class="kw">as </span>usize, <span class="string">"Vote was not removed"</span>);
 	}
 
 	set_external_metadata {
 		<span class="kw">let </span>origin = T::ExternalOrigin::try_successful_origin()
-			.expect(<span class="string">&quot;ExternalOrigin has no successful origin required for the benchmark&quot;</span>);
+			.expect(<span class="string">"ExternalOrigin has no successful origin required for the benchmark"</span>);
 		<span class="macro">assert_ok!</span>(
 			Democracy::&lt;T&gt;::external_propose(origin.clone(), make_proposal::&lt;T&gt;(<span class="number">0</span>))
 		);
@@ -1762,12 +1764,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	clear_external_metadata {
 		<span class="kw">let </span>origin = T::ExternalOrigin::try_successful_origin()
-			.expect(<span class="string">&quot;ExternalOrigin has no successful origin required for the benchmark&quot;</span>);
+			.expect(<span class="string">"ExternalOrigin has no successful origin required for the benchmark"</span>);
 		<span class="macro">assert_ok!</span>(
 			Democracy::&lt;T&gt;::external_propose(origin.clone(), make_proposal::&lt;T&gt;(<span class="number">0</span>))
 		);
 		<span class="kw">let </span>owner = MetadataOwner::External;
-		<span class="kw">let </span>proposer = funded_account::&lt;T&gt;(<span class="string">&quot;proposer&quot;</span>, <span class="number">0</span>);
+		<span class="kw">let </span>proposer = funded_account::&lt;T&gt;(<span class="string">"proposer"</span>, <span class="number">0</span>);
 		<span class="kw">let </span>hash = note_preimage::&lt;T&gt;();
 		<span class="macro">assert_ok!</span>(Democracy::&lt;T&gt;::set_metadata(origin.clone(), owner.clone(), <span class="prelude-val">Some</span>(hash)));
 	}: set_metadata&lt;T::RuntimeOrigin&gt;(origin, owner.clone(), <span class="prelude-val">None</span>)
@@ -1779,12 +1781,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	set_proposal_metadata {
-		<span class="comment">// Place our proposal at the end to make sure it&#39;s worst case.
+		<span class="comment">// Place our proposal at the end to make sure it's worst case.
 		</span><span class="kw">for </span>i <span class="kw">in </span><span class="number">0 </span>.. T::MaxProposals::get() {
 			add_proposal::&lt;T&gt;(i)<span class="question-mark">?</span>;
 		}
 		<span class="kw">let </span>owner = MetadataOwner::Proposal(<span class="number">0</span>);
-		<span class="kw">let </span>proposer = funded_account::&lt;T&gt;(<span class="string">&quot;proposer&quot;</span>, <span class="number">0</span>);
+		<span class="kw">let </span>proposer = funded_account::&lt;T&gt;(<span class="string">"proposer"</span>, <span class="number">0</span>);
 		<span class="kw">let </span>hash = note_preimage::&lt;T&gt;();
 	}: set_metadata&lt;T::RuntimeOrigin&gt;(RawOrigin::Signed(proposer).into(), owner.clone(), <span class="prelude-val">Some</span>(hash))
 	verify {
@@ -1795,11 +1797,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	clear_proposal_metadata {
-		<span class="comment">// Place our proposal at the end to make sure it&#39;s worst case.
+		<span class="comment">// Place our proposal at the end to make sure it's worst case.
 		</span><span class="kw">for </span>i <span class="kw">in </span><span class="number">0 </span>.. T::MaxProposals::get() {
 			add_proposal::&lt;T&gt;(i)<span class="question-mark">?</span>;
 		}
-		<span class="kw">let </span>proposer = funded_account::&lt;T&gt;(<span class="string">&quot;proposer&quot;</span>, <span class="number">0</span>);
+		<span class="kw">let </span>proposer = funded_account::&lt;T&gt;(<span class="string">"proposer"</span>, <span class="number">0</span>);
 		<span class="kw">let </span>owner = MetadataOwner::Proposal(<span class="number">0</span>);
 		<span class="kw">let </span>hash = note_preimage::&lt;T&gt;();
 		<span class="macro">assert_ok!</span>(Democracy::&lt;T&gt;::set_metadata(
@@ -1821,7 +1823,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			ReferendumInfo::Finished { end: BlockNumberFor::&lt;T&gt;::zero(), approved: <span class="bool-val">true </span>},
 		);
 		<span class="kw">let </span>owner = MetadataOwner::Referendum(<span class="number">0</span>);
-		<span class="kw">let </span>caller = funded_account::&lt;T&gt;(<span class="string">&quot;caller&quot;</span>, <span class="number">0</span>);
+		<span class="kw">let </span>caller = funded_account::&lt;T&gt;(<span class="string">"caller"</span>, <span class="number">0</span>);
 		<span class="kw">let </span>hash = note_preimage::&lt;T&gt;();
 	}: set_metadata&lt;T::RuntimeOrigin&gt;(RawOrigin::Root.into(), owner.clone(), <span class="prelude-val">Some</span>(hash))
 	verify {
@@ -1840,7 +1842,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>owner = MetadataOwner::Referendum(<span class="number">0</span>);
 		<span class="kw">let </span>hash = note_preimage::&lt;T&gt;();
 		MetadataOf::&lt;T&gt;::insert(owner.clone(), hash);
-		<span class="kw">let </span>caller = funded_account::&lt;T&gt;(<span class="string">&quot;caller&quot;</span>, <span class="number">0</span>);
+		<span class="kw">let </span>caller = funded_account::&lt;T&gt;(<span class="string">"caller"</span>, <span class="number">0</span>);
 	}: set_metadata&lt;T::RuntimeOrigin&gt;(RawOrigin::Signed(caller).into(), owner.clone(), <span class="prelude-val">None</span>)
 	verify {
 		assert_last_event::&lt;T&gt;(<span class="kw">crate</span>::Event::MetadataCleared {

@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/telemetry/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/telemetry/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_telemetry" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_telemetry" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sc_telemetry/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -737,20 +739,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see &lt;https://www.gnu.org/licenses/&gt;.
 
-</span><span class="doccomment">//! Substrate&#39;s client telemetry is a part of substrate that allows ingesting telemetry data
+</span><span class="doccomment">//! Substrate's client telemetry is a part of substrate that allows ingesting telemetry data
 //! with for example [Polkadot telemetry](https://github.com/paritytech/substrate-telemetry).
 //!
-//! It works using Tokio&#39;s [tracing](https://github.com/tokio-rs/tracing/) library. The telemetry
-//! information uses tracing&#39;s logging to report the telemetry data which is then retrieved by a
+//! It works using Tokio's [tracing](https://github.com/tokio-rs/tracing/) library. The telemetry
+//! information uses tracing's logging to report the telemetry data which is then retrieved by a
 //! tracing `Layer`. This layer will then send the data through an asynchronous channel to a
 //! background task called [`TelemetryWorker`] which will send the information to the configured
 //! remote telemetry servers.
 //!
 //! If multiple substrate nodes are running in the same process, it uses a `tracing::Span` to
-//! identify which substrate node is reporting the telemetry. Every task spawned using sc-service&#39;s
+//! identify which substrate node is reporting the telemetry. Every task spawned using sc-service's
 //! `TaskManager` automatically inherit this span.
 //!
-//! Substrate&#39;s nodes initialize/register with the [`TelemetryWorker`] using a
+//! Substrate's nodes initialize/register with the [`TelemetryWorker`] using a
 //! [`TelemetryWorkerHandle`]. This handle can be cloned and passed around. It uses an asynchronous
 //! channel to communicate with the running [`TelemetryWorker`] dedicated to registration.
 //! Registering can happen at any point in time during the process execution.
@@ -808,35 +810,35 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Message sent when the connection (re-)establishes.
 </span><span class="attr">#[derive(Debug, Serialize)]
 </span><span class="kw">pub struct </span>ConnectionMessage {
-	<span class="doccomment">/// Node&#39;s name.
+	<span class="doccomment">/// Node's name.
 	</span><span class="kw">pub </span>name: String,
-	<span class="doccomment">/// Node&#39;s implementation.
+	<span class="doccomment">/// Node's implementation.
 	</span><span class="kw">pub </span>implementation: String,
-	<span class="doccomment">/// Node&#39;s version.
+	<span class="doccomment">/// Node's version.
 	</span><span class="kw">pub </span>version: String,
-	<span class="doccomment">/// Node&#39;s configuration.
+	<span class="doccomment">/// Node's configuration.
 	</span><span class="kw">pub </span>config: String,
-	<span class="doccomment">/// Node&#39;s chain.
+	<span class="doccomment">/// Node's chain.
 	</span><span class="kw">pub </span>chain: String,
-	<span class="doccomment">/// Node&#39;s genesis hash.
+	<span class="doccomment">/// Node's genesis hash.
 	</span><span class="kw">pub </span>genesis_hash: String,
 	<span class="doccomment">/// Node is an authority.
 	</span><span class="kw">pub </span>authority: bool,
-	<span class="doccomment">/// Node&#39;s startup time.
+	<span class="doccomment">/// Node's startup time.
 	</span><span class="kw">pub </span>startup_time: String,
-	<span class="doccomment">/// Node&#39;s network ID.
+	<span class="doccomment">/// Node's network ID.
 	</span><span class="kw">pub </span>network_id: String,
 
-	<span class="doccomment">/// Node&#39;s OS.
+	<span class="doccomment">/// Node's OS.
 	</span><span class="kw">pub </span>target_os: String,
 
-	<span class="doccomment">/// Node&#39;s ISA.
+	<span class="doccomment">/// Node's ISA.
 	</span><span class="kw">pub </span>target_arch: String,
 
-	<span class="doccomment">/// Node&#39;s target platform ABI or libc.
+	<span class="doccomment">/// Node's target platform ABI or libc.
 	</span><span class="kw">pub </span>target_env: String,
 
-	<span class="doccomment">/// Node&#39;s software and hardware information.
+	<span class="doccomment">/// Node's software and hardware information.
 	</span><span class="kw">pub </span>sysinfo: <span class="prelude-ty">Option</span>&lt;SysInfo&gt;,
 }
 
@@ -856,7 +858,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>linux_kernel: <span class="prelude-ty">Option</span>&lt;String&gt;,
 	<span class="doccomment">/// The exact Linux distribution used.
 	</span><span class="kw">pub </span>linux_distro: <span class="prelude-ty">Option</span>&lt;String&gt;,
-	<span class="doccomment">/// Whether the node&#39;s running under a virtual machine.
+	<span class="doccomment">/// Whether the node's running under a virtual machine.
 	</span><span class="kw">pub </span>is_virtual_machine: <span class="prelude-ty">Option</span>&lt;bool&gt;,
 }
 
@@ -879,14 +881,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// Only one is needed per process.
 	</span><span class="kw">pub fn </span>new(buffer_size: usize) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>&gt; {
-		<span class="comment">// Let&#39;s try to initialize a transport to get an early return.
+		<span class="comment">// Let's try to initialize a transport to get an early return.
 		// Later transport will be initialized multiple times in
-		// `::process_register`, so it&#39;s a convenient way to get an
+		// `::process_register`, so it's a convenient way to get an
 		// error as early as possible.
 		</span><span class="kw">let </span>_transport = initialize_transport()<span class="question-mark">?</span>;
 		<span class="kw">let </span>(message_sender, message_receiver) = mpsc::channel(buffer_size);
 		<span class="kw">let </span>(register_sender, register_receiver) =
-			tracing_unbounded(<span class="string">&quot;mpsc_telemetry_register&quot;</span>, <span class="number">10_000</span>);
+			tracing_unbounded(<span class="string">"mpsc_telemetry_register"</span>, <span class="number">10_000</span>);
 
 		<span class="prelude-val">Ok</span>(<span class="self">Self </span>{
 			message_receiver,
@@ -939,7 +941,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		node_map: <span class="kw-2">&amp;mut </span>HashMap&lt;Id, Vec&lt;(VerbosityLevel, Multiaddr)&gt;&gt;,
 		pending_connection_notifications: <span class="kw-2">&amp;mut </span>Vec&lt;(Multiaddr, ConnectionNotifierSender)&gt;,
 	) {
-		<span class="kw">let </span>input = input.expect(<span class="string">&quot;the stream is never closed; qed&quot;</span>);
+		<span class="kw">let </span>input = input.expect(<span class="string">"the stream is never closed; qed"</span>);
 
 		<span class="kw">match </span>input {
 			Register::Telemetry { id, endpoints, connection_message } =&gt; {
@@ -947,19 +949,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 				<span class="kw">let </span>connection_message = <span class="kw">match </span>serde_json::to_value(<span class="kw-2">&amp;</span>connection_message) {
 					<span class="prelude-val">Ok</span>(serde_json::Value::Object(<span class="kw-2">mut </span>value)) =&gt; {
-						value.insert(<span class="string">&quot;msg&quot;</span>.into(), <span class="string">&quot;system.connected&quot;</span>.into());
+						value.insert(<span class="string">"msg"</span>.into(), <span class="string">"system.connected"</span>.into());
 						<span class="kw">let </span><span class="kw-2">mut </span>obj = serde_json::Map::new();
-						obj.insert(<span class="string">&quot;id&quot;</span>.to_string(), id.into());
-						obj.insert(<span class="string">&quot;payload&quot;</span>.to_string(), value.into());
+						obj.insert(<span class="string">"id"</span>.to_string(), id.into());
+						obj.insert(<span class="string">"payload"</span>.to_string(), value.into());
 						<span class="prelude-val">Some</span>(obj)
 					},
 					<span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; {
-						<span class="macro">unreachable!</span>(<span class="string">&quot;ConnectionMessage always serialize to an object; qed&quot;</span>)
+						<span class="macro">unreachable!</span>(<span class="string">"ConnectionMessage always serialize to an object; qed"</span>)
 					},
 					<span class="prelude-val">Err</span>(err) =&gt; {
 						<span class="macro">log::error!</span>(
-							target: <span class="string">&quot;telemetry&quot;</span>,
-							<span class="string">&quot;Could not serialize connection message: {}&quot;</span>,
+							target: <span class="string">"telemetry"</span>,
+							<span class="string">"Could not serialize connection message: {}"</span>,
 							err,
 						);
 						<span class="prelude-val">None
@@ -968,8 +970,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 				<span class="kw">for </span>(addr, verbosity) <span class="kw">in </span>endpoints {
 					<span class="macro">log::trace!</span>(
-						target: <span class="string">&quot;telemetry&quot;</span>,
-						<span class="string">&quot;Initializing telemetry for: {:?}&quot;</span>,
+						target: <span class="string">"telemetry"</span>,
+						<span class="string">"Initializing telemetry for: {:?}"</span>,
 						addr,
 					);
 					node_map.entry(id).or_default().push((verbosity, addr.clone()));
@@ -982,8 +984,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 								<span class="prelude-val">Ok</span>(t) =&gt; t,
 								<span class="prelude-val">Err</span>(err) =&gt; {
 									<span class="macro">log::error!</span>(
-										target: <span class="string">&quot;telemetry&quot;</span>,
-										<span class="string">&quot;Could not initialise transport: {}&quot;</span>,
+										target: <span class="string">"telemetry"</span>,
+										<span class="string">"Could not initialise transport: {}"</span>,
 										err,
 									);
 									<span class="kw">continue
@@ -1027,13 +1029,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		node_pool: <span class="kw-2">&amp;mut </span>HashMap&lt;Multiaddr, Node&lt;WsTrans&gt;&gt;,
 		node_map: <span class="kw-2">&amp;</span>HashMap&lt;Id, Vec&lt;(VerbosityLevel, Multiaddr)&gt;&gt;,
 	) {
-		<span class="kw">let </span>(id, verbosity, payload) = input.expect(<span class="string">&quot;the stream is never closed; qed&quot;</span>);
+		<span class="kw">let </span>(id, verbosity, payload) = input.expect(<span class="string">"the stream is never closed; qed"</span>);
 
 		<span class="kw">let </span>ts = chrono::Local::now().to_rfc3339();
 		<span class="kw">let </span><span class="kw-2">mut </span>message = serde_json::Map::new();
-		message.insert(<span class="string">&quot;id&quot;</span>.into(), id.into());
-		message.insert(<span class="string">&quot;ts&quot;</span>.into(), ts.into());
-		message.insert(<span class="string">&quot;payload&quot;</span>.into(), payload.into());
+		message.insert(<span class="string">"id"</span>.into(), id.into());
+		message.insert(<span class="string">"ts"</span>.into(), ts.into());
+		message.insert(<span class="string">"payload"</span>.into(), payload.into());
 
 		<span class="kw">let </span>nodes = <span class="kw">if let </span><span class="prelude-val">Some</span>(nodes) = node_map.get(<span class="kw-2">&amp;</span>id) {
 			nodes
@@ -1041,12 +1043,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// This is a normal error because the telemetry ID exists before the telemetry is
 			// initialized.
 			</span><span class="macro">log::trace!</span>(
-				target: <span class="string">&quot;telemetry&quot;</span>,
-				<span class="string">&quot;Received telemetry log for unknown id ({:?}): {}&quot;</span>,
+				target: <span class="string">"telemetry"</span>,
+				<span class="string">"Received telemetry log for unknown id ({:?}): {}"</span>,
 				id,
 				serde_json::to_string(<span class="kw-2">&amp;</span>message)
 					.unwrap_or_else(|err| <span class="macro">format!</span>(
-						<span class="string">&quot;could not be serialized ({}): {:?}&quot;</span>,
+						<span class="string">"could not be serialized ({}): {:?}"</span>,
 						err,
 						message,
 					)),
@@ -1063,13 +1065,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">let _ </span>= node.send(message.clone()).<span class="kw">await</span>;
 			} <span class="kw">else </span>{
 				<span class="macro">log::debug!</span>(
-					target: <span class="string">&quot;telemetry&quot;</span>,
-					<span class="string">&quot;Received message for unknown node ({}). This is a bug. \
-					Message sent: {}&quot;</span>,
+					target: <span class="string">"telemetry"</span>,
+					<span class="string">"Received message for unknown node ({}). This is a bug. \
+					Message sent: {}"</span>,
 					addr,
 					serde_json::to_string(<span class="kw-2">&amp;</span>message)
 						.unwrap_or_else(|err| <span class="macro">format!</span>(
-							<span class="string">&quot;could not be serialized ({}): {:?}&quot;</span>,
+							<span class="string">"could not be serialized ({}): {:?}"</span>,
 							err,
 							message,
 						)),
@@ -1160,12 +1162,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">match </span><span class="self">self</span>.message_sender.lock().try_send((<span class="self">self</span>.id, verbosity, payload)) {
 			<span class="prelude-val">Ok</span>(()) =&gt; {},
 			<span class="prelude-val">Err</span>(err) <span class="kw">if </span>err.is_full() =&gt; <span class="macro">log::trace!</span>(
-				target: <span class="string">&quot;telemetry&quot;</span>,
-				<span class="string">&quot;Telemetry channel full.&quot;</span>,
+				target: <span class="string">"telemetry"</span>,
+				<span class="string">"Telemetry channel full."</span>,
 			),
 			<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="macro">log::trace!</span>(
-				target: <span class="string">&quot;telemetry&quot;</span>,
-				<span class="string">&quot;Telemetry channel closed.&quot;</span>,
+				target: <span class="string">"telemetry"</span>,
+				<span class="string">"Telemetry channel closed."</span>,
 			),
 		}
 	}
@@ -1195,9 +1197,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			connection_notifier: message_sender,
 		}) {
 			<span class="macro">error!</span>(
-				target: <span class="string">&quot;telemetry&quot;</span>,
-				<span class="string">&quot;Could not create a telemetry connection notifier: \
-				the telemetry is probably already running: {}&quot;</span>,
+				target: <span class="string">"telemetry"</span>,
+				<span class="string">"Could not create a telemetry connection notifier: \
+				the telemetry is probably already running: {}"</span>,
 				err,
 			);
 		}
@@ -1228,10 +1230,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// telemetry!(
 ///     telemetry;      // an `Option&lt;TelemetryHandle&gt;`
 ///     CONSENSUS_INFO;
-///     &quot;afg.authority_set&quot;;
-///     &quot;authority_id&quot; =&gt; authority_id.to_string(),
-///     &quot;authority_set_id&quot; =&gt; ?set_id,
-///     &quot;authorities&quot; =&gt; authorities,
+///     "afg.authority_set";
+///     "authority_id" =&gt; authority_id.to_string(),
+///     "authority_set_id" =&gt; ?set_id,
+///     "authorities" =&gt; authorities,
 /// );
 /// ```
 </span><span class="attr">#[macro_export(local_inner_macros)]
@@ -1242,13 +1244,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">match </span><span class="macro">format_fields_to_json!</span>($(<span class="macro-nonterminal">$t</span>)<span class="kw-2">*</span>) {
 				<span class="prelude-val">Err</span>(err) =&gt; {
 					<span class="macro-nonterminal">$</span><span class="macro">crate::log::debug!</span>(
-						<span class="macro-nonterminal">target</span>: <span class="string">&quot;telemetry&quot;</span>,
-						<span class="string">&quot;Could not serialize value for telemetry: {}&quot;</span>,
+						<span class="macro-nonterminal">target</span>: <span class="string">"telemetry"</span>,
+						<span class="string">"Could not serialize value for telemetry: {}"</span>,
 						err,
 					);
 				},
 				<span class="prelude-val">Ok</span>(<span class="kw-2">mut </span>json) =&gt; {
-					json.insert(<span class="string">&quot;msg&quot;</span>.into(), <span class="macro-nonterminal">$msg</span>.into());
+					json.insert(<span class="string">"msg"</span>.into(), <span class="macro-nonterminal">$msg</span>.into());
 					telemetry.send_telemetry(verbosity, json);
 				},
 			}
@@ -1278,7 +1280,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}};
 	( <span class="macro-nonterminal">$k</span>:literal =&gt; <span class="question-mark">? </span><span class="macro-nonterminal">$v</span>:expr $(,)<span class="question-mark">? </span>$(, $(<span class="macro-nonterminal">$t</span>:tt)+ )<span class="question-mark">? </span>) =&gt; {{
 		<span class="kw">let </span><span class="kw-2">mut </span>map = <span class="macro-nonterminal">$crate::serde_json::Map::new</span>();
-		map.insert(<span class="macro-nonterminal">$k</span>.into(), <span class="macro">std::format!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="kw-2">&amp;</span><span class="macro-nonterminal">$v</span>).into());
+		map.insert(<span class="macro-nonterminal">$k</span>.into(), <span class="macro">std::format!</span>(<span class="string">"{:?}"</span>, <span class="kw-2">&amp;</span><span class="macro-nonterminal">$v</span>).into());
 		<span class="macro-nonterminal">$crate::serde_json::Result::Ok</span>(map)
 		$(
 			.and_then(|<span class="kw-2">mut </span>prev_map| {

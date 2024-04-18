@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/bin/utils/chain-spec-builder/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/bin/utils/chain-spec-builder/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="staging_chain_spec_builder" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="staging_chain_spec_builder" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../staging_chain_spec_builder/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -467,7 +469,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see &lt;https://www.gnu.org/licenses/&gt;.
 
-</span><span class="doccomment">//! Substrate&#39;s chain spec builder utility.
+</span><span class="doccomment">//! Substrate's chain spec builder utility.
 //!
 //! A chain-spec is short for `chain-configuration`. See the [`sc-chain-spec`] for more information.
 //!
@@ -491,9 +493,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! called.
 //!
 //!
-//! ##### Display the runtime&#39;s default `GenesisConfig`
+//! ##### Display the runtime's default `GenesisConfig`
 //!
-//! Displays the content of the runtime&#39;s default `GenesisConfig`
+//! Displays the content of the runtime's default `GenesisConfig`
 //! ```bash
 //! chain-spec-builder display-preset -r runtime.wasm
 //! ```
@@ -504,7 +506,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!
 //! Displays the content of the `GenesisConfig` preset for given name
 //! ```bash
-//! chain-spec-builder display-preset -r runtime.wasm -p &quot;staging&quot;
+//! chain-spec-builder display-preset -r runtime.wasm -p "staging"
 //! ```
 //! 
 //! _Note:_ [`GenesisBuilder::get_preset`][sp-genesis-builder-get-preset] runtime function is called.
@@ -520,17 +522,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!
 //! ##### Generate chain spec using runtime provided genesis config preset.
 //!
-//! Patch the runtime&#39;s default genesis config with the named preset provided by the runtime and generate the plain
+//! Patch the runtime's default genesis config with the named preset provided by the runtime and generate the plain
 //! version of chain spec:
 //! ```bash
-//! chain-spec-builder create -r runtime.wasm named-preset &quot;staging&quot;
+//! chain-spec-builder create -r runtime.wasm named-preset "staging"
 //! ```
 //! 
 //! _Note:_ [`GenesisBuilder::get_preset`][sp-genesis-builder-get-preset] and [`GenesisBuilder::build_state`][sp-genesis-builder-build] runtime functions are called.
 //!
 //! ##### Generate raw storage chain spec using genesis config patch.
 //!
-//! Patch the runtime&#39;s default genesis config with provided `patch.json` and generate raw
+//! Patch the runtime's default genesis config with provided `patch.json` and generate raw
 //! storage (`-s`) version of chain spec:
 //! ```bash
 //! chain-spec-builder create -s -r runtime.wasm patch patch.json
@@ -576,17 +578,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// A utility to easily create a chain spec definition.
 </span><span class="attr">#[derive(Debug, Parser)]
-#[command(rename_all = <span class="string">&quot;kebab-case&quot;</span>)]
+#[command(rename_all = <span class="string">"kebab-case"</span>)]
 </span><span class="kw">pub struct </span>ChainSpecBuilder {
 	<span class="attr">#[command(subcommand)]
 	</span><span class="kw">pub </span>command: ChainSpecBuilderCmd,
 	<span class="doccomment">/// The path where the chain spec should be saved.
-	</span><span class="attr">#[arg(long, short, default_value = <span class="string">&quot;./chain_spec.json&quot;</span>)]
+	</span><span class="attr">#[arg(long, short, default_value = <span class="string">"./chain_spec.json"</span>)]
 	</span><span class="kw">pub </span>chain_spec_path: PathBuf,
 }
 
 <span class="attr">#[derive(Debug, Subcommand)]
-#[command(rename_all = <span class="string">&quot;kebab-case&quot;</span>)]
+#[command(rename_all = <span class="string">"kebab-case"</span>)]
 </span><span class="kw">pub enum </span>ChainSpecBuilderCmd {
 	Create(CreateCmd),
 	Verify(VerifyCmd),
@@ -600,20 +602,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[derive(Parser, Debug)]
 </span><span class="kw">pub struct </span>CreateCmd {
 	<span class="doccomment">/// The name of chain.
-	</span><span class="attr">#[arg(long, short = <span class="string">&#39;n&#39;</span>, default_value = <span class="string">&quot;Custom&quot;</span>)]
+	</span><span class="attr">#[arg(long, short = <span class="string">'n'</span>, default_value = <span class="string">"Custom"</span>)]
 	</span>chain_name: String,
 	<span class="doccomment">/// The chain id.
-	</span><span class="attr">#[arg(long, short = <span class="string">&#39;i&#39;</span>, default_value = <span class="string">&quot;custom&quot;</span>)]
+	</span><span class="attr">#[arg(long, short = <span class="string">'i'</span>, default_value = <span class="string">"custom"</span>)]
 	</span>chain_id: String,
 	<span class="doccomment">/// The path to runtime wasm blob.
 	</span><span class="attr">#[arg(long, short)]
 	</span>runtime_wasm_path: PathBuf,
 	<span class="doccomment">/// Export chainspec as raw storage.
-	</span><span class="attr">#[arg(long, short = <span class="string">&#39;s&#39;</span>)]
+	</span><span class="attr">#[arg(long, short = <span class="string">'s'</span>)]
 	</span>raw_storage: bool,
 	<span class="doccomment">/// Verify the genesis config. This silently generates the raw storage from genesis config. Any
 	/// errors will be reported.
-	</span><span class="attr">#[arg(long, short = <span class="string">&#39;v&#39;</span>)]
+	</span><span class="attr">#[arg(long, short = <span class="string">'v'</span>)]
 	</span>verify: bool,
 	<span class="attr">#[command(subcommand)]
 	</span>action: GenesisBuildAction,
@@ -627,7 +629,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	NamedPreset(NamedPresetCmd),
 }
 
-<span class="doccomment">/// Patches the runtime&#39;s default genesis config with provided patch.
+<span class="doccomment">/// Patches the runtime's default genesis config with provided patch.
 </span><span class="attr">#[derive(Parser, Debug, Clone)]
 </span><span class="kw">struct </span>PatchCmd {
 	<span class="doccomment">/// The path to the runtime genesis config patch.
@@ -705,7 +707,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Processes `CreateCmd` and returns JSON version of `ChainSpec`.
 </span><span class="kw">pub fn </span>generate_chain_spec_for_runtime(cmd: <span class="kw-2">&amp;</span>CreateCmd) -&gt; <span class="prelude-ty">Result</span>&lt;String, String&gt; {
 	<span class="kw">let </span>code = fs::read(cmd.runtime_wasm_path.as_path())
-		.map_err(|e| <span class="macro">format!</span>(<span class="string">&quot;wasm blob shall be readable {e}&quot;</span>))<span class="question-mark">?</span>;
+		.map_err(|e| <span class="macro">format!</span>(<span class="string">"wasm blob shall be readable {e}"</span>))<span class="question-mark">?</span>;
 
 	<span class="kw">let </span>builder = GenericChainSpec::&lt;()&gt;::builder(<span class="kw-2">&amp;</span>code[..], Default::default())
 		.with_name(<span class="kw-2">&amp;</span>cmd.chain_name[..])
@@ -717,16 +719,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			builder.with_genesis_config_preset_name(<span class="kw-2">&amp;</span>preset_name),
 		GenesisBuildAction::Patch(PatchCmd { <span class="kw-2">ref </span>patch_path }) =&gt; {
 			<span class="kw">let </span>patch = fs::read(patch_path.as_path())
-				.map_err(|e| <span class="macro">format!</span>(<span class="string">&quot;patch file {patch_path:?} shall be readable: {e}&quot;</span>))<span class="question-mark">?</span>;
+				.map_err(|e| <span class="macro">format!</span>(<span class="string">"patch file {patch_path:?} shall be readable: {e}"</span>))<span class="question-mark">?</span>;
 			builder.with_genesis_config_patch(serde_json::from_slice::&lt;Value&gt;(<span class="kw-2">&amp;</span>patch[..]).map_err(
-				|e| <span class="macro">format!</span>(<span class="string">&quot;patch file {patch_path:?} shall contain a valid json: {e}&quot;</span>),
+				|e| <span class="macro">format!</span>(<span class="string">"patch file {patch_path:?} shall contain a valid json: {e}"</span>),
 			)<span class="question-mark">?</span>)
 		},
 		GenesisBuildAction::Full(FullCmd { <span class="kw-2">ref </span>config_path }) =&gt; {
 			<span class="kw">let </span>config = fs::read(config_path.as_path())
-				.map_err(|e| <span class="macro">format!</span>(<span class="string">&quot;config file {config_path:?} shall be readable: {e}&quot;</span>))<span class="question-mark">?</span>;
+				.map_err(|e| <span class="macro">format!</span>(<span class="string">"config file {config_path:?} shall be readable: {e}"</span>))<span class="question-mark">?</span>;
 			builder.with_genesis_config(serde_json::from_slice::&lt;Value&gt;(<span class="kw-2">&amp;</span>config[..]).map_err(
-				|e| <span class="macro">format!</span>(<span class="string">&quot;config file {config_path:?} shall contain a valid json: {e}&quot;</span>),
+				|e| <span class="macro">format!</span>(<span class="string">"config file {config_path:?} shall contain a valid json: {e}"</span>),
 			)<span class="question-mark">?</span>)
 		},
 		GenesisBuildAction::Default(DefaultCmd {}) =&gt; {
@@ -734,7 +736,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				GenesisConfigBuilderRuntimeCaller::new(<span class="kw-2">&amp;</span>code[..]);
 			<span class="kw">let </span>default_config = caller
 				.get_default_config()
-				.map_err(|e| <span class="macro">format!</span>(<span class="string">&quot;getting default config from runtime should work: {e}&quot;</span>))<span class="question-mark">?</span>;
+				.map_err(|e| <span class="macro">format!</span>(<span class="string">"getting default config from runtime should work: {e}"</span>))<span class="question-mark">?</span>;
 			builder.with_genesis_config(default_config)
 		},
 	};
@@ -745,7 +747,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		(<span class="kw">_</span>, <span class="bool-val">true</span>) =&gt; chain_spec.as_json(<span class="bool-val">true</span>),
 		(<span class="bool-val">true</span>, <span class="bool-val">false</span>) =&gt; {
 			chain_spec.as_json(<span class="bool-val">true</span>)<span class="question-mark">?</span>;
-			<span class="macro">println!</span>(<span class="string">&quot;Genesis config verification: OK&quot;</span>);
+			<span class="macro">println!</span>(<span class="string">"Genesis config verification: OK"</span>);
 			chain_spec.as_json(<span class="bool-val">false</span>)
 		},
 		(<span class="bool-val">false</span>, <span class="bool-val">false</span>) =&gt; chain_spec.as_json(<span class="bool-val">false</span>),

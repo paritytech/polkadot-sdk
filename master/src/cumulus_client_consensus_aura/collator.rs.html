@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `cumulus/client/consensus/aura/src/collator.rs`."><title>collator.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `cumulus/client/consensus/aura/src/collator.rs`."><title>collator.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="cumulus_client_consensus_aura" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="cumulus_client_consensus_aura" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../cumulus_client_consensus_aura/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -628,15 +630,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	para_id: ParaId,
 	proposer: Proposer,
 	collator_service: CS,
-	_marker: std::marker::PhantomData&lt;(Block, Box&lt;<span class="kw">dyn </span>Fn(P) + Send + Sync + <span class="lifetime">&#39;static</span>&gt;)&gt;,
+	_marker: std::marker::PhantomData&lt;(Block, Box&lt;<span class="kw">dyn </span>Fn(P) + Send + Sync + <span class="lifetime">'static</span>&gt;)&gt;,
 }
 
 <span class="kw">impl</span>&lt;Block, P, BI, CIDP, RClient, Proposer, CS&gt; Collator&lt;Block, P, BI, CIDP, RClient, Proposer, CS&gt;
 <span class="kw">where
 	</span>Block: BlockT,
 	RClient: RelayChainInterface,
-	CIDP: CreateInherentDataProviders&lt;Block, ()&gt; + <span class="lifetime">&#39;static</span>,
-	BI: BlockImport&lt;Block&gt; + ParachainBlockImportMarker + Send + Sync + <span class="lifetime">&#39;static</span>,
+	CIDP: CreateInherentDataProviders&lt;Block, ()&gt; + <span class="lifetime">'static</span>,
+	BI: BlockImport&lt;Block&gt; + ParachainBlockImportMarker + Send + Sync + <span class="lifetime">'static</span>,
 	Proposer: ProposerInterface&lt;Block&gt;,
 	CS: CollatorServiceInterface&lt;Block&gt;,
 	P: Pair,
@@ -665,7 +667,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		validation_data: <span class="kw-2">&amp;</span>PersistedValidationData,
 		parent_hash: Block::Hash,
 		timestamp: <span class="kw">impl </span>Into&lt;<span class="prelude-ty">Option</span>&lt;Timestamp&gt;&gt;,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;(ParachainInherentData, InherentData), Box&lt;<span class="kw">dyn </span>Error + Send + Sync + <span class="lifetime">&#39;static</span>&gt;&gt; {
+	) -&gt; <span class="prelude-ty">Result</span>&lt;(ParachainInherentData, InherentData), Box&lt;<span class="kw">dyn </span>Error + Send + Sync + <span class="lifetime">'static</span>&gt;&gt; {
 		<span class="kw">let </span>paras_inherent_data = ParachainInherentDataProvider::create_at(
 			relay_parent,
 			<span class="kw-2">&amp;</span><span class="self">self</span>.relay_client,
@@ -678,14 +680,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Some</span>(p) =&gt; p,
 			<span class="prelude-val">None </span>=&gt;
 				<span class="kw">return </span><span class="prelude-val">Err</span>(
-					<span class="macro">format!</span>(<span class="string">&quot;Could not create paras inherent data at {:?}&quot;</span>, relay_parent).into()
+					<span class="macro">format!</span>(<span class="string">"Could not create paras inherent data at {:?}"</span>, relay_parent).into()
 				),
 		};
 
 		<span class="kw">let </span><span class="kw-2">mut </span>other_inherent_data = <span class="self">self
 			</span>.create_inherent_data_providers
 			.create_inherent_data_providers(parent_hash, ())
-			.map_err(|e| e <span class="kw">as </span>Box&lt;<span class="kw">dyn </span>Error + Send + Sync + <span class="lifetime">&#39;static</span>&gt;)
+			.map_err(|e| e <span class="kw">as </span>Box&lt;<span class="kw">dyn </span>Error + Send + Sync + <span class="lifetime">'static</span>&gt;)
 			.<span class="kw">await</span><span class="question-mark">?
 			</span>.create_inherent_data()
 			.<span class="kw">await
@@ -716,7 +718,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		max_pov_size: usize,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;
 		<span class="prelude-ty">Option</span>&lt;(Collation, ParachainBlockData&lt;Block&gt;, Block::Hash)&gt;,
-		Box&lt;<span class="kw">dyn </span>Error + Send + <span class="lifetime">&#39;static</span>&gt;,
+		Box&lt;<span class="kw">dyn </span>Error + Send + <span class="lifetime">'static</span>&gt;,
 	&gt; {
 		<span class="kw">let </span><span class="kw-2">mut </span>digest = additional_pre_digest.into().unwrap_or_default();
 		digest.push(slot_claim.pre_digest.clone());
@@ -753,7 +755,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			sealed_importable
 				.body
 				.as_ref()
-				.expect(<span class="string">&quot;body always created with this `propose` fn; qed&quot;</span>)
+				.expect(<span class="string">"body always created with this `propose` fn; qed"</span>)
 				.clone(),
 		);
 
@@ -769,7 +771,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		) {
 			<span class="macro">tracing::info!</span>(
 				target: <span class="kw">crate</span>::LOG_TARGET,
-				<span class="string">&quot;PoV size {{ header: {}kb, extrinsics: {}kb, storage_proof: {}kb }}&quot;</span>,
+				<span class="string">"PoV size {{ header: {}kb, extrinsics: {}kb, storage_proof: {}kb }}"</span>,
 				block_data.header().encode().len() <span class="kw">as </span>f64 / <span class="number">1024f64</span>,
 				block_data.extrinsics().encode().len() <span class="kw">as </span>f64 / <span class="number">1024f64</span>,
 				block_data.storage_proof().encode().len() <span class="kw">as </span>f64 / <span class="number">1024f64</span>,
@@ -778,14 +780,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">if let </span>MaybeCompressedPoV::Compressed(<span class="kw-2">ref </span>pov) = collation.proof_of_validity {
 				<span class="macro">tracing::info!</span>(
 					target: <span class="kw">crate</span>::LOG_TARGET,
-					<span class="string">&quot;Compressed PoV size: {}kb&quot;</span>,
+					<span class="string">"Compressed PoV size: {}kb"</span>,
 					pov.block_data.<span class="number">0</span>.len() <span class="kw">as </span>f64 / <span class="number">1024f64</span>,
 				);
 			}
 
 			<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>((collation, block_data, post_hash)))
 		} <span class="kw">else </span>{
-			<span class="prelude-val">Err</span>(Box::&lt;<span class="kw">dyn </span>Error + Send + Sync&gt;::from(<span class="string">&quot;Unable to produce collation&quot;</span>)
+			<span class="prelude-val">Err</span>(Box::&lt;<span class="kw">dyn </span>Error + Send + Sync&gt;::from(<span class="string">"Unable to produce collation"</span>)
 				<span class="kw">as </span>Box&lt;<span class="kw">dyn </span>Error + Send&gt;)
 		}
 	}
@@ -818,7 +820,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		SlotClaim { author_pub, timestamp, pre_digest: aura_internal::pre_digest::&lt;P&gt;(slot), slot }
 	}
 
-	<span class="doccomment">/// Get the author&#39;s public key.
+	<span class="doccomment">/// Get the author's public key.
 	</span><span class="kw">pub fn </span>author_pub(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Pub {
 		<span class="kw-2">&amp;</span><span class="self">self</span>.author_pub
 	}
@@ -840,7 +842,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="doccomment">/// Attempt to claim a slot derived from the given relay-parent header&#39;s slot.
+<span class="doccomment">/// Attempt to claim a slot derived from the given relay-parent header's slot.
 </span><span class="kw">pub async fn </span>claim_slot&lt;B, C, P&gt;(
 	client: <span class="kw-2">&amp;</span>C,
 	parent_hash: B::Hash,
@@ -851,7 +853,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;SlotClaim&lt;P::Public&gt;&gt;, Box&lt;<span class="kw">dyn </span>Error&gt;&gt;
 <span class="kw">where
 	</span>B: BlockT,
-	C: ProvideRuntimeApi&lt;B&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
+	C: ProvideRuntimeApi&lt;B&gt; + Send + Sync + <span class="lifetime">'static</span>,
 	C::Api: AuraApi&lt;B, P::Public&gt;,
 	P: Pair,
 	P::Public: Codec,
@@ -860,7 +862,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="comment">// load authorities
 	</span><span class="kw">let </span>authorities = client.runtime_api().authorities(parent_hash).map_err(Box::new)<span class="question-mark">?</span>;
 
-	<span class="comment">// Determine the current slot and timestamp based on the relay-parent&#39;s.
+	<span class="comment">// Determine the current slot and timestamp based on the relay-parent's.
 	</span><span class="kw">let </span>(slot_now, timestamp) = <span class="kw">match </span>consensus_common::relay_slot_and_timestamp(
 		relay_parent_header,
 		relay_chain_slot_duration,
@@ -874,7 +876,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				timestamp = <span class="question-mark">?</span>t,
 				<span class="question-mark">?</span>slot_duration,
 				<span class="question-mark">?</span>relay_chain_slot_duration,
-				<span class="string">&quot;Adjusted relay-chain slot to parachain slot&quot;
+				<span class="string">"Adjusted relay-chain slot to parachain slot"
 			</span>);
 			(our_slot, t)
 		},
@@ -899,7 +901,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	storage_changes: StorageChanges&lt;HashingFor&lt;B&gt;&gt;,
 	author_pub: <span class="kw-2">&amp;</span>P::Public,
 	keystore: <span class="kw-2">&amp;</span>KeystorePtr,
-) -&gt; <span class="prelude-ty">Result</span>&lt;BlockImportParams&lt;B&gt;, Box&lt;<span class="kw">dyn </span>Error + Send + Sync + <span class="lifetime">&#39;static</span>&gt;&gt;
+) -&gt; <span class="prelude-ty">Result</span>&lt;BlockImportParams&lt;B&gt;, Box&lt;<span class="kw">dyn </span>Error + Send + Sync + <span class="lifetime">'static</span>&gt;&gt;
 <span class="kw">where
 	</span>P: Pair,
 	P::Signature: Codec + TryFrom&lt;Vec&lt;u8&gt;&gt;,
@@ -925,7 +927,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="macro">tracing::info!</span>(
 		target: <span class="kw">crate</span>::LOG_TARGET,
-		<span class="string">&quot;🔖 Pre-sealed block for proposal at {}. Hash now {:?}, previously {:?}.&quot;</span>,
+		<span class="string">"🔖 Pre-sealed block for proposal at {}. Hash now {:?}, previously {:?}."</span>,
 		block_number,
 		post_hash,
 		pre_hash,

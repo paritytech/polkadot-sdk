@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/network/collator-protocol/src/validator_side/collation.rs`."><title>collation.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/network/collator-protocol/src/validator_side/collation.rs`."><title>collation.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_collator_protocol" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_collator_protocol" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../polkadot_collator_protocol/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -547,11 +549,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!
 //! Usually a path of collations is as follows:
 //!    1. First, collation must be advertised by collator.
-//!    2. If the advertisement was accepted, it&#39;s queued for fetch (per relay parent).
-//!    3. Once it&#39;s requested, the collation is said to be Pending.
+//!    2. If the advertisement was accepted, it's queued for fetch (per relay parent).
+//!    3. Once it's requested, the collation is said to be Pending.
 //!    4. Pending collation becomes Fetched once received, we send it to backing for validation.
 //!    5. If it turns to be invalid or async backing allows seconding another candidate, carry on
-//!       with the next advertisement, otherwise we&#39;re done with this relay parent.
+//!       with the next advertisement, otherwise we're done with this relay parent.
 //!
 //!    ┌──────────────────────────────────────────┐
 //!    └─▶Advertised ─▶ Pending ─▶ Fetched ─▶ Validated
@@ -577,7 +579,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">use crate</span>::{error::SecondingError, LOG_TARGET};
 
-<span class="doccomment">/// Candidate supplied with a para head it&#39;s built on top of.
+<span class="doccomment">/// Candidate supplied with a para head it's built on top of.
 </span><span class="attr">#[derive(Debug, Copy, Clone, Hash, Eq, PartialEq)]
 </span><span class="kw">pub struct </span>ProspectiveCandidate {
 	<span class="doccomment">/// Candidate hash.
@@ -595,7 +597,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Identifier of a fetched collation.
 </span><span class="attr">#[derive(Debug, Clone, Hash, Eq, PartialEq)]
 </span><span class="kw">pub struct </span>FetchedCollation {
-	<span class="doccomment">/// Candidate&#39;s relay parent.
+	<span class="doccomment">/// Candidate's relay parent.
 	</span><span class="kw">pub </span>relay_parent: Hash,
 	<span class="doccomment">/// Parachain id.
 	</span><span class="kw">pub </span>para_id: ParaId,
@@ -620,7 +622,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Identifier of a collation being requested.
 </span><span class="attr">#[derive(Debug, Copy, Clone, Hash, Eq, PartialEq)]
 </span><span class="kw">pub struct </span>PendingCollation {
-	<span class="doccomment">/// Candidate&#39;s relay parent.
+	<span class="doccomment">/// Candidate's relay parent.
 	</span><span class="kw">pub </span>relay_parent: Hash,
 	<span class="doccomment">/// Parachain id.
 	</span><span class="kw">pub </span>para_id: ParaId,
@@ -629,7 +631,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Optional candidate hash and parent head-data hash if were
 	/// supplied in advertisement.
 	</span><span class="kw">pub </span>prospective_candidate: <span class="prelude-ty">Option</span>&lt;ProspectiveCandidate&gt;,
-	<span class="doccomment">/// Hash of the candidate&#39;s commitments.
+	<span class="doccomment">/// Hash of the candidate's commitments.
 	</span><span class="kw">pub </span>commitments_hash: <span class="prelude-ty">Option</span>&lt;Hash&gt;,
 }
 
@@ -668,7 +670,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Performs a sanity check between advertised and fetched collations.
 ///
 /// Since the persisted validation data is constructed using the advertised
-/// parent head data hash, the latter doesn&#39;t require an additional check.
+/// parent head data hash, the latter doesn't require an additional check.
 </span><span class="kw">pub fn </span>fetched_collation_sanity_check(
 	advertised: <span class="kw-2">&amp;</span>PendingCollation,
 	fetched: <span class="kw-2">&amp;</span>CandidateReceipt,
@@ -739,7 +741,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">match </span><span class="self">self </span>{
 			<span class="self">Self</span>::Seconded =&gt;
 				<span class="kw">if </span>relay_parent_mode.is_enabled() {
-					<span class="comment">// With async backing enabled it&#39;s allowed to
+					<span class="comment">// With async backing enabled it's allowed to
 					// second more candidates.
 					</span><span class="kw-2">*</span><span class="self">self </span>= <span class="self">Self</span>::Waiting
 				},
@@ -753,7 +755,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub struct </span>Collations {
 	<span class="doccomment">/// What is the current status in regards to a collation for this relay parent?
 	</span><span class="kw">pub </span>status: CollationStatus,
-	<span class="doccomment">/// Collator we&#39;re fetching from, optionally which candidate was requested.
+	<span class="doccomment">/// Collator we're fetching from, optionally which candidate was requested.
 	///
 	/// This is the currently last started fetch, which did not exceed `MAX_UNSHARED_DOWNLOAD_TIME`
 	/// yet.
@@ -792,7 +794,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					target: LOG_TARGET,
 					waiting_collation = <span class="question-mark">?</span><span class="self">self</span>.fetching_from,
 					<span class="question-mark">?</span>finished_one,
-					<span class="string">&quot;Not proceeding to the next collation - has already been done.&quot;
+					<span class="string">"Not proceeding to the next collation - has already been done."
 				</span>);
 				<span class="kw">return </span><span class="prelude-val">None
 			</span>}
@@ -800,7 +802,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">self</span>.status.back_to_waiting(relay_parent_mode);
 
 		<span class="kw">match </span><span class="self">self</span>.status {
-			<span class="comment">// We don&#39;t need to fetch any other collation when we already have seconded one.
+			<span class="comment">// We don't need to fetch any other collation when we already have seconded one.
 			</span>CollationStatus::Seconded =&gt; <span class="prelude-val">None</span>,
 			CollationStatus::Waiting =&gt;
 				<span class="kw">if </span>!<span class="self">self</span>.is_seconded_limit_reached(relay_parent_mode) {
@@ -809,7 +811,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="self">self</span>.waiting_queue.pop_front()
 				},
 			CollationStatus::WaitingOnValidation | CollationStatus::Fetching =&gt;
-				<span class="macro">unreachable!</span>(<span class="string">&quot;We have reset the status above!&quot;</span>),
+				<span class="macro">unreachable!</span>(<span class="string">"We have reset the status above!"</span>),
 		}
 	}
 
@@ -833,9 +835,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="comment">// Any error that can occur when awaiting a collation fetch response.
 </span><span class="attr">#[derive(Debug, thiserror::Error)]
 </span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">enum </span>CollationFetchError {
-	<span class="attr">#[error(<span class="string">&quot;Future was cancelled.&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Future was cancelled."</span>)]
 	</span>Cancelled,
-	<span class="attr">#[error(<span class="string">&quot;{0}&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"{0}"</span>)]
 	</span>Request(<span class="attr">#[from] </span>RequestError),
 }
 
@@ -849,7 +851,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// The network protocol version the collator is using.
 	</span><span class="kw">pub </span>collator_protocol_version: CollationVersion,
 	<span class="doccomment">/// Responses from collator.
-	</span><span class="kw">pub </span>from_collator: BoxFuture&lt;<span class="lifetime">&#39;static</span>, OutgoingResult&lt;request_v1::CollationFetchingResponse&gt;&gt;,
+	</span><span class="kw">pub </span>from_collator: BoxFuture&lt;<span class="lifetime">'static</span>, OutgoingResult&lt;request_v1::CollationFetchingResponse&gt;&gt;,
 	<span class="doccomment">/// Handle used for checking if this request was cancelled.
 	</span><span class="kw">pub </span>cancellation_token: CancellationToken,
 	<span class="doccomment">/// A jaeger span corresponding to the lifetime of the request.
@@ -864,7 +866,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		std::result::Result&lt;request_v1::CollationFetchingResponse, CollationFetchError&gt;,
 	);
 
-	<span class="kw">fn </span>poll(<span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;<span class="self">Self</span>::Output&gt; {
+	<span class="kw">fn </span>poll(<span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">'_</span>&gt;) -&gt; Poll&lt;<span class="self">Self</span>::Output&gt; {
 		<span class="comment">// First check if this fetch request was cancelled.
 		</span><span class="kw">let </span>cancelled = <span class="kw">match </span><span class="macro">std::pin::pin!</span>(<span class="self">self</span>.cancellation_token.cancelled()).poll(cx) {
 			Poll::Ready(()) =&gt; <span class="bool-val">true</span>,
@@ -872,7 +874,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		};
 
 		<span class="kw">if </span>cancelled {
-			<span class="self">self</span>.span.as_mut().map(|s| s.add_string_tag(<span class="string">&quot;success&quot;</span>, <span class="string">&quot;false&quot;</span>));
+			<span class="self">self</span>.span.as_mut().map(|s| s.add_string_tag(<span class="string">"success"</span>, <span class="string">"false"</span>));
 			<span class="kw">return </span>Poll::Ready((
 				CollationEvent {
 					collator_protocol_version: <span class="self">self</span>.collator_protocol_version,
@@ -896,10 +898,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">match </span><span class="kw-2">&amp;</span>res {
 			Poll::Ready((<span class="kw">_</span>, <span class="prelude-val">Ok</span>(<span class="kw">_</span>))) =&gt; {
-				<span class="self">self</span>.span.as_mut().map(|s| s.add_string_tag(<span class="string">&quot;success&quot;</span>, <span class="string">&quot;true&quot;</span>));
+				<span class="self">self</span>.span.as_mut().map(|s| s.add_string_tag(<span class="string">"success"</span>, <span class="string">"true"</span>));
 			},
 			Poll::Ready((<span class="kw">_</span>, <span class="prelude-val">Err</span>(<span class="kw">_</span>))) =&gt; {
-				<span class="self">self</span>.span.as_mut().map(|s| s.add_string_tag(<span class="string">&quot;success&quot;</span>, <span class="string">&quot;false&quot;</span>));
+				<span class="self">self</span>.span.as_mut().map(|s| s.add_string_tag(<span class="string">"success"</span>, <span class="string">"false"</span>));
 			},
 			<span class="kw">_ </span>=&gt; {},
 		};

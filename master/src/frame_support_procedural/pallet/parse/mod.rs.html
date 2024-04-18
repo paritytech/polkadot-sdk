@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/support/procedural/src/pallet/parse/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/support/procedural/src/pallet/parse/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="frame_support_procedural" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="frame_support_procedural" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../../frame_support_procedural/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -901,14 +903,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -972,15 +974,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl </span>Def {
 	<span class="kw">pub fn </span>try_from(<span class="kw-2">mut </span>item: syn::ItemMod, dev_mode: bool) -&gt; syn::Result&lt;<span class="self">Self</span>&gt; {
-		<span class="kw">let </span>frame_system = generate_access_from_frame_or_crate(<span class="string">&quot;frame-system&quot;</span>)<span class="question-mark">?</span>;
-		<span class="kw">let </span>frame_support = generate_access_from_frame_or_crate(<span class="string">&quot;frame-support&quot;</span>)<span class="question-mark">?</span>;
+		<span class="kw">let </span>frame_system = generate_access_from_frame_or_crate(<span class="string">"frame-system"</span>)<span class="question-mark">?</span>;
+		<span class="kw">let </span>frame_support = generate_access_from_frame_or_crate(<span class="string">"frame-support"</span>)<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>item_span = item.span();
 		<span class="kw">let </span>items = <span class="kw-2">&amp;mut </span>item
 			.content
 			.as_mut()
 			.ok_or_else(|| {
-				<span class="kw">let </span>msg = <span class="string">&quot;Invalid pallet definition, expected mod to be inlined.&quot;</span>;
+				<span class="kw">let </span>msg = <span class="string">"Invalid pallet definition, expected mod to be inlined."</span>;
 				syn::Error::new(item_span, msg)
 			})<span class="question-mark">?
 			</span>.<span class="number">1</span>;
@@ -1039,15 +1041,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				}
 				<span class="prelude-val">Some</span>(PalletAttr::TaskCondition(span)) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(syn::Error::new(
 					span,
-					<span class="string">&quot;`#[pallet::task_condition]` can only be used on items within an `impl` statement.&quot;
+					<span class="string">"`#[pallet::task_condition]` can only be used on items within an `impl` statement."
 				</span>)),
 				<span class="prelude-val">Some</span>(PalletAttr::TaskIndex(span)) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(syn::Error::new(
 					span,
-					<span class="string">&quot;`#[pallet::task_index]` can only be used on items within an `impl` statement.&quot;
+					<span class="string">"`#[pallet::task_index]` can only be used on items within an `impl` statement."
 				</span>)),
 				<span class="prelude-val">Some</span>(PalletAttr::TaskList(span)) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(syn::Error::new(
 					span,
-					<span class="string">&quot;`#[pallet::task_list]` can only be used on items within an `impl` statement.&quot;
+					<span class="string">"`#[pallet::task_list]` can only be used on items within an `impl` statement."
 				</span>)),
 				<span class="prelude-val">Some</span>(PalletAttr::RuntimeTask(<span class="kw">_</span>)) <span class="kw">if </span>task_enum.is_none() =&gt;
 					task_enum = <span class="prelude-val">Some</span>(syn::parse2::&lt;tasks::TaskEnumDef&gt;(item.to_token_stream())<span class="question-mark">?</span>),
@@ -1097,7 +1099,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						}
 					}) {
 						<span class="kw">let </span>msg = <span class="macro">format!</span>(
-							<span class="string">&quot;Invalid duplicated `{}` definition&quot;</span>,
+							<span class="string">"Invalid duplicated `{}` definition"</span>,
 							composite.composite_keyword
 						);
 						<span class="kw">return </span><span class="prelude-val">Err</span>(syn::Error::new(composite.composite_keyword.span(), <span class="kw-2">&amp;</span>msg))
@@ -1105,7 +1107,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					composites.push(composite);
 				},
 				<span class="prelude-val">Some</span>(attr) =&gt; {
-					<span class="kw">let </span>msg = <span class="string">&quot;Invalid duplicated attribute&quot;</span>;
+					<span class="kw">let </span>msg = <span class="string">"Invalid duplicated attribute"</span>;
 					<span class="kw">return </span><span class="prelude-val">Err</span>(syn::Error::new(attr.span(), msg))
 				},
 				<span class="prelude-val">None </span>=&gt; (),
@@ -1114,11 +1116,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">if </span>genesis_config.is_some() != genesis_build.is_some() {
 			<span class="kw">let </span>msg = <span class="macro">format!</span>(
-				<span class="string">&quot;`#[pallet::genesis_config]` and `#[pallet::genesis_build]` attributes must be \
+				<span class="string">"`#[pallet::genesis_config]` and `#[pallet::genesis_build]` attributes must be \
 				either both used or both not used, instead genesis_config is {} and genesis_build \
-				is {}&quot;</span>,
-				genesis_config.as_ref().map_or(<span class="string">&quot;unused&quot;</span>, |<span class="kw">_</span>| <span class="string">&quot;used&quot;</span>),
-				genesis_build.as_ref().map_or(<span class="string">&quot;unused&quot;</span>, |<span class="kw">_</span>| <span class="string">&quot;used&quot;</span>),
+				is {}"</span>,
+				genesis_config.as_ref().map_or(<span class="string">"unused"</span>, |<span class="kw">_</span>| <span class="string">"used"</span>),
+				genesis_build.as_ref().map_or(<span class="string">"unused"</span>, |<span class="kw">_</span>| <span class="string">"used"</span>),
 			);
 			<span class="kw">return </span><span class="prelude-val">Err</span>(syn::Error::new(item_span, msg))
 		}
@@ -1128,9 +1130,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>def = Def {
 			item,
 			config: config
-				.ok_or_else(|| syn::Error::new(item_span, <span class="string">&quot;Missing `#[pallet::config]`&quot;</span>))<span class="question-mark">?</span>,
+				.ok_or_else(|| syn::Error::new(item_span, <span class="string">"Missing `#[pallet::config]`"</span>))<span class="question-mark">?</span>,
 			pallet_struct: pallet_struct
-				.ok_or_else(|| syn::Error::new(item_span, <span class="string">&quot;Missing `#[pallet::pallet]`&quot;</span>))<span class="question-mark">?</span>,
+				.ok_or_else(|| syn::Error::new(item_span, <span class="string">"Missing `#[pallet::pallet]`"</span>))<span class="question-mark">?</span>,
 			hooks,
 			call,
 			tasks,
@@ -1175,14 +1177,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			(<span class="prelude-val">Some</span>(<span class="kw">_</span>), <span class="prelude-val">None</span>) =&gt;
 				<span class="kw">return </span><span class="prelude-val">Err</span>(syn::Error::new(
 					<span class="kw-2">*</span>item_span,
-					<span class="string">&quot;Missing `#[pallet::tasks_experimental]` impl&quot;</span>,
+					<span class="string">"Missing `#[pallet::tasks_experimental]` impl"</span>,
 				)),
 			(<span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(tasks)) =&gt;
 				<span class="kw">if </span>tasks.tasks_attr.is_none() {
 					<span class="kw">return </span><span class="prelude-val">Err</span>(syn::Error::new(
 						tasks.item_impl.impl_token.span(),
-						<span class="string">&quot;A `#[pallet::tasks_experimental]` attribute must be attached to your `Task` impl if the \
-						task enum has been omitted&quot;</span>,
+						<span class="string">"A `#[pallet::tasks_experimental]` attribute must be attached to your `Task` impl if the \
+						task enum has been omitted"</span>,
 					))
 				} <span class="kw">else </span>{
 				},
@@ -1241,7 +1243,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="prelude-val">Some</span>(task_enum) =&gt; task_enum.item_enum.ident == target_ident.ident,
 				<span class="prelude-val">None </span>=&gt; <span class="bool-val">true</span>,
 			};
-			<span class="kw">if </span>trait_last_seg.ident == <span class="string">&quot;Task&quot; </span>&amp;&amp; matches_task_enum {
+			<span class="kw">if </span>trait_last_seg.ident == <span class="string">"Task" </span>&amp;&amp; matches_task_enum {
 				result = <span class="prelude-val">Some</span>(syn::parse2::&lt;tasks::TasksDef&gt;(item_impl.to_token_stream())<span class="question-mark">?</span>);
 				<span class="kw">break
 			</span>}
@@ -1255,15 +1257,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>check_event_usage(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; syn::Result&lt;()&gt; {
 		<span class="kw">match </span>(<span class="self">self</span>.config.has_event_type, <span class="self">self</span>.event.is_some()) {
 			(<span class="bool-val">true</span>, <span class="bool-val">false</span>) =&gt; {
-				<span class="kw">let </span>msg = <span class="string">&quot;Invalid usage of RuntimeEvent, `Config` contains associated type `RuntimeEvent`, \
+				<span class="kw">let </span>msg = <span class="string">"Invalid usage of RuntimeEvent, `Config` contains associated type `RuntimeEvent`, \
 					but enum `Event` is not declared (i.e. no use of `#[pallet::event]`). \
-					Note that type `RuntimeEvent` in trait is reserved to work alongside pallet event.&quot;</span>;
+					Note that type `RuntimeEvent` in trait is reserved to work alongside pallet event."</span>;
 				<span class="prelude-val">Err</span>(syn::Error::new(proc_macro2::Span::call_site(), msg))
 			},
 			(<span class="bool-val">false</span>, <span class="bool-val">true</span>) =&gt; {
-				<span class="kw">let </span>msg = <span class="string">&quot;Invalid usage of RuntimeEvent, `Config` contains no associated type \
+				<span class="kw">let </span>msg = <span class="string">"Invalid usage of RuntimeEvent, `Config` contains no associated type \
 					`RuntimeEvent`, but enum `Event` is declared (in use of `#[pallet::event]`). \
-					An RuntimeEvent associated type must be declare on trait `Config`.&quot;</span>;
+					An RuntimeEvent associated type must be declare on trait `Config`."</span>;
 				<span class="prelude-val">Err</span>(syn::Error::new(proc_macro2::Span::call_site(), msg))
 			},
 			<span class="kw">_ </span>=&gt; <span class="prelude-val">Ok</span>(()),
@@ -1309,10 +1311,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">return </span><span class="prelude-val">None
 			</span>}
 			<span class="kw">let </span>msg = <span class="kw">if </span><span class="self">self</span>.config.has_instance {
-				<span class="string">&quot;Invalid generic declaration, trait is defined with instance but generic use none&quot;
+				<span class="string">"Invalid generic declaration, trait is defined with instance but generic use none"
 			</span>} <span class="kw">else </span>{
-				<span class="string">&quot;Invalid generic declaration, trait is defined without instance but generic use \
-						some&quot;
+				<span class="string">"Invalid generic declaration, trait is defined without instance but generic use \
+						some"
 			</span>};
 			<span class="prelude-val">Some</span>(syn::Error::new(instances.span, msg))
 		});
@@ -1329,10 +1331,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Depending on if pallet is instantiable:
 	/// * either `T: Config`
-	/// * or `T: Config&lt;I&gt;, I: &#39;static`
+	/// * or `T: Config&lt;I&gt;, I: 'static`
 	</span><span class="kw">pub fn </span>type_impl_generics(<span class="kw-2">&amp;</span><span class="self">self</span>, span: proc_macro2::Span) -&gt; proc_macro2::TokenStream {
 		<span class="kw">if </span><span class="self">self</span>.config.has_instance {
-			<span class="macro">quote::quote_spanned!</span>(span =&gt; T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>)
+			<span class="macro">quote::quote_spanned!</span>(span =&gt; T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>)
 		} <span class="kw">else </span>{
 			<span class="macro">quote::quote_spanned!</span>(span =&gt; T: Config)
 		}
@@ -1340,10 +1342,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Depending on if pallet is instantiable:
 	/// * either `T: Config`
-	/// * or `T: Config&lt;I&gt;, I: &#39;static = ()`
+	/// * or `T: Config&lt;I&gt;, I: 'static = ()`
 	</span><span class="kw">pub fn </span>type_decl_bounded_generics(<span class="kw-2">&amp;</span><span class="self">self</span>, span: proc_macro2::Span) -&gt; proc_macro2::TokenStream {
 		<span class="kw">if </span><span class="self">self</span>.config.has_instance {
-			<span class="macro">quote::quote_spanned!</span>(span =&gt; T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ())
+			<span class="macro">quote::quote_spanned!</span>(span =&gt; T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ())
 		} <span class="kw">else </span>{
 			<span class="macro">quote::quote_spanned!</span>(span =&gt; T: Config)
 		}
@@ -1420,7 +1422,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			GenericKind::None =&gt; <span class="macro">quote::quote!</span>(),
 			GenericKind::Config =&gt; <span class="macro">quote::quote_spanned!</span>(span =&gt; T: Config),
 			GenericKind::ConfigAndInstance =&gt; {
-				<span class="macro">quote::quote_spanned!</span>(span =&gt; T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>)
+				<span class="macro">quote::quote_spanned!</span>(span =&gt; T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>)
 			},
 		}
 	}
@@ -1572,7 +1574,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		} <span class="kw">else if </span>lookahead.peek(keyword::hooks) {
 			<span class="prelude-val">Ok</span>(PalletAttr::Hooks(content.parse::&lt;keyword::hooks&gt;()<span class="question-mark">?</span>.span()))
 		} <span class="kw">else if </span>lookahead.peek(keyword::call) {
-			<span class="kw">let </span>span = content.parse::&lt;keyword::call&gt;().expect(<span class="string">&quot;peeked&quot;</span>).span();
+			<span class="kw">let </span>span = content.parse::&lt;keyword::call&gt;().expect(<span class="string">"peeked"</span>).span();
 			<span class="kw">let </span>attr = <span class="kw">match </span>content.is_empty() {
 				<span class="bool-val">true </span>=&gt; <span class="prelude-val">None</span>,
 				<span class="bool-val">false </span>=&gt; <span class="prelude-val">Some</span>(InheritedCallWeightAttr::parse(<span class="kw-2">&amp;</span>content)<span class="question-mark">?</span>),
@@ -1636,7 +1638,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">syn::parenthesized!</span>(inner <span class="kw">in </span>content);
 			inner
 		} <span class="kw">else if </span>lookahead.peek(<span class="macro">syn::Token!</span>[=]) {
-			content.parse::&lt;<span class="macro">syn::Token!</span>[=]&gt;().expect(<span class="string">&quot;peeked&quot;</span>);
+			content.parse::&lt;<span class="macro">syn::Token!</span>[=]&gt;().expect(<span class="string">"peeked"</span>);
 			content
 		} <span class="kw">else </span>{
 			<span class="kw">return </span><span class="prelude-val">Err</span>(lookahead.error())

@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Learn about the differences between smart contracts and a FRAME-based runtime. They are both “code stored onchain”, but how do they differ?"><title>polkadot_sdk_docs::reference_docs::runtime_vs_smart_contract - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Learn about the differences between smart contracts and a FRAME-based runtime. They are both “code stored onchain”, but how do they differ?"><title>polkadot_sdk_docs::reference_docs::runtime_vs_smart_contract - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_sdk_docs" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="icon" href="https://polkadot.network/favicon-32x32.png"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_sdk_docs" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="icon" href="https://polkadot.network/favicon-32x32.png"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,9 +147,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="logo-container" href="../../../polkadot_sdk_docs/index.html"><img src="https://europe1.discourse-cdn.com/standard21/uploads/polkadot2/original/1X/eb57081e2bb7c39e5fcb1a98b443e423fa4448ae.svg" alt=""></a></nav><nav class="sidebar"><div class="sidebar-crate"><a class="logo-container" href="../../../polkadot_sdk_docs/index.html"><img src="https://europe1.discourse-cdn.com/standard21/uploads/polkadot2/original/1X/eb57081e2bb7c39e5fcb1a98b443e423fa4448ae.svg" alt="logo"></a><h2><a href="../../../polkadot_sdk_docs/index.html">polkadot_sdk_docs</a><span class="version">0.0.1</span></h2></div><h2 class="location"><a href="#">Module runtime_vs_smart_contract</a></h2><div class="sidebar-elems"><h2><a href="../index.html">In polkadot_sdk_docs::reference_docs</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../../index.html">polkadot_sdk_docs</a>::<wbr><a href="../index.html">reference_docs</a>::<wbr><a class="mod" href="#">runtime_vs_smart_contract</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../../../src/polkadot_sdk_docs/reference_docs/runtime_vs_smart_contract.rs.html#1-216">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Learn about the differences between smart contracts and a FRAME-based runtime. They are both
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button><a class="logo-container" href="../../../polkadot_sdk_docs/index.html"><img src="https://europe1.discourse-cdn.com/standard21/uploads/polkadot2/original/1X/eb57081e2bb7c39e5fcb1a98b443e423fa4448ae.svg" alt=""></a></nav><nav class="sidebar"><div class="sidebar-crate"><a class="logo-container" href="../../../polkadot_sdk_docs/index.html"><img src="https://europe1.discourse-cdn.com/standard21/uploads/polkadot2/original/1X/eb57081e2bb7c39e5fcb1a98b443e423fa4448ae.svg" alt="logo"></a><h2><a href="../../../polkadot_sdk_docs/index.html">polkadot_sdk_docs</a><span class="version">0.0.1</span></h2></div><h2 class="location"><a href="#">Module runtime_vs_smart_contract</a></h2><div class="sidebar-elems"><h2><a href="../index.html">In polkadot_sdk_docs::reference_docs</a></h2></div></nav><div class="sidebar-resizer"></div>
+    <main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../polkadot_sdk_docs/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../../index.html">polkadot_sdk_docs</a>::<wbr><a href="../index.html">reference_docs</a>::<wbr><a class="mod" href="#">runtime_vs_smart_contract</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../../../src/polkadot_sdk_docs/reference_docs/runtime_vs_smart_contract.rs.html#1-216">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Learn about the differences between smart contracts and a FRAME-based runtime. They are both
 “code stored onchain”, but how do they differ?</p>
-<h2 id="runtime-vs-smart-contracts"><a href="#runtime-vs-smart-contracts">Runtime vs. Smart Contracts</a></h2>
+<h2 id="runtime-vs-smart-contracts"><a class="doc-anchor" href="#runtime-vs-smart-contracts">§</a>Runtime vs. Smart Contracts</h2>
 <p><em>TL;DR</em>: If you need to create a <em>Blockchain</em>, then write a runtime. If you need to create a
 <em>DApp</em>, then write a Smart Contract.</p>
 <p>This is a comparative analysis of Substrate-based Runtimes and Smart Contracts, highlighting
@@ -159,22 +160,22 @@ methods of deploying on-chain logic diverge in their design, usage, and implicat
 blockchain development, while Smart Contracts provide a more accessible approach for
 decentralized applications. Understanding their differences is crucial in choosing the right
 approach for a specific solution.</p>
-<h3 id="substrate"><a href="#substrate">Substrate</a></h3>
+<h3 id="substrate"><a class="doc-anchor" href="#substrate">§</a>Substrate</h3>
 <p>Substrate is a modular framework that enables the creation of purpose-specific blockchains. In
 the Polkadot ecosystem you can find two distinct approaches for on-chain code execution:
 <a href="#runtime-in-substrate">Runtime Development</a> and <a href="#smart-contracts">Smart Contracts</a>.</p>
-<h5 id="smart-contracts-in-substrate"><a href="#smart-contracts-in-substrate">Smart Contracts in Substrate</a></h5>
+<h5 id="smart-contracts-in-substrate"><a class="doc-anchor" href="#smart-contracts-in-substrate">§</a>Smart Contracts in Substrate</h5>
 <p>Smart Contracts are autonomous, programmable constructs deployed on the blockchain.
 In <a href="../../../polkadot_sdk_frame/index.html" title="mod polkadot_sdk_frame">FRAME</a>, Smart Contracts infrastructure is implemented by the
 <a href="../../../pallet_contracts/index.html"><code>pallet_contracts</code></a> for WASM-based contracts or the
 <a href="../../../pallet_evm/index.html"><code>pallet_evm</code></a> for EVM-compatible contracts. These pallets
 enable Smart Contract developers to build applications and systems on top of a Substrate-based
 blockchain.</p>
-<h5 id="runtime-in-substrate"><a href="#runtime-in-substrate">Runtime in Substrate</a></h5>
+<h5 id="runtime-in-substrate"><a class="doc-anchor" href="#runtime-in-substrate">§</a>Runtime in Substrate</h5>
 <p>The Runtime is the state transition function of a Substrate-based blockchain. It defines the
 rules for processing transactions and blocks, essentially governing the behavior and
 capabilities of a blockchain.</p>
-<h3 id="comparative-table"><a href="#comparative-table">Comparative Table</a></h3>
+<h3 id="comparative-table"><a class="doc-anchor" href="#comparative-table">§</a>Comparative Table</h3>
 <p>| Aspect                | Runtime
 | Smart Contracts                                                      |
 |———————–|———————————————————————––|–––––––––––––––––––––––––––––––––––|
@@ -191,12 +192,12 @@ contract.        | | <strong>Weighing and Metering</strong> | Operations can be 
 benchmarking.           | Execution is metered, allowing for measurement of resource
 consumption. |</p>
 <p>We will now explore these differences in more detail.</p>
-<h3 id="design-philosophy"><a href="#design-philosophy">Design Philosophy</a></h3>
+<h3 id="design-philosophy"><a class="doc-anchor" href="#design-philosophy">§</a>Design Philosophy</h3>
 <p>Runtimes and Smart Contracts are designed for different purposes. Runtimes are the core logic
 of a blockchain, while Smart Contracts are designed for DApps on top of the blockchain.
 Runtimes can be more complex, but also more flexible and efficient, while Smart Contracts are
 easier to develop and deploy.</p>
-<h5 id="runtime-design-philosophy"><a href="#runtime-design-philosophy">Runtime Design Philosophy</a></h5>
+<h5 id="runtime-design-philosophy"><a class="doc-anchor" href="#runtime-design-philosophy">§</a>Runtime Design Philosophy</h5>
 <ul>
 <li><strong>Core Blockchain Logic</strong>: Runtimes are essentially the backbone of a blockchain. They define
 the fundamental rules, operations, and state transitions of the blockchain network.</li>
@@ -205,7 +206,7 @@ Developers can tailor the most fundamental aspects of the blockchain, like intro
 efficient transaction fee model to eliminating transaction fees completely. This level of
 control is essential for creating specialized or application-specific blockchains.</li>
 </ul>
-<h5 id="smart-contract-design-philosophy"><a href="#smart-contract-design-philosophy">Smart Contract Design Philosophy</a></h5>
+<h5 id="smart-contract-design-philosophy"><a class="doc-anchor" href="#smart-contract-design-philosophy">§</a>Smart Contract Design Philosophy</h5>
 <ul>
 <li><strong>DApps Development</strong>: Smart contracts are designed primarily for developing DApps. They
 operate on top of the blockchain’s infrastructure.</li>
@@ -214,10 +215,10 @@ an isolated piece of code, executing predefined operations when triggered. This 
 simplifies development and enhances security, as flaws in one contract do not directly
 compromise the entire network.</li>
 </ul>
-<h3 id="development-complexity"><a href="#development-complexity">Development Complexity</a></h3>
+<h3 id="development-complexity"><a class="doc-anchor" href="#development-complexity">§</a>Development Complexity</h3>
 <p>Runtimes and Smart Contracts differ in their development complexity, largely due to their
 differing purposes and technical requirements.</p>
-<h5 id="runtime-development-complexity"><a href="#runtime-development-complexity">Runtime Development Complexity</a></h5>
+<h5 id="runtime-development-complexity"><a class="doc-anchor" href="#runtime-development-complexity">§</a>Runtime Development Complexity</h5>
 <ul>
 <li><strong>In-depth Knowledge Requirements</strong>: Developing a Runtime in Substrate requires a
 comprehensive understanding of Rust, Substrate’s framework, and blockchain principles.</li>
@@ -225,7 +226,7 @@ comprehensive understanding of Rust, Substrate’s framework, and blockchain pri
 blockchain architectures. Developers must consider aspects like security, scalability, and
 network efficiency.</li>
 </ul>
-<h5 id="smart-contract-development-complexity"><a href="#smart-contract-development-complexity">Smart Contract Development Complexity</a></h5>
+<h5 id="smart-contract-development-complexity"><a class="doc-anchor" href="#smart-contract-development-complexity">§</a>Smart Contract Development Complexity</h5>
 <ul>
 <li><strong>Accessibility</strong>: Smart Contract development is generally more accessible, especially for
 those already familiar with programming concepts. Knowledge of smart contract-specific
@@ -235,12 +236,12 @@ only. This includes writing functions that execute when certain conditions are m
 state within the contract, and ensuring security against common Smart Contract
 vulnerabilities.</li>
 </ul>
-<h3 id="upgradeability-and-flexibility"><a href="#upgradeability-and-flexibility">Upgradeability and Flexibility</a></h3>
+<h3 id="upgradeability-and-flexibility"><a class="doc-anchor" href="#upgradeability-and-flexibility">§</a>Upgradeability and Flexibility</h3>
 <p>Runtimes and Smart Contracts differ significantly in how they handle upgrades and flexibility,
 each with its own advantages and constraints. Runtimes are more flexible, allowing for writing
 migration logic for upgrades, while Smart Contracts are less flexible but offer easier
 deployment and iteration.</p>
-<h5 id="runtime-upgradeability-and-flexibility"><a href="#runtime-upgradeability-and-flexibility">Runtime Upgradeability and Flexibility</a></h5>
+<h5 id="runtime-upgradeability-and-flexibility"><a class="doc-anchor" href="#runtime-upgradeability-and-flexibility">§</a>Runtime Upgradeability and Flexibility</h5>
 <ul>
 <li><strong>Migration Logic</strong>: One of the key strengths of runtime development is the ability to define
 migration logic. This allows developers to implement changes in the state or structure of the
@@ -254,7 +255,7 @@ developers the power to introduce significant improvements or changes but also n
 high level of responsibility and scrutiny, we will talk further about it in the <a href="#security-considerations">Security
 Considerations</a> section.</li>
 </ul>
-<h5 id="smart-contract-upgradeability-and-flexibility"><a href="#smart-contract-upgradeability-and-flexibility">Smart Contract Upgradeability and Flexibility</a></h5>
+<h5 id="smart-contract-upgradeability-and-flexibility"><a class="doc-anchor" href="#smart-contract-upgradeability-and-flexibility">§</a>Smart Contract Upgradeability and Flexibility</h5>
 <ul>
 <li><strong>Deployment and Iteration</strong>: Smart Contracts, by nature, are designed for more
 straightforward deployment and iteration. Developers can quickly deploy contracts.</li>
@@ -268,11 +269,11 @@ contract and its users, unlike Runtime upgrades that have a network-wide effect.
 faster and less complex than Runtime development, allowing for rapid prototyping and
 deployment.</li>
 </ul>
-<h3 id="performance-and-efficiency"><a href="#performance-and-efficiency">Performance and Efficiency</a></h3>
+<h3 id="performance-and-efficiency"><a class="doc-anchor" href="#performance-and-efficiency">§</a>Performance and Efficiency</h3>
 <p>Runtimes and Smart Contracts have distinct characteristics in terms of performance and
 efficiency due to their inherent design and operational contexts. Runtimes are more efficient
 and optimized for specific needs, while Smart Contracts are more generic and less efficient.</p>
-<h5 id="runtime-performance-and-efficiency"><a href="#runtime-performance-and-efficiency">Runtime Performance and Efficiency</a></h5>
+<h5 id="runtime-performance-and-efficiency"><a class="doc-anchor" href="#runtime-performance-and-efficiency">§</a>Runtime Performance and Efficiency</h5>
 <ul>
 <li><strong>Optimized for Specific Needs</strong>: Runtime modules in Substrate are tailored to meet the
 specific needs of the blockchain. They are integrated directly into the blockchain’s core,
@@ -283,7 +284,7 @@ is no additional layer between the runtime logic and the blockchain’s core.</l
 <li><strong>Resource Management</strong>: Resource management is integral to runtime development to ensure that
 the blockchain operates smoothly and efficiently.</li>
 </ul>
-<h5 id="smart-contract-performance-and-efficiency"><a href="#smart-contract-performance-and-efficiency">Smart Contract Performance and Efficiency</a></h5>
+<h5 id="smart-contract-performance-and-efficiency"><a class="doc-anchor" href="#smart-contract-performance-and-efficiency">§</a>Smart Contract Performance and Efficiency</h5>
 <ul>
 <li><strong>Generic Nature and Overhead</strong>: Smart Contracts, particularly those running in virtual
 machine environments, can be less efficient due to the generic nature of their execution
@@ -297,10 +298,10 @@ computational resources, ensures that contracts don’t consume excessive resour
 this metering itself requires computational power, adding to the overall cost of contract
 execution.</li>
 </ul>
-<h3 id="security-considerations"><a href="#security-considerations">Security Considerations</a></h3>
+<h3 id="security-considerations"><a class="doc-anchor" href="#security-considerations">§</a>Security Considerations</h3>
 <p>These two methodologies, while serving different purposes, come with their own unique security
 considerations.</p>
-<h5 id="runtime-security-aspects"><a href="#runtime-security-aspects">Runtime Security Aspects</a></h5>
+<h5 id="runtime-security-aspects"><a class="doc-anchor" href="#runtime-security-aspects">§</a>Runtime Security Aspects</h5>
 <p>Runtimes, being at the core of blockchain functionality, have profound implications for the
 security of the entire network:</p>
 <ul>
@@ -312,7 +313,7 @@ disrupt network operations.</li>
 <li><strong>Complexity and Expertise</strong>: Developing and maintaining runtime requires a higher level of
 expertise in blockchain architecture and security, as mistakes can be far-reaching.</li>
 </ul>
-<h5 id="smart-contract-security-aspects"><a href="#smart-contract-security-aspects">Smart Contract Security Aspects</a></h5>
+<h5 id="smart-contract-security-aspects"><a class="doc-anchor" href="#smart-contract-security-aspects">§</a>Smart Contract Security Aspects</h5>
 <p>Smart contracts, while more isolated, bring their own set of security challenges:</p>
 <ul>
 <li><strong>Isolated Impact</strong>: Security issues in a smart contract typically affect the contract itself
@@ -323,12 +324,12 @@ smart contract development.</li>
 <li><strong>Permissionless Deployment</strong>: Since anyone can deploy a smart contract,
 the ecosystem is more open to potentially malicious or vulnerable code.</li>
 </ul>
-<h3 id="weighing-and-metering"><a href="#weighing-and-metering">Weighing and Metering</a></h3>
+<h3 id="weighing-and-metering"><a class="doc-anchor" href="#weighing-and-metering">§</a>Weighing and Metering</h3>
 <p>Weighing and metering are mechanisms designed to limit the resources used by external actors.
 However, there are fundamental differences in how these resources are handled in FRAME-based
 Runtimes and how they are handled in Smart Contracts, while Runtime operations are weighed,
 Smart Contract executions must be metered.</p>
-<h5 id="weighing"><a href="#weighing">Weighing</a></h5>
+<h5 id="weighing"><a class="doc-anchor" href="#weighing">§</a>Weighing</h5>
 <p>In FRAME-based Runtimes, operations are <em>weighed</em>. This means that each operation in the Runtime
 has a fixed upper cost, known in advance, determined through
 <a href="../frame_benchmarking_weight/index.html" title="mod polkadot_sdk_docs::reference_docs::frame_benchmarking_weight">benchmarking</a>. Weighing is practical here
@@ -342,7 +343,7 @@ complexity scenario of its execution (and a mechanism to refund unused weight), 
 infeasible for an attacker to create transactions that could unpredictably consume excessive
 resources.</li>
 </ul>
-<h5 id="metering"><a href="#metering">Metering</a></h5>
+<h5 id="metering"><a class="doc-anchor" href="#metering">§</a>Metering</h5>
 <p>For Smart Contracts resource consumption is metered. This is essential due to:</p>
 <ul>
 <li><strong>Untrusted Nature</strong>: Unlike Runtime operations, Smart Contracts can be deployed by any user,
@@ -351,7 +352,7 @@ as the contract executes.</li>
 <li><strong>Safety Against Infinite Loops</strong>: Metering protects the blockchain from poorly designed
 contracts that might run into infinite loops, consuming an indefinite amount of resources.</li>
 </ul>
-<h5 id="implications-for-developers-and-users"><a href="#implications-for-developers-and-users">Implications for Developers and Users</a></h5>
+<h5 id="implications-for-developers-and-users"><a class="doc-anchor" href="#implications-for-developers-and-users">§</a>Implications for Developers and Users</h5>
 <ul>
 <li><strong>For Runtime Developers</strong>: Understanding the cost of each operation is essential. Misjudging
 the weight of operations can lead to network congestion or vulnerability exploitation.</li>

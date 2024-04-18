@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/state-machine/src/backend.rs`."><title>backend.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/state-machine/src/backend.rs`."><title>backend.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_state_machine" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_state_machine" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sp_state_machine/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -595,21 +597,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
 </span><span class="doccomment">//! State machine backends. These manage the code and storage of contracts.
 
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+</span><span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">use </span><span class="kw">crate</span>::trie_backend::TrieBackend;
 <span class="kw">use crate</span>::{
 	trie_backend_essence::TrieBackendStorage, ChildStorageCollection, StorageCollection,
@@ -620,21 +622,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>core::marker::PhantomData;
 <span class="kw">use </span>hash_db::Hasher;
 <span class="kw">use </span>sp_core::storage::{ChildInfo, StateVersion, TrackedStorageKey};
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">use </span>sp_core::traits::RuntimeCode;
 <span class="kw">use </span>sp_trie::{MerkleValue, PrefixedMemoryDB};
 
 <span class="doccomment">/// A struct containing arguments for iterating over the storage.
 </span><span class="attr">#[derive(Default)]
 #[non_exhaustive]
-</span><span class="kw">pub struct </span>IterArgs&lt;<span class="lifetime">&#39;a</span>&gt; {
+</span><span class="kw">pub struct </span>IterArgs&lt;<span class="lifetime">'a</span>&gt; {
 	<span class="doccomment">/// The prefix of the keys over which to iterate.
-	</span><span class="kw">pub </span>prefix: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8]&gt;,
+	</span><span class="kw">pub </span>prefix: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8]&gt;,
 
 	<span class="doccomment">/// The prefix from which to start the iteration from.
 	///
 	/// This is inclusive and the iteration will include the key which is specified here.
-	</span><span class="kw">pub </span>start_at: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8]&gt;,
+	</span><span class="kw">pub </span>start_at: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8]&gt;,
 
 	<span class="doccomment">/// If this is `true` then the iteration will *not* include
 	/// the key specified in `start_at`, if there is such a key.
@@ -679,17 +681,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// An iterator over storage keys and values.
-</span><span class="kw">pub struct </span>PairsIter&lt;<span class="lifetime">&#39;a</span>, H, I&gt;
+</span><span class="kw">pub struct </span>PairsIter&lt;<span class="lifetime">'a</span>, H, I&gt;
 <span class="kw">where
 	</span>H: Hasher,
 	I: StorageIterator&lt;H&gt;,
 {
-	backend: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>I::Backend&gt;,
+	backend: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>I::Backend&gt;,
 	raw_iter: I,
 	_phantom: PhantomData&lt;H&gt;,
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, H, I&gt; Iterator <span class="kw">for </span>PairsIter&lt;<span class="lifetime">&#39;a</span>, H, I&gt;
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, H, I&gt; Iterator <span class="kw">for </span>PairsIter&lt;<span class="lifetime">'a</span>, H, I&gt;
 <span class="kw">where
 	</span>H: Hasher,
 	I: StorageIterator&lt;H&gt;,
@@ -700,7 +702,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, H, I&gt; Default <span class="kw">for </span>PairsIter&lt;<span class="lifetime">&#39;a</span>, H, I&gt;
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, H, I&gt; Default <span class="kw">for </span>PairsIter&lt;<span class="lifetime">'a</span>, H, I&gt;
 <span class="kw">where
 	</span>H: Hasher,
 	I: StorageIterator&lt;H&gt; + Default,
@@ -714,29 +716,29 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, H, I&gt; PairsIter&lt;<span class="lifetime">&#39;a</span>, H, I&gt;
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, H, I&gt; PairsIter&lt;<span class="lifetime">'a</span>, H, I&gt;
 <span class="kw">where
 	</span>H: Hasher,
 	I: StorageIterator&lt;H&gt; + Default,
 {
-	<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>was_complete(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
 		<span class="self">self</span>.raw_iter.was_complete()
 	}
 }
 
 <span class="doccomment">/// An iterator over storage keys.
-</span><span class="kw">pub struct </span>KeysIter&lt;<span class="lifetime">&#39;a</span>, H, I&gt;
+</span><span class="kw">pub struct </span>KeysIter&lt;<span class="lifetime">'a</span>, H, I&gt;
 <span class="kw">where
 	</span>H: Hasher,
 	I: StorageIterator&lt;H&gt;,
 {
-	backend: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>I::Backend&gt;,
+	backend: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>I::Backend&gt;,
 	raw_iter: I,
 	_phantom: PhantomData&lt;H&gt;,
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, H, I&gt; Iterator <span class="kw">for </span>KeysIter&lt;<span class="lifetime">&#39;a</span>, H, I&gt;
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, H, I&gt; Iterator <span class="kw">for </span>KeysIter&lt;<span class="lifetime">'a</span>, H, I&gt;
 <span class="kw">where
 	</span>H: Hasher,
 	I: StorageIterator&lt;H&gt;,
@@ -747,7 +749,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, H, I&gt; Default <span class="kw">for </span>KeysIter&lt;<span class="lifetime">&#39;a</span>, H, I&gt;
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, H, I&gt; Default <span class="kw">for </span>KeysIter&lt;<span class="lifetime">'a</span>, H, I&gt;
 <span class="kw">where
 	</span>H: Hasher,
 	I: StorageIterator&lt;H&gt; + Default,
@@ -836,23 +838,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;StorageKey&gt;, <span class="self">Self</span>::Error&gt;;
 
 	<span class="doccomment">/// Calculate the storage root, with given delta over what is already stored in
-	/// the backend, and produce a &quot;transaction&quot; that can be used to commit.
+	/// the backend, and produce a "transaction" that can be used to commit.
 	/// Does not include child storage updates.
-	</span><span class="kw">fn </span>storage_root&lt;<span class="lifetime">&#39;a</span>&gt;(
+	</span><span class="kw">fn </span>storage_root&lt;<span class="lifetime">'a</span>&gt;(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		delta: <span class="kw">impl </span>Iterator&lt;Item = (<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8], <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8]&gt;)&gt;,
+		delta: <span class="kw">impl </span>Iterator&lt;Item = (<span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8], <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8]&gt;)&gt;,
 		state_version: StateVersion,
 	) -&gt; (H::Out, BackendTransaction&lt;H&gt;)
 	<span class="kw">where
 		</span>H::Out: Ord;
 
 	<span class="doccomment">/// Calculate the child storage root, with given delta over what is already stored in
-	/// the backend, and produce a &quot;transaction&quot; that can be used to commit. The second argument
+	/// the backend, and produce a "transaction" that can be used to commit. The second argument
 	/// is true if child storage root equals default storage root.
-	</span><span class="kw">fn </span>child_storage_root&lt;<span class="lifetime">&#39;a</span>&gt;(
+	</span><span class="kw">fn </span>child_storage_root&lt;<span class="lifetime">'a</span>&gt;(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		child_info: <span class="kw-2">&amp;</span>ChildInfo,
-		delta: <span class="kw">impl </span>Iterator&lt;Item = (<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8], <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8]&gt;)&gt;,
+		delta: <span class="kw">impl </span>Iterator&lt;Item = (<span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8], <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8]&gt;)&gt;,
 		state_version: StateVersion,
 	) -&gt; (H::Out, bool, BackendTransaction&lt;H&gt;)
 	<span class="kw">where
@@ -862,7 +864,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>raw_iter(<span class="kw-2">&amp;</span><span class="self">self</span>, args: IterArgs) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::RawIter, <span class="self">Self</span>::Error&gt;;
 
 	<span class="doccomment">/// Get an iterator over key/value pairs.
-	</span><span class="kw">fn </span>pairs&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>, args: IterArgs) -&gt; <span class="prelude-ty">Result</span>&lt;PairsIter&lt;<span class="lifetime">&#39;a</span>, H, <span class="self">Self</span>::RawIter&gt;, <span class="self">Self</span>::Error&gt; {
+	</span><span class="kw">fn </span>pairs&lt;<span class="lifetime">'a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>, args: IterArgs) -&gt; <span class="prelude-ty">Result</span>&lt;PairsIter&lt;<span class="lifetime">'a</span>, H, <span class="self">Self</span>::RawIter&gt;, <span class="self">Self</span>::Error&gt; {
 		<span class="prelude-val">Ok</span>(PairsIter {
 			backend: <span class="prelude-val">Some</span>(<span class="self">self</span>),
 			raw_iter: <span class="self">self</span>.raw_iter(args)<span class="question-mark">?</span>,
@@ -871,7 +873,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Get an iterator over keys.
-	</span><span class="kw">fn </span>keys&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>, args: IterArgs) -&gt; <span class="prelude-ty">Result</span>&lt;KeysIter&lt;<span class="lifetime">&#39;a</span>, H, <span class="self">Self</span>::RawIter&gt;, <span class="self">Self</span>::Error&gt; {
+	</span><span class="kw">fn </span>keys&lt;<span class="lifetime">'a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>, args: IterArgs) -&gt; <span class="prelude-ty">Result</span>&lt;KeysIter&lt;<span class="lifetime">'a</span>, H, <span class="self">Self</span>::RawIter&gt;, <span class="self">Self</span>::Error&gt; {
 		<span class="prelude-val">Ok</span>(KeysIter {
 			backend: <span class="prelude-val">Some</span>(<span class="self">self</span>),
 			raw_iter: <span class="self">self</span>.raw_iter(args)<span class="question-mark">?</span>,
@@ -880,13 +882,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Calculate the storage root, with given delta over what is already stored
-	/// in the backend, and produce a &quot;transaction&quot; that can be used to commit.
+	/// in the backend, and produce a "transaction" that can be used to commit.
 	/// Does include child storage updates.
-	</span><span class="kw">fn </span>full_storage_root&lt;<span class="lifetime">&#39;a</span>&gt;(
+	</span><span class="kw">fn </span>full_storage_root&lt;<span class="lifetime">'a</span>&gt;(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		delta: <span class="kw">impl </span>Iterator&lt;Item = (<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8], <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8]&gt;)&gt;,
+		delta: <span class="kw">impl </span>Iterator&lt;Item = (<span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8], <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8]&gt;)&gt;,
 		child_deltas: <span class="kw">impl </span>Iterator&lt;
-			Item = (<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ChildInfo, <span class="kw">impl </span>Iterator&lt;Item = (<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8], <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8]&gt;)&gt;),
+			Item = (<span class="kw-2">&amp;</span><span class="lifetime">'a </span>ChildInfo, <span class="kw">impl </span>Iterator&lt;Item = (<span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8], <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8]&gt;)&gt;),
 		&gt;,
 		state_version: StateVersion,
 	) -&gt; (H::Out, BackendTransaction&lt;H&gt;)
@@ -926,7 +928,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Query backend usage statistics (i/o, memory)
 	///
 	/// Not all implementations are expected to be able to do this. In the
-	/// case when they don&#39;t, empty statistics is returned.
+	/// case when they don't, empty statistics is returned.
 	</span><span class="kw">fn </span>usage_info(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; UsageInfo;
 
 	<span class="doccomment">/// Wipe the state database.
@@ -975,7 +977,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Something that can be converted into a [`TrieBackend`].
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+</span><span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">pub trait </span>AsTrieBackend&lt;H: Hasher, C = sp_trie::cache::LocalTrieCache&lt;H&gt;&gt; {
 	<span class="doccomment">/// Type of trie backend storage.
 	</span><span class="kw">type </span>TrieBackendStorage: TrieBackendStorage&lt;H&gt;;
@@ -985,15 +987,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Wrapper to create a [`RuntimeCode`] from a type that implements [`Backend`].
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
-</span><span class="kw">pub struct </span>BackendRuntimeCode&lt;<span class="lifetime">&#39;a</span>, B, H&gt; {
-	backend: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>B,
+</span><span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
+</span><span class="kw">pub struct </span>BackendRuntimeCode&lt;<span class="lifetime">'a</span>, B, H&gt; {
+	backend: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>B,
 	_marker: PhantomData&lt;H&gt;,
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
-</span><span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, B: Backend&lt;H&gt;, H: Hasher&gt; sp_core::traits::FetchRuntimeCode
-	<span class="kw">for </span>BackendRuntimeCode&lt;<span class="lifetime">&#39;a</span>, B, H&gt;
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
+</span><span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, B: Backend&lt;H&gt;, H: Hasher&gt; sp_core::traits::FetchRuntimeCode
+	<span class="kw">for </span>BackendRuntimeCode&lt;<span class="lifetime">'a</span>, B, H&gt;
 {
 	<span class="kw">fn </span>fetch_runtime_code(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;std::borrow::Cow&lt;[u8]&gt;&gt; {
 		<span class="self">self</span>.backend
@@ -1004,24 +1006,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
-</span><span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, B: Backend&lt;H&gt;, H: Hasher&gt; BackendRuntimeCode&lt;<span class="lifetime">&#39;a</span>, B, H&gt;
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
+</span><span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, B: Backend&lt;H&gt;, H: Hasher&gt; BackendRuntimeCode&lt;<span class="lifetime">'a</span>, B, H&gt;
 <span class="kw">where
 	</span>H::Out: Encode,
 {
 	<span class="doccomment">/// Create a new instance.
-	</span><span class="kw">pub fn </span>new(backend: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>B) -&gt; <span class="self">Self </span>{
+	</span><span class="kw">pub fn </span>new(backend: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>B) -&gt; <span class="self">Self </span>{
 		<span class="self">Self </span>{ backend, _marker: PhantomData }
 	}
 
 	<span class="doccomment">/// Return the [`RuntimeCode`] build from the wrapped `backend`.
-	</span><span class="kw">pub fn </span>runtime_code(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;RuntimeCode, <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; {
+	</span><span class="kw">pub fn </span>runtime_code(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;RuntimeCode, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
 		<span class="kw">let </span>hash = <span class="self">self
 			</span>.backend
 			.storage_hash(sp_core::storage::well_known_keys::CODE)
 			.ok()
 			.flatten()
-			.ok_or(<span class="string">&quot;`:code` hash not found&quot;</span>)<span class="question-mark">?
+			.ok_or(<span class="string">"`:code` hash not found"</span>)<span class="question-mark">?
 			</span>.encode();
 		<span class="kw">let </span>heap_pages = <span class="self">self
 			</span>.backend

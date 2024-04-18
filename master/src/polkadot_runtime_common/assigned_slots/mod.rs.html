@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/runtime/common/src/assigned_slots/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/runtime/common/src/assigned_slots/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_runtime_common" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_runtime_common" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../polkadot_runtime_common/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1663,7 +1665,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sp_runtime::traits::{One, Saturating, Zero};
 <span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 
-<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;runtime::assigned_slots&quot;</span>;
+<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"runtime::assigned_slots"</span>;
 
 <span class="doccomment">/// Lease period an assigned slot should start from (current, or next one).
 </span><span class="attr">#[derive(Encode, Decode, Clone, Copy, Eq, PartialEq, RuntimeDebug, TypeInfo)]
@@ -1858,13 +1860,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">impl</span>&lt;T: Config&gt; Hooks&lt;BlockNumberFor&lt;T&gt;&gt; <span class="kw">for </span>Pallet&lt;T&gt; {
 		<span class="kw">fn </span>on_initialize(n: BlockNumberFor&lt;T&gt;) -&gt; Weight {
 			<span class="kw">if let </span><span class="prelude-val">Some</span>((lease_period, first_block)) = <span class="self">Self</span>::lease_period_index(n) {
-				<span class="comment">// If we&#39;re beginning a new lease period then handle that.
+				<span class="comment">// If we're beginning a new lease period then handle that.
 				</span><span class="kw">if </span>first_block {
 					<span class="kw">return </span><span class="self">Self</span>::manage_lease_period_start(lease_period)
 				}
 			}
 
-			<span class="comment">// We didn&#39;t return early above, so we didn&#39;t do anything.
+			<span class="comment">// We didn't return early above, so we didn't do anything.
 			</span>Weight::zero()
 		}
 	}
@@ -1999,7 +2001,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						// function.
 						</span><span class="macro">log::warn!</span>(
 							target: LOG_TARGET,
-							<span class="string">&quot;Failed to allocate a temp slot for para {:?} at period {:?}: {:?}&quot;</span>,
+							<span class="string">"Failed to allocate a temp slot for para {:?} at period {:?}: {:?}"</span>,
 							id,
 							current_lease_period,
 							err
@@ -2054,7 +2056,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					// at the end of the lease period .
 					</span><span class="macro">log::warn!</span>(
 						target: LOG_TARGET,
-						<span class="string">&quot;Failed to downgrade parachain {:?} at period {:?}: {:?}&quot;</span>,
+						<span class="string">"Failed to downgrade parachain {:?} at period {:?}: {:?}"</span>,
 						id,
 						<span class="self">Self</span>::current_lease_period_index(),
 						err
@@ -2095,9 +2097,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Allocate temporary slot leases up to `MaxTemporarySlotPerLeasePeriod` per lease period.
 	/// Beyond the already active temporary slot leases, this function will activate more leases
 	/// in the following order of preference:
-	/// - Assigned slots that didn&#39;t have a turn yet, though their `period_begin` has passed.
+	/// - Assigned slots that didn't have a turn yet, though their `period_begin` has passed.
 	/// - Assigned slots that already had one (or more) turn(s): they will be considered for the
-	/// current slot lease if they weren&#39;t active in the preceding one, and will be ranked by
+	/// current slot lease if they weren't active in the preceding one, and will be ranked by
 	/// total number of lease (lower first), and then when they last a turn (older ones first).
 	/// If any remaining ex-aequo, we just take the para ID in ascending order as discriminator.
 	///
@@ -2124,7 +2126,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							pending_temp_slots.push((para, slot));
 					},
 					<span class="prelude-val">None </span><span class="kw">if </span>slot.period_begin &lt;= lease_period_index =&gt; {
-						<span class="comment">// Slot hasn&#39;t had a lease yet
+						<span class="comment">// Slot hasn't had a lease yet
 						</span>pending_temp_slots.insert(<span class="number">0</span>, (para, slot));
 					},
 					<span class="kw">_ </span>=&gt; {
@@ -2234,7 +2236,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">if let </span><span class="prelude-val">Err</span>(err) = <span class="self">Self</span>::allocate_temporary_slot_leases(lease_period_index) {
 			<span class="macro">log::error!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;Allocating slots failed for lease period {:?}, with: {:?}&quot;</span>,
+				<span class="string">"Allocating slots failed for lease period {:?}, with: {:?}"</span>,
 				lease_period_index,
 				err
 			);
@@ -2615,7 +2617,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// Para is a lease holding parachain for PermanentSlotLeasePeriodLength * LeasePeriod
 			// blocks
 			</span><span class="kw">while </span>block &lt; <span class="number">9 </span>{
-				<span class="macro">println!</span>(<span class="string">&quot;block #{}&quot;</span>, block);
+				<span class="macro">println!</span>(<span class="string">"block #{}"</span>, block);
 
 				<span class="macro">assert_eq!</span>(TestRegistrar::&lt;Test&gt;::is_parachain(ParaId::from(<span class="number">1_u32</span>)), <span class="bool-val">true</span>);
 
@@ -2802,9 +2804,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			// Para is a lease holding parachain for TemporarySlotLeasePeriodLength * LeasePeriod
 			// blocks
 			</span><span class="kw">while </span>block &lt; <span class="number">6 </span>{
-				<span class="macro">println!</span>(<span class="string">&quot;block #{}&quot;</span>, block);
-				<span class="macro">println!</span>(<span class="string">&quot;lease period #{}&quot;</span>, AssignedSlots::current_lease_period_index());
-				<span class="macro">println!</span>(<span class="string">&quot;lease {:?}&quot;</span>, slots::Leases::&lt;Test&gt;::get(ParaId::from(<span class="number">1_u32</span>)));
+				<span class="macro">println!</span>(<span class="string">"block #{}"</span>, block);
+				<span class="macro">println!</span>(<span class="string">"lease period #{}"</span>, AssignedSlots::current_lease_period_index());
+				<span class="macro">println!</span>(<span class="string">"lease {:?}"</span>, slots::Leases::&lt;Test&gt;::get(ParaId::from(<span class="number">1_u32</span>)));
 
 				<span class="macro">assert_eq!</span>(TestRegistrar::&lt;Test&gt;::is_parachain(ParaId::from(<span class="number">1_u32</span>)), <span class="bool-val">true</span>);
 
@@ -2828,9 +2830,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			}
 
 			<span class="comment">// Block 6
-			</span><span class="macro">println!</span>(<span class="string">&quot;block #{}&quot;</span>, block);
-			<span class="macro">println!</span>(<span class="string">&quot;lease period #{}&quot;</span>, AssignedSlots::current_lease_period_index());
-			<span class="macro">println!</span>(<span class="string">&quot;lease {:?}&quot;</span>, slots::Leases::&lt;Test&gt;::get(ParaId::from(<span class="number">1_u32</span>)));
+			</span><span class="macro">println!</span>(<span class="string">"block #{}"</span>, block);
+			<span class="macro">println!</span>(<span class="string">"lease period #{}"</span>, AssignedSlots::current_lease_period_index());
+			<span class="macro">println!</span>(<span class="string">"lease {:?}"</span>, slots::Leases::&lt;Test&gt;::get(ParaId::from(<span class="number">1_u32</span>)));
 
 			<span class="comment">// Para lease ended, downgraded back to on-demand parachain
 			</span><span class="macro">assert_eq!</span>(TestRegistrar::&lt;Test&gt;::is_parathread(ParaId::from(<span class="number">1_u32</span>)), <span class="bool-val">true</span>);
@@ -2840,9 +2842,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// Block 12
 			// Para should get a turn after TemporarySlotLeasePeriodLength * LeasePeriod blocks
 			</span>run_to_block(<span class="number">12</span>);
-			<span class="macro">println!</span>(<span class="string">&quot;block #{}&quot;</span>, block);
-			<span class="macro">println!</span>(<span class="string">&quot;lease period #{}&quot;</span>, AssignedSlots::current_lease_period_index());
-			<span class="macro">println!</span>(<span class="string">&quot;lease {:?}&quot;</span>, slots::Leases::&lt;Test&gt;::get(ParaId::from(<span class="number">1_u32</span>)));
+			<span class="macro">println!</span>(<span class="string">"block #{}"</span>, block);
+			<span class="macro">println!</span>(<span class="string">"lease period #{}"</span>, AssignedSlots::current_lease_period_index());
+			<span class="macro">println!</span>(<span class="string">"lease {:?}"</span>, slots::Leases::&lt;Test&gt;::get(ParaId::from(<span class="number">1_u32</span>)));
 
 			<span class="macro">assert_eq!</span>(TestRegistrar::&lt;Test&gt;::is_parachain(ParaId::from(<span class="number">1_u32</span>)), <span class="bool-val">true</span>);
 			<span class="macro">assert_eq!</span>(Slots::already_leased(ParaId::from(<span class="number">1_u32</span>), <span class="number">4</span>, <span class="number">5</span>), <span class="bool-val">true</span>);

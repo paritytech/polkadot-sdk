@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/consensus/aura/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/consensus/aura/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_consensus_aura" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_consensus_aura" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sc_consensus_aura/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1100,7 +1102,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	AuraApi, ConsensusLog, SlotDuration, AURA_ENGINE_ID,
 };
 
-<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;aura&quot;</span>;
+<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"aura"</span>;
 
 <span class="kw">type </span>AuthorityId&lt;P&gt; = &lt;P <span class="kw">as </span>Pair&gt;::Public;
 
@@ -1110,7 +1112,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// was a consensus breaking change.
 </span><span class="attr">#[derive(Debug, Clone)]
 </span><span class="kw">pub enum </span>CompatibilityMode&lt;N&gt; {
-	<span class="doccomment">/// Don&#39;t use any compatibility mode.
+	<span class="doccomment">/// Don't use any compatibility mode.
 	</span><span class="prelude-val">None</span>,
 	<span class="doccomment">/// Call `initialize_block` before doing any runtime calls.
 	///
@@ -1120,7 +1122,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// By calling `initialize_block` before fetching the authorities, on a block that
 	/// would enact a new validator set, the block would already be build/sealed by an
 	/// authority of the new set. With this mode disabled (the default) a block that enacts a new
-	/// set isn&#39;t sealed/built by an authority of the new set, however to make new nodes be able to
+	/// set isn't sealed/built by an authority of the new set, however to make new nodes be able to
 	/// sync old chains this compatibility mode exists.
 	</span>UseInitializeBlock {
 		<span class="doccomment">/// The block number until this compatibility mode should be executed. The first runtime
@@ -1210,15 +1212,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	C: ProvideRuntimeApi&lt;B&gt; + BlockOf + AuxStore + HeaderBackend&lt;B&gt; + Send + Sync,
 	C::Api: AuraApi&lt;B, AuthorityId&lt;P&gt;&gt;,
 	SC: SelectChain&lt;B&gt;,
-	I: BlockImport&lt;B&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
-	PF: Environment&lt;B, Error = Error&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
+	I: BlockImport&lt;B&gt; + Send + Sync + <span class="lifetime">'static</span>,
+	PF: Environment&lt;B, Error = Error&gt; + Send + Sync + <span class="lifetime">'static</span>,
 	PF::Proposer: Proposer&lt;B, Error = Error&gt;,
 	SO: SyncOracle + Send + Sync + Clone,
 	L: sc_consensus::JustificationSyncLink&lt;B&gt;,
-	CIDP: CreateInherentDataProviders&lt;B, ()&gt; + Send + <span class="lifetime">&#39;static</span>,
+	CIDP: CreateInherentDataProviders&lt;B, ()&gt; + Send + <span class="lifetime">'static</span>,
 	CIDP::InherentDataProviders: InherentDataProviderExt + Send,
-	BS: BackoffAuthoringBlocksStrategy&lt;NumberFor&lt;B&gt;&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
-	Error: std::error::Error + Send + From&lt;ConsensusError&gt; + <span class="lifetime">&#39;static</span>,
+	BS: BackoffAuthoringBlocksStrategy&lt;NumberFor&lt;B&gt;&gt; + Send + Sync + <span class="lifetime">'static</span>,
+	Error: std::error::Error + Send + From&lt;ConsensusError&gt; + <span class="lifetime">'static</span>,
 {
 	<span class="kw">let </span>worker = build_aura_worker::&lt;P, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;(BuildAuraWorkerParams {
 		client,
@@ -1310,16 +1312,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>B: BlockT,
 	C: ProvideRuntimeApi&lt;B&gt; + BlockOf + AuxStore + HeaderBackend&lt;B&gt; + Send + Sync,
 	C::Api: AuraApi&lt;B, AuthorityId&lt;P&gt;&gt;,
-	PF: Environment&lt;B, Error = Error&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
+	PF: Environment&lt;B, Error = Error&gt; + Send + Sync + <span class="lifetime">'static</span>,
 	PF::Proposer: Proposer&lt;B, Error = Error&gt;,
 	P: Pair,
 	P::Public: AppPublic + Member,
 	P::Signature: TryFrom&lt;Vec&lt;u8&gt;&gt; + Member + Codec,
-	I: BlockImport&lt;B&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
-	Error: std::error::Error + Send + From&lt;ConsensusError&gt; + <span class="lifetime">&#39;static</span>,
+	I: BlockImport&lt;B&gt; + Send + Sync + <span class="lifetime">'static</span>,
+	Error: std::error::Error + Send + From&lt;ConsensusError&gt; + <span class="lifetime">'static</span>,
 	SO: SyncOracle + Send + Sync + Clone,
 	L: sc_consensus::JustificationSyncLink&lt;B&gt;,
-	BS: BackoffAuthoringBlocksStrategy&lt;NumberFor&lt;B&gt;&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
+	BS: BackoffAuthoringBlocksStrategy&lt;NumberFor&lt;B&gt;&gt; + Send + Sync + <span class="lifetime">'static</span>,
 {
 	AuraWorker {
 		client,
@@ -1363,26 +1365,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	C::Api: AuraApi&lt;B, AuthorityId&lt;P&gt;&gt;,
 	E: Environment&lt;B, Error = Error&gt; + Send + Sync,
 	E::Proposer: Proposer&lt;B, Error = Error&gt;,
-	I: BlockImport&lt;B&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
+	I: BlockImport&lt;B&gt; + Send + Sync + <span class="lifetime">'static</span>,
 	P: Pair,
 	P::Public: AppPublic + Member,
 	P::Signature: TryFrom&lt;Vec&lt;u8&gt;&gt; + Member + Codec,
 	SO: SyncOracle + Send + Clone + Sync,
 	L: sc_consensus::JustificationSyncLink&lt;B&gt;,
-	BS: BackoffAuthoringBlocksStrategy&lt;NumberFor&lt;B&gt;&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
-	Error: std::error::Error + Send + From&lt;ConsensusError&gt; + <span class="lifetime">&#39;static</span>,
+	BS: BackoffAuthoringBlocksStrategy&lt;NumberFor&lt;B&gt;&gt; + Send + Sync + <span class="lifetime">'static</span>,
+	Error: std::error::Error + Send + From&lt;ConsensusError&gt; + <span class="lifetime">'static</span>,
 {
 	<span class="kw">type </span>BlockImport = I;
 	<span class="kw">type </span>SyncOracle = SO;
 	<span class="kw">type </span>JustificationSyncLink = L;
 	<span class="kw">type </span>CreateProposer =
-		Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = <span class="prelude-ty">Result</span>&lt;E::Proposer, ConsensusError&gt;&gt; + Send + <span class="lifetime">&#39;static</span>&gt;&gt;;
+		Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = <span class="prelude-ty">Result</span>&lt;E::Proposer, ConsensusError&gt;&gt; + Send + <span class="lifetime">'static</span>&gt;&gt;;
 	<span class="kw">type </span>Proposer = E::Proposer;
 	<span class="kw">type </span>Claim = P::Public;
 	<span class="kw">type </span>AuxData = Vec&lt;AuthorityId&lt;P&gt;&gt;;
 
-	<span class="kw">fn </span>logging_target(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str {
-		<span class="string">&quot;aura&quot;
+	<span class="kw">fn </span>logging_target(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
+		<span class="string">"aura"
 	</span>}
 
 	<span class="kw">fn </span>block_import(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self</span>::BlockImport {
@@ -1467,7 +1469,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>proposer(<span class="kw-2">&amp;mut </span><span class="self">self</span>, block: <span class="kw-2">&amp;</span>B::Header) -&gt; <span class="self">Self</span>::CreateProposer {
 		<span class="self">self</span>.env
 			.init(block)
-			.map_err(|e| ConsensusError::ClientImport(<span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, e)))
+			.map_err(|e| ConsensusError::ClientImport(<span class="macro">format!</span>(<span class="string">"{:?}"</span>, e)))
 			.boxed()
 	}
 
@@ -1493,31 +1495,31 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[derive(Debug, thiserror::Error)]
 </span><span class="kw">pub enum </span>Error&lt;B: BlockT&gt; {
 	<span class="doccomment">/// Multiple Aura pre-runtime headers
-	</span><span class="attr">#[error(<span class="string">&quot;Multiple Aura pre-runtime headers&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"Multiple Aura pre-runtime headers"</span>)]
 	</span>MultipleHeaders,
 	<span class="doccomment">/// No Aura pre-runtime digest found
-	</span><span class="attr">#[error(<span class="string">&quot;No Aura pre-runtime digest found&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"No Aura pre-runtime digest found"</span>)]
 	</span>NoDigestFound,
 	<span class="doccomment">/// Header is unsealed
-	</span><span class="attr">#[error(<span class="string">&quot;Header {0:?} is unsealed&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"Header {0:?} is unsealed"</span>)]
 	</span>HeaderUnsealed(B::Hash),
 	<span class="doccomment">/// Header has a bad seal
-	</span><span class="attr">#[error(<span class="string">&quot;Header {0:?} has a bad seal&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"Header {0:?} has a bad seal"</span>)]
 	</span>HeaderBadSeal(B::Hash),
 	<span class="doccomment">/// Slot Author not found
-	</span><span class="attr">#[error(<span class="string">&quot;Slot Author not found&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"Slot Author not found"</span>)]
 	</span>SlotAuthorNotFound,
 	<span class="doccomment">/// Bad signature
-	</span><span class="attr">#[error(<span class="string">&quot;Bad signature on {0:?}&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"Bad signature on {0:?}"</span>)]
 	</span>BadSignature(B::Hash),
 	<span class="doccomment">/// Client Error
 	</span><span class="attr">#[error(transparent)]
 	</span>Client(sp_blockchain::Error),
 	<span class="doccomment">/// Unknown inherent error for identifier
-	</span><span class="attr">#[error(<span class="string">&quot;Unknown inherent error for identifier: {}&quot;</span>, String::from_utf8_lossy(.<span class="number">0</span>))]
+	</span><span class="attr">#[error(<span class="string">"Unknown inherent error for identifier: {}"</span>, String::from_utf8_lossy(.<span class="number">0</span>))]
 	</span>UnknownInherentError(sp_inherents::InherentIdentifier),
 	<span class="doccomment">/// Inherents Error
-	</span><span class="attr">#[error(<span class="string">&quot;Inherent error: {0}&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"Inherent error: {0}"</span>)]
 	</span>Inherent(sp_inherents::Error),
 }
 
@@ -1611,15 +1613,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>Error = sp_blockchain::Error;
 
 	<span class="kw">struct </span>DummyFactory(Arc&lt;TestClient&gt;);
-	<span class="kw">struct </span>DummyProposer(u64, Arc&lt;TestClient&gt;);
+	<span class="kw">struct </span>DummyProposer(Arc&lt;TestClient&gt;);
 
 	<span class="kw">impl </span>Environment&lt;TestBlock&gt; <span class="kw">for </span>DummyFactory {
 		<span class="kw">type </span>Proposer = DummyProposer;
 		<span class="kw">type </span>CreateProposer = futures::future::Ready&lt;<span class="prelude-ty">Result</span>&lt;DummyProposer, Error&gt;&gt;;
 		<span class="kw">type </span>Error = Error;
 
-		<span class="kw">fn </span>init(<span class="kw-2">&amp;mut </span><span class="self">self</span>, parent_header: <span class="kw-2">&amp;</span>&lt;TestBlock <span class="kw">as </span>BlockT&gt;::Header) -&gt; <span class="self">Self</span>::CreateProposer {
-			futures::future::ready(<span class="prelude-val">Ok</span>(DummyProposer(parent_header.number + <span class="number">1</span>, <span class="self">self</span>.<span class="number">0</span>.clone())))
+		<span class="kw">fn </span>init(<span class="kw-2">&amp;mut </span><span class="self">self</span>, <span class="kw">_</span>: <span class="kw-2">&amp;</span>&lt;TestBlock <span class="kw">as </span>BlockT&gt;::Header) -&gt; <span class="self">Self</span>::CreateProposer {
+			futures::future::ready(<span class="prelude-val">Ok</span>(DummyProposer(<span class="self">self</span>.<span class="number">0</span>.clone())))
 		}
 	}
 
@@ -1636,9 +1638,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">_</span>: Duration,
 			<span class="kw">_</span>: <span class="prelude-ty">Option</span>&lt;usize&gt;,
 		) -&gt; <span class="self">Self</span>::Proposal {
-			<span class="kw">let </span>r = BlockBuilderBuilder::new(<span class="kw-2">&amp;*</span><span class="self">self</span>.<span class="number">1</span>)
-				.on_parent_block(<span class="self">self</span>.<span class="number">1</span>.chain_info().best_hash)
-				.fetch_parent_block_number(<span class="kw-2">&amp;*</span><span class="self">self</span>.<span class="number">1</span>)
+			<span class="kw">let </span>r = BlockBuilderBuilder::new(<span class="kw-2">&amp;*</span><span class="self">self</span>.<span class="number">0</span>)
+				.on_parent_block(<span class="self">self</span>.<span class="number">0</span>.chain_info().best_hash)
+				.fetch_parent_block_number(<span class="kw-2">&amp;*</span><span class="self">self</span>.<span class="number">0</span>)
 				.unwrap()
 				.with_inherent_digests(digests)
 				.build()
@@ -1679,7 +1681,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">fn </span>make_verifier(<span class="kw-2">&amp;</span><span class="self">self</span>, client: PeersClient, _peer_data: <span class="kw-2">&amp;</span>()) -&gt; <span class="self">Self</span>::Verifier {
 			<span class="kw">let </span>client = client.as_client();
-			<span class="kw">let </span>slot_duration = slot_duration(<span class="kw-2">&amp;*</span>client).expect(<span class="string">&quot;slot duration available&quot;</span>);
+			<span class="kw">let </span>slot_duration = slot_duration(<span class="kw-2">&amp;*</span>client).expect(<span class="string">"slot duration available"</span>);
 
 			<span class="macro">assert_eq!</span>(slot_duration.as_millis() <span class="kw">as </span>u64, SLOT_DURATION_MS);
 			import_queue::AuraVerifier::new(
@@ -1741,15 +1743,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span><span class="kw-2">mut </span>net = net.lock();
 			<span class="kw">let </span>peer = net.peer(<span class="kw-2">*</span>peer_id);
 			<span class="kw">let </span>client = peer.client().as_client();
-			<span class="kw">let </span>select_chain = peer.select_chain().expect(<span class="string">&quot;full client has a select chain&quot;</span>);
-			<span class="kw">let </span>keystore_path = tempfile::tempdir().expect(<span class="string">&quot;Creates keystore path&quot;</span>);
+			<span class="kw">let </span>select_chain = peer.select_chain().expect(<span class="string">"full client has a select chain"</span>);
+			<span class="kw">let </span>keystore_path = tempfile::tempdir().expect(<span class="string">"Creates keystore path"</span>);
 			<span class="kw">let </span>keystore = Arc::new(
-				LocalKeystore::open(keystore_path.path(), <span class="prelude-val">None</span>).expect(<span class="string">&quot;Creates keystore.&quot;</span>),
+				LocalKeystore::open(keystore_path.path(), <span class="prelude-val">None</span>).expect(<span class="string">"Creates keystore."</span>),
 			);
 
 			keystore
 				.sr25519_generate_new(AURA, <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>key.to_seed()))
-				.expect(<span class="string">&quot;Creates authority key&quot;</span>);
+				.expect(<span class="string">"Creates authority key"</span>);
 			keystore_paths.push(keystore_path);
 
 			<span class="kw">let </span>environ = DummyFactory(client.clone());
@@ -1762,7 +1764,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					.for_each(<span class="kw">move </span>|<span class="kw">_</span>| future::ready(())),
 			);
 
-			<span class="kw">let </span>slot_duration = slot_duration(<span class="kw-2">&amp;*</span>client).expect(<span class="string">&quot;slot duration available&quot;</span>);
+			<span class="kw">let </span>slot_duration = slot_duration(<span class="kw-2">&amp;*</span>client).expect(<span class="string">"slot duration available"</span>);
 
 			aura_futures.push(
 				start_aura::&lt;AuthorityPair, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;(StartAuraParams {
@@ -1791,7 +1793,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					telemetry: <span class="prelude-val">None</span>,
 					compatibility_mode: CompatibilityMode::None,
 				})
-				.expect(<span class="string">&quot;Starts aura&quot;</span>),
+				.expect(<span class="string">"Starts aura"</span>),
 			);
 		}
 
@@ -1815,11 +1817,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			Keyring::Charlie.public().into(),
 		];
 
-		<span class="kw">let </span>keystore_path = tempfile::tempdir().expect(<span class="string">&quot;Creates keystore path&quot;</span>);
-		<span class="kw">let </span>keystore = LocalKeystore::open(keystore_path.path(), <span class="prelude-val">None</span>).expect(<span class="string">&quot;Creates keystore.&quot;</span>);
+		<span class="kw">let </span>keystore_path = tempfile::tempdir().expect(<span class="string">"Creates keystore path"</span>);
+		<span class="kw">let </span>keystore = LocalKeystore::open(keystore_path.path(), <span class="prelude-val">None</span>).expect(<span class="string">"Creates keystore."</span>);
 		<span class="kw">let </span>public = keystore
 			.sr25519_generate_new(AuthorityPair::ID, <span class="prelude-val">None</span>)
-			.expect(<span class="string">&quot;Key should be created&quot;</span>);
+			.expect(<span class="string">"Key should be created"</span>);
 		authorities.push(public.into());
 
 		<span class="kw">let </span>net = Arc::new(Mutex::new(net));
@@ -1866,11 +1868,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">async fn </span>on_slot_returns_correct_block() {
 		<span class="kw">let </span>net = AuraTestNet::new(<span class="number">4</span>);
 
-		<span class="kw">let </span>keystore_path = tempfile::tempdir().expect(<span class="string">&quot;Creates keystore path&quot;</span>);
-		<span class="kw">let </span>keystore = LocalKeystore::open(keystore_path.path(), <span class="prelude-val">None</span>).expect(<span class="string">&quot;Creates keystore.&quot;</span>);
+		<span class="kw">let </span>keystore_path = tempfile::tempdir().expect(<span class="string">"Creates keystore path"</span>);
+		<span class="kw">let </span>keystore = LocalKeystore::open(keystore_path.path(), <span class="prelude-val">None</span>).expect(<span class="string">"Creates keystore."</span>);
 		keystore
 			.sr25519_generate_new(AuthorityPair::ID, <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>Keyring::Alice.to_seed()))
-			.expect(<span class="string">&quot;Key should be created&quot;</span>);
+			.expect(<span class="string">"Key should be created"</span>);
 
 		<span class="kw">let </span>net = Arc::new(Mutex::new(net));
 

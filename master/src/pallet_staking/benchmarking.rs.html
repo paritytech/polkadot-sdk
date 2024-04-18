@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/staking/src/benchmarking.rs`."><title>benchmarking.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/staking/src/benchmarking.rs`."><title>benchmarking.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_staking" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_staking" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../pallet_staking/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1241,14 +1243,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -1305,14 +1307,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="comment">// This function clears all existing validators and nominators from the set, and generates one new
 // validator being nominated by n nominators, and returns the validator stash account and the
-// nominators&#39; stash and controller. It also starts an era and creates pending payouts.
+// nominators' stash and controller. It also starts an era and creates pending payouts.
 </span><span class="kw">pub fn </span>create_validator_with_nominators&lt;T: Config&gt;(
 	n: u32,
 	upper_bound: u32,
 	dead_controller: bool,
 	unique_controller: bool,
 	destination: RewardDestination&lt;T::AccountId&gt;,
-) -&gt; <span class="prelude-ty">Result</span>&lt;(T::AccountId, Vec&lt;(T::AccountId, T::AccountId)&gt;), <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; {
+) -&gt; <span class="prelude-ty">Result</span>&lt;(T::AccountId, Vec&lt;(T::AccountId, T::AccountId)&gt;), <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
 	<span class="comment">// Clean up any existing state.
 	</span>clear_validators_and_nominators::&lt;T&gt;();
 	<span class="kw">let </span><span class="kw-2">mut </span>points_total = <span class="number">0</span>;
@@ -1357,7 +1359,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">let </span>new_validators = Staking::&lt;T&gt;::try_trigger_new_era(SessionIndex::one(), <span class="bool-val">true</span>).unwrap();
 
 	<span class="macro">assert_eq!</span>(new_validators.len(), <span class="number">1</span>);
-	<span class="macro">assert_eq!</span>(new_validators[<span class="number">0</span>], v_stash, <span class="string">&quot;Our validator was not selected!&quot;</span>);
+	<span class="macro">assert_eq!</span>(new_validators[<span class="number">0</span>], v_stash, <span class="string">"Our validator was not selected!"</span>);
 	<span class="macro">assert_ne!</span>(Validators::&lt;T&gt;::count(), <span class="number">0</span>);
 	<span class="macro">assert_eq!</span>(Nominators::&lt;T&gt;::count(), original_nominator_count + nominators.len() <span class="kw">as </span>u32);
 
@@ -1402,8 +1404,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// NOTE: while this scenario specifically targets a worst case for the bags-list, it should
 	/// also elicit a worst case for other known `VoterList` implementations; although
 	/// this may not be true against unknown `VoterList` implementations.
-	</span><span class="kw">fn </span>new(origin_weight: BalanceOf&lt;T&gt;, is_increase: bool) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; {
-		<span class="macro">ensure!</span>(!origin_weight.is_zero(), <span class="string">&quot;origin weight must be greater than 0&quot;</span>);
+	</span><span class="kw">fn </span>new(origin_weight: BalanceOf&lt;T&gt;, is_increase: bool) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
+		<span class="macro">ensure!</span>(!origin_weight.is_zero(), <span class="string">"origin weight must be greater than 0"</span>);
 
 		<span class="comment">// burn the entire issuance.
 		</span><span class="kw">let </span>i = T::Currency::burn(T::Currency::total_issuance());
@@ -1418,8 +1420,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		)<span class="question-mark">?</span>;
 		Staking::&lt;T&gt;::nominate(
 			RawOrigin::Signed(origin_controller1.clone()).into(),
-			<span class="comment">// NOTE: these don&#39;t really need to be validators.
-			</span><span class="macro">vec!</span>[T::Lookup::unlookup(account(<span class="string">&quot;random_validator&quot;</span>, <span class="number">0</span>, SEED))],
+			<span class="comment">// NOTE: these don't really need to be validators.
+			</span><span class="macro">vec!</span>[T::Lookup::unlookup(account(<span class="string">"random_validator"</span>, <span class="number">0</span>, SEED))],
 		)<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>(_origin_stash2, origin_controller2) = create_stash_controller_with_balance::&lt;T&gt;(
@@ -1429,7 +1431,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		)<span class="question-mark">?</span>;
 		Staking::&lt;T&gt;::nominate(
 			RawOrigin::Signed(origin_controller2).into(),
-			<span class="macro">vec!</span>[T::Lookup::unlookup(account(<span class="string">&quot;random_validator&quot;</span>, <span class="number">0</span>, SEED))],
+			<span class="macro">vec!</span>[T::Lookup::unlookup(account(<span class="string">"random_validator"</span>, <span class="number">0</span>, SEED))],
 		)<span class="question-mark">?</span>;
 
 		<span class="comment">// find a destination weight that will trigger the worst case scenario
@@ -1449,7 +1451,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		)<span class="question-mark">?</span>;
 		Staking::&lt;T&gt;::nominate(
 			RawOrigin::Signed(dest_controller1).into(),
-			<span class="macro">vec!</span>[T::Lookup::unlookup(account(<span class="string">&quot;random_validator&quot;</span>, <span class="number">0</span>, SEED))],
+			<span class="macro">vec!</span>[T::Lookup::unlookup(account(<span class="string">"random_validator"</span>, <span class="number">0</span>, SEED))],
 		)<span class="question-mark">?</span>;
 
 		<span class="prelude-val">Ok</span>(ListScenario { origin_stash1, origin_controller1, dest_weight })
@@ -1460,7 +1462,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="macro">benchmarks! </span>{
 	bond {
-		<span class="kw">let </span>stash = create_funded_user::&lt;T&gt;(<span class="string">&quot;stash&quot;</span>, USER_SEED, <span class="number">100</span>);
+		<span class="kw">let </span>stash = create_funded_user::&lt;T&gt;(<span class="string">"stash"</span>, USER_SEED, <span class="number">100</span>);
 		<span class="kw">let </span>reward_destination = RewardDestination::Staked;
 		<span class="kw">let </span>amount = T::Currency::minimum_balance() * <span class="number">10u32</span>.into();
 		<span class="macro">whitelist_account!</span>(stash);
@@ -1486,14 +1488,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>stash = scenario.origin_stash1.clone();
 		<span class="kw">let </span>controller = scenario.origin_controller1;
 		<span class="kw">let </span>original_bonded: BalanceOf&lt;T&gt;
-			= Ledger::&lt;T&gt;::get(<span class="kw-2">&amp;</span>controller).map(|l| l.active).ok_or(<span class="string">&quot;ledger not created after&quot;</span>)<span class="question-mark">?</span>;
+			= Ledger::&lt;T&gt;::get(<span class="kw-2">&amp;</span>controller).map(|l| l.active).ok_or(<span class="string">"ledger not created after"</span>)<span class="question-mark">?</span>;
 
 		<span class="kw">let _ </span>= T::Currency::deposit_into_existing(<span class="kw-2">&amp;</span>stash, max_additional).unwrap();
 
 		<span class="macro">whitelist_account!</span>(stash);
 	}: <span class="kw">_</span>(RawOrigin::Signed(stash), max_additional)
 	verify {
-		<span class="kw">let </span>ledger = Ledger::&lt;T&gt;::get(<span class="kw-2">&amp;</span>controller).ok_or(<span class="string">&quot;ledger not created after&quot;</span>)<span class="question-mark">?</span>;
+		<span class="kw">let </span>ledger = Ledger::&lt;T&gt;::get(<span class="kw-2">&amp;</span>controller).ok_or(<span class="string">"ledger not created after"</span>)<span class="question-mark">?</span>;
 		<span class="kw">let </span>new_bonded: BalanceOf&lt;T&gt; = ledger.active;
 		<span class="macro">assert!</span>(original_bonded &lt; new_bonded);
 	}
@@ -1507,20 +1509,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// the weight the nominator will start at. The value used here is expected to be
 		// significantly higher than the first position in a list (e.g. the first bag threshold).
 		</span><span class="kw">let </span>origin_weight = BalanceOf::&lt;T&gt;::try_from(<span class="number">952_994_955_240_703u128</span>)
-			.map_err(|<span class="kw">_</span>| <span class="string">&quot;balance expected to be a u128&quot;</span>)
+			.map_err(|<span class="kw">_</span>| <span class="string">"balance expected to be a u128"</span>)
 			.unwrap();
 		<span class="kw">let </span>scenario = ListScenario::&lt;T&gt;::new(origin_weight, <span class="bool-val">false</span>)<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>stash = scenario.origin_stash1.clone();
 		<span class="kw">let </span>controller = scenario.origin_controller1.clone();
 		<span class="kw">let </span>amount = origin_weight - scenario.dest_weight;
-		<span class="kw">let </span>ledger = Ledger::&lt;T&gt;::get(<span class="kw-2">&amp;</span>controller).ok_or(<span class="string">&quot;ledger not created before&quot;</span>)<span class="question-mark">?</span>;
+		<span class="kw">let </span>ledger = Ledger::&lt;T&gt;::get(<span class="kw-2">&amp;</span>controller).ok_or(<span class="string">"ledger not created before"</span>)<span class="question-mark">?</span>;
 		<span class="kw">let </span>original_bonded: BalanceOf&lt;T&gt; = ledger.active;
 
 		<span class="macro">whitelist_account!</span>(controller);
 	}: <span class="kw">_</span>(RawOrigin::Signed(controller.clone()), amount)
 	verify {
-		<span class="kw">let </span>ledger = Ledger::&lt;T&gt;::get(<span class="kw-2">&amp;</span>controller).ok_or(<span class="string">&quot;ledger not created after&quot;</span>)<span class="question-mark">?</span>;
+		<span class="kw">let </span>ledger = Ledger::&lt;T&gt;::get(<span class="kw-2">&amp;</span>controller).ok_or(<span class="string">"ledger not created after"</span>)<span class="question-mark">?</span>;
 		<span class="kw">let </span>new_bonded: BalanceOf&lt;T&gt; = ledger.active;
 		<span class="macro">assert!</span>(original_bonded &gt; new_bonded);
 	}
@@ -1534,12 +1536,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>amount = T::Currency::minimum_balance() * <span class="number">5u32</span>.into(); <span class="comment">// Half of total
 		</span>Staking::&lt;T&gt;::unbond(RawOrigin::Signed(controller.clone()).into(), amount)<span class="question-mark">?</span>;
 		CurrentEra::&lt;T&gt;::put(EraIndex::max_value());
-		<span class="kw">let </span>ledger = Ledger::&lt;T&gt;::get(<span class="kw-2">&amp;</span>controller).ok_or(<span class="string">&quot;ledger not created before&quot;</span>)<span class="question-mark">?</span>;
+		<span class="kw">let </span>ledger = Ledger::&lt;T&gt;::get(<span class="kw-2">&amp;</span>controller).ok_or(<span class="string">"ledger not created before"</span>)<span class="question-mark">?</span>;
 		<span class="kw">let </span>original_total: BalanceOf&lt;T&gt; = ledger.total;
 		<span class="macro">whitelist_account!</span>(controller);
 	}: withdraw_unbonded(RawOrigin::Signed(controller.clone()), s)
 	verify {
-		<span class="kw">let </span>ledger = Ledger::&lt;T&gt;::get(<span class="kw-2">&amp;</span>controller).ok_or(<span class="string">&quot;ledger not created after&quot;</span>)<span class="question-mark">?</span>;
+		<span class="kw">let </span>ledger = Ledger::&lt;T&gt;::get(<span class="kw-2">&amp;</span>controller).ok_or(<span class="string">"ledger not created after"</span>)<span class="question-mark">?</span>;
 		<span class="kw">let </span>new_total: BalanceOf&lt;T&gt; = ledger.total;
 		<span class="macro">assert!</span>(original_total &gt; new_total);
 	}
@@ -1553,7 +1555,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>origin_weight = MinNominatorBond::&lt;T&gt;::get().max(T::Currency::minimum_balance());
 
-		<span class="comment">// setup a worst case list scenario. Note that we don&#39;t care about the setup of the
+		<span class="comment">// setup a worst case list scenario. Note that we don't care about the setup of the
 		// destination position because we are doing a removal from the list but no insert.
 		</span><span class="kw">let </span>scenario = ListScenario::&lt;T&gt;::new(origin_weight, <span class="bool-val">true</span>)<span class="question-mark">?</span>;
 		<span class="kw">let </span>controller = scenario.origin_controller1.clone();
@@ -1593,7 +1595,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	kick {
 		<span class="comment">// scenario: we want to kick `k` nominators from nominating us (we are a validator).
-		// we&#39;ll assume that `k` is under 128 for the purposes of determining the slope.
+		// we'll assume that `k` is under 128 for the purposes of determining the slope.
 		// each nominator should have `T::MaxNominations::get()` validators nominated, and our validator
 		// should be somewhere in there.
 		</span><span class="kw">let </span>k <span class="kw">in </span><span class="number">1 </span>.. <span class="number">128</span>;
@@ -1626,7 +1628,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="comment">// bake the nominations; we first clone them from the rest of the validators.
 			</span><span class="kw">let </span><span class="kw-2">mut </span>nominations = rest_of_validators.clone();
-			<span class="comment">// then insert &quot;our&quot; validator somewhere in there (we vary it) to avoid accidental
+			<span class="comment">// then insert "our" validator somewhere in there (we vary it) to avoid accidental
 			// optimisations/pessimisations.
 			</span>nominations.insert(i <span class="kw">as </span>usize % (nominations.len() + <span class="number">1</span>), stash_lookup.clone());
 			<span class="comment">// then we nominate.
@@ -1663,7 +1665,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>origin_weight = MinNominatorBond::&lt;T&gt;::get().max(T::Currency::minimum_balance());
 
-		<span class="comment">// setup a worst case list scenario. Note we don&#39;t care about the destination position, because
+		<span class="comment">// setup a worst case list scenario. Note we don't care about the destination position, because
 		// we are just doing an insert into the origin position.
 		</span><span class="kw">let </span>scenario = ListScenario::&lt;T&gt;::new(origin_weight, <span class="bool-val">true</span>)<span class="question-mark">?</span>;
 		<span class="kw">let </span>(stash, controller) = create_stash_controller_with_balance::&lt;T&gt;(
@@ -1689,7 +1691,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>origin_weight = MinNominatorBond::&lt;T&gt;::get().max(T::Currency::minimum_balance());
 
-		<span class="comment">// setup a worst case list scenario. Note that we don&#39;t care about the setup of the
+		<span class="comment">// setup a worst case list scenario. Note that we don't care about the setup of the
 		// destination position because we are doing a removal from the list but no insert.
 		</span><span class="kw">let </span>scenario = ListScenario::&lt;T&gt;::new(origin_weight, <span class="bool-val">true</span>)<span class="question-mark">?</span>;
 		<span class="kw">let </span>controller = scenario.origin_controller1.clone();
@@ -1757,7 +1759,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>v <span class="kw">in </span><span class="number">0 </span>.. MaxValidators::&lt;T&gt;::get();
 		<span class="kw">let </span><span class="kw-2">mut </span>invulnerables = Vec::new();
 		<span class="kw">for </span>i <span class="kw">in </span><span class="number">0 </span>.. v {
-			invulnerables.push(account(<span class="string">&quot;invulnerable&quot;</span>, i, SEED));
+			invulnerables.push(account(<span class="string">"invulnerable"</span>, i, SEED));
 		}
 	}: <span class="kw">_</span>(RawOrigin::Root, invulnerables)
 	verify {
@@ -1805,7 +1807,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>origin_weight = MinNominatorBond::&lt;T&gt;::get().max(T::Currency::minimum_balance());
 
-		<span class="comment">// setup a worst case list scenario. Note that we don&#39;t care about the setup of the
+		<span class="comment">// setup a worst case list scenario. Note that we don't care about the setup of the
 		// destination position because we are doing a removal from the list but no insert.
 		</span><span class="kw">let </span>scenario = ListScenario::&lt;T&gt;::new(origin_weight, <span class="bool-val">true</span>)<span class="question-mark">?</span>;
 		<span class="kw">let </span>controller = scenario.origin_controller1.clone();
@@ -1861,13 +1863,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>balance_after = T::Currency::free_balance(<span class="kw-2">&amp;</span>validator);
 		<span class="macro">ensure!</span>(
 			balance_before &lt; balance_after,
-			<span class="string">&quot;Balance of validator stash should have increased after payout.&quot;</span>,
+			<span class="string">"Balance of validator stash should have increased after payout."</span>,
 		);
 		<span class="kw">for </span>((stash, <span class="kw">_</span>), balance_before) <span class="kw">in </span>nominators.iter().zip(nominator_balances_before.iter()) {
 			<span class="kw">let </span>balance_after = T::Currency::free_balance(stash);
 			<span class="macro">ensure!</span>(
 				balance_before &lt; <span class="kw-2">&amp;</span>balance_after,
-				<span class="string">&quot;Balance of nominator stash should have increased after payout.&quot;</span>,
+				<span class="string">"Balance of nominator stash should have increased after payout."</span>,
 			);
 		}
 	}
@@ -1915,7 +1917,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">whitelist_account!</span>(controller);
 	}: <span class="kw">_</span>(RawOrigin::Signed(controller.clone()), rebond_amount)
 	verify {
-		<span class="kw">let </span>ledger = Ledger::&lt;T&gt;::get(<span class="kw-2">&amp;</span>controller).ok_or(<span class="string">&quot;ledger not created after&quot;</span>)<span class="question-mark">?</span>;
+		<span class="kw">let </span>ledger = Ledger::&lt;T&gt;::get(<span class="kw-2">&amp;</span>controller).ok_or(<span class="string">"ledger not created after"</span>)<span class="question-mark">?</span>;
 		<span class="kw">let </span>new_bonded: BalanceOf&lt;T&gt; = ledger.active;
 		<span class="macro">assert!</span>(original_bonded &lt; new_bonded);
 	}
@@ -1927,7 +1929,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>origin_weight = MinNominatorBond::&lt;T&gt;::get().max(T::Currency::minimum_balance());
 
-		<span class="comment">// setup a worst case list scenario. Note that we don&#39;t care about the setup of the
+		<span class="comment">// setup a worst case list scenario. Note that we don't care about the setup of the
 		// destination position because we are doing a removal from the list but no insert.
 		</span><span class="kw">let </span>scenario = ListScenario::&lt;T&gt;::new(origin_weight, <span class="bool-val">true</span>)<span class="question-mark">?</span>;
 		<span class="kw">let </span>controller = scenario.origin_controller1.clone();
@@ -1964,7 +1966,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>session_index = SessionIndex::one();
 	}: {
 		<span class="kw">let </span>validators = Staking::&lt;T&gt;::try_trigger_new_era(session_index, <span class="bool-val">true</span>)
-			.ok_or(<span class="string">&quot;`new_era` failed&quot;</span>)<span class="question-mark">?</span>;
+			.ok_or(<span class="string">"`new_era` failed"</span>)<span class="question-mark">?</span>;
 		<span class="macro">assert!</span>(validators.len() == v <span class="kw">as </span>usize);
 	}
 
@@ -2014,7 +2016,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}: {
 		<span class="kw">for </span>call <span class="kw">in </span>calls {
 			&lt;Call&lt;T&gt; <span class="kw">as </span>Decode&gt;::decode(<span class="kw-2">&amp;mut &amp;*</span>call)
-				.expect(<span class="string">&quot;call is encoded above, encoding must be correct&quot;</span>)
+				.expect(<span class="string">"call is encoded above, encoding must be correct"</span>)
 				.dispatch_bypass_filter(origin.clone().into())<span class="question-mark">?</span>;
 		}
 	}
@@ -2131,7 +2133,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>origin_weight = MinNominatorBond::&lt;T&gt;::get().max(T::Currency::minimum_balance());
 
-		<span class="comment">// setup a worst case list scenario. Note that we don&#39;t care about the setup of the
+		<span class="comment">// setup a worst case list scenario. Note that we don't care about the setup of the
 		// destination position because we are doing a removal from the list but no insert.
 		</span><span class="kw">let </span>scenario = ListScenario::&lt;T&gt;::new(origin_weight, <span class="bool-val">true</span>)<span class="question-mark">?</span>;
 		<span class="kw">let </span>controller = scenario.origin_controller1.clone();

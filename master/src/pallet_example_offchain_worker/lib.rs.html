@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/examples/offchain-worker/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/examples/offchain-worker/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_example_offchain_worker" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_example_offchain_worker" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../pallet_example_offchain_worker/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -876,14 +878,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -894,7 +896,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! The Offchain Worker Example: A simple pallet demonstrating
 //! concepts, APIs and structures common to most offchain workers.
 //!
-//! Run `cargo doc --package pallet-example-offchain-worker --open` to view this module&#39;s
+//! Run `cargo doc --package pallet-example-offchain-worker --open` to view this module's
 //! documentation.
 //!
 //! - [`Config`]
@@ -916,7 +918,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! and unsigned transactions, and custom `UnsignedValidator` makes sure that there is only
 //! one unsigned transaction floating in the network.
 
-</span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
+</span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
 </span><span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>frame_support::traits::Get;
@@ -949,10 +951,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// Every module that deals with signatures needs to declare its unique identifier for
 /// its crypto keys.
-/// When offchain worker is signing transactions it&#39;s going to request keys of type
+/// When offchain worker is signing transactions it's going to request keys of type
 /// `KeyTypeId` from the keystore and use the ones it finds to sign the transaction.
 /// The keys can be inserted manually via RPC (see `author_insertKey`).
-</span><span class="kw">pub const </span>KEY_TYPE: KeyTypeId = KeyTypeId(<span class="kw-2">*</span><span class="string">b&quot;btc!&quot;</span>);
+</span><span class="kw">pub const </span>KEY_TYPE: KeyTypeId = KeyTypeId(<span class="kw-2">*</span><span class="string">b"btc!"</span>);
 
 <span class="doccomment">/// Based on the above `KeyTypeId` we need to generate a pallet-specific crypto type wrappers.
 /// We can use from supported crypto kinds (`sr25519`, `ed25519` and `ecdsa`) and augment
@@ -993,7 +995,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use </span>frame_support::pallet_prelude::<span class="kw-2">*</span>;
 	<span class="kw">use </span>frame_system::pallet_prelude::<span class="kw-2">*</span>;
 
-	<span class="doccomment">/// This pallet&#39;s configuration trait
+	<span class="doccomment">/// This pallet's configuration trait
 	</span><span class="attr">#[pallet::config]
 	</span><span class="kw">pub trait </span>Config: CreateSignedTransaction&lt;Call&lt;<span class="self">Self</span>&gt;&gt; + frame_system::Config {
 		<span class="doccomment">/// The identifier type for an offchain worker.
@@ -1041,7 +1043,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		/// By implementing `fn offchain_worker` you declare a new offchain worker.
 		/// This function will be called when the node is fully synced and a new best block is
 		/// successfully imported.
-		/// Note that it&#39;s not guaranteed for offchain workers to run on EVERY block, there might
+		/// Note that it's not guaranteed for offchain workers to run on EVERY block, there might
 		/// be cases where some blocks are skipped, or for some the worker runs twice (re-orgs),
 		/// so the code should be able to handle that.
 		/// You can use `Local Storage` API to coordinate runs of the worker.
@@ -1050,25 +1052,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			// significantly. You can use `RuntimeDebug` custom derive to hide details of the types
 			// in WASM. The `sp-api` crate also provides a feature `disable-logging` to disable
 			// all logging and thus, remove any logging from the WASM.
-			</span><span class="macro">log::info!</span>(<span class="string">&quot;Hello World from offchain workers!&quot;</span>);
+			</span><span class="macro">log::info!</span>(<span class="string">"Hello World from offchain workers!"</span>);
 
 			<span class="comment">// Since off-chain workers are just part of the runtime code, they have direct access
 			// to the storage and other included pallets.
 			//
 			// We can easily import `frame_system` and retrieve a block hash of the parent block.
 			</span><span class="kw">let </span>parent_hash = &lt;system::Pallet&lt;T&gt;&gt;::block_hash(block_number - <span class="number">1u32</span>.into());
-			<span class="macro">log::debug!</span>(<span class="string">&quot;Current block: {:?} (parent hash: {:?})&quot;</span>, block_number, parent_hash);
+			<span class="macro">log::debug!</span>(<span class="string">"Current block: {:?} (parent hash: {:?})"</span>, block_number, parent_hash);
 
-			<span class="comment">// It&#39;s a good practice to keep `fn offchain_worker()` function minimal, and move most
+			<span class="comment">// It's a good practice to keep `fn offchain_worker()` function minimal, and move most
 			// of the code to separate `impl` block.
 			// Here we call a helper function to calculate current average price.
 			// This function reads storage entries of the current state.
 			</span><span class="kw">let </span>average: <span class="prelude-ty">Option</span>&lt;u32&gt; = <span class="self">Self</span>::average_price();
-			<span class="macro">log::debug!</span>(<span class="string">&quot;Current price: {:?}&quot;</span>, average);
+			<span class="macro">log::debug!</span>(<span class="string">"Current price: {:?}"</span>, average);
 
 			<span class="comment">// For this example we are going to send both signed and unsigned transactions
 			// depending on the block number.
-			// Usually it&#39;s enough to choose one or the other.
+			// Usually it's enough to choose one or the other.
 			</span><span class="kw">let </span>should_send = <span class="self">Self</span>::choose_transaction_type(block_number);
 			<span class="kw">let </span>res = <span class="kw">match </span>should_send {
 				TransactionType::Signed =&gt; <span class="self">Self</span>::fetch_price_and_send_signed(),
@@ -1080,7 +1082,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				TransactionType::None =&gt; <span class="prelude-val">Ok</span>(()),
 			};
 			<span class="kw">if let </span><span class="prelude-val">Err</span>(e) = res {
-				<span class="macro">log::error!</span>(<span class="string">&quot;Error: {}&quot;</span>, e);
+				<span class="macro">log::error!</span>(<span class="string">"Error: {}"</span>, e);
 			}
 		}
 	}
@@ -1097,8 +1099,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		///
 		/// The transaction needs to be signed (see `ensure_signed`) check, so that the caller
 		/// pays a fee to execute it.
-		/// This makes sure that it&#39;s not easy (or rather cheap) to attack the chain by submitting
-		/// excessive transactions, but note that it doesn&#39;t ensure the price oracle is actually
+		/// This makes sure that it's not easy (or rather cheap) to attack the chain by submitting
+		/// excessive transactions, but note that it doesn't ensure the price oracle is actually
 		/// working and receives (and provides) meaningful data.
 		/// This example is not focused on correctness of the oracle itself, but rather its
 		/// purpose is to showcase offchain worker capabilities.
@@ -1120,10 +1122,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		/// This function can be called only once every `T::UnsignedInterval` blocks.
 		/// Transactions that call that function are de-duplicated on the pool level
 		/// via `validate_unsigned` implementation and also are rendered invalid if
-		/// the function has already been called in current &quot;session&quot;.
+		/// the function has already been called in current "session".
 		///
-		/// It&#39;s important to specify `weight` for unsigned calls as well, because even though
-		/// they don&#39;t charge fees, we still don&#39;t want a single block to contain unlimited
+		/// It's important to specify `weight` for unsigned calls as well, because even though
+		/// they don't charge fees, we still don't want a single block to contain unlimited
 		/// number of such transactions.
 		///
 		/// This example is not focused on correctness of the oracle itself, but rather its
@@ -1181,7 +1183,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		/// here we make sure that some particular calls (the ones produced by offchain worker)
 		/// are being whitelisted and marked as valid.
 		</span><span class="kw">fn </span>validate_unsigned(_source: TransactionSource, call: <span class="kw-2">&amp;</span><span class="self">Self</span>::Call) -&gt; TransactionValidity {
-			<span class="comment">// Firstly let&#39;s check that we call the right function.
+			<span class="comment">// Firstly let's check that we call the right function.
 			</span><span class="kw">if let </span>Call::submit_price_unsigned_with_signed_payload {
 				price_payload: <span class="kw-2">ref </span>payload,
 				<span class="kw-2">ref </span>signature,
@@ -1252,14 +1254,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">const </span>RECENTLY_SENT: () = ();
 
 		<span class="comment">// Start off by creating a reference to Local Storage value.
-		// Since the local storage is common for all offchain workers, it&#39;s a good practice
+		// Since the local storage is common for all offchain workers, it's a good practice
 		// to prepend your entry with the module name.
-		</span><span class="kw">let </span>val = StorageValueRef::persistent(<span class="string">b&quot;example_ocw::last_send&quot;</span>);
+		</span><span class="kw">let </span>val = StorageValueRef::persistent(<span class="string">b"example_ocw::last_send"</span>);
 		<span class="comment">// The Local Storage is persisted and shared between runs of the offchain workers,
 		// and offchain workers may run concurrently. We can use the `mutate` function, to
 		// write a storage entry in an atomic fashion. Under the hood it uses `compare_and_set`
 		// low-level method of local storage API, which means that only one worker
-		// will be able to &quot;acquire a lock&quot; and send a transaction if multiple workers
+		// will be able to "acquire a lock" and send a transaction if multiple workers
 		// happen to be executed concurrently.
 		</span><span class="kw">let </span>res =
 			val.mutate(|last_send: <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;BlockNumberFor&lt;T&gt;&gt;, StorageRetrievalError&gt;| {
@@ -1277,16 +1279,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		// The first one matches the return of the closure passed to `mutate`, i.e.
 		// if we return `Err` from the closure, we get an `Err` here.
 		// In case we return `Ok`, here we will have another (inner) `Result` that indicates
-		// if the value has been set to the storage correctly - i.e. if it wasn&#39;t
+		// if the value has been set to the storage correctly - i.e. if it wasn't
 		// written to in the meantime.
 		</span><span class="kw">match </span>res {
 			<span class="comment">// The value has been set correctly, which means we can safely send a transaction now.
 			</span><span class="prelude-val">Ok</span>(block_number) =&gt; {
 				<span class="comment">// We will send different transactions based on a random number.
-				// Note that this logic doesn&#39;t really guarantee that the transactions will be sent
+				// Note that this logic doesn't really guarantee that the transactions will be sent
 				// in an alternating fashion (i.e. fairly distributed). Depending on the execution
 				// order and lock acquisition, we may end up for instance sending two `Signed`
-				// transactions in a row. If a strict order is desired, it&#39;s better to use
+				// transactions in a row. If a strict order is desired, it's better to use
 				// the storage entry for that. (for instance store both block number and a flag
 				// indicating the type of next transaction to send).
 				</span><span class="kw">let </span>transaction_type = block_number % <span class="number">4u32</span>.into();
@@ -1305,26 +1307,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// We wanted to send a transaction, but failed to write the block number (acquire a
 			// lock). This indicates that another offchain worker that was running concurrently
 			// most likely executed the same logic and succeeded at writing to storage.
-			// Thus we don&#39;t really want to send the transaction, knowing that the other run
+			// Thus we don't really want to send the transaction, knowing that the other run
 			// already did.
 			</span><span class="prelude-val">Err</span>(MutateStorageError::ConcurrentModification(<span class="kw">_</span>)) =&gt; TransactionType::None,
 		}
 	}
 
 	<span class="doccomment">/// A helper function to fetch the price and send signed transaction.
-	</span><span class="kw">fn </span>fetch_price_and_send_signed() -&gt; <span class="prelude-ty">Result</span>&lt;(), <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; {
+	</span><span class="kw">fn </span>fetch_price_and_send_signed() -&gt; <span class="prelude-ty">Result</span>&lt;(), <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
 		<span class="kw">let </span>signer = Signer::&lt;T, T::AuthorityId&gt;::all_accounts();
 		<span class="kw">if </span>!signer.can_sign() {
 			<span class="kw">return </span><span class="prelude-val">Err</span>(
-				<span class="string">&quot;No local accounts available. Consider adding one via `author_insertKey` RPC.&quot;</span>,
+				<span class="string">"No local accounts available. Consider adding one via `author_insertKey` RPC."</span>,
 			)
 		}
 		<span class="comment">// Make an external HTTP request to fetch the current price.
 		// Note this call will block until response is received.
-		</span><span class="kw">let </span>price = <span class="self">Self</span>::fetch_price().map_err(|<span class="kw">_</span>| <span class="string">&quot;Failed to fetch price&quot;</span>)<span class="question-mark">?</span>;
+		</span><span class="kw">let </span>price = <span class="self">Self</span>::fetch_price().map_err(|<span class="kw">_</span>| <span class="string">"Failed to fetch price"</span>)<span class="question-mark">?</span>;
 
 		<span class="comment">// Using `send_signed_transaction` associated type we create and submit a transaction
-		// representing the call, we&#39;ve just created.
+		// representing the call, we've just created.
 		// Submit signed will return a vector of results for all accounts that were found in the
 		// local keystore with expected `KEY_TYPE`.
 		</span><span class="kw">let </span>results = signer.send_signed_transaction(|_account| {
@@ -1336,8 +1338,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">for </span>(acc, res) <span class="kw">in </span><span class="kw-2">&amp;</span>results {
 			<span class="kw">match </span>res {
-				<span class="prelude-val">Ok</span>(()) =&gt; <span class="macro">log::info!</span>(<span class="string">&quot;[{:?}] Submitted price of {} cents&quot;</span>, acc.id, price),
-				<span class="prelude-val">Err</span>(e) =&gt; <span class="macro">log::error!</span>(<span class="string">&quot;[{:?}] Failed to submit transaction: {:?}&quot;</span>, acc.id, e),
+				<span class="prelude-val">Ok</span>(()) =&gt; <span class="macro">log::info!</span>(<span class="string">"[{:?}] Submitted price of {} cents"</span>, acc.id, price),
+				<span class="prelude-val">Err</span>(e) =&gt; <span class="macro">log::error!</span>(<span class="string">"[{:?}] Failed to submit transaction: {:?}"</span>, acc.id, e),
 			}
 		}
 
@@ -1347,33 +1349,33 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// A helper function to fetch the price and send a raw unsigned transaction.
 	</span><span class="kw">fn </span>fetch_price_and_send_raw_unsigned(
 		block_number: BlockNumberFor&lt;T&gt;,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;(), <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; {
-		<span class="comment">// Make sure we don&#39;t fetch the price if unsigned transaction is going to be rejected
+	) -&gt; <span class="prelude-ty">Result</span>&lt;(), <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
+		<span class="comment">// Make sure we don't fetch the price if unsigned transaction is going to be rejected
 		// anyway.
 		</span><span class="kw">let </span>next_unsigned_at = NextUnsignedAt::&lt;T&gt;::get();
 		<span class="kw">if </span>next_unsigned_at &gt; block_number {
-			<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;Too early to send unsigned transaction&quot;</span>)
+			<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Too early to send unsigned transaction"</span>)
 		}
 
 		<span class="comment">// Make an external HTTP request to fetch the current price.
 		// Note this call will block until response is received.
-		</span><span class="kw">let </span>price = <span class="self">Self</span>::fetch_price().map_err(|<span class="kw">_</span>| <span class="string">&quot;Failed to fetch price&quot;</span>)<span class="question-mark">?</span>;
+		</span><span class="kw">let </span>price = <span class="self">Self</span>::fetch_price().map_err(|<span class="kw">_</span>| <span class="string">"Failed to fetch price"</span>)<span class="question-mark">?</span>;
 
 		<span class="comment">// Received price is wrapped into a call to `submit_price_unsigned` public function of this
 		// pallet. This means that the transaction, when executed, will simply call that function
 		// passing `price` as an argument.
 		</span><span class="kw">let </span>call = Call::submit_price_unsigned { block_number, price };
 
-		<span class="comment">// Now let&#39;s create a transaction out of this call and submit it to the pool.
+		<span class="comment">// Now let's create a transaction out of this call and submit it to the pool.
 		// Here we showcase two ways to send an unsigned transaction / unsigned payload (raw)
 		//
 		// By default unsigned transactions are disallowed, so we need to whitelist this case
-		// by writing `UnsignedValidator`. Note that it&#39;s EXTREMELY important to carefully
+		// by writing `UnsignedValidator`. Note that it's EXTREMELY important to carefully
 		// implement unsigned validation logic, as any mistakes can lead to opening DoS or spam
 		// attack vectors. See validation logic docs for more details.
 		//
 		</span>SubmitTransaction::&lt;T, Call&lt;T&gt;&gt;::submit_unsigned_transaction(call.into())
-			.map_err(|()| <span class="string">&quot;Unable to submit unsigned transaction.&quot;</span>)<span class="question-mark">?</span>;
+			.map_err(|()| <span class="string">"Unable to submit unsigned transaction."</span>)<span class="question-mark">?</span>;
 
 		<span class="prelude-val">Ok</span>(())
 	}
@@ -1381,17 +1383,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// A helper function to fetch the price, sign payload and send an unsigned transaction
 	</span><span class="kw">fn </span>fetch_price_and_send_unsigned_for_any_account(
 		block_number: BlockNumberFor&lt;T&gt;,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;(), <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; {
-		<span class="comment">// Make sure we don&#39;t fetch the price if unsigned transaction is going to be rejected
+	) -&gt; <span class="prelude-ty">Result</span>&lt;(), <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
+		<span class="comment">// Make sure we don't fetch the price if unsigned transaction is going to be rejected
 		// anyway.
 		</span><span class="kw">let </span>next_unsigned_at = NextUnsignedAt::&lt;T&gt;::get();
 		<span class="kw">if </span>next_unsigned_at &gt; block_number {
-			<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;Too early to send unsigned transaction&quot;</span>)
+			<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Too early to send unsigned transaction"</span>)
 		}
 
 		<span class="comment">// Make an external HTTP request to fetch the current price.
 		// Note this call will block until response is received.
-		</span><span class="kw">let </span>price = <span class="self">Self</span>::fetch_price().map_err(|<span class="kw">_</span>| <span class="string">&quot;Failed to fetch price&quot;</span>)<span class="question-mark">?</span>;
+		</span><span class="kw">let </span>price = <span class="self">Self</span>::fetch_price().map_err(|<span class="kw">_</span>| <span class="string">"Failed to fetch price"</span>)<span class="question-mark">?</span>;
 
 		<span class="comment">// -- Sign using any account
 		</span><span class="kw">let </span>(<span class="kw">_</span>, result) = Signer::&lt;T, T::AuthorityId&gt;::any_account()
@@ -1402,8 +1404,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					signature,
 				},
 			)
-			.ok_or(<span class="string">&quot;No local accounts accounts available.&quot;</span>)<span class="question-mark">?</span>;
-		result.map_err(|()| <span class="string">&quot;Unable to submit transaction&quot;</span>)<span class="question-mark">?</span>;
+			.ok_or(<span class="string">"No local accounts accounts available."</span>)<span class="question-mark">?</span>;
+		result.map_err(|()| <span class="string">"Unable to submit transaction"</span>)<span class="question-mark">?</span>;
 
 		<span class="prelude-val">Ok</span>(())
 	}
@@ -1411,17 +1413,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// A helper function to fetch the price, sign payload and send an unsigned transaction
 	</span><span class="kw">fn </span>fetch_price_and_send_unsigned_for_all_accounts(
 		block_number: BlockNumberFor&lt;T&gt;,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;(), <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; {
-		<span class="comment">// Make sure we don&#39;t fetch the price if unsigned transaction is going to be rejected
+	) -&gt; <span class="prelude-ty">Result</span>&lt;(), <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
+		<span class="comment">// Make sure we don't fetch the price if unsigned transaction is going to be rejected
 		// anyway.
 		</span><span class="kw">let </span>next_unsigned_at = NextUnsignedAt::&lt;T&gt;::get();
 		<span class="kw">if </span>next_unsigned_at &gt; block_number {
-			<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;Too early to send unsigned transaction&quot;</span>)
+			<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Too early to send unsigned transaction"</span>)
 		}
 
 		<span class="comment">// Make an external HTTP request to fetch the current price.
 		// Note this call will block until response is received.
-		</span><span class="kw">let </span>price = <span class="self">Self</span>::fetch_price().map_err(|<span class="kw">_</span>| <span class="string">&quot;Failed to fetch price&quot;</span>)<span class="question-mark">?</span>;
+		</span><span class="kw">let </span>price = <span class="self">Self</span>::fetch_price().map_err(|<span class="kw">_</span>| <span class="string">"Failed to fetch price"</span>)<span class="question-mark">?</span>;
 
 		<span class="comment">// -- Sign using all accounts
 		</span><span class="kw">let </span>transaction_results = Signer::&lt;T, T::AuthorityId&gt;::all_accounts()
@@ -1434,7 +1436,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			);
 		<span class="kw">for </span>(_account_id, result) <span class="kw">in </span>transaction_results.into_iter() {
 			<span class="kw">if </span>result.is_err() {
-				<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;Unable to submit transaction&quot;</span>)
+				<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Unable to submit transaction"</span>)
 			}
 		}
 
@@ -1451,12 +1453,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// Initiate an external HTTP GET request.
 		// This is using high-level wrappers from `sp_runtime`, for the low-level calls that
 		// you can find in `sp_io`. The API is trying to be similar to `request`, but
-		// since we are running in a custom WASM execution environment we can&#39;t simply
+		// since we are running in a custom WASM execution environment we can't simply
 		// import the library here.
 		</span><span class="kw">let </span>request =
-			http::Request::get(<span class="string">&quot;https://min-api.cryptocompare.com/data/price?fsym=BTC&amp;tsyms=USD&quot;</span>);
+			http::Request::get(<span class="string">"https://min-api.cryptocompare.com/data/price?fsym=BTC&amp;tsyms=USD"</span>);
 		<span class="comment">// We set the deadline for sending of the request, note that awaiting response can
-		// have a separate deadline. Next we send the request, before that it&#39;s also possible
+		// have a separate deadline. Next we send the request, before that it's also possible
 		// to alter request headers or stream body content in case of non-GET requests.
 		</span><span class="kw">let </span>pending = request.deadline(deadline).send().map_err(|<span class="kw">_</span>| http::Error::IoError)<span class="question-mark">?</span>;
 
@@ -1464,12 +1466,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		// else in the worker (we can send multiple concurrent requests too).
 		// At some point however we probably want to check the response though,
 		// so we can block current thread and wait for it to finish.
-		// Note that since the request is being driven by the host, we don&#39;t have to wait
+		// Note that since the request is being driven by the host, we don't have to wait
 		// for the request to have it complete, we will just not read the response.
 		</span><span class="kw">let </span>response = pending.try_wait(deadline).map_err(|<span class="kw">_</span>| http::Error::DeadlineReached)<span class="question-mark">??</span>;
-		<span class="comment">// Let&#39;s check the status code before we proceed to reading the response.
+		<span class="comment">// Let's check the status code before we proceed to reading the response.
 		</span><span class="kw">if </span>response.code != <span class="number">200 </span>{
-			<span class="macro">log::warn!</span>(<span class="string">&quot;Unexpected status code: {}&quot;</span>, response.code);
+			<span class="macro">log::warn!</span>(<span class="string">"Unexpected status code: {}"</span>, response.code);
 			<span class="kw">return </span><span class="prelude-val">Err</span>(http::Error::Unknown)
 		}
 
@@ -1480,19 +1482,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// Create a str slice from the body.
 		</span><span class="kw">let </span>body_str = sp_std::str::from_utf8(<span class="kw-2">&amp;</span>body).map_err(|<span class="kw">_</span>| {
-			<span class="macro">log::warn!</span>(<span class="string">&quot;No UTF8 body&quot;</span>);
+			<span class="macro">log::warn!</span>(<span class="string">"No UTF8 body"</span>);
 			http::Error::Unknown
 		})<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>price = <span class="kw">match </span><span class="self">Self</span>::parse_price(body_str) {
 			<span class="prelude-val">Some</span>(price) =&gt; <span class="prelude-val">Ok</span>(price),
 			<span class="prelude-val">None </span>=&gt; {
-				<span class="macro">log::warn!</span>(<span class="string">&quot;Unable to extract price from the response: {:?}&quot;</span>, body_str);
+				<span class="macro">log::warn!</span>(<span class="string">"Unable to extract price from the response: {:?}"</span>, body_str);
 				<span class="prelude-val">Err</span>(http::Error::Unknown)
 			},
 		}<span class="question-mark">?</span>;
 
-		<span class="macro">log::warn!</span>(<span class="string">&quot;Got price: {} cents&quot;</span>, price);
+		<span class="macro">log::warn!</span>(<span class="string">"Got price: {} cents"</span>, price);
 
 		<span class="prelude-val">Ok</span>(price)
 	}
@@ -1504,7 +1506,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>val = lite_json::parse_json(price_str);
 		<span class="kw">let </span>price = <span class="kw">match </span>val.ok()<span class="question-mark">? </span>{
 			JsonValue::Object(obj) =&gt; {
-				<span class="kw">let </span>(<span class="kw">_</span>, v) = obj.into_iter().find(|(k, <span class="kw">_</span>)| k.iter().copied().eq(<span class="string">&quot;USD&quot;</span>.chars()))<span class="question-mark">?</span>;
+				<span class="kw">let </span>(<span class="kw">_</span>, v) = obj.into_iter().find(|(k, <span class="kw">_</span>)| k.iter().copied().eq(<span class="string">"USD"</span>.chars()))<span class="question-mark">?</span>;
 				<span class="kw">match </span>v {
 					JsonValue::Number(number) =&gt; number,
 					<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">None</span>,
@@ -1519,7 +1521,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Add new price to the list.
 	</span><span class="kw">fn </span>add_price(maybe_who: <span class="prelude-ty">Option</span>&lt;T::AccountId&gt;, price: u32) {
-		<span class="macro">log::info!</span>(<span class="string">&quot;Adding to the average: {}&quot;</span>, price);
+		<span class="macro">log::info!</span>(<span class="string">"Adding to the average: {}"</span>, price);
 		&lt;Prices&lt;T&gt;&gt;::mutate(|prices| {
 			<span class="kw">if </span>prices.try_push(price).is_err() {
 				prices[(price % T::MaxPrices::get()) <span class="kw">as </span>usize] = price;
@@ -1527,8 +1529,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		});
 
 		<span class="kw">let </span>average = <span class="self">Self</span>::average_price()
-			.expect(<span class="string">&quot;The average is not empty, because it was just mutated; qed&quot;</span>);
-		<span class="macro">log::info!</span>(<span class="string">&quot;Current average price is: {}&quot;</span>, average);
+			.expect(<span class="string">"The average is not empty, because it was just mutated; qed"</span>);
+		<span class="macro">log::info!</span>(<span class="string">"Current average price is: {}"</span>, average);
 		<span class="comment">// here we are raising the NewPrice event
 		</span><span class="self">Self</span>::deposit_event(Event::NewPrice { price, maybe_who });
 	}
@@ -1547,12 +1549,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		block_number: <span class="kw-2">&amp;</span>BlockNumberFor&lt;T&gt;,
 		new_price: <span class="kw-2">&amp;</span>u32,
 	) -&gt; TransactionValidity {
-		<span class="comment">// Now let&#39;s check if the transaction has any chance to succeed.
+		<span class="comment">// Now let's check if the transaction has any chance to succeed.
 		</span><span class="kw">let </span>next_unsigned_at = NextUnsignedAt::&lt;T&gt;::get();
 		<span class="kw">if </span><span class="kw-2">&amp;</span>next_unsigned_at &gt; block_number {
 			<span class="kw">return </span>InvalidTransaction::Stale.into()
 		}
-		<span class="comment">// Let&#39;s make sure to reject transactions from the future.
+		<span class="comment">// Let's make sure to reject transactions from the future.
 		</span><span class="kw">let </span>current_block = &lt;system::Pallet&lt;T&gt;&gt;::block_number();
 		<span class="kw">if </span><span class="kw-2">&amp;</span>current_block &lt; block_number {
 			<span class="kw">return </span>InvalidTransaction::Future.into()
@@ -1560,35 +1562,35 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// We prioritize transactions that are more far away from current average.
 		//
-		// Note this doesn&#39;t make much sense when building an actual oracle, but this example
+		// Note this doesn't make much sense when building an actual oracle, but this example
 		// is here mostly to show off offchain workers capabilities, not about building an
 		// oracle.
 		</span><span class="kw">let </span>avg_price = <span class="self">Self</span>::average_price()
 			.map(|price| <span class="kw">if </span><span class="kw-2">&amp;</span>price &gt; new_price { price - new_price } <span class="kw">else </span>{ new_price - price })
 			.unwrap_or(<span class="number">0</span>);
 
-		ValidTransaction::with_tag_prefix(<span class="string">&quot;ExampleOffchainWorker&quot;</span>)
-			<span class="comment">// We set base priority to 2**20 and hope it&#39;s included before any other
+		ValidTransaction::with_tag_prefix(<span class="string">"ExampleOffchainWorker"</span>)
+			<span class="comment">// We set base priority to 2**20 and hope it's included before any other
 			// transactions in the pool. Next we tweak the priority depending on how much
 			// it differs from the current average. (the more it differs the more priority it
 			// has).
 			</span>.priority(T::UnsignedPriority::get().saturating_add(avg_price <span class="kw">as _</span>))
 			<span class="comment">// This transaction does not require anything else to go before into the pool.
 			// In theory we could require `previous_unsigned_at` transaction to go first,
-			// but it&#39;s not necessary in our case.
+			// but it's not necessary in our case.
 			//.and_requires()
 			// We set the `provides` tag to be the same as `next_unsigned_at`. This makes
 			// sure only one transaction produced after `next_unsigned_at` will ever
 			// get to the transaction pool and will end up in the block.
-			// We can still have multiple transactions compete for the same &quot;spot&quot;,
+			// We can still have multiple transactions compete for the same "spot",
 			// and the one with higher priority will replace other one in the pool.
 			</span>.and_provides(next_unsigned_at)
-			<span class="comment">// The transaction is only valid for next 5 blocks. After that it&#39;s
+			<span class="comment">// The transaction is only valid for next 5 blocks. After that it's
 			// going to be revalidated by the pool.
 			</span>.longevity(<span class="number">5</span>)
-			<span class="comment">// It&#39;s fine to propagate that transaction to other peers, which means it can be
-			// created even by nodes that don&#39;t produce blocks.
-			// Note that sometimes it&#39;s better to keep it for yourself (if you are the block
+			<span class="comment">// It's fine to propagate that transaction to other peers, which means it can be
+			// created even by nodes that don't produce blocks.
+			// Note that sometimes it's better to keep it for yourself (if you are the block
 			// producer), since for instance in some schemes others may copy your solution and
 			// claim a reward.
 			</span>.propagate(<span class="bool-val">true</span>)

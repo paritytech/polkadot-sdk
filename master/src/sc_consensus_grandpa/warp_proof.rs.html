@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/consensus/grandpa/src/warp_proof.rs`."><title>warp_proof.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/consensus/grandpa/src/warp_proof.rs`."><title>warp_proof.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_consensus_grandpa" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_consensus_grandpa" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sc_consensus_grandpa/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -635,19 +637,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[derive(Debug, thiserror::Error)]
 </span><span class="kw">pub enum </span>Error {
 	<span class="doccomment">/// Decoding error.
-	</span><span class="attr">#[error(<span class="string">&quot;Failed to decode block hash: {0}.&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"Failed to decode block hash: {0}."</span>)]
 	</span>DecodeScale(<span class="attr">#[from] </span>parity_scale_codec::Error),
 	<span class="doccomment">/// Client backend error.
-	</span><span class="attr">#[error(<span class="string">&quot;{0}&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"{0}"</span>)]
 	</span>Client(<span class="attr">#[from] </span>sp_blockchain::Error),
 	<span class="doccomment">/// Invalid request data.
-	</span><span class="attr">#[error(<span class="string">&quot;{0}&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"{0}"</span>)]
 	</span>InvalidRequest(String),
 	<span class="doccomment">/// Invalid warp proof.
-	</span><span class="attr">#[error(<span class="string">&quot;{0}&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"{0}"</span>)]
 	</span>InvalidProof(String),
 	<span class="doccomment">/// Missing header or authority set change data.
-	</span><span class="attr">#[error(<span class="string">&quot;Missing required data to be able to answer request.&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"Missing required data to be able to answer request."</span>)]
 	</span>MissingData,
 }
 
@@ -689,21 +691,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>begin_number = blockchain
 			.block_number_from_id(<span class="kw-2">&amp;</span>BlockId::Hash(begin))<span class="question-mark">?
-			</span>.ok_or_else(|| Error::InvalidRequest(<span class="string">&quot;Missing start block&quot;</span>.to_string()))<span class="question-mark">?</span>;
+			</span>.ok_or_else(|| Error::InvalidRequest(<span class="string">"Missing start block"</span>.to_string()))<span class="question-mark">?</span>;
 
 		<span class="kw">if </span>begin_number &gt; blockchain.info().finalized_number {
-			<span class="kw">return </span><span class="prelude-val">Err</span>(Error::InvalidRequest(<span class="string">&quot;Start block is not finalized&quot;</span>.to_string()))
+			<span class="kw">return </span><span class="prelude-val">Err</span>(Error::InvalidRequest(<span class="string">"Start block is not finalized"</span>.to_string()))
 		}
 
 		<span class="kw">let </span>canon_hash = blockchain.hash(begin_number)<span class="question-mark">?</span>.expect(
-			<span class="string">&quot;begin number is lower than finalized number; \
+			<span class="string">"begin number is lower than finalized number; \
 			 all blocks below finalized number must have been imported; \
-			 qed.&quot;</span>,
+			 qed."</span>,
 		);
 
 		<span class="kw">if </span>canon_hash != begin {
 			<span class="kw">return </span><span class="prelude-val">Err</span>(Error::InvalidRequest(
-				<span class="string">&quot;Start block is not in the finalized chain&quot;</span>.to_string(),
+				<span class="string">"Start block is not in the finalized chain"</span>.to_string(),
 			))
 		}
 
@@ -715,16 +717,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">for </span>(<span class="kw">_</span>, last_block) <span class="kw">in </span>set_changes {
 			<span class="kw">let </span>hash = blockchain.block_hash_from_id(<span class="kw-2">&amp;</span>BlockId::Number(<span class="kw-2">*</span>last_block))<span class="question-mark">?
-				</span>.expect(<span class="string">&quot;header number comes from previously applied set changes; corresponding hash must exist in db; qed.&quot;</span>);
+				</span>.expect(<span class="string">"header number comes from previously applied set changes; corresponding hash must exist in db; qed."</span>);
 
 			<span class="kw">let </span>header = blockchain
 				.header(hash)<span class="question-mark">?
-				</span>.expect(<span class="string">&quot;header hash obtained from header number exists in db; corresponding header must exist in db too; qed.&quot;</span>);
+				</span>.expect(<span class="string">"header hash obtained from header number exists in db; corresponding header must exist in db too; qed."</span>);
 
 			<span class="comment">// the last block in a set is the one that triggers a change to the next set,
 			// therefore the block must have a digest that signals the authority set change
 			</span><span class="kw">if </span>find_scheduled_change::&lt;Block&gt;(<span class="kw-2">&amp;</span>header).is_none() {
-				<span class="comment">// if it doesn&#39;t contain a signal for standard change then the set must have changed
+				<span class="comment">// if it doesn't contain a signal for standard change then the set must have changed
 				// through a forced changed, in which case we stop collecting proofs as the chain of
 				// trust in authority handoffs was broken.
 				</span><span class="kw">break
@@ -740,7 +742,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>proof = WarpSyncFragment { header: header.clone(), justification };
 			<span class="kw">let </span>proof_size = proof.encoded_size();
 
-			<span class="comment">// Check for the limit. We remove some bytes from the maximum size, because we&#39;re only
+			<span class="comment">// Check for the limit. We remove some bytes from the maximum size, because we're only
 			// counting the size of the `WarpSyncFragment`s. The extra margin is here to leave
 			// room for rest of the data (the size of the `Vec` and the boolean).
 			</span><span class="kw">if </span>proofs_encoded_len + proof_size &gt;= MAX_WARP_SYNC_PROOF_SIZE - <span class="number">50 </span>{
@@ -757,8 +759,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>} <span class="kw">else </span>{
 			<span class="kw">let </span>latest_justification = best_justification(backend)<span class="question-mark">?</span>.filter(|justification| {
 				<span class="comment">// the existing best justification must be for a block higher than the
-				// last authority set change. if we didn&#39;t prove any authority set
-				// change then we fallback to make sure it&#39;s higher or equal to the
+				// last authority set change. if we didn't prove any authority set
+				// change then we fallback to make sure it's higher or equal to the
 				// initial warp sync block.
 				</span><span class="kw">let </span>limit = proofs
 					.last()
@@ -770,7 +772,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(latest_justification) = latest_justification {
 				<span class="kw">let </span>header = blockchain.header(latest_justification.target().<span class="number">1</span>)<span class="question-mark">?
-					</span>.expect(<span class="string">&quot;header hash corresponds to a justification in db; must exist in db as well; qed.&quot;</span>);
+					</span>.expect(<span class="string">"header hash corresponds to a justification in db; must exist in db as well; qed."</span>);
 
 				proofs.push(WarpSyncFragment { header, justification: latest_justification })
 			}
@@ -813,7 +815,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 				<span class="kw">if </span>proof.justification.target().<span class="number">1 </span>!= hash {
 					<span class="kw">return </span><span class="prelude-val">Err</span>(Error::InvalidProof(
-						<span class="string">&quot;Mismatch between header and justification&quot;</span>.to_owned(),
+						<span class="string">"Mismatch between header and justification"</span>.to_owned(),
 					))
 				}
 
@@ -824,7 +826,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="comment">// Only the last fragment of the last proof message is allowed to be missing the
 					// authority set change.
 					</span><span class="kw">return </span><span class="prelude-val">Err</span>(Error::InvalidProof(
-						<span class="string">&quot;Header is missing authority set change digest&quot;</span>.to_string(),
+						<span class="string">"Header is missing authority set change digest"</span>.to_string(),
 					))
 				}
 			}
@@ -890,12 +892,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; <span class="prelude-ty">Result</span>&lt;VerificationResult&lt;Block&gt;, Box&lt;<span class="kw">dyn </span>std::error::Error + Send + Sync&gt;&gt; {
 		<span class="kw">let </span>EncodedProof(proof) = proof;
 		<span class="kw">let </span>proof = WarpSyncProof::&lt;Block&gt;::decode_all(<span class="kw-2">&amp;mut </span>proof.as_slice())
-			.map_err(|e| <span class="macro">format!</span>(<span class="string">&quot;Proof decoding error: {:?}&quot;</span>, e))<span class="question-mark">?</span>;
+			.map_err(|e| <span class="macro">format!</span>(<span class="string">"Proof decoding error: {:?}"</span>, e))<span class="question-mark">?</span>;
 		<span class="kw">let </span>last_header = proof
 			.proofs
 			.last()
 			.map(|p| p.header.clone())
-			.ok_or_else(|| <span class="string">&quot;Empty proof&quot;</span>.to_string())<span class="question-mark">?</span>;
+			.ok_or_else(|| <span class="string">"Empty proof"</span>.to_string())<span class="question-mark">?</span>;
 		<span class="kw">let </span>(next_set_id, next_authorities) =
 			proof.verify(set_id, authorities, <span class="kw-2">&amp;</span><span class="self">self</span>.hard_forks).map_err(Box::new)<span class="question-mark">?</span>;
 		<span class="kw">if </span>proof.is_finished {

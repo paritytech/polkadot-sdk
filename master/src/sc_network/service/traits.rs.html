@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/network/src/service/traits.rs`."><title>traits.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/network/src/service/traits.rs`."><title>traits.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sc_network" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sc_network" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../sc_network/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1108,7 +1110,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	+ NetworkRequest
 	+ Send
 	+ Sync
-	+ <span class="lifetime">&#39;static
+	+ <span class="lifetime">'static
 </span>{
 }
 
@@ -1122,7 +1124,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		+ NetworkRequest
 		+ Send
 		+ Sync
-		+ <span class="lifetime">&#39;static
+		+ <span class="lifetime">'static
 </span>{
 }
 
@@ -1153,7 +1155,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Networking backend.
 </span><span class="attr">#[async_trait::async_trait]
-</span><span class="kw">pub trait </span>NetworkBackend&lt;B: BlockT + <span class="lifetime">&#39;static</span>, H: ExHashT&gt;: Send + <span class="lifetime">&#39;static </span>{
+</span><span class="kw">pub trait </span>NetworkBackend&lt;B: BlockT + <span class="lifetime">'static</span>, H: ExHashT&gt;: Send + <span class="lifetime">'static </span>{
 	<span class="doccomment">/// Type representing notification protocol-related configuration.
 	</span><span class="kw">type </span>NotificationProtocolConfig: NotificationConfig;
 
@@ -1222,7 +1224,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Signs the message with the `KeyPair` that defines the local [`PeerId`].
 	</span><span class="kw">fn </span>sign_with_local_identity(<span class="kw-2">&amp;</span><span class="self">self</span>, msg: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;Signature, SigningError&gt;;
 
-	<span class="doccomment">/// Verify signature using peer&#39;s public key.
+	<span class="doccomment">/// Verify signature using peer's public key.
 	///
 	/// `public_key` must be Protobuf-encoded ed25519 public key.
 	///
@@ -1331,22 +1333,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>T: <span class="question-mark">?</span>Sized,
 	T: NetworkStatusProvider,
 {
-	<span class="kw">fn </span>status&lt;<span class="lifetime">&#39;life0</span>, <span class="lifetime">&#39;async_trait</span>&gt;(
-		<span class="kw-2">&amp;</span><span class="lifetime">&#39;life0 </span><span class="self">self</span>,
-	) -&gt; Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = <span class="prelude-ty">Result</span>&lt;NetworkStatus, ()&gt;&gt; + Send + <span class="lifetime">&#39;async_trait</span>&gt;&gt;
+	<span class="kw">fn </span>status&lt;<span class="lifetime">'life0</span>, <span class="lifetime">'async_trait</span>&gt;(
+		<span class="kw-2">&amp;</span><span class="lifetime">'life0 </span><span class="self">self</span>,
+	) -&gt; Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = <span class="prelude-ty">Result</span>&lt;NetworkStatus, ()&gt;&gt; + Send + <span class="lifetime">'async_trait</span>&gt;&gt;
 	<span class="kw">where
-		</span><span class="lifetime">&#39;life0</span>: <span class="lifetime">&#39;async_trait</span>,
-		<span class="self">Self</span>: <span class="lifetime">&#39;async_trait</span>,
+		</span><span class="lifetime">'life0</span>: <span class="lifetime">'async_trait</span>,
+		<span class="self">Self</span>: <span class="lifetime">'async_trait</span>,
 	{
 		T::status(<span class="self">self</span>)
 	}
 
-	<span class="kw">fn </span>network_state&lt;<span class="lifetime">&#39;life0</span>, <span class="lifetime">&#39;async_trait</span>&gt;(
-		<span class="kw-2">&amp;</span><span class="lifetime">&#39;life0 </span><span class="self">self</span>,
-	) -&gt; Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = <span class="prelude-ty">Result</span>&lt;NetworkState, ()&gt;&gt; + Send + <span class="lifetime">&#39;async_trait</span>&gt;&gt;
+	<span class="kw">fn </span>network_state&lt;<span class="lifetime">'life0</span>, <span class="lifetime">'async_trait</span>&gt;(
+		<span class="kw-2">&amp;</span><span class="lifetime">'life0 </span><span class="self">self</span>,
+	) -&gt; Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = <span class="prelude-ty">Result</span>&lt;NetworkState, ()&gt;&gt; + Send + <span class="lifetime">'async_trait</span>&gt;&gt;
 	<span class="kw">where
-		</span><span class="lifetime">&#39;life0</span>: <span class="lifetime">&#39;async_trait</span>,
-		<span class="self">Self</span>: <span class="lifetime">&#39;async_trait</span>,
+		</span><span class="lifetime">'life0</span>: <span class="lifetime">'async_trait</span>,
+		<span class="self">Self</span>: <span class="lifetime">'async_trait</span>,
 	{
 		T::network_state(<span class="self">self</span>)
 	}
@@ -1404,7 +1406,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// consist of only `/p2p/&lt;peerid&gt;`.
 	///
 	/// The node will start establishing/accepting connections and substreams to/from peers in this
-	/// set, if it doesn&#39;t have any substream open with them yet.
+	/// set, if it doesn't have any substream open with them yet.
 	///
 	/// Note however, if a call to this function results in less peers on the reserved set, they
 	/// will not necessarily get disconnected (depending on available free slots in the peer set).
@@ -1444,7 +1446,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		peers: Vec&lt;PeerId&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), String&gt;;
 
-	<span class="doccomment">/// Returns the number of peers in the sync peer set we&#39;re connected to.
+	<span class="doccomment">/// Returns the number of peers in the sync peer set we're connected to.
 	</span><span class="kw">fn </span>sync_num_connected(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize;
 
 	<span class="doccomment">/// Attempt to get peer role.
@@ -1540,12 +1542,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		T::peer_role(<span class="self">self</span>, peer_id, handshake)
 	}
 
-	<span class="kw">fn </span>reserved_peers&lt;<span class="lifetime">&#39;life0</span>, <span class="lifetime">&#39;async_trait</span>&gt;(
-		<span class="kw-2">&amp;</span><span class="lifetime">&#39;life0 </span><span class="self">self</span>,
-	) -&gt; Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = <span class="prelude-ty">Result</span>&lt;Vec&lt;PeerId&gt;, ()&gt;&gt; + Send + <span class="lifetime">&#39;async_trait</span>&gt;&gt;
+	<span class="kw">fn </span>reserved_peers&lt;<span class="lifetime">'life0</span>, <span class="lifetime">'async_trait</span>&gt;(
+		<span class="kw-2">&amp;</span><span class="lifetime">'life0 </span><span class="self">self</span>,
+	) -&gt; Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = <span class="prelude-ty">Result</span>&lt;Vec&lt;PeerId&gt;, ()&gt;&gt; + Send + <span class="lifetime">'async_trait</span>&gt;&gt;
 	<span class="kw">where
-		</span><span class="lifetime">&#39;life0</span>: <span class="lifetime">&#39;async_trait</span>,
-		<span class="self">Self</span>: <span class="lifetime">&#39;async_trait</span>,
+		</span><span class="lifetime">'life0</span>: <span class="lifetime">'async_trait</span>,
+		<span class="self">Self</span>: <span class="lifetime">'async_trait</span>,
 	{
 		T::reserved_peers(<span class="self">self</span>)
 	}
@@ -1560,9 +1562,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// The stream never ends (unless the `NetworkWorker` gets shut down).
 	///
 	/// The name passed is used to identify the channel in the Prometheus metrics. Note that the
-	/// parameter is a `&amp;&#39;static str`, and not a `String`, in order to avoid accidentally having
+	/// parameter is a `&amp;'static str`, and not a `String`, in order to avoid accidentally having
 	/// an unbounded set of Prometheus metrics, which would be quite bad in terms of memory
-	</span><span class="kw">fn </span>event_stream(<span class="kw-2">&amp;</span><span class="self">self</span>, name: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str) -&gt; Pin&lt;Box&lt;<span class="kw">dyn </span>Stream&lt;Item = Event&gt; + Send&gt;&gt;;
+	</span><span class="kw">fn </span>event_stream(<span class="kw-2">&amp;</span><span class="self">self</span>, name: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str) -&gt; Pin&lt;Box&lt;<span class="kw">dyn </span>Stream&lt;Item = Event&gt; + Send&gt;&gt;;
 }
 
 <span class="kw">impl</span>&lt;T&gt; NetworkEventStream <span class="kw">for </span>Arc&lt;T&gt;
@@ -1570,7 +1572,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>T: <span class="question-mark">?</span>Sized,
 	T: NetworkEventStream,
 {
-	<span class="kw">fn </span>event_stream(<span class="kw-2">&amp;</span><span class="self">self</span>, name: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str) -&gt; Pin&lt;Box&lt;<span class="kw">dyn </span>Stream&lt;Item = Event&gt; + Send&gt;&gt; {
+	<span class="kw">fn </span>event_stream(<span class="kw-2">&amp;</span><span class="self">self</span>, name: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str) -&gt; Pin&lt;Box&lt;<span class="kw">dyn </span>Stream&lt;Item = Event&gt; + Send&gt;&gt; {
 		T::event_stream(<span class="self">self</span>, name)
 	}
 }
@@ -1609,17 +1611,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub trait </span>NotificationSenderReady {
 	<span class="doccomment">/// Consumes this slots reservation and actually queues the notification.
 	///
-	/// NOTE: Traits can&#39;t consume itself, but calling this method second time will return an error.
+	/// NOTE: Traits can't consume itself, but calling this method second time will return an error.
 	</span><span class="kw">fn </span>send(<span class="kw-2">&amp;mut </span><span class="self">self</span>, notification: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), NotificationSenderError&gt;;
 }
 
 <span class="doccomment">/// A `NotificationSender` allows for sending notifications to a peer with a chosen protocol.
 </span><span class="attr">#[async_trait::async_trait]
-</span><span class="kw">pub trait </span>NotificationSender: Send + Sync + <span class="lifetime">&#39;static </span>{
+</span><span class="kw">pub trait </span>NotificationSender: Send + Sync + <span class="lifetime">'static </span>{
 	<span class="doccomment">/// Returns a future that resolves when the `NotificationSender` is ready to send a
 	/// notification.
 	</span><span class="kw">async fn </span>ready(<span class="kw-2">&amp;</span><span class="self">self</span>)
-		-&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>NotificationSenderReady + <span class="lifetime">&#39;_</span>&gt;, NotificationSenderError&gt;;
+		-&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>NotificationSenderReady + <span class="lifetime">'_</span>&gt;, NotificationSenderError&gt;;
 }
 
 <span class="doccomment">/// Error returned by the notification sink.
@@ -1631,10 +1633,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// Some of the notifications most recently sent may not have been received. However,
 	/// the peer may still be connected and a new notification sink for the same
 	/// protocol obtained from [`NotificationService::message_sink()`].
-	</span><span class="attr">#[error(<span class="string">&quot;The notification receiver has been closed&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"The notification receiver has been closed"</span>)]
 	</span>Closed,
-	<span class="doccomment">/// Protocol name hasn&#39;t been registered.
-	</span><span class="attr">#[error(<span class="string">&quot;Protocol name hasn&#39;t been registered&quot;</span>)]
+	<span class="doccomment">/// Protocol name hasn't been registered.
+	</span><span class="attr">#[error(<span class="string">"Protocol name hasn't been registered"</span>)]
 	</span>BadProtocol,
 }
 
@@ -1694,8 +1696,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>T: <span class="question-mark">?</span>Sized,
 	T: NetworkRequest,
 {
-	<span class="kw">fn </span>request&lt;<span class="lifetime">&#39;life0</span>, <span class="lifetime">&#39;async_trait</span>&gt;(
-		<span class="kw-2">&amp;</span><span class="lifetime">&#39;life0 </span><span class="self">self</span>,
+	<span class="kw">fn </span>request&lt;<span class="lifetime">'life0</span>, <span class="lifetime">'async_trait</span>&gt;(
+		<span class="kw-2">&amp;</span><span class="lifetime">'life0 </span><span class="self">self</span>,
 		target: PeerId,
 		protocol: ProtocolName,
 		request: Vec&lt;u8&gt;,
@@ -1705,12 +1707,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		Box&lt;
 			<span class="kw">dyn </span>Future&lt;Output = <span class="prelude-ty">Result</span>&lt;(Vec&lt;u8&gt;, ProtocolName), RequestFailure&gt;&gt;
 				+ Send
-				+ <span class="lifetime">&#39;async_trait</span>,
+				+ <span class="lifetime">'async_trait</span>,
 		&gt;,
 	&gt;
 	<span class="kw">where
-		</span><span class="lifetime">&#39;life0</span>: <span class="lifetime">&#39;async_trait</span>,
-		<span class="self">Self</span>: <span class="lifetime">&#39;async_trait</span>,
+		</span><span class="lifetime">'life0</span>: <span class="lifetime">'async_trait</span>,
+		<span class="self">Self</span>: <span class="lifetime">'async_trait</span>,
 	{
 		T::request(<span class="self">self</span>, target, protocol, request, fallback_request, connect)
 	}
@@ -1868,7 +1870,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// substream. Remote closing the substream is indicated to the local peer by receiving
 /// [`NotificationEvent::NotificationStreamClosed`] event.
 ///
-/// In case the protocol must update its handshake while it&#39;s operating (such as updating the best
+/// In case the protocol must update its handshake while it's operating (such as updating the best
 /// block information), it can do so by calling [`NotificationService::set_handshake()`]
 /// which instructs `Notifications` to update the handshake it stored during protocol
 /// initialization.
@@ -1896,7 +1898,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Send asynchronous `notification` to `peer`, allowing sender to exercise backpressure.
 	///
-	/// Returns an error if the peer doesn&#39;t exist.
+	/// Returns an error if the peer doesn't exist.
 	</span><span class="kw">async fn </span>send_async_notification(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		peer: <span class="kw-2">&amp;</span>PeerId,
@@ -1910,7 +1912,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// and returns an error if the channel is blocked.
 	///
 	/// Technically the function can return an error if the channel to `Notifications` is closed
-	/// but that doesn&#39;t happen under normal operation.
+	/// but that doesn't happen under normal operation.
 	</span><span class="kw">fn </span>try_set_handshake(<span class="kw-2">&amp;mut </span><span class="self">self</span>, handshake: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), ()&gt;;
 
 	<span class="doccomment">/// Get next event from the `Notifications` event stream.
@@ -1934,7 +1936,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// object for each peer by calling [`NotificationService::message_sink()`]. Calling this
 /// function returns an object which allows the protocol to send notifications to the remote peer.
 ///
-/// Use of this API is discouraged as it&#39;s not as performant as sending notifications through
+/// Use of this API is discouraged as it's not as performant as sending notifications through
 /// [`NotificationService`] due to synchronization required to keep the underlying notification
 /// sink up to date with possible sink replacement events.
 </span><span class="attr">#[async_trait::async_trait]

@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `templates/solochain/pallets/template/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `templates/solochain/pallets/template/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_template" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_template" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../pallet_template/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -382,19 +384,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!   attribute). See: [`Event`].
 //! - A **declaration of the errors** that this pallet can throw (denoted by the `#[pallet::error]`
 //!   attribute). See: [`Error`].
-//! - A **set of dispatchable functions** that define the pallet&#39;s functionality (denoted by the
+//! - A **set of dispatchable functions** that define the pallet's functionality (denoted by the
 //!   `#[pallet::call]` attribute). See: [`dispatchables`].
 //!
-//! Run `cargo doc --package pallet-template --open` to view this pallet&#39;s documentation.
+//! Run `cargo doc --package pallet-template --open` to view this pallet's documentation.
 
 </span><span class="comment">// We make sure this pallet uses `no_std` for compiling to Wasm.
-</span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
+</span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
 </span><span class="comment">// Re-export pallet items so that they can be accessed from the crate namespace.
 </span><span class="kw">pub use </span>pallet::<span class="kw-2">*</span>;
 
-<span class="comment">// FRAME pallets require their own &quot;mock runtimes&quot; to be able to run unit tests. This module
-// contains a mock runtime specific for testing this pallet&#39;s functionality.
+<span class="comment">// FRAME pallets require their own "mock runtimes" to be able to run unit tests. This module
+// contains a mock runtime specific for testing this pallet's functionality.
 </span><span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>mock;
 
@@ -403,10 +405,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests;
 
-<span class="comment">// Every callable function or &quot;dispatchable&quot; a pallet exposes must have weight values that correctly
-// estimate a dispatchable&#39;s execution time. The benchmarking module is used to calculate weights
-// for each dispatchable and generates this pallet&#39;s weight.rs file. Learn more about benchmarking here: https://docs.substrate.io/test/benchmark/
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+<span class="comment">// Every callable function or "dispatchable" a pallet exposes must have weight values that correctly
+// estimate a dispatchable's execution time. The benchmarking module is used to calculate weights
+// for each dispatchable and generates this pallet's weight.rs file. Learn more about benchmarking here: https://docs.substrate.io/test/benchmark/
+</span><span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 </span><span class="kw">mod </span>benchmarking;
 <span class="kw">pub mod </span>weights;
 <span class="kw">pub use </span>weights::<span class="kw-2">*</span>;
@@ -424,7 +426,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="attr">#[pallet::pallet]
 	</span><span class="kw">pub struct </span>Pallet&lt;T&gt;(<span class="kw">_</span>);
 
-	<span class="doccomment">/// The pallet&#39;s configuration trait.
+	<span class="doccomment">/// The pallet's configuration trait.
 	///
 	/// All our types and constants a pallet depends on must be declared here.
 	/// These types are defined generically and made concrete when the pallet is declared in the
@@ -448,11 +450,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// Events are a simple means of indicating to the outside world (such as dApps, chain explorers
 	/// or other users) that some notable update in the runtime has occurred. In a FRAME pallet, the
-	/// documentation for each event field and its parameters is added to a node&#39;s metadata so it
+	/// documentation for each event field and its parameters is added to a node's metadata so it
 	/// can be used by external interfaces or tools.
 	///
 	///	The `generate_deposit` macro generates a function on `Pallet` called `deposit_event` which
-	/// will convert the event type of your pallet into `RuntimeEvent` (declared in the pallet&#39;s
+	/// will convert the event type of your pallet into `RuntimeEvent` (declared in the pallet's
 	/// [`Config`] trait) and deposit it using [`frame_system::Pallet::deposit_event`].
 	</span><span class="attr">#[pallet::event]
 	#[pallet::generate_deposit(<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>deposit_event)]
@@ -468,8 +470,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Errors that can be returned by this pallet.
 	///
-	/// Errors tell users that something went wrong so it&#39;s important that their naming is
-	/// informative. Similar to events, error documentation is added to a node&#39;s metadata so it&#39;s
+	/// Errors tell users that something went wrong so it's important that their naming is
+	/// informative. Similar to events, error documentation is added to a node's metadata so it's
 	/// equally important that they have helpful documentation associated with them.
 	///
 	/// This type of runtime error can be up to 4 bytes in size should you want to return additional
@@ -482,10 +484,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>StorageOverflow,
 	}
 
-	<span class="doccomment">/// The pallet&#39;s dispatchable functions ([`Call`]s).
+	<span class="doccomment">/// The pallet's dispatchable functions ([`Call`]s).
 	///
 	/// Dispatchable functions allows users to interact with the pallet and invoke state changes.
-	/// These functions materialize as &quot;extrinsics&quot;, which are often compared to transactions.
+	/// These functions materialize as "extrinsics", which are often compared to transactions.
 	/// They must always return a `DispatchResult` and be annotated with a weight and call index.
 	///
 	/// The [`call_index`] macro is used to explicitly
@@ -500,7 +502,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		/// to storage and emits an event.
 		///
 		/// It checks that the _origin_ for this call is _Signed_ and returns a dispatch
-		/// error if it isn&#39;t. Learn more about origins here: &lt;https://docs.substrate.io/build/origins/&gt;
+		/// error if it isn't. Learn more about origins here: &lt;https://docs.substrate.io/build/origins/&gt;
 		</span><span class="attr">#[pallet::call_index(<span class="number">0</span>)]
 		#[pallet::weight(T::WeightInfo::do_something())]
 		</span><span class="kw">pub fn </span>do_something(origin: OriginFor&lt;T&gt;, something: u32) -&gt; DispatchResult {

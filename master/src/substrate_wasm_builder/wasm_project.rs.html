@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/utils/wasm-builder/src/wasm_project.rs`."><title>wasm_project.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/utils/wasm-builder/src/wasm_project.rs`."><title>wasm_project.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="substrate_wasm_builder" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="substrate_wasm_builder" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../substrate_wasm_builder/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1303,14 +1305,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -1377,14 +1379,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">fn </span>crate_metadata(cargo_manifest: <span class="kw-2">&amp;</span>Path) -&gt; Metadata {
 	<span class="kw">let </span><span class="kw-2">mut </span>cargo_lock = cargo_manifest.to_path_buf();
-	cargo_lock.set_file_name(<span class="string">&quot;Cargo.lock&quot;</span>);
+	cargo_lock.set_file_name(<span class="string">"Cargo.lock"</span>);
 
 	<span class="kw">let </span>cargo_lock_existed = cargo_lock.exists();
 
 	<span class="comment">// If we can find a `Cargo.lock`, we assume that this is the workspace root and there exists a
 	// `Cargo.toml` that we can use for getting the metadata.
 	</span><span class="kw">let </span>cargo_manifest = <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">mut </span>cargo_lock) = find_cargo_lock(cargo_manifest) {
-		cargo_lock.set_file_name(<span class="string">&quot;Cargo.toml&quot;</span>);
+		cargo_lock.set_file_name(<span class="string">"Cargo.toml"</span>);
 		cargo_lock
 	} <span class="kw">else </span>{
 		cargo_manifest.to_path_buf()
@@ -1394,9 +1396,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">let </span>crate_metadata = crate_metadata_command
 		.exec()
-		.expect(<span class="string">&quot;`cargo metadata` can not fail on project `Cargo.toml`; qed&quot;</span>);
-	<span class="comment">// If the `Cargo.lock` didn&#39;t exist, we need to remove it after
-	// calling `cargo metadata`. This is required to ensure that we don&#39;t change
+		.expect(<span class="string">"`cargo metadata` can not fail on project `Cargo.toml`; qed"</span>);
+	<span class="comment">// If the `Cargo.lock` didn't exist, we need to remove it after
+	// calling `cargo metadata`. This is required to ensure that we don't change
 	// the build directory outside of the `target` folder. Commands like
 	// `cargo publish` require this.
 	</span><span class="kw">if </span>!cargo_lock_existed {
@@ -1456,8 +1458,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		RuntimeTarget::Riscv =&gt; {
 			<span class="kw">let </span>out_name = bloaty_blob_out_name_override
 				.unwrap_or_else(|| get_blob_name(target, project_cargo_toml));
-			<span class="kw">let </span>out_path = project.join(<span class="macro">format!</span>(<span class="string">&quot;{out_name}.polkavm&quot;</span>));
-			fs::copy(raw_blob_path, <span class="kw-2">&amp;</span>out_path).expect(<span class="string">&quot;copying the runtime blob should never fail&quot;</span>);
+			<span class="kw">let </span>out_path = project.join(<span class="macro">format!</span>(<span class="string">"{out_name}.polkavm"</span>));
+			fs::copy(raw_blob_path, <span class="kw-2">&amp;</span>out_path).expect(<span class="string">"copying the runtime blob should never fail"</span>);
 			(<span class="prelude-val">None</span>, WasmBinaryBloaty(out_path))
 		},
 	};
@@ -1471,7 +1473,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	);
 
 	<span class="kw">if let </span><span class="prelude-val">Err</span>(err) = adjust_mtime(<span class="kw-2">&amp;</span>bloaty_blob_binary, final_blob_binary.as_ref()) {
-		<span class="macro">build_helper::warning!</span>(<span class="string">&quot;Error while adjusting the mtime of the blob binaries: {}&quot;</span>, err)
+		<span class="macro">build_helper::warning!</span>(<span class="string">"Error while adjusting the mtime of the blob binaries: {}"</span>, err)
 	}
 
 	(final_blob_binary, bloaty_blob_binary)
@@ -1537,20 +1539,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// If the section can not be found, it will print an error and exit the builder.
 </span><span class="kw">fn </span>ensure_runtime_version_wasm_section_exists(blob_path: <span class="kw-2">&amp;</span>Path) {
-	<span class="kw">let </span>blob = fs::read(blob_path).expect(<span class="string">&quot;`{blob_path}` was just written and should exist; qed&quot;</span>);
+	<span class="kw">let </span>blob = fs::read(blob_path).expect(<span class="string">"`{blob_path}` was just written and should exist; qed"</span>);
 
 	<span class="kw">let </span>module: Module = <span class="kw">match </span>deserialize_buffer(<span class="kw-2">&amp;</span>blob) {
 		<span class="prelude-val">Ok</span>(m) =&gt; m,
 		<span class="prelude-val">Err</span>(e) =&gt; {
-			<span class="macro">println!</span>(<span class="string">&quot;Failed to deserialize `{}`: {e:?}&quot;</span>, blob_path.display());
+			<span class="macro">println!</span>(<span class="string">"Failed to deserialize `{}`: {e:?}"</span>, blob_path.display());
 			process::exit(<span class="number">1</span>);
 		},
 	};
 
-	<span class="kw">if </span>!module.custom_sections().any(|cs| cs.name() == <span class="string">&quot;runtime_version&quot;</span>) {
+	<span class="kw">if </span>!module.custom_sections().any(|cs| cs.name() == <span class="string">"runtime_version"</span>) {
 		<span class="macro">println!</span>(
-			<span class="string">&quot;Couldn&#39;t find the `runtime_version` section. \
-				  Please ensure that you are using the `sp_version::runtime_version` attribute macro!&quot;
+			<span class="string">"Couldn't find the `runtime_version` section. \
+				  Please ensure that you are using the `sp_version::runtime_version` attribute macro!"
 		</span>);
 		process::exit(<span class="number">1</span>);
 	}
@@ -1570,7 +1572,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	compressed_or_compact_wasm: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>WasmBinary&gt;,
 ) -&gt; std::io::Result&lt;()&gt; {
 	<span class="kw">let </span>out_dir = build_helper::out_dir();
-	<span class="kw">let </span>invoked_timestamp = out_dir.join(<span class="string">&quot;../invoked.timestamp&quot;</span>);
+	<span class="kw">let </span>invoked_timestamp = out_dir.join(<span class="string">"../invoked.timestamp"</span>);
 
 	<span class="comment">// Get the mtime of the `invoked.timestamp`
 	</span><span class="kw">let </span>metadata = fs::metadata(invoked_timestamp)<span class="question-mark">?</span>;
@@ -1590,8 +1592,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">fn </span>find_cargo_lock(cargo_manifest: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Option</span>&lt;PathBuf&gt; {
 	<span class="kw">fn </span>find_impl(<span class="kw-2">mut </span>path: PathBuf) -&gt; <span class="prelude-ty">Option</span>&lt;PathBuf&gt; {
 		<span class="kw">loop </span>{
-			<span class="kw">if </span>path.join(<span class="string">&quot;Cargo.lock&quot;</span>).exists() {
-				<span class="kw">return </span><span class="prelude-val">Some</span>(path.join(<span class="string">&quot;Cargo.lock&quot;</span>))
+			<span class="kw">if </span>path.join(<span class="string">"Cargo.lock"</span>).exists() {
+				<span class="kw">return </span><span class="prelude-val">Some</span>(path.join(<span class="string">"Cargo.lock"</span>))
 			}
 
 			<span class="kw">if </span>!path.pop() {
@@ -1603,11 +1605,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">if let </span><span class="prelude-val">Ok</span>(workspace) = env::var(<span class="kw">crate</span>::WASM_BUILD_WORKSPACE_HINT) {
 		<span class="kw">let </span>path = PathBuf::from(workspace);
 
-		<span class="kw">if </span>path.join(<span class="string">&quot;Cargo.lock&quot;</span>).exists() {
-			<span class="kw">return </span><span class="prelude-val">Some</span>(path.join(<span class="string">&quot;Cargo.lock&quot;</span>))
+		<span class="kw">if </span>path.join(<span class="string">"Cargo.lock"</span>).exists() {
+			<span class="kw">return </span><span class="prelude-val">Some</span>(path.join(<span class="string">"Cargo.lock"</span>))
 		} <span class="kw">else </span>{
 			<span class="macro">build_helper::warning!</span>(
-				<span class="string">&quot;`{}` env variable doesn&#39;t point to a directory that contains a `Cargo.lock`.&quot;</span>,
+				<span class="string">"`{}` env variable doesn't point to a directory that contains a `Cargo.lock`."</span>,
 				<span class="kw">crate</span>::WASM_BUILD_WORKSPACE_HINT,
 			);
 		}
@@ -1618,8 +1620,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="macro">build_helper::warning!</span>(
-		<span class="string">&quot;Could not find `Cargo.lock` for `{}`, while searching from `{}`. \
-		 To fix this, point the `{}` env variable to the directory of the workspace being compiled.&quot;</span>,
+		<span class="string">"Could not find `Cargo.lock` for `{}`, while searching from `{}`. \
+		 To fix this, point the `{}` env variable to the directory of the workspace being compiled."</span>,
 		cargo_manifest.display(),
 		build_helper::out_dir().display(),
 		<span class="kw">crate</span>::WASM_BUILD_WORKSPACE_HINT,
@@ -1631,27 +1633,27 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Extract the crate name from the given `Cargo.toml`.
 </span><span class="kw">fn </span>get_crate_name(cargo_manifest: <span class="kw-2">&amp;</span>Path) -&gt; String {
 	<span class="kw">let </span>cargo_toml: Table = toml::from_str(
-		<span class="kw-2">&amp;</span>fs::read_to_string(cargo_manifest).expect(<span class="string">&quot;File exists as checked before; qed&quot;</span>),
+		<span class="kw-2">&amp;</span>fs::read_to_string(cargo_manifest).expect(<span class="string">"File exists as checked before; qed"</span>),
 	)
-	.expect(<span class="string">&quot;Cargo manifest is a valid toml file; qed&quot;</span>);
+	.expect(<span class="string">"Cargo manifest is a valid toml file; qed"</span>);
 
 	<span class="kw">let </span>package = cargo_toml
-		.get(<span class="string">&quot;package&quot;</span>)
+		.get(<span class="string">"package"</span>)
 		.and_then(|t| t.as_table())
-		.expect(<span class="string">&quot;`package` key exists in valid `Cargo.toml`; qed&quot;</span>);
+		.expect(<span class="string">"`package` key exists in valid `Cargo.toml`; qed"</span>);
 
 	package
-		.get(<span class="string">&quot;name&quot;</span>)
+		.get(<span class="string">"name"</span>)
 		.and_then(|p| p.as_str())
 		.map(ToOwned::to_owned)
-		.expect(<span class="string">&quot;Package name exists; qed&quot;</span>)
+		.expect(<span class="string">"Package name exists; qed"</span>)
 }
 
 <span class="doccomment">/// Returns the name for the blob binary.
 </span><span class="kw">fn </span>get_blob_name(target: RuntimeTarget, cargo_manifest: <span class="kw-2">&amp;</span>Path) -&gt; String {
 	<span class="kw">let </span>crate_name = get_crate_name(cargo_manifest);
 	<span class="kw">match </span>target {
-		RuntimeTarget::Wasm =&gt; crate_name.replace(<span class="string">&#39;-&#39;</span>, <span class="string">&quot;_&quot;</span>),
+		RuntimeTarget::Wasm =&gt; crate_name.replace(<span class="string">'-'</span>, <span class="string">"_"</span>),
 		RuntimeTarget::Riscv =&gt; crate_name,
 	}
 }
@@ -1662,7 +1664,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">loop </span>{
 		<span class="kw">match </span>out_dir.parent() {
-			<span class="prelude-val">Some</span>(parent) <span class="kw">if </span>out_dir.ends_with(<span class="string">&quot;build&quot;</span>) =&gt; <span class="kw">return </span>parent.to_path_buf(),
+			<span class="prelude-val">Some</span>(parent) <span class="kw">if </span>out_dir.ends_with(<span class="string">"build"</span>) =&gt; <span class="kw">return </span>parent.to_path_buf(),
 			<span class="kw">_ </span>=&gt;
 				<span class="kw">if </span>!out_dir.pop() {
 					<span class="kw">break
@@ -1670,7 +1672,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="macro">panic!</span>(<span class="string">&quot;Could not find target dir in: {}&quot;</span>, build_helper::out_dir().display())
+	<span class="macro">panic!</span>(<span class="string">"Could not find target dir in: {}"</span>, build_helper::out_dir().display())
 }
 
 <span class="kw">fn </span>create_project_cargo_toml(
@@ -1683,36 +1685,36 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	enabled_features: <span class="kw">impl </span>Iterator&lt;Item = String&gt;,
 ) {
 	<span class="kw">let </span><span class="kw-2">mut </span>workspace_toml: Table = toml::from_str(
-		<span class="kw-2">&amp;</span>fs::read_to_string(workspace_root_path.join(<span class="string">&quot;Cargo.toml&quot;</span>))
-			.expect(<span class="string">&quot;Workspace root `Cargo.toml` exists; qed&quot;</span>),
+		<span class="kw-2">&amp;</span>fs::read_to_string(workspace_root_path.join(<span class="string">"Cargo.toml"</span>))
+			.expect(<span class="string">"Workspace root `Cargo.toml` exists; qed"</span>),
 	)
-	.expect(<span class="string">&quot;Workspace root `Cargo.toml` is a valid toml file; qed&quot;</span>);
+	.expect(<span class="string">"Workspace root `Cargo.toml` is a valid toml file; qed"</span>);
 
 	<span class="kw">let </span><span class="kw-2">mut </span>wasm_workspace_toml = Table::new();
 
 	<span class="comment">// Add different profiles which are selected by setting `WASM_BUILD_TYPE`.
 	</span><span class="kw">let </span><span class="kw-2">mut </span>release_profile = Table::new();
-	release_profile.insert(<span class="string">&quot;panic&quot;</span>.into(), <span class="string">&quot;abort&quot;</span>.into());
-	release_profile.insert(<span class="string">&quot;lto&quot;</span>.into(), <span class="string">&quot;thin&quot;</span>.into());
+	release_profile.insert(<span class="string">"panic"</span>.into(), <span class="string">"abort"</span>.into());
+	release_profile.insert(<span class="string">"lto"</span>.into(), <span class="string">"thin"</span>.into());
 
 	<span class="kw">let </span><span class="kw-2">mut </span>production_profile = Table::new();
-	production_profile.insert(<span class="string">&quot;inherits&quot;</span>.into(), <span class="string">&quot;release&quot;</span>.into());
-	production_profile.insert(<span class="string">&quot;lto&quot;</span>.into(), <span class="string">&quot;fat&quot;</span>.into());
-	production_profile.insert(<span class="string">&quot;codegen-units&quot;</span>.into(), <span class="number">1</span>.into());
+	production_profile.insert(<span class="string">"inherits"</span>.into(), <span class="string">"release"</span>.into());
+	production_profile.insert(<span class="string">"lto"</span>.into(), <span class="string">"fat"</span>.into());
+	production_profile.insert(<span class="string">"codegen-units"</span>.into(), <span class="number">1</span>.into());
 
 	<span class="kw">let </span><span class="kw-2">mut </span>dev_profile = Table::new();
-	dev_profile.insert(<span class="string">&quot;panic&quot;</span>.into(), <span class="string">&quot;abort&quot;</span>.into());
+	dev_profile.insert(<span class="string">"panic"</span>.into(), <span class="string">"abort"</span>.into());
 
 	<span class="kw">let </span><span class="kw-2">mut </span>profile = Table::new();
-	profile.insert(<span class="string">&quot;release&quot;</span>.into(), release_profile.into());
-	profile.insert(<span class="string">&quot;production&quot;</span>.into(), production_profile.into());
-	profile.insert(<span class="string">&quot;dev&quot;</span>.into(), dev_profile.into());
+	profile.insert(<span class="string">"release"</span>.into(), release_profile.into());
+	profile.insert(<span class="string">"production"</span>.into(), production_profile.into());
+	profile.insert(<span class="string">"dev"</span>.into(), dev_profile.into());
 
-	wasm_workspace_toml.insert(<span class="string">&quot;profile&quot;</span>.into(), profile.into());
+	wasm_workspace_toml.insert(<span class="string">"profile"</span>.into(), profile.into());
 
 	<span class="comment">// Add patch section from the project root `Cargo.toml`
 	</span><span class="kw">while let </span><span class="prelude-val">Some</span>(<span class="kw-2">mut </span>patch) =
-		workspace_toml.remove(<span class="string">&quot;patch&quot;</span>).and_then(|p| p.try_into::&lt;Table&gt;().ok())
+		workspace_toml.remove(<span class="string">"patch"</span>).and_then(|p| p.try_into::&lt;Table&gt;().ok())
 	{
 		<span class="comment">// Iterate over all patches and make the patch path absolute from the workspace root path.
 		</span>patch
@@ -1722,7 +1724,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			})
 			.flatten()
 			.for_each(|p| {
-				p.iter_mut().filter(|(k, <span class="kw">_</span>)| k == <span class="kw-2">&amp;</span><span class="string">&quot;path&quot;</span>).for_each(|(<span class="kw">_</span>, v)| {
+				p.iter_mut().filter(|(k, <span class="kw">_</span>)| k == <span class="kw-2">&amp;</span><span class="string">"path"</span>).for_each(|(<span class="kw">_</span>, v)| {
 					<span class="kw">if let </span><span class="prelude-val">Some</span>(path) = v.as_str().map(PathBuf::from) {
 						<span class="kw">if </span>path.is_relative() {
 							<span class="kw-2">*</span>v = workspace_root_path.join(path).display().to_string().into();
@@ -1731,66 +1733,66 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				})
 			});
 
-		wasm_workspace_toml.insert(<span class="string">&quot;patch&quot;</span>.into(), patch.into());
+		wasm_workspace_toml.insert(<span class="string">"patch"</span>.into(), patch.into());
 	}
 
 	<span class="kw">let </span><span class="kw-2">mut </span>package = Table::new();
-	package.insert(<span class="string">&quot;name&quot;</span>.into(), <span class="macro">format!</span>(<span class="string">&quot;{}-blob&quot;</span>, crate_name).into());
-	package.insert(<span class="string">&quot;version&quot;</span>.into(), <span class="string">&quot;1.0.0&quot;</span>.into());
-	package.insert(<span class="string">&quot;edition&quot;</span>.into(), <span class="string">&quot;2021&quot;</span>.into());
+	package.insert(<span class="string">"name"</span>.into(), <span class="macro">format!</span>(<span class="string">"{}-blob"</span>, crate_name).into());
+	package.insert(<span class="string">"version"</span>.into(), <span class="string">"1.0.0"</span>.into());
+	package.insert(<span class="string">"edition"</span>.into(), <span class="string">"2021"</span>.into());
 
-	wasm_workspace_toml.insert(<span class="string">&quot;package&quot;</span>.into(), package.into());
+	wasm_workspace_toml.insert(<span class="string">"package"</span>.into(), package.into());
 
 	<span class="kw">if </span>target == RuntimeTarget::Wasm {
 		<span class="kw">let </span><span class="kw-2">mut </span>lib = Table::new();
-		lib.insert(<span class="string">&quot;name&quot;</span>.into(), wasm_binary.into());
-		lib.insert(<span class="string">&quot;crate-type&quot;</span>.into(), <span class="macro">vec!</span>[<span class="string">&quot;cdylib&quot;</span>.to_string()].into());
-		wasm_workspace_toml.insert(<span class="string">&quot;lib&quot;</span>.into(), lib.into());
+		lib.insert(<span class="string">"name"</span>.into(), wasm_binary.into());
+		lib.insert(<span class="string">"crate-type"</span>.into(), <span class="macro">vec!</span>[<span class="string">"cdylib"</span>.to_string()].into());
+		wasm_workspace_toml.insert(<span class="string">"lib"</span>.into(), lib.into());
 	}
 
 	<span class="kw">let </span><span class="kw-2">mut </span>dependencies = Table::new();
 
 	<span class="kw">let </span><span class="kw-2">mut </span>wasm_project = Table::new();
-	wasm_project.insert(<span class="string">&quot;package&quot;</span>.into(), crate_name.into());
-	wasm_project.insert(<span class="string">&quot;path&quot;</span>.into(), crate_path.display().to_string().into());
-	wasm_project.insert(<span class="string">&quot;default-features&quot;</span>.into(), <span class="bool-val">false</span>.into());
-	wasm_project.insert(<span class="string">&quot;features&quot;</span>.into(), enabled_features.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;().into());
+	wasm_project.insert(<span class="string">"package"</span>.into(), crate_name.into());
+	wasm_project.insert(<span class="string">"path"</span>.into(), crate_path.display().to_string().into());
+	wasm_project.insert(<span class="string">"default-features"</span>.into(), <span class="bool-val">false</span>.into());
+	wasm_project.insert(<span class="string">"features"</span>.into(), enabled_features.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;().into());
 
-	dependencies.insert(<span class="string">&quot;wasm-project&quot;</span>.into(), wasm_project.into());
+	dependencies.insert(<span class="string">"wasm-project"</span>.into(), wasm_project.into());
 
-	wasm_workspace_toml.insert(<span class="string">&quot;dependencies&quot;</span>.into(), dependencies.into());
+	wasm_workspace_toml.insert(<span class="string">"dependencies"</span>.into(), dependencies.into());
 
-	wasm_workspace_toml.insert(<span class="string">&quot;workspace&quot;</span>.into(), Table::new().into());
+	wasm_workspace_toml.insert(<span class="string">"workspace"</span>.into(), Table::new().into());
 
 	<span class="kw">if </span>target == RuntimeTarget::Riscv {
-		<span class="comment">// This dependency currently doesn&#39;t compile under RISC-V, so patch it with our own fork.
+		<span class="comment">// This dependency currently doesn't compile under RISC-V, so patch it with our own fork.
 		//
 		// TODO: Remove this once a new version of `bitvec` (which uses a new version of `radium`
-		//       which doesn&#39;t have this problem) is released on crates.io.
+		//       which doesn't have this problem) is released on crates.io.
 		</span><span class="kw">let </span>patch = <span class="macro">toml::toml! </span>{
 			[crates-io]
-			radium = { git = <span class="string">&quot;https://github.com/paritytech/radium-0.7-fork.git&quot;</span>, rev = <span class="string">&quot;a5da15a15c90fd169d661d206cf0db592487f52b&quot; </span>}
+			radium = { git = <span class="string">"https://github.com/paritytech/radium-0.7-fork.git"</span>, rev = <span class="string">"a5da15a15c90fd169d661d206cf0db592487f52b" </span>}
 		};
-		wasm_workspace_toml.insert(<span class="string">&quot;patch&quot;</span>.into(), patch.into());
+		wasm_workspace_toml.insert(<span class="string">"patch"</span>.into(), patch.into());
 	}
 
 	write_file_if_changed(
-		wasm_workspace.join(<span class="string">&quot;Cargo.toml&quot;</span>),
-		toml::to_string_pretty(<span class="kw-2">&amp;</span>wasm_workspace_toml).expect(<span class="string">&quot;Wasm workspace toml is valid; qed&quot;</span>),
+		wasm_workspace.join(<span class="string">"Cargo.toml"</span>),
+		toml::to_string_pretty(<span class="kw-2">&amp;</span>wasm_workspace_toml).expect(<span class="string">"Wasm workspace toml is valid; qed"</span>),
 	);
 }
 
-<span class="doccomment">/// Find a package by the given `manifest_path` in the metadata. In case it can&#39;t be found by its
+<span class="doccomment">/// Find a package by the given `manifest_path` in the metadata. In case it can't be found by its
 /// manifest_path, fallback to finding it by name; this is necessary during publish because the
-/// package&#39;s manifest path will be *generated* within a specific packaging directory, thus it won&#39;t
+/// package's manifest path will be *generated* within a specific packaging directory, thus it won't
 /// be found by its original path anymore.
 ///
 /// Panics if the package could not be found.
-</span><span class="kw">fn </span>find_package_by_manifest_path&lt;<span class="lifetime">&#39;a</span>&gt;(
+</span><span class="kw">fn </span>find_package_by_manifest_path&lt;<span class="lifetime">'a</span>&gt;(
 	pkg_name: <span class="kw-2">&amp;</span>str,
 	manifest_path: <span class="kw-2">&amp;</span>Path,
-	crate_metadata: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>cargo_metadata::Metadata,
-) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>cargo_metadata::Package {
+	crate_metadata: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>cargo_metadata::Metadata,
+) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'a </span>cargo_metadata::Package {
 	<span class="kw">if let </span><span class="prelude-val">Some</span>(pkg) = crate_metadata.packages.iter().find(|p| p.manifest_path == manifest_path) {
 		<span class="kw">return </span>pkg
 	}
@@ -1804,14 +1806,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">if let </span><span class="prelude-val">Some</span>(pkg) = pkgs_by_name.first() {
 		<span class="kw">if </span>pkgs_by_name.len() &gt; <span class="number">1 </span>{
 			<span class="macro">panic!</span>(
-				<span class="string">&quot;Found multiple packages matching the name {pkg_name} ({manifest_path:?}): {:?}&quot;</span>,
+				<span class="string">"Found multiple packages matching the name {pkg_name} ({manifest_path:?}): {:?}"</span>,
 				pkgs_by_name
 			);
 		} <span class="kw">else </span>{
 			<span class="kw">return </span>pkg
 		}
 	} <span class="kw">else </span>{
-		<span class="macro">panic!</span>(<span class="string">&quot;Failed to find entry for package {pkg_name} ({manifest_path:?}).&quot;</span>);
+		<span class="macro">panic!</span>(<span class="string">"Failed to find entry for package {pkg_name} ({manifest_path:?})."</span>);
 	}
 }
 
@@ -1823,13 +1825,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ) -&gt; Vec&lt;String&gt; {
 	<span class="kw">let </span>package = find_package_by_manifest_path(pkg_name, cargo_manifest, crate_metadata);
 
-	<span class="kw">let </span>std_enabled = package.features.get(<span class="string">&quot;std&quot;</span>);
+	<span class="kw">let </span>std_enabled = package.features.get(<span class="string">"std"</span>);
 
 	<span class="kw">let </span><span class="kw-2">mut </span>enabled_features = package
 		.features
 		.iter()
 		.filter(|(f, v)| {
-			<span class="kw">let </span><span class="kw-2">mut </span>feature_env = f.replace(<span class="string">&quot;-&quot;</span>, <span class="string">&quot;_&quot;</span>);
+			<span class="kw">let </span><span class="kw-2">mut </span>feature_env = f.replace(<span class="string">"-"</span>, <span class="string">"_"</span>);
 			feature_env.make_ascii_uppercase();
 
 			<span class="comment">// If this is a feature that corresponds only to an optional dependency
@@ -1842,17 +1844,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			// features already being present in nightly, we need this code to make
 			// runtimes compile with all the possible rustc versions.
 			</span><span class="kw">if </span>v.len() == <span class="number">1 </span>&amp;&amp;
-				v.get(<span class="number">0</span>).map_or(<span class="bool-val">false</span>, |v| <span class="kw-2">*</span>v == <span class="macro">format!</span>(<span class="string">&quot;dep:{}&quot;</span>, f)) &amp;&amp;
+				v.get(<span class="number">0</span>).map_or(<span class="bool-val">false</span>, |v| <span class="kw-2">*</span>v == <span class="macro">format!</span>(<span class="string">"dep:{}"</span>, f)) &amp;&amp;
 				std_enabled.as_ref().map(|e| e.iter().any(|ef| ef == <span class="kw-2">*</span>f)).unwrap_or(<span class="bool-val">false</span>)
 			{
 				<span class="kw">return </span><span class="bool-val">false
 			</span>}
 
-			<span class="comment">// We don&#39;t want to enable the `std`/`default` feature for the wasm build and
+			<span class="comment">// We don't want to enable the `std`/`default` feature for the wasm build and
 			// we need to check if the feature is enabled by checking the env variable.
-			</span><span class="kw-2">*</span>f != <span class="string">&quot;std&quot; </span>&amp;&amp;
-				<span class="kw-2">*</span>f != <span class="string">&quot;default&quot; </span>&amp;&amp; env::var(<span class="macro">format!</span>(<span class="string">&quot;CARGO_FEATURE_{}&quot;</span>, feature_env))
-				.map(|v| v == <span class="string">&quot;1&quot;</span>)
+			</span><span class="kw-2">*</span>f != <span class="string">"std" </span>&amp;&amp;
+				<span class="kw-2">*</span>f != <span class="string">"default" </span>&amp;&amp; env::var(<span class="macro">format!</span>(<span class="string">"CARGO_FEATURE_{}"</span>, feature_env))
+				.map(|v| v == <span class="string">"1"</span>)
 				.unwrap_or_default()
 		})
 		.map(|d| d.<span class="number">0</span>.clone())
@@ -1870,7 +1872,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ) -&gt; bool {
 	<span class="kw">let </span>package = find_package_by_manifest_path(pkg_name, cargo_manifest, crate_metadata);
 
-	package.features.keys().any(|k| k == <span class="string">&quot;runtime-wasm&quot;</span>)
+	package.features.keys().any(|k| k == <span class="string">"runtime-wasm"</span>)
 }
 
 <span class="doccomment">/// Create the project used to build the wasm binary.
@@ -1887,18 +1889,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	features_to_enable: Vec&lt;String&gt;,
 ) -&gt; PathBuf {
 	<span class="kw">let </span>crate_name = get_crate_name(project_cargo_toml);
-	<span class="kw">let </span>crate_path = project_cargo_toml.parent().expect(<span class="string">&quot;Parent path exists; qed&quot;</span>);
+	<span class="kw">let </span>crate_path = project_cargo_toml.parent().expect(<span class="string">"Parent path exists; qed"</span>);
 	<span class="kw">let </span>wasm_binary = get_blob_name(target, project_cargo_toml);
 	<span class="kw">let </span>wasm_project_folder = wasm_workspace.join(<span class="kw-2">&amp;</span>crate_name);
 
-	fs::create_dir_all(wasm_project_folder.join(<span class="string">&quot;src&quot;</span>))
-		.expect(<span class="string">&quot;Wasm project dir create can not fail; qed&quot;</span>);
+	fs::create_dir_all(wasm_project_folder.join(<span class="string">"src"</span>))
+		.expect(<span class="string">"Wasm project dir create can not fail; qed"</span>);
 
 	<span class="kw">let </span><span class="kw-2">mut </span>enabled_features =
 		project_enabled_features(<span class="kw-2">&amp;</span>crate_name, project_cargo_toml, crate_metadata);
 
 	<span class="kw">if </span>has_runtime_wasm_feature_declared(<span class="kw-2">&amp;</span>crate_name, project_cargo_toml, crate_metadata) {
-		enabled_features.push(<span class="string">&quot;runtime-wasm&quot;</span>.into());
+		enabled_features.push(<span class="string">"runtime-wasm"</span>.into());
 	}
 
 	<span class="kw">let </span><span class="kw-2">mut </span>enabled_features = enabled_features.into_iter().collect::&lt;HashSet&lt;<span class="kw">_</span>&gt;&gt;();
@@ -1917,21 +1919,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">match </span>target {
 		RuntimeTarget::Wasm =&gt; {
 			write_file_if_changed(
-				wasm_project_folder.join(<span class="string">&quot;src/lib.rs&quot;</span>),
-				<span class="string">&quot;#![no_std] pub use wasm_project::*;&quot;</span>,
+				wasm_project_folder.join(<span class="string">"src/lib.rs"</span>),
+				<span class="string">"#![no_std] pub use wasm_project::*;"</span>,
 			);
 		},
 		RuntimeTarget::Riscv =&gt; {
 			write_file_if_changed(
-				wasm_project_folder.join(<span class="string">&quot;src/main.rs&quot;</span>),
-				<span class="string">&quot;#![no_std] #![no_main] pub use wasm_project::*;&quot;</span>,
+				wasm_project_folder.join(<span class="string">"src/main.rs"</span>),
+				<span class="string">"#![no_std] #![no_main] pub use wasm_project::*;"</span>,
 			);
 		},
 	}
 
 	<span class="kw">if let </span><span class="prelude-val">Some</span>(crate_lock_file) = find_cargo_lock(project_cargo_toml) {
 		<span class="comment">// Use the `Cargo.lock` of the main project.
-		</span><span class="kw">crate</span>::copy_file_if_changed(crate_lock_file, wasm_project_folder.join(<span class="string">&quot;Cargo.lock&quot;</span>));
+		</span><span class="kw">crate</span>::copy_file_if_changed(crate_lock_file, wasm_project_folder.join(<span class="string">"Cargo.lock"</span>));
 	}
 
 	wasm_project_folder
@@ -1950,11 +1952,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl </span>Profile {
 	<span class="doccomment">/// The name of the profile as supplied to the cargo `--profile` cli option.
-	</span><span class="kw">fn </span>name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str {
+	</span><span class="kw">fn </span>name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
 		<span class="kw">match </span><span class="self">self </span>{
-			<span class="self">Self</span>::Debug =&gt; <span class="string">&quot;dev&quot;</span>,
-			<span class="self">Self</span>::Release =&gt; <span class="string">&quot;release&quot;</span>,
-			<span class="self">Self</span>::Production =&gt; <span class="string">&quot;production&quot;</span>,
+			<span class="self">Self</span>::Debug =&gt; <span class="string">"dev"</span>,
+			<span class="self">Self</span>::Release =&gt; <span class="string">"release"</span>,
+			<span class="self">Self</span>::Production =&gt; <span class="string">"production"</span>,
 		}
 	}
 
@@ -1964,9 +1966,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// Usually this is the same as [`Self::name`] with the exception of the debug
 	/// profile which is called `dev`.
-	</span><span class="kw">fn </span>directory(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str {
+	</span><span class="kw">fn </span>directory(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
 		<span class="kw">match </span><span class="self">self </span>{
-			<span class="self">Self</span>::Debug =&gt; <span class="string">&quot;debug&quot;</span>,
+			<span class="self">Self</span>::Debug =&gt; <span class="string">"debug"</span>,
 			<span class="kw">_ </span>=&gt; <span class="self">self</span>.name(),
 		}
 	}
@@ -1991,15 +1993,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// checking any env var overrides.
 	///
 	/// We cannot easily determine the profile that is used by the main cargo invocation
-	/// because the `PROFILE` environment variable won&#39;t contain any custom profiles like
-	/// &quot;production&quot;. It would only contain the builtin profile where the custom profile
+	/// because the `PROFILE` environment variable won't contain any custom profiles like
+	/// "production". It would only contain the builtin profile where the custom profile
 	/// inherits from. This is why we inspect the build path to learn which profile is used.
 	///
 	/// When not overridden by a env variable we always default to building wasm with the `Release`
 	/// profile even when the main build uses the debug build. This is because wasm built with the
 	/// `Debug` profile is too slow for normal development activities and almost never intended.
 	///
-	/// When cargo is building in `--profile dev`, user likely intends to compile fast, so we don&#39;t
+	/// When cargo is building in `--profile dev`, user likely intends to compile fast, so we don't
 	/// bother producing compact or compressed blobs.
 	///
 	/// # Note
@@ -2017,16 +2019,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="kw">let </span>name = wasm_project
 				.components()
 				.rev()
-				.take_while(|c| c.as_os_str() != <span class="string">&quot;target&quot;</span>)
+				.take_while(|c| c.as_os_str() != <span class="string">"target"</span>)
 				.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
 				.iter()
 				.rev()
 				.take_while(|c| c.as_os_str() != target.build_subdirectory())
 				.last()
-				.expect(<span class="string">&quot;We put the runtime project within a `target/.../[rw]build` path; qed&quot;</span>)
+				.expect(<span class="string">"We put the runtime project within a `target/.../[rw]build` path; qed"</span>)
 				.as_os_str()
 				.to_str()
-				.expect(<span class="string">&quot;All our profile directory names are ascii; qed&quot;</span>)
+				.expect(<span class="string">"All our profile directory names are ascii; qed"</span>)
 				.to_string();
 			(name, <span class="bool-val">false</span>)
 		};
@@ -2045,7 +2047,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span>(<span class="prelude-val">None</span>, <span class="bool-val">false</span>) =&gt; {
 				<span class="kw">let </span>profile = Profile::Release;
 				<span class="macro">build_helper::warning!</span>(
-					<span class="string">&quot;Unknown cargo profile `{}`. Defaulted to `{:?}` for the runtime build.&quot;</span>,
+					<span class="string">"Unknown cargo profile `{}`. Defaulted to `{:?}` for the runtime build."</span>,
 					name,
 					profile,
 				);
@@ -2055,7 +2057,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span>(<span class="prelude-val">None</span>, <span class="bool-val">true</span>) =&gt; {
 				<span class="comment">// We use println! + exit instead of a panic in order to have a cleaner output.
 				</span><span class="macro">println!</span>(
-					<span class="string">&quot;Unexpected profile name: `{}`. One of the following is expected: {:?}&quot;</span>,
+					<span class="string">"Unexpected profile name: `{}`. One of the following is expected: {:?}"</span>,
 					name,
 					Profile::iter().map(|p| p.directory()).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
 				);
@@ -2071,7 +2073,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Check environment whether we should build without network
 </span><span class="kw">fn </span>offline_build() -&gt; bool {
-	env::var(OFFLINE).map_or(<span class="bool-val">false</span>, |v| v == <span class="string">&quot;true&quot;</span>)
+	env::var(OFFLINE).map_or(<span class="bool-val">false</span>, |v| v == <span class="string">"true"</span>)
 }
 
 <span class="doccomment">/// Build the project and create the bloaty runtime blob.
@@ -2082,60 +2084,60 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	default_rustflags: <span class="kw-2">&amp;</span>str,
 	cargo_cmd: CargoCommandVersioned,
 ) -&gt; PathBuf {
-	<span class="kw">let </span>manifest_path = project.join(<span class="string">&quot;Cargo.toml&quot;</span>);
+	<span class="kw">let </span>manifest_path = project.join(<span class="string">"Cargo.toml"</span>);
 	<span class="kw">let </span><span class="kw-2">mut </span>build_cmd = cargo_cmd.command();
 
 	<span class="kw">let </span><span class="kw-2">mut </span>rustflags = String::new();
 	<span class="kw">match </span>target {
 		RuntimeTarget::Wasm =&gt; {
 			rustflags.push_str(
-				<span class="string">&quot;-C target-cpu=mvp -C target-feature=-sign-ext -C link-arg=--export-table &quot;</span>,
+				<span class="string">"-C target-cpu=mvp -C target-feature=-sign-ext -C link-arg=--export-table "</span>,
 			);
 		},
 		RuntimeTarget::Riscv =&gt; {
-			rustflags.push_str(<span class="string">&quot;-C target-feature=+lui-addi-fusion -C relocation-model=pie -C link-arg=--emit-relocs -C link-arg=--unique &quot;</span>);
+			rustflags.push_str(<span class="string">"-C target-feature=+lui-addi-fusion -C relocation-model=pie -C link-arg=--emit-relocs -C link-arg=--unique "</span>);
 		},
 	}
 
 	rustflags.push_str(default_rustflags);
-	rustflags.push_str(<span class="string">&quot; --cfg substrate_runtime &quot;</span>);
+	rustflags.push_str(<span class="string">" --cfg substrate_runtime "</span>);
 	rustflags.push_str(<span class="kw-2">&amp;</span>env::var(<span class="kw">crate</span>::WASM_BUILD_RUSTFLAGS_ENV).unwrap_or_default());
 
 	build_cmd
-		.arg(<span class="string">&quot;rustc&quot;</span>)
-		.arg(<span class="macro">format!</span>(<span class="string">&quot;--target={}&quot;</span>, target.rustc_target()))
-		.arg(<span class="macro">format!</span>(<span class="string">&quot;--manifest-path={}&quot;</span>, manifest_path.display()))
-		.env(<span class="string">&quot;RUSTFLAGS&quot;</span>, rustflags)
+		.arg(<span class="string">"rustc"</span>)
+		.arg(<span class="macro">format!</span>(<span class="string">"--target={}"</span>, target.rustc_target()))
+		.arg(<span class="macro">format!</span>(<span class="string">"--manifest-path={}"</span>, manifest_path.display()))
+		.env(<span class="string">"RUSTFLAGS"</span>, rustflags)
 		<span class="comment">// Manually set the `CARGO_TARGET_DIR` to prevent a cargo deadlock (cargo locks a target dir
 		// exclusive). The runner project is created in `CARGO_TARGET_DIR` and executing it will
 		// create a sub target directory inside of `CARGO_TARGET_DIR`.
-		</span>.env(<span class="string">&quot;CARGO_TARGET_DIR&quot;</span>, <span class="kw-2">&amp;</span>project.join(<span class="string">&quot;target&quot;</span>).display().to_string())
+		</span>.env(<span class="string">"CARGO_TARGET_DIR"</span>, <span class="kw-2">&amp;</span>project.join(<span class="string">"target"</span>).display().to_string())
 		<span class="comment">// As we are being called inside a build-script, this env variable is set. However, we set
 		// our own `RUSTFLAGS` and thus, we need to remove this. Otherwise cargo favors this
 		// env variable.
-		</span>.env_remove(<span class="string">&quot;CARGO_ENCODED_RUSTFLAGS&quot;</span>)
-		<span class="comment">// Make sure if we&#39;re called from within a `build.rs` the host toolchain won&#39;t override a
-		// rustup toolchain we&#39;ve picked.
-		</span>.env_remove(<span class="string">&quot;RUSTC&quot;</span>)
-		<span class="comment">// We don&#39;t want to call ourselves recursively
-		</span>.env(<span class="kw">crate</span>::SKIP_BUILD_ENV, <span class="string">&quot;&quot;</span>);
+		</span>.env_remove(<span class="string">"CARGO_ENCODED_RUSTFLAGS"</span>)
+		<span class="comment">// Make sure if we're called from within a `build.rs` the host toolchain won't override a
+		// rustup toolchain we've picked.
+		</span>.env_remove(<span class="string">"RUSTC"</span>)
+		<span class="comment">// We don't want to call ourselves recursively
+		</span>.env(<span class="kw">crate</span>::SKIP_BUILD_ENV, <span class="string">""</span>);
 
 	<span class="kw">if </span><span class="kw">super</span>::color_output_enabled() {
-		build_cmd.arg(<span class="string">&quot;--color=always&quot;</span>);
+		build_cmd.arg(<span class="string">"--color=always"</span>);
 	}
 
-	build_cmd.arg(<span class="string">&quot;--profile&quot;</span>);
+	build_cmd.arg(<span class="string">"--profile"</span>);
 	build_cmd.arg(blob_build_profile.name());
 
 	<span class="kw">if </span>offline_build() {
-		build_cmd.arg(<span class="string">&quot;--offline&quot;</span>);
+		build_cmd.arg(<span class="string">"--offline"</span>);
 	}
 
 	<span class="comment">// Our executor currently only supports the WASM MVP feature set, however nowadays
 	// when compiling WASM the Rust compiler has more features enabled by default.
 	//
 	// We do set the `-C target-cpu=mvp` flag to make sure that *our* code gets compiled
-	// in a way that is compatible with our executor, however this doesn&#39;t affect Rust&#39;s
+	// in a way that is compatible with our executor, however this doesn't affect Rust's
 	// standard library crates (`std`, `core` and `alloc`) which are by default precompiled
 	// and still can make use of these extra features.
 	//
@@ -2143,16 +2145,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	// to make sure that they also only use the MVP features.
 	</span><span class="kw">if </span><span class="kw">crate</span>::build_std_required() {
 		<span class="comment">// Unfortunately this is still a nightly-only flag, but FWIW it is pretty widely used
-		// so it&#39;s unlikely to break without a replacement.
-		</span>build_cmd.arg(<span class="string">&quot;-Z&quot;</span>).arg(<span class="string">&quot;build-std&quot;</span>);
+		// so it's unlikely to break without a replacement.
+		</span>build_cmd.arg(<span class="string">"-Z"</span>).arg(<span class="string">"build-std"</span>);
 		<span class="kw">if </span>!cargo_cmd.supports_nightly_features() {
-			build_cmd.env(<span class="string">&quot;RUSTC_BOOTSTRAP&quot;</span>, <span class="string">&quot;1&quot;</span>);
+			build_cmd.env(<span class="string">"RUSTC_BOOTSTRAP"</span>, <span class="string">"1"</span>);
 		}
 	}
 
-	<span class="macro">println!</span>(<span class="string">&quot;{}&quot;</span>, colorize_info_message(<span class="string">&quot;Information that should be included in a bug report.&quot;</span>));
-	<span class="macro">println!</span>(<span class="string">&quot;{} {:?}&quot;</span>, colorize_info_message(<span class="string">&quot;Executing build command:&quot;</span>), build_cmd);
-	<span class="macro">println!</span>(<span class="string">&quot;{} {}&quot;</span>, colorize_info_message(<span class="string">&quot;Using rustc version:&quot;</span>), cargo_cmd.rustc_version());
+	<span class="macro">println!</span>(<span class="string">"{}"</span>, colorize_info_message(<span class="string">"Information that should be included in a bug report."</span>));
+	<span class="macro">println!</span>(<span class="string">"{} {:?}"</span>, colorize_info_message(<span class="string">"Executing build command:"</span>), build_cmd);
+	<span class="macro">println!</span>(<span class="string">"{} {}"</span>, colorize_info_message(<span class="string">"Using rustc version:"</span>), cargo_cmd.rustc_version());
 
 	<span class="comment">// Use `process::exit(1)` to have a clean error output.
 	</span><span class="kw">if </span>!build_cmd.status().map_or(<span class="bool-val">false</span>, |s| s.success()) {
@@ -2161,7 +2163,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">let </span>blob_name = get_blob_name(target, <span class="kw-2">&amp;</span>manifest_path);
 	<span class="kw">let </span>target_directory = project
-		.join(<span class="string">&quot;target&quot;</span>)
+		.join(<span class="string">"target"</span>)
 		.join(target.rustc_target())
 		.join(blob_build_profile.directory());
 	<span class="kw">match </span>target {
@@ -2170,10 +2172,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>elf_metadata = <span class="kw">match </span>elf_path.metadata() {
 				<span class="prelude-val">Ok</span>(path) =&gt; path,
 				<span class="prelude-val">Err</span>(error) =&gt;
-					<span class="macro">panic!</span>(<span class="string">&quot;internal error: couldn&#39;t read the metadata of {elf_path:?}: {error}&quot;</span>),
+					<span class="macro">panic!</span>(<span class="string">"internal error: couldn't read the metadata of {elf_path:?}: {error}"</span>),
 			};
 
-			<span class="kw">let </span>polkavm_path = target_directory.join(<span class="macro">format!</span>(<span class="string">&quot;{}.polkavm&quot;</span>, blob_name));
+			<span class="kw">let </span>polkavm_path = target_directory.join(<span class="macro">format!</span>(<span class="string">"{}.polkavm"</span>, blob_name));
 			<span class="kw">if </span>polkavm_path
 				.metadata()
 				.map(|polkavm_metadata| {
@@ -2182,27 +2184,27 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.unwrap_or(<span class="bool-val">true</span>)
 			{
 				<span class="kw">let </span>blob_bytes =
-					std::fs::read(elf_path).expect(<span class="string">&quot;binary always exists after its built&quot;</span>);
+					std::fs::read(elf_path).expect(<span class="string">"binary always exists after its built"</span>);
 
 				<span class="kw">let </span><span class="kw-2">mut </span>config = polkavm_linker::Config::default();
-				config.set_strip(<span class="bool-val">true</span>); <span class="comment">// TODO: This shouldn&#39;t always be done.
+				config.set_strip(<span class="bool-val">true</span>); <span class="comment">// TODO: This shouldn't always be done.
 
 				</span><span class="kw">let </span>program = <span class="kw">match </span>polkavm_linker::program_from_elf(config, <span class="kw-2">&amp;</span>blob_bytes) {
 					<span class="prelude-val">Ok</span>(program) =&gt; program,
 					<span class="prelude-val">Err</span>(error) =&gt; {
-						<span class="macro">println!</span>(<span class="string">&quot;Failed to link the runtime blob; this is probably a bug!&quot;</span>);
-						<span class="macro">println!</span>(<span class="string">&quot;Linking error: {error}&quot;</span>);
+						<span class="macro">println!</span>(<span class="string">"Failed to link the runtime blob; this is probably a bug!"</span>);
+						<span class="macro">println!</span>(<span class="string">"Linking error: {error}"</span>);
 						process::exit(<span class="number">1</span>);
 					},
 				};
 
 				std::fs::write(<span class="kw-2">&amp;</span>polkavm_path, program.as_bytes())
-					.expect(<span class="string">&quot;writing the blob to a file always works&quot;</span>);
+					.expect(<span class="string">"writing the blob to a file always works"</span>);
 			}
 
 			polkavm_path
 		},
-		RuntimeTarget::Wasm =&gt; target_directory.join(<span class="macro">format!</span>(<span class="string">&quot;{}.wasm&quot;</span>, blob_name)),
+		RuntimeTarget::Wasm =&gt; target_directory.join(<span class="macro">format!</span>(<span class="string">"{}.wasm"</span>, blob_name)),
 	}
 }
 
@@ -2214,22 +2216,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ) -&gt; <span class="prelude-ty">Option</span>&lt;WasmBinary&gt; {
 	<span class="kw">let </span>default_out_name = get_blob_name(RuntimeTarget::Wasm, cargo_manifest);
 	<span class="kw">let </span>in_path = project
-		.join(<span class="string">&quot;target/wasm32-unknown-unknown&quot;</span>)
+		.join(<span class="string">"target/wasm32-unknown-unknown"</span>)
 		.join(inner_profile.directory())
-		.join(<span class="macro">format!</span>(<span class="string">&quot;{}.wasm&quot;</span>, default_out_name));
+		.join(<span class="macro">format!</span>(<span class="string">"{}.wasm"</span>, default_out_name));
 
-	<span class="kw">let </span>wasm_compact_path = project.join(<span class="macro">format!</span>(<span class="string">&quot;{}.compact.wasm&quot;</span>, out_name));
+	<span class="kw">let </span>wasm_compact_path = project.join(<span class="macro">format!</span>(<span class="string">"{}.compact.wasm"</span>, out_name));
 	<span class="kw">let </span>start = std::time::Instant::now();
 	wasm_opt::OptimizationOptions::new_opt_level_0()
 		.mvp_features_only()
 		.debug_info(<span class="bool-val">true</span>)
 		.add_pass(wasm_opt::Pass::StripDwarf)
 		.run(<span class="kw-2">&amp;</span>in_path, <span class="kw-2">&amp;</span>wasm_compact_path)
-		.expect(<span class="string">&quot;Failed to compact generated WASM binary.&quot;</span>);
+		.expect(<span class="string">"Failed to compact generated WASM binary."</span>);
 	<span class="macro">println!</span>(
-		<span class="string">&quot;{} {}&quot;</span>,
-		colorize_info_message(<span class="string">&quot;Compacted wasm in&quot;</span>),
-		colorize_info_message(<span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, start.elapsed()).as_str())
+		<span class="string">"{} {}"</span>,
+		colorize_info_message(<span class="string">"Compacted wasm in"</span>),
+		colorize_info_message(<span class="macro">format!</span>(<span class="string">"{:?}"</span>, start.elapsed()).as_str())
 	);
 	<span class="prelude-val">Some</span>(WasmBinary(wasm_compact_path))
 }
@@ -2241,40 +2243,40 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	out_name: <span class="kw-2">&amp;</span>str,
 ) -&gt; WasmBinaryBloaty {
 	<span class="kw">let </span>in_path = project
-		.join(<span class="string">&quot;target/wasm32-unknown-unknown&quot;</span>)
+		.join(<span class="string">"target/wasm32-unknown-unknown"</span>)
 		.join(inner_profile.directory())
-		.join(<span class="macro">format!</span>(<span class="string">&quot;{}.wasm&quot;</span>, in_name));
+		.join(<span class="macro">format!</span>(<span class="string">"{}.wasm"</span>, in_name));
 
-	<span class="kw">let </span>bloaty_path = project.join(<span class="macro">format!</span>(<span class="string">&quot;{}.wasm&quot;</span>, out_name));
-	fs::copy(in_path, <span class="kw-2">&amp;</span>bloaty_path).expect(<span class="string">&quot;Copying the bloaty file to the project dir.&quot;</span>);
+	<span class="kw">let </span>bloaty_path = project.join(<span class="macro">format!</span>(<span class="string">"{}.wasm"</span>, out_name));
+	fs::copy(in_path, <span class="kw-2">&amp;</span>bloaty_path).expect(<span class="string">"Copying the bloaty file to the project dir."</span>);
 	WasmBinaryBloaty(bloaty_path)
 }
 
 <span class="kw">fn </span>try_compress_blob(compact_blob_path: <span class="kw-2">&amp;</span>Path, out_name: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Option</span>&lt;WasmBinary&gt; {
 	<span class="kw">use </span>sp_maybe_compressed_blob::CODE_BLOB_BOMB_LIMIT;
 
-	<span class="kw">let </span>project = compact_blob_path.parent().expect(<span class="string">&quot;blob path should have a parent directory&quot;</span>);
+	<span class="kw">let </span>project = compact_blob_path.parent().expect(<span class="string">"blob path should have a parent directory"</span>);
 	<span class="kw">let </span>compact_compressed_blob_path =
-		project.join(<span class="macro">format!</span>(<span class="string">&quot;{}.compact.compressed.wasm&quot;</span>, out_name));
+		project.join(<span class="macro">format!</span>(<span class="string">"{}.compact.compressed.wasm"</span>, out_name));
 
 	<span class="kw">let </span>start = std::time::Instant::now();
-	<span class="kw">let </span>data = fs::read(compact_blob_path).expect(<span class="string">&quot;Failed to read WASM binary&quot;</span>);
+	<span class="kw">let </span>data = fs::read(compact_blob_path).expect(<span class="string">"Failed to read WASM binary"</span>);
 	<span class="kw">if let </span><span class="prelude-val">Some</span>(compressed) = sp_maybe_compressed_blob::compress(<span class="kw-2">&amp;</span>data, CODE_BLOB_BOMB_LIMIT) {
 		fs::write(<span class="kw-2">&amp;</span>compact_compressed_blob_path, <span class="kw-2">&amp;</span>compressed[..])
-			.expect(<span class="string">&quot;Failed to write WASM binary&quot;</span>);
+			.expect(<span class="string">"Failed to write WASM binary"</span>);
 
 		<span class="macro">println!</span>(
-			<span class="string">&quot;{} {}&quot;</span>,
-			colorize_info_message(<span class="string">&quot;Compressed blob in&quot;</span>),
-			colorize_info_message(<span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, start.elapsed()).as_str())
+			<span class="string">"{} {}"</span>,
+			colorize_info_message(<span class="string">"Compressed blob in"</span>),
+			colorize_info_message(<span class="macro">format!</span>(<span class="string">"{:?}"</span>, start.elapsed()).as_str())
 		);
 		<span class="prelude-val">Some</span>(WasmBinary(compact_compressed_blob_path))
 	} <span class="kw">else </span>{
 		<span class="macro">build_helper::warning!</span>(
-			<span class="string">&quot;Writing uncompressed blob. Exceeded maximum size {}&quot;</span>,
+			<span class="string">"Writing uncompressed blob. Exceeded maximum size {}"</span>,
 			CODE_BLOB_BOMB_LIMIT,
 		);
-		<span class="macro">println!</span>(<span class="string">&quot;{}&quot;</span>, colorize_info_message(<span class="string">&quot;Skipping blob compression&quot;</span>));
+		<span class="macro">println!</span>(<span class="string">"{}"</span>, colorize_info_message(<span class="string">"Skipping blob compression"</span>));
 		<span class="prelude-val">None
 	</span>}
 }
@@ -2282,35 +2284,35 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Custom wrapper for a [`cargo_metadata::Package`] to store it in
 /// a `HashSet`.
 </span><span class="attr">#[derive(Debug)]
-</span><span class="kw">struct </span>DeduplicatePackage&lt;<span class="lifetime">&#39;a</span>&gt; {
-	package: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>cargo_metadata::Package,
+</span><span class="kw">struct </span>DeduplicatePackage&lt;<span class="lifetime">'a</span>&gt; {
+	package: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>cargo_metadata::Package,
 	identifier: String,
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; From&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>cargo_metadata::Package&gt; <span class="kw">for </span>DeduplicatePackage&lt;<span class="lifetime">&#39;a</span>&gt; {
-	<span class="kw">fn </span>from(package: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>cargo_metadata::Package) -&gt; <span class="self">Self </span>{
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; From&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>cargo_metadata::Package&gt; <span class="kw">for </span>DeduplicatePackage&lt;<span class="lifetime">'a</span>&gt; {
+	<span class="kw">fn </span>from(package: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>cargo_metadata::Package) -&gt; <span class="self">Self </span>{
 		<span class="self">Self </span>{
 			package,
-			identifier: <span class="macro">format!</span>(<span class="string">&quot;{}{}{:?}&quot;</span>, package.name, package.version, package.source),
+			identifier: <span class="macro">format!</span>(<span class="string">"{}{}{:?}"</span>, package.name, package.version, package.source),
 		}
 	}
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; Hash <span class="kw">for </span>DeduplicatePackage&lt;<span class="lifetime">&#39;a</span>&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; Hash <span class="kw">for </span>DeduplicatePackage&lt;<span class="lifetime">'a</span>&gt; {
 	<span class="kw">fn </span>hash&lt;H: Hasher&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, state: <span class="kw-2">&amp;mut </span>H) {
 		<span class="self">self</span>.identifier.hash(state);
 	}
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; PartialEq <span class="kw">for </span>DeduplicatePackage&lt;<span class="lifetime">&#39;a</span>&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; PartialEq <span class="kw">for </span>DeduplicatePackage&lt;<span class="lifetime">'a</span>&gt; {
 	<span class="kw">fn </span>eq(<span class="kw-2">&amp;</span><span class="self">self</span>, other: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; bool {
 		<span class="self">self</span>.identifier == other.identifier
 	}
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; Eq <span class="kw">for </span>DeduplicatePackage&lt;<span class="lifetime">&#39;a</span>&gt; {}
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; Eq <span class="kw">for </span>DeduplicatePackage&lt;<span class="lifetime">'a</span>&gt; {}
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; Deref <span class="kw">for </span>DeduplicatePackage&lt;<span class="lifetime">&#39;a</span>&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; Deref <span class="kw">for </span>DeduplicatePackage&lt;<span class="lifetime">'a</span>&gt; {
 	<span class="kw">type </span>Target = cargo_metadata::Package;
 
 	<span class="kw">fn </span>deref(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="self">Self</span>::Target {
@@ -2323,7 +2325,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	metadata_command.manifest_path(path);
 
 	<span class="kw">if </span>offline_build() {
-		metadata_command.other_options(<span class="macro">vec!</span>[<span class="string">&quot;--offline&quot;</span>.to_owned()]);
+		metadata_command.other_options(<span class="macro">vec!</span>[<span class="string">"--offline"</span>.to_owned()]);
 	}
 	metadata_command
 }
@@ -2342,15 +2344,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		rerun_if_changed(cargo_lock);
 	}
 
-	<span class="kw">let </span>metadata = create_metadata_command(project_folder.join(<span class="string">&quot;Cargo.toml&quot;</span>))
+	<span class="kw">let </span>metadata = create_metadata_command(project_folder.join(<span class="string">"Cargo.toml"</span>))
 		.exec()
-		.expect(<span class="string">&quot;`cargo metadata` can not fail!&quot;</span>);
+		.expect(<span class="string">"`cargo metadata` can not fail!"</span>);
 
 	<span class="kw">let </span>package = metadata
 		.packages
 		.iter()
 		.find(|p| p.manifest_path == cargo_manifest)
-		.expect(<span class="string">&quot;The crate package is contained in its own metadata; qed&quot;</span>);
+		.expect(<span class="string">"The crate package is contained in its own metadata; qed"</span>);
 
 	<span class="comment">// Start with the dependencies of the crate we want to compile for wasm.
 	</span><span class="kw">let </span><span class="kw-2">mut </span>dependencies = package.dependencies.iter().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
@@ -2366,7 +2368,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>}
 
 		<span class="kw">let </span>path_or_git_dep =
-			dependency.source.as_ref().map(|s| s.starts_with(<span class="string">&quot;git+&quot;</span>)).unwrap_or(<span class="bool-val">true</span>);
+			dependency.source.as_ref().map(|s| s.starts_with(<span class="string">"git+"</span>)).unwrap_or(<span class="bool-val">true</span>);
 
 		<span class="kw">let </span>package = metadata
 			.packages
@@ -2374,7 +2376,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.filter(|p| !p.manifest_path.starts_with(wasm_workspace))
 			.find(|p| {
 				<span class="comment">// Check that the name matches and that the version matches or this is
-				// a git or path dep. A git or path dependency can only occur once, so we don&#39;t
+				// a git or path dep. A git or path dependency can only occur once, so we don't
 				// need to check the version.
 				</span>(path_or_git_dep || dependency.req.matches(<span class="kw-2">&amp;</span>p.version)) &amp;&amp; dependency.name == p.name
 			});
@@ -2393,19 +2395,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	rerun_if_changed(bloaty_wasm.bloaty_path());
 
 	<span class="comment">// Register our env variables
-	</span><span class="macro">println!</span>(<span class="string">&quot;cargo:rerun-if-env-changed={}&quot;</span>, <span class="kw">crate</span>::SKIP_BUILD_ENV);
-	<span class="macro">println!</span>(<span class="string">&quot;cargo:rerun-if-env-changed={}&quot;</span>, <span class="kw">crate</span>::WASM_BUILD_TYPE_ENV);
-	<span class="macro">println!</span>(<span class="string">&quot;cargo:rerun-if-env-changed={}&quot;</span>, <span class="kw">crate</span>::WASM_BUILD_RUSTFLAGS_ENV);
-	<span class="macro">println!</span>(<span class="string">&quot;cargo:rerun-if-env-changed={}&quot;</span>, <span class="kw">crate</span>::WASM_TARGET_DIRECTORY);
-	<span class="macro">println!</span>(<span class="string">&quot;cargo:rerun-if-env-changed={}&quot;</span>, <span class="kw">crate</span>::WASM_BUILD_TOOLCHAIN);
-	<span class="macro">println!</span>(<span class="string">&quot;cargo:rerun-if-env-changed={}&quot;</span>, <span class="kw">crate</span>::WASM_BUILD_STD);
-	<span class="macro">println!</span>(<span class="string">&quot;cargo:rerun-if-env-changed={}&quot;</span>, <span class="kw">crate</span>::RUNTIME_TARGET);
+	</span><span class="macro">println!</span>(<span class="string">"cargo:rerun-if-env-changed={}"</span>, <span class="kw">crate</span>::SKIP_BUILD_ENV);
+	<span class="macro">println!</span>(<span class="string">"cargo:rerun-if-env-changed={}"</span>, <span class="kw">crate</span>::WASM_BUILD_TYPE_ENV);
+	<span class="macro">println!</span>(<span class="string">"cargo:rerun-if-env-changed={}"</span>, <span class="kw">crate</span>::WASM_BUILD_RUSTFLAGS_ENV);
+	<span class="macro">println!</span>(<span class="string">"cargo:rerun-if-env-changed={}"</span>, <span class="kw">crate</span>::WASM_TARGET_DIRECTORY);
+	<span class="macro">println!</span>(<span class="string">"cargo:rerun-if-env-changed={}"</span>, <span class="kw">crate</span>::WASM_BUILD_TOOLCHAIN);
+	<span class="macro">println!</span>(<span class="string">"cargo:rerun-if-env-changed={}"</span>, <span class="kw">crate</span>::WASM_BUILD_STD);
+	<span class="macro">println!</span>(<span class="string">"cargo:rerun-if-env-changed={}"</span>, <span class="kw">crate</span>::RUNTIME_TARGET);
 }
 
 <span class="doccomment">/// Track files and paths related to the given package to rerun `build.rs` on any relevant change.
 </span><span class="kw">fn </span>package_rerun_if_changed(package: <span class="kw-2">&amp;</span>DeduplicatePackage) {
 	<span class="kw">let </span><span class="kw-2">mut </span>manifest_path = package.manifest_path.clone();
-	<span class="kw">if </span>manifest_path.ends_with(<span class="string">&quot;Cargo.toml&quot;</span>) {
+	<span class="kw">if </span>manifest_path.ends_with(<span class="string">"Cargo.toml"</span>) {
 		manifest_path.pop();
 	}
 
@@ -2416,10 +2418,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			// `Cargo.toml` related to the current package. This is done to ignore sub-crates of a
 			// crate. If such a sub-crate is a dependency, it will be processed independently
 			// anyway.
-			</span>p.path() == manifest_path || !p.path().is_dir() || !p.path().join(<span class="string">&quot;Cargo.toml&quot;</span>).exists()
+			</span>p.path() == manifest_path || !p.path().is_dir() || !p.path().join(<span class="string">"Cargo.toml"</span>).exists()
 		})
 		.filter_map(|p| p.ok().map(|p| p.into_path()))
-		.filter(|p| p.extension().map(|e| e == <span class="string">&quot;rs&quot; </span>|| e == <span class="string">&quot;toml&quot;</span>).unwrap_or_default())
+		.filter(|p| p.extension().map(|e| e == <span class="string">"rs" </span>|| e == <span class="string">"toml"</span>).unwrap_or_default())
 		.for_each(rerun_if_changed);
 }
 
@@ -2434,20 +2436,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">if </span>!target_dir.is_absolute() {
 		<span class="comment">// We use println! + exit instead of a panic in order to have a cleaner output.
 		</span><span class="macro">println!</span>(
-			<span class="string">&quot;Environment variable `{}` with `{}` is not an absolute path!&quot;</span>,
+			<span class="string">"Environment variable `{}` with `{}` is not an absolute path!"</span>,
 			<span class="kw">crate</span>::WASM_TARGET_DIRECTORY,
 			target_dir.display(),
 		);
 		process::exit(<span class="number">1</span>);
 	}
 
-	fs::create_dir_all(<span class="kw-2">&amp;</span>target_dir).expect(<span class="string">&quot;Creates `WASM_TARGET_DIRECTORY`.&quot;</span>);
+	fs::create_dir_all(<span class="kw-2">&amp;</span>target_dir).expect(<span class="string">"Creates `WASM_TARGET_DIRECTORY`."</span>);
 
 	fs::copy(
 		blob_binary.wasm_binary_path(),
-		target_dir.join(<span class="macro">format!</span>(<span class="string">&quot;{}.wasm&quot;</span>, get_blob_name(RuntimeTarget::Wasm, cargo_manifest))),
+		target_dir.join(<span class="macro">format!</span>(<span class="string">"{}.wasm"</span>, get_blob_name(RuntimeTarget::Wasm, cargo_manifest))),
 	)
-	.expect(<span class="string">&quot;Copies blob binary to `WASM_TARGET_DIRECTORY`.&quot;</span>);
+	.expect(<span class="string">"Copies blob binary to `WASM_TARGET_DIRECTORY`."</span>);
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 

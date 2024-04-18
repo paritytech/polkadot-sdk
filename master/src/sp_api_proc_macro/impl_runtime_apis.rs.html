@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/api/proc-macro/src/impl_runtime_apis.rs`."><title>impl_runtime_apis.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/api/proc-macro/src/impl_runtime_apis.rs`."><title>impl_runtime_apis.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_api_proc_macro" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_api_proc_macro" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sp_api_proc_macro/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1116,14 +1118,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -1167,7 +1169,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 
 		<span class="kw">if </span>impls.is_empty() {
-			<span class="prelude-val">Err</span>(Error::new(Span::call_site(), <span class="string">&quot;No api implementation given!&quot;</span>))
+			<span class="prelude-val">Err</span>(Error::new(Span::call_site(), <span class="string">"No api implementation given!"</span>))
 		} <span class="kw">else </span>{
 			<span class="prelude-val">Ok</span>(<span class="self">Self </span>{ impls })
 		}
@@ -1198,7 +1200,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">quote!</span>(
 			<span class="kw">if </span>!#input.is_empty() {
 				<span class="macro">panic!</span>(
-					<span class="string">&quot;Bad input data provided to {}: expected no parameters, but input buffer is not empty.&quot;</span>,
+					<span class="string">"Bad input data provided to {}: expected no parameters, but input buffer is not empty."</span>,
 					#fn_name_str
 				);
 			}
@@ -1221,7 +1223,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw-2">&amp;mut </span>#input,
 				) {
 					<span class="prelude-val">Ok</span>(res) =&gt; res,
-					<span class="prelude-val">Err</span>(e) =&gt; <span class="macro">panic!</span>(<span class="string">&quot;Bad input data provided to {}: {}&quot;</span>, #fn_name_str, e),
+					<span class="prelude-val">Err</span>(e) =&gt; <span class="macro">panic!</span>(<span class="string">"Bad input data provided to {}: {}"</span>, #fn_name_str, e),
 				};
 		)
 	};
@@ -1277,7 +1279,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>impl_trait_ident = <span class="kw-2">&amp;</span>impl_trait_path
 			.segments
 			.last()
-			.ok_or_else(|| Error::new(impl_trait_path.span(), <span class="string">&quot;Empty trait path not possible!&quot;</span>))<span class="question-mark">?
+			.ok_or_else(|| Error::new(impl_trait_path.span(), <span class="string">"Empty trait path not possible!"</span>))<span class="question-mark">?
 			</span>.ident;
 
 		<span class="kw">for </span>item <span class="kw">in </span><span class="kw-2">&amp;</span>impl_.items {
@@ -1309,7 +1311,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Generate the dispatch function that is used in native to call into the runtime.
 </span><span class="kw">fn </span>generate_dispatch_function(impls: <span class="kw-2">&amp;</span>[ItemImpl]) -&gt; <span class="prelude-ty">Result</span>&lt;TokenStream&gt; {
-	<span class="kw">let </span>data = Ident::new(<span class="string">&quot;_sp_api_input_data_&quot;</span>, Span::call_site());
+	<span class="kw">let </span>data = Ident::new(<span class="string">"_sp_api_input_data_"</span>, Span::call_site());
 	<span class="kw">let </span>c = generate_crate_access();
 	<span class="kw">let </span>impl_calls =
 		generate_impl_calls(impls, <span class="kw-2">&amp;</span>data)<span class="question-mark">?
@@ -1336,7 +1338,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Generate the interface functions that are used to call into the runtime in wasm.
 </span><span class="kw">fn </span>generate_wasm_interface(impls: <span class="kw-2">&amp;</span>[ItemImpl]) -&gt; <span class="prelude-ty">Result</span>&lt;TokenStream&gt; {
-	<span class="kw">let </span>input = Ident::new(<span class="string">&quot;input&quot;</span>, Span::call_site());
+	<span class="kw">let </span>input = Ident::new(<span class="string">"input"</span>, Span::call_site());
 	<span class="kw">let </span>c = generate_crate_access();
 
 	<span class="kw">let </span>impl_calls =
@@ -1350,7 +1352,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					#<span class="macro">c::std_disabled! </span>{
 						#( #attrs )*
 						<span class="attr">#[no_mangle]
-						#[cfg_attr(any(target_arch = <span class="string">&quot;riscv32&quot;</span>, target_arch = <span class="string">&quot;riscv64&quot;</span>), #c::__private::polkavm_export(abi = #c::__private::polkavm_abi))]
+						#[cfg_attr(any(target_arch = <span class="string">"riscv32"</span>, target_arch = <span class="string">"riscv64"</span>), #c::__private::polkavm_export(abi = #c::__private::polkavm_abi))]
 						</span><span class="kw">pub unsafe extern fn </span>#fn_name(input_data: <span class="kw-2">*mut </span>u8, input_len: usize) -&gt; u64 {
 							<span class="kw">let </span><span class="kw-2">mut </span>#input = <span class="kw">if </span>input_len == <span class="number">0 </span>{
 								<span class="kw-2">&amp;</span>[<span class="number">0u8</span>; <span class="number">0</span>]
@@ -1379,8 +1381,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">pub struct </span>RuntimeApi {}
 		#<span class="macro">crate_::std_enabled! </span>{
 			<span class="doccomment">/// Implements all runtime apis for the client side.
-			</span><span class="kw">pub struct </span>RuntimeApiImpl&lt;Block: #crate_::BlockT, C: #crate_::CallApiAt&lt;Block&gt; + <span class="lifetime">&#39;static</span>&gt; {
-				call: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>C,
+			</span><span class="kw">pub struct </span>RuntimeApiImpl&lt;Block: #crate_::BlockT, C: #crate_::CallApiAt&lt;Block&gt; + <span class="lifetime">'static</span>&gt; {
+				call: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>C,
 				transaction_depth: std::cell::RefCell&lt;u16&gt;,
 				changes: std::cell::RefCell&lt;#crate_::OverlayedChanges&lt;#crate_::HashingFor&lt;Block&gt;&gt;&gt;,
 				recorder: std::option::Option&lt;#crate_::ProofRecorder&lt;Block&gt;&gt;,
@@ -1403,7 +1405,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw">let </span>res = call(<span class="self">self</span>);
 					std::cell::RefCell::borrow_mut(<span class="kw-2">&amp;</span><span class="self">self</span>.transaction_depth)
 						.checked_sub(<span class="number">1</span>)
-						.expect(<span class="string">&quot;Transactions are opened and closed together; qed&quot;</span>);
+						.expect(<span class="string">"Transactions are opened and closed together; qed"</span>);
 
 					<span class="self">self</span>.commit_or_rollback_transaction(
 						<span class="macro">std::matches!</span>(res, #crate_::TransactionOutcome::Commit(<span class="kw">_</span>))
@@ -1464,7 +1466,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					&gt; <span class="kw">where </span><span class="self">Self</span>: Sized {
 						<span class="kw">let </span>state_version = #crate_::CallApiAt::&lt;Block&gt;::runtime_version_at(<span class="self">self</span>.call, std::clone::Clone::clone(<span class="kw-2">&amp;</span>parent_hash))
 							.map(|v| #crate_::RuntimeVersion::state_version(<span class="kw-2">&amp;</span>v))
-							.map_err(|e| <span class="macro">format!</span>(<span class="string">&quot;Failed to get state version: {}&quot;</span>, e))<span class="question-mark">?</span>;
+							.map_err(|e| <span class="macro">format!</span>(<span class="string">"Failed to get state version: {}"</span>, e))<span class="question-mark">?</span>;
 
 						#crate_::OverlayedChanges::drain_storage_changes(
 							<span class="kw-2">&amp;mut </span>std::cell::RefCell::borrow_mut(<span class="kw-2">&amp;</span><span class="self">self</span>.changes),
@@ -1486,13 +1488,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="kw">impl</span>&lt;Block: #crate_::BlockT, C&gt; #crate_::ConstructRuntimeApi&lt;Block, C&gt;
 				<span class="kw">for </span>RuntimeApi
 			<span class="kw">where
-				</span>C: #crate_::CallApiAt&lt;Block&gt; + <span class="lifetime">&#39;static</span>,
+				</span>C: #crate_::CallApiAt&lt;Block&gt; + <span class="lifetime">'static</span>,
 			{
 				<span class="kw">type </span>RuntimeApi = RuntimeApiImpl&lt;Block, C&gt;;
 
-				<span class="kw">fn </span>construct_runtime_api&lt;<span class="lifetime">&#39;a</span>&gt;(
-					call: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>C,
-				) -&gt; #crate_::ApiRef&lt;<span class="lifetime">&#39;a</span>, <span class="self">Self</span>::RuntimeApi&gt; {
+				<span class="kw">fn </span>construct_runtime_api&lt;<span class="lifetime">'a</span>&gt;(
+					call: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>C,
+				) -&gt; #crate_::ApiRef&lt;<span class="lifetime">'a</span>, <span class="self">Self</span>::RuntimeApi&gt; {
 					RuntimeApiImpl {
 						call: <span class="kw">unsafe </span>{ std::mem::transmute(call) },
 						transaction_depth: <span class="number">0</span>.into(),
@@ -1508,11 +1510,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="attr">#[automatically_derived]
 			</span><span class="kw">impl</span>&lt;Block: #crate_::BlockT, C: #crate_::CallApiAt&lt;Block&gt;&gt; RuntimeApiImpl&lt;Block, C&gt; {
 				<span class="kw">fn </span>commit_or_rollback_transaction(<span class="kw-2">&amp;</span><span class="self">self</span>, commit: bool) {
-					<span class="kw">let </span>proof = <span class="string">&quot;\
+					<span class="kw">let </span>proof = <span class="string">"\
 					We only close a transaction when we opened one ourself.
 					Other parts of the runtime that make use of transactions (state-machine)
 					also balance their transactions. The runtime cannot close client initiated
-					transactions; qed&quot;</span>;
+					transactions; qed"</span>;
 
 					<span class="kw">let </span>res = <span class="kw">if </span>commit {
 						<span class="kw">let </span>res = <span class="kw">if let </span><span class="prelude-val">Some</span>(recorder) = <span class="kw-2">&amp;</span><span class="self">self</span>.recorder {
@@ -1568,7 +1570,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.segments
 			.last()
 			.as_ref()
-			.expect(<span class="string">&quot;Trait path should always contain at least one item; qed&quot;</span>)
+			.expect(<span class="string">"Trait path should always contain at least one item; qed"</span>)
 			.ident;
 
 		generate_runtime_mod_name_for_trait(trait_name)
@@ -1590,7 +1592,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>trait_name = <span class="kw-2">&amp;mut </span>trait_
 		.segments
 		.last_mut()
-		.expect(<span class="string">&quot;Trait path should always contain at least one item; qed&quot;</span>)
+		.expect(<span class="string">"Trait path should always contain at least one item; qed"</span>)
 		.ident;
 	<span class="kw-2">*</span>trait_name = versioned_trait_name(trait_name, version);
 
@@ -1599,8 +1601,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Adds a feature guard to `attributes`.
 ///
-/// Depending on `enable`, the feature guard either enables (&#39;feature = &quot;something&quot;`) or disables
-/// (`not(feature = &quot;something&quot;)`).
+/// Depending on `enable`, the feature guard either enables ('feature = "something"`) or disables
+/// (`not(feature = "something")`).
 </span><span class="kw">fn </span>add_feature_guard(attrs: <span class="kw-2">&amp;mut </span>Vec&lt;Attribute&gt;, feature_name: <span class="kw-2">&amp;</span>str, enable: bool) {
 	<span class="kw">let </span>attr = <span class="kw">match </span>enable {
 		<span class="bool-val">true </span>=&gt; <span class="macro">parse_quote!</span>(<span class="attr">#[cfg(feature = #feature_name)]</span>),
@@ -1653,11 +1655,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// This requires us to replace the runtime `Block` with the node `Block`,
 /// `impl Api for Runtime` with `impl Api for RuntimeApi` and replace the method implementations
 /// with code that calls into the runtime.
-</span><span class="kw">struct </span>ApiRuntimeImplToApiRuntimeApiImpl&lt;<span class="lifetime">&#39;a</span>&gt; {
-	runtime_block: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>TypePath,
+</span><span class="kw">struct </span>ApiRuntimeImplToApiRuntimeApiImpl&lt;<span class="lifetime">'a</span>&gt; {
+	runtime_block: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>TypePath,
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; ApiRuntimeImplToApiRuntimeApiImpl&lt;<span class="lifetime">&#39;a</span>&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; ApiRuntimeImplToApiRuntimeApiImpl&lt;<span class="lifetime">'a</span>&gt; {
 	<span class="doccomment">/// Process the given item implementation.
 	</span><span class="kw">fn </span>process(<span class="kw-2">mut </span><span class="self">self</span>, input: ItemImpl) -&gt; ItemImpl {
 		<span class="kw">let </span><span class="kw-2">mut </span>input = <span class="self">self</span>.fold_item_impl(input);
@@ -1673,7 +1675,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw-2">&amp;</span><span class="self">self</span>,
 				at: &lt;__SrApiBlock__ <span class="kw">as </span>#crate_::BlockT&gt;::Hash,
 				params: std::vec::Vec&lt;u8&gt;,
-				fn_name: <span class="kw-2">&amp;</span><span class="kw">dyn </span>Fn(#crate_::RuntimeVersion) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
+				fn_name: <span class="kw-2">&amp;</span><span class="kw">dyn </span>Fn(#crate_::RuntimeVersion) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
 			) -&gt; std::result::Result&lt;std::vec::Vec&lt;u8&gt;, #crate_::ApiError&gt; {
 				<span class="comment">// If we are not already in a transaction, we should create a new transaction
 				// and then commit/roll it back at the end!
@@ -1736,7 +1738,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; Fold <span class="kw">for </span>ApiRuntimeImplToApiRuntimeApiImpl&lt;<span class="lifetime">&#39;a</span>&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; Fold <span class="kw">for </span>ApiRuntimeImplToApiRuntimeApiImpl&lt;<span class="lifetime">'a</span>&gt; {
 	<span class="kw">fn </span>fold_type_path(<span class="kw-2">&amp;mut </span><span class="self">self</span>, input: TypePath) -&gt; TypePath {
 		<span class="kw">let </span>new_ty_path =
 			<span class="kw">if </span>input == <span class="kw-2">*</span><span class="self">self</span>.runtime_block { <span class="macro">parse_quote!</span>(__SrApiBlock__) } <span class="kw">else </span>{ input };
@@ -1763,7 +1765,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		input
 			.generics
 			.params
-			.push(<span class="macro">parse_quote!</span>( RuntimeApiImplCall: #crate_::CallApiAt&lt;__SrApiBlock__&gt; + <span class="lifetime">&#39;static </span>));
+			.push(<span class="macro">parse_quote!</span>( RuntimeApiImplCall: #crate_::CallApiAt&lt;__SrApiBlock__&gt; + <span class="lifetime">'static </span>));
 
 		<span class="kw">let </span>where_clause = input.generics.make_where_clause();
 
@@ -1772,7 +1774,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				#crate_::StateBackend&lt;#crate_::HashingFor&lt;__SrApiBlock__&gt;&gt;
 		});
 
-		where_clause.predicates.push(<span class="macro">parse_quote! </span>{ <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>RuntimeApiImplCall: Send });
+		where_clause.predicates.push(<span class="macro">parse_quote! </span>{ <span class="kw-2">&amp;</span><span class="lifetime">'static </span>RuntimeApiImplCall: Send });
 
 		<span class="comment">// Require that all types used in the function signatures are unwind safe.
 		</span>extract_all_signature_types(<span class="kw-2">&amp;</span>input.items).iter().for_each(|i| {
@@ -1833,7 +1835,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			#( #attrs )*
 			<span class="kw">const _</span>: () = {
 				<span class="comment">// All sections with the same name are going to be merged by concatenation.
-				</span><span class="attr">#[link_section = <span class="string">&quot;runtime_apis&quot;</span>]
+				</span><span class="attr">#[link_section = <span class="string">"runtime_apis"</span>]
 				</span><span class="kw">static </span>SECTION_CONTENTS: [u8; <span class="number">12</span>] = #crate_access::serialize_runtime_api_info(#id, #version);
 			};
 		}
@@ -1860,7 +1862,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">let </span>trait_ = path
 			.segments
 			.pop()
-			.expect(<span class="string">&quot;extract_impl_trait already checks that this is valid; qed&quot;</span>)
+			.expect(<span class="string">"extract_impl_trait already checks that this is valid; qed"</span>)
 			.into_value()
 			.ident;
 
@@ -1868,12 +1870,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(other_span) = processed_traits.insert(trait_, span) {
 			<span class="kw">let </span><span class="kw-2">mut </span>error = Error::new(
 				span,
-				<span class="string">&quot;Two traits with the same name detected! \
+				<span class="string">"Two traits with the same name detected! \
 					The trait name is used to generate its ID. \
-					Please rename one trait at the declaration!&quot;</span>,
+					Please rename one trait at the declaration!"</span>,
 			);
 
-			error.combine(Error::new(other_span, <span class="string">&quot;First trait implementation.&quot;</span>));
+			error.combine(Error::new(other_span, <span class="string">"First trait implementation."</span>));
 
 			<span class="kw">return </span><span class="prelude-val">Err</span>(error)
 		}
@@ -1956,31 +1958,31 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	);
 
-	<span class="kw">let </span>impl_ = expander::Expander::new(<span class="string">&quot;impl_runtime_apis&quot;</span>)
-		.dry(std::env::var(<span class="string">&quot;EXPAND_MACROS&quot;</span>).is_err())
+	<span class="kw">let </span>impl_ = expander::Expander::new(<span class="string">"impl_runtime_apis"</span>)
+		.dry(std::env::var(<span class="string">"EXPAND_MACROS"</span>).is_err())
 		.verbose(<span class="bool-val">true</span>)
 		.write_to_out_dir(impl_)
-		.expect(<span class="string">&quot;Does not fail because of IO in OUT_DIR; qed&quot;</span>);
+		.expect(<span class="string">"Does not fail because of IO in OUT_DIR; qed"</span>);
 
 	<span class="prelude-val">Ok</span>(impl_)
 }
 
 <span class="comment">// Filters all attributes except the cfg ones.
 </span><span class="kw">fn </span>filter_cfg_attrs(attrs: <span class="kw-2">&amp;</span>[Attribute]) -&gt; Vec&lt;Attribute&gt; {
-	attrs.iter().filter(|a| a.path().is_ident(<span class="string">&quot;cfg&quot;</span>)).cloned().collect()
+	attrs.iter().filter(|a| a.path().is_ident(<span class="string">"cfg"</span>)).cloned().collect()
 }
 
 <span class="doccomment">/// Parse feature flagged api_version.
-/// E.g. `#[cfg_attr(feature = &quot;enable-staging-api&quot;, api_version(99))]`
+/// E.g. `#[cfg_attr(feature = "enable-staging-api", api_version(99))]`
 </span><span class="kw">fn </span>extract_cfg_api_version(attrs: <span class="kw-2">&amp;</span>Vec&lt;Attribute&gt;, span: Span) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;(String, u64)&gt;&gt; {
-	<span class="kw">let </span>cfg_attrs = attrs.iter().filter(|a| a.path().is_ident(<span class="string">&quot;cfg_attr&quot;</span>)).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+	<span class="kw">let </span>cfg_attrs = attrs.iter().filter(|a| a.path().is_ident(<span class="string">"cfg_attr"</span>)).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 
 	<span class="kw">let </span><span class="kw-2">mut </span>cfg_api_version_attr = Vec::new();
 	<span class="kw">for </span>cfg_attr <span class="kw">in </span>cfg_attrs {
 		<span class="kw">let </span><span class="kw-2">mut </span>feature_name = <span class="prelude-val">None</span>;
 		<span class="kw">let </span><span class="kw-2">mut </span>api_version = <span class="prelude-val">None</span>;
 		cfg_attr.parse_nested_meta(|m| {
-			<span class="kw">if </span>m.path.is_ident(<span class="string">&quot;feature&quot;</span>) {
+			<span class="kw">if </span>m.path.is_ident(<span class="string">"feature"</span>) {
 				<span class="kw">let </span>a = m.value()<span class="question-mark">?</span>;
 				<span class="kw">let </span>b: LitStr = a.parse()<span class="question-mark">?</span>;
 				feature_name = <span class="prelude-val">Some</span>(b.value());
@@ -2000,9 +2002,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">if </span>cfg_api_version_attr.len() &gt; <span class="number">1 </span>{
-		<span class="kw">let </span><span class="kw-2">mut </span>err = Error::new(span, <span class="macro">format!</span>(<span class="string">&quot;Found multiple feature gated api versions (cfg attribute with nested `{}` attribute). This is not supported.&quot;</span>, API_VERSION_ATTRIBUTE));
+		<span class="kw">let </span><span class="kw-2">mut </span>err = Error::new(span, <span class="macro">format!</span>(<span class="string">"Found multiple feature gated api versions (cfg attribute with nested `{}` attribute). This is not supported."</span>, API_VERSION_ATTRIBUTE));
 		<span class="kw">for </span>(<span class="kw">_</span>, <span class="kw">_</span>, attr_span) <span class="kw">in </span>cfg_api_version_attr {
-			err.combine(Error::new(attr_span, <span class="macro">format!</span>(<span class="string">&quot;`{}` found here&quot;</span>, API_VERSION_ATTRIBUTE)));
+			err.combine(Error::new(attr_span, <span class="macro">format!</span>(<span class="string">"`{}` found here"</span>, API_VERSION_ATTRIBUTE)));
 		}
 
 		<span class="kw">return </span><span class="prelude-val">Err</span>(err)
@@ -2018,7 +2020,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">struct </span>ApiVersion {
 	<span class="doccomment">/// Corresponds to `#[api_version(X)]` attribute.
 	</span><span class="kw">pub </span>custom: <span class="prelude-ty">Option</span>&lt;u64&gt;,
-	<span class="doccomment">/// Corresponds to `#[cfg_attr(feature = &quot;enable-staging-api&quot;, api_version(99))]`
+	<span class="doccomment">/// Corresponds to `#[cfg_attr(feature = "enable-staging-api", api_version(99))]`
 	/// attribute. `String` is the feature name, `u64` the staging api version.
 	</span><span class="kw">pub </span>feature_gated: <span class="prelude-ty">Option</span>&lt;(String, u64)&gt;,
 }
@@ -2038,8 +2040,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">return </span><span class="prelude-val">Err</span>(Error::new(
 			span,
 			<span class="macro">format!</span>(
-				<span class="string">&quot;Found multiple #[{}] attributes for an API implementation. \
-				Each runtime API can have only one version.&quot;</span>,
+				<span class="string">"Found multiple #[{}] attributes for an API implementation. \
+				Each runtime API can have only one version."</span>,
 				API_VERSION_ATTRIBUTE
 			),
 		))
@@ -2058,8 +2060,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>filter_non_cfg_attributes() {
-		<span class="kw">let </span>cfg_std: Attribute = <span class="macro">parse_quote!</span>(<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]</span>);
-		<span class="kw">let </span>cfg_benchmarks: Attribute = <span class="macro">parse_quote!</span>(<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]</span>);
+		<span class="kw">let </span>cfg_std: Attribute = <span class="macro">parse_quote!</span>(<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]</span>);
+		<span class="kw">let </span>cfg_benchmarks: Attribute = <span class="macro">parse_quote!</span>(<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]</span>);
 
 		<span class="kw">let </span>attrs = <span class="macro">vec!</span>[
 			cfg_std.clone(),

@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/staking/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/staking/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_staking" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_staking" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../pallet_staking/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1393,14 +1395,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -1430,10 +1432,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!   producing blocks or guaranteeing finality of the chain.
 //! - Nominating: The process of placing staked funds behind one or more validators in order to
 //!   share in any reward, and punishment, they take.
-//! - Stash account: The account holding an owner&#39;s funds used for staking.
-//! - Controller account (being deprecated): The account that controls an owner&#39;s funds for staking.
+//! - Stash account: The account holding an owner's funds used for staking.
+//! - Controller account (being deprecated): The account that controls an owner's funds for staking.
 //! - Era: A (whole) number of sessions, which is the period that the validator set (and each
-//!   validator&#39;s active nominator set) is recalculated and where rewards are paid out.
+//!   validator's active nominator set) is recalculated and where rewards are paid out.
 //! - Slash: The punishment of a staker by reducing its funds.
 //!
 //! ### Goals
@@ -1481,7 +1483,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!
 //! A **nominator** does not take any _direct_ role in maintaining the network, instead, it votes on
 //! a set of validators to be elected. Once interest in nomination is stated by an account, it takes
-//! effect at the next election round. The funds in the nominator&#39;s stash account indicate the
+//! effect at the next election round. The funds in the nominator's stash account indicate the
 //! _weight_ of its vote. Both the rewards and any punishment that a validator earns are shared
 //! between the validator and its nominators. This rule incentivizes the nominators to NOT vote for
 //! the misbehaving/offline validators as much as possible, simply because the nominators will also
@@ -1493,7 +1495,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!
 //! Staking is closely related to elections; actual validators are chosen from among all potential
 //! validators via election by the potential validators and nominators. To reduce use of the phrase
-//! &quot;potential validators and nominators&quot;, we often use the term **voters**, who are simply the
+//! "potential validators and nominators", we often use the term **voters**, who are simply the
 //! union of potential validators and nominators.
 //!
 //! #### Rewards and Slash
@@ -1508,7 +1510,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! number of nominators exceeds [`Config::MaxExposurePageSize`], then the exposed nominators are
 //! stored in multiple pages, with each page containing up to [`Config::MaxExposurePageSize`]
 //! nominators. To pay out all nominators, `payout_stakers` must be called once for each available
-//! page. Paging exists to limit the i/o cost to mutate storage for each nominator&#39;s account.
+//! page. Paging exists to limit the i/o cost to mutate storage for each nominator's account.
 //!
 //! Slashing can occur at any point in time, once misbehavior is reported. Once slashing is
 //! determined, a value is deducted from the balance of the validator and all the nominators who
@@ -1670,14 +1672,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!
 //! - [Balances](../pallet_balances/index.html): Used to manage values at stake.
 //! - [Session](../pallet_session/index.html): Used to manage sessions. Also, a list of new
-//!   validators is stored in the Session pallet&#39;s `Validators` at the end of each era.
+//!   validators is stored in the Session pallet's `Validators` at the end of each era.
 
-</span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
-#![recursion_limit = <span class="string">&quot;256&quot;</span>]
+</span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
+#![recursion_limit = <span class="string">"256"</span>]
 
-#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 </span><span class="kw">pub mod </span>benchmarking;
-<span class="attr">#[cfg(any(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>, test))]
+<span class="attr">#[cfg(any(feature = <span class="string">"runtime-benchmarks"</span>, test))]
 </span><span class="kw">pub mod </span>testing_utils;
 
 <span class="attr">#[cfg(test)]
@@ -1720,8 +1722,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">pub use </span>pallet::{pallet::<span class="kw-2">*</span>, UseNominatorsAndValidatorsMap, UseValidatorsMap};
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>STAKING_ID: LockIdentifier = <span class="kw-2">*</span><span class="string">b&quot;staking &quot;</span>;
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;runtime::staking&quot;</span>;
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>STAKING_ID: LockIdentifier = <span class="kw-2">*</span><span class="string">b"staking "</span>;
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"runtime::staking"</span>;
 
 <span class="comment">// syntactic sugar for logging.
 </span><span class="attr">#[macro_export]
@@ -1729,7 +1731,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	(<span class="macro-nonterminal">$level</span>:tt, <span class="macro-nonterminal">$patter</span>:expr $(, <span class="macro-nonterminal">$values</span>:expr)* $(,)<span class="question-mark">?</span>) =&gt; {
 		log::<span class="macro-nonterminal">$</span><span class="macro">level!</span>(
 			<span class="macro-nonterminal">target</span>: <span class="kw">crate</span>::LOG_TARGET,
-			<span class="macro">concat!</span>(<span class="string">&quot;[{:?}] 💸 &quot;</span>, <span class="macro-nonterminal">$patter</span>), &lt;frame_system::Pallet&lt;T&gt;&gt;::block_number() $(, <span class="macro-nonterminal">$values</span>)*
+			<span class="macro">concat!</span>(<span class="string">"[{:?}] 💸 "</span>, <span class="macro-nonterminal">$patter</span>), &lt;frame_system::Pallet&lt;T&gt;&gt;::block_number() $(, <span class="macro-nonterminal">$values</span>)*
 		)
 	};
 }
@@ -1742,7 +1744,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub type </span>MaxNominationsOf&lt;T&gt; =
 	&lt;&lt;T <span class="kw">as </span>Config&gt;::NominationsQuota <span class="kw">as </span>NominationsQuota&lt;BalanceOf&lt;T&gt;&gt;&gt;::MaxNominations;
 
-<span class="doccomment">/// Counter for the number of &quot;reward&quot; points earned by a given validator.
+<span class="doccomment">/// Counter for the number of "reward" points earned by a given validator.
 </span><span class="kw">pub type </span>RewardPoint = u32;
 
 <span class="doccomment">/// The balance type of this pallet.
@@ -1764,7 +1766,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>index: EraIndex,
 	<span class="doccomment">/// Moment of start expressed as millisecond from `$UNIX_EPOCH`.
 	///
-	/// Start can be none if start hasn&#39;t been set for the era yet,
+	/// Start can be none if start hasn't been set for the era yet,
 	/// Start is set on the first on_finalize of the era to guarantee usage of `Time`.
 	</span>start: <span class="prelude-ty">Option</span>&lt;u64&gt;,
 }
@@ -1794,7 +1796,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Pay into the stash account, not increasing the amount at stake.
 	</span>Stash,
 	<span class="attr">#[deprecated(
-		note = <span class="string">&quot;`Controller` will be removed after January 2024. Use `Account(controller)` instead.&quot;
+		note = <span class="string">"`Controller` will be removed after January 2024. Use `Account(controller)` instead."
 	</span>)]
 	</span>Controller,
 	<span class="doccomment">/// Pay into a specified account.
@@ -1822,7 +1824,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Amount of funds to be unlocked.
 	</span><span class="attr">#[codec(compact)]
 	</span>value: Balance,
-	<span class="doccomment">/// Era number at which point it&#39;ll be unlocked.
+	<span class="doccomment">/// Era number at which point it'll be unlocked.
 	</span><span class="attr">#[codec(compact)]
 	</span>era: EraIndex,
 }
@@ -1831,7 +1833,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// Note: All the reads and mutations to the [`Ledger`], [`Bonded`] and [`Payee`] storage items
 /// *MUST* be performed through the methods exposed by this struct, to ensure the consistency of
-/// ledger&#39;s data and corresponding staking lock
+/// ledger's data and corresponding staking lock
 ///
 /// TODO: move struct definition and full implementation into `/src/ledger.rs`. Currently
 /// leaving here to enforce a clean PR diff, given how critical this logic is. Tracking issue
@@ -1851,18 +1853,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// The stash account whose balance is actually locked and at stake.
 	</span><span class="kw">pub </span>stash: T::AccountId,
 
-	<span class="doccomment">/// The total amount of the stash&#39;s balance that we are currently accounting for.
-	/// It&#39;s just `active` plus all the `unlocking` balances.
+	<span class="doccomment">/// The total amount of the stash's balance that we are currently accounting for.
+	/// It's just `active` plus all the `unlocking` balances.
 	</span><span class="attr">#[codec(compact)]
 	</span><span class="kw">pub </span>total: BalanceOf&lt;T&gt;,
 
-	<span class="doccomment">/// The total amount of the stash&#39;s balance that will be at stake in any forthcoming
+	<span class="doccomment">/// The total amount of the stash's balance that will be at stake in any forthcoming
 	/// rounds.
 	</span><span class="attr">#[codec(compact)]
 	</span><span class="kw">pub </span>active: BalanceOf&lt;T&gt;,
 
 	<span class="doccomment">/// Any balance that is becoming free, which may eventually be transferred out of the stash
-	/// (assuming it doesn&#39;t get slashed first). It is assumed that this will be treated as a first
+	/// (assuming it doesn't get slashed first). It is assumed that this will be treated as a first
 	/// in, first out queue where the new (higher value) eras get pushed on the back.
 	</span><span class="kw">pub </span>unlocking: BoundedVec&lt;UnlockChunk&lt;BalanceOf&lt;T&gt;&gt;, T::MaxUnlockingChunks&gt;,
 
@@ -1873,7 +1875,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// Refer to issue &lt;https://github.com/paritytech/polkadot-sdk/issues/433&gt;
 	</span><span class="kw">pub </span>legacy_claimed_rewards: BoundedVec&lt;EraIndex, T::HistoryDepth&gt;,
 
-	<span class="doccomment">/// The controller associated with this ledger&#39;s stash.
+	<span class="doccomment">/// The controller associated with this ledger's stash.
 	///
 	/// This is not stored on-chain, and is only bundled when the ledger is read from storage.
 	/// Use [`controller`] function to get the controller associated with the ledger.
@@ -1891,7 +1893,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>Corrupted,
 	<span class="doccomment">/// Ledger was corrupted and it has been killed.
 	</span>CorruptedKilled,
-	<span class="doccomment">/// Ledger and bond are OK, however the ledger&#39;s stash lock is out of sync.
+	<span class="doccomment">/// Ledger and bond are OK, however the ledger's stash lock is out of sync.
 	</span>LockCorrupted,
 }
 
@@ -1914,7 +1916,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
 			.try_into()
 			.expect(
-				<span class="string">&quot;filtering items from a bounded vec always leaves length less than bounds. qed&quot;</span>,
+				<span class="string">"filtering items from a bounded vec always leaves length less than bounds. qed"</span>,
 			);
 
 		<span class="self">Self </span>{
@@ -2001,7 +2003,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(first_slashable_index) =
 				<span class="self">self</span>.unlocking.iter().position(|c| c.era &gt;= slashable_chunks_start)
 			{
-				<span class="comment">// If there exists a chunk who&#39;s after the first_slashable_start, then this is a
+				<span class="comment">// If there exists a chunk who's after the first_slashable_start, then this is a
 				// proportional slash, because we want to slash active and these chunks
 				// proportionally.
 
@@ -2036,7 +2038,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// Helper to update `target` and the ledgers total after accounting for slashing `target`.
 		</span><span class="macro">log!</span>(
 			debug,
-			<span class="string">&quot;slashing {:?} for era {:?} out of {:?}, priority: {:?}, proportional = {:?}&quot;</span>,
+			<span class="string">"slashing {:?} for era {:?} out of {:?}, priority: {:?}, proportional = {:?}"</span>,
 			slash_amount,
 			slash_era,
 			<span class="self">self</span>,
@@ -2050,7 +2052,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			} <span class="kw">else </span>{
 				<span class="kw-2">*</span>slash_remaining
 			}
-			<span class="comment">// this is the total that that the slash target has. We can&#39;t slash more than
+			<span class="comment">// this is the total that that the slash target has. We can't slash more than
 			// this anyhow!
 			</span>.min(<span class="kw-2">*</span>target)
 			<span class="comment">// this is the total amount that we would have wanted to slash
@@ -2060,7 +2062,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// slash out from *target exactly `slash_from_target`.
 			</span><span class="kw-2">*</span>target = <span class="kw-2">*</span>target - slash_from_target;
 			<span class="kw">if </span><span class="kw-2">*</span>target &lt; minimum_balance {
-				<span class="comment">// Slash the rest of the target if it&#39;s dust. This might cause the last chunk to be
+				<span class="comment">// Slash the rest of the target if it's dust. This might cause the last chunk to be
 				// slightly under-slashed, by at most `MaxUnlockingChunks * ED`, which is not a big
 				// deal.
 				</span>slash_from_target =
@@ -2125,7 +2127,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Facade struct to encapsulate `PagedExposureMetadata` and a single page of `ExposurePage`.
 ///
-/// This is useful where we need to take into account the validator&#39;s own stake and total exposure
+/// This is useful where we need to take into account the validator's own stake and total exposure
 /// in consideration, in addition to the individual nominators backing them.
 </span><span class="attr">#[derive(Encode, Decode, RuntimeDebug, TypeInfo, PartialEq, Eq)]
 </span><span class="kw">pub struct </span>PagedExposure&lt;AccountId, Balance: HasCompact + codec::MaxEncodedLen&gt; {
@@ -2159,7 +2161,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">self</span>.exposure_page.page_total + <span class="self">self</span>.exposure_metadata.own
 	}
 
-	<span class="doccomment">/// Returns validator&#39;s own stake that is exposed
+	<span class="doccomment">/// Returns validator's own stake that is exposed
 	</span><span class="kw">pub fn </span>own(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Balance {
 		<span class="self">self</span>.exposure_metadata.own
 	}
@@ -2176,7 +2178,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub struct </span>UnappliedSlash&lt;AccountId, Balance: HasCompact&gt; {
 	<span class="doccomment">/// The stash ID of the offending validator.
 	</span>validator: AccountId,
-	<span class="doccomment">/// The validator&#39;s own slash.
+	<span class="doccomment">/// The validator's own slash.
 	</span>own: Balance,
 	<span class="doccomment">/// All other slashed stakers and amounts.
 	</span>others: Vec&lt;(AccountId, Balance)&gt;,
@@ -2203,19 +2205,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// The method `curve` implements the nomination quota curve and should not be used directly.
 /// However, `get_quota` returns the bounded maximum number of nominations based on `fn curve` and
-/// the nominator&#39;s balance.
+/// the nominator's balance.
 </span><span class="kw">pub trait </span>NominationsQuota&lt;Balance&gt; {
 	<span class="doccomment">/// Strict maximum number of nominations that caps the nominations curve. This value can be
 	/// used as the upper bound of the number of votes per nominator.
 	</span><span class="kw">type </span>MaxNominations: Get&lt;u32&gt;;
 
-	<span class="doccomment">/// Returns the voter&#39;s nomination quota within reasonable bounds [`min`, `max`], where `min`
+	<span class="doccomment">/// Returns the voter's nomination quota within reasonable bounds [`min`, `max`], where `min`
 	/// is 1 and `max` is `Self::MaxNominations`.
 	</span><span class="kw">fn </span>get_quota(balance: Balance) -&gt; u32 {
 		<span class="self">Self</span>::curve(balance).clamp(<span class="number">1</span>, <span class="self">Self</span>::MaxNominations::get())
 	}
 
-	<span class="doccomment">/// Returns the voter&#39;s nomination quota based on its balance and a curve.
+	<span class="doccomment">/// Returns the voter's nomination quota based on its balance and a curve.
 	</span><span class="kw">fn </span>curve(balance: Balance) -&gt; u32;
 }
 
@@ -2286,7 +2288,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Determine the payout for this era.
 	///
 	/// Returns the amount to be paid to stakers in this era, as well as whatever else should be
-	/// paid out (&quot;the rest&quot;).
+	/// paid out ("the rest").
 	</span><span class="kw">fn </span>era_payout(
 		total_staked: Balance,
 		total_issuance: Balance,
@@ -2310,7 +2312,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl</span>&lt;Balance, T&gt; EraPayout&lt;Balance&gt; <span class="kw">for </span>ConvertCurve&lt;T&gt;
 <span class="kw">where
 	</span>Balance: AtLeast32BitUnsigned + Clone + Copy,
-	T: Get&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>PiecewiseLinear&lt;<span class="lifetime">&#39;static</span>&gt;&gt;,
+	T: Get&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>PiecewiseLinear&lt;<span class="lifetime">'static</span>&gt;&gt;,
 {
 	<span class="kw">fn </span>era_payout(
 		total_staked: Balance,
@@ -2471,7 +2473,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">return </span><span class="prelude-val">None
 		</span>}
 
-		<span class="kw">let </span>overview = overview.expect(<span class="string">&quot;checked above; qed&quot;</span>);
+		<span class="kw">let </span>overview = overview.expect(<span class="string">"checked above; qed"</span>);
 
 		<span class="comment">// validator stake is added only in page zero
 		</span><span class="kw">let </span>validator_stake = <span class="kw">if </span>page == <span class="number">0 </span>{ overview.own } <span class="kw">else </span>{ Zero::zero() };
@@ -2498,7 +2500,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">return </span>ErasStakers::&lt;T&gt;::get(era, validator)
 		}
 
-		<span class="kw">let </span>overview = overview.expect(<span class="string">&quot;checked above; qed&quot;</span>);
+		<span class="kw">let </span>overview = overview.expect(<span class="string">"checked above; qed"</span>);
 
 		<span class="kw">let </span><span class="kw-2">mut </span>others = Vec::with_capacity(overview.nominator_count <span class="kw">as </span>usize);
 		<span class="kw">for </span>page <span class="kw">in </span><span class="number">0</span>..overview.page_count {
@@ -2516,7 +2518,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		&lt;ErasStakersOverview&lt;T&gt;&gt;::get(<span class="kw-2">&amp;</span>era, validator)
 			.map(|overview| {
 				<span class="kw">if </span>overview.page_count == <span class="number">0 </span>&amp;&amp; overview.own &gt; Zero::zero() {
-					<span class="comment">// Even though there are no nominator pages, there is still validator&#39;s own
+					<span class="comment">// Even though there are no nominator pages, there is still validator's own
 					// stake exposed which needs to be paid out in a page.
 					</span><span class="number">1
 				</span>} <span class="kw">else </span>{
@@ -2571,8 +2573,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// this should never be called if the reward has already been claimed
 		</span><span class="kw">if </span>claimed_pages.contains(<span class="kw-2">&amp;</span>page) {
-			<span class="macro">defensive!</span>(<span class="string">&quot;Trying to set an already claimed reward&quot;</span>);
-			<span class="comment">// nevertheless don&#39;t do anything since the page already exist in claimed rewards.
+			<span class="macro">defensive!</span>(<span class="string">"Trying to set an already claimed reward"</span>);
+			<span class="comment">// nevertheless don't do anything since the page already exist in claimed rewards.
 			</span><span class="kw">return
 		</span>}
 
@@ -2596,7 +2598,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.saturating_div(page_size <span class="kw">as </span>usize);
 
 		<span class="kw">let </span>(exposure_metadata, exposure_pages) = exposure.into_pages(page_size);
-		<span class="macro">defensive_assert!</span>(exposure_pages.len() == expected_page_count, <span class="string">&quot;unexpected page count&quot;</span>);
+		<span class="macro">defensive_assert!</span>(exposure_pages.len() == expected_page_count, <span class="string">"unexpected page count"</span>);
 
 		&lt;ErasStakersOverview&lt;T&gt;&gt;::insert(era, <span class="kw-2">&amp;</span>validator, <span class="kw-2">&amp;</span>exposure_metadata);
 		exposure_pages.iter().enumerate().for_each(|(page, paged_exposure)| {
@@ -2621,10 +2623,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// A mock benchmarking config for pallet-staking.
 ///
 /// Should only be used for testing.
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+</span><span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">pub struct </span>TestBenchmarkingConfig;
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">impl </span>BenchmarkingConfig <span class="kw">for </span>TestBenchmarkingConfig {
 	<span class="kw">type </span>MaxValidators = frame_support::traits::ConstU32&lt;<span class="number">100</span>&gt;;
 	<span class="kw">type </span>MaxNominators = frame_support::traits::ConstU32&lt;<span class="number">100</span>&gt;;

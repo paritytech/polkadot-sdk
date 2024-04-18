@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/collective/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/collective/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_collective" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_collective" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../pallet_collective/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1405,14 +1407,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -1425,7 +1427,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! The pallet assumes that the amount of members stays at or below `MaxMembers` for its weight
 //! calculations, but enforces this neither in `set_members` nor in `change_members_sorted`.
 //!
-//! A &quot;prime&quot; member may be set to help determine the default vote behavior based on chain
+//! A "prime" member may be set to help determine the default vote behavior based on chain
 //! config. If `PrimeDefaultVote` is used, the prime vote acts as the default vote in case of any
 //! abstentions after the voting period. If `MoreThanMajorityThenPrimeDefaultVote` is used, then
 //! abstentions will first follow the majority of the collective voting, and then the prime
@@ -1441,7 +1443,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!
 //! If there are not, or if no prime is set, then the motion is dropped without being executed.
 
-</span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
+</span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
 </span><span class="kw">use </span>codec::{Decode, Encode, MaxEncodedLen};
 <span class="kw">use </span>scale_info::TypeInfo;
@@ -1464,13 +1466,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	weights::Weight,
 };
 
-<span class="attr">#[cfg(any(feature = <span class="string">&quot;try-runtime&quot;</span>, test))]
+<span class="attr">#[cfg(any(feature = <span class="string">"try-runtime"</span>, test))]
 </span><span class="kw">use </span>sp_runtime::TryRuntimeError;
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests;
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 </span><span class="kw">mod </span>benchmarking;
 <span class="kw">pub mod </span>migrations;
 <span class="kw">pub mod </span>weights;
@@ -1478,7 +1480,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">pub use </span>pallet::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>weights::WeightInfo;
 
-<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;runtime::collective&quot;</span>;
+<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"runtime::collective"</span>;
 
 <span class="doccomment">/// Simple index type for proposal counting.
 </span><span class="kw">pub type </span>ProposalIndex = u32;
@@ -1505,7 +1507,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; bool;
 }
 
-<span class="doccomment">/// Set the prime member&#39;s vote as the default vote.
+<span class="doccomment">/// Set the prime member's vote as the default vote.
 </span><span class="kw">pub struct </span>PrimeDefaultVote;
 
 <span class="kw">impl </span>DefaultVote <span class="kw">for </span>PrimeDefaultVote {
@@ -1520,7 +1522,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// First see if yes vote are over majority of the whole collective. If so, set the default vote
-/// as yes. Otherwise, use the prime member&#39;s vote as the default vote.
+/// as yes. Otherwise, use the prime member's vote as the default vote.
 </span><span class="kw">pub struct </span>MoreThanMajorityThenPrimeDefaultVote;
 
 <span class="kw">impl </span>DefaultVote <span class="kw">for </span>MoreThanMajorityThenPrimeDefaultVote {
@@ -1560,7 +1562,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Info for keeping track of a motion being voted on.
 </span><span class="attr">#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
 </span><span class="kw">pub struct </span>Votes&lt;AccountId, BlockNumber&gt; {
-	<span class="doccomment">/// The proposal&#39;s unique index.
+	<span class="doccomment">/// The proposal's unique index.
 	</span>index: ProposalIndex,
 	<span class="doccomment">/// The number of approval votes that are needed to pass the motion.
 	</span>threshold: MemberCount,
@@ -1587,7 +1589,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub struct </span>Pallet&lt;T, I = ()&gt;(PhantomData&lt;(T, I)&gt;);
 
 	<span class="attr">#[pallet::config]
-	</span><span class="kw">pub trait </span>Config&lt;I: <span class="lifetime">&#39;static </span>= ()&gt;: frame_system::Config {
+	</span><span class="kw">pub trait </span>Config&lt;I: <span class="lifetime">'static </span>= ()&gt;: frame_system::Config {
 		<span class="doccomment">/// The runtime origin type.
 		</span><span class="kw">type </span>RuntimeOrigin: From&lt;RawOrigin&lt;<span class="self">Self</span>::AccountId, I&gt;&gt;;
 
@@ -1632,25 +1634,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
-	</span><span class="kw">pub struct </span>GenesisConfig&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; {
+	</span><span class="kw">pub struct </span>GenesisConfig&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; {
 		<span class="attr">#[serde(skip)]
 		</span><span class="kw">pub </span>phantom: PhantomData&lt;I&gt;,
 		<span class="kw">pub </span>members: Vec&lt;T::AccountId&gt;,
 	}
 
 	<span class="attr">#[pallet::genesis_build]
-	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; BuildGenesisConfig <span class="kw">for </span>GenesisConfig&lt;T, I&gt; {
+	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; BuildGenesisConfig <span class="kw">for </span>GenesisConfig&lt;T, I&gt; {
 		<span class="kw">fn </span>build(<span class="kw-2">&amp;</span><span class="self">self</span>) {
 			<span class="kw">use </span>sp_std::collections::btree_set::BTreeSet;
 			<span class="kw">let </span>members_set: BTreeSet&lt;<span class="kw">_</span>&gt; = <span class="self">self</span>.members.iter().collect();
 			<span class="macro">assert_eq!</span>(
 				members_set.len(),
 				<span class="self">self</span>.members.len(),
-				<span class="string">&quot;Members cannot contain duplicate accounts.&quot;
+				<span class="string">"Members cannot contain duplicate accounts."
 			</span>);
 			<span class="macro">assert!</span>(
 				<span class="self">self</span>.members.len() &lt;= T::MaxMembers::get() <span class="kw">as </span>usize,
-				<span class="string">&quot;Members length cannot exceed MaxMembers.&quot;</span>,
+				<span class="string">"Members length cannot exceed MaxMembers."</span>,
 			);
 
 			Pallet::&lt;T, I&gt;::initialize_members(<span class="kw-2">&amp;</span><span class="self">self</span>.members)
@@ -1663,35 +1665,35 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// The hashes of the active proposals.
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub type </span>Proposals&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; =
+	</span><span class="kw">pub type </span>Proposals&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; =
 		StorageValue&lt;<span class="kw">_</span>, BoundedVec&lt;T::Hash, T::MaxProposals&gt;, ValueQuery&gt;;
 
-	<span class="doccomment">/// Actual proposal for a given hash, if it&#39;s current.
+	<span class="doccomment">/// Actual proposal for a given hash, if it's current.
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub type </span>ProposalOf&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; =
+	</span><span class="kw">pub type </span>ProposalOf&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; =
 		StorageMap&lt;<span class="kw">_</span>, Identity, T::Hash, &lt;T <span class="kw">as </span>Config&lt;I&gt;&gt;::Proposal, OptionQuery&gt;;
 
 	<span class="doccomment">/// Votes on a given proposal, if it is ongoing.
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub type </span>Voting&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; =
+	</span><span class="kw">pub type </span>Voting&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; =
 		StorageMap&lt;<span class="kw">_</span>, Identity, T::Hash, Votes&lt;T::AccountId, BlockNumberFor&lt;T&gt;&gt;, OptionQuery&gt;;
 
 	<span class="doccomment">/// Proposals so far.
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub type </span>ProposalCount&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; = StorageValue&lt;<span class="kw">_</span>, u32, ValueQuery&gt;;
+	</span><span class="kw">pub type </span>ProposalCount&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; = StorageValue&lt;<span class="kw">_</span>, u32, ValueQuery&gt;;
 
 	<span class="doccomment">/// The current members of the collective. This is stored sorted (just by value).
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub type </span>Members&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; =
+	</span><span class="kw">pub type </span>Members&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; =
 		StorageValue&lt;<span class="kw">_</span>, Vec&lt;T::AccountId&gt;, ValueQuery&gt;;
 
 	<span class="doccomment">/// The prime member that helps determine the default vote behavior in case of abstentions.
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub type </span>Prime&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; = StorageValue&lt;<span class="kw">_</span>, T::AccountId, OptionQuery&gt;;
+	</span><span class="kw">pub type </span>Prime&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; = StorageValue&lt;<span class="kw">_</span>, T::AccountId, OptionQuery&gt;;
 
 	<span class="attr">#[pallet::event]
 	#[pallet::generate_deposit(<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>deposit_event)]
-	</span><span class="kw">pub enum </span>Event&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; {
+	</span><span class="kw">pub enum </span>Event&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; {
 		<span class="doccomment">/// A motion (given hash) has been proposed (by given account) with a threshold (given
 		/// `MemberCount`).
 		</span>Proposed {
@@ -1748,8 +1750,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="attr">#[pallet::hooks]
-	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; Hooks&lt;BlockNumberFor&lt;T&gt;&gt; <span class="kw">for </span>Pallet&lt;T, I&gt; {
-		<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Hooks&lt;BlockNumberFor&lt;T&gt;&gt; <span class="kw">for </span>Pallet&lt;T, I&gt; {
+		<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 		</span><span class="kw">fn </span>try_state(_n: BlockNumberFor&lt;T&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
 			<span class="self">Self</span>::do_try_state()
 		}
@@ -1757,8 +1759,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="comment">// Note that councillor operations are assigned to the operational class.
 	</span><span class="attr">#[pallet::call]
-	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; Pallet&lt;T, I&gt; {
-		<span class="doccomment">/// Set the collective&#39;s membership.
+	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Pallet&lt;T, I&gt; {
+		<span class="doccomment">/// Set the collective's membership.
 		///
 		/// - `new_members`: The new member list. Be nice to the chain and provide it sorted.
 		/// - `prime`: The prime member whose vote sets the default.
@@ -1774,7 +1776,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		///
 		/// The `pallet-collective` can also be managed by logic outside of the pallet through the
 		/// implementation of the trait [`ChangeMembers`].
-		/// Any call to `set_members` must be careful that the member set doesn&#39;t get out of sync
+		/// Any call to `set_members` must be careful that the member set doesn't get out of sync
 		/// with other logic managing the member set.
 		///
 		/// ## Complexity:
@@ -1801,7 +1803,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">if </span>new_members.len() &gt; T::MaxMembers::get() <span class="kw">as </span>usize {
 				<span class="macro">log::error!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;New members count ({}) exceeds maximum amount of members expected ({}).&quot;</span>,
+					<span class="string">"New members count ({}) exceeds maximum amount of members expected ({})."</span>,
 					new_members.len(),
 					T::MaxMembers::get(),
 				);
@@ -1811,7 +1813,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">if </span>old.len() &gt; old_count <span class="kw">as </span>usize {
 				<span class="macro">log::warn!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Wrong count used to estimate set_members weight. expected ({}) vs actual ({})&quot;</span>,
+					<span class="string">"Wrong count used to estimate set_members weight. expected ({}) vs actual ({})"</span>,
 					old_count,
 					old.len(),
 				);
@@ -2060,7 +2062,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; Pallet&lt;T, I&gt; {
+<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Pallet&lt;T, I&gt; {
 	<span class="doccomment">/// Check whether `who` is a member of the collective.
 	</span><span class="kw">pub fn </span>is_member(who: <span class="kw-2">&amp;</span>T::AccountId) -&gt; bool {
 		<span class="comment">// Note: The dispatchables *do not* use this to check membership so make sure
@@ -2135,7 +2137,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Ok</span>((proposal_len <span class="kw">as </span>u32, active_proposals <span class="kw">as </span>u32))
 	}
 
-	<span class="doccomment">/// Add an aye or nay vote for the member to the given proposal, returns true if it&#39;s the first
+	<span class="doccomment">/// Add an aye or nay vote for the member to the given proposal, returns true if it's the first
 	/// vote of the member in the motion
 	</span><span class="kw">pub fn </span>do_vote(
 		who: T::AccountId,
@@ -2372,13 +2374,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// Looking at prime account:
 	/// * The prime account must be a member of the collective.
-	</span><span class="attr">#[cfg(any(feature = <span class="string">&quot;try-runtime&quot;</span>, test))]
+	</span><span class="attr">#[cfg(any(feature = <span class="string">"try-runtime"</span>, test))]
 	</span><span class="kw">fn </span>do_try_state() -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
 		Proposals::&lt;T, I&gt;::get().into_iter().try_for_each(
 			|proposal| -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
 				<span class="macro">ensure!</span>(
 					ProposalOf::&lt;T, I&gt;::get(proposal).is_some(),
-					<span class="string">&quot;Proposal hash from `Proposals` is not found inside the `ProposalOf` mapping.&quot;
+					<span class="string">"Proposal hash from `Proposals` is not found inside the `ProposalOf` mapping."
 				</span>);
 				<span class="prelude-val">Ok</span>(())
 			},
@@ -2386,11 +2388,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="macro">ensure!</span>(
 			Proposals::&lt;T, I&gt;::get().into_iter().count() &lt;= ProposalCount::&lt;T, I&gt;::get() <span class="kw">as </span>usize,
-			<span class="string">&quot;The actual number of proposals is greater than `ProposalCount`&quot;
+			<span class="string">"The actual number of proposals is greater than `ProposalCount`"
 		</span>);
 		<span class="macro">ensure!</span>(
 			Proposals::&lt;T, I&gt;::get().into_iter().count() == &lt;ProposalOf&lt;T, I&gt;&gt;::iter_keys().count(),
-			<span class="string">&quot;Proposal count inside `Proposals` is not equal to the proposal count in `ProposalOf`&quot;
+			<span class="string">"Proposal count inside `Proposals` is not equal to the proposal count in `ProposalOf`"
 		</span>);
 
 		Proposals::&lt;T, I&gt;::get().into_iter().try_for_each(
@@ -2401,7 +2403,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 					<span class="macro">ensure!</span>(
 						ayes.saturating_add(nays) &lt;= T::MaxMembers::get() <span class="kw">as </span>usize,
-						<span class="string">&quot;The sum of ayes and nays is greater than `MaxMembers`&quot;
+						<span class="string">"The sum of ayes and nays is greater than `MaxMembers`"
 					</span>);
 				}
 				<span class="prelude-val">Ok</span>(())
@@ -2415,7 +2417,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw">let </span>proposal_index = votes.index;
 					<span class="macro">ensure!</span>(
 						!proposal_indices.contains(<span class="kw-2">&amp;</span>proposal_index),
-						<span class="string">&quot;The proposal index is not unique.&quot;
+						<span class="string">"The proposal index is not unique."
 					</span>);
 					proposal_indices.push(proposal_index);
 				}
@@ -2427,7 +2429,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			|proposal_hash| -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
 				<span class="macro">ensure!</span>(
 					Proposals::&lt;T, I&gt;::get().contains(<span class="kw-2">&amp;</span>proposal_hash),
-					<span class="string">&quot;`Proposals` doesn&#39;t contain the proposal hash from the `Voting` storage map.&quot;
+					<span class="string">"`Proposals` doesn't contain the proposal hash from the `Voting` storage map."
 				</span>);
 				<span class="prelude-val">Ok</span>(())
 			},
@@ -2435,23 +2437,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="macro">ensure!</span>(
 			Members::&lt;T, I&gt;::get().len() &lt;= T::MaxMembers::get() <span class="kw">as </span>usize,
-			<span class="string">&quot;The member count is greater than `MaxMembers`.&quot;
+			<span class="string">"The member count is greater than `MaxMembers`."
 		</span>);
 
 		<span class="macro">ensure!</span>(
 			Members::&lt;T, I&gt;::get().windows(<span class="number">2</span>).all(|members| members[<span class="number">0</span>] &lt;= members[<span class="number">1</span>]),
-			<span class="string">&quot;The members are not sorted by value.&quot;
+			<span class="string">"The members are not sorted by value."
 		</span>);
 
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(prime) = Prime::&lt;T, I&gt;::get() {
-			<span class="macro">ensure!</span>(Members::&lt;T, I&gt;::get().contains(<span class="kw-2">&amp;</span>prime), <span class="string">&quot;Prime account is not a member.&quot;</span>);
+			<span class="macro">ensure!</span>(Members::&lt;T, I&gt;::get().contains(<span class="kw-2">&amp;</span>prime), <span class="string">"Prime account is not a member."</span>);
 		}
 
 		<span class="prelude-val">Ok</span>(())
 	}
 }
 
-<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; ChangeMembers&lt;T::AccountId&gt; <span class="kw">for </span>Pallet&lt;T, I&gt; {
+<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; ChangeMembers&lt;T::AccountId&gt; <span class="kw">for </span>Pallet&lt;T, I&gt; {
 	<span class="doccomment">/// Update the members of the collective. Votes are updated and the prime is reset.
 	///
 	/// NOTE: Does not enforce the expected `MaxMembers` limit on the amount of members, but
@@ -2470,7 +2472,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if </span>new.len() &gt; T::MaxMembers::get() <span class="kw">as </span>usize {
 			<span class="macro">log::error!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;New members count ({}) exceeds maximum amount of members expected ({}).&quot;</span>,
+				<span class="string">"New members count ({}) exceeds maximum amount of members expected ({})."</span>,
 				new.len(),
 				T::MaxMembers::get(),
 			);
@@ -2508,10 +2510,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; InitializeMembers&lt;T::AccountId&gt; <span class="kw">for </span>Pallet&lt;T, I&gt; {
+<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; InitializeMembers&lt;T::AccountId&gt; <span class="kw">for </span>Pallet&lt;T, I&gt; {
 	<span class="kw">fn </span>initialize_members(members: <span class="kw-2">&amp;</span>[T::AccountId]) {
 		<span class="kw">if </span>!members.is_empty() {
-			<span class="macro">assert!</span>(&lt;Members&lt;T, I&gt;&gt;::get().is_empty(), <span class="string">&quot;Members are already initialized!&quot;</span>);
+			<span class="macro">assert!</span>(&lt;Members&lt;T, I&gt;&gt;::get().is_empty(), <span class="string">"Members are already initialized!"</span>);
 			<span class="kw">let </span><span class="kw-2">mut </span>members = members.to_vec();
 			members.sort();
 			&lt;Members&lt;T, I&gt;&gt;::put(members);
@@ -2524,17 +2526,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub fn </span>ensure_members&lt;OuterOrigin, AccountId, I&gt;(
 	o: OuterOrigin,
 	n: MemberCount,
-) -&gt; result::Result&lt;MemberCount, <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt;
+) -&gt; result::Result&lt;MemberCount, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt;
 <span class="kw">where
 	</span>OuterOrigin: Into&lt;result::Result&lt;RawOrigin&lt;AccountId, I&gt;, OuterOrigin&gt;&gt;,
 {
 	<span class="kw">match </span>o.into() {
 		<span class="prelude-val">Ok</span>(RawOrigin::Members(x, <span class="kw">_</span>)) <span class="kw">if </span>x &gt;= n =&gt; <span class="prelude-val">Ok</span>(n),
-		<span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(<span class="string">&quot;bad origin: expected to be a threshold number of members&quot;</span>),
+		<span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(<span class="string">"bad origin: expected to be a threshold number of members"</span>),
 	}
 }
 
-<span class="kw">pub struct </span>EnsureMember&lt;AccountId, I: <span class="lifetime">&#39;static</span>&gt;(PhantomData&lt;(AccountId, I)&gt;);
+<span class="kw">pub struct </span>EnsureMember&lt;AccountId, I: <span class="lifetime">'static</span>&gt;(PhantomData&lt;(AccountId, I)&gt;);
 <span class="kw">impl</span>&lt;
 		O: Into&lt;<span class="prelude-ty">Result</span>&lt;RawOrigin&lt;AccountId, I&gt;, O&gt;&gt; + From&lt;RawOrigin&lt;AccountId, I&gt;&gt;,
 		I,
@@ -2549,22 +2551,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		})
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">fn </span>try_successful_origin() -&gt; <span class="prelude-ty">Result</span>&lt;O, ()&gt; {
 		<span class="kw">let </span>zero_account_id =
 			AccountId::decode(<span class="kw-2">&amp;mut </span>sp_runtime::traits::TrailingZeroInput::zeroes())
-				.expect(<span class="string">&quot;infinite length input; no invalid inputs for type; qed&quot;</span>);
+				.expect(<span class="string">"infinite length input; no invalid inputs for type; qed"</span>);
 		<span class="prelude-val">Ok</span>(O::from(RawOrigin::Member(zero_account_id)))
 	}
 }
 
 <span class="macro">impl_ensure_origin_with_arg_ignoring_arg! </span>{
-	<span class="kw">impl</span>&lt; { O: .., I: <span class="lifetime">&#39;static</span>, AccountId: Decode, T } &gt;
+	<span class="kw">impl</span>&lt; { O: .., I: <span class="lifetime">'static</span>, AccountId: Decode, T } &gt;
 		EnsureOriginWithArg&lt;O, T&gt; <span class="kw">for </span>EnsureMember&lt;AccountId, I&gt;
 	{}
 }
 
-<span class="kw">pub struct </span>EnsureMembers&lt;AccountId, I: <span class="lifetime">&#39;static</span>, <span class="kw">const </span>N: u32&gt;(PhantomData&lt;(AccountId, I)&gt;);
+<span class="kw">pub struct </span>EnsureMembers&lt;AccountId, I: <span class="lifetime">'static</span>, <span class="kw">const </span>N: u32&gt;(PhantomData&lt;(AccountId, I)&gt;);
 <span class="kw">impl</span>&lt;
 		O: Into&lt;<span class="prelude-ty">Result</span>&lt;RawOrigin&lt;AccountId, I&gt;, O&gt;&gt; + From&lt;RawOrigin&lt;AccountId, I&gt;&gt;,
 		AccountId,
@@ -2580,19 +2582,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		})
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">fn </span>try_successful_origin() -&gt; <span class="prelude-ty">Result</span>&lt;O, ()&gt; {
 		<span class="prelude-val">Ok</span>(O::from(RawOrigin::Members(N, N)))
 	}
 }
 
 <span class="macro">impl_ensure_origin_with_arg_ignoring_arg! </span>{
-	<span class="kw">impl</span>&lt; { O: .., I: <span class="lifetime">&#39;static</span>, <span class="kw">const </span>N: u32, AccountId, T } &gt;
+	<span class="kw">impl</span>&lt; { O: .., I: <span class="lifetime">'static</span>, <span class="kw">const </span>N: u32, AccountId, T } &gt;
 		EnsureOriginWithArg&lt;O, T&gt; <span class="kw">for </span>EnsureMembers&lt;AccountId, I, N&gt;
 	{}
 }
 
-<span class="kw">pub struct </span>EnsureProportionMoreThan&lt;AccountId, I: <span class="lifetime">&#39;static</span>, <span class="kw">const </span>N: u32, <span class="kw">const </span>D: u32&gt;(
+<span class="kw">pub struct </span>EnsureProportionMoreThan&lt;AccountId, I: <span class="lifetime">'static</span>, <span class="kw">const </span>N: u32, <span class="kw">const </span>D: u32&gt;(
 	PhantomData&lt;(AccountId, I)&gt;,
 );
 <span class="kw">impl</span>&lt;
@@ -2611,19 +2613,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		})
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">fn </span>try_successful_origin() -&gt; <span class="prelude-ty">Result</span>&lt;O, ()&gt; {
 		<span class="prelude-val">Ok</span>(O::from(RawOrigin::Members(<span class="number">1u32</span>, <span class="number">0u32</span>)))
 	}
 }
 
 <span class="macro">impl_ensure_origin_with_arg_ignoring_arg! </span>{
-	<span class="kw">impl</span>&lt; { O: .., I: <span class="lifetime">&#39;static</span>, <span class="kw">const </span>N: u32, <span class="kw">const </span>D: u32, AccountId, T } &gt;
+	<span class="kw">impl</span>&lt; { O: .., I: <span class="lifetime">'static</span>, <span class="kw">const </span>N: u32, <span class="kw">const </span>D: u32, AccountId, T } &gt;
 		EnsureOriginWithArg&lt;O, T&gt; <span class="kw">for </span>EnsureProportionMoreThan&lt;AccountId, I, N, D&gt;
 	{}
 }
 
-<span class="kw">pub struct </span>EnsureProportionAtLeast&lt;AccountId, I: <span class="lifetime">&#39;static</span>, <span class="kw">const </span>N: u32, <span class="kw">const </span>D: u32&gt;(
+<span class="kw">pub struct </span>EnsureProportionAtLeast&lt;AccountId, I: <span class="lifetime">'static</span>, <span class="kw">const </span>N: u32, <span class="kw">const </span>D: u32&gt;(
 	PhantomData&lt;(AccountId, I)&gt;,
 );
 <span class="kw">impl</span>&lt;
@@ -2642,14 +2644,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		})
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">fn </span>try_successful_origin() -&gt; <span class="prelude-ty">Result</span>&lt;O, ()&gt; {
 		<span class="prelude-val">Ok</span>(O::from(RawOrigin::Members(<span class="number">0u32</span>, <span class="number">0u32</span>)))
 	}
 }
 
 <span class="macro">impl_ensure_origin_with_arg_ignoring_arg! </span>{
-	<span class="kw">impl</span>&lt; { O: .., I: <span class="lifetime">&#39;static</span>, <span class="kw">const </span>N: u32, <span class="kw">const </span>D: u32, AccountId, T } &gt;
+	<span class="kw">impl</span>&lt; { O: .., I: <span class="lifetime">'static</span>, <span class="kw">const </span>N: u32, <span class="kw">const </span>D: u32, AccountId, T } &gt;
 		EnsureOriginWithArg&lt;O, T&gt; <span class="kw">for </span>EnsureProportionAtLeast&lt;AccountId, I, N, D&gt;
 	{}
 }

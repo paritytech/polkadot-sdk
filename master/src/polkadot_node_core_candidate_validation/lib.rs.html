@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/core/candidate-validation/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/core/candidate-validation/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_node_core_candidate_validation" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_node_core_candidate_validation" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../polkadot_node_core_candidate_validation/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1193,7 +1195,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests;
 
-<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;parachain::candidate-validation&quot;</span>;
+<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"parachain::candidate-validation"</span>;
 
 <span class="doccomment">/// The amount of time to wait before retrying after a retry-able approval validation error. We use
 /// a higher value for the approval case since we have more time, and if we wait longer it is more
@@ -1248,9 +1250,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>start(<span class="self">self</span>, ctx: Context) -&gt; SpawnedSubsystem {
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(config) = <span class="self">self</span>.config {
 			<span class="kw">let </span>future = run(ctx, <span class="self">self</span>.metrics, <span class="self">self</span>.pvf_metrics, config)
-				.map_err(|e| SubsystemError::with_origin(<span class="string">&quot;candidate-validation&quot;</span>, e))
+				.map_err(|e| SubsystemError::with_origin(<span class="string">"candidate-validation"</span>, e))
 				.boxed();
-			SpawnedSubsystem { name: <span class="string">&quot;candidate-validation-subsystem&quot;</span>, future }
+			SpawnedSubsystem { name: <span class="string">"candidate-validation-subsystem"</span>, future }
 		} <span class="kw">else </span>{
 			polkadot_overseer::DummySubsystem.start(ctx)
 		}
@@ -1358,7 +1360,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		pvf_metrics,
 	)
 	.<span class="kw">await</span><span class="question-mark">?</span>;
-	ctx.spawn_blocking(<span class="string">&quot;pvf-validation-host&quot;</span>, task.boxed())<span class="question-mark">?</span>;
+	ctx.spawn_blocking(<span class="string">"pvf-validation-host"</span>, task.boxed())<span class="question-mark">?</span>;
 
 	<span class="kw">let </span><span class="kw-2">mut </span>tasks = FuturesUnordered::new();
 
@@ -1384,7 +1386,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			}
 		}
 
-		<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="string">&quot;Validation task limit hit&quot;</span>);
+		<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="string">"Validation task limit hit"</span>);
 
 		<span class="kw">loop </span>{
 			<span class="macro">futures::select! </span>{
@@ -1424,7 +1426,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	receiver
 		.<span class="kw">await
 		</span>.map_err(|<span class="kw">_</span>| {
-			<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="question-mark">?</span>relay_parent, <span class="string">&quot;Runtime API request dropped&quot;</span>);
+			<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="question-mark">?</span>relay_parent, <span class="string">"Runtime API request dropped"</span>);
 
 			RuntimeRequestFailed
 		})
@@ -1434,7 +1436,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					target: LOG_TARGET,
 					<span class="question-mark">?</span>relay_parent,
 					err = <span class="question-mark">?</span>e,
-					<span class="string">&quot;Runtime API request internal error&quot;
+					<span class="string">"Runtime API request internal error"
 				</span>);
 
 				RuntimeRequestFailed
@@ -1473,14 +1475,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">match </span>request_validation_code_by_hash(sender, relay_parent, validation_code_hash).<span class="kw">await </span>{
 			<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(code)) =&gt; code,
 			<span class="kw">_ </span>=&gt; {
-				<span class="comment">// The reasoning why this is &quot;failed&quot; and not invalid is because we assume that
+				<span class="comment">// The reasoning why this is "failed" and not invalid is because we assume that
 				// during pre-checking voting the relay-chain will pin the code. In case the code
 				// actually is not there, we issue failed since this looks more like a bug.
 				</span><span class="macro">gum::warn!</span>(
 					target: LOG_TARGET,
 					<span class="question-mark">?</span>relay_parent,
 					<span class="question-mark">?</span>validation_code_hash,
-					<span class="string">&quot;precheck: requested validation code is not found on-chain!&quot;</span>,
+					<span class="string">"precheck: requested validation code is not found on-chain!"</span>,
 				);
 				<span class="kw">return </span>PreCheckOutcome::Failed
 			},
@@ -1492,7 +1494,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				target: LOG_TARGET,
 				<span class="question-mark">?</span>relay_parent,
 				<span class="question-mark">?</span>validation_code_hash,
-				<span class="string">&quot;precheck: acquired executor params for the session: {:?}&quot;</span>,
+				<span class="string">"precheck: acquired executor params for the session: {:?}"</span>,
 				executor_params,
 			);
 			executor_params
@@ -1501,7 +1503,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				target: LOG_TARGET,
 				<span class="question-mark">?</span>relay_parent,
 				<span class="question-mark">?</span>validation_code_hash,
-				<span class="string">&quot;precheck: failed to acquire executor params for the session, thus voting against.&quot;</span>,
+				<span class="string">"precheck: failed to acquire executor params for the session, thus voting against."</span>,
 			);
 			<span class="kw">return </span>PreCheckOutcome::Invalid
 		};
@@ -1519,7 +1521,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			PrepareJobKind::Prechecking,
 		),
 		<span class="prelude-val">Err</span>(e) =&gt; {
-			<span class="macro">gum::debug!</span>(target: LOG_TARGET, err=<span class="question-mark">?</span>e, <span class="string">&quot;precheck: cannot decompress validation code&quot;</span>);
+			<span class="macro">gum::debug!</span>(target: LOG_TARGET, err=<span class="question-mark">?</span>e, <span class="string">"precheck: cannot decompress validation code"</span>);
 			<span class="kw">return </span>PreCheckOutcome::Invalid
 		},
 	};
@@ -1602,7 +1604,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">const </span>ASSUMPTIONS: <span class="kw-2">&amp;</span>[OccupiedCoreAssumption] = <span class="kw-2">&amp;</span>[
 		OccupiedCoreAssumption::Included,
 		OccupiedCoreAssumption::TimedOut,
-		<span class="comment">// `TimedOut` and `Free` both don&#39;t perform any speculation and therefore should be the
+		<span class="comment">// `TimedOut` and `Free` both don't perform any speculation and therefore should be the
 		// same for our purposes here. In other words, if `TimedOut` matched then the `Free` must
 		// be matched as well.
 	</span>];
@@ -1640,7 +1642,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
 		},
 		AssumptionCheckOutcome::BadRequest =&gt;
-			<span class="prelude-val">Err</span>(ValidationFailed(<span class="string">&quot;Assumption Check: Bad request&quot;</span>.into())),
+			<span class="prelude-val">Err</span>(ValidationFailed(<span class="string">"Assumption Check: Bad request"</span>.into())),
 	}
 }
 
@@ -1692,7 +1694,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Ok</span>(<span class="bool-val">true</span>) =&gt; {},
 			<span class="prelude-val">Ok</span>(<span class="bool-val">false</span>) =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(ValidationResult::Invalid(InvalidCandidate::InvalidOutputs)),
 			<span class="prelude-val">Err</span>(RuntimeRequestFailed) =&gt;
-				<span class="kw">return </span><span class="prelude-val">Err</span>(ValidationFailed(<span class="string">&quot;Check Validation Outputs: Bad request&quot;</span>.into())),
+				<span class="kw">return </span><span class="prelude-val">Err</span>(ValidationFailed(<span class="string">"Check Validation Outputs: Bad request"</span>.into())),
 		}
 	}
 
@@ -1717,7 +1719,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		target: LOG_TARGET,
 		<span class="question-mark">?</span>validation_code_hash,
 		<span class="question-mark">?</span>para_id,
-		<span class="string">&quot;About to validate a candidate.&quot;</span>,
+		<span class="string">"About to validate a candidate."</span>,
 	);
 
 	<span class="kw">if let </span><span class="prelude-val">Err</span>(e) = perform_basic_checks(
@@ -1726,7 +1728,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw-2">&amp;</span>pov,
 		<span class="kw-2">&amp;</span>validation_code_hash,
 	) {
-		<span class="macro">gum::info!</span>(target: LOG_TARGET, <span class="question-mark">?</span>para_id, <span class="string">&quot;Invalid candidate (basic checks)&quot;</span>);
+		<span class="macro">gum::info!</span>(target: LOG_TARGET, <span class="question-mark">?</span>para_id, <span class="string">"Invalid candidate (basic checks)"</span>);
 		<span class="kw">return </span><span class="prelude-val">Ok</span>(ValidationResult::Invalid(e))
 	}
 
@@ -1736,11 +1738,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) {
 		<span class="prelude-val">Ok</span>(code) =&gt; code,
 		<span class="prelude-val">Err</span>(e) =&gt; {
-			<span class="macro">gum::info!</span>(target: LOG_TARGET, <span class="question-mark">?</span>para_id, err=<span class="question-mark">?</span>e, <span class="string">&quot;Invalid candidate (validation code)&quot;</span>);
+			<span class="macro">gum::info!</span>(target: LOG_TARGET, <span class="question-mark">?</span>para_id, err=<span class="question-mark">?</span>e, <span class="string">"Invalid candidate (validation code)"</span>);
 
 			<span class="comment">// Code already passed pre-checking, if decompression fails now this most likely means
 			// some local corruption happened.
-			</span><span class="kw">return </span><span class="prelude-val">Err</span>(ValidationFailed(<span class="string">&quot;Code decompression failed&quot;</span>.to_string()))
+			</span><span class="kw">return </span><span class="prelude-val">Err</span>(ValidationFailed(<span class="string">"Code decompression failed"</span>.to_string()))
 		},
 	};
 	metrics.observe_code_size(raw_validation_code.len());
@@ -1750,7 +1752,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">match </span>sp_maybe_compressed_blob::decompress(<span class="kw-2">&amp;</span>pov.block_data.<span class="number">0</span>, POV_BOMB_LIMIT) {
 			<span class="prelude-val">Ok</span>(block_data) =&gt; BlockData(block_data.to_vec()),
 			<span class="prelude-val">Err</span>(e) =&gt; {
-				<span class="macro">gum::info!</span>(target: LOG_TARGET, <span class="question-mark">?</span>para_id, err=<span class="question-mark">?</span>e, <span class="string">&quot;Invalid candidate (PoV code)&quot;</span>);
+				<span class="macro">gum::info!</span>(target: LOG_TARGET, <span class="question-mark">?</span>para_id, err=<span class="question-mark">?</span>e, <span class="string">"Invalid candidate (PoV code)"</span>);
 
 				<span class="comment">// If the PoV is invalid, the candidate certainly is.
 				</span><span class="kw">return </span><span class="prelude-val">Ok</span>(ValidationResult::Invalid(InvalidCandidate::PoVDecompressionFailure))
@@ -1793,7 +1795,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	};
 
 	<span class="kw">if let </span><span class="prelude-val">Err</span>(<span class="kw-2">ref </span>error) = result {
-		<span class="macro">gum::info!</span>(target: LOG_TARGET, <span class="question-mark">?</span>para_id, <span class="question-mark">?</span>error, <span class="string">&quot;Failed to validate candidate&quot;</span>);
+		<span class="macro">gum::info!</span>(target: LOG_TARGET, <span class="question-mark">?</span>para_id, <span class="question-mark">?</span>error, <span class="string">"Failed to validate candidate"</span>);
 	}
 
 	<span class="kw">match </span>result {
@@ -1802,7 +1804,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				target: LOG_TARGET,
 				<span class="question-mark">?</span>para_id,
 				<span class="question-mark">?</span>e,
-				<span class="string">&quot;An internal error occurred during validation, will abstain from voting&quot;</span>,
+				<span class="string">"An internal error occurred during validation, will abstain from voting"</span>,
 			);
 			<span class="prelude-val">Err</span>(ValidationFailed(e.to_string()))
 		},
@@ -1812,7 +1814,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Ok</span>(ValidationResult::Invalid(InvalidCandidate::ExecutionError(e))),
 		<span class="prelude-val">Err</span>(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousWorkerDeath)) =&gt;
 			<span class="prelude-val">Ok</span>(ValidationResult::Invalid(InvalidCandidate::ExecutionError(
-				<span class="string">&quot;ambiguous worker death&quot;</span>.to_string(),
+				<span class="string">"ambiguous worker death"</span>.to_string(),
 			))),
 		<span class="prelude-val">Err</span>(ValidationError::PossiblyInvalid(PossiblyInvalidError::JobError(err))) =&gt;
 			<span class="prelude-val">Ok</span>(ValidationResult::Invalid(InvalidCandidate::ExecutionError(err))),
@@ -1821,20 +1823,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="prelude-val">Err</span>(ValidationError::PossiblyInvalid(PossiblyInvalidError::AmbiguousJobDeath(err))) =&gt;
 			<span class="prelude-val">Ok</span>(ValidationResult::Invalid(InvalidCandidate::ExecutionError(<span class="macro">format!</span>(
-				<span class="string">&quot;ambiguous job death: {err}&quot;
+				<span class="string">"ambiguous job death: {err}"
 			</span>)))),
 		<span class="prelude-val">Err</span>(ValidationError::Preparation(e)) =&gt; {
 			<span class="macro">gum::warn!</span>(
 				target: LOG_TARGET,
 				<span class="question-mark">?</span>para_id,
 				<span class="question-mark">?</span>e,
-				<span class="string">&quot;Deterministic error occurred during preparation (should have been ruled out by pre-checking phase)&quot;</span>,
+				<span class="string">"Deterministic error occurred during preparation (should have been ruled out by pre-checking phase)"</span>,
 			);
 			<span class="prelude-val">Err</span>(ValidationFailed(e.to_string()))
 		},
 		<span class="prelude-val">Ok</span>(res) =&gt;
 			<span class="kw">if </span>res.head_data.hash() != candidate_receipt.descriptor.para_head {
-				<span class="macro">gum::info!</span>(target: LOG_TARGET, <span class="question-mark">?</span>para_id, <span class="string">&quot;Invalid candidate (para_head)&quot;</span>);
+				<span class="macro">gum::info!</span>(target: LOG_TARGET, <span class="question-mark">?</span>para_id, <span class="string">"Invalid candidate (para_head)"</span>);
 				<span class="prelude-val">Ok</span>(ValidationResult::Invalid(InvalidCandidate::ParaHeadHashMismatch))
 			} <span class="kw">else </span>{
 				<span class="kw">let </span>outputs = CandidateCommitments {
@@ -1849,7 +1851,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="macro">gum::info!</span>(
 						target: LOG_TARGET,
 						<span class="question-mark">?</span>para_id,
-						<span class="string">&quot;Invalid candidate (commitments hash)&quot;
+						<span class="string">"Invalid candidate (commitments hash)"
 					</span>);
 
 					<span class="comment">// If validation produced a new set of commitments, we treat the candidate as
@@ -1966,7 +1968,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					target: LOG_TARGET,
 					<span class="question-mark">?</span>pvf,
 					<span class="question-mark">?</span>new_timeout,
-					<span class="string">&quot;Re-trying failed candidate validation due to possible transient error: {:?}&quot;</span>,
+					<span class="string">"Re-trying failed candidate validation due to possible transient error: {:?}"</span>,
 					validation_result
 				);
 
@@ -1997,7 +1999,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>(tx, rx) = oneshot::channel();
 		<span class="kw">if let </span><span class="prelude-val">Err</span>(err) = <span class="self">self</span>.execute_pvf(pvf, exec_timeout, encoded_params, priority, tx).<span class="kw">await </span>{
 			<span class="kw">return </span><span class="prelude-val">Err</span>(InternalValidationError::HostCommunication(<span class="macro">format!</span>(
-				<span class="string">&quot;cannot send pvf to the validation host, it might have shut down: {:?}&quot;</span>,
+				<span class="string">"cannot send pvf to the validation host, it might have shut down: {:?}"</span>,
 				err
 			))
 			.into())
@@ -2005,7 +2007,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		rx.<span class="kw">await</span>.map_err(|<span class="kw">_</span>| {
 			ValidationError::from(InternalValidationError::HostCommunication(
-				<span class="string">&quot;validation was cancelled&quot;</span>.into(),
+				<span class="string">"validation was cancelled"</span>.into(),
 			))
 		})<span class="question-mark">?
 	</span>}

@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/consensus/beefy/src/metrics.rs`."><title>metrics.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/consensus/beefy/src/metrics.rs`."><title>metrics.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_consensus_beefy" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_consensus_beefy" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sc_consensus_beefy/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -518,7 +520,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Helper trait for registering BEEFY metrics to Prometheus registry.
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">trait </span>PrometheusRegister&lt;T: Sized = <span class="self">Self</span>&gt;: Sized {
-	<span class="kw">const </span>DESCRIPTION: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str;
+	<span class="kw">const </span>DESCRIPTION: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str;
 	<span class="kw">fn </span>register(registry: <span class="kw-2">&amp;</span>Registry) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, PrometheusError&gt;;
 }
 
@@ -558,96 +560,96 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl </span>PrometheusRegister <span class="kw">for </span>VoterMetrics {
-	<span class="kw">const </span>DESCRIPTION: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;voter&quot;</span>;
+	<span class="kw">const </span>DESCRIPTION: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"voter"</span>;
 	<span class="kw">fn </span>register(registry: <span class="kw-2">&amp;</span>Registry) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, PrometheusError&gt; {
 		<span class="prelude-val">Ok</span>(<span class="self">Self </span>{
 			beefy_validator_set_id: register(
 				Gauge::new(
-					<span class="string">&quot;substrate_beefy_validator_set_id&quot;</span>,
-					<span class="string">&quot;Current BEEFY active validator set id.&quot;</span>,
+					<span class="string">"substrate_beefy_validator_set_id"</span>,
+					<span class="string">"Current BEEFY active validator set id."</span>,
 				)<span class="question-mark">?</span>,
 				registry,
 			)<span class="question-mark">?</span>,
 			beefy_votes_sent: register(
-				Counter::new(<span class="string">&quot;substrate_beefy_votes_sent&quot;</span>, <span class="string">&quot;Number of votes sent by this node&quot;</span>)<span class="question-mark">?</span>,
+				Counter::new(<span class="string">"substrate_beefy_votes_sent"</span>, <span class="string">"Number of votes sent by this node"</span>)<span class="question-mark">?</span>,
 				registry,
 			)<span class="question-mark">?</span>,
 			beefy_best_block: register(
-				Gauge::new(<span class="string">&quot;substrate_beefy_best_block&quot;</span>, <span class="string">&quot;Best block finalized by BEEFY&quot;</span>)<span class="question-mark">?</span>,
+				Gauge::new(<span class="string">"substrate_beefy_best_block"</span>, <span class="string">"Best block finalized by BEEFY"</span>)<span class="question-mark">?</span>,
 				registry,
 			)<span class="question-mark">?</span>,
 			beefy_best_voted: register(
-				Gauge::new(<span class="string">&quot;substrate_beefy_best_voted&quot;</span>, <span class="string">&quot;Best block voted on by BEEFY&quot;</span>)<span class="question-mark">?</span>,
+				Gauge::new(<span class="string">"substrate_beefy_best_voted"</span>, <span class="string">"Best block voted on by BEEFY"</span>)<span class="question-mark">?</span>,
 				registry,
 			)<span class="question-mark">?</span>,
 			beefy_should_vote_on: register(
-				Gauge::new(<span class="string">&quot;substrate_beefy_should_vote_on&quot;</span>, <span class="string">&quot;Next block, BEEFY should vote on&quot;</span>)<span class="question-mark">?</span>,
+				Gauge::new(<span class="string">"substrate_beefy_should_vote_on"</span>, <span class="string">"Next block, BEEFY should vote on"</span>)<span class="question-mark">?</span>,
 				registry,
 			)<span class="question-mark">?</span>,
 			beefy_lagging_sessions: register(
 				Counter::new(
-					<span class="string">&quot;substrate_beefy_lagging_sessions&quot;</span>,
-					<span class="string">&quot;Number of sessions with lagging signed commitment on mandatory block&quot;</span>,
+					<span class="string">"substrate_beefy_lagging_sessions"</span>,
+					<span class="string">"Number of sessions with lagging signed commitment on mandatory block"</span>,
 				)<span class="question-mark">?</span>,
 				registry,
 			)<span class="question-mark">?</span>,
 			beefy_no_authority_found_in_store: register(
 				Counter::new(
-					<span class="string">&quot;substrate_beefy_no_authority_found_in_store&quot;</span>,
-					<span class="string">&quot;Number of times no Authority public key found in store&quot;</span>,
+					<span class="string">"substrate_beefy_no_authority_found_in_store"</span>,
+					<span class="string">"Number of times no Authority public key found in store"</span>,
 				)<span class="question-mark">?</span>,
 				registry,
 			)<span class="question-mark">?</span>,
 			beefy_good_votes_processed: register(
 				Counter::new(
-					<span class="string">&quot;substrate_beefy_successful_handled_votes&quot;</span>,
-					<span class="string">&quot;Number of good votes successfully handled&quot;</span>,
+					<span class="string">"substrate_beefy_successful_handled_votes"</span>,
+					<span class="string">"Number of good votes successfully handled"</span>,
 				)<span class="question-mark">?</span>,
 				registry,
 			)<span class="question-mark">?</span>,
 			beefy_equivocation_votes: register(
 				Counter::new(
-					<span class="string">&quot;substrate_beefy_equivocation_votes&quot;</span>,
-					<span class="string">&quot;Number of equivocation votes received&quot;</span>,
+					<span class="string">"substrate_beefy_equivocation_votes"</span>,
+					<span class="string">"Number of equivocation votes received"</span>,
 				)<span class="question-mark">?</span>,
 				registry,
 			)<span class="question-mark">?</span>,
 			beefy_invalid_votes: register(
-				Counter::new(<span class="string">&quot;substrate_beefy_invalid_votes&quot;</span>, <span class="string">&quot;Number of invalid votes received&quot;</span>)<span class="question-mark">?</span>,
+				Counter::new(<span class="string">"substrate_beefy_invalid_votes"</span>, <span class="string">"Number of invalid votes received"</span>)<span class="question-mark">?</span>,
 				registry,
 			)<span class="question-mark">?</span>,
 			beefy_stale_votes: register(
 				Counter::new(
-					<span class="string">&quot;substrate_beefy_stale_votes&quot;</span>,
-					<span class="string">&quot;Number of valid but stale votes received&quot;</span>,
+					<span class="string">"substrate_beefy_stale_votes"</span>,
+					<span class="string">"Number of valid but stale votes received"</span>,
 				)<span class="question-mark">?</span>,
 				registry,
 			)<span class="question-mark">?</span>,
 			beefy_buffered_justifications: register(
 				Gauge::new(
-					<span class="string">&quot;substrate_beefy_buffered_justifications&quot;</span>,
-					<span class="string">&quot;Number of currently buffered justifications&quot;</span>,
+					<span class="string">"substrate_beefy_buffered_justifications"</span>,
+					<span class="string">"Number of currently buffered justifications"</span>,
 				)<span class="question-mark">?</span>,
 				registry,
 			)<span class="question-mark">?</span>,
 			beefy_stale_justifications: register(
 				Counter::new(
-					<span class="string">&quot;substrate_beefy_stale_justifications&quot;</span>,
-					<span class="string">&quot;Number of valid but stale justifications received&quot;</span>,
+					<span class="string">"substrate_beefy_stale_justifications"</span>,
+					<span class="string">"Number of valid but stale justifications received"</span>,
 				)<span class="question-mark">?</span>,
 				registry,
 			)<span class="question-mark">?</span>,
 			beefy_imported_justifications: register(
 				Counter::new(
-					<span class="string">&quot;substrate_beefy_imported_justifications&quot;</span>,
-					<span class="string">&quot;Number of valid justifications successfully imported&quot;</span>,
+					<span class="string">"substrate_beefy_imported_justifications"</span>,
+					<span class="string">"Number of valid justifications successfully imported"</span>,
 				)<span class="question-mark">?</span>,
 				registry,
 			)<span class="question-mark">?</span>,
 			beefy_buffered_justifications_dropped: register(
 				Counter::new(
-					<span class="string">&quot;substrate_beefy_buffered_justifications_dropped&quot;</span>,
-					<span class="string">&quot;Number of justifications dropped due to full buffers&quot;</span>,
+					<span class="string">"substrate_beefy_buffered_justifications_dropped"</span>,
+					<span class="string">"Number of justifications dropped due to full buffers"</span>,
 				)<span class="question-mark">?</span>,
 				registry,
 			)<span class="question-mark">?</span>,
@@ -665,20 +667,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl </span>PrometheusRegister <span class="kw">for </span>BlockImportMetrics {
-	<span class="kw">const </span>DESCRIPTION: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;block-import&quot;</span>;
+	<span class="kw">const </span>DESCRIPTION: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"block-import"</span>;
 	<span class="kw">fn </span>register(registry: <span class="kw-2">&amp;</span>Registry) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, PrometheusError&gt; {
 		<span class="prelude-val">Ok</span>(<span class="self">Self </span>{
 			beefy_good_justification_imports: register(
 				Counter::new(
-					<span class="string">&quot;substrate_beefy_good_justification_imports&quot;</span>,
-					<span class="string">&quot;Number of good justifications on block-import&quot;</span>,
+					<span class="string">"substrate_beefy_good_justification_imports"</span>,
+					<span class="string">"Number of good justifications on block-import"</span>,
 				)<span class="question-mark">?</span>,
 				registry,
 			)<span class="question-mark">?</span>,
 			beefy_bad_justification_imports: register(
 				Counter::new(
-					<span class="string">&quot;substrate_beefy_bad_justification_imports&quot;</span>,
-					<span class="string">&quot;Number of bad justifications on block-import&quot;</span>,
+					<span class="string">"substrate_beefy_bad_justification_imports"</span>,
+					<span class="string">"Number of bad justifications on block-import"</span>,
 				)<span class="question-mark">?</span>,
 				registry,
 			)<span class="question-mark">?</span>,
@@ -696,20 +698,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl </span>PrometheusRegister <span class="kw">for </span>OnDemandIncomingRequestsMetrics {
-	<span class="kw">const </span>DESCRIPTION: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;on-demand incoming justification requests&quot;</span>;
+	<span class="kw">const </span>DESCRIPTION: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"on-demand incoming justification requests"</span>;
 	<span class="kw">fn </span>register(registry: <span class="kw-2">&amp;</span>Registry) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, PrometheusError&gt; {
 		<span class="prelude-val">Ok</span>(<span class="self">Self </span>{
 			beefy_successful_justification_responses: register(
 				Counter::new(
-					<span class="string">&quot;substrate_beefy_successful_justification_responses&quot;</span>,
-					<span class="string">&quot;Number of Successful Justification responses&quot;</span>,
+					<span class="string">"substrate_beefy_successful_justification_responses"</span>,
+					<span class="string">"Number of Successful Justification responses"</span>,
 				)<span class="question-mark">?</span>,
 				registry,
 			)<span class="question-mark">?</span>,
 			beefy_failed_justification_responses: register(
 				Counter::new(
-					<span class="string">&quot;substrate_beefy_failed_justification_responses&quot;</span>,
-					<span class="string">&quot;Number of Failed Justification responses&quot;</span>,
+					<span class="string">"substrate_beefy_failed_justification_responses"</span>,
+					<span class="string">"Number of Failed Justification responses"</span>,
 				)<span class="question-mark">?</span>,
 				registry,
 			)<span class="question-mark">?</span>,
@@ -733,41 +735,41 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl </span>PrometheusRegister <span class="kw">for </span>OnDemandOutgoingRequestsMetrics {
-	<span class="kw">const </span>DESCRIPTION: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;on-demand outgoing justification requests&quot;</span>;
+	<span class="kw">const </span>DESCRIPTION: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"on-demand outgoing justification requests"</span>;
 	<span class="kw">fn </span>register(registry: <span class="kw-2">&amp;</span>Registry) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, PrometheusError&gt; {
 		<span class="prelude-val">Ok</span>(<span class="self">Self </span>{
 			beefy_on_demand_justification_no_peer_to_request_from: register(
 				Counter::new(
-					<span class="string">&quot;substrate_beefy_on_demand_justification_no_peer_to_request_from&quot;</span>,
-					<span class="string">&quot;Number of times there was no good peer to request justification from&quot;</span>,
+					<span class="string">"substrate_beefy_on_demand_justification_no_peer_to_request_from"</span>,
+					<span class="string">"Number of times there was no good peer to request justification from"</span>,
 				)<span class="question-mark">?</span>,
 				registry,
 			)<span class="question-mark">?</span>,
 			beefy_on_demand_justification_peer_refused: register(
 				Counter::new(
-					<span class="string">&quot;beefy_on_demand_justification_peer_refused&quot;</span>,
-					<span class="string">&quot;Number of on-demand justification peer refused valid requests&quot;</span>,
+					<span class="string">"beefy_on_demand_justification_peer_refused"</span>,
+					<span class="string">"Number of on-demand justification peer refused valid requests"</span>,
 				)<span class="question-mark">?</span>,
 				registry,
 			)<span class="question-mark">?</span>,
 			beefy_on_demand_justification_peer_error: register(
 				Counter::new(
-					<span class="string">&quot;substrate_beefy_on_demand_justification_peer_error&quot;</span>,
-					<span class="string">&quot;Number of on-demand justification peer error&quot;</span>,
+					<span class="string">"substrate_beefy_on_demand_justification_peer_error"</span>,
+					<span class="string">"Number of on-demand justification peer error"</span>,
 				)<span class="question-mark">?</span>,
 				registry,
 			)<span class="question-mark">?</span>,
 			beefy_on_demand_justification_invalid_proof: register(
 				Counter::new(
-					<span class="string">&quot;substrate_beefy_on_demand_justification_invalid_proof&quot;</span>,
-					<span class="string">&quot;Number of on-demand justification invalid proof&quot;</span>,
+					<span class="string">"substrate_beefy_on_demand_justification_invalid_proof"</span>,
+					<span class="string">"Number of on-demand justification invalid proof"</span>,
 				)<span class="question-mark">?</span>,
 				registry,
 			)<span class="question-mark">?</span>,
 			beefy_on_demand_justification_good_proof: register(
 				Counter::new(
-					<span class="string">&quot;substrate_beefy_on_demand_justification_good_proof&quot;</span>,
-					<span class="string">&quot;Number of on-demand justification good proof&quot;</span>,
+					<span class="string">"substrate_beefy_on_demand_justification_good_proof"</span>,
+					<span class="string">"Number of on-demand justification good proof"</span>,
 				)<span class="question-mark">?</span>,
 				registry,
 			)<span class="question-mark">?</span>,
@@ -780,13 +782,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ) -&gt; <span class="prelude-ty">Option</span>&lt;T&gt; {
 	prometheus_registry.as_ref().map(T::register).and_then(|result| <span class="kw">match </span>result {
 		<span class="prelude-val">Ok</span>(metrics) =&gt; {
-			<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;🥩 Registered {} metrics&quot;</span>, T::DESCRIPTION);
+			<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"🥩 Registered {} metrics"</span>, T::DESCRIPTION);
 			<span class="prelude-val">Some</span>(metrics)
 		},
 		<span class="prelude-val">Err</span>(err) =&gt; {
 			<span class="macro">error!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;🥩 Failed to register {} metrics: {:?}&quot;</span>,
+				<span class="string">"🥩 Failed to register {} metrics: {:?}"</span>,
 				T::DESCRIPTION,
 				err
 			);
@@ -800,7 +802,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[macro_export]
 </span><span class="macro">macro_rules! </span>metric_set {
 	(<span class="macro-nonterminal">$metrics</span>:expr, <span class="macro-nonterminal">$m</span>:ident, <span class="macro-nonterminal">$v</span>:expr) =&gt; {{
-		<span class="kw">let </span>val: u64 = <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, <span class="macro-nonterminal">$v</span>).parse().unwrap();
+		<span class="kw">let </span>val: u64 = <span class="macro">format!</span>(<span class="string">"{}"</span>, <span class="macro-nonterminal">$v</span>).parse().unwrap();
 
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="macro-nonterminal">$metrics</span>.as_ref() {
 			metrics.<span class="macro-nonterminal">$m</span>.set(val);

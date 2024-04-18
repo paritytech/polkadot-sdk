@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/network/statement-distribution/src/v2/candidates.rs`."><title>candidates.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/network/statement-distribution/src/v2/candidates.rs`."><title>candidates.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_statement_distribution" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_statement_distribution" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../polkadot_statement_distribution/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1474,7 +1476,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! about candidates just as a hash, alongside claimed properties that the
 //! receipt would commit to. However, it is only later on that we can
 //! confirm those claimed properties. This store lets us keep track of
-//! all candidates which are currently &#39;relevant&#39; after spam-protection, and
+//! all candidates which are currently 'relevant' after spam-protection, and
 //! gives us the ability to detect mis-advertisements after the fact
 //! and punish them accordingly.
 
@@ -1509,7 +1511,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// The hypothetical candidate used to determine importability and membership
 	/// in the hypothetical frontier.
 	</span><span class="kw">pub </span>hypothetical: HypotheticalCandidate,
-	<span class="doccomment">/// A &quot;reckoning&quot; of peers who have advertised the candidate previously,
+	<span class="doccomment">/// A "reckoning" of peers who have advertised the candidate previously,
 	/// either accurately or inaccurately.
 	</span><span class="kw">pub </span>reckoning: PostConfirmationReckoning,
 }
@@ -1621,9 +1623,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			}),
 		);
 		<span class="kw">let </span>new_confirmed =
-			<span class="kw">match </span><span class="self">self</span>.candidates.get_mut(<span class="kw-2">&amp;</span>candidate_hash).expect(<span class="string">&quot;just inserted; qed&quot;</span>) {
+			<span class="kw">match </span><span class="self">self</span>.candidates.get_mut(<span class="kw-2">&amp;</span>candidate_hash).expect(<span class="string">"just inserted; qed"</span>) {
 				CandidateState::Confirmed(x) =&gt; x,
-				<span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;just inserted as confirmed; qed&quot;</span>),
+				<span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"just inserted as confirmed; qed"</span>),
 			};
 
 		<span class="self">self</span>.by_parent.entry((parent_hash, para_id)).or_default().insert(candidate_hash);
@@ -1685,7 +1687,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="doccomment">/// Get a reference to the candidate, if it&#39;s known and confirmed.
+	<span class="doccomment">/// Get a reference to the candidate, if it's known and confirmed.
 	</span><span class="kw">pub fn </span>get_confirmed(<span class="kw-2">&amp;</span><span class="self">self</span>, candidate_hash: <span class="kw-2">&amp;</span>CandidateHash) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>ConfirmedCandidate&gt; {
 		<span class="kw">match </span><span class="self">self</span>.candidates.get(candidate_hash) {
 			<span class="prelude-val">Some</span>(CandidateState::Confirmed(<span class="kw-2">ref </span>c)) =&gt; <span class="prelude-val">Some</span>(c),
@@ -1742,9 +1744,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		parent: <span class="prelude-ty">Option</span>&lt;(Hash, ParaId)&gt;,
 	) -&gt; Vec&lt;HypotheticalCandidate&gt; {
-		<span class="kw">fn </span>extend_hypotheticals&lt;<span class="lifetime">&#39;a</span>&gt;(
+		<span class="kw">fn </span>extend_hypotheticals&lt;<span class="lifetime">'a</span>&gt;(
 			v: <span class="kw-2">&amp;mut </span>Vec&lt;HypotheticalCandidate&gt;,
-			i: <span class="kw">impl </span>IntoIterator&lt;Item = (<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>CandidateHash, <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>CandidateState)&gt;,
+			i: <span class="kw">impl </span>IntoIterator&lt;Item = (<span class="kw-2">&amp;</span><span class="lifetime">'a </span>CandidateHash, <span class="kw-2">&amp;</span><span class="lifetime">'a </span>CandidateState)&gt;,
 			maybe_required_parent: <span class="prelude-ty">Option</span>&lt;(Hash, ParaId)&gt;,
 		) {
 			<span class="kw">for </span>(c_hash, candidate) <span class="kw">in </span>i {
@@ -1810,7 +1812,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="macro">gum::trace!</span>(
 			target: <span class="kw">crate</span>::LOG_TARGET,
-			<span class="string">&quot;Candidates remaining after cleanup: {}&quot;</span>,
+			<span class="string">"Candidates remaining after cleanup: {}"</span>,
 			<span class="self">self</span>.candidates.len(),
 		);
 	}
@@ -1937,10 +1939,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		v: <span class="kw-2">&amp;mut </span>Vec&lt;HypotheticalCandidate&gt;,
 		required_parent: <span class="prelude-ty">Option</span>&lt;(Hash, ParaId)&gt;,
 	) {
-		<span class="kw">fn </span>extend_hypotheticals_inner&lt;<span class="lifetime">&#39;a</span>&gt;(
+		<span class="kw">fn </span>extend_hypotheticals_inner&lt;<span class="lifetime">'a</span>&gt;(
 			candidate_hash: CandidateHash,
 			v: <span class="kw-2">&amp;mut </span>Vec&lt;HypotheticalCandidate&gt;,
-			i: <span class="kw">impl </span>IntoIterator&lt;Item = (<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>(Hash, ParaId), <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Vec&lt;(Hash, usize)&gt;)&gt;,
+			i: <span class="kw">impl </span>IntoIterator&lt;Item = (<span class="kw-2">&amp;</span><span class="lifetime">'a </span>(Hash, ParaId), <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Vec&lt;(Hash, usize)&gt;)&gt;,
 		) {
 			<span class="kw">for </span>((parent_head_hash, para_id), possible_relay_parents) <span class="kw">in </span>i {
 				<span class="kw">for </span>(relay_parent, _rc) <span class="kw">in </span>possible_relay_parents {
@@ -2002,7 +2004,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Whether the candidate is importable.
-	</span><span class="kw">pub fn </span>is_importable&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, under_active_leaf: <span class="kw">impl </span>Into&lt;<span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Hash&gt;&gt;) -&gt; bool {
+	</span><span class="kw">pub fn </span>is_importable&lt;<span class="lifetime">'a</span>&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, under_active_leaf: <span class="kw">impl </span>Into&lt;<span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>Hash&gt;&gt;) -&gt; bool {
 		<span class="kw">match </span>under_active_leaf.into() {
 			<span class="prelude-val">Some</span>(h) =&gt; <span class="self">self</span>.importable_under.contains(h),
 			<span class="prelude-val">None </span>=&gt; !<span class="self">self</span>.importable_under.is_empty(),
@@ -2015,7 +2017,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Get the group index of the assigned group. Note that this is in the context
-	/// of the state of the chain at the candidate&#39;s relay parent and its para-id.
+	/// of the state of the chain at the candidate's relay parent and its para-id.
 	</span><span class="kw">pub fn </span>group_index(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; GroupIndex {
 		<span class="self">self</span>.assigned_group
 	}
@@ -2130,7 +2132,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="comment">// Tests that:
 	//
 	// - When the advertisement matches, confirming does not change the parent hash index.
-	// - When it doesn&#39;t match, confirming updates the index. Specifically, confirming should prune
+	// - When it doesn't match, confirming updates the index. Specifically, confirming should prune
 	//   unconfirmed claims.
 	</span><span class="attr">#[test]
 	</span><span class="kw">fn </span>confirming_maintains_parent_hash_index() {

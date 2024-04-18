@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/consensus/babe/rpc/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/consensus/babe/rpc/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_consensus_babe_rpc" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_consensus_babe_rpc" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sc_consensus_babe_rpc/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -473,7 +475,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub trait </span>BabeApi {
 	<span class="doccomment">/// Returns data about which slots (primary or secondary) can be claimed in the current epoch
 	/// with the keys in the keystore.
-	</span><span class="attr">#[method(name = <span class="string">&quot;babe_epochAuthorship&quot;</span>)]
+	</span><span class="attr">#[method(name = <span class="string">"babe_epochAuthorship"</span>)]
 	</span><span class="kw">async fn </span>epoch_authorship(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;HashMap&lt;AuthorityId, EpochAuthorship&gt;, Error&gt;;
 }
 
@@ -511,9 +513,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	C: ProvideRuntimeApi&lt;B&gt;
 		+ HeaderBackend&lt;B&gt;
 		+ HeaderMetadata&lt;B, Error = BlockChainError&gt;
-		+ <span class="lifetime">&#39;static</span>,
+		+ <span class="lifetime">'static</span>,
 	C::Api: BabeRuntimeApi&lt;B&gt;,
-	SC: SelectChain&lt;B&gt; + Clone + <span class="lifetime">&#39;static</span>,
+	SC: SelectChain&lt;B&gt; + Clone + <span class="lifetime">'static</span>,
 {
 	<span class="kw">async fn </span>epoch_authorship(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;HashMap&lt;AuthorityId, EpochAuthorship&gt;, Error&gt; {
 		<span class="self">self</span>.deny_unsafe.check_if_safe()<span class="question-mark">?</span>;
@@ -572,7 +574,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="doccomment">/// Holds information about the `slot`&#39;s that can be claimed by a given key.
+<span class="doccomment">/// Holds information about the `slot`'s that can be claimed by a given key.
 </span><span class="attr">#[derive(Clone, Default, Debug, Deserialize, Serialize)]
 </span><span class="kw">pub struct </span>EpochAuthorship {
 	<span class="doccomment">/// the array of primary slots that can be claimed
@@ -587,16 +589,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[derive(Debug, thiserror::Error)]
 </span><span class="kw">pub enum </span>Error {
 	<span class="doccomment">/// Failed to fetch the current best header.
-	</span><span class="attr">#[error(<span class="string">&quot;Failed to fetch the current best header: {0}&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"Failed to fetch the current best header: {0}"</span>)]
 	</span>SelectChain(ConsensusError),
 	<span class="doccomment">/// Failed to fetch epoch data.
-	</span><span class="attr">#[error(<span class="string">&quot;Failed to fetch epoch data&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"Failed to fetch epoch data"</span>)]
 	</span>FetchEpoch,
 	<span class="doccomment">/// Consensus error
 	</span><span class="attr">#[error(transparent)]
 	</span>Consensus(<span class="attr">#[from] </span>ConsensusError),
 	<span class="doccomment">/// Errors that can be formatted as a String
-	</span><span class="attr">#[error(<span class="string">&quot;{0}&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"{0}"</span>)]
 	</span>StringError(String),
 	<span class="doccomment">/// Call to an unsafe RPC was denied.
 	</span><span class="attr">#[error(transparent)]
@@ -633,7 +635,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>keystore = MemoryKeystore::new();
 		keystore
 			.sr25519_generate_new(BABE, <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>authority.to_seed()))
-			.expect(<span class="string">&quot;Creates authority key&quot;</span>);
+			.expect(<span class="string">"Creates authority key"</span>);
 		keystore.into()
 	}
 
@@ -646,12 +648,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>task_executor = TaskExecutor::new();
 		<span class="kw">let </span>keystore = create_keystore(Sr25519Keyring::Alice);
 
-		<span class="kw">let </span>config = sc_consensus_babe::configuration(<span class="kw-2">&amp;*</span>client).expect(<span class="string">&quot;config available&quot;</span>);
+		<span class="kw">let </span>config = sc_consensus_babe::configuration(<span class="kw-2">&amp;*</span>client).expect(<span class="string">"config available"</span>);
 		<span class="kw">let </span>slot_duration = config.slot_duration();
 
 		<span class="kw">let </span>(block_import, link) =
 			sc_consensus_babe::block_import(config.clone(), client.clone(), client.clone())
-				.expect(<span class="string">&quot;can initialize block-import&quot;</span>);
+				.expect(<span class="string">"can initialize block-import"</span>);
 
 		<span class="kw">let </span>(<span class="kw">_</span>, babe_worker_handle) = sc_consensus_babe::import_queue(ImportQueueParams {
 			link: link.clone(),
@@ -682,9 +684,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>babe_rpc = test_babe_rpc_module(DenyUnsafe::No);
 		<span class="kw">let </span>api = babe_rpc.into_rpc();
 
-		<span class="kw">let </span>request = <span class="string">r#&quot;{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;babe_epochAuthorship&quot;,&quot;params&quot;: [],&quot;id&quot;:1}&quot;#</span>;
+		<span class="kw">let </span>request = <span class="string">r#"{"jsonrpc":"2.0","method":"babe_epochAuthorship","params": [],"id":1}"#</span>;
 		<span class="kw">let </span>(response, <span class="kw">_</span>) = api.raw_json_request(request, <span class="number">1</span>).<span class="kw">await</span>.unwrap();
-		<span class="kw">let </span>expected = <span class="string">r#&quot;{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;result&quot;:{&quot;5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY&quot;:{&quot;primary&quot;:[0],&quot;secondary&quot;:[],&quot;secondary_vrf&quot;:[1,2,4]}},&quot;id&quot;:1}&quot;#</span>;
+		<span class="kw">let </span>expected = <span class="string">r#"{"jsonrpc":"2.0","result":{"5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY":{"primary":[0],"secondary":[],"secondary_vrf":[1,2,4]}},"id":1}"#</span>;
 
 		<span class="macro">assert_eq!</span>(response, expected);
 	}
@@ -694,9 +696,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>babe_rpc = test_babe_rpc_module(DenyUnsafe::Yes);
 		<span class="kw">let </span>api = babe_rpc.into_rpc();
 
-		<span class="kw">let </span>request = <span class="string">r#&quot;{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;babe_epochAuthorship&quot;,&quot;params&quot;:[],&quot;id&quot;:1}&quot;#</span>;
+		<span class="kw">let </span>request = <span class="string">r#"{"jsonrpc":"2.0","method":"babe_epochAuthorship","params":[],"id":1}"#</span>;
 		<span class="kw">let </span>(response, <span class="kw">_</span>) = api.raw_json_request(request, <span class="number">1</span>).<span class="kw">await</span>.unwrap();
-		<span class="kw">let </span>expected = <span class="string">r#&quot;{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;error&quot;:{&quot;code&quot;:-32601,&quot;message&quot;:&quot;RPC call is unsafe to be called externally&quot;},&quot;id&quot;:1}&quot;#</span>;
+		<span class="kw">let </span>expected = <span class="string">r#"{"jsonrpc":"2.0","error":{"code":-32601,"message":"RPC call is unsafe to be called externally"},"id":1}"#</span>;
 
 		<span class="macro">assert_eq!</span>(response, expected);
 	}

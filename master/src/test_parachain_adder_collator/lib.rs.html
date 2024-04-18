@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/parachain/test-parachains/adder/collator/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/parachain/test-parachains/adder/collator/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="test_parachain_adder_collator" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="test_parachain_adder_collator" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../test_parachain_adder_collator/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -580,7 +582,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">while </span>head.number &lt; number {
 		<span class="kw">let </span>block = BlockData { state, add: ADD };
-		head = execute(head.hash(), head.clone(), <span class="kw-2">&amp;</span>block).expect(<span class="string">&quot;Produces valid block&quot;</span>);
+		head = execute(head.hash(), head.clone(), <span class="kw-2">&amp;</span>block).expect(<span class="string">"Produces valid block"</span>);
 		state = state.wrapping_add(ADD);
 	}
 
@@ -623,7 +625,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		};
 
 		<span class="kw">let </span>new_head =
-			execute(parent_head.hash(), parent_head, <span class="kw-2">&amp;</span>block).expect(<span class="string">&quot;Produces valid block&quot;</span>);
+			execute(parent_head.hash(), parent_head, <span class="kw-2">&amp;</span>block).expect(<span class="string">"Produces valid block"</span>);
 
 		<span class="kw">let </span>new_head_arc = Arc::new(new_head.clone());
 		<span class="self">self</span>.head_to_state.insert(new_head_arc.clone(), block.state.wrapping_add(ADD));
@@ -637,9 +639,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// per relay parent.
 </span><span class="attr">#[derive(Default)]
 </span><span class="kw">pub struct </span>LocalCollatorState {
-	<span class="doccomment">/// First relay block number on which we&#39;ve built on.
+	<span class="doccomment">/// First relay block number on which we've built on.
 	</span>first_relay_parent: <span class="prelude-ty">Option</span>&lt;u32&gt;,
-	<span class="doccomment">/// Last relay block number on which we&#39;ve built on.
+	<span class="doccomment">/// Last relay block number on which we've built on.
 	</span>last_relay_parent: <span class="prelude-ty">Option</span>&lt;u32&gt;,
 }
 
@@ -652,10 +654,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				// once per relay parent.
 				</span><span class="kw">if </span>new_relay_parent &gt; last_relay_parent {
 					<span class="kw">let </span>building_for = (new_relay_parent - first_relay_parent) <span class="kw">as </span>f32;
-					<span class="comment">// Round it up, as we don&#39;t expect perfect runs in CI.
+					<span class="comment">// Round it up, as we don't expect perfect runs in CI.
 					</span><span class="kw">let </span>velocity = (best_block <span class="kw">as </span>f32 / building_for).ceil() <span class="kw">as </span>u32;
 
-					<span class="macro">log::info!</span>(<span class="string">&quot;Parachain velocity: {:}&quot;</span>, velocity);
+					<span class="macro">log::info!</span>(<span class="string">"Parachain velocity: {:}"</span>, velocity);
 				}
 			},
 			<span class="kw">_ </span>=&gt; {},
@@ -694,7 +696,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.unwrap()
 			.number_to_head
 			.get(<span class="kw-2">&amp;</span><span class="number">0</span>)
-			.expect(<span class="string">&quot;Genesis header exists&quot;</span>)
+			.expect(<span class="string">"Genesis header exists"</span>)
 			.encode()
 	}
 
@@ -719,7 +721,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// adder parachain.
 	</span><span class="kw">pub fn </span>create_collation_function(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		spawner: <span class="kw">impl </span>SpawnNamed + Clone + <span class="lifetime">&#39;static</span>,
+		spawner: <span class="kw">impl </span>SpawnNamed + Clone + <span class="lifetime">'static</span>,
 	) -&gt; CollatorFn {
 		<span class="kw">use </span>futures::FutureExt <span class="kw">as _</span>;
 
@@ -729,7 +731,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		Box::new(<span class="kw">move </span>|relay_parent, validation_data| {
 			<span class="kw">let </span>parent = HeadData::decode(<span class="kw-2">&amp;mut &amp;</span>validation_data.parent_head.<span class="number">0</span>[..])
-				.expect(<span class="string">&quot;Decodes parent head&quot;</span>);
+				.expect(<span class="string">"Decodes parent head"</span>);
 
 			collator_state
 				.lock()
@@ -739,7 +741,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>(block_data, head_data) = state.lock().unwrap().advance(parent);
 
 			<span class="macro">log::info!</span>(
-				<span class="string">&quot;created a new collation on relay-parent({}): {:?}&quot;</span>,
+				<span class="string">"created a new collation on relay-parent({}): {:?}"</span>,
 				relay_parent,
 				block_data,
 			);
@@ -761,7 +763,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>(result_sender, recv) = oneshot::channel::&lt;CollationSecondedSignal&gt;();
 			<span class="kw">let </span>seconded_collations = seconded_collations.clone();
 			spawner.spawn(
-				<span class="string">&quot;adder-collator-seconded&quot;</span>,
+				<span class="string">"adder-collator-seconded"</span>,
 				<span class="prelude-val">None</span>,
 				<span class="kw">async move </span>{
 					<span class="kw">if let </span><span class="prelude-val">Ok</span>(res) = recv.<span class="kw">await </span>{
@@ -770,7 +772,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							Statement::Seconded(s) <span class="kw">if </span>s.descriptor.pov_hash == compressed_pov.hash(),
 						) {
 							<span class="macro">log::error!</span>(
-								<span class="string">&quot;Seconded statement should match our collation: {:?}&quot;</span>,
+								<span class="string">"Seconded statement should match our collation: {:?}"</span>,
 								res.statement.payload()
 							);
 							std::process::exit(-<span class="number">1</span>);
@@ -803,7 +805,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Wait until `seconded` collations of this collator are seconded by a parachain validator.
 	///
-	/// The internal counter isn&#39;t de-duplicating the collations when counting the number of
+	/// The internal counter isn't de-duplicating the collations when counting the number of
 	/// seconded collations. This means when one collation is seconded by X validators, we record X
 	/// seconded messages.
 	</span><span class="kw">pub async fn </span>wait_for_seconded_collations(<span class="kw-2">&amp;</span><span class="self">self</span>, seconded: u32) {
@@ -852,7 +854,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>block_data = <span class="kw">match </span>collation.proof_of_validity {
 			MaybeCompressedPoV::Raw(pov) =&gt; pov.block_data,
-			MaybeCompressedPoV::Compressed(<span class="kw">_</span>) =&gt; <span class="macro">panic!</span>(<span class="string">&quot;Only works with uncompressed povs&quot;</span>),
+			MaybeCompressedPoV::Compressed(<span class="kw">_</span>) =&gt; <span class="macro">panic!</span>(<span class="string">"Only works with uncompressed povs"</span>),
 		};
 
 		<span class="kw">let </span>ret_buf = validate_candidate(

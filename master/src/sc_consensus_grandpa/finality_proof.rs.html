@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/consensus/grandpa/src/finality_proof.rs`."><title>finality_proof.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/consensus/grandpa/src/finality_proof.rs`."><title>finality_proof.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_consensus_grandpa" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_consensus_grandpa" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sc_consensus_grandpa/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -896,11 +898,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[derive(Debug, thiserror::Error)]
 </span><span class="kw">pub enum </span>FinalityProofError {
 	<span class="doccomment">/// The requested block has not yet been finalized.
-	</span><span class="attr">#[error(<span class="string">&quot;Block not yet finalized&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"Block not yet finalized"</span>)]
 	</span>BlockNotYetFinalized,
 	<span class="doccomment">/// The requested block is not covered by authority set changes. Likely this means the block is
 	/// in the latest authority set, and the subscription API is more appropriate.
-	</span><span class="attr">#[error(<span class="string">&quot;Block not covered by authority set changes&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"Block not covered by authority set changes"</span>)]
 	</span>BlockNotInAuthoritySetChanges,
 	<span class="doccomment">/// Errors originating from the client.
 	</span><span class="attr">#[error(transparent)]
@@ -928,10 +930,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">let </span>finalized_number = backend.blockchain().info().finalized_number;
 	<span class="kw">if </span>finalized_number &lt; block {
 		<span class="kw">let </span>err = <span class="macro">format!</span>(
-			<span class="string">&quot;Requested finality proof for descendant of #{} while we only have finalized #{}.&quot;</span>,
+			<span class="string">"Requested finality proof for descendant of #{} while we only have finalized #{}."</span>,
 			block, finalized_number,
 		);
-		<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">&quot;{}&quot;</span>, <span class="kw-2">&amp;</span>err);
+		<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">"{}"</span>, <span class="kw-2">&amp;</span>err);
 		<span class="kw">return </span><span class="prelude-val">Err</span>(FinalityProofError::BlockNotYetFinalized)
 	}
 
@@ -944,8 +946,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			} <span class="kw">else </span>{
 				<span class="macro">trace!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;No justification found for the latest finalized block. \
-					Returning empty proof.&quot;</span>,
+					<span class="string">"No justification found for the latest finalized block. \
+					Returning empty proof."</span>,
 				);
 				<span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
 			}
@@ -963,8 +965,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			} <span class="kw">else </span>{
 				<span class="macro">trace!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;No justification found when making finality proof for {}. \
-					Returning empty proof.&quot;</span>,
+					<span class="string">"No justification found when making finality proof for {}. \
+					Returning empty proof."</span>,
 					block,
 				);
 				<span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
@@ -974,8 +976,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		AuthoritySetChangeId::Unknown =&gt; {
 			<span class="macro">warn!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;AuthoritySetChanges does not cover the requested block #{} due to missing data. \
-				 You need to resync to populate AuthoritySetChanges properly.&quot;</span>,
+				<span class="string">"AuthoritySetChanges does not cover the requested block #{} due to missing data. \
+				 You need to resync to populate AuthoritySetChanges properly."</span>,
 				block,
 			);
 			<span class="kw">return </span><span class="prelude-val">Err</span>(FinalityProofError::BlockNotInAuthoritySetChanges)
@@ -1033,7 +1035,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>NumberFor&lt;Block&gt;: BlockNumberOps,
 	{
 		<span class="kw">let </span>proof = <span class="kw">super</span>::FinalityProof::&lt;Block::Header&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>remote_proof[..])
-			.map_err(|<span class="kw">_</span>| ClientError::BadJustification(<span class="string">&quot;failed to decode finality proof&quot;</span>.into()))<span class="question-mark">?</span>;
+			.map_err(|<span class="kw">_</span>| ClientError::BadJustification(<span class="string">"failed to decode finality proof"</span>.into()))<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>justification: GrandpaJustification&lt;Block&gt; =
 			Decode::decode(<span class="kw-2">&amp;mut &amp;</span>proof.justification[..])
@@ -1117,14 +1119,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		authority_set_changes.append(<span class="number">0</span>, <span class="number">4</span>);
 
 		<span class="comment">// Block 4 is finalized without justification
-		// =&gt; we can&#39;t prove finality of 3
+		// =&gt; we can't prove finality of 3
 		</span><span class="kw">let </span>proof_of_3 = prove_finality(<span class="kw-2">&amp;*</span>backend, authority_set_changes, <span class="number">3</span>, <span class="bool-val">true</span>).unwrap();
 		<span class="macro">assert_eq!</span>(proof_of_3, <span class="prelude-val">None</span>);
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>finality_proof_check_fails_when_proof_decode_fails() {
-		<span class="comment">// When we can&#39;t decode proof from Vec&lt;u8&gt;
+		<span class="comment">// When we can't decode proof from Vec&lt;u8&gt;
 		</span>check_finality_proof::&lt;Block&gt;(
 			<span class="number">1</span>,
 			<span class="macro">vec!</span>[(UncheckedFrom::unchecked_from([<span class="number">3u8</span>; <span class="number">32</span>]), <span class="number">1u64</span>)],

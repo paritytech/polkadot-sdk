@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/runtime/rococo/src/genesis_config_presets.rs`."><title>genesis_config_presets.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/runtime/rococo/src/genesis_config_presets.rs`."><title>genesis_config_presets.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="rococo_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="rococo_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../rococo_runtime/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -718,14 +720,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>rococo_runtime_constants::currency::UNITS <span class="kw">as </span>ROC;
 <span class="kw">use </span>sp_core::{sr25519, Pair, Public};
 <span class="kw">use </span>sp_runtime::traits::IdentifyAccount;
-<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
 </span><span class="kw">use </span>sp_std::alloc::format;
 <span class="kw">use </span>sp_std::vec::Vec;
 
 <span class="doccomment">/// Helper function to generate a crypto pair from seed
 </span><span class="kw">fn </span>get_from_seed&lt;TPublic: Public&gt;(seed: <span class="kw-2">&amp;</span>str) -&gt; &lt;TPublic::Pair <span class="kw">as </span>Pair&gt;::Public {
-	TPublic::Pair::from_string(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;//{}&quot;</span>, seed), <span class="prelude-val">None</span>)
-		.expect(<span class="string">&quot;static values are valid; qed&quot;</span>)
+	TPublic::Pair::from_string(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"//{}"</span>, seed), <span class="prelude-val">None</span>)
+		.expect(<span class="string">"static values are valid; qed"</span>)
 		.public()
 }
 
@@ -759,7 +761,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	seed: <span class="kw-2">&amp;</span>str,
 ) -&gt; (AccountId, AccountId, BabeId, GrandpaId, ValidatorId, AssignmentId, AuthorityDiscoveryId) {
 	(
-		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}//stash&quot;</span>, seed)),
+		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{}//stash"</span>, seed)),
 		get_account_id_from_seed::&lt;sr25519::Public&gt;(seed),
 		get_from_seed::&lt;BabeId&gt;(seed),
 		get_from_seed::&lt;GrandpaId&gt;(seed),
@@ -771,18 +773,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">fn </span>testnet_accounts() -&gt; Vec&lt;AccountId&gt; {
 	Vec::from([
-		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>),
-		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Bob&quot;</span>),
-		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Charlie&quot;</span>),
-		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Dave&quot;</span>),
-		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Eve&quot;</span>),
-		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Ferdie&quot;</span>),
-		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice//stash&quot;</span>),
-		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Bob//stash&quot;</span>),
-		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Charlie//stash&quot;</span>),
-		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Dave//stash&quot;</span>),
-		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Eve//stash&quot;</span>),
-		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Ferdie//stash&quot;</span>),
+		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Alice"</span>),
+		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Bob"</span>),
+		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Charlie"</span>),
+		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Dave"</span>),
+		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Eve"</span>),
+		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Ferdie"</span>),
+		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Alice//stash"</span>),
+		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Bob//stash"</span>),
+		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Charlie//stash"</span>),
+		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Dave//stash"</span>),
+		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Eve//stash"</span>),
+		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Ferdie//stash"</span>),
 	])
 }
 
@@ -871,11 +873,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">const </span>ENDOWMENT: u128 = <span class="number">1_000_000 </span>* ROC;
 
 	<span class="macro">serde_json::json!</span>({
-		<span class="string">&quot;balances&quot;</span>: {
-			<span class="string">&quot;balances&quot;</span>: endowed_accounts.iter().map(|k| (k.clone(), ENDOWMENT)).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
+		<span class="string">"balances"</span>: {
+			<span class="string">"balances"</span>: endowed_accounts.iter().map(|k| (k.clone(), ENDOWMENT)).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
 		},
-		<span class="string">&quot;session&quot;</span>: {
-			<span class="string">&quot;keys&quot;</span>: initial_authorities
+		<span class="string">"session"</span>: {
+			<span class="string">"keys"</span>: initial_authorities
 				.iter()
 				.map(|x| {
 					(
@@ -893,12 +895,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				})
 				.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
 		},
-		<span class="string">&quot;babe&quot;</span>: {
-			<span class="string">&quot;epochConfig&quot;</span>: <span class="prelude-val">Some</span>(BABE_GENESIS_EPOCH_CONFIG),
+		<span class="string">"babe"</span>: {
+			<span class="string">"epochConfig"</span>: <span class="prelude-val">Some</span>(BABE_GENESIS_EPOCH_CONFIG),
 		},
-		<span class="string">&quot;sudo&quot;</span>: { <span class="string">&quot;key&quot;</span>: <span class="prelude-val">Some</span>(root_key.clone()) },
-		<span class="string">&quot;configuration&quot;</span>: {
-			<span class="string">&quot;config&quot;</span>: runtime_parachains::configuration::HostConfiguration {
+		<span class="string">"sudo"</span>: { <span class="string">"key"</span>: <span class="prelude-val">Some</span>(root_key.clone()) },
+		<span class="string">"configuration"</span>: {
+			<span class="string">"config"</span>: runtime_parachains::configuration::HostConfiguration {
 				scheduler_params: SchedulerParams {
 					max_validators_per_core: <span class="prelude-val">Some</span>(<span class="number">1</span>),
 					..default_parachains_host_configuration().scheduler_params
@@ -906,8 +908,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				..default_parachains_host_configuration()
 			},
 		},
-		<span class="string">&quot;registrar&quot;</span>: {
-			<span class="string">&quot;nextFreeParaId&quot;</span>: primitives::LOWEST_PUBLIC_ID,
+		<span class="string">"registrar"</span>: {
+			<span class="string">"nextFreeParaId"</span>: primitives::LOWEST_PUBLIC_ID,
 		}
 	})
 }
@@ -917,10 +919,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use </span>hex_literal::hex;
 	<span class="kw">use </span>sp_core::crypto::UncheckedInto;
 
-	<span class="comment">// subkey inspect &quot;$SECRET&quot;
+	<span class="comment">// subkey inspect "$SECRET"
 	</span><span class="kw">let </span>endowed_accounts = Vec::from([
 		<span class="comment">// 5DwBmEFPXRESyEam5SsQF1zbWSCn2kCjyLW51hJHXe9vW4xs
-		</span><span class="macro">hex!</span>[<span class="string">&quot;52bc71c1eca5353749542dfdf0af97bf764f9c2f44e860cd485f1cd86400f649&quot;</span>].into(),
+		</span><span class="macro">hex!</span>[<span class="string">"52bc71c1eca5353749542dfdf0af97bf764f9c2f44e860cd485f1cd86400f649"</span>].into(),
 	]);
 
 	<span class="comment">// ./scripts/prepare-test-net.sh 8
@@ -936,194 +938,194 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	)&gt; = Vec::from([
 		(
 			<span class="comment">//5EHZkbp22djdbuMFH9qt1DVzSCvqi3zWpj6DAYfANa828oei
-			</span><span class="macro">hex!</span>[<span class="string">&quot;62475fe5406a7cb6a64c51d0af9d3ab5c2151bcae982fb812f7a76b706914d6a&quot;</span>].into(),
+			</span><span class="macro">hex!</span>[<span class="string">"62475fe5406a7cb6a64c51d0af9d3ab5c2151bcae982fb812f7a76b706914d6a"</span>].into(),
 			<span class="comment">//5FeSEpi9UYYaWwXXb3tV88qtZkmSdB3mvgj3pXkxKyYLGhcd
-			</span><span class="macro">hex!</span>[<span class="string">&quot;9e6e781a76810fe93187af44c79272c290c2b9e2b8b92ee11466cd79d8023f50&quot;</span>].into(),
+			</span><span class="macro">hex!</span>[<span class="string">"9e6e781a76810fe93187af44c79272c290c2b9e2b8b92ee11466cd79d8023f50"</span>].into(),
 			<span class="comment">//5Fh6rDpMDhM363o1Z3Y9twtaCPfizGQWCi55BSykTQjGbP7H
-			</span><span class="macro">hex!</span>[<span class="string">&quot;a076ef1280d768051f21d060623da3ab5b56944d681d303ed2d4bf658c5bed35&quot;</span>]
+			</span><span class="macro">hex!</span>[<span class="string">"a076ef1280d768051f21d060623da3ab5b56944d681d303ed2d4bf658c5bed35"</span>]
 				.unchecked_into(),
 			<span class="comment">//5CPd3zoV9Aaah4xWucuDivMHJ2nEEmpdi864nPTiyRZp4t87
-			</span><span class="macro">hex!</span>[<span class="string">&quot;0e6d7d1afbcc6547b92995a394ba0daed07a2420be08220a5a1336c6731f0bfa&quot;</span>]
+			</span><span class="macro">hex!</span>[<span class="string">"0e6d7d1afbcc6547b92995a394ba0daed07a2420be08220a5a1336c6731f0bfa"</span>]
 				.unchecked_into(),
 			<span class="comment">//5CP6oGfwqbEfML8efqm1tCZsUgRsJztp9L8ZkEUxA16W8PPz
-			</span><span class="macro">hex!</span>[<span class="string">&quot;0e07a51d3213842f8e9363ce8e444255990a225f87e80a3d651db7841e1a0205&quot;</span>]
+			</span><span class="macro">hex!</span>[<span class="string">"0e07a51d3213842f8e9363ce8e444255990a225f87e80a3d651db7841e1a0205"</span>]
 				.unchecked_into(),
 			<span class="comment">//5HQdwiDh8Qtd5dSNWajNYpwDvoyNWWA16Y43aEkCNactFc2b
-			</span><span class="macro">hex!</span>[<span class="string">&quot;ec60e71fe4a567ef9fef99d4bbf37ffae70564b41aa6f94ef0317c13e0a5477b&quot;</span>]
+			</span><span class="macro">hex!</span>[<span class="string">"ec60e71fe4a567ef9fef99d4bbf37ffae70564b41aa6f94ef0317c13e0a5477b"</span>]
 				.unchecked_into(),
 			<span class="comment">//5HbSgM72xVuscsopsdeG3sCSCYdAeM1Tay9p79N6ky6vwDGq
-			</span><span class="macro">hex!</span>[<span class="string">&quot;f49eae66a0ac9f610316906ec8f1a0928e20d7059d76a5ca53cbcb5a9b50dd3c&quot;</span>]
+			</span><span class="macro">hex!</span>[<span class="string">"f49eae66a0ac9f610316906ec8f1a0928e20d7059d76a5ca53cbcb5a9b50dd3c"</span>]
 				.unchecked_into(),
 			<span class="comment">//5DPSWdgw38Spu315r6LSvYCggeeieBAJtP5A1qzuzKhqmjVu
-			</span><span class="macro">hex!</span>[<span class="string">&quot;034f68c5661a41930c82f26a662276bf89f33467e1c850f2fb8ef687fe43d62276&quot;</span>]
+			</span><span class="macro">hex!</span>[<span class="string">"034f68c5661a41930c82f26a662276bf89f33467e1c850f2fb8ef687fe43d62276"</span>]
 				.unchecked_into(),
 		),
 		(
 			<span class="comment">//5DvH8oEjQPYhzCoQVo7WDU91qmQfLZvxe9wJcrojmJKebCmG
-			</span><span class="macro">hex!</span>[<span class="string">&quot;520b48452969f6ddf263b664de0adb0c729d0e0ad3b0e5f3cb636c541bc9022a&quot;</span>].into(),
+			</span><span class="macro">hex!</span>[<span class="string">"520b48452969f6ddf263b664de0adb0c729d0e0ad3b0e5f3cb636c541bc9022a"</span>].into(),
 			<span class="comment">//5ENZvCRzyXJJYup8bM6yEzb2kQHEb1NDpY2ZEyVGBkCfRdj3
-			</span><span class="macro">hex!</span>[<span class="string">&quot;6618289af7ae8621981ffab34591e7a6486e12745dfa3fd3b0f7e6a3994c7b5b&quot;</span>].into(),
+			</span><span class="macro">hex!</span>[<span class="string">"6618289af7ae8621981ffab34591e7a6486e12745dfa3fd3b0f7e6a3994c7b5b"</span>].into(),
 			<span class="comment">//5DLjSUfqZVNAADbwYLgRvHvdzXypiV1DAEaDMjcESKTcqMoM
-			</span><span class="macro">hex!</span>[<span class="string">&quot;38757d0de00a0c739e7d7984ef4bc01161bd61e198b7c01b618425c16bb5bd5f&quot;</span>]
+			</span><span class="macro">hex!</span>[<span class="string">"38757d0de00a0c739e7d7984ef4bc01161bd61e198b7c01b618425c16bb5bd5f"</span>]
 				.unchecked_into(),
 			<span class="comment">//5HnDVBN9mD6mXyx8oryhDbJtezwNSj1VRXgLoYCBA6uEkiao
-			</span><span class="macro">hex!</span>[<span class="string">&quot;fcd5f87a6fd5707a25122a01b4dac0a8482259df7d42a9a096606df1320df08d&quot;</span>]
+			</span><span class="macro">hex!</span>[<span class="string">"fcd5f87a6fd5707a25122a01b4dac0a8482259df7d42a9a096606df1320df08d"</span>]
 				.unchecked_into(),
 			<span class="comment">//5EPEWRecy2ApL5n18n3aHyU1956zXTRqaJpzDa9DoqiggNwF
-			</span><span class="macro">hex!</span>[<span class="string">&quot;669a10892119453e9feb4e3f1ee8e028916cc3240022920ad643846fbdbee816&quot;</span>]
+			</span><span class="macro">hex!</span>[<span class="string">"669a10892119453e9feb4e3f1ee8e028916cc3240022920ad643846fbdbee816"</span>]
 				.unchecked_into(),
 			<span class="comment">//5ES3fw5X4bndSgLNmtPfSbM2J1kLqApVB2CCLS4CBpM1UxUZ
-			</span><span class="macro">hex!</span>[<span class="string">&quot;68bf52c482630a8d1511f2edd14f34127a7d7082219cccf7fd4c6ecdb535f80d&quot;</span>]
+			</span><span class="macro">hex!</span>[<span class="string">"68bf52c482630a8d1511f2edd14f34127a7d7082219cccf7fd4c6ecdb535f80d"</span>]
 				.unchecked_into(),
 			<span class="comment">//5HeXbwb5PxtcRoopPZTp5CQun38atn2UudQ8p2AxR5BzoaXw
-			</span><span class="macro">hex!</span>[<span class="string">&quot;f6f8fe475130d21165446a02fb1dbce3a7bf36412e5d98f4f0473aed9252f349&quot;</span>]
+			</span><span class="macro">hex!</span>[<span class="string">"f6f8fe475130d21165446a02fb1dbce3a7bf36412e5d98f4f0473aed9252f349"</span>]
 				.unchecked_into(),
 			<span class="comment">//5F7nTtN8MyJV4UsXpjg7tHSnfANXZ5KRPJmkASc1ZSH2Xoa5
-			</span><span class="macro">hex!</span>[<span class="string">&quot;03a90c2bb6d3b7000020f6152fe2e5002fa970fd1f42aafb6c8edda8dacc2ea77e&quot;</span>]
+			</span><span class="macro">hex!</span>[<span class="string">"03a90c2bb6d3b7000020f6152fe2e5002fa970fd1f42aafb6c8edda8dacc2ea77e"</span>]
 				.unchecked_into(),
 		),
 		(
 			<span class="comment">//5FPMzsezo1PRxYbVpJMWK7HNbR2kUxidsAAxH4BosHa4wd6S
-			</span><span class="macro">hex!</span>[<span class="string">&quot;92ef83665b39d7a565e11bf8d18d41d45a8011601c339e57a8ea88c8ff7bba6f&quot;</span>].into(),
+			</span><span class="macro">hex!</span>[<span class="string">"92ef83665b39d7a565e11bf8d18d41d45a8011601c339e57a8ea88c8ff7bba6f"</span>].into(),
 			<span class="comment">//5G6NQidFG7YiXsvV7hQTLGArir9tsYqD4JDxByhgxKvSKwRx
-			</span><span class="macro">hex!</span>[<span class="string">&quot;b235f57244230589523271c27b8a490922ffd7dccc83b044feaf22273c1dc735&quot;</span>].into(),
+			</span><span class="macro">hex!</span>[<span class="string">"b235f57244230589523271c27b8a490922ffd7dccc83b044feaf22273c1dc735"</span>].into(),
 			<span class="comment">//5GpZhzAVg7SAtzLvaAC777pjquPEcNy1FbNUAG2nZvhmd6eY
-			</span><span class="macro">hex!</span>[<span class="string">&quot;d2644c1ab2c63a3ad8d40ad70d4b260969e3abfe6d7e6665f50dc9f6365c9d2a&quot;</span>]
+			</span><span class="macro">hex!</span>[<span class="string">"d2644c1ab2c63a3ad8d40ad70d4b260969e3abfe6d7e6665f50dc9f6365c9d2a"</span>]
 				.unchecked_into(),
 			<span class="comment">//5HAes2RQYPbYKbLBfKb88f4zoXv6pPA6Ke8CjN7dob3GpmSP
-			</span><span class="macro">hex!</span>[<span class="string">&quot;e1b68fbd84333e31486c08e6153d9a1415b2e7e71b413702b7d64e9b631184a1&quot;</span>]
+			</span><span class="macro">hex!</span>[<span class="string">"e1b68fbd84333e31486c08e6153d9a1415b2e7e71b413702b7d64e9b631184a1"</span>]
 				.unchecked_into(),
 			<span class="comment">//5FtAGDZYJKXkhVhAxCQrXmaP7EE2mGbBMfmKDHjfYDgq2BiU
-			</span><span class="macro">hex!</span>[<span class="string">&quot;a8e61ffacafaf546283dc92d14d7cc70ea0151a5dd81fdf73ff5a2951f2b6037&quot;</span>]
+			</span><span class="macro">hex!</span>[<span class="string">"a8e61ffacafaf546283dc92d14d7cc70ea0151a5dd81fdf73ff5a2951f2b6037"</span>]
 				.unchecked_into(),
 			<span class="comment">//5CtK7JHv3h6UQZ44y54skxdwSVBRtuxwPE1FYm7UZVhg8rJV
-			</span><span class="macro">hex!</span>[<span class="string">&quot;244f3421b310c68646e99cdbf4963e02067601f57756b072a4b19431448c186e&quot;</span>]
+			</span><span class="macro">hex!</span>[<span class="string">"244f3421b310c68646e99cdbf4963e02067601f57756b072a4b19431448c186e"</span>]
 				.unchecked_into(),
 			<span class="comment">//5D4r6YaB6F7A7nvMRHNFNF6zrR9g39bqDJFenrcaFmTCRwfa
-			</span><span class="macro">hex!</span>[<span class="string">&quot;2c57f81fd311c1ab53813c6817fe67f8947f8d39258252663b3384ab4195494d&quot;</span>]
+			</span><span class="macro">hex!</span>[<span class="string">"2c57f81fd311c1ab53813c6817fe67f8947f8d39258252663b3384ab4195494d"</span>]
 				.unchecked_into(),
 			<span class="comment">//5EPoHj8uV4fFKQHYThc6Z9fDkU7B6ih2ncVzQuDdNFb8UyhF
-			</span><span class="macro">hex!</span>[<span class="string">&quot;039d065fe4f9234f0a4f13cc3ae585f2691e9c25afa469618abb6645111f607a53&quot;</span>]
+			</span><span class="macro">hex!</span>[<span class="string">"039d065fe4f9234f0a4f13cc3ae585f2691e9c25afa469618abb6645111f607a53"</span>]
 				.unchecked_into(),
 		),
 		(
 			<span class="comment">//5DMNx7RoX6d7JQ38NEM7DWRcW2THu92LBYZEWvBRhJeqcWgR
-			</span><span class="macro">hex!</span>[<span class="string">&quot;38f3c2f38f6d47f161e98c697bbe3ca0e47c033460afda0dda314ab4222a0404&quot;</span>].into(),
+			</span><span class="macro">hex!</span>[<span class="string">"38f3c2f38f6d47f161e98c697bbe3ca0e47c033460afda0dda314ab4222a0404"</span>].into(),
 			<span class="comment">//5GGdKNDr9P47dpVnmtq3m8Tvowwf1ot1abw6tPsTYYFoKm2v
-			</span><span class="macro">hex!</span>[<span class="string">&quot;ba0898c1964196474c0be08d364cdf4e9e1d47088287f5235f70b0590dfe1704&quot;</span>].into(),
+			</span><span class="macro">hex!</span>[<span class="string">"ba0898c1964196474c0be08d364cdf4e9e1d47088287f5235f70b0590dfe1704"</span>].into(),
 			<span class="comment">//5EjkyPCzR2SjhDZq8f7ufsw6TfkvgNRepjCRQFc4TcdXdaB1
-			</span><span class="macro">hex!</span>[<span class="string">&quot;764186bc30fd5a02477f19948dc723d6d57ab174debd4f80ed6038ec960bfe21&quot;</span>]
+			</span><span class="macro">hex!</span>[<span class="string">"764186bc30fd5a02477f19948dc723d6d57ab174debd4f80ed6038ec960bfe21"</span>]
 				.unchecked_into(),
 			<span class="comment">//5DJV3zCBTJBLGNDCcdWrYxWDacSz84goGTa4pFeKVvehEBte
-			</span><span class="macro">hex!</span>[<span class="string">&quot;36be9069cdb4a8a07ecd51f257875150f0a8a1be44a10d9d98dabf10a030aef4&quot;</span>]
+			</span><span class="macro">hex!</span>[<span class="string">"36be9069cdb4a8a07ecd51f257875150f0a8a1be44a10d9d98dabf10a030aef4"</span>]
 				.unchecked_into(),
 			<span class="comment">//5F9FsRjpecP9GonktmtFL3kjqNAMKjHVFjyjRdTPa4hbQRZA
-			</span><span class="macro">hex!</span>[<span class="string">&quot;882d72965e642677583b333b2d173ac94b5fd6c405c76184bb14293be748a13b&quot;</span>]
+			</span><span class="macro">hex!</span>[<span class="string">"882d72965e642677583b333b2d173ac94b5fd6c405c76184bb14293be748a13b"</span>]
 				.unchecked_into(),
 			<span class="comment">//5F1FZWZSj3JyTLs8sRBxU6QWyGLSL9BMRtmSKDmVEoiKFxSP
-			</span><span class="macro">hex!</span>[<span class="string">&quot;821271c99c958b9220f1771d9f5e29af969edfa865631dba31e1ab7bc0582b75&quot;</span>]
+			</span><span class="macro">hex!</span>[<span class="string">"821271c99c958b9220f1771d9f5e29af969edfa865631dba31e1ab7bc0582b75"</span>]
 				.unchecked_into(),
 			<span class="comment">//5CtgRR74VypK4h154s369abs78hDUxZSJqcbWsfXvsjcHJNA
-			</span><span class="macro">hex!</span>[<span class="string">&quot;2496f28d887d84705c6dae98aee8bf90fc5ad10bb5545eca1de6b68425b70f7c&quot;</span>]
+			</span><span class="macro">hex!</span>[<span class="string">"2496f28d887d84705c6dae98aee8bf90fc5ad10bb5545eca1de6b68425b70f7c"</span>]
 				.unchecked_into(),
 			<span class="comment">//5CPx6dsr11SCJHKFkcAQ9jpparS7FwXQBrrMznRo4Hqv1PXz
-			</span><span class="macro">hex!</span>[<span class="string">&quot;0307d29bbf6a5c4061c2157b44fda33b7bb4ec52a5a0305668c74688cedf288d58&quot;</span>]
+			</span><span class="macro">hex!</span>[<span class="string">"0307d29bbf6a5c4061c2157b44fda33b7bb4ec52a5a0305668c74688cedf288d58"</span>]
 				.unchecked_into(),
 		),
 		(
 			<span class="comment">//5C8AL1Zb4bVazgT3EgDxFgcow1L4SJjVu44XcLC9CrYqFN4N
-			</span><span class="macro">hex!</span>[<span class="string">&quot;02a2d8cfcf75dda85fafc04ace3bcb73160034ed1964c43098fb1fe831de1b16&quot;</span>].into(),
+			</span><span class="macro">hex!</span>[<span class="string">"02a2d8cfcf75dda85fafc04ace3bcb73160034ed1964c43098fb1fe831de1b16"</span>].into(),
 			<span class="comment">//5FLYy3YKsAnooqE4hCudttAsoGKbVG3hYYBtVzwMjJQrevPa
-			</span><span class="macro">hex!</span>[<span class="string">&quot;90cab33f0bb501727faa8319f0845faef7d31008f178b65054b6629fe531b772&quot;</span>].into(),
+			</span><span class="macro">hex!</span>[<span class="string">"90cab33f0bb501727faa8319f0845faef7d31008f178b65054b6629fe531b772"</span>].into(),
 			<span class="comment">//5Et3tfbVf1ByFThNAuUq5pBssdaPPskip5yob5GNyUFojXC7
-			</span><span class="macro">hex!</span>[<span class="string">&quot;7c94715e5dd8ab54221b1b6b2bfa5666f593f28a92a18e28052531de1bd80813&quot;</span>]
+			</span><span class="macro">hex!</span>[<span class="string">"7c94715e5dd8ab54221b1b6b2bfa5666f593f28a92a18e28052531de1bd80813"</span>]
 				.unchecked_into(),
 			<span class="comment">//5EX1JBghGbQqWohTPU6msR9qZ2nYPhK9r3RTQ2oD1K8TCxaG
-			</span><span class="macro">hex!</span>[<span class="string">&quot;6c878e33b83c20324238d22240f735457b6fba544b383e70bb62a27b57380c81&quot;</span>]
+			</span><span class="macro">hex!</span>[<span class="string">"6c878e33b83c20324238d22240f735457b6fba544b383e70bb62a27b57380c81"</span>]
 				.unchecked_into(),
 			<span class="comment">//5EUNaBpX9mJgcmLQHyG5Pkms6tbDiKuLbeTEJS924Js9cA1N
-			</span><span class="macro">hex!</span>[<span class="string">&quot;6a8570b9c6408e54bacf123cc2bb1b0f087f9c149147d0005badba63a5a4ac01&quot;</span>]
+			</span><span class="macro">hex!</span>[<span class="string">"6a8570b9c6408e54bacf123cc2bb1b0f087f9c149147d0005badba63a5a4ac01"</span>]
 				.unchecked_into(),
 			<span class="comment">//5CaZuueRVpMATZG4hkcrgDoF4WGixuz7zu83jeBdY3bgWGaG
-			</span><span class="macro">hex!</span>[<span class="string">&quot;16c69ea8d595e80b6736f44be1eaeeef2ac9c04a803cc4fd944364cb0d617a33&quot;</span>]
+			</span><span class="macro">hex!</span>[<span class="string">"16c69ea8d595e80b6736f44be1eaeeef2ac9c04a803cc4fd944364cb0d617a33"</span>]
 				.unchecked_into(),
 			<span class="comment">//5DABsdQCDUGuhzVGWe5xXzYQ9rtrVxRygW7RXf9Tsjsw1aGJ
-			</span><span class="macro">hex!</span>[<span class="string">&quot;306ac5c772fe858942f92b6e28bd82fb7dd8cdd25f9a4626c1b0eee075fcb531&quot;</span>]
+			</span><span class="macro">hex!</span>[<span class="string">"306ac5c772fe858942f92b6e28bd82fb7dd8cdd25f9a4626c1b0eee075fcb531"</span>]
 				.unchecked_into(),
 			<span class="comment">//5H91T5mHhoCw9JJG4NjghDdQyhC6L7XcSuBWKD3q3TAhEVvQ
-			</span><span class="macro">hex!</span>[<span class="string">&quot;02fb0330356e63a35dd930bc74525edf28b3bf5eb44aab9e9e4962c8309aaba6a6&quot;</span>]
+			</span><span class="macro">hex!</span>[<span class="string">"02fb0330356e63a35dd930bc74525edf28b3bf5eb44aab9e9e4962c8309aaba6a6"</span>]
 				.unchecked_into(),
 		),
 		(
 			<span class="comment">//5C8XbDXdMNKJrZSrQURwVCxdNdk8AzG6xgLggbzuA399bBBF
-			</span><span class="macro">hex!</span>[<span class="string">&quot;02ea6bfa8b23b92fe4b5db1063a1f9475e3acd0ab61e6b4f454ed6ba00b5f864&quot;</span>].into(),
+			</span><span class="macro">hex!</span>[<span class="string">"02ea6bfa8b23b92fe4b5db1063a1f9475e3acd0ab61e6b4f454ed6ba00b5f864"</span>].into(),
 			<span class="comment">//5GsyzFP8qtF8tXPSsjhjxAeU1v7D1PZofuQKN9TdCc7Dp1JM
-			</span><span class="macro">hex!</span>[<span class="string">&quot;d4ffc4c05b47d1115ad200f7f86e307b20b46c50e1b72a912ec4f6f7db46b616&quot;</span>].into(),
+			</span><span class="macro">hex!</span>[<span class="string">"d4ffc4c05b47d1115ad200f7f86e307b20b46c50e1b72a912ec4f6f7db46b616"</span>].into(),
 			<span class="comment">//5GHWB8ZDzegLcMW7Gdd1BS6WHVwDdStfkkE4G7KjPjZNJBtD
-			</span><span class="macro">hex!</span>[<span class="string">&quot;bab3cccdcc34401e9b3971b96a662686cf755aa869a5c4b762199ce531b12c5b&quot;</span>]
+			</span><span class="macro">hex!</span>[<span class="string">"bab3cccdcc34401e9b3971b96a662686cf755aa869a5c4b762199ce531b12c5b"</span>]
 				.unchecked_into(),
 			<span class="comment">//5GzDPGbUM9uH52ZEwydasTj8edokGUJ7vEpoFWp9FE1YNuFB
-			</span><span class="macro">hex!</span>[<span class="string">&quot;d9c056c98ca0e6b4eb7f5c58c007c1db7be0fe1f3776108f797dd4990d1ccc33&quot;</span>]
+			</span><span class="macro">hex!</span>[<span class="string">"d9c056c98ca0e6b4eb7f5c58c007c1db7be0fe1f3776108f797dd4990d1ccc33"</span>]
 				.unchecked_into(),
 			<span class="comment">//5CmLCFeSurRXXtwMmLcVo7sdJ9EqDguvJbuCYDcHkr3cpqyE
-			</span><span class="macro">hex!</span>[<span class="string">&quot;1efc23c0b51ad609ab670ecf45807e31acbd8e7e5cb7c07cf49ee42992d2867c&quot;</span>]
+			</span><span class="macro">hex!</span>[<span class="string">"1efc23c0b51ad609ab670ecf45807e31acbd8e7e5cb7c07cf49ee42992d2867c"</span>]
 				.unchecked_into(),
 			<span class="comment">//5DnsSy8a8pfE2aFjKBDtKw7WM1V4nfE5sLzP15MNTka53GqS
-			</span><span class="macro">hex!</span>[<span class="string">&quot;4c64d3f06d28adeb36a892fdaccecace150bec891f04694448a60b74fa469c22&quot;</span>]
+			</span><span class="macro">hex!</span>[<span class="string">"4c64d3f06d28adeb36a892fdaccecace150bec891f04694448a60b74fa469c22"</span>]
 				.unchecked_into(),
 			<span class="comment">//5CZdFnyzZvKetZTeUwj5APAYskVJe4QFiTezo5dQNsrnehGd
-			</span><span class="macro">hex!</span>[<span class="string">&quot;160ea09c5717270e958a3da42673fa011613a9539b2e4ebcad8626bc117ca04a&quot;</span>]
+			</span><span class="macro">hex!</span>[<span class="string">"160ea09c5717270e958a3da42673fa011613a9539b2e4ebcad8626bc117ca04a"</span>]
 				.unchecked_into(),
 			<span class="comment">//5HgoR9JJkdBusxKrrs3zgd3ToppgNoGj1rDyAJp4e7eZiYyT
-			</span><span class="macro">hex!</span>[<span class="string">&quot;020019a8bb188f8145d02fa855e9c36e9914457d37c500e03634b5223aa5702474&quot;</span>]
+			</span><span class="macro">hex!</span>[<span class="string">"020019a8bb188f8145d02fa855e9c36e9914457d37c500e03634b5223aa5702474"</span>]
 				.unchecked_into(),
 		),
 		(
 			<span class="comment">//5HinEonzr8MywkqedcpsmwpxKje2jqr9miEwuzyFXEBCvVXM
-			</span><span class="macro">hex!</span>[<span class="string">&quot;fa373e25a1c4fe19c7148acde13bc3db1811cf656dc086820f3dda736b9c4a00&quot;</span>].into(),
+			</span><span class="macro">hex!</span>[<span class="string">"fa373e25a1c4fe19c7148acde13bc3db1811cf656dc086820f3dda736b9c4a00"</span>].into(),
 			<span class="comment">//5EHJbj6Td6ks5HDnyfN4ttTSi57osxcQsQexm7XpazdeqtV7
-			</span><span class="macro">hex!</span>[<span class="string">&quot;62145d721967bd88622d08625f0f5681463c0f1b8bcd97eb3c2c53f7660fd513&quot;</span>].into(),
+			</span><span class="macro">hex!</span>[<span class="string">"62145d721967bd88622d08625f0f5681463c0f1b8bcd97eb3c2c53f7660fd513"</span>].into(),
 			<span class="comment">//5EeCsC58XgJ1DFaoYA1WktEpP27jvwGpKdxPMFjicpLeYu96
-			</span><span class="macro">hex!</span>[<span class="string">&quot;720537e2c1c554654d73b3889c3ef4c3c2f95a65dd3f7c185ebe4afebed78372&quot;</span>]
+			</span><span class="macro">hex!</span>[<span class="string">"720537e2c1c554654d73b3889c3ef4c3c2f95a65dd3f7c185ebe4afebed78372"</span>]
 				.unchecked_into(),
 			<span class="comment">//5DnEySxbnppWEyN8cCLqvGjAorGdLRg2VmkY96dbJ1LHFK8N
-			</span><span class="macro">hex!</span>[<span class="string">&quot;4bea0b37e0cce9bddd80835fa2bfd5606f5dcfb8388bbb10b10c483f0856cf14&quot;</span>]
+			</span><span class="macro">hex!</span>[<span class="string">"4bea0b37e0cce9bddd80835fa2bfd5606f5dcfb8388bbb10b10c483f0856cf14"</span>]
 				.unchecked_into(),
 			<span class="comment">//5CAC278tFCHAeHYqE51FTWYxHmeLcENSS1RG77EFRTvPZMJT
-			</span><span class="macro">hex!</span>[<span class="string">&quot;042f07fc5268f13c026bbe199d63e6ac77a0c2a780f71cda05cee5a6f1b3f11f&quot;</span>]
+			</span><span class="macro">hex!</span>[<span class="string">"042f07fc5268f13c026bbe199d63e6ac77a0c2a780f71cda05cee5a6f1b3f11f"</span>]
 				.unchecked_into(),
 			<span class="comment">//5HjRTLWcQjZzN3JDvaj1UzjNSayg5ZD9ZGWMstaL7Ab2jjAa
-			</span><span class="macro">hex!</span>[<span class="string">&quot;fab485e87ed1537d089df521edf983a777c57065a702d7ed2b6a2926f31da74f&quot;</span>]
+			</span><span class="macro">hex!</span>[<span class="string">"fab485e87ed1537d089df521edf983a777c57065a702d7ed2b6a2926f31da74f"</span>]
 				.unchecked_into(),
 			<span class="comment">//5ELv74v7QcsS6FdzvG4vL2NnYDGWmRnJUSMKYwdyJD7Xcdi7
-			</span><span class="macro">hex!</span>[<span class="string">&quot;64d59feddb3d00316a55906953fb3db8985797472bd2e6c7ea1ab730cc339d7f&quot;</span>]
+			</span><span class="macro">hex!</span>[<span class="string">"64d59feddb3d00316a55906953fb3db8985797472bd2e6c7ea1ab730cc339d7f"</span>]
 				.unchecked_into(),
 			<span class="comment">//5FaUcPt4fPz93vBhcrCJqmDkjYZ7jCbzAF56QJoCmvPaKrmx
-			</span><span class="macro">hex!</span>[<span class="string">&quot;033f1a6d47fe86f88934e4b83b9fae903b92b5dcf4fec97d5e3e8bf4f39df03685&quot;</span>]
+			</span><span class="macro">hex!</span>[<span class="string">"033f1a6d47fe86f88934e4b83b9fae903b92b5dcf4fec97d5e3e8bf4f39df03685"</span>]
 				.unchecked_into(),
 		),
 		(
 			<span class="comment">//5Ey3NQ3dfabaDc16NUv7wRLsFCMDFJSqZFzKVycAsWuUC6Di
-			</span><span class="macro">hex!</span>[<span class="string">&quot;8062e9c21f1d92926103119f7e8153cebdb1e5ab3e52d6f395be80bb193eab47&quot;</span>].into(),
+			</span><span class="macro">hex!</span>[<span class="string">"8062e9c21f1d92926103119f7e8153cebdb1e5ab3e52d6f395be80bb193eab47"</span>].into(),
 			<span class="comment">//5HiWsuSBqt8nS9pnggexXuHageUifVPKPHDE2arTKqhTp1dV
-			</span><span class="macro">hex!</span>[<span class="string">&quot;fa0388fa88f3f0cb43d583e2571fbc0edad57dff3a6fd89775451dd2c2b8ea00&quot;</span>].into(),
+			</span><span class="macro">hex!</span>[<span class="string">"fa0388fa88f3f0cb43d583e2571fbc0edad57dff3a6fd89775451dd2c2b8ea00"</span>].into(),
 			<span class="comment">//5H168nKX2Yrfo3bxj7rkcg25326Uv3CCCnKUGK6uHdKMdPt8
-			</span><span class="macro">hex!</span>[<span class="string">&quot;da6b2df18f0f9001a6dcf1d301b92534fe9b1f3ccfa10c49449fee93adaa8349&quot;</span>]
+			</span><span class="macro">hex!</span>[<span class="string">"da6b2df18f0f9001a6dcf1d301b92534fe9b1f3ccfa10c49449fee93adaa8349"</span>]
 				.unchecked_into(),
 			<span class="comment">//5DrA2fZdzmNqT5j6DXNwVxPBjDV9jhkAqvjt6Us3bQHKy3cF
-			</span><span class="macro">hex!</span>[<span class="string">&quot;4ee66173993dd0db5d628c4c9cb61a27b76611ad3c3925947f0d0011ee2c5dcc&quot;</span>]
+			</span><span class="macro">hex!</span>[<span class="string">"4ee66173993dd0db5d628c4c9cb61a27b76611ad3c3925947f0d0011ee2c5dcc"</span>]
 				.unchecked_into(),
 			<span class="comment">//5Gx6YeNhynqn8qkda9QKpc9S7oDr4sBrfAu516d3sPpEt26F
-			</span><span class="macro">hex!</span>[<span class="string">&quot;d822d4088b20dca29a580a577a97d6f024bb24c9550bebdfd7d2d18e946a1c7d&quot;</span>]
+			</span><span class="macro">hex!</span>[<span class="string">"d822d4088b20dca29a580a577a97d6f024bb24c9550bebdfd7d2d18e946a1c7d"</span>]
 				.unchecked_into(),
 			<span class="comment">//5DhDcHqwxoes5s89AyudGMjtZXx1nEgrk5P45X88oSTR3iyx
-			</span><span class="macro">hex!</span>[<span class="string">&quot;481538f8c2c011a76d7d57db11c2789a5e83b0f9680dc6d26211d2f9c021ae4c&quot;</span>]
+			</span><span class="macro">hex!</span>[<span class="string">"481538f8c2c011a76d7d57db11c2789a5e83b0f9680dc6d26211d2f9c021ae4c"</span>]
 				.unchecked_into(),
 			<span class="comment">//5DqAvikdpfRdk5rR35ZobZhqaC5bJXZcEuvzGtexAZP1hU3T
-			</span><span class="macro">hex!</span>[<span class="string">&quot;4e262811acdfe94528bfc3c65036080426a0e1301b9ada8d687a70ffcae99c26&quot;</span>]
+			</span><span class="macro">hex!</span>[<span class="string">"4e262811acdfe94528bfc3c65036080426a0e1301b9ada8d687a70ffcae99c26"</span>]
 				.unchecked_into(),
 			<span class="comment">//5E41Znrr2YtZu8bZp3nvRuLVHg3jFksfQ3tXuviLku4wsao7
-			</span><span class="macro">hex!</span>[<span class="string">&quot;025e84e95ed043e387ddb8668176b42f8e2773ddd84f7f58a6d9bf436a4b527986&quot;</span>]
+			</span><span class="macro">hex!</span>[<span class="string">"025e84e95ed043e387ddb8668176b42f8e2773ddd84f7f58a6d9bf436a4b527986"</span>]
 				.unchecked_into(),
 		),
 	]);
@@ -1132,15 +1134,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">const </span>STASH: u128 = <span class="number">100 </span>* ROC;
 
 	<span class="macro">serde_json::json!</span>({
-		<span class="string">&quot;balances&quot;</span>: {
-			<span class="string">&quot;balances&quot;</span>: endowed_accounts
+		<span class="string">"balances"</span>: {
+			<span class="string">"balances"</span>: endowed_accounts
 				.iter()
 				.map(|k: <span class="kw-2">&amp;</span>AccountId| (k.clone(), ENDOWMENT))
 				.chain(initial_authorities.iter().map(|x| (x.<span class="number">0</span>.clone(), STASH)))
 				.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
 		},
-		<span class="string">&quot;session&quot;</span>: {
-			<span class="string">&quot;keys&quot;</span>: initial_authorities
+		<span class="string">"session"</span>: {
+			<span class="string">"keys"</span>: initial_authorities
 				.into_iter()
 				.map(|x| {
 					(
@@ -1158,15 +1160,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				})
 				.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
 		},
-		<span class="string">&quot;babe&quot;</span>: {
-			<span class="string">&quot;epochConfig&quot;</span>: <span class="prelude-val">Some</span>(BABE_GENESIS_EPOCH_CONFIG),
+		<span class="string">"babe"</span>: {
+			<span class="string">"epochConfig"</span>: <span class="prelude-val">Some</span>(BABE_GENESIS_EPOCH_CONFIG),
 		},
-		<span class="string">&quot;sudo&quot;</span>: { <span class="string">&quot;key&quot;</span>: <span class="prelude-val">Some</span>(endowed_accounts[<span class="number">0</span>].clone()) },
-		<span class="string">&quot;configuration&quot;</span>: {
-			<span class="string">&quot;config&quot;</span>: default_parachains_host_configuration(),
+		<span class="string">"sudo"</span>: { <span class="string">"key"</span>: <span class="prelude-val">Some</span>(endowed_accounts[<span class="number">0</span>].clone()) },
+		<span class="string">"configuration"</span>: {
+			<span class="string">"config"</span>: default_parachains_host_configuration(),
 		},
-		<span class="string">&quot;registrar&quot;</span>: {
-			<span class="string">&quot;nextFreeParaId&quot;</span>: primitives::LOWEST_PUBLIC_ID,
+		<span class="string">"registrar"</span>: {
+			<span class="string">"nextFreeParaId"</span>: primitives::LOWEST_PUBLIC_ID,
 		},
 	})
 }
@@ -1174,8 +1176,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="comment">//development
 </span><span class="kw">fn </span>rococo_development_config_genesis() -&gt; serde_json::Value {
 	rococo_testnet_genesis(
-		Vec::from([get_authority_keys_from_seed(<span class="string">&quot;Alice&quot;</span>)]),
-		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>),
+		Vec::from([get_authority_keys_from_seed(<span class="string">"Alice"</span>)]),
+		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Alice"</span>),
 		<span class="prelude-val">None</span>,
 	)
 }
@@ -1183,8 +1185,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="comment">//local_testnet
 </span><span class="kw">fn </span>rococo_local_testnet_genesis() -&gt; serde_json::Value {
 	rococo_testnet_genesis(
-		Vec::from([get_authority_keys_from_seed(<span class="string">&quot;Alice&quot;</span>), get_authority_keys_from_seed(<span class="string">&quot;Bob&quot;</span>)]),
-		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>),
+		Vec::from([get_authority_keys_from_seed(<span class="string">"Alice"</span>), get_authority_keys_from_seed(<span class="string">"Bob"</span>)]),
+		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Alice"</span>),
 		<span class="prelude-val">None</span>,
 	)
 }
@@ -1194,12 +1196,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">fn </span>versi_local_testnet_genesis() -&gt; serde_json::Value {
 	rococo_testnet_genesis(
 		Vec::from([
-			get_authority_keys_from_seed(<span class="string">&quot;Alice&quot;</span>),
-			get_authority_keys_from_seed(<span class="string">&quot;Bob&quot;</span>),
-			get_authority_keys_from_seed(<span class="string">&quot;Charlie&quot;</span>),
-			get_authority_keys_from_seed(<span class="string">&quot;Dave&quot;</span>),
+			get_authority_keys_from_seed(<span class="string">"Alice"</span>),
+			get_authority_keys_from_seed(<span class="string">"Bob"</span>),
+			get_authority_keys_from_seed(<span class="string">"Charlie"</span>),
+			get_authority_keys_from_seed(<span class="string">"Dave"</span>),
 		]),
-		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>),
+		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Alice"</span>),
 		<span class="prelude-val">None</span>,
 	)
 }
@@ -1209,12 +1211,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">fn </span>wococo_local_testnet_genesis() -&gt; serde_json::Value {
 	rococo_testnet_genesis(
 		Vec::from([
-			get_authority_keys_from_seed(<span class="string">&quot;Alice&quot;</span>),
-			get_authority_keys_from_seed(<span class="string">&quot;Bob&quot;</span>),
-			get_authority_keys_from_seed(<span class="string">&quot;Charlie&quot;</span>),
-			get_authority_keys_from_seed(<span class="string">&quot;Dave&quot;</span>),
+			get_authority_keys_from_seed(<span class="string">"Alice"</span>),
+			get_authority_keys_from_seed(<span class="string">"Bob"</span>),
+			get_authority_keys_from_seed(<span class="string">"Charlie"</span>),
+			get_authority_keys_from_seed(<span class="string">"Dave"</span>),
 		]),
-		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>),
+		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Alice"</span>),
 		<span class="prelude-val">None</span>,
 	)
 }
@@ -1222,16 +1224,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Provides the JSON representation of predefined genesis config for given `id`.
 </span><span class="kw">pub fn </span>get_preset(id: <span class="kw-2">&amp;</span>sp_genesis_builder::PresetId) -&gt; <span class="prelude-ty">Option</span>&lt;sp_std::vec::Vec&lt;u8&gt;&gt; {
 	<span class="kw">let </span>patch = <span class="kw">match </span>id.try_into() {
-		<span class="prelude-val">Ok</span>(<span class="string">&quot;local_testnet&quot;</span>) =&gt; rococo_local_testnet_genesis(),
-		<span class="prelude-val">Ok</span>(<span class="string">&quot;development&quot;</span>) =&gt; rococo_development_config_genesis(),
-		<span class="prelude-val">Ok</span>(<span class="string">&quot;staging_testnet&quot;</span>) =&gt; rococo_staging_testnet_config_genesis(),
-		<span class="prelude-val">Ok</span>(<span class="string">&quot;wococo_local_testnet&quot;</span>) =&gt; wococo_local_testnet_genesis(),
-		<span class="prelude-val">Ok</span>(<span class="string">&quot;versi_local_testnet&quot;</span>) =&gt; versi_local_testnet_genesis(),
+		<span class="prelude-val">Ok</span>(<span class="string">"local_testnet"</span>) =&gt; rococo_local_testnet_genesis(),
+		<span class="prelude-val">Ok</span>(<span class="string">"development"</span>) =&gt; rococo_development_config_genesis(),
+		<span class="prelude-val">Ok</span>(<span class="string">"staging_testnet"</span>) =&gt; rococo_staging_testnet_config_genesis(),
+		<span class="prelude-val">Ok</span>(<span class="string">"wococo_local_testnet"</span>) =&gt; wococo_local_testnet_genesis(),
+		<span class="prelude-val">Ok</span>(<span class="string">"versi_local_testnet"</span>) =&gt; versi_local_testnet_genesis(),
 		<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">None</span>,
 	};
 	<span class="prelude-val">Some</span>(
 		serde_json::to_string(<span class="kw-2">&amp;</span>patch)
-			.expect(<span class="string">&quot;serialization to json is expected to work. qed.&quot;</span>)
+			.expect(<span class="string">"serialization to json is expected to work. qed."</span>)
 			.into_bytes(),
 	)
 }

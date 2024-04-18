@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/network/collator-protocol/src/collator_side/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/network/collator-protocol/src/collator_side/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_collator_protocol" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_collator_protocol" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../polkadot_collator_protocol/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1831,10 +1833,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">pub use </span>metrics::Metrics;
 
-<span class="kw">const </span>COST_INVALID_REQUEST: Rep = Rep::CostMajor(<span class="string">&quot;Peer sent unparsable request&quot;</span>);
-<span class="kw">const </span>COST_UNEXPECTED_MESSAGE: Rep = Rep::CostMinor(<span class="string">&quot;An unexpected message&quot;</span>);
+<span class="kw">const </span>COST_INVALID_REQUEST: Rep = Rep::CostMajor(<span class="string">"Peer sent unparsable request"</span>);
+<span class="kw">const </span>COST_UNEXPECTED_MESSAGE: Rep = Rep::CostMinor(<span class="string">"An unexpected message"</span>);
 <span class="kw">const </span>COST_APPARENT_FLOOD: Rep =
-	Rep::CostMinor(<span class="string">&quot;Message received when previous one was still being processed&quot;</span>);
+	Rep::CostMinor(<span class="string">"Message received when previous one was still being processed"</span>);
 
 <span class="doccomment">/// Time after starting an upload to a validator we will start another one to the next validator,
 /// even if the upload was not finished yet.
@@ -1860,7 +1862,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Future that when resolved indicates that we should update reserved peer-set
 /// of validators we want to be connected to.
 ///
-/// `Pending` variant never finishes and should be used when there&#39;re no peers
+/// `Pending` variant never finishes and should be used when there're no peers
 /// connected.
 </span><span class="kw">type </span>ReconnectTimeout = Fuse&lt;futures_timer::Delay&gt;;
 
@@ -1947,13 +1949,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="attr">#[derive(Debug)]
 </span><span class="kw">struct </span>PeerData {
-	<span class="doccomment">/// Peer&#39;s view.
+	<span class="doccomment">/// Peer's view.
 	</span>view: View,
 	<span class="doccomment">/// Network protocol version.
 	</span>version: CollationVersion,
 }
 
-<span class="doccomment">/// A type wrapping a collation and it&#39;s designated core index.
+<span class="doccomment">/// A type wrapping a collation and it's designated core index.
 </span><span class="kw">struct </span>CollationWithCoreIndex(Collation, CoreIndex);
 
 <span class="kw">impl </span>CollationWithCoreIndex {
@@ -2009,9 +2011,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Leaves that do support asynchronous backing along with
 	/// implicit ancestry. Leaves from the implicit view are present in
-	/// `active_leaves`, the opposite doesn&#39;t hold true.
+	/// `active_leaves`, the opposite doesn't hold true.
 	///
-	/// Relay-chain blocks which don&#39;t support prospective parachains are
+	/// Relay-chain blocks which don't support prospective parachains are
 	/// never included in the fragment trees of active leaves which do. In
 	/// particular, this means that if a given relay parent belongs to implicit
 	/// ancestry of some active leaf, then it does support prospective parachains.
@@ -2034,7 +2036,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>collation_result_senders: HashMap&lt;CandidateHash, oneshot::Sender&lt;CollationSecondedSignal&gt;&gt;,
 
 	<span class="doccomment">/// The mapping from [`PeerId`] to [`HashSet&lt;AuthorityDiscoveryId&gt;`]. This is filled over time
-	/// as we learn the [`PeerId`]&#39;s by `PeerConnected` events.
+	/// as we learn the [`PeerId`]'s by `PeerConnected` events.
 	</span>peer_ids: HashMap&lt;PeerId, HashSet&lt;AuthorityDiscoveryId&gt;&gt;,
 
 	<span class="doccomment">/// Tracks which validators we want to stay connected to.
@@ -2062,7 +2064,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// was sent.
 	///
 	/// Given an implicit view a collation may stay in memory for significant amount
-	/// of time, if we don&#39;t timeout validators the node will keep attempting to connect
+	/// of time, if we don't timeout validators the node will keep attempting to connect
 	/// to unneeded peers.
 	</span>advertisement_timeouts: FuturesUnordered&lt;ResetInterestTimeout&gt;,
 
@@ -2106,7 +2108,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// Figure out the core our para is assigned to and the relevant validators.
 /// Issue a connection request to these validators.
 /// If the para is not scheduled or next up on any core, at the relay-parent,
-/// or the relay-parent isn&#39;t in the active-leaves set, we ignore the message
+/// or the relay-parent isn't in the active-leaves set, we ignore the message
 /// as it must be invalid in that case - although this indicates a logic error
 /// elsewhere in the node.
 </span><span class="attr">#[overseer::contextbounds(CollatorProtocol, prefix = <span class="self">self</span>::overseer)]
@@ -2133,7 +2135,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				para_id = %id,
 				candidate_relay_parent = %candidate_relay_parent,
 				candidate_hash = <span class="question-mark">?</span>candidate_hash,
-				<span class="string">&quot;Candidate relay parent is out of our view&quot;</span>,
+				<span class="string">"Candidate relay parent is out of our view"</span>,
 			);
 			<span class="kw">return </span><span class="prelude-val">Ok</span>(())
 		},
@@ -2150,7 +2152,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			target: LOG_TARGET,
 			<span class="question-mark">?</span>candidate_relay_parent,
 			<span class="question-mark">?</span>relay_parent_mode,
-			<span class="string">&quot;The limit of {} collations per relay parent is already reached&quot;</span>,
+			<span class="string">"The limit of {} collations per relay parent is already reached"</span>,
 			collations_limit,
 		);
 		<span class="kw">return </span><span class="prelude-val">Ok</span>(())
@@ -2162,7 +2164,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			target: LOG_TARGET,
 			<span class="question-mark">?</span>candidate_relay_parent,
 			<span class="question-mark">?</span>candidate_hash,
-			<span class="string">&quot;Already seen this candidate&quot;</span>,
+			<span class="string">"Already seen this candidate"</span>,
 		);
 		<span class="kw">return </span><span class="prelude-val">Ok</span>(())
 	}
@@ -2175,7 +2177,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="macro">gum::warn!</span>(
 					target: LOG_TARGET,
 					para_id = %id,
-					<span class="string">&quot;looks like no core is assigned to {} at {}&quot;</span>, id, candidate_relay_parent,
+					<span class="string">"looks like no core is assigned to {} at {}"</span>, id, candidate_relay_parent,
 				);
 
 				<span class="kw">return </span><span class="prelude-val">Ok</span>(())
@@ -2189,7 +2191,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			target: LOG_TARGET,
 			para_id = %id,
 			cores = <span class="question-mark">?</span>our_cores,
-			<span class="string">&quot;{} is assigned to {} cores at {}&quot;</span>, id, our_cores.len(), candidate_relay_parent,
+			<span class="string">"{} is assigned to {} cores at {}"</span>, id, our_cores.len(), candidate_relay_parent,
 		);
 	}
 
@@ -2201,7 +2203,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			relay_parent = <span class="question-mark">?</span>candidate_relay_parent,
 			cores = <span class="question-mark">?</span>our_cores,
 			<span class="question-mark">?</span>core_index,
-			<span class="string">&quot;Attempting to distribute collation for a core we are not assigned to &quot;</span>,
+			<span class="string">"Attempting to distribute collation for a core we are not assigned to "</span>,
 		);
 
 		<span class="kw">return </span><span class="prelude-val">Ok</span>(())
@@ -2220,13 +2222,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">gum::warn!</span>(
 			target: LOG_TARGET,
 			core = <span class="question-mark">?</span>our_core,
-			<span class="string">&quot;there are no validators assigned to core&quot;</span>,
+			<span class="string">"there are no validators assigned to core"</span>,
 		);
 
 		<span class="kw">return </span><span class="prelude-val">Ok</span>(())
 	}
 
-	<span class="comment">// It&#39;s important to insert new collation interests **before**
+	<span class="comment">// It's important to insert new collation interests **before**
 	// issuing a connection request.
 	//
 	// If a validator managed to fetch all the relevant collations
@@ -2247,7 +2249,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		pov_hash = <span class="question-mark">?</span>pov.hash(),
 		core = <span class="question-mark">?</span>our_core,
 		current_validators = <span class="question-mark">?</span>validators,
-		<span class="string">&quot;Accepted collation, connecting to validators.&quot;
+		<span class="string">"Accepted collation, connecting to validators."
 	</span>);
 
 	<span class="comment">// Insert validator group for the `core_index` at relay parent.
@@ -2281,7 +2283,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="comment">// If prospective parachains are disabled, a leaf should be known to peer.
 	// Otherwise, it should be present in allowed ancestry of some leaf.
 	//
-	// It&#39;s collation-producer responsibility to verify that there exists
+	// It's collation-producer responsibility to verify that there exists
 	// a hypothetical membership in a fragment tree for candidate.
 	</span><span class="kw">let </span>interested =
 		state
@@ -2333,7 +2335,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			CoreState::Scheduled(scheduled) =&gt; <span class="prelude-val">Some</span>(scheduled.para_id),
 			CoreState::Occupied(occupied) =&gt;
 				<span class="kw">if </span>relay_parent_mode.is_enabled() {
-					<span class="comment">// With async backing we don&#39;t care about the core state,
+					<span class="comment">// With async backing we don't care about the core state,
 					// it is only needed for figuring our validators group.
 					</span><span class="prelude-val">Some</span>(occupied.candidate_descriptor.para_id)
 				} <span class="kw">else </span>{
@@ -2362,7 +2364,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Figure out current group of validators assigned to the para being collated on.
 ///
-/// Returns [`ValidatorId`]&#39;s of current group as determined based on the `relay_parent`.
+/// Returns [`ValidatorId`]'s of current group as determined based on the `relay_parent`.
 </span><span class="attr">#[overseer::contextbounds(CollatorProtocol, prefix = <span class="self">self</span>::overseer)]
 </span><span class="kw">async fn </span>determine_our_validators&lt;Context&gt;(
 	ctx: <span class="kw-2">&amp;mut </span>Context,
@@ -2376,7 +2378,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		.get_session_info_by_index(ctx.sender(), relay_parent, session_index)
 		.<span class="kw">await</span><span class="question-mark">?
 		</span>.session_info;
-	<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="question-mark">?</span>session_index, <span class="string">&quot;Received session info&quot;</span>);
+	<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="question-mark">?</span>session_index, <span class="string">"Received session info"</span>);
 	<span class="kw">let </span>groups = <span class="kw-2">&amp;</span>info.validator_groups;
 	<span class="kw">let </span>rotation_info = get_group_rotation_info(ctx.sender(), relay_parent).<span class="kw">await</span><span class="question-mark">?</span>;
 
@@ -2492,7 +2494,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					target: LOG_TARGET,
 					<span class="question-mark">?</span>relay_parent,
 					peer_id = %peer,
-					<span class="string">&quot;Skipping advertising to validator, incorrect network protocol version&quot;</span>,
+					<span class="string">"Skipping advertising to validator, incorrect network protocol version"</span>,
 				);
 				<span class="kw">return
 			</span>}
@@ -2503,7 +2505,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				target: LOG_TARGET,
 				<span class="question-mark">?</span>relay_parent,
 				<span class="question-mark">?</span>core_index,
-				<span class="string">&quot;Skipping advertising to validator, validator group for core not found&quot;</span>,
+				<span class="string">"Skipping advertising to validator, validator group for core not found"</span>,
 			);
 			<span class="kw">return
 		</span>};
@@ -2518,7 +2520,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="question-mark">?</span>candidate_hash,
 					peer_id = %peer,
 					reason = <span class="question-mark">?</span>should_advertise,
-					<span class="string">&quot;Not advertising collation&quot;
+					<span class="string">"Not advertising collation"
 				</span>);
 				<span class="kw">continue
 			</span>},
@@ -2529,7 +2531,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="question-mark">?</span>relay_parent,
 			<span class="question-mark">?</span>candidate_hash,
 			peer_id = %peer,
-			<span class="string">&quot;Advertising collation.&quot;</span>,
+			<span class="string">"Advertising collation."</span>,
 		);
 
 		collation.status.advance_to_advertised();
@@ -2593,8 +2595,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>_span1 = state
 				.span_per_relay_parent
 				.get(<span class="kw-2">&amp;</span>candidate_receipt.descriptor.relay_parent)
-				.map(|s| s.child(<span class="string">&quot;distributing-collation&quot;</span>));
-			<span class="kw">let </span>_span2 = jaeger::Span::new(<span class="kw-2">&amp;</span>pov, <span class="string">&quot;distributing-collation&quot;</span>);
+				.map(|s| s.child(<span class="string">"distributing-collation"</span>));
+			<span class="kw">let </span>_span2 = jaeger::Span::new(<span class="kw-2">&amp;</span>pov, <span class="string">"distributing-collation"</span>);
 
 			<span class="kw">match </span>state.collating_on {
 				<span class="prelude-val">Some</span>(id) <span class="kw">if </span>candidate_receipt.descriptor.para_id != id =&gt; {
@@ -2604,11 +2606,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						target: LOG_TARGET,
 						para_id = %candidate_receipt.descriptor.para_id,
 						collating_on = %id,
-						<span class="string">&quot;DistributeCollation for unexpected para_id&quot;</span>,
+						<span class="string">"DistributeCollation for unexpected para_id"</span>,
 					);
 				},
 				<span class="prelude-val">Some</span>(id) =&gt; {
-					<span class="kw">let _ </span>= state.metrics.time_collation_distribution(<span class="string">&quot;distribute&quot;</span>);
+					<span class="kw">let _ </span>= state.metrics.time_collation_distribution(<span class="string">"distribute"</span>);
 					distribute_collation(
 						ctx,
 						runtime,
@@ -2627,7 +2629,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="macro">gum::warn!</span>(
 						target: LOG_TARGET,
 						para_id = %candidate_receipt.descriptor.para_id,
-						<span class="string">&quot;DistributeCollation message while not collating on any&quot;</span>,
+						<span class="string">"DistributeCollation message while not collating on any"</span>,
 					);
 				},
 			}
@@ -2641,14 +2643,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="macro">gum::warn!</span>(
 					target: LOG_TARGET,
 					err = <span class="question-mark">?</span>e,
-					<span class="string">&quot;Failed to handle incoming network message&quot;</span>,
+					<span class="string">"Failed to handle incoming network message"</span>,
 				);
 			}
 		},
 		msg @ (ReportCollator(..) | Invalid(..) | Seconded(..) | Backed { .. }) =&gt; {
 			<span class="macro">gum::warn!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;{:?} message is not expected on the collator side of the protocol&quot;</span>,
+				<span class="string">"{:?} message is not expected on the collator side of the protocol"</span>,
 				msg,
 			);
 		},
@@ -2671,7 +2673,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>peer_id = request.peer_id();
 	<span class="kw">let </span>candidate_hash = receipt.hash();
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;elastic-scaling-experimental&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"elastic-scaling-experimental"</span>)]
 	</span><span class="kw">let </span>result = <span class="kw">match </span>parent_head_data {
 		ParentHeadData::WithData { head_data, .. } =&gt;
 			<span class="prelude-val">Ok</span>(request_v2::CollationFetchingResponse::CollationWithParentHeadData {
@@ -2682,7 +2684,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		ParentHeadData::OnlyHash(<span class="kw">_</span>) =&gt;
 			<span class="prelude-val">Ok</span>(request_v1::CollationFetchingResponse::Collation(receipt, pov)),
 	};
-	<span class="attr">#[cfg(not(feature = <span class="string">&quot;elastic-scaling-experimental&quot;</span>))]
+	<span class="attr">#[cfg(not(feature = <span class="string">"elastic-scaling-experimental"</span>))]
 	</span><span class="kw">let </span>result = {
 		<span class="comment">// suppress unused warning
 		</span><span class="kw">let </span>_parent_head_data = parent_head_data;
@@ -2694,7 +2696,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		OutgoingResponse { result, reputation_changes: Vec::new(), sent_feedback: <span class="prelude-val">Some</span>(tx) };
 
 	<span class="kw">if let </span><span class="prelude-val">Err</span>(<span class="kw">_</span>) = request.send_outgoing_response(response) {
-		<span class="macro">gum::warn!</span>(target: LOG_TARGET, <span class="string">&quot;Sending collation response failed&quot;</span>);
+		<span class="macro">gum::warn!</span>(target: LOG_TARGET, <span class="string">"Sending collation response failed"</span>);
 	}
 
 	state.active_collation_fetches.push(
@@ -2729,7 +2731,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">gum::trace!</span>(
 				target: LOG_TARGET,
 				<span class="question-mark">?</span>origin,
-				<span class="string">&quot;Declare message is not expected on the collator side of the protocol&quot;</span>,
+				<span class="string">"Declare message is not expected on the collator side of the protocol"</span>,
 			);
 
 			<span class="comment">// If we are declared to, this is another collator, and we should disconnect.
@@ -2742,7 +2744,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">gum::trace!</span>(
 				target: LOG_TARGET,
 				<span class="question-mark">?</span>origin,
-				<span class="string">&quot;AdvertiseCollation message is not expected on the collator side of the protocol&quot;</span>,
+				<span class="string">"AdvertiseCollation message is not expected on the collator side of the protocol"</span>,
 			);
 
 			modify_reputation(<span class="kw-2">&amp;mut </span>state.reputation, ctx.sender(), origin, COST_UNEXPECTED_MESSAGE)
@@ -2760,7 +2762,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					target: LOG_TARGET,
 					<span class="question-mark">?</span>statement,
 					<span class="question-mark">?</span>origin,
-					<span class="string">&quot;Collation seconded message received with none-seconded statement.&quot;</span>,
+					<span class="string">"Collation seconded message received with none-seconded statement."</span>,
 				);
 			} <span class="kw">else </span>{
 				<span class="kw">let </span>statement = runtime
@@ -2776,7 +2778,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						target: LOG_TARGET,
 						<span class="question-mark">?</span>statement,
 						<span class="question-mark">?</span>origin,
-						<span class="string">&quot;received a valid `CollationSeconded`, forwarding result to collator&quot;</span>,
+						<span class="string">"received a valid `CollationSeconded`, forwarding result to collator"</span>,
 					);
 					<span class="kw">let _ </span>= sender.send(CollationSecondedSignal { statement, relay_parent });
 				} <span class="kw">else </span>{
@@ -2788,19 +2790,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 								target: LOG_TARGET,
 								candidate_relay_parent = %relay_parent,
 								candidate_hash = <span class="question-mark">?</span><span class="kw-2">&amp;</span>statement.payload().candidate_hash(),
-								<span class="string">&quot;Seconded statement relay parent is out of our view&quot;</span>,
+								<span class="string">"Seconded statement relay parent is out of our view"</span>,
 							);
 							<span class="kw">return </span><span class="prelude-val">Ok</span>(())
 						},
 					};
 					<span class="kw">match </span>relay_parent.collations.get(<span class="kw-2">&amp;</span>statement.payload().candidate_hash()) {
 						<span class="prelude-val">Some</span>(<span class="kw">_</span>) =&gt; {
-							<span class="comment">// We&#39;ve seen this collation before, so a seconded statement is expected
+							<span class="comment">// We've seen this collation before, so a seconded statement is expected
 							</span><span class="macro">gum::trace!</span>(
 								target: LOG_TARGET,
 								<span class="question-mark">?</span>statement,
 								<span class="question-mark">?</span>origin,
-								<span class="string">&quot;received a valid `CollationSeconded`&quot;</span>,
+								<span class="string">"received a valid `CollationSeconded`"</span>,
 							);
 						},
 						<span class="prelude-val">None </span>=&gt; {
@@ -2808,7 +2810,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 								target: LOG_TARGET,
 								candidate_hash = <span class="question-mark">?</span><span class="kw-2">&amp;</span>statement.payload().candidate_hash(),
 								<span class="question-mark">?</span>origin,
-								<span class="string">&quot;received an unexpected `CollationSeconded`: unknown statement&quot;</span>,
+								<span class="string">"received an unexpected `CollationSeconded`: unknown statement"</span>,
 							);
 						},
 					}
@@ -2835,7 +2837,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>_span = state
 		.span_per_relay_parent
 		.get(<span class="kw-2">&amp;</span>relay_parent)
-		.map(|s| s.child(<span class="string">&quot;request-collation&quot;</span>));
+		.map(|s| s.child(<span class="string">"request-collation"</span>));
 
 	<span class="kw">match </span>state.collating_on {
 		<span class="prelude-val">Some</span>(our_para_id) <span class="kw">if </span>our_para_id == para_id =&gt; {
@@ -2845,7 +2847,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="macro">gum::debug!</span>(
 						target: LOG_TARGET,
 						relay_parent = %relay_parent,
-						<span class="string">&quot;received a `RequestCollation` for a relay parent out of our view&quot;</span>,
+						<span class="string">"received a `RequestCollation` for a relay parent out of our view"</span>,
 					);
 
 					<span class="kw">return </span><span class="prelude-val">Ok</span>(())
@@ -2864,7 +2866,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						relay_parent = %relay_parent,
 						prospective_parachains_mode = <span class="question-mark">?</span>mode,
 						<span class="question-mark">?</span>peer_id,
-						<span class="string">&quot;Collation request version is invalid&quot;</span>,
+						<span class="string">"Collation request version is invalid"</span>,
 					);
 
 					<span class="kw">return </span><span class="prelude-val">Ok</span>(())
@@ -2883,7 +2885,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="macro">gum::warn!</span>(
 						target: LOG_TARGET,
 						relay_parent = %relay_parent,
-						<span class="string">&quot;received a `RequestCollation` for a relay parent we don&#39;t have collation stored.&quot;</span>,
+						<span class="string">"received a `RequestCollation` for a relay parent we don't have collation stored."</span>,
 					);
 
 					<span class="kw">return </span><span class="prelude-val">Ok</span>(())
@@ -2891,7 +2893,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			state.metrics.on_collation_sent_requested();
 
-			<span class="kw">let </span>_span = _span.as_ref().map(|s| s.child(<span class="string">&quot;sending&quot;</span>));
+			<span class="kw">let </span>_span = _span.as_ref().map(|s| s.child(<span class="string">"sending"</span>));
 
 			<span class="kw">let </span>waiting = state.waiting_collation_fetches.entry(relay_parent).or_default();
 			<span class="kw">let </span>candidate_hash = receipt.hash();
@@ -2899,7 +2901,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">if </span>!waiting.waiting_peers.insert((peer_id, candidate_hash)) {
 				<span class="macro">gum::debug!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Dropping incoming request as peer has a request in flight already.&quot;
+					<span class="string">"Dropping incoming request as peer has a request in flight already."
 				</span>);
 				modify_reputation(
 					<span class="kw-2">&amp;mut </span>state.reputation,
@@ -2916,7 +2918,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			} <span class="kw">else </span>{
 				waiting.collation_fetch_active = <span class="bool-val">true</span>;
 				<span class="comment">// Obtain a timer for sending collation
-				</span><span class="kw">let _ </span>= state.metrics.time_collation_distribution(<span class="string">&quot;send&quot;</span>);
+				</span><span class="kw">let _ </span>= state.metrics.time_collation_distribution(<span class="string">"send"</span>);
 				send_collation(state, req, receipt, pov, parent_head_data).<span class="kw">await</span>;
 			}
 		},
@@ -2925,22 +2927,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				target: LOG_TARGET,
 				for_para_id = %para_id,
 				our_para_id = %our_para_id,
-				<span class="string">&quot;received a `CollationFetchingRequest` for unexpected para_id&quot;</span>,
+				<span class="string">"received a `CollationFetchingRequest` for unexpected para_id"</span>,
 			);
 		},
 		<span class="prelude-val">None </span>=&gt; {
 			<span class="macro">gum::warn!</span>(
 				target: LOG_TARGET,
 				for_para_id = %para_id,
-				<span class="string">&quot;received a `RequestCollation` while not collating on any para&quot;</span>,
+				<span class="string">"received a `RequestCollation` while not collating on any para"</span>,
 			);
 		},
 	}
 	<span class="prelude-val">Ok</span>(())
 }
 
-<span class="doccomment">/// Peer&#39;s view has changed. Send advertisements for new relay parents
-/// if there&#39;re any.
+<span class="doccomment">/// Peer's view has changed. Send advertisements for new relay parents
+/// if there're any.
 </span><span class="attr">#[overseer::contextbounds(CollatorProtocol, prefix = <span class="self">self</span>::overseer)]
 </span><span class="kw">async fn </span>handle_peer_view_change&lt;Context&gt;(
 	ctx: <span class="kw-2">&amp;mut </span>Context,
@@ -2973,7 +2975,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					target: LOG_TARGET,
 					<span class="question-mark">?</span>peer_id,
 					new_leaf = <span class="question-mark">?</span>added,
-					<span class="string">&quot;New leaf in peer&#39;s view is unknown&quot;</span>,
+					<span class="string">"New leaf in peer's view is unknown"</span>,
 				);
 				<span class="kw">continue
 			</span>},
@@ -3013,7 +3015,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		PeerConnected(peer_id, observed_role, protocol_version, maybe_authority) =&gt; {
 			<span class="comment">// If it is possible that a disconnected validator would attempt a reconnect
 			// it should be handled here.
-			</span><span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>peer_id, <span class="question-mark">?</span>observed_role, <span class="question-mark">?</span>maybe_authority, <span class="string">&quot;Peer connected&quot;</span>);
+			</span><span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>peer_id, <span class="question-mark">?</span>observed_role, <span class="question-mark">?</span>maybe_authority, <span class="string">"Peer connected"</span>);
 
 			<span class="kw">let </span>version = <span class="kw">match </span>protocol_version.try_into() {
 				<span class="prelude-val">Ok</span>(version) =&gt; version,
@@ -3024,7 +3026,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="question-mark">?</span>peer_id,
 						<span class="question-mark">?</span>observed_role,
 						<span class="question-mark">?</span>err,
-						<span class="string">&quot;Unsupported protocol version&quot;
+						<span class="string">"Unsupported protocol version"
 					</span>);
 					<span class="kw">return </span><span class="prelude-val">Ok</span>(())
 				},
@@ -3039,7 +3041,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					target: LOG_TARGET,
 					<span class="question-mark">?</span>authority_ids,
 					<span class="question-mark">?</span>peer_id,
-					<span class="string">&quot;Connected to requested validator&quot;
+					<span class="string">"Connected to requested validator"
 				</span>);
 				state.peer_ids.insert(peer_id, authority_ids);
 
@@ -3047,23 +3049,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			}
 		},
 		PeerViewChange(peer_id, view) =&gt; {
-			<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>peer_id, <span class="question-mark">?</span>view, <span class="string">&quot;Peer view change&quot;</span>);
+			<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>peer_id, <span class="question-mark">?</span>view, <span class="string">"Peer view change"</span>);
 			handle_peer_view_change(ctx, state, peer_id, view).<span class="kw">await</span>;
 		},
 		PeerDisconnected(peer_id) =&gt; {
-			<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>peer_id, <span class="string">&quot;Peer disconnected&quot;</span>);
+			<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>peer_id, <span class="string">"Peer disconnected"</span>);
 			state.peer_data.remove(<span class="kw-2">&amp;</span>peer_id);
 			state.peer_ids.remove(<span class="kw-2">&amp;</span>peer_id);
 		},
 		OurViewChange(view) =&gt; {
-			<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>view, <span class="string">&quot;Own view change&quot;</span>);
+			<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>view, <span class="string">"Own view change"</span>);
 			handle_our_view_change(ctx.sender(), state, view).<span class="kw">await</span><span class="question-mark">?</span>;
 		},
 		PeerMessage(remote, msg) =&gt; {
 			handle_incoming_peer_message(ctx, runtime, state, remote, msg).<span class="kw">await</span><span class="question-mark">?</span>;
 		},
 		UpdatedAuthorityIds(peer_id, authority_ids) =&gt; {
-			<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>peer_id, <span class="question-mark">?</span>authority_ids, <span class="string">&quot;Updated authority ids&quot;</span>);
+			<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>peer_id, <span class="question-mark">?</span>authority_ids, <span class="string">"Updated authority ids"</span>);
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(version) = state.peer_data.get(<span class="kw-2">&amp;</span>peer_id).map(|d| d.version) {
 				<span class="kw">if </span>state.peer_ids.insert(peer_id, authority_ids).is_none() {
 					declare(ctx, state, <span class="kw-2">&amp;</span>peer_id, version).<span class="kw">await</span>;
@@ -3096,7 +3098,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>mode = prospective_parachains_mode(sender, <span class="kw-2">*</span>leaf).<span class="kw">await</span><span class="question-mark">?</span>;
 
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(span) = view.span_per_head().get(leaf).cloned() {
-			<span class="kw">let </span>per_leaf_span = PerLeafSpan::new(span, <span class="string">&quot;collator-side&quot;</span>);
+			<span class="kw">let </span>per_leaf_span = PerLeafSpan::new(span, <span class="string">"collator-side"</span>);
 			state.span_per_relay_parent.insert(<span class="kw-2">*</span>leaf, per_leaf_span);
 		}
 
@@ -3135,7 +3137,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		};
 
 		<span class="kw">for </span>removed <span class="kw">in </span><span class="kw-2">&amp;</span>pruned {
-			<span class="macro">gum::debug!</span>(target: LOG_TARGET, relay_parent = <span class="question-mark">?</span>removed, <span class="string">&quot;Removing relay parent because our view changed.&quot;</span>);
+			<span class="macro">gum::debug!</span>(target: LOG_TARGET, relay_parent = <span class="question-mark">?</span>removed, <span class="string">"Removing relay parent because our view changed."</span>);
 
 			<span class="kw">let </span>collations = state
 				.per_relay_parent
@@ -3154,19 +3156,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						target: LOG_TARGET,
 						candidate_hash = <span class="question-mark">?</span>collation.receipt.hash(),
 						pov_hash = <span class="question-mark">?</span>collation.pov.hash(),
-						<span class="string">&quot;Collation wasn&#39;t advertised to any validator.&quot;</span>,
+						<span class="string">"Collation wasn't advertised to any validator."</span>,
 					),
 					CollationStatus::Advertised =&gt; <span class="macro">gum::debug!</span>(
 						target: LOG_TARGET,
 						candidate_hash = <span class="question-mark">?</span>collation.receipt.hash(),
 						pov_hash = <span class="question-mark">?</span>collation.pov.hash(),
-						<span class="string">&quot;Collation was advertised but not requested by any validator.&quot;</span>,
+						<span class="string">"Collation was advertised but not requested by any validator."</span>,
 					),
 					CollationStatus::Requested =&gt; <span class="macro">gum::debug!</span>(
 						target: LOG_TARGET,
 						candidate_hash = <span class="question-mark">?</span>collation.receipt.hash(),
 						pov_hash = <span class="question-mark">?</span>collation.pov.hash(),
-						<span class="string">&quot;Collation was requested.&quot;</span>,
+						<span class="string">"Collation was requested."</span>,
 					),
 				}
 			}
@@ -3236,7 +3238,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				FromOrchestra::Communication { msg } =&gt; {
 					log_error(
 						process_msg(<span class="kw-2">&amp;mut </span>ctx, <span class="kw-2">&amp;mut </span>runtime, <span class="kw-2">&amp;mut </span>state, msg).<span class="kw">await</span>,
-						<span class="string">&quot;Failed to process message&quot;
+						<span class="string">"Failed to process message"
 					</span>)<span class="question-mark">?</span>;
 				},
 				FromOrchestra::Signal(ActiveLeaves(update)) =&gt; {
@@ -3256,7 +3258,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							<span class="question-mark">?</span>relay_parent,
 							<span class="question-mark">?</span>peer_id,
 							<span class="question-mark">?</span>candidate_hash,
-							<span class="string">&quot;Sending collation to validator timed out, carrying on with next validator.&quot;
+							<span class="string">"Sending collation to validator timed out, carrying on with next validator."
 						</span>);
 						<span class="comment">// We try to throttle requests per relay parent to give validators
 						// more bandwidth, but if the collation is not received within the
@@ -3311,8 +3313,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				}
 			},
 			(candidate_hash, peer_id) = state.advertisement_timeouts.select_next_some() =&gt; {
-				<span class="comment">// NOTE: it doesn&#39;t necessarily mean that a validator gets disconnected,
-				// it only will if there&#39;re no other advertisements we want to send.
+				<span class="comment">// NOTE: it doesn't necessarily mean that a validator gets disconnected,
+				// it only will if there're no other advertisements we want to send.
 				//
 				// No-op if the collation was already fetched or went out of view.
 				</span><span class="kw">for </span>authority_id <span class="kw">in </span>state.peer_ids.get(<span class="kw-2">&amp;</span>peer_id).into_iter().flatten() {
@@ -3327,7 +3329,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="macro">gum::trace!</span>(
 					target: LOG_TARGET,
 					timeout = <span class="question-mark">?</span>RECONNECT_AFTER_LEAF_TIMEOUT,
-					<span class="string">&quot;Peer-set updated due to a timeout&quot;
+					<span class="string">"Peer-set updated due to a timeout"
 				</span>);
 			},
 			in_req = recv_req_v1 =&gt; {
@@ -3335,7 +3337,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 				log_error(
 					handle_incoming_request(<span class="kw-2">&amp;mut </span>ctx, <span class="kw-2">&amp;mut </span>state, request).<span class="kw">await</span>,
-					<span class="string">&quot;Handling incoming collation fetch request V1&quot;
+					<span class="string">"Handling incoming collation fetch request V1"
 				</span>)<span class="question-mark">?</span>;
 			}
 			in_req = recv_req_v2 =&gt; {
@@ -3343,7 +3345,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 				log_error(
 					handle_incoming_request(<span class="kw-2">&amp;mut </span>ctx, <span class="kw-2">&amp;mut </span>state, request).<span class="kw">await</span>,
-					<span class="string">&quot;Handling incoming collation fetch request V2&quot;
+					<span class="string">"Handling incoming collation fetch request V2"
 				</span>)<span class="question-mark">?</span>;
 			}
 		}

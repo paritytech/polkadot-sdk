@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/benchmarking/src/utils.rs`."><title>utils.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/benchmarking/src/utils.rs`."><title>utils.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="frame_benchmarking" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="frame_benchmarking" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../frame_benchmarking/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -634,14 +636,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -650,7 +652,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>frame_support::{dispatch::DispatchErrorWithPostInfo, pallet_prelude::<span class="kw-2">*</span>, traits::StorageInfo};
 <span class="kw">use </span>scale_info::TypeInfo;
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>sp_io::hashing::blake2_256;
 <span class="kw">use </span>sp_runtime::{traits::TrailingZeroInput, DispatchError};
@@ -658,7 +660,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sp_storage::TrackedStorageKey;
 
 <span class="doccomment">/// An alphabet of possible parameters to use for benchmarking.
-</span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(Serialize, Deserialize))]
+</span><span class="attr">#[cfg_attr(feature = <span class="string">"std"</span>, derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Clone, Copy, PartialEq, Debug, TypeInfo)]
 #[allow(missing_docs)]
 #[allow(non_camel_case_types)]
@@ -691,25 +693,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	z,
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">impl </span>std::fmt::Display <span class="kw">for </span>BenchmarkParameter {
-	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
-		<span class="macro">write!</span>(f, <span class="string">&quot;{:?}&quot;</span>, <span class="self">self</span>)
+	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; std::fmt::Result {
+		<span class="macro">write!</span>(f, <span class="string">"{:?}"</span>, <span class="self">self</span>)
 	}
 }
 
 <span class="doccomment">/// The results of a single of benchmark.
-</span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(Serialize, Deserialize))]
+</span><span class="attr">#[cfg_attr(feature = <span class="string">"std"</span>, derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Clone, PartialEq, Debug, TypeInfo)]
 </span><span class="kw">pub struct </span>BenchmarkBatch {
 	<span class="doccomment">/// The pallet containing this benchmark.
-	</span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, serde(with = <span class="string">&quot;serde_as_str&quot;</span>))]
+	</span><span class="attr">#[cfg_attr(feature = <span class="string">"std"</span>, serde(with = <span class="string">"serde_as_str"</span>))]
 	</span><span class="kw">pub </span>pallet: Vec&lt;u8&gt;,
 	<span class="doccomment">/// The instance of this pallet being benchmarked.
-	</span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, serde(with = <span class="string">&quot;serde_as_str&quot;</span>))]
+	</span><span class="attr">#[cfg_attr(feature = <span class="string">"std"</span>, serde(with = <span class="string">"serde_as_str"</span>))]
 	</span><span class="kw">pub </span>instance: Vec&lt;u8&gt;,
 	<span class="doccomment">/// The extrinsic (or benchmark name) of this benchmark.
-	</span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, serde(with = <span class="string">&quot;serde_as_str&quot;</span>))]
+	</span><span class="attr">#[cfg_attr(feature = <span class="string">"std"</span>, serde(with = <span class="string">"serde_as_str"</span>))]
 	</span><span class="kw">pub </span>benchmark: Vec&lt;u8&gt;,
 	<span class="doccomment">/// The results from this benchmark.
 	</span><span class="kw">pub </span>results: Vec&lt;BenchmarkResult&gt;,
@@ -717,17 +719,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="comment">// TODO: could probably make API cleaner here.
 </span><span class="doccomment">/// The results of a single of benchmark, where time and db results are separated.
-</span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(Serialize, Deserialize))]
+</span><span class="attr">#[cfg_attr(feature = <span class="string">"std"</span>, derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Clone, PartialEq, Debug)]
 </span><span class="kw">pub struct </span>BenchmarkBatchSplitResults {
 	<span class="doccomment">/// The pallet containing this benchmark.
-	</span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, serde(with = <span class="string">&quot;serde_as_str&quot;</span>))]
+	</span><span class="attr">#[cfg_attr(feature = <span class="string">"std"</span>, serde(with = <span class="string">"serde_as_str"</span>))]
 	</span><span class="kw">pub </span>pallet: Vec&lt;u8&gt;,
 	<span class="doccomment">/// The instance of this pallet being benchmarked.
-	</span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, serde(with = <span class="string">&quot;serde_as_str&quot;</span>))]
+	</span><span class="attr">#[cfg_attr(feature = <span class="string">"std"</span>, serde(with = <span class="string">"serde_as_str"</span>))]
 	</span><span class="kw">pub </span>instance: Vec&lt;u8&gt;,
 	<span class="doccomment">/// The extrinsic (or benchmark name) of this benchmark.
-	</span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, serde(with = <span class="string">&quot;serde_as_str&quot;</span>))]
+	</span><span class="attr">#[cfg_attr(feature = <span class="string">"std"</span>, serde(with = <span class="string">"serde_as_str"</span>))]
 	</span><span class="kw">pub </span>benchmark: Vec&lt;u8&gt;,
 	<span class="doccomment">/// The extrinsic timing results from this benchmark.
 	</span><span class="kw">pub </span>time_results: Vec&lt;BenchmarkResult&gt;,
@@ -738,7 +740,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Result from running benchmarks on a FRAME pallet.
 /// Contains duration of the function call in nanoseconds along with the benchmark parameters
 /// used for that benchmark result.
-</span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(Serialize, Deserialize))]
+</span><span class="attr">#[cfg_attr(feature = <span class="string">"std"</span>, derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Default, Clone, PartialEq, Debug, TypeInfo)]
 </span><span class="kw">pub struct </span>BenchmarkResult {
 	<span class="kw">pub </span>components: Vec&lt;(BenchmarkParameter, u32)&gt;,
@@ -749,7 +751,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">pub </span>writes: u32,
 	<span class="kw">pub </span>repeat_writes: u32,
 	<span class="kw">pub </span>proof_size: u32,
-	<span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, serde(skip))]
+	<span class="attr">#[cfg_attr(feature = <span class="string">"std"</span>, serde(skip))]
 	</span><span class="kw">pub </span>keys: Vec&lt;(Vec&lt;u8&gt;, u32, u32, bool)&gt;,
 }
 
@@ -760,7 +762,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Helper module to make serde serialize `Vec&lt;u8&gt;` as strings.
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+</span><span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">mod </span>serde_as_str {
 	<span class="kw">pub fn </span>serialize&lt;S&gt;(value: <span class="kw-2">&amp;</span>Vec&lt;u8&gt;, serializer: S) -&gt; <span class="prelude-ty">Result</span>&lt;S::Ok, S::Error&gt;
 	<span class="kw">where
@@ -770,9 +772,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		serializer.collect_str(s)
 	}
 
-	<span class="kw">pub fn </span>deserialize&lt;<span class="lifetime">&#39;de</span>, D&gt;(deserializer: D) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, D::Error&gt;
+	<span class="kw">pub fn </span>deserialize&lt;<span class="lifetime">'de</span>, D&gt;(deserializer: D) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, D::Error&gt;
 	<span class="kw">where
-		</span>D: serde::de::Deserializer&lt;<span class="lifetime">&#39;de</span>&gt;,
+		</span>D: serde::de::Deserializer&lt;<span class="lifetime">'de</span>&gt;,
 	{
 		<span class="kw">let </span>s: <span class="kw-2">&amp;</span>str = serde::de::Deserialize::deserialize(deserializer)<span class="question-mark">?</span>;
 		<span class="prelude-val">Ok</span>(s.into())
@@ -783,7 +785,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[derive(Clone, PartialEq, Debug)]
 </span><span class="kw">pub enum </span>BenchmarkError {
 	<span class="doccomment">/// The benchmarking pipeline should stop and return the inner string.
-	</span>Stop(<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str),
+	</span>Stop(<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str),
 	<span class="doccomment">/// The benchmarking pipeline is allowed to fail here, and we should use the
 	/// included weight instead.
 	</span>Override(BenchmarkResult),
@@ -797,19 +799,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>Weightless,
 }
 
-<span class="kw">impl </span>From&lt;BenchmarkError&gt; <span class="kw">for </span><span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str {
+<span class="kw">impl </span>From&lt;BenchmarkError&gt; <span class="kw">for </span><span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
 	<span class="kw">fn </span>from(e: BenchmarkError) -&gt; <span class="self">Self </span>{
 		<span class="kw">match </span>e {
 			BenchmarkError::Stop(s) =&gt; s,
-			BenchmarkError::Override(<span class="kw">_</span>) =&gt; <span class="string">&quot;benchmark override&quot;</span>,
-			BenchmarkError::Skip =&gt; <span class="string">&quot;benchmark skip&quot;</span>,
-			BenchmarkError::Weightless =&gt; <span class="string">&quot;benchmark weightless&quot;</span>,
+			BenchmarkError::Override(<span class="kw">_</span>) =&gt; <span class="string">"benchmark override"</span>,
+			BenchmarkError::Skip =&gt; <span class="string">"benchmark skip"</span>,
+			BenchmarkError::Weightless =&gt; <span class="string">"benchmark weightless"</span>,
 		}
 	}
 }
 
-<span class="kw">impl </span>From&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; <span class="kw">for </span>BenchmarkError {
-	<span class="kw">fn </span>from(s: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str) -&gt; <span class="self">Self </span>{
+<span class="kw">impl </span>From&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; <span class="kw">for </span>BenchmarkError {
+	<span class="kw">fn </span>from(s: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str) -&gt; <span class="self">Self </span>{
 		<span class="self">Self</span>::Stop(s)
 	}
 }
@@ -864,7 +866,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="doccomment">/// Get the benchmark metadata available for this runtime.
 		///
 		/// Parameters
-		/// - `extra`: Also list benchmarks marked &quot;extra&quot; which would otherwise not be
+		/// - `extra`: Also list benchmarks marked "extra" which would otherwise not be
 		///            needed for weight calculation.
 		</span><span class="kw">fn </span>benchmark_metadata(extra: bool) -&gt; (Vec&lt;BenchmarkList&gt;, Vec&lt;StorageInfo&gt;);
 
@@ -883,7 +885,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>current_time() -&gt; u128 {
 		std::time::SystemTime::now()
 			.duration_since(std::time::SystemTime::UNIX_EPOCH)
-			.expect(<span class="string">&quot;Unix time doesn&#39;t go backwards; qed&quot;</span>)
+			.expect(<span class="string">"Unix time doesn't go backwards; qed"</span>)
 			.as_nanos()
 	}
 
@@ -956,10 +958,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// The pallet benchmarking trait.
 </span><span class="kw">pub trait </span>Benchmarking {
 	<span class="doccomment">/// Get the benchmarks available for this pallet. Generally there is one benchmark per
-	/// extrinsic, so these are sometimes just called &quot;extrinsics&quot;.
+	/// extrinsic, so these are sometimes just called "extrinsics".
 	///
 	/// Parameters
-	/// - `extra`: Also return benchmarks marked &quot;extra&quot; which would otherwise not be needed for
+	/// - `extra`: Also return benchmarks marked "extra" which would otherwise not be needed for
 	///   weight calculation.
 	</span><span class="kw">fn </span>benchmarks(extra: bool) -&gt; Vec&lt;BenchmarkMetadata&gt;;
 
@@ -987,33 +989,33 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl </span>Recording <span class="kw">for </span>NoopRecording {}
 
 <span class="doccomment">/// A no-op recording, used for tests that should setup some state before running the benchmark.
-</span><span class="kw">struct </span>TestRecording&lt;<span class="lifetime">&#39;a</span>&gt; {
-	on_before_start: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw">dyn </span>Fn()&gt;,
+</span><span class="kw">struct </span>TestRecording&lt;<span class="lifetime">'a</span>&gt; {
+	on_before_start: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw">dyn </span>Fn()&gt;,
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; TestRecording&lt;<span class="lifetime">&#39;a</span>&gt; {
-	<span class="kw">fn </span>new(on_before_start: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw">dyn </span>Fn()) -&gt; <span class="self">Self </span>{
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; TestRecording&lt;<span class="lifetime">'a</span>&gt; {
+	<span class="kw">fn </span>new(on_before_start: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw">dyn </span>Fn()) -&gt; <span class="self">Self </span>{
 		<span class="self">Self </span>{ on_before_start: <span class="prelude-val">Some</span>(on_before_start) }
 	}
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; Recording <span class="kw">for </span>TestRecording&lt;<span class="lifetime">&#39;a</span>&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; Recording <span class="kw">for </span>TestRecording&lt;<span class="lifetime">'a</span>&gt; {
 	<span class="kw">fn </span>start(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
-		(<span class="self">self</span>.on_before_start.take().expect(<span class="string">&quot;start called more than once&quot;</span>))();
+		(<span class="self">self</span>.on_before_start.take().expect(<span class="string">"start called more than once"</span>))();
 	}
 }
 
 <span class="doccomment">/// Records the time and proof size of a single benchmark iteration.
-</span><span class="kw">pub struct </span>BenchmarkRecording&lt;<span class="lifetime">&#39;a</span>&gt; {
-	on_before_start: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw">dyn </span>Fn()&gt;,
+</span><span class="kw">pub struct </span>BenchmarkRecording&lt;<span class="lifetime">'a</span>&gt; {
+	on_before_start: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw">dyn </span>Fn()&gt;,
 	start_extrinsic: <span class="prelude-ty">Option</span>&lt;u128&gt;,
 	finish_extrinsic: <span class="prelude-ty">Option</span>&lt;u128&gt;,
 	start_pov: <span class="prelude-ty">Option</span>&lt;u32&gt;,
 	end_pov: <span class="prelude-ty">Option</span>&lt;u32&gt;,
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; BenchmarkRecording&lt;<span class="lifetime">&#39;a</span>&gt; {
-	<span class="kw">pub fn </span>new(on_before_start: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw">dyn </span>Fn()) -&gt; <span class="self">Self </span>{
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; BenchmarkRecording&lt;<span class="lifetime">'a</span>&gt; {
+	<span class="kw">pub fn </span>new(on_before_start: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw">dyn </span>Fn()) -&gt; <span class="self">Self </span>{
 		<span class="self">Self </span>{
 			on_before_start: <span class="prelude-val">Some</span>(on_before_start),
 			start_extrinsic: <span class="prelude-val">None</span>,
@@ -1024,9 +1026,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; Recording <span class="kw">for </span>BenchmarkRecording&lt;<span class="lifetime">&#39;a</span>&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; Recording <span class="kw">for </span>BenchmarkRecording&lt;<span class="lifetime">'a</span>&gt; {
 	<span class="kw">fn </span>start(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
-		(<span class="self">self</span>.on_before_start.take().expect(<span class="string">&quot;start called more than once&quot;</span>))();
+		(<span class="self">self</span>.on_before_start.take().expect(<span class="string">"start called more than once"</span>))();
 		<span class="self">self</span>.start_pov = <span class="kw">crate</span>::benchmarking::proof_size();
 		<span class="self">self</span>.start_extrinsic = <span class="prelude-val">Some</span>(<span class="kw">crate</span>::benchmarking::current_time());
 	}
@@ -1037,7 +1039,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; BenchmarkRecording&lt;<span class="lifetime">&#39;a</span>&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; BenchmarkRecording&lt;<span class="lifetime">'a</span>&gt; {
 	<span class="kw">pub fn </span>start_pov(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;u32&gt; {
 		<span class="self">self</span>.start_pov
 	}
@@ -1092,15 +1094,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Grab an account, seeded by a name and index.
-</span><span class="kw">pub fn </span>account&lt;AccountId: Decode&gt;(name: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str, index: u32, seed: u32) -&gt; AccountId {
+</span><span class="kw">pub fn </span>account&lt;AccountId: Decode&gt;(name: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str, index: u32, seed: u32) -&gt; AccountId {
 	<span class="kw">let </span>entropy = (name, index, seed).using_encoded(blake2_256);
 	Decode::decode(<span class="kw-2">&amp;mut </span>TrailingZeroInput::new(entropy.as_ref()))
-		.expect(<span class="string">&quot;infinite length input; no invalid inputs for type; qed&quot;</span>)
+		.expect(<span class="string">"infinite length input; no invalid inputs for type; qed"</span>)
 }
 
 <span class="doccomment">/// This caller account is automatically whitelisted for DB reads/writes by the benchmarking macro.
 </span><span class="kw">pub fn </span>whitelisted_caller&lt;AccountId: Decode&gt;() -&gt; AccountId {
-	account::&lt;AccountId&gt;(<span class="string">&quot;whitelisted_caller&quot;</span>, <span class="number">0</span>, <span class="number">0</span>)
+	account::&lt;AccountId&gt;(<span class="string">"whitelisted_caller"</span>, <span class="number">0</span>, <span class="number">0</span>)
 }
 
 <span class="attr">#[macro_export]

@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/service/src/client/client.rs`."><title>client.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/service/src/client/client.rs`."><title>client.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sc_service" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sc_service" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../sc_service/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -2361,7 +2363,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	sync::Arc,
 };
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;test-helpers&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"test-helpers"</span>)]
 </span><span class="kw">use </span>{
 	<span class="kw">super</span>::call_executor::LocalCallExecutor, sc_client_api::in_mem, sp_core::traits::CodeExecutor,
 };
@@ -2404,7 +2406,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl</span>&lt;H&gt; PrePostHeader&lt;H&gt; {
-	<span class="doccomment">/// get a reference to the &quot;post-header&quot; -- the header as it should be
+	<span class="doccomment">/// get a reference to the "post-header" -- the header as it should be
 	/// after all changes are applied.
 	</span><span class="kw">fn </span>post(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>H {
 		<span class="kw">match </span><span class="kw-2">*</span><span class="self">self </span>{
@@ -2413,7 +2415,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="doccomment">/// convert to the &quot;post-header&quot; -- the header as it should be after
+	<span class="doccomment">/// convert to the "post-header" -- the header as it should be after
 	/// all changes are applied.
 	</span><span class="kw">fn </span>into_post(<span class="self">self</span>) -&gt; H {
 		<span class="kw">match </span><span class="self">self </span>{
@@ -2429,7 +2431,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Create an instance of in-memory client.
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;test-helpers&quot;</span>)]
+</span><span class="attr">#[cfg(feature = <span class="string">"test-helpers"</span>)]
 </span><span class="kw">pub fn </span>new_in_mem&lt;E, Block, G, RA&gt;(
 	backend: Arc&lt;in_mem::Backend&lt;Block&gt;&gt;,
 	executor: E,
@@ -2472,7 +2474,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Skip writing genesis state on first start.
 	</span><span class="kw">pub </span>no_genesis: bool,
 	<span class="doccomment">/// Map of WASM runtime substitute starting at the child of the given block until the runtime
-	/// version doesn&#39;t match anymore.
+	/// version doesn't match anymore.
 	</span><span class="kw">pub </span>wasm_runtime_substitutes: HashMap&lt;NumberFor&lt;Block&gt;, Vec&lt;u8&gt;&gt;,
 	<span class="doccomment">/// Enable recording of storage proofs during block import
 	</span><span class="kw">pub </span>enable_import_proof_recording: bool,
@@ -2493,7 +2495,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Create a client with the explicitly provided backend.
 /// This is useful for testing backend implementations.
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;test-helpers&quot;</span>)]
+</span><span class="attr">#[cfg(feature = <span class="string">"test-helpers"</span>)]
 </span><span class="kw">pub fn </span>new_with_backend&lt;B, E, Block, G, RA&gt;(
 	backend: Arc&lt;B&gt;,
 	executor: E,
@@ -2510,7 +2512,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		BlockImportOperation = &lt;B <span class="kw">as </span>backend::Backend&lt;Block&gt;&gt;::BlockImportOperation,
 	&gt;,
 	Block: BlockT,
-	B: backend::LocalBackend&lt;Block&gt; + <span class="lifetime">&#39;static</span>,
+	B: backend::LocalBackend&lt;Block&gt; + <span class="lifetime">'static</span>,
 {
 	<span class="kw">let </span>extensions = ExecutionExtensions::new(<span class="prelude-val">None</span>, Arc::new(executor.clone()));
 
@@ -2603,7 +2605,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>notification) = finality_notification {
 				<span class="kw">if let </span><span class="prelude-val">Err</span>(err) = <span class="self">self</span>.backend.pin_block(notification.hash) {
 					<span class="macro">debug!</span>(
-						<span class="string">&quot;Unable to pin block for finality notification. hash: {}, Error: {}&quot;</span>,
+						<span class="string">"Unable to pin block for finality notification. hash: {}, Error: {}"</span>,
 						notification.hash, err
 					);
 				} <span class="kw">else </span>{
@@ -2612,7 +2614,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						.unbounded_send(UnpinWorkerMessage::AnnouncePin(notification.hash))
 						.map_err(|e| {
 							<span class="macro">log::error!</span>(
-								<span class="string">&quot;Unable to send AnnouncePin worker message for finality: {e}&quot;
+								<span class="string">"Unable to send AnnouncePin worker message for finality: {e}"
 							</span>)
 						});
 				}
@@ -2621,7 +2623,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>notification) = import_notification {
 				<span class="kw">if let </span><span class="prelude-val">Err</span>(err) = <span class="self">self</span>.backend.pin_block(notification.hash) {
 					<span class="macro">debug!</span>(
-						<span class="string">&quot;Unable to pin block for import notification. hash: {}, Error: {}&quot;</span>,
+						<span class="string">"Unable to pin block for import notification. hash: {}, Error: {}"</span>,
 						notification.hash, err
 					);
 				} <span class="kw">else </span>{
@@ -2629,7 +2631,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						</span>.unpin_worker_sender
 						.unbounded_send(UnpinWorkerMessage::AnnouncePin(notification.hash))
 						.map_err(|e| {
-							<span class="macro">log::error!</span>(<span class="string">&quot;Unable to send AnnouncePin worker message for import: {e}&quot;</span>)
+							<span class="macro">log::error!</span>(<span class="string">"Unable to send AnnouncePin worker message for import: {e}"</span>)
 						});
 				};
 			}
@@ -2686,13 +2688,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			Block,
 			BlockImportOperation = &lt;B <span class="kw">as </span>backend::Backend&lt;Block&gt;&gt;::BlockImportOperation,
 		&gt;,
-		B: <span class="lifetime">&#39;static</span>,
+		B: <span class="lifetime">'static</span>,
 	{
 		<span class="kw">let </span>info = backend.blockchain().info();
 		<span class="kw">if </span>info.finalized_state.is_none() {
 			<span class="kw">let </span>(genesis_block, <span class="kw-2">mut </span>op) = genesis_block_builder.build_genesis_block()<span class="question-mark">?</span>;
 			<span class="macro">info!</span>(
-				<span class="string">&quot;🔨 Initializing Genesis block/state (state: {}, header-hash: {})&quot;</span>,
+				<span class="string">"🔨 Initializing Genesis block/state (state: {}, header-hash: {})"</span>,
 				genesis_block.header().state_root(),
 				genesis_block.header().hash()
 			);
@@ -2709,11 +2711,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 
 		<span class="kw">let </span>(unpin_worker_sender, rx) = tracing_unbounded::&lt;UnpinWorkerMessage&lt;Block&gt;&gt;(
-			<span class="string">&quot;notification-pinning-worker-channel&quot;</span>,
+			<span class="string">"notification-pinning-worker-channel"</span>,
 			<span class="number">10_000</span>,
 		);
 		<span class="kw">let </span>unpin_worker = NotificationPinningWorker::new(rx, backend.clone());
-		spawn_handle.spawn(<span class="string">&quot;notification-pinning-worker&quot;</span>, <span class="prelude-val">None</span>, Box::pin(unpin_worker.run()));
+		spawn_handle.spawn(<span class="string">"notification-pinning-worker"</span>, <span class="prelude-val">None</span>, Box::pin(unpin_worker.run()));
 
 		<span class="prelude-val">Ok</span>(Client {
 			backend,
@@ -2754,8 +2756,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub fn </span>code_at(<span class="kw-2">&amp;</span><span class="self">self</span>, hash: Block::Hash) -&gt; sp_blockchain::Result&lt;Vec&lt;u8&gt;&gt; {
 		<span class="prelude-val">Ok</span>(StorageProvider::storage(<span class="self">self</span>, hash, <span class="kw-2">&amp;</span>StorageKey(well_known_keys::CODE.to_vec()))<span class="question-mark">?
 			</span>.expect(
-				<span class="string">&quot;None is returned if there&#39;s no value stored for the given key;\
-				&#39;:code&#39; key is always defined; qed&quot;</span>,
+				<span class="string">"None is returned if there's no value stored for the given key;\
+				':code' key is always defined; qed"</span>,
 			)
 			.<span class="number">0</span>)
 	}
@@ -2829,17 +2831,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">if let </span><span class="prelude-val">Ok</span>(ImportResult::Imported(<span class="kw-2">ref </span>aux)) = result {
 			<span class="kw">if </span>aux.is_new_best {
-				<span class="comment">// don&#39;t send telemetry block import events during initial sync for every
+				<span class="comment">// don't send telemetry block import events during initial sync for every
 				// block to avoid spamming the telemetry server, these events will be randomly
 				// sent at a rate of 1/10.
 				</span><span class="kw">if </span>origin != BlockOrigin::NetworkInitialSync || rand::thread_rng().gen_bool(<span class="number">0.1</span>) {
 					<span class="macro">telemetry!</span>(
 						<span class="self">self</span>.telemetry;
 						SUBSTRATE_INFO;
-						<span class="string">&quot;block.import&quot;</span>;
-						<span class="string">&quot;height&quot; </span>=&gt; height,
-						<span class="string">&quot;best&quot; </span>=&gt; <span class="question-mark">?</span>hash,
-						<span class="string">&quot;origin&quot; </span>=&gt; <span class="question-mark">?</span>origin
+						<span class="string">"block.import"</span>;
+						<span class="string">"height" </span>=&gt; height,
+						<span class="string">"best" </span>=&gt; <span class="question-mark">?</span>hash,
+						<span class="string">"origin" </span>=&gt; <span class="question-mark">?</span>origin
 					);
 				}
 			}
@@ -2935,7 +2937,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 												storage_key,
 											<span class="prelude-val">None </span>=&gt;
 												<span class="kw">return </span><span class="prelude-val">Err</span>(Error::Backend(
-													<span class="string">&quot;Invalid child storage key.&quot;</span>.to_string(),
+													<span class="string">"Invalid child storage key."</span>.to_string(),
 												)),
 										};
 									<span class="kw">let </span>entry = storage
@@ -2962,7 +2964,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="kw">if </span>state_root != <span class="kw-2">*</span>import_headers.post().state_root() {
 							<span class="comment">// State root mismatch when importing state. This should not happen in
 							// safe fast sync mode, but may happen in unsafe mode.
-							</span><span class="macro">warn!</span>(<span class="string">&quot;Error importing state: State root mismatch.&quot;</span>);
+							</span><span class="macro">warn!</span>(<span class="string">"Error importing state: State root mismatch."</span>);
 							<span class="kw">return </span><span class="prelude-val">Err</span>(Error::InvalidStateRoot)
 						}
 						<span class="prelude-val">None
@@ -3011,7 +3013,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>};
 
 		<span class="macro">trace!</span>(
-			<span class="string">&quot;Imported {}, (#{}), best={}, origin={:?}&quot;</span>,
+			<span class="string">"Imported {}, (#{}), best={}, origin={:?}"</span>,
 			hash,
 			import_headers.post().number(),
 			is_new_best,
@@ -3132,10 +3134,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		};
 
 		<span class="kw">let </span>storage_changes = <span class="kw">match </span>(enact_state, storage_changes, <span class="kw-2">&amp;</span>import_block.body) {
-			<span class="comment">// We have storage changes and should enact the state, so we don&#39;t need to do anything
+			<span class="comment">// We have storage changes and should enact the state, so we don't need to do anything
 			// here
 			</span>(<span class="bool-val">true</span>, changes @ <span class="prelude-val">Some</span>(<span class="kw">_</span>), <span class="kw">_</span>) =&gt; changes,
-			<span class="comment">// We should enact state, but don&#39;t have any storage changes, so we need to execute the
+			<span class="comment">// We should enact state, but don't have any storage changes, so we need to execute the
 			// block.
 			</span>(<span class="bool-val">true</span>, <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(<span class="kw-2">ref </span>body)) =&gt; {
 				<span class="kw">let </span><span class="kw-2">mut </span>runtime_api = <span class="self">self</span>.runtime_api();
@@ -3146,7 +3148,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					runtime_api.record_proof();
 					<span class="kw">let </span>recorder = runtime_api
 						.proof_recorder()
-						.expect(<span class="string">&quot;Proof recording is enabled in the line above; qed.&quot;</span>);
+						.expect(<span class="string">"Proof recording is enabled in the line above; qed."</span>);
 					runtime_api.register_extension(ProofSizeExt::new(recorder));
 				}
 
@@ -3185,7 +3187,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; sp_blockchain::Result&lt;()&gt; {
 		<span class="kw">if </span>hash == info.finalized_hash {
 			<span class="macro">warn!</span>(
-				<span class="string">&quot;Possible safety violation: attempted to re-finalize last finalized block {:?} &quot;</span>,
+				<span class="string">"Possible safety violation: attempted to re-finalize last finalized block {:?} "</span>,
 				hash,
 			);
 			<span class="kw">return </span><span class="prelude-val">Ok</span>(())
@@ -3197,8 +3199,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(retracted) = route_from_finalized.retracted().get(<span class="number">0</span>) {
 			<span class="macro">warn!</span>(
-				<span class="string">&quot;Safety violation: attempted to revert finalized block {:?} which is not in the \
-				same chain as last finalized {:?}&quot;</span>,
+				<span class="string">"Safety violation: attempted to revert finalized block {:?} which is not in the \
+				same chain as last finalized {:?}"</span>,
 				retracted, info.finalized_hash
 			);
 
@@ -3213,7 +3215,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span>.backend
 			.blockchain()
 			.number(hash)<span class="question-mark">?
-			</span>.ok_or(Error::MissingHeader(<span class="macro">format!</span>(<span class="string">&quot;{hash:?}&quot;</span>)))<span class="question-mark">?</span>;
+			</span>.ok_or(Error::MissingHeader(<span class="macro">format!</span>(<span class="string">"{hash:?}"</span>)))<span class="question-mark">?</span>;
 		<span class="kw">if </span><span class="self">self</span>.backend.blockchain().leaves()<span class="question-mark">?</span>.len() &gt; <span class="number">1 </span>|| info.best_number &lt; block_number {
 			<span class="kw">let </span>route_from_best =
 				sp_blockchain::tree_route(<span class="self">self</span>.backend.blockchain(), info.best_hash, hash)<span class="question-mark">?</span>;
@@ -3221,11 +3223,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// If the block is not a direct ancestor of the current best chain,
 			// then some other block is the common ancestor.
 			</span><span class="kw">if </span>route_from_best.common_block().hash != hash {
-				<span class="comment">// NOTE: we&#39;re setting the finalized block as best block, this might
-				// be slightly inaccurate since we might have a &quot;better&quot; block
+				<span class="comment">// NOTE: we're setting the finalized block as best block, this might
+				// be slightly inaccurate since we might have a "better" block
 				// further along this chain, but since best chain selection logic is
 				// plugable we cannot make a better choice here. usages that need
-				// an accurate &quot;best&quot; block need to go through `SelectChain`
+				// an accurate "best" block need to go through `SelectChain`
 				// instead.
 				</span>operation.op.mark_head(hash)<span class="question-mark">?</span>;
 			}
@@ -3247,8 +3249,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>block_number = route_from_finalized
 				.last()
 				.expect(
-					<span class="string">&quot;The block to finalize is always the latest \
-						block in the route to the finalized block; qed&quot;</span>,
+					<span class="string">"The block to finalize is always the latest \
+						block in the route to the finalized block; qed"</span>,
 				)
 				.number;
 
@@ -3261,7 +3263,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				</span>.backend
 				.blockchain()
 				.header(hash)<span class="question-mark">?
-				</span>.expect(<span class="string">&quot;Block to finalize expected to be onchain; qed&quot;</span>);
+				</span>.expect(<span class="string">"Block to finalize expected to be onchain; qed"</span>);
 
 			operation.notify_finalized = <span class="prelude-val">Some</span>(FinalizeSummary { header, finalized, stale_heads });
 		}
@@ -3279,7 +3281,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Some</span>(notify_finalized) =&gt; notify_finalized,
 			<span class="prelude-val">None </span>=&gt; {
 				<span class="comment">// Cleanup any closed finality notification sinks
-				// since we won&#39;t be running the loop below which
+				// since we won't be running the loop below which
 				// would also remove any closed sinks.
 				</span>sinks.retain(|sink| !sink.is_closed());
 				<span class="kw">return </span><span class="prelude-val">Ok</span>(())
@@ -3289,9 +3291,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">telemetry!</span>(
 			<span class="self">self</span>.telemetry;
 			SUBSTRATE_INFO;
-			<span class="string">&quot;notify.finalized&quot;</span>;
-			<span class="string">&quot;height&quot; </span>=&gt; <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, notification.header.number()),
-			<span class="string">&quot;best&quot; </span>=&gt; <span class="question-mark">?</span>notification.hash,
+			<span class="string">"notify.finalized"</span>;
+			<span class="string">"height" </span>=&gt; <span class="macro">format!</span>(<span class="string">"{}"</span>, notification.header.number()),
+			<span class="string">"best" </span>=&gt; <span class="question-mark">?</span>notification.hash,
 		);
 
 		sinks.retain(|sink| sink.unbounded_send(notification.clone()).is_ok());
@@ -3308,10 +3310,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>notification = <span class="kw">match </span>notification {
 			<span class="prelude-val">Some</span>(notify_import) =&gt; notify_import,
 			<span class="prelude-val">None </span>=&gt; {
-				<span class="comment">// Cleanup any closed import notification sinks since we won&#39;t
+				<span class="comment">// Cleanup any closed import notification sinks since we won't
 				// be sending any notifications below which would remove any
 				// closed sinks. this is necessary since during initial sync we
-				// won&#39;t send any import notifications which could lead to a
+				// won't send any import notifications which could lead to a
 				// temporary leak of closed/discarded notification sinks (e.g.
 				// from consensus code).
 				</span><span class="self">self</span>.import_notification_sinks.lock().retain(|sink| !sink.is_closed());
@@ -3361,7 +3363,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			},
 			ImportNotificationAction::None =&gt; {
 				<span class="comment">// This branch is unreachable in fact because the block import notification must be
-				// Some(_) instead of None (it&#39;s already handled at the beginning of this function)
+				// Some(_) instead of None (it's already handled at the beginning of this function)
 				// at this point.
 				</span><span class="self">self</span>.import_notification_sinks.lock().retain(|sink| !sink.is_closed());
 
@@ -3458,7 +3460,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="self">self</span>.backend
 				.blockchain()
 				.header(hash)<span class="question-mark">?
-				</span>.ok_or_else(|| Error::UnknownBlock(<span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, hash)))
+				</span>.ok_or_else(|| Error::UnknownBlock(<span class="macro">format!</span>(<span class="string">"{:?}"</span>, hash)))
 		};
 
 		<span class="kw">let </span>genesis_hash = <span class="self">self</span>.backend.blockchain().info().genesis_hash;
@@ -3487,7 +3489,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			ancestor = load_header(ancestor_hash)<span class="question-mark">?</span>;
 			generation += One::one();
 		}
-		<span class="macro">trace!</span>(<span class="string">&quot;Collected {} uncles&quot;</span>, uncles.len());
+		<span class="macro">trace!</span>(<span class="string">"Collected {} uncles"</span>, uncles.len());
 		<span class="prelude-val">Ok</span>(uncles)
 	}
 }
@@ -3564,7 +3566,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		size_limit: usize,
 	) -&gt; sp_blockchain::Result&lt;Vec&lt;(KeyValueStorageLevel, bool)&gt;&gt; {
 		<span class="kw">if </span>start_key.len() &gt; MAX_NESTED_TRIE_DEPTH {
-			<span class="kw">return </span><span class="prelude-val">Err</span>(Error::Backend(<span class="string">&quot;Invalid start key.&quot;</span>.to_string()))
+			<span class="kw">return </span><span class="prelude-val">Err</span>(Error::Backend(<span class="string">"Invalid start key."</span>.to_string()))
 		}
 		<span class="kw">let </span>state = <span class="self">self</span>.state_at(hash)<span class="question-mark">?</span>;
 		<span class="kw">let </span>child_info = |storage_key: <span class="kw-2">&amp;</span>Vec&lt;u8&gt;| -&gt; sp_blockchain::Result&lt;ChildInfo&gt; {
@@ -3572,18 +3574,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">match </span>ChildType::from_prefixed_key(storage_key) {
 				<span class="prelude-val">Some</span>((ChildType::ParentKeyId, storage_key)) =&gt;
 					<span class="prelude-val">Ok</span>(ChildInfo::new_default(storage_key)),
-				<span class="prelude-val">None </span>=&gt; <span class="prelude-val">Err</span>(Error::Backend(<span class="string">&quot;Invalid child storage key.&quot;</span>.to_string())),
+				<span class="prelude-val">None </span>=&gt; <span class="prelude-val">Err</span>(Error::Backend(<span class="string">"Invalid child storage key."</span>.to_string())),
 			}
 		};
 		<span class="kw">let </span><span class="kw-2">mut </span>current_child = <span class="kw">if </span>start_key.len() == <span class="number">2 </span>{
-			<span class="kw">let </span>start_key = start_key.get(<span class="number">0</span>).expect(<span class="string">&quot;checked len&quot;</span>);
+			<span class="kw">let </span>start_key = start_key.get(<span class="number">0</span>).expect(<span class="string">"checked len"</span>);
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(child_root) = state
 				.storage(start_key)
 				.map_err(|e| sp_blockchain::Error::from_state(Box::new(e)))<span class="question-mark">?
 			</span>{
 				<span class="prelude-val">Some</span>((child_info(start_key)<span class="question-mark">?</span>, child_root))
 			} <span class="kw">else </span>{
-				<span class="kw">return </span><span class="prelude-val">Err</span>(Error::Backend(<span class="string">&quot;Invalid root start key.&quot;</span>.to_string()))
+				<span class="kw">return </span><span class="prelude-val">Err</span>(Error::Backend(<span class="string">"Invalid root start key."</span>.to_string()))
 			}
 		} <span class="kw">else </span>{
 			<span class="prelude-val">None
@@ -4023,17 +4025,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// important verification work.
 	///
 	/// If you are not sure that there are no BlockImport objects provided by the consensus
-	/// algorithm, don&#39;t use this function.
+	/// algorithm, don't use this function.
 	</span><span class="kw">async fn </span>import_block(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		<span class="kw-2">mut </span>import_block: BlockImportParams&lt;Block&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;ImportResult, <span class="self">Self</span>::Error&gt; {
-		<span class="kw">let </span>span = <span class="macro">tracing::span!</span>(tracing::Level::DEBUG, <span class="string">&quot;import_block&quot;</span>);
+		<span class="kw">let </span>span = <span class="macro">tracing::span!</span>(tracing::Level::DEBUG, <span class="string">"import_block"</span>);
 		<span class="kw">let </span>_enter = span.enter();
 
 		<span class="kw">let </span>storage_changes =
 			<span class="kw">match </span><span class="self">self</span>.prepare_block_storage_changes(<span class="kw-2">&amp;mut </span>import_block).map_err(|e| {
-				<span class="macro">warn!</span>(<span class="string">&quot;Block prepare storage changes error: {}&quot;</span>, e);
+				<span class="macro">warn!</span>(<span class="string">"Block prepare storage changes error: {}"</span>, e);
 				ConsensusError::ClientImport(e.to_string())
 			})<span class="question-mark">? </span>{
 				PrepareStorageChangesResult::Discard(res) =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(res),
@@ -4044,7 +4046,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="self">self</span>.apply_block(operation, import_block, storage_changes)
 		})
 		.map_err(|e| {
-			<span class="macro">warn!</span>(<span class="string">&quot;Block import error: {}&quot;</span>, e);
+			<span class="macro">warn!</span>(<span class="string">"Block import error: {}"</span>, e);
 			ConsensusError::ClientImport(e.to_string())
 		})
 	}
@@ -4067,12 +4069,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		// (i.e. fork blocks and bad blocks respectively)
 		</span><span class="kw">match </span><span class="self">self</span>.block_rules.lookup(number, <span class="kw-2">&amp;</span>hash) {
 			BlockLookupResult::KnownBad =&gt; {
-				<span class="macro">trace!</span>(<span class="string">&quot;Rejecting known bad block: #{} {:?}&quot;</span>, number, hash);
+				<span class="macro">trace!</span>(<span class="string">"Rejecting known bad block: #{} {:?}"</span>, number, hash);
 				<span class="kw">return </span><span class="prelude-val">Ok</span>(ImportResult::KnownBad)
 			},
 			BlockLookupResult::Expected(expected_hash) =&gt; {
 				<span class="macro">trace!</span>(
-					<span class="string">&quot;Rejecting block from known invalid fork. Got {:?}, expected: {:?} at height {}&quot;</span>,
+					<span class="string">"Rejecting block from known invalid fork. Got {:?}, expected: {:?} at height {}"</span>,
 					hash,
 					expected_hash,
 					number
@@ -4215,19 +4217,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 {
 	<span class="doccomment">/// Get block import event stream.
 	</span><span class="kw">fn </span>import_notification_stream(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; ImportNotifications&lt;Block&gt; {
-		<span class="kw">let </span>(sink, stream) = tracing_unbounded(<span class="string">&quot;mpsc_import_notification_stream&quot;</span>, <span class="number">100_000</span>);
+		<span class="kw">let </span>(sink, stream) = tracing_unbounded(<span class="string">"mpsc_import_notification_stream"</span>, <span class="number">100_000</span>);
 		<span class="self">self</span>.import_notification_sinks.lock().push(sink);
 		stream
 	}
 
 	<span class="kw">fn </span>every_import_notification_stream(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; ImportNotifications&lt;Block&gt; {
-		<span class="kw">let </span>(sink, stream) = tracing_unbounded(<span class="string">&quot;mpsc_every_import_notification_stream&quot;</span>, <span class="number">100_000</span>);
+		<span class="kw">let </span>(sink, stream) = tracing_unbounded(<span class="string">"mpsc_every_import_notification_stream"</span>, <span class="number">100_000</span>);
 		<span class="self">self</span>.every_import_notification_sinks.lock().push(sink);
 		stream
 	}
 
 	<span class="kw">fn </span>finality_notification_stream(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; FinalityNotifications&lt;Block&gt; {
-		<span class="kw">let </span>(sink, stream) = tracing_unbounded(<span class="string">&quot;mpsc_finality_notification_stream&quot;</span>, <span class="number">100_000</span>);
+		<span class="kw">let </span>(sink, stream) = tracing_unbounded(<span class="string">"mpsc_finality_notification_stream"</span>, <span class="number">100_000</span>);
 		<span class="self">self</span>.finality_notification_sinks.lock().push(sink);
 		stream
 	}
@@ -4302,11 +4304,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 {
 	<span class="doccomment">/// Insert auxiliary data into key-value store.
 	</span><span class="kw">fn </span>insert_aux&lt;
-		<span class="lifetime">&#39;a</span>,
-		<span class="lifetime">&#39;b</span>: <span class="lifetime">&#39;a</span>,
-		<span class="lifetime">&#39;c</span>: <span class="lifetime">&#39;a</span>,
-		I: IntoIterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>(<span class="kw-2">&amp;</span><span class="lifetime">&#39;c </span>[u8], <span class="kw-2">&amp;</span><span class="lifetime">&#39;c </span>[u8])&gt;,
-		D: IntoIterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">&amp;</span><span class="lifetime">&#39;b </span>[u8]&gt;,
+		<span class="lifetime">'a</span>,
+		<span class="lifetime">'b</span>: <span class="lifetime">'a</span>,
+		<span class="lifetime">'c</span>: <span class="lifetime">'a</span>,
+		I: IntoIterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">'a </span>(<span class="kw-2">&amp;</span><span class="lifetime">'c </span>[u8], <span class="kw-2">&amp;</span><span class="lifetime">'c </span>[u8])&gt;,
+		D: IntoIterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">&amp;</span><span class="lifetime">'b </span>[u8]&gt;,
 	&gt;(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		insert: I,
@@ -4333,11 +4335,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	&lt;Client&lt;B, E, Block, RA&gt; <span class="kw">as </span>ProvideRuntimeApi&lt;Block&gt;&gt;::Api: CoreApi&lt;Block&gt;,
 {
 	<span class="kw">fn </span>insert_aux&lt;
-		<span class="lifetime">&#39;a</span>,
-		<span class="lifetime">&#39;b</span>: <span class="lifetime">&#39;a</span>,
-		<span class="lifetime">&#39;c</span>: <span class="lifetime">&#39;a</span>,
-		I: IntoIterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>(<span class="kw-2">&amp;</span><span class="lifetime">&#39;c </span>[u8], <span class="kw-2">&amp;</span><span class="lifetime">&#39;c </span>[u8])&gt;,
-		D: IntoIterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">&amp;</span><span class="lifetime">&#39;b </span>[u8]&gt;,
+		<span class="lifetime">'a</span>,
+		<span class="lifetime">'b</span>: <span class="lifetime">'a</span>,
+		<span class="lifetime">'c</span>: <span class="lifetime">'a</span>,
+		I: IntoIterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">'a </span>(<span class="kw-2">&amp;</span><span class="lifetime">'c </span>[u8], <span class="kw-2">&amp;</span><span class="lifetime">'c </span>[u8])&gt;,
+		D: IntoIterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">&amp;</span><span class="lifetime">'b </span>[u8]&gt;,
 	&gt;(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		insert: I,

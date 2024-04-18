@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/tracing/src/logging/stderr_writer.rs`."><title>stderr_writer.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/tracing/src/logging/stderr_writer.rs`."><title>stderr_writer.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sc_tracing" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sc_tracing" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../sc_tracing/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -403,7 +405,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! which also tries to log something at the same time.
 //!
 //! Of course we *will* be ultimately limited by how fast the recipient can ingest our logs,
-//! but it&#39;s not like logging is the only thing we&#39;re doing. And we still can&#39;t entirely
+//! but it's not like logging is the only thing we're doing. And we still can't entirely
 //! avoid the problem of multiple threads contending for the same lock. (Well, technically
 //! we could employ something like a lock-free circular buffer, but that might be like
 //! killing a fly with a sledgehammer considering the complexity involved; this is only
@@ -413,8 +415,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! to another thread and flush the logs in bulk instead of doing it per-line, which should
 //! reduce the amount of CPU time we waste on making syscalls and on spinning waiting for locks.
 //!
-//! How much this helps depends on a multitude of factors, including the hardware we&#39;re running on,
-//! how much we&#39;re logging, from how many threads, which exact set of threads are logging, to what
+//! How much this helps depends on a multitude of factors, including the hardware we're running on,
+//! how much we're logging, from how many threads, which exact set of threads are logging, to what
 //! stderr is actually connected to (is it a terminal emulator? a file? an UDP socket?), etc.
 //!
 //! In general this can reduce the real time execution time as much as 75% in certain cases, or it
@@ -437,21 +439,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// How many bytes can be buffered at maximum?
 </span><span class="kw">const </span>EMERGENCY_FLUSH_THRESHOLD: usize = <span class="number">2 </span>* <span class="number">1024 </span>* <span class="number">1024</span>;
 
-<span class="doccomment">/// If there isn&#39;t enough printed out this is how often the logs will be automatically flushed.
+<span class="doccomment">/// If there isn't enough printed out this is how often the logs will be automatically flushed.
 </span><span class="kw">const </span>AUTOFLUSH_EVERY: Duration = Duration::from_millis(<span class="number">50</span>);
 
 <span class="doccomment">/// The least serious level at which a synchronous flush will be triggered.
 </span><span class="kw">const </span>SYNC_FLUSH_LEVEL_THRESHOLD: Level = Level::ERROR;
 
-<span class="doccomment">/// The amount of time we&#39;ll block until the buffer is fully flushed on exit.
+<span class="doccomment">/// The amount of time we'll block until the buffer is fully flushed on exit.
 ///
 /// This should be completely unnecessary in normal circumstances.
 </span><span class="kw">const </span>ON_EXIT_FLUSH_TIMEOUT: Duration = Duration::from_secs(<span class="number">5</span>);
 
-<span class="doccomment">/// A global buffer to which we&#39;ll append all of our logs before flushing them out to stderr.
+<span class="doccomment">/// A global buffer to which we'll append all of our logs before flushing them out to stderr.
 </span><span class="kw">static </span>BUFFER: Mutex&lt;Vec&lt;u8&gt;&gt; = parking_lot::const_mutex(Vec::new());
 
-<span class="doccomment">/// A spare buffer which we&#39;ll swap with the main buffer on each flush to minimize lock contention.
+<span class="doccomment">/// A spare buffer which we'll swap with the main buffer on each flush to minimize lock contention.
 </span><span class="kw">static </span>SPARE_BUFFER: Mutex&lt;Vec&lt;u8&gt;&gt; = parking_lot::const_mutex(Vec::new());
 
 <span class="doccomment">/// A conditional variable used to forcefully trigger asynchronous flushes.
@@ -493,16 +495,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[cold]
 </span><span class="kw">fn </span>initialize() {
 	std::thread::Builder::new()
-		.name(<span class="string">&quot;log-autoflush&quot;</span>.to_owned())
+		.name(<span class="string">"log-autoflush"</span>.to_owned())
 		.spawn(log_autoflush_thread)
-		.expect(<span class="string">&quot;thread spawning doesn&#39;t normally fail; qed&quot;</span>);
+		.expect(<span class="string">"thread spawning doesn't normally fail; qed"</span>);
 
 	<span class="comment">// SAFETY: This is safe since we pass a valid pointer to `atexit`.
 	</span><span class="kw">let </span>errcode = <span class="kw">unsafe </span>{ libc::atexit(on_exit) };
-	<span class="macro">assert_eq!</span>(errcode, <span class="number">0</span>, <span class="string">&quot;atexit failed while setting up the logger: {}&quot;</span>, errcode);
+	<span class="macro">assert_eq!</span>(errcode, <span class="number">0</span>, <span class="string">"atexit failed while setting up the logger: {}"</span>, errcode);
 }
 
-<span class="kw">extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>on_exit() {
+<span class="kw">extern </span><span class="string">"C" </span><span class="kw">fn </span>on_exit() {
 	ENABLE_ASYNC_LOGGING.store(<span class="bool-val">false</span>, Ordering::SeqCst);
 
 	<span class="kw">if let </span><span class="prelude-val">Some</span>(buffer) = BUFFER.try_lock_for(ON_EXIT_FLUSH_TIMEOUT) {
@@ -525,7 +527,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl </span>tracing_subscriber::fmt::MakeWriter&lt;<span class="lifetime">&#39;_</span>&gt; <span class="kw">for </span>MakeStderrWriter {
+<span class="kw">impl </span>tracing_subscriber::fmt::MakeWriter&lt;<span class="lifetime">'_</span>&gt; <span class="kw">for </span>MakeStderrWriter {
 	<span class="kw">type </span>Writer = StderrWriter;
 
 	<span class="kw">fn </span>make_writer(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self</span>::Writer {
@@ -533,13 +535,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="comment">// The `tracing-subscriber` crate calls this for every line logged.
-	</span><span class="kw">fn </span>make_writer_for(<span class="kw-2">&amp;</span><span class="self">self</span>, meta: <span class="kw-2">&amp;</span>Metadata&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; <span class="self">Self</span>::Writer {
+	</span><span class="kw">fn </span>make_writer_for(<span class="kw-2">&amp;</span><span class="self">self</span>, meta: <span class="kw-2">&amp;</span>Metadata&lt;<span class="lifetime">'_</span>&gt;) -&gt; <span class="self">Self</span>::Writer {
 		StderrWriter::new(<span class="kw-2">*</span>meta.level() &lt;= SYNC_FLUSH_LEVEL_THRESHOLD)
 	}
 }
 
 <span class="kw">pub struct </span>StderrWriter {
-	buffer: <span class="prelude-ty">Option</span>&lt;parking_lot::lock_api::MutexGuard&lt;<span class="lifetime">&#39;static</span>, parking_lot::RawMutex, Vec&lt;u8&gt;&gt;&gt;,
+	buffer: <span class="prelude-ty">Option</span>&lt;parking_lot::lock_api::MutexGuard&lt;<span class="lifetime">'static</span>, parking_lot::RawMutex, Vec&lt;u8&gt;&gt;&gt;,
 	sync_flush_on_drop: bool,
 	original_len: usize,
 }
@@ -550,9 +552,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			sync_flush_on_drop = <span class="bool-val">true</span>;
 		}
 
-		<span class="comment">// This lock isn&#39;t as expensive as it might look, since this is only called once the full
+		<span class="comment">// This lock isn't as expensive as it might look, since this is only called once the full
 		// line to be logged is already serialized into a thread-local buffer inside of the
-		// `tracing-subscriber` crate, and basically the only thing we&#39;ll do when holding this lock
+		// `tracing-subscriber` crate, and basically the only thing we'll do when holding this lock
 		// is to copy that over to our global shared buffer in one go in `Write::write_all` and be
 		// immediately dropped.
 		</span><span class="kw">let </span>buffer = BUFFER.lock();
@@ -572,9 +574,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl </span>Write <span class="kw">for </span>StderrWriter {
 	<span class="kw">fn </span>write(<span class="kw-2">&amp;mut </span><span class="self">self</span>, input: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;usize, std::io::Error&gt; {
-		<span class="kw">let </span>buffer = <span class="self">self</span>.buffer.as_mut().expect(<span class="string">&quot;buffer is only None after `drop`; qed&quot;</span>);
+		<span class="kw">let </span>buffer = <span class="self">self</span>.buffer.as_mut().expect(<span class="string">"buffer is only None after `drop`; qed"</span>);
 		<span class="kw">if </span>buffer.len() + input.len() &gt;= EMERGENCY_FLUSH_THRESHOLD {
-			<span class="comment">// Make sure we don&#39;t blow our memory budget. Normally this should never happen,
+			<span class="comment">// Make sure we don't blow our memory budget. Normally this should never happen,
 			// but there are cases where we directly print out untrusted user input which
 			// can potentially be megabytes in size.
 			</span>emergency_flush(buffer, input);
@@ -595,7 +597,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl </span>Drop <span class="kw">for </span>StderrWriter {
 	<span class="kw">fn </span>drop(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
-		<span class="kw">let </span>buf = <span class="self">self</span>.buffer.take().expect(<span class="string">&quot;buffer is only None after `drop`; qed&quot;</span>);
+		<span class="kw">let </span>buf = <span class="self">self</span>.buffer.take().expect(<span class="string">"buffer is only None after `drop`; qed"</span>);
 		<span class="kw">if </span><span class="self">self</span>.sync_flush_on_drop || buf.len() &gt;= SYNC_FLUSH_THRESHOLD {
 			flush_logs(buf);
 		} <span class="kw">else if </span><span class="self">self</span>.original_len &lt; ASYNC_FLUSH_THRESHOLD &amp;&amp; buf.len() &gt;= ASYNC_FLUSH_THRESHOLD {

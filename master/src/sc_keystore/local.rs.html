@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/keystore/src/local.rs`."><title>local.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/keystore/src/local.rs`."><title>local.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_keystore" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_keystore" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sc_keystore/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -998,14 +1000,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -1062,7 +1064,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Get a key pair for the given public key.
 	///
-	/// Returns `Ok(None)` if the key doesn&#39;t exist, `Ok(Some(_))` if the key exists and
+	/// Returns `Ok(None)` if the key doesn't exist, `Ok(Some(_))` if the key exists and
 	/// `Err(_)` when something failed.
 	</span><span class="kw">pub fn </span>key_pair&lt;Pair: AppPair&gt;(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
@@ -1143,7 +1145,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// WARNING: if the secret keypair has been manually generated using a password
 	/// (e.g. using methods such as [`sp_core::crypto::Pair::from_phrase`]) then such
 	/// a password must match the one used to open the keystore via [`LocalKeystore::open`].
-	/// If the passwords doesn&#39;t match then the inserted key ends up being unusable under
+	/// If the passwords doesn't match then the inserted key ends up being unusable under
 	/// the current keystore instance.
 	</span><span class="kw">fn </span>insert(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
@@ -1168,7 +1170,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">self</span>.public_keys::&lt;sr25519::Pair&gt;(key_type)
 	}
 
-	<span class="doccomment">/// Generate a new pair compatible with the &#39;ed25519&#39; signature scheme.
+	<span class="doccomment">/// Generate a new pair compatible with the 'ed25519' signature scheme.
 	///
 	/// If `[seed]` is `Some` then the key will be ephemeral and stored in memory.
 	</span><span class="kw">fn </span>sr25519_generate_new(
@@ -1210,7 +1212,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">self</span>.public_keys::&lt;ed25519::Pair&gt;(key_type)
 	}
 
-	<span class="doccomment">/// Generate a new pair compatible with the &#39;sr25519&#39; signature scheme.
+	<span class="doccomment">/// Generate a new pair compatible with the 'sr25519' signature scheme.
 	///
 	/// If `[seed]` is `Some` then the key will be ephemeral and stored in memory.
 	</span><span class="kw">fn </span>ed25519_generate_new(
@@ -1234,7 +1236,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">self</span>.public_keys::&lt;ecdsa::Pair&gt;(key_type)
 	}
 
-	<span class="doccomment">/// Generate a new pair compatible with the &#39;ecdsa&#39; signature scheme.
+	<span class="doccomment">/// Generate a new pair compatible with the 'ecdsa' signature scheme.
 	///
 	/// If `[seed]` is `Some` then the key will be ephemeral and stored in memory.
 	</span><span class="kw">fn </span>ecdsa_generate_new(
@@ -1273,7 +1275,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="self">self</span>.public_keys::&lt;bandersnatch::Pair&gt;(key_type)
 		}
 
-		<span class="doccomment">/// Generate a new pair compatible with the &#39;bandersnatch&#39; signature scheme.
+		<span class="doccomment">/// Generate a new pair compatible with the 'bandersnatch' signature scheme.
 		///
 		/// If `[seed]` is `Some` then the key will be ephemeral and stored in memory.
 		</span><span class="kw">fn </span>bandersnatch_generate_new(
@@ -1332,7 +1334,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="self">self</span>.public_keys::&lt;bls381::Pair&gt;(key_type)
 		}
 
-		<span class="doccomment">/// Generate a new pair compatible with the &#39;bls381&#39; signature scheme.
+		<span class="doccomment">/// Generate a new pair compatible with the 'bls381' signature scheme.
 		///
 		/// If `[seed]` is `Some` then the key will be ephemeral and stored in memory.
 		</span><span class="kw">fn </span>bls381_generate_new(
@@ -1356,7 +1358,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="self">self</span>.public_keys::&lt;bls377::Pair&gt;(key_type)
 		}
 
-		<span class="doccomment">/// Generate a new pair compatible with the &#39;bls377&#39; signature scheme.
+		<span class="doccomment">/// Generate a new pair compatible with the 'bls377' signature scheme.
 		///
 		/// If `[seed]` is `Some` then the key will be ephemeral and stored in memory.
 		</span><span class="kw">fn </span>bls377_generate_new(
@@ -1380,7 +1382,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="self">self</span>.public_keys::&lt;ecdsa_bls377::Pair&gt;(key_type)
 		}
 
-		<span class="doccomment">/// Generate a new pair of paired-keys compatible with the &#39;(ecdsa,bls377)&#39; signature scheme.
+		<span class="doccomment">/// Generate a new pair of paired-keys compatible with the '(ecdsa,bls377)' signature scheme.
 		///
 		/// If `[seed]` is `Some` then the key will be ephemeral and stored in memory.
 		</span><span class="kw">fn </span>ecdsa_bls377_generate_new(
@@ -1505,7 +1507,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>write_to_file(file: PathBuf, data: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
 		<span class="kw">let </span><span class="kw-2">mut </span>file = File::create(file)<span class="question-mark">?</span>;
 
-		<span class="attr">#[cfg(target_family = <span class="string">&quot;unix&quot;</span>)]
+		<span class="attr">#[cfg(target_family = <span class="string">"unix"</span>)]
 		</span>{
 			<span class="kw">use </span>std::os::unix::fs::PermissionsExt;
 			file.set_permissions(fs::Permissions::from_mode(<span class="number">0o600</span>))<span class="question-mark">?</span>;
@@ -1573,11 +1575,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Get the file path for the given public key and key type.
 	///
-	/// Returns `None` if the keystore only exists in-memory and there isn&#39;t any path to provide.
+	/// Returns `None` if the keystore only exists in-memory and there isn't any path to provide.
 	</span><span class="kw">fn </span>key_file_path(<span class="kw-2">&amp;</span><span class="self">self</span>, public: <span class="kw-2">&amp;</span>[u8], key_type: KeyTypeId) -&gt; <span class="prelude-ty">Option</span>&lt;PathBuf&gt; {
 		<span class="kw">let </span><span class="kw-2">mut </span>buf = <span class="self">self</span>.path.as_ref()<span class="question-mark">?</span>.clone();
-		<span class="kw">let </span>key_type = array_bytes::bytes2hex(<span class="string">&quot;&quot;</span>, <span class="kw-2">&amp;</span>key_type.<span class="number">0</span>);
-		<span class="kw">let </span>key = array_bytes::bytes2hex(<span class="string">&quot;&quot;</span>, public);
+		<span class="kw">let </span>key_type = array_bytes::bytes2hex(<span class="string">""</span>, <span class="kw-2">&amp;</span>key_type.<span class="number">0</span>);
+		<span class="kw">let </span>key = array_bytes::bytes2hex(<span class="string">""</span>, public);
 		buf.push(key_type + key.as_str());
 		<span class="prelude-val">Some</span>(buf)
 	}
@@ -1617,7 +1619,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Get a key pair for the given public key.
 	///
-	/// Returns `Ok(None)` if the key doesn&#39;t exist, `Ok(Some(_))` if the key exists or `Err(_)`
+	/// Returns `Ok(None)` if the key doesn't exist, `Ok(Some(_))` if the key exists or `Err(_)`
 	/// when something failed.
 	</span><span class="kw">pub fn </span>key_pair&lt;Pair: AppPair&gt;(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
@@ -1636,7 +1638,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use </span>std::{fs, str::FromStr};
 	<span class="kw">use </span>tempfile::TempDir;
 
-	<span class="kw">const </span>TEST_KEY_TYPE: KeyTypeId = KeyTypeId(<span class="kw-2">*</span><span class="string">b&quot;test&quot;</span>);
+	<span class="kw">const </span>TEST_KEY_TYPE: KeyTypeId = KeyTypeId(<span class="kw-2">*</span><span class="string">b"test"</span>);
 
 	<span class="kw">impl </span>KeystoreInner {
 		<span class="kw">fn </span>insert_ephemeral_from_seed&lt;Pair: AppPair&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, seed: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;Pair&gt; {
@@ -1695,11 +1697,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>pair: ed25519::AppPair = store
 			.insert_ephemeral_from_seed(
-				<span class="string">&quot;0x3d97c819d68f9bafa7d6e79cb991eebcd77d966c5334c0b94d9e1fa7ad0869dc&quot;</span>,
+				<span class="string">"0x3d97c819d68f9bafa7d6e79cb991eebcd77d966c5334c0b94d9e1fa7ad0869dc"</span>,
 			)
 			.unwrap();
 		<span class="macro">assert_eq!</span>(
-			<span class="string">&quot;5DKUrgFqCPV8iAXx9sjy1nyBygQCeiUYRFWurZGhnrn3HJCA&quot;</span>,
+			<span class="string">"5DKUrgFqCPV8iAXx9sjy1nyBygQCeiUYRFWurZGhnrn3HJCA"</span>,
 			pair.public().to_ss58check()
 		);
 
@@ -1711,7 +1713,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>password_being_used() {
-		<span class="kw">let </span>password = String::from(<span class="string">&quot;password&quot;</span>);
+		<span class="kw">let </span>password = String::from(<span class="string">"password"</span>);
 		<span class="kw">let </span>temp_dir = TempDir::new().unwrap();
 		<span class="kw">let </span><span class="kw-2">mut </span>store = KeystoreInner::open(
 			temp_dir.path(),
@@ -1751,7 +1753,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			keys.push(
 				store
 					.insert_ephemeral_from_seed::&lt;ed25519::AppPair&gt;(<span class="kw-2">&amp;</span><span class="macro">format!</span>(
-						<span class="string">&quot;0x3d97c819d68f9bafa7d6e79cb991eebcd7{}d966c5334c0b94d9e1fa7ad0869dc&quot;</span>,
+						<span class="string">"0x3d97c819d68f9bafa7d6e79cb991eebcd7{}d966c5334c0b94d9e1fa7ad0869dc"</span>,
 						i
 					))
 					.unwrap()
@@ -1774,16 +1776,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>temp_dir = TempDir::new().unwrap();
 		<span class="kw">let </span>store = KeystoreInner::open(temp_dir.path(), <span class="prelude-val">None</span>).unwrap();
 
-		<span class="kw">let </span>secret_uri = <span class="string">&quot;//Alice&quot;</span>;
-		<span class="kw">let </span>key_pair = sr25519::AppPair::from_string(secret_uri, <span class="prelude-val">None</span>).expect(<span class="string">&quot;Generates key pair&quot;</span>);
+		<span class="kw">let </span>secret_uri = <span class="string">"//Alice"</span>;
+		<span class="kw">let </span>key_pair = sr25519::AppPair::from_string(secret_uri, <span class="prelude-val">None</span>).expect(<span class="string">"Generates key pair"</span>);
 
 		store
 			.insert(SR25519, secret_uri, key_pair.public().as_ref())
-			.expect(<span class="string">&quot;Inserts unknown key&quot;</span>);
+			.expect(<span class="string">"Inserts unknown key"</span>);
 
 		<span class="kw">let </span>store_key_pair = store
 			.key_pair_by_type::&lt;sr25519::AppPair&gt;(<span class="kw-2">&amp;</span>key_pair.public(), SR25519)
-			.expect(<span class="string">&quot;Gets key pair from keystore&quot;</span>)
+			.expect(<span class="string">"Gets key pair from keystore"</span>)
 			.unwrap();
 
 		<span class="macro">assert_eq!</span>(key_pair.public(), store_key_pair.public());
@@ -1794,8 +1796,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>temp_dir = TempDir::new().unwrap();
 		<span class="kw">let </span>store = LocalKeystore::open(temp_dir.path(), <span class="prelude-val">None</span>).unwrap();
 
-		<span class="kw">let </span>file_name = temp_dir.path().join(array_bytes::bytes2hex(<span class="string">&quot;&quot;</span>, <span class="kw-2">&amp;</span>SR25519.<span class="number">0</span>[..<span class="number">2</span>]));
-		fs::write(file_name, <span class="string">&quot;test&quot;</span>).expect(<span class="string">&quot;Invalid file is written&quot;</span>);
+		<span class="kw">let </span>file_name = temp_dir.path().join(array_bytes::bytes2hex(<span class="string">""</span>, <span class="kw-2">&amp;</span>SR25519.<span class="number">0</span>[..<span class="number">2</span>]));
+		fs::write(file_name, <span class="string">"test"</span>).expect(<span class="string">"Invalid file is written"</span>);
 
 		<span class="macro">assert!</span>(store.sr25519_public_keys(SR25519).is_empty());
 	}
@@ -1804,7 +1806,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>generate_with_seed_is_not_stored() {
 		<span class="kw">let </span>temp_dir = TempDir::new().unwrap();
 		<span class="kw">let </span>store = LocalKeystore::open(temp_dir.path(), <span class="prelude-val">None</span>).unwrap();
-		<span class="kw">let </span>_alice_tmp_key = store.sr25519_generate_new(TEST_KEY_TYPE, <span class="prelude-val">Some</span>(<span class="string">&quot;//Alice&quot;</span>)).unwrap();
+		<span class="kw">let </span>_alice_tmp_key = store.sr25519_generate_new(TEST_KEY_TYPE, <span class="prelude-val">Some</span>(<span class="string">"//Alice"</span>)).unwrap();
 
 		<span class="macro">assert_eq!</span>(store.sr25519_public_keys(TEST_KEY_TYPE).len(), <span class="number">1</span>);
 
@@ -1816,7 +1818,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>generate_can_be_fetched_in_memory() {
 		<span class="kw">let </span>store = LocalKeystore::in_memory();
-		store.sr25519_generate_new(TEST_KEY_TYPE, <span class="prelude-val">Some</span>(<span class="string">&quot;//Alice&quot;</span>)).unwrap();
+		store.sr25519_generate_new(TEST_KEY_TYPE, <span class="prelude-val">Some</span>(<span class="string">"//Alice"</span>)).unwrap();
 
 		<span class="macro">assert_eq!</span>(store.sr25519_public_keys(TEST_KEY_TYPE).len(), <span class="number">1</span>);
 		store.sr25519_generate_new(TEST_KEY_TYPE, <span class="prelude-val">None</span>).unwrap();
@@ -1824,7 +1826,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="attr">#[test]
-	#[cfg(target_family = <span class="string">&quot;unix&quot;</span>)]
+	#[cfg(target_family = <span class="string">"unix"</span>)]
 	</span><span class="kw">fn </span>uses_correct_file_permissions_on_unix() {
 		<span class="kw">use </span>std::os::unix::fs::PermissionsExt;
 

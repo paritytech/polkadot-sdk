@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/lottery/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/lottery/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_lottery" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_lottery" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../pallet_lottery/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -674,14 +676,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -691,10 +693,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! With this pallet, you can configure a lottery, which is a pot of money that
 //! users contribute to, and that is reallocated to a single user at the end of
 //! the lottery period. Just like a normal lottery system, to participate, you
-//! need to &quot;buy a ticket&quot;, which is used to fund the pot.
+//! need to "buy a ticket", which is used to fund the pot.
 //!
 //! The unique feature of this lottery system is that tickets can only be
-//! purchased by making a &quot;valid call&quot; dispatched through this pallet.
+//! purchased by making a "valid call" dispatched through this pallet.
 //! By configuring certain calls to be valid for the lottery, you can encourage
 //! users to make those calls on your network. An example of how this could be
 //! used is to set validator nominations as a valid lottery call. If the lottery
@@ -713,10 +715,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! that this might introduce a bias if the random number chosen in a range that
 //! is not perfectly divisible by the total number of participants. The
 //! `MaxGenerateRandom` configuration can help mitigate this by generating new
-//! numbers until we hit the limit or we find a &quot;fair&quot; number. This is best
+//! numbers until we hit the limit or we find a "fair" number. This is best
 //! effort only.
 
-</span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
+</span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
 </span><span class="kw">mod </span>benchmarking;
 <span class="attr">#[cfg(test)]
@@ -746,7 +748,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	&lt;&lt;T <span class="kw">as </span>Config&gt;::Currency <span class="kw">as </span>Currency&lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId&gt;&gt;::Balance;
 
 <span class="comment">// Any runtime call can be encoded into two bytes which represent the pallet and call index.
-// We use this to uniquely match someone&#39;s incoming call with the calls configured for the lottery.
+// We use this to uniquely match someone's incoming call with the calls configured for the lottery.
 </span><span class="kw">type </span>CallIndex = (u8, u8);
 
 <span class="attr">#[derive(
@@ -760,7 +762,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Length of the lottery (start + length = end).
 	</span>length: BlockNumber,
 	<span class="doccomment">/// Delay for choosing the winner of the lottery. (start + length + delay = payout).
-	/// Randomness in the &quot;payout&quot; block will be used to determine the winner.
+	/// Randomness in the "payout" block will be used to determine the winner.
 	</span>delay: BlockNumber,
 	<span class="doccomment">/// Whether this lottery will repeat after it completes.
 	</span>repeat: bool,
@@ -796,10 +798,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[pallet::pallet]
 	</span><span class="kw">pub struct </span>Pallet&lt;T&gt;(<span class="kw">_</span>);
 
-	<span class="doccomment">/// The pallet&#39;s config trait.
+	<span class="doccomment">/// The pallet's config trait.
 	</span><span class="attr">#[pallet::config]
 	</span><span class="kw">pub trait </span>Config: frame_system::Config {
-		<span class="doccomment">/// The Lottery&#39;s pallet id
+		<span class="doccomment">/// The Lottery's pallet id
 		</span><span class="attr">#[pallet::constant]
 		</span><span class="kw">type </span>PalletId: Get&lt;PalletId&gt;;
 
@@ -895,7 +897,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="attr">#[pallet::storage]
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>TicketsCount&lt;T&gt; = StorageValue&lt;<span class="kw">_</span>, u32, ValueQuery&gt;;
 
-	<span class="doccomment">/// Each ticket&#39;s owner.
+	<span class="doccomment">/// Each ticket's owner.
 	///
 	/// May have residual storage from previous lotteries. Use `TicketsCount` to see which ones
 	/// are actually valid ticket mappings.
@@ -1095,7 +1097,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Ok</span>(indices)
 	}
 
-	<span class="doccomment">/// Convert a call to it&#39;s call index by encoding the call and taking the first two bytes.
+	<span class="doccomment">/// Convert a call to it's call index by encoding the call and taking the first two bytes.
 	</span><span class="kw">fn </span>call_to_index(call: <span class="kw-2">&amp;</span>&lt;T <span class="kw">as </span>Config&gt;::RuntimeCall) -&gt; <span class="prelude-ty">Result</span>&lt;CallIndex, DispatchError&gt; {
 		<span class="kw">let </span>encoded_call = call.encode();
 		<span class="kw">if </span>encoded_call.len() &lt; <span class="number">2 </span>{
@@ -1122,7 +1124,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw-2">&amp;</span>caller,
 			|(lottery_index, participating_calls)| -&gt; DispatchResult {
 				<span class="kw">let </span>index = LotteryIndex::&lt;T&gt;::get();
-				<span class="comment">// If lottery index doesn&#39;t match, then reset participating calls and index.
+				<span class="comment">// If lottery index doesn't match, then reset participating calls and index.
 				</span><span class="kw">if </span><span class="kw-2">*</span>lottery_index != index {
 					<span class="kw-2">*</span>participating_calls = Default::default();
 					<span class="kw-2">*</span>lottery_index = index;
@@ -1187,7 +1189,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>generate_random_number(seed: u32) -&gt; u32 {
 		<span class="kw">let </span>(random_seed, <span class="kw">_</span>) = T::Randomness::random(<span class="kw-2">&amp;</span>(T::PalletId::get(), seed).encode());
 		<span class="kw">let </span>random_number = &lt;u32&gt;::decode(<span class="kw-2">&amp;mut </span>random_seed.as_ref())
-			.expect(<span class="string">&quot;secure hashes should always be bigger than u32; qed&quot;</span>);
+			.expect(<span class="string">"secure hashes should always be bigger than u32; qed"</span>);
 		random_number
 	}
 }

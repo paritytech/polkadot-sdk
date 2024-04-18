@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/consensus/grandpa/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/consensus/grandpa/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_consensus_grandpa" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_consensus_grandpa" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sc_consensus_grandpa/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1413,12 +1415,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! pick up finalization from there.
 //!
 //! Technically speaking, this would be implemented as a voting rule which says,
-//! &quot;if there is a signal for a change in N blocks in block B, only vote on
-//! chains with length NUM(B) + N if they contain B&quot;. This conditional-inclusion
+//! "if there is a signal for a change in N blocks in block B, only vote on
+//! chains with length NUM(B) + N if they contain B". This conditional-inclusion
 //! logic is complex to compute because it requires looking arbitrarily far
 //! back in the chain.
 //!
-//! Instead, we keep track of a list of all signals we&#39;ve seen so far (across
+//! Instead, we keep track of a list of all signals we've seen so far (across
 //! all forks), sorted ascending by the block number they would be applied at.
 //! We never vote on chains with number higher than the earliest handoff block
 //! number (this is num(signal) + N). When finalizing a block, we either apply
@@ -1516,7 +1518,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>environment::{Environment, VoterSetState};
 <span class="kw">use </span>until_imported::UntilGlobalMessageBlocksImported;
 
-<span class="comment">// Re-export these two because it&#39;s just so damn convenient.
+<span class="comment">// Re-export these two because it's just so damn convenient.
 </span><span class="kw">pub use </span>sp_consensus_grandpa::{
 	AuthorityId, AuthorityPair, CatchUp, Commit, CompactCommit, GrandpaApi, Message, Precommit,
 	Prevote, PrimaryPropose, ScheduledChange, SignedMessage,
@@ -1537,13 +1539,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 &gt;;
 <span class="doccomment">/// Global communication input stream for commits and catch up messages, with
 /// the hash type not being derived from the block, useful for forcing the hash
-/// to some type (e.g. `H256`) when the compiler can&#39;t do the inference.
+/// to some type (e.g. `H256`) when the compiler can't do the inference.
 </span><span class="kw">type </span>CommunicationInH&lt;Block, H&gt; =
 	voter::CommunicationIn&lt;H, NumberFor&lt;Block&gt;, AuthoritySignature, AuthorityId&gt;;
 
 <span class="doccomment">/// Global communication sink for commits with the hash type not being derived
 /// from the block, useful for forcing the hash to some type (e.g. `H256`) when
-/// the compiler can&#39;t do the inference.
+/// the compiler can't do the inference.
 </span><span class="kw">type </span>CommunicationOutH&lt;Block, H&gt; =
 	voter::CommunicationOut&lt;H, NumberFor&lt;Block&gt;, AuthoritySignature, AuthorityId&gt;;
 
@@ -1608,7 +1610,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl </span>Config {
 	<span class="kw">fn </span>name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>str {
-		<span class="self">self</span>.name.as_deref().unwrap_or(<span class="string">&quot;&lt;unknown&gt;&quot;</span>)
+		<span class="self">self</span>.name.as_deref().unwrap_or(<span class="string">"&lt;unknown&gt;"</span>)
 	}
 }
 
@@ -1616,35 +1618,35 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[derive(Debug, thiserror::Error)]
 </span><span class="kw">pub enum </span>Error {
 	<span class="doccomment">/// An error within grandpa.
-	</span><span class="attr">#[error(<span class="string">&quot;grandpa error: {0}&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"grandpa error: {0}"</span>)]
 	</span>Grandpa(<span class="attr">#[from] </span>GrandpaError),
 
 	<span class="doccomment">/// A network error.
-	</span><span class="attr">#[error(<span class="string">&quot;network error: {0}&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"network error: {0}"</span>)]
 	</span>Network(String),
 
 	<span class="doccomment">/// A blockchain error.
-	</span><span class="attr">#[error(<span class="string">&quot;blockchain error: {0}&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"blockchain error: {0}"</span>)]
 	</span>Blockchain(String),
 
 	<span class="doccomment">/// Could not complete a round on disk.
-	</span><span class="attr">#[error(<span class="string">&quot;could not complete a round on disk: {0}&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"could not complete a round on disk: {0}"</span>)]
 	</span>Client(<span class="attr">#[from] </span>ClientError),
 
 	<span class="doccomment">/// Could not sign outgoing message
-	</span><span class="attr">#[error(<span class="string">&quot;could not sign outgoing message: {0}&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"could not sign outgoing message: {0}"</span>)]
 	</span>Signing(String),
 
 	<span class="doccomment">/// An invariant has been violated (e.g. not finalizing pending change blocks in-order)
-	</span><span class="attr">#[error(<span class="string">&quot;safety invariant has been violated: {0}&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"safety invariant has been violated: {0}"</span>)]
 	</span>Safety(String),
 
 	<span class="doccomment">/// A timer failed to fire.
-	</span><span class="attr">#[error(<span class="string">&quot;a timer failed to fire: {0}&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"a timer failed to fire: {0}"</span>)]
 	</span>Timer(io::Error),
 
 	<span class="doccomment">/// A runtime api request failed.
-	</span><span class="attr">#[error(<span class="string">&quot;runtime API request failed: {0}&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"runtime API request failed: {0}"</span>)]
 	</span>RuntimeApi(sp_api::ApiError),
 }
 
@@ -1668,7 +1670,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// A trait that includes all the client functionalities grandpa requires.
-/// Ideally this would be a trait alias, we&#39;re not there yet.
+/// Ideally this would be a trait alias, we're not there yet.
 /// tracking issue &lt;https://github.com/rust-lang/rust/issues/41517&gt;
 </span><span class="kw">pub trait </span>ClientForGrandpa&lt;Block, BE&gt;:
 	LockImportRun&lt;Block, BE&gt;
@@ -1757,8 +1759,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl</span>&lt;H, N&gt; fmt::Display <span class="kw">for </span>VoterCommand&lt;H, N&gt; {
 	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter) -&gt; fmt::Result {
 		<span class="kw">match </span><span class="kw-2">*</span><span class="self">self </span>{
-			VoterCommand::Pause(<span class="kw-2">ref </span>reason) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Pausing voter: {}&quot;</span>, reason),
-			VoterCommand::ChangeAuthorities(<span class="kw">_</span>) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Changing authorities&quot;</span>),
+			VoterCommand::Pause(<span class="kw-2">ref </span>reason) =&gt; <span class="macro">write!</span>(f, <span class="string">"Pausing voter: {}"</span>, reason),
+			VoterCommand::ChangeAuthorities(<span class="kw">_</span>) =&gt; <span class="macro">write!</span>(f, <span class="string">"Changing authorities"</span>),
 		}
 	}
 }
@@ -1801,8 +1803,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl</span>&lt;H, N&gt; fmt::Display <span class="kw">for </span>CommandOrError&lt;H, N&gt; {
 	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter) -&gt; fmt::Result {
 		<span class="kw">match </span><span class="kw-2">*</span><span class="self">self </span>{
-			CommandOrError::Error(<span class="kw-2">ref </span>e) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;{}&quot;</span>, e),
-			CommandOrError::VoterCommand(<span class="kw-2">ref </span>cmd) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;{}&quot;</span>, cmd),
+			CommandOrError::Error(<span class="kw-2">ref </span>e) =&gt; <span class="macro">write!</span>(f, <span class="string">"{}"</span>, e),
+			CommandOrError::VoterCommand(<span class="kw-2">ref </span>cmd) =&gt; <span class="macro">write!</span>(f, <span class="string">"{}"</span>, cmd),
 		}
 	}
 }
@@ -1845,14 +1847,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">self</span>.executor()
 			.call(
 				<span class="self">self</span>.expect_block_hash_from_id(<span class="kw-2">&amp;</span>BlockId::Number(Zero::zero()))<span class="question-mark">?</span>,
-				<span class="string">&quot;GrandpaApi_grandpa_authorities&quot;</span>,
+				<span class="string">"GrandpaApi_grandpa_authorities"</span>,
 				<span class="kw-2">&amp;</span>[],
 				CallContext::Offchain,
 			)
 			.and_then(|call_result| {
 				Decode::decode(<span class="kw-2">&amp;mut &amp;</span>call_result[..]).map_err(|err| {
 					ClientError::CallResultDecode(
-						<span class="string">&quot;failed to decode GRANDPA authorities set proof&quot;</span>,
+						<span class="string">"failed to decode GRANDPA authorities set proof"</span>,
 						err,
 					)
 				})
@@ -1866,9 +1868,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// The `justification_import_period` sets the minimum period on which
 /// justifications will be imported.  When importing a block, if it includes a
 /// justification it will only be processed if it fits within this period,
-/// otherwise it will be ignored (and won&#39;t be validated). This is to avoid
+/// otherwise it will be ignored (and won't be validated). This is to avoid
 /// slowing down sync by a peer serving us unnecessary justifications which
-/// aren&#39;t trivial to validate.
+/// aren't trivial to validate.
 </span><span class="kw">pub fn </span>block_import&lt;BE, Block: BlockT, Client, SC&gt;(
 	client: Arc&lt;Client&gt;,
 	justification_import_period: u32,
@@ -1878,8 +1880,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(GrandpaBlockImport&lt;BE, Block, Client, SC&gt;, LinkHalf&lt;Block, Client, SC&gt;), ClientError&gt;
 <span class="kw">where
 	</span>SC: SelectChain&lt;Block&gt;,
-	BE: Backend&lt;Block&gt; + <span class="lifetime">&#39;static</span>,
-	Client: ClientForGrandpa&lt;Block, BE&gt; + <span class="lifetime">&#39;static</span>,
+	BE: Backend&lt;Block&gt; + <span class="lifetime">'static</span>,
+	Client: ClientForGrandpa&lt;Block, BE&gt; + <span class="lifetime">'static</span>,
 {
 	block_import_with_authority_set_hard_forks(
 		client,
@@ -1903,7 +1905,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>authorities: AuthorityList,
 	<span class="doccomment">/// The latest block number that was finalized before this authority set
 	/// hard fork. When defined, the authority set change will be forced, i.e.
-	/// the node won&#39;t wait for the block above to be finalized before enacting
+	/// the node won't wait for the block above to be finalized before enacting
 	/// the change, and the given finalized number will be used as a base for
 	/// voting.
 	</span><span class="kw">pub </span>last_finalized: <span class="prelude-ty">Option</span>&lt;NumberFor&lt;Block&gt;&gt;,
@@ -1924,8 +1926,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(GrandpaBlockImport&lt;BE, Block, Client, SC&gt;, LinkHalf&lt;Block, Client, SC&gt;), ClientError&gt;
 <span class="kw">where
 	</span>SC: SelectChain&lt;Block&gt;,
-	BE: Backend&lt;Block&gt; + <span class="lifetime">&#39;static</span>,
-	Client: ClientForGrandpa&lt;Block, BE&gt; + <span class="lifetime">&#39;static</span>,
+	BE: Backend&lt;Block&gt; + <span class="lifetime">'static</span>,
+	Client: ClientForGrandpa&lt;Block, BE&gt; + <span class="lifetime">'static</span>,
 {
 	<span class="kw">let </span>chain_info = client.info();
 	<span class="kw">let </span>genesis_hash = chain_info.genesis_hash;
@@ -1938,15 +1940,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="macro">telemetry!</span>(
 					telemetry;
 					CONSENSUS_DEBUG;
-					<span class="string">&quot;afg.loading_authorities&quot;</span>;
-					<span class="string">&quot;authorities_len&quot; </span>=&gt; <span class="question-mark">?</span>authorities.len()
+					<span class="string">"afg.loading_authorities"</span>;
+					<span class="string">"authorities_len" </span>=&gt; <span class="question-mark">?</span>authorities.len()
 				);
 				<span class="prelude-val">Ok</span>(authorities)
 			}
 		})<span class="question-mark">?</span>;
 
 	<span class="kw">let </span>(voter_commands_tx, voter_commands_rx) =
-		tracing_unbounded(<span class="string">&quot;mpsc_grandpa_voter_command&quot;</span>, <span class="number">100_000</span>);
+		tracing_unbounded(<span class="string">"mpsc_grandpa_voter_command"</span>, <span class="number">100_000</span>);
 
 	<span class="kw">let </span>(justification_sender, justification_stream) = GrandpaJustificationStream::channel();
 
@@ -2016,8 +2018,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	&gt;,
 )
 <span class="kw">where
-	</span>BE: Backend&lt;Block&gt; + <span class="lifetime">&#39;static</span>,
-	C: ClientForGrandpa&lt;Block, BE&gt; + <span class="lifetime">&#39;static</span>,
+	</span>BE: Backend&lt;Block&gt; + <span class="lifetime">'static</span>,
+	C: ClientForGrandpa&lt;Block, BE&gt; + <span class="lifetime">'static</span>,
 	N: NetworkT&lt;Block&gt;,
 	S: SyncingT&lt;Block&gt;,
 	NumberFor&lt;Block&gt;: BlockNumberOps,
@@ -2034,7 +2036,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		network.clone(),
 		client.clone(),
 		global_in,
-		<span class="string">&quot;global&quot;</span>,
+		<span class="string">"global"</span>,
 		metrics,
 	);
 
@@ -2103,17 +2105,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Run a GRANDPA voter as a task. Provide configuration and a link to a
 /// block import worker that has already been instantiated with `block_import`.
-</span><span class="kw">pub fn </span>run_grandpa_voter&lt;Block: BlockT, BE: <span class="lifetime">&#39;static</span>, C, N, S, SC, VR&gt;(
+</span><span class="kw">pub fn </span>run_grandpa_voter&lt;Block: BlockT, BE: <span class="lifetime">'static</span>, C, N, S, SC, VR&gt;(
 	grandpa_params: GrandpaParams&lt;Block, C, N, S, SC, VR&gt;,
 ) -&gt; sp_blockchain::Result&lt;<span class="kw">impl </span>Future&lt;Output = ()&gt; + Send&gt;
 <span class="kw">where
-	</span>BE: Backend&lt;Block&gt; + <span class="lifetime">&#39;static</span>,
-	N: NetworkT&lt;Block&gt; + Sync + <span class="lifetime">&#39;static</span>,
-	S: SyncingT&lt;Block&gt; + Sync + <span class="lifetime">&#39;static</span>,
-	SC: SelectChain&lt;Block&gt; + <span class="lifetime">&#39;static</span>,
-	VR: VotingRule&lt;Block, C&gt; + Clone + <span class="lifetime">&#39;static</span>,
+	</span>BE: Backend&lt;Block&gt; + <span class="lifetime">'static</span>,
+	N: NetworkT&lt;Block&gt; + Sync + <span class="lifetime">'static</span>,
+	S: SyncingT&lt;Block&gt; + Sync + <span class="lifetime">'static</span>,
+	SC: SelectChain&lt;Block&gt; + <span class="lifetime">'static</span>,
+	VR: VotingRule&lt;Block, C&gt; + Clone + <span class="lifetime">'static</span>,
 	NumberFor&lt;Block&gt;: BlockNumberOps,
-	C: ClientForGrandpa&lt;Block, BE&gt; + <span class="lifetime">&#39;static</span>,
+	C: ClientForGrandpa&lt;Block, BE&gt; + <span class="lifetime">'static</span>,
 	C::Api: GrandpaApi&lt;Block&gt;,
 {
 	<span class="kw">let </span>GrandpaParams {
@@ -2170,17 +2172,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					current_authorities.iter().map(|(id, <span class="kw">_</span>)| id.to_string()).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 
 				<span class="kw">let </span>authorities = serde_json::to_string(<span class="kw-2">&amp;</span>authorities).expect(
-					<span class="string">&quot;authorities is always at least an empty vector; \
-					 elements are always of type string&quot;</span>,
+					<span class="string">"authorities is always at least an empty vector; \
+					 elements are always of type string"</span>,
 				);
 
 				<span class="macro">telemetry!</span>(
 					telemetry;
 					CONSENSUS_INFO;
-					<span class="string">&quot;afg.authority_set&quot;</span>;
-					<span class="string">&quot;authority_id&quot; </span>=&gt; maybe_authority_id.map_or(<span class="string">&quot;&quot;</span>.into(), |s| s.to_string()),
-					<span class="string">&quot;authority_set_id&quot; </span>=&gt; <span class="question-mark">?</span>set_id,
-					<span class="string">&quot;authorities&quot; </span>=&gt; authorities,
+					<span class="string">"afg.authority_set"</span>;
+					<span class="string">"authority_id" </span>=&gt; maybe_authority_id.map_or(<span class="string">""</span>.into(), |s| s.to_string()),
+					<span class="string">"authority_set_id" </span>=&gt; <span class="question-mark">?</span>set_id,
+					<span class="string">"authorities" </span>=&gt; authorities,
 				);
 
 				future::ready(())
@@ -2208,12 +2210,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>voter_work = voter_work.map(|res| <span class="kw">match </span>res {
 		<span class="prelude-val">Ok</span>(()) =&gt; <span class="macro">error!</span>(
 			target: LOG_TARGET,
-			<span class="string">&quot;GRANDPA voter future has concluded naturally, this should be unreachable.&quot;
+			<span class="string">"GRANDPA voter future has concluded naturally, this should be unreachable."
 		</span>),
-		<span class="prelude-val">Err</span>(e) =&gt; <span class="macro">error!</span>(target: LOG_TARGET, <span class="string">&quot;GRANDPA voter error: {}&quot;</span>, e),
+		<span class="prelude-val">Err</span>(e) =&gt; <span class="macro">error!</span>(target: LOG_TARGET, <span class="string">"GRANDPA voter error: {}"</span>, e),
 	});
 
-	<span class="comment">// Make sure that `telemetry_task` doesn&#39;t accidentally finish and kill grandpa.
+	<span class="comment">// Make sure that `telemetry_task` doesn't accidentally finish and kill grandpa.
 	</span><span class="kw">let </span>telemetry_task = telemetry_task.then(|<span class="kw">_</span>| future::pending::&lt;()&gt;());
 
 	<span class="prelude-val">Ok</span>(future::select(voter_work, telemetry_task).map(drop))
@@ -2251,14 +2253,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl</span>&lt;B, Block, C, N, S, SC, VR&gt; VoterWork&lt;B, Block, C, N, S, SC, VR&gt;
 <span class="kw">where
 	</span>Block: BlockT,
-	B: Backend&lt;Block&gt; + <span class="lifetime">&#39;static</span>,
-	C: ClientForGrandpa&lt;Block, B&gt; + <span class="lifetime">&#39;static</span>,
+	B: Backend&lt;Block&gt; + <span class="lifetime">'static</span>,
+	C: ClientForGrandpa&lt;Block, B&gt; + <span class="lifetime">'static</span>,
 	C::Api: GrandpaApi&lt;Block&gt;,
 	N: NetworkT&lt;Block&gt; + Sync,
 	S: SyncingT&lt;Block&gt; + Sync,
 	NumberFor&lt;Block&gt;: BlockNumberOps,
-	SC: SelectChain&lt;Block&gt; + <span class="lifetime">&#39;static</span>,
-	VR: VotingRule&lt;Block, C&gt; + Clone + <span class="lifetime">&#39;static</span>,
+	SC: SelectChain&lt;Block&gt; + <span class="lifetime">'static</span>,
+	VR: VotingRule&lt;Block, C&gt; + Clone + <span class="lifetime">'static</span>,
 {
 	<span class="kw">fn </span>new(
 		client: Arc&lt;C&gt;,
@@ -2277,7 +2279,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>metrics = <span class="kw">match </span>prometheus_registry.as_ref().map(Metrics::register) {
 			<span class="prelude-val">Some</span>(<span class="prelude-val">Ok</span>(metrics)) =&gt; <span class="prelude-val">Some</span>(metrics),
 			<span class="prelude-val">Some</span>(<span class="prelude-val">Err</span>(e)) =&gt; {
-				<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;Failed to register metrics: {:?}&quot;</span>, e);
+				<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"Failed to register metrics: {:?}"</span>, e);
 				<span class="prelude-val">None
 			</span>},
 			<span class="prelude-val">None </span>=&gt; <span class="prelude-val">None</span>,
@@ -2322,22 +2324,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>rebuild_voter(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
 		<span class="macro">debug!</span>(
 			target: LOG_TARGET,
-			<span class="string">&quot;{}: Starting new voter with set ID {}&quot;</span>,
+			<span class="string">"{}: Starting new voter with set ID {}"</span>,
 			<span class="self">self</span>.env.config.name(),
 			<span class="self">self</span>.env.set_id
 		);
 
 		<span class="kw">let </span>maybe_authority_id =
 			local_authority_id(<span class="kw-2">&amp;</span><span class="self">self</span>.env.voters, <span class="self">self</span>.env.config.keystore.as_ref());
-		<span class="kw">let </span>authority_id = maybe_authority_id.map_or(<span class="string">&quot;&lt;unknown&gt;&quot;</span>.into(), |s| s.to_string());
+		<span class="kw">let </span>authority_id = maybe_authority_id.map_or(<span class="string">"&lt;unknown&gt;"</span>.into(), |s| s.to_string());
 
 		<span class="macro">telemetry!</span>(
 			<span class="self">self</span>.telemetry;
 			CONSENSUS_DEBUG;
-			<span class="string">&quot;afg.starting_new_voter&quot;</span>;
-			<span class="string">&quot;name&quot; </span>=&gt; <span class="question-mark">?</span><span class="self">self</span>.env.config.name(),
-			<span class="string">&quot;set_id&quot; </span>=&gt; <span class="question-mark">?</span><span class="self">self</span>.env.set_id,
-			<span class="string">&quot;authority_id&quot; </span>=&gt; authority_id,
+			<span class="string">"afg.starting_new_voter"</span>;
+			<span class="string">"name" </span>=&gt; <span class="question-mark">?</span><span class="self">self</span>.env.config.name(),
+			<span class="string">"set_id" </span>=&gt; <span class="question-mark">?</span><span class="self">self</span>.env.set_id,
+			<span class="string">"authority_id" </span>=&gt; authority_id,
 		);
 
 		<span class="kw">let </span>chain_info = <span class="self">self</span>.env.client.info();
@@ -2345,18 +2347,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>authorities = <span class="self">self</span>.env.voters.iter().map(|(id, <span class="kw">_</span>)| id.to_string()).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 
 		<span class="kw">let </span>authorities = serde_json::to_string(<span class="kw-2">&amp;</span>authorities).expect(
-			<span class="string">&quot;authorities is always at least an empty vector; elements are always of type string; qed.&quot;</span>,
+			<span class="string">"authorities is always at least an empty vector; elements are always of type string; qed."</span>,
 		);
 
 		<span class="macro">telemetry!</span>(
 			<span class="self">self</span>.telemetry;
 			CONSENSUS_INFO;
-			<span class="string">&quot;afg.authority_set&quot;</span>;
-			<span class="string">&quot;number&quot; </span>=&gt; <span class="question-mark">?</span>chain_info.finalized_number,
-			<span class="string">&quot;hash&quot; </span>=&gt; <span class="question-mark">?</span>chain_info.finalized_hash,
-			<span class="string">&quot;authority_id&quot; </span>=&gt; authority_id,
-			<span class="string">&quot;authority_set_id&quot; </span>=&gt; <span class="question-mark">?</span><span class="self">self</span>.env.set_id,
-			<span class="string">&quot;authorities&quot; </span>=&gt; authorities,
+			<span class="string">"afg.authority_set"</span>;
+			<span class="string">"number" </span>=&gt; <span class="question-mark">?</span>chain_info.finalized_number,
+			<span class="string">"hash" </span>=&gt; <span class="question-mark">?</span>chain_info.finalized_hash,
+			<span class="string">"authority_id" </span>=&gt; authority_id,
+			<span class="string">"authority_set_id" </span>=&gt; <span class="question-mark">?</span><span class="self">self</span>.env.set_id,
+			<span class="string">"authorities" </span>=&gt; authorities,
 		);
 
 		<span class="kw">match </span><span class="kw-2">&amp;*</span><span class="self">self</span>.env.voter_set_state.read() {
@@ -2388,8 +2390,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				</span><span class="kw">if </span><span class="self">self</span>.shared_voter_state.reset(voter.voter_state()).is_none() {
 					<span class="macro">info!</span>(
 						target: LOG_TARGET,
-						<span class="string">&quot;Timed out trying to update shared GRANDPA voter state. \
-						RPC endpoints may return stale data.&quot;
+						<span class="string">"Timed out trying to update shared GRANDPA voter state. \
+						RPC endpoints may return stale data."
 					</span>);
 				}
 
@@ -2406,15 +2408,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">match </span>command {
 			VoterCommand::ChangeAuthorities(new) =&gt; {
 				<span class="kw">let </span>voters: Vec&lt;String&gt; =
-					new.authorities.iter().map(<span class="kw">move </span>|(a, <span class="kw">_</span>)| <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, a)).collect();
+					new.authorities.iter().map(<span class="kw">move </span>|(a, <span class="kw">_</span>)| <span class="macro">format!</span>(<span class="string">"{}"</span>, a)).collect();
 				<span class="macro">telemetry!</span>(
 					<span class="self">self</span>.telemetry;
 					CONSENSUS_INFO;
-					<span class="string">&quot;afg.voter_command_change_authorities&quot;</span>;
-					<span class="string">&quot;number&quot; </span>=&gt; <span class="question-mark">?</span>new.canon_number,
-					<span class="string">&quot;hash&quot; </span>=&gt; <span class="question-mark">?</span>new.canon_hash,
-					<span class="string">&quot;voters&quot; </span>=&gt; <span class="question-mark">?</span>voters,
-					<span class="string">&quot;set_id&quot; </span>=&gt; <span class="question-mark">?</span>new.set_id,
+					<span class="string">"afg.voter_command_change_authorities"</span>;
+					<span class="string">"number" </span>=&gt; <span class="question-mark">?</span>new.canon_number,
+					<span class="string">"hash" </span>=&gt; <span class="question-mark">?</span>new.canon_hash,
+					<span class="string">"voters" </span>=&gt; <span class="question-mark">?</span>voters,
+					<span class="string">"set_id" </span>=&gt; <span class="question-mark">?</span>new.set_id,
 				);
 
 				<span class="self">self</span>.env.update_voter_set_state(|<span class="kw">_</span>| {
@@ -2431,9 +2433,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				})<span class="question-mark">?</span>;
 
 				<span class="kw">let </span>voters = Arc::new(VoterSet::new(new.authorities.into_iter()).expect(
-					<span class="string">&quot;new authorities come from pending change; pending change comes from \
+					<span class="string">"new authorities come from pending change; pending change comes from \
 					 `AuthoritySet`; `AuthoritySet` validates authorities is non-empty and \
-					 weights are non-zero; qed.&quot;</span>,
+					 weights are non-zero; qed."</span>,
 				));
 
 				<span class="self">self</span>.env = Arc::new(Environment {
@@ -2457,7 +2459,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="prelude-val">Ok</span>(())
 			},
 			VoterCommand::Pause(reason) =&gt; {
-				<span class="macro">info!</span>(target: LOG_TARGET, <span class="string">&quot;Pausing old validator set: {}&quot;</span>, reason);
+				<span class="macro">info!</span>(target: LOG_TARGET, <span class="string">"Pausing old validator set: {}"</span>, reason);
 
 				<span class="comment">// not racing because old voter is shut down.
 				</span><span class="self">self</span>.env.update_voter_set_state(|voter_set_state| {
@@ -2478,14 +2480,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl</span>&lt;B, Block, C, N, S, SC, VR&gt; Future <span class="kw">for </span>VoterWork&lt;B, Block, C, N, S, SC, VR&gt;
 <span class="kw">where
 	</span>Block: BlockT,
-	B: Backend&lt;Block&gt; + <span class="lifetime">&#39;static</span>,
+	B: Backend&lt;Block&gt; + <span class="lifetime">'static</span>,
 	N: NetworkT&lt;Block&gt; + Sync,
 	S: SyncingT&lt;Block&gt; + Sync,
 	NumberFor&lt;Block&gt;: BlockNumberOps,
-	SC: SelectChain&lt;Block&gt; + <span class="lifetime">&#39;static</span>,
-	C: ClientForGrandpa&lt;Block, B&gt; + <span class="lifetime">&#39;static</span>,
+	SC: SelectChain&lt;Block&gt; + <span class="lifetime">'static</span>,
+	C: ClientForGrandpa&lt;Block, B&gt; + <span class="lifetime">'static</span>,
 	C::Api: GrandpaApi&lt;Block&gt;,
-	VR: VotingRule&lt;Block, C&gt; + Clone + <span class="lifetime">&#39;static</span>,
+	VR: VotingRule&lt;Block, C&gt; + Clone + <span class="lifetime">'static</span>,
 {
 	<span class="kw">type </span>Output = <span class="prelude-ty">Result</span>&lt;(), Error&gt;;
 
@@ -2493,9 +2495,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">match </span>Future::poll(Pin::new(<span class="kw-2">&amp;mut </span><span class="self">self</span>.voter), cx) {
 			Poll::Pending =&gt; {},
 			Poll::Ready(<span class="prelude-val">Ok</span>(())) =&gt; {
-				<span class="comment">// voters don&#39;t conclude naturally
+				<span class="comment">// voters don't conclude naturally
 				</span><span class="kw">return </span>Poll::Ready(<span class="prelude-val">Err</span>(Error::Safety(
-					<span class="string">&quot;consensus-grandpa inner voter has concluded.&quot;</span>.into(),
+					<span class="string">"consensus-grandpa inner voter has concluded."</span>.into(),
 				)))
 			},
 			Poll::Ready(<span class="prelude-val">Err</span>(CommandOrError::Error(e))) =&gt; {
@@ -2512,8 +2514,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">match </span>Stream::poll_next(Pin::new(<span class="kw-2">&amp;mut </span><span class="self">self</span>.voter_commands_rx), cx) {
 			Poll::Pending =&gt; {},
 			Poll::Ready(<span class="prelude-val">None</span>) =&gt; {
-				<span class="comment">// the `voter_commands_rx` stream should never conclude since it&#39;s never closed.
-				</span><span class="kw">return </span>Poll::Ready(<span class="prelude-val">Err</span>(Error::Safety(<span class="string">&quot;`voter_commands_rx` was closed.&quot;</span>.into())))
+				<span class="comment">// the `voter_commands_rx` stream should never conclude since it's never closed.
+				</span><span class="kw">return </span>Poll::Ready(<span class="prelude-val">Err</span>(Error::Safety(<span class="string">"`voter_commands_rx` was closed."</span>.into())))
 			},
 			Poll::Ready(<span class="prelude-val">Some</span>(command)) =&gt; {
 				<span class="comment">// some command issued externally
@@ -2561,7 +2563,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>hash = client
 		.block_hash_from_id(<span class="kw-2">&amp;</span>BlockId::Number(number))<span class="question-mark">?
 		</span>.ok_or(ClientError::Backend(<span class="macro">format!</span>(
-			<span class="string">&quot;Unexpected hash lookup failure for block number: {}&quot;</span>,
+			<span class="string">"Unexpected hash lookup failure for block number: {}"</span>,
 			number
 		)))<span class="question-mark">?</span>;
 
@@ -2569,7 +2571,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">let </span>persistent_data: PersistentData&lt;Block&gt; =
 		aux_schema::load_persistent(<span class="kw-2">&amp;*</span>client, info.genesis_hash, Zero::zero(), || {
-			<span class="kw">const </span>MSG: <span class="kw-2">&amp;</span>str = <span class="string">&quot;Unexpected missing grandpa data during revert&quot;</span>;
+			<span class="kw">const </span>MSG: <span class="kw-2">&amp;</span>str = <span class="string">"Unexpected missing grandpa data during revert"</span>;
 			<span class="prelude-val">Err</span>(ClientError::Application(Box::from(MSG)))
 		})<span class="question-mark">?</span>;
 

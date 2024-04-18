@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/storage/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/storage/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_storage" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_storage" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sp_storage/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -628,25 +630,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
 </span><span class="doccomment">//! Primitive types for storage related stuff.
 
-</span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
+</span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
 </span><span class="kw">extern crate </span>alloc;
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;serde&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"serde"</span>)]
 </span><span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>sp_debug_derive::RuntimeDebug;
 
@@ -661,11 +663,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Storage key.
 </span><span class="attr">#[derive(PartialEq, Eq, RuntimeDebug)]
 #[cfg_attr(
-	feature = <span class="string">&quot;serde&quot;</span>,
+	feature = <span class="string">"serde"</span>,
 	derive(Serialize, Deserialize, Hash, PartialOrd, Ord, Clone, Encode, Decode)
 )]
 </span><span class="kw">pub struct </span>StorageKey(
-	<span class="attr">#[cfg_attr(feature = <span class="string">&quot;serde&quot;</span>, serde(with = <span class="string">&quot;impl_serde::serialize&quot;</span>))] </span><span class="kw">pub </span>Vec&lt;u8&gt;,
+	<span class="attr">#[cfg_attr(feature = <span class="string">"serde"</span>, serde(with = <span class="string">"impl_serde::serialize"</span>))] </span><span class="kw">pub </span>Vec&lt;u8&gt;,
 );
 
 <span class="kw">impl </span>AsRef&lt;[u8]&gt; <span class="kw">for </span>StorageKey {
@@ -688,14 +690,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub fn </span>new(key: Vec&lt;u8&gt;) -&gt; <span class="self">Self </span>{
 		<span class="self">Self </span>{ key, reads: <span class="number">0</span>, writes: <span class="number">0</span>, whitelisted: <span class="bool-val">false </span>}
 	}
-	<span class="doccomment">/// Check if this key has been &quot;read&quot;, i.e. it exists in the memory overlay.
+	<span class="doccomment">/// Check if this key has been "read", i.e. it exists in the memory overlay.
 	///
 	/// Can be true if the key has been read, has been written to, or has been
 	/// whitelisted.
 	</span><span class="kw">pub fn </span>has_been_read(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
 		<span class="self">self</span>.whitelisted || <span class="self">self</span>.reads &gt; <span class="number">0u32 </span>|| <span class="self">self</span>.has_been_written()
 	}
-	<span class="doccomment">/// Check if this key has been &quot;written&quot;, i.e. a new value will be committed to the database.
+	<span class="doccomment">/// Check if this key has been "written", i.e. a new value will be committed to the database.
 	///
 	/// Can be true if the key has been written to, or has been whitelisted.
 	</span><span class="kw">pub fn </span>has_been_written(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
@@ -724,11 +726,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Storage key of a child trie, it contains the prefix to the key.
 </span><span class="attr">#[derive(PartialEq, Eq, RuntimeDebug)]
-#[cfg_attr(feature = <span class="string">&quot;serde&quot;</span>, derive(Serialize, Deserialize, Hash, PartialOrd, Ord, Clone))]
+#[cfg_attr(feature = <span class="string">"serde"</span>, derive(Serialize, Deserialize, Hash, PartialOrd, Ord, Clone))]
 #[repr(transparent)]
 #[derive(RefCast)]
 </span><span class="kw">pub struct </span>PrefixedStorageKey(
-	<span class="attr">#[cfg_attr(feature = <span class="string">&quot;serde&quot;</span>, serde(with = <span class="string">&quot;impl_serde::serialize&quot;</span>))] </span>Vec&lt;u8&gt;,
+	<span class="attr">#[cfg_attr(feature = <span class="string">"serde"</span>, serde(with = <span class="string">"impl_serde::serialize"</span>))] </span>Vec&lt;u8&gt;,
 );
 
 <span class="kw">impl </span>Deref <span class="kw">for </span>PrefixedStorageKey {
@@ -766,20 +768,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Storage data associated to a [`StorageKey`].
 </span><span class="attr">#[derive(PartialEq, Eq, RuntimeDebug)]
 #[cfg_attr(
-	feature = <span class="string">&quot;serde&quot;</span>,
+	feature = <span class="string">"serde"</span>,
 	derive(Serialize, Deserialize, Hash, PartialOrd, Ord, Clone, Encode, Decode, Default)
 )]
 </span><span class="kw">pub struct </span>StorageData(
-	<span class="attr">#[cfg_attr(feature = <span class="string">&quot;serde&quot;</span>, serde(with = <span class="string">&quot;impl_serde::serialize&quot;</span>))] </span><span class="kw">pub </span>Vec&lt;u8&gt;,
+	<span class="attr">#[cfg_attr(feature = <span class="string">"serde"</span>, serde(with = <span class="string">"impl_serde::serialize"</span>))] </span><span class="kw">pub </span>Vec&lt;u8&gt;,
 );
 
 <span class="doccomment">/// Map of data to use in a storage, it is a collection of
 /// byte key and values.
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+</span><span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">pub type </span>StorageMap = std::collections::BTreeMap&lt;Vec&lt;u8&gt;, Vec&lt;u8&gt;&gt;;
 
 <span class="doccomment">/// Child trie storage data.
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+</span><span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 #[derive(Debug, PartialEq, Eq, Clone)]
 </span><span class="kw">pub struct </span>StorageChild {
 	<span class="doccomment">/// Child data for storage.
@@ -790,7 +792,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Struct containing data needed for a storage.
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+</span><span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 #[derive(Default, Debug, Clone)]
 </span><span class="kw">pub struct </span>Storage {
 	<span class="doccomment">/// Top trie storage data.
@@ -802,8 +804,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Storage change set
 </span><span class="attr">#[derive(RuntimeDebug)]
-#[cfg_attr(feature = <span class="string">&quot;serde&quot;</span>, derive(Serialize, Deserialize, PartialEq, Eq, Clone))]
-#[cfg_attr(feature = <span class="string">&quot;serde&quot;</span>, serde(rename_all = <span class="string">&quot;camelCase&quot;</span>))]
+#[cfg_attr(feature = <span class="string">"serde"</span>, derive(Serialize, Deserialize, PartialEq, Eq, Clone))]
+#[cfg_attr(feature = <span class="string">"serde"</span>, serde(rename_all = <span class="string">"camelCase"</span>))]
 </span><span class="kw">pub struct </span>StorageChangeSet&lt;Hash&gt; {
 	<span class="doccomment">/// Block hash
 	</span><span class="kw">pub </span>block: Hash,
@@ -816,33 +818,33 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Wasm code of the runtime.
 	///
 	/// Stored as a raw byte vector. Required by substrate.
-	</span><span class="kw">pub const </span>CODE: <span class="kw-2">&amp;</span>[u8] = <span class="string">b&quot;:code&quot;</span>;
+	</span><span class="kw">pub const </span>CODE: <span class="kw-2">&amp;</span>[u8] = <span class="string">b":code"</span>;
 
 	<span class="doccomment">/// Number of wasm linear memory pages required for execution of the runtime.
 	///
 	/// The type of this value is encoded `u64`.
-	</span><span class="kw">pub const </span>HEAP_PAGES: <span class="kw-2">&amp;</span>[u8] = <span class="string">b&quot;:heappages&quot;</span>;
+	</span><span class="kw">pub const </span>HEAP_PAGES: <span class="kw-2">&amp;</span>[u8] = <span class="string">b":heappages"</span>;
 
 	<span class="doccomment">/// Current extrinsic index (u32) is stored under this key.
 	///
 	/// Encodes to `0x3a65787472696e7369635f696e646578`.
-	</span><span class="kw">pub const </span>EXTRINSIC_INDEX: <span class="kw-2">&amp;</span>[u8] = <span class="string">b&quot;:extrinsic_index&quot;</span>;
+	</span><span class="kw">pub const </span>EXTRINSIC_INDEX: <span class="kw-2">&amp;</span>[u8] = <span class="string">b":extrinsic_index"</span>;
 
 	<span class="doccomment">/// Current intra-block entropy (a universally unique `[u8; 32]` value) is stored here.
 	///
 	/// Encodes to `0x3a696e747261626c6f636b5f656e74726f7079`.
-	</span><span class="kw">pub const </span>INTRABLOCK_ENTROPY: <span class="kw-2">&amp;</span>[u8] = <span class="string">b&quot;:intrablock_entropy&quot;</span>;
+	</span><span class="kw">pub const </span>INTRABLOCK_ENTROPY: <span class="kw-2">&amp;</span>[u8] = <span class="string">b":intrablock_entropy"</span>;
 
 	<span class="doccomment">/// Prefix of child storage keys.
-	</span><span class="kw">pub const </span>CHILD_STORAGE_KEY_PREFIX: <span class="kw-2">&amp;</span>[u8] = <span class="string">b&quot;:child_storage:&quot;</span>;
+	</span><span class="kw">pub const </span>CHILD_STORAGE_KEY_PREFIX: <span class="kw-2">&amp;</span>[u8] = <span class="string">b":child_storage:"</span>;
 
 	<span class="doccomment">/// Prefix of the default child storage keys in the top trie.
-	</span><span class="kw">pub const </span>DEFAULT_CHILD_STORAGE_KEY_PREFIX: <span class="kw-2">&amp;</span>[u8] = <span class="string">b&quot;:child_storage:default:&quot;</span>;
+	</span><span class="kw">pub const </span>DEFAULT_CHILD_STORAGE_KEY_PREFIX: <span class="kw-2">&amp;</span>[u8] = <span class="string">b":child_storage:default:"</span>;
 
 	<span class="doccomment">/// Whether a key is a default child storage key.
 	///
 	/// This is convenience function which basically checks if the given `key` starts
-	/// with `DEFAULT_CHILD_STORAGE_KEY_PREFIX` and doesn&#39;t do anything apart from that.
+	/// with `DEFAULT_CHILD_STORAGE_KEY_PREFIX` and doesn't do anything apart from that.
 	</span><span class="kw">pub fn </span>is_default_child_storage_key(key: <span class="kw-2">&amp;</span>[u8]) -&gt; bool {
 		key.starts_with(DEFAULT_CHILD_STORAGE_KEY_PREFIX)
 	}
@@ -850,7 +852,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Whether a key is a child storage key.
 	///
 	/// This is convenience function which basically checks if the given `key` starts
-	/// with `CHILD_STORAGE_KEY_PREFIX` and doesn&#39;t do anything apart from that.
+	/// with `CHILD_STORAGE_KEY_PREFIX` and doesn't do anything apart from that.
 	</span><span class="kw">pub fn </span>is_child_storage_key(key: <span class="kw-2">&amp;</span>[u8]) -&gt; bool {
 		<span class="comment">// Other code might depend on this, so be careful changing this.
 		</span>key.starts_with(CHILD_STORAGE_KEY_PREFIX)
@@ -871,7 +873,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Information related to a child state.
 </span><span class="attr">#[derive(Debug, Clone)]
-#[cfg_attr(feature = <span class="string">&quot;serde&quot;</span>, derive(PartialEq, Eq, Hash, PartialOrd, Ord, Encode, Decode))]
+#[cfg_attr(feature = <span class="string">"serde"</span>, derive(PartialEq, Eq, Hash, PartialOrd, Ord, Encode, Decode))]
 </span><span class="kw">pub enum </span>ChildInfo {
 	<span class="doccomment">/// This is the one used by default.
 	</span>ParentKeyId(ChildTrieParentKeyId),
@@ -951,7 +953,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// be related to technical consideration or api variant.
 </span><span class="attr">#[repr(u32)]
 #[derive(Clone, Copy, PartialEq)]
-#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(Debug))]
+#[cfg_attr(feature = <span class="string">"std"</span>, derive(Debug))]
 </span><span class="kw">pub enum </span>ChildType {
 	<span class="doccomment">/// If runtime module ensures that the child key is a unique id that will
 	/// only be used once, its parent key is used as a child trie unique id.
@@ -969,8 +971,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Transform a prefixed key into a tuple of the child type
 	/// and the unprefixed representation of the key.
-	</span><span class="kw">pub fn </span>from_prefixed_key&lt;<span class="lifetime">&#39;a</span>&gt;(storage_key: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>PrefixedStorageKey) -&gt; <span class="prelude-ty">Option</span>&lt;(<span class="self">Self</span>, <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8])&gt; {
-		<span class="kw">let </span>match_type = |storage_key: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8], child_type: ChildType| {
+	</span><span class="kw">pub fn </span>from_prefixed_key&lt;<span class="lifetime">'a</span>&gt;(storage_key: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>PrefixedStorageKey) -&gt; <span class="prelude-ty">Option</span>&lt;(<span class="self">Self</span>, <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8])&gt; {
+		<span class="kw">let </span>match_type = |storage_key: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8], child_type: ChildType| {
 			<span class="kw">let </span>prefix = child_type.parent_prefix();
 			<span class="kw">if </span>storage_key.starts_with(prefix) {
 				<span class="prelude-val">Some</span>((child_type, <span class="kw-2">&amp;</span>storage_key[prefix.len()..]))
@@ -1003,7 +1005,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Returns the location reserved for this child trie in their parent trie if there
 	/// is one.
-	</span><span class="kw">pub fn </span>parent_prefix(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8] {
+	</span><span class="kw">pub fn </span>parent_prefix(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>[u8] {
 		<span class="kw">match </span><span class="self">self </span>{
 			<span class="kw-2">&amp;</span>ChildType::ParentKeyId =&gt; well_known_keys::DEFAULT_CHILD_STORAGE_KEY_PREFIX,
 		}
@@ -1018,7 +1020,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// to be a unique id that will be use only once. Those unique id also required to be long enough to
 /// avoid any unique id to be prefixed by an other unique id.
 </span><span class="attr">#[derive(Debug, Clone)]
-#[cfg_attr(feature = <span class="string">&quot;serde&quot;</span>, derive(PartialEq, Eq, Hash, PartialOrd, Ord, Encode, Decode))]
+#[cfg_attr(feature = <span class="string">"serde"</span>, derive(PartialEq, Eq, Hash, PartialOrd, Ord, Encode, Decode))]
 </span><span class="kw">pub struct </span>ChildTrieParentKeyId {
 	<span class="doccomment">/// Data is the storage key without prefix.
 	</span>data: Vec&lt;u8&gt;,
@@ -1039,7 +1041,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// V0 and V1 uses a same trie implementation, but V1 will write external value node in the trie for
 /// value with size at least `TRIE_VALUE_NODE_THRESHOLD`.
 </span><span class="attr">#[derive(Debug, Default, Clone, Copy, Eq, PartialEq)]
-#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(Encode, Decode))]
+#[cfg_attr(feature = <span class="string">"std"</span>, derive(Encode, Decode))]
 </span><span class="kw">pub enum </span>StateVersion {
 	<span class="doccomment">/// Old state version, no value nodes.
 	</span>V0 = <span class="number">0</span>,
@@ -1049,10 +1051,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl </span>Display <span class="kw">for </span>StateVersion {
-	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; core::fmt::Result {
+	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; core::fmt::Result {
 		<span class="kw">match </span><span class="self">self </span>{
-			StateVersion::V0 =&gt; f.write_str(<span class="string">&quot;0&quot;</span>),
-			StateVersion::V1 =&gt; f.write_str(<span class="string">&quot;1&quot;</span>),
+			StateVersion::V0 =&gt; f.write_str(<span class="string">"0"</span>),
+			StateVersion::V1 =&gt; f.write_str(<span class="string">"1"</span>),
 		}
 	}
 }
@@ -1093,7 +1095,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>test_prefix_default_child_info() {
-		<span class="kw">let </span>child_info = ChildInfo::new_default(<span class="string">b&quot;any key&quot;</span>);
+		<span class="kw">let </span>child_info = ChildInfo::new_default(<span class="string">b"any key"</span>);
 		<span class="kw">let </span>prefix = child_info.child_type().parent_prefix();
 		<span class="macro">assert!</span>(prefix.starts_with(well_known_keys::CHILD_STORAGE_KEY_PREFIX));
 		<span class="macro">assert!</span>(prefix.starts_with(well_known_keys::DEFAULT_CHILD_STORAGE_KEY_PREFIX));

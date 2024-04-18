@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/runtime/rococo/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/runtime/rococo/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="rococo_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="rococo_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../rococo_runtime/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -2702,9 +2704,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="doccomment">//! The Rococo runtime for v1 parachains.
 
-</span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
+</span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 </span><span class="comment">// `construct_runtime!` does a lot of recursion and requires us to increase the limit.
-</span><span class="attr">#![recursion_limit = <span class="string">&quot;512&quot;</span>]
+</span><span class="attr">#![recursion_limit = <span class="string">"512"</span>]
 
 </span><span class="kw">use </span>authority_discovery_primitives::AuthorityId <span class="kw">as </span>AuthorityDiscoveryId;
 <span class="kw">use </span>beefy_primitives::{
@@ -2788,7 +2790,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	ApplyExtrinsicResult, FixedU128, KeyTypeId, Perbill, Percent, Permill, RuntimeDebug,
 };
 <span class="kw">use </span>sp_staking::SessionIndex;
-<span class="attr">#[cfg(any(feature = <span class="string">&quot;std&quot;</span>, test))]
+<span class="attr">#[cfg(any(feature = <span class="string">"std"</span>, test))]
 </span><span class="kw">use </span>sp_version::NativeVersion;
 <span class="kw">use </span>sp_version::RuntimeVersion;
 <span class="kw">use </span>xcm::{
@@ -2830,22 +2832,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="macro">impl_runtime_weights!</span>(rococo_runtime_constants);
 
 <span class="comment">// Make the WASM binary available.
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
-</span><span class="macro">include!</span>(<span class="macro">concat!</span>(<span class="macro">env!</span>(<span class="string">&quot;OUT_DIR&quot;</span>), <span class="string">&quot;/wasm_binary.rs&quot;</span>));
+</span><span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
+</span><span class="macro">include!</span>(<span class="macro">concat!</span>(<span class="macro">env!</span>(<span class="string">"OUT_DIR"</span>), <span class="string">"/wasm_binary.rs"</span>));
 
 <span class="doccomment">/// Provides the `WASM_BINARY` build with `fast-runtime` feature enabled.
 ///
 /// This is for example useful for local test chains.
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+</span><span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">pub mod </span>fast_runtime_binary {
-	<span class="macro">include!</span>(<span class="macro">concat!</span>(<span class="macro">env!</span>(<span class="string">&quot;OUT_DIR&quot;</span>), <span class="string">&quot;/fast_runtime_binary.rs&quot;</span>));
+	<span class="macro">include!</span>(<span class="macro">concat!</span>(<span class="macro">env!</span>(<span class="string">"OUT_DIR"</span>), <span class="string">"/fast_runtime_binary.rs"</span>));
 }
 
 <span class="doccomment">/// Runtime version (Rococo).
 </span><span class="attr">#[sp_version::runtime_version]
 </span><span class="kw">pub const </span>VERSION: RuntimeVersion = RuntimeVersion {
-	spec_name: <span class="macro">create_runtime_str!</span>(<span class="string">&quot;rococo&quot;</span>),
-	impl_name: <span class="macro">create_runtime_str!</span>(<span class="string">&quot;parity-rococo-v2.0&quot;</span>),
+	spec_name: <span class="macro">create_runtime_str!</span>(<span class="string">"rococo"</span>),
+	impl_name: <span class="macro">create_runtime_str!</span>(<span class="string">"parity-rococo-v2.0"</span>),
 	authoring_version: <span class="number">0</span>,
 	spec_version: <span class="number">1_010_000</span>,
 	impl_version: <span class="number">0</span>,
@@ -2862,7 +2864,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	};
 
 <span class="doccomment">/// Native version.
-</span><span class="attr">#[cfg(any(feature = <span class="string">&quot;std&quot;</span>, test))]
+</span><span class="attr">#[cfg(any(feature = <span class="string">"std"</span>, test))]
 </span><span class="kw">pub fn </span>native_version() -&gt; NativeVersion {
 	NativeVersion { runtime_version: VERSION, can_author_with: Default::default() }
 }
@@ -2920,7 +2922,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">match </span>(left, right) {
 			<span class="comment">// Root is greater than anything.
 			</span>(OriginCaller::system(frame_system::RawOrigin::Root), <span class="kw">_</span>) =&gt; <span class="prelude-val">Some</span>(Ordering::Greater),
-			<span class="comment">// For every other origin we don&#39;t care, as they are not used for `ScheduleOrigin`.
+			<span class="comment">// For every other origin we don't care, as they are not used for `ScheduleOrigin`.
 			</span><span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
 		}
 	}
@@ -2956,7 +2958,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 </span><span class="kw">impl </span>Default <span class="kw">for </span>RuntimeParameters {
 	<span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
 		RuntimeParameters::Preimage(dynamic_params::preimage::Parameters::BaseDeposit(
@@ -2985,7 +2987,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		.map_err(|<span class="kw">_</span>| origin)
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">fn </span>try_successful_origin(_key: <span class="kw-2">&amp;</span>RuntimeParametersKey) -&gt; <span class="prelude-ty">Result</span>&lt;RuntimeOrigin, ()&gt; {
 		<span class="comment">// Provide the origin for the parameter returned by `Default`:
 		</span><span class="prelude-val">Ok</span>(RuntimeOrigin::root())
@@ -3084,7 +3086,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="macro">parameter_types! </span>{
 	<span class="kw">pub const </span>TransactionByteFee: Balance = <span class="number">10 </span>* MILLICENTS;
 	<span class="doccomment">/// This value increases the priority of `Operational` transactions by adding
-	/// a &quot;virtual tip&quot; that&#39;s equal to the `OperationalFeeMultiplier * final_fee`.
+	/// a "virtual tip" that's equal to the `OperationalFeeMultiplier * final_fee`.
 	</span><span class="kw">pub const </span>OperationalFeeMultiplier: u8 = <span class="number">5</span>;
 }
 
@@ -3166,9 +3168,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">pub const </span>ProposalBondMaximum: Balance = <span class="number">1 </span>* GRAND;
 	<span class="kw">pub const </span>SpendPeriod: BlockNumber = <span class="number">6 </span>* DAYS;
 	<span class="kw">pub const </span>Burn: Permill = Permill::from_perthousand(<span class="number">2</span>);
-	<span class="kw">pub const </span>TreasuryPalletId: PalletId = PalletId(<span class="kw-2">*</span><span class="string">b&quot;py/trsry&quot;</span>);
+	<span class="kw">pub const </span>TreasuryPalletId: PalletId = PalletId(<span class="kw-2">*</span><span class="string">b"py/trsry"</span>);
 	<span class="kw">pub const </span>PayoutSpendPeriod: BlockNumber = <span class="number">30 </span>* DAYS;
-	<span class="comment">// The asset&#39;s interior location for the paying account. This is the Treasury
+	<span class="comment">// The asset's interior location for the paying account. This is the Treasury
 	// pallet instance (which sits at index 18).
 	</span><span class="kw">pub </span>TreasuryInteriorLocation: InteriorLocation = PalletInstance(<span class="number">18</span>).into();
 
@@ -3223,7 +3225,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		AssetRate,
 	&gt;;
 	<span class="kw">type </span>PayoutPeriod = PayoutSpendPeriod;
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">type </span>BenchmarkHelper = runtime_common::impls::benchmarks::TreasuryArguments;
 }
 
@@ -3290,7 +3292,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		pallet_grandpa::EquivocationReportSystem&lt;<span class="self">Self</span>, Offences, Historical, ReportLongevity&gt;;
 }
 
-<span class="doccomment">/// Submits a transaction with the node&#39;s public and signature type. Adheres to the signed extension
+<span class="doccomment">/// Submits a transaction with the node's public and signature type. Adheres to the signed extension
 /// format of the chain.
 </span><span class="kw">impl</span>&lt;LocalCall&gt; frame_system::offchain::CreateSignedTransaction&lt;LocalCall&gt; <span class="kw">for </span>Runtime
 <span class="kw">where
@@ -3328,7 +3330,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		);
 		<span class="kw">let </span>raw_payload = SignedPayload::new(call, extra)
 			.map_err(|e| {
-				<span class="macro">log::warn!</span>(<span class="string">&quot;Unable to create signed payload: {:?}&quot;</span>, e);
+				<span class="macro">log::warn!</span>(<span class="string">"Unable to create signed payload: {:?}"</span>, e);
 			})
 			.ok()<span class="question-mark">?</span>;
 		<span class="kw">let </span>signature = raw_payload.using_encoded(|payload| C::sign(payload, public))<span class="question-mark">?</span>;
@@ -3352,7 +3354,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="macro">parameter_types! </span>{
-	<span class="kw">pub </span>Prefix: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8] = <span class="string">b&quot;Pay ROCs to the Rococo account:&quot;</span>;
+	<span class="kw">pub </span>Prefix: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>[u8] = <span class="string">b"Pay ROCs to the Rococo account:"</span>;
 }
 
 <span class="kw">impl </span>claims::Config <span class="kw">for </span>Runtime {
@@ -3438,7 +3440,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="macro">parameter_types! </span>{
-	<span class="kw">pub const </span>SocietyPalletId: PalletId = PalletId(<span class="kw-2">*</span><span class="string">b&quot;py/socie&quot;</span>);
+	<span class="kw">pub const </span>SocietyPalletId: PalletId = PalletId(<span class="kw-2">*</span><span class="string">b"py/socie"</span>);
 }
 
 <span class="kw">impl </span>pallet_society::Config <span class="kw">for </span>Runtime {
@@ -3706,9 +3708,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>MaxStale = MessageQueueMaxStale;
 	<span class="kw">type </span>ServiceWeight = MessageQueueServiceWeight;
 	<span class="kw">type </span>IdleMaxServiceWeight = MessageQueueServiceWeight;
-	<span class="attr">#[cfg(not(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>))]
+	<span class="attr">#[cfg(not(feature = <span class="string">"runtime-benchmarks"</span>))]
 	</span><span class="kw">type </span>MessageProcessor = MessageProcessor;
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">type </span>MessageProcessor =
 		pallet_message_queue::mock_helpers::NoopMessageProcessor&lt;AggregateMessageOrigin&gt;;
 	<span class="kw">type </span>QueueChangeHandler = ParaInclusion;
@@ -3813,7 +3815,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="macro">parameter_types! </span>{
-	<span class="kw">pub </span>LeasePeriod: BlockNumber = <span class="macro">prod_or_fast!</span>(<span class="number">1 </span>* DAYS, <span class="number">1 </span>* DAYS, <span class="string">&quot;ROC_LEASE_PERIOD&quot;</span>);
+	<span class="kw">pub </span>LeasePeriod: BlockNumber = <span class="macro">prod_or_fast!</span>(<span class="number">1 </span>* DAYS, <span class="number">1 </span>* DAYS, <span class="string">"ROC_LEASE_PERIOD"</span>);
 }
 
 <span class="kw">impl </span>slots::Config <span class="kw">for </span>Runtime {
@@ -3827,7 +3829,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="macro">parameter_types! </span>{
-	<span class="kw">pub const </span>CrowdloanId: PalletId = PalletId(<span class="kw-2">*</span><span class="string">b&quot;py/cfund&quot;</span>);
+	<span class="kw">pub const </span>CrowdloanId: PalletId = PalletId(<span class="kw-2">*</span><span class="string">b"py/cfund"</span>);
 	<span class="kw">pub const </span>SubmissionDeposit: Balance = <span class="number">3 </span>* GRAND;
 	<span class="kw">pub const </span>MinContribution: Balance = <span class="number">3_000 </span>* CENTS;
 	<span class="kw">pub const </span>RemoveKeysLimit: u32 = <span class="number">1000</span>;
@@ -3900,7 +3902,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">pub const </span>IntakePeriod: BlockNumber = <span class="number">5 </span>* MINUTES;
 	<span class="kw">pub </span>MaxIntakeWeight: Weight = MAXIMUM_BLOCK_WEIGHT / <span class="number">10</span>;
 	<span class="kw">pub const </span>ThawThrottle: (Perquintill, BlockNumber) = (Perquintill::from_percent(<span class="number">25</span>), <span class="number">5</span>);
-	<span class="kw">pub const </span>NisPalletId: PalletId = PalletId(<span class="kw-2">*</span><span class="string">b&quot;py/nis  &quot;</span>);
+	<span class="kw">pub const </span>NisPalletId: PalletId = PalletId(<span class="kw-2">*</span><span class="string">b"py/nis  "</span>);
 }
 
 <span class="kw">impl </span>pallet_nis::Config <span class="kw">for </span>Runtime {
@@ -3925,7 +3927,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>MaxIntakeWeight = MaxIntakeWeight;
 	<span class="kw">type </span>ThawThrottle = ThawThrottle;
 	<span class="kw">type </span>RuntimeHoldReason = RuntimeHoldReason;
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">type </span>BenchmarkSetup = ();
 }
 
@@ -3963,7 +3965,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl </span>pallet_mmr::Config <span class="kw">for </span>Runtime {
-	<span class="kw">const </span>INDEXING_PREFIX: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8] = mmr::INDEXING_PREFIX;
+	<span class="kw">const </span>INDEXING_PREFIX: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>[u8] = mmr::INDEXING_PREFIX;
 	<span class="kw">type </span>Hashing = Keccak256;
 	<span class="kw">type </span>OnNewRoot = pallet_beefy_mmr::DepositBeefyDigest&lt;Runtime&gt;;
 	<span class="kw">type </span>WeightInfo = ();
@@ -4040,7 +4042,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>UpdateOrigin = EnsureRoot&lt;AccountId&gt;;
 	<span class="kw">type </span>Currency = Balances;
 	<span class="kw">type </span>AssetKind = &lt;Runtime <span class="kw">as </span>pallet_treasury::Config&gt;::AssetKind;
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">type </span>BenchmarkHelper = runtime_common::impls::benchmarks::AssetRateArguments;
 }
 
@@ -4159,7 +4161,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// BEEFY Bridges support.
 		</span>Beefy: pallet_beefy = <span class="number">240</span>,
-		<span class="comment">// MMR leaf construction must be after session in order to have a leaf&#39;s next_auth_set
+		<span class="comment">// MMR leaf construction must be after session in order to have a leaf's next_auth_set
 		// refer to block&lt;N&gt;. See issue polkadot-fellows/runtimes#160 for details.
 		</span>Mmr: pallet_mmr = <span class="number">241</span>,
 		MmrLeaf: pallet_beefy_mmr = <span class="number">242</span>,
@@ -4243,13 +4245,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="macro">parameter_types! </span>{
-		<span class="kw">pub const </span>DemocracyPalletName: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;Democracy&quot;</span>;
-		<span class="kw">pub const </span>CouncilPalletName: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;Council&quot;</span>;
-		<span class="kw">pub const </span>TechnicalCommitteePalletName: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;TechnicalCommittee&quot;</span>;
-		<span class="kw">pub const </span>PhragmenElectionPalletName: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;PhragmenElection&quot;</span>;
-		<span class="kw">pub const </span>TechnicalMembershipPalletName: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;TechnicalMembership&quot;</span>;
-		<span class="kw">pub const </span>TipsPalletName: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;Tips&quot;</span>;
-		<span class="kw">pub const </span>PhragmenElectionPalletId: LockIdentifier = <span class="kw-2">*</span><span class="string">b&quot;phrelect&quot;</span>;
+		<span class="kw">pub const </span>DemocracyPalletName: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"Democracy"</span>;
+		<span class="kw">pub const </span>CouncilPalletName: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"Council"</span>;
+		<span class="kw">pub const </span>TechnicalCommitteePalletName: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"TechnicalCommittee"</span>;
+		<span class="kw">pub const </span>PhragmenElectionPalletName: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"PhragmenElection"</span>;
+		<span class="kw">pub const </span>TechnicalMembershipPalletName: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"TechnicalMembership"</span>;
+		<span class="kw">pub const </span>TipsPalletName: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"Tips"</span>;
+		<span class="kw">pub const </span>PhragmenElectionPalletId: LockIdentifier = <span class="kw-2">*</span><span class="string">b"phrelect"</span>;
 	}
 
 	<span class="comment">// Special Config for Gov V1 pallets, allowing us to run migrations for them without
@@ -4285,7 +4287,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">type </span>PalletName = TipsPalletName;
 	}
 
-	<span class="comment">// We don&#39;t have a limit in the Relay Chain.
+	<span class="comment">// We don't have a limit in the Relay Chain.
 	</span><span class="kw">const </span>IDENTITY_MIGRATION_KEY_LIMIT: u64 = u64::MAX;
 
 	<span class="doccomment">/// Unreleased migrations. Add new ones here:
@@ -4368,10 +4370,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="macro">frame_support::ord_parameter_types! </span>{
-	<span class="kw">pub const </span>MigController: AccountId = AccountId::from(<span class="macro">hex_literal::hex!</span>(<span class="string">&quot;52bc71c1eca5353749542dfdf0af97bf764f9c2f44e860cd485f1cd86400f649&quot;</span>));
+	<span class="kw">pub const </span>MigController: AccountId = AccountId::from(<span class="macro">hex_literal::hex!</span>(<span class="string">"52bc71c1eca5353749542dfdf0af97bf764f9c2f44e860cd485f1cd86400f649"</span>));
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 </span><span class="kw">mod </span>benches {
 	<span class="macro">frame_benchmarking::define_benchmarks!</span>(
 		<span class="comment">// Polkadot
@@ -4913,10 +4915,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 	</span><span class="kw">impl </span>frame_try_runtime::TryRuntime&lt;Block&gt; <span class="kw">for </span>Runtime {
 		<span class="kw">fn </span>on_runtime_upgrade(checks: frame_try_runtime::UpgradeCheckSelect) -&gt; (Weight, Weight) {
-			<span class="macro">log::info!</span>(<span class="string">&quot;try-runtime::on_runtime_upgrade rococo.&quot;</span>);
+			<span class="macro">log::info!</span>(<span class="string">"try-runtime::on_runtime_upgrade rococo."</span>);
 			<span class="kw">let </span>weight = Executive::try_runtime_upgrade(checks).unwrap();
 			(weight, BlockWeights::get().max_block)
 		}
@@ -4927,13 +4929,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			signature_check: bool,
 			select: frame_try_runtime::TryStateSelect,
 		) -&gt; Weight {
-			<span class="comment">// NOTE: intentional unwrap: we don&#39;t want to propagate the error backwards, and want to
+			<span class="comment">// NOTE: intentional unwrap: we don't want to propagate the error backwards, and want to
 			// have a backtrace here.
 			</span>Executive::try_execute_block(block, state_root_check, signature_check, select).unwrap()
 		}
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">impl </span>frame_benchmarking::Benchmark&lt;Block&gt; <span class="kw">for </span>Runtime {
 		<span class="kw">fn </span>benchmark_metadata(extra: bool) -&gt; (
 			Vec&lt;frame_benchmarking::BenchmarkList&gt;,
@@ -5029,7 +5031,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">fn </span>set_up_complex_asset_transfer(
 				) -&gt; <span class="prelude-ty">Option</span>&lt;(Assets, u32, Location, Box&lt;<span class="kw">dyn </span>FnOnce()&gt;)&gt; {
 					<span class="comment">// Relay supports only native token, either reserve transfer it to non-system parachains,
-					// or teleport it to system parachain. Use the teleport case for benchmarking as it&#39;s
+					// or teleport it to system parachain. Use the teleport case for benchmarking as it's
 					// slightly heavier.
 					// Relay/native token can be teleported to/from AH.
 					</span><span class="kw">let </span>native_location = Here.into();
@@ -5101,12 +5103,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				}
 
 				<span class="kw">fn </span>worst_case_asset_exchange() -&gt; <span class="prelude-ty">Result</span>&lt;(Assets, Assets), BenchmarkError&gt; {
-					<span class="comment">// Rococo doesn&#39;t support asset exchanges
+					<span class="comment">// Rococo doesn't support asset exchanges
 					</span><span class="prelude-val">Err</span>(BenchmarkError::Skip)
 				}
 
 				<span class="kw">fn </span>universal_alias() -&gt; <span class="prelude-ty">Result</span>&lt;(Location, Junction), BenchmarkError&gt; {
-					<span class="comment">// The XCM executor of Rococo doesn&#39;t have a configured `UniversalAliases`
+					<span class="comment">// The XCM executor of Rococo doesn't have a configured `UniversalAliases`
 					</span><span class="prelude-val">Err</span>(BenchmarkError::Skip)
 				}
 
@@ -5133,18 +5135,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				}
 
 				<span class="kw">fn </span>unlockable_asset() -&gt; <span class="prelude-ty">Result</span>&lt;(Location, Location, Asset), BenchmarkError&gt; {
-					<span class="comment">// Rococo doesn&#39;t support asset locking
+					<span class="comment">// Rococo doesn't support asset locking
 					</span><span class="prelude-val">Err</span>(BenchmarkError::Skip)
 				}
 
 				<span class="kw">fn </span>export_message_origin_and_destination(
 				) -&gt; <span class="prelude-ty">Result</span>&lt;(Location, NetworkId, InteriorLocation), BenchmarkError&gt; {
-					<span class="comment">// Rococo doesn&#39;t support exporting messages
+					<span class="comment">// Rococo doesn't support exporting messages
 					</span><span class="prelude-val">Err</span>(BenchmarkError::Skip)
 				}
 
 				<span class="kw">fn </span>alias_origin() -&gt; <span class="prelude-ty">Result</span>&lt;(Location, Location), BenchmarkError&gt; {
-					<span class="comment">// The XCM executor of Rococo doesn&#39;t have a configured `Aliasers`
+					<span class="comment">// The XCM executor of Rococo doesn't have a configured `Aliasers`
 					</span><span class="prelude-val">Err</span>(BenchmarkError::Skip)
 				}
 			}
@@ -5173,17 +5175,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">fn </span>preset_names() -&gt; Vec&lt;PresetId&gt; {
 			<span class="macro">vec!</span>[
-				PresetId::from(<span class="string">&quot;local_testnet&quot;</span>),
-				PresetId::from(<span class="string">&quot;development&quot;</span>),
-				PresetId::from(<span class="string">&quot;staging_testnet&quot;</span>),
-				PresetId::from(<span class="string">&quot;wococo_local_testnet&quot;</span>),
-				PresetId::from(<span class="string">&quot;versi_local_testnet&quot;</span>),
+				PresetId::from(<span class="string">"local_testnet"</span>),
+				PresetId::from(<span class="string">"development"</span>),
+				PresetId::from(<span class="string">"staging_testnet"</span>),
+				PresetId::from(<span class="string">"wococo_local_testnet"</span>),
+				PresetId::from(<span class="string">"versi_local_testnet"</span>),
 			]
 		}
 	}
 }
 
-<span class="attr">#[cfg(all(test, feature = <span class="string">&quot;try-runtime&quot;</span>))]
+<span class="attr">#[cfg(all(test, feature = <span class="string">"try-runtime"</span>))]
 </span><span class="kw">mod </span>remote_tests {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use </span>frame_try_runtime::{runtime_decl_for_try_runtime::TryRuntime, UpgradeCheckSelect};
@@ -5194,14 +5196,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[tokio::test]
 	</span><span class="kw">async fn </span>run_migrations() {
-		<span class="kw">if </span>var(<span class="string">&quot;RUN_MIGRATION_TESTS&quot;</span>).is_err() {
+		<span class="kw">if </span>var(<span class="string">"RUN_MIGRATION_TESTS"</span>).is_err() {
 			<span class="kw">return</span>;
 		}
 
 		sp_tracing::try_init_simple();
 		<span class="kw">let </span>transport: Transport =
-			var(<span class="string">&quot;WS&quot;</span>).unwrap_or(<span class="string">&quot;wss://rococo-rpc.polkadot.io:443&quot;</span>.to_string()).into();
-		<span class="kw">let </span>maybe_state_snapshot: <span class="prelude-ty">Option</span>&lt;SnapshotConfig&gt; = var(<span class="string">&quot;SNAP&quot;</span>).map(|s| s.into()).ok();
+			var(<span class="string">"WS"</span>).unwrap_or(<span class="string">"wss://rococo-rpc.polkadot.io:443"</span>.to_string()).into();
+		<span class="kw">let </span>maybe_state_snapshot: <span class="prelude-ty">Option</span>&lt;SnapshotConfig&gt; = var(<span class="string">"SNAP"</span>).map(|s| s.into()).ok();
 		<span class="kw">let </span><span class="kw-2">mut </span>ext = Builder::&lt;Block&gt;::default()
 			.mode(<span class="kw">if let </span><span class="prelude-val">Some</span>(state_snapshot) = maybe_state_snapshot {
 				Mode::OfflineOrElseOnline(

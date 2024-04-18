@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/core/src/bandersnatch.rs`."><title>bandersnatch.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/core/src/bandersnatch.rs`."><title>bandersnatch.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_core" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_core" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sp_core/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1242,14 +1244,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -1259,7 +1261,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!
 //! The primitive can operate both as a regular VRF or as an anonymized Ring VRF.
 
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
+</span><span class="attr">#[cfg(feature = <span class="string">"full_crypto"</span>)]
 </span><span class="kw">use </span><span class="kw">crate</span>::crypto::VrfSecret;
 <span class="kw">use </span><span class="kw">crate</span>::crypto::{
 	ByteArray, CryptoType, CryptoTypeId, DeriveError, DeriveJunction, Pair <span class="kw">as </span>TraitPair,
@@ -1273,10 +1275,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sp_std::{vec, vec::Vec};
 
 <span class="doccomment">/// Identifier used to match public keys against bandersnatch-vrf keys.
-</span><span class="kw">pub const </span>CRYPTO_ID: CryptoTypeId = CryptoTypeId(<span class="kw-2">*</span><span class="string">b&quot;band&quot;</span>);
+</span><span class="kw">pub const </span>CRYPTO_ID: CryptoTypeId = CryptoTypeId(<span class="kw-2">*</span><span class="string">b"band"</span>);
 
 <span class="doccomment">/// Context used to produce a plain signature without any VRF input/output.
-</span><span class="kw">pub const </span>SIGNING_CTX: <span class="kw-2">&amp;</span>[u8] = <span class="string">b&quot;BandersnatchSigningContext&quot;</span>;
+</span><span class="kw">pub const </span>SIGNING_CTX: <span class="kw-2">&amp;</span>[u8] = <span class="string">b"BandersnatchSigningContext"</span>;
 
 <span class="doccomment">/// The byte length of secret key seed.
 </span><span class="kw">pub const </span>SEED_SERIALIZED_SIZE: usize = <span class="number">32</span>;
@@ -1354,7 +1356,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		_seed: <span class="prelude-ty">Option</span>&lt;Seed&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(Pair, <span class="prelude-ty">Option</span>&lt;Seed&gt;), DeriveError&gt; {
 		<span class="kw">let </span>derive_hard = |seed, cc| -&gt; Seed {
-			(<span class="string">&quot;bandersnatch-vrf-HDKD&quot;</span>, seed, cc).using_encoded(sp_crypto_hashing::blake2_256)
+			(<span class="string">"bandersnatch-vrf-HDKD"</span>, seed, cc).using_encoded(sp_crypto_hashing::blake2_256)
 		};
 
 		<span class="kw">let </span><span class="kw-2">mut </span>seed = <span class="self">self</span>.seed();
@@ -1373,7 +1375,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span><span class="kw-2">mut </span>raw = [<span class="number">0</span>; PUBLIC_SERIALIZED_SIZE];
 		public
 			.serialize_compressed(raw.as_mut_slice())
-			.expect(<span class="string">&quot;serialization length is constant and checked by test; qed&quot;</span>);
+			.expect(<span class="string">"serialization length is constant and checked by test; qed"</span>);
 		Public::unchecked_from(raw)
 	}
 
@@ -1383,7 +1385,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// the constant label [`SIGNING_CTX`] and `data` without any additional data.
 	///
 	/// See [`vrf::VrfSignData`] for additional details.
-	</span><span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
+	</span><span class="attr">#[cfg(feature = <span class="string">"full_crypto"</span>)]
 	</span><span class="kw">fn </span>sign(<span class="kw-2">&amp;</span><span class="self">self</span>, data: <span class="kw-2">&amp;</span>[u8]) -&gt; Signature {
 		<span class="kw">let </span>data = vrf::VrfSignData::new_unchecked(SIGNING_CTX, <span class="kw-2">&amp;</span>[data], <span class="prelude-val">None</span>);
 		<span class="self">self</span>.vrf_sign(<span class="kw-2">&amp;</span>data).signature
@@ -1451,7 +1453,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span><span class="kw-2">mut </span>bytes = [<span class="number">0</span>; PREOUT_SERIALIZED_SIZE];
 			<span class="self">self</span>.<span class="number">0
 				</span>.serialize_compressed(bytes.as_mut_slice())
-				.expect(<span class="string">&quot;serialization length is constant and checked by test; qed&quot;</span>);
+				.expect(<span class="string">"serialization length is constant and checked by test; qed"</span>);
 			bytes.encode()
 		}
 	}
@@ -1461,7 +1463,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>buf = &lt;[u8; PREOUT_SERIALIZED_SIZE]&gt;::decode(i)<span class="question-mark">?</span>;
 			<span class="kw">let </span>preout =
 				bandersnatch_vrfs::VrfPreOut::deserialize_compressed_unchecked(buf.as_slice())
-					.map_err(|<span class="kw">_</span>| <span class="string">&quot;vrf-preout decode error: bad preout&quot;</span>)<span class="question-mark">?</span>;
+					.map_err(|<span class="kw">_</span>| <span class="string">"vrf-preout decode error: bad preout"</span>)<span class="question-mark">?</span>;
 			<span class="prelude-val">Ok</span>(VrfPreOutput(preout))
 		}
 	}
@@ -1497,7 +1499,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// In practice, as a user, all these technical details can be easily ignored.
 	/// What is important to remember is:
 	/// - *Transcript* is an object defining the protocol and used to produce the signature. This
-	///   object doesn&#39;t influence the `VrfPreOutput`s values.
+	///   object doesn't influence the `VrfPreOutput`s values.
 	/// - *Vrf inputs* is some additional data which is used to produce *vrf pre-outputs*. This data
 	///   will contribute to the signature as well.
 	</span><span class="attr">#[derive(Clone)]
@@ -1515,7 +1517,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		///
 		/// Refer to [`VrfSignData`] for details about transcript and inputs.
 		</span><span class="kw">pub fn </span>new(
-			transcript_label: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8],
+			transcript_label: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>[u8],
 			transcript_data: <span class="kw">impl </span>IntoIterator&lt;Item = <span class="kw">impl </span>AsRef&lt;[u8]&gt;&gt;,
 			inputs: <span class="kw">impl </span>IntoIterator&lt;Item = VrfInput&gt;,
 		) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, ()&gt; {
@@ -1532,7 +1534,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		///
 		/// Refer to [`VrfSignData`] for details about transcript and inputs.
 		</span><span class="kw">pub fn </span>new_unchecked(
-			transcript_label: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8],
+			transcript_label: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>[u8],
 			transcript_data: <span class="kw">impl </span>IntoIterator&lt;Item = <span class="kw">impl </span>AsRef&lt;[u8]&gt;&gt;,
 			inputs: <span class="kw">impl </span>IntoIterator&lt;Item = VrfInput&gt;,
 		) -&gt; <span class="self">Self </span>{
@@ -1561,7 +1563,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">pub fn </span>challenge&lt;<span class="kw">const </span>N: usize&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; [u8; N] {
 			<span class="kw">let </span><span class="kw-2">mut </span>output = [<span class="number">0</span>; N];
 			<span class="kw">let </span><span class="kw-2">mut </span>transcript = <span class="self">self</span>.transcript.clone();
-			<span class="kw">let </span><span class="kw-2">mut </span>reader = transcript.challenge(<span class="string">b&quot;bandersnatch challenge&quot;</span>);
+			<span class="kw">let </span><span class="kw-2">mut </span>reader = transcript.challenge(<span class="string">b"bandersnatch challenge"</span>);
 			reader.read_bytes(<span class="kw-2">&amp;mut </span>output);
 			output
 		}
@@ -1581,7 +1583,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">pub </span>pre_outputs: VrfIosVec&lt;VrfPreOutput&gt;,
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"full_crypto"</span>)]
 	</span><span class="kw">impl </span>VrfCrypto <span class="kw">for </span>Pair {
 		<span class="kw">type </span>VrfInput = VrfInput;
 		<span class="kw">type </span>VrfPreOutput = VrfPreOutput;
@@ -1589,10 +1591,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">type </span>VrfSignature = VrfSignature;
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"full_crypto"</span>)]
 	</span><span class="kw">impl </span>VrfSecret <span class="kw">for </span>Pair {
 		<span class="kw">fn </span>vrf_sign(<span class="kw-2">&amp;</span><span class="self">self</span>, data: <span class="kw-2">&amp;</span><span class="self">Self</span>::VrfSignData) -&gt; <span class="self">Self</span>::VrfSignature {
-			<span class="kw">const _</span>: () = <span class="macro">assert!</span>(MAX_VRF_IOS == <span class="number">3</span>, <span class="string">&quot;`MAX_VRF_IOS` expected to be 3&quot;</span>);
+			<span class="kw">const _</span>: () = <span class="macro">assert!</span>(MAX_VRF_IOS == <span class="number">3</span>, <span class="string">"`MAX_VRF_IOS` expected to be 3"</span>);
 			<span class="comment">// Workaround to overcome backend signature generic over the number of IOs.
 			</span><span class="kw">match </span>data.inputs.len() {
 				<span class="number">0 </span>=&gt; <span class="self">self</span>.vrf_sign_gen::&lt;<span class="number">0</span>&gt;(data),
@@ -1618,7 +1620,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">impl </span>VrfPublic <span class="kw">for </span>Public {
 		<span class="kw">fn </span>vrf_verify(<span class="kw-2">&amp;</span><span class="self">self</span>, data: <span class="kw-2">&amp;</span><span class="self">Self</span>::VrfSignData, signature: <span class="kw-2">&amp;</span><span class="self">Self</span>::VrfSignature) -&gt; bool {
-			<span class="kw">const _</span>: () = <span class="macro">assert!</span>(MAX_VRF_IOS == <span class="number">3</span>, <span class="string">&quot;`MAX_VRF_IOS` expected to be 3&quot;</span>);
+			<span class="kw">const _</span>: () = <span class="macro">assert!</span>(MAX_VRF_IOS == <span class="number">3</span>, <span class="string">"`MAX_VRF_IOS` expected to be 3"</span>);
 			<span class="kw">let </span>pre_outputs_len = signature.pre_outputs.len();
 			<span class="kw">if </span>pre_outputs_len != data.inputs.len() {
 				<span class="kw">return </span><span class="bool-val">false
@@ -1634,7 +1636,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"full_crypto"</span>)]
 	</span><span class="kw">impl </span>Pair {
 		<span class="kw">fn </span>vrf_sign_gen&lt;<span class="kw">const </span>N: usize&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, data: <span class="kw-2">&amp;</span>VrfSignData) -&gt; VrfSignature {
 			<span class="kw">let </span>ios = core::array::from_fn(|i| <span class="self">self</span>.secret.vrf_inout(data.inputs[i].<span class="number">0</span>));
@@ -1651,7 +1653,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			thin_signature
 				.proof
 				.serialize_compressed(signature.signature.<span class="number">0</span>.as_mut_slice())
-				.expect(<span class="string">&quot;serialization length is constant and checked by test; qed&quot;</span>);
+				.expect(<span class="string">"serialization length is constant and checked by test; qed"</span>);
 
 			signature
 		}
@@ -1659,7 +1661,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="doccomment">/// Generate an arbitrary number of bytes from the given `context` and VRF `input`.
 		</span><span class="kw">pub fn </span>make_bytes&lt;<span class="kw">const </span>N: usize&gt;(
 			<span class="kw-2">&amp;</span><span class="self">self</span>,
-			context: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8],
+			context: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>[u8],
 			input: <span class="kw-2">&amp;</span>VrfInput,
 		) -&gt; [u8; N] {
 			<span class="kw">let </span>transcript = Transcript::new_labeled(context);
@@ -1702,7 +1704,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="doccomment">/// Generate an arbitrary number of bytes from the given `context` and VRF `input`.
 		</span><span class="kw">pub fn </span>make_bytes&lt;<span class="kw">const </span>N: usize&gt;(
 			<span class="kw-2">&amp;</span><span class="self">self</span>,
-			context: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8],
+			context: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>[u8],
 			input: <span class="kw-2">&amp;</span>VrfInput,
 		) -&gt; [u8; N] {
 			<span class="kw">let </span>transcript = Transcript::new_labeled(context);
@@ -1757,7 +1759,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">impl </span>Encode <span class="kw">for </span>RingVerifierData {
 		<span class="kw">fn </span>encode(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;u8&gt; {
-			<span class="kw">const </span>ERR_STR: <span class="kw-2">&amp;</span>str = <span class="string">&quot;serialization length is constant and checked by test; qed&quot;</span>;
+			<span class="kw">const </span>ERR_STR: <span class="kw-2">&amp;</span>str = <span class="string">"serialization length is constant and checked by test; qed"</span>;
 			<span class="kw">let </span><span class="kw-2">mut </span>buf = [<span class="number">0</span>; RING_VERIFIER_DATA_SERIALIZED_SIZE];
 			<span class="self">self</span>.domain_size.serialize_compressed(<span class="kw-2">&amp;mut </span>buf[..<span class="number">4</span>]).expect(ERR_STR);
 			<span class="self">self</span>.verifier_key.serialize_compressed(<span class="kw-2">&amp;mut </span>buf[<span class="number">4</span>..]).expect(ERR_STR);
@@ -1767,7 +1769,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">impl </span>Decode <span class="kw">for </span>RingVerifierData {
 		<span class="kw">fn </span>decode&lt;R: codec::Input&gt;(i: <span class="kw-2">&amp;mut </span>R) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, codec::Error&gt; {
-			<span class="kw">const </span>ERR_STR: <span class="kw-2">&amp;</span>str = <span class="string">&quot;serialization length is constant and checked by test; qed&quot;</span>;
+			<span class="kw">const </span>ERR_STR: <span class="kw-2">&amp;</span>str = <span class="string">"serialization length is constant and checked by test; qed"</span>;
 			<span class="kw">let </span>buf = &lt;[u8; RING_VERIFIER_DATA_SERIALIZED_SIZE]&gt;::decode(i)<span class="question-mark">?</span>;
 			<span class="kw">let </span>domain_size =
 				&lt;u32 <span class="kw">as </span>CanonicalDeserialize&gt;::deserialize_compressed_unchecked(<span class="kw-2">&amp;mut &amp;</span>buf[..<span class="number">4</span>])
@@ -1858,7 +1860,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span><span class="kw-2">mut </span>buf = <span class="macro">vec!</span>[<span class="number">0</span>; ring_context_serialized_size(D)];
 			<span class="self">self</span>.<span class="number">0
 				</span>.serialize_uncompressed(buf.as_mut_slice())
-				.expect(<span class="string">&quot;serialization length is constant and checked by test; qed&quot;</span>);
+				.expect(<span class="string">"serialization length is constant and checked by test; qed"</span>);
 			buf
 		}
 	}
@@ -1868,7 +1870,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span><span class="kw-2">mut </span>buf = <span class="macro">vec!</span>[<span class="number">0</span>; ring_context_serialized_size(D)];
 			input.read(<span class="kw-2">&amp;mut </span>buf[..])<span class="question-mark">?</span>;
 			<span class="kw">let </span>kzg = KZG::deserialize_uncompressed_unchecked(buf.as_slice())
-				.map_err(|<span class="kw">_</span>| <span class="string">&quot;KZG decode error&quot;</span>)<span class="question-mark">?</span>;
+				.map_err(|<span class="kw">_</span>| <span class="string">"KZG decode error"</span>)<span class="question-mark">?</span>;
 			<span class="prelude-val">Ok</span>(RingContext(kzg))
 		}
 	}
@@ -1885,7 +1887,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">type </span>Identity = <span class="self">Self</span>;
 
 		<span class="kw">fn </span>type_info() -&gt; scale_info::Type {
-			<span class="kw">let </span>path = scale_info::Path::new(<span class="string">&quot;RingContext&quot;</span>, <span class="macro">module_path!</span>());
+			<span class="kw">let </span>path = scale_info::Path::new(<span class="string">"RingContext"</span>, <span class="macro">module_path!</span>());
 			<span class="kw">let </span>array_type_def = scale_info::TypeDefArray {
 				len: ring_context_serialized_size(D) <span class="kw">as </span>u32,
 				type_param: scale_info::MetaType::new::&lt;u8&gt;(),
@@ -1904,7 +1906,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">pub </span>pre_outputs: VrfIosVec&lt;VrfPreOutput&gt;,
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"full_crypto"</span>)]
 	</span><span class="kw">impl </span>Pair {
 		<span class="doccomment">/// Produce a ring-vrf signature.
 		///
@@ -1912,7 +1914,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		/// signing [`Pair`] is part of the ring from which the [`RingProver`] has
 		/// been constructed. If not, the produced signature is just useless.
 		</span><span class="kw">pub fn </span>ring_vrf_sign(<span class="kw-2">&amp;</span><span class="self">self</span>, data: <span class="kw-2">&amp;</span>VrfSignData, prover: <span class="kw-2">&amp;</span>RingProver) -&gt; RingVrfSignature {
-			<span class="kw">const _</span>: () = <span class="macro">assert!</span>(MAX_VRF_IOS == <span class="number">3</span>, <span class="string">&quot;`MAX_VRF_IOS` expected to be 3&quot;</span>);
+			<span class="kw">const _</span>: () = <span class="macro">assert!</span>(MAX_VRF_IOS == <span class="number">3</span>, <span class="string">"`MAX_VRF_IOS` expected to be 3"</span>);
 			<span class="comment">// Workaround to overcome backend signature generic over the number of IOs.
 			</span><span class="kw">match </span>data.inputs.len() {
 				<span class="number">0 </span>=&gt; <span class="self">self</span>.ring_vrf_sign_gen::&lt;<span class="number">0</span>&gt;(data, prover),
@@ -1944,7 +1946,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			ring_signature
 				.proof
 				.serialize_compressed(signature.signature.as_mut_slice())
-				.expect(<span class="string">&quot;serialization length is constant and checked by test; qed&quot;</span>);
+				.expect(<span class="string">"serialization length is constant and checked by test; qed"</span>);
 
 			signature
 		}
@@ -1956,7 +1958,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		/// The signature is verifiable if it has been produced by a member of the ring
 		/// from which the [`RingVerifier`] has been constructed.
 		</span><span class="kw">pub fn </span>ring_vrf_verify(<span class="kw-2">&amp;</span><span class="self">self</span>, data: <span class="kw-2">&amp;</span>VrfSignData, verifier: <span class="kw-2">&amp;</span>RingVerifier) -&gt; bool {
-			<span class="kw">const _</span>: () = <span class="macro">assert!</span>(MAX_VRF_IOS == <span class="number">3</span>, <span class="string">&quot;`MAX_VRF_IOS` expected to be 3&quot;</span>);
+			<span class="kw">const _</span>: () = <span class="macro">assert!</span>(MAX_VRF_IOS == <span class="number">3</span>, <span class="string">"`MAX_VRF_IOS` expected to be 3"</span>);
 			<span class="kw">let </span>preouts_len = <span class="self">self</span>.pre_outputs.len();
 			<span class="kw">if </span>preouts_len != data.inputs.len() {
 				<span class="kw">return </span><span class="bool-val">false
@@ -2011,7 +2013,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[allow(unused)]
 	</span><span class="kw">fn </span>b2h(bytes: <span class="kw-2">&amp;</span>[u8]) -&gt; String {
-		array_bytes::bytes2hex(<span class="string">&quot;&quot;</span>, bytes)
+		array_bytes::bytes2hex(<span class="string">""</span>, bytes)
 	}
 
 	<span class="kw">fn </span>h2b(hex: <span class="kw-2">&amp;</span>str) -&gt; Vec&lt;u8&gt; {
@@ -2034,7 +2036,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>public = secret.to_public();
 		<span class="macro">assert_eq!</span>(public.compressed_size(), PUBLIC_SERIALIZED_SIZE);
 
-		<span class="kw">let </span>input = VrfInput::new(<span class="string">b&quot;foo&quot;</span>, <span class="kw-2">&amp;</span>[]);
+		<span class="kw">let </span>input = VrfInput::new(<span class="string">b"foo"</span>, <span class="kw-2">&amp;</span>[]);
 		<span class="kw">let </span>preout = secret.vrf_preout(<span class="kw-2">&amp;</span>input.<span class="number">0</span>);
 		<span class="macro">assert_eq!</span>(preout.compressed_size(), PREOUT_SERIALIZED_SIZE);
 
@@ -2044,7 +2046,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>prover_key = kzg.prover_key(pks);
 		<span class="kw">let </span>ring_prover = kzg.init_ring_prover(prover_key, <span class="number">0</span>);
 
-		<span class="kw">let </span>data = VrfSignData::new_unchecked(<span class="string">b&quot;mydata&quot;</span>, <span class="kw-2">&amp;</span>[<span class="string">b&quot;tdata&quot;</span>], <span class="prelude-val">None</span>);
+		<span class="kw">let </span>data = VrfSignData::new_unchecked(<span class="string">b"mydata"</span>, <span class="kw-2">&amp;</span>[<span class="string">b"tdata"</span>], <span class="prelude-val">None</span>);
 
 		<span class="kw">let </span>thin_signature: bandersnatch_vrfs::ThinVrfSignature&lt;<span class="number">0</span>&gt; =
 			secret.sign_thin_vrf(data.transcript.clone(), <span class="kw-2">&amp;</span>[]);
@@ -2058,38 +2060,38 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>max_vrf_ios_bound_respected() {
-		<span class="kw">let </span>inputs: Vec&lt;<span class="kw">_</span>&gt; = (<span class="number">0</span>..MAX_VRF_IOS - <span class="number">1</span>).map(|<span class="kw">_</span>| VrfInput::new(<span class="string">b&quot;&quot;</span>, <span class="kw-2">&amp;</span>[])).collect();
-		<span class="kw">let </span><span class="kw-2">mut </span>sign_data = VrfSignData::new(<span class="string">b&quot;&quot;</span>, <span class="kw-2">&amp;</span>[<span class="string">b&quot;&quot;</span>], inputs).unwrap();
-		<span class="kw">let </span>res = sign_data.push_vrf_input(VrfInput::new(<span class="string">b&quot;&quot;</span>, <span class="string">b&quot;&quot;</span>));
+		<span class="kw">let </span>inputs: Vec&lt;<span class="kw">_</span>&gt; = (<span class="number">0</span>..MAX_VRF_IOS - <span class="number">1</span>).map(|<span class="kw">_</span>| VrfInput::new(<span class="string">b""</span>, <span class="kw-2">&amp;</span>[])).collect();
+		<span class="kw">let </span><span class="kw-2">mut </span>sign_data = VrfSignData::new(<span class="string">b""</span>, <span class="kw-2">&amp;</span>[<span class="string">b""</span>], inputs).unwrap();
+		<span class="kw">let </span>res = sign_data.push_vrf_input(VrfInput::new(<span class="string">b""</span>, <span class="string">b""</span>));
 		<span class="macro">assert!</span>(res.is_ok());
-		<span class="kw">let </span>res = sign_data.push_vrf_input(VrfInput::new(<span class="string">b&quot;&quot;</span>, <span class="string">b&quot;&quot;</span>));
+		<span class="kw">let </span>res = sign_data.push_vrf_input(VrfInput::new(<span class="string">b""</span>, <span class="string">b""</span>));
 		<span class="macro">assert!</span>(res.is_err());
-		<span class="kw">let </span>inputs: Vec&lt;<span class="kw">_</span>&gt; = (<span class="number">0</span>..MAX_VRF_IOS + <span class="number">1</span>).map(|<span class="kw">_</span>| VrfInput::new(<span class="string">b&quot;&quot;</span>, <span class="string">b&quot;&quot;</span>)).collect();
-		<span class="kw">let </span>res = VrfSignData::new(<span class="string">b&quot;mydata&quot;</span>, <span class="kw-2">&amp;</span>[<span class="string">b&quot;tdata&quot;</span>], inputs);
+		<span class="kw">let </span>inputs: Vec&lt;<span class="kw">_</span>&gt; = (<span class="number">0</span>..MAX_VRF_IOS + <span class="number">1</span>).map(|<span class="kw">_</span>| VrfInput::new(<span class="string">b""</span>, <span class="string">b""</span>)).collect();
+		<span class="kw">let </span>res = VrfSignData::new(<span class="string">b"mydata"</span>, <span class="kw-2">&amp;</span>[<span class="string">b"tdata"</span>], inputs);
 		<span class="macro">assert!</span>(res.is_err());
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>derive_works() {
-		<span class="kw">let </span>pair = Pair::from_string(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}//Alice//Hard&quot;</span>, DEV_PHRASE), <span class="prelude-val">None</span>).unwrap();
-		<span class="kw">let </span>known = h2b(<span class="string">&quot;2b340c18b94dc1916979cb83daf3ed4ac106742ddc06afc42cf26be3b18a523f80&quot;</span>);
+		<span class="kw">let </span>pair = Pair::from_string(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{}//Alice//Hard"</span>, DEV_PHRASE), <span class="prelude-val">None</span>).unwrap();
+		<span class="kw">let </span>known = h2b(<span class="string">"2b340c18b94dc1916979cb83daf3ed4ac106742ddc06afc42cf26be3b18a523f80"</span>);
 		<span class="macro">assert_eq!</span>(pair.public().as_ref(), known);
 
 		<span class="comment">// Soft derivation not supported
-		</span><span class="kw">let </span>res = Pair::from_string(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}//Alice/Soft&quot;</span>, DEV_PHRASE), <span class="prelude-val">None</span>);
+		</span><span class="kw">let </span>res = Pair::from_string(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{}//Alice/Soft"</span>, DEV_PHRASE), <span class="prelude-val">None</span>);
 		<span class="macro">assert!</span>(res.is_err());
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>generate_with_phrase_should_be_recoverable_with_from_string() {
 		<span class="kw">let </span>(pair, phrase, seed) = Pair::generate_with_phrase(<span class="prelude-val">None</span>);
-		<span class="kw">let </span>repair_seed = Pair::from_seed_slice(seed.as_ref()).expect(<span class="string">&quot;seed slice is valid&quot;</span>);
+		<span class="kw">let </span>repair_seed = Pair::from_seed_slice(seed.as_ref()).expect(<span class="string">"seed slice is valid"</span>);
 		<span class="macro">assert_eq!</span>(pair.public(), repair_seed.public());
 		<span class="kw">let </span>(repair_phrase, reseed) =
-			Pair::from_phrase(phrase.as_ref(), <span class="prelude-val">None</span>).expect(<span class="string">&quot;seed slice is valid&quot;</span>);
+			Pair::from_phrase(phrase.as_ref(), <span class="prelude-val">None</span>).expect(<span class="string">"seed slice is valid"</span>);
 		<span class="macro">assert_eq!</span>(seed, reseed);
 		<span class="macro">assert_eq!</span>(pair.public(), repair_phrase.public());
-		<span class="kw">let </span>repair_string = Pair::from_string(phrase.as_str(), <span class="prelude-val">None</span>).expect(<span class="string">&quot;seed slice is valid&quot;</span>);
+		<span class="kw">let </span>repair_string = Pair::from_string(phrase.as_str(), <span class="prelude-val">None</span>).expect(<span class="string">"seed slice is valid"</span>);
 		<span class="macro">assert_eq!</span>(pair.public(), repair_string.public());
 	}
 
@@ -2097,7 +2099,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>sign_verify() {
 		<span class="kw">let </span>pair = Pair::from_seed(DEV_SEED);
 		<span class="kw">let </span>public = pair.public();
-		<span class="kw">let </span>msg = <span class="string">b&quot;hello&quot;</span>;
+		<span class="kw">let </span>msg = <span class="string">b"hello"</span>;
 
 		<span class="kw">let </span>signature = pair.sign(msg);
 		<span class="macro">assert!</span>(Pair::verify(<span class="kw-2">&amp;</span>signature, msg, <span class="kw-2">&amp;</span>public));
@@ -2108,11 +2110,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>pair = Pair::from_seed(DEV_SEED);
 		<span class="kw">let </span>public = pair.public();
 
-		<span class="kw">let </span>i1 = VrfInput::new(<span class="string">b&quot;dom1&quot;</span>, <span class="string">b&quot;foo&quot;</span>);
-		<span class="kw">let </span>i2 = VrfInput::new(<span class="string">b&quot;dom2&quot;</span>, <span class="string">b&quot;bar&quot;</span>);
-		<span class="kw">let </span>i3 = VrfInput::new(<span class="string">b&quot;dom3&quot;</span>, <span class="string">b&quot;baz&quot;</span>);
+		<span class="kw">let </span>i1 = VrfInput::new(<span class="string">b"dom1"</span>, <span class="string">b"foo"</span>);
+		<span class="kw">let </span>i2 = VrfInput::new(<span class="string">b"dom2"</span>, <span class="string">b"bar"</span>);
+		<span class="kw">let </span>i3 = VrfInput::new(<span class="string">b"dom3"</span>, <span class="string">b"baz"</span>);
 
-		<span class="kw">let </span>data = VrfSignData::new_unchecked(<span class="string">b&quot;mydata&quot;</span>, <span class="kw-2">&amp;</span>[<span class="string">b&quot;tdata&quot;</span>], [i1, i2, i3]);
+		<span class="kw">let </span>data = VrfSignData::new_unchecked(<span class="string">b"mydata"</span>, <span class="kw-2">&amp;</span>[<span class="string">b"tdata"</span>], [i1, i2, i3]);
 
 		<span class="kw">let </span>signature = pair.vrf_sign(<span class="kw-2">&amp;</span>data);
 
@@ -2124,16 +2126,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>pair = Pair::from_seed(DEV_SEED);
 		<span class="kw">let </span>public = pair.public();
 
-		<span class="kw">let </span>i1 = VrfInput::new(<span class="string">b&quot;dom1&quot;</span>, <span class="string">b&quot;foo&quot;</span>);
-		<span class="kw">let </span>i2 = VrfInput::new(<span class="string">b&quot;dom2&quot;</span>, <span class="string">b&quot;bar&quot;</span>);
+		<span class="kw">let </span>i1 = VrfInput::new(<span class="string">b"dom1"</span>, <span class="string">b"foo"</span>);
+		<span class="kw">let </span>i2 = VrfInput::new(<span class="string">b"dom2"</span>, <span class="string">b"bar"</span>);
 
-		<span class="kw">let </span>data = VrfSignData::new_unchecked(<span class="string">b&quot;mydata&quot;</span>, <span class="kw-2">&amp;</span>[<span class="string">b&quot;aaaa&quot;</span>], [i1.clone(), i2.clone()]);
+		<span class="kw">let </span>data = VrfSignData::new_unchecked(<span class="string">b"mydata"</span>, <span class="kw-2">&amp;</span>[<span class="string">b"aaaa"</span>], [i1.clone(), i2.clone()]);
 		<span class="kw">let </span>signature = pair.vrf_sign(<span class="kw-2">&amp;</span>data);
 
-		<span class="kw">let </span>data = VrfSignData::new_unchecked(<span class="string">b&quot;mydata&quot;</span>, <span class="kw-2">&amp;</span>[<span class="string">b&quot;bbb&quot;</span>], [i1, i2.clone()]);
+		<span class="kw">let </span>data = VrfSignData::new_unchecked(<span class="string">b"mydata"</span>, <span class="kw-2">&amp;</span>[<span class="string">b"bbb"</span>], [i1, i2.clone()]);
 		<span class="macro">assert!</span>(!public.vrf_verify(<span class="kw-2">&amp;</span>data, <span class="kw-2">&amp;</span>signature));
 
-		<span class="kw">let </span>data = VrfSignData::new_unchecked(<span class="string">b&quot;mydata&quot;</span>, <span class="kw-2">&amp;</span>[<span class="string">b&quot;aaa&quot;</span>], [i2]);
+		<span class="kw">let </span>data = VrfSignData::new_unchecked(<span class="string">b"mydata"</span>, <span class="kw-2">&amp;</span>[<span class="string">b"aaa"</span>], [i2]);
 		<span class="macro">assert!</span>(!public.vrf_verify(<span class="kw-2">&amp;</span>data, <span class="kw-2">&amp;</span>signature));
 	}
 
@@ -2141,31 +2143,31 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>vrf_make_bytes_matches() {
 		<span class="kw">let </span>pair = Pair::from_seed(DEV_SEED);
 
-		<span class="kw">let </span>i1 = VrfInput::new(<span class="string">b&quot;dom1&quot;</span>, <span class="string">b&quot;foo&quot;</span>);
-		<span class="kw">let </span>i2 = VrfInput::new(<span class="string">b&quot;dom2&quot;</span>, <span class="string">b&quot;bar&quot;</span>);
+		<span class="kw">let </span>i1 = VrfInput::new(<span class="string">b"dom1"</span>, <span class="string">b"foo"</span>);
+		<span class="kw">let </span>i2 = VrfInput::new(<span class="string">b"dom2"</span>, <span class="string">b"bar"</span>);
 
-		<span class="kw">let </span>data = VrfSignData::new_unchecked(<span class="string">b&quot;mydata&quot;</span>, <span class="kw-2">&amp;</span>[<span class="string">b&quot;tdata&quot;</span>], [i1.clone(), i2.clone()]);
+		<span class="kw">let </span>data = VrfSignData::new_unchecked(<span class="string">b"mydata"</span>, <span class="kw-2">&amp;</span>[<span class="string">b"tdata"</span>], [i1.clone(), i2.clone()]);
 		<span class="kw">let </span>signature = pair.vrf_sign(<span class="kw-2">&amp;</span>data);
 
-		<span class="kw">let </span>o10 = pair.make_bytes::&lt;<span class="number">32</span>&gt;(<span class="string">b&quot;ctx1&quot;</span>, <span class="kw-2">&amp;</span>i1);
-		<span class="kw">let </span>o11 = signature.pre_outputs[<span class="number">0</span>].make_bytes::&lt;<span class="number">32</span>&gt;(<span class="string">b&quot;ctx1&quot;</span>, <span class="kw-2">&amp;</span>i1);
+		<span class="kw">let </span>o10 = pair.make_bytes::&lt;<span class="number">32</span>&gt;(<span class="string">b"ctx1"</span>, <span class="kw-2">&amp;</span>i1);
+		<span class="kw">let </span>o11 = signature.pre_outputs[<span class="number">0</span>].make_bytes::&lt;<span class="number">32</span>&gt;(<span class="string">b"ctx1"</span>, <span class="kw-2">&amp;</span>i1);
 		<span class="macro">assert_eq!</span>(o10, o11);
 
-		<span class="kw">let </span>o20 = pair.make_bytes::&lt;<span class="number">48</span>&gt;(<span class="string">b&quot;ctx2&quot;</span>, <span class="kw-2">&amp;</span>i2);
-		<span class="kw">let </span>o21 = signature.pre_outputs[<span class="number">1</span>].make_bytes::&lt;<span class="number">48</span>&gt;(<span class="string">b&quot;ctx2&quot;</span>, <span class="kw-2">&amp;</span>i2);
+		<span class="kw">let </span>o20 = pair.make_bytes::&lt;<span class="number">48</span>&gt;(<span class="string">b"ctx2"</span>, <span class="kw-2">&amp;</span>i2);
+		<span class="kw">let </span>o21 = signature.pre_outputs[<span class="number">1</span>].make_bytes::&lt;<span class="number">48</span>&gt;(<span class="string">b"ctx2"</span>, <span class="kw-2">&amp;</span>i2);
 		<span class="macro">assert_eq!</span>(o20, o21);
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>encode_decode_vrf_signature() {
 		<span class="comment">// Transcript data is hashed together and signed.
-		// It doesn&#39;t contribute to serialized length.
+		// It doesn't contribute to serialized length.
 		</span><span class="kw">let </span>pair = Pair::from_seed(DEV_SEED);
 
-		<span class="kw">let </span>i1 = VrfInput::new(<span class="string">b&quot;dom1&quot;</span>, <span class="string">b&quot;foo&quot;</span>);
-		<span class="kw">let </span>i2 = VrfInput::new(<span class="string">b&quot;dom2&quot;</span>, <span class="string">b&quot;bar&quot;</span>);
+		<span class="kw">let </span>i1 = VrfInput::new(<span class="string">b"dom1"</span>, <span class="string">b"foo"</span>);
+		<span class="kw">let </span>i2 = VrfInput::new(<span class="string">b"dom2"</span>, <span class="string">b"bar"</span>);
 
-		<span class="kw">let </span>data = VrfSignData::new_unchecked(<span class="string">b&quot;mydata&quot;</span>, <span class="kw-2">&amp;</span>[<span class="string">b&quot;tdata&quot;</span>], [i1.clone(), i2.clone()]);
+		<span class="kw">let </span>data = VrfSignData::new_unchecked(<span class="string">b"mydata"</span>, <span class="kw-2">&amp;</span>[<span class="string">b"tdata"</span>], [i1.clone(), i2.clone()]);
 		<span class="kw">let </span>expected = pair.vrf_sign(<span class="kw-2">&amp;</span>data);
 
 		<span class="kw">let </span>bytes = expected.encode();
@@ -2177,7 +2179,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>decoded = VrfSignature::decode(<span class="kw-2">&amp;mut </span>bytes.as_slice()).unwrap();
 		<span class="macro">assert_eq!</span>(expected, decoded);
 
-		<span class="kw">let </span>data = VrfSignData::new_unchecked(<span class="string">b&quot;mydata&quot;</span>, <span class="kw-2">&amp;</span>[<span class="string">b&quot;tdata&quot;</span>], []);
+		<span class="kw">let </span>data = VrfSignData::new_unchecked(<span class="string">b"mydata"</span>, <span class="kw-2">&amp;</span>[<span class="string">b"tdata"</span>], []);
 		<span class="kw">let </span>expected = pair.vrf_sign(<span class="kw-2">&amp;</span>data);
 
 		<span class="kw">let </span>bytes = expected.encode();
@@ -2199,11 +2201,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">let </span>prover_idx = <span class="number">3</span>;
 		pks[prover_idx] = pair.public();
 
-		<span class="kw">let </span>i1 = VrfInput::new(<span class="string">b&quot;dom1&quot;</span>, <span class="string">b&quot;foo&quot;</span>);
-		<span class="kw">let </span>i2 = VrfInput::new(<span class="string">b&quot;dom2&quot;</span>, <span class="string">b&quot;bar&quot;</span>);
-		<span class="kw">let </span>i3 = VrfInput::new(<span class="string">b&quot;dom3&quot;</span>, <span class="string">b&quot;baz&quot;</span>);
+		<span class="kw">let </span>i1 = VrfInput::new(<span class="string">b"dom1"</span>, <span class="string">b"foo"</span>);
+		<span class="kw">let </span>i2 = VrfInput::new(<span class="string">b"dom2"</span>, <span class="string">b"bar"</span>);
+		<span class="kw">let </span>i3 = VrfInput::new(<span class="string">b"dom3"</span>, <span class="string">b"baz"</span>);
 
-		<span class="kw">let </span>data = VrfSignData::new_unchecked(<span class="string">b&quot;mydata&quot;</span>, <span class="kw-2">&amp;</span>[<span class="string">b&quot;tdata&quot;</span>], [i1, i2, i3]);
+		<span class="kw">let </span>data = VrfSignData::new_unchecked(<span class="string">b"mydata"</span>, <span class="kw-2">&amp;</span>[<span class="string">b"tdata"</span>], [i1, i2, i3]);
 
 		<span class="kw">let </span>prover = ring_ctx.prover(<span class="kw-2">&amp;</span>pks, prover_idx).unwrap();
 		<span class="kw">let </span>signature = pair.ring_vrf_sign(<span class="kw-2">&amp;</span>data, <span class="kw-2">&amp;</span>prover);
@@ -2220,8 +2222,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>pair = Pair::from_seed(DEV_SEED);
 
 		<span class="comment">// Just pick one index to patch with the actual public key
-		</span><span class="kw">let </span>i1 = VrfInput::new(<span class="string">b&quot;dom1&quot;</span>, <span class="string">b&quot;foo&quot;</span>);
-		<span class="kw">let </span>data = VrfSignData::new_unchecked(<span class="string">b&quot;mydata&quot;</span>, <span class="prelude-val">Some</span>(<span class="string">b&quot;tdata&quot;</span>), <span class="prelude-val">Some</span>(i1));
+		</span><span class="kw">let </span>i1 = VrfInput::new(<span class="string">b"dom1"</span>, <span class="string">b"foo"</span>);
+		<span class="kw">let </span>data = VrfSignData::new_unchecked(<span class="string">b"mydata"</span>, <span class="prelude-val">Some</span>(<span class="string">b"tdata"</span>), <span class="prelude-val">Some</span>(i1));
 
 		<span class="comment">// pair.public != pks[0]
 		</span><span class="kw">let </span>prover = ring_ctx.prover(<span class="kw-2">&amp;</span>pks, <span class="number">0</span>).unwrap();
@@ -2244,19 +2246,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">let </span>prover_idx = <span class="number">3</span>;
 		pks[prover_idx] = pair.public();
 
-		<span class="kw">let </span>i1 = VrfInput::new(<span class="string">b&quot;dom1&quot;</span>, <span class="string">b&quot;foo&quot;</span>);
-		<span class="kw">let </span>i2 = VrfInput::new(<span class="string">b&quot;dom2&quot;</span>, <span class="string">b&quot;bar&quot;</span>);
-		<span class="kw">let </span>data = VrfSignData::new_unchecked(<span class="string">b&quot;mydata&quot;</span>, <span class="kw-2">&amp;</span>[<span class="string">b&quot;tdata&quot;</span>], [i1.clone(), i2.clone()]);
+		<span class="kw">let </span>i1 = VrfInput::new(<span class="string">b"dom1"</span>, <span class="string">b"foo"</span>);
+		<span class="kw">let </span>i2 = VrfInput::new(<span class="string">b"dom2"</span>, <span class="string">b"bar"</span>);
+		<span class="kw">let </span>data = VrfSignData::new_unchecked(<span class="string">b"mydata"</span>, <span class="kw-2">&amp;</span>[<span class="string">b"tdata"</span>], [i1.clone(), i2.clone()]);
 
 		<span class="kw">let </span>prover = ring_ctx.prover(<span class="kw-2">&amp;</span>pks, prover_idx).unwrap();
 		<span class="kw">let </span>signature = pair.ring_vrf_sign(<span class="kw-2">&amp;</span>data, <span class="kw-2">&amp;</span>prover);
 
-		<span class="kw">let </span>o10 = pair.make_bytes::&lt;<span class="number">32</span>&gt;(<span class="string">b&quot;ctx1&quot;</span>, <span class="kw-2">&amp;</span>i1);
-		<span class="kw">let </span>o11 = signature.pre_outputs[<span class="number">0</span>].make_bytes::&lt;<span class="number">32</span>&gt;(<span class="string">b&quot;ctx1&quot;</span>, <span class="kw-2">&amp;</span>i1);
+		<span class="kw">let </span>o10 = pair.make_bytes::&lt;<span class="number">32</span>&gt;(<span class="string">b"ctx1"</span>, <span class="kw-2">&amp;</span>i1);
+		<span class="kw">let </span>o11 = signature.pre_outputs[<span class="number">0</span>].make_bytes::&lt;<span class="number">32</span>&gt;(<span class="string">b"ctx1"</span>, <span class="kw-2">&amp;</span>i1);
 		<span class="macro">assert_eq!</span>(o10, o11);
 
-		<span class="kw">let </span>o20 = pair.make_bytes::&lt;<span class="number">48</span>&gt;(<span class="string">b&quot;ctx2&quot;</span>, <span class="kw-2">&amp;</span>i2);
-		<span class="kw">let </span>o21 = signature.pre_outputs[<span class="number">1</span>].make_bytes::&lt;<span class="number">48</span>&gt;(<span class="string">b&quot;ctx2&quot;</span>, <span class="kw-2">&amp;</span>i2);
+		<span class="kw">let </span>o20 = pair.make_bytes::&lt;<span class="number">48</span>&gt;(<span class="string">b"ctx2"</span>, <span class="kw-2">&amp;</span>i2);
+		<span class="kw">let </span>o21 = signature.pre_outputs[<span class="number">1</span>].make_bytes::&lt;<span class="number">48</span>&gt;(<span class="string">b"ctx2"</span>, <span class="kw-2">&amp;</span>i2);
 		<span class="macro">assert_eq!</span>(o20, o21);
 	}
 
@@ -2273,11 +2275,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">let </span>prover_idx = <span class="number">3</span>;
 		pks[prover_idx] = pair.public();
 
-		<span class="kw">let </span>i1 = VrfInput::new(<span class="string">b&quot;dom1&quot;</span>, <span class="string">b&quot;foo&quot;</span>);
-		<span class="kw">let </span>i2 = VrfInput::new(<span class="string">b&quot;dom2&quot;</span>, <span class="string">b&quot;bar&quot;</span>);
-		<span class="kw">let </span>i3 = VrfInput::new(<span class="string">b&quot;dom3&quot;</span>, <span class="string">b&quot;baz&quot;</span>);
+		<span class="kw">let </span>i1 = VrfInput::new(<span class="string">b"dom1"</span>, <span class="string">b"foo"</span>);
+		<span class="kw">let </span>i2 = VrfInput::new(<span class="string">b"dom2"</span>, <span class="string">b"bar"</span>);
+		<span class="kw">let </span>i3 = VrfInput::new(<span class="string">b"dom3"</span>, <span class="string">b"baz"</span>);
 
-		<span class="kw">let </span>data = VrfSignData::new_unchecked(<span class="string">b&quot;mydata&quot;</span>, <span class="kw-2">&amp;</span>[<span class="string">b&quot;tdata&quot;</span>], [i1, i2, i3]);
+		<span class="kw">let </span>data = VrfSignData::new_unchecked(<span class="string">b"mydata"</span>, <span class="kw-2">&amp;</span>[<span class="string">b"tdata"</span>], [i1, i2, i3]);
 
 		<span class="kw">let </span>prover = ring_ctx.prover(<span class="kw-2">&amp;</span>pks, prover_idx).unwrap();
 		<span class="kw">let </span>expected = pair.ring_vrf_sign(<span class="kw-2">&amp;</span>data, <span class="kw-2">&amp;</span>prover);

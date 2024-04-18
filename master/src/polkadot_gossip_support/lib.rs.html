@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/network/gossip-support/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/network/gossip-support/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_gossip_support" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_gossip_support" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../polkadot_gossip_support/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -889,7 +891,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">use </span>metrics::Metrics;
 
-<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;parachain::gossip-support&quot;</span>;
+<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"parachain::gossip-support"</span>;
 <span class="comment">// How much time should we wait to reissue a connection request
 // since the last authority discovery resolution failure.
 </span><span class="attr">#[cfg(not(test))]
@@ -988,7 +990,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							<span class="macro">gum::debug!</span>(
 								target: LOG_TARGET,
 								err = <span class="question-mark">?</span>e,
-								<span class="string">&quot;Failed to receive a message from Overseer, exiting&quot;</span>,
+								<span class="string">"Failed to receive a message from Overseer, exiting"</span>,
 							);
 							<span class="kw">return </span><span class="self">self
 						</span>},
@@ -1002,7 +1004,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					activated,
 					..
 				})) =&gt; {
-					<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="string">&quot;active leaves signal&quot;</span>);
+					<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="string">"active leaves signal"</span>);
 
 					<span class="kw">let </span>leaves = activated.into_iter().map(|a| a.hash);
 					<span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.handle_active_leaves(ctx.sender(), leaves).<span class="kw">await </span>{
@@ -1045,21 +1047,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="macro">gum::warn!</span>(
 							relay_parent = <span class="question-mark">?</span>leaf,
 							session_index = <span class="self">self</span>.last_session_index,
-							<span class="string">&quot;Failed to get session info.&quot;</span>,
+							<span class="string">"Failed to get session info."</span>,
 						);
 
 						<span class="kw">continue
 					</span>},
 				};
 
-				<span class="comment">// Note: we only update `last_session_index` once we&#39;ve
+				<span class="comment">// Note: we only update `last_session_index` once we've
 				// successfully gotten the `SessionInfo`.
 				</span><span class="kw">let </span>is_new_session = maybe_new_session.is_some();
 				<span class="kw">if </span>is_new_session {
 					<span class="macro">gum::debug!</span>(
 						target: LOG_TARGET,
 						%session_index,
-						<span class="string">&quot;New session detected&quot;</span>,
+						<span class="string">"New session detected"</span>,
 					);
 					<span class="self">self</span>.last_session_index = <span class="prelude-val">Some</span>(session_index);
 				}
@@ -1067,7 +1069,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="comment">// Connect to authorities from the past/present/future.
 				//
 				// This is maybe not the right place for this logic to live,
-				// but at the moment we&#39;re limited by the network bridge&#39;s ability
+				// but at the moment we're limited by the network bridge's ability
 				// to handle connection requests (it only allows one, globally).
 				//
 				// Certain network protocols - mostly req/res, but some gossip,
@@ -1078,7 +1080,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				</span>{
 					<span class="kw">let </span><span class="kw-2">mut </span>connections = authorities_past_present_future(sender, leaf).<span class="kw">await</span><span class="question-mark">?</span>;
 
-					<span class="comment">// Remove all of our locally controlled validator indices so we don&#39;t connect to
+					<span class="comment">// Remove all of our locally controlled validator indices so we don't connect to
 					// ourself.
 					</span><span class="kw">let </span>connections =
 						<span class="kw">if </span>remove_all_controlled(<span class="kw-2">&amp;</span><span class="self">self</span>.keystore, <span class="kw-2">&amp;mut </span>connections) != <span class="number">0 </span>{
@@ -1104,7 +1106,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					)
 					.<span class="kw">await</span><span class="question-mark">?</span>;
 				}
-				<span class="comment">// authority_discovery is just a cache so let&#39;s try every time we try to re-connect
+				<span class="comment">// authority_discovery is just a cache so let's try every time we try to re-connect
 				// if new authorities are present.
 				</span><span class="self">self</span>.update_authority_ids(sender, session_info.discovery_keys).<span class="kw">await</span>;
 			}
@@ -1124,29 +1126,29 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">match </span>authority_check_result.as_ref() {
 			<span class="prelude-val">Ok</span>(index) =&gt; {
-				<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="string">&quot;We are now an authority&quot;</span>,);
+				<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="string">"We are now an authority"</span>,);
 				<span class="self">self</span>.metrics.on_is_authority();
 
 				<span class="comment">// The subset of authorities participating in parachain consensus.
 				</span><span class="kw">let </span>parachain_validators_this_session = session_info.validators.len();
 
-				<span class="comment">// First `maxValidators` entries are the parachain validators. We&#39;ll check
+				<span class="comment">// First `maxValidators` entries are the parachain validators. We'll check
 				// if our index is in this set to avoid searching for the keys.
 				// https://github.com/paritytech/polkadot/blob/a52dca2be7840b23c19c153cf7e110b1e3e475f8/runtime/parachains/src/configuration.rs#L148
 				</span><span class="kw">if </span><span class="kw-2">*</span>index &lt; parachain_validators_this_session {
-					<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="string">&quot;We are now a parachain validator&quot;</span>,);
+					<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="string">"We are now a parachain validator"</span>,);
 					<span class="self">self</span>.metrics.on_is_parachain_validator();
 				} <span class="kw">else </span>{
-					<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="string">&quot;We are no longer a parachain validator&quot;</span>,);
+					<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="string">"We are no longer a parachain validator"</span>,);
 					<span class="self">self</span>.metrics.on_is_not_parachain_validator();
 				}
 			},
 			<span class="prelude-val">Err</span>(util::Error::NotAValidator) =&gt; {
-				<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="string">&quot;We are no longer an authority&quot;</span>,);
+				<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="string">"We are no longer an authority"</span>,);
 				<span class="self">self</span>.metrics.on_is_not_authority();
 				<span class="self">self</span>.metrics.on_is_not_parachain_validator();
 			},
-			<span class="comment">// Don&#39;t update on runtime errors.
+			<span class="comment">// Don't update on runtime errors.
 			</span><span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {},
 		};
 
@@ -1174,13 +1176,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				failures += <span class="number">1</span>;
 				<span class="macro">gum::debug!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Couldn&#39;t resolve addresses of authority: {:?}&quot;</span>,
+					<span class="string">"Couldn't resolve addresses of authority: {:?}"</span>,
 					authority
 				);
 			}
 		}
 		<span class="self">self</span>.resolved_authorities = resolved;
-		<span class="macro">gum::debug!</span>(target: LOG_TARGET, %num, <span class="string">&quot;Issuing a connection request&quot;</span>);
+		<span class="macro">gum::debug!</span>(target: LOG_TARGET, %num, <span class="string">"Issuing a connection request"</span>);
 
 		sender
 			.send_message(NetworkBridgeTxMessage::ConnectToResolvedValidators {
@@ -1200,7 +1202,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						target: LOG_TARGET,
 						connected = <span class="question-mark">?</span>(num - failures),
 						target = <span class="question-mark">?</span>num,
-						<span class="string">&quot;Low connectivity - authority lookup failed for too many validators.&quot;
+						<span class="string">"Low connectivity - authority lookup failed for too many validators."
 					</span>);
 				},
 				<span class="prelude-val">Some</span>(<span class="kw">_</span>) =&gt; {
@@ -1208,7 +1210,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						target: LOG_TARGET,
 						connected = <span class="question-mark">?</span>(num - failures),
 						target = <span class="question-mark">?</span>num,
-						<span class="string">&quot;Low connectivity (due to authority lookup failures) - expected on startup.&quot;
+						<span class="string">"Low connectivity (due to authority lookup failures) - expected on startup."
 					</span>);
 				},
 			}
@@ -1241,7 +1243,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			}
 		}
 
-		<span class="comment">// peer was authority and now isn&#39;t
+		<span class="comment">// peer was authority and now isn't
 		</span><span class="kw">for </span>(peer_id, current) <span class="kw">in </span><span class="self">self</span>.connected_peers.iter_mut() {
 			<span class="comment">// empty -&gt; nonempty is handled in the next loop
 			</span><span class="kw">if </span>!current.is_empty() &amp;&amp; !authority_ids.contains_key(peer_id) {
@@ -1333,7 +1335,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">if </span>connected_ratio &lt;= LOW_CONNECTIVITY_WARN_THRESHOLD {
 			<span class="macro">gum::debug!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;Connectivity seems low, we are only connected to {}% of available validators (see debug logs for details)&quot;</span>, connected_ratio
+				<span class="string">"Connectivity seems low, we are only connected to {}% of available validators (see debug logs for details)"</span>, connected_ratio
 			);
 		}
 		<span class="kw">let </span>pretty = PrettyAuthorities(unconnected_authorities);
@@ -1343,7 +1345,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="question-mark">?</span>absolute_connected,
 			<span class="question-mark">?</span>absolute_resolved,
 			unconnected_authorities = %pretty,
-			<span class="string">&quot;Connectivity Report&quot;
+			<span class="string">"Connectivity Report"
 		</span>);
 	}
 }
@@ -1357,12 +1359,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="macro">gum::debug!</span>(
 		target: LOG_TARGET,
 		authority_count = <span class="question-mark">?</span>authorities.len(),
-		<span class="string">&quot;Determined past/present/future authorities&quot;</span>,
+		<span class="string">"Determined past/present/future authorities"</span>,
 	);
 	<span class="prelude-val">Ok</span>(authorities)
 }
 
-<span class="doccomment">/// Return an error if we&#39;re not a validator in the given set (do not have keys).
+<span class="doccomment">/// Return an error if we're not a validator in the given set (do not have keys).
 /// Otherwise, returns the index of our keys in `authorities`.
 </span><span class="kw">fn </span>ensure_i_am_an_authority(
 	keystore: <span class="kw-2">&amp;</span>KeystorePtr,
@@ -1425,7 +1427,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>randomness = rx.<span class="kw">await</span><span class="question-mark">??</span>.randomness;
 		<span class="kw">let </span><span class="kw-2">mut </span>subject = [<span class="number">0u8</span>; <span class="number">40</span>];
-		subject[..<span class="number">8</span>].copy_from_slice(<span class="string">b&quot;gossipsu&quot;</span>);
+		subject[..<span class="number">8</span>].copy_from_slice(<span class="string">b"gossipsu"</span>);
 		subject[<span class="number">8</span>..].copy_from_slice(<span class="kw-2">&amp;</span>randomness);
 		sp_crypto_hashing::blake2_256(<span class="kw-2">&amp;</span>subject)
 	};
@@ -1479,30 +1481,30 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>start(<span class="self">self</span>, ctx: Context) -&gt; SpawnedSubsystem {
 		<span class="kw">let </span>future = <span class="self">self</span>.run(ctx).map(|<span class="kw">_</span>| <span class="prelude-val">Ok</span>(())).boxed();
 
-		SpawnedSubsystem { name: <span class="string">&quot;gossip-support-subsystem&quot;</span>, future }
+		SpawnedSubsystem { name: <span class="string">"gossip-support-subsystem"</span>, future }
 	}
 }
 
 <span class="doccomment">/// Helper struct to get a nice rendering of unreachable authorities.
 </span><span class="kw">struct </span>PrettyAuthorities&lt;I&gt;(I);
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, I&gt; fmt::Display <span class="kw">for </span>PrettyAuthorities&lt;I&gt;
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, I&gt; fmt::Display <span class="kw">for </span>PrettyAuthorities&lt;I&gt;
 <span class="kw">where
-	</span>I: Iterator&lt;Item = (<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>AuthorityDiscoveryId, <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>HashSet&lt;Multiaddr&gt;)&gt; + Clone,
+	</span>I: Iterator&lt;Item = (<span class="kw-2">&amp;</span><span class="lifetime">'a </span>AuthorityDiscoveryId, <span class="kw-2">&amp;</span><span class="lifetime">'a </span>HashSet&lt;Multiaddr&gt;)&gt; + Clone,
 {
-	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; fmt::Result {
+	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; fmt::Result {
 		<span class="kw">let </span><span class="kw-2">mut </span>authorities = <span class="self">self</span>.<span class="number">0</span>.clone().peekable();
 		<span class="kw">if </span>authorities.peek().is_none() {
-			<span class="macro">write!</span>(f, <span class="string">&quot;None&quot;</span>)<span class="question-mark">?</span>;
+			<span class="macro">write!</span>(f, <span class="string">"None"</span>)<span class="question-mark">?</span>;
 		} <span class="kw">else </span>{
-			<span class="macro">write!</span>(f, <span class="string">&quot;\n&quot;</span>)<span class="question-mark">?</span>;
+			<span class="macro">write!</span>(f, <span class="string">"\n"</span>)<span class="question-mark">?</span>;
 		}
 		<span class="kw">for </span>(authority, addrs) <span class="kw">in </span>authorities {
-			<span class="macro">write!</span>(f, <span class="string">&quot;{}:\n&quot;</span>, authority)<span class="question-mark">?</span>;
+			<span class="macro">write!</span>(f, <span class="string">"{}:\n"</span>, authority)<span class="question-mark">?</span>;
 			<span class="kw">for </span>addr <span class="kw">in </span>addrs {
-				<span class="macro">write!</span>(f, <span class="string">&quot;  {}\n&quot;</span>, addr)<span class="question-mark">?</span>;
+				<span class="macro">write!</span>(f, <span class="string">"  {}\n"</span>, addr)<span class="question-mark">?</span>;
 			}
-			<span class="macro">write!</span>(f, <span class="string">&quot;\n&quot;</span>)<span class="question-mark">?</span>;
+			<span class="macro">write!</span>(f, <span class="string">"\n"</span>)<span class="question-mark">?</span>;
 		}
 		<span class="prelude-val">Ok</span>(())
 	}

@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `cumulus/polkadot-parachain/src/chain_spec/people.rs`."><title>people.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `cumulus/polkadot-parachain/src/chain_spec/people.rs`."><title>people.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_parachain" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_parachain" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../polkadot_parachain/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -545,52 +547,52 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			westend::PEOPLE_WESTEND =&gt; <span class="prelude-val">Ok</span>(PeopleRuntimeType::Westend),
 			westend::PEOPLE_WESTEND_LOCAL =&gt; <span class="prelude-val">Ok</span>(PeopleRuntimeType::WestendLocal),
 			westend::PEOPLE_WESTEND_DEVELOPMENT =&gt; <span class="prelude-val">Ok</span>(PeopleRuntimeType::WestendDevelopment),
-			<span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">&quot;Value &#39;{}&#39; is not configured yet&quot;</span>, value)),
+			<span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">"Value '{}' is not configured yet"</span>, value)),
 		}
 	}
 }
 
 <span class="kw">impl </span>PeopleRuntimeType {
-	<span class="kw">pub const </span>ID_PREFIX: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;people&quot;</span>;
+	<span class="kw">pub const </span>ID_PREFIX: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"people"</span>;
 
 	<span class="kw">pub fn </span>load_config(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>ChainSpec&gt;, String&gt; {
 		<span class="kw">match </span><span class="self">self </span>{
 			PeopleRuntimeType::Kusama =&gt;
-				<span class="macro">todo!</span>(<span class="string">&quot;Update chain-spec: ../../chain-specs/people-kusama.json - https://github.com/paritytech/polkadot-sdk/pull/3961#issuecomment-2037438431&quot;</span>),
+				<span class="macro">todo!</span>(<span class="string">"Update chain-spec: ../../chain-specs/people-kusama.json - https://github.com/paritytech/polkadot-sdk/pull/3961#issuecomment-2037438431"</span>),
 			PeopleRuntimeType::Polkadot =&gt;
-				<span class="macro">todo!</span>(<span class="string">&quot;Generate chain-spec: ../../chain-specs/people-polkadot.json&quot;</span>),
+				<span class="macro">todo!</span>(<span class="string">"Generate chain-spec: ../../chain-specs/people-polkadot.json"</span>),
 			PeopleRuntimeType::Rococo =&gt; <span class="prelude-val">Ok</span>(Box::new(GenericChainSpec::from_json_bytes(
-				<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">&quot;../../chain-specs/people-rococo.json&quot;</span>)[..],
+				<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">"../../chain-specs/people-rococo.json"</span>)[..],
 			)<span class="question-mark">?</span>)),
 			PeopleRuntimeType::RococoLocal =&gt; <span class="prelude-val">Ok</span>(Box::new(rococo::local_config(
 				rococo::PEOPLE_ROCOCO_LOCAL,
-				<span class="string">&quot;Rococo People Local&quot;</span>,
-				<span class="string">&quot;rococo-local&quot;</span>,
+				<span class="string">"Rococo People Local"</span>,
+				<span class="string">"rococo-local"</span>,
 				ParaId::new(<span class="number">1004</span>),
 			))),
 			PeopleRuntimeType::RococoDevelopment =&gt; <span class="prelude-val">Ok</span>(Box::new(rococo::local_config(
 				rococo::PEOPLE_ROCOCO_DEVELOPMENT,
-				<span class="string">&quot;Rococo People Development&quot;</span>,
-				<span class="string">&quot;rococo-development&quot;</span>,
+				<span class="string">"Rococo People Development"</span>,
+				<span class="string">"rococo-development"</span>,
 				ParaId::new(<span class="number">1004</span>),
 			))),
 			PeopleRuntimeType::Westend =&gt; <span class="prelude-val">Ok</span>(Box::new(GenericChainSpec::from_json_bytes(
-				<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">&quot;../../chain-specs/people-westend.json&quot;</span>)[..],
+				<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">"../../chain-specs/people-westend.json"</span>)[..],
 			)<span class="question-mark">?</span>)),
 			PeopleRuntimeType::WestendLocal =&gt; <span class="prelude-val">Ok</span>(Box::new(westend::local_config(
 				westend::PEOPLE_WESTEND_LOCAL,
-				<span class="string">&quot;Westend People Local&quot;</span>,
-				<span class="string">&quot;westend-local&quot;</span>,
+				<span class="string">"Westend People Local"</span>,
+				<span class="string">"westend-local"</span>,
 				ParaId::new(<span class="number">1004</span>),
 			))),
 			PeopleRuntimeType::WestendDevelopment =&gt; <span class="prelude-val">Ok</span>(Box::new(westend::local_config(
 				westend::PEOPLE_WESTEND_DEVELOPMENT,
-				<span class="string">&quot;Westend People Development&quot;</span>,
-				<span class="string">&quot;westend-development&quot;</span>,
+				<span class="string">"Westend People Development"</span>,
+				<span class="string">"westend-development"</span>,
 				ParaId::new(<span class="number">1004</span>),
 			))),
 			other =&gt; <span class="prelude-val">Err</span>(<span class="macro">std::format!</span>(
-				<span class="string">&quot;No default config present for {:?}, you should provide a chain-spec as json file!&quot;</span>,
+				<span class="string">"No default config present for {:?}, you should provide a chain-spec as json file!"</span>,
 				other
 			)),
 		}
@@ -603,7 +605,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Ok</span>(id)
 	} <span class="kw">else </span>{
 		<span class="prelude-val">Err</span>(<span class="macro">format!</span>(
-			<span class="string">&quot;Invalid &#39;id&#39; attribute ({}), should start with prefix: {}&quot;</span>,
+			<span class="string">"Invalid 'id' attribute ({}), should start with prefix: {}"</span>,
 			id,
 			PeopleRuntimeType::ID_PREFIX
 		))
@@ -621,9 +623,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use </span>sc_chain_spec::ChainType;
 	<span class="kw">use </span>sp_core::sr25519;
 
-	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>PEOPLE_ROCOCO: <span class="kw-2">&amp;</span>str = <span class="string">&quot;people-rococo&quot;</span>;
-	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>PEOPLE_ROCOCO_LOCAL: <span class="kw-2">&amp;</span>str = <span class="string">&quot;people-rococo-local&quot;</span>;
-	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>PEOPLE_ROCOCO_DEVELOPMENT: <span class="kw-2">&amp;</span>str = <span class="string">&quot;people-rococo-dev&quot;</span>;
+	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>PEOPLE_ROCOCO: <span class="kw-2">&amp;</span>str = <span class="string">"people-rococo"</span>;
+	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>PEOPLE_ROCOCO_LOCAL: <span class="kw-2">&amp;</span>str = <span class="string">"people-rococo-local"</span>;
+	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>PEOPLE_ROCOCO_DEVELOPMENT: <span class="kw-2">&amp;</span>str = <span class="string">"people-rococo-dev"</span>;
 	<span class="kw">const </span>PEOPLE_ROCOCO_ED: PeopleBalance = people_rococo_runtime::ExistentialDeposit::get();
 
 	<span class="kw">pub fn </span>local_config(
@@ -633,43 +635,43 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		para_id: ParaId,
 	) -&gt; GenericChainSpec {
 		<span class="kw">let </span><span class="kw-2">mut </span>properties = sc_chain_spec::Properties::new();
-		properties.insert(<span class="string">&quot;ss58Format&quot;</span>.into(), <span class="number">42</span>.into());
-		properties.insert(<span class="string">&quot;tokenSymbol&quot;</span>.into(), <span class="string">&quot;ROC&quot;</span>.into());
-		properties.insert(<span class="string">&quot;tokenDecimals&quot;</span>.into(), <span class="number">12</span>.into());
+		properties.insert(<span class="string">"ss58Format"</span>.into(), <span class="number">42</span>.into());
+		properties.insert(<span class="string">"tokenSymbol"</span>.into(), <span class="string">"ROC"</span>.into());
+		properties.insert(<span class="string">"tokenDecimals"</span>.into(), <span class="number">12</span>.into());
 
 		GenericChainSpec::builder(
 			people_rococo_runtime::WASM_BINARY
-				.expect(<span class="string">&quot;WASM binary was not built, please build it!&quot;</span>),
+				.expect(<span class="string">"WASM binary was not built, please build it!"</span>),
 			Extensions { relay_chain: relay_chain.to_string(), para_id: para_id.into() },
 		)
 		.with_name(chain_name)
-		.with_id(<span class="kw">super</span>::ensure_id(id).expect(<span class="string">&quot;invalid id&quot;</span>))
+		.with_id(<span class="kw">super</span>::ensure_id(id).expect(<span class="string">"invalid id"</span>))
 		.with_chain_type(ChainType::Local)
 		.with_genesis_config_patch(genesis(
 			<span class="comment">// initial collators.
 			</span><span class="macro">vec!</span>[
 				(
-					get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>),
-					get_collator_keys_from_seed::&lt;AuraId&gt;(<span class="string">&quot;Alice&quot;</span>),
+					get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Alice"</span>),
+					get_collator_keys_from_seed::&lt;AuraId&gt;(<span class="string">"Alice"</span>),
 				),
 				(
-					get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Bob&quot;</span>),
-					get_collator_keys_from_seed::&lt;AuraId&gt;(<span class="string">&quot;Bob&quot;</span>),
+					get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Bob"</span>),
+					get_collator_keys_from_seed::&lt;AuraId&gt;(<span class="string">"Bob"</span>),
 				),
 			],
 			<span class="macro">vec!</span>[
-				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>),
-				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Bob&quot;</span>),
-				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Charlie&quot;</span>),
-				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Dave&quot;</span>),
-				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Eve&quot;</span>),
-				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Ferdie&quot;</span>),
-				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice//stash&quot;</span>),
-				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Bob//stash&quot;</span>),
-				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Charlie//stash&quot;</span>),
-				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Dave//stash&quot;</span>),
-				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Eve//stash&quot;</span>),
-				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Ferdie//stash&quot;</span>),
+				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Alice"</span>),
+				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Bob"</span>),
+				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Charlie"</span>),
+				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Dave"</span>),
+				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Eve"</span>),
+				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Ferdie"</span>),
+				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Alice//stash"</span>),
+				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Bob//stash"</span>),
+				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Charlie//stash"</span>),
+				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Dave//stash"</span>),
+				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Eve//stash"</span>),
+				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Ferdie//stash"</span>),
 			],
 			para_id,
 		))
@@ -683,26 +685,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		id: ParaId,
 	) -&gt; serde_json::Value {
 		<span class="macro">serde_json::json!</span>({
-			<span class="string">&quot;balances&quot;</span>: {
-				<span class="string">&quot;balances&quot;</span>: endowed_accounts
+			<span class="string">"balances"</span>: {
+				<span class="string">"balances"</span>: endowed_accounts
 					.iter()
 					.cloned()
 					.map(|k| (k, PEOPLE_ROCOCO_ED * <span class="number">524_288</span>))
 					.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
 			},
-			<span class="string">&quot;parachainInfo&quot;</span>: {
-				<span class="string">&quot;parachainId&quot;</span>: id,
+			<span class="string">"parachainInfo"</span>: {
+				<span class="string">"parachainId"</span>: id,
 			},
-			<span class="string">&quot;collatorSelection&quot;</span>: {
-				<span class="string">&quot;invulnerables&quot;</span>: invulnerables
+			<span class="string">"collatorSelection"</span>: {
+				<span class="string">"invulnerables"</span>: invulnerables
 					.iter()
 					.cloned()
 					.map(|(acc, <span class="kw">_</span>)| acc)
 					.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
-				<span class="string">&quot;candidacyBond&quot;</span>: PEOPLE_ROCOCO_ED * <span class="number">16</span>,
+				<span class="string">"candidacyBond"</span>: PEOPLE_ROCOCO_ED * <span class="number">16</span>,
 			},
-			<span class="string">&quot;session&quot;</span>: {
-				<span class="string">&quot;keys&quot;</span>: invulnerables
+			<span class="string">"session"</span>: {
+				<span class="string">"keys"</span>: invulnerables
 					.into_iter()
 					.map(|(acc, aura)| {
 						(
@@ -713,8 +715,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					})
 					.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
 			},
-			<span class="string">&quot;polkadotXcm&quot;</span>: {
-				<span class="string">&quot;safeXcmVersion&quot;</span>: <span class="prelude-val">Some</span>(SAFE_XCM_VERSION),
+			<span class="string">"polkadotXcm"</span>: {
+				<span class="string">"safeXcmVersion"</span>: <span class="prelude-val">Some</span>(SAFE_XCM_VERSION),
 			}
 		})
 	}
@@ -731,9 +733,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use </span>sc_chain_spec::ChainType;
 	<span class="kw">use </span>sp_core::sr25519;
 
-	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>PEOPLE_WESTEND: <span class="kw-2">&amp;</span>str = <span class="string">&quot;people-westend&quot;</span>;
-	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>PEOPLE_WESTEND_LOCAL: <span class="kw-2">&amp;</span>str = <span class="string">&quot;people-westend-local&quot;</span>;
-	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>PEOPLE_WESTEND_DEVELOPMENT: <span class="kw-2">&amp;</span>str = <span class="string">&quot;people-westend-dev&quot;</span>;
+	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>PEOPLE_WESTEND: <span class="kw-2">&amp;</span>str = <span class="string">"people-westend"</span>;
+	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>PEOPLE_WESTEND_LOCAL: <span class="kw-2">&amp;</span>str = <span class="string">"people-westend-local"</span>;
+	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>PEOPLE_WESTEND_DEVELOPMENT: <span class="kw-2">&amp;</span>str = <span class="string">"people-westend-dev"</span>;
 	<span class="kw">const </span>PEOPLE_WESTEND_ED: PeopleBalance = people_westend_runtime::ExistentialDeposit::get();
 
 	<span class="kw">pub fn </span>local_config(
@@ -743,43 +745,43 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		para_id: ParaId,
 	) -&gt; GenericChainSpec {
 		<span class="kw">let </span><span class="kw-2">mut </span>properties = sc_chain_spec::Properties::new();
-		properties.insert(<span class="string">&quot;ss58Format&quot;</span>.into(), <span class="number">42</span>.into());
-		properties.insert(<span class="string">&quot;tokenSymbol&quot;</span>.into(), <span class="string">&quot;WND&quot;</span>.into());
-		properties.insert(<span class="string">&quot;tokenDecimals&quot;</span>.into(), <span class="number">12</span>.into());
+		properties.insert(<span class="string">"ss58Format"</span>.into(), <span class="number">42</span>.into());
+		properties.insert(<span class="string">"tokenSymbol"</span>.into(), <span class="string">"WND"</span>.into());
+		properties.insert(<span class="string">"tokenDecimals"</span>.into(), <span class="number">12</span>.into());
 
 		GenericChainSpec::builder(
 			people_westend_runtime::WASM_BINARY
-				.expect(<span class="string">&quot;WASM binary was not built, please build it!&quot;</span>),
+				.expect(<span class="string">"WASM binary was not built, please build it!"</span>),
 			Extensions { relay_chain: relay_chain.to_string(), para_id: para_id.into() },
 		)
 		.with_name(chain_name)
-		.with_id(<span class="kw">super</span>::ensure_id(id).expect(<span class="string">&quot;invalid id&quot;</span>))
+		.with_id(<span class="kw">super</span>::ensure_id(id).expect(<span class="string">"invalid id"</span>))
 		.with_chain_type(ChainType::Local)
 		.with_genesis_config_patch(genesis(
 			<span class="comment">// initial collators.
 			</span><span class="macro">vec!</span>[
 				(
-					get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>),
-					get_collator_keys_from_seed::&lt;AuraId&gt;(<span class="string">&quot;Alice&quot;</span>),
+					get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Alice"</span>),
+					get_collator_keys_from_seed::&lt;AuraId&gt;(<span class="string">"Alice"</span>),
 				),
 				(
-					get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Bob&quot;</span>),
-					get_collator_keys_from_seed::&lt;AuraId&gt;(<span class="string">&quot;Bob&quot;</span>),
+					get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Bob"</span>),
+					get_collator_keys_from_seed::&lt;AuraId&gt;(<span class="string">"Bob"</span>),
 				),
 			],
 			<span class="macro">vec!</span>[
-				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>),
-				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Bob&quot;</span>),
-				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Charlie&quot;</span>),
-				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Dave&quot;</span>),
-				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Eve&quot;</span>),
-				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Ferdie&quot;</span>),
-				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice//stash&quot;</span>),
-				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Bob//stash&quot;</span>),
-				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Charlie//stash&quot;</span>),
-				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Dave//stash&quot;</span>),
-				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Eve//stash&quot;</span>),
-				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Ferdie//stash&quot;</span>),
+				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Alice"</span>),
+				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Bob"</span>),
+				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Charlie"</span>),
+				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Dave"</span>),
+				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Eve"</span>),
+				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Ferdie"</span>),
+				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Alice//stash"</span>),
+				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Bob//stash"</span>),
+				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Charlie//stash"</span>),
+				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Dave//stash"</span>),
+				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Eve//stash"</span>),
+				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Ferdie//stash"</span>),
 			],
 			para_id,
 		))
@@ -793,26 +795,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		id: ParaId,
 	) -&gt; serde_json::Value {
 		<span class="macro">serde_json::json!</span>({
-			<span class="string">&quot;balances&quot;</span>: {
-				<span class="string">&quot;balances&quot;</span>: endowed_accounts
+			<span class="string">"balances"</span>: {
+				<span class="string">"balances"</span>: endowed_accounts
 					.iter()
 					.cloned()
 					.map(|k| (k, PEOPLE_WESTEND_ED * <span class="number">524_288</span>))
 					.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
 			},
-			<span class="string">&quot;parachainInfo&quot;</span>: {
-				<span class="string">&quot;parachainId&quot;</span>: id,
+			<span class="string">"parachainInfo"</span>: {
+				<span class="string">"parachainId"</span>: id,
 			},
-			<span class="string">&quot;collatorSelection&quot;</span>: {
-				<span class="string">&quot;invulnerables&quot;</span>: invulnerables
+			<span class="string">"collatorSelection"</span>: {
+				<span class="string">"invulnerables"</span>: invulnerables
 					.iter()
 					.cloned()
 					.map(|(acc, <span class="kw">_</span>)| acc)
 					.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
-				<span class="string">&quot;candidacyBond&quot;</span>: PEOPLE_WESTEND_ED * <span class="number">16</span>,
+				<span class="string">"candidacyBond"</span>: PEOPLE_WESTEND_ED * <span class="number">16</span>,
 			},
-			<span class="string">&quot;session&quot;</span>: {
-				<span class="string">&quot;keys&quot;</span>: invulnerables
+			<span class="string">"session"</span>: {
+				<span class="string">"keys"</span>: invulnerables
 					.into_iter()
 					.map(|(acc, aura)| {
 						(
@@ -823,21 +825,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					})
 					.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
 			},
-			<span class="string">&quot;polkadotXcm&quot;</span>: {
-				<span class="string">&quot;safeXcmVersion&quot;</span>: <span class="prelude-val">Some</span>(SAFE_XCM_VERSION),
+			<span class="string">"polkadotXcm"</span>: {
+				<span class="string">"safeXcmVersion"</span>: <span class="prelude-val">Some</span>(SAFE_XCM_VERSION),
 			}
 		})
 	}
 }
 
 <span class="kw">pub mod </span>kusama {
-	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>PEOPLE_KUSAMA: <span class="kw-2">&amp;</span>str = <span class="string">&quot;people-kusama&quot;</span>;
-	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>PEOPLE_KUSAMA_LOCAL: <span class="kw-2">&amp;</span>str = <span class="string">&quot;people-kusama-local&quot;</span>;
+	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>PEOPLE_KUSAMA: <span class="kw-2">&amp;</span>str = <span class="string">"people-kusama"</span>;
+	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>PEOPLE_KUSAMA_LOCAL: <span class="kw-2">&amp;</span>str = <span class="string">"people-kusama-local"</span>;
 }
 
 <span class="kw">pub mod </span>polkadot {
-	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>PEOPLE_POLKADOT: <span class="kw-2">&amp;</span>str = <span class="string">&quot;people-polkadot&quot;</span>;
-	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>PEOPLE_POLKADOT_LOCAL: <span class="kw-2">&amp;</span>str = <span class="string">&quot;people-polkadot-local&quot;</span>;
+	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>PEOPLE_POLKADOT: <span class="kw-2">&amp;</span>str = <span class="string">"people-polkadot"</span>;
+	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>PEOPLE_POLKADOT_LOCAL: <span class="kw-2">&amp;</span>str = <span class="string">"people-polkadot-local"</span>;
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 

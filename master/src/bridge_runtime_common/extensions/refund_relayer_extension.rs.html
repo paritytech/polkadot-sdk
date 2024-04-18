@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `bridges/bin/runtime-common/src/extensions/refund_relayer_extension.rs`."><title>refund_relayer_extension.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `bridges/bin/runtime-common/src/extensions/refund_relayer_extension.rs`."><title>refund_relayer_extension.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="bridge_runtime_common" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="bridge_runtime_common" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../bridge_runtime_common/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -2835,7 +2837,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// coming from this lane.
 </span><span class="kw">pub trait </span>RefundableMessagesLaneId {
 	<span class="doccomment">/// The instance of the bridge messages pallet.
-	</span><span class="kw">type </span>Instance: <span class="lifetime">&#39;static</span>;
+	</span><span class="kw">type </span>Instance: <span class="lifetime">'static</span>;
 	<span class="doccomment">/// The messages lane id.
 	</span><span class="kw">type </span>Id: Get&lt;LaneId&gt;;
 }
@@ -2845,7 +2847,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl</span>&lt;Instance, Id&gt; RefundableMessagesLaneId <span class="kw">for </span>RefundableMessagesLane&lt;Instance, Id&gt;
 <span class="kw">where
-	</span>Instance: <span class="lifetime">&#39;static</span>,
+	</span>Instance: <span class="lifetime">'static</span>,
 	Id: Get&lt;LaneId&gt;,
 {
 	<span class="kw">type </span>Instance = Instance;
@@ -2979,7 +2981,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Everything common among our refund signed extensions.
 </span><span class="kw">pub trait </span>RefundSignedExtension:
-	<span class="lifetime">&#39;static </span>+ Clone + Codec + sp_std::fmt::Debug + Default + Eq + PartialEq + Send + Sync + TypeInfo
+	<span class="lifetime">'static </span>+ Clone + Codec + sp_std::fmt::Debug + Default + Eq + PartialEq + Send + Sync + TypeInfo
 <span class="kw">where
 	</span>&lt;<span class="self">Self</span>::Runtime <span class="kw">as </span>GrandpaConfig&lt;<span class="self">Self</span>::GrandpaInstance&gt;&gt;::BridgedChain:
 		Chain&lt;BlockNumber = RelayBlockNumber&gt;,
@@ -2990,7 +2992,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		+ MessagesConfig&lt;&lt;<span class="self">Self</span>::Msgs <span class="kw">as </span>RefundableMessagesLaneId&gt;::Instance&gt;
 		+ RelayersConfig;
 	<span class="doccomment">/// Grandpa pallet reference.
-	</span><span class="kw">type </span>GrandpaInstance: <span class="lifetime">&#39;static</span>;
+	</span><span class="kw">type </span>GrandpaInstance: <span class="lifetime">'static</span>;
 	<span class="doccomment">/// Messages pallet and lane reference.
 	</span><span class="kw">type </span>Msgs: RefundableMessagesLaneId;
 	<span class="doccomment">/// Refund amount calculator.
@@ -3034,14 +3036,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span><span class="kw-2">mut </span>extra_weight = Weight::zero();
 		<span class="kw">let </span><span class="kw-2">mut </span>extra_size = <span class="number">0</span>;
 
-		<span class="comment">// We don&#39;t refund anything for transactions that we don&#39;t support.
+		<span class="comment">// We don't refund anything for transactions that we don't support.
 		</span><span class="kw">let </span>(relayer, call_info) = <span class="kw">match </span>pre {
 			<span class="prelude-val">Some</span>(<span class="prelude-val">Some</span>(pre)) =&gt; (pre.relayer, pre.call_info),
 			<span class="kw">_ </span>=&gt; <span class="kw">return </span>RelayerAccountAction::None,
 		};
 
 		<span class="comment">// now we know that the relayer either needs to be rewarded, or slashed
-		// =&gt; let&#39;s prepare the correspondent account that pays reward/receives slashed amount
+		// =&gt; let's prepare the correspondent account that pays reward/receives slashed amount
 		</span><span class="kw">let </span>reward_account_params =
 			RewardsAccountParams::new(
 				&lt;<span class="self">Self</span>::Msgs <span class="kw">as </span>RefundableMessagesLaneId&gt;::Id::get(),
@@ -3073,11 +3075,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.then(|| RelayerAccountAction::Slash(relayer.clone(), reward_account_params))
 			.unwrap_or(RelayerAccountAction::None);
 
-		<span class="comment">// We don&#39;t refund anything if the transaction has failed.
+		<span class="comment">// We don't refund anything if the transaction has failed.
 		</span><span class="kw">if let </span><span class="prelude-val">Err</span>(e) = result {
 			<span class="macro">log::trace!</span>(
-				target: <span class="string">&quot;runtime::bridge&quot;</span>,
-				<span class="string">&quot;{} via {:?}: relayer {:?} has submitted invalid messages transaction: {:?}&quot;</span>,
+				target: <span class="string">"runtime::bridge"</span>,
+				<span class="string">"{} via {:?}: relayer {:?} has submitted invalid messages transaction: {:?}"</span>,
 				<span class="self">Self</span>::Id::STR,
 				&lt;<span class="self">Self</span>::Msgs <span class="kw">as </span>RefundableMessagesLaneId&gt;::Id::get(),
 				relayer,
@@ -3093,8 +3095,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			) {
 				<span class="comment">// we only refund relayer if all calls have updated chain state
 				</span><span class="macro">log::trace!</span>(
-					target: <span class="string">&quot;runtime::bridge&quot;</span>,
-					<span class="string">&quot;{} via {:?}: relayer {:?} has submitted invalid relay chain finality proof&quot;</span>,
+					target: <span class="string">"runtime::bridge"</span>,
+					<span class="string">"{} via {:?}: relayer {:?} has submitted invalid relay chain finality proof"</span>,
 					<span class="self">Self</span>::Id::STR,
 					&lt;<span class="self">Self</span>::Msgs <span class="kw">as </span>RefundableMessagesLaneId&gt;::Id::get(),
 					relayer,
@@ -3102,26 +3104,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">return </span>slash_relayer_if_delivery_result
 			}
 
-			<span class="comment">// there&#39;s a conflict between how bridge GRANDPA pallet works and a `utility.batchAll`
+			<span class="comment">// there's a conflict between how bridge GRANDPA pallet works and a `utility.batchAll`
 			// transaction. If relay chain header is mandatory, the GRANDPA pallet returns
 			// `Pays::No`, because such transaction is mandatory for operating the bridge. But
-			// `utility.batchAll` transaction always requires payment. But in both cases we&#39;ll
-			// refund relayer - either explicitly here, or using `Pays::No` if he&#39;s choosing
+			// `utility.batchAll` transaction always requires payment. But in both cases we'll
+			// refund relayer - either explicitly here, or using `Pays::No` if he's choosing
 			// to submit dedicated transaction.
 
 			// submitter has means to include extra weight/bytes in the `submit_finality_proof`
-			// call, so let&#39;s subtract extra weight/size to avoid refunding for this extra stuff
+			// call, so let's subtract extra weight/size to avoid refunding for this extra stuff
 			</span>extra_weight = finality_proof_info.extra_weight;
 			extra_size = finality_proof_info.extra_size;
 		}
 
 		<span class="comment">// Check if the `ReceiveMessagesProof` call delivered at least some of the messages that
-		// it contained. If this happens, we consider the transaction &quot;helpful&quot; and refund it.
+		// it contained. If this happens, we consider the transaction "helpful" and refund it.
 		</span><span class="kw">let </span>msgs_call_info = call_info.messages_call_info();
 		<span class="kw">if </span>!MessagesCallHelper::&lt;<span class="self">Self</span>::Runtime, &lt;<span class="self">Self</span>::Msgs <span class="kw">as </span>RefundableMessagesLaneId&gt;::Instance&gt;::was_successful(msgs_call_info) {
 			<span class="macro">log::trace!</span>(
-				target: <span class="string">&quot;runtime::bridge&quot;</span>,
-				<span class="string">&quot;{} via {:?}: relayer {:?} has submitted invalid messages call&quot;</span>,
+				target: <span class="string">"runtime::bridge"</span>,
+				<span class="string">"{} via {:?}: relayer {:?} has submitted invalid messages call"</span>,
 				<span class="self">Self</span>::Id::STR,
 				&lt;<span class="self">Self</span>::Msgs <span class="kw">as </span>RefundableMessagesLaneId&gt;::Id::get(),
 				relayer,
@@ -3134,9 +3136,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">return </span>slash_relayer_if_delivery_result
 		}
 
-		<span class="comment">// regarding the tip - refund that happens here (at this side of the bridge) isn&#39;t the whole
-		// relayer compensation. He&#39;ll receive some amount at the other side of the bridge. It shall
-		// (in theory) cover the tip there. Otherwise, if we&#39;ll be compensating tip here, some
+		<span class="comment">// regarding the tip - refund that happens here (at this side of the bridge) isn't the whole
+		// relayer compensation. He'll receive some amount at the other side of the bridge. It shall
+		// (in theory) cover the tip there. Otherwise, if we'll be compensating tip here, some
 		// malicious relayer may use huge tips, effectively depleting account that pay rewards. The
 		// cost of this attack is nothing. Hence we use zero as tip here.
 		</span><span class="kw">let </span>tip = Zero::zero();
@@ -3146,7 +3148,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span><span class="kw-2">mut </span>post_info_weight =
 			post_info.actual_weight.unwrap_or(info.weight).saturating_sub(extra_weight);
 
-		<span class="comment">// let&#39;s also replace the weight of slashing relayer with the weight of rewarding relayer
+		<span class="comment">// let's also replace the weight of slashing relayer with the weight of rewarding relayer
 		</span><span class="kw">if </span>call_info.is_receive_messages_proof_call() {
 			post_info_weight = post_info_weight.saturating_sub(
 				&lt;<span class="self">Self</span>::Runtime <span class="kw">as </span>RelayersConfig&gt;::WeightInfo::extra_weight_of_successful_receive_messages_proof_call(),
@@ -3220,7 +3222,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		+ GrandpaCallSubType&lt;T::Runtime, T::GrandpaInstance&gt;
 		+ MessagesCallSubType&lt;T::Runtime, &lt;T::Msgs <span class="kw">as </span>RefundableMessagesLaneId&gt;::Instance&gt;,
 {
-	<span class="kw">const </span>IDENTIFIER: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = T::Id::STR;
+	<span class="kw">const </span>IDENTIFIER: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = T::Id::STR;
 	<span class="kw">type </span>AccountId = AccountIdOf&lt;T::Runtime&gt;;
 	<span class="kw">type </span>Call = CallOf&lt;T::Runtime&gt;;
 	<span class="kw">type </span>AdditionalSigned = ();
@@ -3239,8 +3241,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; TransactionValidity {
 		<span class="comment">// this is the only relevant line of code for the `pre_dispatch`
 		//
-		// we&#39;re not calling `validate` from `pre_dispatch` directly because of performance
-		// reasons, so if you&#39;re adding some code that may fail here, please check if it needs
+		// we're not calling `validate` from `pre_dispatch` directly because of performance
+		// reasons, so if you're adding some code that may fail here, please check if it needs
 		// to be added to the `pre_dispatch` as well
 		</span><span class="kw">let </span>parsed_call = T::parse_and_check_for_obsolete_call(call)<span class="question-mark">?</span>;
 
@@ -3264,9 +3266,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>valid_transaction = ValidTransactionBuilder::default().priority(priority_boost);
 
 		<span class="macro">log::trace!</span>(
-			target: <span class="string">&quot;runtime::bridge&quot;</span>,
-			<span class="string">&quot;{} via {:?} has boosted priority of message delivery transaction \
-			of relayer {:?}: {} messages -&gt; {} priority&quot;</span>,
+			target: <span class="string">"runtime::bridge"</span>,
+			<span class="string">"{} via {:?} has boosted priority of message delivery transaction \
+			of relayer {:?}: {} messages -&gt; {} priority"</span>,
 			<span class="self">Self</span>::IDENTIFIER,
 			&lt;T::Msgs <span class="kw">as </span>RefundableMessagesLaneId&gt;::Id::get(),
 			who,
@@ -3289,8 +3291,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="prelude-val">Ok</span>(parsed_call.map(|call_info| {
 			<span class="macro">log::trace!</span>(
-				target: <span class="string">&quot;runtime::bridge&quot;</span>,
-				<span class="string">&quot;{} via {:?} parsed bridge transaction in pre-dispatch: {:?}&quot;</span>,
+				target: <span class="string">"runtime::bridge"</span>,
+				<span class="string">"{} via {:?} parsed bridge transaction in pre-dispatch: {:?}"</span>,
 				<span class="self">Self</span>::IDENTIFIER,
 				&lt;T::Msgs <span class="kw">as </span>RefundableMessagesLaneId&gt;::Id::get(),
 				call_info,
@@ -3318,8 +3320,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				);
 
 				<span class="macro">log::trace!</span>(
-					target: <span class="string">&quot;runtime::bridge&quot;</span>,
-					<span class="string">&quot;{} via {:?} has registered reward: {:?} for {:?}&quot;</span>,
+					target: <span class="string">"runtime::bridge"</span>,
+					<span class="string">"{} via {:?} has registered reward: {:?} for {:?}"</span>,
 					<span class="self">Self</span>::IDENTIFIER,
 					&lt;T::Msgs <span class="kw">as </span>RefundableMessagesLaneId&gt;::Id::get(),
 					reward,
@@ -3381,7 +3383,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl</span>&lt;Runtime, Para, Msgs, Refund, Priority, Id&gt; RefundSignedExtension
 	<span class="kw">for </span>RefundBridgedParachainMessages&lt;Runtime, Para, Msgs, Refund, Priority, Id&gt;
 <span class="kw">where
-	</span><span class="self">Self</span>: <span class="lifetime">&#39;static </span>+ Send + Sync,
+	</span><span class="self">Self</span>: <span class="lifetime">'static </span>+ Send + Sync,
 	Runtime: UtilityConfig&lt;RuntimeCall = CallOf&lt;Runtime&gt;&gt;
 		+ BoundedBridgeGrandpaConfig&lt;Runtime::BridgesGrandpaPalletInstance&gt;
 		+ ParachainsConfig&lt;Para::Instance&gt;
@@ -3457,8 +3459,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			) {
 				<span class="comment">// we only refund relayer if all calls have updated chain state
 				</span><span class="macro">log::trace!</span>(
-					target: <span class="string">&quot;runtime::bridge&quot;</span>,
-					<span class="string">&quot;{} from parachain {} via {:?}: relayer {:?} has submitted invalid parachain finality proof&quot;</span>,
+					target: <span class="string">"runtime::bridge"</span>,
+					<span class="string">"{} from parachain {} via {:?}: relayer {:?} has submitted invalid parachain finality proof"</span>,
 					Id::STR,
 					Para::Id::get(),
 					Msgs::Id::get(),
@@ -3516,12 +3518,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl</span>&lt;Runtime, GrandpaInstance, Msgs, Refund, Priority, Id&gt; RefundSignedExtension
 	<span class="kw">for </span>RefundBridgedGrandpaMessages&lt;Runtime, GrandpaInstance, Msgs, Refund, Priority, Id&gt;
 <span class="kw">where
-	</span><span class="self">Self</span>: <span class="lifetime">&#39;static </span>+ Send + Sync,
+	</span><span class="self">Self</span>: <span class="lifetime">'static </span>+ Send + Sync,
 	Runtime: UtilityConfig&lt;RuntimeCall = CallOf&lt;Runtime&gt;&gt;
 		+ BoundedBridgeGrandpaConfig&lt;GrandpaInstance&gt;
 		+ MessagesConfig&lt;Msgs::Instance&gt;
 		+ RelayersConfig,
-	GrandpaInstance: <span class="lifetime">&#39;static</span>,
+	GrandpaInstance: <span class="lifetime">'static</span>,
 	Msgs: RefundableMessagesLaneId,
 	Refund: RefundCalculator&lt;Balance = Runtime::Reward&gt;,
 	Priority: Get&lt;TransactionPriority&gt;,
@@ -4293,7 +4295,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				run_validate(message_delivery_call(<span class="number">300</span>)).unwrap().priority;
 			<span class="macro">assert!</span>(
 				priority_of_200_messages_delivery &gt; priority_of_100_messages_delivery,
-				<span class="string">&quot;Invalid priorities: {} for 200 messages vs {} for 100 messages&quot;</span>,
+				<span class="string">"Invalid priorities: {} for 200 messages vs {} for 100 messages"</span>,
 				priority_of_200_messages_delivery,
 				priority_of_100_messages_delivery,
 			);
@@ -4330,7 +4332,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="macro">assert!</span>(
 				priority_of_max_messages_delivery &gt; priority_of_more_than_max_messages_delivery,
-				<span class="string">&quot;Invalid priorities: {} for MAX messages vs {} for MAX+1 messages&quot;</span>,
+				<span class="string">"Invalid priorities: {} for MAX messages vs {} for MAX+1 messages"</span>,
 				priority_of_max_messages_delivery,
 				priority_of_more_than_max_messages_delivery,
 			);
@@ -4829,7 +4831,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.unwrap();
 			<span class="macro">assert!</span>(
 				reward_after_two_calls &lt; <span class="number">2 </span>* regular_reward,
-				<span class="string">&quot;{}  must be &lt; 2 * {}&quot;</span>,
+				<span class="string">"{}  must be &lt; 2 * {}"</span>,
 				reward_after_two_calls,
 				<span class="number">2 </span>* regular_reward,
 			);
@@ -4956,7 +4958,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				Balances::free_balance(delivery_rewards_account())
 			);
 
-			<span class="comment">// reserve doesn&#39;t work for message confirmation calls
+			<span class="comment">// reserve doesn't work for message confirmation calls
 			</span><span class="kw">let </span>confirmation_rewards_account_balance =
 				Balances::free_balance(confirmation_rewards_account());
 

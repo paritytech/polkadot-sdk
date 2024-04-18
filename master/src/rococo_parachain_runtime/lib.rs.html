@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `cumulus/parachains/runtimes/testing/rococo-parachain/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `cumulus/parachains/runtimes/testing/rococo-parachain/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="rococo_parachain_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="rococo_parachain_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../rococo_parachain_runtime/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1016,13 +1018,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see &lt;http://www.gnu.org/licenses/&gt;.
 
-</span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
+</span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 </span><span class="comment">// `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
-</span><span class="attr">#![recursion_limit = <span class="string">&quot;256&quot;</span>]
+</span><span class="attr">#![recursion_limit = <span class="string">"256"</span>]
 
 </span><span class="comment">// Make the WASM binary available.
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
-</span><span class="macro">include!</span>(<span class="macro">concat!</span>(<span class="macro">env!</span>(<span class="string">&quot;OUT_DIR&quot;</span>), <span class="string">&quot;/wasm_binary.rs&quot;</span>));
+</span><span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
+</span><span class="macro">include!</span>(<span class="macro">concat!</span>(<span class="macro">env!</span>(<span class="string">"OUT_DIR"</span>), <span class="string">"/wasm_binary.rs"</span>));
 
 <span class="kw">use </span>cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 <span class="kw">use </span>polkadot_runtime_common::xcm_sender::NoPriceForMessageDelivery;
@@ -1035,7 +1037,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	ApplyExtrinsicResult,
 };
 <span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">use </span>sp_version::NativeVersion;
 <span class="kw">use </span>sp_version::RuntimeVersion;
 
@@ -1064,7 +1066,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">pub use </span>pallet_balances::Call <span class="kw">as </span>BalancesCall;
 <span class="kw">pub use </span>pallet_timestamp::Call <span class="kw">as </span>TimestampCall;
 <span class="kw">pub use </span>sp_consensus_aura::sr25519::AuthorityId <span class="kw">as </span>AuraId;
-<span class="attr">#[cfg(any(feature = <span class="string">&quot;std&quot;</span>, test))]
+<span class="attr">#[cfg(any(feature = <span class="string">"std"</span>, test))]
 </span><span class="kw">pub use </span>sp_runtime::BuildStorage;
 <span class="kw">pub use </span>sp_runtime::{Perbill, Permill};
 
@@ -1106,8 +1108,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// This runtime version.
 </span><span class="attr">#[sp_version::runtime_version]
 </span><span class="kw">pub const </span>VERSION: RuntimeVersion = RuntimeVersion {
-	spec_name: <span class="macro">create_runtime_str!</span>(<span class="string">&quot;test-parachain&quot;</span>),
-	impl_name: <span class="macro">create_runtime_str!</span>(<span class="string">&quot;test-parachain&quot;</span>),
+	spec_name: <span class="macro">create_runtime_str!</span>(<span class="string">"test-parachain"</span>),
+	impl_name: <span class="macro">create_runtime_str!</span>(<span class="string">"test-parachain"</span>),
 	authoring_version: <span class="number">1</span>,
 	spec_version: <span class="number">1_010_000</span>,
 	impl_version: <span class="number">0</span>,
@@ -1135,7 +1137,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub const </span>PRIMARY_PROBABILITY: (u64, u64) = (<span class="number">1</span>, <span class="number">4</span>);
 
 <span class="doccomment">/// The version information used to identify this runtime when compiled natively.
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+</span><span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">pub fn </span>native_version() -&gt; NativeVersion {
 	NativeVersion { runtime_version: VERSION, can_author_with: Default::default() }
 }
@@ -1242,7 +1244,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl </span>pallet_balances::Config <span class="kw">for </span>Runtime {
-	<span class="doccomment">/// The type for recording an account&#39;s balance.
+	<span class="doccomment">/// The type for recording an account's balance.
 	</span><span class="kw">type </span>Balance = Balance;
 	<span class="kw">type </span>DustRemoval = ();
 	<span class="doccomment">/// The ubiquitous event type.
@@ -1355,9 +1357,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>IsConcrete&lt;RocLocation&gt;,
 	<span class="comment">// Do a simple punn to convert an AccountId32 Location into a native chain account ID:
 	</span>LocationToAccountId,
-	<span class="comment">// Our chain&#39;s account ID type (we can&#39;t get away without mentioning it explicitly):
+	<span class="comment">// Our chain's account ID type (we can't get away without mentioning it explicitly):
 	</span>AccountId,
-	<span class="comment">// We don&#39;t track any teleports.
+	<span class="comment">// We don't track any teleports.
 	</span>(),
 &gt;;
 
@@ -1378,7 +1380,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	&gt;,
 	<span class="comment">// Convert an XCM Location into a local account id:
 	</span>LocationToAccountId,
-	<span class="comment">// Our chain&#39;s account ID type (we can&#39;t get away without mentioning it explicitly):
+	<span class="comment">// Our chain's account ID type (we can't get away without mentioning it explicitly):
 	</span>AccountId,
 	<span class="comment">// We only want to allow teleports of known assets. We use non-zero issuance as an indication
 	// that this asset is known.
@@ -1390,7 +1392,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub type </span>AssetTransactors = (FungibleTransactor, FungiblesTransactor);
 
 <span class="doccomment">/// This is the type we use to convert an (incoming) XCM origin into a local `Origin` instance,
-/// ready for dispatching a transaction with Xcm&#39;s `Transact`. There is an `OriginKind` which can
+/// ready for dispatching a transaction with Xcm's `Transact`. There is an `OriginKind` which can
 /// biases the kind of local `Origin` it will become.
 </span><span class="kw">pub type </span>XcmOriginToTransactDispatchOrigin = (
 	<span class="comment">// Sovereign account converter; this attempts to derive an `AccountId` from the origin location
@@ -1409,7 +1411,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="comment">// Native signed account converter; this just converts an `AccountId32` origin into a normal
 	// `RuntimeOrigin::Signed` origin of the same 32-byte value.
 	</span>SignedAccountId32AsNative&lt;RococoNetwork, RuntimeOrigin&gt;,
-	<span class="comment">// Xcm origins can be represented natively under the Xcm pallet&#39;s Xcm origin.
+	<span class="comment">// Xcm origins can be represented natively under the Xcm pallet's Xcm origin.
 	</span>XcmPassthrough&lt;RuntimeOrigin&gt;,
 );
 
@@ -1440,7 +1442,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	AllowTopLevelPaidExecutionFrom&lt;Everything&gt;,
 	<span class="comment">// Parent &amp; its unit plurality gets free execution.
 	</span>AllowExplicitUnpaidExecutionFrom&lt;ParentOrParentsUnitPlurality&gt;,
-	<span class="comment">// The network&#39;s Asset Hub gets free execution.
+	<span class="comment">// The network's Asset Hub gets free execution.
 	</span>AllowExplicitUnpaidExecutionFrom&lt;AssetHub&gt;,
 	<span class="comment">// Expected responses are OK.
 	</span>AllowKnownQueryResponses&lt;PolkadotXcm&gt;,
@@ -1452,7 +1454,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">pub </span>MaxAssetsIntoHolding: u32 = <span class="number">64</span>;
 	<span class="kw">pub </span>SystemAssetHubLocation: Location = Location::new(<span class="number">1</span>, [Parachain(<span class="number">1000</span>)]);
 	<span class="comment">// ALWAYS ensure that the index in PalletInstance stays up-to-date with
-	// the Relay Chain&#39;s Asset Hub&#39;s Assets pallet index
+	// the Relay Chain's Asset Hub's Assets pallet index
 	</span><span class="kw">pub </span>SystemAssetHubAssetsPalletLocation: Location =
 		Location::new(<span class="number">1</span>, [Parachain(<span class="number">1000</span>), PalletInstance(<span class="number">50</span>)]);
 }
@@ -1588,7 +1590,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>CallbackHandle = ();
 	<span class="kw">type </span>AssetAccountDeposit = AssetAccountDeposit;
 	<span class="kw">type </span>RemoveItemsLimit = frame_support::traits::ConstU32&lt;<span class="number">1000</span>&gt;;
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">type </span>BenchmarkHelper = ();
 }
 
@@ -1677,7 +1679,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">use </span>frame_support::storage::migration;
 		<span class="comment">// Remove the storage value `RandomMaterial` from removed pallet `RandomnessCollectiveFlip`
 		</span><span class="attr">#[allow(deprecated)]
-		</span>migration::remove_storage_prefix(<span class="string">b&quot;RandomnessCollectiveFlip&quot;</span>, <span class="string">b&quot;RandomMaterial&quot;</span>, <span class="string">b&quot;&quot;</span>);
+		</span>migration::remove_storage_prefix(<span class="string">b"RandomnessCollectiveFlip"</span>, <span class="string">b"RandomMaterial"</span>, <span class="string">b""</span>);
 		&lt;Runtime <span class="kw">as </span>frame_system::Config&gt;::DbWeight::get().writes(<span class="number">1</span>)
 	}
 }

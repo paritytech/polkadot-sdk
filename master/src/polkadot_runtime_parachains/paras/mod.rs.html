@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/runtime/parachains/src/paras/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/runtime/parachains/src/paras/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_runtime_parachains" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_runtime_parachains" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../polkadot_runtime_parachains/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -2556,7 +2558,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!
 //! The conditions that must be met before the para can use the new validation code are:
 //!
-//! 1. The validation code should have been &quot;soaked&quot; in the storage for a given number of blocks.
+//! 1. The validation code should have been "soaked" in the storage for a given number of blocks.
 //! That    is, the validation code should have been stored in on-chain storage for some time, so
 //! that in    case of a revert with a non-extreme height difference, that validation code can still
 //! be    found on-chain.
@@ -2567,7 +2569,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! # Validation Code Management
 //!
 //! Potentially, one validation code can be used by several different paras. For example, during
-//! initial stages of deployment several paras can use the same &quot;shell&quot; validation code, or
+//! initial stages of deployment several paras can use the same "shell" validation code, or
 //! there can be shards of the same para that use the same validation code.
 //!
 //! In case a validation code ceases to have any users it must be pruned from the on-chain storage.
@@ -2646,7 +2648,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">pub use </span><span class="kw">crate</span>::Origin <span class="kw">as </span>ParachainOrigin;
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>benchmarking;
 
 <span class="attr">#[cfg(test)]
@@ -2654,14 +2656,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">pub use </span>pallet::<span class="kw-2">*</span>;
 
-<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;runtime::paras&quot;</span>;
+<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"runtime::paras"</span>;
 
 <span class="comment">// the two key times necessary to track for every code replacement.
 </span><span class="attr">#[derive(Default, Encode, Decode, TypeInfo)]
 #[cfg_attr(test, derive(Debug, Clone, PartialEq))]
 </span><span class="kw">pub struct </span>ReplacementTimes&lt;N&gt; {
 	<span class="doccomment">/// The relay-chain block number that the code upgrade was expected to be activated.
-	/// This is when the code change occurs from the para&#39;s perspective - after the
+	/// This is when the code change occurs from the para's perspective - after the
 	/// first parablock included with a relay-parent with number &gt;= this value.
 	</span>expected_at: N,
 	<span class="doccomment">/// The relay-chain block number at which the parablock activating the code upgrade was
@@ -2688,7 +2690,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// The possible states of a para, to take into account delayed lifecycle changes.
 ///
-/// If the para is in a &quot;transition state&quot;, it is expected that the parachain is
+/// If the para is in a "transition state", it is expected that the parachain is
 /// queued in the `ActionsQueue` to transition it into a stable state. Its lifecycle
 /// state will be used to determine the state transition to apply to the para.
 </span><span class="attr">#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
@@ -2780,13 +2782,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	// note that code replaced at `x` is the code used to validate all blocks before
 	// `x`. Thus, `max` should be outside of the slashing window when this is invoked.
 	//
-	// Since we don&#39;t want to prune anything inside the acceptance period, and the parablock only
+	// Since we don't want to prune anything inside the acceptance period, and the parablock only
 	// enters the acceptance period after being included, we prune based on the activation height of
 	// the code change, not the expected height of the code change.
 	//
 	// returns an iterator of block numbers at which code was replaced, where the replaced
 	// code should be now pruned, in ascending order.
-	</span><span class="kw">fn </span>prune_up_to(<span class="kw-2">&amp;</span><span class="lifetime">&#39;_ </span><span class="kw-2">mut </span><span class="self">self</span>, max: N) -&gt; <span class="kw">impl </span>Iterator&lt;Item = N&gt; + <span class="lifetime">&#39;_ </span>{
+	</span><span class="kw">fn </span>prune_up_to(<span class="kw-2">&amp;</span><span class="lifetime">'_ </span><span class="kw-2">mut </span><span class="self">self</span>, max: N) -&gt; <span class="kw">impl </span>Iterator&lt;Item = N&gt; + <span class="lifetime">'_ </span>{
 		<span class="kw">let </span>to_prune = <span class="self">self</span>.upgrade_times.iter().take_while(|t| t.activated_at &lt;= max).count();
 		<span class="kw">let </span>drained = <span class="kw">if </span>to_prune == <span class="number">0 </span>{
 			<span class="comment">// no-op prune.
@@ -2809,7 +2811,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// The initial validation code to use.
 	</span><span class="kw">pub </span>validation_code: ValidationCode,
 	<span class="doccomment">/// Lease holding or on-demand parachain.
-	</span><span class="attr">#[serde(rename = <span class="string">&quot;parachain&quot;</span>)]
+	</span><span class="attr">#[serde(rename = <span class="string">"parachain"</span>)]
 	</span><span class="kw">pub </span>para_kind: ParaKind,
 }
 
@@ -2832,15 +2834,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;de</span>&gt; Deserialize&lt;<span class="lifetime">&#39;de</span>&gt; <span class="kw">for </span>ParaKind {
+<span class="kw">impl</span>&lt;<span class="lifetime">'de</span>&gt; Deserialize&lt;<span class="lifetime">'de</span>&gt; <span class="kw">for </span>ParaKind {
 	<span class="kw">fn </span>deserialize&lt;D&gt;(deserializer: D) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, D::Error&gt;
 	<span class="kw">where
-		</span>D: serde::Deserializer&lt;<span class="lifetime">&#39;de</span>&gt;,
+		</span>D: serde::Deserializer&lt;<span class="lifetime">'de</span>&gt;,
 	{
 		<span class="kw">match </span>serde::de::Deserialize::deserialize(deserializer) {
 			<span class="prelude-val">Ok</span>(<span class="bool-val">true</span>) =&gt; <span class="prelude-val">Ok</span>(ParaKind::Parachain),
 			<span class="prelude-val">Ok</span>(<span class="bool-val">false</span>) =&gt; <span class="prelude-val">Ok</span>(ParaKind::Parathread),
-			<span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(serde::de::Error::custom(<span class="string">&quot;invalid ParaKind serde representation&quot;</span>)),
+			<span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(serde::de::Error::custom(<span class="string">"invalid ParaKind serde representation"</span>)),
 		}
 	}
 }
@@ -2867,7 +2869,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">match </span>bool::decode(input) {
 			<span class="prelude-val">Ok</span>(<span class="bool-val">true</span>) =&gt; <span class="prelude-val">Ok</span>(ParaKind::Parachain),
 			<span class="prelude-val">Ok</span>(<span class="bool-val">false</span>) =&gt; <span class="prelude-val">Ok</span>(ParaKind::Parathread),
-			<span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(<span class="string">&quot;Invalid ParaKind representation&quot;</span>.into()),
+			<span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(<span class="string">"Invalid ParaKind representation"</span>.into()),
 		}
 	}
 }
@@ -2893,7 +2895,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="doccomment">/// The relay-chain block number of **inclusion** of candidate that that initiated the
 		/// upgrade.
 		///
-		/// It&#39;s important to count upgrade enactment delay from the inclusion of this candidate
+		/// It's important to count upgrade enactment delay from the inclusion of this candidate
 		/// instead of its relay parent -- in order to keep PVF available in case of chain
 		/// reversions.
 		///
@@ -2923,7 +2925,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>SetGoAheadSignal,
 	<span class="doccomment">/// Apply the upgrade directly at the expected relay chain block.
 	///
-	/// This doesn&#39;t wait for the parachain to make any kind of progress.
+	/// This doesn't wait for the parachain to make any kind of progress.
 	</span>ApplyAtExpectedBlock,
 }
 
@@ -3310,7 +3312,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// This value is absent when there are no upgrades scheduled or during the time the relay chain
 	/// performs the checks. It is set at the first relay-chain block when the corresponding
-	/// parachain can switch its upgrade function. As soon as the parachain&#39;s block is included, the
+	/// parachain can switch its upgrade function. As soon as the parachain's block is included, the
 	/// value gets reset to `None`.
 	///
 	/// NOTE that this field is used by parachains via merkle storage proofs, therefore changing
@@ -3356,7 +3358,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Upcoming paras instantiation arguments.
 	///
-	/// NOTE that after PVF pre-checking is enabled the para genesis arg will have it&#39;s code set
+	/// NOTE that after PVF pre-checking is enabled the para genesis arg will have it's code set
 	/// to empty. Instead, the code will be saved into the storage right away via `CodeByHash`.
 	</span><span class="attr">#[pallet::storage]
 	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>UpcomingParasGenesis&lt;T: Config&gt; =
@@ -3388,11 +3390,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span><span class="kw-2">mut </span>parachains = ParachainsCache::new();
 			<span class="kw">for </span>(id, genesis_args) <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.paras {
 				<span class="kw">if </span>genesis_args.validation_code.<span class="number">0</span>.is_empty() {
-					<span class="macro">panic!</span>(<span class="string">&quot;empty validation code is not allowed in genesis&quot;</span>);
+					<span class="macro">panic!</span>(<span class="string">"empty validation code is not allowed in genesis"</span>);
 				}
 				Pallet::&lt;T&gt;::initialize_para_now(<span class="kw-2">&amp;mut </span>parachains, <span class="kw-2">*</span>id, genesis_args);
 				T::AssignCoretime::assign_coretime(<span class="kw-2">*</span>id)
-					.expect(<span class="string">&quot;Assigning coretime works at genesis; qed&quot;</span>);
+					.expect(<span class="string">"Assigning coretime works at genesis; qed"</span>);
 			}
 			<span class="comment">// parachains are flushed on drop
 		</span>}
@@ -3466,8 +3468,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Ok</span>(())
 		}
 
-		<span class="doccomment">/// Put a parachain directly into the next session&#39;s action queue.
-		/// We can&#39;t queue it any sooner than this without going into the
+		<span class="doccomment">/// Put a parachain directly into the next session's action queue.
+		/// We can't queue it any sooner than this without going into the
 		/// initializer...
 		</span><span class="attr">#[pallet::call_index(<span class="number">4</span>)]
 		#[pallet::weight(&lt;T <span class="kw">as </span>Config&gt;::WeightInfo::force_queue_action())]
@@ -3597,7 +3599,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span><span class="kw-2">mut </span>active_vote = PvfActiveVoteMap::&lt;T&gt;::get(<span class="kw-2">&amp;</span>stmt.subject)
 				.ok_or(Error::&lt;T&gt;::PvfCheckSubjectInvalid)<span class="question-mark">?</span>;
 
-			<span class="comment">// Ensure that the validator submitting this statement hasn&#39;t voted already.
+			<span class="comment">// Ensure that the validator submitting this statement hasn't voted already.
 			</span><span class="macro">ensure!</span>(
 				!active_vote
 					.has_vote(validator_index)
@@ -3705,7 +3707,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="prelude-val">None </span>=&gt; <span class="kw">return </span>InvalidTransaction::Custom(INVALID_TX_BAD_VALIDATOR_IDX).into(),
 			}
 
-			ValidTransaction::with_tag_prefix(<span class="string">&quot;PvfPreCheckingVote&quot;</span>)
+			ValidTransaction::with_tag_prefix(<span class="string">"PvfPreCheckingVote"</span>)
 				.priority(T::UnsignedPriority::get())
 				.longevity(
 					TryInto::&lt;u64&gt;::try_into(
@@ -3796,10 +3798,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>code = CodeByHash::&lt;T&gt;::get(<span class="kw-2">&amp;</span>code_hash);
 			<span class="kw">if </span>code.is_none() {
 				<span class="macro">log::error!</span>(
-					<span class="string">&quot;Pallet paras storage is inconsistent, code not found for hash {}&quot;</span>,
+					<span class="string">"Pallet paras storage is inconsistent, code not found for hash {}"</span>,
 					code_hash,
 				);
-				<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>, <span class="string">&quot;inconsistent paras storages&quot;</span>);
+				<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>, <span class="string">"inconsistent paras storages"</span>);
 			}
 			code
 		})
@@ -3951,7 +3953,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							} <span class="kw">else </span>{
 								<span class="macro">log::warn!</span>(
 									target: LOG_TARGET,
-									<span class="string">&quot;Missing code for removed hash {:?}&quot;</span>,
+									<span class="string">"Missing code for removed hash {:?}"</span>,
 									removed_code_hash,
 								);
 							}
@@ -3993,7 +3995,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					{
 						new_code_hash
 					} <span class="kw">else </span>{
-						<span class="macro">log::error!</span>(target: LOG_TARGET, <span class="string">&quot;Missing future code hash for {:?}&quot;</span>, <span class="kw-2">&amp;</span>id);
+						<span class="macro">log::error!</span>(target: LOG_TARGET, <span class="string">"Missing future code hash for {:?}"</span>, <span class="kw-2">&amp;</span>id);
 						<span class="kw">continue
 					</span>};
 
@@ -4079,11 +4081,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="prelude-val">Some</span>(v) =&gt; v,
 				<span class="prelude-val">None </span>=&gt; {
 					<span class="comment">// This branch should never be reached. This is due to the fact that the set of
-					// `PvfActiveVoteMap`&#39;s keys is always equal to the set of items found in
+					// `PvfActiveVoteMap`'s keys is always equal to the set of items found in
 					// `PvfActiveVoteList`.
 					</span><span class="macro">log::warn!</span>(
 						target: LOG_TARGET,
-						<span class="string">&quot;The PvfActiveVoteMap is out of sync with PvfActiveVoteList!&quot;</span>,
+						<span class="string">"The PvfActiveVoteMap is out of sync with PvfActiveVoteList!"</span>,
 					);
 					<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
 					<span class="kw">continue
@@ -4278,7 +4280,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		id: ParaId,
 		<span class="kw-2">mut </span>genesis_data: ParaGenesisArgs,
 	) -&gt; DispatchResult {
-		<span class="comment">// Make sure parachain isn&#39;t already in our system and that the onboarding parameters are
+		<span class="comment">// Make sure parachain isn't already in our system and that the onboarding parameters are
 		// valid.
 		</span><span class="macro">ensure!</span>(<span class="self">Self</span>::can_schedule_para_initialize(<span class="kw-2">&amp;</span>id), Error::&lt;T&gt;::CannotOnboard);
 		<span class="macro">ensure!</span>(!genesis_data.validation_code.<span class="number">0</span>.is_empty(), Error::&lt;T&gt;::CannotOnboard);
@@ -4354,7 +4356,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		// with a new para head, so if a para never progresses we still should be able to offboard
 		// it.
 		//
-		// This implicitly assumes that the given para exists, i.e. it&#39;s lifecycle != None.
+		// This implicitly assumes that the given para exists, i.e. it's lifecycle != None.
 		</span><span class="kw">if let </span><span class="prelude-val">Some</span>(future_code_hash) = FutureCodeHash::&lt;T&gt;::get(<span class="kw-2">&amp;</span>id) {
 			<span class="kw">let </span>active_prechecking = PvfActiveVoteList::&lt;T&gt;::get();
 			<span class="kw">if </span>active_prechecking.contains(<span class="kw-2">&amp;</span>future_code_hash) {
@@ -4457,7 +4459,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// Should be prevented by checks in `schedule_code_upgrade_external`
 		</span><span class="kw">let </span>new_code_len = new_code.<span class="number">0</span>.len();
 		<span class="kw">if </span>new_code_len &lt; MIN_CODE_SIZE <span class="kw">as </span>usize || new_code_len &gt; cfg.max_code_size <span class="kw">as </span>usize {
-			<span class="macro">log::warn!</span>(target: LOG_TARGET, <span class="string">&quot;attempted to schedule an upgrade with invalid new validation code&quot;</span>,);
+			<span class="macro">log::warn!</span>(target: LOG_TARGET, <span class="string">"attempted to schedule an upgrade with invalid new validation code"</span>,);
 			<span class="kw">return </span>weight
 		}
 
@@ -4471,7 +4473,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			//
 			// NOTE: we cannot set `UpgradeGoAheadSignal` signal here since this will be reset by
 			//       the following call `note_new_head`
-			</span><span class="macro">log::warn!</span>(target: LOG_TARGET, <span class="string">&quot;ended up scheduling an upgrade while one is pending&quot;</span>,);
+			</span><span class="macro">log::warn!</span>(target: LOG_TARGET, <span class="string">"ended up scheduling an upgrade while one is pending"</span>,);
 			<span class="kw">return </span>weight
 		}
 
@@ -4487,7 +4489,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			//       the following call `note_new_head`
 			</span><span class="macro">log::warn!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;para tried to upgrade to the same code. Abort the upgrade&quot;</span>,
+				<span class="string">"para tried to upgrade to the same code. Abort the upgrade"</span>,
 			);
 			<span class="kw">return </span>weight
 		}
@@ -4522,7 +4524,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// immediately.
 	///
 	/// If the code is unknown, but the pre-checking for that PVF is already running then we perform
-	/// &quot;coalescing&quot;. We save the cause for this PVF pre-check request and just add it to the
+	/// "coalescing". We save the cause for this PVF pre-check request and just add it to the
 	/// existing active PVF vote.
 	///
 	/// And finally, if the code is unknown and pre-checking is not running, we start the
@@ -4616,7 +4618,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				</span><span class="kw">let </span>new_code_hash = <span class="kw">if let </span><span class="prelude-val">Some</span>(new_code_hash) = FutureCodeHash::&lt;T&gt;::take(<span class="kw-2">&amp;</span>id) {
 					new_code_hash
 				} <span class="kw">else </span>{
-					<span class="macro">log::error!</span>(target: LOG_TARGET, <span class="string">&quot;Missing future code hash for {:?}&quot;</span>, <span class="kw-2">&amp;</span>id);
+					<span class="macro">log::error!</span>(target: LOG_TARGET, <span class="string">"Missing future code hash for {:?}"</span>, <span class="kw-2">&amp;</span>id);
 					<span class="kw">return </span>T::DbWeight::get().reads_writes(<span class="number">3</span>, <span class="number">1 </span>+ <span class="number">3</span>)
 				};
 
@@ -4659,7 +4661,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>weight = <span class="kw">if let </span><span class="prelude-val">Some</span>(prior_code_hash) = maybe_prior_code_hash {
 			<span class="self">Self</span>::note_past_code(id, at, now, prior_code_hash)
 		} <span class="kw">else </span>{
-			<span class="macro">log::error!</span>(target: LOG_TARGET, <span class="string">&quot;Missing prior code hash for para {:?}&quot;</span>, <span class="kw-2">&amp;</span>id);
+			<span class="macro">log::error!</span>(target: LOG_TARGET, <span class="string">"Missing prior code hash for para {:?}"</span>, <span class="kw-2">&amp;</span>id);
 			Weight::zero()
 		};
 
@@ -4687,7 +4689,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if let </span><span class="prelude-val">Err</span>(e) = SubmitTransaction::&lt;T, Call&lt;T&gt;&gt;::submit_unsigned_transaction(
 			Call::include_pvf_check_statement { stmt, signature }.into(),
 		) {
-			<span class="macro">log::error!</span>(target: LOG_TARGET, <span class="string">&quot;Error submitting pvf check statement: {:?}&quot;</span>, e,);
+			<span class="macro">log::error!</span>(target: LOG_TARGET, <span class="string">"Error submitting pvf check statement: {:?}"</span>, e,);
 		}
 	}
 
@@ -4771,7 +4773,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span><span class="kw-2">mut </span>weight = T::DbWeight::get().reads(<span class="number">1</span>);
 		<span class="kw">let </span>refs = CodeByHashRefs::&lt;T&gt;::get(code_hash);
 		<span class="kw">if </span>refs == <span class="number">0 </span>{
-			<span class="macro">log::error!</span>(target: LOG_TARGET, <span class="string">&quot;Code refs is already zero for {:?}&quot;</span>, code_hash);
+			<span class="macro">log::error!</span>(target: LOG_TARGET, <span class="string">"Code refs is already zero for {:?}"</span>, code_hash);
 			<span class="kw">return </span>weight
 		}
 		<span class="kw">if </span>refs &lt;= <span class="number">1 </span>{
@@ -4786,7 +4788,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Test function for triggering a new session in this pallet.
-	</span><span class="attr">#[cfg(any(feature = <span class="string">&quot;std&quot;</span>, feature = <span class="string">&quot;runtime-benchmarks&quot;</span>, test))]
+	</span><span class="attr">#[cfg(any(feature = <span class="string">"std"</span>, feature = <span class="string">"runtime-benchmarks"</span>, test))]
 	</span><span class="kw">pub fn </span>test_on_new_session() {
 		<span class="self">Self</span>::initializer_on_new_session(<span class="kw-2">&amp;</span>SessionChangeNotification {
 			session_index: shared::CurrentSessionIndex::&lt;T&gt;::get(),
@@ -4794,7 +4796,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		});
 	}
 
-	<span class="attr">#[cfg(any(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>, test))]
+	<span class="attr">#[cfg(any(feature = <span class="string">"runtime-benchmarks"</span>, test))]
 	</span><span class="kw">pub fn </span>heads_insert(para_id: <span class="kw-2">&amp;</span>ParaId, head_data: HeadData) {
 		Heads::&lt;T&gt;::insert(para_id, head_data);
 	}

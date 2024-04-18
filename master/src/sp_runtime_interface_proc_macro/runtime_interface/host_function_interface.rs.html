@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/runtime-interface/proc-macro/src/runtime_interface/host_function_interface.rs`."><title>host_function_interface.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/runtime-interface/proc-macro/src/runtime_interface/host_function_interface.rs`."><title>host_function_interface.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sp_runtime_interface_proc_macro" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sp_runtime_interface_proc_macro" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../sp_runtime_interface_proc_macro/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -618,14 +620,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -678,7 +680,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="doccomment">/// The implementations of the extern host functions. This special implementation module
 		/// is required to change the extern host functions signature to
 		/// `unsafe fn name(args) -&gt; ret` to make the function implementations exchangeable.
-		</span><span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+		</span><span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
 		</span><span class="kw">mod </span>extern_host_function_impls {
 			<span class="kw">use super</span>::<span class="kw-2">*</span>;
 
@@ -707,11 +709,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>function = <span class="kw-2">&amp;</span>method.sig.ident;
 	<span class="kw">let </span>ext_function = create_host_function_ident(<span class="kw-2">&amp;</span>method.sig.ident, version, trait_name);
 	<span class="kw">let </span>doc_string = <span class="macro">format!</span>(
-		<span class="string">&quot; Default extern host function implementation for [`super::{}`].&quot;</span>,
+		<span class="string">" Default extern host function implementation for [`super::{}`]."</span>,
 		method.sig.ident,
 	);
 	<span class="kw">let </span>return_value = <span class="kw-2">&amp;</span>method.sig.output;
-	<span class="kw">let </span>cfg_attrs = method.attrs.iter().filter(|a| a.path().is_ident(<span class="string">&quot;cfg&quot;</span>));
+	<span class="kw">let </span>cfg_attrs = method.attrs.iter().filter(|a| a.path().is_ident(<span class="string">"cfg"</span>));
 
 	<span class="kw">let </span>ffi_return_value = <span class="kw">match </span>method.sig.output {
 		ReturnType::Default =&gt; <span class="macro">quote!</span>(),
@@ -731,8 +733,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		#(#cfg_attrs)*
 		<span class="attr">#[doc = #doc_string]
 		</span><span class="kw">pub fn </span>#function ( #( #args ),* ) #return_value {
-			<span class="attr">#[cfg_attr(any(target_arch = <span class="string">&quot;riscv32&quot;</span>, target_arch = <span class="string">&quot;riscv64&quot;</span>), #crate_::polkavm::polkavm_import(abi = #crate_::polkavm::polkavm_abi))]
-			</span><span class="kw">extern </span><span class="string">&quot;C&quot; </span>{
+			<span class="attr">#[cfg_attr(any(target_arch = <span class="string">"riscv32"</span>, target_arch = <span class="string">"riscv64"</span>), #crate_::polkavm::polkavm_import(abi = #crate_::polkavm::polkavm_abi))]
+			</span><span class="kw">extern </span><span class="string">"C" </span>{
 				<span class="kw">pub fn </span>#ext_function (
 					#( #arg_names: &lt;#arg_types <span class="kw">as </span>#crate_::RIType&gt;::FFIType ),*
 				) #ffi_return_value;
@@ -758,13 +760,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>arg_types = get_function_argument_types(<span class="kw-2">&amp;</span>method.sig);
 	<span class="kw">let </span>function = <span class="kw-2">&amp;</span>method.sig.ident;
 	<span class="kw">let </span>exchangeable_function = create_exchangeable_host_function_ident(<span class="kw-2">&amp;</span>method.sig.ident);
-	<span class="kw">let </span>doc_string = <span class="macro">format!</span>(<span class="string">&quot; Exchangeable host function used by [`{}`].&quot;</span>, method.sig.ident);
+	<span class="kw">let </span>doc_string = <span class="macro">format!</span>(<span class="string">" Exchangeable host function used by [`{}`]."</span>, method.sig.ident);
 	<span class="kw">let </span>output = <span class="kw-2">&amp;</span>method.sig.output;
-	<span class="kw">let </span>cfg_attrs = method.attrs.iter().filter(|a| a.path().is_ident(<span class="string">&quot;cfg&quot;</span>));
+	<span class="kw">let </span>cfg_attrs = method.attrs.iter().filter(|a| a.path().is_ident(<span class="string">"cfg"</span>));
 
 	<span class="prelude-val">Ok</span>(<span class="macro">quote! </span>{
 		#(#cfg_attrs)*
-		<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+		<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
 		#[allow(non_upper_case_globals)]
 		#[doc = #doc_string]
 		</span><span class="kw">pub static </span>#exchangeable_function : #crate_::wasm::ExchangeableFunction&lt;
@@ -797,12 +799,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		#(#host_function_impls)*
 
 		<span class="doccomment">/// Provides implementations for the extern host functions.
-		</span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+		</span><span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 		</span><span class="kw">pub struct </span>HostFunctions;
 
-		<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+		<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 		</span><span class="kw">impl </span>#crate_::sp_wasm_interface::HostFunctions <span class="kw">for </span>HostFunctions {
-			<span class="kw">fn </span>host_functions() -&gt; Vec&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span><span class="kw">dyn </span>#crate_::sp_wasm_interface::Function&gt; {
+			<span class="kw">fn </span>host_functions() -&gt; Vec&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span><span class="kw">dyn </span>#crate_::sp_wasm_interface::Function&gt; {
 				<span class="kw">let </span><span class="kw-2">mut </span>host_functions_list = Vec::new();
 				#(#append_hf_bodies)*
 				host_functions_list
@@ -851,7 +853,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">let </span><span class="kw-2">mut </span>host_names_with_ref = Vec::new();
 
 	<span class="comment">// List of code snippets to copy over the results returned from a host function through
-	// any `&amp;mut` arguments back into WASM&#39;s linear memory.
+	// any `&amp;mut` arguments back into WASM's linear memory.
 	</span><span class="kw">let </span><span class="kw-2">mut </span>copy_data_into_ref_mut_args = Vec::new();
 
 	<span class="comment">// List of code snippets to convert dynamic FFI args (`Value` enum) into concrete static FFI
@@ -867,7 +869,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>ffi_name = generate_ffi_value_var_name(<span class="kw-2">&amp;</span>host_name)<span class="question-mark">?</span>;
 		<span class="kw">let </span>host_name_ident = <span class="kw">match </span><span class="kw-2">*</span>host_name {
 			Pat::Ident(<span class="kw-2">ref </span>pat_ident) =&gt; pat_ident.ident.clone(),
-			<span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(<span class="string">&quot;`generate_ffi_value_var_name` above would return an error on `Pat` != `Ident`; qed&quot;</span>),
+			<span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(<span class="string">"`generate_ffi_value_var_name` above would return an error on `Pat` != `Ident`; qed"</span>),
 		};
 
 		<span class="kw">let </span>ffi_ty = <span class="macro">quote! </span>{ &lt;#host_ty <span class="kw">as </span>#crate_::RIType&gt;::FFIType };
@@ -875,14 +877,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		ffi_names.push(<span class="macro">quote! </span>{ #ffi_name });
 
 		<span class="kw">let </span>convert_arg_error = <span class="macro">format!</span>(
-			<span class="string">&quot;could not marshal the &#39;{}&#39; argument through the WASM FFI boundary while executing &#39;{}&#39; from interface &#39;{}&#39;&quot;</span>,
+			<span class="string">"could not marshal the '{}' argument through the WASM FFI boundary while executing '{}' from interface '{}'"</span>,
 			host_name_ident,
 			method.sig.ident,
 			trait_name
 		);
 		convert_args_static_ffi_to_host.push(<span class="macro">quote! </span>{
 			<span class="kw">let </span><span class="kw-2">mut </span>#host_name = &lt;#host_ty <span class="kw">as </span>#crate_::host::FromFFIValue&gt;::from_ffi_value(__function_context__, #ffi_name)
-				.map_err(|err| <span class="macro">format!</span>(<span class="string">&quot;{}: {}&quot;</span>, err, #convert_arg_error))<span class="question-mark">?</span>;
+				.map_err(|err| <span class="macro">format!</span>(<span class="string">"{}: {}"</span>, err, #convert_arg_error))<span class="question-mark">?</span>;
 		});
 
 		<span class="kw">let </span>ref_and_mut_tokens =
@@ -901,7 +903,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 
 		<span class="kw">let </span>arg_count_mismatch_error = <span class="macro">format!</span>(
-			<span class="string">&quot;missing argument &#39;{}&#39;: number of arguments given to &#39;{}&#39; from interface &#39;{}&#39; does not match the expected number of arguments&quot;</span>,
+			<span class="string">"missing argument '{}': number of arguments given to '{}' from interface '{}' does not match the expected number of arguments"</span>,
 			host_name_ident,
 			method.sig.ident,
 			trait_name
@@ -946,21 +948,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">let </span>cfg_attrs: Vec&lt;<span class="kw">_</span>&gt; =
-		method.attrs.iter().filter(|a| a.path().is_ident(<span class="string">&quot;cfg&quot;</span>)).cloned().collect();
+		method.attrs.iter().filter(|a| a.path().is_ident(<span class="string">"cfg"</span>)).cloned().collect();
 	<span class="kw">if </span>version &gt; <span class="number">1 </span>&amp;&amp; !cfg_attrs.is_empty() {
 		<span class="kw">return </span><span class="prelude-val">Err</span>(Error::new(
 			method.span(),
-			<span class="string">&quot;Conditional compilation is not supported for versioned functions&quot;</span>,
+			<span class="string">"Conditional compilation is not supported for versioned functions"</span>,
 		))
 	}
 
 	<span class="kw">let </span>implementation = <span class="macro">quote! </span>{
 		#(#cfg_attrs)*
-		<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+		<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 		</span><span class="kw">struct </span>#struct_name;
 
 		#(#cfg_attrs)*
-		<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+		<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 		</span><span class="kw">impl </span>#struct_name {
 			<span class="kw">fn </span>call(
 				__function_context__: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>#crate_::sp_wasm_interface::FunctionContext,
@@ -975,7 +977,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 
 		#(#cfg_attrs)*
-		<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+		<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 		</span><span class="kw">impl </span>#crate_::sp_wasm_interface::Function <span class="kw">for </span>#struct_name {
 			<span class="kw">fn </span>name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>str {
 				#name
@@ -1020,11 +1022,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="prelude-val">Err</span>(panic) =&gt; {
 							<span class="kw">let </span>message =
 								<span class="kw">if let </span><span class="prelude-val">Some</span>(message) = panic.downcast_ref::&lt;String&gt;() {
-									<span class="macro">format!</span>(<span class="string">&quot;host code panicked while being called by the runtime: {}&quot;</span>, message)
-								} <span class="kw">else if let </span><span class="prelude-val">Some</span>(message) = panic.downcast_ref::&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt;() {
-									<span class="macro">format!</span>(<span class="string">&quot;host code panicked while being called by the runtime: {}&quot;</span>, message)
+									<span class="macro">format!</span>(<span class="string">"host code panicked while being called by the runtime: {}"</span>, message)
+								} <span class="kw">else if let </span><span class="prelude-val">Some</span>(message) = panic.downcast_ref::&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt;() {
+									<span class="macro">format!</span>(<span class="string">"host code panicked while being called by the runtime: {}"</span>, message)
 								} <span class="kw">else </span>{
-									<span class="string">&quot;host code panicked while being called by the runtime&quot;</span>.to_owned()
+									<span class="string">"host code panicked while being called by the runtime"</span>.to_owned()
 								};
 							<span class="kw">return </span><span class="prelude-val">Err</span>(#crate_::sp_wasm_interface::anyhow::Error::msg(message));
 						}
@@ -1070,13 +1072,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">match </span>pat {
 		Pat::Ident(pat_ident) =&gt;
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(by_ref) = pat_ident.by_ref {
-				<span class="prelude-val">Err</span>(Error::new(by_ref.span(), <span class="string">&quot;`ref` not supported!&quot;</span>))
+				<span class="prelude-val">Err</span>(Error::new(by_ref.span(), <span class="string">"`ref` not supported!"</span>))
 			} <span class="kw">else if let </span><span class="prelude-val">Some</span>(sub_pattern) = <span class="kw-2">&amp;</span>pat_ident.subpat {
-				<span class="prelude-val">Err</span>(Error::new(sub_pattern.<span class="number">0</span>.span(), <span class="string">&quot;Not supported!&quot;</span>))
+				<span class="prelude-val">Err</span>(Error::new(sub_pattern.<span class="number">0</span>.span(), <span class="string">"Not supported!"</span>))
 			} <span class="kw">else </span>{
-				<span class="prelude-val">Ok</span>(Ident::new(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}_ffi_value&quot;</span>, pat_ident.ident), Span::call_site()))
+				<span class="prelude-val">Ok</span>(Ident::new(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{}_ffi_value"</span>, pat_ident.ident), Span::call_site()))
 			},
-		<span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(Error::new(pat.span(), <span class="string">&quot;Not supported as variable name!&quot;</span>)),
+		<span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(Error::new(pat.span(), <span class="string">"Not supported as variable name!"</span>)),
 	}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

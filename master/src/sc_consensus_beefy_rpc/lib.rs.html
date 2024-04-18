@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/consensus/beefy/rpc/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/consensus/beefy/rpc/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_consensus_beefy_rpc" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_consensus_beefy_rpc" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sc_consensus_beefy_rpc/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -482,10 +484,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">/// Top-level error type for the RPC handler
 </span><span class="kw">pub enum </span>Error {
 	<span class="doccomment">/// The BEEFY RPC endpoint is not ready.
-	</span><span class="attr">#[error(<span class="string">&quot;BEEFY RPC endpoint not ready&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"BEEFY RPC endpoint not ready"</span>)]
 	</span>EndpointNotReady,
 	<span class="doccomment">/// The BEEFY RPC background task failed to spawn.
-	</span><span class="attr">#[error(<span class="string">&quot;BEEFY RPC background task failed to spawn&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"BEEFY RPC background task failed to spawn"</span>)]
 	</span>RpcTaskFailure(<span class="attr">#[from] </span>SpawnError),
 }
 
@@ -519,8 +521,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub trait </span>BeefyApi&lt;Notification, Hash&gt; {
 	<span class="doccomment">/// Returns the block most recently finalized by BEEFY, alongside its justification.
 	</span><span class="attr">#[subscription(
-		name = <span class="string">&quot;beefy_subscribeJustifications&quot; </span>=&gt; <span class="string">&quot;beefy_justifications&quot;</span>,
-		unsubscribe = <span class="string">&quot;beefy_unsubscribeJustifications&quot;</span>,
+		name = <span class="string">"beefy_subscribeJustifications" </span>=&gt; <span class="string">"beefy_justifications"</span>,
+		unsubscribe = <span class="string">"beefy_unsubscribeJustifications"</span>,
 		item = Notification,
 	)]
 	</span><span class="kw">fn </span>subscribe_justifications(<span class="kw-2">&amp;</span><span class="self">self</span>);
@@ -530,7 +532,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// The latest BEEFY block might not be available if the BEEFY gadget is not running
 	/// in the network or if the client is still initializing or syncing with the network.
 	/// In such case an error would be returned.
-	</span><span class="attr">#[method(name = <span class="string">&quot;beefy_getFinalizedHead&quot;</span>)]
+	</span><span class="attr">#[method(name = <span class="string">"beefy_getFinalizedHead"</span>)]
 	</span><span class="kw">async fn </span>latest_finalized(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Hash, Error&gt;;
 }
 
@@ -560,7 +562,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">async move </span>{ <span class="kw-2">*</span>async_clone.write() = <span class="prelude-val">Some</span>(best_beefy) }
 		});
 
-		executor.spawn(<span class="string">&quot;substrate-rpc-subscription&quot;</span>, <span class="prelude-val">Some</span>(<span class="string">&quot;rpc&quot;</span>), future.map(drop).boxed());
+		executor.spawn(<span class="string">"substrate-rpc-subscription"</span>, <span class="prelude-val">Some</span>(<span class="string">"rpc"</span>), future.map(drop).boxed());
 		<span class="prelude-val">Ok</span>(<span class="self">Self </span>{ finality_proof_stream, beefy_best_block, executor })
 	}
 }
@@ -612,7 +614,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>handler =
 			Beefy::new(finality_proof_stream, best_block_stream, sc_rpc::testing::test_executor())
-				.expect(<span class="string">&quot;Setting up the BEEFY RPC handler works&quot;</span>);
+				.expect(<span class="string">"Setting up the BEEFY RPC handler works"</span>);
 
 		(handler.into_rpc(), finality_proof_sender)
 	}
@@ -620,8 +622,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[tokio::test]
 	</span><span class="kw">async fn </span>uninitialized_rpc_handler() {
 		<span class="kw">let </span>(rpc, <span class="kw">_</span>) = setup_io_handler();
-		<span class="kw">let </span>request = <span class="string">r#&quot;{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;beefy_getFinalizedHead&quot;,&quot;params&quot;:[],&quot;id&quot;:1}&quot;#</span>;
-		<span class="kw">let </span>expected_response = <span class="string">r#&quot;{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;error&quot;:{&quot;code&quot;:1,&quot;message&quot;:&quot;BEEFY RPC endpoint not ready&quot;},&quot;id&quot;:1}&quot;#</span>;
+		<span class="kw">let </span>request = <span class="string">r#"{"jsonrpc":"2.0","method":"beefy_getFinalizedHead","params":[],"id":1}"#</span>;
+		<span class="kw">let </span>expected_response = <span class="string">r#"{"jsonrpc":"2.0","error":{"code":1,"message":"BEEFY RPC endpoint not ready"},"id":1}"#</span>;
 		<span class="kw">let </span>(response, <span class="kw">_</span>) = rpc.raw_json_request(<span class="kw-2">&amp;</span>request, <span class="number">1</span>).<span class="kw">await</span>.unwrap();
 
 		<span class="macro">assert_eq!</span>(expected_response, response);
@@ -632,26 +634,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>(sender, stream) = BeefyBestBlockStream::&lt;Block&gt;::channel();
 		<span class="kw">let </span>(io, <span class="kw">_</span>) = setup_io_handler_with_best_block_stream(stream);
 
-		<span class="kw">let </span>hash = BlakeTwo256::hash(<span class="string">b&quot;42&quot;</span>);
+		<span class="kw">let </span>hash = BlakeTwo256::hash(<span class="string">b"42"</span>);
 		<span class="kw">let </span>r: <span class="prelude-ty">Result</span>&lt;(), ()&gt; = sender.notify(|| <span class="prelude-val">Ok</span>(hash));
 		r.unwrap();
 
 		<span class="comment">// Verify RPC `beefy_getFinalizedHead` returns expected hash.
-		</span><span class="kw">let </span>request = <span class="string">r#&quot;{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;beefy_getFinalizedHead&quot;,&quot;params&quot;:[],&quot;id&quot;:1}&quot;#</span>;
-		<span class="kw">let </span>expected = <span class="string">&quot;{\
-			\&quot;jsonrpc\&quot;:\&quot;2.0\&quot;,\
-			\&quot;result\&quot;:\&quot;0x2f0039e93a27221fcf657fb877a1d4f60307106113e885096cb44a461cd0afbf\&quot;,\
-			\&quot;id\&quot;:1\
-		}&quot;</span>;
-		<span class="kw">let </span>not_ready = <span class="string">&quot;{\
-			\&quot;jsonrpc\&quot;:\&quot;2.0\&quot;,\
-			\&quot;error\&quot;:{\&quot;code\&quot;:1,\&quot;message\&quot;:\&quot;BEEFY RPC endpoint not ready\&quot;},\
-			\&quot;id\&quot;:1\
-		}&quot;</span>;
+		</span><span class="kw">let </span>request = <span class="string">r#"{"jsonrpc":"2.0","method":"beefy_getFinalizedHead","params":[],"id":1}"#</span>;
+		<span class="kw">let </span>expected = <span class="string">"{\
+			\"jsonrpc\":\"2.0\",\
+			\"result\":\"0x2f0039e93a27221fcf657fb877a1d4f60307106113e885096cb44a461cd0afbf\",\
+			\"id\":1\
+		}"</span>;
+		<span class="kw">let </span>not_ready = <span class="string">"{\
+			\"jsonrpc\":\"2.0\",\
+			\"error\":{\"code\":1,\"message\":\"BEEFY RPC endpoint not ready\"},\
+			\"id\":1\
+		}"</span>;
 
 		<span class="kw">let </span>deadline = std::time::Instant::now() + std::time::Duration::from_secs(<span class="number">2</span>);
 		<span class="kw">while </span>std::time::Instant::now() &lt; deadline {
-			<span class="kw">let </span>(response, <span class="kw">_</span>) = io.raw_json_request(request, <span class="number">1</span>).<span class="kw">await</span>.expect(<span class="string">&quot;RPC requests work&quot;</span>);
+			<span class="kw">let </span>(response, <span class="kw">_</span>) = io.raw_json_request(request, <span class="number">1</span>).<span class="kw">await</span>.expect(<span class="string">"RPC requests work"</span>);
 			<span class="kw">if </span>response != not_ready {
 				<span class="macro">assert_eq!</span>(response, expected);
 				<span class="comment">// Success
@@ -661,7 +663,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 
 		<span class="macro">panic!</span>(
-			<span class="string">&quot;Deadline reached while waiting for best BEEFY block to update. Perhaps the background task is broken?&quot;
+			<span class="string">"Deadline reached while waiting for best BEEFY block to update. Perhaps the background task is broken?"
 		</span>);
 	}
 
@@ -670,26 +672,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>(rpc, <span class="kw">_</span>) = setup_io_handler();
 		<span class="comment">// Subscribe call.
 		</span><span class="kw">let </span>_sub = rpc
-			.subscribe_unbounded(<span class="string">&quot;beefy_subscribeJustifications&quot;</span>, EmptyParams::new())
+			.subscribe_unbounded(<span class="string">"beefy_subscribeJustifications"</span>, EmptyParams::new())
 			.<span class="kw">await
 			</span>.unwrap();
 
 		<span class="comment">// Unsubscribe with wrong ID
 		</span><span class="kw">let </span>(response, <span class="kw">_</span>) = rpc
 			.raw_json_request(
-				<span class="string">r#&quot;{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;method&quot;:&quot;beefy_unsubscribeJustifications&quot;,&quot;params&quot;:[&quot;FOO&quot;],&quot;id&quot;:1}&quot;#</span>,
+				<span class="string">r#"{"jsonrpc":"2.0","method":"beefy_unsubscribeJustifications","params":["FOO"],"id":1}"#</span>,
 				<span class="number">1</span>,
 			)
 			.<span class="kw">await
 			</span>.unwrap();
-		<span class="kw">let </span>expected = <span class="string">r#&quot;{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;result&quot;:false,&quot;id&quot;:1}&quot;#</span>;
+		<span class="kw">let </span>expected = <span class="string">r#"{"jsonrpc":"2.0","result":false,"id":1}"#</span>;
 
 		<span class="macro">assert_eq!</span>(response, expected);
 	}
 
 	<span class="kw">fn </span>create_finality_proof() -&gt; BeefyVersionedFinalityProof&lt;Block&gt; {
 		<span class="kw">let </span>payload =
-			Payload::from_single_entry(known_payloads::MMR_ROOT_ID, <span class="string">&quot;Hello World!&quot;</span>.encode());
+			Payload::from_single_entry(known_payloads::MMR_ROOT_ID, <span class="string">"Hello World!"</span>.encode());
 		BeefyVersionedFinalityProof::&lt;Block&gt;::V1(SignedCommitment {
 			commitment: sp_consensus_beefy::Commitment {
 				payload,
@@ -706,7 +708,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// Subscribe
 		</span><span class="kw">let </span><span class="kw-2">mut </span>sub = rpc
-			.subscribe_unbounded(<span class="string">&quot;beefy_subscribeJustifications&quot;</span>, EmptyParams::new())
+			.subscribe_unbounded(<span class="string">"beefy_subscribeJustifications"</span>, EmptyParams::new())
 			.<span class="kw">await
 			</span>.unwrap();
 

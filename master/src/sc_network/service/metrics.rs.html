@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/network/src/service/metrics.rs`."><title>metrics.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/network/src/service/metrics.rs`."><title>metrics.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sc_network" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sc_network" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../sc_network/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -640,131 +642,131 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// This list is ordered alphabetically
 			</span>connections_closed_total: prometheus::register(CounterVec::new(
 				Opts::new(
-					<span class="string">&quot;substrate_sub_libp2p_connections_closed_total&quot;</span>,
-					<span class="string">&quot;Total number of connections closed, by direction and reason&quot;
+					<span class="string">"substrate_sub_libp2p_connections_closed_total"</span>,
+					<span class="string">"Total number of connections closed, by direction and reason"
 				</span>),
-				<span class="kw-2">&amp;</span>[<span class="string">&quot;direction&quot;</span>, <span class="string">&quot;reason&quot;</span>]
+				<span class="kw-2">&amp;</span>[<span class="string">"direction"</span>, <span class="string">"reason"</span>]
 			)<span class="question-mark">?</span>, registry)<span class="question-mark">?</span>,
 			connections_opened_total: prometheus::register(CounterVec::new(
 				Opts::new(
-					<span class="string">&quot;substrate_sub_libp2p_connections_opened_total&quot;</span>,
-					<span class="string">&quot;Total number of connections opened by direction&quot;
+					<span class="string">"substrate_sub_libp2p_connections_opened_total"</span>,
+					<span class="string">"Total number of connections opened by direction"
 				</span>),
-				<span class="kw-2">&amp;</span>[<span class="string">&quot;direction&quot;</span>]
+				<span class="kw-2">&amp;</span>[<span class="string">"direction"</span>]
 			)<span class="question-mark">?</span>, registry)<span class="question-mark">?</span>,
 			distinct_peers_connections_closed_total: prometheus::register(Counter::new(
-					<span class="string">&quot;substrate_sub_libp2p_distinct_peers_connections_closed_total&quot;</span>,
-					<span class="string">&quot;Total number of connections closed with distinct peers&quot;
+					<span class="string">"substrate_sub_libp2p_distinct_peers_connections_closed_total"</span>,
+					<span class="string">"Total number of connections closed with distinct peers"
 			</span>)<span class="question-mark">?</span>, registry)<span class="question-mark">?</span>,
 			distinct_peers_connections_opened_total: prometheus::register(Counter::new(
-					<span class="string">&quot;substrate_sub_libp2p_distinct_peers_connections_opened_total&quot;</span>,
-					<span class="string">&quot;Total number of connections opened with distinct peers&quot;
+					<span class="string">"substrate_sub_libp2p_distinct_peers_connections_opened_total"</span>,
+					<span class="string">"Total number of connections opened with distinct peers"
 			</span>)<span class="question-mark">?</span>, registry)<span class="question-mark">?</span>,
 			incoming_connections_errors_total: prometheus::register(CounterVec::new(
 				Opts::new(
-					<span class="string">&quot;substrate_sub_libp2p_incoming_connections_handshake_errors_total&quot;</span>,
-					<span class="string">&quot;Total number of incoming connections that have failed during the \
-					initial handshake&quot;
+					<span class="string">"substrate_sub_libp2p_incoming_connections_handshake_errors_total"</span>,
+					<span class="string">"Total number of incoming connections that have failed during the \
+					initial handshake"
 				</span>),
-				<span class="kw-2">&amp;</span>[<span class="string">&quot;reason&quot;</span>]
+				<span class="kw-2">&amp;</span>[<span class="string">"reason"</span>]
 			)<span class="question-mark">?</span>, registry)<span class="question-mark">?</span>,
 			incoming_connections_total: prometheus::register(Counter::new(
-				<span class="string">&quot;substrate_sub_libp2p_incoming_connections_total&quot;</span>,
-				<span class="string">&quot;Total number of incoming connections on the listening sockets&quot;
+				<span class="string">"substrate_sub_libp2p_incoming_connections_total"</span>,
+				<span class="string">"Total number of incoming connections on the listening sockets"
 			</span>)<span class="question-mark">?</span>, registry)<span class="question-mark">?</span>,
 			issued_light_requests: prometheus::register(Counter::new(
-				<span class="string">&quot;substrate_issued_light_requests&quot;</span>,
-				<span class="string">&quot;Number of light client requests that our node has issued.&quot;</span>,
+				<span class="string">"substrate_issued_light_requests"</span>,
+				<span class="string">"Number of light client requests that our node has issued."</span>,
 			)<span class="question-mark">?</span>, registry)<span class="question-mark">?</span>,
 			kademlia_query_duration: prometheus::register(HistogramVec::new(
 				HistogramOpts {
 					common_opts: Opts::new(
-						<span class="string">&quot;substrate_sub_libp2p_kademlia_query_duration&quot;</span>,
-						<span class="string">&quot;Duration of Kademlia queries per query type&quot;
+						<span class="string">"substrate_sub_libp2p_kademlia_query_duration"</span>,
+						<span class="string">"Duration of Kademlia queries per query type"
 					</span>),
 					buckets: prometheus::exponential_buckets(<span class="number">0.5</span>, <span class="number">2.0</span>, <span class="number">10</span>)
-						.expect(<span class="string">&quot;parameters are always valid values; qed&quot;</span>),
+						.expect(<span class="string">"parameters are always valid values; qed"</span>),
 				},
-				<span class="kw-2">&amp;</span>[<span class="string">&quot;type&quot;</span>]
+				<span class="kw-2">&amp;</span>[<span class="string">"type"</span>]
 			)<span class="question-mark">?</span>, registry)<span class="question-mark">?</span>,
 			kademlia_random_queries_total: prometheus::register(Counter::new(
-				<span class="string">&quot;substrate_sub_libp2p_kademlia_random_queries_total&quot;</span>,
-				<span class="string">&quot;Number of random Kademlia queries started&quot;</span>,
+				<span class="string">"substrate_sub_libp2p_kademlia_random_queries_total"</span>,
+				<span class="string">"Number of random Kademlia queries started"</span>,
 			)<span class="question-mark">?</span>, registry)<span class="question-mark">?</span>,
 			kademlia_records_count: prometheus::register(Gauge::new(
-				<span class="string">&quot;substrate_sub_libp2p_kademlia_records_count&quot;</span>,
-				<span class="string">&quot;Number of records in the Kademlia records store&quot;</span>,
+				<span class="string">"substrate_sub_libp2p_kademlia_records_count"</span>,
+				<span class="string">"Number of records in the Kademlia records store"</span>,
 			)<span class="question-mark">?</span>, registry)<span class="question-mark">?</span>,
 			kademlia_records_sizes_total: prometheus::register(Gauge::new(
-				<span class="string">&quot;substrate_sub_libp2p_kademlia_records_sizes_total&quot;</span>,
-				<span class="string">&quot;Total size of all the records in the Kademlia records store&quot;</span>,
+				<span class="string">"substrate_sub_libp2p_kademlia_records_sizes_total"</span>,
+				<span class="string">"Total size of all the records in the Kademlia records store"</span>,
 			)<span class="question-mark">?</span>, registry)<span class="question-mark">?</span>,
 			kbuckets_num_nodes: prometheus::register(GaugeVec::new(
 				Opts::new(
-					<span class="string">&quot;substrate_sub_libp2p_kbuckets_num_nodes&quot;</span>,
-					<span class="string">&quot;Number of nodes per kbucket per Kademlia instance&quot;
+					<span class="string">"substrate_sub_libp2p_kbuckets_num_nodes"</span>,
+					<span class="string">"Number of nodes per kbucket per Kademlia instance"
 				</span>),
-				<span class="kw-2">&amp;</span>[<span class="string">&quot;lower_ilog2_bucket_bound&quot;</span>]
+				<span class="kw-2">&amp;</span>[<span class="string">"lower_ilog2_bucket_bound"</span>]
 			)<span class="question-mark">?</span>, registry)<span class="question-mark">?</span>,
 			listeners_local_addresses: prometheus::register(Gauge::new(
-				<span class="string">&quot;substrate_sub_libp2p_listeners_local_addresses&quot;</span>,
-				<span class="string">&quot;Number of local addresses we&#39;re listening on&quot;
+				<span class="string">"substrate_sub_libp2p_listeners_local_addresses"</span>,
+				<span class="string">"Number of local addresses we're listening on"
 			</span>)<span class="question-mark">?</span>, registry)<span class="question-mark">?</span>,
 			listeners_errors_total: prometheus::register(Counter::new(
-				<span class="string">&quot;substrate_sub_libp2p_listeners_errors_total&quot;</span>,
-				<span class="string">&quot;Total number of non-fatal errors reported by a listener&quot;
+				<span class="string">"substrate_sub_libp2p_listeners_errors_total"</span>,
+				<span class="string">"Total number of non-fatal errors reported by a listener"
 			</span>)<span class="question-mark">?</span>, registry)<span class="question-mark">?</span>,
 			peerset_num_discovered: prometheus::register(Gauge::new(
-				<span class="string">&quot;substrate_sub_libp2p_peerset_num_discovered&quot;</span>,
-				<span class="string">&quot;Number of nodes stored in the peerset manager&quot;</span>,
+				<span class="string">"substrate_sub_libp2p_peerset_num_discovered"</span>,
+				<span class="string">"Number of nodes stored in the peerset manager"</span>,
 			)<span class="question-mark">?</span>, registry)<span class="question-mark">?</span>,
 			pending_connections: prometheus::register(Gauge::new(
-				<span class="string">&quot;substrate_sub_libp2p_pending_connections&quot;</span>,
-				<span class="string">&quot;Number of connections in the process of being established&quot;</span>,
+				<span class="string">"substrate_sub_libp2p_pending_connections"</span>,
+				<span class="string">"Number of connections in the process of being established"</span>,
 			)<span class="question-mark">?</span>, registry)<span class="question-mark">?</span>,
 			pending_connections_errors_total: prometheus::register(CounterVec::new(
 				Opts::new(
-					<span class="string">&quot;substrate_sub_libp2p_pending_connections_errors_total&quot;</span>,
-					<span class="string">&quot;Total number of pending connection errors&quot;
+					<span class="string">"substrate_sub_libp2p_pending_connections_errors_total"</span>,
+					<span class="string">"Total number of pending connection errors"
 				</span>),
-				<span class="kw-2">&amp;</span>[<span class="string">&quot;reason&quot;</span>]
+				<span class="kw-2">&amp;</span>[<span class="string">"reason"</span>]
 			)<span class="question-mark">?</span>, registry)<span class="question-mark">?</span>,
 			requests_in_failure_total: prometheus::register(CounterVec::new(
 				Opts::new(
-					<span class="string">&quot;substrate_sub_libp2p_requests_in_failure_total&quot;</span>,
-					<span class="string">&quot;Total number of incoming requests that the node has failed to answer&quot;
+					<span class="string">"substrate_sub_libp2p_requests_in_failure_total"</span>,
+					<span class="string">"Total number of incoming requests that the node has failed to answer"
 				</span>),
-				<span class="kw-2">&amp;</span>[<span class="string">&quot;protocol&quot;</span>, <span class="string">&quot;reason&quot;</span>]
+				<span class="kw-2">&amp;</span>[<span class="string">"protocol"</span>, <span class="string">"reason"</span>]
 			)<span class="question-mark">?</span>, registry)<span class="question-mark">?</span>,
 			requests_in_success_total: prometheus::register(HistogramVec::new(
 				HistogramOpts {
 					common_opts: Opts::new(
-						<span class="string">&quot;substrate_sub_libp2p_requests_in_success_total&quot;</span>,
-						<span class="string">&quot;For successful incoming requests, time between receiving the request and \
-						 starting to send the response&quot;
+						<span class="string">"substrate_sub_libp2p_requests_in_success_total"</span>,
+						<span class="string">"For successful incoming requests, time between receiving the request and \
+						 starting to send the response"
 					</span>),
 					buckets: prometheus::exponential_buckets(<span class="number">0.001</span>, <span class="number">2.0</span>, <span class="number">16</span>)
-						.expect(<span class="string">&quot;parameters are always valid values; qed&quot;</span>),
+						.expect(<span class="string">"parameters are always valid values; qed"</span>),
 				},
-				<span class="kw-2">&amp;</span>[<span class="string">&quot;protocol&quot;</span>]
+				<span class="kw-2">&amp;</span>[<span class="string">"protocol"</span>]
 			)<span class="question-mark">?</span>, registry)<span class="question-mark">?</span>,
 			requests_out_failure_total: prometheus::register(CounterVec::new(
 				Opts::new(
-					<span class="string">&quot;substrate_sub_libp2p_requests_out_failure_total&quot;</span>,
-					<span class="string">&quot;Total number of requests that have failed&quot;
+					<span class="string">"substrate_sub_libp2p_requests_out_failure_total"</span>,
+					<span class="string">"Total number of requests that have failed"
 				</span>),
-				<span class="kw-2">&amp;</span>[<span class="string">&quot;protocol&quot;</span>, <span class="string">&quot;reason&quot;</span>]
+				<span class="kw-2">&amp;</span>[<span class="string">"protocol"</span>, <span class="string">"reason"</span>]
 			)<span class="question-mark">?</span>, registry)<span class="question-mark">?</span>,
 			requests_out_success_total: prometheus::register(HistogramVec::new(
 				HistogramOpts {
 					common_opts: Opts::new(
-						<span class="string">&quot;substrate_sub_libp2p_requests_out_success_total&quot;</span>,
-						<span class="string">&quot;For successful outgoing requests, time between a request&#39;s start and finish&quot;
+						<span class="string">"substrate_sub_libp2p_requests_out_success_total"</span>,
+						<span class="string">"For successful outgoing requests, time between a request's start and finish"
 					</span>),
 					buckets: prometheus::exponential_buckets(<span class="number">0.001</span>, <span class="number">2.0</span>, <span class="number">16</span>)
-						.expect(<span class="string">&quot;parameters are always valid values; qed&quot;</span>),
+						.expect(<span class="string">"parameters are always valid values; qed"</span>),
 				},
-				<span class="kw-2">&amp;</span>[<span class="string">&quot;protocol&quot;</span>]
+				<span class="kw-2">&amp;</span>[<span class="string">"protocol"</span>]
 			)<span class="question-mark">?</span>, registry)<span class="question-mark">?</span>,
 		})
 	}
@@ -780,8 +782,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>register(registry: <span class="kw-2">&amp;</span>Registry, sinks: Arc&lt;<span class="kw">dyn </span>BandwidthSink&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), PrometheusError&gt; {
 		prometheus::register(
 			SourcedCounter::new(
-				<span class="kw-2">&amp;</span>Opts::new(<span class="string">&quot;substrate_sub_libp2p_network_bytes_total&quot;</span>, <span class="string">&quot;Total bandwidth usage&quot;</span>)
-					.variable_label(<span class="string">&quot;direction&quot;</span>),
+				<span class="kw-2">&amp;</span>Opts::new(<span class="string">"substrate_sub_libp2p_network_bytes_total"</span>, <span class="string">"Total bandwidth usage"</span>)
+					.variable_label(<span class="string">"direction"</span>),
 				BandwidthCounters(sinks),
 			)<span class="question-mark">?</span>,
 			registry,
@@ -795,8 +797,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>N = u64;
 
 	<span class="kw">fn </span>collect(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw-2">mut </span>set: <span class="kw">impl </span>FnMut(<span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>str], <span class="self">Self</span>::N)) {
-		set(<span class="kw-2">&amp;</span>[<span class="string">&quot;in&quot;</span>], <span class="self">self</span>.<span class="number">0</span>.total_inbound());
-		set(<span class="kw-2">&amp;</span>[<span class="string">&quot;out&quot;</span>], <span class="self">self</span>.<span class="number">0</span>.total_outbound());
+		set(<span class="kw-2">&amp;</span>[<span class="string">"in"</span>], <span class="self">self</span>.<span class="number">0</span>.total_inbound());
+		set(<span class="kw-2">&amp;</span>[<span class="string">"out"</span>], <span class="self">self</span>.<span class="number">0</span>.total_outbound());
 	}
 }
 
@@ -810,7 +812,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>register(registry: <span class="kw-2">&amp;</span>Registry, value: Arc&lt;AtomicUsize&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), PrometheusError&gt; {
 		prometheus::register(
 			SourcedGauge::new(
-				<span class="kw-2">&amp;</span>Opts::new(<span class="string">&quot;substrate_sub_libp2p_peers_count&quot;</span>, <span class="string">&quot;Number of connected peers&quot;</span>),
+				<span class="kw-2">&amp;</span>Opts::new(<span class="string">"substrate_sub_libp2p_peers_count"</span>, <span class="string">"Number of connected peers"</span>),
 				NumConnectedGauge(value),
 			)<span class="question-mark">?</span>,
 			registry,
@@ -870,7 +872,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="kw-2">&amp;</span><span class="self">self</span>.metrics {
 			metrics
 				.notifications_sizes
-				.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">&quot;out&quot;</span>, protocol])
+				.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">"out"</span>, protocol])
 				.observe(size <span class="kw">as </span>f64);
 		}
 	}
@@ -880,7 +882,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="kw-2">&amp;</span><span class="self">self</span>.metrics {
 			metrics
 				.notifications_sizes
-				.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">&quot;in&quot;</span>, protocol])
+				.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">"in"</span>, protocol])
 				.observe(size <span class="kw">as </span>f64);
 		}
 	}
@@ -906,33 +908,33 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				HistogramVec::new(
 					HistogramOpts {
 						common_opts: Opts::new(
-							<span class="string">&quot;substrate_sub_libp2p_notifications_sizes&quot;</span>,
-							<span class="string">&quot;Sizes of the notifications send to and received from all nodes&quot;</span>,
+							<span class="string">"substrate_sub_libp2p_notifications_sizes"</span>,
+							<span class="string">"Sizes of the notifications send to and received from all nodes"</span>,
 						),
 						buckets: prometheus::exponential_buckets(<span class="number">64.0</span>, <span class="number">4.0</span>, <span class="number">8</span>)
-							.expect(<span class="string">&quot;parameters are always valid values; qed&quot;</span>),
+							.expect(<span class="string">"parameters are always valid values; qed"</span>),
 					},
-					<span class="kw-2">&amp;</span>[<span class="string">&quot;direction&quot;</span>, <span class="string">&quot;protocol&quot;</span>],
+					<span class="kw-2">&amp;</span>[<span class="string">"direction"</span>, <span class="string">"protocol"</span>],
 				)<span class="question-mark">?</span>,
 				registry,
 			)<span class="question-mark">?</span>,
 			notifications_streams_closed_total: prometheus::register(
 				CounterVec::new(
 					Opts::new(
-						<span class="string">&quot;substrate_sub_libp2p_notifications_streams_closed_total&quot;</span>,
-						<span class="string">&quot;Total number of notification substreams that have been closed&quot;</span>,
+						<span class="string">"substrate_sub_libp2p_notifications_streams_closed_total"</span>,
+						<span class="string">"Total number of notification substreams that have been closed"</span>,
 					),
-					<span class="kw-2">&amp;</span>[<span class="string">&quot;protocol&quot;</span>],
+					<span class="kw-2">&amp;</span>[<span class="string">"protocol"</span>],
 				)<span class="question-mark">?</span>,
 				registry,
 			)<span class="question-mark">?</span>,
 			notifications_streams_opened_total: prometheus::register(
 				CounterVec::new(
 					Opts::new(
-						<span class="string">&quot;substrate_sub_libp2p_notifications_streams_opened_total&quot;</span>,
-						<span class="string">&quot;Total number of notification substreams that have been opened&quot;</span>,
+						<span class="string">"substrate_sub_libp2p_notifications_streams_opened_total"</span>,
+						<span class="string">"Total number of notification substreams that have been opened"</span>,
 					),
-					<span class="kw-2">&amp;</span>[<span class="string">&quot;protocol&quot;</span>],
+					<span class="kw-2">&amp;</span>[<span class="string">"protocol"</span>],
 				)<span class="question-mark">?</span>,
 				registry,
 			)<span class="question-mark">?</span>,

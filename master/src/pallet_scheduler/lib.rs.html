@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/scheduler/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/scheduler/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_scheduler" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_scheduler" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../pallet_scheduler/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1760,14 +1762,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -1801,10 +1803,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! ### Examples
 //!
 //! 1. Scheduling a runtime call at a specific block.
-</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;src/tests.rs&quot;</span>, basic_scheduling_works)]
+</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">"src/tests.rs"</span>, basic_scheduling_works)]
 </span><span class="doccomment">//!
 //! 2. Scheduling a preimage hash of a runtime call at a specific block
-</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;src/tests.rs&quot;</span>, scheduling_with_preimages_works)]
+</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">"src/tests.rs"</span>, scheduling_with_preimages_works)]
 
 </span><span class="doccomment">//!
 //! ## Pallet API
@@ -1830,10 +1832,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!
 //! [`on_initialize`]: frame_support::traits::Hooks::on_initialize
 
-</span><span class="comment">// Ensure we&#39;re `no_std` when compiling for Wasm.
-</span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
+</span><span class="comment">// Ensure we're `no_std` when compiling for Wasm.
+</span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
-#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 </span><span class="kw">mod </span>benchmarking;
 <span class="kw">pub mod </span>migration;
 <span class="attr">#[cfg(test)]
@@ -1890,7 +1892,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>period: Period,
 }
 
-<span class="attr">#[cfg_attr(any(feature = <span class="string">&quot;std&quot;</span>, test), derive(PartialEq, Eq))]
+<span class="attr">#[cfg_attr(any(feature = <span class="string">"std"</span>, test), derive(PartialEq, Eq))]
 #[derive(Clone, RuntimeDebug, Encode, Decode)]
 </span><span class="kw">struct </span>ScheduledV1&lt;Call, BlockNumber&gt; {
 	maybe_id: <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt;,
@@ -1900,12 +1902,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Information regarding an item to be executed in the future.
-</span><span class="attr">#[cfg_attr(any(feature = <span class="string">&quot;std&quot;</span>, test), derive(PartialEq, Eq))]
+</span><span class="attr">#[cfg_attr(any(feature = <span class="string">"std"</span>, test), derive(PartialEq, Eq))]
 #[derive(Clone, RuntimeDebug, Encode, Decode, MaxEncodedLen, TypeInfo)]
 </span><span class="kw">pub struct </span>Scheduled&lt;Name, Call, BlockNumber, PalletsOrigin, AccountId&gt; {
 	<span class="doccomment">/// The unique identity for this task, if there is one.
 	</span>maybe_id: <span class="prelude-ty">Option</span>&lt;Name&gt;,
-	<span class="doccomment">/// This task&#39;s priority.
+	<span class="doccomment">/// This task's priority.
 	</span>priority: schedule::Priority,
 	<span class="doccomment">/// The call to be dispatched.
 	</span>call: Call,
@@ -2036,7 +2038,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="doccomment">/// The maximum number of scheduled calls in the queue for a single block.
 		///
 		/// NOTE:
-		/// + Dependent pallets&#39; benchmarks might require a higher limit for the setting. Set a
+		/// + Dependent pallets' benchmarks might require a higher limit for the setting. Set a
 		/// higher limit under `runtime-benchmarks` feature.
 		</span><span class="attr">#[pallet::constant]
 		</span><span class="kw">type </span>MaxScheduledPerBlock: Get&lt;u32&gt;;
@@ -2261,7 +2263,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		///
 		/// Tasks scheduled as a result of a retry for a periodic task are unnamed, non-periodic
 		/// clones of the original task. Their retry configuration will be derived from the
-		/// original task&#39;s configuration, but will have a lower value for `remaining` than the
+		/// original task's configuration, but will have a lower value for `remaining` than the
 		/// original `total_retries`.
 		</span><span class="attr">#[pallet::call_index(<span class="number">6</span>)]
 		#[pallet::weight(&lt;T <span class="kw">as </span>Config&gt;::WeightInfo::set_retry())]
@@ -2298,7 +2300,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		///
 		/// Tasks scheduled as a result of a retry for a periodic task are unnamed, non-periodic
 		/// clones of the original task. Their retry configuration will be derived from the
-		/// original task&#39;s configuration, but will have a lower value for `remaining` than the
+		/// original task's configuration, but will have a lower value for `remaining` than the
 		/// original `total_retries`.
 		</span><span class="attr">#[pallet::call_index(<span class="number">7</span>)]
 		#[pallet::weight(&lt;T <span class="kw">as </span>Config&gt;::WeightInfo::set_retry_named())]
@@ -2374,7 +2376,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">if let </span><span class="prelude-val">Err</span>(<span class="kw">_</span>) = old::Agenda::&lt;T&gt;::try_get(<span class="kw-2">&amp;</span>key) {
 				weight.saturating_accrue(T::DbWeight::get().writes(<span class="number">1</span>));
 				old::Agenda::&lt;T&gt;::remove(<span class="kw-2">&amp;</span>key);
-				<span class="macro">log::warn!</span>(<span class="string">&quot;Deleted undecodable agenda&quot;</span>);
+				<span class="macro">log::warn!</span>(<span class="string">"Deleted undecodable agenda"</span>);
 			}
 		}
 
@@ -2420,7 +2422,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="attr">#[allow(deprecated)]
 		</span>frame_support::storage::migration::remove_storage_prefix(
 			<span class="self">Self</span>::name().as_bytes(),
-			<span class="string">b&quot;StorageVersion&quot;</span>,
+			<span class="string">b"StorageVersion"</span>,
 			<span class="kw-2">&amp;</span>[],
 		);
 
@@ -2444,7 +2446,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">if let </span><span class="prelude-val">Err</span>(<span class="kw">_</span>) = old::Agenda::&lt;T&gt;::try_get(<span class="kw-2">&amp;</span>key) {
 				weight.saturating_accrue(T::DbWeight::get().writes(<span class="number">1</span>));
 				old::Agenda::&lt;T&gt;::remove(<span class="kw-2">&amp;</span>key);
-				<span class="macro">log::warn!</span>(<span class="string">&quot;Deleted undecodable agenda&quot;</span>);
+				<span class="macro">log::warn!</span>(<span class="string">"Deleted undecodable agenda"</span>);
 			}
 		}
 
@@ -2485,7 +2487,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="attr">#[allow(deprecated)]
 		</span>frame_support::storage::migration::remove_storage_prefix(
 			<span class="self">Self</span>::name().as_bytes(),
-			<span class="string">b&quot;StorageVersion&quot;</span>,
+			<span class="string">b"StorageVersion"</span>,
 			<span class="kw-2">&amp;</span>[],
 		);
 
@@ -2510,12 +2512,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">if let </span><span class="prelude-val">Err</span>(<span class="kw">_</span>) = old::Agenda::&lt;T&gt;::try_get(<span class="kw-2">&amp;</span>block) {
 				weight.saturating_accrue(T::DbWeight::get().writes(<span class="number">1</span>));
 				old::Agenda::&lt;T&gt;::remove(<span class="kw-2">&amp;</span>block);
-				<span class="macro">log::warn!</span>(<span class="string">&quot;Deleted undecodable agenda of block: {:?}&quot;</span>, block);
+				<span class="macro">log::warn!</span>(<span class="string">"Deleted undecodable agenda of block: {:?}"</span>, block);
 			}
 		}
 
 		Agenda::&lt;T&gt;::translate::&lt;Vec&lt;<span class="prelude-ty">Option</span>&lt;ScheduledV3Of&lt;T&gt;&gt;&gt;, <span class="kw">_</span>&gt;(|block, agenda| {
-			<span class="macro">log::info!</span>(<span class="string">&quot;Migrating agenda of block: {:?}&quot;</span>, <span class="kw-2">&amp;</span>block);
+			<span class="macro">log::info!</span>(<span class="string">"Migrating agenda of block: {:?}"</span>, <span class="kw-2">&amp;</span>block);
 			<span class="prelude-val">Some</span>(BoundedVec::truncate_from(
 				agenda
 					.into_iter()
@@ -2527,13 +2529,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 									<span class="kw">let </span>name = blake2_256(id);
 									<span class="kw">if let </span><span class="prelude-val">Some</span>(item) = old::Lookup::&lt;T&gt;::take(id) {
 										Lookup::&lt;T&gt;::insert(name, item);
-										<span class="macro">log::info!</span>(<span class="string">&quot;Migrated name for id: {:?}&quot;</span>, id);
+										<span class="macro">log::info!</span>(<span class="string">"Migrated name for id: {:?}"</span>, id);
 									} <span class="kw">else </span>{
-										<span class="macro">log::error!</span>(<span class="string">&quot;No name in Lookup for id: {:?}&quot;</span>, <span class="kw-2">&amp;</span>id);
+										<span class="macro">log::error!</span>(<span class="string">"No name in Lookup for id: {:?}"</span>, <span class="kw-2">&amp;</span>id);
 									}
 									weight.saturating_accrue(T::DbWeight::get().reads_writes(<span class="number">2</span>, <span class="number">2</span>));
 								} <span class="kw">else </span>{
-									<span class="macro">log::info!</span>(<span class="string">&quot;Schedule is unnamed&quot;</span>);
+									<span class="macro">log::info!</span>(<span class="string">"Schedule is unnamed"</span>);
 								}
 
 								<span class="kw">let </span>call = <span class="kw">match </span>schedule.call {
@@ -2545,20 +2547,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 										&gt;(<span class="kw-2">&amp;</span>bounded)
 										{
 											<span class="macro">log::error!</span>(
-												<span class="string">&quot;Dropping undecodable call {:?}: {:?}&quot;</span>,
+												<span class="string">"Dropping undecodable call {:?}: {:?}"</span>,
 												<span class="kw-2">&amp;</span>h,
 												<span class="kw-2">&amp;</span>err
 											);
 											<span class="kw">return </span><span class="prelude-val">None
 										</span>}
 										weight.saturating_accrue(T::DbWeight::get().reads(<span class="number">1</span>));
-										<span class="macro">log::info!</span>(<span class="string">&quot;Migrated call by hash, hash: {:?}&quot;</span>, h);
+										<span class="macro">log::info!</span>(<span class="string">"Migrated call by hash, hash: {:?}"</span>, h);
 										bounded
 									},
 									MaybeHashed::Value(v) =&gt; {
 										<span class="kw">let </span>call = T::Preimages::bound(v)
 											.map_err(|e| {
-												<span class="macro">log::error!</span>(<span class="string">&quot;Could not bound Call: {:?}&quot;</span>, e)
+												<span class="macro">log::error!</span>(<span class="string">"Could not bound Call: {:?}"</span>, e)
 											})
 											.ok()<span class="question-mark">?</span>;
 										<span class="kw">if </span>call.lookup_needed() {
@@ -2567,7 +2569,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 											);
 										}
 										<span class="macro">log::info!</span>(
-											<span class="string">&quot;Migrated call by value, hash: {:?}&quot;</span>,
+											<span class="string">"Migrated call by value, hash: {:?}"</span>,
 											call.hash()
 										);
 										call
@@ -2584,7 +2586,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 								})
 							})
 							.or_else(|| {
-								<span class="macro">log::info!</span>(<span class="string">&quot;Schedule in agenda for block {:?} is empty - nothing to do here.&quot;</span>, <span class="kw-2">&amp;</span>block);
+								<span class="macro">log::info!</span>(<span class="string">"Schedule in agenda for block {:?} is empty - nothing to do here."</span>, <span class="kw-2">&amp;</span>block);
 								<span class="prelude-val">None
 							</span>})
 					})
@@ -2595,7 +2597,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="attr">#[allow(deprecated)]
 		</span>frame_support::storage::migration::remove_storage_prefix(
 			<span class="self">Self</span>::name().as_bytes(),
-			<span class="string">b&quot;StorageVersion&quot;</span>,
+			<span class="string">b"StorageVersion"</span>,
 			<span class="kw-2">&amp;</span>[],
 		);
 
@@ -2647,7 +2649,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>when = <span class="kw">match </span>when {
 			DispatchTime::At(x) =&gt; x,
-			<span class="comment">// The current block has already completed it&#39;s scheduled tasks, so
+			<span class="comment">// The current block has already completed it's scheduled tasks, so
 			// Schedule the task at lest one block after this current block.
 			</span>DispatchTime::After(x) =&gt; now.saturating_add(x).saturating_add(One::one()),
 		};
@@ -2952,11 +2954,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>within_limit = weight
 			.try_consume(T::WeightInfo::service_agenda_base(ordered.len() <span class="kw">as </span>u32))
 			.is_ok();
-		<span class="macro">debug_assert!</span>(within_limit, <span class="string">&quot;weight limit should have been checked in advance&quot;</span>);
+		<span class="macro">debug_assert!</span>(within_limit, <span class="string">"weight limit should have been checked in advance"</span>);
 
 		<span class="comment">// Items which we know can be executed and have postponed for execution in a later block.
 		</span><span class="kw">let </span><span class="kw-2">mut </span>postponed = (ordered.len() <span class="kw">as </span>u32).saturating_sub(max);
-		<span class="comment">// Items which we don&#39;t know can ever be executed.
+		<span class="comment">// Items which we don't know can ever be executed.
 		</span><span class="kw">let </span><span class="kw-2">mut </span>dropped = <span class="number">0</span>;
 
 		<span class="kw">for </span>(agenda_index, <span class="kw">_</span>) <span class="kw">in </span>ordered.into_iter().take(max <span class="kw">as </span>usize) {
@@ -3002,7 +3004,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// This involves:
 	/// - removing and potentially replacing the `Lookup` entry for the task.
-	/// - realizing the task&#39;s call which can include a preimage lookup.
+	/// - realizing the task's call which can include a preimage lookup.
 	/// - Rescheduling the task for execution in a later agenda if periodic.
 	</span><span class="kw">fn </span>service_task(
 		weight: <span class="kw-2">&amp;mut </span>WeightMeter,
@@ -3024,11 +3026,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					id: task.maybe_id,
 				});
 
-				<span class="comment">// It was not available when we needed it, so we don&#39;t need to have requested it
+				<span class="comment">// It was not available when we needed it, so we don't need to have requested it
 				// anymore.
 				</span>T::Preimages::drop(<span class="kw-2">&amp;</span>task.call);
 
-				<span class="comment">// We don&#39;t know why `peek` failed, thus we most account here for the &quot;full weight&quot;.
+				<span class="comment">// We don't know why `peek` failed, thus we most account here for the "full weight".
 				</span><span class="kw">let _ </span>= weight.try_consume(T::WeightInfo::service_task(
 					task.call.lookup_len().map(|x| x <span class="kw">as </span>usize),
 					task.maybe_id.is_some(),
@@ -3141,7 +3143,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Check if a task has a retry configuration in place and, if so, try to reschedule it.
 	///
 	/// Possible causes for failure to schedule a retry for a task:
-	/// - there wasn&#39;t enough weight to run the task reschedule logic
+	/// - there wasn't enough weight to run the task reschedule logic
 	/// - there was no retry configuration in place
 	/// - there were no more retry attempts left
 	/// - the agenda was full.

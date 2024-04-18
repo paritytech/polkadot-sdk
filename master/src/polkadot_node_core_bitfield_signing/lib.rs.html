@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/core/bitfield-signing/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/core/bitfield-signing/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_node_core_bitfield_signing" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_node_core_bitfield_signing" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../polkadot_node_core_bitfield_signing/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -491,7 +493,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="attr">#![deny(unused_crate_dependencies)]
 #![warn(missing_docs)]
-#![recursion_limit = <span class="string">&quot;256&quot;</span>]
+#![recursion_limit = <span class="string">"256"</span>]
 
 </span><span class="kw">use </span>futures::{
 	channel::{mpsc, oneshot},
@@ -522,7 +524,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Delay between starting a bitfield signing job and its attempting to create a bitfield.
 </span><span class="kw">const </span>SPAWNED_TASK_DELAY: Duration = Duration::from_millis(<span class="number">1500</span>);
-<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;parachain::bitfield-signing&quot;</span>;
+<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"parachain::bitfield-signing"</span>;
 
 <span class="comment">// TODO: use `fatality` (https://github.com/paritytech/polkadot/issues/5540).
 </span><span class="doccomment">/// Errors we may encounter in the course of executing the `BitfieldSigningSubsystem`.
@@ -544,7 +546,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[error(transparent)]
 	</span>Runtime(<span class="attr">#[from] </span>RuntimeApiError),
 
-	<span class="attr">#[error(<span class="string">&quot;Keystore failed: {0:?}&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Keystore failed: {0:?}"</span>)]
 	</span>Keystore(KeystoreError),
 }
 
@@ -557,7 +559,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	span: <span class="kw-2">&amp;</span>jaeger::Span,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;bool, Error&gt; {
 	<span class="kw">if let </span>CoreState::Occupied(core) = core {
-		<span class="kw">let </span>_span = span.child(<span class="string">&quot;query-chunk-availability&quot;</span>);
+		<span class="kw">let </span>_span = span.child(<span class="string">"query-chunk-availability"</span>);
 
 		<span class="kw">let </span>(tx, rx) = oneshot::channel();
 		sender
@@ -580,7 +582,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			para_id = %core.para_id(),
 			availability = <span class="question-mark">?</span>res,
 			<span class="question-mark">?</span>core.candidate_hash,
-			<span class="string">&quot;Candidate availability&quot;</span>,
+			<span class="string">"Candidate availability"</span>,
 		);
 
 		res
@@ -610,7 +612,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// - get the list of core states from the runtime
 /// - for each core, concurrently determine chunk availability (see `get_core_availability`)
-/// - return the bitfield if there were no errors at any point in this process (otherwise, it&#39;s
+/// - return the bitfield if there were no errors at any point in this process (otherwise, it's
 ///   prone to false negatives)
 </span><span class="kw">async fn </span>construct_availability_bitfield(
 	relay_parent: Hash,
@@ -620,7 +622,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ) -&gt; <span class="prelude-ty">Result</span>&lt;AvailabilityBitfield, Error&gt; {
 	<span class="comment">// get the set of availability cores from the runtime
 	</span><span class="kw">let </span>availability_cores = {
-		<span class="kw">let </span>_span = span.child(<span class="string">&quot;get-availability-cores&quot;</span>);
+		<span class="kw">let </span>_span = span.child(<span class="string">"get-availability-cores"</span>);
 		get_availability_cores(relay_parent, sender).<span class="kw">await</span><span class="question-mark">?
 	</span>};
 
@@ -644,7 +646,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="macro">gum::debug!</span>(
 		target: LOG_TARGET,
 		<span class="question-mark">?</span>relay_parent,
-		<span class="string">&quot;Signing Bitfield for {core_count} cores: {core_bits}&quot;</span>,
+		<span class="string">"Signing Bitfield for {core_count} cores: {core_bits}"</span>,
 		core_count = availability_cores.len(),
 		core_bits = core_bits,
 	);
@@ -671,11 +673,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>future = <span class="kw">async move </span>{
 			run(ctx, <span class="self">self</span>.keystore, <span class="self">self</span>.metrics)
 				.<span class="kw">await
-				</span>.map_err(|e| SubsystemError::with_origin(<span class="string">&quot;bitfield-signing&quot;</span>, e))
+				</span>.map_err(|e| SubsystemError::with_origin(<span class="string">"bitfield-signing"</span>, e))
 		}
 		.boxed();
 
-		SpawnedSubsystem { name: <span class="string">&quot;bitfield-signing-subsystem&quot;</span>, future }
+		SpawnedSubsystem { name: <span class="string">"bitfield-signing-subsystem"</span>, future }
 	}
 }
 
@@ -711,7 +713,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 					running.insert(leaf_hash, handle);
 
-					ctx.spawn(<span class="string">&quot;bitfield-signing-job&quot;</span>, fut.map(drop).boxed())<span class="question-mark">?</span>;
+					ctx.spawn(<span class="string">"bitfield-signing-job"</span>, fut.map(drop).boxed())<span class="question-mark">?</span>;
 				}
 			},
 			FromOrchestra::Signal(OverseerSignal::BlockFinalized(..)) =&gt; {},
@@ -730,12 +732,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">where
 	</span>Sender: overseer::BitfieldSigningSenderTrait,
 {
-	<span class="kw">let </span>span = PerLeafSpan::new(leaf.span, <span class="string">&quot;bitfield-signing&quot;</span>);
-	<span class="kw">let </span>span_delay = span.child(<span class="string">&quot;delay&quot;</span>);
+	<span class="kw">let </span>span = PerLeafSpan::new(leaf.span, <span class="string">"bitfield-signing"</span>);
+	<span class="kw">let </span>span_delay = span.child(<span class="string">"delay"</span>);
 	<span class="kw">let </span>wait_until = Instant::now() + SPAWNED_TASK_DELAY;
 
 	<span class="comment">// now do all the work we can before we need to wait for the availability store
-	// if we&#39;re not a validator, we can just succeed effortlessly
+	// if we're not a validator, we can just succeed effortlessly
 	</span><span class="kw">let </span>validator = <span class="kw">match </span>Validator::new(leaf.hash, keystore.clone(), <span class="kw-2">&amp;mut </span>sender).<span class="kw">await </span>{
 		<span class="prelude-val">Ok</span>(validator) =&gt; validator,
 		<span class="prelude-val">Err</span>(util::Error::NotAValidator) =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(()),
@@ -745,12 +747,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="comment">// wait a bit before doing anything else
 	</span>Delay::new_at(wait_until).<span class="kw">await</span><span class="question-mark">?</span>;
 
-	<span class="comment">// this timer does not appear at the head of the function because we don&#39;t want to include
+	<span class="comment">// this timer does not appear at the head of the function because we don't want to include
 	// SPAWNED_TASK_DELAY each time.
 	</span><span class="kw">let </span>_timer = metrics.time_run();
 
 	drop(span_delay);
-	<span class="kw">let </span>span_availability = span.child(<span class="string">&quot;availability&quot;</span>);
+	<span class="kw">let </span>span_availability = span.child(<span class="string">"availability"</span>);
 
 	<span class="kw">let </span>bitfield = <span class="kw">match </span>construct_availability_bitfield(
 		leaf.hash,
@@ -761,8 +763,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	.<span class="kw">await
 	</span>{
 		<span class="prelude-val">Err</span>(Error::Runtime(runtime_err)) =&gt; {
-			<span class="comment">// Don&#39;t take down the node on runtime API errors.
-			</span><span class="macro">gum::warn!</span>(target: LOG_TARGET, err = <span class="question-mark">?</span>runtime_err, <span class="string">&quot;Encountered a runtime API error&quot;</span>);
+			<span class="comment">// Don't take down the node on runtime API errors.
+			</span><span class="macro">gum::warn!</span>(target: LOG_TARGET, err = <span class="question-mark">?</span>runtime_err, <span class="string">"Encountered a runtime API error"</span>);
 			<span class="kw">return </span><span class="prelude-val">Ok</span>(())
 		},
 		<span class="prelude-val">Err</span>(err) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(err),
@@ -770,7 +772,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	};
 
 	drop(span_availability);
-	<span class="kw">let </span>span_signing = span.child(<span class="string">&quot;signing&quot;</span>);
+	<span class="kw">let </span>span_signing = span.child(<span class="string">"signing"</span>);
 
 	<span class="kw">let </span>signed_bitfield =
 		<span class="kw">match </span>validator.sign(keystore, bitfield).map_err(|e| Error::Keystore(e))<span class="question-mark">? </span>{
@@ -778,7 +780,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">None </span>=&gt; {
 				<span class="macro">gum::error!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Key was found at construction, but while signing it could not be found.&quot;</span>,
+					<span class="string">"Key was found at construction, but while signing it could not be found."</span>,
 				);
 				<span class="kw">return </span><span class="prelude-val">Ok</span>(())
 			},
@@ -787,7 +789,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	metrics.on_bitfield_signed();
 
 	drop(span_signing);
-	<span class="kw">let </span>_span_gossip = span.child(<span class="string">&quot;gossip&quot;</span>);
+	<span class="kw">let </span>_span_gossip = span.child(<span class="string">"gossip"</span>);
 
 	sender
 		.send_message(BitfieldDistributionMessage::DistributeBitfield(leaf.hash, signed_bitfield))

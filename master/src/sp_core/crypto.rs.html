@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/core/src/crypto.rs`."><title>crypto.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/core/src/crypto.rs`."><title>crypto.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_core" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_core" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sp_core/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1610,14 +1612,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -1627,16 +1629,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">use crate</span>::{ed25519, sr25519};
 <span class="kw">use </span>bip39::{Language, Mnemonic};
 <span class="kw">use </span>codec::{Decode, Encode, MaxEncodedLen};
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">use </span>itertools::Itertools;
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">use </span>rand::{rngs::OsRng, RngCore};
 <span class="kw">use </span>scale_info::TypeInfo;
 <span class="kw">pub use </span>secrecy::{ExposeSecret, SecretString};
 <span class="kw">use </span>sp_runtime_interface::pass_by::PassByInner;
 <span class="attr">#[doc(hidden)]
 </span><span class="kw">pub use </span>sp_std::ops::Deref;
-<span class="attr">#[cfg(all(not(feature = <span class="string">&quot;std&quot;</span>), feature = <span class="string">&quot;serde&quot;</span>))]
+<span class="attr">#[cfg(all(not(feature = <span class="string">"std"</span>), feature = <span class="string">"serde"</span>))]
 </span><span class="kw">use </span>sp_std::{
 	alloc::{format, string::String},
 	vec,
@@ -1653,21 +1655,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// The root phrase for our publicly known keys.
 </span><span class="kw">pub const </span>DEV_PHRASE: <span class="kw-2">&amp;</span>str =
-	<span class="string">&quot;bottom drive obey lake curtain smoke basket hold race lonely fit walk&quot;</span>;
+	<span class="string">"bottom drive obey lake curtain smoke basket hold race lonely fit walk"</span>;
 
 <span class="doccomment">/// The address of the associated root phrase for our publicly known keys.
-</span><span class="kw">pub const </span>DEV_ADDRESS: <span class="kw-2">&amp;</span>str = <span class="string">&quot;5DfhGyQdFobKM8NsWvEeAKk5EQQgYe9AydgJ7rMB6E1EqRzV&quot;</span>;
+</span><span class="kw">pub const </span>DEV_ADDRESS: <span class="kw-2">&amp;</span>str = <span class="string">"5DfhGyQdFobKM8NsWvEeAKk5EQQgYe9AydgJ7rMB6E1EqRzV"</span>;
 
 <span class="doccomment">/// The length of the junction identifier. Note that this is also referred to as the
 /// `CHAIN_CODE_LENGTH` in the context of Schnorrkel.
 </span><span class="kw">pub const </span>JUNCTION_ID_LEN: usize = <span class="number">32</span>;
 
 <span class="doccomment">/// Similar to `From`, except that the onus is on the part of the caller to ensure
-/// that data passed in makes sense. Basically, you&#39;re not guaranteed to get anything
+/// that data passed in makes sense. Basically, you're not guaranteed to get anything
 /// sensible out.
 </span><span class="kw">pub trait </span>UncheckedFrom&lt;T&gt; {
 	<span class="doccomment">/// Convert from an instance of `T` to Self. This is not guaranteed to be
-	/// whatever counts as a valid instance of `T` and it&#39;s up to the caller to
+	/// whatever counts as a valid instance of `T` and it's up to the caller to
 	/// ensure that it makes sense.
 	</span><span class="kw">fn </span>unchecked_from(t: T) -&gt; <span class="self">Self</span>;
 }
@@ -1685,26 +1687,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// An error with the interpretation of a secret.
-</span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(thiserror::Error))]
+</span><span class="attr">#[cfg_attr(feature = <span class="string">"std"</span>, derive(thiserror::Error))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 </span><span class="kw">pub enum </span>SecretStringError {
 	<span class="doccomment">/// The overall format was invalid (e.g. the seed phrase contained symbols).
-	</span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, error(<span class="string">&quot;Invalid format {0}&quot;</span>))]
+	</span><span class="attr">#[cfg_attr(feature = <span class="string">"std"</span>, error(<span class="string">"Invalid format {0}"</span>))]
 	</span>InvalidFormat(AddressUriError),
 	<span class="doccomment">/// The seed phrase provided is not a valid BIP39 phrase.
-	</span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, error(<span class="string">&quot;Invalid phrase&quot;</span>))]
+	</span><span class="attr">#[cfg_attr(feature = <span class="string">"std"</span>, error(<span class="string">"Invalid phrase"</span>))]
 	</span>InvalidPhrase,
 	<span class="doccomment">/// The supplied password was invalid.
-	</span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, error(<span class="string">&quot;Invalid password&quot;</span>))]
+	</span><span class="attr">#[cfg_attr(feature = <span class="string">"std"</span>, error(<span class="string">"Invalid password"</span>))]
 	</span>InvalidPassword,
 	<span class="doccomment">/// The seed is invalid (bad content).
-	</span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, error(<span class="string">&quot;Invalid seed&quot;</span>))]
+	</span><span class="attr">#[cfg_attr(feature = <span class="string">"std"</span>, error(<span class="string">"Invalid seed"</span>))]
 	</span>InvalidSeed,
 	<span class="doccomment">/// The seed has an invalid length.
-	</span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, error(<span class="string">&quot;Invalid seed length&quot;</span>))]
+	</span><span class="attr">#[cfg_attr(feature = <span class="string">"std"</span>, error(<span class="string">"Invalid seed length"</span>))]
 	</span>InvalidSeedLength,
 	<span class="doccomment">/// The derivation path was invalid (e.g. contains soft junctions when they are not supported).
-	</span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, error(<span class="string">&quot;Invalid path&quot;</span>))]
+	</span><span class="attr">#[cfg_attr(feature = <span class="string">"std"</span>, error(<span class="string">"Invalid path"</span>))]
 	</span>InvalidPath,
 }
 
@@ -1715,11 +1717,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// An error when deriving a key.
-</span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(thiserror::Error))]
+</span><span class="attr">#[cfg_attr(feature = <span class="string">"std"</span>, derive(thiserror::Error))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 </span><span class="kw">pub enum </span>DeriveError {
 	<span class="doccomment">/// A soft key was found in the path (and is unsupported).
-	</span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, error(<span class="string">&quot;Soft key in path&quot;</span>))]
+	</span><span class="attr">#[cfg_attr(feature = <span class="string">"std"</span>, error(<span class="string">"Soft key in path"</span>))]
 	</span>SoftKeyInPath,
 }
 
@@ -1730,7 +1732,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub enum </span>DeriveJunction {
 	<span class="doccomment">/// Soft (vanilla) derivation. Public keys have a correspondent derivation.
 	</span>Soft([u8; JUNCTION_ID_LEN]),
-	<span class="doccomment">/// Hard (&quot;hardened&quot;) derivation. Public keys do not have a correspondent derivation.
+	<span class="doccomment">/// Hard ("hardened") derivation. Public keys do not have a correspondent derivation.
 	</span>Hard([u8; JUNCTION_ID_LEN]),
 }
 
@@ -1796,7 +1798,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>from(j: T) -&gt; DeriveJunction {
 		<span class="kw">let </span>j = j.as_ref();
 		<span class="kw">let </span>(code, hard) =
-			<span class="kw">if let </span><span class="prelude-val">Some</span>(stripped) = j.strip_prefix(<span class="string">&#39;/&#39;</span>) { (stripped, <span class="bool-val">true</span>) } <span class="kw">else </span>{ (j, <span class="bool-val">false</span>) };
+			<span class="kw">if let </span><span class="prelude-val">Some</span>(stripped) = j.strip_prefix(<span class="string">'/'</span>) { (stripped, <span class="bool-val">true</span>) } <span class="kw">else </span>{ (j, <span class="bool-val">false</span>) };
 
 		<span class="kw">let </span>res = <span class="kw">if let </span><span class="prelude-val">Ok</span>(n) = str::parse::&lt;u64&gt;(code) {
 			<span class="comment">// number
@@ -1815,47 +1817,47 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// An error type for SS58 decoding.
-</span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(thiserror::Error))]
-#[cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), derive(Debug))]
+</span><span class="attr">#[cfg_attr(feature = <span class="string">"std"</span>, derive(thiserror::Error))]
+#[cfg_attr(not(feature = <span class="string">"std"</span>), derive(Debug))]
 #[derive(Clone, Eq, PartialEq)]
 #[allow(missing_docs)]
-#[cfg(any(feature = <span class="string">&quot;full_crypto&quot;</span>, feature = <span class="string">&quot;serde&quot;</span>))]
+#[cfg(any(feature = <span class="string">"full_crypto"</span>, feature = <span class="string">"serde"</span>))]
 </span><span class="kw">pub enum </span>PublicError {
-	<span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, error(<span class="string">&quot;Base 58 requirement is violated&quot;</span>))]
+	<span class="attr">#[cfg_attr(feature = <span class="string">"std"</span>, error(<span class="string">"Base 58 requirement is violated"</span>))]
 	</span>BadBase58,
-	<span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, error(<span class="string">&quot;Length is bad&quot;</span>))]
+	<span class="attr">#[cfg_attr(feature = <span class="string">"std"</span>, error(<span class="string">"Length is bad"</span>))]
 	</span>BadLength,
 	<span class="attr">#[cfg_attr(
-		feature = <span class="string">&quot;std&quot;</span>,
+		feature = <span class="string">"std"</span>,
 		error(
-			<span class="string">&quot;Unknown SS58 address format `{}`. ` \
-		`To support this address format, you need to call `set_default_ss58_version` at node start up.&quot;</span>,
+			<span class="string">"Unknown SS58 address format `{}`. ` \
+		`To support this address format, you need to call `set_default_ss58_version` at node start up."</span>,
 			_0
 		)
 	)]
 	</span>UnknownSs58AddressFormat(Ss58AddressFormat),
-	<span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, error(<span class="string">&quot;Invalid checksum&quot;</span>))]
+	<span class="attr">#[cfg_attr(feature = <span class="string">"std"</span>, error(<span class="string">"Invalid checksum"</span>))]
 	</span>InvalidChecksum,
-	<span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, error(<span class="string">&quot;Invalid SS58 prefix byte.&quot;</span>))]
+	<span class="attr">#[cfg_attr(feature = <span class="string">"std"</span>, error(<span class="string">"Invalid SS58 prefix byte."</span>))]
 	</span>InvalidPrefix,
-	<span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, error(<span class="string">&quot;Invalid SS58 format.&quot;</span>))]
+	<span class="attr">#[cfg_attr(feature = <span class="string">"std"</span>, error(<span class="string">"Invalid SS58 format."</span>))]
 	</span>InvalidFormat,
-	<span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, error(<span class="string">&quot;Invalid derivation path.&quot;</span>))]
+	<span class="attr">#[cfg_attr(feature = <span class="string">"std"</span>, error(<span class="string">"Invalid derivation path."</span>))]
 	</span>InvalidPath,
-	<span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, error(<span class="string">&quot;Disallowed SS58 Address Format for this datatype.&quot;</span>))]
+	<span class="attr">#[cfg_attr(feature = <span class="string">"std"</span>, error(<span class="string">"Disallowed SS58 Address Format for this datatype."</span>))]
 	</span>FormatNotAllowed,
-	<span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, error(<span class="string">&quot;Password not allowed.&quot;</span>))]
+	<span class="attr">#[cfg_attr(feature = <span class="string">"std"</span>, error(<span class="string">"Password not allowed."</span>))]
 	</span>PasswordNotAllowed,
-	<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
-	#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, error(<span class="string">&quot;Incorrect URI syntax {0}.&quot;</span>))]
+	<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
+	#[cfg_attr(feature = <span class="string">"std"</span>, error(<span class="string">"Incorrect URI syntax {0}."</span>))]
 	</span>MalformedUri(<span class="attr">#[from] </span>AddressUriError),
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">impl </span>sp_std::fmt::Debug <span class="kw">for </span>PublicError {
-	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; sp_std::fmt::Result {
+	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; sp_std::fmt::Result {
 		<span class="comment">// Just use the `Display` implementation
-		</span><span class="macro">write!</span>(f, <span class="string">&quot;{}&quot;</span>, <span class="self">self</span>)
+		</span><span class="macro">write!</span>(f, <span class="string">"{}"</span>, <span class="self">self</span>)
 	}
 }
 
@@ -1871,7 +1873,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Some if the string is a properly encoded SS58Check address.
-	</span><span class="attr">#[cfg(feature = <span class="string">&quot;serde&quot;</span>)]
+	</span><span class="attr">#[cfg(feature = <span class="string">"serde"</span>)]
 	</span><span class="kw">fn </span>from_ss58check(s: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, PublicError&gt; {
 		<span class="self">Self</span>::from_ss58check_with_version(s).and_then(|(r, v)| <span class="kw">match </span>v {
 			v <span class="kw">if </span>!v.is_custom() =&gt; <span class="prelude-val">Ok</span>(r),
@@ -1881,7 +1883,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Some if the string is a properly encoded SS58Check address.
-	</span><span class="attr">#[cfg(feature = <span class="string">&quot;serde&quot;</span>)]
+	</span><span class="attr">#[cfg(feature = <span class="string">"serde"</span>)]
 	</span><span class="kw">fn </span>from_ss58check_with_version(s: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;(<span class="self">Self</span>, Ss58AddressFormat), PublicError&gt; {
 		<span class="kw">const </span>CHECKSUM_LEN: usize = <span class="number">2</span>;
 		<span class="kw">let </span>body_len = <span class="self">Self</span>::LEN;
@@ -1926,7 +1928,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Some if the string is a properly encoded SS58Check address, optionally with
 	/// a derivation path following.
-	</span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+	</span><span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 	</span><span class="kw">fn </span>from_string(s: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, PublicError&gt; {
 		<span class="self">Self</span>::from_string_with_version(s).and_then(|(r, v)| <span class="kw">match </span>v {
 			v <span class="kw">if </span>!v.is_custom() =&gt; <span class="prelude-val">Ok</span>(r),
@@ -1936,7 +1938,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Return the ss58-check string for this key.
-	</span><span class="attr">#[cfg(feature = <span class="string">&quot;serde&quot;</span>)]
+	</span><span class="attr">#[cfg(feature = <span class="string">"serde"</span>)]
 	</span><span class="kw">fn </span>to_ss58check_with_version(<span class="kw-2">&amp;</span><span class="self">self</span>, version: Ss58AddressFormat) -&gt; String {
 		<span class="comment">// We mask out the upper two bits of the ident - SS58 Prefix currently only supports 14-bits
 		</span><span class="kw">let </span>ident: u16 = u16::from(version) &amp; <span class="number">0b0011_1111_1111_1111</span>;
@@ -1950,7 +1952,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				</span><span class="kw">let </span>second = ((ident &gt;&gt; <span class="number">8</span>) <span class="kw">as </span>u8) | ((ident &amp; <span class="number">0b0000_0000_0000_0011</span>) <span class="kw">as </span>u8) &lt;&lt; <span class="number">6</span>;
 				<span class="macro">vec!</span>[first | <span class="number">0b01000000</span>, second]
 			},
-			<span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(<span class="string">&quot;masked out the upper two bits; qed&quot;</span>),
+			<span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(<span class="string">"masked out the upper two bits; qed"</span>),
 		};
 		v.extend(<span class="self">self</span>.as_ref());
 		<span class="kw">let </span>r = ss58hash(<span class="kw-2">&amp;</span>v);
@@ -1959,14 +1961,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Return the ss58-check string for this key.
-	</span><span class="attr">#[cfg(feature = <span class="string">&quot;serde&quot;</span>)]
+	</span><span class="attr">#[cfg(feature = <span class="string">"serde"</span>)]
 	</span><span class="kw">fn </span>to_ss58check(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String {
 		<span class="self">self</span>.to_ss58check_with_version(default_ss58_version())
 	}
 
 	<span class="doccomment">/// Some if the string is a properly encoded SS58Check address, optionally with
 	/// a derivation path following.
-	</span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+	</span><span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 	</span><span class="kw">fn </span>from_string_with_version(s: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;(<span class="self">Self</span>, Ss58AddressFormat), PublicError&gt; {
 		<span class="self">Self</span>::from_ss58check_with_version(s)
 	}
@@ -1977,16 +1979,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Derive a child key from a series of given junctions.
 	///
 	/// Will be `None` for public keys if there are any hard junctions in there.
-	</span><span class="attr">#[cfg(feature = <span class="string">&quot;serde&quot;</span>)]
+	</span><span class="attr">#[cfg(feature = <span class="string">"serde"</span>)]
 	</span><span class="kw">fn </span>derive&lt;Iter: Iterator&lt;Item = DeriveJunction&gt;&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, _path: Iter) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt; {
 		<span class="prelude-val">None
 	</span>}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;serde&quot;</span>)]
-</span><span class="kw">const </span>PREFIX: <span class="kw-2">&amp;</span>[u8] = <span class="string">b&quot;SS58PRE&quot;</span>;
+<span class="attr">#[cfg(feature = <span class="string">"serde"</span>)]
+</span><span class="kw">const </span>PREFIX: <span class="kw-2">&amp;</span>[u8] = <span class="string">b"SS58PRE"</span>;
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;serde&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"serde"</span>)]
 </span><span class="kw">fn </span>ss58hash(data: <span class="kw-2">&amp;</span>[u8]) -&gt; Vec&lt;u8&gt; {
 	<span class="kw">use </span>blake2::{Blake2b512, Digest};
 
@@ -1997,38 +1999,38 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Default prefix number
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;serde&quot;</span>)]
+</span><span class="attr">#[cfg(feature = <span class="string">"serde"</span>)]
 </span><span class="kw">static </span>DEFAULT_VERSION: core::sync::atomic::AtomicU16 = core::sync::atomic::AtomicU16::new(
 	from_known_address_format(Ss58AddressFormatRegistry::SubstrateAccount),
 );
 
 <span class="doccomment">/// Returns default SS58 format used by the current active process.
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;serde&quot;</span>)]
+</span><span class="attr">#[cfg(feature = <span class="string">"serde"</span>)]
 </span><span class="kw">pub fn </span>default_ss58_version() -&gt; Ss58AddressFormat {
 	DEFAULT_VERSION.load(core::sync::atomic::Ordering::Relaxed).into()
 }
 
 <span class="doccomment">/// Returns either the input address format or the default.
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;serde&quot;</span>)]
+</span><span class="attr">#[cfg(feature = <span class="string">"serde"</span>)]
 </span><span class="kw">pub fn </span>unwrap_or_default_ss58_version(network: <span class="prelude-ty">Option</span>&lt;Ss58AddressFormat&gt;) -&gt; Ss58AddressFormat {
 	network.unwrap_or_else(default_ss58_version)
 }
 
-<span class="doccomment">/// Set the default SS58 &quot;version&quot;.
+<span class="doccomment">/// Set the default SS58 "version".
 ///
 /// This SS58 version/format will be used when encoding/decoding SS58 addresses.
 ///
-/// If you want to support a custom SS58 prefix (that isn&#39;t yet registered in the `ss58-registry`),
+/// If you want to support a custom SS58 prefix (that isn't yet registered in the `ss58-registry`),
 /// you are required to call this function with your desired prefix [`Ss58AddressFormat::custom`].
 /// This will enable the node to decode ss58 addresses with this prefix.
 ///
 /// This SS58 version/format is also only used by the node and not by the runtime.
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;serde&quot;</span>)]
+</span><span class="attr">#[cfg(feature = <span class="string">"serde"</span>)]
 </span><span class="kw">pub fn </span>set_default_ss58_version(new_default: Ss58AddressFormat) {
 	DEFAULT_VERSION.store(new_default.into(), core::sync::atomic::Ordering::Relaxed);
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">impl</span>&lt;T: Sized + AsMut&lt;[u8]&gt; + AsRef&lt;[u8]&gt; + Public + Derive&gt; Ss58Codec <span class="kw">for </span>T {
 	<span class="kw">fn </span>from_string(s: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, PublicError&gt; {
 		<span class="kw">let </span>cap = AddressUri::parse(s)<span class="question-mark">?</span>;
@@ -2036,7 +2038,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">return </span><span class="prelude-val">Err</span>(PublicError::PasswordNotAllowed)
 		}
 		<span class="kw">let </span>s = cap.phrase.unwrap_or(DEV_ADDRESS);
-		<span class="kw">let </span>addr = <span class="kw">if let </span><span class="prelude-val">Some</span>(stripped) = s.strip_prefix(<span class="string">&quot;0x&quot;</span>) {
+		<span class="kw">let </span>addr = <span class="kw">if let </span><span class="prelude-val">Some</span>(stripped) = s.strip_prefix(<span class="string">"0x"</span>) {
 			<span class="kw">let </span>d = array_bytes::hex2bytes(stripped).map_err(|<span class="kw">_</span>| PublicError::InvalidFormat)<span class="question-mark">?</span>;
 			<span class="self">Self</span>::from_slice(<span class="kw-2">&amp;</span>d).map_err(|()| PublicError::BadLength)<span class="question-mark">?
 		</span>} <span class="kw">else </span>{
@@ -2068,12 +2070,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="comment">// Use the default implementations of the trait in serde feature.
 // The std implementation is not available because of std only crate Regex.
-</span><span class="attr">#[cfg(all(not(feature = <span class="string">&quot;std&quot;</span>), feature = <span class="string">&quot;serde&quot;</span>))]
+</span><span class="attr">#[cfg(all(not(feature = <span class="string">"std"</span>), feature = <span class="string">"serde"</span>))]
 </span><span class="kw">impl</span>&lt;T: Sized + AsMut&lt;[u8]&gt; + AsRef&lt;[u8]&gt; + Public + Derive&gt; Ss58Codec <span class="kw">for </span>T {}
 
 <span class="doccomment">/// Trait used for types that are really just a fixed-length array.
-</span><span class="kw">pub trait </span>ByteArray: AsRef&lt;[u8]&gt; + AsMut&lt;[u8]&gt; + <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; TryFrom&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8], Error = ()&gt; {
-	<span class="doccomment">/// The &quot;length&quot; of the values of this type, which is always the same.
+</span><span class="kw">pub trait </span>ByteArray: AsRef&lt;[u8]&gt; + AsMut&lt;[u8]&gt; + <span class="kw">for</span>&lt;<span class="lifetime">'a</span>&gt; TryFrom&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8], Error = ()&gt; {
+	<span class="doccomment">/// The "length" of the values of this type, which is always the same.
 	</span><span class="kw">const </span>LEN: usize;
 
 	<span class="doccomment">/// A new instance from the given slice that should be `Self::LEN` bytes long.
@@ -2100,7 +2102,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// An opaque 32-byte cryptographic identifier.
 </span><span class="attr">#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, MaxEncodedLen, TypeInfo)]
-#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(Hash))]
+#[cfg_attr(feature = <span class="string">"std"</span>, derive(Hash))]
 </span><span class="kw">pub struct </span>AccountId32([u8; <span class="number">32</span>]);
 
 <span class="kw">impl </span>AccountId32 {
@@ -2123,7 +2125,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">const </span>LEN: usize = <span class="number">32</span>;
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;serde&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"serde"</span>)]
 </span><span class="kw">impl </span>Ss58Codec <span class="kw">for </span>AccountId32 {}
 
 <span class="kw">impl </span>AsRef&lt;[u8]&gt; <span class="kw">for </span>AccountId32 {
@@ -2156,9 +2158,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; TryFrom&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8]&gt; <span class="kw">for </span>AccountId32 {
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; TryFrom&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8]&gt; <span class="kw">for </span>AccountId32 {
 	<span class="kw">type </span>Error = ();
-	<span class="kw">fn </span>try_from(x: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;AccountId32, ()&gt; {
+	<span class="kw">fn </span>try_from(x: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;AccountId32, ()&gt; {
 		<span class="kw">if </span>x.len() == <span class="number">32 </span>{
 			<span class="kw">let </span><span class="kw-2">mut </span>data = [<span class="number">0</span>; <span class="number">32</span>];
 			data.copy_from_slice(x);
@@ -2187,29 +2189,29 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">impl </span>std::fmt::Display <span class="kw">for </span>AccountId32 {
 	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter) -&gt; std::fmt::Result {
-		<span class="macro">write!</span>(f, <span class="string">&quot;{}&quot;</span>, <span class="self">self</span>.to_ss58check())
+		<span class="macro">write!</span>(f, <span class="string">"{}"</span>, <span class="self">self</span>.to_ss58check())
 	}
 }
 
 <span class="kw">impl </span>sp_std::fmt::Debug <span class="kw">for </span>AccountId32 {
 	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter) -&gt; sp_std::fmt::Result {
-		<span class="attr">#[cfg(feature = <span class="string">&quot;serde&quot;</span>)]
+		<span class="attr">#[cfg(feature = <span class="string">"serde"</span>)]
 		</span>{
 			<span class="kw">let </span>s = <span class="self">self</span>.to_ss58check();
-			<span class="macro">write!</span>(f, <span class="string">&quot;{} ({}...)&quot;</span>, <span class="kw">crate</span>::hexdisplay::HexDisplay::from(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>), <span class="kw-2">&amp;</span>s[<span class="number">0</span>..<span class="number">8</span>])<span class="question-mark">?</span>;
+			<span class="macro">write!</span>(f, <span class="string">"{} ({}...)"</span>, <span class="kw">crate</span>::hexdisplay::HexDisplay::from(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>), <span class="kw-2">&amp;</span>s[<span class="number">0</span>..<span class="number">8</span>])<span class="question-mark">?</span>;
 		}
 
-		<span class="attr">#[cfg(not(feature = <span class="string">&quot;serde&quot;</span>))]
-		</span><span class="macro">write!</span>(f, <span class="string">&quot;{}&quot;</span>, <span class="kw">crate</span>::hexdisplay::HexDisplay::from(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>))<span class="question-mark">?</span>;
+		<span class="attr">#[cfg(not(feature = <span class="string">"serde"</span>))]
+		</span><span class="macro">write!</span>(f, <span class="string">"{}"</span>, <span class="kw">crate</span>::hexdisplay::HexDisplay::from(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>))<span class="question-mark">?</span>;
 
 		<span class="prelude-val">Ok</span>(())
 	}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;serde&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"serde"</span>)]
 </span><span class="kw">impl </span>serde::Serialize <span class="kw">for </span>AccountId32 {
 	<span class="kw">fn </span>serialize&lt;S&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, serializer: S) -&gt; <span class="prelude-ty">Result</span>&lt;S::Ok, S::Error&gt;
 	<span class="kw">where
@@ -2219,27 +2221,27 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;serde&quot;</span>)]
-</span><span class="kw">impl</span>&lt;<span class="lifetime">&#39;de</span>&gt; serde::Deserialize&lt;<span class="lifetime">&#39;de</span>&gt; <span class="kw">for </span>AccountId32 {
+<span class="attr">#[cfg(feature = <span class="string">"serde"</span>)]
+</span><span class="kw">impl</span>&lt;<span class="lifetime">'de</span>&gt; serde::Deserialize&lt;<span class="lifetime">'de</span>&gt; <span class="kw">for </span>AccountId32 {
 	<span class="kw">fn </span>deserialize&lt;D&gt;(deserializer: D) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, D::Error&gt;
 	<span class="kw">where
-		</span>D: serde::Deserializer&lt;<span class="lifetime">&#39;de</span>&gt;,
+		</span>D: serde::Deserializer&lt;<span class="lifetime">'de</span>&gt;,
 	{
 		Ss58Codec::from_ss58check(<span class="kw-2">&amp;</span>String::deserialize(deserializer)<span class="question-mark">?</span>)
-			.map_err(|e| serde::de::Error::custom(<span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, e)))
+			.map_err(|e| serde::de::Error::custom(<span class="macro">format!</span>(<span class="string">"{:?}"</span>, e)))
 	}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">impl </span>sp_std::str::FromStr <span class="kw">for </span>AccountId32 {
-	<span class="kw">type </span><span class="prelude-val">Err </span>= <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str;
+	<span class="kw">type </span><span class="prelude-val">Err </span>= <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str;
 
 	<span class="kw">fn </span>from_str(s: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Err&gt; {
-		<span class="kw">let </span>hex_or_ss58_without_prefix = s.trim_start_matches(<span class="string">&quot;0x&quot;</span>);
+		<span class="kw">let </span>hex_or_ss58_without_prefix = s.trim_start_matches(<span class="string">"0x"</span>);
 		<span class="kw">if </span>hex_or_ss58_without_prefix.len() == <span class="number">64 </span>{
-			array_bytes::hex_n_into(hex_or_ss58_without_prefix).map_err(|<span class="kw">_</span>| <span class="string">&quot;invalid hex address.&quot;</span>)
+			array_bytes::hex_n_into(hex_or_ss58_without_prefix).map_err(|<span class="kw">_</span>| <span class="string">"invalid hex address."</span>)
 		} <span class="kw">else </span>{
-			<span class="self">Self</span>::from_ss58check(s).map_err(|<span class="kw">_</span>| <span class="string">&quot;invalid ss58 address.&quot;</span>)
+			<span class="self">Self</span>::from_ss58check(s).map_err(|<span class="kw">_</span>| <span class="string">"invalid ss58 address."</span>)
 		}
 	}
 }
@@ -2251,17 +2253,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">pub use </span><span class="self">self</span>::dummy::<span class="kw-2">*</span>;
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">mod </span>dummy {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 
 	<span class="attr">#[doc(hidden)]
 	</span><span class="kw">pub struct </span>DummyTag;
 
-	<span class="doccomment">/// Dummy cryptography. Doesn&#39;t do anything.
+	<span class="doccomment">/// Dummy cryptography. Doesn't do anything.
 	</span><span class="kw">pub type </span>Dummy = CryptoBytes&lt;<span class="number">0</span>, DummyTag&gt;;
 
 	<span class="kw">impl </span>CryptoType <span class="kw">for </span>Dummy {
@@ -2279,12 +2281,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">type </span>Seed = Dummy;
 		<span class="kw">type </span>Signature = Dummy;
 
-		<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+		<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 		</span><span class="kw">fn </span>generate_with_phrase(<span class="kw">_</span>: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;) -&gt; (<span class="self">Self</span>, String, <span class="self">Self</span>::Seed) {
 			Default::default()
 		}
 
-		<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+		<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 		</span><span class="kw">fn </span>from_phrase(<span class="kw">_</span>: <span class="kw-2">&amp;</span>str, <span class="kw">_</span>: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(<span class="self">Self</span>, <span class="self">Self</span>::Seed), SecretStringError&gt; {
 			<span class="prelude-val">Ok</span>(Default::default())
 		}
@@ -2324,7 +2326,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// The `SURI` can be parsed from a string. The string is interpreted in the following way:
 ///
 /// - If `string` is a possibly `0x` prefixed 64-digit hex string, then it will be interpreted
-/// directly as a `MiniSecretKey` (aka &quot;seed&quot; in `subkey`).
+/// directly as a `MiniSecretKey` (aka "seed" in `subkey`).
 /// - If `string` is a valid BIP-39 key phrase of 12, 15, 18, 21 or 24 words, then the key will
 /// be derived from it. In this case:
 ///   - the phrase may be followed by one or more items delimited by `/` characters.
@@ -2352,9 +2354,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// ```
 /// # use sp_core::crypto::{SecretUri, DeriveJunction, DEV_PHRASE, ExposeSecret};
 /// # use std::str::FromStr;
-/// let suri = SecretUri::from_str(&quot;//Alice&quot;).expect(&quot;Parse SURI&quot;);
+/// let suri = SecretUri::from_str("//Alice").expect("Parse SURI");
 ///
-/// assert_eq!(vec![DeriveJunction::from(&quot;Alice&quot;).harden()], suri.junctions);
+/// assert_eq!(vec![DeriveJunction::from("Alice").harden()], suri.junctions);
 /// assert_eq!(DEV_PHRASE, suri.phrase.expose_secret());
 /// assert!(suri.password.is_none());
 /// ```
@@ -2364,11 +2366,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// ```
 /// # use sp_core::crypto::{SecretUri, DeriveJunction, DEV_PHRASE, ExposeSecret};
 /// # use std::str::FromStr;
-/// let suri = SecretUri::from_str(&quot;//Alice///SECRET_PASSWORD&quot;).expect(&quot;Parse SURI&quot;);
+/// let suri = SecretUri::from_str("//Alice///SECRET_PASSWORD").expect("Parse SURI");
 ///
-/// assert_eq!(vec![DeriveJunction::from(&quot;Alice&quot;).harden()], suri.junctions);
+/// assert_eq!(vec![DeriveJunction::from("Alice").harden()], suri.junctions);
 /// assert_eq!(DEV_PHRASE, suri.phrase.expose_secret());
-/// assert_eq!(&quot;SECRET_PASSWORD&quot;, suri.password.unwrap().expose_secret());
+/// assert_eq!("SECRET_PASSWORD", suri.password.unwrap().expose_secret());
 /// ```
 ///
 /// Parse [`DEV_PHRASE`] secret ui with hex phrase and junction:
@@ -2376,10 +2378,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// ```
 /// # use sp_core::crypto::{SecretUri, DeriveJunction, DEV_PHRASE, ExposeSecret};
 /// # use std::str::FromStr;
-/// let suri = SecretUri::from_str(&quot;0xe5be9a5092b81bca64be81d212e7f2f9eba183bb7a90954f7b76361f6edb5c0a//Alice&quot;).expect(&quot;Parse SURI&quot;);
+/// let suri = SecretUri::from_str("0xe5be9a5092b81bca64be81d212e7f2f9eba183bb7a90954f7b76361f6edb5c0a//Alice").expect("Parse SURI");
 ///
-/// assert_eq!(vec![DeriveJunction::from(&quot;Alice&quot;).harden()], suri.junctions);
-/// assert_eq!(&quot;0xe5be9a5092b81bca64be81d212e7f2f9eba183bb7a90954f7b76361f6edb5c0a&quot;, suri.phrase.expose_secret());
+/// assert_eq!(vec![DeriveJunction::from("Alice").harden()], suri.junctions);
+/// assert_eq!("0xe5be9a5092b81bca64be81d212e7f2f9eba183bb7a90954f7b76361f6edb5c0a", suri.phrase.expose_secret());
 /// assert!(suri.password.is_none());
 /// ```
 </span><span class="kw">pub struct </span>SecretUri {
@@ -2401,10 +2403,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>phrase = cap.phrase.unwrap_or(DEV_PHRASE);
 
 		<span class="prelude-val">Ok</span>(<span class="self">Self </span>{
-			phrase: SecretString::from_str(phrase).expect(<span class="string">&quot;Returns infallible error; qed&quot;</span>),
+			phrase: SecretString::from_str(phrase).expect(<span class="string">"Returns infallible error; qed"</span>),
 			password: cap
 				.pass
-				.map(|v| SecretString::from_str(v).expect(<span class="string">&quot;Returns infallible error; qed&quot;</span>)),
+				.map(|v| SecretString::from_str(v).expect(<span class="string">"Returns infallible error; qed"</span>)),
 			junctions: cap.paths.iter().map(DeriveJunction::from).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
 		})
 	}
@@ -2427,9 +2429,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Generate new secure (random) key pair.
 	///
-	/// This is only for ephemeral keys really, since you won&#39;t have access to the secret key
+	/// This is only for ephemeral keys really, since you won't have access to the secret key
 	/// for storage. If you want a persistent key pair, use `generate_with_phrase` instead.
-	</span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+	</span><span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 	</span><span class="kw">fn </span>generate() -&gt; (<span class="self">Self</span>, <span class="self">Self</span>::Seed) {
 		<span class="kw">let </span><span class="kw-2">mut </span>seed = <span class="self">Self</span>::Seed::default();
 		OsRng.fill_bytes(seed.as_mut());
@@ -2442,16 +2444,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// This is generally slower than `generate()`, so prefer that unless you need to persist
 	/// the key from the current session.
-	</span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+	</span><span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 	</span><span class="kw">fn </span>generate_with_phrase(password: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;) -&gt; (<span class="self">Self</span>, String, <span class="self">Self</span>::Seed) {
-		<span class="kw">let </span>mnemonic = Mnemonic::generate(<span class="number">12</span>).expect(<span class="string">&quot;Mnemonic generation always works; qed&quot;</span>);
-		<span class="kw">let </span>phrase = mnemonic.words().join(<span class="string">&quot; &quot;</span>);
+		<span class="kw">let </span>mnemonic = Mnemonic::generate(<span class="number">12</span>).expect(<span class="string">"Mnemonic generation always works; qed"</span>);
+		<span class="kw">let </span>phrase = mnemonic.words().join(<span class="string">" "</span>);
 		<span class="kw">let </span>(pair, seed) = <span class="self">Self</span>::from_phrase(<span class="kw-2">&amp;</span>phrase, password)
-			.expect(<span class="string">&quot;All phrases generated by Mnemonic are valid; qed&quot;</span>);
+			.expect(<span class="string">"All phrases generated by Mnemonic are valid; qed"</span>);
 		(pair, phrase.to_owned(), seed)
 	}
 
-	<span class="doccomment">/// Returns the KeyPair from the English BIP39 seed `phrase`, or an error if it&#39;s invalid.
+	<span class="doccomment">/// Returns the KeyPair from the English BIP39 seed `phrase`, or an error if it's invalid.
 	</span><span class="kw">fn </span>from_phrase(
 		phrase: <span class="kw-2">&amp;</span>str,
 		password: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
@@ -2460,7 +2462,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.map_err(|<span class="kw">_</span>| SecretStringError::InvalidPhrase)<span class="question-mark">?</span>;
 		<span class="kw">let </span>(entropy, entropy_len) = mnemonic.to_entropy_array();
 		<span class="kw">let </span>big_seed =
-			substrate_bip39::seed_from_entropy(<span class="kw-2">&amp;</span>entropy[<span class="number">0</span>..entropy_len], password.unwrap_or(<span class="string">&quot;&quot;</span>))
+			substrate_bip39::seed_from_entropy(<span class="kw-2">&amp;</span>entropy[<span class="number">0</span>..entropy_len], password.unwrap_or(<span class="string">""</span>))
 				.map_err(|<span class="kw">_</span>| SecretStringError::InvalidSeed)<span class="question-mark">?</span>;
 		<span class="kw">let </span><span class="kw-2">mut </span>seed = <span class="self">Self</span>::Seed::default();
 		<span class="kw">let </span>seed_slice = seed.as_mut();
@@ -2482,7 +2484,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// @WARNING: THIS WILL ONLY BE SECURE IF THE `seed` IS SECURE. If it can be guessed
 	/// by an attacker then they can also derive your key.
 	</span><span class="kw">fn </span>from_seed(seed: <span class="kw-2">&amp;</span><span class="self">Self</span>::Seed) -&gt; <span class="self">Self </span>{
-		<span class="self">Self</span>::from_seed_slice(seed.as_ref()).expect(<span class="string">&quot;seed has valid length; qed&quot;</span>)
+		<span class="self">Self</span>::from_seed_slice(seed.as_ref()).expect(<span class="string">"seed has valid length; qed"</span>)
 	}
 
 	<span class="doccomment">/// Make a new key pair from secret seed material. The slice must be the correct size or
@@ -2493,7 +2495,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>from_seed_slice(seed: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, SecretStringError&gt;;
 
 	<span class="doccomment">/// Sign a message.
-	</span><span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
+	</span><span class="attr">#[cfg(feature = <span class="string">"full_crypto"</span>)]
 	</span><span class="kw">fn </span>sign(<span class="kw-2">&amp;</span><span class="self">self</span>, message: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="self">Self</span>::Signature;
 
 	<span class="doccomment">/// Verify a signature on a message. Returns true if the signature is good.
@@ -2510,7 +2512,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// junction iterator.
 	///
 	/// - If `s` is a possibly `0x` prefixed 64-digit hex string, then it will be interpreted
-	/// directly as a `MiniSecretKey` (aka &quot;seed&quot; in `subkey`).
+	/// directly as a `MiniSecretKey` (aka "seed" in `subkey`).
 	/// - If `s` is a valid BIP-39 key phrase of 12, 15, 18, 21 or 24 words, then the key will
 	/// be derived from it. In this case:
 	///   - the phrase may be followed by one or more items delimited by `/` characters.
@@ -2537,7 +2539,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>password =
 			password_override.or_else(|| password.as_ref().map(|p| p.expose_secret().as_str()));
 
-		<span class="kw">let </span>(root, seed) = <span class="kw">if let </span><span class="prelude-val">Some</span>(stripped) = phrase.expose_secret().strip_prefix(<span class="string">&quot;0x&quot;</span>) {
+		<span class="kw">let </span>(root, seed) = <span class="kw">if let </span><span class="prelude-val">Some</span>(stripped) = phrase.expose_secret().strip_prefix(<span class="string">"0x"</span>) {
 			array_bytes::hex2bytes(stripped)
 				.ok()
 				.and_then(|seed_vec| {
@@ -2626,7 +2628,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// To avoid clashes with other modules when distributing your module publicly, register your
 /// `KeyTypeId` on the list here by making a PR.
 ///
-/// Values whose first character is `_` are reserved for private use and won&#39;t conflict with any
+/// Values whose first character is `_` are reserved for private use and won't conflict with any
 /// public modules.
 </span><span class="attr">#[derive(
 	Copy,
@@ -2643,7 +2645,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">crate</span>::RuntimeDebug,
 	TypeInfo,
 )]
-#[cfg_attr(feature = <span class="string">&quot;serde&quot;</span>, derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = <span class="string">"serde"</span>, derive(serde::Serialize, serde::Deserialize))]
 </span><span class="kw">pub struct </span>KeyTypeId(<span class="kw">pub </span>[u8; <span class="number">4</span>]);
 
 <span class="kw">impl </span>From&lt;u32&gt; <span class="kw">for </span>KeyTypeId {
@@ -2658,10 +2660,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; TryFrom&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>str&gt; <span class="kw">for </span>KeyTypeId {
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; TryFrom&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>str&gt; <span class="kw">for </span>KeyTypeId {
 	<span class="kw">type </span>Error = ();
 
-	<span class="kw">fn </span>try_from(x: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, ()&gt; {
+	<span class="kw">fn </span>try_from(x: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, ()&gt; {
 		<span class="kw">let </span>b = x.as_bytes();
 		<span class="kw">if </span>b.len() != <span class="number">4 </span>{
 			<span class="kw">return </span><span class="prelude-val">Err</span>(())
@@ -2701,41 +2703,41 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// An identifier for a specific cryptographic algorithm used by a key pair
 </span><span class="attr">#[derive(Debug, Copy, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Encode, Decode)]
-#[cfg_attr(feature = <span class="string">&quot;serde&quot;</span>, derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = <span class="string">"serde"</span>, derive(serde::Serialize, serde::Deserialize))]
 </span><span class="kw">pub struct </span>CryptoTypeId(<span class="kw">pub </span>[u8; <span class="number">4</span>]);
 
 <span class="doccomment">/// Known key types; this also functions as a global registry of key types for projects wishing to
 /// avoid collisions with each other.
 ///
-/// It&#39;s not universal in the sense that *all* key types need to be mentioned here, it&#39;s just a
+/// It's not universal in the sense that *all* key types need to be mentioned here, it's just a
 /// handy place to put common key types.
 </span><span class="kw">pub mod </span>key_types {
 	<span class="kw">use </span><span class="kw">super</span>::KeyTypeId;
 
 	<span class="doccomment">/// Key type for Babe module, built-in. Identified as `babe`.
-	</span><span class="kw">pub const </span>BABE: KeyTypeId = KeyTypeId(<span class="kw-2">*</span><span class="string">b&quot;babe&quot;</span>);
+	</span><span class="kw">pub const </span>BABE: KeyTypeId = KeyTypeId(<span class="kw-2">*</span><span class="string">b"babe"</span>);
 	<span class="doccomment">/// Key type for Sassafras module, built-in. Identified as `sass`.
-	</span><span class="kw">pub const </span>SASSAFRAS: KeyTypeId = KeyTypeId(<span class="kw-2">*</span><span class="string">b&quot;sass&quot;</span>);
+	</span><span class="kw">pub const </span>SASSAFRAS: KeyTypeId = KeyTypeId(<span class="kw-2">*</span><span class="string">b"sass"</span>);
 	<span class="doccomment">/// Key type for Grandpa module, built-in. Identified as `gran`.
-	</span><span class="kw">pub const </span>GRANDPA: KeyTypeId = KeyTypeId(<span class="kw-2">*</span><span class="string">b&quot;gran&quot;</span>);
+	</span><span class="kw">pub const </span>GRANDPA: KeyTypeId = KeyTypeId(<span class="kw-2">*</span><span class="string">b"gran"</span>);
 	<span class="doccomment">/// Key type for controlling an account in a Substrate runtime, built-in. Identified as `acco`.
-	</span><span class="kw">pub const </span>ACCOUNT: KeyTypeId = KeyTypeId(<span class="kw-2">*</span><span class="string">b&quot;acco&quot;</span>);
+	</span><span class="kw">pub const </span>ACCOUNT: KeyTypeId = KeyTypeId(<span class="kw-2">*</span><span class="string">b"acco"</span>);
 	<span class="doccomment">/// Key type for Aura module, built-in. Identified as `aura`.
-	</span><span class="kw">pub const </span>AURA: KeyTypeId = KeyTypeId(<span class="kw-2">*</span><span class="string">b&quot;aura&quot;</span>);
+	</span><span class="kw">pub const </span>AURA: KeyTypeId = KeyTypeId(<span class="kw-2">*</span><span class="string">b"aura"</span>);
 	<span class="doccomment">/// Key type for BEEFY module.
-	</span><span class="kw">pub const </span>BEEFY: KeyTypeId = KeyTypeId(<span class="kw-2">*</span><span class="string">b&quot;beef&quot;</span>);
+	</span><span class="kw">pub const </span>BEEFY: KeyTypeId = KeyTypeId(<span class="kw-2">*</span><span class="string">b"beef"</span>);
 	<span class="doccomment">/// Key type for ImOnline module, built-in. Identified as `imon`.
-	</span><span class="kw">pub const </span>IM_ONLINE: KeyTypeId = KeyTypeId(<span class="kw-2">*</span><span class="string">b&quot;imon&quot;</span>);
+	</span><span class="kw">pub const </span>IM_ONLINE: KeyTypeId = KeyTypeId(<span class="kw-2">*</span><span class="string">b"imon"</span>);
 	<span class="doccomment">/// Key type for AuthorityDiscovery module, built-in. Identified as `audi`.
-	</span><span class="kw">pub const </span>AUTHORITY_DISCOVERY: KeyTypeId = KeyTypeId(<span class="kw-2">*</span><span class="string">b&quot;audi&quot;</span>);
+	</span><span class="kw">pub const </span>AUTHORITY_DISCOVERY: KeyTypeId = KeyTypeId(<span class="kw-2">*</span><span class="string">b"audi"</span>);
 	<span class="doccomment">/// Key type for staking, built-in. Identified as `stak`.
-	</span><span class="kw">pub const </span>STAKING: KeyTypeId = KeyTypeId(<span class="kw-2">*</span><span class="string">b&quot;stak&quot;</span>);
+	</span><span class="kw">pub const </span>STAKING: KeyTypeId = KeyTypeId(<span class="kw-2">*</span><span class="string">b"stak"</span>);
 	<span class="doccomment">/// A key type for signing statements
-	</span><span class="kw">pub const </span>STATEMENT: KeyTypeId = KeyTypeId(<span class="kw-2">*</span><span class="string">b&quot;stmt&quot;</span>);
+	</span><span class="kw">pub const </span>STATEMENT: KeyTypeId = KeyTypeId(<span class="kw-2">*</span><span class="string">b"stmt"</span>);
 	<span class="doccomment">/// Key type for Mixnet module, used to sign key-exchange public keys. Identified as `mixn`.
-	</span><span class="kw">pub const </span>MIXNET: KeyTypeId = KeyTypeId(<span class="kw-2">*</span><span class="string">b&quot;mixn&quot;</span>);
+	</span><span class="kw">pub const </span>MIXNET: KeyTypeId = KeyTypeId(<span class="kw-2">*</span><span class="string">b"mixn"</span>);
 	<span class="doccomment">/// A key type ID useful for tests.
-	</span><span class="kw">pub const </span>DUMMY: KeyTypeId = KeyTypeId(<span class="kw-2">*</span><span class="string">b&quot;dumy&quot;</span>);
+	</span><span class="kw">pub const </span>DUMMY: KeyTypeId = KeyTypeId(<span class="kw-2">*</span><span class="string">b"dumy"</span>);
 }
 
 <span class="doccomment">/// Create random values of `Self` given a stream of entropy.
@@ -2839,7 +2841,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 
 		<span class="kw">fn </span>generate_with_phrase(_password: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;) -&gt; (<span class="self">Self</span>, String, &lt;<span class="self">Self </span><span class="kw">as </span>Pair&gt;::Seed) {
-			(TestPair::GeneratedWithPhrase, <span class="string">&quot;&quot;</span>.into(), [<span class="number">0u8</span>; <span class="number">8</span>])
+			(TestPair::GeneratedWithPhrase, <span class="string">""</span>.into(), [<span class="number">0u8</span>; <span class="number">8</span>])
 		}
 
 		<span class="kw">fn </span>from_phrase(
@@ -2904,119 +2906,119 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>interpret_std_seed_should_work() {
 		<span class="macro">assert_eq!</span>(
-			TestPair::from_string(<span class="string">&quot;0x0123456789abcdef&quot;</span>, <span class="prelude-val">None</span>),
-			<span class="prelude-val">Ok</span>(TestPair::Seed(array_bytes::hex2bytes_unchecked(<span class="string">&quot;0123456789abcdef&quot;</span>)))
+			TestPair::from_string(<span class="string">"0x0123456789abcdef"</span>, <span class="prelude-val">None</span>),
+			<span class="prelude-val">Ok</span>(TestPair::Seed(array_bytes::hex2bytes_unchecked(<span class="string">"0123456789abcdef"</span>)))
 		);
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>password_override_should_work() {
 		<span class="macro">assert_eq!</span>(
-			TestPair::from_string(<span class="string">&quot;hello world///password&quot;</span>, <span class="prelude-val">None</span>),
-			TestPair::from_string(<span class="string">&quot;hello world&quot;</span>, <span class="prelude-val">Some</span>(<span class="string">&quot;password&quot;</span>)),
+			TestPair::from_string(<span class="string">"hello world///password"</span>, <span class="prelude-val">None</span>),
+			TestPair::from_string(<span class="string">"hello world"</span>, <span class="prelude-val">Some</span>(<span class="string">"password"</span>)),
 		);
 		<span class="macro">assert_eq!</span>(
-			TestPair::from_string(<span class="string">&quot;hello world///password&quot;</span>, <span class="prelude-val">None</span>),
-			TestPair::from_string(<span class="string">&quot;hello world///other password&quot;</span>, <span class="prelude-val">Some</span>(<span class="string">&quot;password&quot;</span>)),
+			TestPair::from_string(<span class="string">"hello world///password"</span>, <span class="prelude-val">None</span>),
+			TestPair::from_string(<span class="string">"hello world///other password"</span>, <span class="prelude-val">Some</span>(<span class="string">"password"</span>)),
 		);
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>interpret_std_secret_string_should_work() {
 		<span class="macro">assert_eq!</span>(
-			TestPair::from_string(<span class="string">&quot;hello world&quot;</span>, <span class="prelude-val">None</span>),
+			TestPair::from_string(<span class="string">"hello world"</span>, <span class="prelude-val">None</span>),
 			<span class="prelude-val">Ok</span>(TestPair::Standard {
-				phrase: <span class="string">&quot;hello world&quot;</span>.to_owned(),
+				phrase: <span class="string">"hello world"</span>.to_owned(),
 				password: <span class="prelude-val">None</span>,
 				path: <span class="macro">vec!</span>[]
 			})
 		);
 		<span class="macro">assert_eq!</span>(
-			TestPair::from_string(<span class="string">&quot;hello world/1&quot;</span>, <span class="prelude-val">None</span>),
+			TestPair::from_string(<span class="string">"hello world/1"</span>, <span class="prelude-val">None</span>),
 			<span class="prelude-val">Ok</span>(TestPair::Standard {
-				phrase: <span class="string">&quot;hello world&quot;</span>.to_owned(),
+				phrase: <span class="string">"hello world"</span>.to_owned(),
 				password: <span class="prelude-val">None</span>,
 				path: <span class="macro">vec!</span>[DeriveJunction::soft(<span class="number">1</span>)]
 			})
 		);
 		<span class="macro">assert_eq!</span>(
-			TestPair::from_string(<span class="string">&quot;hello world/DOT&quot;</span>, <span class="prelude-val">None</span>),
+			TestPair::from_string(<span class="string">"hello world/DOT"</span>, <span class="prelude-val">None</span>),
 			<span class="prelude-val">Ok</span>(TestPair::Standard {
-				phrase: <span class="string">&quot;hello world&quot;</span>.to_owned(),
+				phrase: <span class="string">"hello world"</span>.to_owned(),
 				password: <span class="prelude-val">None</span>,
-				path: <span class="macro">vec!</span>[DeriveJunction::soft(<span class="string">&quot;DOT&quot;</span>)]
+				path: <span class="macro">vec!</span>[DeriveJunction::soft(<span class="string">"DOT"</span>)]
 			})
 		);
 		<span class="macro">assert_eq!</span>(
-			TestPair::from_string(<span class="string">&quot;hello world/0123456789012345678901234567890123456789&quot;</span>, <span class="prelude-val">None</span>),
+			TestPair::from_string(<span class="string">"hello world/0123456789012345678901234567890123456789"</span>, <span class="prelude-val">None</span>),
 			<span class="prelude-val">Ok</span>(TestPair::Standard {
-				phrase: <span class="string">&quot;hello world&quot;</span>.to_owned(),
+				phrase: <span class="string">"hello world"</span>.to_owned(),
 				password: <span class="prelude-val">None</span>,
-				path: <span class="macro">vec!</span>[DeriveJunction::soft(<span class="string">&quot;0123456789012345678901234567890123456789&quot;</span>)]
+				path: <span class="macro">vec!</span>[DeriveJunction::soft(<span class="string">"0123456789012345678901234567890123456789"</span>)]
 			})
 		);
 		<span class="macro">assert_eq!</span>(
-			TestPair::from_string(<span class="string">&quot;hello world//1&quot;</span>, <span class="prelude-val">None</span>),
+			TestPair::from_string(<span class="string">"hello world//1"</span>, <span class="prelude-val">None</span>),
 			<span class="prelude-val">Ok</span>(TestPair::Standard {
-				phrase: <span class="string">&quot;hello world&quot;</span>.to_owned(),
+				phrase: <span class="string">"hello world"</span>.to_owned(),
 				password: <span class="prelude-val">None</span>,
 				path: <span class="macro">vec!</span>[DeriveJunction::hard(<span class="number">1</span>)]
 			})
 		);
 		<span class="macro">assert_eq!</span>(
-			TestPair::from_string(<span class="string">&quot;hello world//DOT&quot;</span>, <span class="prelude-val">None</span>),
+			TestPair::from_string(<span class="string">"hello world//DOT"</span>, <span class="prelude-val">None</span>),
 			<span class="prelude-val">Ok</span>(TestPair::Standard {
-				phrase: <span class="string">&quot;hello world&quot;</span>.to_owned(),
+				phrase: <span class="string">"hello world"</span>.to_owned(),
 				password: <span class="prelude-val">None</span>,
-				path: <span class="macro">vec!</span>[DeriveJunction::hard(<span class="string">&quot;DOT&quot;</span>)]
+				path: <span class="macro">vec!</span>[DeriveJunction::hard(<span class="string">"DOT"</span>)]
 			})
 		);
 		<span class="macro">assert_eq!</span>(
-			TestPair::from_string(<span class="string">&quot;hello world//0123456789012345678901234567890123456789&quot;</span>, <span class="prelude-val">None</span>),
+			TestPair::from_string(<span class="string">"hello world//0123456789012345678901234567890123456789"</span>, <span class="prelude-val">None</span>),
 			<span class="prelude-val">Ok</span>(TestPair::Standard {
-				phrase: <span class="string">&quot;hello world&quot;</span>.to_owned(),
+				phrase: <span class="string">"hello world"</span>.to_owned(),
 				password: <span class="prelude-val">None</span>,
-				path: <span class="macro">vec!</span>[DeriveJunction::hard(<span class="string">&quot;0123456789012345678901234567890123456789&quot;</span>)]
+				path: <span class="macro">vec!</span>[DeriveJunction::hard(<span class="string">"0123456789012345678901234567890123456789"</span>)]
 			})
 		);
 		<span class="macro">assert_eq!</span>(
-			TestPair::from_string(<span class="string">&quot;hello world//1/DOT&quot;</span>, <span class="prelude-val">None</span>),
+			TestPair::from_string(<span class="string">"hello world//1/DOT"</span>, <span class="prelude-val">None</span>),
 			<span class="prelude-val">Ok</span>(TestPair::Standard {
-				phrase: <span class="string">&quot;hello world&quot;</span>.to_owned(),
+				phrase: <span class="string">"hello world"</span>.to_owned(),
 				password: <span class="prelude-val">None</span>,
-				path: <span class="macro">vec!</span>[DeriveJunction::hard(<span class="number">1</span>), DeriveJunction::soft(<span class="string">&quot;DOT&quot;</span>)]
+				path: <span class="macro">vec!</span>[DeriveJunction::hard(<span class="number">1</span>), DeriveJunction::soft(<span class="string">"DOT"</span>)]
 			})
 		);
 		<span class="macro">assert_eq!</span>(
-			TestPair::from_string(<span class="string">&quot;hello world//DOT/1&quot;</span>, <span class="prelude-val">None</span>),
+			TestPair::from_string(<span class="string">"hello world//DOT/1"</span>, <span class="prelude-val">None</span>),
 			<span class="prelude-val">Ok</span>(TestPair::Standard {
-				phrase: <span class="string">&quot;hello world&quot;</span>.to_owned(),
+				phrase: <span class="string">"hello world"</span>.to_owned(),
 				password: <span class="prelude-val">None</span>,
-				path: <span class="macro">vec!</span>[DeriveJunction::hard(<span class="string">&quot;DOT&quot;</span>), DeriveJunction::soft(<span class="number">1</span>)]
+				path: <span class="macro">vec!</span>[DeriveJunction::hard(<span class="string">"DOT"</span>), DeriveJunction::soft(<span class="number">1</span>)]
 			})
 		);
 		<span class="macro">assert_eq!</span>(
-			TestPair::from_string(<span class="string">&quot;hello world///password&quot;</span>, <span class="prelude-val">None</span>),
+			TestPair::from_string(<span class="string">"hello world///password"</span>, <span class="prelude-val">None</span>),
 			<span class="prelude-val">Ok</span>(TestPair::Standard {
-				phrase: <span class="string">&quot;hello world&quot;</span>.to_owned(),
-				password: <span class="prelude-val">Some</span>(<span class="string">&quot;password&quot;</span>.to_owned()),
+				phrase: <span class="string">"hello world"</span>.to_owned(),
+				password: <span class="prelude-val">Some</span>(<span class="string">"password"</span>.to_owned()),
 				path: <span class="macro">vec!</span>[]
 			})
 		);
 		<span class="macro">assert_eq!</span>(
-			TestPair::from_string(<span class="string">&quot;hello world//1/DOT///password&quot;</span>, <span class="prelude-val">None</span>),
+			TestPair::from_string(<span class="string">"hello world//1/DOT///password"</span>, <span class="prelude-val">None</span>),
 			<span class="prelude-val">Ok</span>(TestPair::Standard {
-				phrase: <span class="string">&quot;hello world&quot;</span>.to_owned(),
-				password: <span class="prelude-val">Some</span>(<span class="string">&quot;password&quot;</span>.to_owned()),
-				path: <span class="macro">vec!</span>[DeriveJunction::hard(<span class="number">1</span>), DeriveJunction::soft(<span class="string">&quot;DOT&quot;</span>)]
+				phrase: <span class="string">"hello world"</span>.to_owned(),
+				password: <span class="prelude-val">Some</span>(<span class="string">"password"</span>.to_owned()),
+				path: <span class="macro">vec!</span>[DeriveJunction::hard(<span class="number">1</span>), DeriveJunction::soft(<span class="string">"DOT"</span>)]
 			})
 		);
 		<span class="macro">assert_eq!</span>(
-			TestPair::from_string(<span class="string">&quot;hello world/1//DOT///password&quot;</span>, <span class="prelude-val">None</span>),
+			TestPair::from_string(<span class="string">"hello world/1//DOT///password"</span>, <span class="prelude-val">None</span>),
 			<span class="prelude-val">Ok</span>(TestPair::Standard {
-				phrase: <span class="string">&quot;hello world&quot;</span>.to_owned(),
-				password: <span class="prelude-val">Some</span>(<span class="string">&quot;password&quot;</span>.to_owned()),
-				path: <span class="macro">vec!</span>[DeriveJunction::soft(<span class="number">1</span>), DeriveJunction::hard(<span class="string">&quot;DOT&quot;</span>)]
+				phrase: <span class="string">"hello world"</span>.to_owned(),
+				password: <span class="prelude-val">Some</span>(<span class="string">"password"</span>.to_owned()),
+				path: <span class="macro">vec!</span>[DeriveJunction::soft(<span class="number">1</span>), DeriveJunction::hard(<span class="string">"DOT"</span>)]
 			})
 		);
 	}
@@ -3024,42 +3026,42 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>accountid_32_from_str_works() {
 		<span class="kw">use </span>std::str::FromStr;
-		<span class="macro">assert!</span>(AccountId32::from_str(<span class="string">&quot;5G9VdMwXvzza9pS8qE8ZHJk3CheHW9uucBn9ngW4C1gmmzpv&quot;</span>).is_ok());
+		<span class="macro">assert!</span>(AccountId32::from_str(<span class="string">"5G9VdMwXvzza9pS8qE8ZHJk3CheHW9uucBn9ngW4C1gmmzpv"</span>).is_ok());
 		<span class="macro">assert!</span>(AccountId32::from_str(
-			<span class="string">&quot;5c55177d67b064bb5d189a3e1ddad9bc6646e02e64d6e308f5acbb1533ac430d&quot;
+			<span class="string">"5c55177d67b064bb5d189a3e1ddad9bc6646e02e64d6e308f5acbb1533ac430d"
 		</span>)
 		.is_ok());
 		<span class="macro">assert!</span>(AccountId32::from_str(
-			<span class="string">&quot;0x5c55177d67b064bb5d189a3e1ddad9bc6646e02e64d6e308f5acbb1533ac430d&quot;
+			<span class="string">"0x5c55177d67b064bb5d189a3e1ddad9bc6646e02e64d6e308f5acbb1533ac430d"
 		</span>)
 		.is_ok());
 
 		<span class="macro">assert_eq!</span>(
-			AccountId32::from_str(<span class="string">&quot;99G9VdMwXvzza9pS8qE8ZHJk3CheHW9uucBn9ngW4C1gmmzpv&quot;</span>).unwrap_err(),
-			<span class="string">&quot;invalid ss58 address.&quot;</span>,
+			AccountId32::from_str(<span class="string">"99G9VdMwXvzza9pS8qE8ZHJk3CheHW9uucBn9ngW4C1gmmzpv"</span>).unwrap_err(),
+			<span class="string">"invalid ss58 address."</span>,
 		);
 		<span class="macro">assert_eq!</span>(
 			AccountId32::from_str(
-				<span class="string">&quot;gc55177d67b064bb5d189a3e1ddad9bc6646e02e64d6e308f5acbb1533ac430d&quot;
+				<span class="string">"gc55177d67b064bb5d189a3e1ddad9bc6646e02e64d6e308f5acbb1533ac430d"
 			</span>)
 			.unwrap_err(),
-			<span class="string">&quot;invalid hex address.&quot;</span>,
+			<span class="string">"invalid hex address."</span>,
 		);
 		<span class="macro">assert_eq!</span>(
 			AccountId32::from_str(
-				<span class="string">&quot;0xgc55177d67b064bb5d189a3e1ddad9bc6646e02e64d6e308f5acbb1533ac430d&quot;
+				<span class="string">"0xgc55177d67b064bb5d189a3e1ddad9bc6646e02e64d6e308f5acbb1533ac430d"
 			</span>)
 			.unwrap_err(),
-			<span class="string">&quot;invalid hex address.&quot;</span>,
+			<span class="string">"invalid hex address."</span>,
 		);
 
 		<span class="comment">// valid hex but invalid length will be treated as ss58.
 		</span><span class="macro">assert_eq!</span>(
 			AccountId32::from_str(
-				<span class="string">&quot;55c55177d67b064bb5d189a3e1ddad9bc6646e02e64d6e308f5acbb1533ac430d&quot;
+				<span class="string">"55c55177d67b064bb5d189a3e1ddad9bc6646e02e64d6e308f5acbb1533ac430d"
 			</span>)
 			.unwrap_err(),
-			<span class="string">&quot;invalid ss58 address.&quot;</span>,
+			<span class="string">"invalid ss58 address."</span>,
 		);
 	}
 }

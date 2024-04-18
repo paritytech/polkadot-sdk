@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `cumulus/pallets/xcmp-queue/src/migration.rs`."><title>migration.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `cumulus/pallets/xcmp-queue/src/migration.rs`."><title>migration.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="cumulus_pallet_xcmp_queue" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="cumulus_pallet_xcmp_queue" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../cumulus_pallet_xcmp_queue/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -598,7 +600,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// The in-code storage version.
 </span><span class="kw">pub const </span>STORAGE_VERSION: StorageVersion = StorageVersion::new(<span class="number">4</span>);
 
-<span class="kw">pub const </span>LOG: <span class="kw-2">&amp;</span>str = <span class="string">&quot;runtime::xcmp-queue-migration&quot;</span>;
+<span class="kw">pub const </span>LOG: <span class="kw-2">&amp;</span>str = <span class="string">"runtime::xcmp-queue-migration"</span>;
 
 <span class="kw">mod </span>v1 {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
@@ -687,8 +689,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">if </span>v2::QueueConfig::&lt;T&gt;::translate(|pre| pre.map(translate)).is_err() {
 				<span class="macro">log::error!</span>(
 					target: <span class="kw">crate</span>::LOG_TARGET,
-					<span class="string">&quot;unexpected error when performing translation of the QueueConfig type \
-					during storage upgrade to v2&quot;
+					<span class="string">"unexpected error when performing translation of the QueueConfig type \
+					during storage upgrade to v2"
 				</span>);
 			}
 
@@ -782,16 +784,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">pub fn </span>lazy_migrate_inbound_queue&lt;T: Config&gt;() {
 		<span class="kw">let </span><span class="prelude-val">Some</span>(<span class="kw-2">mut </span>states) = v3::InboundXcmpStatus::&lt;T&gt;::get() <span class="kw">else </span>{
-			<span class="macro">log::debug!</span>(target: LOG, <span class="string">&quot;Lazy migration finished: item gone&quot;</span>);
+			<span class="macro">log::debug!</span>(target: LOG, <span class="string">"Lazy migration finished: item gone"</span>);
 			<span class="kw">return
 		</span>};
 		<span class="kw">let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref mut </span>next) = states.first_mut() <span class="kw">else </span>{
-			<span class="macro">log::debug!</span>(target: LOG, <span class="string">&quot;Lazy migration finished: item empty&quot;</span>);
+			<span class="macro">log::debug!</span>(target: LOG, <span class="string">"Lazy migration finished: item empty"</span>);
 			v3::InboundXcmpStatus::&lt;T&gt;::kill();
 			<span class="kw">return
 		</span>};
 		<span class="macro">log::debug!</span>(
-			<span class="string">&quot;Migrating inbound HRMP channel with sibling {:?}, msgs left {}.&quot;</span>,
+			<span class="string">"Migrating inbound HRMP channel with sibling {:?}, msgs left {}."</span>,
 			next.sender,
 			next.message_metadata.len()
 		);
@@ -803,7 +805,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>};
 		<span class="kw">if </span>format != XcmpMessageFormat::ConcatenatedVersionedXcm {
 			<span class="macro">log::warn!</span>(target: LOG,
-				<span class="string">&quot;Dropping message with format {:?} (not ConcatenatedVersionedXcm)&quot;</span>,
+				<span class="string">"Dropping message with format {:?} (not ConcatenatedVersionedXcm)"</span>,
 				format
 			);
 			v3::InboundXcmpMessages::&lt;T&gt;::remove(<span class="kw-2">&amp;</span>next.sender, <span class="kw-2">&amp;</span>block_number);
@@ -812,20 +814,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>}
 
 		<span class="kw">let </span><span class="prelude-val">Some</span>(msg) = v3::InboundXcmpMessages::&lt;T&gt;::take(<span class="kw-2">&amp;</span>next.sender, <span class="kw-2">&amp;</span>block_number) <span class="kw">else </span>{
-			<span class="macro">defensive!</span>(<span class="string">&quot;Storage corrupted: HRMP message missing:&quot;</span>, (next.sender, block_number));
+			<span class="macro">defensive!</span>(<span class="string">"Storage corrupted: HRMP message missing:"</span>, (next.sender, block_number));
 			v3::InboundXcmpStatus::&lt;T&gt;::put(states);
 			<span class="kw">return
 		</span>};
 
 		<span class="kw">let </span><span class="prelude-val">Ok</span>(msg): <span class="prelude-ty">Result</span>&lt;BoundedVec&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;, <span class="kw">_</span>&gt; = msg.try_into() <span class="kw">else </span>{
-			<span class="macro">log::error!</span>(target: LOG, <span class="string">&quot;Message dropped: too big&quot;</span>);
+			<span class="macro">log::error!</span>(target: LOG, <span class="string">"Message dropped: too big"</span>);
 			v3::InboundXcmpStatus::&lt;T&gt;::put(states);
 			<span class="kw">return
 		</span>};
 
 		<span class="comment">// Finally! We have a proper message.
 		</span>T::XcmpQueue::enqueue_message(msg.as_bounded_slice(), next.sender);
-		<span class="macro">log::debug!</span>(target: LOG, <span class="string">&quot;Migrated HRMP message to MQ: {:?}&quot;</span>, (next.sender, block_number));
+		<span class="macro">log::debug!</span>(target: LOG, <span class="string">"Migrated HRMP message to MQ: {:?}"</span>, (next.sender, block_number));
 		v3::InboundXcmpStatus::&lt;T&gt;::put(states);
 	}
 }
@@ -841,7 +843,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">fn </span>on_runtime_upgrade() -&gt; Weight {
 			<span class="kw">let </span>translate = |pre: v2::QueueConfigData| -&gt; QueueConfigData {
 				<span class="kw">let </span>pre_default = v2::QueueConfigData::default();
-				<span class="comment">// If the previous values are the default ones, let&#39;s replace them with the new
+				<span class="comment">// If the previous values are the default ones, let's replace them with the new
 				// default.
 				</span><span class="kw">if </span>pre.suspend_threshold == pre_default.suspend_threshold &amp;&amp;
 					pre.drop_threshold == pre_default.drop_threshold &amp;&amp;
@@ -850,7 +852,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw">return </span>QueueConfigData::default()
 				}
 
-				<span class="comment">// If the previous values are not the default ones, let&#39;s leave them as they are.
+				<span class="comment">// If the previous values are not the default ones, let's leave them as they are.
 				</span>QueueConfigData {
 					suspend_threshold: pre.suspend_threshold,
 					drop_threshold: pre.drop_threshold,
@@ -861,8 +863,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">if </span>QueueConfig::&lt;T&gt;::translate(|pre| pre.map(translate)).is_err() {
 				<span class="macro">log::error!</span>(
 					target: <span class="kw">crate</span>::LOG_TARGET,
-					<span class="string">&quot;unexpected error when performing translation of the QueueConfig type \
-					during storage upgrade to v4&quot;
+					<span class="string">"unexpected error when performing translation of the QueueConfig type \
+					during storage upgrade to v4"
 				</span>);
 			}
 
@@ -882,7 +884,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	&gt;;
 }
 
-<span class="attr">#[cfg(all(feature = <span class="string">&quot;try-runtime&quot;</span>, test))]
+<span class="attr">#[cfg(all(feature = <span class="string">"try-runtime"</span>, test))]
 </span><span class="kw">mod </span>tests {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use </span><span class="kw">crate</span>::mock::{new_test_ext, Test};

@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Instruments a function to create and enter a `tracing` span every time the function is called."><title>instrument in polkadot_node_subsystem::gen::tracing - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Instruments a function to create and enter a `tracing` span every time the function is called."><title>instrument in polkadot_node_subsystem::gen::tracing - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_node_subsystem" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_node_subsystem" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc attr"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../polkadot_node_subsystem/index.html">polkadot_node_subsystem</a><span class="version">7.0.0</span></h2></div><div class="sidebar-elems"><h2><a href="index.html">In polkadot_node_subsystem::gen::tracing</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Attribute Macro <a href="../../index.html">polkadot_node_subsystem</a>::<wbr><a href="../index.html">gen</a>::<wbr><a href="index.html">tracing</a>::<wbr><a class="attr" href="#">instrument</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>#[instrument]</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Instruments a function to create and enter a <code>tracing</code> <a href="https://docs.rs/tracing/latest/tracing/span/index.html">span</a> every time
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc attr"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../polkadot_node_subsystem/index.html">polkadot_node_subsystem</a><span class="version">7.0.0</span></h2></div><div class="sidebar-elems"><h2><a href="index.html">In polkadot_node_subsystem::gen::tracing</a></h2></div></nav><div class="sidebar-resizer"></div>
+    <main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../polkadot_node_subsystem/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Attribute Macro <a href="../../index.html">polkadot_node_subsystem</a>::<wbr><a href="../index.html">gen</a>::<wbr><a href="index.html">tracing</a>::<wbr><a class="attr" href="#">instrument</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>#[instrument]</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Instruments a function to create and enter a <code>tracing</code> <a href="https://docs.rs/tracing/latest/tracing/span/index.html">span</a> every time
 the function is called.</p>
 <p>Unless overridden, a span with the <a href="https://docs.rs/tracing/latest/tracing/struct.Level.html#associatedconstant.INFO"><code>INFO</code></a> <a href="https://docs.rs/tracing/latest/tracing/struct.Level.html">level</a> will be generated.
 The generated span’s name will be the name of the function.
@@ -155,14 +156,14 @@ By default, all arguments to the function are included as fields on the
 span. Arguments that are <code>tracing</code> <a href="https://docs.rs/tracing/latest/tracing/field/trait.Value.html#foreign-impls">primitive types</a> implementing the
 <a href="https://docs.rs/tracing/latest/tracing/field/trait.Value.html."><code>Value</code> trait</a> will be recorded as fields of that type. Types which do
 not implement <code>Value</code> will be recorded using [<code>std::fmt::Debug</code>].</p>
-<h2 id="overriding-span-attributes"><a href="#overriding-span-attributes">Overriding Span Attributes</a></h2>
+<h2 id="overriding-span-attributes"><a class="doc-anchor" href="#overriding-span-attributes">§</a>Overriding Span Attributes</h2>
 <p>To change the <a href="https://docs.rs/tracing/latest/tracing/struct.Metadata.html#method.name">name</a> of the generated span, add a <code>name</code> argument to the
 <code>#[instrument]</code> macro, followed by an equals sign and a string literal. For
 example:</p>
 
 <div class="example-wrap"><pre class="rust rust-example-rendered"><code>
-<span class="comment">// The generated span&#39;s name will be &quot;my_span&quot; rather than &quot;my_function&quot;.
-</span><span class="attr">#[instrument(name = <span class="string">&quot;my_span&quot;</span>)]
+<span class="comment">// The generated span's name will be "my_span" rather than "my_function".
+</span><span class="attr">#[instrument(name = <span class="string">"my_span"</span>)]
 </span><span class="kw">pub fn </span>my_function() {
     <span class="comment">// ... do something incredibly interesting and important ...
 </span>}</code></pre></div>
@@ -172,9 +173,9 @@ for the new target. The <a href="https://docs.rs/tracing/latest/tracing/struct.M
 example:</p>
 
 <div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">pub mod </span>my_module {
-    <span class="comment">// The generated span&#39;s target will be &quot;my_crate::some_special_target&quot;,
-    // rather than &quot;my_crate::my_module&quot;.
-    </span><span class="attr">#[instrument(target = <span class="string">&quot;my_crate::some_special_target&quot;</span>)]
+    <span class="comment">// The generated span's target will be "my_crate::some_special_target",
+    // rather than "my_crate::my_module".
+    </span><span class="attr">#[instrument(target = <span class="string">"my_crate::some_special_target"</span>)]
     </span><span class="kw">pub fn </span>my_function() {
         <span class="comment">// ... all kinds of neat code in here ...
     </span>}
@@ -183,13 +184,13 @@ example:</p>
 argument, followed by an equals sign and a string literal with the name of
 the desired level. Level names are not case sensitive. For example:</p>
 
-<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="comment">// The span&#39;s level will be TRACE rather than INFO.
-</span><span class="attr">#[instrument(level = <span class="string">&quot;trace&quot;</span>)]
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="comment">// The span's level will be TRACE rather than INFO.
+</span><span class="attr">#[instrument(level = <span class="string">"trace"</span>)]
 </span><span class="kw">pub fn </span>my_function() {
     <span class="comment">// ... I have written a truly marvelous implementation of this function,
     // which this example is too narrow to contain ...
 </span>}</code></pre></div>
-<h2 id="skipping-fields"><a href="#skipping-fields">Skipping Fields</a></h2>
+<h2 id="skipping-fields"><a class="doc-anchor" href="#skipping-fields">§</a>Skipping Fields</h2>
 <p>To skip recording one or more arguments to a function or method, pass
 the argument’s name inside the <code>skip()</code> argument on the <code>#[instrument]</code>
 macro. This can be used when an argument to an instrumented function does
@@ -200,8 +201,8 @@ costly <code>Debug</code> implementation. Note that:</p>
 <li>arguments passed to <code>skip</code> do <em>not</em> need to implement <code>fmt::Debug</code>.</li>
 </ul>
 <p>You can also use <code>skip_all</code> to skip all arguments.</p>
-<h3 id="examples"><a href="#examples">Examples</a></h3>
-<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="comment">// This type doesn&#39;t implement `fmt::Debug`!
+<h3 id="examples"><a class="doc-anchor" href="#examples">§</a>Examples</h3>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="comment">// This type doesn't implement `fmt::Debug`!
 </span><span class="kw">struct </span>NonDebug;
 
 <span class="comment">// `arg` will be recorded, while `non_debug` will not.
@@ -223,14 +224,14 @@ costly <code>Debug</code> implementation. Note that:</p>
 </span>}
 
 <span class="kw">impl </span>MyType {
-    <span class="comment">// Suppose we don&#39;t want to print an entire kilobyte of `data`
+    <span class="comment">// Suppose we don't want to print an entire kilobyte of `data`
     // every time this is called...
     </span><span class="attr">#[instrument(skip(<span class="self">self</span>))]
     </span><span class="kw">pub fn </span>my_method(<span class="kw-2">&amp;mut </span><span class="self">self</span>, an_interesting_argument: usize) {
          <span class="comment">// ... do something (hopefully, using all that `data`!)
     </span>}
 }</code></pre></div>
-<h2 id="adding-fields"><a href="#adding-fields">Adding Fields</a></h2>
+<h2 id="adding-fields"><a class="doc-anchor" href="#adding-fields">§</a>Adding Fields</h2>
 <p>Additional fields (key-value pairs with arbitrary data) can be passed to
 to the generated span through the <code>fields</code> argument on the
 <code>#[instrument]</code> macro. Strings, integers or boolean literals are accepted values
@@ -243,12 +244,12 @@ also be specified <em>without</em> values. Doing so will result in an <a href="h
 whose value may be recorded later within the function body.</p>
 <p>Note that overlap between the names of fields and (non-skipped) arguments
 will result in a compile error.</p>
-<h3 id="examples-1"><a href="#examples-1">Examples</a></h3>
+<h3 id="examples-1"><a class="doc-anchor" href="#examples-1">§</a>Examples</h3>
 <p>Adding a new field based on the value of an argument:</p>
 
 <div class="example-wrap"><pre class="rust rust-example-rendered"><code>
-<span class="comment">// This will record a field named &quot;i&quot; with the value of `i` *and* a field
-// named &quot;next&quot; with the value of `i` + 1.
+<span class="comment">// This will record a field named "i" with the value of `i` *and* a field
+// named "next" with the value of `i` + 1.
 </span><span class="attr">#[instrument(fields(next = i + <span class="number">1</span>))]
 </span><span class="kw">pub fn </span>my_function(i: usize) {
     <span class="comment">// ...
@@ -256,7 +257,7 @@ will result in a compile error.</p>
 <p>Recording specific properties of a struct as their own fields:</p>
 
 <div class="example-wrap"><pre class="rust rust-example-rendered"><code>
-<span class="comment">// This will record the request&#39;s URI and HTTP method as their own separate
+<span class="comment">// This will record the request's URI and HTTP method as their own separate
 // fields.
 </span><span class="attr">#[instrument(fields(http.uri = req.uri(), http.method = req.method()))]
 </span><span class="kw">pub fn </span>handle_request&lt;B&gt;(req: http::Request&lt;B&gt;) -&gt; http::Response&lt;B&gt; {
@@ -270,7 +271,7 @@ some fields of a struct:</p>
 // our span.
 </span><span class="attr">#[derive(Debug)]
 </span><span class="kw">struct </span>MyType {
-   name: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
+   name: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
    data: Vec&lt;u8&gt;,
 }
 
@@ -293,21 +294,21 @@ some fields of a struct:</p>
     </span><span class="kw">let </span>result = input_1 + input_2;
 
     <span class="comment">// Record the result as part of the current span.
-    </span>tracing::Span::current().record(<span class="string">&quot;result&quot;</span>, <span class="kw-2">&amp;</span>result);
+    </span>tracing::Span::current().record(<span class="string">"result"</span>, <span class="kw-2">&amp;</span>result);
 
     <span class="comment">// Now, the result will also be included on this event!
-    </span><span class="macro">tracing::info!</span>(<span class="string">&quot;calculation complete!&quot;</span>);
+    </span><span class="macro">tracing::info!</span>(<span class="string">"calculation complete!"</span>);
 
     <span class="comment">// ... etc ...
 </span>}</code></pre></div>
-<h2 id="examples-2"><a href="#examples-2">Examples</a></h2>
+<h2 id="examples-2"><a class="doc-anchor" href="#examples-2">§</a>Examples</h2>
 <p>Instrumenting a function:</p>
 
 <div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[instrument]
 </span><span class="kw">pub fn </span>my_function(my_arg: usize) {
     <span class="comment">// This event will be recorded inside a span named `my_function` with the
     // field `my_arg`.
-    </span><span class="macro">tracing::info!</span>(<span class="string">&quot;inside my_function!&quot;</span>);
+    </span><span class="macro">tracing::info!</span>(<span class="string">"inside my_function!"</span>);
     <span class="comment">// ...
 </span>}</code></pre></div>
 <p>Setting the level for the generated span:</p>
@@ -320,13 +321,13 @@ some fields of a struct:</p>
 (e.g., <code>&quot;debug&quot;</code>, <code>&quot;info&quot;</code>) or numerically (1—5, corresponding to <a href="https://docs.rs/tracing/latest/tracing/struct.Level.html#associatedconstant.TRACE"><code>Level::TRACE</code></a>—<a href="https://docs.rs/tracing/latest/tracing/struct.Level.html#associatedconstant.ERROR"><code>Level::ERROR</code></a>).</p>
 <p>Overriding the generated span’s name:</p>
 
-<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[instrument(name = <span class="string">&quot;my_name&quot;</span>)]
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[instrument(name = <span class="string">"my_name"</span>)]
 </span><span class="kw">pub fn </span>my_function() {
     <span class="comment">// ...
 </span>}</code></pre></div>
 <p>Overriding the generated span’s target:</p>
 
-<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[instrument(target = <span class="string">&quot;my_target&quot;</span>)]
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[instrument(target = <span class="string">"my_target"</span>)]
 </span><span class="kw">pub fn </span>my_function() {
     <span class="comment">// ...
 </span>}</code></pre></div>
@@ -345,7 +346,7 @@ some fields of a struct:</p>
 
 <span class="kw">impl </span>MyStruct
 {
-    <span class="comment">// Use the struct&#39;s `span` field as the parent span
+    <span class="comment">// Use the struct's `span` field as the parent span
     </span><span class="attr">#[instrument(parent = <span class="kw-2">&amp;</span><span class="self">self</span>.span, skip(<span class="self">self</span>))]
     </span><span class="kw">fn </span>my_method(<span class="kw-2">&amp;</span><span class="self">self</span>) {}
 }</code></pre></div>
@@ -372,7 +373,7 @@ may be provided to <code>follows_from</code>; e.g.:</p>
 </span>}</code></pre></div>
 <p>To add additional context to the span, pass key-value pairs to <code>fields</code>:</p>
 
-<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[instrument(fields(foo=<span class="string">&quot;bar&quot;</span>, id=<span class="number">1</span>, show=<span class="bool-val">true</span>))]
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[instrument(fields(foo=<span class="string">"bar"</span>, id=<span class="number">1</span>, show=<span class="bool-val">true</span>))]
 </span><span class="kw">fn </span>my_function(arg: usize) {
     <span class="comment">// ...
 </span>}</code></pre></div>

@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/network/approval-distribution/src/metrics.rs`."><title>metrics.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/network/approval-distribution/src/metrics.rs`."><title>metrics.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_approval_distribution" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_approval_distribution" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../polkadot_approval_distribution/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -512,9 +514,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl </span>AsLabel <span class="kw">for </span><span class="kw-2">&amp;</span>AssignmentCertKindV2 {
 	<span class="kw">fn </span>as_label(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>str {
 		<span class="kw">match </span><span class="self">self </span>{
-			AssignmentCertKindV2::RelayVRFDelay { .. } =&gt; <span class="string">&quot;VRF Delay&quot;</span>,
-			AssignmentCertKindV2::RelayVRFModulo { .. } =&gt; <span class="string">&quot;VRF Modulo&quot;</span>,
-			AssignmentCertKindV2::RelayVRFModuloCompact { .. } =&gt; <span class="string">&quot;VRF Modulo Compact&quot;</span>,
+			AssignmentCertKindV2::RelayVRFDelay { .. } =&gt; <span class="string">"VRF Delay"</span>,
+			AssignmentCertKindV2::RelayVRFModulo { .. } =&gt; <span class="string">"VRF Modulo"</span>,
+			AssignmentCertKindV2::RelayVRFModuloCompact { .. } =&gt; <span class="string">"VRF Modulo Compact"</span>,
 		}
 	}
 }
@@ -552,25 +554,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">pub fn </span>on_approval_already_known(<span class="kw-2">&amp;</span><span class="self">self</span>) {
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0 </span>{
-			metrics.approvals_received_result.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">&quot;known&quot;</span>]).inc()
+			metrics.approvals_received_result.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">"known"</span>]).inc()
 		}
 	}
 
 	<span class="kw">pub fn </span>on_approval_entry_not_found(<span class="kw-2">&amp;</span><span class="self">self</span>) {
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0 </span>{
-			metrics.approvals_received_result.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">&quot;noapprovalentry&quot;</span>]).inc()
+			metrics.approvals_received_result.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">"noapprovalentry"</span>]).inc()
 		}
 	}
 
 	<span class="kw">pub fn </span>on_approval_recent_outdated(<span class="kw-2">&amp;</span><span class="self">self</span>) {
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0 </span>{
-			metrics.approvals_received_result.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">&quot;outdated&quot;</span>]).inc()
+			metrics.approvals_received_result.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">"outdated"</span>]).inc()
 		}
 	}
 
 	<span class="kw">pub fn </span>on_approval_invalid_block(<span class="kw-2">&amp;</span><span class="self">self</span>) {
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0 </span>{
-			metrics.approvals_received_result.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">&quot;invalidblock&quot;</span>]).inc()
+			metrics.approvals_received_result.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">"invalidblock"</span>]).inc()
 		}
 	}
 
@@ -578,86 +580,86 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0 </span>{
 			metrics
 				.approvals_received_result
-				.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">&quot;unknownassignment&quot;</span>])
+				.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">"unknownassignment"</span>])
 				.inc()
 		}
 	}
 
 	<span class="kw">pub fn </span>on_approval_duplicate(<span class="kw-2">&amp;</span><span class="self">self</span>) {
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0 </span>{
-			metrics.approvals_received_result.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">&quot;duplicate&quot;</span>]).inc()
+			metrics.approvals_received_result.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">"duplicate"</span>]).inc()
 		}
 	}
 
 	<span class="kw">pub fn </span>on_approval_out_of_view(<span class="kw-2">&amp;</span><span class="self">self</span>) {
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0 </span>{
-			metrics.approvals_received_result.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">&quot;outofview&quot;</span>]).inc()
+			metrics.approvals_received_result.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">"outofview"</span>]).inc()
 		}
 	}
 
 	<span class="kw">pub fn </span>on_approval_good_known(<span class="kw-2">&amp;</span><span class="self">self</span>) {
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0 </span>{
-			metrics.approvals_received_result.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">&quot;goodknown&quot;</span>]).inc()
+			metrics.approvals_received_result.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">"goodknown"</span>]).inc()
 		}
 	}
 
 	<span class="kw">pub fn </span>on_approval_bad(<span class="kw-2">&amp;</span><span class="self">self</span>) {
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0 </span>{
-			metrics.approvals_received_result.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">&quot;bad&quot;</span>]).inc()
+			metrics.approvals_received_result.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">"bad"</span>]).inc()
 		}
 	}
 
 	<span class="kw">pub fn </span>on_approval_unexpected(<span class="kw-2">&amp;</span><span class="self">self</span>) {
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0 </span>{
-			metrics.approvals_received_result.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">&quot;unexpected&quot;</span>]).inc()
+			metrics.approvals_received_result.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">"unexpected"</span>]).inc()
 		}
 	}
 
 	<span class="kw">pub fn </span>on_approval_bug(<span class="kw-2">&amp;</span><span class="self">self</span>) {
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0 </span>{
-			metrics.approvals_received_result.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">&quot;bug&quot;</span>]).inc()
+			metrics.approvals_received_result.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">"bug"</span>]).inc()
 		}
 	}
 
 	<span class="kw">pub fn </span>on_assignment_already_known(<span class="kw-2">&amp;</span><span class="self">self</span>) {
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0 </span>{
-			metrics.assignments_received_result.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">&quot;known&quot;</span>]).inc()
+			metrics.assignments_received_result.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">"known"</span>]).inc()
 		}
 	}
 
 	<span class="kw">pub fn </span>on_assignment_recent_outdated(<span class="kw-2">&amp;</span><span class="self">self</span>) {
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0 </span>{
-			metrics.assignments_received_result.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">&quot;outdated&quot;</span>]).inc()
+			metrics.assignments_received_result.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">"outdated"</span>]).inc()
 		}
 	}
 
 	<span class="kw">pub fn </span>on_assignment_invalid_block(<span class="kw-2">&amp;</span><span class="self">self</span>) {
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0 </span>{
-			metrics.assignments_received_result.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">&quot;invalidblock&quot;</span>]).inc()
+			metrics.assignments_received_result.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">"invalidblock"</span>]).inc()
 		}
 	}
 
 	<span class="kw">pub fn </span>on_assignment_duplicate(<span class="kw-2">&amp;</span><span class="self">self</span>) {
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0 </span>{
-			metrics.assignments_received_result.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">&quot;duplicate&quot;</span>]).inc()
+			metrics.assignments_received_result.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">"duplicate"</span>]).inc()
 		}
 	}
 
 	<span class="kw">pub fn </span>on_assignment_out_of_view(<span class="kw-2">&amp;</span><span class="self">self</span>) {
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0 </span>{
-			metrics.assignments_received_result.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">&quot;outofview&quot;</span>]).inc()
+			metrics.assignments_received_result.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">"outofview"</span>]).inc()
 		}
 	}
 
 	<span class="kw">pub fn </span>on_assignment_good_known(<span class="kw-2">&amp;</span><span class="self">self</span>) {
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0 </span>{
-			metrics.assignments_received_result.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">&quot;goodknown&quot;</span>]).inc()
+			metrics.assignments_received_result.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">"goodknown"</span>]).inc()
 		}
 	}
 
 	<span class="kw">pub fn </span>on_assignment_bad(<span class="kw-2">&amp;</span><span class="self">self</span>) {
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0 </span>{
-			metrics.assignments_received_result.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">&quot;bad&quot;</span>]).inc()
+			metrics.assignments_received_result.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">"bad"</span>]).inc()
 		}
 	}
 
@@ -665,14 +667,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0 </span>{
 			metrics
 				.assignments_received_result
-				.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">&quot;duplicatevoting&quot;</span>])
+				.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">"duplicatevoting"</span>])
 				.inc()
 		}
 	}
 
 	<span class="kw">pub fn </span>on_assignment_far(<span class="kw-2">&amp;</span><span class="self">self</span>) {
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0 </span>{
-			metrics.assignments_received_result.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">&quot;far&quot;</span>]).inc()
+			metrics.assignments_received_result.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">"far"</span>]).inc()
 		}
 	}
 
@@ -703,46 +705,46 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			assignments_imported_total: prometheus::register(
 				prometheus::CounterVec::new(
 					prometheus::Opts::new(
-						<span class="string">&quot;polkadot_parachain_assignments_imported_total&quot;</span>,
-						<span class="string">&quot;Number of valid assignments imported locally or from other peers.&quot;</span>,
+						<span class="string">"polkadot_parachain_assignments_imported_total"</span>,
+						<span class="string">"Number of valid assignments imported locally or from other peers."</span>,
 					),
-					<span class="kw-2">&amp;</span>[<span class="string">&quot;kind&quot;</span>],
+					<span class="kw-2">&amp;</span>[<span class="string">"kind"</span>],
 				)<span class="question-mark">?</span>,
 				registry,
 			)<span class="question-mark">?</span>,
 			approvals_imported_total: prometheus::register(
 				prometheus::Counter::new(
-					<span class="string">&quot;polkadot_parachain_approvals_imported_total&quot;</span>,
-					<span class="string">&quot;Number of valid approvals imported locally or from other peers.&quot;</span>,
+					<span class="string">"polkadot_parachain_approvals_imported_total"</span>,
+					<span class="string">"Number of valid approvals imported locally or from other peers."</span>,
 				)<span class="question-mark">?</span>,
 				registry,
 			)<span class="question-mark">?</span>,
 			unified_with_peer_total: prometheus::register(
 				prometheus::Counter::new(
-					<span class="string">&quot;polkadot_parachain_unified_with_peer_total&quot;</span>,
-					<span class="string">&quot;Number of times `unify_with_peer` is called.&quot;</span>,
+					<span class="string">"polkadot_parachain_unified_with_peer_total"</span>,
+					<span class="string">"Number of times `unify_with_peer` is called."</span>,
 				)<span class="question-mark">?</span>,
 				registry,
 			)<span class="question-mark">?</span>,
 			aggression_l1_messages_total: prometheus::register(
 				prometheus::Counter::new(
-					<span class="string">&quot;polkadot_parachain_approval_distribution_aggression_l1_messages_total&quot;</span>,
-					<span class="string">&quot;Number of messages in approval distribution for which aggression L1 has been triggered&quot;</span>,
+					<span class="string">"polkadot_parachain_approval_distribution_aggression_l1_messages_total"</span>,
+					<span class="string">"Number of messages in approval distribution for which aggression L1 has been triggered"</span>,
 				)<span class="question-mark">?</span>,
 				registry,
 			)<span class="question-mark">?</span>,
 			aggression_l2_messages_total: prometheus::register(
 				prometheus::Counter::new(
-					<span class="string">&quot;polkadot_parachain_approval_distribution_aggression_l2_messages_total&quot;</span>,
-					<span class="string">&quot;Number of messages in approval distribution for which aggression L2 has been triggered&quot;</span>,
+					<span class="string">"polkadot_parachain_approval_distribution_aggression_l2_messages_total"</span>,
+					<span class="string">"Number of messages in approval distribution for which aggression L2 has been triggered"</span>,
 				)<span class="question-mark">?</span>,
 				registry,
 			)<span class="question-mark">?</span>,
 			time_unify_with_peer: prometheus::register(
 				prometheus::Histogram::with_opts(
 					prometheus::HistogramOpts::new(
-						<span class="string">&quot;polkadot_parachain_time_unify_with_peer&quot;</span>,
-						<span class="string">&quot;Time spent within fn `unify_with_peer`.&quot;</span>,
+						<span class="string">"polkadot_parachain_time_unify_with_peer"</span>,
+						<span class="string">"Time spent within fn `unify_with_peer`."</span>,
 					)
 					.buckets(<span class="macro">vec!</span>[
 						<span class="number">0.000625</span>, <span class="number">0.00125</span>, <span class="number">0.0025</span>, <span class="number">0.005</span>, <span class="number">0.0075</span>, <span class="number">0.01</span>, <span class="number">0.025</span>, <span class="number">0.05</span>, <span class="number">0.1</span>, <span class="number">0.25</span>,
@@ -753,35 +755,35 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			)<span class="question-mark">?</span>,
 			time_import_pending_now_known: prometheus::register(
 				prometheus::Histogram::with_opts(prometheus::HistogramOpts::new(
-					<span class="string">&quot;polkadot_parachain_time_import_pending_now_known&quot;</span>,
-					<span class="string">&quot;Time spent on importing pending assignments and approvals.&quot;</span>,
+					<span class="string">"polkadot_parachain_time_import_pending_now_known"</span>,
+					<span class="string">"Time spent on importing pending assignments and approvals."</span>,
 				).buckets(<span class="macro">vec!</span>[<span class="number">0.0001</span>, <span class="number">0.0004</span>, <span class="number">0.0016</span>, <span class="number">0.0064</span>, <span class="number">0.0256</span>, <span class="number">0.1024</span>, <span class="number">0.4096</span>, <span class="number">1.6384</span>, <span class="number">3.2768</span>, <span class="number">4.9152</span>, <span class="number">6.5536</span>,]))<span class="question-mark">?</span>,
 				registry,
 			)<span class="question-mark">?</span>,
 			time_awaiting_approval_voting: prometheus::register(
 				prometheus::Histogram::with_opts(prometheus::HistogramOpts::new(
-					<span class="string">&quot;polkadot_parachain_time_awaiting_approval_voting&quot;</span>,
-					<span class="string">&quot;Time spent awaiting a reply from the Approval Voting Subsystem.&quot;</span>,
+					<span class="string">"polkadot_parachain_time_awaiting_approval_voting"</span>,
+					<span class="string">"Time spent awaiting a reply from the Approval Voting Subsystem."</span>,
 				).buckets(<span class="macro">vec!</span>[<span class="number">0.0001</span>, <span class="number">0.0004</span>, <span class="number">0.0016</span>, <span class="number">0.0064</span>, <span class="number">0.0256</span>, <span class="number">0.1024</span>, <span class="number">0.4096</span>, <span class="number">1.6384</span>, <span class="number">3.2768</span>, <span class="number">4.9152</span>, <span class="number">6.5536</span>,]))<span class="question-mark">?</span>,
 				registry,
 			)<span class="question-mark">?</span>,
 			assignments_received_result: prometheus::register(
 				prometheus::CounterVec::new(
 					prometheus::Opts::new(
-						<span class="string">&quot;polkadot_parachain_assignments_received_result&quot;</span>,
-						<span class="string">&quot;Result of a processed assignment&quot;</span>,
+						<span class="string">"polkadot_parachain_assignments_received_result"</span>,
+						<span class="string">"Result of a processed assignment"</span>,
 					),
-					<span class="kw-2">&amp;</span>[<span class="string">&quot;status&quot;</span>]
+					<span class="kw-2">&amp;</span>[<span class="string">"status"</span>]
 				)<span class="question-mark">?</span>,
 				registry,
 			)<span class="question-mark">?</span>,
 			approvals_received_result: prometheus::register(
 				prometheus::CounterVec::new(
 					prometheus::Opts::new(
-						<span class="string">&quot;polkadot_parachain_approvals_received_result&quot;</span>,
-						<span class="string">&quot;Result of a processed approval&quot;</span>,
+						<span class="string">"polkadot_parachain_approvals_received_result"</span>,
+						<span class="string">"Result of a processed approval"</span>,
 					),
-					<span class="kw-2">&amp;</span>[<span class="string">&quot;status&quot;</span>]
+					<span class="kw-2">&amp;</span>[<span class="string">"status"</span>]
 				)<span class="question-mark">?</span>,
 				registry,
 			)<span class="question-mark">?</span>,

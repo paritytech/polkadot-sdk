@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/vesting/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/vesting/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_vesting" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_vesting" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../pallet_vesting/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -928,14 +930,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -947,7 +949,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!
 //! ## Overview
 //!
-//! A simple pallet providing a means of placing a linear curve on an account&#39;s locked balance. This
+//! A simple pallet providing a means of placing a linear curve on an account's locked balance. This
 //! pallet ensures that there is a lock in place preventing the balance to drop below the *unvested*
 //! amount for any reason other than the ones specified in `UnvestedFundsAllowedWithdrawReasons`
 //! configuration value.
@@ -956,7 +958,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! place and explicit action is needed on behalf of the user to ensure that the amount locked is
 //! equivalent to the amount remaining to be vested. This is done through a dispatchable function,
 //! either `vest` (in typical case where the sender is calling on their own behalf) or `vest_other`
-//! in case the sender is calling on another account&#39;s behalf.
+//! in case the sender is calling on another account's behalf.
 //!
 //! ## Interface
 //!
@@ -964,11 +966,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!
 //! ### Dispatchable Functions
 //!
-//! - `vest` - Update the lock, reducing it in line with the amount &quot;vested&quot; so far.
+//! - `vest` - Update the lock, reducing it in line with the amount "vested" so far.
 //! - `vest_other` - Update the lock of another account, reducing it in line with the amount
-//!   &quot;vested&quot; so far.
+//!   "vested" so far.
 
-</span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
+</span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
 </span><span class="kw">mod </span>benchmarking;
 
@@ -1013,7 +1015,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	&lt;&lt;T <span class="kw">as </span>Config&gt;::Currency <span class="kw">as </span>LockableCurrency&lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId&gt;&gt;::MaxLocks;
 <span class="kw">type </span>AccountIdLookupOf&lt;T&gt; = &lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::Lookup <span class="kw">as </span>StaticLookup&gt;::Source;
 
-<span class="kw">const </span>VESTING_ID: LockIdentifier = <span class="kw-2">*</span><span class="string">b&quot;vesting &quot;</span>;
+<span class="kw">const </span>VESTING_ID: LockIdentifier = <span class="kw-2">*</span><span class="string">b"vesting "</span>;
 
 <span class="comment">// A value placed in storage that represents the current version of the Vesting storage.
 // This value is used by `on_runtime_upgrade` to determine whether we run storage migration logic.
@@ -1029,7 +1031,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="doccomment">/// Actions to take against a user&#39;s `Vesting` storage entry.
+<span class="doccomment">/// Actions to take against a user's `Vesting` storage entry.
 </span><span class="attr">#[derive(Clone, Copy)]
 </span><span class="kw">enum </span>VestingAction {
 	<span class="doccomment">/// Do not actively remove any schedules.
@@ -1054,7 +1056,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>pick_schedules&lt;T: Config&gt;(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		schedules: Vec&lt;VestingInfo&lt;BalanceOf&lt;T&gt;, BlockNumberFor&lt;T&gt;&gt;&gt;,
-	) -&gt; <span class="kw">impl </span>Iterator&lt;Item = VestingInfo&lt;BalanceOf&lt;T&gt;, BlockNumberFor&lt;T&gt;&gt;&gt; + <span class="lifetime">&#39;_ </span>{
+	) -&gt; <span class="kw">impl </span>Iterator&lt;Item = VestingInfo&lt;BalanceOf&lt;T&gt;, BlockNumberFor&lt;T&gt;&gt;&gt; + <span class="lifetime">'_ </span>{
 		schedules.into_iter().enumerate().filter_map(<span class="kw">move </span>|(index, schedule)| {
 			<span class="kw">if </span><span class="self">self</span>.should_remove(index) {
 				<span class="prelude-val">None
@@ -1119,7 +1121,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[pallet::hooks]
 	</span><span class="kw">impl</span>&lt;T: Config&gt; Hooks&lt;BlockNumberFor&lt;T&gt;&gt; <span class="kw">for </span>Pallet&lt;T&gt; {
 		<span class="kw">fn </span>integrity_test() {
-			<span class="macro">assert!</span>(T::MAX_VESTING_SCHEDULES &gt; <span class="number">0</span>, <span class="string">&quot;`MaxVestingSchedules` must ge greater than 0&quot;</span>);
+			<span class="macro">assert!</span>(T::MAX_VESTING_SCHEDULES &gt; <span class="number">0</span>, <span class="string">"`MaxVestingSchedules` must ge greater than 0"</span>);
 		}
 	}
 
@@ -1163,18 +1165,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			// * liquid - Number of units which can be spent before vesting begins
 			</span><span class="kw">for </span><span class="kw-2">&amp;</span>(<span class="kw-2">ref </span>who, begin, length, liquid) <span class="kw">in </span><span class="self">self</span>.vesting.iter() {
 				<span class="kw">let </span>balance = T::Currency::free_balance(who);
-				<span class="macro">assert!</span>(!balance.is_zero(), <span class="string">&quot;Currencies must be init&#39;d before vesting&quot;</span>);
+				<span class="macro">assert!</span>(!balance.is_zero(), <span class="string">"Currencies must be init'd before vesting"</span>);
 				<span class="comment">// Total genesis `balance` minus `liquid` equals funds locked for vesting
 				</span><span class="kw">let </span>locked = balance.saturating_sub(liquid);
 				<span class="kw">let </span>length_as_balance = T::BlockNumberToBalance::convert(length);
 				<span class="kw">let </span>per_block = locked / length_as_balance.max(sp_runtime::traits::One::one());
 				<span class="kw">let </span>vesting_info = VestingInfo::new(locked, per_block, begin);
 				<span class="kw">if </span>!vesting_info.is_valid() {
-					<span class="macro">panic!</span>(<span class="string">&quot;Invalid VestingInfo params at genesis&quot;</span>)
+					<span class="macro">panic!</span>(<span class="string">"Invalid VestingInfo params at genesis"</span>)
 				};
 
 				Vesting::&lt;T&gt;::try_append(who, vesting_info)
-					.expect(<span class="string">&quot;Too many vesting schedules at genesis.&quot;</span>);
+					.expect(<span class="string">"Too many vesting schedules at genesis."</span>);
 
 				<span class="kw">let </span>reasons =
 					WithdrawReasons::except(T::UnvestedFundsAllowedWithdrawReasons::get());
@@ -1402,24 +1404,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// Check if one or both schedules have ended.
 		</span><span class="kw">match </span>(schedule1_ending_block &lt;= now_as_balance, schedule2_ending_block &lt;= now_as_balance) {
-			<span class="comment">// If both schedules have ended, we don&#39;t merge and exit early.
+			<span class="comment">// If both schedules have ended, we don't merge and exit early.
 			</span>(<span class="bool-val">true</span>, <span class="bool-val">true</span>) =&gt; <span class="kw">return </span><span class="prelude-val">None</span>,
 			<span class="comment">// If one schedule has ended, we treat the one that has not ended as the new
 			// merged schedule.
 			</span>(<span class="bool-val">true</span>, <span class="bool-val">false</span>) =&gt; <span class="kw">return </span><span class="prelude-val">Some</span>(schedule2),
 			(<span class="bool-val">false</span>, <span class="bool-val">true</span>) =&gt; <span class="kw">return </span><span class="prelude-val">Some</span>(schedule1),
-			<span class="comment">// If neither schedule has ended don&#39;t exit early.
+			<span class="comment">// If neither schedule has ended don't exit early.
 			</span><span class="kw">_ </span>=&gt; {},
 		}
 
 		<span class="kw">let </span>locked = schedule1
 			.locked_at::&lt;T::BlockNumberToBalance&gt;(now)
 			.saturating_add(schedule2.locked_at::&lt;T::BlockNumberToBalance&gt;(now));
-		<span class="comment">// This shouldn&#39;t happen because we know at least one ending block is greater than now,
+		<span class="comment">// This shouldn't happen because we know at least one ending block is greater than now,
 		// thus at least a schedule a some locked balance.
 		</span><span class="macro">debug_assert!</span>(
 			!locked.is_zero(),
-			<span class="string">&quot;merge_vesting_info validation checks failed to catch a locked of 0&quot;
+			<span class="string">"merge_vesting_info validation checks failed to catch a locked of 0"
 		</span>);
 
 		<span class="kw">let </span>ending_block = schedule1_ending_block.max(schedule2_ending_block);
@@ -1433,7 +1435,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		};
 
 		<span class="kw">let </span>schedule = VestingInfo::new(locked, per_block, starting_block);
-		<span class="macro">debug_assert!</span>(schedule.is_valid(), <span class="string">&quot;merge_vesting_info schedule validation check failed&quot;</span>);
+		<span class="macro">debug_assert!</span>(schedule.is_valid(), <span class="string">"merge_vesting_info schedule validation check failed"</span>);
 
 		<span class="prelude-val">Some</span>(schedule)
 	}
@@ -1467,14 +1469,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			ExistenceRequirement::AllowDeath,
 		)<span class="question-mark">?</span>;
 
-		<span class="comment">// We can&#39;t let this fail because the currency transfer has already happened.
+		<span class="comment">// We can't let this fail because the currency transfer has already happened.
 		</span><span class="kw">let </span>res = <span class="self">Self</span>::add_vesting_schedule(
 			<span class="kw-2">&amp;</span>target,
 			schedule.locked(),
 			schedule.per_block(),
 			schedule.starting_block(),
 		);
-		<span class="macro">debug_assert!</span>(res.is_ok(), <span class="string">&quot;Failed to add a schedule when we had to succeed.&quot;</span>);
+		<span class="macro">debug_assert!</span>(res.is_ok(), <span class="string">"Failed to add a schedule when we had to succeed."</span>);
 
 		<span class="prelude-val">Ok</span>(())
 	}
@@ -1634,7 +1636,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// Is a no-op if the amount to be vested is zero.
 	///
-	/// NOTE: This doesn&#39;t alter the free balance of the account.
+	/// NOTE: This doesn't alter the free balance of the account.
 	</span><span class="kw">fn </span>add_vesting_schedule(
 		who: <span class="kw-2">&amp;</span>T::AccountId,
 		locked: BalanceOf&lt;T&gt;,

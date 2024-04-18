@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/tracing/src/logging/fast_local_time.rs`."><title>fast_local_time.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/tracing/src/logging/fast_local_time.rs`."><title>fast_local_time.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sc_tracing" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sc_tracing" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../sc_tracing/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -356,7 +358,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>new_length = <span class="self">self</span>.length + s.len();
 		<span class="macro">assert!</span>(
 			new_length &lt;= TIMESTAMP_MAXIMUM_LENGTH,
-			<span class="string">&quot;buffer overflow when formatting the current timestamp&quot;
+			<span class="string">"buffer overflow when formatting the current timestamp"
 		</span>);
 
 		<span class="self">self</span>.buffer[<span class="self">self</span>.length..new_length].copy_from_slice(s.as_bytes());
@@ -385,12 +387,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl </span>FormatTime <span class="kw">for </span>FastLocalTime {
-	<span class="kw">fn </span>format_time(<span class="kw-2">&amp;</span><span class="self">self</span>, w: <span class="kw-2">&amp;mut </span>format::Writer&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
-		<span class="kw">const </span>TIMESTAMP_PARTIAL_LENGTH: usize = <span class="string">&quot;0000-00-00 00:00:00&quot;</span>.len();
+	<span class="kw">fn </span>format_time(<span class="kw-2">&amp;</span><span class="self">self</span>, w: <span class="kw-2">&amp;mut </span>format::Writer&lt;<span class="lifetime">'_</span>&gt;) -&gt; std::fmt::Result {
+		<span class="kw">const </span>TIMESTAMP_PARTIAL_LENGTH: usize = <span class="string">"0000-00-00 00:00:00"</span>.len();
 
 		<span class="kw">let </span>elapsed = SystemTime::now()
 			.duration_since(SystemTime::UNIX_EPOCH)
-			.expect(<span class="string">&quot;system time is never before UNIX epoch; qed&quot;</span>);
+			.expect(<span class="string">"system time is never before UNIX epoch; qed"</span>);
 		<span class="kw">let </span>unix_time = elapsed.as_secs();
 
 		TIMESTAMP.with(|cache| {
@@ -406,7 +408,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 				<span class="macro">write!</span>(
 					<span class="kw-2">&amp;mut </span>cache.buffer,
-					<span class="string">&quot;{:04}-{:02}-{:02} {:02}:{:02}:{:02}.{:03}&quot;</span>,
+					<span class="string">"{:04}-{:02}-{:02} {:02}:{:02}:{:02}.{:03}"</span>,
 					ts.year(),
 					ts.month(),
 					ts.day(),
@@ -422,7 +424,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				</span><span class="kw">if </span>cache.last_fractional != fractional {
 					cache.last_fractional = fractional;
 					cache.buffer.length = TIMESTAMP_PARTIAL_LENGTH + <span class="number">1</span>;
-					<span class="macro">write!</span>(<span class="kw-2">&amp;mut </span>cache.buffer, <span class="string">&quot;{:03}&quot;</span>, fractional)<span class="question-mark">?</span>;
+					<span class="macro">write!</span>(<span class="kw-2">&amp;mut </span>cache.buffer, <span class="string">"{:03}"</span>, fractional)<span class="question-mark">?</span>;
 				}
 			}
 
@@ -445,23 +447,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[test]
 </span><span class="kw">fn </span>test_format_fast_local_time() {
 	<span class="macro">assert_eq!</span>(
-		chrono::Local::now().format(<span class="string">&quot;%Y-%m-%d %H:%M:%S&quot;</span>).to_string().len(),
+		chrono::Local::now().format(<span class="string">"%Y-%m-%d %H:%M:%S"</span>).to_string().len(),
 		FastLocalTime { with_fractional: <span class="bool-val">false </span>}.to_string().len()
 	);
 	<span class="macro">assert_eq!</span>(
-		chrono::Local::now().format(<span class="string">&quot;%Y-%m-%d %H:%M:%S%.3f&quot;</span>).to_string().len(),
+		chrono::Local::now().format(<span class="string">"%Y-%m-%d %H:%M:%S%.3f"</span>).to_string().len(),
 		FastLocalTime { with_fractional: <span class="bool-val">true </span>}.to_string().len()
 	);
 
-	<span class="comment">// A simple trick to make sure this test won&#39;t randomly fail if we so happen
+	<span class="comment">// A simple trick to make sure this test won't randomly fail if we so happen
 	// to land on the exact moment when we tick over to the next second.
 	</span><span class="kw">let </span>now_1 = FastLocalTime { with_fractional: <span class="bool-val">false </span>}.to_string();
-	<span class="kw">let </span>expected = chrono::Local::now().format(<span class="string">&quot;%Y-%m-%d %H:%M:%S&quot;</span>).to_string();
+	<span class="kw">let </span>expected = chrono::Local::now().format(<span class="string">"%Y-%m-%d %H:%M:%S"</span>).to_string();
 	<span class="kw">let </span>now_2 = FastLocalTime { with_fractional: <span class="bool-val">false </span>}.to_string();
 
 	<span class="macro">assert!</span>(
 		now_1 == expected || now_2 == expected,
-		<span class="string">&quot;&#39;{}&#39; or &#39;{}&#39; should have been equal to &#39;{}&#39;&quot;</span>,
+		<span class="string">"'{}' or '{}' should have been equal to '{}'"</span>,
 		now_1,
 		now_2,
 		expected

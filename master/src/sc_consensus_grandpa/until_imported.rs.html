@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/consensus/grandpa/src/until_imported.rs`."><title>until_imported.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/consensus/grandpa/src/until_imported.rs`."><title>until_imported.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_consensus_grandpa" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_consensus_grandpa" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sc_consensus_grandpa/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1290,8 +1292,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Ok</span>(<span class="self">Self </span>{
 			global_waiting_messages: register(
 				Gauge::new(
-					<span class="string">&quot;substrate_finality_grandpa_until_imported_waiting_messages_number&quot;</span>,
-					<span class="string">&quot;Number of finality grandpa messages waiting within the until imported queue.&quot;</span>,
+					<span class="string">"substrate_finality_grandpa_until_imported_waiting_messages_number"</span>,
+					<span class="string">"Number of finality grandpa messages waiting within the until imported queue."</span>,
 				)<span class="question-mark">?</span>,
 				registry,
 			)<span class="question-mark">?</span>,
@@ -1349,7 +1351,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>pending: HashMap&lt;Block::Hash, (NumberFor&lt;Block&gt;, Instant, Vec&lt;M&gt;)&gt;,
 
 	<span class="doccomment">/// Queue identifier for differentiation in logs.
-	</span>identifier: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
+	</span>identifier: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
 	<span class="doccomment">/// Prometheus metrics.
 	</span>metrics: <span class="prelude-ty">Option</span>&lt;Metrics&gt;,
 }
@@ -1378,7 +1380,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		block_sync_requester: BlockSyncRequester,
 		status_check: BlockStatus,
 		incoming_messages: I,
-		identifier: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
+		identifier: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
 		metrics: <span class="prelude-ty">Option</span>&lt;Metrics&gt;,
 	) -&gt; <span class="self">Self </span>{
 		<span class="comment">// how often to check if pending messages that are waiting for blocks to be
@@ -1487,9 +1489,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw">if </span>Instant::now() &gt;= next_log {
 						<span class="macro">debug!</span>(
 							target: LOG_TARGET,
-							<span class="string">&quot;Waiting to import block {} before {} {} messages can be imported. \
+							<span class="string">"Waiting to import block {} before {} {} messages can be imported. \
 							Requesting network sync service to retrieve block from. \
-							Possible fork?&quot;</span>,
+							Possible fork?"</span>,
 							block_hash,
 							v.len(),
 							this.identifier,
@@ -1537,8 +1539,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">fn </span>warn_authority_wrong_target&lt;H: ::std::fmt::Display&gt;(hash: H, id: AuthorityId) {
 	<span class="macro">warn!</span>(
 		target: LOG_TARGET,
-		<span class="string">&quot;Authority {:?} signed GRANDPA message with \
-		wrong block number for hash {}&quot;</span>,
+		<span class="string">"Authority {:?} signed GRANDPA message with \
+		wrong block number for hash {}"</span>,
 		id,
 		hash,
 	);
@@ -1593,7 +1595,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// This is used for compact commits and catch up messages which have already
 /// been checked for structural soundness (e.g. valid signatures).
 ///
-/// We use the `Arc`&#39;s reference count to implicitly count the number of outstanding blocks that we
+/// We use the `Arc`'s reference count to implicitly count the number of outstanding blocks that we
 /// are waiting on for the same message (i.e. other `BlockGlobalMessage` instances with the same
 /// `inner`).
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>BlockGlobalMessage&lt;Block: BlockT&gt; {
@@ -1725,7 +1727,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">fn </span>wait_completed(<span class="self">self</span>, canon_number: NumberFor&lt;Block&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::Blocked&gt; {
 		<span class="kw">if </span><span class="self">self</span>.target_number != canon_number {
-			<span class="comment">// Delete the inner message so it won&#39;t ever be forwarded. Future calls to
+			<span class="comment">// Delete the inner message so it won't ever be forwarded. Future calls to
 			// `wait_completed` on the same `inner` will ignore it.
 			</span><span class="kw-2">*</span><span class="self">self</span>.inner.lock() = <span class="prelude-val">None</span>;
 			<span class="kw">return </span><span class="prelude-val">None
@@ -1769,7 +1771,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">impl </span>TestChainState {
 		<span class="kw">fn </span>new() -&gt; (<span class="self">Self</span>, ImportNotifications&lt;Block&gt;) {
-			<span class="kw">let </span>(tx, rx) = tracing_unbounded(<span class="string">&quot;test&quot;</span>, <span class="number">100_000</span>);
+			<span class="kw">let </span>(tx, rx) = tracing_unbounded(<span class="string">"test"</span>, <span class="number">100_000</span>);
 			<span class="kw">let </span>state =
 				TestChainState { sender: tx, known_blocks: Arc::new(Mutex::new(HashMap::new())) };
 
@@ -1783,7 +1785,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">fn </span>import_header(<span class="kw-2">&amp;</span><span class="self">self</span>, header: Header) {
 			<span class="kw">let </span>hash = header.hash();
 			<span class="kw">let </span>number = <span class="kw-2">*</span>header.number();
-			<span class="kw">let </span>(tx, _rx) = tracing_unbounded(<span class="string">&quot;unpin-worker-channel&quot;</span>, <span class="number">10_000</span>);
+			<span class="kw">let </span>(tx, _rx) = tracing_unbounded(<span class="string">"unpin-worker-channel"</span>, <span class="number">10_000</span>);
 			<span class="self">self</span>.known_blocks.lock().insert(hash, number);
 			<span class="self">self</span>.sender
 				.unbounded_send(BlockImportNotification::&lt;Block&gt;::new(
@@ -1841,20 +1843,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="comment">// unwrap the commit from `CommunicationIn` returning its fields in a tuple,
-	// panics if the given message isn&#39;t a commit
+	// panics if the given message isn't a commit
 	</span><span class="kw">fn </span>unapply_commit(msg: CommunicationIn&lt;Block&gt;) -&gt; (u64, CompactCommit&lt;Header&gt;) {
 		<span class="kw">match </span>msg {
 			voter::CommunicationIn::Commit(round, commit, ..) =&gt; (round, commit),
-			<span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;expected commit&quot;</span>),
+			<span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"expected commit"</span>),
 		}
 	}
 
 	<span class="comment">// unwrap the catch up from `CommunicationIn` returning its inner representation,
-	// panics if the given message isn&#39;t a catch up
+	// panics if the given message isn't a catch up
 	</span><span class="kw">fn </span>unapply_catch_up(msg: CommunicationIn&lt;Block&gt;) -&gt; CatchUp&lt;Header&gt; {
 		<span class="kw">match </span>msg {
 			voter::CommunicationIn::CatchUp(catch_up, ..) =&gt; catch_up,
-			<span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;expected catch up&quot;</span>),
+			<span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"expected catch up"</span>),
 		}
 	}
 
@@ -1871,14 +1873,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// enact all dependencies before importing the message
 		</span>enact_dependencies(<span class="kw-2">&amp;</span>chain_state);
 
-		<span class="kw">let </span>(global_tx, global_rx) = tracing_unbounded(<span class="string">&quot;test&quot;</span>, <span class="number">100_000</span>);
+		<span class="kw">let </span>(global_tx, global_rx) = tracing_unbounded(<span class="string">"test"</span>, <span class="number">100_000</span>);
 
 		<span class="kw">let </span>until_imported = UntilGlobalMessageBlocksImported::new(
 			import_notifications,
 			TestBlockSyncRequester::default(),
 			block_status,
 			global_rx,
-			<span class="string">&quot;global&quot;</span>,
+			<span class="string">"global"</span>,
 			<span class="prelude-val">None</span>,
 		);
 
@@ -1899,14 +1901,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>(chain_state, import_notifications) = TestChainState::new();
 		<span class="kw">let </span>block_status = chain_state.block_status();
 
-		<span class="kw">let </span>(global_tx, global_rx) = tracing_unbounded(<span class="string">&quot;test&quot;</span>, <span class="number">100_000</span>);
+		<span class="kw">let </span>(global_tx, global_rx) = tracing_unbounded(<span class="string">"test"</span>, <span class="number">100_000</span>);
 
 		<span class="kw">let </span>until_imported = UntilGlobalMessageBlocksImported::new(
 			import_notifications,
 			TestBlockSyncRequester::default(),
 			block_status,
 			global_rx,
-			<span class="string">&quot;global&quot;</span>,
+			<span class="string">"global"</span>,
 			<span class="prelude-val">None</span>,
 		);
 
@@ -1918,7 +1920,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>work =
 			future::select(until_imported.into_future(), Delay::new(Duration::from_millis(<span class="number">100</span>)))
 				.then(<span class="kw">move </span>|res| <span class="kw">match </span>res {
-					Either::Left(<span class="kw">_</span>) =&gt; <span class="macro">panic!</span>(<span class="string">&quot;timeout should have fired first&quot;</span>),
+					Either::Left(<span class="kw">_</span>) =&gt; <span class="macro">panic!</span>(<span class="string">"timeout should have fired first"</span>),
 					Either::Right((<span class="kw">_</span>, until_imported)) =&gt; {
 						<span class="comment">// timeout fired. push in the headers.
 						</span>enact_dependencies(<span class="kw-2">&amp;</span>inner_chain_state);
@@ -2087,7 +2089,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>(chain_state, import_notifications) = TestChainState::new();
 		<span class="kw">let </span>block_status = chain_state.block_status();
 
-		<span class="kw">let </span>(global_tx, global_rx) = tracing_unbounded(<span class="string">&quot;test&quot;</span>, <span class="number">100_000</span>);
+		<span class="kw">let </span>(global_tx, global_rx) = tracing_unbounded(<span class="string">"test"</span>, <span class="number">100_000</span>);
 
 		<span class="kw">let </span>block_sync_requester = TestBlockSyncRequester::default();
 
@@ -2096,7 +2098,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			block_sync_requester.clone(),
 			block_status,
 			global_rx,
-			<span class="string">&quot;global&quot;</span>,
+			<span class="string">"global"</span>,
 			<span class="prelude-val">None</span>,
 		);
 
@@ -2105,7 +2107,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>h3 = make_header(<span class="number">7</span>);
 
 		<span class="comment">// we create a commit message, with precommits for blocks 6 and 7 which
-		// we haven&#39;t imported.
+		// we haven't imported.
 		</span><span class="kw">let </span>unknown_commit = CompactCommit::&lt;Header&gt; {
 			target_hash: h1.hash(),
 			target_number: <span class="number">5</span>,
@@ -2129,7 +2131,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">let </span>assert = futures::future::poll_fn(|ctx| {
 			<span class="kw">let </span>block_sync_requests = block_sync_requester.requests.lock();
 
-			<span class="comment">// we request blocks targeted by the precommits that aren&#39;t imported
+			<span class="comment">// we request blocks targeted by the precommits that aren't imported
 			</span><span class="kw">if </span>block_sync_requests.contains(<span class="kw-2">&amp;</span>(h2.hash(), <span class="kw-2">*</span>h2.number())) &amp;&amp;
 				block_sync_requests.contains(<span class="kw-2">&amp;</span>(h3.hash(), <span class="kw-2">*</span>h3.number()))
 			{
@@ -2144,13 +2146,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			Poll::Pending
 		});
 
-		<span class="comment">// the `until_imported` stream doesn&#39;t request the blocks immediately,
+		<span class="comment">// the `until_imported` stream doesn't request the blocks immediately,
 		// but it should request them after a small timeout
 		</span><span class="kw">let </span>timeout = Delay::new(Duration::from_secs(<span class="number">60</span>));
 		<span class="kw">let </span>test = future::select(assert, timeout)
 			.map(|res| <span class="kw">match </span>res {
 				Either::Left(<span class="kw">_</span>) =&gt; {},
-				Either::Right(<span class="kw">_</span>) =&gt; <span class="macro">panic!</span>(<span class="string">&quot;timed out waiting for block sync request&quot;</span>),
+				Either::Right(<span class="kw">_</span>) =&gt; <span class="macro">panic!</span>(<span class="string">"timed out waiting for block sync request"</span>),
 			})
 			.map(drop);
 
@@ -2215,13 +2217,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span><span class="kw-2">mut </span>m1 = Metrics::register(<span class="kw-2">&amp;</span>r).unwrap();
 		<span class="kw">let </span>m2 = m1.clone();
 
-		<span class="comment">// Add a new message to the &#39;queue&#39; of m1.
+		<span class="comment">// Add a new message to the 'queue' of m1.
 		</span>m1.waiting_messages_inc();
 
 		<span class="comment">// m1 and m2 are synced through the shared atomic.
 		</span><span class="macro">assert_eq!</span>(<span class="number">1</span>, m2.global_waiting_messages.get());
 
-		<span class="comment">// Drop &#39;queue&#39; m1.
+		<span class="comment">// Drop 'queue' m1.
 		</span>drop(m1);
 
 		<span class="comment">// Make sure m1 cleaned up after itself, removing all messages that were left in its queue

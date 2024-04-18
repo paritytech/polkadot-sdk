@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/state-machine/src/overlayed_changes/changeset.rs`."><title>changeset.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/state-machine/src/overlayed_changes/changeset.rs`."><title>changeset.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sp_state_machine" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sp_state_machine" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../sp_state_machine/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1005,14 +1007,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License
@@ -1021,9 +1023,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="kw">use super</span>::{Extrinsics, StorageKey, StorageValue};
 
-<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
 </span><span class="kw">use </span>alloc::collections::btree_set::BTreeSet <span class="kw">as </span>Set;
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">use </span>std::collections::HashSet <span class="kw">as </span>Set;
 
 <span class="kw">use </span><span class="kw">crate</span>::warn;
@@ -1031,9 +1033,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>core::hash::Hash;
 <span class="kw">use </span>smallvec::SmallVec;
 
-<span class="kw">const </span>PROOF_OVERLAY_NON_EMPTY: <span class="kw-2">&amp;</span>str = <span class="string">&quot;\
+<span class="kw">const </span>PROOF_OVERLAY_NON_EMPTY: <span class="kw-2">&amp;</span>str = <span class="string">"\
 	An OverlayValue is always created with at least one transaction and dropped as soon
-	as the last transaction is removed; qed&quot;</span>;
+	as the last transaction is removed; qed"</span>;
 
 <span class="kw">type </span>DirtyKeysSets&lt;K&gt; = SmallVec&lt;[Set&lt;K&gt;; <span class="number">5</span>]&gt;;
 <span class="kw">type </span>Transactions&lt;V&gt; = SmallVec&lt;[InnerValue&lt;V&gt;; <span class="number">5</span>]&gt;;
@@ -1121,7 +1123,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">impl </span>From&lt;sp_core::storage::StorageMap&gt; <span class="kw">for </span>OverlayedMap&lt;StorageKey, <span class="prelude-ty">Option</span>&lt;StorageValue&gt;&gt; {
 	<span class="kw">fn </span>from(storage: sp_core::storage::StorageMap) -&gt; <span class="self">Self </span>{
 		<span class="self">Self </span>{
@@ -1272,7 +1274,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// Panics:
 	/// Panics if there are open transactions: `transaction_depth() &gt; 0`
 	</span><span class="kw">pub fn </span>drain_committed(<span class="self">self</span>) -&gt; <span class="kw">impl </span>Iterator&lt;Item = (K, V)&gt; {
-		<span class="macro">assert!</span>(<span class="self">self</span>.transaction_depth() == <span class="number">0</span>, <span class="string">&quot;Drain is not allowed with open transactions.&quot;</span>);
+		<span class="macro">assert!</span>(<span class="self">self</span>.transaction_depth() == <span class="number">0</span>, <span class="string">"Drain is not allowed with open transactions."</span>);
 		<span class="self">self</span>.changes.into_iter().map(|(k, <span class="kw-2">mut </span>v)| (k, v.pop_transaction().value))
 	}
 
@@ -1307,13 +1309,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">self</span>.execution_mode = ExecutionMode::Client;
 		<span class="kw">if </span><span class="self">self</span>.has_open_runtime_transactions() {
 			<span class="macro">warn!</span>(
-				<span class="string">&quot;{} storage transactions are left open by the runtime. Those will be rolled back.&quot;</span>,
+				<span class="string">"{} storage transactions are left open by the runtime. Those will be rolled back."</span>,
 				<span class="self">self</span>.transaction_depth() - <span class="self">self</span>.num_client_transactions,
 			);
 		}
 		<span class="kw">while </span><span class="self">self</span>.has_open_runtime_transactions() {
 			<span class="self">self</span>.rollback_transaction()
-				.expect(<span class="string">&quot;The loop condition checks that the transaction depth is &gt; 0; qed&quot;</span>);
+				.expect(<span class="string">"The loop condition checks that the transaction depth is &gt; 0; qed"</span>);
 		}
 		<span class="prelude-val">Ok</span>(())
 	}
@@ -1355,11 +1357,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">for </span>key <span class="kw">in </span><span class="self">self</span>.dirty_keys.pop().ok_or(NoOpenTransaction)<span class="question-mark">? </span>{
 			<span class="kw">let </span>overlayed = <span class="self">self</span>.changes.get_mut(<span class="kw-2">&amp;</span>key).expect(
-				<span class="string">&quot;\
+				<span class="string">"\
 				A write to an OverlayedValue is recorded in the dirty key set. Before an
 				OverlayedValue is removed, its containing dirty set is removed. This
 				function is only called for keys that are in the dirty set. qed\
-			&quot;</span>,
+			"</span>,
 			);
 
 			<span class="kw">if </span>rollback {
@@ -1403,7 +1405,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Get a mutable reference for a value.
 	///
 	/// Can be rolled back or committed when called inside a transaction.
-	</span><span class="attr">#[must_use = <span class="string">&quot;A change was registered, so this value MUST be modified.&quot;</span>]
+	</span><span class="attr">#[must_use = <span class="string">"A change was registered, so this value MUST be modified."</span>]
 	</span><span class="kw">pub fn </span>modify(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		key: StorageKey,
@@ -1459,8 +1461,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use </span>pretty_assertions::assert_eq;
 
-	<span class="kw">type </span>Changes&lt;<span class="lifetime">&#39;a</span>&gt; = Vec&lt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8], (<span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8]&gt;, Vec&lt;u32&gt;))&gt;;
-	<span class="kw">type </span>Drained&lt;<span class="lifetime">&#39;a</span>&gt; = Vec&lt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8], <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8]&gt;)&gt;;
+	<span class="kw">type </span>Changes&lt;<span class="lifetime">'a</span>&gt; = Vec&lt;(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8], (<span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8]&gt;, Vec&lt;u32&gt;))&gt;;
+	<span class="kw">type </span>Drained&lt;<span class="lifetime">'a</span>&gt; = Vec&lt;(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8], <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8]&gt;)&gt;;
 
 	<span class="kw">fn </span>assert_changes(is: <span class="kw-2">&amp;</span>OverlayedChangeSet, expected: <span class="kw-2">&amp;</span>Changes) {
 		<span class="kw">let </span>is: Changes = is
@@ -1495,11 +1497,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span><span class="kw-2">mut </span>changeset = OverlayedChangeSet::default();
 		<span class="macro">assert_eq!</span>(changeset.transaction_depth(), <span class="number">0</span>);
 
-		changeset.set(<span class="string">b&quot;key0&quot;</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b&quot;val0&quot;</span>.to_vec()), <span class="prelude-val">Some</span>(<span class="number">1</span>));
-		changeset.set(<span class="string">b&quot;key1&quot;</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b&quot;val1&quot;</span>.to_vec()), <span class="prelude-val">Some</span>(<span class="number">2</span>));
-		changeset.set(<span class="string">b&quot;key0&quot;</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b&quot;val0-1&quot;</span>.to_vec()), <span class="prelude-val">Some</span>(<span class="number">9</span>));
+		changeset.set(<span class="string">b"key0"</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b"val0"</span>.to_vec()), <span class="prelude-val">Some</span>(<span class="number">1</span>));
+		changeset.set(<span class="string">b"key1"</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b"val1"</span>.to_vec()), <span class="prelude-val">Some</span>(<span class="number">2</span>));
+		changeset.set(<span class="string">b"key0"</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b"val0-1"</span>.to_vec()), <span class="prelude-val">Some</span>(<span class="number">9</span>));
 
-		assert_drained(changeset, <span class="macro">vec!</span>[(<span class="string">b&quot;key0&quot;</span>, <span class="prelude-val">Some</span>(<span class="string">b&quot;val0-1&quot;</span>)), (<span class="string">b&quot;key1&quot;</span>, <span class="prelude-val">Some</span>(<span class="string">b&quot;val1&quot;</span>))]);
+		assert_drained(changeset, <span class="macro">vec!</span>[(<span class="string">b"key0"</span>, <span class="prelude-val">Some</span>(<span class="string">b"val0-1"</span>)), (<span class="string">b"key1"</span>, <span class="prelude-val">Some</span>(<span class="string">b"val1"</span>))]);
 	}
 
 	<span class="attr">#[test]
@@ -1508,34 +1510,34 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">assert_eq!</span>(changeset.transaction_depth(), <span class="number">0</span>);
 
 		<span class="comment">// no transaction: committed on set
-		</span>changeset.set(<span class="string">b&quot;key0&quot;</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b&quot;val0&quot;</span>.to_vec()), <span class="prelude-val">Some</span>(<span class="number">1</span>));
-		changeset.set(<span class="string">b&quot;key1&quot;</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b&quot;val1&quot;</span>.to_vec()), <span class="prelude-val">Some</span>(<span class="number">1</span>));
-		changeset.set(<span class="string">b&quot;key0&quot;</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b&quot;val0-1&quot;</span>.to_vec()), <span class="prelude-val">Some</span>(<span class="number">10</span>));
+		</span>changeset.set(<span class="string">b"key0"</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b"val0"</span>.to_vec()), <span class="prelude-val">Some</span>(<span class="number">1</span>));
+		changeset.set(<span class="string">b"key1"</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b"val1"</span>.to_vec()), <span class="prelude-val">Some</span>(<span class="number">1</span>));
+		changeset.set(<span class="string">b"key0"</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b"val0-1"</span>.to_vec()), <span class="prelude-val">Some</span>(<span class="number">10</span>));
 
 		changeset.start_transaction();
 		<span class="macro">assert_eq!</span>(changeset.transaction_depth(), <span class="number">1</span>);
 
 		<span class="comment">// we will commit that later
-		</span>changeset.set(<span class="string">b&quot;key42&quot;</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b&quot;val42&quot;</span>.to_vec()), <span class="prelude-val">Some</span>(<span class="number">42</span>));
-		changeset.set(<span class="string">b&quot;key99&quot;</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b&quot;val99&quot;</span>.to_vec()), <span class="prelude-val">Some</span>(<span class="number">99</span>));
+		</span>changeset.set(<span class="string">b"key42"</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b"val42"</span>.to_vec()), <span class="prelude-val">Some</span>(<span class="number">42</span>));
+		changeset.set(<span class="string">b"key99"</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b"val99"</span>.to_vec()), <span class="prelude-val">Some</span>(<span class="number">99</span>));
 
 		changeset.start_transaction();
 		<span class="macro">assert_eq!</span>(changeset.transaction_depth(), <span class="number">2</span>);
 
 		<span class="comment">// we will roll that back
-		</span>changeset.set(<span class="string">b&quot;key42&quot;</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b&quot;val42-rolled&quot;</span>.to_vec()), <span class="prelude-val">Some</span>(<span class="number">421</span>));
-		changeset.set(<span class="string">b&quot;key7&quot;</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b&quot;val7-rolled&quot;</span>.to_vec()), <span class="prelude-val">Some</span>(<span class="number">77</span>));
-		changeset.set(<span class="string">b&quot;key0&quot;</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b&quot;val0-rolled&quot;</span>.to_vec()), <span class="prelude-val">Some</span>(<span class="number">1000</span>));
-		changeset.set(<span class="string">b&quot;key5&quot;</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b&quot;val5-rolled&quot;</span>.to_vec()), <span class="prelude-val">None</span>);
+		</span>changeset.set(<span class="string">b"key42"</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b"val42-rolled"</span>.to_vec()), <span class="prelude-val">Some</span>(<span class="number">421</span>));
+		changeset.set(<span class="string">b"key7"</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b"val7-rolled"</span>.to_vec()), <span class="prelude-val">Some</span>(<span class="number">77</span>));
+		changeset.set(<span class="string">b"key0"</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b"val0-rolled"</span>.to_vec()), <span class="prelude-val">Some</span>(<span class="number">1000</span>));
+		changeset.set(<span class="string">b"key5"</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b"val5-rolled"</span>.to_vec()), <span class="prelude-val">None</span>);
 
 		<span class="comment">// changes contain all changes not only the committed ones.
 		</span><span class="kw">let </span>all_changes: Changes = <span class="macro">vec!</span>[
-			(<span class="string">b&quot;key0&quot;</span>, (<span class="prelude-val">Some</span>(<span class="string">b&quot;val0-rolled&quot;</span>), <span class="macro">vec!</span>[<span class="number">1</span>, <span class="number">10</span>, <span class="number">1000</span>])),
-			(<span class="string">b&quot;key1&quot;</span>, (<span class="prelude-val">Some</span>(<span class="string">b&quot;val1&quot;</span>), <span class="macro">vec!</span>[<span class="number">1</span>])),
-			(<span class="string">b&quot;key42&quot;</span>, (<span class="prelude-val">Some</span>(<span class="string">b&quot;val42-rolled&quot;</span>), <span class="macro">vec!</span>[<span class="number">42</span>, <span class="number">421</span>])),
-			(<span class="string">b&quot;key5&quot;</span>, (<span class="prelude-val">Some</span>(<span class="string">b&quot;val5-rolled&quot;</span>), <span class="macro">vec!</span>[])),
-			(<span class="string">b&quot;key7&quot;</span>, (<span class="prelude-val">Some</span>(<span class="string">b&quot;val7-rolled&quot;</span>), <span class="macro">vec!</span>[<span class="number">77</span>])),
-			(<span class="string">b&quot;key99&quot;</span>, (<span class="prelude-val">Some</span>(<span class="string">b&quot;val99&quot;</span>), <span class="macro">vec!</span>[<span class="number">99</span>])),
+			(<span class="string">b"key0"</span>, (<span class="prelude-val">Some</span>(<span class="string">b"val0-rolled"</span>), <span class="macro">vec!</span>[<span class="number">1</span>, <span class="number">10</span>, <span class="number">1000</span>])),
+			(<span class="string">b"key1"</span>, (<span class="prelude-val">Some</span>(<span class="string">b"val1"</span>), <span class="macro">vec!</span>[<span class="number">1</span>])),
+			(<span class="string">b"key42"</span>, (<span class="prelude-val">Some</span>(<span class="string">b"val42-rolled"</span>), <span class="macro">vec!</span>[<span class="number">42</span>, <span class="number">421</span>])),
+			(<span class="string">b"key5"</span>, (<span class="prelude-val">Some</span>(<span class="string">b"val5-rolled"</span>), <span class="macro">vec!</span>[])),
+			(<span class="string">b"key7"</span>, (<span class="prelude-val">Some</span>(<span class="string">b"val7-rolled"</span>), <span class="macro">vec!</span>[<span class="number">77</span>])),
+			(<span class="string">b"key99"</span>, (<span class="prelude-val">Some</span>(<span class="string">b"val99"</span>), <span class="macro">vec!</span>[<span class="number">99</span>])),
 		];
 		assert_changes(<span class="kw-2">&amp;</span>changeset, <span class="kw-2">&amp;</span>all_changes);
 
@@ -1555,10 +1557,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">assert_eq!</span>(changeset.transaction_depth(), <span class="number">1</span>);
 
 		<span class="kw">let </span>rolled_back: Changes = <span class="macro">vec!</span>[
-			(<span class="string">b&quot;key0&quot;</span>, (<span class="prelude-val">Some</span>(<span class="string">b&quot;val0-1&quot;</span>), <span class="macro">vec!</span>[<span class="number">1</span>, <span class="number">10</span>])),
-			(<span class="string">b&quot;key1&quot;</span>, (<span class="prelude-val">Some</span>(<span class="string">b&quot;val1&quot;</span>), <span class="macro">vec!</span>[<span class="number">1</span>])),
-			(<span class="string">b&quot;key42&quot;</span>, (<span class="prelude-val">Some</span>(<span class="string">b&quot;val42&quot;</span>), <span class="macro">vec!</span>[<span class="number">42</span>])),
-			(<span class="string">b&quot;key99&quot;</span>, (<span class="prelude-val">Some</span>(<span class="string">b&quot;val99&quot;</span>), <span class="macro">vec!</span>[<span class="number">99</span>])),
+			(<span class="string">b"key0"</span>, (<span class="prelude-val">Some</span>(<span class="string">b"val0-1"</span>), <span class="macro">vec!</span>[<span class="number">1</span>, <span class="number">10</span>])),
+			(<span class="string">b"key1"</span>, (<span class="prelude-val">Some</span>(<span class="string">b"val1"</span>), <span class="macro">vec!</span>[<span class="number">1</span>])),
+			(<span class="string">b"key42"</span>, (<span class="prelude-val">Some</span>(<span class="string">b"val42"</span>), <span class="macro">vec!</span>[<span class="number">42</span>])),
+			(<span class="string">b"key99"</span>, (<span class="prelude-val">Some</span>(<span class="string">b"val99"</span>), <span class="macro">vec!</span>[<span class="number">99</span>])),
 		];
 		assert_changes(<span class="kw-2">&amp;</span>changeset, <span class="kw-2">&amp;</span>rolled_back);
 
@@ -1574,31 +1576,31 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span><span class="kw-2">mut </span>changeset = OverlayedChangeSet::default();
 		<span class="macro">assert_eq!</span>(changeset.transaction_depth(), <span class="number">0</span>);
 
-		changeset.set(<span class="string">b&quot;key0&quot;</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b&quot;val0&quot;</span>.to_vec()), <span class="prelude-val">Some</span>(<span class="number">1</span>));
-		changeset.set(<span class="string">b&quot;key1&quot;</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b&quot;val1&quot;</span>.to_vec()), <span class="prelude-val">Some</span>(<span class="number">1</span>));
-		changeset.set(<span class="string">b&quot;key0&quot;</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b&quot;val0-1&quot;</span>.to_vec()), <span class="prelude-val">Some</span>(<span class="number">10</span>));
+		changeset.set(<span class="string">b"key0"</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b"val0"</span>.to_vec()), <span class="prelude-val">Some</span>(<span class="number">1</span>));
+		changeset.set(<span class="string">b"key1"</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b"val1"</span>.to_vec()), <span class="prelude-val">Some</span>(<span class="number">1</span>));
+		changeset.set(<span class="string">b"key0"</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b"val0-1"</span>.to_vec()), <span class="prelude-val">Some</span>(<span class="number">10</span>));
 
 		changeset.start_transaction();
 		<span class="macro">assert_eq!</span>(changeset.transaction_depth(), <span class="number">1</span>);
 
-		changeset.set(<span class="string">b&quot;key42&quot;</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b&quot;val42&quot;</span>.to_vec()), <span class="prelude-val">Some</span>(<span class="number">42</span>));
-		changeset.set(<span class="string">b&quot;key99&quot;</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b&quot;val99&quot;</span>.to_vec()), <span class="prelude-val">Some</span>(<span class="number">99</span>));
+		changeset.set(<span class="string">b"key42"</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b"val42"</span>.to_vec()), <span class="prelude-val">Some</span>(<span class="number">42</span>));
+		changeset.set(<span class="string">b"key99"</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b"val99"</span>.to_vec()), <span class="prelude-val">Some</span>(<span class="number">99</span>));
 
 		changeset.start_transaction();
 		<span class="macro">assert_eq!</span>(changeset.transaction_depth(), <span class="number">2</span>);
 
-		changeset.set(<span class="string">b&quot;key42&quot;</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b&quot;val42-rolled&quot;</span>.to_vec()), <span class="prelude-val">Some</span>(<span class="number">421</span>));
-		changeset.set(<span class="string">b&quot;key7&quot;</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b&quot;val7-rolled&quot;</span>.to_vec()), <span class="prelude-val">Some</span>(<span class="number">77</span>));
-		changeset.set(<span class="string">b&quot;key0&quot;</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b&quot;val0-rolled&quot;</span>.to_vec()), <span class="prelude-val">Some</span>(<span class="number">1000</span>));
-		changeset.set(<span class="string">b&quot;key5&quot;</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b&quot;val5-rolled&quot;</span>.to_vec()), <span class="prelude-val">None</span>);
+		changeset.set(<span class="string">b"key42"</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b"val42-rolled"</span>.to_vec()), <span class="prelude-val">Some</span>(<span class="number">421</span>));
+		changeset.set(<span class="string">b"key7"</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b"val7-rolled"</span>.to_vec()), <span class="prelude-val">Some</span>(<span class="number">77</span>));
+		changeset.set(<span class="string">b"key0"</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b"val0-rolled"</span>.to_vec()), <span class="prelude-val">Some</span>(<span class="number">1000</span>));
+		changeset.set(<span class="string">b"key5"</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b"val5-rolled"</span>.to_vec()), <span class="prelude-val">None</span>);
 
 		<span class="kw">let </span>all_changes: Changes = <span class="macro">vec!</span>[
-			(<span class="string">b&quot;key0&quot;</span>, (<span class="prelude-val">Some</span>(<span class="string">b&quot;val0-rolled&quot;</span>), <span class="macro">vec!</span>[<span class="number">1</span>, <span class="number">10</span>, <span class="number">1000</span>])),
-			(<span class="string">b&quot;key1&quot;</span>, (<span class="prelude-val">Some</span>(<span class="string">b&quot;val1&quot;</span>), <span class="macro">vec!</span>[<span class="number">1</span>])),
-			(<span class="string">b&quot;key42&quot;</span>, (<span class="prelude-val">Some</span>(<span class="string">b&quot;val42-rolled&quot;</span>), <span class="macro">vec!</span>[<span class="number">42</span>, <span class="number">421</span>])),
-			(<span class="string">b&quot;key5&quot;</span>, (<span class="prelude-val">Some</span>(<span class="string">b&quot;val5-rolled&quot;</span>), <span class="macro">vec!</span>[])),
-			(<span class="string">b&quot;key7&quot;</span>, (<span class="prelude-val">Some</span>(<span class="string">b&quot;val7-rolled&quot;</span>), <span class="macro">vec!</span>[<span class="number">77</span>])),
-			(<span class="string">b&quot;key99&quot;</span>, (<span class="prelude-val">Some</span>(<span class="string">b&quot;val99&quot;</span>), <span class="macro">vec!</span>[<span class="number">99</span>])),
+			(<span class="string">b"key0"</span>, (<span class="prelude-val">Some</span>(<span class="string">b"val0-rolled"</span>), <span class="macro">vec!</span>[<span class="number">1</span>, <span class="number">10</span>, <span class="number">1000</span>])),
+			(<span class="string">b"key1"</span>, (<span class="prelude-val">Some</span>(<span class="string">b"val1"</span>), <span class="macro">vec!</span>[<span class="number">1</span>])),
+			(<span class="string">b"key42"</span>, (<span class="prelude-val">Some</span>(<span class="string">b"val42-rolled"</span>), <span class="macro">vec!</span>[<span class="number">42</span>, <span class="number">421</span>])),
+			(<span class="string">b"key5"</span>, (<span class="prelude-val">Some</span>(<span class="string">b"val5-rolled"</span>), <span class="macro">vec!</span>[])),
+			(<span class="string">b"key7"</span>, (<span class="prelude-val">Some</span>(<span class="string">b"val7-rolled"</span>), <span class="macro">vec!</span>[<span class="number">77</span>])),
+			(<span class="string">b"key99"</span>, (<span class="prelude-val">Some</span>(<span class="string">b"val99"</span>), <span class="macro">vec!</span>[<span class="number">99</span>])),
 		];
 		assert_changes(<span class="kw-2">&amp;</span>changeset, <span class="kw-2">&amp;</span>all_changes);
 
@@ -1622,7 +1624,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">assert_eq!</span>(changeset.transaction_depth(), <span class="number">0</span>);
 
 		<span class="kw">let </span>rolled_back: Changes =
-			<span class="macro">vec!</span>[(<span class="string">b&quot;key0&quot;</span>, (<span class="prelude-val">Some</span>(<span class="string">b&quot;val0-1&quot;</span>), <span class="macro">vec!</span>[<span class="number">1</span>, <span class="number">10</span>])), (<span class="string">b&quot;key1&quot;</span>, (<span class="prelude-val">Some</span>(<span class="string">b&quot;val1&quot;</span>), <span class="macro">vec!</span>[<span class="number">1</span>]))];
+			<span class="macro">vec!</span>[(<span class="string">b"key0"</span>, (<span class="prelude-val">Some</span>(<span class="string">b"val0-1"</span>), <span class="macro">vec!</span>[<span class="number">1</span>, <span class="number">10</span>])), (<span class="string">b"key1"</span>, (<span class="prelude-val">Some</span>(<span class="string">b"val1"</span>), <span class="macro">vec!</span>[<span class="number">1</span>]))];
 		assert_changes(<span class="kw-2">&amp;</span>changeset, <span class="kw-2">&amp;</span>rolled_back);
 
 		assert_drained_changes(changeset, rolled_back);
@@ -1632,14 +1634,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>modify_works() {
 		<span class="kw">let </span><span class="kw-2">mut </span>changeset = OverlayedChangeSet::default();
 		<span class="macro">assert_eq!</span>(changeset.transaction_depth(), <span class="number">0</span>);
-		<span class="kw">let </span>init = || <span class="string">b&quot;valinit&quot;</span>.to_vec();
+		<span class="kw">let </span>init = || <span class="string">b"valinit"</span>.to_vec();
 
 		<span class="comment">// committed set
-		</span>changeset.set(<span class="string">b&quot;key0&quot;</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b&quot;val0&quot;</span>.to_vec()), <span class="prelude-val">Some</span>(<span class="number">0</span>));
-		changeset.set(<span class="string">b&quot;key1&quot;</span>.to_vec(), <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(<span class="number">1</span>));
-		<span class="kw">let </span>val = changeset.modify(<span class="string">b&quot;key3&quot;</span>.to_vec(), init, <span class="prelude-val">Some</span>(<span class="number">3</span>));
-		<span class="macro">assert_eq!</span>(val, <span class="kw-2">&amp;</span><span class="prelude-val">Some</span>(<span class="string">b&quot;valinit&quot;</span>.to_vec()));
-		val.as_mut().unwrap().extend_from_slice(<span class="string">b&quot;-modified&quot;</span>);
+		</span>changeset.set(<span class="string">b"key0"</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b"val0"</span>.to_vec()), <span class="prelude-val">Some</span>(<span class="number">0</span>));
+		changeset.set(<span class="string">b"key1"</span>.to_vec(), <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(<span class="number">1</span>));
+		<span class="kw">let </span>val = changeset.modify(<span class="string">b"key3"</span>.to_vec(), init, <span class="prelude-val">Some</span>(<span class="number">3</span>));
+		<span class="macro">assert_eq!</span>(val, <span class="kw-2">&amp;</span><span class="prelude-val">Some</span>(<span class="string">b"valinit"</span>.to_vec()));
+		val.as_mut().unwrap().extend_from_slice(<span class="string">b"-modified"</span>);
 
 		changeset.start_transaction();
 		<span class="macro">assert_eq!</span>(changeset.transaction_depth(), <span class="number">1</span>);
@@ -1647,25 +1649,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">assert_eq!</span>(changeset.transaction_depth(), <span class="number">2</span>);
 
 		<span class="comment">// non existing value -&gt; init value should be returned
-		</span><span class="kw">let </span>val = changeset.modify(<span class="string">b&quot;key2&quot;</span>.to_vec(), init, <span class="prelude-val">Some</span>(<span class="number">2</span>));
-		<span class="macro">assert_eq!</span>(val, <span class="kw-2">&amp;</span><span class="prelude-val">Some</span>(<span class="string">b&quot;valinit&quot;</span>.to_vec()));
-		val.as_mut().unwrap().extend_from_slice(<span class="string">b&quot;-modified&quot;</span>);
+		</span><span class="kw">let </span>val = changeset.modify(<span class="string">b"key2"</span>.to_vec(), init, <span class="prelude-val">Some</span>(<span class="number">2</span>));
+		<span class="macro">assert_eq!</span>(val, <span class="kw-2">&amp;</span><span class="prelude-val">Some</span>(<span class="string">b"valinit"</span>.to_vec()));
+		val.as_mut().unwrap().extend_from_slice(<span class="string">b"-modified"</span>);
 
 		<span class="comment">// existing value should be returned by modify
-		</span><span class="kw">let </span>val = changeset.modify(<span class="string">b&quot;key0&quot;</span>.to_vec(), init, <span class="prelude-val">Some</span>(<span class="number">10</span>));
-		<span class="macro">assert_eq!</span>(val, <span class="kw-2">&amp;</span><span class="prelude-val">Some</span>(<span class="string">b&quot;val0&quot;</span>.to_vec()));
-		val.as_mut().unwrap().extend_from_slice(<span class="string">b&quot;-modified&quot;</span>);
+		</span><span class="kw">let </span>val = changeset.modify(<span class="string">b"key0"</span>.to_vec(), init, <span class="prelude-val">Some</span>(<span class="number">10</span>));
+		<span class="macro">assert_eq!</span>(val, <span class="kw-2">&amp;</span><span class="prelude-val">Some</span>(<span class="string">b"val0"</span>.to_vec()));
+		val.as_mut().unwrap().extend_from_slice(<span class="string">b"-modified"</span>);
 
 		<span class="comment">// should work for deleted keys
-		</span><span class="kw">let </span>val = changeset.modify(<span class="string">b&quot;key1&quot;</span>.to_vec(), init, <span class="prelude-val">Some</span>(<span class="number">20</span>));
+		</span><span class="kw">let </span>val = changeset.modify(<span class="string">b"key1"</span>.to_vec(), init, <span class="prelude-val">Some</span>(<span class="number">20</span>));
 		<span class="macro">assert_eq!</span>(val, <span class="kw-2">&amp;</span><span class="prelude-val">None</span>);
-		<span class="kw-2">*</span>val = <span class="prelude-val">Some</span>(<span class="string">b&quot;deleted-modified&quot;</span>.to_vec());
+		<span class="kw-2">*</span>val = <span class="prelude-val">Some</span>(<span class="string">b"deleted-modified"</span>.to_vec());
 
 		<span class="kw">let </span>all_changes: Changes = <span class="macro">vec!</span>[
-			(<span class="string">b&quot;key0&quot;</span>, (<span class="prelude-val">Some</span>(<span class="string">b&quot;val0-modified&quot;</span>), <span class="macro">vec!</span>[<span class="number">0</span>, <span class="number">10</span>])),
-			(<span class="string">b&quot;key1&quot;</span>, (<span class="prelude-val">Some</span>(<span class="string">b&quot;deleted-modified&quot;</span>), <span class="macro">vec!</span>[<span class="number">1</span>, <span class="number">20</span>])),
-			(<span class="string">b&quot;key2&quot;</span>, (<span class="prelude-val">Some</span>(<span class="string">b&quot;valinit-modified&quot;</span>), <span class="macro">vec!</span>[<span class="number">2</span>])),
-			(<span class="string">b&quot;key3&quot;</span>, (<span class="prelude-val">Some</span>(<span class="string">b&quot;valinit-modified&quot;</span>), <span class="macro">vec!</span>[<span class="number">3</span>])),
+			(<span class="string">b"key0"</span>, (<span class="prelude-val">Some</span>(<span class="string">b"val0-modified"</span>), <span class="macro">vec!</span>[<span class="number">0</span>, <span class="number">10</span>])),
+			(<span class="string">b"key1"</span>, (<span class="prelude-val">Some</span>(<span class="string">b"deleted-modified"</span>), <span class="macro">vec!</span>[<span class="number">1</span>, <span class="number">20</span>])),
+			(<span class="string">b"key2"</span>, (<span class="prelude-val">Some</span>(<span class="string">b"valinit-modified"</span>), <span class="macro">vec!</span>[<span class="number">2</span>])),
+			(<span class="string">b"key3"</span>, (<span class="prelude-val">Some</span>(<span class="string">b"valinit-modified"</span>), <span class="macro">vec!</span>[<span class="number">3</span>])),
 		];
 		assert_changes(<span class="kw-2">&amp;</span>changeset, <span class="kw-2">&amp;</span>all_changes);
 		changeset.commit_transaction().unwrap();
@@ -1675,9 +1677,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		changeset.rollback_transaction().unwrap();
 		<span class="macro">assert_eq!</span>(changeset.transaction_depth(), <span class="number">0</span>);
 		<span class="kw">let </span>rolled_back: Changes = <span class="macro">vec!</span>[
-			(<span class="string">b&quot;key0&quot;</span>, (<span class="prelude-val">Some</span>(<span class="string">b&quot;val0&quot;</span>), <span class="macro">vec!</span>[<span class="number">0</span>])),
-			(<span class="string">b&quot;key1&quot;</span>, (<span class="prelude-val">None</span>, <span class="macro">vec!</span>[<span class="number">1</span>])),
-			(<span class="string">b&quot;key3&quot;</span>, (<span class="prelude-val">Some</span>(<span class="string">b&quot;valinit-modified&quot;</span>), <span class="macro">vec!</span>[<span class="number">3</span>])),
+			(<span class="string">b"key0"</span>, (<span class="prelude-val">Some</span>(<span class="string">b"val0"</span>), <span class="macro">vec!</span>[<span class="number">0</span>])),
+			(<span class="string">b"key1"</span>, (<span class="prelude-val">None</span>, <span class="macro">vec!</span>[<span class="number">1</span>])),
+			(<span class="string">b"key3"</span>, (<span class="prelude-val">Some</span>(<span class="string">b"valinit-modified"</span>), <span class="macro">vec!</span>[<span class="number">3</span>])),
 		];
 		assert_changes(<span class="kw-2">&amp;</span>changeset, <span class="kw-2">&amp;</span>rolled_back);
 		assert_drained_changes(changeset, rolled_back);
@@ -1687,22 +1689,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>clear_works() {
 		<span class="kw">let </span><span class="kw-2">mut </span>changeset = OverlayedChangeSet::default();
 
-		changeset.set(<span class="string">b&quot;key0&quot;</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b&quot;val0&quot;</span>.to_vec()), <span class="prelude-val">Some</span>(<span class="number">1</span>));
-		changeset.set(<span class="string">b&quot;key1&quot;</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b&quot;val1&quot;</span>.to_vec()), <span class="prelude-val">Some</span>(<span class="number">2</span>));
-		changeset.set(<span class="string">b&quot;del1&quot;</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b&quot;delval1&quot;</span>.to_vec()), <span class="prelude-val">Some</span>(<span class="number">3</span>));
-		changeset.set(<span class="string">b&quot;del2&quot;</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b&quot;delval2&quot;</span>.to_vec()), <span class="prelude-val">Some</span>(<span class="number">4</span>));
+		changeset.set(<span class="string">b"key0"</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b"val0"</span>.to_vec()), <span class="prelude-val">Some</span>(<span class="number">1</span>));
+		changeset.set(<span class="string">b"key1"</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b"val1"</span>.to_vec()), <span class="prelude-val">Some</span>(<span class="number">2</span>));
+		changeset.set(<span class="string">b"del1"</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b"delval1"</span>.to_vec()), <span class="prelude-val">Some</span>(<span class="number">3</span>));
+		changeset.set(<span class="string">b"del2"</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b"delval2"</span>.to_vec()), <span class="prelude-val">Some</span>(<span class="number">4</span>));
 
 		changeset.start_transaction();
 
-		changeset.clear_where(|k, <span class="kw">_</span>| k.starts_with(<span class="string">b&quot;del&quot;</span>), <span class="prelude-val">Some</span>(<span class="number">5</span>));
+		changeset.clear_where(|k, <span class="kw">_</span>| k.starts_with(<span class="string">b"del"</span>), <span class="prelude-val">Some</span>(<span class="number">5</span>));
 
 		assert_changes(
 			<span class="kw-2">&amp;</span>changeset,
 			<span class="kw-2">&amp;</span><span class="macro">vec!</span>[
-				(<span class="string">b&quot;del1&quot;</span>, (<span class="prelude-val">None</span>, <span class="macro">vec!</span>[<span class="number">3</span>, <span class="number">5</span>])),
-				(<span class="string">b&quot;del2&quot;</span>, (<span class="prelude-val">None</span>, <span class="macro">vec!</span>[<span class="number">4</span>, <span class="number">5</span>])),
-				(<span class="string">b&quot;key0&quot;</span>, (<span class="prelude-val">Some</span>(<span class="string">b&quot;val0&quot;</span>), <span class="macro">vec!</span>[<span class="number">1</span>])),
-				(<span class="string">b&quot;key1&quot;</span>, (<span class="prelude-val">Some</span>(<span class="string">b&quot;val1&quot;</span>), <span class="macro">vec!</span>[<span class="number">2</span>])),
+				(<span class="string">b"del1"</span>, (<span class="prelude-val">None</span>, <span class="macro">vec!</span>[<span class="number">3</span>, <span class="number">5</span>])),
+				(<span class="string">b"del2"</span>, (<span class="prelude-val">None</span>, <span class="macro">vec!</span>[<span class="number">4</span>, <span class="number">5</span>])),
+				(<span class="string">b"key0"</span>, (<span class="prelude-val">Some</span>(<span class="string">b"val0"</span>), <span class="macro">vec!</span>[<span class="number">1</span>])),
+				(<span class="string">b"key1"</span>, (<span class="prelude-val">Some</span>(<span class="string">b"val1"</span>), <span class="macro">vec!</span>[<span class="number">2</span>])),
 			],
 		);
 
@@ -1711,10 +1713,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		assert_changes(
 			<span class="kw-2">&amp;</span>changeset,
 			<span class="kw-2">&amp;</span><span class="macro">vec!</span>[
-				(<span class="string">b&quot;del1&quot;</span>, (<span class="prelude-val">Some</span>(<span class="string">b&quot;delval1&quot;</span>), <span class="macro">vec!</span>[<span class="number">3</span>])),
-				(<span class="string">b&quot;del2&quot;</span>, (<span class="prelude-val">Some</span>(<span class="string">b&quot;delval2&quot;</span>), <span class="macro">vec!</span>[<span class="number">4</span>])),
-				(<span class="string">b&quot;key0&quot;</span>, (<span class="prelude-val">Some</span>(<span class="string">b&quot;val0&quot;</span>), <span class="macro">vec!</span>[<span class="number">1</span>])),
-				(<span class="string">b&quot;key1&quot;</span>, (<span class="prelude-val">Some</span>(<span class="string">b&quot;val1&quot;</span>), <span class="macro">vec!</span>[<span class="number">2</span>])),
+				(<span class="string">b"del1"</span>, (<span class="prelude-val">Some</span>(<span class="string">b"delval1"</span>), <span class="macro">vec!</span>[<span class="number">3</span>])),
+				(<span class="string">b"del2"</span>, (<span class="prelude-val">Some</span>(<span class="string">b"delval2"</span>), <span class="macro">vec!</span>[<span class="number">4</span>])),
+				(<span class="string">b"key0"</span>, (<span class="prelude-val">Some</span>(<span class="string">b"val0"</span>), <span class="macro">vec!</span>[<span class="number">1</span>])),
+				(<span class="string">b"key1"</span>, (<span class="prelude-val">Some</span>(<span class="string">b"val1"</span>), <span class="macro">vec!</span>[<span class="number">2</span>])),
 			],
 		);
 	}
@@ -1723,63 +1725,63 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>next_change_works() {
 		<span class="kw">let </span><span class="kw-2">mut </span>changeset = OverlayedChangeSet::default();
 
-		changeset.set(<span class="string">b&quot;key0&quot;</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b&quot;val0&quot;</span>.to_vec()), <span class="prelude-val">Some</span>(<span class="number">0</span>));
-		changeset.set(<span class="string">b&quot;key1&quot;</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b&quot;val1&quot;</span>.to_vec()), <span class="prelude-val">Some</span>(<span class="number">1</span>));
-		changeset.set(<span class="string">b&quot;key2&quot;</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b&quot;val2&quot;</span>.to_vec()), <span class="prelude-val">Some</span>(<span class="number">2</span>));
+		changeset.set(<span class="string">b"key0"</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b"val0"</span>.to_vec()), <span class="prelude-val">Some</span>(<span class="number">0</span>));
+		changeset.set(<span class="string">b"key1"</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b"val1"</span>.to_vec()), <span class="prelude-val">Some</span>(<span class="number">1</span>));
+		changeset.set(<span class="string">b"key2"</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b"val2"</span>.to_vec()), <span class="prelude-val">Some</span>(<span class="number">2</span>));
 
 		changeset.start_transaction();
 
-		changeset.set(<span class="string">b&quot;key3&quot;</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b&quot;val3&quot;</span>.to_vec()), <span class="prelude-val">Some</span>(<span class="number">3</span>));
-		changeset.set(<span class="string">b&quot;key4&quot;</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b&quot;val4&quot;</span>.to_vec()), <span class="prelude-val">Some</span>(<span class="number">4</span>));
-		changeset.set(<span class="string">b&quot;key11&quot;</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b&quot;val11&quot;</span>.to_vec()), <span class="prelude-val">Some</span>(<span class="number">11</span>));
+		changeset.set(<span class="string">b"key3"</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b"val3"</span>.to_vec()), <span class="prelude-val">Some</span>(<span class="number">3</span>));
+		changeset.set(<span class="string">b"key4"</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b"val4"</span>.to_vec()), <span class="prelude-val">Some</span>(<span class="number">4</span>));
+		changeset.set(<span class="string">b"key11"</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b"val11"</span>.to_vec()), <span class="prelude-val">Some</span>(<span class="number">11</span>));
 
-		<span class="macro">assert_eq!</span>(changeset.changes_after(<span class="string">b&quot;key0&quot;</span>).next().unwrap().<span class="number">0</span>, <span class="string">b&quot;key1&quot;</span>);
+		<span class="macro">assert_eq!</span>(changeset.changes_after(<span class="string">b"key0"</span>).next().unwrap().<span class="number">0</span>, <span class="string">b"key1"</span>);
 		<span class="macro">assert_eq!</span>(
-			changeset.changes_after(<span class="string">b&quot;key0&quot;</span>).next().unwrap().<span class="number">1</span>.value(),
-			<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="string">b&quot;val1&quot;</span>.to_vec())
+			changeset.changes_after(<span class="string">b"key0"</span>).next().unwrap().<span class="number">1</span>.value(),
+			<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="string">b"val1"</span>.to_vec())
 		);
-		<span class="macro">assert_eq!</span>(changeset.changes_after(<span class="string">b&quot;key1&quot;</span>).next().unwrap().<span class="number">0</span>, <span class="string">b&quot;key11&quot;</span>);
+		<span class="macro">assert_eq!</span>(changeset.changes_after(<span class="string">b"key1"</span>).next().unwrap().<span class="number">0</span>, <span class="string">b"key11"</span>);
 		<span class="macro">assert_eq!</span>(
-			changeset.changes_after(<span class="string">b&quot;key1&quot;</span>).next().unwrap().<span class="number">1</span>.value(),
-			<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="string">b&quot;val11&quot;</span>.to_vec())
+			changeset.changes_after(<span class="string">b"key1"</span>).next().unwrap().<span class="number">1</span>.value(),
+			<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="string">b"val11"</span>.to_vec())
 		);
-		<span class="macro">assert_eq!</span>(changeset.changes_after(<span class="string">b&quot;key11&quot;</span>).next().unwrap().<span class="number">0</span>, <span class="string">b&quot;key2&quot;</span>);
+		<span class="macro">assert_eq!</span>(changeset.changes_after(<span class="string">b"key11"</span>).next().unwrap().<span class="number">0</span>, <span class="string">b"key2"</span>);
 		<span class="macro">assert_eq!</span>(
-			changeset.changes_after(<span class="string">b&quot;key11&quot;</span>).next().unwrap().<span class="number">1</span>.value(),
-			<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="string">b&quot;val2&quot;</span>.to_vec())
+			changeset.changes_after(<span class="string">b"key11"</span>).next().unwrap().<span class="number">1</span>.value(),
+			<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="string">b"val2"</span>.to_vec())
 		);
-		<span class="macro">assert_eq!</span>(changeset.changes_after(<span class="string">b&quot;key2&quot;</span>).next().unwrap().<span class="number">0</span>, <span class="string">b&quot;key3&quot;</span>);
+		<span class="macro">assert_eq!</span>(changeset.changes_after(<span class="string">b"key2"</span>).next().unwrap().<span class="number">0</span>, <span class="string">b"key3"</span>);
 		<span class="macro">assert_eq!</span>(
-			changeset.changes_after(<span class="string">b&quot;key2&quot;</span>).next().unwrap().<span class="number">1</span>.value(),
-			<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="string">b&quot;val3&quot;</span>.to_vec())
+			changeset.changes_after(<span class="string">b"key2"</span>).next().unwrap().<span class="number">1</span>.value(),
+			<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="string">b"val3"</span>.to_vec())
 		);
-		<span class="macro">assert_eq!</span>(changeset.changes_after(<span class="string">b&quot;key3&quot;</span>).next().unwrap().<span class="number">0</span>, <span class="string">b&quot;key4&quot;</span>);
+		<span class="macro">assert_eq!</span>(changeset.changes_after(<span class="string">b"key3"</span>).next().unwrap().<span class="number">0</span>, <span class="string">b"key4"</span>);
 		<span class="macro">assert_eq!</span>(
-			changeset.changes_after(<span class="string">b&quot;key3&quot;</span>).next().unwrap().<span class="number">1</span>.value(),
-			<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="string">b&quot;val4&quot;</span>.to_vec())
+			changeset.changes_after(<span class="string">b"key3"</span>).next().unwrap().<span class="number">1</span>.value(),
+			<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="string">b"val4"</span>.to_vec())
 		);
-		<span class="macro">assert_eq!</span>(changeset.changes_after(<span class="string">b&quot;key4&quot;</span>).next(), <span class="prelude-val">None</span>);
+		<span class="macro">assert_eq!</span>(changeset.changes_after(<span class="string">b"key4"</span>).next(), <span class="prelude-val">None</span>);
 
 		changeset.rollback_transaction().unwrap();
 
-		<span class="macro">assert_eq!</span>(changeset.changes_after(<span class="string">b&quot;key0&quot;</span>).next().unwrap().<span class="number">0</span>, <span class="string">b&quot;key1&quot;</span>);
+		<span class="macro">assert_eq!</span>(changeset.changes_after(<span class="string">b"key0"</span>).next().unwrap().<span class="number">0</span>, <span class="string">b"key1"</span>);
 		<span class="macro">assert_eq!</span>(
-			changeset.changes_after(<span class="string">b&quot;key0&quot;</span>).next().unwrap().<span class="number">1</span>.value(),
-			<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="string">b&quot;val1&quot;</span>.to_vec())
+			changeset.changes_after(<span class="string">b"key0"</span>).next().unwrap().<span class="number">1</span>.value(),
+			<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="string">b"val1"</span>.to_vec())
 		);
-		<span class="macro">assert_eq!</span>(changeset.changes_after(<span class="string">b&quot;key1&quot;</span>).next().unwrap().<span class="number">0</span>, <span class="string">b&quot;key2&quot;</span>);
+		<span class="macro">assert_eq!</span>(changeset.changes_after(<span class="string">b"key1"</span>).next().unwrap().<span class="number">0</span>, <span class="string">b"key2"</span>);
 		<span class="macro">assert_eq!</span>(
-			changeset.changes_after(<span class="string">b&quot;key1&quot;</span>).next().unwrap().<span class="number">1</span>.value(),
-			<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="string">b&quot;val2&quot;</span>.to_vec())
+			changeset.changes_after(<span class="string">b"key1"</span>).next().unwrap().<span class="number">1</span>.value(),
+			<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="string">b"val2"</span>.to_vec())
 		);
-		<span class="macro">assert_eq!</span>(changeset.changes_after(<span class="string">b&quot;key11&quot;</span>).next().unwrap().<span class="number">0</span>, <span class="string">b&quot;key2&quot;</span>);
+		<span class="macro">assert_eq!</span>(changeset.changes_after(<span class="string">b"key11"</span>).next().unwrap().<span class="number">0</span>, <span class="string">b"key2"</span>);
 		<span class="macro">assert_eq!</span>(
-			changeset.changes_after(<span class="string">b&quot;key11&quot;</span>).next().unwrap().<span class="number">1</span>.value(),
-			<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="string">b&quot;val2&quot;</span>.to_vec())
+			changeset.changes_after(<span class="string">b"key11"</span>).next().unwrap().<span class="number">1</span>.value(),
+			<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="string">b"val2"</span>.to_vec())
 		);
-		<span class="macro">assert_eq!</span>(changeset.changes_after(<span class="string">b&quot;key2&quot;</span>).next(), <span class="prelude-val">None</span>);
-		<span class="macro">assert_eq!</span>(changeset.changes_after(<span class="string">b&quot;key3&quot;</span>).next(), <span class="prelude-val">None</span>);
-		<span class="macro">assert_eq!</span>(changeset.changes_after(<span class="string">b&quot;key4&quot;</span>).next(), <span class="prelude-val">None</span>);
+		<span class="macro">assert_eq!</span>(changeset.changes_after(<span class="string">b"key2"</span>).next(), <span class="prelude-val">None</span>);
+		<span class="macro">assert_eq!</span>(changeset.changes_after(<span class="string">b"key3"</span>).next(), <span class="prelude-val">None</span>);
+		<span class="macro">assert_eq!</span>(changeset.changes_after(<span class="string">b"key4"</span>).next(), <span class="prelude-val">None</span>);
 	}
 
 	<span class="attr">#[test]
@@ -1829,17 +1831,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		changeset.start_transaction();
 
-		changeset.set(<span class="string">b&quot;key0&quot;</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b&quot;val0&quot;</span>.to_vec()), <span class="prelude-val">Some</span>(<span class="number">1</span>));
+		changeset.set(<span class="string">b"key0"</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b"val0"</span>.to_vec()), <span class="prelude-val">Some</span>(<span class="number">1</span>));
 
 		changeset.enter_runtime().unwrap();
 		changeset.start_transaction();
-		changeset.set(<span class="string">b&quot;key1&quot;</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b&quot;val1&quot;</span>.to_vec()), <span class="prelude-val">Some</span>(<span class="number">2</span>));
+		changeset.set(<span class="string">b"key1"</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b"val1"</span>.to_vec()), <span class="prelude-val">Some</span>(<span class="number">2</span>));
 		changeset.exit_runtime().unwrap();
 
 		changeset.commit_transaction().unwrap();
 		<span class="macro">assert_eq!</span>(changeset.transaction_depth(), <span class="number">0</span>);
 
-		assert_drained(changeset, <span class="macro">vec!</span>[(<span class="string">b&quot;key0&quot;</span>, <span class="prelude-val">Some</span>(<span class="string">b&quot;val0&quot;</span>))]);
+		assert_drained(changeset, <span class="macro">vec!</span>[(<span class="string">b"key0"</span>, <span class="prelude-val">Some</span>(<span class="string">b"val0"</span>))]);
 	}
 
 	<span class="attr">#[test]

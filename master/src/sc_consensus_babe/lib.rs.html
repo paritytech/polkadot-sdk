@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/consensus/babe/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/consensus/babe/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_consensus_babe" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_consensus_babe" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sc_consensus_babe/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -2233,10 +2235,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests;
 
-<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;babe&quot;</span>;
+<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"babe"</span>;
 
 <span class="doccomment">/// VRF context used for slots claiming lottery.
-</span><span class="kw">const </span>AUTHORING_SCORE_VRF_CONTEXT: <span class="kw-2">&amp;</span>[u8] = <span class="string">b&quot;substrate-babe-vrf&quot;</span>;
+</span><span class="kw">const </span>AUTHORING_SCORE_VRF_CONTEXT: <span class="kw-2">&amp;</span>[u8] = <span class="string">b"substrate-babe-vrf"</span>;
 
 <span class="doccomment">/// VRF output length for slots claiming lottery.
 </span><span class="kw">const </span>AUTHORING_SCORE_LENGTH: usize = <span class="number">16</span>;
@@ -2325,17 +2327,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>skipped_epochs = <span class="kw-2">*</span>slot.saturating_sub(<span class="self">self</span>.start_slot) / <span class="self">self</span>.duration;
 
 		<span class="kw">let </span>epoch_index = epoch.epoch_index.checked_add(skipped_epochs).expect(
-			<span class="string">&quot;epoch number is u64; it should be strictly smaller than number of slots; \
+			<span class="string">"epoch number is u64; it should be strictly smaller than number of slots; \
 				slots relate in some way to wall clock time; \
-				if u64 is not enough we should crash for safety; qed.&quot;</span>,
+				if u64 is not enough we should crash for safety; qed."</span>,
 		);
 
 		<span class="kw">let </span>start_slot = skipped_epochs
 			.checked_mul(epoch.duration)
 			.and_then(|skipped_slots| epoch.start_slot.checked_add(skipped_slots))
 			.expect(
-				<span class="string">&quot;slot number is u64; it should relate in some way to wall clock time; \
-				 if u64 is not enough we should crash for safety; qed.&quot;</span>,
+				<span class="string">"slot number is u64; it should relate in some way to wall clock time; \
+				 if u64 is not enough we should crash for safety; qed."</span>,
 			);
 
 		epoch.epoch_index = epoch_index;
@@ -2349,85 +2351,85 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[derive(Debug, thiserror::Error)]
 </span><span class="kw">pub enum </span>Error&lt;B: BlockT&gt; {
 	<span class="doccomment">/// Multiple BABE pre-runtime digests
-	</span><span class="attr">#[error(<span class="string">&quot;Multiple BABE pre-runtime digests, rejecting!&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"Multiple BABE pre-runtime digests, rejecting!"</span>)]
 	</span>MultiplePreRuntimeDigests,
 	<span class="doccomment">/// No BABE pre-runtime digest found
-	</span><span class="attr">#[error(<span class="string">&quot;No BABE pre-runtime digest found&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"No BABE pre-runtime digest found"</span>)]
 	</span>NoPreRuntimeDigest,
 	<span class="doccomment">/// Multiple BABE epoch change digests
-	</span><span class="attr">#[error(<span class="string">&quot;Multiple BABE epoch change digests, rejecting!&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"Multiple BABE epoch change digests, rejecting!"</span>)]
 	</span>MultipleEpochChangeDigests,
 	<span class="doccomment">/// Multiple BABE config change digests
-	</span><span class="attr">#[error(<span class="string">&quot;Multiple BABE config change digests, rejecting!&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"Multiple BABE config change digests, rejecting!"</span>)]
 	</span>MultipleConfigChangeDigests,
 	<span class="doccomment">/// Could not extract timestamp and slot
-	</span><span class="attr">#[error(<span class="string">&quot;Could not extract timestamp and slot: {0}&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"Could not extract timestamp and slot: {0}"</span>)]
 	</span>Extraction(ConsensusError),
 	<span class="doccomment">/// Could not fetch epoch
-	</span><span class="attr">#[error(<span class="string">&quot;Could not fetch epoch at {0:?}&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"Could not fetch epoch at {0:?}"</span>)]
 	</span>FetchEpoch(B::Hash),
 	<span class="doccomment">/// Header rejected: too far in the future
-	</span><span class="attr">#[error(<span class="string">&quot;Header {0:?} rejected: too far in the future&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"Header {0:?} rejected: too far in the future"</span>)]
 	</span>TooFarInFuture(B::Hash),
 	<span class="doccomment">/// Parent unavailable. Cannot import
-	</span><span class="attr">#[error(<span class="string">&quot;Parent ({0}) of {1} unavailable. Cannot import&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"Parent ({0}) of {1} unavailable. Cannot import"</span>)]
 	</span>ParentUnavailable(B::Hash, B::Hash),
 	<span class="doccomment">/// Slot number must increase
-	</span><span class="attr">#[error(<span class="string">&quot;Slot number must increase: parent slot: {0}, this slot: {1}&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"Slot number must increase: parent slot: {0}, this slot: {1}"</span>)]
 	</span>SlotMustIncrease(Slot, Slot),
 	<span class="doccomment">/// Header has a bad seal
-	</span><span class="attr">#[error(<span class="string">&quot;Header {0:?} has a bad seal&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"Header {0:?} has a bad seal"</span>)]
 	</span>HeaderBadSeal(B::Hash),
 	<span class="doccomment">/// Header is unsealed
-	</span><span class="attr">#[error(<span class="string">&quot;Header {0:?} is unsealed&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"Header {0:?} is unsealed"</span>)]
 	</span>HeaderUnsealed(B::Hash),
 	<span class="doccomment">/// Slot author not found
-	</span><span class="attr">#[error(<span class="string">&quot;Slot author not found&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"Slot author not found"</span>)]
 	</span>SlotAuthorNotFound,
 	<span class="doccomment">/// Secondary slot assignments are disabled for the current epoch.
-	</span><span class="attr">#[error(<span class="string">&quot;Secondary slot assignments are disabled for the current epoch.&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"Secondary slot assignments are disabled for the current epoch."</span>)]
 	</span>SecondarySlotAssignmentsDisabled,
 	<span class="doccomment">/// Bad signature
-	</span><span class="attr">#[error(<span class="string">&quot;Bad signature on {0:?}&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"Bad signature on {0:?}"</span>)]
 	</span>BadSignature(B::Hash),
 	<span class="doccomment">/// Invalid author: Expected secondary author
-	</span><span class="attr">#[error(<span class="string">&quot;Invalid author: Expected secondary author: {0:?}, got: {1:?}.&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"Invalid author: Expected secondary author: {0:?}, got: {1:?}."</span>)]
 	</span>InvalidAuthor(AuthorityId, AuthorityId),
 	<span class="doccomment">/// No secondary author expected.
-	</span><span class="attr">#[error(<span class="string">&quot;No secondary author expected.&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"No secondary author expected."</span>)]
 	</span>NoSecondaryAuthorExpected,
 	<span class="doccomment">/// VRF verification failed
-	</span><span class="attr">#[error(<span class="string">&quot;VRF verification failed&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"VRF verification failed"</span>)]
 	</span>VrfVerificationFailed,
 	<span class="doccomment">/// Primary slot threshold too low
-	</span><span class="attr">#[error(<span class="string">&quot;VRF output rejected, threshold {0} exceeded&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"VRF output rejected, threshold {0} exceeded"</span>)]
 	</span>VrfThresholdExceeded(u128),
 	<span class="doccomment">/// Could not fetch parent header
-	</span><span class="attr">#[error(<span class="string">&quot;Could not fetch parent header: {0}&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"Could not fetch parent header: {0}"</span>)]
 	</span>FetchParentHeader(sp_blockchain::Error),
 	<span class="doccomment">/// Expected epoch change to happen.
-	</span><span class="attr">#[error(<span class="string">&quot;Expected epoch change to happen at {0:?}, s{1}&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"Expected epoch change to happen at {0:?}, s{1}"</span>)]
 	</span>ExpectedEpochChange(B::Hash, Slot),
 	<span class="doccomment">/// Unexpected config change.
-	</span><span class="attr">#[error(<span class="string">&quot;Unexpected config change&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"Unexpected config change"</span>)]
 	</span>UnexpectedConfigChange,
 	<span class="doccomment">/// Unexpected epoch change
-	</span><span class="attr">#[error(<span class="string">&quot;Unexpected epoch change&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"Unexpected epoch change"</span>)]
 	</span>UnexpectedEpochChange,
 	<span class="doccomment">/// Parent block has no associated weight
-	</span><span class="attr">#[error(<span class="string">&quot;Parent block of {0} has no associated weight&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"Parent block of {0} has no associated weight"</span>)]
 	</span>ParentBlockNoAssociatedWeight(B::Hash),
 	<span class="doccomment">/// Check inherents error
-	</span><span class="attr">#[error(<span class="string">&quot;Checking inherents failed: {0}&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"Checking inherents failed: {0}"</span>)]
 	</span>CheckInherents(sp_inherents::Error),
 	<span class="doccomment">/// Unhandled check inherents error
-	</span><span class="attr">#[error(<span class="string">&quot;Checking inherents unhandled error: {}&quot;</span>, String::from_utf8_lossy(.<span class="number">0</span>))]
+	</span><span class="attr">#[error(<span class="string">"Checking inherents unhandled error: {}"</span>, String::from_utf8_lossy(.<span class="number">0</span>))]
 	</span>CheckInherentsUnhandled(sp_inherents::InherentIdentifier),
 	<span class="doccomment">/// Create inherents error.
-	</span><span class="attr">#[error(<span class="string">&quot;Creating inherents failed: {0}&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"Creating inherents failed: {0}"</span>)]
 	</span>CreateInherents(sp_inherents::Error),
 	<span class="doccomment">/// Background worker is not running and therefore requests cannot be answered.
-	</span><span class="attr">#[error(<span class="string">&quot;Background worker is not running&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"Background worker is not running"</span>)]
 	</span>BackgroundWorkerTerminated,
 	<span class="doccomment">/// Client error
 	</span><span class="attr">#[error(transparent)]
@@ -2447,7 +2449,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">fn </span>babe_err&lt;B: BlockT&gt;(error: Error&lt;B&gt;) -&gt; Error&lt;B&gt; {
-	<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;{}&quot;</span>, error);
+	<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"{}"</span>, error);
 	error
 }
 
@@ -2458,7 +2460,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Intermediate key for Babe engine.
-</span><span class="kw">pub static </span>INTERMEDIATE_KEY: <span class="kw-2">&amp;</span>[u8] = <span class="string">b&quot;babe1&quot;</span>;
+</span><span class="kw">pub static </span>INTERMEDIATE_KEY: <span class="kw-2">&amp;</span>[u8] = <span class="string">b"babe1"</span>;
 
 <span class="doccomment">/// Read configuration from the runtime state at current best block.
 </span><span class="kw">pub fn </span>configuration&lt;B: BlockT, C&gt;(client: <span class="kw-2">&amp;</span>C) -&gt; ClientResult&lt;BabeConfiguration&gt;
@@ -2469,7 +2471,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>at_hash = <span class="kw">if </span>client.usage_info().chain.finalized_state.is_some() {
 		client.usage_info().chain.best_hash
 	} <span class="kw">else </span>{
-		<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;No finalized state is available. Reading config from genesis&quot;</span>);
+		<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"No finalized state is available. Reading config from genesis"</span>);
 		client.usage_info().chain.genesis_hash
 	};
 
@@ -2486,7 +2488,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Some</span>(<span class="number">2</span>) =&gt; runtime_api.configuration(at_hash)<span class="question-mark">?</span>,
 		<span class="kw">_ </span>=&gt;
 			<span class="kw">return </span><span class="prelude-val">Err</span>(sp_blockchain::Error::VersionInvalid(
-				<span class="string">&quot;Unsupported or invalid BabeApi version&quot;</span>.to_string(),
+				<span class="string">"Unsupported or invalid BabeApi version"</span>.to_string(),
 			)),
 	};
 	<span class="prelude-val">Ok</span>(config)
@@ -2570,18 +2572,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		+ HeaderMetadata&lt;B, Error = ClientError&gt;
 		+ Send
 		+ Sync
-		+ <span class="lifetime">&#39;static</span>,
+		+ <span class="lifetime">'static</span>,
 	C::Api: BabeApi&lt;B&gt;,
-	SC: SelectChain&lt;B&gt; + <span class="lifetime">&#39;static</span>,
-	E: Environment&lt;B, Error = Error&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
+	SC: SelectChain&lt;B&gt; + <span class="lifetime">'static</span>,
+	E: Environment&lt;B, Error = Error&gt; + Send + Sync + <span class="lifetime">'static</span>,
 	E::Proposer: Proposer&lt;B, Error = Error&gt;,
-	I: BlockImport&lt;B, Error = ConsensusError&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
-	SO: SyncOracle + Send + Sync + Clone + <span class="lifetime">&#39;static</span>,
-	L: sc_consensus::JustificationSyncLink&lt;B&gt; + <span class="lifetime">&#39;static</span>,
-	CIDP: CreateInherentDataProviders&lt;B, ()&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
+	I: BlockImport&lt;B, Error = ConsensusError&gt; + Send + Sync + <span class="lifetime">'static</span>,
+	SO: SyncOracle + Send + Sync + Clone + <span class="lifetime">'static</span>,
+	L: sc_consensus::JustificationSyncLink&lt;B&gt; + <span class="lifetime">'static</span>,
+	CIDP: CreateInherentDataProviders&lt;B, ()&gt; + Send + Sync + <span class="lifetime">'static</span>,
 	CIDP::InherentDataProviders: InherentDataProviderExt + Send,
-	BS: BackoffAuthoringBlocksStrategy&lt;NumberFor&lt;B&gt;&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
-	Error: std::error::Error + Send + From&lt;ConsensusError&gt; + From&lt;I::Error&gt; + <span class="lifetime">&#39;static</span>,
+	BS: BackoffAuthoringBlocksStrategy&lt;NumberFor&lt;B&gt;&gt; + Send + Sync + <span class="lifetime">'static</span>,
+	Error: std::error::Error + Send + From&lt;ConsensusError&gt; + From&lt;I::Error&gt; + <span class="lifetime">'static</span>,
 {
 	<span class="kw">let </span>slot_notification_sinks = Arc::new(Mutex::new(Vec::new()));
 
@@ -2602,7 +2604,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		telemetry,
 	};
 
-	<span class="macro">info!</span>(target: LOG_TARGET, <span class="string">&quot;👶 Starting BABE Authorship worker&quot;</span>);
+	<span class="macro">info!</span>(target: LOG_TARGET, <span class="string">"👶 Starting BABE Authorship worker"</span>);
 
 	<span class="kw">let </span>slot_worker = sc_consensus_slots::start_slot_worker(
 		babe_link.config.slot_duration(),
@@ -2615,7 +2617,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="prelude-val">Ok</span>(BabeWorker { inner: Box::pin(slot_worker), slot_notification_sinks })
 }
 
-<span class="comment">// Remove obsolete block&#39;s weight data by leveraging finality notifications.
+<span class="comment">// Remove obsolete block's weight data by leveraging finality notifications.
 // This includes data for all finalized blocks (excluding the most recent one)
 // and all stale branches.
 </span><span class="kw">fn </span>aux_storage_cleanup&lt;C: HeaderMetadata&lt;Block&gt; + HeaderBackend&lt;Block&gt;, Block: BlockT&gt;(
@@ -2630,16 +2632,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			hashes.insert(meta.parent);
 		},
 		<span class="prelude-val">Err</span>(err) =&gt; {
-			<span class="macro">warn!</span>(target: LOG_TARGET, <span class="string">&quot;Failed to lookup metadata for block `{:?}`: {}&quot;</span>, first, err,)
+			<span class="macro">warn!</span>(target: LOG_TARGET, <span class="string">"Failed to lookup metadata for block `{:?}`: {}"</span>, first, err,)
 		},
 	}
 
-	<span class="comment">// Cleans data for finalized block&#39;s ancestors
+	<span class="comment">// Cleans data for finalized block's ancestors
 	</span>hashes.extend(
 		notification
 			.tree_route
 			.iter()
-			<span class="comment">// Ensure we don&#39;t prune latest finalized block.
+			<span class="comment">// Ensure we don't prune latest finalized block.
 			// This should not happen, but better be safe than sorry!
 			</span>.filter(|h| <span class="kw-2">**</span>h != notification.hash),
 	);
@@ -2648,7 +2650,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">let </span>stale_forks = <span class="kw">match </span>client.expand_forks(<span class="kw-2">&amp;</span>notification.stale_heads) {
 		<span class="prelude-val">Ok</span>(stale_forks) =&gt; stale_forks,
 		<span class="prelude-val">Err</span>((stale_forks, e)) =&gt; {
-			<span class="macro">warn!</span>(target: LOG_TARGET, <span class="string">&quot;{:?}&quot;</span>, e);
+			<span class="macro">warn!</span>(target: LOG_TARGET, <span class="string">"{:?}"</span>, e);
 			stale_forks
 		},
 	};
@@ -2714,7 +2716,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Err</span>(err) <span class="kw">if </span>err.is_disconnected() =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Error::BackgroundWorkerTerminated),
 			<span class="prelude-val">Err</span>(err) =&gt; <span class="macro">warn!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;Unhandled error when sending request to worker: {:?}&quot;</span>, err
+				<span class="string">"Unhandled error when sending request to worker: {:?}"</span>, err
 			),
 			<span class="kw">_ </span>=&gt; {},
 		}
@@ -2750,7 +2752,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Worker for Babe which implements `Future&lt;Output=()&gt;`. This must be polled.
 </span><span class="attr">#[must_use]
 </span><span class="kw">pub struct </span>BabeWorker&lt;B: BlockT&gt; {
-	inner: Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = ()&gt; + Send + <span class="lifetime">&#39;static</span>&gt;&gt;,
+	inner: Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = ()&gt; + Send + <span class="lifetime">'static</span>&gt;&gt;,
 	slot_notification_sinks: SlotNotificationSinks&lt;B&gt;,
 }
 
@@ -2807,22 +2809,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	C::Api: BabeApi&lt;B&gt;,
 	E: Environment&lt;B, Error = Error&gt; + Send + Sync,
 	E::Proposer: Proposer&lt;B, Error = Error&gt;,
-	I: BlockImport&lt;B&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
+	I: BlockImport&lt;B&gt; + Send + Sync + <span class="lifetime">'static</span>,
 	SO: SyncOracle + Send + Clone + Sync,
 	L: sc_consensus::JustificationSyncLink&lt;B&gt;,
 	BS: BackoffAuthoringBlocksStrategy&lt;NumberFor&lt;B&gt;&gt; + Send + Sync,
-	Error: std::error::Error + Send + From&lt;ConsensusError&gt; + From&lt;I::Error&gt; + <span class="lifetime">&#39;static</span>,
+	Error: std::error::Error + Send + From&lt;ConsensusError&gt; + From&lt;I::Error&gt; + <span class="lifetime">'static</span>,
 {
 	<span class="kw">type </span>Claim = (PreDigest, AuthorityId);
 	<span class="kw">type </span>SyncOracle = SO;
 	<span class="kw">type </span>JustificationSyncLink = L;
 	<span class="kw">type </span>CreateProposer =
-		Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = <span class="prelude-ty">Result</span>&lt;E::Proposer, ConsensusError&gt;&gt; + Send + <span class="lifetime">&#39;static</span>&gt;&gt;;
+		Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = <span class="prelude-ty">Result</span>&lt;E::Proposer, ConsensusError&gt;&gt; + Send + <span class="lifetime">'static</span>&gt;&gt;;
 	<span class="kw">type </span>Proposer = E::Proposer;
 	<span class="kw">type </span>BlockImport = I;
 	<span class="kw">type </span>AuxData = ViableEpochDescriptor&lt;B::Hash, NumberFor&lt;B&gt;, Epoch&gt;;
 
-	<span class="kw">fn </span>logging_target(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str {
+	<span class="kw">fn </span>logging_target(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
 		LOG_TARGET
 	}
 
@@ -2856,7 +2858,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		slot: Slot,
 		epoch_descriptor: <span class="kw-2">&amp;</span>ViableEpochDescriptor&lt;B::Hash, NumberFor&lt;B&gt;, Epoch&gt;,
 	) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::Claim&gt; {
-		<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;Attempting to claim slot {}&quot;</span>, slot);
+		<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"Attempting to claim slot {}"</span>, slot);
 		<span class="kw">let </span>s = authorship::claim_slot(
 			slot,
 			<span class="self">self</span>.epoch_changes
@@ -2867,7 +2869,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		);
 
 		<span class="kw">if </span>s.is_some() {
-			<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;Claimed slot {}&quot;</span>, slot);
+			<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"Claimed slot {}"</span>, slot);
 		}
 
 		s
@@ -2884,7 +2886,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Ok</span>(()) =&gt; <span class="bool-val">true</span>,
 			<span class="prelude-val">Err</span>(e) =&gt;
 				<span class="kw">if </span>e.is_full() {
-					<span class="macro">warn!</span>(target: LOG_TARGET, <span class="string">&quot;Trying to notify a slot but the channel is full&quot;</span>);
+					<span class="macro">warn!</span>(target: LOG_TARGET, <span class="string">"Trying to notify a slot but the channel is full"</span>);
 					<span class="bool-val">true
 				</span>} <span class="kw">else </span>{
 					<span class="bool-val">false
@@ -2908,10 +2910,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>signature = <span class="self">self
 			</span>.keystore
 			.sr25519_sign(&lt;AuthorityId <span class="kw">as </span>AppCrypto&gt;::ID, public.as_ref(), header_hash.as_ref())
-			.map_err(|e| ConsensusError::CannotSign(<span class="macro">format!</span>(<span class="string">&quot;{}. Key: {:?}&quot;</span>, e, public)))<span class="question-mark">?
+			.map_err(|e| ConsensusError::CannotSign(<span class="macro">format!</span>(<span class="string">"{}. Key: {:?}"</span>, e, public)))<span class="question-mark">?
 			</span>.ok_or_else(|| {
 				ConsensusError::CannotSign(<span class="macro">format!</span>(
-					<span class="string">&quot;Could not find key in keystore. Key: {:?}&quot;</span>,
+					<span class="string">"Could not find key in keystore. Key: {:?}"</span>,
 					public
 				))
 			})<span class="question-mark">?</span>;
@@ -2983,7 +2985,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Extract the BABE pre digest from the given header. Pre-runtime digests are
 /// mandatory, the function will return `Err` if none is found.
 </span><span class="kw">pub fn </span>find_pre_digest&lt;B: BlockT&gt;(header: <span class="kw-2">&amp;</span>B::Header) -&gt; <span class="prelude-ty">Result</span>&lt;PreDigest, Error&lt;B&gt;&gt; {
-	<span class="comment">// genesis block doesn&#39;t contain a pre digest so let&#39;s generate a
+	<span class="comment">// genesis block doesn't contain a pre digest so let's generate a
 	// dummy one to not break any invariants in the rest of the code
 	</span><span class="kw">if </span>header.number().is_zero() {
 		<span class="kw">return </span><span class="prelude-val">Ok</span>(PreDigest::SecondaryPlain(SecondaryPlainPreDigest {
@@ -2994,10 +2996,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">let </span><span class="kw-2">mut </span>pre_digest: <span class="prelude-ty">Option</span>&lt;<span class="kw">_</span>&gt; = <span class="prelude-val">None</span>;
 	<span class="kw">for </span>log <span class="kw">in </span>header.digest().logs() {
-		<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">&quot;Checking log {:?}, looking for pre runtime digest&quot;</span>, log);
+		<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">"Checking log {:?}, looking for pre runtime digest"</span>, log);
 		<span class="kw">match </span>(log.as_babe_pre_digest(), pre_digest.is_some()) {
 			(<span class="prelude-val">Some</span>(<span class="kw">_</span>), <span class="bool-val">true</span>) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(babe_err(Error::MultiplePreRuntimeDigests)),
-			(<span class="prelude-val">None</span>, <span class="kw">_</span>) =&gt; <span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">&quot;Ignoring digest not meant for us&quot;</span>),
+			(<span class="prelude-val">None</span>, <span class="kw">_</span>) =&gt; <span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">"Ignoring digest not meant for us"</span>),
 			(s, <span class="bool-val">false</span>) =&gt; pre_digest = s,
 		}
 	}
@@ -3010,13 +3012,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;NextEpochDescriptor&gt;, Error&lt;B&gt;&gt; {
 	<span class="kw">let </span><span class="kw-2">mut </span>epoch_digest: <span class="prelude-ty">Option</span>&lt;<span class="kw">_</span>&gt; = <span class="prelude-val">None</span>;
 	<span class="kw">for </span>log <span class="kw">in </span>header.digest().logs() {
-		<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">&quot;Checking log {:?}, looking for epoch change digest.&quot;</span>, log);
+		<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">"Checking log {:?}, looking for epoch change digest."</span>, log);
 		<span class="kw">let </span>log = log.try_to::&lt;ConsensusLog&gt;(OpaqueDigestItemId::Consensus(<span class="kw-2">&amp;</span>BABE_ENGINE_ID));
 		<span class="kw">match </span>(log, epoch_digest.is_some()) {
 			(<span class="prelude-val">Some</span>(ConsensusLog::NextEpochData(<span class="kw">_</span>)), <span class="bool-val">true</span>) =&gt;
 				<span class="kw">return </span><span class="prelude-val">Err</span>(babe_err(Error::MultipleEpochChangeDigests)),
 			(<span class="prelude-val">Some</span>(ConsensusLog::NextEpochData(epoch)), <span class="bool-val">false</span>) =&gt; epoch_digest = <span class="prelude-val">Some</span>(epoch),
-			<span class="kw">_ </span>=&gt; <span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">&quot;Ignoring digest not meant for us&quot;</span>),
+			<span class="kw">_ </span>=&gt; <span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">"Ignoring digest not meant for us"</span>),
 		}
 	}
 
@@ -3029,13 +3031,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;NextConfigDescriptor&gt;, Error&lt;B&gt;&gt; {
 	<span class="kw">let </span><span class="kw-2">mut </span>config_digest: <span class="prelude-ty">Option</span>&lt;<span class="kw">_</span>&gt; = <span class="prelude-val">None</span>;
 	<span class="kw">for </span>log <span class="kw">in </span>header.digest().logs() {
-		<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">&quot;Checking log {:?}, looking for epoch change digest.&quot;</span>, log);
+		<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">"Checking log {:?}, looking for epoch change digest."</span>, log);
 		<span class="kw">let </span>log = log.try_to::&lt;ConsensusLog&gt;(OpaqueDigestItemId::Consensus(<span class="kw-2">&amp;</span>BABE_ENGINE_ID));
 		<span class="kw">match </span>(log, config_digest.is_some()) {
 			(<span class="prelude-val">Some</span>(ConsensusLog::NextConfigData(<span class="kw">_</span>)), <span class="bool-val">true</span>) =&gt;
 				<span class="kw">return </span><span class="prelude-val">Err</span>(babe_err(Error::MultipleConfigChangeDigests)),
 			(<span class="prelude-val">Some</span>(ConsensusLog::NextConfigData(config)), <span class="bool-val">false</span>) =&gt; config_digest = <span class="prelude-val">Some</span>(config),
-			<span class="kw">_ </span>=&gt; <span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">&quot;Ignoring digest not meant for us&quot;</span>),
+			<span class="kw">_ </span>=&gt; <span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">"Ignoring digest not meant for us"</span>),
 		}
 	}
 
@@ -3113,7 +3115,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		author: <span class="kw-2">&amp;</span>AuthorityId,
 		origin: <span class="kw-2">&amp;</span>BlockOrigin,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&lt;Block&gt;&gt; {
-		<span class="comment">// don&#39;t report any equivocations during initial sync
+		<span class="comment">// don't report any equivocations during initial sync
 		// as they are most likely stale.
 		</span><span class="kw">if </span><span class="kw-2">*</span>origin == BlockOrigin::NetworkInitialSync {
 			<span class="kw">return </span><span class="prelude-val">Ok</span>(())
@@ -3129,7 +3131,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			};
 
 		<span class="macro">info!</span>(
-			<span class="string">&quot;Slot author {:?} is equivocating at slot {} with headers {:?} and {:?}&quot;</span>,
+			<span class="string">"Slot author {:?} is equivocating at slot {} with headers {:?} and {:?}"</span>,
 			author,
 			slot,
 			equivocation_proof.first_header.hash(),
@@ -3167,7 +3169,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="prelude-val">None </span>=&gt; {
 					<span class="macro">debug!</span>(
 						target: LOG_TARGET,
-						<span class="string">&quot;Equivocation offender is not part of the authority set.&quot;
+						<span class="string">"Equivocation offender is not part of the authority set."
 					</span>);
 					<span class="kw">return </span><span class="prelude-val">Ok</span>(())
 				},
@@ -3189,7 +3191,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			)
 			.map_err(Error::RuntimeApi)<span class="question-mark">?</span>;
 
-		<span class="macro">info!</span>(target: LOG_TARGET, <span class="string">&quot;Submitted equivocation report for author {:?}&quot;</span>, author);
+		<span class="macro">info!</span>(target: LOG_TARGET, <span class="string">"Submitted equivocation report for author {:?}"</span>, author);
 
 		<span class="prelude-val">Ok</span>(())
 	}
@@ -3217,7 +3219,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; <span class="prelude-ty">Result</span>&lt;BlockImportParams&lt;Block&gt;, String&gt; {
 		<span class="macro">trace!</span>(
 			target: LOG_TARGET,
-			<span class="string">&quot;Verifying origin: {:?} header: {:?} justification(s): {:?} body: {:?}&quot;</span>,
+			<span class="string">"Verifying origin: {:?} header: {:?} justification(s): {:?} body: {:?}"</span>,
 			block.origin,
 			block.header,
 			block.justifications,
@@ -3234,8 +3236,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// Verification for imported blocks is skipped in two cases:
 			// 1. When importing blocks below the last finalized block during network initial
 			//    synchronization.
-			// 2. When importing whole state we don&#39;t calculate epoch descriptor, but rather read it
-			//    from the state after import. We also skip all verifications because there&#39;s no
+			// 2. When importing whole state we don't calculate epoch descriptor, but rather read it
+			//    from the state after import. We also skip all verifications because there's no
 			//    parent state and we trust the sync module to verify that the state is correct and
 			//    finalized.
 			</span><span class="kw">return </span><span class="prelude-val">Ok</span>(block)
@@ -3243,7 +3245,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="macro">debug!</span>(
 			target: LOG_TARGET,
-			<span class="string">&quot;We have {:?} logs in this header&quot;</span>,
+			<span class="string">"We have {:?} logs in this header"</span>,
 			block.header.digest().logs().len()
 		);
 
@@ -3293,10 +3295,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">let </span>babe_pre_digest = verified_info
 					.pre_digest
 					.as_babe_pre_digest()
-					.expect(<span class="string">&quot;check_header always returns a pre-digest digest item; qed&quot;</span>);
+					.expect(<span class="string">"check_header always returns a pre-digest digest item; qed"</span>);
 				<span class="kw">let </span>slot = babe_pre_digest.slot();
 
-				<span class="comment">// the header is valid but let&#39;s check if there was something else already
+				<span class="comment">// the header is valid but let's check if there was something else already
 				// proposed at the same slot by the given author. if there was, we will
 				// report the equivocation to the runtime.
 				</span><span class="kw">if let </span><span class="prelude-val">Err</span>(err) = <span class="self">self
@@ -3311,7 +3313,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				</span>{
 					<span class="macro">warn!</span>(
 						target: LOG_TARGET,
-						<span class="string">&quot;Error checking/reporting BABE equivocation: {}&quot;</span>, err
+						<span class="string">"Error checking/reporting BABE equivocation: {}"</span>, err
 					);
 				}
 
@@ -3340,12 +3342,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					block.body = <span class="prelude-val">Some</span>(inner_body);
 				}
 
-				<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">&quot;Checked {:?}; importing.&quot;</span>, pre_header);
+				<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">"Checked {:?}; importing."</span>, pre_header);
 				<span class="macro">telemetry!</span>(
 					<span class="self">self</span>.telemetry;
 					CONSENSUS_TRACE;
-					<span class="string">&quot;babe.checked_and_importing&quot;</span>;
-					<span class="string">&quot;pre_header&quot; </span>=&gt; <span class="question-mark">?</span>pre_header,
+					<span class="string">"babe.checked_and_importing"</span>;
+					<span class="string">"pre_header" </span>=&gt; <span class="question-mark">?</span>pre_header,
 				);
 
 				block.header = pre_header;
@@ -3359,12 +3361,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="prelude-val">Ok</span>(block)
 			},
 			CheckedHeader::Deferred(a, b) =&gt; {
-				<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;Checking {:?} failed; {:?}, {:?}.&quot;</span>, hash, a, b);
+				<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"Checking {:?} failed; {:?}, {:?}."</span>, hash, a, b);
 				<span class="macro">telemetry!</span>(
 					<span class="self">self</span>.telemetry;
 					CONSENSUS_DEBUG;
-					<span class="string">&quot;babe.header_too_far_in_future&quot;</span>;
-					<span class="string">&quot;hash&quot; </span>=&gt; <span class="question-mark">?</span>hash, <span class="string">&quot;a&quot; </span>=&gt; <span class="question-mark">?</span>a, <span class="string">&quot;b&quot; </span>=&gt; <span class="question-mark">?</span>b
+					<span class="string">"babe.header_too_far_in_future"</span>;
+					<span class="string">"hash" </span>=&gt; <span class="question-mark">?</span>hash, <span class="string">"a" </span>=&gt; <span class="question-mark">?</span>a, <span class="string">"b" </span>=&gt; <span class="question-mark">?</span>b
 				);
 				<span class="prelude-val">Err</span>(Error::&lt;Block&gt;::TooFarInFuture(hash).into())
 			},
@@ -3447,7 +3449,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Ok</span>(ImportResult::Imported(aux)) =&gt; aux,
 			<span class="prelude-val">Ok</span>(r) =&gt;
 				<span class="kw">return </span><span class="prelude-val">Err</span>(ConsensusError::ClientImport(<span class="macro">format!</span>(
-					<span class="string">&quot;Unexpected import result: {:?}&quot;</span>,
+					<span class="string">"Unexpected import result: {:?}"</span>,
 					r
 				))),
 			<span class="prelude-val">Err</span>(r) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(r.into()),
@@ -3519,7 +3521,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>}
 
 		<span class="kw">let </span>pre_digest = find_pre_digest::&lt;Block&gt;(<span class="kw-2">&amp;</span>block.header).expect(
-			<span class="string">&quot;valid babe headers must contain a predigest; header has been already verified; qed&quot;</span>,
+			<span class="string">"valid babe headers must contain a predigest; header has been already verified; qed"</span>,
 		);
 		<span class="kw">let </span>slot = pre_digest.slot();
 
@@ -3535,8 +3537,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			})<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>parent_slot = find_pre_digest::&lt;Block&gt;(<span class="kw-2">&amp;</span>parent_header).map(|d| d.slot()).expect(
-			<span class="string">&quot;parent is non-genesis; valid BABE headers contain a pre-digest; header has already \
-			 been verified; qed&quot;</span>,
+			<span class="string">"parent is non-genesis; valid BABE headers contain a pre-digest; header has already \
+			 been verified; qed"</span>,
 		);
 
 		<span class="comment">// make sure that slot number is strictly increasing
@@ -3546,8 +3548,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			))
 		}
 
-		<span class="comment">// if there&#39;s a pending epoch we&#39;ll save the previous epoch changes here
-		// this way we can revert it if there&#39;s any error
+		<span class="comment">// if there's a pending epoch we'll save the previous epoch changes here
+		// this way we can revert it if there's any error
 		</span><span class="kw">let </span><span class="kw-2">mut </span>old_epoch_changes = <span class="prelude-val">None</span>;
 
 		<span class="comment">// Use an extra scope to make the compiler happy, because otherwise it complains about the
@@ -3555,7 +3557,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">let </span><span class="kw-2">mut </span>epoch_changes = {
 			<span class="kw">let </span><span class="kw-2">mut </span>epoch_changes = <span class="self">self</span>.epoch_changes.shared_data_locked();
 
-			<span class="comment">// check if there&#39;s any epoch change expected to happen at this slot.
+			<span class="comment">// check if there's any epoch change expected to happen at this slot.
 			// `epoch` is the epoch to verify the block under, and `first_in_epoch` is true
 			// if this is the first block in its chain for that epoch.
 			//
@@ -3636,7 +3638,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					// makes it so that when we insert the next epoch into `EpochChanges` below
 					// (after incrementing it), it will use the correct epoch index and start slot.
 					// We do not update the original epoch that will be re-used because there might
-					// be other forks (that we haven&#39;t imported) where the epoch isn&#39;t skipped, and
+					// be other forks (that we haven't imported) where the epoch isn't skipped, and
 					// to import those forks we want to keep the original epoch data. Not updating
 					// the original epoch works because when we search the tree for which epoch to
 					// use for a given slot, we will search in-depth with the predicate
@@ -3648,14 +3650,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 					<span class="macro">warn!</span>(
 						target: LOG_TARGET,
-						<span class="string">&quot;👶 Epoch(s) skipped: from {} to {}&quot;</span>, prev_index, epoch.epoch_index,
+						<span class="string">"👶 Epoch(s) skipped: from {} to {}"</span>, prev_index, epoch.epoch_index,
 					);
 				}
 
 				<span class="macro">log!</span>(
 					target: LOG_TARGET,
 					log_level,
-					<span class="string">&quot;👶 New epoch {} launching at block {} (block slot {} &gt;= start slot {}).&quot;</span>,
+					<span class="string">"👶 New epoch {} launching at block {} (block slot {} &gt;= start slot {})."</span>,
 					viable_epoch.as_ref().epoch_index,
 					hash,
 					slot,
@@ -3667,7 +3669,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="macro">log!</span>(
 					target: LOG_TARGET,
 					log_level,
-					<span class="string">&quot;👶 Next epoch starts at slot {}&quot;</span>,
+					<span class="string">"👶 Next epoch starts at slot {}"</span>,
 					next_epoch.as_ref().start_slot,
 				);
 
@@ -3691,7 +3693,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						)
 						.map_err(|e| {
 							ConsensusError::ClientImport(<span class="macro">format!</span>(
-								<span class="string">&quot;Error importing epoch changes: {}&quot;</span>,
+								<span class="string">"Error importing epoch changes: {}"</span>,
 								e
 							))
 						})<span class="question-mark">?</span>;
@@ -3699,9 +3701,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				};
 
 				<span class="kw">if let </span><span class="prelude-val">Err</span>(e) = prune_and_import() {
-					<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;Failed to launch next epoch: {}&quot;</span>, e);
+					<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"Failed to launch next epoch: {}"</span>, e);
 					<span class="kw-2">*</span>epoch_changes =
-						old_epoch_changes.expect(<span class="string">&quot;set `Some` above and not taken; qed&quot;</span>);
+						old_epoch_changes.expect(<span class="string">"set `Some` above and not taken; qed"</span>);
 					<span class="kw">return </span><span class="prelude-val">Err</span>(e)
 				}
 
@@ -3719,21 +3721,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			});
 
 			<span class="comment">// The fork choice rule is that we pick the heaviest chain (i.e.
-			// more primary blocks), if there&#39;s a tie we go with the longest
+			// more primary blocks), if there's a tie we go with the longest
 			// chain.
 			</span>block.fork_choice = {
 				<span class="kw">let </span>(last_best, last_best_number) = (info.best_hash, info.best_number);
 
 				<span class="kw">let </span>last_best_weight = <span class="kw">if </span><span class="kw-2">&amp;</span>last_best == block.header.parent_hash() {
 					<span class="comment">// the parent=genesis case is already covered for loading parent weight,
-					// so we don&#39;t need to cover again here.
+					// so we don't need to cover again here.
 					</span>parent_weight
 				} <span class="kw">else </span>{
 					aux_schema::load_block_weight(<span class="kw-2">&amp;*</span><span class="self">self</span>.client, last_best)
 						.map_err(|e| ConsensusError::ChainLookup(e.to_string()))<span class="question-mark">?
 						</span>.ok_or_else(|| {
 							ConsensusError::ChainLookup(
-								<span class="string">&quot;No block weight for parent header.&quot;</span>.to_string(),
+								<span class="string">"No block weight for parent header."</span>.to_string(),
 							)
 						})<span class="question-mark">?
 				</span>};
@@ -3753,7 +3755,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>import_result = <span class="self">self</span>.inner.import_block(block).<span class="kw">await</span>;
 
-		<span class="comment">// revert to the original epoch changes in case there&#39;s an error
+		<span class="comment">// revert to the original epoch changes in case there's an error
 		// importing the block
 		</span><span class="kw">if </span>import_result.is_err() {
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(old_epoch_changes) = old_epoch_changes {
@@ -3788,11 +3790,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.header(info.finalized_hash)
 			.map_err(|e| ConsensusError::ClientImport(e.to_string()))<span class="question-mark">?
 			</span>.expect(
-				<span class="string">&quot;best finalized hash was given by client; finalized headers must exist in db; qed&quot;</span>,
+				<span class="string">"best finalized hash was given by client; finalized headers must exist in db; qed"</span>,
 			);
 
 		find_pre_digest::&lt;Block&gt;(<span class="kw-2">&amp;</span>finalized_header)
-			.expect(<span class="string">&quot;finalized header must be valid; valid blocks have a pre-digest; qed&quot;</span>)
+			.expect(<span class="string">"finalized header must be valid; valid blocks have a pre-digest; qed"</span>)
 			.slot()
 	};
 
@@ -3823,12 +3825,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		+ HeaderBackend&lt;Block&gt;
 		+ HeaderMetadata&lt;Block, Error = sp_blockchain::Error&gt;
 		+ PreCommitActions&lt;Block&gt;
-		+ <span class="lifetime">&#39;static</span>,
+		+ <span class="lifetime">'static</span>,
 {
 	<span class="kw">let </span>epoch_changes = aux_schema::load_epoch_changes::&lt;Block, <span class="kw">_</span>&gt;(<span class="kw-2">&amp;*</span>client, <span class="kw-2">&amp;</span>config)<span class="question-mark">?</span>;
 	<span class="kw">let </span>link = BabeLink { epoch_changes: epoch_changes.clone(), config: config.clone() };
 
-	<span class="comment">// NOTE: this isn&#39;t entirely necessary, but since we didn&#39;t use to prune the
+	<span class="comment">// NOTE: this isn't entirely necessary, but since we didn't use to prune the
 	// epoch tree it is useful as a migration, so that nodes prune long trees on
 	// startup rather than waiting until importing the next epoch change block.
 	</span>prune_finalized(client.clone(), <span class="kw-2">&amp;mut </span>epoch_changes.shared_data())<span class="question-mark">?</span>;
@@ -3849,7 +3851,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Parameters passed to [`import_queue`].
-</span><span class="kw">pub struct </span>ImportQueueParams&lt;<span class="lifetime">&#39;a</span>, Block: BlockT, BI, Client, CIDP, SelectChain, Spawn&gt; {
+</span><span class="kw">pub struct </span>ImportQueueParams&lt;<span class="lifetime">'a</span>, Block: BlockT, BI, Client, CIDP, SelectChain, Spawn&gt; {
 	<span class="doccomment">/// The BABE link that is created by [`block_import`].
 	</span><span class="kw">pub </span>link: BabeLink&lt;Block&gt;,
 	<span class="doccomment">/// The block import that should be wrapped.
@@ -3869,9 +3871,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// passed to the `check_inherents` runtime call.
 	</span><span class="kw">pub </span>create_inherent_data_providers: CIDP,
 	<span class="doccomment">/// Spawner for spawning futures.
-	</span><span class="kw">pub </span>spawner: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Spawn,
+	</span><span class="kw">pub </span>spawner: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Spawn,
 	<span class="doccomment">/// Registry for prometheus metrics.
-	</span><span class="kw">pub </span>registry: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Registry&gt;,
+	</span><span class="kw">pub </span>registry: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>Registry&gt;,
 	<span class="doccomment">/// Optional telemetry handle to report telemetry events.
 	</span><span class="kw">pub </span>telemetry: <span class="prelude-ty">Option</span>&lt;TelemetryHandle&gt;,
 	<span class="doccomment">/// The offchain transaction pool factory.
@@ -3901,20 +3903,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		registry,
 		telemetry,
 		offchain_tx_pool_factory,
-	}: ImportQueueParams&lt;<span class="lifetime">&#39;_</span>, Block, BI, Client, CIDP, SelectChain, Spawn&gt;,
+	}: ImportQueueParams&lt;<span class="lifetime">'_</span>, Block, BI, Client, CIDP, SelectChain, Spawn&gt;,
 ) -&gt; ClientResult&lt;(DefaultImportQueue&lt;Block&gt;, BabeWorkerHandle&lt;Block&gt;)&gt;
 <span class="kw">where
-	</span>BI: BlockImport&lt;Block, Error = ConsensusError&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
+	</span>BI: BlockImport&lt;Block, Error = ConsensusError&gt; + Send + Sync + <span class="lifetime">'static</span>,
 	Client: ProvideRuntimeApi&lt;Block&gt;
 		+ HeaderBackend&lt;Block&gt;
 		+ HeaderMetadata&lt;Block, Error = sp_blockchain::Error&gt;
 		+ AuxStore
 		+ Send
 		+ Sync
-		+ <span class="lifetime">&#39;static</span>,
+		+ <span class="lifetime">'static</span>,
 	Client::Api: BlockBuilderApi&lt;Block&gt; + BabeApi&lt;Block&gt; + ApiExt&lt;Block&gt;,
-	SelectChain: sp_consensus::SelectChain&lt;Block&gt; + <span class="lifetime">&#39;static</span>,
-	CIDP: CreateInherentDataProviders&lt;Block, ()&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
+	SelectChain: sp_consensus::SelectChain&lt;Block&gt; + <span class="lifetime">'static</span>,
+	CIDP: CreateInherentDataProviders&lt;Block, ()&gt; + Send + Sync + <span class="lifetime">'static</span>,
 	CIDP::InherentDataProviders: InherentDataProviderExt + Send + Sync,
 	Spawn: SpawnEssentialNamed,
 {
@@ -3935,7 +3937,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>answer_requests =
 		answer_requests(worker_rx, babe_link.config, client, babe_link.epoch_changes);
 
-	spawner.spawn_essential(<span class="string">&quot;babe-worker&quot;</span>, <span class="prelude-val">Some</span>(<span class="string">&quot;babe&quot;</span>), answer_requests.boxed());
+	spawner.spawn_essential(<span class="string">"babe-worker"</span>, <span class="prelude-val">Some</span>(<span class="string">"babe"</span>), answer_requests.boxed());
 
 	<span class="prelude-val">Ok</span>((
 		BasicQueue::new(verifier, Box::new(block_import), justification_import, spawner, registry),
@@ -3971,7 +3973,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">let </span>revert_up_to_number = best_number - revertible;
 	<span class="kw">let </span>revert_up_to_hash = client.hash(revert_up_to_number)<span class="question-mark">?</span>.ok_or(ClientError::Backend(
-		<span class="macro">format!</span>(<span class="string">&quot;Unexpected hash lookup failure for block number: {}&quot;</span>, revert_up_to_number),
+		<span class="macro">format!</span>(<span class="string">"Unexpected hash lookup failure for block number: {}"</span>, revert_up_to_number),
 	))<span class="question-mark">?</span>;
 
 	<span class="comment">// Revert epoch changes tree.
@@ -4005,7 +4007,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">if </span>meta.number &lt;= revert_up_to_number ||
 				!weight_keys.insert(aux_schema::block_weight_key(hash))
 			{
-				<span class="comment">// We&#39;ve reached the revert point or an already processed branch, stop here.
+				<span class="comment">// We've reached the revert point or an already processed branch, stop here.
 				</span><span class="kw">break
 			</span>}
 			hash = meta.parent;

@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/consensus/common/src/import_queue/basic_queue.rs`."><title>basic_queue.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/consensus/common/src/import_queue/basic_queue.rs`."><title>basic_queue.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sc_consensus" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sc_consensus" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../sc_consensus/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -898,7 +900,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Instantiate a new basic queue, with given verifier.
 	///
 	/// This creates a background task, and calls `on_start` on the justification importer.
-	</span><span class="kw">pub fn </span>new&lt;V: <span class="lifetime">&#39;static </span>+ Verifier&lt;B&gt;&gt;(
+	</span><span class="kw">pub fn </span>new&lt;V: <span class="lifetime">'static </span>+ Verifier&lt;B&gt;&gt;(
 		verifier: V,
 		block_import: BoxBlockImport&lt;B&gt;,
 		justification_import: <span class="prelude-ty">Option</span>&lt;BoxJustificationImport&lt;B&gt;&gt;,
@@ -910,7 +912,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>metrics = prometheus_registry.and_then(|r| {
 			Metrics::register(r)
 				.map_err(|err| {
-					<span class="macro">log::warn!</span>(<span class="string">&quot;Failed to register Prometheus metrics: {}&quot;</span>, err);
+					<span class="macro">log::warn!</span>(<span class="string">"Failed to register Prometheus metrics: {}"</span>, err);
 				})
 				.ok()
 		});
@@ -924,8 +926,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		);
 
 		spawner.spawn_essential_blocking(
-			<span class="string">&quot;basic-block-import-worker&quot;</span>,
-			<span class="prelude-val">Some</span>(<span class="string">&quot;block-import&quot;</span>),
+			<span class="string">"basic-block-import-worker"</span>,
+			<span class="prelude-val">Some</span>(<span class="string">"block-import"</span>),
 			future.boxed(),
 		);
 
@@ -964,7 +966,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">return
 		</span>}
 
-		<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">&quot;Scheduling {} blocks for import&quot;</span>, blocks.len());
+		<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">"Scheduling {} blocks for import"</span>, blocks.len());
 		<span class="kw">let </span>res = <span class="self">self
 			</span>.block_import_sender
 			.unbounded_send(worker_messages::ImportBlocks(origin, blocks));
@@ -972,7 +974,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if </span>res.is_err() {
 			<span class="macro">log::error!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;import_blocks: Background import task is no longer alive&quot;
+				<span class="string">"import_blocks: Background import task is no longer alive"
 			</span>);
 		}
 	}
@@ -992,7 +994,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">if </span>res.is_err() {
 				<span class="macro">log::error!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;import_justification: Background import task is no longer alive&quot;
+					<span class="string">"import_justification: Background import task is no longer alive"
 				</span>);
 			}
 		}
@@ -1016,7 +1018,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if </span><span class="self">self</span>.result_port.poll_actions(cx, link).is_err() {
 			<span class="macro">log::error!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;poll_actions: Background import task is no longer alive&quot;
+				<span class="string">"poll_actions: Background import task is no longer alive"
 			</span>);
 		}
 	}
@@ -1028,7 +1030,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">async fn </span>run(<span class="kw-2">mut </span><span class="self">self</span>, <span class="kw-2">mut </span>link: Box&lt;<span class="kw">dyn </span>Link&lt;B&gt;&gt;) {
 		<span class="kw">loop </span>{
 			<span class="kw">if let </span><span class="prelude-val">Err</span>(<span class="kw">_</span>) = <span class="self">self</span>.result_port.next_action(<span class="kw-2">&amp;mut *</span>link).<span class="kw">await </span>{
-				<span class="macro">log::error!</span>(target: <span class="string">&quot;sync&quot;</span>, <span class="string">&quot;poll_actions: Background import task is no longer alive&quot;</span>);
+				<span class="macro">log::error!</span>(target: <span class="string">"sync"</span>, <span class="string">"poll_actions: Background import task is no longer alive"</span>);
 				<span class="kw">return
 			</span>}
 		}
@@ -1070,7 +1072,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">None </span>=&gt; {
 				<span class="macro">log::debug!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Stopping block import because the import channel was closed!&quot;</span>,
+					<span class="string">"Stopping block import because the import channel was closed!"</span>,
 				);
 				<span class="kw">return
 			</span>},
@@ -1097,7 +1099,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl</span>&lt;B: BlockT&gt; BlockImportWorker&lt;B&gt; {
-	<span class="kw">fn </span>new&lt;V: <span class="lifetime">&#39;static </span>+ Verifier&lt;B&gt;&gt;(
+	<span class="kw">fn </span>new&lt;V: <span class="lifetime">'static </span>+ Verifier&lt;B&gt;&gt;(
 		result_sender: BufferedLinkSender&lt;B&gt;,
 		verifier: V,
 		block_import: BoxBlockImport&lt;B&gt;,
@@ -1111,17 +1113,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">use </span>worker_messages::<span class="kw-2">*</span>;
 
 		<span class="kw">let </span>(justification_sender, <span class="kw-2">mut </span>justification_port) =
-			tracing_unbounded(<span class="string">&quot;mpsc_import_queue_worker_justification&quot;</span>, <span class="number">100_000</span>);
+			tracing_unbounded(<span class="string">"mpsc_import_queue_worker_justification"</span>, <span class="number">100_000</span>);
 
 		<span class="kw">let </span>(block_import_sender, block_import_port) =
-			tracing_unbounded(<span class="string">&quot;mpsc_import_queue_worker_blocks&quot;</span>, <span class="number">100_000</span>);
+			tracing_unbounded(<span class="string">"mpsc_import_queue_worker_blocks"</span>, <span class="number">100_000</span>);
 
 		<span class="kw">let </span><span class="kw-2">mut </span>worker = BlockImportWorker { result_sender, justification_import, metrics };
 
 		<span class="kw">let </span>delay_between_blocks = Duration::default();
 
 		<span class="kw">let </span>future = <span class="kw">async move </span>{
-			<span class="comment">// Let&#39;s initialize `justification_import`
+			<span class="comment">// Let's initialize `justification_import`
 			</span><span class="kw">if let </span><span class="prelude-val">Some</span>(justification_import) = worker.justification_import.as_mut() {
 				<span class="kw">for </span>(hash, number) <span class="kw">in </span>justification_import.on_start().<span class="kw">await </span>{
 					worker.result_sender.request_justification(<span class="kw-2">&amp;</span>hash, number);
@@ -1144,7 +1146,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				</span><span class="kw">if </span>worker.result_sender.is_closed() {
 					<span class="macro">log::debug!</span>(
 						target: LOG_TARGET,
-						<span class="string">&quot;Stopping block import because result channel was closed!&quot;</span>,
+						<span class="string">"Stopping block import because result channel was closed!"</span>,
 					);
 					<span class="kw">return
 				</span>}
@@ -1157,7 +1159,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="prelude-val">None </span>=&gt; {
 							<span class="macro">log::debug!</span>(
 								target: LOG_TARGET,
-								<span class="string">&quot;Stopping block import because justification channel was closed!&quot;</span>,
+								<span class="string">"Stopping block import because justification channel was closed!"</span>,
 							);
 							<span class="kw">return
 						</span>},
@@ -1192,7 +1194,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				</span>.map_err(|e| {
 					<span class="macro">debug!</span>(
 						target: LOG_TARGET,
-						<span class="string">&quot;Justification import failed for hash = {:?} with number = {:?} coming from node = {:?} with error: {}&quot;</span>,
+						<span class="string">"Justification import failed for hash = {:?} with number = {:?} coming from node = {:?} with error: {}"</span>,
 						hash,
 						number,
 						who,
@@ -1240,12 +1242,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		blocks.first().and_then(|b| b.header.as_ref().map(|h| h.number())),
 		blocks.last().and_then(|b| b.header.as_ref().map(|h| h.number())),
 	) {
-		(<span class="prelude-val">Some</span>(first), <span class="prelude-val">Some</span>(last)) <span class="kw">if </span>first != last =&gt; <span class="macro">format!</span>(<span class="string">&quot; ({}..{})&quot;</span>, first, last),
-		(<span class="prelude-val">Some</span>(first), <span class="prelude-val">Some</span>(<span class="kw">_</span>)) =&gt; <span class="macro">format!</span>(<span class="string">&quot; ({})&quot;</span>, first),
+		(<span class="prelude-val">Some</span>(first), <span class="prelude-val">Some</span>(last)) <span class="kw">if </span>first != last =&gt; <span class="macro">format!</span>(<span class="string">" ({}..{})"</span>, first, last),
+		(<span class="prelude-val">Some</span>(first), <span class="prelude-val">Some</span>(<span class="kw">_</span>)) =&gt; <span class="macro">format!</span>(<span class="string">" ({})"</span>, first),
 		<span class="kw">_ </span>=&gt; Default::default(),
 	};
 
-	<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">&quot;Starting import of {} blocks {}&quot;</span>, count, blocks_range);
+	<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">"Starting import of {} blocks {}"</span>, count, blocks_range);
 
 	<span class="kw">let </span><span class="kw-2">mut </span>imported = <span class="number">0</span>;
 	<span class="kw">let </span><span class="kw-2">mut </span>results = <span class="macro">vec!</span>[];
@@ -1286,7 +1288,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if </span>import_result.is_ok() {
 			<span class="macro">trace!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;Block imported successfully {:?} ({})&quot;</span>,
+				<span class="string">"Block imported successfully {:?} ({})"</span>,
 				block_number,
 				block_hash,
 			);
@@ -1321,7 +1323,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl </span>Future <span class="kw">for </span>Yield {
 	<span class="kw">type </span>Output = ();
 
-	<span class="kw">fn </span>poll(<span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;()&gt; {
+	<span class="kw">fn </span>poll(<span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">'_</span>&gt;) -&gt; Poll&lt;()&gt; {
 		<span class="kw">if </span>!<span class="self">self</span>.<span class="number">0 </span>{
 			<span class="self">self</span>.<span class="number">0 </span>= <span class="bool-val">true</span>;
 			cx.waker().wake_by_ref();
@@ -1472,7 +1474,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					sc_network_types::PeerId::random(),
 					hash,
 					<span class="number">1</span>,
-					(<span class="kw-2">*</span><span class="string">b&quot;TEST&quot;</span>, Vec::new()),
+					(<span class="kw-2">*</span><span class="string">b"TEST"</span>, Vec::new()),
 				))
 				.unwrap();
 
@@ -1497,7 +1499,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">while </span>link.events.len() &lt; <span class="number">9 </span>{
 				<span class="kw">match </span>Future::poll(Pin::new(<span class="kw-2">&amp;mut </span>worker), cx) {
 					Poll::Pending =&gt; {},
-					Poll::Ready(()) =&gt; <span class="macro">panic!</span>(<span class="string">&quot;import queue worker should not conclude.&quot;</span>),
+					Poll::Ready(()) =&gt; <span class="macro">panic!</span>(<span class="string">"import queue worker should not conclude."</span>),
 				}
 
 				result_port.poll_actions(cx, <span class="kw-2">&amp;mut </span>link).unwrap();

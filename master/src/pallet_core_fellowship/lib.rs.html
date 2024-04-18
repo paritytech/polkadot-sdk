@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/core-fellowship/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/core-fellowship/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_core_fellowship" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_core_fellowship" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../pallet_core_fellowship/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -796,14 +798,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -819,7 +821,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!   pallet in order to allow evidence to be submitted and promotion voted on.
 //! - The candidate then calls `submit_evidence` to apply for their promotion to rank 1.
 //! - A `PromoteOrigin` of at least rank 1 calls `promote` on the candidate to elevate it to rank 1.
-//! - Some time later but before rank 1&#39;s `demotion_period` elapses, candidate calls
+//! - Some time later but before rank 1's `demotion_period` elapses, candidate calls
 //!   `submit_evidence` with evidence of their efforts to apply for approval to stay at rank 1.
 //! - An `ApproveOrigin` of at least rank 1 calls `approve` on the candidate to avoid imminent
 //!   demotion and keep it at rank 1.
@@ -828,7 +830,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! - If the member fails to get an approval within the `demotion_period` then anyone may call
 //!   `bump` to demote the candidate by one rank.
 //! - If a candidate fails to be promoted to a member within the `offboard_timeout` period, then
-//!   anyone may call `bump` to remove the account&#39;s candidacy.
+//!   anyone may call `bump` to remove the account's candidacy.
 //! - Pre-existing members may call `import` to have their rank recognised and be inducted into this
 //!   pallet (to gain a salary and allow for eventual promotion).
 //! - If, externally to this pallet, a member or candidate has their rank removed completely, then
@@ -838,8 +840,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! having no rank at all (whereby we consider it *unranked*). An account can be demoted from rank
 //! 0 to become unranked. This process is called being offboarded and there is an extrinsic to do
 //! this explicitly when external factors to this pallet have caused the tracked account to become
-//! unranked. At rank 0, there is not a &quot;demotion&quot; period after which the account may be bumped to
-//! become offboarded but rather an &quot;offboard timeout&quot;.
+//! unranked. At rank 0, there is not a "demotion" period after which the account may be bumped to
+//! become offboarded but rather an "offboard timeout".
 //!
 //! Candidates may be introduced (i.e. an account to go from unranked to rank of 0) by an origin
 //! of a different privilege to that for promotion. This allows the possibility for even a single
@@ -848,7 +850,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! Only tracked/ranked accounts may submit evidence for their proof and promotion. Candidates
 //! cannot be approved - they must proceed only to promotion prior to the offboard timeout elapsing.
 
-</span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
+</span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
 </span><span class="kw">use </span>codec::{Decode, Encode, MaxEncodedLen};
 <span class="kw">use </span>scale_info::TypeInfo;
@@ -870,7 +872,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests;
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 </span><span class="kw">mod </span>benchmarking;
 <span class="kw">pub mod </span>weights;
 
@@ -888,7 +890,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// A piece of evidence to underpin a [Wish].
 ///
-/// From the pallet&#39;s perspective, this is just a blob of data without meaning. The fellows can
+/// From the pallet's perspective, this is just a blob of data without meaning. The fellows can
 /// decide how to concretely utilise it. This could be an IPFS hash, a URL or structured data.
 </span><span class="kw">pub type </span>Evidence&lt;T, I&gt; = BoundedVec&lt;u8, &lt;T <span class="kw">as </span>Config&lt;I&gt;&gt;::EvidenceSize&gt;;
 
@@ -949,7 +951,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub struct </span>Pallet&lt;T, I = ()&gt;(PhantomData&lt;(T, I)&gt;);
 
 	<span class="attr">#[pallet::config]
-	</span><span class="kw">pub trait </span>Config&lt;I: <span class="lifetime">&#39;static </span>= ()&gt;: frame_system::Config {
+	</span><span class="kw">pub trait </span>Config&lt;I: <span class="lifetime">'static </span>= ()&gt;: frame_system::Config {
 		<span class="doccomment">/// Weight information for extrinsics in this pallet.
 		</span><span class="kw">type </span>WeightInfo: WeightInfo;
 
@@ -995,22 +997,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// The overall status of the system.
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>Params&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; =
+	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>Params&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; =
 		StorageValue&lt;<span class="kw">_</span>, ParamsOf&lt;T, I&gt;, ValueQuery&gt;;
 
 	<span class="doccomment">/// The status of a claimant.
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>Member&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; =
+	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>Member&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; =
 		StorageMap&lt;<span class="kw">_</span>, Twox64Concat, T::AccountId, MemberStatusOf&lt;T&gt;, OptionQuery&gt;;
 
 	<span class="doccomment">/// Some evidence together with the desired outcome for which it was presented.
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>MemberEvidence&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; =
+	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>MemberEvidence&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; =
 		StorageMap&lt;<span class="kw">_</span>, Twox64Concat, T::AccountId, (Wish, Evidence&lt;T, I&gt;), OptionQuery&gt;;
 
 	<span class="attr">#[pallet::event]
 	#[pallet::generate_deposit(<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>deposit_event)]
-	</span><span class="kw">pub enum </span>Event&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; {
+	</span><span class="kw">pub enum </span>Event&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; {
 		<span class="doccomment">/// Parameters for the pallet have changed.
 		</span>ParamsChanged { params: ParamsOf&lt;T, I&gt; },
 		<span class="doccomment">/// Member activity flag has been set.
@@ -1050,14 +1052,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[pallet::error]
 	</span><span class="kw">pub enum </span>Error&lt;T, I = ()&gt; {
-		<span class="doccomment">/// Member&#39;s rank is too low.
+		<span class="doccomment">/// Member's rank is too low.
 		</span>Unranked,
-		<span class="doccomment">/// Member&#39;s rank is not zero.
+		<span class="doccomment">/// Member's rank is not zero.
 		</span>Ranked,
-		<span class="doccomment">/// Member&#39;s rank is not as expected - generally means that the rank provided to the call
+		<span class="doccomment">/// Member's rank is not as expected - generally means that the rank provided to the call
 		/// does not agree with the state of the system.
 		</span>UnexpectedRank,
-		<span class="doccomment">/// The given rank is invalid - this generally means it&#39;s not between 1 and `RANK_COUNT`.
+		<span class="doccomment">/// The given rank is invalid - this generally means it's not between 1 and `RANK_COUNT`.
 		</span>InvalidRank,
 		<span class="doccomment">/// The origin does not have enough permission to do this operation.
 		</span>NoPermission,
@@ -1073,10 +1075,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="attr">#[pallet::call]
-	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; Pallet&lt;T, I&gt; {
+	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Pallet&lt;T, I&gt; {
 		<span class="doccomment">/// Bump the state of a member.
 		///
-		/// This will demote a member whose `last_proof` is now beyond their rank&#39;s
+		/// This will demote a member whose `last_proof` is now beyond their rank's
 		/// `demotion_period`.
 		///
 		/// - `origin`: A `Signed` origin of an account.
@@ -1138,7 +1140,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="doccomment">/// Set whether a member is active or not.
 		///
-		/// - `origin`: A `Signed` origin of a member&#39;s account.
+		/// - `origin`: A `Signed` origin of a member's account.
 		/// - `is_active`: `true` iff the member is active.
 		</span><span class="attr">#[pallet::weight(T::WeightInfo::set_active())]
 		#[pallet::call_index(<span class="number">2</span>)]
@@ -1326,7 +1328,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; Pallet&lt;T, I&gt; {
+	<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Pallet&lt;T, I&gt; {
 		<span class="doccomment">/// Convert a rank into a `0..RANK_COUNT` index suitable for the arrays in Params.
 		///
 		/// Rank 1 becomes index 0, rank `RANK_COUNT` becomes index `RANK_COUNT - 1`. Any rank not
@@ -1346,7 +1348,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; GetSalary&lt;RankOf&lt;T, I&gt;, T::AccountId, T::Balance&gt; <span class="kw">for </span>Pallet&lt;T, I&gt; {
+	<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; GetSalary&lt;RankOf&lt;T, I&gt;, T::AccountId, T::Balance&gt; <span class="kw">for </span>Pallet&lt;T, I&gt; {
 		<span class="kw">fn </span>get_salary(rank: RankOf&lt;T, I&gt;, who: <span class="kw-2">&amp;</span>T::AccountId) -&gt; T::Balance {
 			<span class="kw">let </span>index = <span class="kw">match </span><span class="self">Self</span>::rank_to_index(rank) {
 				<span class="prelude-val">Some</span>(i) =&gt; i,
@@ -1367,7 +1369,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Guard to ensure that the given origin is inducted into this pallet with a given minimum rank.
 /// The account ID of the member is the `Success` value.
 </span><span class="kw">pub struct </span>EnsureInducted&lt;T, I, <span class="kw">const </span>MIN_RANK: u16&gt;(PhantomData&lt;(T, I)&gt;);
-<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>, <span class="kw">const </span>MIN_RANK: u16&gt; EnsureOrigin&lt;T::RuntimeOrigin&gt;
+<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>, <span class="kw">const </span>MIN_RANK: u16&gt; EnsureOrigin&lt;T::RuntimeOrigin&gt;
 	<span class="kw">for </span>EnsureInducted&lt;T, I, MIN_RANK&gt;
 {
 	<span class="kw">type </span>Success = T::AccountId;
@@ -1380,9 +1382,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">fn </span>try_successful_origin() -&gt; <span class="prelude-ty">Result</span>&lt;T::RuntimeOrigin, ()&gt; {
-		<span class="kw">let </span>who = frame_benchmarking::account::&lt;T::AccountId&gt;(<span class="string">&quot;successful_origin&quot;</span>, <span class="number">0</span>, <span class="number">0</span>);
+		<span class="kw">let </span>who = frame_benchmarking::account::&lt;T::AccountId&gt;(<span class="string">"successful_origin"</span>, <span class="number">0</span>, <span class="number">0</span>);
 		<span class="kw">if </span>T::Members::rank_of(<span class="kw-2">&amp;</span>who).is_none() {
 			T::Members::induct(<span class="kw-2">&amp;</span>who).map_err(|<span class="kw">_</span>| ())<span class="question-mark">?</span>;
 		}
@@ -1396,23 +1398,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="macro">impl_ensure_origin_with_arg_ignoring_arg! </span>{
-	<span class="kw">impl</span>&lt; { T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>, <span class="kw">const </span>MIN_RANK: u16, A } &gt;
+	<span class="kw">impl</span>&lt; { T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>, <span class="kw">const </span>MIN_RANK: u16, A } &gt;
 		EnsureOriginWithArg&lt;T::RuntimeOrigin, A&gt; <span class="kw">for </span>EnsureInducted&lt;T, I, MIN_RANK&gt;
 	{}
 }
 
-<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; RankedMembersSwapHandler&lt;T::AccountId, u16&gt; <span class="kw">for </span>Pallet&lt;T, I&gt; {
+<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; RankedMembersSwapHandler&lt;T::AccountId, u16&gt; <span class="kw">for </span>Pallet&lt;T, I&gt; {
 	<span class="kw">fn </span>swapped(old: <span class="kw-2">&amp;</span>T::AccountId, new: <span class="kw-2">&amp;</span>T::AccountId, _rank: u16) {
 		<span class="kw">if </span>old == new {
-			<span class="macro">defensive!</span>(<span class="string">&quot;Should not try to swap with self&quot;</span>);
+			<span class="macro">defensive!</span>(<span class="string">"Should not try to swap with self"</span>);
 			<span class="kw">return
 		</span>}
 		<span class="kw">if </span>!Member::&lt;T, I&gt;::contains_key(old) {
-			<span class="macro">defensive!</span>(<span class="string">&quot;Should not try to swap non-member&quot;</span>);
+			<span class="macro">defensive!</span>(<span class="string">"Should not try to swap non-member"</span>);
 			<span class="kw">return
 		</span>}
 		<span class="kw">if </span>Member::&lt;T, I&gt;::contains_key(new) {
-			<span class="macro">defensive!</span>(<span class="string">&quot;Should not try to overwrite existing member&quot;</span>);
+			<span class="macro">defensive!</span>(<span class="string">"Should not try to overwrite existing member"</span>);
 			<span class="kw">return
 		</span>}
 
@@ -1427,8 +1429,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
-</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt;
+<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
+</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt;
 	pallet_ranked_collective::BenchmarkSetup&lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId&gt; <span class="kw">for </span>Pallet&lt;T, I&gt;
 {
 	<span class="kw">fn </span>ensure_member(who: <span class="kw-2">&amp;</span>&lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId) {

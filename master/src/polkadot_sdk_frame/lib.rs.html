@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_sdk_frame" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_sdk_frame" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../polkadot_sdk_frame/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -519,14 +521,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -543,7 +545,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!      \_\/     \_\/ \_\/ \__\/\__\/ \__\/ \__\/ \_____\/
 //! ```
 //!
-//! &gt; **F**ramework for **R**untime **A**ggregation of **M**odularized **E**ntities: Substrate&#39;s
+//! &gt; **F**ramework for **R**untime **A**ggregation of **M**odularized **E**ntities: Substrate's
 //! &gt; State Transition Function (Runtime) Framework.
 //!
 //! ## Documentation
@@ -566,8 +568,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!
 //! Please note that this crate can only be imported as `polkadot-sdk-frame` or `frame`.
 
-</span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
-#![cfg(feature = <span class="string">&quot;experimental&quot;</span>)]
+</span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
+#![cfg(feature = <span class="string">"experimental"</span>)]
 
 #[doc(no_inline)]
 </span><span class="kw">pub use </span>frame_support::pallet;
@@ -580,10 +582,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Macros used within the main [`pallet`] macro.
 ///
-/// Note: All of these macros are &quot;stubs&quot; and not really usable outside `#[pallet] mod pallet { ..
+/// Note: All of these macros are "stubs" and not really usable outside `#[pallet] mod pallet { ..
 /// }`. They are mainly provided for documentation and IDE support.
 ///
-/// To view a list of all the macros and their documentation, follow the links in the &#39;Re-exports&#39;
+/// To view a list of all the macros and their documentation, follow the links in the 'Re-exports'
 /// section below:
 </span><span class="kw">pub mod </span>pallet_macros {
 	<span class="attr">#[doc(no_inline)]
@@ -601,7 +603,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// mod pallet {}
 /// ```
 </span><span class="kw">pub mod </span>prelude {
-	<span class="doccomment">/// `frame_system`&#39;s parent crate, which is mandatory in all pallets build with this crate.
+	<span class="doccomment">/// `frame_system`'s parent crate, which is mandatory in all pallets build with this crate.
 	///
 	/// Conveniently, the keyword `frame_system` is in scope as one uses `use
 	/// polkadot_sdk_frame::prelude::*`
@@ -635,7 +637,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// use polkadot_sdk_frame::testing_prelude::*;
 /// // rest of your test setup.
 /// ```
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+</span><span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">pub mod </span>testing_prelude {
 	<span class="kw">pub use </span><span class="kw">super</span>::prelude::<span class="kw-2">*</span>;
 	<span class="doccomment">/// Testing includes building a runtime, so we bring in all preludes related to runtimes as
@@ -654,7 +656,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// All of the types and tools needed to build FRAME-based runtimes.
-</span><span class="attr">#[cfg(any(feature = <span class="string">&quot;runtime&quot;</span>, feature = <span class="string">&quot;std&quot;</span>))]
+</span><span class="attr">#[cfg(any(feature = <span class="string">"runtime"</span>, feature = <span class="string">"std"</span>))]
 </span><span class="kw">pub mod </span>runtime {
 	<span class="doccomment">/// The main prelude of `FRAME` for building runtimes.
 	///
@@ -695,7 +697,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="doccomment">/// Macro to implement runtime APIs.
 		</span><span class="kw">pub use </span>sp_api::impl_runtime_apis;
 
-		<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+		<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 		</span><span class="kw">pub use </span>sp_version::NativeVersion;
 	}
 
@@ -739,7 +741,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// - `u32` block number.
 	/// - [`sp_runtime::MultiAddress`] and [`sp_runtime::MultiSignature`] are used as the account id
 	///   and signature types. This implies that this prelude can possibly used with an
-	///   &quot;account-index&quot; system (eg `pallet-indices`). And, in any case, it should be paired with
+	///   "account-index" system (eg `pallet-indices`). And, in any case, it should be paired with
 	///   `AccountIdLookup` in [`frame_system::Config::Lookup`].
 	</span><span class="kw">pub mod </span>types_common {
 		<span class="kw">use </span>frame_system::Config <span class="kw">as </span>SysConfig;
@@ -798,7 +800,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// The main prelude of FRAME for building runtimes, and in the context of testing.
 	///
 	/// counter part of `runtime::prelude`.
-	</span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+	</span><span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 	</span><span class="kw">pub mod </span>testing_prelude {
 		<span class="kw">pub use </span><span class="kw">super</span>::prelude::<span class="kw-2">*</span>;
 		<span class="kw">pub use </span>sp_core::storage::Storage;
@@ -864,21 +866,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">pub use </span>parity_scale_codec <span class="kw">as </span>codec;
 	<span class="kw">pub use </span>scale_info;
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime"</span>)]
 	</span><span class="kw">pub use </span>frame_executive;
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime"</span>)]
 	</span><span class="kw">pub use </span>sp_api;
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime"</span>)]
 	</span><span class="kw">pub use </span>sp_block_builder;
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime"</span>)]
 	</span><span class="kw">pub use </span>sp_consensus_aura;
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime"</span>)]
 	</span><span class="kw">pub use </span>sp_consensus_grandpa;
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime"</span>)]
 	</span><span class="kw">pub use </span>sp_inherents;
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime"</span>)]
 	</span><span class="kw">pub use </span>sp_offchain;
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime"</span>)]
 	</span><span class="kw">pub use </span>sp_version;
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

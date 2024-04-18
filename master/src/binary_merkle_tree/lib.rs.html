@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/utils/binary-merkle-tree/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/utils/binary-merkle-tree/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="binary_merkle_tree" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="binary_merkle_tree" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../binary_merkle_tree/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -961,19 +963,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-</span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
+</span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 #![warn(missing_docs)]
 
 </span><span class="doccomment">//! This crate implements a simple binary Merkle Tree utilities required for inter-op with Ethereum
@@ -988,11 +990,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! does not perform any sorting of the input data (leaves) nor when inner nodes are created.
 //!
 //! If the number of leaves is not even, last leaf (hash of) is promoted to the upper layer.
-</span><span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+</span><span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
 </span><span class="kw">extern crate </span>alloc;
-<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
 </span><span class="kw">use </span>alloc::vec;
-<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
 </span><span class="kw">use </span>alloc::vec::Vec;
 
 <span class="kw">use </span>hash_db::Hasher;
@@ -1056,7 +1058,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>proof: Vec&lt;H&gt;,
 	<span class="doccomment">/// Number of leaves in the original tree.
 	///
-	/// This is needed to detect a case where we have an odd number of leaves that &quot;get promoted&quot;
+	/// This is needed to detect a case where we have an odd number of leaves that "get promoted"
 	/// to upper layers.
 	</span><span class="kw">pub </span>number_of_leaves: usize,
 	<span class="doccomment">/// Index of the leaf the proof is for (0-based).
@@ -1152,15 +1154,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span><span class="kw-2">mut </span>collect_proof = ProofCollection::new(leaf_index);
 
 	<span class="kw">let </span>root = merkelize::&lt;H, <span class="kw">_</span>, <span class="kw">_</span>&gt;(iter, <span class="kw-2">&amp;mut </span>collect_proof);
-	<span class="kw">let </span>leaf = leaf.expect(<span class="string">&quot;Requested `leaf_index` is greater than number of leaves.&quot;</span>);
+	<span class="kw">let </span>leaf = leaf.expect(<span class="string">"Requested `leaf_index` is greater than number of leaves."</span>);
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;debug&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"debug"</span>)]
 	</span><span class="macro">log::debug!</span>(
-		<span class="string">&quot;[merkle_proof] Proof: {:?}&quot;</span>,
+		<span class="string">"[merkle_proof] Proof: {:?}"</span>,
 		collect_proof
 			.proof
 			.iter()
-			.map(|s| array_bytes::bytes2hex(<span class="string">&quot;&quot;</span>, s))
+			.map(|s| array_bytes::bytes2hex(<span class="string">""</span>, s))
 			.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
 	);
 
@@ -1172,15 +1174,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// Can be either a value that needs to be hashed first,
 /// or the hash itself.
 </span><span class="attr">#[derive(Debug, PartialEq, Eq)]
-</span><span class="kw">pub enum </span>Leaf&lt;<span class="lifetime">&#39;a</span>, H&gt; {
+</span><span class="kw">pub enum </span>Leaf&lt;<span class="lifetime">'a</span>, H&gt; {
 	<span class="doccomment">/// Leaf content.
-	</span>Value(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8]),
+	</span>Value(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8]),
 	<span class="doccomment">/// Hash of the leaf content.
 	</span>Hash(H),
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, H, T: AsRef&lt;[u8]&gt;&gt; From&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>T&gt; <span class="kw">for </span>Leaf&lt;<span class="lifetime">&#39;a</span>, H&gt; {
-	<span class="kw">fn </span>from(v: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>T) -&gt; <span class="self">Self </span>{
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, H, T: AsRef&lt;[u8]&gt;&gt; From&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>T&gt; <span class="kw">for </span>Leaf&lt;<span class="lifetime">'a</span>, H&gt; {
+	<span class="kw">fn </span>from(v: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>T) -&gt; <span class="self">Self </span>{
 		Leaf::Value(v.as_ref())
 	}
 }
@@ -1192,8 +1194,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// concatenating and hashing end up with given root hash.
 ///
 /// The proof must not contain the root hash.
-</span><span class="kw">pub fn </span>verify_proof&lt;<span class="lifetime">&#39;a</span>, H, P, L&gt;(
-	root: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>H::Out,
+</span><span class="kw">pub fn </span>verify_proof&lt;<span class="lifetime">'a</span>, H, P, L&gt;(
+	root: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>H::Out,
 	proof: P,
 	number_of_leaves: usize,
 	leaf_index: usize,
@@ -1203,7 +1205,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>H: Hasher,
 	H::Out: PartialEq + AsRef&lt;[u8]&gt;,
 	P: IntoIterator&lt;Item = H::Out&gt;,
-	L: Into&lt;Leaf&lt;<span class="lifetime">&#39;a</span>, H::Out&gt;&gt;,
+	L: Into&lt;Leaf&lt;<span class="lifetime">'a</span>, H::Out&gt;&gt;,
 {
 	<span class="kw">if </span>leaf_index &gt;= number_of_leaves {
 		<span class="kw">return </span><span class="bool-val">false
@@ -1227,13 +1229,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			combined[hash_len..].copy_from_slice(<span class="kw-2">&amp;</span>b.as_ref());
 		}
 		<span class="kw">let </span>hash = &lt;H <span class="kw">as </span>Hasher&gt;::hash(<span class="kw-2">&amp;</span>combined);
-		<span class="attr">#[cfg(feature = <span class="string">&quot;debug&quot;</span>)]
+		<span class="attr">#[cfg(feature = <span class="string">"debug"</span>)]
 		</span><span class="macro">log::debug!</span>(
-			<span class="string">&quot;[verify_proof]: (a, b) {:?}, {:?} =&gt; {:?} ({:?}) hash&quot;</span>,
-			array_bytes::bytes2hex(<span class="string">&quot;&quot;</span>, a),
-			array_bytes::bytes2hex(<span class="string">&quot;&quot;</span>, b),
-			array_bytes::bytes2hex(<span class="string">&quot;&quot;</span>, hash),
-			array_bytes::bytes2hex(<span class="string">&quot;&quot;</span>, <span class="kw-2">&amp;</span>combined)
+			<span class="string">"[verify_proof]: (a, b) {:?}, {:?} =&gt; {:?} ({:?}) hash"</span>,
+			array_bytes::bytes2hex(<span class="string">""</span>, a),
+			array_bytes::bytes2hex(<span class="string">""</span>, b),
+			array_bytes::bytes2hex(<span class="string">""</span>, hash),
+			array_bytes::bytes2hex(<span class="string">""</span>, <span class="kw-2">&amp;</span>combined)
 		);
 		position /= <span class="number">2</span>;
 		width = ((width - <span class="number">1</span>) / <span class="number">2</span>) + <span class="number">1</span>;
@@ -1259,8 +1261,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	V: Visitor&lt;H::Out&gt;,
 	I: Iterator&lt;Item = H::Out&gt;,
 {
-	<span class="attr">#[cfg(feature = <span class="string">&quot;debug&quot;</span>)]
-	</span><span class="macro">log::debug!</span>(<span class="string">&quot;[merkelize_row]&quot;</span>);
+	<span class="attr">#[cfg(feature = <span class="string">"debug"</span>)]
+	</span><span class="macro">log::debug!</span>(<span class="string">"[merkelize_row]"</span>);
 	next.clear();
 
 	<span class="kw">let </span>hash_len = &lt;H <span class="kw">as </span>Hasher&gt;::LENGTH;
@@ -1271,11 +1273,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>b = iter.next();
 		visitor.visit(index, <span class="kw-2">&amp;</span>a, <span class="kw-2">&amp;</span>b);
 
-		<span class="attr">#[cfg(feature = <span class="string">&quot;debug&quot;</span>)]
+		<span class="attr">#[cfg(feature = <span class="string">"debug"</span>)]
 		</span><span class="macro">log::debug!</span>(
-			<span class="string">&quot;  {:?}\n  {:?}&quot;</span>,
-			a.as_ref().map(|s| array_bytes::bytes2hex(<span class="string">&quot;&quot;</span>, s)),
-			b.as_ref().map(|s| array_bytes::bytes2hex(<span class="string">&quot;&quot;</span>, s))
+			<span class="string">"  {:?}\n  {:?}"</span>,
+			a.as_ref().map(|s| array_bytes::bytes2hex(<span class="string">""</span>, s)),
+			b.as_ref().map(|s| array_bytes::bytes2hex(<span class="string">""</span>, s))
 		);
 
 		index += <span class="number">2</span>;
@@ -1294,10 +1296,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span>(<span class="prelude-val">Some</span>(a), <span class="prelude-val">None</span>) =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(a),
 			<span class="comment">// Finish up, no more items.
 			</span><span class="kw">_ </span>=&gt; {
-				<span class="attr">#[cfg(feature = <span class="string">&quot;debug&quot;</span>)]
+				<span class="attr">#[cfg(feature = <span class="string">"debug"</span>)]
 				</span><span class="macro">log::debug!</span>(
-					<span class="string">&quot;[merkelize_row] Next: {:?}&quot;</span>,
-					next.iter().map(|s| array_bytes::bytes2hex(<span class="string">&quot;&quot;</span>, s)).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
+					<span class="string">"[merkelize_row] Next: {:?}"</span>,
+					next.iter().map(|s| array_bytes::bytes2hex(<span class="string">""</span>, s)).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
 				);
 				<span class="kw">return </span><span class="prelude-val">Err</span>(next)
 			},
@@ -1322,8 +1324,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// then
 		</span><span class="macro">assert_eq!</span>(
-			array_bytes::bytes2hex(<span class="string">&quot;&quot;</span>, out),
-			<span class="string">&quot;0000000000000000000000000000000000000000000000000000000000000000&quot;
+			array_bytes::bytes2hex(<span class="string">""</span>, out),
+			<span class="string">"0000000000000000000000000000000000000000000000000000000000000000"
 		</span>);
 	}
 
@@ -1332,7 +1334,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// given
 		</span><span class="kw">let _ </span>= env_logger::try_init();
 		<span class="kw">let </span>data = <span class="macro">vec!</span>[array_bytes::hex2array_unchecked::&lt;<span class="kw">_</span>, <span class="number">20</span>&gt;(
-			<span class="string">&quot;E04CC55ebEE1cBCE552f250e85c57B70B2E2625b&quot;</span>,
+			<span class="string">"E04CC55ebEE1cBCE552f250e85c57B70B2E2625b"</span>,
 		)];
 
 		<span class="comment">// when
@@ -1340,8 +1342,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// then
 		</span><span class="macro">assert_eq!</span>(
-			array_bytes::bytes2hex(<span class="string">&quot;&quot;</span>, out),
-			<span class="string">&quot;aeb47a269393297f4b0a3c9c9cfd00c7a4195255274cf39d83dabc2fcc9ff3d7&quot;
+			array_bytes::bytes2hex(<span class="string">""</span>, out),
+			<span class="string">"aeb47a269393297f4b0a3c9c9cfd00c7a4195255274cf39d83dabc2fcc9ff3d7"
 		</span>);
 	}
 
@@ -1350,8 +1352,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// given
 		</span><span class="kw">let _ </span>= env_logger::try_init();
 		<span class="kw">let </span>data = <span class="macro">vec!</span>[
-			array_bytes::hex2array_unchecked::&lt;<span class="kw">_</span>, <span class="number">20</span>&gt;(<span class="string">&quot;E04CC55ebEE1cBCE552f250e85c57B70B2E2625b&quot;</span>),
-			array_bytes::hex2array_unchecked::&lt;<span class="kw">_</span>, <span class="number">20</span>&gt;(<span class="string">&quot;25451A4de12dcCc2D166922fA938E900fCc4ED24&quot;</span>),
+			array_bytes::hex2array_unchecked::&lt;<span class="kw">_</span>, <span class="number">20</span>&gt;(<span class="string">"E04CC55ebEE1cBCE552f250e85c57B70B2E2625b"</span>),
+			array_bytes::hex2array_unchecked::&lt;<span class="kw">_</span>, <span class="number">20</span>&gt;(<span class="string">"25451A4de12dcCc2D166922fA938E900fCc4ED24"</span>),
 		];
 
 		<span class="comment">// when
@@ -1359,8 +1361,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// then
 		</span><span class="macro">assert_eq!</span>(
-			array_bytes::bytes2hex(<span class="string">&quot;&quot;</span>, out),
-			<span class="string">&quot;697ea2a8fe5b03468548a7a413424a6292ab44a82a6f5cc594c3fa7dda7ce402&quot;
+			array_bytes::bytes2hex(<span class="string">""</span>, out),
+			<span class="string">"697ea2a8fe5b03468548a7a413424a6292ab44a82a6f5cc594c3fa7dda7ce402"
 		</span>);
 	}
 
@@ -1368,27 +1370,27 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>should_generate_root_complex() {
 		<span class="kw">let _ </span>= env_logger::try_init();
 		<span class="kw">let </span>test = |root, data| {
-			<span class="macro">assert_eq!</span>(array_bytes::bytes2hex(<span class="string">&quot;&quot;</span>, <span class="kw-2">&amp;</span>merkle_root::&lt;Keccak256, <span class="kw">_</span>&gt;(data)), root);
+			<span class="macro">assert_eq!</span>(array_bytes::bytes2hex(<span class="string">""</span>, <span class="kw-2">&amp;</span>merkle_root::&lt;Keccak256, <span class="kw">_</span>&gt;(data)), root);
 		};
 
 		test(
-			<span class="string">&quot;aff1208e69c9e8be9b584b07ebac4e48a1ee9d15ce3afe20b77a4d29e4175aa3&quot;</span>,
-			<span class="macro">vec!</span>[<span class="string">&quot;a&quot;</span>, <span class="string">&quot;b&quot;</span>, <span class="string">&quot;c&quot;</span>],
+			<span class="string">"aff1208e69c9e8be9b584b07ebac4e48a1ee9d15ce3afe20b77a4d29e4175aa3"</span>,
+			<span class="macro">vec!</span>[<span class="string">"a"</span>, <span class="string">"b"</span>, <span class="string">"c"</span>],
 		);
 
 		test(
-			<span class="string">&quot;b8912f7269068901f231a965adfefbc10f0eedcfa61852b103efd54dac7db3d7&quot;</span>,
-			<span class="macro">vec!</span>[<span class="string">&quot;a&quot;</span>, <span class="string">&quot;b&quot;</span>, <span class="string">&quot;a&quot;</span>],
+			<span class="string">"b8912f7269068901f231a965adfefbc10f0eedcfa61852b103efd54dac7db3d7"</span>,
+			<span class="macro">vec!</span>[<span class="string">"a"</span>, <span class="string">"b"</span>, <span class="string">"a"</span>],
 		);
 
 		test(
-			<span class="string">&quot;dc8e73fe6903148ff5079baecc043983625c23b39f31537e322cd0deee09fa9c&quot;</span>,
-			<span class="macro">vec!</span>[<span class="string">&quot;a&quot;</span>, <span class="string">&quot;b&quot;</span>, <span class="string">&quot;a&quot;</span>, <span class="string">&quot;b&quot;</span>],
+			<span class="string">"dc8e73fe6903148ff5079baecc043983625c23b39f31537e322cd0deee09fa9c"</span>,
+			<span class="macro">vec!</span>[<span class="string">"a"</span>, <span class="string">"b"</span>, <span class="string">"a"</span>, <span class="string">"b"</span>],
 		);
 
 		test(
-			<span class="string">&quot;fb3b3be94be9e983ba5e094c9c51a7d96a4fa2e5d8e891df00ca89ba05bb1239&quot;</span>,
-			<span class="macro">vec!</span>[<span class="string">&quot;a&quot;</span>, <span class="string">&quot;b&quot;</span>, <span class="string">&quot;c&quot;</span>, <span class="string">&quot;d&quot;</span>, <span class="string">&quot;e&quot;</span>, <span class="string">&quot;f&quot;</span>, <span class="string">&quot;g&quot;</span>, <span class="string">&quot;h&quot;</span>, <span class="string">&quot;i&quot;</span>, <span class="string">&quot;j&quot;</span>],
+			<span class="string">"fb3b3be94be9e983ba5e094c9c51a7d96a4fa2e5d8e891df00ca89ba05bb1239"</span>,
+			<span class="macro">vec!</span>[<span class="string">"a"</span>, <span class="string">"b"</span>, <span class="string">"c"</span>, <span class="string">"d"</span>, <span class="string">"e"</span>, <span class="string">"f"</span>, <span class="string">"g"</span>, <span class="string">"h"</span>, <span class="string">"i"</span>, <span class="string">"j"</span>],
 		);
 	}
 
@@ -1396,7 +1398,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>should_generate_and_verify_proof_simple() {
 		<span class="comment">// given
 		</span><span class="kw">let _ </span>= env_logger::try_init();
-		<span class="kw">let </span>data = <span class="macro">vec!</span>[<span class="string">&quot;a&quot;</span>, <span class="string">&quot;b&quot;</span>, <span class="string">&quot;c&quot;</span>];
+		<span class="kw">let </span>data = <span class="macro">vec!</span>[<span class="string">"a"</span>, <span class="string">"b"</span>, <span class="string">"c"</span>];
 
 		<span class="comment">// when
 		</span><span class="kw">let </span>proof0 = merkle_proof::&lt;Keccak256, <span class="kw">_</span>, <span class="kw">_</span>&gt;(data.clone(), <span class="number">0</span>);
@@ -1428,17 +1430,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// then
 		</span><span class="macro">assert_eq!</span>(
-			array_bytes::bytes2hex(<span class="string">&quot;&quot;</span>, <span class="kw-2">&amp;</span>proof0.root),
-			array_bytes::bytes2hex(<span class="string">&quot;&quot;</span>, <span class="kw-2">&amp;</span>proof1.root)
+			array_bytes::bytes2hex(<span class="string">""</span>, <span class="kw-2">&amp;</span>proof0.root),
+			array_bytes::bytes2hex(<span class="string">""</span>, <span class="kw-2">&amp;</span>proof1.root)
 		);
 		<span class="macro">assert_eq!</span>(
-			array_bytes::bytes2hex(<span class="string">&quot;&quot;</span>, <span class="kw-2">&amp;</span>proof2.root),
-			array_bytes::bytes2hex(<span class="string">&quot;&quot;</span>, <span class="kw-2">&amp;</span>proof1.root)
+			array_bytes::bytes2hex(<span class="string">""</span>, <span class="kw-2">&amp;</span>proof2.root),
+			array_bytes::bytes2hex(<span class="string">""</span>, <span class="kw-2">&amp;</span>proof1.root)
 		);
 
 		<span class="macro">assert!</span>(!verify_proof::&lt;Keccak256, <span class="kw">_</span>, <span class="kw">_</span>&gt;(
 			<span class="kw-2">&amp;</span>array_bytes::hex2array_unchecked(
-				<span class="string">&quot;fb3b3be94be9e983ba5e094c9c51a7d96a4fa2e5d8e891df00ca89ba05bb1239&quot;
+				<span class="string">"fb3b3be94be9e983ba5e094c9c51a7d96a4fa2e5d8e891df00ca89ba05bb1239"
 			</span>)
 			.into(),
 			proof0.proof,
@@ -1460,7 +1462,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>should_generate_and_verify_proof_complex() {
 		<span class="comment">// given
 		</span><span class="kw">let _ </span>= env_logger::try_init();
-		<span class="kw">let </span>data = <span class="macro">vec!</span>[<span class="string">&quot;a&quot;</span>, <span class="string">&quot;b&quot;</span>, <span class="string">&quot;c&quot;</span>, <span class="string">&quot;d&quot;</span>, <span class="string">&quot;e&quot;</span>, <span class="string">&quot;f&quot;</span>, <span class="string">&quot;g&quot;</span>, <span class="string">&quot;h&quot;</span>, <span class="string">&quot;i&quot;</span>, <span class="string">&quot;j&quot;</span>];
+		<span class="kw">let </span>data = <span class="macro">vec!</span>[<span class="string">"a"</span>, <span class="string">"b"</span>, <span class="string">"c"</span>, <span class="string">"d"</span>, <span class="string">"e"</span>, <span class="string">"f"</span>, <span class="string">"g"</span>, <span class="string">"h"</span>, <span class="string">"i"</span>, <span class="string">"j"</span>];
 
 		<span class="kw">for </span>l <span class="kw">in </span><span class="number">0</span>..data.len() {
 			<span class="comment">// when
@@ -1482,7 +1484,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">let _ </span>= env_logger::try_init();
 		<span class="kw">let </span><span class="kw-2">mut </span>data = <span class="macro">vec!</span>[];
 		<span class="kw">for </span>i <span class="kw">in </span><span class="number">1</span>..<span class="number">16 </span>{
-			<span class="kw">for </span>c <span class="kw">in </span><span class="string">&#39;a&#39;</span>..<span class="string">&#39;z&#39; </span>{
+			<span class="kw">for </span>c <span class="kw">in </span><span class="string">'a'</span>..<span class="string">'z' </span>{
 				<span class="kw">if </span>c <span class="kw">as </span>usize % i != <span class="number">0 </span>{
 					data.push(c.to_string());
 				}
@@ -1509,7 +1511,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">let _ </span>= env_logger::try_init();
 		<span class="kw">let </span><span class="kw-2">mut </span>data = <span class="macro">vec!</span>[];
 		<span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..<span class="number">6000 </span>{
-			data.push(<span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, i));
+			data.push(<span class="macro">format!</span>(<span class="string">"{}"</span>, i));
 		}
 
 		<span class="kw">for </span>l <span class="kw">in </span>(<span class="number">0</span>..data.len()).step_by(<span class="number">13</span>) {
@@ -1530,182 +1532,182 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	#[should_panic]
 	</span><span class="kw">fn </span>should_panic_on_invalid_leaf_index() {
 		<span class="kw">let _ </span>= env_logger::try_init();
-		merkle_proof::&lt;Keccak256, <span class="kw">_</span>, <span class="kw">_</span>&gt;(<span class="macro">vec!</span>[<span class="string">&quot;a&quot;</span>], <span class="number">5</span>);
+		merkle_proof::&lt;Keccak256, <span class="kw">_</span>, <span class="kw">_</span>&gt;(<span class="macro">vec!</span>[<span class="string">"a"</span>], <span class="number">5</span>);
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>should_generate_and_verify_proof_on_test_data() {
 		<span class="kw">let </span>addresses = <span class="macro">vec!</span>[
-			<span class="string">&quot;0x9aF1Ca5941148eB6A3e9b9C741b69738292C533f&quot;</span>,
-			<span class="string">&quot;0xDD6ca953fddA25c496165D9040F7F77f75B75002&quot;</span>,
-			<span class="string">&quot;0x60e9C47B64Bc1C7C906E891255EaEC19123E7F42&quot;</span>,
-			<span class="string">&quot;0xfa4859480Aa6D899858DE54334d2911E01C070df&quot;</span>,
-			<span class="string">&quot;0x19B9b128470584F7209eEf65B69F3624549Abe6d&quot;</span>,
-			<span class="string">&quot;0xC436aC1f261802C4494504A11fc2926C726cB83b&quot;</span>,
-			<span class="string">&quot;0xc304C8C2c12522F78aD1E28dD86b9947D7744bd0&quot;</span>,
-			<span class="string">&quot;0xDa0C2Cba6e832E55dE89cF4033affc90CC147352&quot;</span>,
-			<span class="string">&quot;0xf850Fd22c96e3501Aad4CDCBf38E4AEC95622411&quot;</span>,
-			<span class="string">&quot;0x684918D4387CEb5E7eda969042f036E226E50642&quot;</span>,
-			<span class="string">&quot;0x963F0A1bFbb6813C0AC88FcDe6ceB96EA634A595&quot;</span>,
-			<span class="string">&quot;0x39B38ad74b8bCc5CE564f7a27Ac19037A95B6099&quot;</span>,
-			<span class="string">&quot;0xC2Dec7Fdd1fef3ee95aD88EC8F3Cd5bd4065f3C7&quot;</span>,
-			<span class="string">&quot;0x9E311f05c2b6A43C2CCF16fB2209491BaBc2ec01&quot;</span>,
-			<span class="string">&quot;0x927607C30eCE4Ef274e250d0bf414d4a210b16f0&quot;</span>,
-			<span class="string">&quot;0x98882bcf85E1E2DFF780D0eB360678C1cf443266&quot;</span>,
-			<span class="string">&quot;0xFBb50191cd0662049E7C4EE32830a4Cc9B353047&quot;</span>,
-			<span class="string">&quot;0x963854fc2C358c48C3F9F0A598B9572c581B8DEF&quot;</span>,
-			<span class="string">&quot;0xF9D7Bc222cF6e3e07bF66711e6f409E51aB75292&quot;</span>,
-			<span class="string">&quot;0xF2E3fd32D063F8bBAcB9e6Ea8101C2edd899AFe6&quot;</span>,
-			<span class="string">&quot;0x407a5b9047B76E8668570120A96d580589fd1325&quot;</span>,
-			<span class="string">&quot;0xEAD9726FAFB900A07dAd24a43AE941d2eFDD6E97&quot;</span>,
-			<span class="string">&quot;0x42f5C8D9384034A9030313B51125C32a526b6ee8&quot;</span>,
-			<span class="string">&quot;0x158fD2529Bc4116570Eb7C80CC76FEf33ad5eD95&quot;</span>,
-			<span class="string">&quot;0x0A436EE2E4dEF3383Cf4546d4278326Ccc82514E&quot;</span>,
-			<span class="string">&quot;0x34229A215db8FeaC93Caf8B5B255e3c6eA51d855&quot;</span>,
-			<span class="string">&quot;0xEb3B7CF8B1840242CB98A732BA464a17D00b5dDF&quot;</span>,
-			<span class="string">&quot;0x2079692bf9ab2d6dc7D79BBDdEE71611E9aA3B72&quot;</span>,
-			<span class="string">&quot;0x46e2A67e5d450e2Cf7317779f8274a2a630f3C9B&quot;</span>,
-			<span class="string">&quot;0xA7Ece4A5390DAB18D08201aE18800375caD78aab&quot;</span>,
-			<span class="string">&quot;0x15E1c0D24D62057Bf082Cb2253dA11Ef0d469570&quot;</span>,
-			<span class="string">&quot;0xADDEF4C9b5687Eb1F7E55F2251916200A3598878&quot;</span>,
-			<span class="string">&quot;0xe0B16Fb96F936035db2b5A68EB37D470fED2f013&quot;</span>,
-			<span class="string">&quot;0x0c9A84993feaa779ae21E39F9793d09e6b69B62D&quot;</span>,
-			<span class="string">&quot;0x3bc4D5148906F70F0A7D1e2756572655fd8b7B34&quot;</span>,
-			<span class="string">&quot;0xFf4675C26903D5319795cbd3a44b109E7DDD9fDe&quot;</span>,
-			<span class="string">&quot;0xCec4450569A8945C6D2Aba0045e4339030128a92&quot;</span>,
-			<span class="string">&quot;0x85f0584B10950E421A32F471635b424063FD8405&quot;</span>,
-			<span class="string">&quot;0xb38bEe7Bdc0bC43c096e206EFdFEad63869929E3&quot;</span>,
-			<span class="string">&quot;0xc9609466274Fef19D0e58E1Ee3b321D5C141067E&quot;</span>,
-			<span class="string">&quot;0xa08EA868cF75268E7401021E9f945BAe73872ecc&quot;</span>,
-			<span class="string">&quot;0x67C9Cb1A29E964Fe87Ff669735cf7eb87f6868fE&quot;</span>,
-			<span class="string">&quot;0x1B6BEF636aFcdd6085cD4455BbcC93796A12F6E2&quot;</span>,
-			<span class="string">&quot;0x46B37b243E09540b55cF91C333188e7D5FD786dD&quot;</span>,
-			<span class="string">&quot;0x8E719E272f62Fa97da93CF9C941F5e53AA09e44a&quot;</span>,
-			<span class="string">&quot;0xa511B7E7DB9cb24AD5c89fBb6032C7a9c2EfA0a5&quot;</span>,
-			<span class="string">&quot;0x4D11FDcAeD335d839132AD450B02af974A3A66f8&quot;</span>,
-			<span class="string">&quot;0xB8cf790a5090E709B4619E1F335317114294E17E&quot;</span>,
-			<span class="string">&quot;0x7f0f57eA064A83210Cafd3a536866ffD2C5eDCB3&quot;</span>,
-			<span class="string">&quot;0xC03C848A4521356EF800e399D889e9c2A25D1f9E&quot;</span>,
-			<span class="string">&quot;0xC6b03DF05cb686D933DD31fCa5A993bF823dc4FE&quot;</span>,
-			<span class="string">&quot;0x58611696b6a8102cf95A32c25612E4cEF32b910F&quot;</span>,
-			<span class="string">&quot;0x2ed4bC7197AEF13560F6771D930Bf907772DE3CE&quot;</span>,
-			<span class="string">&quot;0x3C5E58f334306be029B0e47e119b8977B2639eb4&quot;</span>,
-			<span class="string">&quot;0x288646a1a4FeeC560B349d210263c609aDF649a6&quot;</span>,
-			<span class="string">&quot;0xb4F4981E0d027Dc2B3c86afA0D0fC03d317e83C0&quot;</span>,
-			<span class="string">&quot;0xaAE4A87F8058feDA3971f9DEd639Ec9189aA2500&quot;</span>,
-			<span class="string">&quot;0x355069DA35E598913d8736E5B8340527099960b8&quot;</span>,
-			<span class="string">&quot;0x3cf5A0F274cd243C0A186d9fCBdADad089821B93&quot;</span>,
-			<span class="string">&quot;0xca55155dCc4591538A8A0ca322a56EB0E4aD03C4&quot;</span>,
-			<span class="string">&quot;0xE824D0268366ec5C4F23652b8eD70D552B1F2b8B&quot;</span>,
-			<span class="string">&quot;0x84C3e9B25AE8a9b39FF5E331F9A597F2DCf27Ca9&quot;</span>,
-			<span class="string">&quot;0xcA0018e278751De10d26539915d9c7E7503432FE&quot;</span>,
-			<span class="string">&quot;0xf13077dE6191D6c1509ac7E088b8BE7Fe656c28b&quot;</span>,
-			<span class="string">&quot;0x7a6bcA1ec9Db506e47ac6FD86D001c2aBc59C531&quot;</span>,
-			<span class="string">&quot;0xeA7f9A2A9dd6Ba9bc93ca615C3Ddf26973146911&quot;</span>,
-			<span class="string">&quot;0x8D0d8577e16F8731d4F8712BAbFa97aF4c453458&quot;</span>,
-			<span class="string">&quot;0xB7a7855629dF104246997e9ACa0E6510df75d0ea&quot;</span>,
-			<span class="string">&quot;0x5C1009BDC70b0C8Ab2e5a53931672ab448C17c89&quot;</span>,
-			<span class="string">&quot;0x40B47D1AfefEF5eF41e0789F0285DE7b1C31631C&quot;</span>,
-			<span class="string">&quot;0x5086933d549cEcEB20652CE00973703CF10Da373&quot;</span>,
-			<span class="string">&quot;0xeb364f6FE356882F92ae9314fa96116Cf65F47d8&quot;</span>,
-			<span class="string">&quot;0xdC4D31516A416cEf533C01a92D9a04bbdb85EE67&quot;</span>,
-			<span class="string">&quot;0x9b36E086E5A274332AFd3D8509e12ca5F6af918d&quot;</span>,
-			<span class="string">&quot;0xBC26394fF36e1673aE0608ce91A53B9768aD0D76&quot;</span>,
-			<span class="string">&quot;0x81B5AB400be9e563fA476c100BE898C09966426c&quot;</span>,
-			<span class="string">&quot;0x9d93C8ae5793054D28278A5DE6d4653EC79e90FE&quot;</span>,
-			<span class="string">&quot;0x3B8E75804F71e121008991E3177fc942b6c28F50&quot;</span>,
-			<span class="string">&quot;0xC6Eb5886eB43dD473f5BB4e21e56E08dA464D9B4&quot;</span>,
-			<span class="string">&quot;0xfdf1277b71A73c813cD0e1a94B800f4B1Db66DBE&quot;</span>,
-			<span class="string">&quot;0xc2ff2cCc98971556670e287Ff0CC39DA795231ad&quot;</span>,
-			<span class="string">&quot;0x76b7E1473f0D0A87E9B4a14E2B179266802740f5&quot;</span>,
-			<span class="string">&quot;0xA7Bc965660a6EF4687CCa4F69A97563163A3C2Ef&quot;</span>,
-			<span class="string">&quot;0xB9C2b47888B9F8f7D03dC1de83F3F55E738CebD3&quot;</span>,
-			<span class="string">&quot;0xEd400162E6Dd6bD2271728FFb04176bF770De94a&quot;</span>,
-			<span class="string">&quot;0xE3E8331156700339142189B6E555DCb2c0962750&quot;</span>,
-			<span class="string">&quot;0xbf62e342Bc7706a448EdD52AE871d9C4497A53b1&quot;</span>,
-			<span class="string">&quot;0xb9d7A1A111eed75714a0AcD2dd467E872eE6B03D&quot;</span>,
-			<span class="string">&quot;0x03942919DFD0383b8c574AB8A701d89fd4bfA69D&quot;</span>,
-			<span class="string">&quot;0x0Ef4C92355D3c8c7050DFeb319790EFCcBE6fe9e&quot;</span>,
-			<span class="string">&quot;0xA6895a3cf0C60212a73B3891948ACEcF1753f25E&quot;</span>,
-			<span class="string">&quot;0x0Ed509239DB59ef3503ded3d31013C983d52803A&quot;</span>,
-			<span class="string">&quot;0xc4CE8abD123BfAFc4deFf37c7D11DeCd5c350EE4&quot;</span>,
-			<span class="string">&quot;0x4A4Bf59f7038eDcd8597004f35d7Ee24a7Bdd2d3&quot;</span>,
-			<span class="string">&quot;0x5769E8e8A2656b5ed6b6e6fa2a2bFAeaf970BB87&quot;</span>,
-			<span class="string">&quot;0xf9E15cCE181332F4F57386687c1776b66C377060&quot;</span>,
-			<span class="string">&quot;0xc98f8d4843D56a46C21171900d3eE538Cc74dbb5&quot;</span>,
-			<span class="string">&quot;0x3605965B47544Ce4302b988788B8195601AE4dEd&quot;</span>,
-			<span class="string">&quot;0xe993BDfdcAac2e65018efeE0F69A12678031c71d&quot;</span>,
-			<span class="string">&quot;0x274fDf8801385D3FAc954BCc1446Af45f5a8304c&quot;</span>,
-			<span class="string">&quot;0xBFb3f476fcD6429F4a475bA23cEFdDdd85c6b964&quot;</span>,
-			<span class="string">&quot;0x806cD16588Fe812ae740e931f95A289aFb4a4B50&quot;</span>,
-			<span class="string">&quot;0xa89488CE3bD9C25C3aF797D1bbE6CA689De79d81&quot;</span>,
-			<span class="string">&quot;0xd412f1AfAcf0Ebf3Cd324593A231Fc74CC488B12&quot;</span>,
-			<span class="string">&quot;0xd1f715b2D7951d54bc31210BbD41852D9BF98Ed1&quot;</span>,
-			<span class="string">&quot;0xf65aD707c344171F467b2ADba3d14f312219cE23&quot;</span>,
-			<span class="string">&quot;0x2971a4b242e9566dEF7bcdB7347f5E484E11919B&quot;</span>,
-			<span class="string">&quot;0x12b113D6827E07E7D426649fBd605f427da52314&quot;</span>,
-			<span class="string">&quot;0x1c6CA45171CDb9856A6C9Dba9c5F1216913C1e97&quot;</span>,
-			<span class="string">&quot;0x11cC6ee1d74963Db23294FCE1E3e0A0555779CeA&quot;</span>,
-			<span class="string">&quot;0x8Aa1C721255CDC8F895E4E4c782D86726b068667&quot;</span>,
-			<span class="string">&quot;0xA2cDC1f37510814485129aC6310b22dF04e9Bbf0&quot;</span>,
-			<span class="string">&quot;0xCf531b71d388EB3f5889F1f78E0d77f6fb109767&quot;</span>,
-			<span class="string">&quot;0xBe703e3545B2510979A0cb0C440C0Fba55c6dCB5&quot;</span>,
-			<span class="string">&quot;0x30a35886F989db39c797D8C93880180Fdd71b0c8&quot;</span>,
-			<span class="string">&quot;0x1071370D981F60c47A9Cd27ac0A61873a372cBB2&quot;</span>,
-			<span class="string">&quot;0x3515d74A11e0Cb65F0F46cB70ecf91dD1712daaa&quot;</span>,
-			<span class="string">&quot;0x50500a3c2b7b1229c6884505D00ac6Be29Aecd0C&quot;</span>,
-			<span class="string">&quot;0x9A223c2a11D4FD3585103B21B161a2B771aDA3d1&quot;</span>,
-			<span class="string">&quot;0xd7218df03AD0907e6c08E707B15d9BD14285e657&quot;</span>,
-			<span class="string">&quot;0x76CfD72eF5f93D1a44aD1F80856797fBE060c70a&quot;</span>,
-			<span class="string">&quot;0x44d093cB745944991EFF5cBa151AA6602d6f5420&quot;</span>,
-			<span class="string">&quot;0x626516DfF43bf09A71eb6fd1510E124F96ED0Cde&quot;</span>,
-			<span class="string">&quot;0x6530824632dfe099304E2DC5701cA99E6d031E08&quot;</span>,
-			<span class="string">&quot;0x57e6c423d6a7607160d6379A0c335025A14DaFC0&quot;</span>,
-			<span class="string">&quot;0x3966D4AD461Ef150E0B10163C81E79b9029E69c3&quot;</span>,
-			<span class="string">&quot;0xF608aCfd0C286E23721a3c347b2b65039f6690F1&quot;</span>,
-			<span class="string">&quot;0xbfB8FAac31A25646681936977837f7740fCd0072&quot;</span>,
-			<span class="string">&quot;0xd80aa634a623a7ED1F069a1a3A28a173061705c7&quot;</span>,
-			<span class="string">&quot;0x9122a77B36363e24e12E1E2D73F87b32926D3dF5&quot;</span>,
-			<span class="string">&quot;0x62562f0d1cD31315bCCf176049B6279B2bfc39C2&quot;</span>,
-			<span class="string">&quot;0x48aBF7A2a7119e5675059E27a7082ba7F38498b2&quot;</span>,
-			<span class="string">&quot;0xb4596983AB9A9166b29517acD634415807569e5F&quot;</span>,
-			<span class="string">&quot;0x52519D16E20BC8f5E96Da6d736963e85b2adA118&quot;</span>,
-			<span class="string">&quot;0x7663893C3dC0850EfC5391f5E5887eD723e51B83&quot;</span>,
-			<span class="string">&quot;0x5FF323a29bCC3B5b4B107e177EccEF4272959e61&quot;</span>,
-			<span class="string">&quot;0xee6e499AdDf4364D75c05D50d9344e9daA5A9AdF&quot;</span>,
-			<span class="string">&quot;0x1631b0BD31fF904aD67dD58994C6C2051CDe4E75&quot;</span>,
-			<span class="string">&quot;0xbc208e9723D44B9811C428f6A55722a26204eEF2&quot;</span>,
-			<span class="string">&quot;0xe76103a222Ee2C7Cf05B580858CEe625C4dc00E1&quot;</span>,
-			<span class="string">&quot;0xC71Bb2DBC51760f4fc2D46D84464410760971B8a&quot;</span>,
-			<span class="string">&quot;0xB4C18811e6BFe564D69E12c224FFc57351f7a7ff&quot;</span>,
-			<span class="string">&quot;0xD11DB0F5b41061A887cB7eE9c8711438844C298A&quot;</span>,
-			<span class="string">&quot;0xB931269934A3D4432c084bAAc3d0de8143199F4f&quot;</span>,
-			<span class="string">&quot;0x070037cc85C761946ec43ea2b8A2d5729908A2a1&quot;</span>,
-			<span class="string">&quot;0x2E34aa8C95Ffdbb37f14dCfBcA69291c55Ba48DE&quot;</span>,
-			<span class="string">&quot;0x052D93e8d9220787c31d6D83f87eC7dB088E998f&quot;</span>,
-			<span class="string">&quot;0x498dAC6C69b8b9ad645217050054840f1D91D029&quot;</span>,
-			<span class="string">&quot;0xE4F7D60f9d84301e1fFFd01385a585F3A11F8E89&quot;</span>,
-			<span class="string">&quot;0xEa637992f30eA06460732EDCBaCDa89355c2a107&quot;</span>,
-			<span class="string">&quot;0x4960d8Da07c27CB6Be48a79B96dD70657c57a6bF&quot;</span>,
-			<span class="string">&quot;0x7e471A003C8C9fdc8789Ded9C3dbe371d8aa0329&quot;</span>,
-			<span class="string">&quot;0xd24265Cc10eecb9e8d355CCc0dE4b11C556E74D7&quot;</span>,
-			<span class="string">&quot;0xDE59C8f7557Af779674f41CA2cA855d571018690&quot;</span>,
-			<span class="string">&quot;0x2fA8A6b3b6226d8efC9d8f6EBDc73Ca33DDcA4d8&quot;</span>,
-			<span class="string">&quot;0xe44102664c6c2024673Ff07DFe66E187Db77c65f&quot;</span>,
-			<span class="string">&quot;0x94E3f4f90a5f7CBF2cc2623e66B8583248F01022&quot;</span>,
-			<span class="string">&quot;0x0383EdBbc21D73DEd039E9C1Ff6bf56017b4CC40&quot;</span>,
-			<span class="string">&quot;0x64C3E49898B88d1E0f0d02DA23E0c00A2Cd0cA99&quot;</span>,
-			<span class="string">&quot;0xF4ccfB67b938d82B70bAb20975acFAe402E812E1&quot;</span>,
-			<span class="string">&quot;0x4f9ee5829e9852E32E7BC154D02c91D8E203e074&quot;</span>,
-			<span class="string">&quot;0xb006312eF9713463bB33D22De60444Ba95609f6B&quot;</span>,
-			<span class="string">&quot;0x7Cbe76ef69B52110DDb2e3b441C04dDb11D63248&quot;</span>,
-			<span class="string">&quot;0x70ADEEa65488F439392B869b1Df7241EF317e221&quot;</span>,
-			<span class="string">&quot;0x64C0bf8AA36Ba590477585Bc0D2BDa7970769463&quot;</span>,
-			<span class="string">&quot;0xA4cDc98593CE52d01Fe5Ca47CB3dA5320e0D7592&quot;</span>,
-			<span class="string">&quot;0xc26B34D375533fFc4c5276282Fa5D660F3d8cbcB&quot;</span>,
+			<span class="string">"0x9aF1Ca5941148eB6A3e9b9C741b69738292C533f"</span>,
+			<span class="string">"0xDD6ca953fddA25c496165D9040F7F77f75B75002"</span>,
+			<span class="string">"0x60e9C47B64Bc1C7C906E891255EaEC19123E7F42"</span>,
+			<span class="string">"0xfa4859480Aa6D899858DE54334d2911E01C070df"</span>,
+			<span class="string">"0x19B9b128470584F7209eEf65B69F3624549Abe6d"</span>,
+			<span class="string">"0xC436aC1f261802C4494504A11fc2926C726cB83b"</span>,
+			<span class="string">"0xc304C8C2c12522F78aD1E28dD86b9947D7744bd0"</span>,
+			<span class="string">"0xDa0C2Cba6e832E55dE89cF4033affc90CC147352"</span>,
+			<span class="string">"0xf850Fd22c96e3501Aad4CDCBf38E4AEC95622411"</span>,
+			<span class="string">"0x684918D4387CEb5E7eda969042f036E226E50642"</span>,
+			<span class="string">"0x963F0A1bFbb6813C0AC88FcDe6ceB96EA634A595"</span>,
+			<span class="string">"0x39B38ad74b8bCc5CE564f7a27Ac19037A95B6099"</span>,
+			<span class="string">"0xC2Dec7Fdd1fef3ee95aD88EC8F3Cd5bd4065f3C7"</span>,
+			<span class="string">"0x9E311f05c2b6A43C2CCF16fB2209491BaBc2ec01"</span>,
+			<span class="string">"0x927607C30eCE4Ef274e250d0bf414d4a210b16f0"</span>,
+			<span class="string">"0x98882bcf85E1E2DFF780D0eB360678C1cf443266"</span>,
+			<span class="string">"0xFBb50191cd0662049E7C4EE32830a4Cc9B353047"</span>,
+			<span class="string">"0x963854fc2C358c48C3F9F0A598B9572c581B8DEF"</span>,
+			<span class="string">"0xF9D7Bc222cF6e3e07bF66711e6f409E51aB75292"</span>,
+			<span class="string">"0xF2E3fd32D063F8bBAcB9e6Ea8101C2edd899AFe6"</span>,
+			<span class="string">"0x407a5b9047B76E8668570120A96d580589fd1325"</span>,
+			<span class="string">"0xEAD9726FAFB900A07dAd24a43AE941d2eFDD6E97"</span>,
+			<span class="string">"0x42f5C8D9384034A9030313B51125C32a526b6ee8"</span>,
+			<span class="string">"0x158fD2529Bc4116570Eb7C80CC76FEf33ad5eD95"</span>,
+			<span class="string">"0x0A436EE2E4dEF3383Cf4546d4278326Ccc82514E"</span>,
+			<span class="string">"0x34229A215db8FeaC93Caf8B5B255e3c6eA51d855"</span>,
+			<span class="string">"0xEb3B7CF8B1840242CB98A732BA464a17D00b5dDF"</span>,
+			<span class="string">"0x2079692bf9ab2d6dc7D79BBDdEE71611E9aA3B72"</span>,
+			<span class="string">"0x46e2A67e5d450e2Cf7317779f8274a2a630f3C9B"</span>,
+			<span class="string">"0xA7Ece4A5390DAB18D08201aE18800375caD78aab"</span>,
+			<span class="string">"0x15E1c0D24D62057Bf082Cb2253dA11Ef0d469570"</span>,
+			<span class="string">"0xADDEF4C9b5687Eb1F7E55F2251916200A3598878"</span>,
+			<span class="string">"0xe0B16Fb96F936035db2b5A68EB37D470fED2f013"</span>,
+			<span class="string">"0x0c9A84993feaa779ae21E39F9793d09e6b69B62D"</span>,
+			<span class="string">"0x3bc4D5148906F70F0A7D1e2756572655fd8b7B34"</span>,
+			<span class="string">"0xFf4675C26903D5319795cbd3a44b109E7DDD9fDe"</span>,
+			<span class="string">"0xCec4450569A8945C6D2Aba0045e4339030128a92"</span>,
+			<span class="string">"0x85f0584B10950E421A32F471635b424063FD8405"</span>,
+			<span class="string">"0xb38bEe7Bdc0bC43c096e206EFdFEad63869929E3"</span>,
+			<span class="string">"0xc9609466274Fef19D0e58E1Ee3b321D5C141067E"</span>,
+			<span class="string">"0xa08EA868cF75268E7401021E9f945BAe73872ecc"</span>,
+			<span class="string">"0x67C9Cb1A29E964Fe87Ff669735cf7eb87f6868fE"</span>,
+			<span class="string">"0x1B6BEF636aFcdd6085cD4455BbcC93796A12F6E2"</span>,
+			<span class="string">"0x46B37b243E09540b55cF91C333188e7D5FD786dD"</span>,
+			<span class="string">"0x8E719E272f62Fa97da93CF9C941F5e53AA09e44a"</span>,
+			<span class="string">"0xa511B7E7DB9cb24AD5c89fBb6032C7a9c2EfA0a5"</span>,
+			<span class="string">"0x4D11FDcAeD335d839132AD450B02af974A3A66f8"</span>,
+			<span class="string">"0xB8cf790a5090E709B4619E1F335317114294E17E"</span>,
+			<span class="string">"0x7f0f57eA064A83210Cafd3a536866ffD2C5eDCB3"</span>,
+			<span class="string">"0xC03C848A4521356EF800e399D889e9c2A25D1f9E"</span>,
+			<span class="string">"0xC6b03DF05cb686D933DD31fCa5A993bF823dc4FE"</span>,
+			<span class="string">"0x58611696b6a8102cf95A32c25612E4cEF32b910F"</span>,
+			<span class="string">"0x2ed4bC7197AEF13560F6771D930Bf907772DE3CE"</span>,
+			<span class="string">"0x3C5E58f334306be029B0e47e119b8977B2639eb4"</span>,
+			<span class="string">"0x288646a1a4FeeC560B349d210263c609aDF649a6"</span>,
+			<span class="string">"0xb4F4981E0d027Dc2B3c86afA0D0fC03d317e83C0"</span>,
+			<span class="string">"0xaAE4A87F8058feDA3971f9DEd639Ec9189aA2500"</span>,
+			<span class="string">"0x355069DA35E598913d8736E5B8340527099960b8"</span>,
+			<span class="string">"0x3cf5A0F274cd243C0A186d9fCBdADad089821B93"</span>,
+			<span class="string">"0xca55155dCc4591538A8A0ca322a56EB0E4aD03C4"</span>,
+			<span class="string">"0xE824D0268366ec5C4F23652b8eD70D552B1F2b8B"</span>,
+			<span class="string">"0x84C3e9B25AE8a9b39FF5E331F9A597F2DCf27Ca9"</span>,
+			<span class="string">"0xcA0018e278751De10d26539915d9c7E7503432FE"</span>,
+			<span class="string">"0xf13077dE6191D6c1509ac7E088b8BE7Fe656c28b"</span>,
+			<span class="string">"0x7a6bcA1ec9Db506e47ac6FD86D001c2aBc59C531"</span>,
+			<span class="string">"0xeA7f9A2A9dd6Ba9bc93ca615C3Ddf26973146911"</span>,
+			<span class="string">"0x8D0d8577e16F8731d4F8712BAbFa97aF4c453458"</span>,
+			<span class="string">"0xB7a7855629dF104246997e9ACa0E6510df75d0ea"</span>,
+			<span class="string">"0x5C1009BDC70b0C8Ab2e5a53931672ab448C17c89"</span>,
+			<span class="string">"0x40B47D1AfefEF5eF41e0789F0285DE7b1C31631C"</span>,
+			<span class="string">"0x5086933d549cEcEB20652CE00973703CF10Da373"</span>,
+			<span class="string">"0xeb364f6FE356882F92ae9314fa96116Cf65F47d8"</span>,
+			<span class="string">"0xdC4D31516A416cEf533C01a92D9a04bbdb85EE67"</span>,
+			<span class="string">"0x9b36E086E5A274332AFd3D8509e12ca5F6af918d"</span>,
+			<span class="string">"0xBC26394fF36e1673aE0608ce91A53B9768aD0D76"</span>,
+			<span class="string">"0x81B5AB400be9e563fA476c100BE898C09966426c"</span>,
+			<span class="string">"0x9d93C8ae5793054D28278A5DE6d4653EC79e90FE"</span>,
+			<span class="string">"0x3B8E75804F71e121008991E3177fc942b6c28F50"</span>,
+			<span class="string">"0xC6Eb5886eB43dD473f5BB4e21e56E08dA464D9B4"</span>,
+			<span class="string">"0xfdf1277b71A73c813cD0e1a94B800f4B1Db66DBE"</span>,
+			<span class="string">"0xc2ff2cCc98971556670e287Ff0CC39DA795231ad"</span>,
+			<span class="string">"0x76b7E1473f0D0A87E9B4a14E2B179266802740f5"</span>,
+			<span class="string">"0xA7Bc965660a6EF4687CCa4F69A97563163A3C2Ef"</span>,
+			<span class="string">"0xB9C2b47888B9F8f7D03dC1de83F3F55E738CebD3"</span>,
+			<span class="string">"0xEd400162E6Dd6bD2271728FFb04176bF770De94a"</span>,
+			<span class="string">"0xE3E8331156700339142189B6E555DCb2c0962750"</span>,
+			<span class="string">"0xbf62e342Bc7706a448EdD52AE871d9C4497A53b1"</span>,
+			<span class="string">"0xb9d7A1A111eed75714a0AcD2dd467E872eE6B03D"</span>,
+			<span class="string">"0x03942919DFD0383b8c574AB8A701d89fd4bfA69D"</span>,
+			<span class="string">"0x0Ef4C92355D3c8c7050DFeb319790EFCcBE6fe9e"</span>,
+			<span class="string">"0xA6895a3cf0C60212a73B3891948ACEcF1753f25E"</span>,
+			<span class="string">"0x0Ed509239DB59ef3503ded3d31013C983d52803A"</span>,
+			<span class="string">"0xc4CE8abD123BfAFc4deFf37c7D11DeCd5c350EE4"</span>,
+			<span class="string">"0x4A4Bf59f7038eDcd8597004f35d7Ee24a7Bdd2d3"</span>,
+			<span class="string">"0x5769E8e8A2656b5ed6b6e6fa2a2bFAeaf970BB87"</span>,
+			<span class="string">"0xf9E15cCE181332F4F57386687c1776b66C377060"</span>,
+			<span class="string">"0xc98f8d4843D56a46C21171900d3eE538Cc74dbb5"</span>,
+			<span class="string">"0x3605965B47544Ce4302b988788B8195601AE4dEd"</span>,
+			<span class="string">"0xe993BDfdcAac2e65018efeE0F69A12678031c71d"</span>,
+			<span class="string">"0x274fDf8801385D3FAc954BCc1446Af45f5a8304c"</span>,
+			<span class="string">"0xBFb3f476fcD6429F4a475bA23cEFdDdd85c6b964"</span>,
+			<span class="string">"0x806cD16588Fe812ae740e931f95A289aFb4a4B50"</span>,
+			<span class="string">"0xa89488CE3bD9C25C3aF797D1bbE6CA689De79d81"</span>,
+			<span class="string">"0xd412f1AfAcf0Ebf3Cd324593A231Fc74CC488B12"</span>,
+			<span class="string">"0xd1f715b2D7951d54bc31210BbD41852D9BF98Ed1"</span>,
+			<span class="string">"0xf65aD707c344171F467b2ADba3d14f312219cE23"</span>,
+			<span class="string">"0x2971a4b242e9566dEF7bcdB7347f5E484E11919B"</span>,
+			<span class="string">"0x12b113D6827E07E7D426649fBd605f427da52314"</span>,
+			<span class="string">"0x1c6CA45171CDb9856A6C9Dba9c5F1216913C1e97"</span>,
+			<span class="string">"0x11cC6ee1d74963Db23294FCE1E3e0A0555779CeA"</span>,
+			<span class="string">"0x8Aa1C721255CDC8F895E4E4c782D86726b068667"</span>,
+			<span class="string">"0xA2cDC1f37510814485129aC6310b22dF04e9Bbf0"</span>,
+			<span class="string">"0xCf531b71d388EB3f5889F1f78E0d77f6fb109767"</span>,
+			<span class="string">"0xBe703e3545B2510979A0cb0C440C0Fba55c6dCB5"</span>,
+			<span class="string">"0x30a35886F989db39c797D8C93880180Fdd71b0c8"</span>,
+			<span class="string">"0x1071370D981F60c47A9Cd27ac0A61873a372cBB2"</span>,
+			<span class="string">"0x3515d74A11e0Cb65F0F46cB70ecf91dD1712daaa"</span>,
+			<span class="string">"0x50500a3c2b7b1229c6884505D00ac6Be29Aecd0C"</span>,
+			<span class="string">"0x9A223c2a11D4FD3585103B21B161a2B771aDA3d1"</span>,
+			<span class="string">"0xd7218df03AD0907e6c08E707B15d9BD14285e657"</span>,
+			<span class="string">"0x76CfD72eF5f93D1a44aD1F80856797fBE060c70a"</span>,
+			<span class="string">"0x44d093cB745944991EFF5cBa151AA6602d6f5420"</span>,
+			<span class="string">"0x626516DfF43bf09A71eb6fd1510E124F96ED0Cde"</span>,
+			<span class="string">"0x6530824632dfe099304E2DC5701cA99E6d031E08"</span>,
+			<span class="string">"0x57e6c423d6a7607160d6379A0c335025A14DaFC0"</span>,
+			<span class="string">"0x3966D4AD461Ef150E0B10163C81E79b9029E69c3"</span>,
+			<span class="string">"0xF608aCfd0C286E23721a3c347b2b65039f6690F1"</span>,
+			<span class="string">"0xbfB8FAac31A25646681936977837f7740fCd0072"</span>,
+			<span class="string">"0xd80aa634a623a7ED1F069a1a3A28a173061705c7"</span>,
+			<span class="string">"0x9122a77B36363e24e12E1E2D73F87b32926D3dF5"</span>,
+			<span class="string">"0x62562f0d1cD31315bCCf176049B6279B2bfc39C2"</span>,
+			<span class="string">"0x48aBF7A2a7119e5675059E27a7082ba7F38498b2"</span>,
+			<span class="string">"0xb4596983AB9A9166b29517acD634415807569e5F"</span>,
+			<span class="string">"0x52519D16E20BC8f5E96Da6d736963e85b2adA118"</span>,
+			<span class="string">"0x7663893C3dC0850EfC5391f5E5887eD723e51B83"</span>,
+			<span class="string">"0x5FF323a29bCC3B5b4B107e177EccEF4272959e61"</span>,
+			<span class="string">"0xee6e499AdDf4364D75c05D50d9344e9daA5A9AdF"</span>,
+			<span class="string">"0x1631b0BD31fF904aD67dD58994C6C2051CDe4E75"</span>,
+			<span class="string">"0xbc208e9723D44B9811C428f6A55722a26204eEF2"</span>,
+			<span class="string">"0xe76103a222Ee2C7Cf05B580858CEe625C4dc00E1"</span>,
+			<span class="string">"0xC71Bb2DBC51760f4fc2D46D84464410760971B8a"</span>,
+			<span class="string">"0xB4C18811e6BFe564D69E12c224FFc57351f7a7ff"</span>,
+			<span class="string">"0xD11DB0F5b41061A887cB7eE9c8711438844C298A"</span>,
+			<span class="string">"0xB931269934A3D4432c084bAAc3d0de8143199F4f"</span>,
+			<span class="string">"0x070037cc85C761946ec43ea2b8A2d5729908A2a1"</span>,
+			<span class="string">"0x2E34aa8C95Ffdbb37f14dCfBcA69291c55Ba48DE"</span>,
+			<span class="string">"0x052D93e8d9220787c31d6D83f87eC7dB088E998f"</span>,
+			<span class="string">"0x498dAC6C69b8b9ad645217050054840f1D91D029"</span>,
+			<span class="string">"0xE4F7D60f9d84301e1fFFd01385a585F3A11F8E89"</span>,
+			<span class="string">"0xEa637992f30eA06460732EDCBaCDa89355c2a107"</span>,
+			<span class="string">"0x4960d8Da07c27CB6Be48a79B96dD70657c57a6bF"</span>,
+			<span class="string">"0x7e471A003C8C9fdc8789Ded9C3dbe371d8aa0329"</span>,
+			<span class="string">"0xd24265Cc10eecb9e8d355CCc0dE4b11C556E74D7"</span>,
+			<span class="string">"0xDE59C8f7557Af779674f41CA2cA855d571018690"</span>,
+			<span class="string">"0x2fA8A6b3b6226d8efC9d8f6EBDc73Ca33DDcA4d8"</span>,
+			<span class="string">"0xe44102664c6c2024673Ff07DFe66E187Db77c65f"</span>,
+			<span class="string">"0x94E3f4f90a5f7CBF2cc2623e66B8583248F01022"</span>,
+			<span class="string">"0x0383EdBbc21D73DEd039E9C1Ff6bf56017b4CC40"</span>,
+			<span class="string">"0x64C3E49898B88d1E0f0d02DA23E0c00A2Cd0cA99"</span>,
+			<span class="string">"0xF4ccfB67b938d82B70bAb20975acFAe402E812E1"</span>,
+			<span class="string">"0x4f9ee5829e9852E32E7BC154D02c91D8E203e074"</span>,
+			<span class="string">"0xb006312eF9713463bB33D22De60444Ba95609f6B"</span>,
+			<span class="string">"0x7Cbe76ef69B52110DDb2e3b441C04dDb11D63248"</span>,
+			<span class="string">"0x70ADEEa65488F439392B869b1Df7241EF317e221"</span>,
+			<span class="string">"0x64C0bf8AA36Ba590477585Bc0D2BDa7970769463"</span>,
+			<span class="string">"0xA4cDc98593CE52d01Fe5Ca47CB3dA5320e0D7592"</span>,
+			<span class="string">"0xc26B34D375533fFc4c5276282Fa5D660F3d8cbcB"</span>,
 		];
 		<span class="kw">let </span>root: H256 = array_bytes::hex2array_unchecked(
-			<span class="string">&quot;72b0acd7c302a84f1f6b6cefe0ba7194b7398afb440e1b44a9dbbe270394ca53&quot;</span>,
+			<span class="string">"72b0acd7c302a84f1f6b6cefe0ba7194b7398afb440e1b44a9dbbe270394ca53"</span>,
 		)
 		.into();
 
@@ -1717,7 +1719,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">for </span>l <span class="kw">in </span><span class="number">0</span>..data.len() {
 			<span class="comment">// when
 			</span><span class="kw">let </span>proof = merkle_proof::&lt;Keccak256, <span class="kw">_</span>, <span class="kw">_</span>&gt;(data.clone(), l);
-			<span class="macro">assert_eq!</span>(array_bytes::bytes2hex(<span class="string">&quot;&quot;</span>, <span class="kw-2">&amp;</span>proof.root), array_bytes::bytes2hex(<span class="string">&quot;&quot;</span>, <span class="kw-2">&amp;</span>root));
+			<span class="macro">assert_eq!</span>(array_bytes::bytes2hex(<span class="string">""</span>, <span class="kw-2">&amp;</span>proof.root), array_bytes::bytes2hex(<span class="string">""</span>, <span class="kw-2">&amp;</span>root));
 			<span class="macro">assert_eq!</span>(proof.leaf_index, l);
 			<span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span>proof.leaf, <span class="kw-2">&amp;</span>data[l]);
 
@@ -1739,26 +1741,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				root,
 				proof: <span class="macro">vec!</span>[
 					array_bytes::hex2array_unchecked(
-						<span class="string">&quot;340bcb1d49b2d82802ddbcf5b85043edb3427b65d09d7f758fbc76932ad2da2f&quot;
+						<span class="string">"340bcb1d49b2d82802ddbcf5b85043edb3427b65d09d7f758fbc76932ad2da2f"
 					</span>)
 					.into(),
 					array_bytes::hex2array_unchecked(
-						<span class="string">&quot;ba0580e5bd530bc93d61276df7969fb5b4ae8f1864b4a28c280249575198ff1f&quot;
+						<span class="string">"ba0580e5bd530bc93d61276df7969fb5b4ae8f1864b4a28c280249575198ff1f"
 					</span>)
 					.into(),
 					array_bytes::hex2array_unchecked(
-						<span class="string">&quot;d02609d2bbdb28aa25f58b85afec937d5a4c85d37925bce6d0cf802f9d76ba79&quot;
+						<span class="string">"d02609d2bbdb28aa25f58b85afec937d5a4c85d37925bce6d0cf802f9d76ba79"
 					</span>)
 					.into(),
 					array_bytes::hex2array_unchecked(
-						<span class="string">&quot;ae3f8991955ed884613b0a5f40295902eea0e0abe5858fc520b72959bc016d4e&quot;
+						<span class="string">"ae3f8991955ed884613b0a5f40295902eea0e0abe5858fc520b72959bc016d4e"
 					</span>)
 					.into(),
 				],
 				number_of_leaves: data.len(),
 				leaf_index: data.len() - <span class="number">1</span>,
 				leaf: array_bytes::hex2array_unchecked::&lt;<span class="kw">_</span>, <span class="number">20</span>&gt;(
-					<span class="string">&quot;c26B34D375533fFc4c5276282Fa5D660F3d8cbcB&quot;
+					<span class="string">"c26B34D375533fFc4c5276282Fa5D660F3d8cbcB"
 				</span>)
 				.to_vec(),
 			}

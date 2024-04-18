@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/network/statement-distribution/src/v2/grid.rs`."><title>grid.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/network/statement-distribution/src/v2/grid.rs`."><title>grid.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_statement_distribution" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_statement_distribution" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../polkadot_statement_distribution/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -2523,10 +2525,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!
 //! # Protocol
 //!
-//! - Once the candidate is backed, produce a &#39;backed candidate packet&#39; `(CommittedCandidateReceipt,
+//! - Once the candidate is backed, produce a 'backed candidate packet' `(CommittedCandidateReceipt,
 //!   Statements)`.
-//! - Members of a backing group produce an announcement of a fully-backed candidate (aka &quot;full
-//!   manifest&quot;) when they are finished.
+//! - Members of a backing group produce an announcement of a fully-backed candidate (aka "full
+//!   manifest") when they are finished.
 //!   - `BackedCandidateManifest`
 //!   - Manifests are sent along the grid topology to peers who have the relay-parent in their
 //!     implicit view.
@@ -2581,12 +2583,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// expected to send to as well as the authorities we expect to receive from.
 ///
 /// In the case that this group is the group that we are locally assigned to,
-/// the &#39;receiving&#39; side will be empty.
+/// the 'receiving' side will be empty.
 </span><span class="attr">#[derive(Debug, PartialEq)]
 </span><span class="kw">struct </span>GroupSubView {
-	<span class="comment">// validators we are &#39;sending&#39; to.
+	<span class="comment">// validators we are 'sending' to.
 	</span>sending: HashSet&lt;ValidatorIndex&gt;,
-	<span class="comment">// validators we are &#39;receiving&#39; from.
+	<span class="comment">// validators we are 'receiving' from.
 	</span>receiving: HashSet&lt;ValidatorIndex&gt;,
 }
 
@@ -2604,7 +2606,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		group: GroupIndex,
 		kind: ManifestKind,
-	) -&gt; <span class="kw">impl </span>Iterator&lt;Item = ValidatorIndex&gt; + <span class="lifetime">&#39;_ </span>{
+	) -&gt; <span class="kw">impl </span>Iterator&lt;Item = ValidatorIndex&gt; + <span class="lifetime">'_ </span>{
 		<span class="self">self</span>.group_views.get(<span class="kw-2">&amp;</span>group).into_iter().flat_map(<span class="kw">move </span>|sub| <span class="kw">match </span>kind {
 			ManifestKind::Full =&gt; sub.receiving.iter().cloned(),
 			ManifestKind::Acknowledgement =&gt; sub.sending.iter().cloned(),
@@ -2616,10 +2618,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// For groups that we are part of: we receive from nobody and send to our X/Y peers.
 /// For groups that we are not part of: we receive from any validator in the group we share a slice
 /// with    and send to the corresponding X/Y slice in the other dimension.
-///    For any validators we don&#39;t share a slice with, we receive from the nodes
+///    For any validators we don't share a slice with, we receive from the nodes
 ///    which share a slice with them.
-</span><span class="kw">pub fn </span>build_session_topology&lt;<span class="lifetime">&#39;a</span>&gt;(
-	groups: <span class="kw">impl </span>IntoIterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Vec&lt;ValidatorIndex&gt;&gt;,
+</span><span class="kw">pub fn </span>build_session_topology&lt;<span class="lifetime">'a</span>&gt;(
+	groups: <span class="kw">impl </span>IntoIterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Vec&lt;ValidatorIndex&gt;&gt;,
 	topology: <span class="kw-2">&amp;</span>SessionGridTopology,
 	our_index: <span class="prelude-ty">Option</span>&lt;ValidatorIndex&gt;,
 ) -&gt; SessionTopologyView {
@@ -2632,7 +2634,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">let </span>our_neighbors = <span class="kw">match </span>topology.compute_grid_neighbors_for(our_index) {
 		<span class="prelude-val">None </span>=&gt; {
-			<span class="macro">gum::warn!</span>(target: LOG_TARGET, <span class="question-mark">?</span>our_index, <span class="string">&quot;our index unrecognized in topology?&quot;</span>);
+			<span class="macro">gum::warn!</span>(target: LOG_TARGET, <span class="question-mark">?</span>our_index, <span class="string">"our index unrecognized in topology?"</span>);
 
 			<span class="kw">return </span>view
 		},
@@ -2684,14 +2686,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw">continue
 				</span>}
 
-				<span class="comment">// If they don&#39;t share a slice with us, we don&#39;t send to anybody
+				<span class="comment">// If they don't share a slice with us, we don't send to anybody
 				// but receive from any peers sharing a dimension with both of us
 				</span><span class="kw">let </span>their_neighbors = <span class="kw">match </span>topology.compute_grid_neighbors_for(group_val) {
 					<span class="prelude-val">None </span>=&gt; {
 						<span class="macro">gum::warn!</span>(
 							target: LOG_TARGET,
 							index = <span class="question-mark">?</span>group_val,
-							<span class="string">&quot;validator index unrecognized in topology?&quot;
+							<span class="string">"validator index unrecognized in topology?"
 						</span>);
 
 						<span class="kw">continue
@@ -2727,7 +2729,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[derive(Debug, Clone, Copy, PartialEq)]
 </span><span class="kw">pub enum </span>ManifestKind {
 	<span class="doccomment">/// Full manifests contain information about the candidate and should be sent
-	/// to peers which aren&#39;t guaranteed to have the candidate already.
+	/// to peers which aren't guaranteed to have the candidate already.
 	</span>Full,
 	<span class="doccomment">/// Acknowledgement manifests omit information which is implicit in the candidate
 	/// itself, and should be sent to peers which are guaranteed to have the candidate
@@ -2896,7 +2898,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				</span>.received
 				.get(<span class="kw-2">&amp;</span>v)
 				.and_then(|r| r.candidate_statement_filter(<span class="kw-2">&amp;</span>candidate_hash))
-				.expect(<span class="string">&quot;unconfirmed is only populated by validators who have sent manifest; qed&quot;</span>);
+				.expect(<span class="string">"unconfirmed is only populated by validators who have sent manifest; qed"</span>);
 
 			<span class="comment">// No need to send direct statements, because our local knowledge is `None`
 			</span>c.manifest_received_from(v, statement_filter);
@@ -2928,7 +2930,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				target: LOG_TARGET,
 				validator_index = <span class="question-mark">?</span>v,
 				<span class="question-mark">?</span>manifest_mode,
-				<span class="string">&quot;Preparing to send manifest/acknowledgement&quot;
+				<span class="string">"Preparing to send manifest/acknowledgement"
 			</span>);
 
 			<span class="self">self</span>.pending_manifests
@@ -3178,12 +3180,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="prelude-val">Some</span>((group, <span class="kw-2">*</span>candidate_hash, statement_kind, index_in_group))
 }
 
-<span class="kw">fn </span>decompose_statement_filter&lt;<span class="lifetime">&#39;a</span>&gt;(
-	groups: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Groups,
+<span class="kw">fn </span>decompose_statement_filter&lt;<span class="lifetime">'a</span>&gt;(
+	groups: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Groups,
 	group_index: GroupIndex,
 	candidate_hash: CandidateHash,
-	statement_filter: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>StatementFilter,
-) -&gt; <span class="kw">impl </span>Iterator&lt;Item = (ValidatorIndex, CompactStatement)&gt; + <span class="lifetime">&#39;a </span>{
+	statement_filter: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>StatementFilter,
+) -&gt; <span class="kw">impl </span>Iterator&lt;Item = (ValidatorIndex, CompactStatement)&gt; + <span class="lifetime">'a </span>{
 	groups.get(group_index).into_iter().flat_map(<span class="kw">move </span>|g| {
 		<span class="kw">let </span>s = statement_filter
 			.seconded_in_group
@@ -3407,7 +3409,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// concerning the candidate.
 </span><span class="attr">#[derive(Debug, Clone)]
 </span><span class="kw">struct </span>MutualKnowledge {
-	<span class="doccomment">/// Knowledge the remote peer has about the candidate, as far as we&#39;re aware.
+	<span class="doccomment">/// Knowledge the remote peer has about the candidate, as far as we're aware.
 	/// `Some` only if they have advertised, acknowledged, or requested the candidate.
 	</span>remote_knowledge: <span class="prelude-ty">Option</span>&lt;StatementFilter&gt;,
 	<span class="doccomment">/// Knowledge we have indicated to the remote peer about the candidate.
@@ -3677,7 +3679,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		);
 		<span class="macro">assert_eq!</span>(t.group_views.get(<span class="kw-2">&amp;</span>GroupIndex(<span class="number">0</span>)).unwrap().receiving, HashSet::new(),);
 
-		<span class="comment">// we share a row with &#39;2&#39; and have indirect connections to &#39;4&#39; and &#39;7&#39;.
+		<span class="comment">// we share a row with '2' and have indirect connections to '4' and '7'.
 
 		</span><span class="macro">assert_eq!</span>(
 			t.group_views.get(<span class="kw-2">&amp;</span>GroupIndex(<span class="number">1</span>)).unwrap().sending,
@@ -3688,7 +3690,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">vec!</span>[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">6</span>].into_iter().map(ValidatorIndex).collect::&lt;HashSet&lt;<span class="kw">_</span>&gt;&gt;(),
 		);
 
-		<span class="comment">// we share a row with &#39;1&#39; and have indirect connections to &#39;5&#39; and &#39;8&#39;.
+		<span class="comment">// we share a row with '1' and have indirect connections to '5' and '8'.
 
 		</span><span class="macro">assert_eq!</span>(
 			t.group_views.get(<span class="kw-2">&amp;</span>GroupIndex(<span class="number">2</span>)).unwrap().sending,
@@ -3759,7 +3761,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		);
 	}
 
-	<span class="comment">// Make sure we don&#39;t import manifests that would put a validator in a group over the limit of
+	<span class="comment">// Make sure we don't import manifests that would put a validator in a group over the limit of
 	// candidates they are allowed to second (aka seconding limit).
 	</span><span class="attr">#[test]
 	</span><span class="kw">fn </span>reject_overflowing_manifests() {
@@ -3815,7 +3817,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Err</span>(ManifestImportError::Overflow)
 		);
 
-		<span class="comment">// Don&#39;t reject validators that have seconded less than the limit so far.
+		<span class="comment">// Don't reject validators that have seconded less than the limit so far.
 		</span>knowledge
 			.import_received(
 				<span class="number">3</span>,
@@ -4046,7 +4048,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Err</span>(ManifestImportError::Insufficient)
 		);
 
-		<span class="comment">// seconding + validating still not enough to reach &#39;2&#39; threshold
+		<span class="comment">// seconding + validating still not enough to reach '2' threshold
 
 		</span><span class="macro">assert_matches!</span>(
 			tracker.import_manifest(
@@ -4126,11 +4128,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		);
 		<span class="comment">// Validator 0 is in the sending group. Advertise onward to it.
 		//
-		// Validator 1 is in the receiving group, but we have not received from it, so we&#39;re not
+		// Validator 1 is in the receiving group, but we have not received from it, so we're not
 		// expected to send it an acknowledgement.
 		</span><span class="macro">assert_eq!</span>(receivers, <span class="macro">vec!</span>[(validator_index, ManifestKind::Full)]);
 
-		<span class="comment">// Note the manifest as &#39;sent&#39; to validator 0.
+		<span class="comment">// Note the manifest as 'sent' to validator 0.
 		</span>tracker.manifest_sent_to(<span class="kw-2">&amp;</span>groups, validator_index, candidate_hash, local_knowledge);
 
 		<span class="comment">// Import manifest of kind `Acknowledgement` from validator 0.
@@ -4197,7 +4199,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">let </span>pending_manifest = tracker.is_manifest_pending_for(validator_index, <span class="kw-2">&amp;</span>candidate_hash);
 		<span class="macro">assert_eq!</span>(pending_manifest, <span class="prelude-val">Some</span>(ManifestKind::Full));
 
-		<span class="comment">// Note the manifest as &#39;sent&#39; to validator 0.
+		<span class="comment">// Note the manifest as 'sent' to validator 0.
 		</span>tracker.manifest_sent_to(<span class="kw-2">&amp;</span>groups, validator_index, candidate_hash, local_knowledge);
 
 		<span class="comment">// Import manifest.
@@ -4819,7 +4821,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">if </span>g_i.sending.contains(<span class="kw-2">&amp;</span>v_j) {
 					<span class="macro">assert!</span>(
 						g_j.receiving.contains(<span class="kw-2">&amp;</span>v_i),
-						<span class="string">&quot;{:?}: {:?}, sending but not receiving&quot;</span>,
+						<span class="string">"{:?}: {:?}, sending but not receiving"</span>,
 						group,
 						<span class="kw-2">&amp;</span>(i, j)
 					);
@@ -4828,18 +4830,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">if </span>g_j.sending.contains(<span class="kw-2">&amp;</span>v_i) {
 					<span class="macro">assert!</span>(
 						g_i.receiving.contains(<span class="kw-2">&amp;</span>v_j),
-						<span class="string">&quot;{:?}: {:?}, sending but not receiving&quot;</span>,
+						<span class="string">"{:?}: {:?}, sending but not receiving"</span>,
 						group,
 						<span class="kw-2">&amp;</span>(j, i)
 					);
 				}
 
 				<span class="kw">if </span>g_i.receiving.contains(<span class="kw-2">&amp;</span>v_j) {
-					<span class="macro">assert!</span>(g_j.sending.contains(<span class="kw-2">&amp;</span>v_i), <span class="string">&quot;{:?}, receiving but not sending&quot;</span>, <span class="kw-2">&amp;</span>(i, j));
+					<span class="macro">assert!</span>(g_j.sending.contains(<span class="kw-2">&amp;</span>v_i), <span class="string">"{:?}, receiving but not sending"</span>, <span class="kw-2">&amp;</span>(i, j));
 				}
 
 				<span class="kw">if </span>g_j.receiving.contains(<span class="kw-2">&amp;</span>v_i) {
-					<span class="macro">assert!</span>(g_i.sending.contains(<span class="kw-2">&amp;</span>v_j), <span class="string">&quot;{:?}, receiving but not sending&quot;</span>, <span class="kw-2">&amp;</span>(j, i));
+					<span class="macro">assert!</span>(g_i.sending.contains(<span class="kw-2">&amp;</span>v_j), <span class="string">"{:?}, receiving but not sending"</span>, <span class="kw-2">&amp;</span>(j, i));
 				}
 			}
 		};

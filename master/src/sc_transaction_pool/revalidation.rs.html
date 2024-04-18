@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/transaction-pool/src/revalidation.rs`."><title>revalidation.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/transaction-pool/src/revalidation.rs`."><title>revalidation.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_transaction_pool" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_transaction_pool" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sc_transaction_pool/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -676,11 +678,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">let </span>block_number = <span class="kw">match </span>api.block_id_to_number(<span class="kw-2">&amp;</span>BlockId::Hash(at)) {
 		<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(n)) =&gt; n,
 		<span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>) =&gt; {
-			<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;revalidation skipped at block {at:?}, could not get block number.&quot;</span>);
+			<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"revalidation skipped at block {at:?}, could not get block number."</span>);
 			<span class="kw">return
 		</span>},
 		<span class="prelude-val">Err</span>(e) =&gt; {
-			<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;revalidation skipped at block {at:?}: {e:?}.&quot;</span>);
+			<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"revalidation skipped at block {at:?}: {e:?}."</span>);
 			<span class="kw">return
 		</span>},
 	};
@@ -701,7 +703,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(TransactionValidityError::Invalid(err))) =&gt; {
 				<span class="macro">log::debug!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;[{:?}]: Revalidation: invalid {:?}&quot;</span>,
+					<span class="string">"[{:?}]: Revalidation: invalid {:?}"</span>,
 					ext_hash,
 					err,
 				);
@@ -712,7 +714,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				// when latter resubmitted.
 				</span><span class="macro">log::trace!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;[{:?}]: Unknown during revalidation: {:?}&quot;</span>,
+					<span class="string">"[{:?}]: Unknown during revalidation: {:?}"</span>,
 					ext_hash,
 					err,
 				);
@@ -733,7 +735,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Err</span>(validation_err) =&gt; {
 				<span class="macro">log::debug!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;[{:?}]: Removing due to error during revalidation: {}&quot;</span>,
+					<span class="string">"[{:?}]: Removing due to error during revalidation: {}"</span>,
 					ext_hash,
 					validation_err
 				);
@@ -802,16 +804,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">fn </span>push(<span class="kw-2">&amp;mut </span><span class="self">self</span>, worker_payload: WorkerPayload&lt;Api&gt;) {
-		<span class="comment">// we don&#39;t add something that already scheduled for revalidation
+		<span class="comment">// we don't add something that already scheduled for revalidation
 		</span><span class="kw">let </span>transactions = worker_payload.transactions;
 		<span class="kw">let </span>block_number = worker_payload.at;
 
 		<span class="kw">for </span>ext_hash <span class="kw">in </span>transactions {
-			<span class="comment">// we don&#39;t add something that already scheduled for revalidation
+			<span class="comment">// we don't add something that already scheduled for revalidation
 			</span><span class="kw">if </span><span class="self">self</span>.members.contains_key(<span class="kw-2">&amp;</span>ext_hash) {
 				<span class="macro">log::trace!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;[{:?}] Skipped adding for revalidation: Already there.&quot;</span>,
+					<span class="string">"[{:?}] Skipped adding for revalidation: Already there."</span>,
 					ext_hash,
 				);
 
@@ -859,7 +861,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw">if </span>batch_len &gt; <span class="number">0 </span>|| this.len() &gt; <span class="number">0 </span>{
 						<span class="macro">log::debug!</span>(
 							target: LOG_TARGET,
-							<span class="string">&quot;Revalidated {} transactions. Left in the queue for revalidation: {}.&quot;</span>,
+							<span class="string">"Revalidated {} transactions. Left in the queue for revalidation: {}."</span>,
 							batch_len,
 							this.len(),
 						);
@@ -876,7 +878,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							<span class="kw">if </span>this.members.len() &gt; <span class="number">0 </span>{
 								<span class="macro">log::debug!</span>(
 									target: LOG_TARGET,
-									<span class="string">&quot;Updated revalidation queue at {:?}. Transactions: {:?}&quot;</span>,
+									<span class="string">"Updated revalidation queue at {:?}. Transactions: {:?}"</span>,
 									this.best_block,
 									this.members,
 								);
@@ -905,7 +907,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl</span>&lt;Api: ChainApi&gt; RevalidationQueue&lt;Api&gt;
 <span class="kw">where
-	</span>Api: <span class="lifetime">&#39;static</span>,
+	</span>Api: <span class="lifetime">'static</span>,
 {
 	<span class="doccomment">/// New revalidation queue without background worker.
 	</span><span class="kw">pub fn </span>new(api: Arc&lt;Api&gt;, pool: Arc&lt;Pool&lt;Api&gt;&gt;) -&gt; <span class="self">Self </span>{
@@ -919,7 +921,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		interval: Duration,
 		best_block: BlockHash&lt;Api&gt;,
 	) -&gt; (<span class="self">Self</span>, Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = ()&gt; + Send&gt;&gt;) {
-		<span class="kw">let </span>(to_worker, from_queue) = tracing_unbounded(<span class="string">&quot;mpsc_revalidation_queue&quot;</span>, <span class="number">100_000</span>);
+		<span class="kw">let </span>(to_worker, from_queue) = tracing_unbounded(<span class="string">"mpsc_revalidation_queue"</span>, <span class="number">100_000</span>);
 
 		<span class="kw">let </span>worker = RevalidationWorker::new(api.clone(), pool.clone(), best_block);
 
@@ -950,14 +952,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if </span>transactions.len() &gt; <span class="number">0 </span>{
 			<span class="macro">log::debug!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;Sent {} transactions to revalidation queue&quot;</span>,
+				<span class="string">"Sent {} transactions to revalidation queue"</span>,
 				transactions.len(),
 			);
 		}
 
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>to_worker) = <span class="self">self</span>.background {
 			<span class="kw">if let </span><span class="prelude-val">Err</span>(e) = to_worker.unbounded_send(WorkerPayload { at, transactions }) {
-				<span class="macro">log::warn!</span>(target: LOG_TARGET, <span class="string">&quot;Failed to update background worker: {:?}&quot;</span>, e);
+				<span class="macro">log::warn!</span>(target: LOG_TARGET, <span class="string">"Failed to update background worker: {:?}"</span>, e);
 			}
 		} <span class="kw">else </span>{
 			<span class="kw">let </span>pool = <span class="self">self</span>.pool.clone();
@@ -996,7 +998,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>uxt_hash =
 			block_on(pool.submit_one(hash_of_block0, TransactionSource::External, uxt.clone()))
-				.expect(<span class="string">&quot;Should be valid&quot;</span>);
+				.expect(<span class="string">"Should be valid"</span>);
 
 		block_on(queue.revalidate_later(hash_of_block0, <span class="macro">vec!</span>[uxt_hash]));
 
@@ -1030,9 +1032,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>uxt_hashes =
 			block_on(pool.submit_at(hash_of_block0, TransactionSource::External, <span class="macro">vec!</span>[uxt0, uxt1]))
-				.expect(<span class="string">&quot;Should be valid&quot;</span>)
+				.expect(<span class="string">"Should be valid"</span>)
 				.into_iter()
-				.map(|r| r.expect(<span class="string">&quot;Should be valid&quot;</span>))
+				.map(|r| r.expect(<span class="string">"Should be valid"</span>))
 				.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 
 		<span class="macro">assert_eq!</span>(api.validation_requests().len(), <span class="number">2</span>);

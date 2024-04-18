@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/subsystem-bench/src/lib/network.rs`."><title>network.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/subsystem-bench/src/lib/network.rs`."><title>network.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_subsystem_bench" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_subsystem_bench" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../polkadot_subsystem_bench/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1297,7 +1299,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	time::{Duration, Instant},
 };
 
-<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;subsystem-bench::network&quot;</span>;
+<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"subsystem-bench::network"</span>;
 
 <span class="comment">// An emulated node egress traffic rate_limiter.
 </span><span class="attr">#[derive(Debug)]
@@ -1339,7 +1341,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// Sleep until next tick.
 		</span><span class="kw">if </span>!next_tick_delta.is_zero() {
-			<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="string">&quot;need to sleep {}ms&quot;</span>, next_tick_delta.as_millis());
+			<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="string">"need to sleep {}ms"</span>, next_tick_delta.as_millis());
 			tokio::time::sleep(next_tick_delta).<span class="kw">await</span>;
 		}
 
@@ -1358,9 +1360,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>}
 
 		<span class="kw">while </span><span class="self">self</span>.credits &lt; <span class="number">0 </span>{
-			<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="string">&quot;Before refill: {:?}&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>);
+			<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="string">"Before refill: {:?}"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>);
 			<span class="self">self</span>.refill().<span class="kw">await</span>;
-			<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="string">&quot;After refill: {:?}&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>);
+			<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="string">"After refill: {:?}"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>);
 		}
 	}
 }
@@ -1432,14 +1434,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">fn </span>poll(
 		<span class="kw-2">mut </span><span class="self">self</span>: std::pin::Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;,
-		cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">&#39;_</span>&gt;,
+		cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">'_</span>&gt;,
 	) -&gt; std::task::Poll&lt;<span class="self">Self</span>::Output&gt; {
 		<span class="kw">match </span><span class="self">self</span>.receiver.poll_unpin(cx) {
 			Poll::Pending =&gt; Poll::Pending,
 			Poll::Ready(response) =&gt; Poll::Ready(ProxiedResponse {
-				sender: <span class="self">self</span>.sender.take().expect(<span class="string">&quot;sender already used&quot;</span>),
+				sender: <span class="self">self</span>.sender.take().expect(<span class="string">"sender already used"</span>),
 				result: response
-					.expect(<span class="string">&quot;Response is always successfully received.&quot;</span>)
+					.expect(<span class="string">"Response is always successfully received."</span>)
 					.result
 					.map_err(|<span class="kw">_</span>| RequestFailure::Refused),
 			}),
@@ -1501,16 +1503,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 								<span class="comment">// Send the new message to network bridge subsystem.
 								</span>rx_task_bridge_sender
 									.unbounded_send(NetworkMessage::RequestFromPeer(new_request))
-									.expect(<span class="string">&quot;network bridge subsystem is alive&quot;</span>);
+									.expect(<span class="string">"network bridge subsystem is alive"</span>);
 								<span class="kw">continue
 							</span>}
 
 							<span class="comment">// Forward the message to the bridge.
 							</span>rx_task_bridge_sender
 								.unbounded_send(peer_message)
-								.expect(<span class="string">&quot;network bridge subsystem is alive&quot;</span>);
+								.expect(<span class="string">"network bridge subsystem is alive"</span>);
 						} <span class="kw">else </span>{
-							<span class="macro">gum::info!</span>(target: LOG_TARGET, <span class="string">&quot;Uplink channel closed, network interface task exiting&quot;</span>);
+							<span class="macro">gum::info!</span>(target: LOG_TARGET, <span class="string">"Uplink channel closed, network interface task exiting"</span>);
 							<span class="kw">break
 						</span>}
 					},
@@ -1519,7 +1521,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							<span class="kw">match </span>proxied_request.result {
 								<span class="prelude-val">Ok</span>(result) =&gt; {
 									<span class="kw">let </span>bytes = result.encoded_size();
-									<span class="macro">gum::trace!</span>(target: LOG_TARGET, size = bytes, <span class="string">&quot;proxied request completed&quot;</span>);
+									<span class="macro">gum::trace!</span>(target: LOG_TARGET, size = bytes, <span class="string">"proxied request completed"</span>);
 
 									<span class="comment">// Enforce bandwidth based on the response the node has sent.
 									// TODO: Fix the stall of RX when TX lock() takes a while to refill
@@ -1534,14 +1536,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 											result: <span class="prelude-val">Ok</span>(result),
 											sent_feedback: <span class="prelude-val">None
 										</span>}
-									).expect(<span class="string">&quot;network is alive&quot;</span>);
+									).expect(<span class="string">"network is alive"</span>);
 								}
 								<span class="prelude-val">Err</span>(e) =&gt; {
-									<span class="macro">gum::warn!</span>(target: LOG_TARGET, <span class="string">&quot;Node req/response failure: {:?}&quot;</span>, e)
+									<span class="macro">gum::warn!</span>(target: LOG_TARGET, <span class="string">"Node req/response failure: {:?}"</span>, e)
 								}
 							}
 						} <span class="kw">else </span>{
-							<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="string">&quot;No more active proxied requests&quot;</span>);
+							<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="string">"No more active proxied requests"</span>);
 							<span class="comment">// break
 						</span>}
 					}
@@ -1580,24 +1582,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							)
 							.boxed();
 
-							task_spawn_handle.spawn(<span class="string">&quot;request-proxy&quot;</span>, <span class="string">&quot;test-environment&quot;</span>, send_task);
+							task_spawn_handle.spawn(<span class="string">"request-proxy"</span>, <span class="string">"test-environment"</span>, send_task);
 						},
 						<span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(
-							<span class="string">&quot;Unexpected network message received from emulated network bridge&quot;
+							<span class="string">"Unexpected network message received from emulated network bridge"
 						</span>),
 					}
 
 					tx_network.inc_sent(size);
 				} <span class="kw">else </span>{
-					<span class="macro">gum::info!</span>(target: LOG_TARGET, <span class="string">&quot;Downlink channel closed, network interface task exiting&quot;</span>);
+					<span class="macro">gum::info!</span>(target: LOG_TARGET, <span class="string">"Downlink channel closed, network interface task exiting"</span>);
 					<span class="kw">break
 				</span>}
 			}
 		}
 		.boxed();
 
-		spawn_task_handle.spawn(<span class="string">&quot;network-interface-rx&quot;</span>, <span class="string">&quot;test-environment&quot;</span>, rx_task);
-		spawn_task_handle.spawn(<span class="string">&quot;network-interface-tx&quot;</span>, <span class="string">&quot;test-environment&quot;</span>, tx_task);
+		spawn_task_handle.spawn(<span class="string">"network-interface-rx"</span>, <span class="string">"test-environment"</span>, rx_task);
+		spawn_task_handle.spawn(<span class="string">"network-interface-tx"</span>, <span class="string">"test-environment"</span>, tx_task);
 
 		(
 			<span class="self">Self </span>{ bridge_to_interface_sender },
@@ -1629,10 +1631,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// Wait for answer (intercept the response).
 		</span><span class="kw">match </span>proxy_receiver.<span class="kw">await </span>{
 			<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
-				<span class="macro">panic!</span>(<span class="string">&quot;Emulated peer hangup&quot;</span>);
+				<span class="macro">panic!</span>(<span class="string">"Emulated peer hangup"</span>);
 			},
 			<span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(err)) =&gt; {
-				sender.send(<span class="prelude-val">Err</span>(err)).expect(<span class="string">&quot;Oneshot send always works.&quot;</span>);
+				sender.send(<span class="prelude-val">Err</span>(err)).expect(<span class="string">"Oneshot send always works."</span>);
 			},
 			<span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>((response, protocol_name))) =&gt; {
 				<span class="kw">let </span>response_size = response.encoded_size();
@@ -1641,7 +1643,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 				<span class="comment">// Send the response to the original request sender.
 				</span><span class="kw">if </span>sender.send(<span class="prelude-val">Ok</span>((response, protocol_name))).is_err() {
-					<span class="macro">gum::warn!</span>(target: LOG_TARGET, response_size, <span class="string">&quot;response oneshot canceled by node&quot;</span>)
+					<span class="macro">gum::warn!</span>(target: LOG_TARGET, response_size, <span class="string">"response oneshot canceled by node"</span>)
 				}
 			},
 		};
@@ -1661,21 +1663,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl </span>EmulatedPeerHandle {
 	<span class="doccomment">/// Receive and process a message from the node.
 	</span><span class="kw">pub fn </span>receive(<span class="kw-2">&amp;</span><span class="self">self</span>, message: NetworkMessage) {
-		<span class="self">self</span>.messages_tx.unbounded_send(message).expect(<span class="string">&quot;Peer message channel hangup&quot;</span>);
+		<span class="self">self</span>.messages_tx.unbounded_send(message).expect(<span class="string">"Peer message channel hangup"</span>);
 	}
 
 	<span class="doccomment">/// Send a message to the node.
 	</span><span class="kw">pub fn </span>send_message(<span class="kw-2">&amp;</span><span class="self">self</span>, message: VersionedValidationProtocol) {
 		<span class="self">self</span>.actions_tx
 			.unbounded_send(NetworkMessage::MessageFromPeer(<span class="self">self</span>.peer_id, message))
-			.expect(<span class="string">&quot;Peer action channel hangup&quot;</span>);
+			.expect(<span class="string">"Peer action channel hangup"</span>);
 	}
 
 	<span class="doccomment">/// Send a `request` to the node.
 	</span><span class="kw">pub fn </span>send_request(<span class="kw-2">&amp;</span><span class="self">self</span>, request: IncomingRequest) {
 		<span class="self">self</span>.actions_tx
 			.unbounded_send(NetworkMessage::RequestFromPeer(request))
-			.expect(<span class="string">&quot;Peer action channel hangup&quot;</span>);
+			.expect(<span class="string">"Peer action channel hangup"</span>);
 	}
 }
 
@@ -1694,16 +1696,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">self</span>.tx_limiter.reap(message.size()).<span class="kw">await</span>;
 
 		<span class="kw">if </span><span class="self">self</span>.latency_ms == <span class="number">0 </span>{
-			<span class="self">self</span>.to_node.unbounded_send(message).expect(<span class="string">&quot;Sending to the node never fails&quot;</span>);
+			<span class="self">self</span>.to_node.unbounded_send(message).expect(<span class="string">"Sending to the node never fails"</span>);
 		} <span class="kw">else </span>{
 			<span class="kw">let </span>to_node = <span class="self">self</span>.to_node.clone();
 			<span class="kw">let </span>latency_ms = std::time::Duration::from_millis(<span class="self">self</span>.latency_ms <span class="kw">as </span>u64);
 
 			<span class="comment">// Emulate RTT latency
 			</span><span class="self">self</span>.spawn_handle
-				.spawn(<span class="string">&quot;peer-latency-emulator&quot;</span>, <span class="string">&quot;test-environment&quot;</span>, <span class="kw">async move </span>{
+				.spawn(<span class="string">"peer-latency-emulator"</span>, <span class="string">"test-environment"</span>, <span class="kw">async move </span>{
 					tokio::time::sleep(latency_ms).<span class="kw">await</span>;
-					to_node.unbounded_send(message).expect(<span class="string">&quot;Sending to the node never fails&quot;</span>);
+					to_node.unbounded_send(message).expect(<span class="string">"Sending to the node never fails"</span>);
 				});
 		}
 	}
@@ -1776,10 +1778,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						</span>}
 					}
 					<span class="kw">if let </span><span class="prelude-val">Some</span>(message) = message {
-						<span class="macro">panic!</span>(<span class="string">&quot;Emulated message from peer {:?} not handled&quot;</span>, message.peer());
+						<span class="macro">panic!</span>(<span class="string">"Emulated message from peer {:?} not handled"</span>, message.peer());
 					}
 				} <span class="kw">else </span>{
-					<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="string">&quot;Downlink channel closed, peer task exiting&quot;</span>);
+					<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="string">"Downlink channel closed, peer task exiting"</span>);
 					<span class="kw">break
 				</span>}
 			},
@@ -1798,7 +1800,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					},
 					<span class="prelude-val">Some</span>(message) =&gt; emulated_peer.send_message(message).<span class="kw">await</span>,
 					<span class="prelude-val">None </span>=&gt; {
-						<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="string">&quot;Action channel closed, peer task exiting&quot;</span>);
+						<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="string">"Action channel closed, peer task exiting"</span>);
 						<span class="kw">break
 					</span>}
 				}
@@ -1808,7 +1810,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw">match </span>proxied_request.result {
 						<span class="prelude-val">Ok</span>(result) =&gt; {
 							<span class="kw">let </span>bytes = result.encoded_size();
-							<span class="macro">gum::trace!</span>(target: LOG_TARGET, size = bytes, <span class="string">&quot;Peer proxied request completed&quot;</span>);
+							<span class="macro">gum::trace!</span>(target: LOG_TARGET, size = bytes, <span class="string">"Peer proxied request completed"</span>);
 
 							emulated_peer.rx_limiter().reap(bytes).<span class="kw">await</span>;
 							stats.inc_received(bytes);
@@ -1819,10 +1821,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 									result: <span class="prelude-val">Ok</span>(result),
 									sent_feedback: <span class="prelude-val">None
 								</span>}
-							).expect(<span class="string">&quot;network is alive&quot;</span>);
+							).expect(<span class="string">"network is alive"</span>);
 						}
 						<span class="prelude-val">Err</span>(e) =&gt; {
-							<span class="macro">gum::warn!</span>(target: LOG_TARGET, <span class="string">&quot;Node req/response failure: {:?}&quot;</span>, e)
+							<span class="macro">gum::warn!</span>(target: LOG_TARGET, <span class="string">"Node req/response failure: {:?}"</span>, e)
 						}
 					}
 				}
@@ -1855,8 +1857,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	};
 
 	spawn_task_handle.clone().spawn(
-		<span class="string">&quot;peer-emulator&quot;</span>,
-		<span class="string">&quot;test-environment&quot;</span>,
+		<span class="string">"peer-emulator"</span>,
+		<span class="string">"test-environment"</span>,
 		emulated_peer_loop(
 			handlers,
 			stats,
@@ -1893,16 +1895,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">pub fn </span>sent(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
 		<span class="self">self</span>.metrics
 			.peer_total_sent
-			.get_metric_with_label_values(<span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;node{}&quot;</span>, <span class="self">self</span>.peer_index)])
-			.expect(<span class="string">&quot;Metric exists&quot;</span>)
+			.get_metric_with_label_values(<span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"node{}"</span>, <span class="self">self</span>.peer_index)])
+			.expect(<span class="string">"Metric exists"</span>)
 			.get() <span class="kw">as </span>usize
 	}
 
 	<span class="kw">pub fn </span>received(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
 		<span class="self">self</span>.metrics
 			.peer_total_received
-			.get_metric_with_label_values(<span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;node{}&quot;</span>, <span class="self">self</span>.peer_index)])
-			.expect(<span class="string">&quot;Metric exists&quot;</span>)
+			.get_metric_with_label_values(<span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"node{}"</span>, <span class="self">self</span>.peer_index)])
+			.expect(<span class="string">"Metric exists"</span>)
 			.get() <span class="kw">as </span>usize
 	}
 }
@@ -1977,11 +1979,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	handlers: Vec&lt;Arc&lt;<span class="kw">dyn </span>HandleNetworkMessage + Sync + Send&gt;&gt;,
 ) -&gt; (NetworkEmulatorHandle, NetworkInterface, NetworkInterfaceReceiver) {
 	<span class="kw">let </span>n_peers = config.n_validators;
-	<span class="macro">gum::info!</span>(target: LOG_TARGET, <span class="string">&quot;{}&quot;</span>,<span class="macro">format!</span>(<span class="string">&quot;Initializing emulation for a {} peer network.&quot;</span>, n_peers).bright_blue());
-	<span class="macro">gum::info!</span>(target: LOG_TARGET, <span class="string">&quot;{}&quot;</span>,<span class="macro">format!</span>(<span class="string">&quot;connectivity {}%, latency {:?}&quot;</span>, config.connectivity, config.latency).bright_black());
+	<span class="macro">gum::info!</span>(target: LOG_TARGET, <span class="string">"{}"</span>,<span class="macro">format!</span>(<span class="string">"Initializing emulation for a {} peer network."</span>, n_peers).bright_blue());
+	<span class="macro">gum::info!</span>(target: LOG_TARGET, <span class="string">"{}"</span>,<span class="macro">format!</span>(<span class="string">"connectivity {}%, latency {:?}"</span>, config.connectivity, config.latency).bright_black());
 
 	<span class="kw">let </span>metrics =
-		Metrics::new(<span class="kw-2">&amp;</span>dependencies.registry).expect(<span class="string">&quot;Metrics always register successfully&quot;</span>);
+		Metrics::new(<span class="kw-2">&amp;</span>dependencies.registry).expect(<span class="string">"Metrics always register successfully"</span>);
 	<span class="kw">let </span><span class="kw-2">mut </span>validator_authority_id_mapping = HashMap::new();
 
 	<span class="comment">// Create the channel from `peer` to `NetworkInterface` .
@@ -2020,7 +2022,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		peers[<span class="kw-2">*</span>peer].disconnect();
 	}
 
-	<span class="macro">gum::info!</span>(target: LOG_TARGET, <span class="string">&quot;{}&quot;</span>,<span class="macro">format!</span>(<span class="string">&quot;Network created, connected validator count {}&quot;</span>, connected_count).bright_black());
+	<span class="macro">gum::info!</span>(target: LOG_TARGET, <span class="string">"{}"</span>,<span class="macro">format!</span>(<span class="string">"Network created, connected validator count {}"</span>, connected_count).bright_black());
 
 	<span class="kw">let </span>handle = NetworkEmulatorHandle {
 		peers,
@@ -2059,7 +2061,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		message: VersionedValidationProtocol,
 	) {
 		<span class="kw">let </span>peer = <span class="self">self</span>.peer(peer_id);
-		<span class="macro">assert!</span>(peer.is_connected(), <span class="string">&quot;forward message only for connected peers.&quot;</span>);
+		<span class="macro">assert!</span>(peer.is_connected(), <span class="string">"forward message only for connected peers."</span>);
 		peer.handle().receive(NetworkMessage::MessageFromNode(peer_id.clone(), message));
 	}
 
@@ -2067,7 +2069,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// Panics if peer is not connected.
 	</span><span class="kw">pub fn </span>send_request_to_peer(<span class="kw-2">&amp;</span><span class="self">self</span>, peer_id: <span class="kw-2">&amp;</span>AuthorityDiscoveryId, request: Requests) {
 		<span class="kw">let </span>peer = <span class="self">self</span>.peer(peer_id);
-		<span class="macro">assert!</span>(peer.is_connected(), <span class="string">&quot;forward request only for connected peers.&quot;</span>);
+		<span class="macro">assert!</span>(peer.is_connected(), <span class="string">"forward request only for connected peers."</span>);
 		peer.handle().receive(NetworkMessage::RequestFromNode(peer_id.clone(), request));
 	}
 
@@ -2080,7 +2082,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>dst_peer = <span class="self">self</span>.peer(from_peer);
 
 		<span class="kw">if </span>!dst_peer.is_connected() {
-			<span class="macro">gum::warn!</span>(target: LOG_TARGET, <span class="string">&quot;Attempted to send message from a peer not connected to our node, operation ignored&quot;</span>);
+			<span class="macro">gum::warn!</span>(target: LOG_TARGET, <span class="string">"Attempted to send message from a peer not connected to our node, operation ignored"</span>);
 			<span class="kw">return </span><span class="prelude-val">Err</span>(EmulatedPeerError::NotConnected)
 		}
 
@@ -2097,7 +2099,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>dst_peer = <span class="self">self</span>.peer(from_peer);
 
 		<span class="kw">if </span>!dst_peer.is_connected() {
-			<span class="macro">gum::warn!</span>(target: LOG_TARGET, <span class="string">&quot;Attempted to send request from a peer not connected to our node, operation ignored&quot;</span>);
+			<span class="macro">gum::warn!</span>(target: LOG_TARGET, <span class="string">"Attempted to send request from a peer not connected to our node, operation ignored"</span>);
 			<span class="kw">return </span><span class="prelude-val">Err</span>(EmulatedPeerError::NotConnected)
 		}
 
@@ -2115,7 +2117,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw-2">*</span><span class="self">self
 			</span>.validator_authority_ids
 			.get(peer)
-			.expect(<span class="string">&quot;all test authorities are valid; qed&quot;</span>)
+			.expect(<span class="string">"all test authorities are valid; qed"</span>)
 	}
 
 	<span class="comment">// Return the Peer entry for a given `AuthorityDiscoveryId`.
@@ -2151,20 +2153,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			peer_total_sent: prometheus::register(
 				CounterVec::new(
 					Opts::new(
-						<span class="string">&quot;subsystem_benchmark_network_peer_total_bytes_sent&quot;</span>,
-						<span class="string">&quot;Total number of bytes a peer has sent.&quot;</span>,
+						<span class="string">"subsystem_benchmark_network_peer_total_bytes_sent"</span>,
+						<span class="string">"Total number of bytes a peer has sent."</span>,
 					),
-					<span class="kw-2">&amp;</span>[<span class="string">&quot;peer&quot;</span>],
+					<span class="kw-2">&amp;</span>[<span class="string">"peer"</span>],
 				)<span class="question-mark">?</span>,
 				registry,
 			)<span class="question-mark">?</span>,
 			peer_total_received: prometheus::register(
 				CounterVec::new(
 					Opts::new(
-						<span class="string">&quot;subsystem_benchmark_network_peer_total_bytes_received&quot;</span>,
-						<span class="string">&quot;Total number of bytes a peer has received.&quot;</span>,
+						<span class="string">"subsystem_benchmark_network_peer_total_bytes_received"</span>,
+						<span class="string">"Total number of bytes a peer has received."</span>,
 					),
-					<span class="kw-2">&amp;</span>[<span class="string">&quot;peer&quot;</span>],
+					<span class="kw-2">&amp;</span>[<span class="string">"peer"</span>],
 				)<span class="question-mark">?</span>,
 				registry,
 			)<span class="question-mark">?</span>,
@@ -2174,14 +2176,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Increment total sent for a peer.
 	</span><span class="kw">pub fn </span>on_peer_sent(<span class="kw-2">&amp;</span><span class="self">self</span>, peer_index: usize, bytes: usize) {
 		<span class="self">self</span>.peer_total_sent
-			.with_label_values(<span class="macro">vec!</span>[<span class="macro">format!</span>(<span class="string">&quot;node{}&quot;</span>, peer_index).as_str()].as_slice())
+			.with_label_values(<span class="macro">vec!</span>[<span class="macro">format!</span>(<span class="string">"node{}"</span>, peer_index).as_str()].as_slice())
 			.inc_by(bytes <span class="kw">as </span>u64);
 	}
 
 	<span class="doccomment">/// Increment total received for a peer.
 	</span><span class="kw">pub fn </span>on_peer_received(<span class="kw-2">&amp;</span><span class="self">self</span>, peer_index: usize, bytes: usize) {
 		<span class="self">self</span>.peer_total_received
-			.with_label_values(<span class="macro">vec!</span>[<span class="macro">format!</span>(<span class="string">&quot;node{}&quot;</span>, peer_index).as_str()].as_slice())
+			.with_label_values(<span class="macro">vec!</span>[<span class="macro">format!</span>(<span class="string">"node{}"</span>, peer_index).as_str()].as_slice())
 			.inc_by(bytes <span class="kw">as </span>u64);
 	}
 }
@@ -2216,7 +2218,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				</span>}
 			},
 			request =&gt; {
-				<span class="macro">unimplemented!</span>(<span class="string">&quot;RequestAuthority not implemented for {:?}&quot;</span>, request)
+				<span class="macro">unimplemented!</span>(<span class="string">"RequestAuthority not implemented for {:?}"</span>, request)
 			},
 		}
 	}
@@ -2226,7 +2228,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			Requests::ChunkFetchingV1(outgoing_request) =&gt; outgoing_request.pending_response,
 			Requests::AvailableDataFetchingV1(outgoing_request) =&gt;
 				outgoing_request.pending_response,
-			<span class="kw">_ </span>=&gt; <span class="macro">unimplemented!</span>(<span class="string">&quot;unsupported request type&quot;</span>),
+			<span class="kw">_ </span>=&gt; <span class="macro">unimplemented!</span>(<span class="string">"unsupported request type"</span>),
 		}
 	}
 
@@ -2237,7 +2239,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				std::mem::replace(<span class="kw-2">&amp;mut </span>outgoing_request.pending_response, new_sender),
 			Requests::AvailableDataFetchingV1(outgoing_request) =&gt;
 				std::mem::replace(<span class="kw-2">&amp;mut </span>outgoing_request.pending_response, new_sender),
-			<span class="kw">_ </span>=&gt; <span class="macro">unimplemented!</span>(<span class="string">&quot;unsupported request type&quot;</span>),
+			<span class="kw">_ </span>=&gt; <span class="macro">unimplemented!</span>(<span class="string">"unsupported request type"</span>),
 		}
 	}
 
@@ -2247,7 +2249,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			Requests::ChunkFetchingV1(outgoing_request) =&gt; outgoing_request.payload.encoded_size(),
 			Requests::AvailableDataFetchingV1(outgoing_request) =&gt;
 				outgoing_request.payload.encoded_size(),
-			<span class="kw">_ </span>=&gt; <span class="macro">unimplemented!</span>(<span class="string">&quot;received an unexpected request&quot;</span>),
+			<span class="kw">_ </span>=&gt; <span class="macro">unimplemented!</span>(<span class="string">"received an unexpected request"</span>),
 		}
 	}
 }
@@ -2277,7 +2279,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>end = Instant::now();
 
-		<span class="macro">println!</span>(<span class="string">&quot;duration: {}&quot;</span>, (end - start).as_millis());
+		<span class="macro">println!</span>(<span class="string">"duration: {}"</span>, (end - start).as_millis());
 
 		<span class="comment">// Allow up to `budget/max_refill` error tolerance
 		</span><span class="kw">let </span>lower_bound = budget <span class="kw">as </span>u128 * ((end - start).as_millis() / <span class="number">1000u128</span>);

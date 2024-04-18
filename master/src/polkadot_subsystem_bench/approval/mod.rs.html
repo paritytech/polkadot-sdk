@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/subsystem-bench/src/lib/approval/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/subsystem-bench/src/lib/approval/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_subsystem_bench" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_subsystem_bench" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../polkadot_subsystem_bench/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1308,7 +1310,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">mod </span>mock_chain_selection;
 <span class="kw">mod </span>test_message;
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;subsystem-bench::approval&quot;</span>;
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"subsystem-bench::approval"</span>;
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>NUM_COLUMNS: u32 = <span class="number">1</span>;
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>SLOT_DURATION_MILLIS: u64 = <span class="number">6000</span>;
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>TEST_CONFIG: ApprovalVotingConfig = ApprovalVotingConfig {
@@ -1324,7 +1326,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Parameters specific to the approvals benchmark
 </span><span class="attr">#[derive(Debug, Clone, Serialize, Deserialize, clap::Parser)]
-#[clap(rename_all = <span class="string">&quot;kebab-case&quot;</span>)]
+#[clap(rename_all = <span class="string">"kebab-case"</span>)]
 #[allow(missing_docs)]
 </span><span class="kw">pub struct </span>ApprovalsOptions {
 	<span class="attr">#[clap(short, long, default_value_t = <span class="number">89</span>)]
@@ -1346,7 +1348,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>stop_when_approved: bool,
 	<span class="attr">#[clap(short, long)]
 	</span><span class="doccomment">/// Work directory.
-	</span><span class="attr">#[clap(short, long, default_value_t = <span class="macro">format!</span>(<span class="string">&quot;/tmp&quot;</span>))]
+	</span><span class="attr">#[clap(short, long, default_value_t = <span class="macro">format!</span>(<span class="string">"/tmp"</span>))]
 	</span><span class="kw">pub </span>workdir_prefix: String,
 	<span class="doccomment">/// The number of no shows per candidate
 	</span><span class="attr">#[clap(short, long, default_value_t = <span class="number">0</span>)]
@@ -1370,7 +1372,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// do into the outside world.
 </span><span class="attr">#[derive(Clone, Debug)]
 </span><span class="kw">struct </span>BlockTestData {
-	<span class="doccomment">/// The slot this block occupies, see implementer&#39;s guide to understand what a slot
+	<span class="doccomment">/// The slot this block occupies, see implementer's guide to understand what a slot
 	/// is in the context of polkadot.
 	</span>slot: Slot,
 	<span class="doccomment">/// The hash of the block.
@@ -1461,7 +1463,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// by the approval-voting and approval-distribution-subsystems.
 ///
 /// This gets cloned across all mock subsystems, so if there is any information that gets
-/// updated between subsystems, they would have to be wrapped in Arc&#39;s.
+/// updated between subsystems, they would have to be wrapped in Arc's.
 </span><span class="attr">#[derive(Clone)]
 </span><span class="kw">pub struct </span>ApprovalTestState {
 	<span class="doccomment">/// The main test configuration
@@ -1515,12 +1517,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		messages_file
 			.read_to_end(<span class="kw-2">&amp;mut </span>messages_bytes)
-			.expect(<span class="string">&quot;Could not initialize list of messages&quot;</span>);
+			.expect(<span class="string">"Could not initialize list of messages"</span>);
 		<span class="kw">let </span>generated_state: GeneratedState =
-			Decode::decode(<span class="kw-2">&amp;mut </span>messages_bytes.as_slice()).expect(<span class="string">&quot;Could not decode messages&quot;</span>);
+			Decode::decode(<span class="kw-2">&amp;mut </span>messages_bytes.as_slice()).expect(<span class="string">"Could not decode messages"</span>);
 
 		<span class="macro">gum::info!</span>(
-			<span class="string">&quot;It took {:?} ms to load {:?} unique messages&quot;</span>,
+			<span class="string">"It took {:?} ms to load {:?} unique messages"</span>,
 			start.elapsed().as_millis(),
 			generated_state.all_messages.as_ref().map(|val| val.len()).unwrap_or_default()
 		);
@@ -1549,7 +1551,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			configuration: configuration.clone(),
 		};
 
-		<span class="macro">gum::info!</span>(<span class="string">&quot;Built testing state&quot;</span>);
+		<span class="macro">gum::info!</span>(<span class="string">"Built testing state"</span>);
 
 		state
 	}
@@ -1572,14 +1574,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>header = make_header(parent_hash, slot_for_block, block_number <span class="kw">as </span>u32);
 
 			<span class="kw">let </span>unsafe_vrf = approval::v1::babe_unsafe_vrf_info(<span class="kw-2">&amp;</span>header)
-				.expect(<span class="string">&quot;Can not continue without vrf generator&quot;</span>);
+				.expect(<span class="string">"Can not continue without vrf generator"</span>);
 			<span class="kw">let </span>relay_vrf_story = unsafe_vrf
 				.compute_randomness(
 					<span class="kw-2">&amp;</span>babe_epoch.authorities,
 					<span class="kw-2">&amp;</span>babe_epoch.randomness,
 					babe_epoch.epoch_index,
 				)
-				.expect(<span class="string">&quot;Can not continue without vrf story&quot;</span>);
+				.expect(<span class="string">"Can not continue without vrf story"</span>);
 			<span class="kw">let </span>block_info = BlockTestData {
 				slot: slot_for_block,
 				block_number: block_number <span class="kw">as </span>BlockNumber,
@@ -1616,7 +1618,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		env: <span class="kw-2">&amp;</span>TestEnvironment,
 		registry: Registry,
 	) -&gt; oneshot::Receiver&lt;()&gt; {
-		<span class="macro">gum::info!</span>(target: LOG_TARGET, <span class="string">&quot;Start assignments/approvals production&quot;</span>);
+		<span class="macro">gum::info!</span>(target: LOG_TARGET, <span class="string">"Start assignments/approvals production"</span>);
 
 		<span class="kw">let </span>(producer_tx, producer_rx) = oneshot::channel();
 		<span class="kw">let </span>peer_message_source = PeerMessageProducer {
@@ -1677,7 +1679,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">self</span>.blocks
 			.iter()
 			.find(|block| block.hash == requested_hash)
-			.expect(<span class="string">&quot;Mocks should not use unknown hashes&quot;</span>)
+			.expect(<span class="string">"Mocks should not use unknown hashes"</span>)
 	}
 
 	<span class="doccomment">/// Returns test data for the given slot
@@ -1725,7 +1727,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		env: <span class="kw-2">&amp;</span>TestEnvironment,
 		all_messages: Vec&lt;test_message::MessagesBundle&gt;,
 	) {
-		env.spawn_blocking(<span class="string">&quot;produce-messages&quot;</span>, <span class="kw">async move </span>{
+		env.spawn_blocking(<span class="string">"produce-messages"</span>, <span class="kw">async move </span>{
 			<span class="kw">let </span><span class="kw-2">mut </span>initialized_blocks = HashSet::new();
 			<span class="kw">let </span><span class="kw-2">mut </span>per_candidate_data: HashMap&lt;(Hash, CandidateIndex), CandidateTestData&gt; =
 				<span class="self">self</span>.initialize_candidates_test_data();
@@ -1752,7 +1754,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">for </span>block_info <span class="kw">in </span>block_to_initialize {
 					<span class="kw">if </span>!TestEnvironment::metric_lower_than(
 						<span class="kw-2">&amp;</span><span class="self">self</span>.registry,
-						<span class="string">&quot;polkadot_parachain_imported_candidates_total&quot;</span>,
+						<span class="string">"polkadot_parachain_imported_candidates_total"</span>,
 						(block_info.total_candidates_before + block_info.candidates.len() <span class="kw">as </span>u64 -
 							<span class="number">1</span>) <span class="kw">as </span>f64,
 					) {
@@ -1795,18 +1797,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="kw-2">&amp;mut </span>skipped_messages,
 					) || re_process_skipped;
 				}
-				<span class="comment">// Sleep, so that we don&#39;t busy wait in this loop when don&#39;t have anything to send.
+				<span class="comment">// Sleep, so that we don't busy wait in this loop when don't have anything to send.
 				</span>sleep(Duration::from_millis(<span class="number">50</span>)).<span class="kw">await</span>;
 			}
 
 			<span class="macro">gum::info!</span>(
-				<span class="string">&quot;All messages sent max_tranche {:?} last_tranche_with_no_show {:?}&quot;</span>,
+				<span class="string">"All messages sent max_tranche {:?} last_tranche_with_no_show {:?}"</span>,
 				per_candidate_data.values().map(|data| data.max_tranche).max(),
 				per_candidate_data.values().map(|data| data.last_tranche_with_no_show).max()
 			);
 			sleep(Duration::from_secs(<span class="number">6</span>)).<span class="kw">await</span>;
 			<span class="comment">// Send an empty GetApprovalSignatures as the last message
-			// so when the approval-distribution answered to it, we know it doesn&#39;t have anything
+			// so when the approval-distribution answered to it, we know it doesn't have anything
 			// else to process.
 			</span><span class="kw">let </span>(tx, rx) = oneshot::channel();
 			<span class="kw">let </span>msg = ApprovalDistributionMessage::GetApprovalSignatures(HashSet::new(), tx);
@@ -1816,9 +1818,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="prelude-val">None</span>,
 			)
 			.<span class="kw">await</span>;
-			rx.<span class="kw">await</span>.expect(<span class="string">&quot;Failed to get signatures&quot;</span>);
-			<span class="self">self</span>.notify_done.send(()).expect(<span class="string">&quot;Failed to notify main loop&quot;</span>);
-			<span class="macro">gum::info!</span>(<span class="string">&quot;All messages processed &quot;</span>);
+			rx.<span class="kw">await</span>.expect(<span class="string">"Failed to get signatures"</span>);
+			<span class="self">self</span>.notify_done.send(()).expect(<span class="string">"Failed to notify main loop"</span>);
+			<span class="macro">gum::info!</span>(<span class="string">"All messages processed "</span>);
 		});
 	}
 
@@ -1914,7 +1916,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.test_authorities
 			.validator_authority_id
 			.get(sent_by.<span class="number">0 </span><span class="kw">as </span>usize)
-			.expect(<span class="string">&quot;We can&#39;t handle unknown peers&quot;</span>)
+			.expect(<span class="string">"We can't handle unknown peers"</span>)
 			.clone();
 
 		<span class="self">self</span>.network
@@ -1922,7 +1924,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw-2">&amp;</span>peer_authority_id,
 				protocol_v3::ValidationProtocol::ApprovalDistribution(message.msg).into(),
 			)
-			.unwrap_or_else(|<span class="kw">_</span>| <span class="macro">panic!</span>(<span class="string">&quot;Network should be up and running {:?}&quot;</span>, sent_by));
+			.unwrap_or_else(|<span class="kw">_</span>| <span class="macro">panic!</span>(<span class="string">"Network should be up and running {:?}"</span>, sent_by));
 	}
 
 	<span class="comment">// Queues a message to be sent by the peer identified by the `sent_by` value.
@@ -1937,20 +1939,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.timeout(MAX_TIME_OF_FLIGHT)
 			.<span class="kw">await
 			</span>.unwrap_or_else(|| {
-				<span class="macro">panic!</span>(<span class="string">&quot;{} ms maximum time of flight breached&quot;</span>, MAX_TIME_OF_FLIGHT.as_millis())
+				<span class="macro">panic!</span>(<span class="string">"{} ms maximum time of flight breached"</span>, MAX_TIME_OF_FLIGHT.as_millis())
 			});
 	}
 
 	<span class="comment">// Sends the messages needed by approval-distribution and approval-voting for processing a
 	// message. E.g: PeerViewChange.
 	</span><span class="kw">async fn </span>initialize_block(<span class="kw-2">&amp;mut </span><span class="self">self</span>, block_info: <span class="kw-2">&amp;</span>BlockTestData) {
-		<span class="macro">gum::info!</span>(<span class="string">&quot;Initialize block {:?}&quot;</span>, block_info.hash);
+		<span class="macro">gum::info!</span>(<span class="string">"Initialize block {:?}"</span>, block_info.hash);
 		<span class="kw">let </span>(tx, rx) = oneshot::channel();
 		<span class="self">self</span>.overseer_handle.wait_for_activation(block_info.hash, tx).<span class="kw">await</span>;
 
 		rx.<span class="kw">await
-			</span>.expect(<span class="string">&quot;We should not fail waiting for block to be activated&quot;</span>)
-			.expect(<span class="string">&quot;We should not fail waiting for block to be activated&quot;</span>);
+			</span>.expect(<span class="string">"We should not fail waiting for block to be activated"</span>)
+			.expect(<span class="string">"We should not fail waiting for block to be activated"</span>);
 
 		<span class="kw">for </span>validator <span class="kw">in </span><span class="number">1</span>..<span class="self">self</span>.state.test_authorities.validator_authority_id.len() <span class="kw">as </span>u32 {
 			<span class="kw">let </span>peer_id = <span class="self">self</span>.state.test_authorities.peer_ids.get(validator <span class="kw">as </span>usize).unwrap();
@@ -2046,7 +2048,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		.replace_network_bridge_rx(|<span class="kw">_</span>| mock_rx_bridge);
 
 	<span class="kw">let </span>(overseer, raw_handle) =
-		dummy.build_with_connector(overseer_connector).expect(<span class="string">&quot;Should not fail&quot;</span>);
+		dummy.build_with_connector(overseer_connector).expect(<span class="string">"Should not fail"</span>);
 
 	<span class="kw">let </span>overseer_handle = OverseerHandleReal::new(raw_handle);
 	(overseer, overseer_handle)
@@ -2073,15 +2075,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	options: ApprovalsOptions,
 	with_prometheus_endpoint: bool,
 ) -&gt; (TestEnvironment, ApprovalTestState) {
-	<span class="macro">gum::info!</span>(<span class="string">&quot;Prepare test state&quot;</span>);
+	<span class="macro">gum::info!</span>(<span class="string">"Prepare test state"</span>);
 	<span class="kw">let </span>state = ApprovalTestState::new(<span class="kw-2">&amp;</span>config, options, <span class="kw-2">&amp;</span>dependencies);
 
-	<span class="macro">gum::info!</span>(<span class="string">&quot;Build network emulator&quot;</span>);
+	<span class="macro">gum::info!</span>(<span class="string">"Build network emulator"</span>);
 
 	<span class="kw">let </span>(network, network_interface, network_receiver) =
 		new_network(<span class="kw-2">&amp;</span>config, <span class="kw-2">&amp;</span>dependencies, <span class="kw-2">&amp;</span>state.test_authorities, <span class="macro">vec!</span>[Arc::new(state.clone())]);
 
-	<span class="macro">gum::info!</span>(<span class="string">&quot;Build overseer&quot;</span>);
+	<span class="macro">gum::info!</span>(<span class="string">"Build overseer"</span>);
 
 	<span class="kw">let </span>(overseer, overseer_handle) = build_overseer(
 		<span class="kw-2">&amp;</span>state,
@@ -2163,7 +2165,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			current_slot = tick_to_slot_number(SLOT_DURATION_MILLIS, system_clock.tick_now());
 		}
 
-		<span class="macro">gum::info!</span>(target: LOG_TARGET, <span class="string">&quot;Current block {}/{}&quot;</span>, block_num + <span class="number">1</span>, env.config().num_blocks);
+		<span class="macro">gum::info!</span>(target: LOG_TARGET, <span class="string">"Current block {}/{}"</span>, block_num + <span class="number">1</span>, env.config().num_blocks);
 		env.metrics().set_current_block(block_num);
 		<span class="kw">let </span>block_start_ts = Instant::now();
 
@@ -2174,7 +2176,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>block_time = Instant::now().sub(block_start_ts).as_millis() <span class="kw">as </span>u64;
 		env.metrics().set_block_time(block_time);
-		<span class="macro">gum::info!</span>(<span class="string">&quot;Block time {}&quot;</span>, <span class="macro">format!</span>(<span class="string">&quot;{:?}ms&quot;</span>, block_time).cyan());
+		<span class="macro">gum::info!</span>(<span class="string">"Block time {}"</span>, <span class="macro">format!</span>(<span class="string">"{:?}ms"</span>, block_time).cyan());
 
 		system_clock
 			.wait(slot_number_to_tick(SLOT_DURATION_MILLIS, current_slot + <span class="number">1</span>))
@@ -2187,7 +2189,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		env.config().num_blocks <span class="kw">as </span>u32
 	{
 		<span class="macro">gum::info!</span>(
-			<span class="string">&quot;Waiting for all blocks to be approved current approved {:} num_sent {:} num_unique {:}&quot;</span>,
+			<span class="string">"Waiting for all blocks to be approved current approved {:} num_sent {:} num_unique {:}"</span>,
 			state.last_approved_block.load(std::sync::atomic::Ordering::SeqCst),
 			state.total_sent_messages_to_node.load(std::sync::atomic::Ordering::SeqCst),
 			state.total_unique_messages.load(std::sync::atomic::Ordering::SeqCst)
@@ -2195,23 +2197,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		tokio::time::sleep(Duration::from_secs(<span class="number">6</span>)).<span class="kw">await</span>;
 	}
 
-	<span class="macro">gum::info!</span>(<span class="string">&quot;Awaiting producer to signal done&quot;</span>);
+	<span class="macro">gum::info!</span>(<span class="string">"Awaiting producer to signal done"</span>);
 
-	producer_rx.<span class="kw">await</span>.expect(<span class="string">&quot;Failed to receive done from message producer&quot;</span>);
+	producer_rx.<span class="kw">await</span>.expect(<span class="string">"Failed to receive done from message producer"</span>);
 
-	<span class="macro">gum::info!</span>(<span class="string">&quot;Awaiting polkadot_parachain_subsystem_bounded_received to tells us the messages have been processed&quot;</span>);
+	<span class="macro">gum::info!</span>(<span class="string">"Awaiting polkadot_parachain_subsystem_bounded_received to tells us the messages have been processed"</span>);
 	<span class="kw">let </span>at_least_messages =
 		state.total_sent_messages_to_node.load(std::sync::atomic::Ordering::SeqCst) <span class="kw">as </span>usize;
 	env.wait_until_metric(
-		<span class="string">&quot;polkadot_parachain_subsystem_bounded_received&quot;</span>,
-		<span class="prelude-val">Some</span>((<span class="string">&quot;subsystem_name&quot;</span>, <span class="string">&quot;approval-distribution-subsystem&quot;</span>)),
+		<span class="string">"polkadot_parachain_subsystem_bounded_received"</span>,
+		<span class="prelude-val">Some</span>((<span class="string">"subsystem_name"</span>, <span class="string">"approval-distribution-subsystem"</span>)),
 		|value| {
-			<span class="macro">gum::info!</span>(target: LOG_TARGET, <span class="question-mark">?</span>value, <span class="question-mark">?</span>at_least_messages, <span class="string">&quot;Waiting metric&quot;</span>);
+			<span class="macro">gum::info!</span>(target: LOG_TARGET, <span class="question-mark">?</span>value, <span class="question-mark">?</span>at_least_messages, <span class="string">"Waiting metric"</span>);
 			value &gt;= at_least_messages <span class="kw">as </span>f64
 		},
 	)
 	.<span class="kw">await</span>;
-	<span class="macro">gum::info!</span>(<span class="string">&quot;Requesting approval votes ms&quot;</span>);
+	<span class="macro">gum::info!</span>(<span class="string">"Requesting approval votes ms"</span>);
 
 	<span class="kw">for </span>info <span class="kw">in </span><span class="kw-2">&amp;</span>state.blocks {
 		<span class="kw">for </span>(index, candidates) <span class="kw">in </span>info.candidates.iter().enumerate() {
@@ -2243,14 +2245,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="macro">gum::info!</span>(<span class="string">&quot;Awaiting polkadot_parachain_subsystem_bounded_received to tells us the messages have been processed&quot;</span>);
+	<span class="macro">gum::info!</span>(<span class="string">"Awaiting polkadot_parachain_subsystem_bounded_received to tells us the messages have been processed"</span>);
 	<span class="kw">let </span>at_least_messages =
 		state.total_sent_messages_to_node.load(std::sync::atomic::Ordering::SeqCst) <span class="kw">as </span>usize;
 	env.wait_until_metric(
-		<span class="string">&quot;polkadot_parachain_subsystem_bounded_received&quot;</span>,
-		<span class="prelude-val">Some</span>((<span class="string">&quot;subsystem_name&quot;</span>, <span class="string">&quot;approval-distribution-subsystem&quot;</span>)),
+		<span class="string">"polkadot_parachain_subsystem_bounded_received"</span>,
+		<span class="prelude-val">Some</span>((<span class="string">"subsystem_name"</span>, <span class="string">"approval-distribution-subsystem"</span>)),
 		|value| {
-			<span class="macro">gum::info!</span>(target: LOG_TARGET, <span class="question-mark">?</span>value, <span class="question-mark">?</span>at_least_messages, <span class="string">&quot;Waiting metric&quot;</span>);
+			<span class="macro">gum::info!</span>(target: LOG_TARGET, <span class="question-mark">?</span>value, <span class="question-mark">?</span>at_least_messages, <span class="string">"Waiting metric"</span>);
 			value &gt;= at_least_messages <span class="kw">as </span>f64
 		},
 	)
@@ -2282,14 +2284,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">let </span>duration: u128 = start_marker.elapsed().as_millis();
 	<span class="macro">gum::info!</span>(
-		<span class="string">&quot;All blocks processed in {} total_sent_messages_to_node {} total_sent_messages_from_node {} num_unique_messages {}&quot;</span>,
-		<span class="macro">format!</span>(<span class="string">&quot;{:?}ms&quot;</span>, duration).cyan(),
+		<span class="string">"All blocks processed in {} total_sent_messages_to_node {} total_sent_messages_from_node {} num_unique_messages {}"</span>,
+		<span class="macro">format!</span>(<span class="string">"{:?}ms"</span>, duration).cyan(),
 		state.total_sent_messages_to_node.load(std::sync::atomic::Ordering::SeqCst),
 		state.total_sent_messages_from_node.load(std::sync::atomic::Ordering::SeqCst),
 		state.total_unique_messages.load(std::sync::atomic::Ordering::SeqCst)
 	);
 
-	env.collect_resource_usage(benchmark_name, <span class="kw-2">&amp;</span>[<span class="string">&quot;approval-distribution&quot;</span>, <span class="string">&quot;approval-voting&quot;</span>])
+	env.collect_resource_usage(benchmark_name, <span class="kw-2">&amp;</span>[<span class="string">"approval-distribution"</span>, <span class="string">"approval-voting"</span>])
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 

@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/bin/node/bench/src/tempdb.rs`."><title>tempdb.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/bin/node/bench/src/tempdb.rs`."><title>tempdb.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="node_bench" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="node_bench" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../node_bench/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -305,7 +307,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl </span>KeyValueDB <span class="kw">for </span>ParityDbWrapper {
 	<span class="doccomment">/// Get a value by key.
 	</span><span class="kw">fn </span>get(<span class="kw-2">&amp;</span><span class="self">self</span>, col: u32, key: <span class="kw-2">&amp;</span>[u8]) -&gt; io::Result&lt;<span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt;&gt; {
-		<span class="prelude-val">Ok</span>(<span class="self">self</span>.<span class="number">0</span>.get(col <span class="kw">as </span>u8, <span class="kw-2">&amp;</span>key[key.len() - <span class="number">32</span>..]).expect(<span class="string">&quot;db error&quot;</span>))
+		<span class="prelude-val">Ok</span>(<span class="self">self</span>.<span class="number">0</span>.get(col <span class="kw">as </span>u8, <span class="kw-2">&amp;</span>key[key.len() - <span class="number">32</span>..]).expect(<span class="string">"db error"</span>))
 	}
 
 	<span class="doccomment">/// Get a value by partial key. Only works for flushed data.
@@ -322,31 +324,31 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				kvdb::DBOp::Delete { col, key } =&gt; (<span class="kw-2">*</span>col <span class="kw">as </span>u8, <span class="kw-2">&amp;</span>key[key.len() - <span class="number">32</span>..], <span class="prelude-val">None</span>),
 				kvdb::DBOp::DeletePrefix { col: <span class="kw">_</span>, prefix: <span class="kw">_ </span>} =&gt; <span class="macro">unimplemented!</span>(),
 			}))
-			.expect(<span class="string">&quot;db error&quot;</span>);
+			.expect(<span class="string">"db error"</span>);
 		<span class="prelude-val">Ok</span>(())
 	}
 
 	<span class="doccomment">/// Iterate over flushed data for a given column.
-	</span><span class="kw">fn </span>iter&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>, _col: u32) -&gt; Box&lt;<span class="kw">dyn </span>Iterator&lt;Item = io::Result&lt;DBKeyValue&gt;&gt; + <span class="lifetime">&#39;a</span>&gt; {
+	</span><span class="kw">fn </span>iter&lt;<span class="lifetime">'a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>, _col: u32) -&gt; Box&lt;<span class="kw">dyn </span>Iterator&lt;Item = io::Result&lt;DBKeyValue&gt;&gt; + <span class="lifetime">'a</span>&gt; {
 		<span class="macro">unimplemented!</span>()
 	}
 
 	<span class="doccomment">/// Iterate over flushed data for a given column, starting from a given prefix.
-	</span><span class="kw">fn </span>iter_with_prefix&lt;<span class="lifetime">&#39;a</span>&gt;(
-		<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>,
+	</span><span class="kw">fn </span>iter_with_prefix&lt;<span class="lifetime">'a</span>&gt;(
+		<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>,
 		_col: u32,
-		_prefix: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8],
-	) -&gt; Box&lt;<span class="kw">dyn </span>Iterator&lt;Item = io::Result&lt;DBKeyValue&gt;&gt; + <span class="lifetime">&#39;a</span>&gt; {
+		_prefix: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8],
+	) -&gt; Box&lt;<span class="kw">dyn </span>Iterator&lt;Item = io::Result&lt;DBKeyValue&gt;&gt; + <span class="lifetime">'a</span>&gt; {
 		<span class="macro">unimplemented!</span>()
 	}
 }
 
 <span class="kw">impl </span>TempDatabase {
 	<span class="kw">pub fn </span>new() -&gt; <span class="self">Self </span>{
-		<span class="kw">let </span>dir = tempfile::tempdir().expect(<span class="string">&quot;temp dir creation failed&quot;</span>);
+		<span class="kw">let </span>dir = tempfile::tempdir().expect(<span class="string">"temp dir creation failed"</span>);
 		<span class="macro">log::trace!</span>(
-			target: <span class="string">&quot;bench-logistics&quot;</span>,
-			<span class="string">&quot;Created temp db at {}&quot;</span>,
+			target: <span class="string">"bench-logistics"</span>,
+			<span class="string">"Created temp db at {}"</span>,
 			dir.path().to_string_lossy(),
 		);
 
@@ -357,7 +359,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">match </span>db_type {
 			DatabaseType::RocksDb =&gt; {
 				<span class="kw">let </span>db_cfg = DatabaseConfig::with_columns(<span class="number">1</span>);
-				<span class="kw">let </span>db = Database::open(<span class="kw-2">&amp;</span>db_cfg, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>.path()).expect(<span class="string">&quot;Database backend error&quot;</span>);
+				<span class="kw">let </span>db = Database::open(<span class="kw-2">&amp;</span>db_cfg, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>.path()).expect(<span class="string">"Database backend error"</span>);
 				Arc::new(db)
 			},
 			DatabaseType::ParityDb =&gt; Arc::new(ParityDbWrapper({
@@ -366,7 +368,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				column_options.ref_counted = <span class="bool-val">true</span>;
 				column_options.preimage = <span class="bool-val">true</span>;
 				column_options.uniform = <span class="bool-val">true</span>;
-				parity_db::Db::open_or_create(<span class="kw-2">&amp;</span>options).expect(<span class="string">&quot;db open error&quot;</span>)
+				parity_db::Db::open_or_create(<span class="kw-2">&amp;</span>options).expect(<span class="string">"db open error"</span>)
 			})),
 		}
 	}
@@ -374,21 +376,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl </span>Clone <span class="kw">for </span>TempDatabase {
 	<span class="kw">fn </span>clone(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
-		<span class="kw">let </span>new_dir = tempfile::tempdir().expect(<span class="string">&quot;temp dir creation failed&quot;</span>);
+		<span class="kw">let </span>new_dir = tempfile::tempdir().expect(<span class="string">"temp dir creation failed"</span>);
 		<span class="kw">let </span>self_dir = <span class="self">self</span>.<span class="number">0</span>.path();
 
 		<span class="macro">log::trace!</span>(
-			target: <span class="string">&quot;bench-logistics&quot;</span>,
-			<span class="string">&quot;Cloning db ({}) to {}&quot;</span>,
+			target: <span class="string">"bench-logistics"</span>,
+			<span class="string">"Cloning db ({}) to {}"</span>,
 			self_dir.to_string_lossy(),
 			new_dir.path().to_string_lossy(),
 		);
 		<span class="kw">let </span>self_db_files = std::fs::read_dir(self_dir)
-			.expect(<span class="string">&quot;failed to list file in seed dir&quot;</span>)
-			.map(|f_result| f_result.expect(<span class="string">&quot;failed to read file in seed db&quot;</span>).path())
+			.expect(<span class="string">"failed to list file in seed dir"</span>)
+			.map(|f_result| f_result.expect(<span class="string">"failed to read file in seed db"</span>).path())
 			.collect::&lt;Vec&lt;PathBuf&gt;&gt;();
 		fs_extra::copy_items(<span class="kw-2">&amp;</span>self_db_files, new_dir.path(), <span class="kw-2">&amp;</span>fs_extra::dir::CopyOptions::new())
-			.expect(<span class="string">&quot;Copy of seed database is ok&quot;</span>);
+			.expect(<span class="string">"Copy of seed database is ok"</span>);
 
 		TempDatabase(new_dir)
 	}

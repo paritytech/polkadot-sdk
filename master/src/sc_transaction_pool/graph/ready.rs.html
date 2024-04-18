@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/transaction-pool/src/graph/ready.rs`."><title>ready.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/transaction-pool/src/graph/ready.rs`."><title>ready.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sc_transaction_pool" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sc_transaction_pool" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../sc_transaction_pool/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1040,12 +1042,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">const </span>HASH_READY: <span class="kw-2">&amp;</span>str = <span class="string">r#&quot;
+<span class="kw">const </span>HASH_READY: <span class="kw-2">&amp;</span>str = <span class="string">r#"
 Every time transaction is imported its hash is placed in `ready` map and tags in `provided_tags`;
 Every time transaction is removed from the queue we remove the hash from `ready` map and from `provided_tags`;
 Hence every hash retrieved from `provided_tags` is always present in `ready`;
 qed
-&quot;#</span>;
+"#</span>;
 
 <span class="doccomment">/// Validated transactions that are block ready with all their dependencies met.
 </span><span class="attr">#[derive(Debug)]
@@ -1055,7 +1057,7 @@ qed
 	<span class="doccomment">/// tags that are provided by Ready transactions
 	/// (only a single transaction can provide a specific tag)
 	</span>provided_tags: HashMap&lt;Tag, Hash&gt;,
-	<span class="doccomment">/// Transactions that are ready (i.e. don&#39;t have any requirements external to the pool)
+	<span class="doccomment">/// Transactions that are ready (i.e. don't have any requirements external to the pool)
 	</span>ready: TrackedMap&lt;Hash, ReadyTx&lt;Hash, Ex&gt;&gt;,
 	<span class="doccomment">/// Best transactions that are ready to be included to the block without any other previous
 	/// transaction.
@@ -1095,7 +1097,7 @@ qed
 	/// 2. Then by priority:
 	/// - If there are two transactions with all requirements satisfied the one with higher priority
 	///   goes first.
-	/// 3. Then by the ttl that&#39;s left
+	/// 3. Then by the ttl that's left
 	/// - transactions that are valid for a shorter time go first
 	/// 4. Lastly we sort by the time in the queue
 	/// - transactions that are longer in the queue go first
@@ -1123,12 +1125,12 @@ qed
 	) -&gt; error::Result&lt;Vec&lt;Arc&lt;Transaction&lt;Hash, Ex&gt;&gt;&gt;&gt; {
 		<span class="macro">assert!</span>(
 			tx.is_ready(),
-			<span class="string">&quot;Only ready transactions can be imported. Missing: {:?}&quot;</span>,
+			<span class="string">"Only ready transactions can be imported. Missing: {:?}"</span>,
 			tx.missing_tags
 		);
 		<span class="macro">assert!</span>(
 			!<span class="self">self</span>.ready.read().contains_key(<span class="kw-2">&amp;</span>tx.transaction.hash),
-			<span class="string">&quot;Transaction is already imported.&quot;
+			<span class="string">"Transaction is already imported."
 		</span>);
 
 		<span class="self">self</span>.insertion_id += <span class="number">1</span>;
@@ -1147,7 +1149,7 @@ qed
 			</span><span class="kw">if let </span><span class="prelude-val">Some</span>(other) = <span class="self">self</span>.provided_tags.get(tag) {
 				<span class="kw">let </span>tx = ready.get_mut(other).expect(HASH_READY);
 				tx.unlocks.push(hash.clone());
-				<span class="comment">// this transaction depends on some other, so it doesn&#39;t go to best directly.
+				<span class="comment">// this transaction depends on some other, so it doesn't go to best directly.
 				</span>goes_to_best = <span class="bool-val">false</span>;
 			} <span class="kw">else </span>{
 				requires_offset += <span class="number">1</span>;
@@ -1163,7 +1165,7 @@ qed
 
 		<span class="kw">let </span>transaction = TransactionRef { insertion_id, transaction };
 
-		<span class="comment">// insert to best if it doesn&#39;t require any other transaction to be included before it
+		<span class="comment">// insert to best if it doesn't require any other transaction to be included before it
 		</span><span class="kw">if </span>goes_to_best {
 			<span class="self">self</span>.best.insert(transaction.clone());
 		}
@@ -1257,7 +1259,7 @@ qed
 				}
 
 				<span class="comment">// add to removed
-				</span><span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">&quot;[{:?}] Removed as part of the subtree.&quot;</span>, hash);
+				</span><span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">"[{:?}] Removed as part of the subtree."</span>, hash);
 				removed.push(tx.transaction.transaction);
 			}
 		}
@@ -1300,7 +1302,7 @@ qed
 						// But it might not always be good.
 						// Possible edge case:
 						// - tx provides two tags
-						// - the second tag enables some subgraph we don&#39;t know of yet
+						// - the second tag enables some subgraph we don't know of yet
 						// - we will prune the transaction
 						// - when we learn about the subgraph it will go to future
 						// - we will have to wait for re-propagation of that transaction
@@ -1340,8 +1342,8 @@ qed
 					<span class="macro">assert_eq!</span>(
 						removed.as_ref(),
 						<span class="kw">if </span>current_tag == tag { <span class="prelude-val">None </span>} <span class="kw">else </span>{ <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>tx.hash) },
-						<span class="string">&quot;The pool contains exactly one transaction providing given tag; the removed transaction
-						claims to provide that tag, so it has to be mapped to it&#39;s hash; qed&quot;
+						<span class="string">"The pool contains exactly one transaction providing given tag; the removed transaction
+						claims to provide that tag, so it has to be mapped to it's hash; qed"
 					</span>);
 				}
 
@@ -1354,7 +1356,7 @@ qed
 
 	<span class="doccomment">/// Checks if the transaction is providing the same tags as other transactions.
 	///
-	/// In case that&#39;s true it determines if the priority of transactions that
+	/// In case that's true it determines if the priority of transactions that
 	/// we are about to replace is lower than the priority of the replacement transaction.
 	/// We remove/replace old transactions in case they have lower priority.
 	///
@@ -1441,7 +1443,7 @@ qed
 			<span class="comment">// If we have satisfied all deps insert to best
 			</span><span class="self">self</span>.best.insert(tx_ref);
 		} <span class="kw">else </span>{
-			<span class="comment">// otherwise we&#39;re still awaiting for some deps
+			<span class="comment">// otherwise we're still awaiting for some deps
 			</span><span class="self">self</span>.awaiting.insert(tx_ref.transaction.hash.clone(), (satisfied, tx_ref));
 		}
 	}
@@ -1465,7 +1467,7 @@ qed
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(to_report) = <span class="self">self</span>.all.get(<span class="kw-2">&amp;</span>tx.hash) {
 			<span class="macro">debug!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;[{:?}] Reported as invalid. Will skip sub-chains while iterating.&quot;</span>,
+				<span class="string">"[{:?}] Reported as invalid. Will skip sub-chains while iterating."</span>,
 				to_report.transaction.transaction.hash
 			);
 			<span class="kw">for </span>hash <span class="kw">in </span><span class="kw-2">&amp;</span>to_report.unlocks {
@@ -1488,7 +1490,7 @@ qed
 			</span><span class="kw">if </span><span class="self">self</span>.invalid.contains(hash) {
 				<span class="macro">debug!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;[{:?}] Skipping invalid child transaction while iterating.&quot;</span>, hash,
+					<span class="string">"[{:?}] Skipping invalid child transaction while iterating."</span>, hash,
 				);
 				<span class="kw">continue
 			</span>}

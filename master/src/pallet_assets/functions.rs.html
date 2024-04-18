@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/assets/src/functions.rs`."><title>functions.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/assets/src/functions.rs`."><title>functions.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_assets" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_assets" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../pallet_assets/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1197,14 +1199,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -1223,10 +1225,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>DeadConsequence::<span class="kw-2">*</span>;
 
 <span class="comment">// The main implementation block for the module.
-</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; Pallet&lt;T, I&gt; {
+</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Pallet&lt;T, I&gt; {
 	<span class="comment">// Public immutables
 
-	</span><span class="doccomment">/// Return the extra &quot;sid-car&quot; data for `id`/`who`, or `None` if the account doesn&#39;t exist.
+	</span><span class="doccomment">/// Return the extra "sid-car" data for `id`/`who`, or `None` if the account doesn't exist.
 	</span><span class="kw">pub fn </span>adjust_extra(
 		id: T::AssetId,
 		who: <span class="kw">impl </span>sp_std::borrow::Borrow&lt;T::AccountId&gt;,
@@ -1234,7 +1236,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		ExtraMutator::maybe_new(id, who)
 	}
 
-	<span class="doccomment">/// Get the asset `id` balance of `who`, or zero if the asset-account doesn&#39;t exist.
+	<span class="doccomment">/// Get the asset `id` balance of `who`, or zero if the asset-account doesn't exist.
 	</span><span class="kw">pub fn </span>balance(id: T::AssetId, who: <span class="kw">impl </span>sp_std::borrow::Borrow&lt;T::AccountId&gt;) -&gt; T::Balance {
 		<span class="self">Self</span>::maybe_balance(id, who).unwrap_or_default()
 	}
@@ -1425,7 +1427,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="comment">// We want to keep the account around.
 				</span>account.balance.saturating_sub(details.min_balance)
 			} <span class="kw">else </span>{
-				<span class="comment">// Don&#39;t care if the account dies
+				<span class="comment">// Don't care if the account dies
 				</span>account.balance
 			}
 		};
@@ -1460,7 +1462,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>actual = <span class="kw">match </span>conseq.into_result(f.keep_alive) {
 			<span class="prelude-val">Ok</span>(dust) =&gt; actual.saturating_add(dust), <span class="comment">//&lt; guaranteed by reducible_balance
 			</span><span class="prelude-val">Err</span>(e) =&gt; {
-				<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>, <span class="string">&quot;passed from reducible_balance; qed&quot;</span>);
+				<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>, <span class="string">"passed from reducible_balance; qed"</span>);
 				<span class="kw">return </span><span class="prelude-val">Err</span>(e)
 			},
 		};
@@ -1500,7 +1502,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Creates an account for `who` to hold asset `id` with a zero balance and takes a deposit.
 	///
-	/// When `check_depositor` is set to true, the depositor must be either the asset&#39;s Admin or
+	/// When `check_depositor` is set to true, the depositor must be either the asset's Admin or
 	/// Freezer, otherwise the depositor can be any account.
 	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>do_touch(
 		id: T::AssetId,
@@ -1551,7 +1553,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if let </span>Remove = <span class="self">Self</span>::dead_account(<span class="kw-2">&amp;</span>who, <span class="kw-2">&amp;mut </span>details, <span class="kw-2">&amp;</span>account.reason, <span class="bool-val">false</span>) {
 			Account::&lt;T, I&gt;::remove(<span class="kw-2">&amp;</span>id, <span class="kw-2">&amp;</span>who);
 		} <span class="kw">else </span>{
-			<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>, <span class="string">&quot;refund did not result in dead account?!&quot;</span>);
+			<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>, <span class="string">"refund did not result in dead account?!"</span>);
 			<span class="comment">// deposit may have been refunded, need to update `Account`
 			</span>Account::&lt;T, I&gt;::insert(id, <span class="kw-2">&amp;</span>who, account);
 			<span class="kw">return </span><span class="prelude-val">Ok</span>(())
@@ -1587,7 +1589,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if let </span>Remove = <span class="self">Self</span>::dead_account(<span class="kw-2">&amp;</span>who, <span class="kw-2">&amp;mut </span>details, <span class="kw-2">&amp;</span>account.reason, <span class="bool-val">false</span>) {
 			Account::&lt;T, I&gt;::remove(<span class="kw-2">&amp;</span>id, <span class="kw-2">&amp;</span>who);
 		} <span class="kw">else </span>{
-			<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>, <span class="string">&quot;refund did not result in dead account?!&quot;</span>);
+			<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>, <span class="string">"refund did not result in dead account?!"</span>);
 			<span class="comment">// deposit may have been refunded, need to update `Account`
 			</span>Account::&lt;T, I&gt;::insert(<span class="kw-2">&amp;</span>id, <span class="kw-2">&amp;</span>who, account);
 			<span class="kw">return </span><span class="prelude-val">Ok</span>(())
@@ -1613,7 +1615,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(check_issuer) = maybe_check_issuer {
 				<span class="macro">ensure!</span>(check_issuer == details.issuer, Error::&lt;T, I&gt;::NoPermission);
 			}
-			<span class="macro">debug_assert!</span>(details.supply.checked_add(<span class="kw-2">&amp;</span>amount).is_some(), <span class="string">&quot;checked in prep; qed&quot;</span>);
+			<span class="macro">debug_assert!</span>(details.supply.checked_add(<span class="kw-2">&amp;</span>amount).is_some(), <span class="string">"checked in prep; qed"</span>);
 
 			details.supply = details.supply.saturating_add(amount);
 
@@ -1655,7 +1657,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						account.balance.saturating_accrue(amount);
 					},
 					maybe_account @ <span class="prelude-val">None </span>=&gt; {
-						<span class="comment">// Note this should never fail as it&#39;s already checked by
+						<span class="comment">// Note this should never fail as it's already checked by
 						// `can_increase`.
 						</span><span class="macro">ensure!</span>(amount &gt;= details.min_balance, TokenError::BelowMinimum);
 						<span class="kw-2">*</span>maybe_account = <span class="prelude-val">Some</span>(AssetAccountOf::&lt;T, I&gt; {
@@ -1699,7 +1701,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="macro">ensure!</span>(check_admin == details.admin, Error::&lt;T, I&gt;::NoPermission);
 			}
 
-			<span class="macro">debug_assert!</span>(details.supply &gt;= actual, <span class="string">&quot;checked in prep; qed&quot;</span>);
+			<span class="macro">debug_assert!</span>(details.supply &gt;= actual, <span class="string">"checked in prep; qed"</span>);
 			details.supply = details.supply.saturating_sub(actual);
 
 			<span class="prelude-val">Ok</span>(())
@@ -1742,12 +1744,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			Account::&lt;T, I&gt;::try_mutate(<span class="kw-2">&amp;</span>id, target, |maybe_account| -&gt; DispatchResult {
 				<span class="kw">let </span><span class="kw-2">mut </span>account = maybe_account.take().ok_or(Error::&lt;T, I&gt;::NoAccount)<span class="question-mark">?</span>;
-				<span class="macro">debug_assert!</span>(account.balance &gt;= actual, <span class="string">&quot;checked in prep; qed&quot;</span>);
+				<span class="macro">debug_assert!</span>(account.balance &gt;= actual, <span class="string">"checked in prep; qed"</span>);
 
 				<span class="comment">// Make the debit.
 				</span>account.balance = account.balance.saturating_sub(actual);
 				<span class="kw">if </span>account.balance &lt; details.min_balance {
-					<span class="macro">debug_assert!</span>(account.balance.is_zero(), <span class="string">&quot;checked in prep; qed&quot;</span>);
+					<span class="macro">debug_assert!</span>(account.balance.is_zero(), <span class="string">"checked in prep; qed"</span>);
 					target_died = <span class="prelude-val">Some</span>(<span class="self">Self</span>::dead_account(target, details, <span class="kw-2">&amp;</span>account.reason, <span class="bool-val">false</span>));
 					<span class="kw">if let </span><span class="prelude-val">Some</span>(Remove) = target_died {
 						<span class="kw">return </span><span class="prelude-val">Ok</span>(())
@@ -1831,24 +1833,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="comment">// Burn any dust if needed.
 			</span><span class="kw">if let </span><span class="prelude-val">Some</span>(burn) = maybe_burn {
-				<span class="comment">// Debit dust from supply; this will not saturate since it&#39;s already checked in
+				<span class="comment">// Debit dust from supply; this will not saturate since it's already checked in
 				// prep.
-				</span><span class="macro">debug_assert!</span>(details.supply &gt;= burn, <span class="string">&quot;checked in prep; qed&quot;</span>);
+				</span><span class="macro">debug_assert!</span>(details.supply &gt;= burn, <span class="string">"checked in prep; qed"</span>);
 				details.supply = details.supply.saturating_sub(burn);
 			}
 
-			<span class="comment">// Debit balance from source; this will not saturate since it&#39;s already checked in prep.
-			</span><span class="macro">debug_assert!</span>(source_account.balance &gt;= debit, <span class="string">&quot;checked in prep; qed&quot;</span>);
+			<span class="comment">// Debit balance from source; this will not saturate since it's already checked in prep.
+			</span><span class="macro">debug_assert!</span>(source_account.balance &gt;= debit, <span class="string">"checked in prep; qed"</span>);
 			source_account.balance = source_account.balance.saturating_sub(debit);
 
 			Account::&lt;T, I&gt;::try_mutate(<span class="kw-2">&amp;</span>id, <span class="kw-2">&amp;</span>dest, |maybe_account| -&gt; DispatchResult {
 				<span class="kw">match </span>maybe_account {
 					<span class="prelude-val">Some</span>(<span class="kw-2">ref mut </span>account) =&gt; {
-						<span class="comment">// Calculate new balance; this will not saturate since it&#39;s already checked
+						<span class="comment">// Calculate new balance; this will not saturate since it's already checked
 						// in prep.
 						</span><span class="macro">debug_assert!</span>(
 							account.balance.checked_add(<span class="kw-2">&amp;</span>credit).is_some(),
-							<span class="string">&quot;checked in prep; qed&quot;
+							<span class="string">"checked in prep; qed"
 						</span>);
 						account.balance.saturating_accrue(credit);
 					},
@@ -1864,9 +1866,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="prelude-val">Ok</span>(())
 			})<span class="question-mark">?</span>;
 
-			<span class="comment">// Remove source account if it&#39;s now dead.
+			<span class="comment">// Remove source account if it's now dead.
 			</span><span class="kw">if </span>source_account.balance &lt; details.min_balance {
-				<span class="macro">debug_assert!</span>(source_account.balance.is_zero(), <span class="string">&quot;checked in prep; qed&quot;</span>);
+				<span class="macro">debug_assert!</span>(source_account.balance.is_zero(), <span class="string">"checked in prep; qed"</span>);
 				source_died =
 					<span class="prelude-val">Some</span>(<span class="self">Self</span>::dead_account(source, details, <span class="kw-2">&amp;</span>source_account.reason, <span class="bool-val">false</span>));
 				<span class="kw">if let </span><span class="prelude-val">Some</span>(Remove) = source_died {
@@ -1972,7 +1974,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					} <span class="kw">else </span>{
 						<span class="comment">// deposit may have been released, need to update `Account`
 						</span>Account::&lt;T, I&gt;::insert(<span class="kw-2">&amp;</span>id, <span class="kw-2">&amp;</span>who, v);
-						<span class="macro">defensive!</span>(<span class="string">&quot;destroy did not result in dead account?!&quot;</span>);
+						<span class="macro">defensive!</span>(<span class="string">"destroy did not result in dead account?!"</span>);
 					}
 					<span class="kw">if </span>i + <span class="number">1 </span>&gt;= (max_items <span class="kw">as </span>usize) {
 						<span class="kw">break
@@ -2052,7 +2054,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		})
 	}
 
-	<span class="doccomment">/// Creates an approval from `owner` to spend `amount` of asset `id` tokens by &#39;delegate&#39;
+	<span class="doccomment">/// Creates an approval from `owner` to spend `amount` of asset `id` tokens by 'delegate'
 	/// while reserving `T::ApprovalDeposit` from owner
 	///
 	/// If an approval already exists, the new amount is added to such existing approval
@@ -2098,12 +2100,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Reduces the asset `id` balance of `owner` by some `amount` and increases the balance of
-	/// `dest` by (similar) amount, checking that &#39;delegate&#39; has an existing approval from `owner`
+	/// `dest` by (similar) amount, checking that 'delegate' has an existing approval from `owner`
 	/// to spend`amount`.
 	///
-	/// Will fail if `amount` is greater than the approval from `owner` to &#39;delegate&#39;
+	/// Will fail if `amount` is greater than the approval from `owner` to 'delegate'
 	/// Will unreserve the deposit from `owner` if the entire approved `amount` is spent by
-	/// &#39;delegate&#39;
+	/// 'delegate'
 	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>do_transfer_approved(
 		id: T::AssetId,
 		owner: <span class="kw-2">&amp;</span>T::AccountId,

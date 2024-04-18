@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/core/pvf-checker/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/core/pvf-checker/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_node_core_pvf_checker" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_node_core_pvf_checker" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../polkadot_node_core_pvf_checker/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -741,7 +743,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sp_keystore::KeystorePtr;
 <span class="kw">use </span>std::collections::HashSet;
 
-<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;parachain::pvf-checker&quot;</span>;
+<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"parachain::pvf-checker"</span>;
 
 <span class="kw">mod </span>interest_view;
 <span class="kw">mod </span>metrics;
@@ -771,10 +773,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">impl</span>&lt;Context&gt; PvfCheckerSubsystem {
 	<span class="kw">fn </span>start(<span class="self">self</span>, ctx: Context) -&gt; SpawnedSubsystem {
 		<span class="kw">let </span>future = run(ctx, <span class="self">self</span>.keystore, <span class="self">self</span>.metrics)
-			.map_err(|e| SubsystemError::with_origin(<span class="string">&quot;pvf-checker&quot;</span>, e))
+			.map_err(|e| SubsystemError::with_origin(<span class="string">"pvf-checker"</span>, e))
 			.boxed();
 
-		SpawnedSubsystem { name: <span class="string">&quot;pvf-checker-subsystem&quot;</span>, future }
+		SpawnedSubsystem { name: <span class="string">"pvf-checker-subsystem"</span>, future }
 	}
 }
 
@@ -820,7 +822,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// Resolving to `None` means that the request was dropped before replying.
 	</span>currently_checking:
-		FuturesUnordered&lt;BoxFuture&lt;<span class="lifetime">&#39;static</span>, <span class="prelude-ty">Option</span>&lt;(PreCheckOutcome, ValidationCodeHash)&gt;&gt;&gt;,
+		FuturesUnordered&lt;BoxFuture&lt;<span class="lifetime">'static</span>, <span class="prelude-ty">Option</span>&lt;(PreCheckOutcome, ValidationCodeHash)&gt;&gt;&gt;,
 }
 
 <span class="attr">#[overseer::contextbounds(PvfChecker, prefix = <span class="self">self</span>::overseer)]
@@ -885,7 +887,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="macro">gum::debug!</span>(
 		target: LOG_TARGET,
 		<span class="question-mark">?</span>validation_code_hash,
-		<span class="string">&quot;Received pre-check result: {:?}&quot;</span>,
+		<span class="string">"Received pre-check result: {:?}"</span>,
 		outcome,
 	);
 
@@ -902,7 +904,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="macro">gum::info!</span>(
 				target: LOG_TARGET,
 				<span class="question-mark">?</span>validation_code_hash,
-				<span class="string">&quot;Pre-check failed, voting against&quot;</span>,
+				<span class="string">"Pre-check failed, voting against"</span>,
 			);
 			Judgement::Invalid
 		},
@@ -914,7 +916,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">gum::debug!</span>(
 				target: LOG_TARGET,
 				<span class="question-mark">?</span>validation_code_hash,
-				<span class="string">&quot;received judgement for an unknown (or removed) PVF hash&quot;</span>,
+				<span class="string">"received judgement for an unknown (or removed) PVF hash"</span>,
 			);
 			<span class="kw">return
 		</span>},
@@ -953,7 +955,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ) -&gt; <span class="prelude-ty">Option</span>&lt;Conclude&gt; {
 	<span class="kw">match </span>from_overseer {
 		FromOrchestra::Signal(OverseerSignal::Conclude) =&gt; {
-			<span class="macro">gum::info!</span>(target: LOG_TARGET, <span class="string">&quot;Received `Conclude` signal, exiting&quot;</span>);
+			<span class="macro">gum::info!</span>(target: LOG_TARGET, <span class="string">"Received `Conclude` signal, exiting"</span>);
 			<span class="prelude-val">Some</span>(Conclude)
 		},
 		FromOrchestra::Signal(OverseerSignal::BlockFinalized(<span class="kw">_</span>, <span class="kw">_</span>)) =&gt; {
@@ -1040,8 +1042,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// If the activated leaf is in a new session, the index of the new session. If the new session
 	/// has a validator in the set our node happened to have private key for, the signing
 	</span>new_session_index: <span class="prelude-ty">Option</span>&lt;(SessionIndex, <span class="prelude-ty">Option</span>&lt;SigningCredentials&gt;)&gt;,
-	<span class="doccomment">/// This is the block hash and number of the newly activated block if it&#39;s &quot;better&quot; than the
-	/// last one we&#39;ve seen. The block is better if it&#39;s number is higher or if there are no blocks
+	<span class="doccomment">/// This is the block hash and number of the newly activated block if it's "better" than the
+	/// last one we've seen. The block is better if it's number is higher or if there are no blocks
 	/// observed whatsoever. If the leaf is not better then this holds the existing recent block.
 	</span>recent_block: (BlockNumber, Hash),
 	<span class="doccomment">/// The full list of PVFs that are pending pre-checking according to the runtime API. In case
@@ -1061,7 +1063,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ) -&gt; <span class="prelude-ty">Option</span>&lt;ActivationEffect&gt; {
 	<span class="macro">gum::debug!</span>(
 		target: LOG_TARGET,
-		<span class="string">&quot;Examining activation of leaf {:?} ({})&quot;</span>,
+		<span class="string">"Examining activation of leaf {:?} ({})"</span>,
 		leaf_hash,
 		leaf_number,
 	);
@@ -1072,7 +1074,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">gum::debug!</span>(
 				target: LOG_TARGET,
 				relay_parent = <span class="question-mark">?</span>leaf_hash,
-				<span class="string">&quot;cannot fetch PVFs that require pre-checking from runtime API&quot;</span>,
+				<span class="string">"cannot fetch PVFs that require pre-checking from runtime API"</span>,
 			);
 			Vec::new()
 		},
@@ -1100,7 +1102,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">gum::warn!</span>(
 				target: LOG_TARGET,
 				relay_parent = <span class="question-mark">?</span>leaf_hash,
-				<span class="string">&quot;cannot fetch session index from runtime API: {:?}&quot;</span>,
+				<span class="string">"cannot fetch session index from runtime API: {:?}"</span>,
 				e,
 			);
 			<span class="prelude-val">None
@@ -1123,7 +1125,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">gum::warn!</span>(
 				target: LOG_TARGET,
 				relay_parent = <span class="question-mark">?</span>leaf,
-				<span class="string">&quot;error occurred during requesting validators: {:?}&quot;</span>,
+				<span class="string">"error occurred during requesting validators: {:?}"</span>,
 				e
 			);
 			<span class="kw">return </span><span class="prelude-val">None
@@ -1153,7 +1155,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		target: LOG_TARGET,
 		<span class="question-mark">?</span>validation_code_hash,
 		<span class="question-mark">?</span>relay_parent,
-		<span class="string">&quot;submitting a PVF check statement for validation code = {:?}&quot;</span>,
+		<span class="string">"submitting a PVF check statement for validation code = {:?}"</span>,
 		judgement,
 	);
 
@@ -1164,7 +1166,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			target: LOG_TARGET,
 			relay_parent = <span class="question-mark">?</span>relay_parent,
 			<span class="question-mark">?</span>validation_code_hash,
-			<span class="string">&quot;already voted for this validation code&quot;</span>,
+			<span class="string">"already voted for this validation code"</span>,
 		);
 		metrics.on_vote_duplicate();
 		<span class="kw">return
@@ -1190,7 +1192,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="question-mark">?</span>relay_parent,
 				validator_index = <span class="question-mark">?</span>credentials.validator_index,
 				<span class="question-mark">?</span>validation_code_hash,
-				<span class="string">&quot;private key for signing is not available&quot;</span>,
+				<span class="string">"private key for signing is not available"</span>,
 			);
 			<span class="kw">return
 		</span>},
@@ -1200,7 +1202,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="question-mark">?</span>relay_parent,
 				validator_index = <span class="question-mark">?</span>credentials.validator_index,
 				<span class="question-mark">?</span>validation_code_hash,
-				<span class="string">&quot;error signing the statement: {:?}&quot;</span>,
+				<span class="string">"error signing the statement: {:?}"</span>,
 				e,
 			);
 			<span class="kw">return
@@ -1216,7 +1218,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				target: LOG_TARGET,
 				<span class="question-mark">?</span>relay_parent,
 				<span class="question-mark">?</span>validation_code_hash,
-				<span class="string">&quot;error occurred during submitting a vote: {:?}&quot;</span>,
+				<span class="string">"error occurred during submitting a vote: {:?}"</span>,
 				e,
 			);
 		},
@@ -1234,7 +1236,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	validation_code_hash: ValidationCodeHash,
 	metrics: <span class="kw-2">&amp;</span>Metrics,
 ) {
-	<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="question-mark">?</span>validation_code_hash, <span class="question-mark">?</span>relay_parent, <span class="string">&quot;initiating a precheck&quot;</span>,);
+	<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="question-mark">?</span>validation_code_hash, <span class="question-mark">?</span>relay_parent, <span class="string">"initiating a precheck"</span>,);
 
 	<span class="kw">let </span>(tx, rx) = oneshot::channel();
 	sender
@@ -1258,7 +1260,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					target: LOG_TARGET,
 					<span class="question-mark">?</span>validation_code_hash,
 					<span class="question-mark">?</span>relay_parent,
-					<span class="string">&quot;precheck request was canceled&quot;</span>,
+					<span class="string">"precheck request was canceled"</span>,
 				);
 				<span class="prelude-val">None
 			</span>},

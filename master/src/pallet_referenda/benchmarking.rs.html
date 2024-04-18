@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/referenda/src/benchmarking.rs`."><title>benchmarking.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/referenda/src/benchmarking.rs`."><title>benchmarking.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_referenda" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_referenda" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../pallet_referenda/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -816,14 +818,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -845,23 +847,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">const </span>SEED: u32 = <span class="number">0</span>;
 
-<span class="kw">fn </span>assert_last_event&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt;(generic_event: &lt;T <span class="kw">as </span>Config&lt;I&gt;&gt;::RuntimeEvent) {
+<span class="kw">fn </span>assert_last_event&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt;(generic_event: &lt;T <span class="kw">as </span>Config&lt;I&gt;&gt;::RuntimeEvent) {
 	frame_system::Pallet::&lt;T&gt;::assert_last_event(generic_event.into());
 }
 
-<span class="kw">fn </span>funded_account&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt;(name: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str, index: u32) -&gt; T::AccountId {
+<span class="kw">fn </span>funded_account&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt;(name: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str, index: u32) -&gt; T::AccountId {
 	<span class="kw">let </span>caller: T::AccountId = account(name, index, SEED);
 	T::Currency::make_free_balance_be(<span class="kw-2">&amp;</span>caller, BalanceOf::&lt;T, I&gt;::max_value());
 	caller
 }
 
-<span class="kw">fn </span>dummy_call&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt;() -&gt; BoundedCallOf&lt;T, I&gt; {
+<span class="kw">fn </span>dummy_call&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt;() -&gt; BoundedCallOf&lt;T, I&gt; {
 	<span class="kw">let </span>inner = frame_system::Call::remark { remark: <span class="macro">vec!</span>[] };
 	<span class="kw">let </span>call = &lt;T <span class="kw">as </span>Config&lt;I&gt;&gt;::RuntimeCall::from(inner);
 	T::Preimages::bound(call).unwrap()
 }
 
-<span class="kw">fn </span>create_referendum&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt;(origin: T::RuntimeOrigin) -&gt; ReferendumIndex {
+<span class="kw">fn </span>create_referendum&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt;(origin: T::RuntimeOrigin) -&gt; ReferendumIndex {
 	<span class="kw">if let </span><span class="prelude-val">Ok</span>(caller) = frame_system::ensure_signed(origin.clone()) {
 		T::Currency::make_free_balance_be(<span class="kw-2">&amp;</span>caller, BalanceOf::&lt;T, I&gt;::max_value());
 		<span class="macro">whitelist_account!</span>(caller);
@@ -876,17 +878,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	index
 }
 
-<span class="kw">fn </span>place_deposit&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt;(index: ReferendumIndex) {
-	<span class="kw">let </span>caller = funded_account::&lt;T, I&gt;(<span class="string">&quot;caller&quot;</span>, <span class="number">0</span>);
+<span class="kw">fn </span>place_deposit&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt;(index: ReferendumIndex) {
+	<span class="kw">let </span>caller = funded_account::&lt;T, I&gt;(<span class="string">"caller"</span>, <span class="number">0</span>);
 	<span class="macro">whitelist_account!</span>(caller);
 	<span class="macro">assert_ok!</span>(Referenda::&lt;T, I&gt;::place_decision_deposit(RawOrigin::Signed(caller).into(), index));
 }
 
-<span class="kw">fn </span>nudge&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt;(index: ReferendumIndex) {
+<span class="kw">fn </span>nudge&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt;(index: ReferendumIndex) {
 	<span class="macro">assert_ok!</span>(Referenda::&lt;T, I&gt;::nudge_referendum(RawOrigin::Root.into(), index));
 }
 
-<span class="kw">fn </span>fill_queue&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt;(
+<span class="kw">fn </span>fill_queue&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt;(
 	origin: T::RuntimeOrigin,
 	index: ReferendumIndex,
 	spaces: u32,
@@ -918,12 +920,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	others
 }
 
-<span class="kw">fn </span>info&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt;(index: ReferendumIndex) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>TrackInfoOf&lt;T, I&gt; {
+<span class="kw">fn </span>info&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt;(index: ReferendumIndex) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>TrackInfoOf&lt;T, I&gt; {
 	<span class="kw">let </span>status = Referenda::&lt;T, I&gt;::ensure_ongoing(index).unwrap();
-	T::Tracks::info(status.track).expect(<span class="string">&quot;Id value returned from T::Tracks&quot;</span>)
+	T::Tracks::info(status.track).expect(<span class="string">"Id value returned from T::Tracks"</span>)
 }
 
-<span class="kw">fn </span>make_passing_after&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt;(index: ReferendumIndex, period_portion: Perbill) {
+<span class="kw">fn </span>make_passing_after&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt;(index: ReferendumIndex, period_portion: Perbill) {
 	<span class="comment">// We add an extra 1 percent to handle any perbill rounding errors which may cause
 	// a proposal to not actually pass.
 	</span><span class="kw">let </span>support = info::&lt;T, I&gt;(index)
@@ -942,7 +944,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 }
 
-<span class="kw">fn </span>make_passing&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt;(index: ReferendumIndex) {
+<span class="kw">fn </span>make_passing&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt;(index: ReferendumIndex) {
 	Referenda::&lt;T, I&gt;::access_poll(index, |status| {
 		<span class="kw">if let </span>PollStatus::Ongoing(tally, class) = status {
 			T::Tally::setup(class, Perbill::from_rational(<span class="number">1u32</span>, <span class="number">1000u32</span>));
@@ -951,7 +953,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 }
 
-<span class="kw">fn </span>make_failing&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt;(index: ReferendumIndex) {
+<span class="kw">fn </span>make_failing&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt;(index: ReferendumIndex) {
 	Referenda::&lt;T, I&gt;::access_poll(index, |status| {
 		<span class="kw">if let </span>PollStatus::Ongoing(tally, class) = status {
 			T::Tally::setup(class, Perbill::from_rational(<span class="number">1u32</span>, <span class="number">1000u32</span>));
@@ -960,38 +962,38 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	});
 }
 
-<span class="kw">fn </span>skip_prepare_period&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt;(index: ReferendumIndex) {
+<span class="kw">fn </span>skip_prepare_period&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt;(index: ReferendumIndex) {
 	<span class="kw">let </span>status = Referenda::&lt;T, I&gt;::ensure_ongoing(index).unwrap();
 	<span class="kw">let </span>prepare_period_over = status.submitted + info::&lt;T, I&gt;(index).prepare_period;
 	frame_system::Pallet::&lt;T&gt;::set_block_number(prepare_period_over);
 }
 
-<span class="kw">fn </span>skip_decision_period&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt;(index: ReferendumIndex) {
+<span class="kw">fn </span>skip_decision_period&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt;(index: ReferendumIndex) {
 	<span class="kw">let </span>status = Referenda::&lt;T, I&gt;::ensure_ongoing(index).unwrap();
 	<span class="kw">let </span>decision_period_over = status.deciding.unwrap().since + info::&lt;T, I&gt;(index).decision_period;
 	frame_system::Pallet::&lt;T&gt;::set_block_number(decision_period_over);
 }
 
-<span class="kw">fn </span>skip_confirm_period&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt;(index: ReferendumIndex) {
+<span class="kw">fn </span>skip_confirm_period&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt;(index: ReferendumIndex) {
 	<span class="kw">let </span>status = Referenda::&lt;T, I&gt;::ensure_ongoing(index).unwrap();
 	<span class="kw">let </span>confirm_period_over = status.deciding.unwrap().confirming.unwrap();
 	frame_system::Pallet::&lt;T&gt;::set_block_number(confirm_period_over);
 }
 
-<span class="kw">fn </span>skip_timeout_period&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt;(index: ReferendumIndex) {
+<span class="kw">fn </span>skip_timeout_period&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt;(index: ReferendumIndex) {
 	<span class="kw">let </span>status = Referenda::&lt;T, I&gt;::ensure_ongoing(index).unwrap();
 	<span class="kw">let </span>timeout_period_over = status.submitted + T::UndecidingTimeout::get();
 	frame_system::Pallet::&lt;T&gt;::set_block_number(timeout_period_over);
 }
 
-<span class="kw">fn </span>alarm_time&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt;(
+<span class="kw">fn </span>alarm_time&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt;(
 	index: ReferendumIndex,
 ) -&gt; frame_system::pallet_prelude::BlockNumberFor&lt;T&gt; {
 	<span class="kw">let </span>status = Referenda::&lt;T, I&gt;::ensure_ongoing(index).unwrap();
 	status.alarm.unwrap().<span class="number">0
 </span>}
 
-<span class="kw">fn </span>is_confirming&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt;(index: ReferendumIndex) -&gt; bool {
+<span class="kw">fn </span>is_confirming&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt;(index: ReferendumIndex) -&gt; bool {
 	<span class="kw">let </span>status = Referenda::&lt;T, I&gt;::ensure_ongoing(index).unwrap();
 	<span class="macro">matches!</span>(
 		status,
@@ -999,7 +1001,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	)
 }
 
-<span class="kw">fn </span>is_not_confirming&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt;(index: ReferendumIndex) -&gt; bool {
+<span class="kw">fn </span>is_not_confirming&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt;(index: ReferendumIndex) -&gt; bool {
 	<span class="kw">let </span>status = Referenda::&lt;T, I&gt;::ensure_ongoing(index).unwrap();
 	<span class="macro">matches!</span>(
 		status,
@@ -1088,7 +1090,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		place_deposit::&lt;T, I&gt;(index);
 		<span class="macro">assert_ok!</span>(Referenda::&lt;T, I&gt;::cancel(
 			T::CancelOrigin::try_successful_origin()
-				.expect(<span class="string">&quot;CancelOrigin has no successful origin required for the benchmark&quot;</span>),
+				.expect(<span class="string">"CancelOrigin has no successful origin required for the benchmark"</span>),
 			index,
 		));
 	}: <span class="kw">_</span>&lt;T::RuntimeOrigin&gt;(origin, index)
@@ -1104,7 +1106,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>balance = T::Currency::free_balance(<span class="kw-2">&amp;</span>caller);
 		<span class="macro">assert_ok!</span>(Referenda::&lt;T, I&gt;::cancel(
 			T::CancelOrigin::try_successful_origin()
-				.expect(<span class="string">&quot;CancelOrigin has no successful origin required for the benchmark&quot;</span>),
+				.expect(<span class="string">"CancelOrigin has no successful origin required for the benchmark"</span>),
 			index,
 		));
 		<span class="macro">assert_matches!</span>(ReferendumInfoFor::&lt;T, I&gt;::get(index), <span class="prelude-val">Some</span>(ReferendumInfo::Cancelled(<span class="kw">_</span>, <span class="prelude-val">Some</span>(<span class="kw">_</span>), <span class="kw">_</span>)));
@@ -1118,7 +1120,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	cancel {
 		<span class="kw">let </span>origin = T::SubmitOrigin::try_successful_origin(<span class="kw-2">&amp;</span>RawOrigin::Root.into())
-			.expect(<span class="string">&quot;SubmitOrigin has no successful origin required for the benchmark&quot;</span>);
+			.expect(<span class="string">"SubmitOrigin has no successful origin required for the benchmark"</span>);
 		<span class="kw">let </span>index = create_referendum::&lt;T, I&gt;(origin);
 		place_deposit::&lt;T, I&gt;(index);
 	}: <span class="kw">_</span>&lt;T::RuntimeOrigin&gt;(
@@ -1130,7 +1132,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	kill {
 		<span class="kw">let </span>origin = T::SubmitOrigin::try_successful_origin(<span class="kw-2">&amp;</span>RawOrigin::Root.into())
-			.expect(<span class="string">&quot;SubmitOrigin has no successful origin required for the benchmark&quot;</span>);
+			.expect(<span class="string">"SubmitOrigin has no successful origin required for the benchmark"</span>);
 		<span class="kw">let </span>index = create_referendum::&lt;T, I&gt;(origin);
 		place_deposit::&lt;T, I&gt;(index);
 	}: <span class="kw">_</span>&lt;T::RuntimeOrigin&gt;(
@@ -1142,7 +1144,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	one_fewer_deciding_queue_empty {
 		<span class="kw">let </span>origin = T::SubmitOrigin::try_successful_origin(<span class="kw-2">&amp;</span>RawOrigin::Root.into())
-			.expect(<span class="string">&quot;SubmitOrigin has no successful origin required for the benchmark&quot;</span>);
+			.expect(<span class="string">"SubmitOrigin has no successful origin required for the benchmark"</span>);
 		<span class="kw">let </span>index = create_referendum::&lt;T, I&gt;(origin);
 		place_deposit::&lt;T, I&gt;(index);
 		skip_prepare_period::&lt;T, I&gt;(index);
@@ -1150,7 +1152,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>track = Referenda::&lt;T, I&gt;::ensure_ongoing(index).unwrap().track;
 		<span class="macro">assert_ok!</span>(Referenda::&lt;T, I&gt;::cancel(
 			T::CancelOrigin::try_successful_origin()
-				.expect(<span class="string">&quot;CancelOrigin has no successful origin required for the benchmark&quot;</span>),
+				.expect(<span class="string">"CancelOrigin has no successful origin required for the benchmark"</span>),
 			index,
 		));
 		<span class="macro">assert_eq!</span>(DecidingCount::&lt;T, I&gt;::get(<span class="kw-2">&amp;</span>track), <span class="number">1</span>);
@@ -1161,14 +1163,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	one_fewer_deciding_failing {
 		<span class="kw">let </span>origin = T::SubmitOrigin::try_successful_origin(<span class="kw-2">&amp;</span>RawOrigin::Root.into())
-			.expect(<span class="string">&quot;SubmitOrigin has no successful origin required for the benchmark&quot;</span>);
+			.expect(<span class="string">"SubmitOrigin has no successful origin required for the benchmark"</span>);
 		<span class="kw">let </span>index = create_referendum::&lt;T, I&gt;(origin.clone());
 		<span class="comment">// No spaces free in the queue.
 		</span><span class="kw">let </span>queued = fill_queue::&lt;T, I&gt;(origin, index, <span class="number">0</span>, <span class="number">90</span>);
 		<span class="kw">let </span>track = Referenda::&lt;T, I&gt;::ensure_ongoing(index).unwrap().track;
 		<span class="macro">assert_ok!</span>(Referenda::&lt;T, I&gt;::cancel(
 			T::CancelOrigin::try_successful_origin()
-				.expect(<span class="string">&quot;CancelOrigin has no successful origin required for the benchmark&quot;</span>),
+				.expect(<span class="string">"CancelOrigin has no successful origin required for the benchmark"</span>),
 			queued[<span class="number">0</span>],
 		));
 		<span class="macro">assert_eq!</span>(TrackQueue::&lt;T, I&gt;::get(<span class="kw-2">&amp;</span>track).len() <span class="kw">as </span>u32, T::MaxQueued::get());
@@ -1186,14 +1188,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	one_fewer_deciding_passing {
 		<span class="kw">let </span>origin = T::SubmitOrigin::try_successful_origin(<span class="kw-2">&amp;</span>RawOrigin::Root.into())
-			.expect(<span class="string">&quot;SubmitOrigin has no successful origin required for the benchmark&quot;</span>);
+			.expect(<span class="string">"SubmitOrigin has no successful origin required for the benchmark"</span>);
 		<span class="kw">let </span>index = create_referendum::&lt;T, I&gt;(origin.clone());
 		<span class="comment">// No spaces free in the queue.
 		</span><span class="kw">let </span>queued = fill_queue::&lt;T, I&gt;(origin, index, <span class="number">0</span>, <span class="number">0</span>);
 		<span class="kw">let </span>track = Referenda::&lt;T, I&gt;::ensure_ongoing(index).unwrap().track;
 		<span class="macro">assert_ok!</span>(Referenda::&lt;T, I&gt;::cancel(
 			T::CancelOrigin::try_successful_origin()
-				.expect(<span class="string">&quot;CancelOrigin has no successful origin required for the benchmark&quot;</span>),
+				.expect(<span class="string">"CancelOrigin has no successful origin required for the benchmark"</span>),
 			queued[<span class="number">0</span>],
 		));
 		<span class="macro">assert_eq!</span>(TrackQueue::&lt;T, I&gt;::get(<span class="kw-2">&amp;</span>track).len() <span class="kw">as </span>u32, T::MaxQueued::get());
@@ -1211,7 +1213,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	nudge_referendum_requeued_insertion {
 		<span class="kw">let </span>origin = T::SubmitOrigin::try_successful_origin(<span class="kw-2">&amp;</span>RawOrigin::Root.into())
-			.expect(<span class="string">&quot;SubmitOrigin has no successful origin required for the benchmark&quot;</span>);
+			.expect(<span class="string">"SubmitOrigin has no successful origin required for the benchmark"</span>);
 		<span class="comment">// First create our referendum and place the deposit. It will be failing.
 		</span><span class="kw">let </span>index = create_referendum::&lt;T, I&gt;(origin.clone());
 		place_deposit::&lt;T, I&gt;(index);
@@ -1234,7 +1236,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	nudge_referendum_requeued_slide {
 		<span class="kw">let </span>origin = T::SubmitOrigin::try_successful_origin(<span class="kw-2">&amp;</span>RawOrigin::Root.into())
-			.expect(<span class="string">&quot;SubmitOrigin has no successful origin required for the benchmark&quot;</span>);
+			.expect(<span class="string">"SubmitOrigin has no successful origin required for the benchmark"</span>);
 		<span class="comment">// First create our referendum and place the deposit. It will be failing.
 		</span><span class="kw">let </span>index = create_referendum::&lt;T, I&gt;(origin.clone());
 		place_deposit::&lt;T, I&gt;(index);
@@ -1262,7 +1264,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		// insertion at the beginning.
 
 		</span><span class="kw">let </span>origin = T::SubmitOrigin::try_successful_origin(<span class="kw-2">&amp;</span>RawOrigin::Root.into())
-			.expect(<span class="string">&quot;SubmitOrigin has no successful origin required for the benchmark&quot;</span>);
+			.expect(<span class="string">"SubmitOrigin has no successful origin required for the benchmark"</span>);
 		<span class="comment">// First create our referendum and place the deposit. It will be failing.
 		</span><span class="kw">let </span>index = create_referendum::&lt;T, I&gt;(origin.clone());
 		place_deposit::&lt;T, I&gt;(index);
@@ -1281,7 +1283,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	nudge_referendum_not_queued {
 		<span class="kw">let </span>origin = T::SubmitOrigin::try_successful_origin(<span class="kw-2">&amp;</span>RawOrigin::Root.into())
-			.expect(<span class="string">&quot;SubmitOrigin has no successful origin required for the benchmark&quot;</span>);
+			.expect(<span class="string">"SubmitOrigin has no successful origin required for the benchmark"</span>);
 		<span class="comment">// First create our referendum and place the deposit. It will be failing.
 		</span><span class="kw">let </span>index = create_referendum::&lt;T, I&gt;(origin.clone());
 		place_deposit::&lt;T, I&gt;(index);
@@ -1300,7 +1302,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	nudge_referendum_no_deposit {
 		<span class="kw">let </span>origin = T::SubmitOrigin::try_successful_origin(<span class="kw-2">&amp;</span>RawOrigin::Root.into())
-			.expect(<span class="string">&quot;SubmitOrigin has no successful origin required for the benchmark&quot;</span>);
+			.expect(<span class="string">"SubmitOrigin has no successful origin required for the benchmark"</span>);
 		<span class="kw">let </span>index = create_referendum::&lt;T, I&gt;(origin);
 		skip_prepare_period::&lt;T, I&gt;(index);
 	}: nudge_referendum(RawOrigin::Root, index)
@@ -1311,7 +1313,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	nudge_referendum_preparing {
 		<span class="kw">let </span>origin = T::SubmitOrigin::try_successful_origin(<span class="kw-2">&amp;</span>RawOrigin::Root.into())
-			.expect(<span class="string">&quot;SubmitOrigin has no successful origin required for the benchmark&quot;</span>);
+			.expect(<span class="string">"SubmitOrigin has no successful origin required for the benchmark"</span>);
 		<span class="kw">let </span>index = create_referendum::&lt;T, I&gt;(origin);
 		place_deposit::&lt;T, I&gt;(index);
 	}: nudge_referendum(RawOrigin::Root, index)
@@ -1322,7 +1324,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	nudge_referendum_timed_out {
 		<span class="kw">let </span>origin = T::SubmitOrigin::try_successful_origin(<span class="kw-2">&amp;</span>RawOrigin::Root.into())
-			.expect(<span class="string">&quot;SubmitOrigin has no successful origin required for the benchmark&quot;</span>);
+			.expect(<span class="string">"SubmitOrigin has no successful origin required for the benchmark"</span>);
 		<span class="kw">let </span>index = create_referendum::&lt;T, I&gt;(origin);
 		skip_timeout_period::&lt;T, I&gt;(index);
 	}: nudge_referendum(RawOrigin::Root, index)
@@ -1333,7 +1335,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	nudge_referendum_begin_deciding_failing {
 		<span class="kw">let </span>origin = T::SubmitOrigin::try_successful_origin(<span class="kw-2">&amp;</span>RawOrigin::Root.into())
-			.expect(<span class="string">&quot;SubmitOrigin has no successful origin required for the benchmark&quot;</span>);
+			.expect(<span class="string">"SubmitOrigin has no successful origin required for the benchmark"</span>);
 		<span class="kw">let </span>index = create_referendum::&lt;T, I&gt;(origin);
 		place_deposit::&lt;T, I&gt;(index);
 		skip_prepare_period::&lt;T, I&gt;(index);
@@ -1344,7 +1346,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	nudge_referendum_begin_deciding_passing {
 		<span class="kw">let </span>origin = T::SubmitOrigin::try_successful_origin(<span class="kw-2">&amp;</span>RawOrigin::Root.into())
-			.expect(<span class="string">&quot;SubmitOrigin has no successful origin required for the benchmark&quot;</span>);
+			.expect(<span class="string">"SubmitOrigin has no successful origin required for the benchmark"</span>);
 		<span class="kw">let </span>index = create_referendum::&lt;T, I&gt;(origin);
 		place_deposit::&lt;T, I&gt;(index);
 		make_passing::&lt;T, I&gt;(index);
@@ -1356,7 +1358,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	nudge_referendum_begin_confirming {
 		<span class="kw">let </span>origin = T::SubmitOrigin::try_successful_origin(<span class="kw-2">&amp;</span>RawOrigin::Root.into())
-			.expect(<span class="string">&quot;SubmitOrigin has no successful origin required for the benchmark&quot;</span>);
+			.expect(<span class="string">"SubmitOrigin has no successful origin required for the benchmark"</span>);
 		<span class="kw">let </span>index = create_referendum::&lt;T, I&gt;(origin);
 		place_deposit::&lt;T, I&gt;(index);
 		skip_prepare_period::&lt;T, I&gt;(index);
@@ -1370,7 +1372,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	nudge_referendum_end_confirming {
 		<span class="kw">let </span>origin = T::SubmitOrigin::try_successful_origin(<span class="kw-2">&amp;</span>RawOrigin::Root.into())
-			.expect(<span class="string">&quot;SubmitOrigin has no successful origin required for the benchmark&quot;</span>);
+			.expect(<span class="string">"SubmitOrigin has no successful origin required for the benchmark"</span>);
 		<span class="kw">let </span>index = create_referendum::&lt;T, I&gt;(origin);
 		place_deposit::&lt;T, I&gt;(index);
 		skip_prepare_period::&lt;T, I&gt;(index);
@@ -1385,7 +1387,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	nudge_referendum_continue_not_confirming {
 		<span class="kw">let </span>origin = T::SubmitOrigin::try_successful_origin(<span class="kw-2">&amp;</span>RawOrigin::Root.into())
-			.expect(<span class="string">&quot;SubmitOrigin has no successful origin required for the benchmark&quot;</span>);
+			.expect(<span class="string">"SubmitOrigin has no successful origin required for the benchmark"</span>);
 		<span class="kw">let </span>index = create_referendum::&lt;T, I&gt;(origin);
 		place_deposit::&lt;T, I&gt;(index);
 		skip_prepare_period::&lt;T, I&gt;(index);
@@ -1401,7 +1403,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	nudge_referendum_continue_confirming {
 		<span class="kw">let </span>origin = T::SubmitOrigin::try_successful_origin(<span class="kw-2">&amp;</span>RawOrigin::Root.into())
-			.expect(<span class="string">&quot;SubmitOrigin has no successful origin required for the benchmark&quot;</span>);
+			.expect(<span class="string">"SubmitOrigin has no successful origin required for the benchmark"</span>);
 		<span class="kw">let </span>index = create_referendum::&lt;T, I&gt;(origin);
 		place_deposit::&lt;T, I&gt;(index);
 		make_passing::&lt;T, I&gt;(index);
@@ -1416,7 +1418,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	nudge_referendum_approved {
 		<span class="kw">let </span>origin = T::SubmitOrigin::try_successful_origin(<span class="kw-2">&amp;</span>RawOrigin::Root.into())
-			.expect(<span class="string">&quot;SubmitOrigin has no successful origin required for the benchmark&quot;</span>);
+			.expect(<span class="string">"SubmitOrigin has no successful origin required for the benchmark"</span>);
 		<span class="kw">let </span>index = create_referendum::&lt;T, I&gt;(origin);
 		place_deposit::&lt;T, I&gt;(index);
 		skip_prepare_period::&lt;T, I&gt;(index);
@@ -1431,7 +1433,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	nudge_referendum_rejected {
 		<span class="kw">let </span>origin = T::SubmitOrigin::try_successful_origin(<span class="kw-2">&amp;</span>RawOrigin::Root.into())
-			.expect(<span class="string">&quot;SubmitOrigin has no successful origin required for the benchmark&quot;</span>);
+			.expect(<span class="string">"SubmitOrigin has no successful origin required for the benchmark"</span>);
 		<span class="kw">let </span>index = create_referendum::&lt;T, I&gt;(origin);
 		place_deposit::&lt;T, I&gt;(index);
 		skip_prepare_period::&lt;T, I&gt;(index);
@@ -1447,7 +1449,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	set_some_metadata {
 		<span class="kw">use </span>sp_std::borrow::Cow;
 		<span class="kw">let </span>origin = T::SubmitOrigin::try_successful_origin(<span class="kw-2">&amp;</span>RawOrigin::Root.into())
-			.expect(<span class="string">&quot;SubmitOrigin has no successful origin required for the benchmark&quot;</span>);
+			.expect(<span class="string">"SubmitOrigin has no successful origin required for the benchmark"</span>);
 		<span class="kw">let </span>index = create_referendum::&lt;T, I&gt;(origin.clone());
 		<span class="kw">let </span>hash = T::Preimages::note(Cow::from(<span class="macro">vec!</span>[<span class="number">5</span>, <span class="number">6</span>])).unwrap();
 	}: set_metadata&lt;T::RuntimeOrigin&gt;(origin, index, <span class="prelude-val">Some</span>(hash))
@@ -1458,7 +1460,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	clear_metadata {
 		<span class="kw">use </span>sp_std::borrow::Cow;
 		<span class="kw">let </span>origin = T::SubmitOrigin::try_successful_origin(<span class="kw-2">&amp;</span>RawOrigin::Root.into())
-			.expect(<span class="string">&quot;SubmitOrigin has no successful origin required for the benchmark&quot;</span>);
+			.expect(<span class="string">"SubmitOrigin has no successful origin required for the benchmark"</span>);
 		<span class="kw">let </span>index = create_referendum::&lt;T, I&gt;(origin.clone());
 		<span class="kw">let </span>hash = T::Preimages::note(Cow::from(<span class="macro">vec!</span>[<span class="number">6</span>, <span class="number">7</span>, <span class="number">8</span>])).unwrap();
 		<span class="macro">assert_ok!</span>(

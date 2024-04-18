@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/staking/src/migrations.rs`."><title>migrations.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/staking/src/migrations.rs`."><title>migrations.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_staking" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_staking" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../pallet_staking/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -696,14 +698,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 
@@ -718,9 +720,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	traits::{GetStorageVersion, OnRuntimeUpgrade},
 };
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 </span><span class="kw">use </span>frame_support::ensure;
-<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 </span><span class="kw">use </span>sp_runtime::TryRuntimeError;
 
 <span class="doccomment">/// Used for release versioning up to v12.
@@ -766,19 +768,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">if </span>in_code == <span class="number">14 </span>&amp;&amp; on_chain == <span class="number">13 </span>{
 				in_code.put::&lt;Pallet&lt;T&gt;&gt;();
 
-				<span class="macro">log!</span>(info, <span class="string">&quot;v14 applied successfully.&quot;</span>);
+				<span class="macro">log!</span>(info, <span class="string">"v14 applied successfully."</span>);
 				T::DbWeight::get().reads_writes(<span class="number">1</span>, <span class="number">1</span>)
 			} <span class="kw">else </span>{
-				<span class="macro">log!</span>(warn, <span class="string">&quot;v14 not applied.&quot;</span>);
+				<span class="macro">log!</span>(warn, <span class="string">"v14 not applied."</span>);
 				T::DbWeight::get().reads(<span class="number">1</span>)
 			}
 		}
 
-		<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+		<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 		</span><span class="kw">fn </span>post_upgrade(_state: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
 			<span class="macro">frame_support::ensure!</span>(
 				Pallet::&lt;T&gt;::on_chain_storage_version() &gt;= <span class="number">14</span>,
-				<span class="string">&quot;v14 not applied&quot;
+				<span class="string">"v14 not applied"
 			</span>);
 			<span class="prelude-val">Ok</span>(())
 		}
@@ -790,11 +792,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">pub struct </span>MigrateToV13&lt;T&gt;(core::marker::PhantomData&lt;T&gt;);
 	<span class="kw">impl</span>&lt;T: Config&gt; OnRuntimeUpgrade <span class="kw">for </span>MigrateToV13&lt;T&gt; {
-		<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+		<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 		</span><span class="kw">fn </span>pre_upgrade() -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, TryRuntimeError&gt; {
 			<span class="macro">frame_support::ensure!</span>(
 				StorageVersion::&lt;T&gt;::get() == ObsoleteReleases::V12_0_0,
-				<span class="string">&quot;Required v12 before upgrading to v13&quot;
+				<span class="string">"Required v12 before upgrading to v13"
 			</span>);
 
 			<span class="prelude-val">Ok</span>(Default::default())
@@ -808,24 +810,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				StorageVersion::&lt;T&gt;::kill();
 				in_code.put::&lt;Pallet&lt;T&gt;&gt;();
 
-				<span class="macro">log!</span>(info, <span class="string">&quot;v13 applied successfully&quot;</span>);
+				<span class="macro">log!</span>(info, <span class="string">"v13 applied successfully"</span>);
 				T::DbWeight::get().reads_writes(<span class="number">1</span>, <span class="number">2</span>)
 			} <span class="kw">else </span>{
-				<span class="macro">log!</span>(warn, <span class="string">&quot;Skipping v13, should be removed&quot;</span>);
+				<span class="macro">log!</span>(warn, <span class="string">"Skipping v13, should be removed"</span>);
 				T::DbWeight::get().reads(<span class="number">1</span>)
 			}
 		}
 
-		<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+		<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 		</span><span class="kw">fn </span>post_upgrade(_state: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
 			<span class="macro">frame_support::ensure!</span>(
 				Pallet::&lt;T&gt;::on_chain_storage_version() == <span class="number">13</span>,
-				<span class="string">&quot;v13 not applied&quot;
+				<span class="string">"v13 not applied"
 			</span>);
 
 			<span class="macro">frame_support::ensure!</span>(
 				!StorageVersion::&lt;T&gt;::exists(),
-				<span class="string">&quot;Storage version not migrated correctly&quot;
+				<span class="string">"Storage version not migrated correctly"
 			</span>);
 
 			<span class="prelude-val">Ok</span>(())
@@ -846,20 +848,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// this release.
 	</span><span class="kw">pub struct </span>MigrateToV12&lt;T&gt;(core::marker::PhantomData&lt;T&gt;);
 	<span class="kw">impl</span>&lt;T: Config&gt; OnRuntimeUpgrade <span class="kw">for </span>MigrateToV12&lt;T&gt; {
-		<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+		<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 		</span><span class="kw">fn </span>pre_upgrade() -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, TryRuntimeError&gt; {
 			<span class="macro">frame_support::ensure!</span>(
 				StorageVersion::&lt;T&gt;::get() == ObsoleteReleases::V11_0_0,
-				<span class="string">&quot;Expected v11 before upgrading to v12&quot;
+				<span class="string">"Expected v11 before upgrading to v12"
 			</span>);
 
 			<span class="kw">if </span>HistoryDepth::&lt;T&gt;::exists() {
 				<span class="macro">frame_support::ensure!</span>(
 					T::HistoryDepth::get() == HistoryDepth::&lt;T&gt;::get(),
-					<span class="string">&quot;Provided value of HistoryDepth should be same as the existing storage value&quot;
+					<span class="string">"Provided value of HistoryDepth should be same as the existing storage value"
 				</span>);
 			} <span class="kw">else </span>{
-				<span class="macro">log::info!</span>(<span class="string">&quot;No HistoryDepth in storage; nothing to remove&quot;</span>);
+				<span class="macro">log::info!</span>(<span class="string">"No HistoryDepth in storage; nothing to remove"</span>);
 			}
 
 			<span class="prelude-val">Ok</span>(Default::default())
@@ -870,19 +872,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				HistoryDepth::&lt;T&gt;::kill();
 				StorageVersion::&lt;T&gt;::put(ObsoleteReleases::V12_0_0);
 
-				<span class="macro">log!</span>(info, <span class="string">&quot;v12 applied successfully&quot;</span>);
+				<span class="macro">log!</span>(info, <span class="string">"v12 applied successfully"</span>);
 				T::DbWeight::get().reads_writes(<span class="number">1</span>, <span class="number">2</span>)
 			} <span class="kw">else </span>{
-				<span class="macro">log!</span>(warn, <span class="string">&quot;Skipping v12, should be removed&quot;</span>);
+				<span class="macro">log!</span>(warn, <span class="string">"Skipping v12, should be removed"</span>);
 				T::DbWeight::get().reads(<span class="number">1</span>)
 			}
 		}
 
-		<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+		<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 		</span><span class="kw">fn </span>post_upgrade(_state: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
 			<span class="macro">frame_support::ensure!</span>(
 				StorageVersion::&lt;T&gt;::get() == ObsoleteReleases::V12_0_0,
-				<span class="string">&quot;v12 not applied&quot;
+				<span class="string">"v12 not applied"
 			</span>);
 			<span class="prelude-val">Ok</span>(())
 		}
@@ -895,24 +897,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		storage::migration::move_pallet,
 		traits::{GetStorageVersion, PalletInfoAccess},
 	};
-	<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 	</span><span class="kw">use </span>sp_io::hashing::twox_128;
 
 	<span class="kw">pub struct </span>MigrateToV11&lt;T, P, N&gt;(core::marker::PhantomData&lt;(T, P, N)&gt;);
-	<span class="kw">impl</span>&lt;T: Config, P: GetStorageVersion + PalletInfoAccess, N: Get&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt;&gt; OnRuntimeUpgrade
+	<span class="kw">impl</span>&lt;T: Config, P: GetStorageVersion + PalletInfoAccess, N: Get&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt;&gt; OnRuntimeUpgrade
 		<span class="kw">for </span>MigrateToV11&lt;T, P, N&gt;
 	{
-		<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+		<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 		</span><span class="kw">fn </span>pre_upgrade() -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, TryRuntimeError&gt; {
 			<span class="macro">frame_support::ensure!</span>(
 				StorageVersion::&lt;T&gt;::get() == ObsoleteReleases::V10_0_0,
-				<span class="string">&quot;must upgrade linearly&quot;
+				<span class="string">"must upgrade linearly"
 			</span>);
 			<span class="kw">let </span>old_pallet_prefix = twox_128(N::get().as_bytes());
 
 			<span class="macro">frame_support::ensure!</span>(
 				sp_io::storage::next_key(<span class="kw-2">&amp;</span>old_pallet_prefix).is_some(),
-				<span class="string">&quot;no data for the old pallet name has been detected&quot;
+				<span class="string">"no data for the old pallet name has been detected"
 			</span>);
 
 			<span class="prelude-val">Ok</span>(Default::default())
@@ -931,12 +933,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>new_pallet_name = &lt;P <span class="kw">as </span>PalletInfoAccess&gt;::name();
 
 			<span class="kw">if </span>StorageVersion::&lt;T&gt;::get() == ObsoleteReleases::V10_0_0 {
-				<span class="comment">// bump version anyway, even if we don&#39;t need to move the prefix
+				<span class="comment">// bump version anyway, even if we don't need to move the prefix
 				</span>StorageVersion::&lt;T&gt;::put(ObsoleteReleases::V11_0_0);
 				<span class="kw">if </span>new_pallet_name == old_pallet_name {
 					<span class="macro">log!</span>(
 						warn,
-						<span class="string">&quot;new bags-list name is equal to the old one, only bumping the version&quot;
+						<span class="string">"new bags-list name is equal to the old one, only bumping the version"
 					</span>);
 					<span class="kw">return </span>T::DbWeight::get().reads(<span class="number">1</span>).saturating_add(T::DbWeight::get().writes(<span class="number">1</span>))
 				}
@@ -944,16 +946,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				move_pallet(old_pallet_name.as_bytes(), new_pallet_name.as_bytes());
 				&lt;T <span class="kw">as </span>frame_system::Config&gt;::BlockWeights::get().max_block
 			} <span class="kw">else </span>{
-				<span class="macro">log!</span>(warn, <span class="string">&quot;v11::migrate should be removed.&quot;</span>);
+				<span class="macro">log!</span>(warn, <span class="string">"v11::migrate should be removed."</span>);
 				T::DbWeight::get().reads(<span class="number">1</span>)
 			}
 		}
 
-		<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+		<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 		</span><span class="kw">fn </span>post_upgrade(_state: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
 			<span class="macro">frame_support::ensure!</span>(
 				StorageVersion::&lt;T&gt;::get() == ObsoleteReleases::V11_0_0,
-				<span class="string">&quot;wrong version after the upgrade&quot;
+				<span class="string">"wrong version after the upgrade"
 			</span>);
 
 			<span class="kw">let </span>old_pallet_name = N::get();
@@ -967,14 +969,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>old_pallet_prefix = twox_128(N::get().as_bytes());
 			<span class="macro">frame_support::ensure!</span>(
 				sp_io::storage::next_key(<span class="kw-2">&amp;</span>old_pallet_prefix).is_none(),
-				<span class="string">&quot;old pallet data hasn&#39;t been removed&quot;
+				<span class="string">"old pallet data hasn't been removed"
 			</span>);
 
 			<span class="kw">let </span>new_pallet_name = &lt;P <span class="kw">as </span>PalletInfoAccess&gt;::name();
 			<span class="kw">let </span>new_pallet_prefix = twox_128(new_pallet_name.as_bytes());
 			<span class="macro">frame_support::ensure!</span>(
 				sp_io::storage::next_key(<span class="kw-2">&amp;</span>new_pallet_prefix).is_some(),
-				<span class="string">&quot;new pallet data hasn&#39;t been created&quot;
+				<span class="string">"new pallet data hasn't been created"
 			</span>);
 
 			<span class="prelude-val">Ok</span>(())
@@ -992,7 +994,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Apply any pending slashes that where queued.
 	///
 	/// That means we might slash someone a bit too early, but we will definitely
-	/// won&#39;t forget to slash them. The cap of 512 is somewhat randomly taken to
+	/// won't forget to slash them. The cap of 512 is somewhat randomly taken to
 	/// prevent us from iterating over an arbitrary large number of keys `on_runtime_upgrade`.
 	</span><span class="kw">pub struct </span>MigrateToV10&lt;T&gt;(core::marker::PhantomData&lt;T&gt;);
 	<span class="kw">impl</span>&lt;T: Config&gt; OnRuntimeUpgrade <span class="kw">for </span>MigrateToV10&lt;T&gt; {
@@ -1003,7 +1005,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw">for </span>slash <span class="kw">in </span>slashes {
 						<span class="comment">// in the old slashing scheme, the slash era was the key at which we read
 						// from `UnappliedSlashes`.
-						</span><span class="macro">log!</span>(warn, <span class="string">&quot;prematurely applying a slash ({:?}) for era {:?}&quot;</span>, slash, era);
+						</span><span class="macro">log!</span>(warn, <span class="string">"prematurely applying a slash ({:?}) for era {:?}"</span>, slash, era);
 						slashing::apply_slash::&lt;T&gt;(slash, era);
 					}
 				}
@@ -1011,10 +1013,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				EarliestUnappliedSlash::&lt;T&gt;::kill();
 				StorageVersion::&lt;T&gt;::put(ObsoleteReleases::V10_0_0);
 
-				<span class="macro">log!</span>(info, <span class="string">&quot;MigrateToV10 executed successfully&quot;</span>);
+				<span class="macro">log!</span>(info, <span class="string">"MigrateToV10 executed successfully"</span>);
 				T::DbWeight::get().reads_writes(<span class="number">1</span>, <span class="number">1</span>)
 			} <span class="kw">else </span>{
-				<span class="macro">log!</span>(warn, <span class="string">&quot;MigrateToV10 should be removed.&quot;</span>);
+				<span class="macro">log!</span>(warn, <span class="string">"MigrateToV10 should be removed."</span>);
 				T::DbWeight::get().reads(<span class="number">1</span>)
 			}
 		}
@@ -1023,9 +1025,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">pub mod </span>v9 {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
-	<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 	</span><span class="kw">use </span>codec::{Decode, Encode};
-	<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 	</span><span class="kw">use </span>sp_std::vec::Vec;
 
 	<span class="doccomment">/// Migration implementation that injects all validators into sorted list.
@@ -1040,13 +1042,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">for </span>(v, <span class="kw">_</span>) <span class="kw">in </span>Validators::&lt;T&gt;::iter() {
 					<span class="kw">let </span>weight = weight_of_cached(<span class="kw-2">&amp;</span>v);
 					<span class="kw">let _ </span>= T::VoterList::on_insert(v.clone(), weight).map_err(|err| {
-						<span class="macro">log!</span>(warn, <span class="string">&quot;failed to insert {:?} into VoterList: {:?}&quot;</span>, v, err)
+						<span class="macro">log!</span>(warn, <span class="string">"failed to insert {:?} into VoterList: {:?}"</span>, v, err)
 					});
 				}
 
 				<span class="macro">log!</span>(
 					info,
-					<span class="string">&quot;injected a total of {} new voters, prev count: {} next count: {}, updating to version 9&quot;</span>,
+					<span class="string">"injected a total of {} new voters, prev count: {} next count: {}, updating to version 9"</span>,
 					Validators::&lt;T&gt;::count(),
 					prev_count,
 					T::VoterList::count(),
@@ -1057,40 +1059,40 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			} <span class="kw">else </span>{
 				<span class="macro">log!</span>(
 					warn,
-					<span class="string">&quot;InjectValidatorsIntoVoterList being executed on the wrong storage \
-				version, expected ObsoleteReleases::V8_0_0&quot;
+					<span class="string">"InjectValidatorsIntoVoterList being executed on the wrong storage \
+				version, expected ObsoleteReleases::V8_0_0"
 				</span>);
 				T::DbWeight::get().reads(<span class="number">1</span>)
 			}
 		}
 
-		<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+		<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 		</span><span class="kw">fn </span>pre_upgrade() -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, TryRuntimeError&gt; {
 			<span class="macro">frame_support::ensure!</span>(
 				StorageVersion::&lt;T&gt;::get() == ObsoleteReleases::V8_0_0,
-				<span class="string">&quot;must upgrade linearly&quot;
+				<span class="string">"must upgrade linearly"
 			</span>);
 
 			<span class="kw">let </span>prev_count = T::VoterList::count();
 			<span class="prelude-val">Ok</span>(prev_count.encode())
 		}
 
-		<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+		<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 		</span><span class="kw">fn </span>post_upgrade(prev_count: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
 			<span class="kw">let </span>prev_count: u32 = Decode::decode(<span class="kw-2">&amp;mut </span>prev_count.as_slice()).expect(
-				<span class="string">&quot;the state parameter should be something that was generated by pre_upgrade&quot;</span>,
+				<span class="string">"the state parameter should be something that was generated by pre_upgrade"</span>,
 			);
 			<span class="kw">let </span>post_count = T::VoterList::count();
 			<span class="kw">let </span>validators = Validators::&lt;T&gt;::count();
 			<span class="macro">ensure!</span>(
 				post_count == prev_count + validators,
-				<span class="string">&quot;`VoterList` count after the migration must equal to the sum of \
-				previous count and the current number of validators&quot;
+				<span class="string">"`VoterList` count after the migration must equal to the sum of \
+				previous count and the current number of validators"
 			</span>);
 
 			<span class="macro">frame_support::ensure!</span>(
 				StorageVersion::&lt;T&gt;::get() == ObsoleteReleases::V9_0_0,
-				<span class="string">&quot;must upgrade&quot;
+				<span class="string">"must upgrade"
 			</span>);
 			<span class="prelude-val">Ok</span>(())
 		}
@@ -1103,21 +1105,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use </span>frame_election_provider_support::SortedListProvider;
 	<span class="kw">use </span>frame_support::traits::Get;
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
-	</span><span class="kw">pub fn </span>pre_migrate&lt;T: Config&gt;() -&gt; <span class="prelude-ty">Result</span>&lt;(), <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; {
+	<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
+	</span><span class="kw">pub fn </span>pre_migrate&lt;T: Config&gt;() -&gt; <span class="prelude-ty">Result</span>&lt;(), <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
 		<span class="macro">frame_support::ensure!</span>(
 			StorageVersion::&lt;T&gt;::get() == ObsoleteReleases::V7_0_0,
-			<span class="string">&quot;must upgrade linearly&quot;
+			<span class="string">"must upgrade linearly"
 		</span>);
 
-		<span class="macro">crate::log!</span>(info, <span class="string">&quot;👜 staking bags-list migration passes PRE migrate checks ✅&quot;</span>,);
+		<span class="macro">crate::log!</span>(info, <span class="string">"👜 staking bags-list migration passes PRE migrate checks ✅"</span>,);
 		<span class="prelude-val">Ok</span>(())
 	}
 
 	<span class="doccomment">/// Migration to sorted `VoterList`.
 	</span><span class="kw">pub fn </span>migrate&lt;T: Config&gt;() -&gt; Weight {
 		<span class="kw">if </span>StorageVersion::&lt;T&gt;::get() == ObsoleteReleases::V7_0_0 {
-			<span class="macro">crate::log!</span>(info, <span class="string">&quot;migrating staking to ObsoleteReleases::V8_0_0&quot;</span>);
+			<span class="macro">crate::log!</span>(info, <span class="string">"migrating staking to ObsoleteReleases::V8_0_0"</span>);
 
 			<span class="kw">let </span>migrated = T::VoterList::unsafe_regenerate(
 				Nominators::&lt;T&gt;::iter().map(|(id, <span class="kw">_</span>)| id),
@@ -1127,7 +1129,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			StorageVersion::&lt;T&gt;::put(ObsoleteReleases::V8_0_0);
 			<span class="macro">crate::log!</span>(
 				info,
-				<span class="string">&quot;👜 completed staking migration to ObsoleteReleases::V8_0_0 with {} voters migrated&quot;</span>,
+				<span class="string">"👜 completed staking migration to ObsoleteReleases::V8_0_0 with {} voters migrated"</span>,
 				migrated,
 			);
 
@@ -1137,10 +1139,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
-	</span><span class="kw">pub fn </span>post_migrate&lt;T: Config&gt;() -&gt; <span class="prelude-ty">Result</span>&lt;(), <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; {
-		T::VoterList::try_state().map_err(|<span class="kw">_</span>| <span class="string">&quot;VoterList is not in a sane state.&quot;</span>)<span class="question-mark">?</span>;
-		<span class="macro">crate::log!</span>(info, <span class="string">&quot;👜 staking bags-list migration passes POST migrate checks ✅&quot;</span>,);
+	<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
+	</span><span class="kw">pub fn </span>post_migrate&lt;T: Config&gt;() -&gt; <span class="prelude-ty">Result</span>&lt;(), <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
+		T::VoterList::try_state().map_err(|<span class="kw">_</span>| <span class="string">"VoterList is not in a sane state."</span>)<span class="question-mark">?</span>;
+		<span class="macro">crate::log!</span>(info, <span class="string">"👜 staking bags-list migration passes POST migrate checks ✅"</span>,);
 		<span class="prelude-val">Ok</span>(())
 	}
 }
@@ -1154,23 +1156,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[storage_alias]
 	</span><span class="kw">type </span>CounterForNominators&lt;T: Config&gt; = StorageValue&lt;Pallet&lt;T&gt;, u32&gt;;
 
-	<span class="kw">pub fn </span>pre_migrate&lt;T: Config&gt;() -&gt; <span class="prelude-ty">Result</span>&lt;(), <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; {
+	<span class="kw">pub fn </span>pre_migrate&lt;T: Config&gt;() -&gt; <span class="prelude-ty">Result</span>&lt;(), <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
 		<span class="macro">assert!</span>(
 			CounterForValidators::&lt;T&gt;::get().unwrap().is_zero(),
-			<span class="string">&quot;CounterForValidators already set.&quot;
+			<span class="string">"CounterForValidators already set."
 		</span>);
 		<span class="macro">assert!</span>(
 			CounterForNominators::&lt;T&gt;::get().unwrap().is_zero(),
-			<span class="string">&quot;CounterForNominators already set.&quot;
+			<span class="string">"CounterForNominators already set."
 		</span>);
-		<span class="macro">assert!</span>(Validators::&lt;T&gt;::count().is_zero(), <span class="string">&quot;Validators already set.&quot;</span>);
-		<span class="macro">assert!</span>(Nominators::&lt;T&gt;::count().is_zero(), <span class="string">&quot;Nominators already set.&quot;</span>);
+		<span class="macro">assert!</span>(Validators::&lt;T&gt;::count().is_zero(), <span class="string">"Validators already set."</span>);
+		<span class="macro">assert!</span>(Nominators::&lt;T&gt;::count().is_zero(), <span class="string">"Nominators already set."</span>);
 		<span class="macro">assert!</span>(StorageVersion::&lt;T&gt;::get() == ObsoleteReleases::V6_0_0);
 		<span class="prelude-val">Ok</span>(())
 	}
 
 	<span class="kw">pub fn </span>migrate&lt;T: Config&gt;() -&gt; Weight {
-		<span class="macro">log!</span>(info, <span class="string">&quot;Migrating staking to ObsoleteReleases::V7_0_0&quot;</span>);
+		<span class="macro">log!</span>(info, <span class="string">"Migrating staking to ObsoleteReleases::V7_0_0"</span>);
 		<span class="kw">let </span>validator_count = Validators::&lt;T&gt;::iter().count() <span class="kw">as </span>u32;
 		<span class="kw">let </span>nominator_count = Nominators::&lt;T&gt;::iter().count() <span class="kw">as </span>u32;
 
@@ -1178,7 +1180,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		CounterForNominators::&lt;T&gt;::put(nominator_count);
 
 		StorageVersion::&lt;T&gt;::put(ObsoleteReleases::V7_0_0);
-		<span class="macro">log!</span>(info, <span class="string">&quot;Completed staking migration to ObsoleteReleases::V7_0_0&quot;</span>);
+		<span class="macro">log!</span>(info, <span class="string">"Completed staking migration to ObsoleteReleases::V7_0_0"</span>);
 
 		T::DbWeight::get().reads_writes(validator_count.saturating_add(nominator_count).into(), <span class="number">2</span>)
 	}
@@ -1188,7 +1190,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use </span>frame_support::{storage_alias, traits::Get, weights::Weight};
 
-	<span class="comment">// NOTE: value type doesn&#39;t matter, we just set it to () here.
+	<span class="comment">// NOTE: value type doesn't matter, we just set it to () here.
 	</span><span class="attr">#[storage_alias]
 	</span><span class="kw">type </span>SnapshotValidators&lt;T: Config&gt; = StorageValue&lt;Pallet&lt;T&gt;, ()&gt;;
 	<span class="attr">#[storage_alias]
@@ -1203,24 +1205,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">type </span>IsCurrentSessionFinal&lt;T: Config&gt; = StorageValue&lt;Pallet&lt;T&gt;, ()&gt;;
 
 	<span class="doccomment">/// check to execute prior to migration.
-	</span><span class="kw">pub fn </span>pre_migrate&lt;T: Config&gt;() -&gt; <span class="prelude-ty">Result</span>&lt;(), <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; {
+	</span><span class="kw">pub fn </span>pre_migrate&lt;T: Config&gt;() -&gt; <span class="prelude-ty">Result</span>&lt;(), <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
 		<span class="comment">// these may or may not exist.
-		</span><span class="macro">log!</span>(info, <span class="string">&quot;SnapshotValidators.exits()? {:?}&quot;</span>, SnapshotValidators::&lt;T&gt;::exists());
-		<span class="macro">log!</span>(info, <span class="string">&quot;SnapshotNominators.exits()? {:?}&quot;</span>, SnapshotNominators::&lt;T&gt;::exists());
-		<span class="macro">log!</span>(info, <span class="string">&quot;QueuedElected.exits()? {:?}&quot;</span>, QueuedElected::&lt;T&gt;::exists());
-		<span class="macro">log!</span>(info, <span class="string">&quot;QueuedScore.exits()? {:?}&quot;</span>, QueuedScore::&lt;T&gt;::exists());
+		</span><span class="macro">log!</span>(info, <span class="string">"SnapshotValidators.exits()? {:?}"</span>, SnapshotValidators::&lt;T&gt;::exists());
+		<span class="macro">log!</span>(info, <span class="string">"SnapshotNominators.exits()? {:?}"</span>, SnapshotNominators::&lt;T&gt;::exists());
+		<span class="macro">log!</span>(info, <span class="string">"QueuedElected.exits()? {:?}"</span>, QueuedElected::&lt;T&gt;::exists());
+		<span class="macro">log!</span>(info, <span class="string">"QueuedScore.exits()? {:?}"</span>, QueuedScore::&lt;T&gt;::exists());
 		<span class="comment">// these must exist.
 		</span><span class="macro">assert!</span>(
 			IsCurrentSessionFinal::&lt;T&gt;::exists(),
-			<span class="string">&quot;IsCurrentSessionFinal storage item not found!&quot;
+			<span class="string">"IsCurrentSessionFinal storage item not found!"
 		</span>);
-		<span class="macro">assert!</span>(EraElectionStatus::&lt;T&gt;::exists(), <span class="string">&quot;EraElectionStatus storage item not found!&quot;</span>);
+		<span class="macro">assert!</span>(EraElectionStatus::&lt;T&gt;::exists(), <span class="string">"EraElectionStatus storage item not found!"</span>);
 		<span class="prelude-val">Ok</span>(())
 	}
 
 	<span class="doccomment">/// Migrate storage to v6.
 	</span><span class="kw">pub fn </span>migrate&lt;T: Config&gt;() -&gt; Weight {
-		<span class="macro">log!</span>(info, <span class="string">&quot;Migrating staking to ObsoleteReleases::V6_0_0&quot;</span>);
+		<span class="macro">log!</span>(info, <span class="string">"Migrating staking to ObsoleteReleases::V6_0_0"</span>);
 
 		SnapshotValidators::&lt;T&gt;::kill();
 		SnapshotNominators::&lt;T&gt;::kill();
@@ -1231,7 +1233,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		StorageVersion::&lt;T&gt;::put(ObsoleteReleases::V6_0_0);
 
-		<span class="macro">log!</span>(info, <span class="string">&quot;Done.&quot;</span>);
+		<span class="macro">log!</span>(info, <span class="string">"Done."</span>);
 		T::DbWeight::get().writes(<span class="number">6 </span>+ <span class="number">1</span>)
 	}
 }

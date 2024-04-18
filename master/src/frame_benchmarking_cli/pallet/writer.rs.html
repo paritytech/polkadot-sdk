@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/utils/frame/benchmarking-cli/src/pallet/writer.rs`."><title>writer.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/utils/frame/benchmarking-cli/src/pallet/writer.rs`."><title>writer.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="frame_benchmarking_cli" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="frame_benchmarking_cli" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../frame_benchmarking_cli/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1500,14 +1502,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -1539,8 +1541,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sp_core::hexdisplay::HexDisplay;
 <span class="kw">use </span>sp_runtime::traits::Zero;
 
-<span class="kw">const </span>VERSION: <span class="kw-2">&amp;</span>str = <span class="macro">env!</span>(<span class="string">&quot;CARGO_PKG_VERSION&quot;</span>);
-<span class="kw">const </span>TEMPLATE: <span class="kw-2">&amp;</span>str = <span class="macro">include_str!</span>(<span class="string">&quot;./template.hbs&quot;</span>);
+<span class="kw">const </span>VERSION: <span class="kw-2">&amp;</span>str = <span class="macro">env!</span>(<span class="string">"CARGO_PKG_VERSION"</span>);
+<span class="kw">const </span>TEMPLATE: <span class="kw-2">&amp;</span>str = <span class="macro">include_str!</span>(<span class="string">"./template.hbs"</span>);
 
 <span class="comment">// This is the final structure we will pass to the Handlebars template.
 </span><span class="attr">#[derive(Serialize, Default, Debug, Clone)]
@@ -1562,15 +1564,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">struct </span>BenchmarkData {
 	name: String,
 	components: Vec&lt;Component&gt;,
-	<span class="attr">#[serde(serialize_with = <span class="string">&quot;string_serialize&quot;</span>)]
+	<span class="attr">#[serde(serialize_with = <span class="string">"string_serialize"</span>)]
 	</span>base_weight: u128,
-	<span class="attr">#[serde(serialize_with = <span class="string">&quot;string_serialize&quot;</span>)]
+	<span class="attr">#[serde(serialize_with = <span class="string">"string_serialize"</span>)]
 	</span>base_reads: u128,
-	<span class="attr">#[serde(serialize_with = <span class="string">&quot;string_serialize&quot;</span>)]
+	<span class="attr">#[serde(serialize_with = <span class="string">"string_serialize"</span>)]
 	</span>base_writes: u128,
-	<span class="attr">#[serde(serialize_with = <span class="string">&quot;string_serialize&quot;</span>)]
+	<span class="attr">#[serde(serialize_with = <span class="string">"string_serialize"</span>)]
 	</span>base_calculated_proof_size: u128,
-	<span class="attr">#[serde(serialize_with = <span class="string">&quot;string_serialize&quot;</span>)]
+	<span class="attr">#[serde(serialize_with = <span class="string">"string_serialize"</span>)]
 	</span>base_recorded_proof_size: u128,
 	component_weight: Vec&lt;ComponentSlope&gt;,
 	component_reads: Vec&lt;ComponentSlope&gt;,
@@ -1579,7 +1581,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	component_recorded_proof_size: Vec&lt;ComponentSlope&gt;,
 	component_ranges: Vec&lt;ComponentRange&gt;,
 	comments: Vec&lt;String&gt;,
-	<span class="attr">#[serde(serialize_with = <span class="string">&quot;string_serialize&quot;</span>)]
+	<span class="attr">#[serde(serialize_with = <span class="string">"string_serialize"</span>)]
 	</span>min_execution_time: u128,
 }
 
@@ -1609,9 +1611,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[derive(Serialize, Debug, Clone, Eq, PartialEq)]
 </span><span class="kw">struct </span>ComponentSlope {
 	name: String,
-	<span class="attr">#[serde(serialize_with = <span class="string">&quot;string_serialize&quot;</span>)]
+	<span class="attr">#[serde(serialize_with = <span class="string">"string_serialize"</span>)]
 	</span>slope: u128,
-	<span class="attr">#[serde(serialize_with = <span class="string">&quot;string_serialize&quot;</span>)]
+	<span class="attr">#[serde(serialize_with = <span class="string">"string_serialize"</span>)]
 	</span>error: u128,
 }
 
@@ -1642,7 +1644,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ) -&gt; <span class="prelude-ty">Result</span>&lt;HashMap&lt;(String, String), Vec&lt;BenchmarkData&gt;&gt;, std::io::Error&gt; {
 	<span class="comment">// Skip if batches is empty.
 	</span><span class="kw">if </span>batches.is_empty() {
-		<span class="kw">return </span><span class="prelude-val">Err</span>(io_error(<span class="string">&quot;empty batches&quot;</span>))
+		<span class="kw">return </span><span class="prelude-val">Err</span>(io_error(<span class="string">"empty batches"</span>))
 	}
 
 	<span class="kw">let </span><span class="kw-2">mut </span>all_benchmarks = HashMap::&lt;<span class="kw">_</span>, Vec&lt;BenchmarkData&gt;&gt;::new();
@@ -1673,7 +1675,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="comment">// Get an iterator of errors.
-</span><span class="kw">fn </span>extract_errors(errors: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;Vec&lt;u128&gt;&gt;) -&gt; <span class="kw">impl </span>Iterator&lt;Item = u128&gt; + <span class="lifetime">&#39;_ </span>{
+</span><span class="kw">fn </span>extract_errors(errors: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;Vec&lt;u128&gt;&gt;) -&gt; <span class="kw">impl </span>Iterator&lt;Item = u128&gt; + <span class="lifetime">'_ </span>{
 	errors
 		.as_ref()
 		.map(|e| e.as_slice())
@@ -1711,14 +1713,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>benchmark = String::from_utf8(batch.benchmark.clone()).unwrap();
 
 	<span class="kw">let </span>extrinsic_time = analysis_function(<span class="kw-2">&amp;</span>batch.time_results, BenchmarkSelector::ExtrinsicTime)
-		.expect(<span class="string">&quot;analysis function should return an extrinsic time for valid inputs&quot;</span>);
+		.expect(<span class="string">"analysis function should return an extrinsic time for valid inputs"</span>);
 	<span class="kw">let </span>reads = analysis_function(<span class="kw-2">&amp;</span>batch.db_results, BenchmarkSelector::Reads)
-		.expect(<span class="string">&quot;analysis function should return the number of reads for valid inputs&quot;</span>);
+		.expect(<span class="string">"analysis function should return the number of reads for valid inputs"</span>);
 	<span class="kw">let </span>writes = analysis_function(<span class="kw-2">&amp;</span>batch.db_results, BenchmarkSelector::Writes)
-		.expect(<span class="string">&quot;analysis function should return the number of writes for valid inputs&quot;</span>);
+		.expect(<span class="string">"analysis function should return the number of writes for valid inputs"</span>);
 	<span class="kw">let </span>recorded_proof_size =
 		pov_analysis_function(<span class="kw-2">&amp;</span>batch.db_results, BenchmarkSelector::ProofSize)
-			.expect(<span class="string">&quot;analysis function should return proof sizes for valid inputs&quot;</span>);
+			.expect(<span class="string">"analysis function should return proof sizes for valid inputs"</span>);
 
 	<span class="comment">// Analysis data may include components that are not used, this filters out anything whose value
 	// is zero.
@@ -1775,7 +1777,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		.zip(extract_errors(<span class="kw-2">&amp;</span>recorded_proof_size.errors))
 		.for_each(|((slope, name), error)| {
 			<span class="kw">if </span>!slope.is_zero() {
-				<span class="comment">// These are only for comments, so don&#39;t touch the `used_components`.
+				<span class="comment">// These are only for comments, so don't touch the `used_components`.
 				</span>used_recorded_proof_size.push(ComponentSlope { name: name.clone(), slope, error });
 			}
 		});
@@ -1799,7 +1801,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		.iter()
 		.map(|(prefix, results)| {
 			<span class="kw">let </span>proof_size = analysis_function(results, BenchmarkSelector::ProofSize)
-				.expect(<span class="string">&quot;analysis function should return proof sizes for valid inputs&quot;</span>);
+				.expect(<span class="string">"analysis function should return proof sizes for valid inputs"</span>);
 			<span class="kw">let </span>slope = proof_size
 				.slopes
 				.into_iter()
@@ -1899,7 +1901,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	};
 
 	<span class="comment">// Date string metadata
-	</span><span class="kw">let </span>date = chrono::Utc::now().format(<span class="string">&quot;%Y-%m-%d&quot;</span>).to_string();
+	</span><span class="kw">let </span>date = chrono::Utc::now().format(<span class="string">"%Y-%m-%d"</span>).to_string();
 
 	<span class="comment">// Full CLI args passed to trigger the benchmark.
 	</span><span class="kw">let </span>args = std::env::args().collect::&lt;Vec&lt;String&gt;&gt;();
@@ -1912,7 +1914,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">if </span>cmd.additional_trie_layers &gt; <span class="number">4 </span>{
 		<span class="macro">println!</span>(
-			<span class="string">&quot;WARNING: `additional_trie_layers` is unexpectedly large. It assumes {} storage items.&quot;</span>,
+			<span class="string">"WARNING: `additional_trie_layers` is unexpectedly large. It assumes {} storage items."</span>,
 			<span class="number">16f64</span>.powi(cmd.additional_trie_layers <span class="kw">as </span>i32)
 		)
 	}
@@ -1924,18 +1926,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		lowest_range_values: cmd.lowest_range_values.clone(),
 		highest_range_values: cmd.highest_range_values.clone(),
 		wasm_execution: cmd.wasm_method.to_string(),
-		chain: <span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, cmd.shared_params.chain),
+		chain: <span class="macro">format!</span>(<span class="string">"{:?}"</span>, cmd.shared_params.chain),
 		db_cache: cmd.database_cache_size,
-		analysis_choice: <span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, analysis_choice),
+		analysis_choice: <span class="macro">format!</span>(<span class="string">"{:?}"</span>, analysis_choice),
 		worst_case_map_values: cmd.worst_case_map_values,
 		additional_trie_layers: cmd.additional_trie_layers,
 	};
 
 	<span class="comment">// New Handlebars instance with helpers.
 	</span><span class="kw">let </span><span class="kw-2">mut </span>handlebars = handlebars::Handlebars::new();
-	handlebars.register_helper(<span class="string">&quot;underscore&quot;</span>, Box::new(UnderscoreHelper));
-	handlebars.register_helper(<span class="string">&quot;join&quot;</span>, Box::new(JoinHelper));
-	<span class="comment">// Don&#39;t HTML escape any characters.
+	handlebars.register_helper(<span class="string">"underscore"</span>, Box::new(UnderscoreHelper));
+	handlebars.register_helper(<span class="string">"join"</span>, Box::new(JoinHelper));
+	<span class="comment">// Don't HTML escape any characters.
 	</span>handlebars.register_escape_fn(|s| -&gt; String { s.to_string() });
 
 	<span class="comment">// Organize results by pallet into a JSON map
@@ -1956,16 +1958,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span><span class="kw-2">mut </span>file_path = path.clone();
 		<span class="comment">// If a user only specified a directory...
 		</span><span class="kw">if </span>file_path.is_dir() {
-			<span class="comment">// Start with &quot;path/to/pallet_name&quot;.
+			<span class="comment">// Start with "path/to/pallet_name".
 			</span><span class="kw">let </span><span class="kw-2">mut </span>file_name = pallet.clone();
 			<span class="comment">// Check if there might be multiple instances benchmarked.
 			</span><span class="kw">if </span>all_results.keys().any(|(p, i)| p == pallet &amp;&amp; i != instance) {
-				<span class="comment">// Append &quot;_instance_name&quot;.
-				</span>file_name = <span class="macro">format!</span>(<span class="string">&quot;{}_{}&quot;</span>, file_name, instance.to_snake_case());
+				<span class="comment">// Append "_instance_name".
+				</span>file_name = <span class="macro">format!</span>(<span class="string">"{}_{}"</span>, file_name, instance.to_snake_case());
 			}
-			<span class="comment">// &quot;mod::pallet_name.rs&quot; becomes &quot;mod_pallet_name.rs&quot;.
-			</span>file_path.push(file_name.replace(<span class="string">&quot;::&quot;</span>, <span class="string">&quot;_&quot;</span>));
-			file_path.set_extension(<span class="string">&quot;rs&quot;</span>);
+			<span class="comment">// "mod::pallet_name.rs" becomes "mod_pallet_name.rs".
+			</span>file_path.push(file_name.replace(<span class="string">"::"</span>, <span class="string">"_"</span>));
+			file_path.set_extension(<span class="string">"rs"</span>);
 		}
 
 		<span class="kw">let </span>hbs_data = TemplateData {
@@ -1985,22 +1987,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		handlebars
 			.render_template_to_write(<span class="kw-2">&amp;</span>template, <span class="kw-2">&amp;</span>hbs_data, <span class="kw-2">&amp;mut </span>output_file)
 			.map_err(|e| io_error(<span class="kw-2">&amp;</span>e.to_string()))<span class="question-mark">?</span>;
-		<span class="macro">println!</span>(<span class="string">&quot;Created file: {:?}&quot;</span>, <span class="kw-2">&amp;</span>file_path);
+		<span class="macro">println!</span>(<span class="string">"Created file: {:?}"</span>, <span class="kw-2">&amp;</span>file_path);
 		created_files.push(file_path);
 	}
 
 	<span class="kw">let </span>overwritten_files = created_files.iter().duplicates().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 	<span class="kw">if </span>!overwritten_files.is_empty() {
 		<span class="kw">let </span>msg = <span class="macro">format!</span>(
-			<span class="string">&quot;Multiple results were written to the same file. This can happen when \
+			<span class="string">"Multiple results were written to the same file. This can happen when \
 		there are multiple instances of a pallet deployed and `--output` forces the output of all \
 		instances into the same file. Use `--unsafe-overwrite-results` to ignore this error. The \
-		affected files are: {:?}&quot;</span>,
+		affected files are: {:?}"</span>,
 			overwritten_files
 		);
 
 		<span class="kw">if </span>cmd.unsafe_overwrite_results {
-			<span class="macro">println!</span>(<span class="string">&quot;{msg}&quot;</span>);
+			<span class="macro">println!</span>(<span class="string">"{msg}"</span>);
 		} <span class="kw">else </span>{
 			<span class="kw">return </span><span class="prelude-val">Err</span>(msg.into())
 		}
@@ -2030,9 +2032,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="comment">// Special hack to show `Skipped Metadata`
 	</span><span class="kw">let </span>skip_storage_info = StorageInfo {
-		pallet_name: <span class="string">b&quot;Skipped&quot;</span>.to_vec(),
-		storage_name: <span class="string">b&quot;Metadata&quot;</span>.to_vec(),
-		prefix: <span class="string">b&quot;Skipped Metadata&quot;</span>.to_vec(),
+		pallet_name: <span class="string">b"Skipped"</span>.to_vec(),
+		storage_name: <span class="string">b"Metadata"</span>.to_vec(),
+		prefix: <span class="string">b"Skipped Metadata"</span>.to_vec(),
 		max_values: <span class="prelude-val">None</span>,
 		max_size: <span class="prelude-val">None</span>,
 	};
@@ -2040,9 +2042,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="comment">// Special hack to show `Benchmark Override`
 	</span><span class="kw">let </span>benchmark_override = StorageInfo {
-		pallet_name: <span class="string">b&quot;Benchmark&quot;</span>.to_vec(),
-		storage_name: <span class="string">b&quot;Override&quot;</span>.to_vec(),
-		prefix: <span class="string">b&quot;Benchmark Override&quot;</span>.to_vec(),
+		pallet_name: <span class="string">b"Benchmark"</span>.to_vec(),
+		storage_name: <span class="string">b"Override"</span>.to_vec(),
+		prefix: <span class="string">b"Benchmark Override"</span>.to_vec(),
 		max_values: <span class="prelude-val">None</span>,
 		max_size: <span class="prelude-val">None</span>,
 	};
@@ -2071,12 +2073,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span><span class="kw-2">mut </span>prefix_result = result.clone();
 			<span class="kw">let </span>key_info = storage_info_map.get(<span class="kw-2">&amp;</span>prefix);
 			<span class="kw">let </span>pallet_name = <span class="kw">match </span>key_info {
-				<span class="prelude-val">Some</span>(k) =&gt; String::from_utf8(k.pallet_name.clone()).expect(<span class="string">&quot;encoded from string&quot;</span>),
-				<span class="prelude-val">None </span>=&gt; <span class="string">&quot;&quot;</span>.to_string(),
+				<span class="prelude-val">Some</span>(k) =&gt; String::from_utf8(k.pallet_name.clone()).expect(<span class="string">"encoded from string"</span>),
+				<span class="prelude-val">None </span>=&gt; <span class="string">""</span>.to_string(),
 			};
 			<span class="kw">let </span>storage_name = <span class="kw">match </span>key_info {
-				<span class="prelude-val">Some</span>(k) =&gt; String::from_utf8(k.storage_name.clone()).expect(<span class="string">&quot;encoded from string&quot;</span>),
-				<span class="prelude-val">None </span>=&gt; <span class="string">&quot;&quot;</span>.to_string(),
+				<span class="prelude-val">Some</span>(k) =&gt; String::from_utf8(k.storage_name.clone()).expect(<span class="string">"encoded from string"</span>),
+				<span class="prelude-val">None </span>=&gt; <span class="string">""</span>.to_string(),
 			};
 			<span class="kw">let </span>max_size = key_info.and_then(|k| k.max_size);
 
@@ -2085,18 +2087,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="comment">// Is there an override for the storage key?
 					</span>pov_modes.get(<span class="kw-2">&amp;</span>(pallet_name.clone(), storage_name.clone())).or(
 						<span class="comment">// .. or for the storage prefix?
-						</span>pov_modes.get(<span class="kw-2">&amp;</span>(pallet_name.clone(), <span class="string">&quot;ALL&quot;</span>.to_string())).or(
+						</span>pov_modes.get(<span class="kw-2">&amp;</span>(pallet_name.clone(), <span class="string">"ALL"</span>.to_string())).or(
 							<span class="comment">// .. or for the benchmark?
-							</span>pov_modes.get(<span class="kw-2">&amp;</span>(<span class="string">&quot;ALL&quot;</span>.to_string(), <span class="string">&quot;ALL&quot;</span>.to_string())),
+							</span>pov_modes.get(<span class="kw-2">&amp;</span>(<span class="string">"ALL"</span>.to_string(), <span class="string">"ALL"</span>.to_string())),
 						),
 					)
 				},
 				<span class="prelude-val">None </span>=&gt; <span class="prelude-val">None</span>,
 			};
-			<span class="kw">let </span>is_all_ignored = pov_modes.get(<span class="kw-2">&amp;</span>(<span class="string">&quot;ALL&quot;</span>.to_string(), <span class="string">&quot;ALL&quot;</span>.to_string())) ==
+			<span class="kw">let </span>is_all_ignored = pov_modes.get(<span class="kw-2">&amp;</span>(<span class="string">"ALL"</span>.to_string(), <span class="string">"ALL"</span>.to_string())) ==
 				<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>PovEstimationMode::Ignored);
 			<span class="kw">if </span>is_all_ignored &amp;&amp; override_pov_mode != <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>PovEstimationMode::Ignored) {
-				<span class="macro">panic!</span>(<span class="string">&quot;The syntax currently does not allow to exclude single keys from a top-level `Ignored` pov-mode.&quot;</span>);
+				<span class="macro">panic!</span>(<span class="string">"The syntax currently does not allow to exclude single keys from a top-level `Ignored` pov-mode."</span>);
 			}
 
 			<span class="kw">let </span>pov_overhead = single_read_pov_overhead(
@@ -2116,7 +2118,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					</span><span class="kw">if </span>is_all_ignored {
 						prefix_result.proof_size = <span class="number">0</span>;
 					} <span class="kw">else </span>{
-						<span class="comment">// Otherwise we just don&#39;t *increase* `proof_size` for this key.
+						<span class="comment">// Otherwise we just don't *increase* `proof_size` for this key.
 					</span>}
 					PovEstimationMode::Ignored
 				},
@@ -2135,7 +2137,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					PovEstimationMode::MaxEncodedLen
 				},
 				(<span class="prelude-val">Some</span>(PovEstimationMode::MaxEncodedLen), <span class="prelude-val">None</span>, <span class="kw">_</span>) =&gt; {
-					<span class="macro">panic!</span>(<span class="string">&quot;Key does not have MEL bound but MEL PoV estimation mode was specified {:?}&quot;</span>, <span class="kw-2">&amp;</span>key);
+					<span class="macro">panic!</span>(<span class="string">"Key does not have MEL bound but MEL PoV estimation mode was specified {:?}"</span>, <span class="kw-2">&amp;</span>key);
 				},
 			};
 			<span class="comment">// Add the additional trie layer overhead for every new prefix.
@@ -2166,14 +2168,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">match </span>key_info {
 					<span class="prelude-val">Some</span>(<span class="kw">_</span>) =&gt; {
 						<span class="kw">let </span>comment = <span class="macro">format!</span>(
-							<span class="string">&quot;Storage: `{}::{}` (r:{} w:{})&quot;</span>,
+							<span class="string">"Storage: `{}::{}` (r:{} w:{})"</span>,
 							pallet_name, storage_name, reads, writes,
 						);
 						comments.push(comment)
 					},
 					<span class="prelude-val">None </span>=&gt; {
 						<span class="kw">let </span>comment = <span class="macro">format!</span>(
-							<span class="string">&quot;Storage: UNKNOWN KEY `0x{}` (r:{} w:{})&quot;</span>,
+							<span class="string">"Storage: UNKNOWN KEY `0x{}` (r:{} w:{})"</span>,
 							HexDisplay::from(key),
 							reads,
 							writes,
@@ -2195,7 +2197,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						) {
 							<span class="prelude-val">Some</span>(new_pov) =&gt; {
 								<span class="kw">let </span>comment = <span class="macro">format!</span>(
-									<span class="string">&quot;Proof: `{pallet_name}::{storage_name}` (`max_values`: {:?}, `max_size`: {:?}, added: {}, mode: `{:?}`)&quot;</span>,
+									<span class="string">"Proof: `{pallet_name}::{storage_name}` (`max_values`: {:?}, `max_size`: {:?}, added: {}, mode: `{:?}`)"</span>,
 									key_info.max_values,
 									key_info.max_size,
 									new_pov,
@@ -2205,7 +2207,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							},
 							<span class="prelude-val">None </span>=&gt; {
 								<span class="kw">let </span>comment = <span class="macro">format!</span>(
-									<span class="string">&quot;Proof: `{}::{}` (`max_values`: {:?}, `max_size`: {:?}, mode: `{:?}`)&quot;</span>,
+									<span class="string">"Proof: `{}::{}` (`max_values`: {:?}, `max_size`: {:?}, mode: `{:?}`)"</span>,
 									pallet_name, storage_name, key_info.max_values, key_info.max_size,
 									used_pov_mode,
 								);
@@ -2215,7 +2217,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					},
 					<span class="prelude-val">None </span>=&gt; {
 						<span class="kw">let </span>comment = <span class="macro">format!</span>(
-							<span class="string">&quot;Proof: UNKNOWN KEY `0x{}` (r:{} w:{})&quot;</span>,
+							<span class="string">"Proof: UNKNOWN KEY `0x{}` (r:{} w:{})"</span>,
 							HexDisplay::from(key),
 							reads,
 							writes,
@@ -2286,7 +2288,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[derive(Clone, Copy)]
 </span><span class="kw">struct </span>JoinHelper;
 <span class="kw">impl </span>handlebars::HelperDef <span class="kw">for </span>JoinHelper {
-	<span class="kw">fn </span>call&lt;<span class="lifetime">&#39;reg</span>: <span class="lifetime">&#39;rc</span>, <span class="lifetime">&#39;rc</span>&gt;(
+	<span class="kw">fn </span>call&lt;<span class="lifetime">'reg</span>: <span class="lifetime">'rc</span>, <span class="lifetime">'rc</span>&gt;(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		h: <span class="kw-2">&amp;</span>handlebars::Helper,
 		<span class="kw">_</span>: <span class="kw-2">&amp;</span>handlebars::Handlebars,
@@ -2304,7 +2306,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.iter()
 				.map(|v| v.render())
 				.collect::&lt;Vec&lt;String&gt;&gt;()
-				.join(<span class="string">&quot; &quot;</span>)
+				.join(<span class="string">" "</span>)
 		} <span class="kw">else </span>{
 			value.render()
 		};
@@ -2345,14 +2347,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				repeat_writes: <span class="number">0</span>,
 				proof_size: (i + <span class="number">1</span>) * <span class="number">1024</span>,
 				<span class="comment">// All R/W come from this key:
-				</span>keys: <span class="macro">vec!</span>[(<span class="string">b&quot;bounded&quot;</span>.to_vec(), (base + slope * i), (base + slope * i), <span class="bool-val">false</span>)],
+				</span>keys: <span class="macro">vec!</span>[(<span class="string">b"bounded"</span>.to_vec(), (base + slope * i), (base + slope * i), <span class="bool-val">false</span>)],
 			})
 		}
 
 		<span class="kw">return </span>BenchmarkBatchSplitResults {
-			pallet: [pallet.to_vec(), <span class="string">b&quot;_pallet&quot;</span>.to_vec()].concat(),
-			instance: <span class="string">b&quot;instance&quot;</span>.to_vec(),
-			benchmark: [benchmark.to_vec(), <span class="string">b&quot;_benchmark&quot;</span>.to_vec()].concat(),
+			pallet: [pallet.to_vec(), <span class="string">b"_pallet"</span>.to_vec()].concat(),
+			instance: <span class="string">b"instance"</span>.to_vec(),
+			benchmark: [benchmark.to_vec(), <span class="string">b"_benchmark"</span>.to_vec()].concat(),
 			time_results: results.clone(),
 			db_results: results,
 		}
@@ -2360,9 +2362,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">fn </span>test_storage_info() -&gt; Vec&lt;StorageInfo&gt; {
 		<span class="macro">vec!</span>[StorageInfo {
-			pallet_name: <span class="string">b&quot;bounded&quot;</span>.to_vec(),
-			storage_name: <span class="string">b&quot;bounded&quot;</span>.to_vec(),
-			prefix: <span class="string">b&quot;bounded&quot;</span>.to_vec(),
+			pallet_name: <span class="string">b"bounded"</span>.to_vec(),
+			storage_name: <span class="string">b"bounded"</span>.to_vec(),
+			prefix: <span class="string">b"bounded"</span>.to_vec(),
 			max_values: <span class="prelude-val">Some</span>(<span class="number">1 </span>&lt;&lt; <span class="number">20</span>),
 			max_size: <span class="prelude-val">Some</span>(<span class="number">32</span>),
 		}]
@@ -2370,12 +2372,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">fn </span>test_pov_mode() -&gt; PovModesMap {
 		<span class="kw">let </span><span class="kw-2">mut </span>map = PovModesMap::new();
-		map.entry((<span class="string">&quot;scheduler&quot;</span>.into(), <span class="string">&quot;first_benchmark&quot;</span>.into()))
+		map.entry((<span class="string">"scheduler"</span>.into(), <span class="string">"first_benchmark"</span>.into()))
 			.or_default()
-			.insert((<span class="string">&quot;scheduler&quot;</span>.into(), <span class="string">&quot;mel&quot;</span>.into()), PovEstimationMode::MaxEncodedLen);
-		map.entry((<span class="string">&quot;scheduler&quot;</span>.into(), <span class="string">&quot;first_benchmark&quot;</span>.into()))
+			.insert((<span class="string">"scheduler"</span>.into(), <span class="string">"mel"</span>.into()), PovEstimationMode::MaxEncodedLen);
+		map.entry((<span class="string">"scheduler"</span>.into(), <span class="string">"first_benchmark"</span>.into()))
 			.or_default()
-			.insert((<span class="string">&quot;scheduler&quot;</span>.into(), <span class="string">&quot;measured&quot;</span>.into()), PovEstimationMode::Measured);
+			.insert((<span class="string">"scheduler"</span>.into(), <span class="string">"measured"</span>.into()), PovEstimationMode::Measured);
 		map
 	}
 
@@ -2424,22 +2426,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				writes: <span class="number">888</span>,
 				repeat_writes: <span class="number">999</span>,
 				proof_size: i * <span class="number">1024</span>,
-				keys: <span class="macro">vec!</span>[(<span class="string">b&quot;mel&quot;</span>.to_vec(), <span class="number">1</span>, <span class="number">1</span>, <span class="bool-val">false</span>)],
+				keys: <span class="macro">vec!</span>[(<span class="string">b"mel"</span>.to_vec(), <span class="number">1</span>, <span class="number">1</span>, <span class="bool-val">false</span>)],
 			})
 		}
 
 		<span class="kw">let </span>data = BenchmarkBatchSplitResults {
-			pallet: <span class="string">b&quot;scheduler&quot;</span>.to_vec(),
-			instance: <span class="string">b&quot;instance&quot;</span>.to_vec(),
-			benchmark: <span class="string">b&quot;first_benchmark&quot;</span>.to_vec(),
+			pallet: <span class="string">b"scheduler"</span>.to_vec(),
+			instance: <span class="string">b"instance"</span>.to_vec(),
+			benchmark: <span class="string">b"first_benchmark"</span>.to_vec(),
 			time_results: results.clone(),
 			db_results: results,
 		};
 
 		<span class="kw">let </span>storage_info = <span class="macro">vec!</span>[StorageInfo {
-			pallet_name: <span class="string">b&quot;scheduler&quot;</span>.to_vec(),
-			storage_name: <span class="string">b&quot;mel&quot;</span>.to_vec(),
-			prefix: <span class="string">b&quot;mel&quot;</span>.to_vec(),
+			pallet_name: <span class="string">b"scheduler"</span>.to_vec(),
+			storage_name: <span class="string">b"mel"</span>.to_vec(),
+			prefix: <span class="string">b"mel"</span>.to_vec(),
 			max_values: <span class="prelude-val">None</span>,
 			max_size: <span class="prelude-val">Some</span>(<span class="number">1 </span>&lt;&lt; <span class="number">22</span>), <span class="comment">// MEL of 4 MiB
 		</span>}];
@@ -2457,12 +2459,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		)
 		.unwrap();
 		<span class="kw">let </span>result =
-			mapped_results.get(<span class="kw-2">&amp;</span>(<span class="string">&quot;scheduler&quot;</span>.to_string(), <span class="string">&quot;instance&quot;</span>.to_string())).unwrap()[<span class="number">0</span>]
+			mapped_results.get(<span class="kw-2">&amp;</span>(<span class="string">"scheduler"</span>.to_string(), <span class="string">"instance"</span>.to_string())).unwrap()[<span class="number">0</span>]
 				.clone();
 
 		<span class="kw">let </span>base = result.base_calculated_proof_size;
-		<span class="macro">assert!</span>(result.component_calculated_proof_size.is_empty(), <span class="string">&quot;There is no slope&quot;</span>);
-		<span class="comment">// It&#39;s a map with 5 layers overhead:
+		<span class="macro">assert!</span>(result.component_calculated_proof_size.is_empty(), <span class="string">"There is no slope"</span>);
+		<span class="comment">// It's a map with 5 layers overhead:
 		</span><span class="macro">assert_eq!</span>(base, (<span class="number">1 </span>&lt;&lt; <span class="number">22</span>) + <span class="number">15 </span>* <span class="number">33 </span>* <span class="number">5</span>);
 	}
 
@@ -2481,22 +2483,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				writes: <span class="number">888</span>,
 				repeat_writes: <span class="number">999</span>,
 				proof_size: i * <span class="number">1024</span>,
-				keys: <span class="macro">vec!</span>[(<span class="string">&quot;mel&quot;</span>.as_bytes().to_vec(), i, <span class="number">1</span>, <span class="bool-val">false</span>)],
+				keys: <span class="macro">vec!</span>[(<span class="string">"mel"</span>.as_bytes().to_vec(), i, <span class="number">1</span>, <span class="bool-val">false</span>)],
 			})
 		}
 
 		<span class="kw">let </span>data = BenchmarkBatchSplitResults {
-			pallet: <span class="string">b&quot;scheduler&quot;</span>.to_vec(),
-			instance: <span class="string">b&quot;instance&quot;</span>.to_vec(),
-			benchmark: <span class="string">b&quot;first_benchmark&quot;</span>.to_vec(),
+			pallet: <span class="string">b"scheduler"</span>.to_vec(),
+			instance: <span class="string">b"instance"</span>.to_vec(),
+			benchmark: <span class="string">b"first_benchmark"</span>.to_vec(),
 			time_results: results.clone(),
 			db_results: results,
 		};
 
 		<span class="kw">let </span>storage_info = <span class="macro">vec!</span>[StorageInfo {
-			pallet_name: <span class="string">b&quot;scheduler&quot;</span>.to_vec(),
-			storage_name: <span class="string">b&quot;mel&quot;</span>.to_vec(),
-			prefix: <span class="string">b&quot;mel&quot;</span>.to_vec(),
+			pallet_name: <span class="string">b"scheduler"</span>.to_vec(),
+			storage_name: <span class="string">b"mel"</span>.to_vec(),
+			prefix: <span class="string">b"mel"</span>.to_vec(),
 			max_values: <span class="prelude-val">None</span>,
 			max_size: <span class="prelude-val">Some</span>(<span class="number">1 </span>&lt;&lt; <span class="number">22</span>), <span class="comment">// MEL of 4 MiB
 		</span>}];
@@ -2514,14 +2516,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		)
 		.unwrap();
 		<span class="kw">let </span>result =
-			mapped_results.get(<span class="kw-2">&amp;</span>(<span class="string">&quot;scheduler&quot;</span>.to_string(), <span class="string">&quot;instance&quot;</span>.to_string())).unwrap()[<span class="number">0</span>]
+			mapped_results.get(<span class="kw-2">&amp;</span>(<span class="string">"scheduler"</span>.to_string(), <span class="string">"instance"</span>.to_string())).unwrap()[<span class="number">0</span>]
 				.clone();
 
 		<span class="kw">let </span>base = result.base_calculated_proof_size;
-		<span class="macro">assert_eq!</span>(result.component_calculated_proof_size.len(), <span class="number">1</span>, <span class="string">&quot;There is a slope&quot;</span>);
+		<span class="macro">assert_eq!</span>(result.component_calculated_proof_size.len(), <span class="number">1</span>, <span class="string">"There is a slope"</span>);
 		<span class="kw">let </span>slope = result.component_calculated_proof_size[<span class="number">0</span>].clone().slope;
 		<span class="macro">assert_eq!</span>(base, <span class="number">0</span>);
-		<span class="comment">// It&#39;s a map with 5 layers overhead:
+		<span class="comment">// It's a map with 5 layers overhead:
 		</span><span class="macro">assert_eq!</span>(slope, (<span class="number">1 </span>&lt;&lt; <span class="number">22</span>) + <span class="number">15 </span>* <span class="number">33 </span>* <span class="number">5</span>);
 	}
 
@@ -2538,22 +2540,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				writes: <span class="number">888</span>,
 				repeat_writes: <span class="number">999</span>,
 				proof_size: <span class="number">1024</span>,
-				keys: <span class="macro">vec!</span>[(<span class="string">&quot;measured&quot;</span>.as_bytes().to_vec(), <span class="number">1</span>, <span class="number">1</span>, <span class="bool-val">false</span>)],
+				keys: <span class="macro">vec!</span>[(<span class="string">"measured"</span>.as_bytes().to_vec(), <span class="number">1</span>, <span class="number">1</span>, <span class="bool-val">false</span>)],
 			})
 		}
 
 		<span class="kw">let </span>data = BenchmarkBatchSplitResults {
-			pallet: <span class="string">b&quot;scheduler&quot;</span>.to_vec(),
-			instance: <span class="string">b&quot;instance&quot;</span>.to_vec(),
-			benchmark: <span class="string">b&quot;first_benchmark&quot;</span>.to_vec(),
+			pallet: <span class="string">b"scheduler"</span>.to_vec(),
+			instance: <span class="string">b"instance"</span>.to_vec(),
+			benchmark: <span class="string">b"first_benchmark"</span>.to_vec(),
 			time_results: results.clone(),
 			db_results: results,
 		};
 
 		<span class="kw">let </span>storage_info = <span class="macro">vec!</span>[StorageInfo {
-			pallet_name: <span class="string">b&quot;scheduler&quot;</span>.to_vec(),
-			storage_name: <span class="string">b&quot;measured&quot;</span>.to_vec(),
-			prefix: <span class="string">b&quot;measured&quot;</span>.to_vec(),
+			pallet_name: <span class="string">b"scheduler"</span>.to_vec(),
+			storage_name: <span class="string">b"measured"</span>.to_vec(),
+			prefix: <span class="string">b"measured"</span>.to_vec(),
 			max_values: <span class="prelude-val">None</span>,
 			max_size: <span class="prelude-val">Some</span>(<span class="number">1 </span>&lt;&lt; <span class="number">22</span>), <span class="comment">// MEL of 4 MiB
 		</span>}];
@@ -2571,11 +2573,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		)
 		.unwrap();
 		<span class="kw">let </span>result =
-			mapped_results.get(<span class="kw-2">&amp;</span>(<span class="string">&quot;scheduler&quot;</span>.to_string(), <span class="string">&quot;instance&quot;</span>.to_string())).unwrap()[<span class="number">0</span>]
+			mapped_results.get(<span class="kw-2">&amp;</span>(<span class="string">"scheduler"</span>.to_string(), <span class="string">"instance"</span>.to_string())).unwrap()[<span class="number">0</span>]
 				.clone();
 
 		<span class="kw">let </span>base = result.base_calculated_proof_size;
-		<span class="macro">assert!</span>(result.component_calculated_proof_size.is_empty(), <span class="string">&quot;There is no slope&quot;</span>);
+		<span class="macro">assert!</span>(result.component_calculated_proof_size.is_empty(), <span class="string">"There is no slope"</span>);
 		<span class="comment">// 5 Trie layers overhead because of the 1M max elements in that map:
 		</span><span class="macro">assert_eq!</span>(base, <span class="number">1024 </span>+ <span class="number">15 </span>* <span class="number">33 </span>* <span class="number">5</span>);
 	}
@@ -2593,22 +2595,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				writes: <span class="number">888</span>,
 				repeat_writes: <span class="number">999</span>,
 				proof_size: i * <span class="number">1024</span>,
-				keys: <span class="macro">vec!</span>[(<span class="string">&quot;measured&quot;</span>.as_bytes().to_vec(), i, <span class="number">1</span>, <span class="bool-val">false</span>)],
+				keys: <span class="macro">vec!</span>[(<span class="string">"measured"</span>.as_bytes().to_vec(), i, <span class="number">1</span>, <span class="bool-val">false</span>)],
 			})
 		}
 
 		<span class="kw">let </span>data = BenchmarkBatchSplitResults {
-			pallet: <span class="string">b&quot;scheduler&quot;</span>.to_vec(),
-			instance: <span class="string">b&quot;instance&quot;</span>.to_vec(),
-			benchmark: <span class="string">b&quot;first_benchmark&quot;</span>.to_vec(),
+			pallet: <span class="string">b"scheduler"</span>.to_vec(),
+			instance: <span class="string">b"instance"</span>.to_vec(),
+			benchmark: <span class="string">b"first_benchmark"</span>.to_vec(),
 			time_results: results.clone(),
 			db_results: results,
 		};
 
 		<span class="kw">let </span>storage_info = <span class="macro">vec!</span>[StorageInfo {
-			pallet_name: <span class="string">b&quot;scheduler&quot;</span>.to_vec(),
-			storage_name: <span class="string">b&quot;measured&quot;</span>.to_vec(),
-			prefix: <span class="string">b&quot;measured&quot;</span>.to_vec(),
+			pallet_name: <span class="string">b"scheduler"</span>.to_vec(),
+			storage_name: <span class="string">b"measured"</span>.to_vec(),
+			prefix: <span class="string">b"measured"</span>.to_vec(),
 			max_values: <span class="prelude-val">None</span>,
 			max_size: <span class="prelude-val">Some</span>(<span class="number">1 </span>&lt;&lt; <span class="number">22</span>), <span class="comment">// MEL of 4 MiB
 		</span>}];
@@ -2626,14 +2628,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		)
 		.unwrap();
 		<span class="kw">let </span>result =
-			mapped_results.get(<span class="kw-2">&amp;</span>(<span class="string">&quot;scheduler&quot;</span>.to_string(), <span class="string">&quot;instance&quot;</span>.to_string())).unwrap()[<span class="number">0</span>]
+			mapped_results.get(<span class="kw-2">&amp;</span>(<span class="string">"scheduler"</span>.to_string(), <span class="string">"instance"</span>.to_string())).unwrap()[<span class="number">0</span>]
 				.clone();
 
 		<span class="kw">let </span>base = result.base_calculated_proof_size;
-		<span class="macro">assert_eq!</span>(result.component_calculated_proof_size.len(), <span class="number">1</span>, <span class="string">&quot;There is a slope&quot;</span>);
+		<span class="macro">assert_eq!</span>(result.component_calculated_proof_size.len(), <span class="number">1</span>, <span class="string">"There is a slope"</span>);
 		<span class="kw">let </span>slope = result.component_calculated_proof_size[<span class="number">0</span>].clone().slope;
 		<span class="macro">assert_eq!</span>(base, <span class="number">0</span>);
-		<span class="comment">// It&#39;s a map with 5 layers overhead:
+		<span class="comment">// It's a map with 5 layers overhead:
 		</span><span class="macro">assert_eq!</span>(slope, <span class="number">1024 </span>+ <span class="number">15 </span>* <span class="number">33 </span>* <span class="number">5</span>);
 	}
 
@@ -2650,22 +2652,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				writes: <span class="number">888</span>,
 				repeat_writes: <span class="number">999</span>,
 				proof_size: i * <span class="number">1024</span>,
-				keys: <span class="macro">vec!</span>[(<span class="string">&quot;ignored&quot;</span>.as_bytes().to_vec(), i, <span class="number">1</span>, <span class="bool-val">false</span>)],
+				keys: <span class="macro">vec!</span>[(<span class="string">"ignored"</span>.as_bytes().to_vec(), i, <span class="number">1</span>, <span class="bool-val">false</span>)],
 			})
 		}
 
 		<span class="kw">let </span>data = BenchmarkBatchSplitResults {
-			pallet: <span class="string">b&quot;scheduler&quot;</span>.to_vec(),
-			instance: <span class="string">b&quot;instance&quot;</span>.to_vec(),
-			benchmark: <span class="string">b&quot;first_benchmark&quot;</span>.to_vec(),
+			pallet: <span class="string">b"scheduler"</span>.to_vec(),
+			instance: <span class="string">b"instance"</span>.to_vec(),
+			benchmark: <span class="string">b"first_benchmark"</span>.to_vec(),
 			time_results: results.clone(),
 			db_results: results,
 		};
 
 		<span class="kw">let </span>storage_info = <span class="macro">vec!</span>[StorageInfo {
-			pallet_name: <span class="string">b&quot;scheduler&quot;</span>.to_vec(),
-			storage_name: <span class="string">b&quot;ignored&quot;</span>.to_vec(),
-			prefix: <span class="string">b&quot;ignored&quot;</span>.to_vec(),
+			pallet_name: <span class="string">b"scheduler"</span>.to_vec(),
+			storage_name: <span class="string">b"ignored"</span>.to_vec(),
+			prefix: <span class="string">b"ignored"</span>.to_vec(),
 			max_values: <span class="prelude-val">None</span>,
 			max_size: <span class="prelude-val">Some</span>(<span class="number">1 </span>&lt;&lt; <span class="number">22</span>), <span class="comment">// MEL of 4 MiB
 		</span>}];
@@ -2683,11 +2685,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		)
 		.unwrap();
 		<span class="kw">let </span>result =
-			mapped_results.get(<span class="kw-2">&amp;</span>(<span class="string">&quot;scheduler&quot;</span>.to_string(), <span class="string">&quot;instance&quot;</span>.to_string())).unwrap()[<span class="number">0</span>]
+			mapped_results.get(<span class="kw-2">&amp;</span>(<span class="string">"scheduler"</span>.to_string(), <span class="string">"instance"</span>.to_string())).unwrap()[<span class="number">0</span>]
 				.clone();
 
 		<span class="kw">let </span>base = result.base_calculated_proof_size;
-		<span class="macro">assert!</span>(result.component_calculated_proof_size.is_empty(), <span class="string">&quot;There is no slope&quot;</span>);
+		<span class="macro">assert!</span>(result.component_calculated_proof_size.is_empty(), <span class="string">"There is no slope"</span>);
 		<span class="macro">assert_eq!</span>(base, <span class="number">0</span>);
 	}
 
@@ -2695,10 +2697,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>map_results_works() {
 		<span class="kw">let </span>mapped_results = map_results(
 			<span class="kw-2">&amp;</span>[
-				test_data(<span class="string">b&quot;first&quot;</span>, <span class="string">b&quot;first&quot;</span>, BenchmarkParameter::a, <span class="number">10</span>, <span class="number">3</span>),
-				test_data(<span class="string">b&quot;first&quot;</span>, <span class="string">b&quot;second&quot;</span>, BenchmarkParameter::b, <span class="number">9</span>, <span class="number">2</span>),
-				test_data(<span class="string">b&quot;second&quot;</span>, <span class="string">b&quot;first&quot;</span>, BenchmarkParameter::c, <span class="number">3</span>, <span class="number">4</span>),
-				test_data(<span class="string">b&quot;bounded&quot;</span>, <span class="string">b&quot;bounded&quot;</span>, BenchmarkParameter::d, <span class="number">4</span>, <span class="number">6</span>),
+				test_data(<span class="string">b"first"</span>, <span class="string">b"first"</span>, BenchmarkParameter::a, <span class="number">10</span>, <span class="number">3</span>),
+				test_data(<span class="string">b"first"</span>, <span class="string">b"second"</span>, BenchmarkParameter::b, <span class="number">9</span>, <span class="number">2</span>),
+				test_data(<span class="string">b"second"</span>, <span class="string">b"first"</span>, BenchmarkParameter::c, <span class="number">3</span>, <span class="number">4</span>),
+				test_data(<span class="string">b"bounded"</span>, <span class="string">b"bounded"</span>, BenchmarkParameter::d, <span class="number">4</span>, <span class="number">6</span>),
 			],
 			<span class="kw-2">&amp;</span>test_storage_info(),
 			<span class="kw-2">&amp;</span>Default::default(),
@@ -2712,41 +2714,41 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		.unwrap();
 
 		<span class="kw">let </span>first_benchmark = <span class="kw-2">&amp;</span>mapped_results
-			.get(<span class="kw-2">&amp;</span>(<span class="string">&quot;first_pallet&quot;</span>.to_string(), <span class="string">&quot;instance&quot;</span>.to_string()))
+			.get(<span class="kw-2">&amp;</span>(<span class="string">"first_pallet"</span>.to_string(), <span class="string">"instance"</span>.to_string()))
 			.unwrap()[<span class="number">0</span>];
-		<span class="macro">assert_eq!</span>(first_benchmark.name, <span class="string">&quot;first_benchmark&quot;</span>);
-		check_data(first_benchmark, <span class="string">&quot;a&quot;</span>, <span class="number">10</span>, <span class="number">3</span>);
+		<span class="macro">assert_eq!</span>(first_benchmark.name, <span class="string">"first_benchmark"</span>);
+		check_data(first_benchmark, <span class="string">"a"</span>, <span class="number">10</span>, <span class="number">3</span>);
 
 		<span class="kw">let </span>second_benchmark = <span class="kw-2">&amp;</span>mapped_results
-			.get(<span class="kw-2">&amp;</span>(<span class="string">&quot;first_pallet&quot;</span>.to_string(), <span class="string">&quot;instance&quot;</span>.to_string()))
+			.get(<span class="kw-2">&amp;</span>(<span class="string">"first_pallet"</span>.to_string(), <span class="string">"instance"</span>.to_string()))
 			.unwrap()[<span class="number">1</span>];
-		<span class="macro">assert_eq!</span>(second_benchmark.name, <span class="string">&quot;second_benchmark&quot;</span>);
-		check_data(second_benchmark, <span class="string">&quot;b&quot;</span>, <span class="number">9</span>, <span class="number">2</span>);
+		<span class="macro">assert_eq!</span>(second_benchmark.name, <span class="string">"second_benchmark"</span>);
+		check_data(second_benchmark, <span class="string">"b"</span>, <span class="number">9</span>, <span class="number">2</span>);
 
 		<span class="kw">let </span>second_pallet_benchmark = <span class="kw-2">&amp;</span>mapped_results
-			.get(<span class="kw-2">&amp;</span>(<span class="string">&quot;second_pallet&quot;</span>.to_string(), <span class="string">&quot;instance&quot;</span>.to_string()))
+			.get(<span class="kw-2">&amp;</span>(<span class="string">"second_pallet"</span>.to_string(), <span class="string">"instance"</span>.to_string()))
 			.unwrap()[<span class="number">0</span>];
-		<span class="macro">assert_eq!</span>(second_pallet_benchmark.name, <span class="string">&quot;first_benchmark&quot;</span>);
-		check_data(second_pallet_benchmark, <span class="string">&quot;c&quot;</span>, <span class="number">3</span>, <span class="number">4</span>);
+		<span class="macro">assert_eq!</span>(second_pallet_benchmark.name, <span class="string">"first_benchmark"</span>);
+		check_data(second_pallet_benchmark, <span class="string">"c"</span>, <span class="number">3</span>, <span class="number">4</span>);
 
 		<span class="kw">let </span>bounded_pallet_benchmark = <span class="kw-2">&amp;</span>mapped_results
-			.get(<span class="kw-2">&amp;</span>(<span class="string">&quot;bounded_pallet&quot;</span>.to_string(), <span class="string">&quot;instance&quot;</span>.to_string()))
+			.get(<span class="kw-2">&amp;</span>(<span class="string">"bounded_pallet"</span>.to_string(), <span class="string">"instance"</span>.to_string()))
 			.unwrap()[<span class="number">0</span>];
-		<span class="macro">assert_eq!</span>(bounded_pallet_benchmark.name, <span class="string">&quot;bounded_benchmark&quot;</span>);
-		check_data(bounded_pallet_benchmark, <span class="string">&quot;d&quot;</span>, <span class="number">4</span>, <span class="number">6</span>);
+		<span class="macro">assert_eq!</span>(bounded_pallet_benchmark.name, <span class="string">"bounded_benchmark"</span>);
+		check_data(bounded_pallet_benchmark, <span class="string">"d"</span>, <span class="number">4</span>, <span class="number">6</span>);
 		<span class="comment">// (5 * 15 * 33 + 32) * 4 = 10028
 		</span><span class="macro">assert_eq!</span>(bounded_pallet_benchmark.base_calculated_proof_size, <span class="number">10028</span>);
 		<span class="comment">// (5 * 15 * 33 + 32) * 6 = 15042
 		</span><span class="macro">assert_eq!</span>(
 			bounded_pallet_benchmark.component_calculated_proof_size,
-			<span class="macro">vec!</span>[ComponentSlope { name: <span class="string">&quot;d&quot;</span>.into(), slope: <span class="number">15042</span>, error: <span class="number">0 </span>}]
+			<span class="macro">vec!</span>[ComponentSlope { name: <span class="string">"d"</span>.into(), slope: <span class="number">15042</span>, error: <span class="number">0 </span>}]
 		);
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>additional_trie_layers_work() {
 		<span class="kw">let </span>mapped_results = map_results(
-			<span class="kw-2">&amp;</span>[test_data(<span class="string">b&quot;first&quot;</span>, <span class="string">b&quot;first&quot;</span>, BenchmarkParameter::a, <span class="number">10</span>, <span class="number">3</span>)],
+			<span class="kw-2">&amp;</span>[test_data(<span class="string">b"first"</span>, <span class="string">b"first"</span>, BenchmarkParameter::a, <span class="number">10</span>, <span class="number">3</span>)],
 			<span class="kw-2">&amp;</span>test_storage_info(),
 			<span class="kw-2">&amp;</span>Default::default(),
 			Default::default(),
@@ -2758,10 +2760,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		)
 		.unwrap();
 		<span class="kw">let </span>with_layer = <span class="kw-2">&amp;</span>mapped_results
-			.get(<span class="kw-2">&amp;</span>(<span class="string">&quot;first_pallet&quot;</span>.to_string(), <span class="string">&quot;instance&quot;</span>.to_string()))
+			.get(<span class="kw-2">&amp;</span>(<span class="string">"first_pallet"</span>.to_string(), <span class="string">"instance"</span>.to_string()))
 			.unwrap()[<span class="number">0</span>];
 		<span class="kw">let </span>mapped_results = map_results(
-			<span class="kw-2">&amp;</span>[test_data(<span class="string">b&quot;first&quot;</span>, <span class="string">b&quot;first&quot;</span>, BenchmarkParameter::a, <span class="number">10</span>, <span class="number">3</span>)],
+			<span class="kw-2">&amp;</span>[test_data(<span class="string">b"first"</span>, <span class="string">b"first"</span>, BenchmarkParameter::a, <span class="number">10</span>, <span class="number">3</span>)],
 			<span class="kw-2">&amp;</span>test_storage_info(),
 			<span class="kw-2">&amp;</span>Default::default(),
 			Default::default(),
@@ -2773,7 +2775,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		)
 		.unwrap();
 		<span class="kw">let </span>without_layer = <span class="kw-2">&amp;</span>mapped_results
-			.get(<span class="kw-2">&amp;</span>(<span class="string">&quot;first_pallet&quot;</span>.to_string(), <span class="string">&quot;instance&quot;</span>.to_string()))
+			.get(<span class="kw-2">&amp;</span>(<span class="string">"first_pallet"</span>.to_string(), <span class="string">"instance"</span>.to_string()))
 			.unwrap()[<span class="number">0</span>];
 
 		<span class="macro">assert_eq!</span>(
@@ -2791,9 +2793,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>template_works() {
 		<span class="kw">let </span>all_results = map_results(
 			<span class="kw-2">&amp;</span>[
-				test_data(<span class="string">b&quot;first&quot;</span>, <span class="string">b&quot;first&quot;</span>, BenchmarkParameter::a, <span class="number">10</span>, <span class="number">3</span>),
-				test_data(<span class="string">b&quot;first&quot;</span>, <span class="string">b&quot;second&quot;</span>, BenchmarkParameter::b, <span class="number">9</span>, <span class="number">2</span>),
-				test_data(<span class="string">b&quot;second&quot;</span>, <span class="string">b&quot;first&quot;</span>, BenchmarkParameter::c, <span class="number">3</span>, <span class="number">4</span>),
+				test_data(<span class="string">b"first"</span>, <span class="string">b"first"</span>, BenchmarkParameter::a, <span class="number">10</span>, <span class="number">3</span>),
+				test_data(<span class="string">b"first"</span>, <span class="string">b"second"</span>, BenchmarkParameter::b, <span class="number">9</span>, <span class="number">2</span>),
+				test_data(<span class="string">b"second"</span>, <span class="string">b"first"</span>, BenchmarkParameter::c, <span class="number">3</span>, <span class="number">4</span>),
 			],
 			<span class="kw-2">&amp;</span>test_storage_info(),
 			<span class="kw-2">&amp;</span>Default::default(),
@@ -2808,9 +2810,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// New Handlebars instance with helpers.
 		</span><span class="kw">let </span><span class="kw-2">mut </span>handlebars = handlebars::Handlebars::new();
-		handlebars.register_helper(<span class="string">&quot;underscore&quot;</span>, Box::new(UnderscoreHelper));
-		handlebars.register_helper(<span class="string">&quot;join&quot;</span>, Box::new(JoinHelper));
-		<span class="comment">// Don&#39;t HTML escape any characters.
+		handlebars.register_helper(<span class="string">"underscore"</span>, Box::new(UnderscoreHelper));
+		handlebars.register_helper(<span class="string">"join"</span>, Box::new(JoinHelper));
+		<span class="comment">// Don't HTML escape any characters.
 		</span>handlebars.register_escape_fn(|s| -&gt; String { s.to_string() });
 
 		<span class="kw">for </span>((_pallet, _instance), results) <span class="kw">in </span>all_results.iter() {
@@ -2818,7 +2820,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="kw">let </span>output = handlebars.render_template(<span class="kw-2">&amp;</span>TEMPLATE, <span class="kw-2">&amp;</span>hbs_data);
 			<span class="macro">assert!</span>(output.is_ok());
-			<span class="macro">println!</span>(<span class="string">&quot;{:?}&quot;</span>, output);
+			<span class="macro">println!</span>(<span class="string">"{:?}"</span>, output);
 		}
 	}
 

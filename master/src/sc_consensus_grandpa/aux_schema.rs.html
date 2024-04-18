@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/consensus/grandpa/src/aux_schema.rs`."><title>aux_schema.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/consensus/grandpa/src/aux_schema.rs`."><title>aux_schema.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_consensus_grandpa" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_consensus_grandpa" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sc_consensus_grandpa/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -979,11 +981,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	GrandpaJustification, NewAuthoritySet, LOG_TARGET,
 };
 
-<span class="kw">const </span>VERSION_KEY: <span class="kw-2">&amp;</span>[u8] = <span class="string">b&quot;grandpa_schema_version&quot;</span>;
-<span class="kw">const </span>SET_STATE_KEY: <span class="kw-2">&amp;</span>[u8] = <span class="string">b&quot;grandpa_completed_round&quot;</span>;
-<span class="kw">const </span>CONCLUDED_ROUNDS: <span class="kw-2">&amp;</span>[u8] = <span class="string">b&quot;grandpa_concluded_rounds&quot;</span>;
-<span class="kw">const </span>AUTHORITY_SET_KEY: <span class="kw-2">&amp;</span>[u8] = <span class="string">b&quot;grandpa_voters&quot;</span>;
-<span class="kw">const </span>BEST_JUSTIFICATION: <span class="kw-2">&amp;</span>[u8] = <span class="string">b&quot;grandpa_best_justification&quot;</span>;
+<span class="kw">const </span>VERSION_KEY: <span class="kw-2">&amp;</span>[u8] = <span class="string">b"grandpa_schema_version"</span>;
+<span class="kw">const </span>SET_STATE_KEY: <span class="kw-2">&amp;</span>[u8] = <span class="string">b"grandpa_completed_round"</span>;
+<span class="kw">const </span>CONCLUDED_ROUNDS: <span class="kw-2">&amp;</span>[u8] = <span class="string">b"grandpa_concluded_rounds"</span>;
+<span class="kw">const </span>AUTHORITY_SET_KEY: <span class="kw-2">&amp;</span>[u8] = <span class="string">b"grandpa_voters"</span>;
+<span class="kw">const </span>BEST_JUSTIFICATION: <span class="kw-2">&amp;</span>[u8] = <span class="string">b"grandpa_best_justification"</span>;
 
 <span class="kw">const </span>CURRENT_VERSION: u32 = <span class="number">3</span>;
 
@@ -1038,8 +1040,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="comment">// previously we only supported at most one pending change per fork
 				</span><span class="kw-2">&amp;</span>|<span class="kw">_</span>, <span class="kw">_</span>| <span class="prelude-val">Ok</span>(<span class="bool-val">false</span>),
 			) {
-				<span class="macro">warn!</span>(target: LOG_TARGET, <span class="string">&quot;Error migrating pending authority set change: {}&quot;</span>, err);
-				<span class="macro">warn!</span>(target: LOG_TARGET, <span class="string">&quot;Node is in a potentially inconsistent state.&quot;</span>);
+				<span class="macro">warn!</span>(target: LOG_TARGET, <span class="string">"Error migrating pending authority set change: {}"</span>, err);
+				<span class="macro">warn!</span>(target: LOG_TARGET, <span class="string">"Node is in a potentially inconsistent state."</span>);
 			}
 		}
 
@@ -1051,7 +1053,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			AuthoritySetChanges::empty(),
 		);
 
-		authority_set.expect(<span class="string">&quot;current_authorities is non-empty and weights are non-zero; qed.&quot;</span>)
+		authority_set.expect(<span class="string">"current_authorities is non-empty and weights are non-zero; qed."</span>)
 	}
 }
 
@@ -1068,7 +1070,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="self">self</span>.pending_forced_changes,
 			AuthoritySetChanges::empty(),
 		)
-		.expect(<span class="string">&quot;current_authorities is non-empty and weights are non-zero; qed.&quot;</span>)
+		.expect(<span class="string">"current_authorities is non-empty and weights are non-zero; qed."</span>)
 	}
 }
 
@@ -1087,7 +1089,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">match </span>backend.get_aux(key)<span class="question-mark">? </span>{
 		<span class="prelude-val">None </span>=&gt; <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>),
 		<span class="prelude-val">Some</span>(t) =&gt; T::decode(<span class="kw-2">&amp;mut &amp;</span>t[..])
-			.map_err(|e| ClientError::Backend(<span class="macro">format!</span>(<span class="string">&quot;GRANDPA DB is corrupted: {}&quot;</span>, e)))
+			.map_err(|e| ClientError::Backend(<span class="macro">format!</span>(<span class="string">"GRANDPA DB is corrupted: {}"</span>, e)))
 			.map(<span class="prelude-val">Some</span>),
 	}
 }
@@ -1126,7 +1128,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>set_id = new_set.set_id;
 
 		<span class="kw">let </span>base = last_round_state.prevote_ghost.expect(
-			<span class="string">&quot;state is for completed round; completed rounds must have a prevote ghost; qed.&quot;</span>,
+			<span class="string">"state is for completed round; completed rounds must have a prevote ghost; qed."</span>,
 		);
 
 		<span class="kw">let </span><span class="kw-2">mut </span>current_rounds = CurrentRounds::&lt;Block&gt;::new();
@@ -1183,7 +1185,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		)<span class="question-mark">? </span>{
 			<span class="prelude-val">Some</span>(V1VoterSetState::Paused(last_round_number, set_state)) =&gt; {
 				<span class="kw">let </span>base = set_state.prevote_ghost
-					.expect(<span class="string">&quot;state is for completed round; completed rounds must have a prevote ghost; qed.&quot;</span>);
+					.expect(<span class="string">"state is for completed round; completed rounds must have a prevote ghost; qed."</span>);
 
 				VoterSetState::Paused {
 					completed_rounds: completed_rounds(last_round_number, set_state, base),
@@ -1191,7 +1193,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			},
 			<span class="prelude-val">Some</span>(V1VoterSetState::Live(last_round_number, set_state)) =&gt; {
 				<span class="kw">let </span>base = set_state.prevote_ghost
-					.expect(<span class="string">&quot;state is for completed round; completed rounds must have a prevote ghost; qed.&quot;</span>);
+					.expect(<span class="string">"state is for completed round; completed rounds must have a prevote ghost; qed."</span>);
 
 				<span class="kw">let </span><span class="kw-2">mut </span>current_rounds = CurrentRounds::&lt;Block&gt;::new();
 				current_rounds.insert(last_round_number + <span class="number">1</span>, HasVoted::No);
@@ -1204,7 +1206,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">None </span>=&gt; {
 				<span class="kw">let </span>set_state = genesis_round();
 				<span class="kw">let </span>base = set_state.prevote_ghost
-					.expect(<span class="string">&quot;state is for completed round; completed rounds must have a prevote ghost; qed.&quot;</span>);
+					.expect(<span class="string">"state is for completed round; completed rounds must have a prevote ghost; qed."</span>);
 
 				VoterSetState::live(set_id, <span class="kw-2">&amp;</span>set, base)
 			},
@@ -1239,7 +1241,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">None </span>=&gt; {
 				<span class="kw">let </span>state = genesis_round();
 				<span class="kw">let </span>base = state.prevote_ghost
-					.expect(<span class="string">&quot;state is for completed round; completed rounds must have a prevote ghost; qed.&quot;</span>);
+					.expect(<span class="string">"state is for completed round; completed rounds must have a prevote ghost; qed."</span>);
 
 				VoterSetState::live(new_set.set_id, <span class="kw-2">&amp;</span>new_set, base)
 			},
@@ -1308,7 +1310,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="prelude-val">None </span>=&gt; {
 							<span class="kw">let </span>state = make_genesis_round();
 							<span class="kw">let </span>base = state.prevote_ghost
-							.expect(<span class="string">&quot;state is for completed round; completed rounds must have a prevote ghost; qed.&quot;</span>);
+							.expect(<span class="string">"state is for completed round; completed rounds must have a prevote ghost; qed."</span>);
 
 							VoterSetState::live(set.set_id, <span class="kw-2">&amp;</span>set, base)
 						},
@@ -1318,23 +1320,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			}
 		},
 		<span class="prelude-val">Some</span>(other) =&gt;
-			<span class="kw">return </span><span class="prelude-val">Err</span>(ClientError::Backend(<span class="macro">format!</span>(<span class="string">&quot;Unsupported GRANDPA DB version: {:?}&quot;</span>, other))),
+			<span class="kw">return </span><span class="prelude-val">Err</span>(ClientError::Backend(<span class="macro">format!</span>(<span class="string">"Unsupported GRANDPA DB version: {:?}"</span>, other))),
 	}
 
 	<span class="comment">// genesis.
 	</span><span class="macro">info!</span>(
 		target: LOG_TARGET,
-		<span class="string">&quot;👴 Loading GRANDPA authority set \
-		from genesis on what appears to be first startup.&quot;
+		<span class="string">"👴 Loading GRANDPA authority set \
+		from genesis on what appears to be first startup."
 	</span>);
 
 	<span class="kw">let </span>genesis_authorities = genesis_authorities()<span class="question-mark">?</span>;
 	<span class="kw">let </span>genesis_set = AuthoritySet::genesis(genesis_authorities)
-		.expect(<span class="string">&quot;genesis authorities is non-empty; all weights are non-zero; qed.&quot;</span>);
+		.expect(<span class="string">"genesis authorities is non-empty; all weights are non-zero; qed."</span>);
 	<span class="kw">let </span>state = make_genesis_round();
 	<span class="kw">let </span>base = state
 		.prevote_ghost
-		.expect(<span class="string">&quot;state is for completed round; completed rounds must have a prevote ghost; qed.&quot;</span>);
+		.expect(<span class="string">"state is for completed round; completed rounds must have a prevote ghost; qed."</span>);
 
 	<span class="kw">let </span>genesis_state = VoterSetState::live(<span class="number">0</span>, <span class="kw-2">&amp;</span>genesis_set, base);
 
@@ -1360,13 +1362,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	write_aux: F,
 ) -&gt; R
 <span class="kw">where
-	</span>F: FnOnce(<span class="kw-2">&amp;</span>[(<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8], <span class="kw-2">&amp;</span>[u8])]) -&gt; R,
+	</span>F: FnOnce(<span class="kw-2">&amp;</span>[(<span class="kw-2">&amp;</span><span class="lifetime">'static </span>[u8], <span class="kw-2">&amp;</span>[u8])]) -&gt; R,
 {
 	<span class="comment">// write new authority set state to disk.
 	</span><span class="kw">let </span>encoded_set = set.encode();
 
 	<span class="kw">if let </span><span class="prelude-val">Some</span>(new_set) = new_set {
-		<span class="comment">// we also overwrite the &quot;last completed round&quot; entry with a blank slate
+		<span class="comment">// we also overwrite the "last completed round" entry with a blank slate
 		// because from the perspective of the finality gadget, the chain has
 		// reset.
 		</span><span class="kw">let </span>set_state = VoterSetState::&lt;Block&gt;::live(
@@ -1385,14 +1387,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Update the justification for the latest finalized block on-disk.
 ///
 /// We always keep around the justification for the best finalized block and overwrite it
-/// as we finalize new blocks, this makes sure that we don&#39;t store useless justifications
+/// as we finalize new blocks, this makes sure that we don't store useless justifications
 /// but can always prove finality of the latest block.
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>update_best_justification&lt;Block: BlockT, F, R&gt;(
 	justification: <span class="kw-2">&amp;</span>GrandpaJustification&lt;Block&gt;,
 	write_aux: F,
 ) -&gt; R
 <span class="kw">where
-	</span>F: FnOnce(<span class="kw-2">&amp;</span>[(<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8], <span class="kw-2">&amp;</span>[u8])]) -&gt; R,
+	</span>F: FnOnce(<span class="kw-2">&amp;</span>[(<span class="kw-2">&amp;</span><span class="lifetime">'static </span>[u8], <span class="kw-2">&amp;</span>[u8])]) -&gt; R,
 {
 	<span class="kw">let </span>encoded_justification = justification.encode();
 	write_aux(<span class="kw-2">&amp;</span>[(BEST_JUSTIFICATION, <span class="kw-2">&amp;</span>encoded_justification[..])])
@@ -1433,7 +1435,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>load_authorities&lt;B: AuxStore, H: Decode, N: Decode + Clone + Ord&gt;(
 	backend: <span class="kw-2">&amp;</span>B,
 ) -&gt; <span class="prelude-ty">Option</span>&lt;AuthoritySet&lt;H, N&gt;&gt; {
-	load_decode::&lt;<span class="kw">_</span>, AuthoritySet&lt;H, N&gt;&gt;(backend, AUTHORITY_SET_KEY).expect(<span class="string">&quot;backend error&quot;</span>)
+	load_decode::&lt;<span class="kw">_</span>, AuthoritySet&lt;H, N&gt;&gt;(backend, AUTHORITY_SET_KEY).expect(<span class="string">"backend error"</span>)
 }
 
 <span class="attr">#[cfg(test)]

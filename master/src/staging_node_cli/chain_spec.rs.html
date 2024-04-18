@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/bin/node/cli/src/chain_spec.rs`."><title>chain_spec.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/bin/node/cli/src/chain_spec.rs`."><title>chain_spec.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="staging_node_cli" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="staging_node_cli" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../staging_node_cli/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -732,7 +734,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">type </span>AccountPublic = &lt;Signature <span class="kw">as </span>Verify&gt;::Signer;
 
-<span class="kw">const </span>STAGING_TELEMETRY_URL: <span class="kw-2">&amp;</span>str = <span class="string">&quot;wss://telemetry.polkadot.io/submit/&quot;</span>;
+<span class="kw">const </span>STAGING_TELEMETRY_URL: <span class="kw-2">&amp;</span>str = <span class="string">"wss://telemetry.polkadot.io/submit/"</span>;
 <span class="kw">const </span>ENDOWMENT: Balance = <span class="number">10_000_000 </span>* DOLLARS;
 <span class="kw">const </span>STASH: Balance = ENDOWMENT / <span class="number">1000</span>;
 
@@ -741,7 +743,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// Additional parameters for some Substrate core modules,
 /// customizable from the chain spec.
 </span><span class="attr">#[derive(Default, Clone, Serialize, Deserialize, ChainSpecExtension)]
-#[serde(rename_all = <span class="string">&quot;camelCase&quot;</span>)]
+#[serde(rename_all = <span class="string">"camelCase"</span>)]
 </span><span class="kw">pub struct </span>Extensions {
 	<span class="doccomment">/// Block numbers with known hashes.
 	</span><span class="kw">pub </span>fork_blocks: sc_client_api::ForkBlocks&lt;Block&gt;,
@@ -755,7 +757,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub type </span>ChainSpec = sc_service::GenericChainSpec&lt;RuntimeGenesisConfig, Extensions&gt;;
 <span class="doccomment">/// Flaming Fir testnet generator
 </span><span class="kw">pub fn </span>flaming_fir_config() -&gt; <span class="prelude-ty">Result</span>&lt;ChainSpec, String&gt; {
-	ChainSpec::from_json_bytes(<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">&quot;../res/flaming-fir.json&quot;</span>)[..])
+	ChainSpec::from_json_bytes(<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">"../res/flaming-fir.json"</span>)[..])
 }
 
 <span class="kw">fn </span>session_keys(
@@ -786,15 +788,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[rustfmt::skip]
 	</span><span class="comment">// stash, controller, session-key, beefy id
 	// generated with secret:
-	// for i in 1 2 3 4 ; do for j in stash controller; do subkey inspect &quot;$secret&quot;/fir/$j/$i; done; done
+	// for i in 1 2 3 4 ; do for j in stash controller; do subkey inspect "$secret"/fir/$j/$i; done; done
 	//
 	// and
 	//
-	// for i in 1 2 3 4 ; do for j in session; do subkey inspect --scheme ed25519 &quot;$secret&quot;//fir//$j//$i; done; done
+	// for i in 1 2 3 4 ; do for j in session; do subkey inspect --scheme ed25519 "$secret"//fir//$j//$i; done; done
 	//
 	// and
 	//
-	// for i in 1 2 3 4 ; do for j in session; do subkey inspect --scheme ecdsa &quot;$secret&quot;//fir//$j//$i; done; done
+	// for i in 1 2 3 4 ; do for j in session; do subkey inspect --scheme ecdsa "$secret"//fir//$j//$i; done; done
 
 	</span><span class="kw">let </span>initial_authorities: Vec&lt;(
 		AccountId,
@@ -808,106 +810,106 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	)&gt; = <span class="macro">vec!</span>[
 		(
 			<span class="comment">// 5Fbsd6WXDGiLTxunqeK5BATNiocfCqu9bS1yArVjCgeBLkVy
-			</span>array_bytes::hex_n_into_unchecked(<span class="string">&quot;9c7a2ee14e565db0c69f78c7b4cd839fbf52b607d867e9e9c5a79042898a0d12&quot;</span>),
+			</span>array_bytes::hex_n_into_unchecked(<span class="string">"9c7a2ee14e565db0c69f78c7b4cd839fbf52b607d867e9e9c5a79042898a0d12"</span>),
 			<span class="comment">// 5EnCiV7wSHeNhjW3FSUwiJNkcc2SBkPLn5Nj93FmbLtBjQUq
-			</span>array_bytes::hex_n_into_unchecked(<span class="string">&quot;781ead1e2fa9ccb74b44c19d29cb2a7a4b5be3972927ae98cd3877523976a276&quot;</span>),
+			</span>array_bytes::hex_n_into_unchecked(<span class="string">"781ead1e2fa9ccb74b44c19d29cb2a7a4b5be3972927ae98cd3877523976a276"</span>),
 			<span class="comment">// 5Fb9ayurnxnaXj56CjmyQLBiadfRCqUbL2VWNbbe1nZU6wiC
-			</span>array_bytes::hex2array_unchecked(<span class="string">&quot;9becad03e6dcac03cee07edebca5475314861492cdfc96a2144a67bbe9699332&quot;</span>)
+			</span>array_bytes::hex2array_unchecked(<span class="string">"9becad03e6dcac03cee07edebca5475314861492cdfc96a2144a67bbe9699332"</span>)
 				.unchecked_into(),
 			<span class="comment">// 5EZaeQ8djPcq9pheJUhgerXQZt9YaHnMJpiHMRhwQeinqUW8
-			</span>array_bytes::hex2array_unchecked(<span class="string">&quot;6e7e4eb42cbd2e0ab4cae8708ce5509580b8c04d11f6758dbf686d50fe9f9106&quot;</span>)
+			</span>array_bytes::hex2array_unchecked(<span class="string">"6e7e4eb42cbd2e0ab4cae8708ce5509580b8c04d11f6758dbf686d50fe9f9106"</span>)
 				.unchecked_into(),
 			<span class="comment">// 5EZaeQ8djPcq9pheJUhgerXQZt9YaHnMJpiHMRhwQeinqUW8
-			</span>array_bytes::hex2array_unchecked(<span class="string">&quot;6e7e4eb42cbd2e0ab4cae8708ce5509580b8c04d11f6758dbf686d50fe9f9106&quot;</span>)
+			</span>array_bytes::hex2array_unchecked(<span class="string">"6e7e4eb42cbd2e0ab4cae8708ce5509580b8c04d11f6758dbf686d50fe9f9106"</span>)
 				.unchecked_into(),
 			<span class="comment">// 5EZaeQ8djPcq9pheJUhgerXQZt9YaHnMJpiHMRhwQeinqUW8
-			</span>array_bytes::hex2array_unchecked(<span class="string">&quot;6e7e4eb42cbd2e0ab4cae8708ce5509580b8c04d11f6758dbf686d50fe9f9106&quot;</span>)
+			</span>array_bytes::hex2array_unchecked(<span class="string">"6e7e4eb42cbd2e0ab4cae8708ce5509580b8c04d11f6758dbf686d50fe9f9106"</span>)
 				.unchecked_into(),
 			<span class="comment">// 5EZaeQ8djPcq9pheJUhgerXQZt9YaHnMJpiHMRhwQeinqUW8
-			</span>array_bytes::hex2array_unchecked(<span class="string">&quot;6e7e4eb42cbd2e0ab4cae8708ce5509580b8c04d11f6758dbf686d50fe9f9106&quot;</span>)
+			</span>array_bytes::hex2array_unchecked(<span class="string">"6e7e4eb42cbd2e0ab4cae8708ce5509580b8c04d11f6758dbf686d50fe9f9106"</span>)
 				.unchecked_into(),
 			<span class="comment">// 5DMLFcDdLLQbw696YfHaWBpQR99HwR456ycSCfr6L7KXGYK8
-			</span>array_bytes::hex2array_unchecked(<span class="string">&quot;035560fafa241739869360aa4b32bc98953172ceb41a19c6cc1a27962fb3d1ecec&quot;</span>)
+			</span>array_bytes::hex2array_unchecked(<span class="string">"035560fafa241739869360aa4b32bc98953172ceb41a19c6cc1a27962fb3d1ecec"</span>)
 				.unchecked_into(),
 		),
 		(
 			<span class="comment">// 5ERawXCzCWkjVq3xz1W5KGNtVx2VdefvZ62Bw1FEuZW4Vny2
-			</span>array_bytes::hex_n_into_unchecked(<span class="string">&quot;68655684472b743e456907b398d3a44c113f189e56d1bbfd55e889e295dfde78&quot;</span>),
+			</span>array_bytes::hex_n_into_unchecked(<span class="string">"68655684472b743e456907b398d3a44c113f189e56d1bbfd55e889e295dfde78"</span>),
 			<span class="comment">// 5Gc4vr42hH1uDZc93Nayk5G7i687bAQdHHc9unLuyeawHipF
-			</span>array_bytes::hex_n_into_unchecked(<span class="string">&quot;c8dc79e36b29395413399edaec3e20fcca7205fb19776ed8ddb25d6f427ec40e&quot;</span>),
+			</span>array_bytes::hex_n_into_unchecked(<span class="string">"c8dc79e36b29395413399edaec3e20fcca7205fb19776ed8ddb25d6f427ec40e"</span>),
 			<span class="comment">// 5EockCXN6YkiNCDjpqqnbcqd4ad35nU4RmA1ikM4YeRN4WcE
-			</span>array_bytes::hex2array_unchecked(<span class="string">&quot;7932cff431e748892fa48e10c63c17d30f80ca42e4de3921e641249cd7fa3c2f&quot;</span>)
+			</span>array_bytes::hex2array_unchecked(<span class="string">"7932cff431e748892fa48e10c63c17d30f80ca42e4de3921e641249cd7fa3c2f"</span>)
 				.unchecked_into(),
 			<span class="comment">// 5DhLtiaQd1L1LU9jaNeeu9HJkP6eyg3BwXA7iNMzKm7qqruQ
-			</span>array_bytes::hex2array_unchecked(<span class="string">&quot;482dbd7297a39fa145c570552249c2ca9dd47e281f0c500c971b59c9dcdcd82e&quot;</span>)
+			</span>array_bytes::hex2array_unchecked(<span class="string">"482dbd7297a39fa145c570552249c2ca9dd47e281f0c500c971b59c9dcdcd82e"</span>)
 				.unchecked_into(),
 			<span class="comment">// 5DhLtiaQd1L1LU9jaNeeu9HJkP6eyg3BwXA7iNMzKm7qqruQ
-			</span>array_bytes::hex2array_unchecked(<span class="string">&quot;482dbd7297a39fa145c570552249c2ca9dd47e281f0c500c971b59c9dcdcd82e&quot;</span>)
+			</span>array_bytes::hex2array_unchecked(<span class="string">"482dbd7297a39fa145c570552249c2ca9dd47e281f0c500c971b59c9dcdcd82e"</span>)
 				.unchecked_into(),
 			<span class="comment">// 5DhLtiaQd1L1LU9jaNeeu9HJkP6eyg3BwXA7iNMzKm7qqruQ
-			</span>array_bytes::hex2array_unchecked(<span class="string">&quot;482dbd7297a39fa145c570552249c2ca9dd47e281f0c500c971b59c9dcdcd82e&quot;</span>)
+			</span>array_bytes::hex2array_unchecked(<span class="string">"482dbd7297a39fa145c570552249c2ca9dd47e281f0c500c971b59c9dcdcd82e"</span>)
 				.unchecked_into(),
 			<span class="comment">// 5DhLtiaQd1L1LU9jaNeeu9HJkP6eyg3BwXA7iNMzKm7qqruQ
-			</span>array_bytes::hex2array_unchecked(<span class="string">&quot;482dbd7297a39fa145c570552249c2ca9dd47e281f0c500c971b59c9dcdcd82e&quot;</span>)
+			</span>array_bytes::hex2array_unchecked(<span class="string">"482dbd7297a39fa145c570552249c2ca9dd47e281f0c500c971b59c9dcdcd82e"</span>)
 				.unchecked_into(),
 			<span class="comment">// 5FYk11kNtB4178wLKJ2RNoUzzcjgRUciFe3SJDVZXhqX4dzG
-			</span>array_bytes::hex2array_unchecked(<span class="string">&quot;02da1ab255ed888ee3e19b73d335fc13160b3eb10456c2d17c6a8ea7de403d2445&quot;</span>)
+			</span>array_bytes::hex2array_unchecked(<span class="string">"02da1ab255ed888ee3e19b73d335fc13160b3eb10456c2d17c6a8ea7de403d2445"</span>)
 				.unchecked_into(),
 		),
 		(
 			<span class="comment">// 5DyVtKWPidondEu8iHZgi6Ffv9yrJJ1NDNLom3X9cTDi98qp
-			</span>array_bytes::hex_n_into_unchecked(<span class="string">&quot;547ff0ab649283a7ae01dbc2eb73932eba2fb09075e9485ff369082a2ff38d65&quot;</span>),
+			</span>array_bytes::hex_n_into_unchecked(<span class="string">"547ff0ab649283a7ae01dbc2eb73932eba2fb09075e9485ff369082a2ff38d65"</span>),
 			<span class="comment">// 5FeD54vGVNpFX3PndHPXJ2MDakc462vBCD5mgtWRnWYCpZU9
-			</span>array_bytes::hex_n_into_unchecked(<span class="string">&quot;9e42241d7cd91d001773b0b616d523dd80e13c6c2cab860b1234ef1b9ffc1526&quot;</span>),
+			</span>array_bytes::hex_n_into_unchecked(<span class="string">"9e42241d7cd91d001773b0b616d523dd80e13c6c2cab860b1234ef1b9ffc1526"</span>),
 			<span class="comment">// 5E1jLYfLdUQKrFrtqoKgFrRvxM3oQPMbf6DfcsrugZZ5Bn8d
-			</span>array_bytes::hex2array_unchecked(<span class="string">&quot;5633b70b80a6c8bb16270f82cca6d56b27ed7b76c8fd5af2986a25a4788ce440&quot;</span>)
+			</span>array_bytes::hex2array_unchecked(<span class="string">"5633b70b80a6c8bb16270f82cca6d56b27ed7b76c8fd5af2986a25a4788ce440"</span>)
 				.unchecked_into(),
 			<span class="comment">// 5DhKqkHRkndJu8vq7pi2Q5S3DfftWJHGxbEUNH43b46qNspH
-			</span>array_bytes::hex2array_unchecked(<span class="string">&quot;482a3389a6cf42d8ed83888cfd920fec738ea30f97e44699ada7323f08c3380a&quot;</span>)
+			</span>array_bytes::hex2array_unchecked(<span class="string">"482a3389a6cf42d8ed83888cfd920fec738ea30f97e44699ada7323f08c3380a"</span>)
 				.unchecked_into(),
 			<span class="comment">// 5DhKqkHRkndJu8vq7pi2Q5S3DfftWJHGxbEUNH43b46qNspH
-			</span>array_bytes::hex2array_unchecked(<span class="string">&quot;482a3389a6cf42d8ed83888cfd920fec738ea30f97e44699ada7323f08c3380a&quot;</span>)
+			</span>array_bytes::hex2array_unchecked(<span class="string">"482a3389a6cf42d8ed83888cfd920fec738ea30f97e44699ada7323f08c3380a"</span>)
 				.unchecked_into(),
 			<span class="comment">// 5DhKqkHRkndJu8vq7pi2Q5S3DfftWJHGxbEUNH43b46qNspH
-			</span>array_bytes::hex2array_unchecked(<span class="string">&quot;482a3389a6cf42d8ed83888cfd920fec738ea30f97e44699ada7323f08c3380a&quot;</span>)
+			</span>array_bytes::hex2array_unchecked(<span class="string">"482a3389a6cf42d8ed83888cfd920fec738ea30f97e44699ada7323f08c3380a"</span>)
 				.unchecked_into(),
 			<span class="comment">// 5DhKqkHRkndJu8vq7pi2Q5S3DfftWJHGxbEUNH43b46qNspH
-			</span>array_bytes::hex2array_unchecked(<span class="string">&quot;482a3389a6cf42d8ed83888cfd920fec738ea30f97e44699ada7323f08c3380a&quot;</span>)
+			</span>array_bytes::hex2array_unchecked(<span class="string">"482a3389a6cf42d8ed83888cfd920fec738ea30f97e44699ada7323f08c3380a"</span>)
 				.unchecked_into(),
 			<span class="comment">// 5GQx4FToRBPqfani6o7owFJE1UstiviqbPP7HPWyvtXWWukn
-			</span>array_bytes::hex2array_unchecked(<span class="string">&quot;036a818b3f59579c5fbbe4fede64f49dbf090ba883eb2a175d5ca90e5adb5f0b3e&quot;</span>)
+			</span>array_bytes::hex2array_unchecked(<span class="string">"036a818b3f59579c5fbbe4fede64f49dbf090ba883eb2a175d5ca90e5adb5f0b3e"</span>)
 				.unchecked_into(),
 		),
 		(
 			<span class="comment">// 5HYZnKWe5FVZQ33ZRJK1rG3WaLMztxWrrNDb1JRwaHHVWyP9
-			</span>array_bytes::hex_n_into_unchecked(<span class="string">&quot;f26cdb14b5aec7b2789fd5ca80f979cef3761897ae1f37ffb3e154cbcc1c2663&quot;</span>),
+			</span>array_bytes::hex_n_into_unchecked(<span class="string">"f26cdb14b5aec7b2789fd5ca80f979cef3761897ae1f37ffb3e154cbcc1c2663"</span>),
 			<span class="comment">// 5EPQdAQ39WQNLCRjWsCk5jErsCitHiY5ZmjfWzzbXDoAoYbn
-			</span>array_bytes::hex_n_into_unchecked(<span class="string">&quot;66bc1e5d275da50b72b15de072a2468a5ad414919ca9054d2695767cf650012f&quot;</span>),
+			</span>array_bytes::hex_n_into_unchecked(<span class="string">"66bc1e5d275da50b72b15de072a2468a5ad414919ca9054d2695767cf650012f"</span>),
 			<span class="comment">// 5DMa31Hd5u1dwoRKgC4uvqyrdK45RHv3CpwvpUC1EzuwDit4
-			</span>array_bytes::hex2array_unchecked(<span class="string">&quot;3919132b851ef0fd2dae42a7e734fe547af5a6b809006100f48944d7fae8e8ef&quot;</span>)
+			</span>array_bytes::hex2array_unchecked(<span class="string">"3919132b851ef0fd2dae42a7e734fe547af5a6b809006100f48944d7fae8e8ef"</span>)
 				.unchecked_into(),
 			<span class="comment">// 5C4vDQxA8LTck2xJEy4Yg1hM9qjDt4LvTQaMo4Y8ne43aU6x
-			</span>array_bytes::hex2array_unchecked(<span class="string">&quot;00299981a2b92f878baaf5dbeba5c18d4e70f2a1fcd9c61b32ea18daf38f4378&quot;</span>)
+			</span>array_bytes::hex2array_unchecked(<span class="string">"00299981a2b92f878baaf5dbeba5c18d4e70f2a1fcd9c61b32ea18daf38f4378"</span>)
 				.unchecked_into(),
 			<span class="comment">// 5C4vDQxA8LTck2xJEy4Yg1hM9qjDt4LvTQaMo4Y8ne43aU6x
-			</span>array_bytes::hex2array_unchecked(<span class="string">&quot;00299981a2b92f878baaf5dbeba5c18d4e70f2a1fcd9c61b32ea18daf38f4378&quot;</span>)
+			</span>array_bytes::hex2array_unchecked(<span class="string">"00299981a2b92f878baaf5dbeba5c18d4e70f2a1fcd9c61b32ea18daf38f4378"</span>)
 				.unchecked_into(),
 			<span class="comment">// 5C4vDQxA8LTck2xJEy4Yg1hM9qjDt4LvTQaMo4Y8ne43aU6x
-			</span>array_bytes::hex2array_unchecked(<span class="string">&quot;00299981a2b92f878baaf5dbeba5c18d4e70f2a1fcd9c61b32ea18daf38f4378&quot;</span>)
+			</span>array_bytes::hex2array_unchecked(<span class="string">"00299981a2b92f878baaf5dbeba5c18d4e70f2a1fcd9c61b32ea18daf38f4378"</span>)
 				.unchecked_into(),
 			<span class="comment">// 5C4vDQxA8LTck2xJEy4Yg1hM9qjDt4LvTQaMo4Y8ne43aU6x
-			</span>array_bytes::hex2array_unchecked(<span class="string">&quot;00299981a2b92f878baaf5dbeba5c18d4e70f2a1fcd9c61b32ea18daf38f4378&quot;</span>)
+			</span>array_bytes::hex2array_unchecked(<span class="string">"00299981a2b92f878baaf5dbeba5c18d4e70f2a1fcd9c61b32ea18daf38f4378"</span>)
 				.unchecked_into(),
 			<span class="comment">// 5FCu2pY928VVHPgnNVJssvxFJZECyNe1CyH3WTG79Wisx58B
-			</span>array_bytes::hex2array_unchecked(<span class="string">&quot;020ce02b963548f9f8ade8765f7a4a06638c17819c78422a1cc35b647873583eef&quot;</span>)
+			</span>array_bytes::hex2array_unchecked(<span class="string">"020ce02b963548f9f8ade8765f7a4a06638c17819c78422a1cc35b647873583eef"</span>)
 				.unchecked_into(),
 		),
 	];
 
-	<span class="comment">// generated with secret: subkey inspect &quot;$secret&quot;/fir
+	<span class="comment">// generated with secret: subkey inspect "$secret"/fir
 	</span><span class="kw">let </span>root_key: AccountId = array_bytes::hex_n_into_unchecked(
 		<span class="comment">// 5Ff3iXP75ruzroPWRP2FYBHWnmGGBSb63857BgnzCoXNxfPo
-		</span><span class="string">&quot;9ee5e5bdc0ec239eb164f865ecc345ce4c88e76ee002e0f7e318097347471809&quot;</span>,
+		</span><span class="string">"9ee5e5bdc0ec239eb164f865ecc345ce4c88e76ee002e0f7e318097347471809"</span>,
 	);
 
 	<span class="kw">let </span>endowed_accounts: Vec&lt;AccountId&gt; = <span class="macro">vec!</span>[root_key.clone()];
@@ -923,21 +925,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Staging testnet config.
 </span><span class="kw">pub fn </span>staging_testnet_config() -&gt; ChainSpec {
 	ChainSpec::builder(wasm_binary_unwrap(), Default::default())
-		.with_name(<span class="string">&quot;Staging Testnet&quot;</span>)
-		.with_id(<span class="string">&quot;staging_testnet&quot;</span>)
+		.with_name(<span class="string">"Staging Testnet"</span>)
+		.with_id(<span class="string">"staging_testnet"</span>)
 		.with_chain_type(ChainType::Live)
 		.with_genesis_config_patch(staging_testnet_config_genesis())
 		.with_telemetry_endpoints(
 			TelemetryEndpoints::new(<span class="macro">vec!</span>[(STAGING_TELEMETRY_URL.to_string(), <span class="number">0</span>)])
-				.expect(<span class="string">&quot;Staging telemetry url is valid; qed&quot;</span>),
+				.expect(<span class="string">"Staging telemetry url is valid; qed"</span>),
 		)
 		.build()
 }
 
 <span class="doccomment">/// Helper function to generate a crypto pair from seed.
 </span><span class="kw">pub fn </span>get_from_seed&lt;TPublic: Public&gt;(seed: <span class="kw-2">&amp;</span>str) -&gt; &lt;TPublic::Pair <span class="kw">as </span>Pair&gt;::Public {
-	TPublic::Pair::from_string(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;//{}&quot;</span>, seed), <span class="prelude-val">None</span>)
-		.expect(<span class="string">&quot;static values are valid; qed&quot;</span>)
+	TPublic::Pair::from_string(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"//{}"</span>, seed), <span class="prelude-val">None</span>)
+		.expect(<span class="string">"static values are valid; qed"</span>)
 		.public()
 }
 
@@ -955,7 +957,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ) -&gt; (AccountId, AccountId, GrandpaId, BabeId, ImOnlineId, AuthorityDiscoveryId, MixnetId, BeefyId)
 {
 	(
-		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}//stash&quot;</span>, seed)),
+		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{}//stash"</span>, seed)),
 		get_account_id_from_seed::&lt;sr25519::Public&gt;(seed),
 		get_from_seed::&lt;GrandpaId&gt;(seed),
 		get_from_seed::&lt;BabeId&gt;(seed),
@@ -997,18 +999,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ) {
 	<span class="kw">let </span><span class="kw-2">mut </span>endowed_accounts: Vec&lt;AccountId&gt; = endowed_accounts.unwrap_or_else(|| {
 		<span class="macro">vec!</span>[
-			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>),
-			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Bob&quot;</span>),
-			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Charlie&quot;</span>),
-			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Dave&quot;</span>),
-			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Eve&quot;</span>),
-			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Ferdie&quot;</span>),
-			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice//stash&quot;</span>),
-			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Bob//stash&quot;</span>),
-			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Charlie//stash&quot;</span>),
-			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Dave//stash&quot;</span>),
-			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Eve//stash&quot;</span>),
-			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Ferdie//stash&quot;</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Alice"</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Bob"</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Charlie"</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Dave"</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Eve"</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Ferdie"</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Alice//stash"</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Bob//stash"</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Charlie//stash"</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Dave//stash"</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Eve//stash"</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Ferdie//stash"</span>),
 		]
 	});
 	<span class="comment">// endow all authorities and nominators.
@@ -1066,11 +1068,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		configure_accounts(initial_authorities, initial_nominators, endowed_accounts, STASH);
 
 	<span class="macro">serde_json::json!</span>({
-		<span class="string">&quot;balances&quot;</span>: {
-			<span class="string">&quot;balances&quot;</span>: endowed_accounts.iter().cloned().map(|x| (x, ENDOWMENT)).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
+		<span class="string">"balances"</span>: {
+			<span class="string">"balances"</span>: endowed_accounts.iter().cloned().map(|x| (x, ENDOWMENT)).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
 		},
-		<span class="string">&quot;session&quot;</span>: {
-			<span class="string">&quot;keys&quot;</span>: initial_authorities
+		<span class="string">"session"</span>: {
+			<span class="string">"keys"</span>: initial_authorities
 				.iter()
 				.map(|x| {
 					(
@@ -1088,49 +1090,49 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				})
 				.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
 		},
-		<span class="string">&quot;staking&quot;</span>: {
-			<span class="string">&quot;validatorCount&quot;</span>: initial_authorities.len() <span class="kw">as </span>u32,
-			<span class="string">&quot;minimumValidatorCount&quot;</span>: initial_authorities.len() <span class="kw">as </span>u32,
-			<span class="string">&quot;invulnerables&quot;</span>: initial_authorities.iter().map(|x| x.<span class="number">0</span>.clone()).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
-			<span class="string">&quot;slashRewardFraction&quot;</span>: Perbill::from_percent(<span class="number">10</span>),
-			<span class="string">&quot;stakers&quot;</span>: stakers.clone(),
+		<span class="string">"staking"</span>: {
+			<span class="string">"validatorCount"</span>: initial_authorities.len() <span class="kw">as </span>u32,
+			<span class="string">"minimumValidatorCount"</span>: initial_authorities.len() <span class="kw">as </span>u32,
+			<span class="string">"invulnerables"</span>: initial_authorities.iter().map(|x| x.<span class="number">0</span>.clone()).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
+			<span class="string">"slashRewardFraction"</span>: Perbill::from_percent(<span class="number">10</span>),
+			<span class="string">"stakers"</span>: stakers.clone(),
 		},
-		<span class="string">&quot;elections&quot;</span>: {
-			<span class="string">&quot;members&quot;</span>: endowed_accounts
+		<span class="string">"elections"</span>: {
+			<span class="string">"members"</span>: endowed_accounts
 				.iter()
 				.take((num_endowed_accounts + <span class="number">1</span>) / <span class="number">2</span>)
 				.cloned()
 				.map(|member| (member, STASH))
 				.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
 		},
-		<span class="string">&quot;technicalCommittee&quot;</span>: {
-			<span class="string">&quot;members&quot;</span>: endowed_accounts
+		<span class="string">"technicalCommittee"</span>: {
+			<span class="string">"members"</span>: endowed_accounts
 				.iter()
 				.take((num_endowed_accounts + <span class="number">1</span>) / <span class="number">2</span>)
 				.cloned()
 				.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
 		},
-		<span class="string">&quot;sudo&quot;</span>: { <span class="string">&quot;key&quot;</span>: <span class="prelude-val">Some</span>(root_key.clone()) },
-		<span class="string">&quot;babe&quot;</span>: {
-			<span class="string">&quot;epochConfig&quot;</span>: <span class="prelude-val">Some</span>(kitchensink_runtime::BABE_GENESIS_EPOCH_CONFIG),
+		<span class="string">"sudo"</span>: { <span class="string">"key"</span>: <span class="prelude-val">Some</span>(root_key.clone()) },
+		<span class="string">"babe"</span>: {
+			<span class="string">"epochConfig"</span>: <span class="prelude-val">Some</span>(kitchensink_runtime::BABE_GENESIS_EPOCH_CONFIG),
 		},
-		<span class="string">&quot;society&quot;</span>: { <span class="string">&quot;pot&quot;</span>: <span class="number">0 </span>},
-		<span class="string">&quot;assets&quot;</span>: {
+		<span class="string">"society"</span>: { <span class="string">"pot"</span>: <span class="number">0 </span>},
+		<span class="string">"assets"</span>: {
 			<span class="comment">// This asset is used by the NIS pallet as counterpart currency.
-			</span><span class="string">&quot;assets&quot;</span>: <span class="macro">vec!</span>[(<span class="number">9</span>, get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>), <span class="bool-val">true</span>, <span class="number">1</span>)],
+			</span><span class="string">"assets"</span>: <span class="macro">vec!</span>[(<span class="number">9</span>, get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Alice"</span>), <span class="bool-val">true</span>, <span class="number">1</span>)],
 		},
-		<span class="string">&quot;nominationPools&quot;</span>: {
-			<span class="string">&quot;minCreateBond&quot;</span>: <span class="number">10 </span>* DOLLARS,
-			<span class="string">&quot;minJoinBond&quot;</span>: <span class="number">1 </span>* DOLLARS,
+		<span class="string">"nominationPools"</span>: {
+			<span class="string">"minCreateBond"</span>: <span class="number">10 </span>* DOLLARS,
+			<span class="string">"minJoinBond"</span>: <span class="number">1 </span>* DOLLARS,
 		},
 	})
 }
 
 <span class="kw">fn </span>development_config_genesis_json() -&gt; serde_json::Value {
 	testnet_genesis(
-		<span class="macro">vec!</span>[authority_keys_from_seed(<span class="string">&quot;Alice&quot;</span>)],
+		<span class="macro">vec!</span>[authority_keys_from_seed(<span class="string">"Alice"</span>)],
 		<span class="macro">vec!</span>[],
-		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>),
+		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Alice"</span>),
 		<span class="prelude-val">None</span>,
 	)
 }
@@ -1138,8 +1140,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Development config (single validator Alice).
 </span><span class="kw">pub fn </span>development_config() -&gt; ChainSpec {
 	ChainSpec::builder(wasm_binary_unwrap(), Default::default())
-		.with_name(<span class="string">&quot;Development&quot;</span>)
-		.with_id(<span class="string">&quot;dev&quot;</span>)
+		.with_name(<span class="string">"Development"</span>)
+		.with_id(<span class="string">"dev"</span>)
 		.with_chain_type(ChainType::Development)
 		.with_genesis_config_patch(development_config_genesis_json())
 		.build()
@@ -1147,9 +1149,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">fn </span>local_testnet_genesis() -&gt; serde_json::Value {
 	testnet_genesis(
-		<span class="macro">vec!</span>[authority_keys_from_seed(<span class="string">&quot;Alice&quot;</span>), authority_keys_from_seed(<span class="string">&quot;Bob&quot;</span>)],
+		<span class="macro">vec!</span>[authority_keys_from_seed(<span class="string">"Alice"</span>), authority_keys_from_seed(<span class="string">"Bob"</span>)],
 		<span class="macro">vec!</span>[],
-		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>),
+		get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Alice"</span>),
 		<span class="prelude-val">None</span>,
 	)
 }
@@ -1157,8 +1159,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Local testnet config (multivalidator Alice + Bob).
 </span><span class="kw">pub fn </span>local_testnet_config() -&gt; ChainSpec {
 	ChainSpec::builder(wasm_binary_unwrap(), Default::default())
-		.with_name(<span class="string">&quot;Local Testnet&quot;</span>)
-		.with_id(<span class="string">&quot;local_testnet&quot;</span>)
+		.with_name(<span class="string">"Local Testnet"</span>)
+		.with_id(<span class="string">"local_testnet"</span>)
 		.with_chain_type(ChainType::Local)
 		.with_genesis_config_patch(local_testnet_genesis())
 		.build()
@@ -1174,13 +1176,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Local testnet config (single validator - Alice).
 	</span><span class="kw">pub fn </span>integration_test_config_with_single_authority() -&gt; ChainSpec {
 		ChainSpec::builder(wasm_binary_unwrap(), Default::default())
-			.with_name(<span class="string">&quot;Integration Test&quot;</span>)
-			.with_id(<span class="string">&quot;test&quot;</span>)
+			.with_name(<span class="string">"Integration Test"</span>)
+			.with_id(<span class="string">"test"</span>)
 			.with_chain_type(ChainType::Development)
 			.with_genesis_config_patch(testnet_genesis(
-				<span class="macro">vec!</span>[authority_keys_from_seed(<span class="string">&quot;Alice&quot;</span>)],
+				<span class="macro">vec!</span>[authority_keys_from_seed(<span class="string">"Alice"</span>)],
 				<span class="macro">vec!</span>[],
-				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>),
+				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Alice"</span>),
 				<span class="prelude-val">None</span>,
 			))
 			.build()
@@ -1189,8 +1191,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Local testnet config (multivalidator Alice + Bob).
 	</span><span class="kw">pub fn </span>integration_test_config_with_two_authorities() -&gt; ChainSpec {
 		ChainSpec::builder(wasm_binary_unwrap(), Default::default())
-			.with_name(<span class="string">&quot;Integration Test&quot;</span>)
-			.with_id(<span class="string">&quot;test&quot;</span>)
+			.with_name(<span class="string">"Integration Test"</span>)
+			.with_id(<span class="string">"test"</span>)
 			.with_chain_type(ChainType::Development)
 			.with_genesis_config_patch(local_testnet_genesis())
 			.build()

@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/treasury/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/treasury/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_treasury" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_treasury" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../pallet_treasury/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1288,14 +1290,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -1310,7 +1312,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!
 //! # Treasury Pallet
 //!
-//! The Treasury pallet provides a &quot;pot&quot; of funds that can be managed by stakeholders in the system
+//! The Treasury pallet provides a "pot" of funds that can be managed by stakeholders in the system
 //! and a structure for making spending proposals from this pot.
 //!
 //! ## Overview
@@ -1334,10 +1336,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! ### Example
 //!
 //! 1. Multiple local spends approved by spend origins and received by a beneficiary.
-</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;src/tests.rs&quot;</span>, spend_local_origin_works)]
+</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">"src/tests.rs"</span>, spend_local_origin_works)]
 </span><span class="doccomment">//!
 //! 2. Approve a spend of some asset kind and claim it.
-</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;src/tests.rs&quot;</span>, spend_payout_works)]
+</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">"src/tests.rs"</span>, spend_payout_works)]
 </span><span class="doccomment">//!
 //! ## Pallet API
 //!
@@ -1355,7 +1357,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! within some temporal bounds, starting from the moment they become valid and within one
 //! [`pallet::Config::PayoutPeriod`].
 
-</span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
+</span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
 </span><span class="kw">mod </span>benchmarking;
 <span class="attr">#[cfg(test)]
@@ -1363,7 +1365,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">pub mod </span>weights;
 <span class="kw">use </span>core::marker::PhantomData;
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 </span><span class="kw">pub use </span>benchmarking::ArgumentsFactory;
 
 <span class="kw">use </span>codec::{Decode, Encode, MaxEncodedLen};
@@ -1401,7 +1403,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">type </span>AccountIdLookupOf&lt;T&gt; = &lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::Lookup <span class="kw">as </span>StaticLookup&gt;::Source;
 <span class="kw">type </span>BeneficiaryLookupOf&lt;T, I&gt; = &lt;&lt;T <span class="kw">as </span>Config&lt;I&gt;&gt;::BeneficiaryLookup <span class="kw">as </span>StaticLookup&gt;::Source;
 
-<span class="doccomment">/// A trait to allow the Treasury Pallet to spend it&#39;s funds for other purposes.
+<span class="doccomment">/// A trait to allow the Treasury Pallet to spend it's funds for other purposes.
 /// There is an expectation that the implementer of this trait will correctly manage
 /// the mutable variables passed to it:
 /// * `budget_remaining`: How much available funds that can be spent by the treasury. As funds are
@@ -1413,7 +1415,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// * `missed_any`: If there were items that you want to spend on, but there were not enough funds,
 ///   mark this value as `true`. This will prevent the treasury from burning the excess funds.
 </span><span class="attr">#[impl_trait_for_tuples::impl_for_tuples(<span class="number">30</span>)]
-</span><span class="kw">pub trait </span>SpendFunds&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; {
+</span><span class="kw">pub trait </span>SpendFunds&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; {
 	<span class="kw">fn </span>spend_funds(
 		budget_remaining: <span class="kw-2">&amp;mut </span>BalanceOf&lt;T, I&gt;,
 		imbalance: <span class="kw-2">&amp;mut </span>PositiveImbalanceOf&lt;T, I&gt;,
@@ -1426,7 +1428,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub type </span>ProposalIndex = u32;
 
 <span class="doccomment">/// A spending proposal.
-</span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(serde::Serialize, serde::Deserialize))]
+</span><span class="attr">#[cfg_attr(feature = <span class="string">"std"</span>, derive(serde::Serialize, serde::Deserialize))]
 #[derive(Encode, Decode, Clone, PartialEq, Eq, MaxEncodedLen, RuntimeDebug, TypeInfo)]
 </span><span class="kw">pub struct </span>Proposal&lt;AccountId, Balance&gt; {
 	<span class="doccomment">/// The account proposing it.
@@ -1440,7 +1442,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// The state of the payment claim.
-</span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(serde::Serialize, serde::Deserialize))]
+</span><span class="attr">#[cfg_attr(feature = <span class="string">"std"</span>, derive(serde::Serialize, serde::Deserialize))]
 #[derive(Encode, Decode, Clone, PartialEq, Eq, MaxEncodedLen, RuntimeDebug, TypeInfo)]
 </span><span class="kw">pub enum </span>PaymentState&lt;Id&gt; {
 	<span class="doccomment">/// Pending claim.
@@ -1452,7 +1454,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Info regarding an approved treasury spend.
-</span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(serde::Serialize, serde::Deserialize))]
+</span><span class="attr">#[cfg_attr(feature = <span class="string">"std"</span>, derive(serde::Serialize, serde::Deserialize))]
 #[derive(Encode, Decode, Clone, PartialEq, Eq, MaxEncodedLen, RuntimeDebug, TypeInfo)]
 </span><span class="kw">pub struct </span>SpendStatus&lt;AssetKind, AssetBalance, Beneficiary, BlockNumber, PaymentId&gt; {
 	<span class="comment">// The kind of asset to be spent.
@@ -1486,7 +1488,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub struct </span>Pallet&lt;T, I = ()&gt;(PhantomData&lt;(T, I)&gt;);
 
 	<span class="attr">#[pallet::config]
-	</span><span class="kw">pub trait </span>Config&lt;I: <span class="lifetime">&#39;static </span>= ()&gt;: frame_system::Config {
+	</span><span class="kw">pub trait </span>Config&lt;I: <span class="lifetime">'static </span>= ()&gt;: frame_system::Config {
 		<span class="doccomment">/// The staking balance.
 		</span><span class="kw">type </span>Currency: Currency&lt;<span class="self">Self</span>::AccountId&gt; + ReservableCurrency&lt;<span class="self">Self</span>::AccountId&gt;;
 
@@ -1503,7 +1505,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="doccomment">/// Handler for the unbalanced decrease when slashing for a rejected proposal or bounty.
 		</span><span class="kw">type </span>OnSlash: OnUnbalanced&lt;NegativeImbalanceOf&lt;<span class="self">Self</span>, I&gt;&gt;;
 
-		<span class="doccomment">/// Fraction of a proposal&#39;s value that should be bonded in order to place the proposal.
+		<span class="doccomment">/// Fraction of a proposal's value that should be bonded in order to place the proposal.
 		/// An accepted proposal gets these back. A rejected proposal does not.
 		</span><span class="attr">#[pallet::constant]
 		</span><span class="kw">type </span>ProposalBond: Get&lt;Permill&gt;;
@@ -1524,7 +1526,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="attr">#[pallet::constant]
 		</span><span class="kw">type </span>Burn: Get&lt;Permill&gt;;
 
-		<span class="doccomment">/// The treasury&#39;s pallet id, used for deriving its sovereign account ID.
+		<span class="doccomment">/// The treasury's pallet id, used for deriving its sovereign account ID.
 		</span><span class="attr">#[pallet::constant]
 		</span><span class="kw">type </span>PalletId: Get&lt;PalletId&gt;;
 
@@ -1574,7 +1576,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">type </span>PayoutPeriod: Get&lt;BlockNumberFor&lt;<span class="self">Self</span>&gt;&gt;;
 
 		<span class="doccomment">/// Helper type for benchmarks.
-		</span><span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+		</span><span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 		</span><span class="kw">type </span>BenchmarkHelper: ArgumentsFactory&lt;<span class="self">Self</span>::AssetKind, <span class="self">Self</span>::Beneficiary&gt;;
 	}
 
@@ -1586,7 +1588,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Proposals that have been made.
 	</span><span class="attr">#[pallet::storage]
 	#[pallet::getter(<span class="kw">fn </span>proposals)]
-	</span><span class="kw">pub type </span>Proposals&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; = StorageMap&lt;
+	</span><span class="kw">pub type </span>Proposals&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; = StorageMap&lt;
 		<span class="kw">_</span>,
 		Twox64Concat,
 		ProposalIndex,
@@ -1596,13 +1598,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// The amount which has been reported as inactive to Currency.
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub type </span>Deactivated&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; =
+	</span><span class="kw">pub type </span>Deactivated&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; =
 		StorageValue&lt;<span class="kw">_</span>, BalanceOf&lt;T, I&gt;, ValueQuery&gt;;
 
 	<span class="doccomment">/// Proposal indices that have been approved but not yet awarded.
 	</span><span class="attr">#[pallet::storage]
 	#[pallet::getter(<span class="kw">fn </span>approvals)]
-	</span><span class="kw">pub type </span>Approvals&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; =
+	</span><span class="kw">pub type </span>Approvals&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; =
 		StorageValue&lt;<span class="kw">_</span>, BoundedVec&lt;ProposalIndex, T::MaxApprovals&gt;, ValueQuery&gt;;
 
 	<span class="doccomment">/// The count of spends that have been made.
@@ -1612,7 +1614,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Spends that have been approved and being processed.
 	</span><span class="comment">// Hasher: Twox safe since `SpendIndex` is an internal count based index.
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub type </span>Spends&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; = StorageMap&lt;
+	</span><span class="kw">pub type </span>Spends&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; = StorageMap&lt;
 		<span class="kw">_</span>,
 		Twox64Concat,
 		SpendIndex,
@@ -1628,13 +1630,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
-	</span><span class="kw">pub struct </span>GenesisConfig&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; {
+	</span><span class="kw">pub struct </span>GenesisConfig&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; {
 		<span class="attr">#[serde(skip)]
 		</span>_config: sp_std::marker::PhantomData&lt;(T, I)&gt;,
 	}
 
 	<span class="attr">#[pallet::genesis_build]
-	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; BuildGenesisConfig <span class="kw">for </span>GenesisConfig&lt;T, I&gt; {
+	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; BuildGenesisConfig <span class="kw">for </span>GenesisConfig&lt;T, I&gt; {
 		<span class="kw">fn </span>build(<span class="kw-2">&amp;</span><span class="self">self</span>) {
 			<span class="comment">// Create Treasury account
 			</span><span class="kw">let </span>account_id = &lt;Pallet&lt;T, I&gt;&gt;::account_id();
@@ -1647,7 +1649,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[pallet::event]
 	#[pallet::generate_deposit(<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>deposit_event)]
-	</span><span class="kw">pub enum </span>Event&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; {
+	</span><span class="kw">pub enum </span>Event&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; {
 		<span class="doccomment">/// New proposal.
 		</span>Proposed { proposal_index: ProposalIndex },
 		<span class="doccomment">/// We have ended a spend period and will now allocate funds.
@@ -1693,7 +1695,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Error for the treasury pallet.
 	</span><span class="attr">#[pallet::error]
 	</span><span class="kw">pub enum </span>Error&lt;T, I = ()&gt; {
-		<span class="doccomment">/// Proposer&#39;s balance is too low.
+		<span class="doccomment">/// Proposer's balance is too low.
 		</span>InsufficientProposersBalance,
 		<span class="doccomment">/// No proposal, bounty or spend at that index.
 		</span>InvalidIndex,
@@ -1721,7 +1723,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="attr">#[pallet::hooks]
-	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; Hooks&lt;BlockNumberFor&lt;T&gt;&gt; <span class="kw">for </span>Pallet&lt;T, I&gt; {
+	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Hooks&lt;BlockNumberFor&lt;T&gt;&gt; <span class="kw">for </span>Pallet&lt;T, I&gt; {
 		<span class="doccomment">/// ## Complexity
 		/// - `O(A)` where `A` is the number of approvals
 		</span><span class="kw">fn </span>on_initialize(n: frame_system::pallet_prelude::BlockNumberFor&lt;T&gt;) -&gt; Weight {
@@ -1745,7 +1747,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			}
 		}
 
-		<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+		<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 		</span><span class="kw">fn </span>try_state(
 			<span class="kw">_</span>: frame_system::pallet_prelude::BlockNumberFor&lt;T&gt;,
 		) -&gt; <span class="prelude-ty">Result</span>&lt;(), sp_runtime::TryRuntimeError&gt; {
@@ -1760,7 +1762,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="attr">#[pallet::call]
-	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; Pallet&lt;T, I&gt; {
+	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Pallet&lt;T, I&gt; {
 		<span class="doccomment">/// Put forward a suggestion for spending.
 		///
 		/// ## Dispatch Origin
@@ -1781,7 +1783,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		#[pallet::weight(T::WeightInfo::propose_spend())]
 		#[allow(deprecated)]
 		#[deprecated(
-			note = <span class="string">&quot;`propose_spend` will be removed in February 2024. Use `spend` instead.&quot;
+			note = <span class="string">"`propose_spend` will be removed in February 2024. Use `spend` instead."
 		</span>)]
 		</span><span class="kw">pub fn </span>propose_spend(
 			origin: OriginFor&lt;T&gt;,
@@ -1822,7 +1824,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		#[pallet::weight((T::WeightInfo::reject_proposal(), DispatchClass::Operational))]
 		#[allow(deprecated)]
 		#[deprecated(
-			note = <span class="string">&quot;`reject_proposal` will be removed in February 2024. Use `spend` instead.&quot;
+			note = <span class="string">"`reject_proposal` will be removed in February 2024. Use `spend` instead."
 		</span>)]
 		</span><span class="kw">pub fn </span>reject_proposal(
 			origin: OriginFor&lt;T&gt;,
@@ -1864,7 +1866,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		#[pallet::weight((T::WeightInfo::approve_proposal(T::MaxApprovals::get()), DispatchClass::Operational))]
 		#[allow(deprecated)]
 		#[deprecated(
-			note = <span class="string">&quot;`approve_proposal` will be removed in February 2024. Use `spend` instead.&quot;
+			note = <span class="string">"`approve_proposal` will be removed in February 2024. Use `spend` instead."
 		</span>)]
 		</span><span class="kw">pub fn </span>approve_proposal(
 			origin: OriginFor&lt;T&gt;,
@@ -1911,10 +1913,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="comment">// We group based on `max_amount`, to distinguish between different kind of
 				// origins. (assumes that all origins have different `max_amount`)
 				//
-				// Worst case is that we reject some &quot;valid&quot; request.
+				// Worst case is that we reject some "valid" request.
 				</span><span class="kw">let </span>spend = context.spend_in_context.entry(max_amount).or_default();
 
-				<span class="comment">// Ensure that we don&#39;t overflow nor use more than `max_amount`
+				<span class="comment">// Ensure that we don't overflow nor use more than `max_amount`
 				</span><span class="kw">if </span>spend.checked_add(<span class="kw-2">&amp;</span>amount).map(|s| s &gt; max_amount).unwrap_or(<span class="bool-val">true</span>) {
 					<span class="prelude-val">Err</span>(Error::&lt;T, I&gt;::InsufficientPermission)
 				} <span class="kw">else </span>{
@@ -2037,10 +2039,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="comment">// We group based on `max_amount`, to distinguish between different kind of
 				// origins. (assumes that all origins have different `max_amount`)
 				//
-				// Worst case is that we reject some &quot;valid&quot; request.
+				// Worst case is that we reject some "valid" request.
 				</span><span class="kw">let </span>spend = context.spend_in_context.entry(max_amount).or_default();
 
-				<span class="comment">// Ensure that we don&#39;t overflow nor use more than `max_amount`
+				<span class="comment">// Ensure that we don't overflow nor use more than `max_amount`
 				</span><span class="kw">if </span>spend.checked_add(<span class="kw-2">&amp;</span>native_amount).map(|s| s &gt; max_amount).unwrap_or(<span class="bool-val">true</span>) {
 					<span class="prelude-val">Err</span>(Error::&lt;T, I&gt;::InsufficientPermission)
 				} <span class="kw">else </span>{
@@ -2208,7 +2210,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; Pallet&lt;T, I&gt; {
+<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Pallet&lt;T, I&gt; {
 	<span class="comment">// Add public immutables and private mutables.
 
 	</span><span class="doccomment">/// The account ID of the treasury pot.
@@ -2241,7 +2243,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>proposals_len = Approvals::&lt;T, I&gt;::mutate(|v| {
 			<span class="kw">let </span>proposals_approvals_len = v.len() <span class="kw">as </span>u32;
 			v.retain(|<span class="kw-2">&amp;</span>index| {
-				<span class="comment">// Should always be true, but shouldn&#39;t panic if false or we&#39;re screwed.
+				<span class="comment">// Should always be true, but shouldn't panic if false or we're screwed.
 				</span><span class="kw">if let </span><span class="prelude-val">Some</span>(p) = <span class="self">Self</span>::proposals(index) {
 					<span class="kw">if </span>p.value &lt;= budget_remaining {
 						budget_remaining -= p.value;
@@ -2294,12 +2296,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// Must never be an error, but better to be safe.
 		// proof: budget_remaining is account free balance minus ED;
-		// Thus we can&#39;t spend more than account free balance minus ED;
+		// Thus we can't spend more than account free balance minus ED;
 		// Thus account is kept alive; qed;
 		</span><span class="kw">if let </span><span class="prelude-val">Err</span>(problem) =
 			T::Currency::settle(<span class="kw-2">&amp;</span>account_id, imbalance, WithdrawReasons::TRANSFER, KeepAlive)
 		{
-			print(<span class="string">&quot;Inconsistent state - couldn&#39;t settle imbalance for funds spent by treasury&quot;</span>);
+			print(<span class="string">"Inconsistent state - couldn't settle imbalance for funds spent by treasury"</span>);
 			<span class="comment">// Nothing else to do here.
 			</span>drop(problem);
 		}
@@ -2318,7 +2320,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Ensure the correctness of the state of this pallet.
-	</span><span class="attr">#[cfg(any(feature = <span class="string">&quot;try-runtime&quot;</span>, test))]
+	</span><span class="attr">#[cfg(any(feature = <span class="string">"try-runtime"</span>, test))]
 	</span><span class="kw">fn </span>do_try_state() -&gt; <span class="prelude-ty">Result</span>&lt;(), sp_runtime::TryRuntimeError&gt; {
 		<span class="self">Self</span>::try_state_proposals()<span class="question-mark">?</span>;
 		<span class="self">Self</span>::try_state_spends()<span class="question-mark">?</span>;
@@ -2333,18 +2335,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// [`ProposalCount`].
 	/// 3. Each [`ProposalIndex`] contained in [`Approvals`] should exist in [`Proposals`].
 	/// Note, that this automatically implies [`Approvals`].count() &lt;= [`Proposals`].count().
-	</span><span class="attr">#[cfg(any(feature = <span class="string">&quot;try-runtime&quot;</span>, test))]
+	</span><span class="attr">#[cfg(any(feature = <span class="string">"try-runtime"</span>, test))]
 	</span><span class="kw">fn </span>try_state_proposals() -&gt; <span class="prelude-ty">Result</span>&lt;(), sp_runtime::TryRuntimeError&gt; {
 		<span class="kw">let </span>current_proposal_count = ProposalCount::&lt;T, I&gt;::get();
 		<span class="macro">ensure!</span>(
 			current_proposal_count <span class="kw">as </span>usize &gt;= Proposals::&lt;T, I&gt;::iter().count(),
-			<span class="string">&quot;Actual number of proposals exceeds `ProposalCount`.&quot;
+			<span class="string">"Actual number of proposals exceeds `ProposalCount`."
 		</span>);
 
 		Proposals::&lt;T, I&gt;::iter_keys().try_for_each(|proposal_index| -&gt; DispatchResult {
 			<span class="macro">ensure!</span>(
 				current_proposal_count <span class="kw">as </span>u32 &gt; proposal_index,
-				<span class="string">&quot;`ProposalCount` should by strictly greater than any ProposalIndex used as a key for `Proposals`.&quot;
+				<span class="string">"`ProposalCount` should by strictly greater than any ProposalIndex used as a key for `Proposals`."
 			</span>);
 			<span class="prelude-val">Ok</span>(())
 		})<span class="question-mark">?</span>;
@@ -2354,7 +2356,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.try_for_each(|proposal_index| -&gt; DispatchResult {
 				<span class="macro">ensure!</span>(
 					Proposals::&lt;T, I&gt;::contains_key(proposal_index),
-					<span class="string">&quot;Proposal indices in `Approvals` must also be contained in `Proposals`.&quot;
+					<span class="string">"Proposal indices in `Approvals` must also be contained in `Proposals`."
 				</span>);
 				<span class="prelude-val">Ok</span>(())
 			})<span class="question-mark">?</span>;
@@ -2369,18 +2371,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// [`SpendCount`].
 	/// 3. For each spend entry contained in [`Spends`] we should have spend.expire_at
 	/// &gt; spend.valid_from.
-	</span><span class="attr">#[cfg(any(feature = <span class="string">&quot;try-runtime&quot;</span>, test))]
+	</span><span class="attr">#[cfg(any(feature = <span class="string">"try-runtime"</span>, test))]
 	</span><span class="kw">fn </span>try_state_spends() -&gt; <span class="prelude-ty">Result</span>&lt;(), sp_runtime::TryRuntimeError&gt; {
 		<span class="kw">let </span>current_spend_count = SpendCount::&lt;T, I&gt;::get();
 		<span class="macro">ensure!</span>(
 			current_spend_count <span class="kw">as </span>usize &gt;= Spends::&lt;T, I&gt;::iter().count(),
-			<span class="string">&quot;Actual number of spends exceeds `SpendCount`.&quot;
+			<span class="string">"Actual number of spends exceeds `SpendCount`."
 		</span>);
 
 		Spends::&lt;T, I&gt;::iter_keys().try_for_each(|spend_index| -&gt; DispatchResult {
 			<span class="macro">ensure!</span>(
 				current_spend_count &gt; spend_index,
-				<span class="string">&quot;`SpendCount` should by strictly greater than any SpendIndex used as a key for `Spends`.&quot;
+				<span class="string">"`SpendCount` should by strictly greater than any SpendIndex used as a key for `Spends`."
 			</span>);
 			<span class="prelude-val">Ok</span>(())
 		})<span class="question-mark">?</span>;
@@ -2388,7 +2390,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		Spends::&lt;T, I&gt;::iter().try_for_each(|(_index, spend)| -&gt; DispatchResult {
 			<span class="macro">ensure!</span>(
 				spend.valid_from &lt; spend.expire_at,
-				<span class="string">&quot;Spend cannot expire before it becomes valid.&quot;
+				<span class="string">"Spend cannot expire before it becomes valid."
 			</span>);
 			<span class="prelude-val">Ok</span>(())
 		})<span class="question-mark">?</span>;
@@ -2397,7 +2399,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; OnUnbalanced&lt;NegativeImbalanceOf&lt;T, I&gt;&gt; <span class="kw">for </span>Pallet&lt;T, I&gt; {
+<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; OnUnbalanced&lt;NegativeImbalanceOf&lt;T, I&gt;&gt; <span class="kw">for </span>Pallet&lt;T, I&gt; {
 	<span class="kw">fn </span>on_nonzero_unbalanced(amount: NegativeImbalanceOf&lt;T, I&gt;) {
 		<span class="kw">let </span>numeric_amount = amount.peek();
 

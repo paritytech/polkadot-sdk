@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/consensus/grandpa/src/import.rs`."><title>import.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/consensus/grandpa/src/import.rs`."><title>import.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_consensus_grandpa" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_consensus_grandpa" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sc_consensus_grandpa/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1139,14 +1141,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// this justification was requested by the sync service, therefore we
 		// are not sure if it should enact a change or not. it could have been a
 		// request made as part of initial sync but that means the justification
-		// wasn&#39;t part of the block and was requested asynchronously, probably
+		// wasn't part of the block and was requested asynchronously, probably
 		// makes sense to log in that case.
 		</span>GrandpaBlockImport::import_justification(<span class="self">self</span>, hash, number, justification, <span class="bool-val">false</span>, <span class="bool-val">false</span>)
 	}
 }
 
 <span class="kw">enum </span>AppliedChanges&lt;H, N&gt; {
-	Standard(bool), <span class="comment">// true if the change is ready to be applied (i.e. it&#39;s a root)
+	Standard(bool), <span class="comment">// true if the change is ready to be applied (i.e. it's a root)
 	</span>Forced(NewAuthoritySet&lt;H, N&gt;),
 	<span class="prelude-val">None</span>,
 }
@@ -1228,7 +1230,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	BE: Backend&lt;Block&gt;,
 	Client: ClientForGrandpa&lt;Block, BE&gt;,
 	Client::Api: GrandpaApi&lt;Block&gt;,
-	<span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Client: BlockImport&lt;Block, Error = ConsensusError&gt;,
+	<span class="kw">for</span>&lt;<span class="lifetime">'a</span>&gt; <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Client: BlockImport&lt;Block, Error = ConsensusError&gt;,
 {
 	<span class="comment">// check for a new authority set change.
 	</span><span class="kw">fn </span>check_new_change(
@@ -1272,33 +1274,33 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// when we update the authorities, we need to hold the lock
 		// until the block is written to prevent a race if we need to restore
 		// the old authority set on error or panic.
-		</span><span class="kw">struct </span>InnerGuard&lt;<span class="lifetime">&#39;a</span>, H, N&gt; {
+		</span><span class="kw">struct </span>InnerGuard&lt;<span class="lifetime">'a</span>, H, N&gt; {
 			old: <span class="prelude-ty">Option</span>&lt;AuthoritySet&lt;H, N&gt;&gt;,
-			guard: <span class="prelude-ty">Option</span>&lt;SharedDataLocked&lt;<span class="lifetime">&#39;a</span>, AuthoritySet&lt;H, N&gt;&gt;&gt;,
+			guard: <span class="prelude-ty">Option</span>&lt;SharedDataLocked&lt;<span class="lifetime">'a</span>, AuthoritySet&lt;H, N&gt;&gt;&gt;,
 		}
 
-		<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, H, N&gt; InnerGuard&lt;<span class="lifetime">&#39;a</span>, H, N&gt; {
+		<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, H, N&gt; InnerGuard&lt;<span class="lifetime">'a</span>, H, N&gt; {
 			<span class="kw">fn </span>as_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span>AuthoritySet&lt;H, N&gt; {
-				<span class="self">self</span>.guard.as_mut().expect(<span class="string">&quot;only taken on deconstruction; qed&quot;</span>)
+				<span class="self">self</span>.guard.as_mut().expect(<span class="string">"only taken on deconstruction; qed"</span>)
 			}
 
 			<span class="kw">fn </span>set_old(<span class="kw-2">&amp;mut </span><span class="self">self</span>, old: AuthoritySet&lt;H, N&gt;) {
 				<span class="kw">if </span><span class="self">self</span>.old.is_none() {
-					<span class="comment">// ignore &quot;newer&quot; old changes.
+					<span class="comment">// ignore "newer" old changes.
 					</span><span class="self">self</span>.old = <span class="prelude-val">Some</span>(old);
 				}
 			}
 
 			<span class="kw">fn </span>consume(
 				<span class="kw-2">mut </span><span class="self">self</span>,
-			) -&gt; <span class="prelude-ty">Option</span>&lt;(AuthoritySet&lt;H, N&gt;, SharedDataLocked&lt;<span class="lifetime">&#39;a</span>, AuthoritySet&lt;H, N&gt;&gt;)&gt; {
+			) -&gt; <span class="prelude-ty">Option</span>&lt;(AuthoritySet&lt;H, N&gt;, SharedDataLocked&lt;<span class="lifetime">'a</span>, AuthoritySet&lt;H, N&gt;&gt;)&gt; {
 				<span class="self">self</span>.old
 					.take()
-					.map(|old| (old, <span class="self">self</span>.guard.take().expect(<span class="string">&quot;only taken on deconstruction; qed&quot;</span>)))
+					.map(|old| (old, <span class="self">self</span>.guard.take().expect(<span class="string">"only taken on deconstruction; qed"</span>)))
 			}
 		}
 
-		<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, H, N&gt; Drop <span class="kw">for </span>InnerGuard&lt;<span class="lifetime">&#39;a</span>, H, N&gt; {
+		<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, H, N&gt; Drop <span class="kw">for </span>InnerGuard&lt;<span class="lifetime">'a</span>, H, N&gt; {
 			<span class="kw">fn </span>drop(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
 				<span class="kw">if let </span>(<span class="prelude-val">Some</span>(<span class="kw-2">mut </span>guard), <span class="prelude-val">Some</span>(old)) = (<span class="self">self</span>.guard.take(), <span class="self">self</span>.old.take()) {
 					<span class="kw-2">*</span>guard = old;
@@ -1361,8 +1363,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw">let </span>canon_hash = <span class="self">self</span>.inner.hash(canon_number)
 							.map_err(|e| ConsensusError::ClientImport(e.to_string()))<span class="question-mark">?
 							</span>.expect(
-								<span class="string">&quot;the given block number is less or equal than the current best finalized number; \
-								 current best finalized number must exist in chain; qed.&quot;
+								<span class="string">"the given block number is less or equal than the current best finalized number; \
+								 current best finalized number must exist in chain; qed."
 							</span>);
 
 					NewAuthoritySet {
@@ -1396,7 +1398,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if let </span><span class="prelude-val">Some</span>((<span class="kw">_</span>, <span class="kw-2">ref </span>authorities)) = just_in_case {
 			<span class="kw">let </span>authorities_change = <span class="kw">match </span>applied_changes {
 				AppliedChanges::Forced(<span class="kw-2">ref </span>new) =&gt; <span class="prelude-val">Some</span>(new),
-				AppliedChanges::Standard(<span class="kw">_</span>) =&gt; <span class="prelude-val">None</span>, <span class="comment">// the change isn&#39;t actually applied yet.
+				AppliedChanges::Standard(<span class="kw">_</span>) =&gt; <span class="prelude-val">None</span>, <span class="comment">// the change isn't actually applied yet.
 				</span>AppliedChanges::None =&gt; <span class="prelude-val">None</span>,
 			};
 
@@ -1420,7 +1422,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>current_set_id(<span class="kw-2">&amp;</span><span class="self">self</span>, hash: Block::Hash) -&gt; <span class="prelude-ty">Result</span>&lt;SetId, ConsensusError&gt; {
 		<span class="kw">let </span>runtime_version = <span class="self">self</span>.inner.runtime_api().version(hash).map_err(|e| {
 			ConsensusError::ClientImport(<span class="macro">format!</span>(
-				<span class="string">&quot;Unable to retrieve current runtime version. {}&quot;</span>,
+				<span class="string">"Unable to retrieve current runtime version. {}"</span>,
 				e
 			))
 		})<span class="question-mark">?</span>;
@@ -1431,10 +1433,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		{
 			<span class="comment">// The new API is not supported in this runtime. Try reading directly from storage.
 			// This code may be removed once warp sync to an old runtime is no longer needed.
-			</span><span class="kw">for </span>prefix <span class="kw">in </span>[<span class="string">&quot;GrandpaFinality&quot;</span>, <span class="string">&quot;Grandpa&quot;</span>] {
+			</span><span class="kw">for </span>prefix <span class="kw">in </span>[<span class="string">"GrandpaFinality"</span>, <span class="string">"Grandpa"</span>] {
 				<span class="kw">let </span>k = [
 					sp_crypto_hashing::twox_128(prefix.as_bytes()),
-					sp_crypto_hashing::twox_128(<span class="string">b&quot;CurrentSetId&quot;</span>),
+					sp_crypto_hashing::twox_128(<span class="string">b"CurrentSetId"</span>),
 				]
 				.concat();
 				<span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(id)) =
@@ -1445,7 +1447,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					}
 				}
 			}
-			<span class="prelude-val">Err</span>(ConsensusError::ClientImport(<span class="string">&quot;Unable to retrieve current set id.&quot;</span>.into()))
+			<span class="prelude-val">Err</span>(ConsensusError::ClientImport(<span class="string">"Unable to retrieve current set id."</span>.into()))
 		} <span class="kw">else </span>{
 			<span class="self">self</span>.inner
 				.runtime_api()
@@ -1466,7 +1468,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>import_result = (<span class="kw-2">&amp;*</span><span class="self">self</span>.inner).import_block(block).<span class="kw">await</span>;
 		<span class="kw">match </span>import_result {
 			<span class="prelude-val">Ok</span>(ImportResult::Imported(aux)) =&gt; {
-				<span class="comment">// We&#39;ve just imported a new state. We trust the sync module has verified
+				<span class="comment">// We've just imported a new state. We trust the sync module has verified
 				// finality proofs and that the state is correct and final.
 				// So we can read the authority list and set id from the state.
 				</span><span class="self">self</span>.authority_set_hard_forks.clear();
@@ -1483,7 +1485,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					Vec::new(),
 					AuthoritySetChanges::empty(),
 				)
-				.ok_or_else(|| ConsensusError::ClientImport(<span class="string">&quot;Invalid authority list&quot;</span>.into()))<span class="question-mark">?</span>;
+				.ok_or_else(|| ConsensusError::ClientImport(<span class="string">"Invalid authority list"</span>.into()))<span class="question-mark">?</span>;
 				<span class="kw-2">*</span><span class="self">self</span>.authority_set.inner_locked() = authority_set.clone();
 
 				<span class="kw">crate</span>::aux_schema::update_authority_set::&lt;Block, <span class="kw">_</span>, <span class="kw">_</span>&gt;(
@@ -1512,7 +1514,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	BE: Backend&lt;Block&gt;,
 	Client: ClientForGrandpa&lt;Block, BE&gt;,
 	Client::Api: GrandpaApi&lt;Block&gt;,
-	<span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Client: BlockImport&lt;Block, Error = ConsensusError&gt;,
+	<span class="kw">for</span>&lt;<span class="lifetime">'a</span>&gt; <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Client: BlockImport&lt;Block, Error = ConsensusError&gt;,
 	SC: Send,
 {
 	<span class="kw">type </span>Error = ConsensusError;
@@ -1545,8 +1547,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="kw">if </span><span class="self">self</span>.check_new_change(<span class="kw-2">&amp;</span>block.header, hash).is_some() {
 				<span class="kw">if </span>block.justifications.is_none() {
 					<span class="kw">return </span><span class="prelude-val">Err</span>(ConsensusError::ClientImport(
-						<span class="string">&quot;Justification required when importing \
-							an old block with authority set change.&quot;
+						<span class="string">"Justification required when importing \
+							an old block with authority set change."
 							</span>.into(),
 					))
 				}
@@ -1570,7 +1572,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>pending_changes = <span class="self">self</span>.make_authorities_changes(<span class="kw-2">&amp;mut </span>block, hash, initial_sync)<span class="question-mark">?</span>;
 
-		<span class="comment">// we don&#39;t want to finalize on `inner.import_block`
+		<span class="comment">// we don't want to finalize on `inner.import_block`
 		</span><span class="kw">let </span><span class="kw-2">mut </span>justifications = block.justifications.take();
 		<span class="kw">let </span>import_result = (<span class="kw-2">&amp;*</span><span class="self">self</span>.inner).import_block(block).<span class="kw">await</span>;
 
@@ -1580,7 +1582,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="prelude-val">Ok</span>(r) =&gt; {
 					<span class="macro">debug!</span>(
 						target: LOG_TARGET,
-						<span class="string">&quot;Restoring old authority set after block import result: {:?}&quot;</span>, r,
+						<span class="string">"Restoring old authority set after block import result: {:?}"</span>, r,
 					);
 					pending_changes.revert();
 					<span class="kw">return </span><span class="prelude-val">Ok</span>(r)
@@ -1588,7 +1590,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="prelude-val">Err</span>(e) =&gt; {
 					<span class="macro">debug!</span>(
 						target: LOG_TARGET,
-						<span class="string">&quot;Restoring old authority set after block import error: {}&quot;</span>, e,
+						<span class="string">"Restoring old authority set after block import error: {}"</span>, e,
 					);
 					pending_changes.revert();
 					<span class="kw">return </span><span class="prelude-val">Err</span>(ConsensusError::ClientImport(e.to_string()))
@@ -1601,7 +1603,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// Send the pause signal after import but BEFORE sending a `ChangeAuthorities` message.
 		</span><span class="kw">if </span>do_pause {
 			<span class="kw">let _ </span>= <span class="self">self</span>.send_voter_commands.unbounded_send(VoterCommand::Pause(
-				<span class="string">&quot;Forced change scheduled after inactivity&quot;</span>.to_string(),
+				<span class="string">"Forced change scheduled after inactivity"</span>.to_string(),
 			));
 		}
 
@@ -1609,7 +1611,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">match </span>applied_changes {
 			AppliedChanges::Forced(new) =&gt; {
-				<span class="comment">// NOTE: when we do a force change we are &quot;discrediting&quot; the old set so we
+				<span class="comment">// NOTE: when we do a force change we are "discrediting" the old set so we
 				// ignore any justifications from them. this block may contain a justification
 				// which should be checked and imported below against the new authority
 				// triggered by this forced change. the new grandpa voter will start at the
@@ -1618,19 +1620,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				// import justifications for those blocks since their local authority set view
 				// is still of the set before the forced change was enacted, still after #1867
 				// they should import the block and discard the justification, and they will
-				// then request a justification from sync if it&#39;s necessary (which they should
+				// then request a justification from sync if it's necessary (which they should
 				// then be able to successfully validate).
 				</span><span class="kw">let _ </span>=
 					<span class="self">self</span>.send_voter_commands.unbounded_send(VoterCommand::ChangeAuthorities(new));
 
-				<span class="comment">// we must clear all pending justifications requests, presumably they won&#39;t be
+				<span class="comment">// we must clear all pending justifications requests, presumably they won't be
 				// finalized hence why this forced changes was triggered
 				</span>imported_aux.clear_justification_requests = <span class="bool-val">true</span>;
 			},
 			AppliedChanges::Standard(<span class="bool-val">false</span>) =&gt; {
-				<span class="comment">// we can&#39;t apply this change yet since there are other dependent changes that we
+				<span class="comment">// we can't apply this change yet since there are other dependent changes that we
 				// need to apply first, drop any justification that might have been provided with
-				// the block to make sure we request them from `sync` which will ensure they&#39;ll be
+				// the block to make sure we request them from `sync` which will ensure they'll be
 				// applied in-order.
 				</span>justifications.take();
 			},
@@ -1660,7 +1662,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="kw">if </span>needs_justification {
 							<span class="macro">debug!</span>(
 								target: LOG_TARGET,
-								<span class="string">&quot;Requesting justification from peers due to imported block #{} that enacts authority set change with invalid justification: {}&quot;</span>,
+								<span class="string">"Requesting justification from peers due to imported block #{} that enacts authority set change with invalid justification: {}"</span>,
 								number,
 								err
 							);
@@ -1671,7 +1673,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				} <span class="kw">else </span>{
 					<span class="macro">debug!</span>(
 						target: LOG_TARGET,
-						<span class="string">&quot;Ignoring unnecessary justification for block #{}&quot;</span>,
+						<span class="string">"Ignoring unnecessary justification for block #{}"</span>,
 						number,
 					);
 				}
@@ -1680,7 +1682,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">if </span>needs_justification {
 					<span class="macro">debug!</span>(
 						target: LOG_TARGET,
-						<span class="string">&quot;Imported unjustified block #{} that enacts authority set change, waiting for finality for enactment.&quot;</span>,
+						<span class="string">"Imported unjustified block #{} that enacts authority set change, waiting for finality for enactment."</span>,
 						number,
 					);
 
@@ -1775,7 +1777,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// TODO: the import queue needs to be refactored to be able dispatch to the correct
 			// `JustificationImport` instance based on `ConsensusEngineId`, or we need to build a
 			// justification import pipeline similar to what we do for `BlockImport`. In the
-			// meantime we&#39;ll just drop the justification, since this is only used for BEEFY which
+			// meantime we'll just drop the justification, since this is only used for BEEFY which
 			// is still WIP.
 			</span><span class="kw">return </span><span class="prelude-val">Ok</span>(())
 		}
@@ -1808,8 +1810,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Err</span>(CommandOrError::VoterCommand(command)) =&gt; {
 				<span class="macro">grandpa_log!</span>(
 					initial_sync,
-					<span class="string">&quot;👴 Imported justification for block #{} that triggers \
-					command {}, signaling voter.&quot;</span>,
+					<span class="string">"👴 Imported justification for block #{} that triggers \
+					command {}, signaling voter."</span>,
 					number,
 					command,
 				);
@@ -1831,7 +1833,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; {
 				<span class="macro">assert!</span>(
 					!enacts_change,
-					<span class="string">&quot;returns Ok when no authority set change should be enacted; qed;&quot;
+					<span class="string">"returns Ok when no authority set change should be enacted; qed;"
 				</span>);
 			},
 		}

@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/runtime/src/traits.rs`."><title>traits.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/runtime/src/traits.rs`."><title>traits.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sp_runtime/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -2651,14 +2653,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -2676,7 +2678,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>codec::{Codec, Decode, Encode, EncodeLike, FullCodec, MaxEncodedLen};
 <span class="kw">use </span>impl_trait_for_tuples::impl_for_tuples;
-<span class="attr">#[cfg(feature = <span class="string">&quot;serde&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"serde"</span>)]
 </span><span class="kw">use </span>serde::{de::DeserializeOwned, Deserialize, Serialize};
 <span class="kw">use </span>sp_application_crypto::AppCrypto;
 <span class="kw">pub use </span>sp_arithmetic::traits::{
@@ -2695,9 +2697,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[doc(hidden)]
 </span><span class="kw">pub use </span>sp_std::marker::PhantomData;
 <span class="kw">use </span>sp_std::{<span class="self">self</span>, fmt::Debug, prelude::<span class="kw-2">*</span>};
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">use </span>std::fmt::Display;
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">use </span>std::str::FromStr;
 
 <span class="doccomment">/// A lazy value.
@@ -2708,7 +2710,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>get(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>T;
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; Lazy&lt;[u8]&gt; <span class="kw">for </span><span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8] {
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; Lazy&lt;[u8]&gt; <span class="kw">for </span><span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8] {
 	<span class="kw">fn </span>get(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[u8] {
 		<span class="self">self
 	</span>}
@@ -2827,9 +2829,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[derive(Encode, Decode, RuntimeDebug)]
 </span><span class="kw">pub struct </span>BadOrigin;
 
-<span class="kw">impl </span>From&lt;BadOrigin&gt; <span class="kw">for </span><span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str {
-	<span class="kw">fn </span>from(<span class="kw">_</span>: BadOrigin) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str {
-		<span class="string">&quot;Bad origin&quot;
+<span class="kw">impl </span>From&lt;BadOrigin&gt; <span class="kw">for </span><span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
+	<span class="kw">fn </span>from(<span class="kw">_</span>: BadOrigin) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
+		<span class="string">"Bad origin"
 	</span>}
 }
 
@@ -2837,9 +2839,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[derive(Encode, Decode, RuntimeDebug)]
 </span><span class="kw">pub struct </span>LookupError;
 
-<span class="kw">impl </span>From&lt;LookupError&gt; <span class="kw">for </span><span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str {
-	<span class="kw">fn </span>from(<span class="kw">_</span>: LookupError) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str {
-		<span class="string">&quot;Can not lookup&quot;
+<span class="kw">impl </span>From&lt;LookupError&gt; <span class="kw">for </span><span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
+	<span class="kw">fn </span>from(<span class="kw">_</span>: LookupError) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
+		<span class="string">"Can not lookup"
 	</span>}
 }
 
@@ -2860,7 +2862,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Means of changing one type into another in a manner dependent on the source type.
-/// This variant is different to `Lookup` in that it doesn&#39;t (can cannot) require any
+/// This variant is different to `Lookup` in that it doesn't (can cannot) require any
 /// context.
 </span><span class="kw">pub trait </span>StaticLookup {
 	<span class="doccomment">/// Type to lookup from.
@@ -3512,7 +3514,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 <span class="kw">impl</span>&lt;T: Sized&gt; CheckedConversion <span class="kw">for </span>T {}
 
-<span class="doccomment">/// Multiply and divide by a number that isn&#39;t necessarily the same type. Basically just the same
+<span class="doccomment">/// Multiply and divide by a number that isn't necessarily the same type. Basically just the same
 /// as `Mul` and `Div` except it can be used for all basic numeric types.
 </span><span class="kw">pub trait </span>Scale&lt;Other&gt; {
 	<span class="doccomment">/// The output type of the product of `self` and `Other`.
@@ -3601,7 +3603,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="comment">// Stupid bug in the Rust compiler believes derived
 // traits must be fulfilled by all type parameters.
 </span><span class="kw">pub trait </span>Hash:
-	<span class="lifetime">&#39;static
+	<span class="lifetime">'static
 	</span>+ MaybeSerializeDeserialize
 	+ Debug
 	+ Clone
@@ -3672,7 +3674,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Blake2-256 Hash implementation.
 </span><span class="attr">#[derive(PartialEq, Eq, Clone, RuntimeDebug, TypeInfo)]
-#[cfg_attr(feature = <span class="string">&quot;serde&quot;</span>, derive(Serialize, Deserialize))]
+#[cfg_attr(feature = <span class="string">"serde"</span>, derive(Serialize, Deserialize))]
 </span><span class="kw">pub struct </span>BlakeTwo256;
 
 <span class="kw">impl </span>Hasher <span class="kw">for </span>BlakeTwo256 {
@@ -3699,7 +3701,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Keccak-256 Hash implementation.
 </span><span class="attr">#[derive(PartialEq, Eq, Clone, RuntimeDebug, TypeInfo)]
-#[cfg_attr(feature = <span class="string">&quot;serde&quot;</span>, derive(Serialize, Deserialize))]
+#[cfg_attr(feature = <span class="string">"serde"</span>, derive(Serialize, Deserialize))]
 </span><span class="kw">pub struct </span>Keccak256;
 
 <span class="kw">impl </span>Hasher <span class="kw">for </span>Keccak256 {
@@ -3731,22 +3733,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl </span>CheckEqual <span class="kw">for </span>sp_core::H256 {
-	<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 	</span><span class="kw">fn </span>check_equal(<span class="kw-2">&amp;</span><span class="self">self</span>, other: <span class="kw-2">&amp;</span><span class="self">Self</span>) {
 		<span class="kw">use </span>sp_core::hexdisplay::HexDisplay;
 		<span class="kw">if </span><span class="self">self </span>!= other {
 			<span class="macro">println!</span>(
-				<span class="string">&quot;Hash: given={}, expected={}&quot;</span>,
+				<span class="string">"Hash: given={}, expected={}"</span>,
 				HexDisplay::from(<span class="self">self</span>.as_fixed_bytes()),
 				HexDisplay::from(other.as_fixed_bytes()),
 			);
 		}
 	}
 
-	<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+	<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
 	</span><span class="kw">fn </span>check_equal(<span class="kw-2">&amp;</span><span class="self">self</span>, other: <span class="kw-2">&amp;</span><span class="self">Self</span>) {
 		<span class="kw">if </span><span class="self">self </span>!= other {
-			<span class="string">&quot;Hash not equal&quot;</span>.print();
+			<span class="string">"Hash not equal"</span>.print();
 			<span class="self">self</span>.as_bytes().print();
 			other.as_bytes().print();
 		}
@@ -3754,17 +3756,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl </span>CheckEqual <span class="kw">for </span><span class="kw">super</span>::generic::DigestItem {
-	<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 	</span><span class="kw">fn </span>check_equal(<span class="kw-2">&amp;</span><span class="self">self</span>, other: <span class="kw-2">&amp;</span><span class="self">Self</span>) {
 		<span class="kw">if </span><span class="self">self </span>!= other {
-			<span class="macro">println!</span>(<span class="string">&quot;DigestItem: given={:?}, expected={:?}&quot;</span>, <span class="self">self</span>, other);
+			<span class="macro">println!</span>(<span class="string">"DigestItem: given={:?}, expected={:?}"</span>, <span class="self">self</span>, other);
 		}
 	}
 
-	<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+	<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
 	</span><span class="kw">fn </span>check_equal(<span class="kw-2">&amp;</span><span class="self">self</span>, other: <span class="kw-2">&amp;</span><span class="self">Self</span>) {
 		<span class="kw">if </span><span class="self">self </span>!= other {
-			<span class="string">&quot;DigestItem not equal&quot;</span>.print();
+			<span class="string">"DigestItem not equal"</span>.print();
 			(<span class="kw-2">&amp;</span>Encode::encode(<span class="self">self</span>)[..]).print();
 			(<span class="kw-2">&amp;</span>Encode::encode(other)[..]).print();
 		}
@@ -3791,8 +3793,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 );
 
 <span class="doccomment">/// A type that can be used in runtime structures.
-</span><span class="kw">pub trait </span>Member: Send + Sync + Sized + Debug + Eq + PartialEq + Clone + <span class="lifetime">&#39;static </span>{}
-<span class="kw">impl</span>&lt;T: Send + Sync + Sized + Debug + Eq + PartialEq + Clone + <span class="lifetime">&#39;static</span>&gt; Member <span class="kw">for </span>T {}
+</span><span class="kw">pub trait </span>Member: Send + Sync + Sized + Debug + Eq + PartialEq + Clone + <span class="lifetime">'static </span>{}
+<span class="kw">impl</span>&lt;T: Send + Sync + Sized + Debug + Eq + PartialEq + Clone + <span class="lifetime">'static</span>&gt; Member <span class="kw">for </span>T {}
 
 <span class="doccomment">/// Determine if a `MemberId` is a valid member.
 </span><span class="kw">pub trait </span>IsMember&lt;MemberId&gt; {
@@ -3844,7 +3846,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// You can also create a `new` one from those fields.
 </span><span class="kw">pub trait </span>Header:
-	Clone + Send + Sync + Codec + Eq + MaybeSerialize + Debug + TypeInfo + <span class="lifetime">&#39;static
+	Clone + Send + Sync + Codec + Eq + MaybeSerialize + Debug + TypeInfo + <span class="lifetime">'static
 </span>{
 	<span class="doccomment">/// Header number.
 	</span><span class="kw">type </span>Number: BlockNumber;
@@ -3896,7 +3898,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="comment">// Something that provides the Header Type. Only for internal usage and should only be used
 // via `HeaderFor` or `BlockNumberFor`.
 //
-// This is needed to fix the &quot;cyclical&quot; issue in loading Header/BlockNumber as part of a
+// This is needed to fix the "cyclical" issue in loading Header/BlockNumber as part of a
 // `pallet::call`. Essentially, `construct_runtime` aggregates all calls to create a `RuntimeCall`
 // that is then used to define `UncheckedExtrinsic`.
 // ```ignore
@@ -3907,7 +3909,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // ```ignore
 // pub type Block = generic::Block&lt;Header, UncheckedExtrinsic&gt;;
 // ```
-// So, if we do not create a trait outside of `Block` that doesn&#39;t have `Extrinsic`, we go into a
+// So, if we do not create a trait outside of `Block` that doesn't have `Extrinsic`, we go into a
 // recursive loop leading to a build error.
 //
 // Note that this is a workaround for a compiler bug and should be removed when the compiler
@@ -3931,7 +3933,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	+ Eq
 	+ MaybeSerialize
 	+ Debug
-	+ <span class="lifetime">&#39;static
+	+ <span class="lifetime">'static
 </span>{
 	<span class="doccomment">/// Type for extrinsics.
 	</span><span class="kw">type </span>Extrinsic: Member + Codec + Extrinsic + MaybeSerialize;
@@ -3979,7 +3981,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// Extrinsics can be split into:
 	/// 1. Inherents (no signature; created by validators during block production)
-	/// 2. Unsigned Transactions (no signature; represent &quot;system calls&quot; or other special kinds of
+	/// 2. Unsigned Transactions (no signature; represent "system calls" or other special kinds of
 	/// calls) 3. Signed Transactions (with signature; a regular transactions with known origin)
 	</span><span class="kw">fn </span>new(_call: <span class="self">Self</span>::Call, _signed_data: <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::SignaturePayload&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt; {
 		<span class="prelude-val">None
@@ -4028,7 +4030,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub type </span>NumberFor&lt;B&gt; = &lt;&lt;B <span class="kw">as </span>Block&gt;::Header <span class="kw">as </span>Header&gt;::Number;
 <span class="doccomment">/// Extract the digest type for a block.
 
-/// A &quot;checkable&quot; piece of information, used by the standard Substrate Executive in order to
+/// A "checkable" piece of information, used by the standard Substrate Executive in order to
 /// check the validity of a piece of extrinsic information, usually by verifying the signature.
 /// Implement for pieces of information that require some additional context `Context` in order to
 /// be checked.
@@ -4047,16 +4049,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// compiled with `try-runtime` should never be in production. Moreover, the name of this
 	/// function is deliberately chosen to prevent developers from ever calling it in consensus
 	/// code-paths.
-	</span><span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+	</span><span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 	</span><span class="kw">fn </span>unchecked_into_checked_i_know_what_i_am_doing(
 		<span class="self">self</span>,
 		c: <span class="kw-2">&amp;</span>Context,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Checked, TransactionValidityError&gt;;
 }
 
-<span class="doccomment">/// A &quot;checkable&quot; piece of information, used by the standard Substrate Executive in order to
+<span class="doccomment">/// A "checkable" piece of information, used by the standard Substrate Executive in order to
 /// check the validity of a piece of extrinsic information, usually by verifying the signature.
-/// Implement for pieces of information that don&#39;t require additional context in order to be
+/// Implement for pieces of information that don't require additional context in order to be
 /// checked.
 </span><span class="kw">pub trait </span>BlindCheckable: Sized {
 	<span class="doccomment">/// Returned if `check` succeeds.
@@ -4074,7 +4076,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		BlindCheckable::check(<span class="self">self</span>)
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 	</span><span class="kw">fn </span>unchecked_into_checked_i_know_what_i_am_doing(
 		<span class="self">self</span>,
 		<span class="kw">_</span>: <span class="kw-2">&amp;</span>Context,
@@ -4118,7 +4120,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">self</span>,
 		_origin: <span class="self">Self</span>::RuntimeOrigin,
 	) -&gt; <span class="kw">crate</span>::DispatchResultWithInfo&lt;<span class="self">Self</span>::PostInfo&gt; {
-		<span class="macro">panic!</span>(<span class="string">&quot;This implementation should not be used for actual dispatch.&quot;</span>);
+		<span class="macro">panic!</span>(<span class="string">"This implementation should not be used for actual dispatch."</span>);
 	}
 }
 
@@ -4131,7 +4133,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// This will be exposed in the metadata to identify the signed extension used
 	/// in an extrinsic.
-	</span><span class="kw">const </span>IDENTIFIER: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str;
+	</span><span class="kw">const </span>IDENTIFIER: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str;
 
 	<span class="doccomment">/// The type which encodes the sender identity.
 	</span><span class="kw">type </span>AccountId;
@@ -4258,7 +4260,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Information about a [`SignedExtension`] for the runtime metadata.
 </span><span class="kw">pub struct </span>SignedExtensionMetadata {
 	<span class="doccomment">/// The unique identifier of the [`SignedExtension`].
-	</span><span class="kw">pub </span>identifier: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
+	</span><span class="kw">pub </span>identifier: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
 	<span class="doccomment">/// The type of the [`SignedExtension`].
 	</span><span class="kw">pub </span>ty: MetaType,
 	<span class="doccomment">/// The type of the [`SignedExtension`] additional signed data for the payload.
@@ -4270,7 +4272,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="macro">for_tuples!</span>( <span class="kw">where </span>#( Tuple: SignedExtension&lt;AccountId=AccountId, Call=Call,&gt; )* );
 	<span class="kw">type </span>AccountId = AccountId;
 	<span class="kw">type </span>Call = Call;
-	<span class="kw">const </span>IDENTIFIER: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;You should call `identifier()`!&quot;</span>;
+	<span class="kw">const </span>IDENTIFIER: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"You should call `identifier()`!"</span>;
 	<span class="macro">for_tuples!</span>( <span class="kw">type </span>AdditionalSigned = ( #( Tuple::AdditionalSigned ),* ); );
 	<span class="macro">for_tuples!</span>( <span class="kw">type </span>Pre = ( #( Tuple::Pre ),* ); );
 
@@ -4349,7 +4351,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>AdditionalSigned = ();
 	<span class="kw">type </span>Call = ();
 	<span class="kw">type </span>Pre = ();
-	<span class="kw">const </span>IDENTIFIER: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;UnitSignedExtension&quot;</span>;
+	<span class="kw">const </span>IDENTIFIER: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"UnitSignedExtension"</span>;
 	<span class="kw">fn </span>additional_signed(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; sp_std::result::Result&lt;(), TransactionValidityError&gt; {
 		<span class="prelude-val">Ok</span>(())
 	}
@@ -4364,7 +4366,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="doccomment">/// An &quot;executable&quot; piece of information, used by the standard Substrate Executive in order to
+<span class="doccomment">/// An "executable" piece of information, used by the standard Substrate Executive in order to
 /// enact a piece of extrinsic information by marshalling and dispatching to a named function
 /// call.
 ///
@@ -4420,7 +4422,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// (i.e. passing [`validate_unsigned`](Self::validate_unsigned)) from being included in blocks
 	/// in case they became invalid since being added to the pool.
 	///
-	/// By default it&#39;s a good idea to call [`validate_unsigned`](Self::validate_unsigned) from
+	/// By default it's a good idea to call [`validate_unsigned`](Self::validate_unsigned) from
 	/// within this function again to make sure we never include an invalid transaction. Otherwise
 	/// the implementation of the call or this method will need to provide proper validation to
 	/// ensure that the transaction is valid.
@@ -4454,7 +4456,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">type </span>KeyTypeIdProviders;
 
 	<span class="doccomment">/// Return the key-type IDs supported by this set.
-	</span><span class="kw">fn </span>key_ids() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[<span class="kw">crate</span>::KeyTypeId];
+	</span><span class="kw">fn </span>key_ids() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>[<span class="kw">crate</span>::KeyTypeId];
 	<span class="doccomment">/// Get the raw bytes of key with key-type ID `i`.
 	</span><span class="kw">fn </span>get_raw(<span class="kw-2">&amp;</span><span class="self">self</span>, i: <span class="kw">super</span>::KeyTypeId) -&gt; <span class="kw-2">&amp;</span>[u8];
 	<span class="doccomment">/// Get the decoded key with key-type ID `i`.
@@ -4471,16 +4473,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// This can add an infinite stream of zeros onto any input, not just a slice as with
 /// `TrailingZerosInput`.
-</span><span class="kw">pub struct </span>AppendZerosInput&lt;<span class="lifetime">&#39;a</span>, T&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>T);
+</span><span class="kw">pub struct </span>AppendZerosInput&lt;<span class="lifetime">'a</span>, T&gt;(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>T);
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, T&gt; AppendZerosInput&lt;<span class="lifetime">&#39;a</span>, T&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, T&gt; AppendZerosInput&lt;<span class="lifetime">'a</span>, T&gt; {
 	<span class="doccomment">/// Create a new instance from the given byte array.
-	</span><span class="kw">pub fn </span>new(input: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>T) -&gt; <span class="self">Self </span>{
+	</span><span class="kw">pub fn </span>new(input: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>T) -&gt; <span class="self">Self </span>{
 		<span class="self">Self</span>(input)
 	}
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, T: codec::Input&gt; codec::Input <span class="kw">for </span>AppendZerosInput&lt;<span class="lifetime">&#39;a</span>, T&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, T: codec::Input&gt; codec::Input <span class="kw">for </span>AppendZerosInput&lt;<span class="lifetime">'a</span>, T&gt; {
 	<span class="kw">fn </span>remaining_len(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;usize&gt;, codec::Error&gt; {
 		<span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
 	}
@@ -4514,11 +4516,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Input that adds infinite number of zero after wrapped input.
-</span><span class="kw">pub struct </span>TrailingZeroInput&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8]);
+</span><span class="kw">pub struct </span>TrailingZeroInput&lt;<span class="lifetime">'a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8]);
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; TrailingZeroInput&lt;<span class="lifetime">&#39;a</span>&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; TrailingZeroInput&lt;<span class="lifetime">'a</span>&gt; {
 	<span class="doccomment">/// Create a new instance from the given byte array.
-	</span><span class="kw">pub fn </span>new(data: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8]) -&gt; <span class="self">Self </span>{
+	</span><span class="kw">pub fn </span>new(data: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8]) -&gt; <span class="self">Self </span>{
 		<span class="self">Self</span>(data)
 	}
 
@@ -4528,7 +4530,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; codec::Input <span class="kw">for </span>TrailingZeroInput&lt;<span class="lifetime">&#39;a</span>&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; codec::Input <span class="kw">for </span>TrailingZeroInput&lt;<span class="lifetime">'a</span>&gt; {
 	<span class="kw">fn </span>remaining_len(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;usize&gt;, codec::Error&gt; {
 		<span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
 	}
@@ -4564,7 +4566,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">Self</span>::try_from_sub_account::&lt;()&gt;(a).map(|x| x.<span class="number">0</span>)
 	}
 
-	<span class="doccomment">/// Convert this value amalgamated with the a secondary &quot;sub&quot; value into an account ID,
+	<span class="doccomment">/// Convert this value amalgamated with the a secondary "sub" value into an account ID,
 	/// truncating any unused bytes. This is infallible.
 	///
 	/// NOTE: The account IDs from this and from `into_account` are *not* guaranteed to be distinct
@@ -4579,7 +4581,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// non-unique accounts.
 	</span><span class="kw">fn </span>into_sub_account_truncating&lt;S: Encode&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, sub: S) -&gt; AccountId;
 
-	<span class="doccomment">/// Same as `into_sub_account_truncating`, but ensuring that all bytes of the account&#39;s seed are
+	<span class="doccomment">/// Same as `into_sub_account_truncating`, but ensuring that all bytes of the account's seed are
 	/// used when generating an account. This can help guarantee that different accounts are unique,
 	/// besides types which encode the same as noted above.
 	</span><span class="kw">fn </span>try_into_sub_account&lt;S: Encode&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, sub: S) -&gt; <span class="prelude-ty">Option</span>&lt;AccountId&gt;;
@@ -4597,14 +4599,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>into_sub_account_truncating&lt;S: Encode&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, sub: S) -&gt; T {
 		(Id::TYPE_ID, <span class="self">self</span>, sub)
 			.using_encoded(|b| T::decode(<span class="kw-2">&amp;mut </span>TrailingZeroInput(b)))
-			.expect(<span class="string">&quot;All byte sequences are valid `AccountIds`; qed&quot;</span>)
+			.expect(<span class="string">"All byte sequences are valid `AccountIds`; qed"</span>)
 	}
 
 	<span class="comment">// Same as `into_sub_account_truncating`, but returns `None` if any bytes would be truncated.
 	</span><span class="kw">fn </span>try_into_sub_account&lt;S: Encode&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, sub: S) -&gt; <span class="prelude-ty">Option</span>&lt;T&gt; {
 		<span class="kw">let </span>encoded_seed = (Id::TYPE_ID, <span class="self">self</span>, sub).encode();
 		<span class="kw">let </span>account = T::decode(<span class="kw-2">&amp;mut </span>TrailingZeroInput(<span class="kw-2">&amp;</span>encoded_seed))
-			.expect(<span class="string">&quot;All byte sequences are valid `AccountIds`; qed&quot;</span>);
+			.expect(<span class="string">"All byte sequences are valid `AccountIds`; qed"</span>);
 		<span class="comment">// If the `account` generated has less bytes than the `encoded_seed`, then we know that
 		// bytes were truncated, and we return `None`.
 		</span><span class="kw">if </span>encoded_seed.len() &lt;= account.encoded_size() {
@@ -4633,8 +4635,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Calls a given macro a number of times with a set of fixed params and an incrementing numeral.
 /// e.g.
 /// ```nocompile
-/// count!(println (&quot;{}&quot;,) foo, bar, baz);
-/// // Will result in three `println!`s: &quot;0&quot;, &quot;1&quot; and &quot;2&quot;.
+/// count!(println ("{}",) foo, bar, baz);
+/// // Will result in three `println!`s: "0", "1" and "2".
 /// ```
 </span><span class="attr">#[macro_export]
 </span><span class="macro">macro_rules! </span>count {
@@ -4731,7 +4733,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">impl </span><span class="macro-nonterminal">$crate::traits::OpaqueKeys </span><span class="kw">for </span><span class="macro-nonterminal">$name </span>{
 			<span class="kw">type </span>KeyTypeIdProviders = ( $( <span class="macro-nonterminal">$</span><span class="kw">type</span>, )* );
 
-			<span class="kw">fn </span><span class="macro-nonterminal">key_ids</span>() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[<span class="macro-nonterminal">$crate::KeyTypeId</span>] {
+			<span class="kw">fn </span><span class="macro-nonterminal">key_ids</span>() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>[<span class="macro-nonterminal">$crate::KeyTypeId</span>] {
 				<span class="kw-2">&amp;</span>[
 					$(
 						&lt;
@@ -4784,7 +4786,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// }
 /// ```
 </span><span class="attr">#[macro_export]
-#[cfg(any(feature = <span class="string">&quot;serde&quot;</span>, feature = <span class="string">&quot;std&quot;</span>))]
+#[cfg(any(feature = <span class="string">"serde"</span>, feature = <span class="string">"std"</span>))]
 </span><span class="macro">macro_rules! </span>impl_opaque_keys {
 	{
 		$( <span class="attr">#[ <span class="macro-nonterminal">$attr</span>:meta ] </span>)*
@@ -4801,7 +4803,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro-nonterminal">$</span><span class="macro">crate::impl_opaque_keys_inner! </span>{
 				$( <span class="attr">#[ <span class="macro-nonterminal">$attr </span>] </span>)*
 				<span class="attr">#[derive(<span class="macro-nonterminal">$crate::serde::Serialize</span>, <span class="macro-nonterminal">$crate::serde::Deserialize</span>)]
-				#[serde(<span class="kw">crate </span>= <span class="string">&quot;__opaque_keys_serde_import__&quot; </span><span class="macro-nonterminal">$name</span>)]
+				#[serde(<span class="kw">crate </span>= <span class="string">"__opaque_keys_serde_import__" </span><span class="macro-nonterminal">$name</span>)]
 				</span><span class="kw">pub struct </span><span class="macro-nonterminal">$name </span>{
 					$(
 						$( <span class="attr">#[ <span class="macro-nonterminal">$inner_attr </span>] </span>)*
@@ -4814,7 +4816,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="attr">#[<span class="macro-nonterminal">macro_export</span>]
-#[cfg(all(not(feature = <span class="string">&quot;std&quot;</span>), not(feature = <span class="string">&quot;serde&quot;</span>)))]
+#[cfg(all(not(feature = <span class="string">"std"</span>), not(feature = <span class="string">"serde"</span>)))]
 #[doc(hidden)]
 </span><span class="macro">macro_rules! </span>impl_opaque_keys {
 	{
@@ -4895,9 +4897,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl </span>Printable <span class="kw">for </span>bool {
 	<span class="kw">fn </span>print(<span class="kw-2">&amp;</span><span class="self">self</span>) {
 		<span class="kw">if </span><span class="kw-2">*</span><span class="self">self </span>{
-			<span class="string">&quot;true&quot;</span>.print()
+			<span class="string">"true"</span>.print()
 		} <span class="kw">else </span>{
-			<span class="string">&quot;false&quot;</span>.print()
+			<span class="string">"false"</span>.print()
 		}
 	}
 }
@@ -4910,7 +4912,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl </span>Printable <span class="kw">for </span>() {
 	<span class="kw">fn </span>print(<span class="kw-2">&amp;</span><span class="self">self</span>) {
-		<span class="string">&quot;()&quot;</span>.print()
+		<span class="string">"()"</span>.print()
 	}
 }
 
@@ -4922,7 +4924,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Something that can convert a [`BlockId`](crate::generic::BlockId) to a number or a hash.
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+</span><span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">pub trait </span>BlockIdTo&lt;Block: <span class="self">self</span>::Block&gt; {
 	<span class="doccomment">/// The error type that will be returned by the functions.
 	</span><span class="kw">type </span>Error: std::error::Error;
@@ -4975,7 +4977,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// It allows for setting the block number that will later be fetched
 	/// This is useful in case the block number provider is different than System
-	</span><span class="attr">#[cfg(any(feature = <span class="string">&quot;std&quot;</span>, feature = <span class="string">&quot;runtime-benchmarks&quot;</span>))]
+	</span><span class="attr">#[cfg(any(feature = <span class="string">"std"</span>, feature = <span class="string">"runtime-benchmarks"</span>))]
 	</span><span class="kw">fn </span>set_block_number(_block: <span class="self">Self</span>::BlockNumber) {}
 }
 
@@ -4990,7 +4992,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">mod </span>tests {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use </span><span class="kw">crate</span>::codec::{Decode, Encode, Input};
-	<span class="attr">#[cfg(feature = <span class="string">&quot;bls-experimental&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"bls-experimental"</span>)]
 	</span><span class="kw">use </span>sp_core::{bls377, bls381};
 	<span class="kw">use </span>sp_core::{
 		crypto::{Pair, UncheckedFrom},
@@ -4999,8 +5001,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="macro">macro_rules! </span>signature_verify_test {
 		(<span class="macro-nonterminal">$algorithm</span>:ident) =&gt; {
-			<span class="kw">let </span>msg = <span class="kw-2">&amp;</span><span class="string">b&quot;test-message&quot;</span>[..];
-			<span class="kw">let </span>wrong_msg = <span class="kw-2">&amp;</span><span class="string">b&quot;test-msg&quot;</span>[..];
+			<span class="kw">let </span>msg = <span class="kw-2">&amp;</span><span class="string">b"test-message"</span>[..];
+			<span class="kw">let </span>wrong_msg = <span class="kw-2">&amp;</span><span class="string">b"test-msg"</span>[..];
 			<span class="kw">let </span>(pair, <span class="kw">_</span>) = <span class="macro-nonterminal">$algorithm::Pair::generate</span>();
 
 			<span class="kw">let </span>signature = pair.sign(<span class="kw-2">&amp;</span>msg);
@@ -5014,7 +5016,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">mod </span>t {
 		<span class="kw">use </span>sp_application_crypto::{app_crypto, sr25519};
 		<span class="kw">use </span>sp_core::crypto::KeyTypeId;
-		<span class="macro">app_crypto!</span>(sr25519, KeyTypeId(<span class="kw-2">*</span><span class="string">b&quot;test&quot;</span>));
+		<span class="macro">app_crypto!</span>(sr25519, KeyTypeId(<span class="kw-2">*</span><span class="string">b"test"</span>));
 	}
 
 	<span class="attr">#[test]
@@ -5084,7 +5086,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>maybe: <span class="prelude-ty">Option</span>&lt;AccountId&gt; = U16Value::try_into_sub_account(
 			<span class="kw-2">&amp;</span>U16Value(<span class="number">0xc0da</span>),
-			<span class="string">&quot;a really large amount of additional encoded information which will certainly overflow the account id type ;)&quot;
+			<span class="string">"a really large amount of additional encoded information which will certainly overflow the account id type ;)"
 		</span>);
 
 		<span class="macro">assert!</span>(maybe.is_none())
@@ -5135,12 +5137,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">signature_verify_test!</span>(ecdsa);
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;bls-experimental&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"bls-experimental"</span>)]
 	</span><span class="kw">fn </span>bls377_verify_works() {
 		<span class="macro">signature_verify_test!</span>(bls377)
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;bls-experimental&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"bls-experimental"</span>)]
 	</span><span class="kw">fn </span>bls381_verify_works() {
 		<span class="macro">signature_verify_test!</span>(bls381)
 	}

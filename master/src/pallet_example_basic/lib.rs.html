@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/examples/basic/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/examples/basic/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_example_basic" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_example_basic" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../pallet_example_basic/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -687,14 +689,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -722,20 +724,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!
 //! This pallet provides basic examples of using:
 //!
-//! - A custom weight calculator able to classify a call&#39;s dispatch class (see:
+//! - A custom weight calculator able to classify a call's dispatch class (see:
 //!   [`frame_support::dispatch::DispatchClass`])
-//! - Pallet hooks to implement some custom logic that&#39;s executed before and after a block is
+//! - Pallet hooks to implement some custom logic that's executed before and after a block is
 //!   imported (see: [`frame_support::traits::Hooks`])
 //! - Inherited weight annotation for pallet calls, used to create less repetition for calls that
 //!   use the [`Config::WeightInfo`] trait to calculate call weights. This can also be overridden,
 //!   as demonstrated by [`Call::set_dummy`].
 //! - A private function that performs a storage update.
 //! - A simple signed extension implementation (see: [`sp_runtime::traits::SignedExtension`]) which
-//!   increases the priority of the [`Call::set_dummy`] if it&#39;s present and drops any transaction
+//!   increases the priority of the [`Call::set_dummy`] if it's present and drops any transaction
 //!   with an encoded length higher than 200 bytes.
 
-</span><span class="comment">// Ensure we&#39;re `no_std` when compiling for Wasm.
-</span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
+</span><span class="comment">// Ensure we're `no_std` when compiling for Wasm.
+</span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
 </span><span class="kw">use </span>codec::{Decode, Encode};
 <span class="kw">use </span>core::marker::PhantomData;
@@ -765,7 +767,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">pub mod </span>weights;
 <span class="kw">pub use </span>weights::<span class="kw-2">*</span>;
 
-<span class="doccomment">/// A type alias for the balance type from this pallet&#39;s point of view.
+<span class="doccomment">/// A type alias for the balance type from this pallet's point of view.
 </span><span class="kw">type </span>BalanceOf&lt;T&gt; = &lt;T <span class="kw">as </span>pallet_balances::Config&gt;::Balance;
 <span class="kw">const </span>MILLICENTS: u32 = <span class="number">1_000_000_000</span>;
 
@@ -781,7 +783,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //
 // The rules of `WeightForSetDummy` are as follows:
 // - The final weight of each dispatch is calculated as the argument of the call multiplied by the
-//   parameter given to the `WeightForSetDummy`&#39;s constructor.
+//   parameter given to the `WeightForSetDummy`'s constructor.
 // - assigns a dispatch class `operational` if the argument of the call is more than 1000.
 //
 // More information can be read at:
@@ -825,7 +827,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use </span>frame_support::pallet_prelude::<span class="kw-2">*</span>;
 	<span class="kw">use </span>frame_system::pallet_prelude::<span class="kw-2">*</span>;
 
-	<span class="doccomment">/// Our pallet&#39;s configuration trait. All our types and constants go in here. If the
+	<span class="doccomment">/// Our pallet's configuration trait. All our types and constants go in here. If the
 	/// pallet is dependent on specific other pallets, then their configuration traits
 	/// should be added to our implied traits list.
 	///
@@ -858,7 +860,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		// This function must return the weight consumed by `on_initialize` and `on_finalize`.
 		</span><span class="kw">fn </span>on_initialize(_n: BlockNumberFor&lt;T&gt;) -&gt; Weight {
 			<span class="comment">// Anything that needs to be done at the start of the block.
-			// We don&#39;t do anything here.
+			// We don't do anything here.
 			</span>Weight::zero()
 		}
 
@@ -871,7 +873,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		//
 		// For instance you can generate extrinsics for the upcoming produced block.
 		</span><span class="kw">fn </span>offchain_worker(_n: BlockNumberFor&lt;T&gt;) {
-			<span class="comment">// We don&#39;t do anything here.
+			<span class="comment">// We don't do anything here.
 			// but we could dispatch extrinsic (transaction/unsigned/inherent) using
 			// sp_io::submit_extrinsic.
 			// To see example on offchain worker, please refer to example-offchain-worker pallet
@@ -887,17 +889,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	// using storage space proportional to any costs paid for by the caller or otherwise the
 	// difficulty of forcing the call to happen.
 	//
-	// Generally you&#39;ll want to split these into three groups:
+	// Generally you'll want to split these into three groups:
 	// - Public calls that are signed by an external account.
 	// - Root calls that are allowed to be made only by the governance system.
 	// - Unsigned calls that can be of two kinds:
-	//   * &quot;Inherent extrinsics&quot; that are opinions generally held by the block authors that build
+	//   * "Inherent extrinsics" that are opinions generally held by the block authors that build
 	//     child blocks.
 	//   * Unsigned Transactions that are of intrinsic recognizable utility to the network, and are
 	//     validated by the runtime.
 	//
 	// Information about where this dispatch initiated from is provided as the first argument
-	// &quot;origin&quot;. As such functions must always look like:
+	// "origin". As such functions must always look like:
 	//
 	// `fn foo(origin: OriginFor&lt;T&gt;, bar: Bar, baz: Baz) -&gt; DispatchResultWithPostInfo { ... }`
 	//
@@ -922,7 +924,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		// - MUST NOT PANIC: Under no circumstances (save, perhaps, storage getting into an
 		// irreparably damaged state) must this function panic.
 		// - NO SIDE-EFFECTS ON ERROR: This function must either complete totally (and return
-		// `Ok(())` or it must have no side-effects on storage and return `Err(&#39;Some reason&#39;)`.
+		// `Ok(())` or it must have no side-effects on storage and return `Err('Some reason')`.
 		//
 		// The first is relatively easy to audit for - just ensure all panickers are removed from
 		// logic that executes in production (which you do anyway, right?!). To ensure the second
@@ -930,24 +932,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		// is stuff like checking the sender (`origin`) or that state is such that the operation
 		// makes sense.
 		//
-		// Once you&#39;ve determined that it&#39;s all good, then enact the operation and change storage.
-		// If you can&#39;t be certain that the operation will succeed without substantial computation
+		// Once you've determined that it's all good, then enact the operation and change storage.
+		// If you can't be certain that the operation will succeed without substantial computation
 		// then you have a classic blockchain attack scenario. The normal way of managing this is
 		// to attach a bond to the operation. As the first major alteration of storage, reserve
-		// some value from the sender&#39;s account (`Balances` Pallet has a `reserve` function for
+		// some value from the sender's account (`Balances` Pallet has a `reserve` function for
 		// exactly this scenario). This amount should be enough to cover any costs of the
-		// substantial execution in case it turns out that you can&#39;t proceed with the operation.
+		// substantial execution in case it turns out that you can't proceed with the operation.
 		//
 		// If it eventually transpires that the operation is fine and, therefore, that the
 		// expense of the checks should be borne by the network, then you can refund the reserved
 		// deposit. If, however, the operation turns out to be invalid and the computation is
 		// wasted, then you can burn it or repatriate elsewhere.
 		//
-		// Security bonds ensure that attackers can&#39;t game it by ensuring that anyone interacting
+		// Security bonds ensure that attackers can't game it by ensuring that anyone interacting
 		// with the system either progresses it or pays for the trouble of faffing around with
 		// no progress.
 		//
-		// If you don&#39;t respect these rules, it is likely that your chain will be attackable.
+		// If you don't respect these rules, it is likely that your chain will be attackable.
 		//
 		// Each transaction must define a `#[pallet::weight(..)]` attribute to convey a set of
 		// static information about its dispatch. FRAME System and FRAME Executive pallet then use
@@ -980,14 +982,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			// Will also work with a reference:
 			// &lt;Dummy&lt;T&gt;&gt;::put(&amp;new_dummy);
 
-			// Here&#39;s the new one of read and then modify the value.
+			// Here's the new one of read and then modify the value.
 			</span>&lt;Dummy&lt;T&gt;&gt;::mutate(|dummy| {
 				<span class="comment">// Using `saturating_add` instead of a regular `+` to avoid overflowing
 				</span><span class="kw">let </span>new_dummy = dummy.map_or(increase_by, |d| d.saturating_add(increase_by));
 				<span class="kw-2">*</span>dummy = <span class="prelude-val">Some</span>(new_dummy);
 			});
 
-			<span class="comment">// Let&#39;s deposit an event to let the outside world know this happened.
+			<span class="comment">// Let's deposit an event to let the outside world know this happened.
 			</span><span class="self">Self</span>::deposit_event(Event::AccumulateDummy { balance: increase_by });
 
 			<span class="comment">// All good, no refund.
@@ -996,10 +998,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="doccomment">/// A privileged call; in this case it resets our dummy value to something new.
 		</span><span class="comment">// Implementation of a privileged call. The `origin` parameter is ROOT because
-		// it&#39;s not (directly) from an extrinsic, but rather the system as a whole has decided
+		// it's not (directly) from an extrinsic, but rather the system as a whole has decided
 		// to execute it. Different runtimes have different reasons for allow privileged
-		// calls to be executed - we don&#39;t need to care why. Because it&#39;s privileged, we can
-		// assume it&#39;s a one-off operation and substantial processing/storage/memory can be used
+		// calls to be executed - we don't need to care why. Because it's privileged, we can
+		// assume it's a one-off operation and substantial processing/storage/memory can be used
 		// without worrying about gameability or attack scenarios.
 		//
 		// The weight for this extrinsic we use our own weight object `WeightForSetDummy` to
@@ -1016,7 +1018,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			// trace}, accepting format strings similar to `println!`.
 			// https://paritytech.github.io/substrate/master/sp_io/logging/fn.log.html
 			// https://paritytech.github.io/substrate/master/frame_support/constant.LOG_TARGET.html
-			</span><span class="macro">info!</span>(<span class="string">&quot;New value is now: {:?}&quot;</span>, new_value);
+			</span><span class="macro">info!</span>(<span class="string">"New value is now: {:?}"</span>, new_value);
 
 			<span class="comment">// Put the new value into storage.
 			</span>&lt;Dummy&lt;T&gt;&gt;::put(new_value);
@@ -1036,8 +1038,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// it is optional, it is also possible to provide a custom implementation.
 	</span><span class="attr">#[pallet::generate_deposit(<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>deposit_event)]
 	</span><span class="kw">pub enum </span>Event&lt;T: Config&gt; {
-		<span class="comment">// Just a normal `enum`, here&#39;s a dummy event to ensure it compiles.
-		</span><span class="doccomment">/// Dummy event, just here so there&#39;s a generic type that&#39;s used.
+		<span class="comment">// Just a normal `enum`, here's a dummy event to ensure it compiles.
+		</span><span class="doccomment">/// Dummy event, just here so there's a generic type that's used.
 		</span>AccumulateDummy {
 			balance: BalanceOf&lt;T&gt;,
 		},
@@ -1069,7 +1071,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="attr">#[pallet::storage]
 	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>Bar&lt;T: Config&gt; = StorageMap&lt;<span class="kw">_</span>, Blake2_128Concat, T::AccountId, T::Balance&gt;;
 
-	<span class="comment">// this one uses the query kind: `ValueQuery`, we&#39;ll demonstrate the usage of &#39;mutate&#39; API.
+	<span class="comment">// this one uses the query kind: `ValueQuery`, we'll demonstrate the usage of 'mutate' API.
 	</span><span class="attr">#[pallet::storage]
 	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>Foo&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, T::Balance, ValueQuery&gt;;
 
@@ -1110,7 +1112,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>_sender = ensure_signed(origin)<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>prev = Foo::&lt;T&gt;::get();
-		<span class="comment">// Because Foo has &#39;default&#39;, the type of &#39;foo&#39; in closure is the raw type instead of an
+		<span class="comment">// Because Foo has 'default', the type of 'foo' in closure is the raw type instead of an
 		// Option&lt;&gt; type.
 		</span><span class="kw">let </span>result = Foo::&lt;T&gt;::mutate(|foo| {
 			<span class="kw-2">*</span>foo = foo.saturating_add(increase_by);
@@ -1164,7 +1166,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl</span>&lt;T: Config + Send + Sync&gt; core::fmt::Debug <span class="kw">for </span>WatchDummy&lt;T&gt; {
 	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter) -&gt; core::fmt::Result {
-		<span class="macro">write!</span>(f, <span class="string">&quot;WatchDummy&quot;</span>)
+		<span class="macro">write!</span>(f, <span class="string">"WatchDummy"</span>)
 	}
 }
 
@@ -1172,7 +1174,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">where
 	</span>&lt;T <span class="kw">as </span>frame_system::Config&gt;::RuntimeCall: IsSubType&lt;Call&lt;T&gt;&gt;,
 {
-	<span class="kw">const </span>IDENTIFIER: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;WatchDummy&quot;</span>;
+	<span class="kw">const </span>IDENTIFIER: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"WatchDummy"</span>;
 	<span class="kw">type </span>AccountId = T::AccountId;
 	<span class="kw">type </span>Call = &lt;T <span class="kw">as </span>frame_system::Config&gt;::RuntimeCall;
 	<span class="kw">type </span>AdditionalSigned = ();
@@ -1207,7 +1209,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// check for `set_dummy`
 		</span><span class="kw">match </span>call.is_sub_type() {
 			<span class="prelude-val">Some</span>(Call::set_dummy { .. }) =&gt; {
-				sp_runtime::print(<span class="string">&quot;set_dummy was received.&quot;</span>);
+				sp_runtime::print(<span class="string">"set_dummy was received."</span>);
 
 				<span class="kw">let </span>valid_tx =
 					ValidTransaction { priority: Bounded::max_value(), ..Default::default() };

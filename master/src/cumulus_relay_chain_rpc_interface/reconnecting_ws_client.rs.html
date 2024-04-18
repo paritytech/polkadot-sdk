@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `cumulus/client/relay-chain-rpc-interface/src/reconnecting_ws_client.rs`."><title>reconnecting_ws_client.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `cumulus/client/relay-chain-rpc-interface/src/reconnecting_ws_client.rs`."><title>reconnecting_ws_client.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="cumulus_relay_chain_rpc_interface" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="cumulus_relay_chain_rpc_interface" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../cumulus_relay_chain_rpc_interface/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -654,7 +656,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">use </span><span class="kw">crate</span>::rpc_client::{distribute_header, RpcDispatcherMessage};
 
-<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;reconnecting-websocket-client&quot;</span>;
+<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"reconnecting-websocket-client"</span>;
 
 <span class="doccomment">/// Worker that should be used in combination with [`RelayChainRpcClient`].
 ///
@@ -673,19 +675,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Format url and force addition of a port
 </span><span class="kw">fn </span>url_to_string_with_port(url: Url) -&gt; <span class="prelude-ty">Option</span>&lt;String&gt; {
 	<span class="comment">// This is already validated on CLI side, just defensive here
-	</span><span class="kw">if </span>(url.scheme() != <span class="string">&quot;ws&quot; </span>&amp;&amp; url.scheme() != <span class="string">&quot;wss&quot;</span>) || url.host_str().is_none() {
-		<span class="macro">tracing::warn!</span>(target: LOG_TARGET, <span class="question-mark">?</span>url, <span class="string">&quot;Non-WebSocket URL or missing host.&quot;</span>);
+	</span><span class="kw">if </span>(url.scheme() != <span class="string">"ws" </span>&amp;&amp; url.scheme() != <span class="string">"wss"</span>) || url.host_str().is_none() {
+		<span class="macro">tracing::warn!</span>(target: LOG_TARGET, <span class="question-mark">?</span>url, <span class="string">"Non-WebSocket URL or missing host."</span>);
 		<span class="kw">return </span><span class="prelude-val">None
 	</span>}
 
-	<span class="comment">// Either we have a user-supplied port or use the default for &#39;ws&#39; or &#39;wss&#39; here
+	<span class="comment">// Either we have a user-supplied port or use the default for 'ws' or 'wss' here
 	</span><span class="prelude-val">Some</span>(<span class="macro">format!</span>(
-		<span class="string">&quot;{}://{}:{}{}{}&quot;</span>,
+		<span class="string">"{}://{}:{}{}{}"</span>,
 		url.scheme(),
 		url.host_str()<span class="question-mark">?</span>,
 		url.port_or_known_default()<span class="question-mark">?</span>,
 		url.path(),
-		url.query().map(|query| <span class="macro">format!</span>(<span class="string">&quot;?{}&quot;</span>, query)).unwrap_or_default()
+		url.query().map(|query| <span class="macro">format!</span>(<span class="string">"?{}"</span>, query)).unwrap_or_default()
 	))
 }
 
@@ -710,18 +712,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	urls: <span class="kw-2">&amp;</span>Vec&lt;String&gt;,
 	starting_position: usize,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(usize, Arc&lt;JsonRpcClient&gt;), ()&gt; {
-	<span class="macro">tracing::debug!</span>(target: LOG_TARGET, starting_position, <span class="string">&quot;Connecting to RPC server.&quot;</span>);
+	<span class="macro">tracing::debug!</span>(target: LOG_TARGET, starting_position, <span class="string">"Connecting to RPC server."</span>);
 	<span class="kw">for </span>(counter, url) <span class="kw">in </span>urls.iter().cycle().skip(starting_position).take(urls.len()).enumerate() {
 		<span class="kw">let </span>index = (starting_position + counter) % urls.len();
 		<span class="macro">tracing::info!</span>(
 			target: LOG_TARGET,
 			index,
 			url,
-			<span class="string">&quot;Trying to connect to next external relaychain node.&quot;</span>,
+			<span class="string">"Trying to connect to next external relaychain node."</span>,
 		);
 		<span class="kw">match </span>WsClientBuilder::default().build(<span class="kw-2">&amp;</span>url).<span class="kw">await </span>{
 			<span class="prelude-val">Ok</span>(ws_client) =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>((index, Arc::new(ws_client))),
-			<span class="prelude-val">Err</span>(err) =&gt; <span class="macro">tracing::debug!</span>(target: LOG_TARGET, url, <span class="question-mark">?</span>err, <span class="string">&quot;Unable to connect.&quot;</span>),
+			<span class="prelude-val">Err</span>(err) =&gt; <span class="macro">tracing::debug!</span>(target: LOG_TARGET, url, <span class="question-mark">?</span>err, <span class="string">"Unable to connect."</span>),
 		};
 	}
 	<span class="prelude-val">Err</span>(())
@@ -756,7 +758,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">tracing::error!</span>(
 				target: LOG_TARGET,
 				<span class="question-mark">?</span>e,
-				<span class="string">&quot;Unable to open `chain_subscribeAllHeads` subscription.&quot;
+				<span class="string">"Unable to open `chain_subscribeAllHeads` subscription."
 			</span>);
 			e
 		})<span class="question-mark">?</span>;
@@ -772,7 +774,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">tracing::error!</span>(
 				target: LOG_TARGET,
 				<span class="question-mark">?</span>e,
-				<span class="string">&quot;Unable to open `chain_subscribeNewHeads` subscription.&quot;
+				<span class="string">"Unable to open `chain_subscribeNewHeads` subscription."
 			</span>);
 			e
 		})<span class="question-mark">?</span>;
@@ -788,7 +790,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">tracing::error!</span>(
 				target: LOG_TARGET,
 				<span class="question-mark">?</span>e,
-				<span class="string">&quot;Unable to open `chain_subscribeFinalizedHeads` subscription.&quot;
+				<span class="string">"Unable to open `chain_subscribeFinalizedHeads` subscription."
 			</span>);
 			e
 		})<span class="question-mark">?</span>;
@@ -808,7 +810,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		method: String,
 		params: ArrayParams,
 		response_sender: OneshotSender&lt;<span class="prelude-ty">Result</span>&lt;JsonValue, JsonRpseeError&gt;&gt;,
-	) -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, <span class="prelude-ty">Result</span>&lt;(), RpcDispatcherMessage&gt;&gt; {
+	) -&gt; BoxFuture&lt;<span class="lifetime">'static</span>, <span class="prelude-ty">Result</span>&lt;(), RpcDispatcherMessage&gt;&gt; {
 		<span class="kw">let </span>future_client = <span class="self">self</span>.active_client.clone();
 		<span class="kw">async move </span>{
 			<span class="kw">let </span>resp = future_client.request(<span class="kw-2">&amp;</span>method, params.clone()).<span class="kw">await</span>;
@@ -824,7 +826,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="macro">tracing::debug!</span>(
 					target: LOG_TARGET,
 					<span class="question-mark">?</span>err,
-					<span class="string">&quot;Recipient no longer interested in request result&quot;
+					<span class="string">"Recipient no longer interested in request result"
 				</span>);
 			}
 			<span class="prelude-val">Ok</span>(())
@@ -861,7 +863,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		client_manager: <span class="kw-2">&amp;mut </span>ClientManager,
 		pending_requests: <span class="kw-2">&amp;mut </span>FuturesUnordered&lt;
-			BoxFuture&lt;<span class="lifetime">&#39;static</span>, <span class="prelude-ty">Result</span>&lt;(), RpcDispatcherMessage&gt;&gt;,
+			BoxFuture&lt;<span class="lifetime">'static</span>, <span class="prelude-ty">Result</span>&lt;(), RpcDispatcherMessage&gt;&gt;,
 		&gt;,
 		first_failed_request: <span class="prelude-ty">Option</span>&lt;RpcDispatcherMessage&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;RelayChainSubscriptions, String&gt; {
@@ -879,7 +881,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 
 		<span class="kw">if </span>client_manager.connect_to_new_rpc_server().<span class="kw">await</span>.is_err() {
-			<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;Unable to find valid external RPC server, shutting down.&quot;</span>.to_string())
+			<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Unable to find valid external RPC server, shutting down."</span>.to_string())
 		};
 
 		<span class="kw">for </span>item <span class="kw">in </span>requests_to_retry.into_iter() {
@@ -893,7 +895,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 
 		client_manager.get_subscriptions().<span class="kw">await</span>.map_err(|e| {
-			<span class="macro">format!</span>(<span class="string">&quot;Not able to create streams from newly connected RPC server, shutting down. err: {:?}&quot;</span>, e)
+			<span class="macro">format!</span>(<span class="string">"Not able to create streams from newly connected RPC server, shutting down. err: {:?}"</span>, e)
 		})
 	}
 
@@ -912,11 +914,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>urls = std::mem::take(<span class="kw-2">&amp;mut </span><span class="self">self</span>.ws_urls);
 		<span class="kw">let </span><span class="prelude-val">Ok</span>(<span class="kw-2">mut </span>client_manager) = ClientManager::new(urls).<span class="kw">await else </span>{
-			<span class="macro">tracing::error!</span>(target: LOG_TARGET, <span class="string">&quot;No valid RPC url found. Stopping RPC worker.&quot;</span>);
+			<span class="macro">tracing::error!</span>(target: LOG_TARGET, <span class="string">"No valid RPC url found. Stopping RPC worker."</span>);
 			<span class="kw">return
 		</span>};
 		<span class="kw">let </span><span class="prelude-val">Ok</span>(<span class="kw-2">mut </span>subscriptions) = client_manager.get_subscriptions().<span class="kw">await else </span>{
-			<span class="macro">tracing::error!</span>(target: LOG_TARGET, <span class="string">&quot;Unable to fetch subscriptions on initial connection.&quot;</span>);
+			<span class="macro">tracing::error!</span>(target: LOG_TARGET, <span class="string">"Unable to fetch subscriptions on initial connection."</span>);
 			<span class="kw">return
 		</span>};
 
@@ -941,7 +943,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="macro">tracing::error!</span>(
 							target: LOG_TARGET,
 							message,
-							<span class="string">&quot;Unable to reconnect, stopping worker.&quot;
+							<span class="string">"Unable to reconnect, stopping worker."
 						</span>);
 						<span class="kw">return
 					</span>},
@@ -964,7 +966,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						pending_requests.push(client_manager.create_request(method, params, response_sender));
 					},
 					<span class="prelude-val">None </span>=&gt; {
-						<span class="macro">tracing::error!</span>(target: LOG_TARGET, <span class="string">&quot;RPC client receiver closed. Stopping RPC Worker.&quot;</span>);
+						<span class="macro">tracing::error!</span>(target: LOG_TARGET, <span class="string">"RPC client receiver closed. Stopping RPC Worker."</span>);
 						<span class="kw">return</span>;
 					}
 				},
@@ -982,7 +984,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 									target: LOG_TARGET,
 									number = header.number,
 									<span class="question-mark">?</span>hash,
-									<span class="string">&quot;Duplicate imported block header. This might happen after switching to a new RPC node. Skipping distribution.&quot;
+									<span class="string">"Duplicate imported block header. This might happen after switching to a new RPC node. Skipping distribution."
 								</span>);
 								<span class="kw">continue</span>;
 							}
@@ -990,11 +992,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							distribute_header(header, <span class="kw-2">&amp;mut </span><span class="self">self</span>.imported_header_listeners);
 						},
 						<span class="prelude-val">None </span>=&gt; {
-							<span class="macro">tracing::error!</span>(target: LOG_TARGET, <span class="string">&quot;Subscription closed.&quot;</span>);
+							<span class="macro">tracing::error!</span>(target: LOG_TARGET, <span class="string">"Subscription closed."</span>);
 							should_reconnect = ConnectionStatus::ReconnectRequired(<span class="prelude-val">None</span>);
 						},
 						<span class="prelude-val">Some</span>(<span class="prelude-val">Err</span>(error)) =&gt; {
-							<span class="macro">tracing::error!</span>(target: LOG_TARGET, <span class="question-mark">?</span>error, <span class="string">&quot;Error in RPC subscription.&quot;</span>);
+							<span class="macro">tracing::error!</span>(target: LOG_TARGET, <span class="question-mark">?</span>error, <span class="string">"Error in RPC subscription."</span>);
 							should_reconnect = ConnectionStatus::ReconnectRequired(<span class="prelude-val">None</span>);
 						},
 					}
@@ -1003,11 +1005,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw">match </span>best_header_event {
 						<span class="prelude-val">Some</span>(<span class="prelude-val">Ok</span>(header)) =&gt; distribute_header(header, <span class="kw-2">&amp;mut </span><span class="self">self</span>.best_header_listeners),
 						<span class="prelude-val">None </span>=&gt; {
-							<span class="macro">tracing::error!</span>(target: LOG_TARGET, <span class="string">&quot;Subscription closed.&quot;</span>);
+							<span class="macro">tracing::error!</span>(target: LOG_TARGET, <span class="string">"Subscription closed."</span>);
 							should_reconnect = ConnectionStatus::ReconnectRequired(<span class="prelude-val">None</span>);
 						},
 						<span class="prelude-val">Some</span>(<span class="prelude-val">Err</span>(error)) =&gt; {
-							<span class="macro">tracing::error!</span>(target: LOG_TARGET, <span class="question-mark">?</span>error, <span class="string">&quot;Error in RPC subscription.&quot;</span>);
+							<span class="macro">tracing::error!</span>(target: LOG_TARGET, <span class="question-mark">?</span>error, <span class="string">"Error in RPC subscription."</span>);
 							should_reconnect = ConnectionStatus::ReconnectRequired(<span class="prelude-val">None</span>);
 						},
 					}
@@ -1023,15 +1025,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 								target: LOG_TARGET,
 								number = header.number,
 								last_seen_finalized_num,
-								<span class="string">&quot;Duplicate finalized block header. This might happen after switching to a new RPC node. Skipping distribution.&quot;
+								<span class="string">"Duplicate finalized block header. This might happen after switching to a new RPC node. Skipping distribution."
 							</span>);
 						},
 						<span class="prelude-val">None </span>=&gt; {
-							<span class="macro">tracing::error!</span>(target: LOG_TARGET, <span class="string">&quot;Subscription closed.&quot;</span>);
+							<span class="macro">tracing::error!</span>(target: LOG_TARGET, <span class="string">"Subscription closed."</span>);
 							should_reconnect = ConnectionStatus::ReconnectRequired(<span class="prelude-val">None</span>);
 						},
 						<span class="prelude-val">Some</span>(<span class="prelude-val">Err</span>(error)) =&gt; {
-							<span class="macro">tracing::error!</span>(target: LOG_TARGET, <span class="question-mark">?</span>error, <span class="string">&quot;Error in RPC subscription.&quot;</span>);
+							<span class="macro">tracing::error!</span>(target: LOG_TARGET, <span class="question-mark">?</span>error, <span class="string">"Error in RPC subscription."</span>);
 							should_reconnect = ConnectionStatus::ReconnectRequired(<span class="prelude-val">None</span>);
 						},
 					}
@@ -1048,27 +1050,27 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>url_to_string_works() {
-		<span class="kw">let </span>url = Url::parse(<span class="string">&quot;wss://something/path&quot;</span>).unwrap();
-		<span class="macro">assert_eq!</span>(<span class="prelude-val">Some</span>(<span class="string">&quot;wss://something:443/path&quot;</span>.to_string()), url_to_string_with_port(url));
+		<span class="kw">let </span>url = Url::parse(<span class="string">"wss://something/path"</span>).unwrap();
+		<span class="macro">assert_eq!</span>(<span class="prelude-val">Some</span>(<span class="string">"wss://something:443/path"</span>.to_string()), url_to_string_with_port(url));
 
-		<span class="kw">let </span>url = Url::parse(<span class="string">&quot;ws://something/path&quot;</span>).unwrap();
-		<span class="macro">assert_eq!</span>(<span class="prelude-val">Some</span>(<span class="string">&quot;ws://something:80/path&quot;</span>.to_string()), url_to_string_with_port(url));
+		<span class="kw">let </span>url = Url::parse(<span class="string">"ws://something/path"</span>).unwrap();
+		<span class="macro">assert_eq!</span>(<span class="prelude-val">Some</span>(<span class="string">"ws://something:80/path"</span>.to_string()), url_to_string_with_port(url));
 
-		<span class="kw">let </span>url = Url::parse(<span class="string">&quot;wss://something:100/path&quot;</span>).unwrap();
-		<span class="macro">assert_eq!</span>(<span class="prelude-val">Some</span>(<span class="string">&quot;wss://something:100/path&quot;</span>.to_string()), url_to_string_with_port(url));
+		<span class="kw">let </span>url = Url::parse(<span class="string">"wss://something:100/path"</span>).unwrap();
+		<span class="macro">assert_eq!</span>(<span class="prelude-val">Some</span>(<span class="string">"wss://something:100/path"</span>.to_string()), url_to_string_with_port(url));
 
-		<span class="kw">let </span>url = Url::parse(<span class="string">&quot;wss://something:100/path&quot;</span>).unwrap();
-		<span class="macro">assert_eq!</span>(<span class="prelude-val">Some</span>(<span class="string">&quot;wss://something:100/path&quot;</span>.to_string()), url_to_string_with_port(url));
+		<span class="kw">let </span>url = Url::parse(<span class="string">"wss://something:100/path"</span>).unwrap();
+		<span class="macro">assert_eq!</span>(<span class="prelude-val">Some</span>(<span class="string">"wss://something:100/path"</span>.to_string()), url_to_string_with_port(url));
 
-		<span class="kw">let </span>url = Url::parse(<span class="string">&quot;wss://something/path?query=yes&quot;</span>).unwrap();
+		<span class="kw">let </span>url = Url::parse(<span class="string">"wss://something/path?query=yes"</span>).unwrap();
 		<span class="macro">assert_eq!</span>(
-			<span class="prelude-val">Some</span>(<span class="string">&quot;wss://something:443/path?query=yes&quot;</span>.to_string()),
+			<span class="prelude-val">Some</span>(<span class="string">"wss://something:443/path?query=yes"</span>.to_string()),
 			url_to_string_with_port(url)
 		);
 
-		<span class="kw">let </span>url = Url::parse(<span class="string">&quot;wss://something:9090/path?query=yes&quot;</span>).unwrap();
+		<span class="kw">let </span>url = Url::parse(<span class="string">"wss://something:9090/path?query=yes"</span>).unwrap();
 		<span class="macro">assert_eq!</span>(
-			<span class="prelude-val">Some</span>(<span class="string">&quot;wss://something:9090/path?query=yes&quot;</span>.to_string()),
+			<span class="prelude-val">Some</span>(<span class="string">"wss://something:9090/path?query=yes"</span>.to_string()),
 			url_to_string_with_port(url)
 		);
 	}

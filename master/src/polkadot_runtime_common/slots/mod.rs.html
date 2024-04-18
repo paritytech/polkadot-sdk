@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/runtime/common/src/slots/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/runtime/common/src/slots/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_runtime_common" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_runtime_common" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../polkadot_runtime_common/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1336,7 +1338,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! initialized and parachain slots (i.e. continuous scheduling) to be leased. Also allows for
 //! parachains and parathreads to be swapped.
 //!
-//! This doesn&#39;t handle the mechanics of determining which para ID actually ends up with a parachain
+//! This doesn't handle the mechanics of determining which para ID actually ends up with a parachain
 //! lease. This must handled by a separately, through the trait interface that this pallet provides
 //! or the root dispatchables.
 
@@ -1426,7 +1428,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// The default value (an empty list) implies that the parachain no longer exists (or never
 	/// existed) as far as this pallet is concerned.
 	///
-	/// If a parachain doesn&#39;t exist *yet* but is scheduled to exist in the future, then it
+	/// If a parachain doesn't exist *yet* but is scheduled to exist in the future, then it
 	/// will be left-padded with one or more `None`s to denote the fact that nothing is held on
 	/// deposit for the non-existent chain currently, but is held at some point in the future.
 	///
@@ -1441,7 +1443,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="doccomment">/// A new `[lease_period]` is beginning.
 		</span>NewLeasePeriod { lease_period: LeasePeriodOf&lt;T&gt; },
 		<span class="doccomment">/// A para has won the right to a continuous set of lease periods as a parachain.
-		/// First balance is any extra amount reserved on top of the para&#39;s existing deposit.
+		/// First balance is any extra amount reserved on top of the para's existing deposit.
 		/// Second balance is the total amount reserved.
 		</span>Leased {
 			para_id: ParaId,
@@ -1465,13 +1467,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">impl</span>&lt;T: Config&gt; Hooks&lt;BlockNumberFor&lt;T&gt;&gt; <span class="kw">for </span>Pallet&lt;T&gt; {
 		<span class="kw">fn </span>on_initialize(n: BlockNumberFor&lt;T&gt;) -&gt; Weight {
 			<span class="kw">if let </span><span class="prelude-val">Some</span>((lease_period, first_block)) = <span class="self">Self</span>::lease_period_index(n) {
-				<span class="comment">// If we&#39;re beginning a new lease period then handle that.
+				<span class="comment">// If we're beginning a new lease period then handle that.
 				</span><span class="kw">if </span>first_block {
 					<span class="kw">return </span><span class="self">Self</span>::manage_lease_period_start(lease_period)
 				}
 			}
 
-			<span class="comment">// We didn&#39;t return early above, so we didn&#39;t do anything.
+			<span class="comment">// We didn't return early above, so we didn't do anything.
 			</span>Weight::zero()
 		}
 	}
@@ -1542,7 +1544,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
-	<span class="doccomment">/// A new lease period is beginning. We&#39;re at the start of the first block of it.
+	<span class="doccomment">/// A new lease period is beginning. We're at the start of the first block of it.
 	///
 	/// We need to on-board and off-board parachains as needed. We should also handle reducing/
 	/// returning deposits.
@@ -1586,7 +1588,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					// deposit for the parachain.
 					</span><span class="kw">let </span>now_held = <span class="self">Self</span>::deposit_held(para, <span class="kw-2">&amp;</span>ended_lease.<span class="number">0</span>);
 
-					<span class="comment">// If this is less than what we were holding for this leaser&#39;s now-ended lease,
+					<span class="comment">// If this is less than what we were holding for this leaser's now-ended lease,
 					// then unreserve it.
 					</span><span class="kw">if let </span><span class="prelude-val">Some</span>(rebate) = ended_lease.<span class="number">1</span>.checked_sub(<span class="kw-2">&amp;</span>now_held) {
 						T::Currency::unreserve(<span class="kw-2">&amp;</span>ended_lease.<span class="number">0</span>, rebate);
@@ -1690,7 +1692,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// Then place the deposit values for as long as the chain should exist.
 			</span><span class="kw">for </span>i <span class="kw">in </span>offset..(offset + period_count_usize) {
 				<span class="kw">if </span>d.len() &gt; i {
-					<span class="comment">// Already exists but it&#39;s `None`. That means a later slot was already leased.
+					<span class="comment">// Already exists but it's `None`. That means a later slot was already leased.
 					// No problem.
 					</span><span class="kw">if </span>d[i] == <span class="prelude-val">None </span>{
 						d[i] = <span class="prelude-val">Some</span>((leaser.clone(), amount));
@@ -1702,11 +1704,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						</span><span class="kw">return </span><span class="prelude-val">Err</span>(LeaseError::AlreadyLeased)
 					}
 				} <span class="kw">else if </span>d.len() == i {
-					<span class="comment">// Doesn&#39;t exist. This is usual.
+					<span class="comment">// Doesn't exist. This is usual.
 					</span>d.push(<span class="prelude-val">Some</span>((leaser.clone(), amount)));
 				} <span class="kw">else </span>{
 					<span class="comment">// earlier resize means it must be &gt;= i; qed
-					// defensive code though since we really don&#39;t want to panic here.
+					// defensive code though since we really don't want to panic here.
 				</span>}
 			}
 
@@ -1760,7 +1762,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.unwrap_or_else(Zero::zero)
 	}
 
-	<span class="attr">#[cfg(any(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>, test))]
+	<span class="attr">#[cfg(any(feature = <span class="string">"runtime-benchmarks"</span>, test))]
 	</span><span class="kw">fn </span>lease_period_length() -&gt; (BlockNumberFor&lt;T&gt;, BlockNumberFor&lt;T&gt;) {
 		(T::LeasePeriod::get(), T::LeaseOffset::get())
 	}
@@ -1785,7 +1787,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">None </span>=&gt; <span class="kw">return </span><span class="bool-val">true</span>,
 		};
 
-		<span class="comment">// Can&#39;t look in the past, so we pick whichever is the biggest.
+		<span class="comment">// Can't look in the past, so we pick whichever is the biggest.
 		</span><span class="kw">let </span>start_period = first_period.max(current_lease_period);
 		<span class="comment">// Find the offset to look into the lease period list.
 		// Subtraction is safe because of max above.
@@ -2208,11 +2210,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			run_to_block(<span class="number">20</span>);
 			<span class="kw">let </span>now = System::block_number();
 			<span class="macro">assert_eq!</span>(Slots::lease_period_index(now).unwrap().<span class="number">0</span>, <span class="number">2</span>);
-			<span class="comment">// Can&#39;t lease from the past
+			<span class="comment">// Can't lease from the past
 			</span><span class="macro">assert!</span>(Slots::lease_out(<span class="number">1</span>.into(), <span class="kw-2">&amp;</span><span class="number">1</span>, <span class="number">1</span>, <span class="number">1</span>, <span class="number">1</span>).is_err());
 			<span class="comment">// Lease in the current period triggers onboarding
 			</span><span class="macro">assert_ok!</span>(Slots::lease_out(<span class="number">1</span>.into(), <span class="kw-2">&amp;</span><span class="number">1</span>, <span class="number">1</span>, <span class="number">2</span>, <span class="number">1</span>));
-			<span class="comment">// Lease in the future doesn&#39;t
+			<span class="comment">// Lease in the future doesn't
 			</span><span class="macro">assert_ok!</span>(Slots::lease_out(<span class="number">2</span>.into(), <span class="kw-2">&amp;</span><span class="number">1</span>, <span class="number">1</span>, <span class="number">3</span>, <span class="number">1</span>));
 
 			<span class="macro">assert_eq!</span>(TestRegistrar::&lt;Test&gt;::operations(), <span class="macro">vec!</span>[(<span class="number">1</span>.into(), <span class="number">20</span>, <span class="bool-val">true</span>),]);
@@ -2249,7 +2251,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// Para 3 will have a lease period in a future index
 			</span>Leases::&lt;Test&gt;::insert(ParaId::from(<span class="number">3_u32</span>), <span class="macro">vec!</span>[<span class="prelude-val">None</span>, <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>((<span class="number">0</span>, <span class="number">0</span>))]);
 
-			<span class="comment">// Para 1 should fail cause they don&#39;t have any leases
+			<span class="comment">// Para 1 should fail cause they don't have any leases
 			</span><span class="macro">assert_noop!</span>(
 				Slots::trigger_onboard(RuntimeOrigin::signed(<span class="number">1</span>), <span class="number">1</span>.into()),
 				Error::&lt;Test&gt;::ParaNotOnboarding
@@ -2303,7 +2305,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 </span><span class="kw">mod </span>benchmarking {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use </span>frame_support::assert_ok;
@@ -2326,7 +2328,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="comment">// Registers a parathread (on-demand parachain)
 	</span><span class="kw">fn </span>register_a_parathread&lt;T: Config + paras::Config&gt;(i: u32) -&gt; (ParaId, T::AccountId) {
 		<span class="kw">let </span>para = ParaId::from(i);
-		<span class="kw">let </span>leaser: T::AccountId = account(<span class="string">&quot;leaser&quot;</span>, i, <span class="number">0</span>);
+		<span class="kw">let </span>leaser: T::AccountId = account(<span class="string">"leaser"</span>, i, <span class="number">0</span>);
 		T::Currency::make_free_balance_be(<span class="kw-2">&amp;</span>leaser, BalanceOf::&lt;T&gt;::max_value());
 		<span class="kw">let </span>worst_head_data = T::Registrar::worst_head_data();
 		<span class="kw">let </span>worst_validation_code = T::Registrar::worst_validation_code();
@@ -2354,7 +2356,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// If there is an offset, we need to be on that block to be able to do lease things.
 			</span>frame_system::Pallet::&lt;T&gt;::set_block_number(T::LeaseOffset::get() + One::one());
 			<span class="kw">let </span>para = ParaId::from(<span class="number">1337</span>);
-			<span class="kw">let </span>leaser: T::AccountId = account(<span class="string">&quot;leaser&quot;</span>, <span class="number">0</span>, <span class="number">0</span>);
+			<span class="kw">let </span>leaser: T::AccountId = account(<span class="string">"leaser"</span>, <span class="number">0</span>, <span class="number">0</span>);
 			T::Currency::make_free_balance_be(<span class="kw-2">&amp;</span>leaser, BalanceOf::&lt;T&gt;::max_value());
 			<span class="kw">let </span>amount = T::Currency::minimum_balance();
 			<span class="kw">let </span>period_begin = <span class="number">69u32</span>.into();
@@ -2395,7 +2397,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="kw">for </span>(para, leaser) <span class="kw">in </span>paras_info {
 				<span class="kw">let </span>amount = T::Currency::minimum_balance();
 				<span class="kw">let </span>origin = T::ForceOrigin::try_successful_origin()
-					.expect(<span class="string">&quot;ForceOrigin has no successful origin required for the benchmark&quot;</span>);
+					.expect(<span class="string">"ForceOrigin has no successful origin required for the benchmark"</span>);
 				Slots::&lt;T&gt;::force_lease(origin, para, leaser, amount, period_begin, period_count)<span class="question-mark">?</span>;
 			}
 
@@ -2439,7 +2441,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span>frame_system::Pallet::&lt;T&gt;::set_block_number(T::LeaseOffset::get() + One::one());
 
 			<span class="kw">for </span>i <span class="kw">in </span><span class="number">0 </span>.. max_people {
-				<span class="kw">let </span>leaser = account(<span class="string">&quot;lease_deposit&quot;</span>, i, <span class="number">0</span>);
+				<span class="kw">let </span>leaser = account(<span class="string">"lease_deposit"</span>, i, <span class="number">0</span>);
 				<span class="kw">let </span>amount = T::Currency::minimum_balance();
 				T::Currency::make_free_balance_be(<span class="kw-2">&amp;</span>leaser, BalanceOf::&lt;T&gt;::max_value());
 
@@ -2447,12 +2449,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				</span><span class="kw">let </span>period_count: LeasePeriodOf&lt;T&gt; = <span class="number">4u32</span>.into();
 				<span class="kw">let </span>period_begin = period_count * i.into();
 				<span class="kw">let </span>origin = T::ForceOrigin::try_successful_origin()
-					.expect(<span class="string">&quot;ForceOrigin has no successful origin required for the benchmark&quot;</span>);
+					.expect(<span class="string">"ForceOrigin has no successful origin required for the benchmark"</span>);
 				Slots::&lt;T&gt;::force_lease(origin, para, leaser, amount, period_begin, period_count)<span class="question-mark">?</span>;
 			}
 
 			<span class="kw">for </span>i <span class="kw">in </span><span class="number">0 </span>.. max_people {
-				<span class="kw">let </span>leaser = account(<span class="string">&quot;lease_deposit&quot;</span>, i, <span class="number">0</span>);
+				<span class="kw">let </span>leaser = account(<span class="string">"lease_deposit"</span>, i, <span class="number">0</span>);
 				<span class="macro">assert_eq!</span>(T::Currency::reserved_balance(<span class="kw-2">&amp;</span>leaser), T::Currency::minimum_balance());
 			}
 
@@ -2461,7 +2463,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}: <span class="kw">_</span>&lt;T::RuntimeOrigin&gt;(origin, para)
 		verify {
 			<span class="kw">for </span>i <span class="kw">in </span><span class="number">0 </span>.. max_people {
-				<span class="kw">let </span>leaser = account(<span class="string">&quot;lease_deposit&quot;</span>, i, <span class="number">0</span>);
+				<span class="kw">let </span>leaser = account(<span class="string">"lease_deposit"</span>, i, <span class="number">0</span>);
 				<span class="macro">assert_eq!</span>(T::Currency::reserved_balance(<span class="kw-2">&amp;</span>leaser), <span class="number">0u32</span>.into());
 			}
 		}
@@ -2469,7 +2471,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		trigger_onboard {
 			<span class="comment">// get a parachain into a bad state where they did not onboard
 			</span><span class="kw">let </span>(para, <span class="kw">_</span>) = register_a_parathread::&lt;T&gt;(<span class="number">1</span>);
-			Leases::&lt;T&gt;::insert(para, <span class="macro">vec!</span>[<span class="prelude-val">Some</span>((account::&lt;T::AccountId&gt;(<span class="string">&quot;lease_insert&quot;</span>, <span class="number">0</span>, <span class="number">0</span>), BalanceOf::&lt;T&gt;::default()))]);
+			Leases::&lt;T&gt;::insert(para, <span class="macro">vec!</span>[<span class="prelude-val">Some</span>((account::&lt;T::AccountId&gt;(<span class="string">"lease_insert"</span>, <span class="number">0</span>, <span class="number">0</span>), BalanceOf::&lt;T&gt;::default()))]);
 			<span class="macro">assert!</span>(T::Registrar::is_parathread(para));
 			<span class="kw">let </span>caller = whitelisted_caller();
 		}: <span class="kw">_</span>(RawOrigin::Signed(caller), para)

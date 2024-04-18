@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `bridges/bin/runtime-common/src/extensions/priority_calculator.rs`."><title>priority_calculator.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `bridges/bin/runtime-common/src/extensions/priority_calculator.rs`."><title>priority_calculator.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="bridge_runtime_common" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="bridge_runtime_common" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../bridge_runtime_common/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -368,7 +370,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! Bridge transaction priority calculator.
 //!
 //! We want to prioritize message delivery transactions with more messages over
-//! transactions with less messages. That&#39;s because we reject delivery transactions
+//! transactions with less messages. That's because we reject delivery transactions
 //! if it contains already delivered message. And if some transaction delivers
 //! single message with nonce `N`, then the transaction with nonces `N..=N+100` will
 //! be rejected. This can lower bridge throughput down to one message per block.
@@ -389,14 +391,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">where
 	</span>PriorityBoostPerMessage: Get&lt;TransactionPriority&gt;,
 {
-	<span class="comment">// we don&#39;t want any boost for transaction with single message =&gt; minus one
+	<span class="comment">// we don't want any boost for transaction with single message =&gt; minus one
 	</span>PriorityBoostPerMessage::get().saturating_mul(messages.saturating_sub(<span class="number">1</span>))
 }
 
-<span class="attr">#[cfg(not(feature = <span class="string">&quot;integrity-test&quot;</span>))]
+<span class="attr">#[cfg(not(feature = <span class="string">"integrity-test"</span>))]
 </span><span class="kw">mod </span>integrity_tests {}
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;integrity-test&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"integrity-test"</span>)]
 </span><span class="kw">mod </span>integrity_tests {
 	<span class="kw">use </span><span class="kw">super</span>::compute_priority_boost;
 
@@ -423,7 +425,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// `tip_boost_per_message`.
 	///
 	/// We want two transactions, `TX1` with `N` messages and `TX2` with `N+1` messages, have almost
-	/// the same priority if we&#39;ll add `tip_boost_per_message` tip to the `TX1`. We want to be sure
+	/// the same priority if we'll add `tip_boost_per_message` tip to the `TX1`. We want to be sure
 	/// that if we add plain `PriorityBoostPerMessage` priority to `TX1`, the priority will be close
 	/// to `TX2` as well.
 	</span><span class="kw">pub fn </span>ensure_priority_boost_is_sane&lt;Runtime, MessagesInstance, PriorityBoostPerMessage&gt;(
@@ -431,7 +433,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) <span class="kw">where
 		</span>Runtime:
 			pallet_transaction_payment::Config + pallet_bridge_messages::Config&lt;MessagesInstance&gt;,
-		MessagesInstance: <span class="lifetime">&#39;static</span>,
+		MessagesInstance: <span class="lifetime">'static</span>,
 		PriorityBoostPerMessage: Get&lt;TransactionPriority&gt;,
 		Runtime::RuntimeCall: Dispatchable&lt;Info = DispatchInfo, PostInfo = PostDispatchInfo&gt;,
 		BalanceOf&lt;Runtime&gt;: Send + Sync + FixedPointOperand,
@@ -457,7 +459,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				ERROR_MARGIN
 			{
 				<span class="macro">panic!</span>(
-					<span class="string">&quot;The PriorityBoostPerMessage value ({}) must be fixed to: {}&quot;</span>,
+					<span class="string">"The PriorityBoostPerMessage value ({}) must be fixed to: {}"</span>,
 					priority_boost_per_message,
 					compute_priority_boost_per_message::&lt;Runtime, MessagesInstance&gt;(
 						tip_boost_per_message
@@ -468,14 +470,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Compute priority boost that we give to message delivery transaction for additional message.
-	</span><span class="attr">#[cfg(feature = <span class="string">&quot;integrity-test&quot;</span>)]
+	</span><span class="attr">#[cfg(feature = <span class="string">"integrity-test"</span>)]
 	</span><span class="kw">fn </span>compute_priority_boost_per_message&lt;Runtime, MessagesInstance&gt;(
 		tip_boost_per_message: BalanceOf&lt;Runtime&gt;,
 	) -&gt; TransactionPriority
 	<span class="kw">where
 		</span>Runtime:
 			pallet_transaction_payment::Config + pallet_bridge_messages::Config&lt;MessagesInstance&gt;,
-		MessagesInstance: <span class="lifetime">&#39;static</span>,
+		MessagesInstance: <span class="lifetime">'static</span>,
 		Runtime::RuntimeCall: Dispatchable&lt;Info = DispatchInfo, PostInfo = PostDispatchInfo&gt;,
 		BalanceOf&lt;Runtime&gt;: Send + Sync + FixedPointOperand,
 	{
@@ -500,7 +502,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Estimate message delivery transaction priority.
-	</span><span class="attr">#[cfg(feature = <span class="string">&quot;integrity-test&quot;</span>)]
+	</span><span class="attr">#[cfg(feature = <span class="string">"integrity-test"</span>)]
 	</span><span class="kw">fn </span>estimate_message_delivery_transaction_priority&lt;Runtime, MessagesInstance&gt;(
 		messages: MessageNonce,
 		tip: BalanceOf&lt;Runtime&gt;,
@@ -508,7 +510,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">where
 		</span>Runtime:
 			pallet_transaction_payment::Config + pallet_bridge_messages::Config&lt;MessagesInstance&gt;,
-		MessagesInstance: <span class="lifetime">&#39;static</span>,
+		MessagesInstance: <span class="lifetime">'static</span>,
 		Runtime::RuntimeCall: Dispatchable&lt;Info = DispatchInfo, PostInfo = PostDispatchInfo&gt;,
 		BalanceOf&lt;Runtime&gt;: Send + Sync + FixedPointOperand,
 	{
@@ -516,15 +518,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		// (including signature, signed extensions extra and etc + in our case it includes
 		// all call arguments except the proof itself)
 		</span><span class="kw">let </span>base_tx_size = <span class="number">512</span>;
-		<span class="comment">// let&#39;s say we are relaying similar small messages and for every message we add more trie
+		<span class="comment">// let's say we are relaying similar small messages and for every message we add more trie
 		// nodes to the proof (x0.5 because we expect some nodes to be reused)
 		</span><span class="kw">let </span>estimated_message_size = <span class="number">512</span>;
-		<span class="comment">// let&#39;s say all our messages have the same dispatch weight
+		<span class="comment">// let's say all our messages have the same dispatch weight
 		</span><span class="kw">let </span>estimated_message_dispatch_weight =
 			Runtime::WeightInfo::message_dispatch_weight(estimated_message_size);
 		<span class="comment">// messages proof argument size is (for every message) messages size + some additional
-		// trie nodes. Some of them are reused by different messages, so let&#39;s take 2/3 of default
-		// &quot;overhead&quot; constant
+		// trie nodes. Some of them are reused by different messages, so let's take 2/3 of default
+		// "overhead" constant
 		</span><span class="kw">let </span>messages_proof_size = Runtime::WeightInfo::expected_extra_storage_proof_size()
 			.saturating_mul(<span class="number">2</span>)
 			.saturating_div(<span class="number">3</span>)

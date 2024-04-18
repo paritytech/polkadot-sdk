@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/service/src/parachains_db/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/service/src/parachains_db/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_service" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_service" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../polkadot_service/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -344,18 +346,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="doccomment">//! A `RocksDB` instance for storing parachain data; availability data, and approvals.
 
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;full-node&quot;</span>)]
+</span><span class="attr">#[cfg(feature = <span class="string">"full-node"</span>)]
 </span><span class="kw">use </span>{
 	polkadot_node_subsystem_util::database::Database, std::io, std::path::PathBuf, std::sync::Arc,
 };
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;full-node&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"full-node"</span>)]
 </span><span class="kw">mod </span>upgrade;
 
-<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;parachain::db&quot;</span>;
+<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"parachain::db"</span>;
 
 <span class="doccomment">/// Column configuration per version.
-</span><span class="attr">#[cfg(any(test, feature = <span class="string">&quot;full-node&quot;</span>))]
+</span><span class="attr">#[cfg(any(test, feature = <span class="string">"full-node"</span>))]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>columns {
 	<span class="kw">pub mod </span>v0 {
 		<span class="kw">pub const </span>NUM_COLUMNS: u32 = <span class="number">3</span>;
@@ -391,7 +393,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Columns used by different subsystems.
-</span><span class="attr">#[cfg(any(test, feature = <span class="string">&quot;full-node&quot;</span>))]
+</span><span class="attr">#[cfg(any(test, feature = <span class="string">"full-node"</span>))]
 #[derive(Debug, Clone)]
 </span><span class="kw">pub struct </span>ColumnsConfig {
 	<span class="doccomment">/// The column used by the av-store for data.
@@ -407,7 +409,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// The real columns used by the parachains DB.
-</span><span class="attr">#[cfg(any(test, feature = <span class="string">&quot;full-node&quot;</span>))]
+</span><span class="attr">#[cfg(any(test, feature = <span class="string">"full-node"</span>))]
 </span><span class="kw">pub const </span>REAL_COLUMNS: ColumnsConfig = ColumnsConfig {
 	col_availability_data: columns::v4::COL_AVAILABILITY_DATA,
 	col_availability_meta: columns::v4::COL_AVAILABILITY_META,
@@ -446,20 +448,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;full-node&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"full-node"</span>)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>other_io_error(err: String) -&gt; io::Error {
 	io::Error::new(io::ErrorKind::Other, err)
 }
 
-<span class="doccomment">/// Open the database on disk, creating it if it doesn&#39;t exist.
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;full-node&quot;</span>)]
+<span class="doccomment">/// Open the database on disk, creating it if it doesn't exist.
+</span><span class="attr">#[cfg(feature = <span class="string">"full-node"</span>)]
 </span><span class="kw">pub fn </span>open_creating_rocksdb(
 	root: PathBuf,
 	cache_sizes: CacheSizes,
 ) -&gt; io::Result&lt;Arc&lt;<span class="kw">dyn </span>Database&gt;&gt; {
 	<span class="kw">use </span>kvdb_rocksdb::{Database, DatabaseConfig};
 
-	<span class="kw">let </span>path = root.join(<span class="string">&quot;parachains&quot;</span>).join(<span class="string">&quot;db&quot;</span>);
+	<span class="kw">let </span>path = root.join(<span class="string">"parachains"</span>).join(<span class="string">"db"</span>);
 
 	<span class="kw">let </span><span class="kw-2">mut </span>db_config = DatabaseConfig::with_columns(columns::v4::NUM_COLUMNS);
 
@@ -475,7 +477,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">let </span>path_str = path
 		.to_str()
-		.ok_or_else(|| other_io_error(<span class="macro">format!</span>(<span class="string">&quot;Bad database path: {:?}&quot;</span>, path)))<span class="question-mark">?</span>;
+		.ok_or_else(|| other_io_error(<span class="macro">format!</span>(<span class="string">"Bad database path: {:?}"</span>, path)))<span class="question-mark">?</span>;
 
 	std::fs::create_dir_all(<span class="kw-2">&amp;</span>path_str)<span class="question-mark">?</span>;
 	upgrade::try_upgrade_db(<span class="kw-2">&amp;</span>path, DatabaseKind::RocksDB, upgrade::CURRENT_VERSION)<span class="question-mark">?</span>;
@@ -489,21 +491,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Open a parity db database.
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;full-node&quot;</span>)]
+</span><span class="attr">#[cfg(feature = <span class="string">"full-node"</span>)]
 </span><span class="kw">pub fn </span>open_creating_paritydb(
 	root: PathBuf,
 	_cache_sizes: CacheSizes,
 ) -&gt; io::Result&lt;Arc&lt;<span class="kw">dyn </span>Database&gt;&gt; {
-	<span class="kw">let </span>path = root.join(<span class="string">&quot;parachains&quot;</span>);
+	<span class="kw">let </span>path = root.join(<span class="string">"parachains"</span>);
 	<span class="kw">let </span>path_str = path
 		.to_str()
-		.ok_or_else(|| other_io_error(<span class="macro">format!</span>(<span class="string">&quot;Bad database path: {:?}&quot;</span>, path)))<span class="question-mark">?</span>;
+		.ok_or_else(|| other_io_error(<span class="macro">format!</span>(<span class="string">"Bad database path: {:?}"</span>, path)))<span class="question-mark">?</span>;
 
 	std::fs::create_dir_all(<span class="kw-2">&amp;</span>path_str)<span class="question-mark">?</span>;
 	upgrade::try_upgrade_db(<span class="kw-2">&amp;</span>path, DatabaseKind::ParityDB, upgrade::CURRENT_VERSION)<span class="question-mark">?</span>;
 
 	<span class="kw">let </span>db = parity_db::Db::open_or_create(<span class="kw-2">&amp;</span>upgrade::paritydb_version_3_config(<span class="kw-2">&amp;</span>path))
-		.map_err(|err| io::Error::new(io::ErrorKind::Other, <span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, err)))<span class="question-mark">?</span>;
+		.map_err(|err| io::Error::new(io::ErrorKind::Other, <span class="macro">format!</span>(<span class="string">"{:?}"</span>, err)))<span class="question-mark">?</span>;
 
 	<span class="kw">let </span>db = polkadot_node_subsystem_util::database::paritydb_impl::DbAdapter::new(
 		db,

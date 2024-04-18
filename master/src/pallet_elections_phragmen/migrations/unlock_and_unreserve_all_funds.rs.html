@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/elections-phragmen/src/migrations/unlock_and_unreserve_all_funds.rs`."><title>unlock_and_unreserve_all_funds.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/elections-phragmen/src/migrations/unlock_and_unreserve_all_funds.rs`."><title>unlock_and_unreserve_all_funds.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="pallet_elections_phragmen" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="pallet_elections_phragmen" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../pallet_elections_phragmen/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -665,14 +667,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -692,13 +694,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sp_runtime::traits::Zero;
 <span class="kw">use </span>sp_std::{collections::btree_map::BTreeMap, vec::Vec};
 
-<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;elections_phragmen::migrations::unlock_and_unreserve_all_funds&quot;</span>;
+<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"elections_phragmen::migrations::unlock_and_unreserve_all_funds"</span>;
 
 <span class="kw">type </span>BalanceOf&lt;T&gt; =
 	&lt;&lt;T <span class="kw">as </span>UnlockConfig&gt;::Currency <span class="kw">as </span>Currency&lt;&lt;T <span class="kw">as </span>UnlockConfig&gt;::AccountId&gt;&gt;::Balance;
 
 <span class="doccomment">/// The configuration for [`UnlockAndUnreserveAllFunds`].
-</span><span class="kw">pub trait </span>UnlockConfig: <span class="lifetime">&#39;static </span>{
+</span><span class="kw">pub trait </span>UnlockConfig: <span class="lifetime">'static </span>{
 	<span class="doccomment">/// The account ID used in the runtime.
 	</span><span class="kw">type </span>AccountId: Parameter + Ord;
 	<span class="doccomment">/// The currency type used in the runtime.
@@ -707,10 +709,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">type </span>Currency: LockableCurrency&lt;<span class="self">Self</span>::AccountId&gt; + ReservableCurrency&lt;<span class="self">Self</span>::AccountId&gt;;
 	<span class="doccomment">/// The name of the pallet as previously configured in
 	/// [`construct_runtime!`](frame_support::construct_runtime).
-	</span><span class="kw">type </span>PalletName: Get&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt;;
+	</span><span class="kw">type </span>PalletName: Get&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt;;
 	<span class="doccomment">/// The maximum number of votes per voter as configured previously in the previous runtime.
 	</span><span class="kw">type </span>MaxVotesPerVoter: Get&lt;u32&gt;;
-	<span class="doccomment">/// Identifier for the elections-phragmen pallet&#39;s lock, as previously configured in the
+	<span class="doccomment">/// Identifier for the elections-phragmen pallet's lock, as previously configured in the
 	/// runtime.
 	</span><span class="kw">type </span>PalletId: Get&lt;LockIdentifier&gt;;
 	<span class="doccomment">/// The DB weight as configured in the runtime to calculate the correct weight.
@@ -763,10 +765,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// The deposited and staked amounts are returned in two separate `BTreeMap` collections.
 	///
-	/// The first `BTreeMap`, `account_deposited_sums`, contains each account&#39;s total amount
+	/// The first `BTreeMap`, `account_deposited_sums`, contains each account's total amount
 	/// deposited. This includes deposits made by Members, RunnerUps, Candidates, and Voters.
 	///
-	/// The second `BTreeMap`, `account_staked_sums`, contains each account&#39;s total amount staked.
+	/// The second `BTreeMap`, `account_staked_sums`, contains each account's total amount staked.
 	/// This includes stakes made by Voters.
 	///
 	/// # Returns
@@ -845,9 +847,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// 4. Prints summary statistics about the state to be migrated.
 	/// 5. Encodes and returns pre-migration data to be used in post_upgrade.
 	///
-	/// Fails with a `TryRuntimeError` if there&#39;s a discrepancy between the amount
+	/// Fails with a `TryRuntimeError` if there's a discrepancy between the amount
 	/// reported as staked by the pallet and the amount actually locked in `Balances`.
-	</span><span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+	</span><span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 	</span><span class="kw">fn </span>pre_upgrade() -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, sp_runtime::TryRuntimeError&gt; {
 		<span class="kw">use </span>codec::Encode;
 		<span class="kw">use </span>sp_std::collections::btree_set::BTreeSet;
@@ -881,17 +883,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">let </span>total_stake_to_unlock = account_staked_sums.clone().into_values().sum::&lt;BalanceOf&lt;T&gt;&gt;();
 		<span class="kw">let </span>total_deposits_to_unreserve =
 			account_deposited_sums.clone().into_values().sum::&lt;BalanceOf&lt;T&gt;&gt;();
-		<span class="macro">log::info!</span>(target: LOG_TARGET, <span class="string">&quot;Total accounts: {:?}&quot;</span>, all_accounts.len());
-		<span class="macro">log::info!</span>(target: LOG_TARGET, <span class="string">&quot;Total stake to unlock: {:?}&quot;</span>, total_stake_to_unlock);
+		<span class="macro">log::info!</span>(target: LOG_TARGET, <span class="string">"Total accounts: {:?}"</span>, all_accounts.len());
+		<span class="macro">log::info!</span>(target: LOG_TARGET, <span class="string">"Total stake to unlock: {:?}"</span>, total_stake_to_unlock);
 		<span class="macro">log::info!</span>(
 			target: LOG_TARGET,
-			<span class="string">&quot;Total deposit to unreserve: {:?}&quot;</span>,
+			<span class="string">"Total deposit to unreserve: {:?}"</span>,
 			total_deposits_to_unreserve
 		);
 		<span class="kw">if </span>bugged_deposits &gt; <span class="number">0 </span>{
 			<span class="macro">log::warn!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;Bugged deposits: {}/{}&quot;</span>,
+				<span class="string">"Bugged deposits: {}/{}"</span>,
 				bugged_deposits,
 				all_accounts.len()
 			);
@@ -914,7 +916,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// Deposited funds need to be unreserved.
 		</span><span class="kw">for </span>(account, unreserve_amount) <span class="kw">in </span>account_deposited_sums.iter() {
 			<span class="kw">if </span>unreserve_amount.is_zero() {
-				<span class="macro">log::warn!</span>(target: LOG_TARGET, <span class="string">&quot;Unexpected zero amount to unreserve&quot;</span>);
+				<span class="macro">log::warn!</span>(target: LOG_TARGET, <span class="string">"Unexpected zero amount to unreserve"</span>);
 				<span class="kw">continue
 			</span>}
 			T::Currency::unreserve(<span class="kw-2">&amp;</span>account, <span class="kw-2">*</span>unreserve_amount);
@@ -923,7 +925,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// Staked funds need to be unlocked.
 		</span><span class="kw">for </span>(account, amount) <span class="kw">in </span>account_staked_sums.iter() {
 			<span class="kw">if </span>amount.is_zero() {
-				<span class="macro">log::warn!</span>(target: LOG_TARGET, <span class="string">&quot;Unexpected zero amount to unlock&quot;</span>);
+				<span class="macro">log::warn!</span>(target: LOG_TARGET, <span class="string">"Unexpected zero amount to unlock"</span>);
 				<span class="kw">continue
 			</span>}
 			T::Currency::remove_lock(T::PalletId::get(), account);
@@ -941,7 +943,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// 1. All expected locks were removed after the migration.
 	/// 2. The reserved balance for each account has been reduced by the expected amount.
-	</span><span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+	</span><span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 	</span><span class="kw">fn </span>post_upgrade(
 		account_reserved_before_bytes: Vec&lt;u8&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), sp_runtime::TryRuntimeError&gt; {
@@ -950,7 +952,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>account_reserved_before =
 			BTreeMap::&lt;T::AccountId, BalanceOf&lt;T&gt;&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>account_reserved_before_bytes[..])
-				.map_err(|<span class="kw">_</span>| <span class="string">&quot;Failed to decode account_reserved_before_bytes&quot;</span>)<span class="question-mark">?</span>;
+				.map_err(|<span class="kw">_</span>| <span class="string">"Failed to decode account_reserved_before_bytes"</span>)<span class="question-mark">?</span>;
 
 		<span class="comment">// Get deposited balances as reported by this pallet.
 		</span><span class="kw">let </span>(account_deposited_sums, <span class="kw">_</span>, <span class="kw">_</span>) = <span class="self">Self</span>::get_account_deposited_and_staked_sums();
@@ -968,7 +970,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				actual_reserved_before.saturating_sub(expected_amount_deducted);
 			<span class="macro">assert!</span>(
 				actual_reserved_after == expected_reserved_after,
-				<span class="string">&quot;Reserved balance for {:?} is incorrect. actual before: {:?}, actual after, {:?}, expected deducted: {:?}&quot;</span>,
+				<span class="string">"Reserved balance for {:?} is incorrect. actual before: {:?}, actual after, {:?}, expected deducted: {:?}"</span>,
 				account,
 				actual_reserved_before,
 				actual_reserved_after,
@@ -980,7 +982,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="attr">#[cfg(all(feature = <span class="string">&quot;try-runtime&quot;</span>, test))]
+<span class="attr">#[cfg(all(feature = <span class="string">"try-runtime"</span>, test))]
 </span><span class="kw">mod </span>test {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use crate</span>::{
@@ -993,7 +995,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	};
 
 	<span class="macro">parameter_types! </span>{
-		<span class="kw">const </span>PalletName: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;Elections&quot;</span>;
+		<span class="kw">const </span>PalletName: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"Elections"</span>;
 	}
 
 	<span class="kw">struct </span>UnlockConfigImpl;
@@ -1027,7 +1029,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="comment">// Run the migration.
 			</span><span class="kw">let </span>bytes = UnlockAndUnreserveAllFunds::&lt;UnlockConfigImpl&gt;::pre_upgrade()
-				.unwrap_or_else(|e| <span class="macro">panic!</span>(<span class="string">&quot;pre_upgrade failed: {:?}&quot;</span>, e));
+				.unwrap_or_else(|e| <span class="macro">panic!</span>(<span class="string">"pre_upgrade failed: {:?}"</span>, e));
 			UnlockAndUnreserveAllFunds::&lt;UnlockConfigImpl&gt;::on_runtime_upgrade();
 			<span class="macro">assert_ok!</span>(UnlockAndUnreserveAllFunds::&lt;UnlockConfigImpl&gt;::post_upgrade(bytes));
 
@@ -1060,7 +1062,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="comment">// Run the migration.
 			</span><span class="kw">let </span>bytes = UnlockAndUnreserveAllFunds::&lt;UnlockConfigImpl&gt;::pre_upgrade()
-				.unwrap_or_else(|e| <span class="macro">panic!</span>(<span class="string">&quot;pre_upgrade failed: {:?}&quot;</span>, e));
+				.unwrap_or_else(|e| <span class="macro">panic!</span>(<span class="string">"pre_upgrade failed: {:?}"</span>, e));
 			UnlockAndUnreserveAllFunds::&lt;UnlockConfigImpl&gt;::on_runtime_upgrade();
 			<span class="macro">assert_ok!</span>(UnlockAndUnreserveAllFunds::&lt;UnlockConfigImpl&gt;::post_upgrade(bytes));
 
@@ -1093,7 +1095,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="comment">// Run the migration.
 			</span><span class="kw">let </span>bytes = UnlockAndUnreserveAllFunds::&lt;UnlockConfigImpl&gt;::pre_upgrade()
-				.unwrap_or_else(|e| <span class="macro">panic!</span>(<span class="string">&quot;pre_upgrade failed: {:?}&quot;</span>, e));
+				.unwrap_or_else(|e| <span class="macro">panic!</span>(<span class="string">"pre_upgrade failed: {:?}"</span>, e));
 			UnlockAndUnreserveAllFunds::&lt;UnlockConfigImpl&gt;::on_runtime_upgrade();
 			<span class="macro">assert_ok!</span>(UnlockAndUnreserveAllFunds::&lt;UnlockConfigImpl&gt;::post_upgrade(bytes));
 
@@ -1110,7 +1112,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>voter = <span class="number">10</span>;
 		<span class="kw">let </span>deposit = <span class="number">100</span>;
 		<span class="kw">let </span>initial_reserved = <span class="number">15</span>;
-		<span class="kw">let </span>initial_locks = <span class="macro">vec!</span>[(<span class="string">b&quot;somethin&quot;</span>, <span class="number">10</span>)];
+		<span class="kw">let </span>initial_locks = <span class="macro">vec!</span>[(<span class="string">b"somethin"</span>, <span class="number">10</span>)];
 		<span class="kw">let </span>stake = <span class="number">25</span>;
 		<span class="kw">let </span>initial_balance = <span class="number">100_000</span>;
 		ExtBuilder::default().build_and_execute(|| {
@@ -1153,7 +1155,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="comment">// Run the migration.
 			</span><span class="kw">let </span>bytes = UnlockAndUnreserveAllFunds::&lt;UnlockConfigImpl&gt;::pre_upgrade()
-				.unwrap_or_else(|e| <span class="macro">panic!</span>(<span class="string">&quot;pre_upgrade failed: {:?}&quot;</span>, e));
+				.unwrap_or_else(|e| <span class="macro">panic!</span>(<span class="string">"pre_upgrade failed: {:?}"</span>, e));
 			UnlockAndUnreserveAllFunds::&lt;UnlockConfigImpl&gt;::on_runtime_upgrade();
 			<span class="macro">assert_ok!</span>(UnlockAndUnreserveAllFunds::&lt;UnlockConfigImpl&gt;::post_upgrade(bytes));
 

@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/election-provider-multi-phase/src/signed.rs`."><title>signed.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/election-provider-multi-phase/src/signed.rs`."><title>signed.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_election_provider_multi_phase" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_election_provider_multi_phase" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../pallet_election_provider_multi_phase/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1662,14 +1664,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -1780,7 +1782,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Mask type which pretends to be a set of `SignedSubmissionOf&lt;T&gt;`, while in fact delegating to the
 /// actual implementations in `SignedSubmissionIndices&lt;T&gt;`, `SignedSubmissionsMap&lt;T&gt;`, and
 /// `SignedSubmissionNextIndex&lt;T&gt;`.
-</span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(frame_support::DebugNoBound))]
+</span><span class="attr">#[cfg_attr(feature = <span class="string">"std"</span>, derive(frame_support::DebugNoBound))]
 </span><span class="kw">pub struct </span>SignedSubmissions&lt;T: Config&gt; {
 	indices: SubmissionIndicesOf&lt;T&gt;,
 	next_idx: u32,
@@ -1821,7 +1823,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Put the signed submissions back into storage.
 	</span><span class="kw">pub fn </span>put(<span class="kw-2">mut </span><span class="self">self</span>) {
-		<span class="comment">// validate that we&#39;re going to write only sane things to storage
+		<span class="comment">// validate that we're going to write only sane things to storage
 		</span><span class="macro">debug_assert!</span>(<span class="self">self
 			</span>.insertion_overlay
 			.keys()
@@ -1850,8 +1852,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Get the submission at a particular index.
 	</span><span class="kw">fn </span>get_submission(<span class="kw-2">&amp;</span><span class="self">self</span>, index: u32) -&gt; <span class="prelude-ty">Option</span>&lt;SignedSubmissionOf&lt;T&gt;&gt; {
 		<span class="kw">if </span><span class="self">self</span>.deletion_overlay.contains(<span class="kw-2">&amp;</span>index) {
-			<span class="comment">// Note: can&#39;t actually remove the item from the insertion overlay (if present) because
-			// we don&#39;t want to use `&amp;mut self` here. There may be some kind of `RefCell`
+			<span class="comment">// Note: can't actually remove the item from the insertion overlay (if present) because
+			// we don't want to use `&amp;mut self` here. There may be some kind of `RefCell`
 			// optimization possible here in the future.
 			</span><span class="prelude-val">None
 		</span>} <span class="kw">else </span>{
@@ -1871,7 +1873,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// The call site must ensure that `remove_pos` is a valid index. If otherwise, `None` is
 	/// silently returned.
 	///
-	/// Note: this doesn&#39;t insert into `insertion_overlay`, the optional new insertion must be
+	/// Note: this doesn't insert into `insertion_overlay`, the optional new insertion must be
 	/// inserted into `insertion_overlay` to keep the variable `self` in a valid state.
 	</span><span class="kw">fn </span>swap_out_submission(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
@@ -1888,7 +1890,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if let </span><span class="prelude-val">Some</span>((insert_score, block_number, insert_idx)) = insert {
 			<span class="self">self</span>.indices
 				.try_push((insert_score, block_number, insert_idx))
-				.expect(<span class="string">&quot;just removed an item, we must be under capacity; qed&quot;</span>);
+				.expect(<span class="string">"just removed an item, we must be under capacity; qed"</span>);
 		}
 
 		<span class="self">self</span>.insertion_overlay.remove(<span class="kw-2">&amp;</span>remove_index).or_else(|| {
@@ -1908,7 +1910,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Iterate through the set of signed submissions in order of increasing score.
-	</span><span class="kw">pub fn </span>iter(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw">impl </span><span class="lifetime">&#39;_ </span>+ Iterator&lt;Item = SignedSubmissionOf&lt;T&gt;&gt; {
+	</span><span class="kw">pub fn </span>iter(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw">impl </span><span class="lifetime">'_ </span>+ Iterator&lt;Item = SignedSubmissionOf&lt;T&gt;&gt; {
 		<span class="self">self</span>.indices
 			.iter()
 			.filter_map(<span class="kw">move </span>|(_score, _bn, idx)| <span class="self">self</span>.get_submission(<span class="kw-2">*</span>idx).defensive())
@@ -1976,7 +1978,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				};
 				<span class="kw">let </span>threshold = T::BetterSignedThreshold::get();
 
-				<span class="comment">// if we haven&#39;t improved on the weakest score, don&#39;t change anything.
+				<span class="comment">// if we haven't improved on the weakest score, don't change anything.
 				</span><span class="kw">if </span>!submission.raw_solution.score.strict_threshold_better(weakest_score, threshold)
 				{
 					<span class="kw">return </span>InsertResult::NotInserted
@@ -1997,7 +1999,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				x =&gt; x,
 			});
 
-		<span class="comment">// we&#39;ve taken out the weakest, so update the storage map and the next index
+		<span class="comment">// we've taken out the weakest, so update the storage map and the next index
 		</span><span class="macro">debug_assert!</span>(!<span class="self">self</span>.insertion_overlay.contains_key(<span class="kw-2">&amp;</span><span class="self">self</span>.next_idx));
 		<span class="self">self</span>.insertion_overlay.insert(<span class="self">self</span>.next_idx, submission);
 		<span class="macro">debug_assert!</span>(!<span class="self">self</span>.deletion_overlay.contains(<span class="kw-2">&amp;</span><span class="self">self</span>.next_idx));
@@ -2069,7 +2071,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">while let </span><span class="prelude-val">Some</span>(best) = all_submissions.pop_last() {
 			<span class="macro">log!</span>(
 				debug,
-				<span class="string">&quot;finalized_signed: trying to verify from {:?} score {:?}&quot;</span>,
+				<span class="string">"finalized_signed: trying to verify from {:?} score {:?}"</span>,
 				best.who,
 				best.raw_solution.score
 			);
@@ -2092,14 +2094,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						call_fee,
 					);
 					found_solution = <span class="bool-val">true</span>;
-					<span class="macro">log!</span>(debug, <span class="string">&quot;finalized_signed: found a valid solution&quot;</span>);
+					<span class="macro">log!</span>(debug, <span class="string">"finalized_signed: found a valid solution"</span>);
 
 					weight = weight
 						.saturating_add(T::WeightInfo::finalize_signed_phase_accept_solution());
 					<span class="kw">break
 				</span>},
 				<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
-					<span class="macro">log!</span>(warn, <span class="string">&quot;finalized_signed: invalid signed submission found, slashing.&quot;</span>);
+					<span class="macro">log!</span>(warn, <span class="string">"finalized_signed: invalid signed submission found, slashing."</span>);
 					<span class="self">Self</span>::finalize_signed_phase_reject_solution(<span class="kw-2">&amp;</span>who, deposit);
 					weight = weight
 						.saturating_add(T::WeightInfo::finalize_signed_phase_reject_solution());
@@ -2108,7 +2110,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 
 		<span class="comment">// Any unprocessed solution is pointless to even consider. Feasible or malicious,
-		// they didn&#39;t end up being used. Unreserve the bonds.
+		// they didn't end up being used. Unreserve the bonds.
 		</span><span class="kw">let </span>discarded = all_submissions.len();
 		<span class="kw">let </span><span class="kw-2">mut </span>refund_count = <span class="number">0</span>;
 		<span class="kw">let </span>max_refunds = T::SignedMaxRefunds::get();
@@ -2135,7 +2137,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="macro">log!</span>(
 			debug,
-			<span class="string">&quot;closed signed phase, found solution? {}, discarded {}&quot;</span>,
+			<span class="string">"closed signed phase, found solution? {}, discarded {}"</span>,
 			found_solution,
 			discarded
 		);
@@ -2297,7 +2299,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="macro">assert_noop!</span>(
 				MultiPhase::create_snapshot(),
-				ElectionError::DataProvider(<span class="string">&quot;Ensure targets bounds: bounds exceeded.&quot;</span>),
+				ElectionError::DataProvider(<span class="string">"Ensure targets bounds: bounds exceeded."</span>),
 			);
 		})
 	}
@@ -2313,7 +2315,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="macro">assert_noop!</span>(
 				MultiPhase::create_snapshot(),
-				ElectionError::DataProvider(<span class="string">&quot;Ensure voters bounds: bounds exceeded.&quot;</span>),
+				ElectionError::DataProvider(<span class="string">"Ensure voters bounds: bounds exceeded."</span>),
 			);
 		})
 	}
@@ -2329,7 +2331,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			// desired_targets
 			</span><span class="macro">assert_noop!</span>(
 				MultiPhase::create_snapshot_external(),
-				ElectionError::DataProvider(<span class="string">&quot;desired_targets must not be greater than MaxWinners.&quot;</span>),
+				ElectionError::DataProvider(<span class="string">"desired_targets must not be greater than MaxWinners."</span>),
 			);
 		})
 	}
@@ -2582,7 +2584,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="comment">// 1 runner up gets their call fee refunded
 					</span><span class="macro">assert_eq!</span>(balances(<span class="kw-2">&amp;</span>account), (<span class="number">100 </span>+ <span class="number">8</span>, <span class="number">0</span>))
 				} <span class="kw">else </span>{
-					<span class="comment">// all other solutions don&#39;t get a call fee refund
+					<span class="comment">// all other solutions don't get a call fee refund
 					</span><span class="macro">assert_eq!</span>(balances(<span class="kw-2">&amp;</span>account), (<span class="number">100</span>, <span class="number">0</span>));
 				}
 			}
@@ -3149,7 +3151,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// _some_ good solution was stored.
 			</span><span class="macro">assert!</span>(MultiPhase::finalize_signed_phase());
 
-			<span class="comment">// calling it again doesn&#39;t change anything
+			<span class="comment">// calling it again doesn't change anything
 			</span><span class="macro">assert_storage_noop!</span>(MultiPhase::finalize_signed_phase());
 
 			<span class="macro">assert_eq!</span>(

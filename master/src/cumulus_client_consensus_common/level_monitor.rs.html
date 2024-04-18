@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `cumulus/client/consensus/common/src/level_monitor.rs`."><title>level_monitor.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `cumulus/client/consensus/common/src/level_monitor.rs`."><title>level_monitor.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="cumulus_client_consensus_common" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="cumulus_client_consensus_common" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../cumulus_client_consensus_common/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -577,7 +579,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	sync::Arc,
 };
 
-<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;level-monitor&quot;</span>;
+<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"level-monitor"</span>;
 
 <span class="doccomment">/// Value good enough to be used with parachains using the current backend implementation
 /// that ships with Substrate. This value may change in the future.
@@ -591,9 +593,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// If the limit is set and more leaves are detected on block import, then the older ones are
 /// dropped to make space for the fresh blocks.
 ///
-/// In environments where blocks confirmations from the relay chain may be &quot;slow&quot;, then
+/// In environments where blocks confirmations from the relay chain may be "slow", then
 /// setting an upper bound helps keeping the chain health by dropping old (presumably) stale
-/// leaves and prevents discarding new blocks because we&#39;ve reached the backend max value.
+/// leaves and prevents discarding new blocks because we've reached the backend max value.
 </span><span class="kw">pub enum </span>LevelLimit {
 	<span class="doccomment">/// Limit set to [`MAX_LEAVES_PER_LEVEL_SENSIBLE_DEFAULT`].
 	</span>Default,
@@ -649,7 +651,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Restore the structure using the backend.
 	///
 	/// Blocks freshness values are inferred from the height and not from the effective import
-	/// moment. This is a not accurate but &quot;good-enough&quot; best effort solution.
+	/// moment. This is a not accurate but "good-enough" best effort solution.
 	///
 	/// Level limits are not enforced during this phase.
 	</span><span class="kw">fn </span>restore(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
@@ -657,7 +659,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="macro">log::debug!</span>(
 			target: LOG_TARGET,
-			<span class="string">&quot;Restoring chain level monitor from last finalized block: {} {}&quot;</span>,
+			<span class="string">"Restoring chain level monitor from last finalized block: {} {}"</span>,
 			info.finalized_number,
 			info.finalized_hash
 		);
@@ -669,7 +671,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span><span class="prelude-val">Ok</span>(<span class="kw-2">mut </span>meta) = <span class="self">self</span>.backend.blockchain().header_metadata(leaf) <span class="kw">else </span>{
 				<span class="macro">log::debug!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Could not fetch header metadata for leaf: {leaf:?}&quot;</span>,
+					<span class="string">"Could not fetch header metadata for leaf: {leaf:?}"</span>,
 				);
 
 				<span class="kw">continue
@@ -677,7 +679,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="self">self</span>.import_counter = <span class="self">self</span>.import_counter.max(meta.number);
 
-			<span class="comment">// Populate the monitor until we don&#39;t hit an already imported branch
+			<span class="comment">// Populate the monitor until we don't hit an already imported branch
 			</span><span class="kw">while </span>!<span class="self">self</span>.freshness.contains_key(<span class="kw-2">&amp;</span>meta.hash) {
 				<span class="self">self</span>.freshness.insert(meta.hash, meta.number);
 				<span class="self">self</span>.levels.entry(meta.number).or_default().insert(meta.hash);
@@ -691,7 +693,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="comment">// This can happen after we have warp synced a node.
 						</span><span class="macro">log::debug!</span>(
 							target: LOG_TARGET,
-							<span class="string">&quot;Could not fetch header metadata for parent: {:?}&quot;</span>,
+							<span class="string">"Could not fetch header metadata for parent: {:?}"</span>,
 							meta.parent,
 						);
 						<span class="kw">break
@@ -702,7 +704,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="macro">log::debug!</span>(
 			target: LOG_TARGET,
-			<span class="string">&quot;Restored chain level monitor up to height {}&quot;</span>,
+			<span class="string">"Restored chain level monitor up to height {}"</span>,
 			<span class="self">self</span>.import_counter
 		);
 	}
@@ -718,9 +720,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// The removal strategy is driven by the block freshness.
 	///
 	/// A block freshness is determined by the most recent leaf freshness descending from the block
-	/// itself. In other words its freshness is equal to its more &quot;fresh&quot; descendant.
+	/// itself. In other words its freshness is equal to its more "fresh" descendant.
 	///
-	/// The least &quot;fresh&quot; blocks are eventually removed.
+	/// The least "fresh" blocks are eventually removed.
 	</span><span class="kw">pub fn </span>enforce_limit(<span class="kw-2">&amp;mut </span><span class="self">self</span>, number: NumberFor&lt;Block&gt;) {
 		<span class="kw">let </span>level_len = <span class="self">self</span>.levels.get(<span class="kw-2">&amp;</span>number).map(|l| l.len()).unwrap_or_default();
 		<span class="kw">if </span>level_len &lt; <span class="self">self</span>.level_limit {
@@ -734,7 +736,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span><span class="kw-2">mut </span>invalidated_leaves = HashSet::new();
 
 		<span class="comment">// This may not be the most efficient way to remove **multiple** entries, but is the easy
-		// one :-). Should be considered that in &quot;normal&quot; conditions the number of blocks to remove
+		// one :-). Should be considered that in "normal" conditions the number of blocks to remove
 		// is 0 or 1, it is not worth to complicate the code too much. One condition that may
 		// trigger multiple removals (2+) is if we restart the node using an existing db and a
 		// smaller limit wrt the one previously used.
@@ -742,7 +744,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="macro">log::debug!</span>(
 			target: LOG_TARGET,
-			<span class="string">&quot;Detected leaves overflow at height {number}, removing {remove_count} obsolete blocks&quot;</span>,
+			<span class="string">"Detected leaves overflow at height {number}, removing {remove_count} obsolete blocks"</span>,
 		);
 
 		(<span class="number">0</span>..remove_count).all(|<span class="kw">_</span>| {
@@ -760,7 +762,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	// 2. Set the candidate freshness equal to the fresher of its descending leaves.
 	// 3. The target is set as the candidate that is less fresh.
 	//
-	// Input `leaves` are assumed to be already ordered by &quot;freshness&quot; (less fresh first).
+	// Input `leaves` are assumed to be already ordered by "freshness" (less fresh first).
 	//
 	// Returns the index of the target fresher leaf within `leaves` and the route from target to
 	// such leaf.
@@ -805,7 +807,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							<span class="prelude-val">Err</span>(err) =&gt; {
 								<span class="macro">log::warn!</span>(
 									target: LOG_TARGET,
-									<span class="string">&quot;(Lookup) Unable getting route from {:?} to {:?}: {}&quot;</span>,
+									<span class="string">"(Lookup) Unable getting route from {:?} to {:?}: {}"</span>,
 									blk_hash,
 									leaf_hash,
 									err,
@@ -826,7 +828,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="comment">// This should never happen
 					</span><span class="macro">log::error!</span>(
 						target: LOG_TARGET,
-						<span class="string">&quot;Unable getting route to any leaf from {:?} (this is a bug)&quot;</span>,
+						<span class="string">"Unable getting route to any leaf from {:?} (this is a bug)"</span>,
 						blk_hash,
 					);
 					<span class="kw">continue
@@ -867,7 +869,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="comment">// Remove the target block and all its descendants.
 	//
-	// Leaves should have already been ordered by &quot;freshness&quot; (less fresh first).
+	// Leaves should have already been ordered by "freshness" (less fresh first).
 	</span><span class="kw">fn </span>remove_target(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		target: TargetInfo&lt;Block&gt;,
@@ -876,9 +878,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		invalidated_leaves: <span class="kw-2">&amp;mut </span>HashSet&lt;usize&gt;,
 	) {
 		<span class="kw">let </span><span class="kw-2">mut </span>remove_leaf = |number, hash| {
-			<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;Removing block (@{}) {:?}&quot;</span>, number, hash);
+			<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"Removing block (@{}) {:?}"</span>, number, hash);
 			<span class="kw">if let </span><span class="prelude-val">Err</span>(err) = <span class="self">self</span>.backend.remove_leaf_block(hash) {
-				<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;Remove not possible for {}: {}&quot;</span>, hash, err);
+				<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"Remove not possible for {}: {}"</span>, hash, err);
 				<span class="kw">return </span><span class="bool-val">false
 			</span>}
 			<span class="self">self</span>.levels.get_mut(<span class="kw-2">&amp;</span>number).map(|level| level.remove(<span class="kw-2">&amp;</span>hash));
@@ -900,13 +902,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">debug_assert_eq!</span>(
 			target.freshest_route.common_block().number,
 			number,
-			<span class="string">&quot;This is a bug in LevelMonitor::find_target() or the Backend is corrupted&quot;
+			<span class="string">"This is a bug in LevelMonitor::find_target() or the Backend is corrupted"
 		</span>);
 
 		<span class="comment">// Remove freshest (cached) route first.
 		</span>remove_route(target.freshest_route);
 
-		<span class="comment">// Don&#39;t bother trying with leaves we already found to not be our descendants.
+		<span class="comment">// Don't bother trying with leaves we already found to not be our descendants.
 		</span><span class="kw">let </span>to_skip = leaves.len() - target.freshest_leaf_idx;
 		leaves.iter().enumerate().rev().skip(to_skip).for_each(|(leaf_idx, leaf_hash)| {
 			<span class="kw">if </span>invalidated_leaves.contains(<span class="kw-2">&amp;</span>leaf_idx) {
@@ -920,7 +922,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="prelude-val">Err</span>(err) =&gt; {
 					<span class="macro">log::warn!</span>(
 						target: LOG_TARGET,
-						<span class="string">&quot;(Removal) unable getting route from {:?} to {:?}: {}&quot;</span>,
+						<span class="string">"(Removal) unable getting route from {:?} to {:?}: {}"</span>,
 						target_hash,
 						leaf_hash,
 						err,

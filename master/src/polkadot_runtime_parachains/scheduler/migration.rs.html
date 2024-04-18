@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/runtime/parachains/src/scheduler/migration.rs`."><title>migration.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/runtime/parachains/src/scheduler/migration.rs`."><title>migration.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_runtime_parachains" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_runtime_parachains" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../polkadot_runtime_parachains/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -596,11 +598,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>Scheduled&lt;T: Config&gt; = StorageValue&lt;Pallet&lt;T&gt;, Vec&lt;CoreAssignment&gt;, ValueQuery&gt;;
 
 	<span class="attr">#[derive(Clone, Encode, Decode)]
-	#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(PartialEq))]
+	#[cfg_attr(feature = <span class="string">"std"</span>, derive(PartialEq))]
 	</span><span class="kw">pub struct </span>ParathreadClaim(<span class="kw">pub </span>Id, <span class="kw">pub </span>CollatorId);
 
 	<span class="attr">#[derive(Clone, Encode, Decode)]
-	#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(PartialEq))]
+	#[cfg_attr(feature = <span class="string">"std"</span>, derive(PartialEq))]
 	</span><span class="kw">pub struct </span>ParathreadEntry {
 		<span class="doccomment">/// The claim.
 		</span><span class="kw">pub </span>claim: ParathreadClaim,
@@ -610,7 +612,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// What is occupying a specific availability core.
 	</span><span class="attr">#[derive(Clone, Encode, Decode)]
-	#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(PartialEq))]
+	#[cfg_attr(feature = <span class="string">"std"</span>, derive(PartialEq))]
 	</span><span class="kw">pub enum </span>CoreOccupied {
 		<span class="doccomment">/// A parathread.
 		</span>Parathread(ParathreadEntry),
@@ -618,12 +620,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>Parachain,
 	}
 
-	<span class="doccomment">/// The actual type isn&#39;t important, as we only delete the key in the state.
+	<span class="doccomment">/// The actual type isn't important, as we only delete the key in the state.
 	</span><span class="attr">#[storage_alias]
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>AvailabilityCores&lt;T: Config&gt; =
 		StorageValue&lt;Pallet&lt;T&gt;, Vec&lt;<span class="prelude-ty">Option</span>&lt;CoreOccupied&gt;&gt;, ValueQuery&gt;;
 
-	<span class="doccomment">/// The actual type isn&#39;t important, as we only delete the key in the state.
+	<span class="doccomment">/// The actual type isn't important, as we only delete the key in the state.
 	</span><span class="attr">#[storage_alias]
 	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>ParathreadQueue&lt;T: Config&gt; = StorageValue&lt;Pallet&lt;T&gt;, (), ValueQuery&gt;;
 
@@ -632,7 +634,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// The assignment type.
 	</span><span class="attr">#[derive(Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
-	#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(PartialEq))]
+	#[cfg_attr(feature = <span class="string">"std"</span>, derive(PartialEq))]
 	</span><span class="kw">pub enum </span>AssignmentKind {
 		<span class="doccomment">/// A parachain.
 		</span>Parachain,
@@ -642,7 +644,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// How a free core is scheduled to be assigned.
 	</span><span class="attr">#[derive(Clone, Encode, Decode, TypeInfo, RuntimeDebug)]
-	#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(PartialEq))]
+	#[cfg_attr(feature = <span class="string">"std"</span>, derive(PartialEq))]
 	</span><span class="kw">pub struct </span>CoreAssignment {
 		<span class="doccomment">/// The core that is assigned.
 		</span><span class="kw">pub </span>core: CoreIndex,
@@ -770,31 +772,31 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// 2x kill
 			</span>weight.saturating_accrue(T::DbWeight::get().writes(<span class="number">2</span>));
 
-			<span class="macro">log::info!</span>(target: scheduler::LOG_TARGET, <span class="string">&quot;Migrated para scheduler storage to v1&quot;</span>);
+			<span class="macro">log::info!</span>(target: scheduler::LOG_TARGET, <span class="string">"Migrated para scheduler storage to v1"</span>);
 
 			weight
 		}
 
-		<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+		<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 		</span><span class="kw">fn </span>pre_upgrade() -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, sp_runtime::DispatchError&gt; {
 			<span class="kw">let </span>n: u32 = v0::Scheduled::&lt;T&gt;::get().len() <span class="kw">as </span>u32 +
 				v0::AvailabilityCores::&lt;T&gt;::get().iter().filter(|c| c.is_some()).count() <span class="kw">as </span>u32;
 
 			<span class="macro">log::info!</span>(
 				target: <span class="kw">crate</span>::scheduler::LOG_TARGET,
-				<span class="string">&quot;Number of scheduled and waiting for availability before: {n}&quot;</span>,
+				<span class="string">"Number of scheduled and waiting for availability before: {n}"</span>,
 			);
 
 			<span class="prelude-val">Ok</span>(n.encode())
 		}
 
-		<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+		<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 		</span><span class="kw">fn </span>post_upgrade(state: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), sp_runtime::DispatchError&gt; {
-			<span class="macro">log::info!</span>(target: <span class="kw">crate</span>::scheduler::LOG_TARGET, <span class="string">&quot;Running post_upgrade()&quot;</span>);
+			<span class="macro">log::info!</span>(target: <span class="kw">crate</span>::scheduler::LOG_TARGET, <span class="string">"Running post_upgrade()"</span>);
 
 			<span class="macro">ensure!</span>(
 				v0::Scheduled::&lt;T&gt;::get().is_empty(),
-				<span class="string">&quot;Scheduled should be empty after the migration&quot;
+				<span class="string">"Scheduled should be empty after the migration"
 			</span>);
 
 			<span class="kw">let </span>expected_len = u32::decode(<span class="kw-2">&amp;mut &amp;</span>state[..]).unwrap();
@@ -806,7 +808,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">ensure!</span>(
 				Pallet::&lt;T&gt;::claimqueue_len() <span class="kw">as </span>u32 + availability_cores_waiting <span class="kw">as </span>u32 ==
 					expected_len,
-				<span class="string">&quot;ClaimQueue and AvailabilityCores should have the correct length&quot;</span>,
+				<span class="string">"ClaimQueue and AvailabilityCores should have the correct length"</span>,
 			);
 
 			<span class="prelude-val">Ok</span>(())
@@ -920,16 +922,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			weight.saturating_accrue(T::DbWeight::get().reads_writes(<span class="number">1</span>, <span class="number">1</span>));
 
-			<span class="macro">log::info!</span>(target: scheduler::LOG_TARGET, <span class="string">&quot;Migrating para scheduler storage to v2&quot;</span>);
+			<span class="macro">log::info!</span>(target: scheduler::LOG_TARGET, <span class="string">"Migrating para scheduler storage to v2"</span>);
 
 			weight
 		}
 
-		<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+		<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 		</span><span class="kw">fn </span>pre_upgrade() -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, sp_runtime::DispatchError&gt; {
 			<span class="macro">log::trace!</span>(
 				target: <span class="kw">crate</span>::scheduler::LOG_TARGET,
-				<span class="string">&quot;ClaimQueue before migration: {}&quot;</span>,
+				<span class="string">"ClaimQueue before migration: {}"</span>,
 				v1::ClaimQueue::&lt;T&gt;::get().len()
 			);
 
@@ -938,14 +940,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Ok</span>(bytes.to_vec())
 		}
 
-		<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+		<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 		</span><span class="kw">fn </span>post_upgrade(state: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), sp_runtime::DispatchError&gt; {
-			<span class="macro">log::trace!</span>(target: <span class="kw">crate</span>::scheduler::LOG_TARGET, <span class="string">&quot;Running post_upgrade()&quot;</span>);
+			<span class="macro">log::trace!</span>(target: <span class="kw">crate</span>::scheduler::LOG_TARGET, <span class="string">"Running post_upgrade()"</span>);
 
 			<span class="kw">let </span>old_len = u32::from_be_bytes(state.try_into().unwrap());
 			<span class="macro">ensure!</span>(
 				v2::ClaimQueue::&lt;T&gt;::get().len() <span class="kw">as </span>u32 == old_len,
-				<span class="string">&quot;Old ClaimQueue completely moved to new ClaimQueue after migration&quot;
+				<span class="string">"Old ClaimQueue completely moved to new ClaimQueue after migration"
 			</span>);
 
 			<span class="prelude-val">Ok</span>(())

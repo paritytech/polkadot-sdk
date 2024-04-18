@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `bridges/relays/messages/src/message_lane_loop.rs`."><title>message_lane_loop.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `bridges/relays/messages/src/message_lane_loop.rs`."><title>message_lane_loop.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="messages_relay" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="messages_relay" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../messages_relay/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1486,14 +1488,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Message delivery race parameters.
 </span><span class="attr">#[derive(Debug, Clone)]
 </span><span class="kw">pub struct </span>MessageDeliveryParams {
-	<span class="doccomment">/// Maximal number of unconfirmed relayer entries at the inbound lane. If there&#39;s that number
+	<span class="doccomment">/// Maximal number of unconfirmed relayer entries at the inbound lane. If there's that number
 	/// of entries in the `InboundLaneData::relayers` set, all new messages will be rejected until
 	/// reward payment will be proved (by including outbound lane state to the message delivery
 	/// transaction).
 	</span><span class="kw">pub </span>max_unrewarded_relayer_entries_at_target: MessageNonce,
 	<span class="doccomment">/// Message delivery race will stop delivering messages if there are
 	/// `max_unconfirmed_nonces_at_target` unconfirmed nonces on the target node. The race would
-	/// continue once they&#39;re confirmed by the receiving race.
+	/// continue once they're confirmed by the receiving race.
 	</span><span class="kw">pub </span>max_unconfirmed_nonces_at_target: MessageNonce,
 	<span class="doccomment">/// Maximal number of relayed messages in single delivery transaction.
 	</span><span class="kw">pub </span>max_messages_in_single_batch: MessageNonce,
@@ -1523,7 +1525,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub struct </span>MessageProofParameters {
 	<span class="doccomment">/// Include outbound lane state proof?
 	</span><span class="kw">pub </span>outbound_state_proof_required: bool,
-	<span class="doccomment">/// Cumulative dispatch weight of messages that we&#39;re building proof for.
+	<span class="doccomment">/// Cumulative dispatch weight of messages that we're building proof for.
 	</span><span class="kw">pub </span>dispatch_weight: Weight,
 }
 
@@ -1676,7 +1678,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Best finalized header id of the peer chain read at the best block of this chain (at
 	/// `best_finalized_self`).
 	///
-	/// It may be `None` e,g. if peer is a parachain and we haven&#39;t yet relayed any parachain
+	/// It may be `None` e,g. if peer is a parachain and we haven't yet relayed any parachain
 	/// heads.
 	</span><span class="kw">pub </span>best_finalized_peer_at_best_self: <span class="prelude-ty">Option</span>&lt;PeerHeaderId&gt;,
 	<span class="doccomment">/// Header id of the peer chain with the number, matching the
@@ -1702,7 +1704,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Return prefix that will be used by default to expose Prometheus metrics of the finality proofs
 /// sync loop.
 </span><span class="kw">pub fn </span>metrics_prefix&lt;P: MessageLane&gt;(lane: <span class="kw-2">&amp;</span>LaneId) -&gt; String {
-	<span class="macro">format!</span>(<span class="string">&quot;{}_to_{}_MessageLane_{}&quot;</span>, P::SOURCE_NAME, P::TARGET_NAME, hex::encode(lane))
+	<span class="macro">format!</span>(<span class="string">"{}_to_{}_MessageLane_{}"</span>, P::SOURCE_NAME, P::TARGET_NAME, hex::encode(lane))
 }
 
 <span class="doccomment">/// Run message lane service loop.
@@ -1711,7 +1713,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	source_client: <span class="kw">impl </span>SourceClient&lt;P&gt;,
 	target_client: <span class="kw">impl </span>TargetClient&lt;P&gt;,
 	metrics_params: MetricsParams,
-	exit_signal: <span class="kw">impl </span>Future&lt;Output = ()&gt; + Send + <span class="lifetime">&#39;static</span>,
+	exit_signal: <span class="kw">impl </span>Future&lt;Output = ()&gt; + Send + <span class="lifetime">'static</span>,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(), relay_utils::Error&gt; {
 	<span class="kw">let </span>exit_signal = exit_signal.shared();
 	relay_utils::relay_loop(source_client, target_client)
@@ -1806,8 +1808,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw-2">&amp;mut </span>source_retry_backoff,
 					|new_source_state| {
 						<span class="macro">log::debug!</span>(
-							target: <span class="string">&quot;bridge&quot;</span>,
-							<span class="string">&quot;Received state from {} node: {:?}&quot;</span>,
+							target: <span class="string">"bridge"</span>,
+							<span class="string">"Received state from {} node: {:?}"</span>,
 							P::SOURCE_NAME,
 							new_source_state,
 						);
@@ -1820,7 +1822,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					},
 					<span class="kw-2">&amp;mut </span>source_go_offline_future,
 					async_std::task::sleep,
-					|| <span class="macro">format!</span>(<span class="string">&quot;Error retrieving state from {} node&quot;</span>, P::SOURCE_NAME),
+					|| <span class="macro">format!</span>(<span class="string">"Error retrieving state from {} node"</span>, P::SOURCE_NAME),
 				).fail_if_connection_error(FailedClient::Source)<span class="question-mark">?</span>;
 			},
 			<span class="kw">_ </span>= source_go_offline_future =&gt; {
@@ -1837,8 +1839,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw-2">&amp;mut </span>target_retry_backoff,
 					|new_target_state| {
 						<span class="macro">log::debug!</span>(
-							target: <span class="string">&quot;bridge&quot;</span>,
-							<span class="string">&quot;Received state from {} node: {:?}&quot;</span>,
+							target: <span class="string">"bridge"</span>,
+							<span class="string">"Received state from {} node: {:?}"</span>,
 							P::TARGET_NAME,
 							new_target_state,
 						);
@@ -1851,7 +1853,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					},
 					<span class="kw-2">&amp;mut </span>target_go_offline_future,
 					async_std::task::sleep,
-					|| <span class="macro">format!</span>(<span class="string">&quot;Error retrieving state from {} node&quot;</span>, P::TARGET_NAME),
+					|| <span class="macro">format!</span>(<span class="string">"Error retrieving state from {} node"</span>, P::TARGET_NAME),
 				).fail_if_connection_error(FailedClient::Target)<span class="question-mark">?</span>;
 			},
 			<span class="kw">_ </span>= target_go_offline_future =&gt; {
@@ -1863,13 +1865,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			delivery_error = delivery_race_loop =&gt; {
 				<span class="kw">match </span>delivery_error {
-					<span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; <span class="macro">unreachable!</span>(<span class="string">&quot;only ends with error; qed&quot;</span>),
+					<span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; <span class="macro">unreachable!</span>(<span class="string">"only ends with error; qed"</span>),
 					<span class="prelude-val">Err</span>(err) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(err),
 				}
 			},
 			receiving_error = receiving_race_loop =&gt; {
 				<span class="kw">match </span>receiving_error {
-					<span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; <span class="macro">unreachable!</span>(<span class="string">&quot;only ends with error; qed&quot;</span>),
+					<span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; <span class="macro">unreachable!</span>(<span class="string">"only ends with error; qed"</span>),
 					<span class="prelude-val">Err</span>(err) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(err),
 				}
 			},
@@ -1880,13 +1882,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 
 		<span class="kw">if </span>source_client_is_online &amp;&amp; source_state_required {
-			<span class="macro">log::debug!</span>(target: <span class="string">&quot;bridge&quot;</span>, <span class="string">&quot;Asking {} node about its state&quot;</span>, P::SOURCE_NAME);
+			<span class="macro">log::debug!</span>(target: <span class="string">"bridge"</span>, <span class="string">"Asking {} node about its state"</span>, P::SOURCE_NAME);
 			source_state.set(source_client.state().fuse());
 			source_client_is_online = <span class="bool-val">false</span>;
 		}
 
 		<span class="kw">if </span>target_client_is_online &amp;&amp; target_state_required {
-			<span class="macro">log::debug!</span>(target: <span class="string">&quot;bridge&quot;</span>, <span class="string">&quot;Asking {} node about its state&quot;</span>, P::TARGET_NAME);
+			<span class="macro">log::debug!</span>(target: <span class="string">"bridge"</span>, <span class="string">"Asking {} node about its state"</span>, P::TARGET_NAME);
 			target_state.set(target_client.state().fuse());
 			target_client_is_online = <span class="bool-val">false</span>;
 		}
@@ -1934,8 +1936,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub struct </span>TestMessageLane;
 
 	<span class="kw">impl </span>MessageLane <span class="kw">for </span>TestMessageLane {
-		<span class="kw">const </span>SOURCE_NAME: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;TestSource&quot;</span>;
-		<span class="kw">const </span>TARGET_NAME: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;TestTarget&quot;</span>;
+		<span class="kw">const </span>SOURCE_NAME: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"TestSource"</span>;
+		<span class="kw">const </span>TARGET_NAME: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"TestTarget"</span>;
 
 		<span class="kw">type </span>MessagesProof = TestMessagesProof;
 		<span class="kw">type </span>MessagesReceivingProof = TestMessagesReceivingProof;
@@ -2368,7 +2370,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		source_post_tick: Arc&lt;<span class="kw">dyn </span>Fn(<span class="kw-2">&amp;mut </span>TestClientData) + Send + Sync&gt;,
 		target_tick: Arc&lt;<span class="kw">dyn </span>Fn(<span class="kw-2">&amp;mut </span>TestClientData) + Send + Sync&gt;,
 		target_post_tick: Arc&lt;<span class="kw">dyn </span>Fn(<span class="kw-2">&amp;mut </span>TestClientData) + Send + Sync&gt;,
-		exit_signal: <span class="kw">impl </span>Future&lt;Output = ()&gt; + <span class="lifetime">&#39;static </span>+ Send,
+		exit_signal: <span class="kw">impl </span>Future&lt;Output = ()&gt; + <span class="lifetime">'static </span>+ Send,
 	) -&gt; TestClientData {
 		async_std::task::block_on(<span class="kw">async </span>{
 			<span class="kw">let </span>source_client = TestSourceClient {
@@ -2462,7 +2464,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>message_lane_loop_is_able_to_recover_from_unsuccessful_transaction() {
 		<span class="comment">// with this configuration, both source and target clients will mine their transactions, but
-		// their corresponding nonce won&#39;t be udpated =&gt; reconnect will happen
+		// their corresponding nonce won't be udpated =&gt; reconnect will happen
 		</span><span class="kw">let </span>(exit_sender, exit_receiver) = unbounded();
 		<span class="kw">let </span>result = run_loop_test(
 			Arc::new(Mutex::new(TestClientData {
@@ -2498,8 +2500,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				}
 			}),
 			Arc::new(<span class="kw">move </span>|data: <span class="kw-2">&amp;mut </span>TestClientData| {
-				<span class="comment">// if it is the first time we&#39;re submitting delivery proof, let&#39;s revert changes
-				// to source status =&gt; then the delivery confirmation transaction is &quot;finalized&quot;,
+				<span class="comment">// if it is the first time we're submitting delivery proof, let's revert changes
+				// to source status =&gt; then the delivery confirmation transaction is "finalized",
 				// but the state is not altered
 				</span><span class="kw">if </span>data.submitted_messages_receiving_proofs.len() == <span class="number">1 </span>{
 					data.source_latest_confirmed_received_nonce = <span class="number">0</span>;
@@ -2525,8 +2527,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				}
 			}),
 			Arc::new(<span class="kw">move </span>|data: <span class="kw-2">&amp;mut </span>TestClientData| {
-				<span class="comment">// if it is the first time we&#39;re submitting messages proof, let&#39;s revert changes
-				// to target status =&gt; then the messages delivery transaction is &quot;finalized&quot;, but
+				<span class="comment">// if it is the first time we're submitting messages proof, let's revert changes
+				// to target status =&gt; then the messages delivery transaction is "finalized", but
 				// the state is not altered
 				</span><span class="kw">if </span>data.submitted_messages_proofs.len() == <span class="number">1 </span>{
 					data.target_latest_received_nonce = <span class="number">0</span>;

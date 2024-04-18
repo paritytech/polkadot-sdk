@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/core/runtime-api/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/core/runtime-api/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_node_core_runtime_api" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_node_core_runtime_api" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../polkadot_node_core_runtime_api/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -800,6 +802,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#651" id="651">651</a>
 <a href="#652" id="652">652</a>
 <a href="#653" id="653">653</a>
+<a href="#654" id="654">654</a>
+<a href="#655" id="655">655</a>
+<a href="#656" id="656">656</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -844,14 +849,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests;
 
-<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;parachain::runtime-api&quot;</span>;
+<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"parachain::runtime-api"</span>;
 
 <span class="doccomment">/// The number of maximum runtime API requests can be executed in parallel.
 /// Further requests will backpressure the bounded channel.
 </span><span class="kw">const </span>MAX_PARALLEL_REQUESTS: usize = <span class="number">4</span>;
 
 <span class="doccomment">/// The name of the blocking task that executes a runtime API request.
-</span><span class="kw">const </span>API_REQUEST_TASK_NAME: <span class="kw-2">&amp;</span>str = <span class="string">&quot;polkadot-runtime-api-request&quot;</span>;
+</span><span class="kw">const </span>API_REQUEST_TASK_NAME: <span class="kw-2">&amp;</span>str = <span class="string">"polkadot-runtime-api-request"</span>;
 
 <span class="doccomment">/// The `RuntimeApiSubsystem`. See module docs for more details.
 </span><span class="kw">pub struct </span>RuntimeApiSubsystem&lt;Client&gt; {
@@ -869,7 +874,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub fn </span>new(
 		client: Arc&lt;Client&gt;,
 		metrics: Metrics,
-		spawner: <span class="kw">impl </span>overseer::gen::Spawner + <span class="lifetime">&#39;static</span>,
+		spawner: <span class="kw">impl </span>overseer::gen::Spawner + <span class="lifetime">'static</span>,
 	) -&gt; <span class="self">Self </span>{
 		RuntimeApiSubsystem {
 			client,
@@ -884,16 +889,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[overseer::subsystem(RuntimeApi, error = SubsystemError, prefix = <span class="self">self</span>::overseer)]
 </span><span class="kw">impl</span>&lt;Client, Context&gt; RuntimeApiSubsystem&lt;Client&gt;
 <span class="kw">where
-	</span>Client: RuntimeApiSubsystemClient + Send + Sync + <span class="lifetime">&#39;static</span>,
+	</span>Client: RuntimeApiSubsystemClient + Send + Sync + <span class="lifetime">'static</span>,
 {
 	<span class="kw">fn </span>start(<span class="self">self</span>, ctx: Context) -&gt; SpawnedSubsystem {
-		SpawnedSubsystem { future: run(ctx, <span class="self">self</span>).boxed(), name: <span class="string">&quot;runtime-api-subsystem&quot; </span>}
+		SpawnedSubsystem { future: run(ctx, <span class="self">self</span>).boxed(), name: <span class="string">"runtime-api-subsystem" </span>}
 	}
 }
 
 <span class="kw">impl</span>&lt;Client&gt; RuntimeApiSubsystem&lt;Client&gt;
 <span class="kw">where
-	</span>Client: RuntimeApiSubsystemClient + Send + <span class="lifetime">&#39;static </span>+ Sync,
+	</span>Client: RuntimeApiSubsystemClient + Send + <span class="lifetime">'static </span>+ Sync,
 {
 	<span class="kw">fn </span>store_cache(<span class="kw-2">&amp;mut </span><span class="self">self</span>, result: RequestResult) {
 		<span class="kw">use </span>RequestResult::<span class="kw-2">*</span>;
@@ -903,7 +908,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="self">self</span>.requests_cache.cache_authorities(relay_parent, authorities),
 			Validators(relay_parent, validators) =&gt;
 				<span class="self">self</span>.requests_cache.cache_validators(relay_parent, validators),
-			MinimumBackingVotes(<span class="kw">_</span>, session_index, minimum_backing_votes) =&gt; <span class="self">self
+			MinimumBackingVotes(session_index, minimum_backing_votes) =&gt; <span class="self">self
 				</span>.requests_cache
 				.cache_minimum_backing_votes(session_index, minimum_backing_votes),
 			ValidatorGroups(relay_parent, groups) =&gt;
@@ -957,7 +962,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="self">self</span>.requests_cache.cache_on_chain_votes(relay_parent, scraped),
 			PvfsRequirePrecheck(relay_parent, pvfs) =&gt;
 				<span class="self">self</span>.requests_cache.cache_pvfs_require_precheck(relay_parent, pvfs),
-			SubmitPvfCheckStatement(<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, ()) =&gt; {},
+			SubmitPvfCheckStatement(()) =&gt; {},
 			ValidationCodeHash(relay_parent, para_id, assumption, hash) =&gt; <span class="self">self
 				</span>.requests_cache
 				.cache_validation_code_hash((relay_parent, para_id, assumption), hash),
@@ -972,7 +977,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.cache_key_ownership_proof((relay_parent, validator_id), key_ownership_proof),
 			RequestResult::ApprovalVotingParams(_relay_parent, session_index, params) =&gt;
 				<span class="self">self</span>.requests_cache.cache_approval_voting_params(session_index, params),
-			SubmitReportDisputeLost(<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>) =&gt; {},
+			SubmitReportDisputeLost(<span class="kw">_</span>) =&gt; {},
 			DisabledValidators(relay_parent, disabled_validators) =&gt;
 				<span class="self">self</span>.requests_cache.cache_disabled_validators(relay_parent, disabled_validators),
 			ParaBackingState(relay_parent, para_id, constraints) =&gt; <span class="self">self
@@ -1164,7 +1169,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		.boxed();
 
 		<span class="self">self</span>.spawn_handle
-			.spawn_blocking(API_REQUEST_TASK_NAME, <span class="prelude-val">Some</span>(<span class="string">&quot;runtime-api&quot;</span>), request);
+			.spawn_blocking(API_REQUEST_TASK_NAME, <span class="prelude-val">Some</span>(<span class="string">"runtime-api"</span>), request);
 		<span class="self">self</span>.active_requests.push(receiver);
 	}
 
@@ -1172,7 +1177,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">async fn </span>poll_requests(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
 		<span class="comment">// If there are no active requests, this future should be pending forever.
 		</span><span class="kw">if </span><span class="self">self</span>.active_requests.len() == <span class="number">0 </span>{
-			<span class="kw">return </span><span class="macro">futures::pending!</span>()
+			<span class="kw">return </span><span class="macro">futures::pending!</span>();
 		}
 
 		<span class="comment">// If there are active requests, this will always resolve to `Some(_)` when a request is
@@ -1194,10 +1199,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw-2">mut </span>subsystem: RuntimeApiSubsystem&lt;Client&gt;,
 ) -&gt; SubsystemResult&lt;()&gt;
 <span class="kw">where
-	</span>Client: RuntimeApiSubsystemClient + Send + Sync + <span class="lifetime">&#39;static</span>,
+	</span>Client: RuntimeApiSubsystemClient + Send + Sync + <span class="lifetime">'static</span>,
 {
 	<span class="kw">loop </span>{
-		<span class="comment">// Let&#39;s add some back pressure when the subsystem is running at `MAX_PARALLEL_REQUESTS`.
+		<span class="comment">// Let's add some back pressure when the subsystem is running at `MAX_PARALLEL_REQUESTS`.
 		// This can never block forever, because `active_requests` is owned by this task and any
 		// mutations happen either in `poll_requests` or `spawn_request` - so if `is_busy` returns
 		// true, then even if all of the requests finish before us calling `poll_requests` the
@@ -1231,7 +1236,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	request: Request,
 ) -&gt; <span class="prelude-ty">Option</span>&lt;RequestResult&gt;
 <span class="kw">where
-	</span>Client: RuntimeApiSubsystemClient + <span class="lifetime">&#39;static</span>,
+	</span>Client: RuntimeApiSubsystemClient + <span class="lifetime">'static</span>,
 {
 	<span class="kw">let </span>_timer = metrics.time_make_runtime_api_request();
 
@@ -1241,13 +1246,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}};
 		(<span class="macro-nonterminal">$req_variant</span>:ident, <span class="macro-nonterminal">$api_name</span>:ident ($(<span class="macro-nonterminal">$param</span>:expr),<span class="kw-2">*</span>), ver = <span class="macro-nonterminal">$version</span>:expr, <span class="macro-nonterminal">$sender</span>:expr, result = ( $(<span class="macro-nonterminal">$results</span>:expr),* ) ) =&gt; {{
 			<span class="kw">let </span>sender = <span class="macro-nonterminal">$sender</span>;
-			<span class="kw">let </span>version: u32 = <span class="macro-nonterminal">$version</span>;	<span class="comment">// enforce type for the version expression
+			<span class="kw">let </span>version: u32 = <span class="macro-nonterminal">$version</span>; <span class="comment">// enforce type for the version expression
 			</span><span class="kw">let </span>runtime_version = client.api_version_parachain_host(relay_parent).<span class="kw">await
 				</span>.unwrap_or_else(|e| {
 					<span class="macro">gum::warn!</span>(
 						target: LOG_TARGET,
 						api = <span class="question-mark">?</span><span class="macro">stringify!</span>(<span class="macro-nonterminal">$api_name</span>),
-						<span class="string">&quot;cannot query the runtime API version: {}&quot;</span>,
+						<span class="string">"cannot query the runtime API version: {}"</span>,
 						e,
 					);
 					<span class="prelude-val">Some</span>(<span class="number">0</span>)
@@ -1255,7 +1260,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.unwrap_or_else(|| {
 					<span class="macro">gum::warn!</span>(
 						target: LOG_TARGET,
-						<span class="string">&quot;no runtime version is reported&quot;
+						<span class="string">"no runtime version is reported"
 					</span>);
 					<span class="number">0
 				</span>});
@@ -1282,9 +1287,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		Request::Version(sender) =&gt; {
 			<span class="kw">let </span>runtime_version = <span class="kw">match </span>client.api_version_parachain_host(relay_parent).<span class="kw">await </span>{
 				<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(v)) =&gt; <span class="prelude-val">Ok</span>(v),
-				<span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>) =&gt; <span class="prelude-val">Err</span>(RuntimeApiError::NotSupported { runtime_api_name: <span class="string">&quot;api_version&quot; </span>}),
+				<span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>) =&gt; <span class="prelude-val">Err</span>(RuntimeApiError::NotSupported { runtime_api_name: <span class="string">"api_version" </span>}),
 				<span class="prelude-val">Err</span>(e) =&gt; <span class="prelude-val">Err</span>(RuntimeApiError::Execution {
-					runtime_api_name: <span class="string">&quot;api_version&quot;</span>,
+					runtime_api_name: <span class="string">"api_version"</span>,
 					source: std::sync::Arc::new(e),
 				}),
 			};
@@ -1372,7 +1377,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				SubmitPvfCheckStatement,
 				submit_pvf_check_statement(stmt, signature),
 				ver = <span class="number">2</span>,
-				sender
+				sender,
+				result = ()
 			)
 		},
 		Request::PvfsRequirePrecheck(sender) =&gt; {
@@ -1408,13 +1414,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			SubmitReportDisputeLost,
 			submit_report_dispute_lost(dispute_proof, key_ownership_proof),
 			ver = Request::SUBMIT_REPORT_DISPUTE_LOST_RUNTIME_REQUIREMENT,
-			sender
+			sender,
+			result = ()
 		),
 		Request::MinimumBackingVotes(index, sender) =&gt; <span class="macro">query!</span>(
 			MinimumBackingVotes,
 			minimum_backing_votes(index),
 			ver = Request::MINIMUM_BACKING_VOTES_RUNTIME_REQUIREMENT,
-			sender
+			sender,
+			result = (index)
 		),
 		Request::DisabledValidators(sender) =&gt; <span class="macro">query!</span>(
 			DisabledValidators,

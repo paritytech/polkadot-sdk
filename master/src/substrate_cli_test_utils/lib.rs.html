@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/test-utils/cli/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/test-utils/cli/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="substrate_cli_test_utils" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="substrate_cli_test_utils" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../substrate_cli_test_utils/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -543,7 +545,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>tokio::io::{AsyncBufReadExt, AsyncRead};
 
 <span class="doccomment">/// Similar to [`crate::start_node`] spawns a node, but works in environments where the substrate
-/// binary is not accessible with `cargo_bin(&quot;substrate-node&quot;)`, and allows customising the args
+/// binary is not accessible with `cargo_bin("substrate-node")`, and allows customising the args
 /// passed in.
 ///
 /// Helpful if you need a Substrate dev node running in the background of a project external to
@@ -556,10 +558,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// ```ignore
 /// // Spawn a dev node.
 /// let _ = std::thread::spawn(move || {
-///     match common::start_node_inline(vec![&quot;--dev&quot;, &quot;--rpc-port=12345&quot;]) {
+///     match common::start_node_inline(vec!["--dev", "--rpc-port=12345"]) {
 ///         Ok(_) =&gt; {}
 ///         Err(e) =&gt; {
-///             panic!(&quot;Node exited with error: {}&quot;, e);
+///             panic!("Node exited with error: {}", e);
 ///         }
 ///     }
 /// });
@@ -568,7 +570,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use </span>sc_cli::SubstrateCli;
 
 	<span class="comment">// Prepend the args with some dummy value because the first arg is skipped.
-	</span><span class="kw">let </span>cli_call = std::iter::once(<span class="string">&quot;node-template&quot;</span>).chain(args);
+	</span><span class="kw">let </span>cli_call = std::iter::once(<span class="string">"node-template"</span>).chain(args);
 	<span class="kw">let </span>cli = node_cli::Cli::from_iter(cli_call);
 	<span class="kw">let </span>runner = cli.create_runner(<span class="kw-2">&amp;</span>cli.run).unwrap();
 	runner.run_node_until_exit(|config| <span class="kw">async move </span>{ node_cli::service::new_full(config, cli) })
@@ -600,10 +602,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// [`Child`]: std::process::Child
 </span><span class="kw">pub fn </span>start_node() -&gt; Child {
-	Command::new(cargo_bin(<span class="string">&quot;substrate-node&quot;</span>))
+	Command::new(cargo_bin(<span class="string">"substrate-node"</span>))
 		.stdout(process::Stdio::piped())
 		.stderr(process::Stdio::piped())
-		.args(<span class="kw-2">&amp;</span>[<span class="string">&quot;--dev&quot;</span>, <span class="string">&quot;--tmp&quot;</span>, <span class="string">&quot;--rpc-port=45789&quot;</span>, <span class="string">&quot;--no-hardware-benchmarks&quot;</span>])
+		.args(<span class="kw-2">&amp;</span>[<span class="string">"--dev"</span>, <span class="string">"--tmp"</span>, <span class="string">"--rpc-port=45789"</span>, <span class="string">"--no-hardware-benchmarks"</span>])
 		.spawn()
 		.unwrap()
 }
@@ -628,34 +630,34 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// * The CARGO_MANIFEST_DIR environment variable is not set.
 /// * The root workspace directory cannot be determined.
-/// * The &#39;cargo b&#39; command fails to execute.
-/// * The &#39;cargo b&#39; command returns a non-successful status.
+/// * The 'cargo b' command fails to execute.
+/// * The 'cargo b' command returns a non-successful status.
 ///
 /// # Examples
 ///
 /// ```ignore
-/// build_substrate(&amp;[&quot;--features=try-runtime&quot;]);
+/// build_substrate(&amp;["--features=try-runtime"]);
 /// ```
 </span><span class="kw">pub fn </span>build_substrate(args: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>str]) {
-	<span class="kw">let </span>is_release_build = !<span class="macro">cfg!</span>(build_type = <span class="string">&quot;debug&quot;</span>);
+	<span class="kw">let </span>is_release_build = !<span class="macro">cfg!</span>(build_type = <span class="string">"debug"</span>);
 
 	<span class="comment">// Get the root workspace directory from the CARGO_MANIFEST_DIR environment variable
-	</span><span class="kw">let </span><span class="kw-2">mut </span>cmd = Command::new(<span class="string">&quot;cargo&quot;</span>);
+	</span><span class="kw">let </span><span class="kw-2">mut </span>cmd = Command::new(<span class="string">"cargo"</span>);
 
-	cmd.arg(<span class="string">&quot;build&quot;</span>).arg(<span class="string">&quot;-p=staging-node-cli&quot;</span>);
+	cmd.arg(<span class="string">"build"</span>).arg(<span class="string">"-p=staging-node-cli"</span>);
 
 	<span class="kw">if </span>is_release_build {
-		cmd.arg(<span class="string">&quot;--release&quot;</span>);
+		cmd.arg(<span class="string">"--release"</span>);
 	}
 
 	<span class="kw">let </span>output = cmd
 		.args(args)
 		.output()
-		.expect(<span class="macro">format!</span>(<span class="string">&quot;Failed to execute &#39;cargo b&#39; with args {:?}&#39;&quot;</span>, args).as_str());
+		.expect(<span class="macro">format!</span>(<span class="string">"Failed to execute 'cargo b' with args {:?}'"</span>, args).as_str());
 
 	<span class="kw">if </span>!output.status.success() {
 		<span class="macro">panic!</span>(
-			<span class="string">&quot;Failed to execute &#39;cargo b&#39; with args {:?}&#39;: \n{}&quot;</span>,
+			<span class="string">"Failed to execute 'cargo b' with args {:?}': \n{}"</span>,
 			args,
 			String::from_utf8_lossy(<span class="kw-2">&amp;</span>output.stderr)
 		);
@@ -686,13 +688,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// use tokio::io::AsyncRead;
 ///
 /// # async fn run() {
-/// let child = Command::new(&quot;some-command&quot;).stderr(std::process::Stdio::piped()).spawn().unwrap();
+/// let child = Command::new("some-command").stderr(std::process::Stdio::piped()).spawn().unwrap();
 /// let stderr = child.stderr.unwrap();
-/// let re = Regex::new(&quot;error:&quot;).unwrap();
+/// let re = Regex::new("error:").unwrap();
 ///
 /// match wait_for_pattern_match_in_stream(stderr, re).await {
-///     Ok(()) =&gt; println!(&quot;Error found in stderr&quot;),
-///     Err(e) =&gt; println!(&quot;Error: {}&quot;, e),
+///     Ok(()) =&gt; println!("Error found in stderr"),
+///     Err(e) =&gt; println!("Error: {}", e),
 /// }
 /// # }
 /// ```
@@ -707,12 +709,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">None </span>=&gt; (),
 		}
 	}
-	<span class="prelude-val">Err</span>(String::from(<span class="string">&quot;Stream closed without any lines matching the regex.&quot;</span>))
+	<span class="prelude-val">Err</span>(String::from(<span class="string">"Stream closed without any lines matching the regex."</span>))
 }
 
 <span class="doccomment">/// Run the given `future` and panic if the `timeout` is hit.
 </span><span class="kw">pub async fn </span>run_with_timeout(timeout: Duration, future: <span class="kw">impl </span>futures::Future&lt;Output = ()&gt;) {
-	tokio::time::timeout(timeout, future).<span class="kw">await</span>.expect(<span class="string">&quot;Hit timeout&quot;</span>);
+	tokio::time::timeout(timeout, future).<span class="kw">await</span>.expect(<span class="string">"Hit timeout"</span>);
 }
 
 <span class="doccomment">/// Wait for at least n blocks to be finalized from a specified node
@@ -738,11 +740,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Run the node for a while (3 blocks)
 </span><span class="kw">pub async fn </span>run_node_for_a_while(base_path: <span class="kw-2">&amp;</span>Path, args: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>str]) {
 	run_with_timeout(Duration::from_secs(<span class="number">60 </span>* <span class="number">10</span>), <span class="kw">async move </span>{
-		<span class="kw">let </span><span class="kw-2">mut </span>cmd = Command::new(cargo_bin(<span class="string">&quot;substrate-node&quot;</span>))
+		<span class="kw">let </span><span class="kw-2">mut </span>cmd = Command::new(cargo_bin(<span class="string">"substrate-node"</span>))
 			.stdout(process::Stdio::piped())
 			.stderr(process::Stdio::piped())
 			.args(args)
-			.arg(<span class="string">&quot;-d&quot;</span>)
+			.arg(<span class="string">"-d"</span>)
 			.arg(base_path)
 			.spawn()
 			.unwrap();
@@ -774,12 +776,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Some</span>(ListOrValue::Value(NumberOrHex::Number(block_number))),
 	)
 	.<span class="kw">await
-	</span>.map_err(|<span class="kw">_</span>| <span class="string">&quot;Couldn&#39;t get block hash&quot;</span>.to_string())<span class="question-mark">?</span>;
+	</span>.map_err(|<span class="kw">_</span>| <span class="string">"Couldn't get block hash"</span>.to_string())<span class="question-mark">?</span>;
 
 	<span class="kw">match </span>result {
 		ListOrValue::Value(maybe_block_hash) <span class="kw">if </span>maybe_block_hash.is_some() =&gt;
 			<span class="prelude-val">Ok</span>(maybe_block_hash.unwrap()),
-		<span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(<span class="string">&quot;Couldn&#39;t get block hash&quot;</span>.to_string()),
+		<span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(<span class="string">"Couldn't get block hash"</span>.to_string()),
 	}
 }
 
@@ -788,7 +790,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl </span>KillChildOnDrop {
 	<span class="doccomment">/// Stop the child and wait until it is finished.
 	///
-	/// Asserts if the exit status isn&#39;t success.
+	/// Asserts if the exit status isn't success.
 	</span><span class="kw">pub fn </span>stop(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
 		<span class="self">self</span>.stop_with_signal(SIGINT);
 	}
@@ -801,7 +803,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Asserts that the child is still running.
 	</span><span class="kw">pub fn </span>assert_still_running(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
-		<span class="macro">assert!</span>(<span class="self">self</span>.try_wait().unwrap().is_none(), <span class="string">&quot;the process should still be running&quot;</span>);
+		<span class="macro">assert!</span>(<span class="self">self</span>.try_wait().unwrap().is_none(), <span class="string">"the process should still be running"</span>);
 	}
 }
 
@@ -840,25 +842,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>ws_url = BufReader::new(read)
 		.lines()
 		.find_map(|line| {
-			<span class="kw">let </span>line = line.expect(<span class="string">&quot;failed to obtain next line while extracting node info&quot;</span>);
+			<span class="kw">let </span>line = line.expect(<span class="string">"failed to obtain next line while extracting node info"</span>);
 			data.push_str(<span class="kw-2">&amp;</span>line);
-			data.push_str(<span class="string">&quot;\n&quot;</span>);
+			data.push_str(<span class="string">"\n"</span>);
 
 			<span class="comment">// does the line contain our port (we expect this specific output from substrate).
-			</span><span class="kw">let </span>sock_addr = <span class="kw">match </span>line.split_once(<span class="string">&quot;Running JSON-RPC server: addr=&quot;</span>) {
+			</span><span class="kw">let </span>sock_addr = <span class="kw">match </span>line.split_once(<span class="string">"Running JSON-RPC server: addr="</span>) {
 				<span class="prelude-val">None </span>=&gt; <span class="kw">return </span><span class="prelude-val">None</span>,
-				<span class="prelude-val">Some</span>((<span class="kw">_</span>, after)) =&gt; after.split_once(<span class="string">&quot;,&quot;</span>).unwrap().<span class="number">0</span>,
+				<span class="prelude-val">Some</span>((<span class="kw">_</span>, after)) =&gt; after.split_once(<span class="string">","</span>).unwrap().<span class="number">0</span>,
 			};
 
-			<span class="prelude-val">Some</span>(<span class="macro">format!</span>(<span class="string">&quot;ws://{}&quot;</span>, sock_addr))
+			<span class="prelude-val">Some</span>(<span class="macro">format!</span>(<span class="string">"ws://{}"</span>, sock_addr))
 		})
 		.unwrap_or_else(|| {
-			<span class="macro">eprintln!</span>(<span class="string">&quot;Observed node output:\n{}&quot;</span>, data);
-			<span class="macro">panic!</span>(<span class="string">&quot;We should get a WebSocket address&quot;</span>)
+			<span class="macro">eprintln!</span>(<span class="string">"Observed node output:\n{}"</span>, data);
+			<span class="macro">panic!</span>(<span class="string">"We should get a WebSocket address"</span>)
 		});
 
 	<span class="comment">// Database path is printed before the ws url!
-	</span><span class="kw">let </span>re = Regex::new(<span class="string">r&quot;Database: .+ at (\S+)&quot;</span>).unwrap();
+	</span><span class="kw">let </span>re = Regex::new(<span class="string">r"Database: .+ at (\S+)"</span>).unwrap();
 	<span class="kw">let </span>db_path = PathBuf::from(re.captures(data.as_str()).unwrap().get(<span class="number">1</span>).unwrap().as_str());
 
 	(NodeInfo { ws_url, db_path }, data)

@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/consensus/epochs/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/consensus/epochs/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_consensus_epochs" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_consensus_epochs" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sc_consensus_epochs/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1328,7 +1330,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Build an `is_descendent_of` function.
 	///
 	/// The `current` parameter can be `Some` with the details a fresh block whose
-	/// details aren&#39;t yet stored, but its parent is.
+	/// details aren't yet stored, but its parent is.
 	///
 	/// The format of `current` when `Some` is `(current, current_parent)`.
 	</span><span class="kw">fn </span>build_is_descendent_of(<span class="kw-2">&amp;</span><span class="self">self</span>, current: <span class="prelude-ty">Option</span>&lt;(Hash, Hash)&gt;) -&gt; <span class="self">Self</span>::IsDescendentOf;
@@ -1343,14 +1345,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// `IsDescendentOfBuilder` for header backends.
 </span><span class="kw">pub struct </span>HeaderBackendDescendentBuilder&lt;H, Block&gt;(H, std::marker::PhantomData&lt;Block&gt;);
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, H, Block&gt; IsDescendentOfBuilder&lt;Block::Hash&gt;
-	<span class="kw">for </span>HeaderBackendDescendentBuilder&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>H, Block&gt;
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, H, Block&gt; IsDescendentOfBuilder&lt;Block::Hash&gt;
+	<span class="kw">for </span>HeaderBackendDescendentBuilder&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>H, Block&gt;
 <span class="kw">where
 	</span>H: HeaderBackend&lt;Block&gt; + HeaderMetadata&lt;Block, Error = ClientError&gt;,
 	Block: BlockT,
 {
 	<span class="kw">type </span>Error = ClientError;
-	<span class="kw">type </span>IsDescendentOf = Box&lt;<span class="kw">dyn </span>Fn(<span class="kw-2">&amp;</span>Block::Hash, <span class="kw-2">&amp;</span>Block::Hash) -&gt; <span class="prelude-ty">Result</span>&lt;bool, ClientError&gt; + <span class="lifetime">&#39;a</span>&gt;;
+	<span class="kw">type </span>IsDescendentOf = Box&lt;<span class="kw">dyn </span>Fn(<span class="kw-2">&amp;</span>Block::Hash, <span class="kw-2">&amp;</span>Block::Hash) -&gt; <span class="prelude-ty">Result</span>&lt;bool, ClientError&gt; + <span class="lifetime">'a</span>&gt;;
 
 	<span class="kw">fn </span>build_is_descendent_of(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
@@ -1372,15 +1374,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// The starting slot of the epoch.
 	</span><span class="kw">fn </span>start_slot(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self</span>::Slot;
-	<span class="doccomment">/// Produce the &quot;end slot&quot; of the epoch. This is NOT inclusive to the epoch,
+	<span class="doccomment">/// Produce the "end slot" of the epoch. This is NOT inclusive to the epoch,
 	/// i.e. the slots covered by the epoch are `self.start_slot() .. self.end_slot()`.
 	</span><span class="kw">fn </span>end_slot(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self</span>::Slot;
 	<span class="doccomment">/// Increment the epoch data, using the next epoch descriptor.
 	</span><span class="kw">fn </span>increment(<span class="kw-2">&amp;</span><span class="self">self</span>, descriptor: <span class="self">Self</span>::NextEpochDescriptor) -&gt; <span class="self">Self</span>;
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, E: Epoch&gt; From&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>E&gt; <span class="kw">for </span>EpochHeader&lt;E&gt; {
-	<span class="kw">fn </span>from(epoch: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>E) -&gt; EpochHeader&lt;E&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, E: Epoch&gt; From&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>E&gt; <span class="kw">for </span>EpochHeader&lt;E&gt; {
+	<span class="kw">fn </span>from(epoch: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>E) -&gt; EpochHeader&lt;E&gt; {
 		<span class="self">Self </span>{ start_slot: epoch.start_slot(), end_slot: epoch.end_slot() }
 	}
 }
@@ -1529,8 +1531,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, E: Epoch&gt; From&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>PersistedEpoch&lt;E&gt;&gt; <span class="kw">for </span>PersistedEpochHeader&lt;E&gt; {
-	<span class="kw">fn </span>from(epoch: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>PersistedEpoch&lt;E&gt;) -&gt; <span class="self">Self </span>{
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, E: Epoch&gt; From&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>PersistedEpoch&lt;E&gt;&gt; <span class="kw">for </span>PersistedEpochHeader&lt;E&gt; {
+	<span class="kw">fn </span>from(epoch: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>PersistedEpoch&lt;E&gt;) -&gt; <span class="self">Self </span>{
 		<span class="kw">match </span>epoch {
 			PersistedEpoch::Genesis(<span class="kw-2">ref </span>epoch_0, <span class="kw-2">ref </span>epoch_1) =&gt;
 				PersistedEpochHeader::Genesis(epoch_0.into(), epoch_1.into()),
@@ -1594,7 +1596,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// A fresh, incremented epoch to import into the underlying fork-tree.
 ///
 /// Create this with `ViableEpoch::increment`.
-</span><span class="attr">#[must_use = <span class="string">&quot;Freshly-incremented epoch must be imported with `EpochChanges::import`&quot;</span>]
+</span><span class="attr">#[must_use = <span class="string">"Freshly-incremented epoch must be imported with `EpochChanges::import`"</span>]
 </span><span class="kw">pub struct </span>IncrementedEpoch&lt;E: Epoch&gt;(PersistedEpoch&lt;E&gt;);
 
 <span class="kw">impl</span>&lt;E: Epoch&gt; AsRef&lt;E&gt; <span class="kw">for </span>IncrementedEpoch&lt;E&gt; {
@@ -1613,7 +1615,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// The first epoch, epoch_0, is special cased by saying that it starts at
 /// slot number of the first block in the chain. When bootstrapping a chain,
 /// there can be multiple competing block #1s, so we have to ensure that the overlaid
-/// DAG doesn&#39;t get confused.
+/// DAG doesn't get confused.
 ///
 /// The first block of every epoch should be producing a descriptor for the next
 /// epoch - this is checked in higher-level code. So the first block of epoch_0 contains
@@ -1627,7 +1629,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	epochs: BTreeMap&lt;(Hash, Number), PersistedEpoch&lt;E&gt;&gt;,
 }
 
-<span class="comment">// create a fake header hash which hasn&#39;t been included in the chain.
+<span class="comment">// create a fake header hash which hasn't been included in the chain.
 </span><span class="kw">fn </span>fake_head_hash&lt;H: AsRef&lt;[u8]&gt; + AsMut&lt;[u8]&gt; + Clone&gt;(parent_hash: <span class="kw-2">&amp;</span>H) -&gt; H {
 	<span class="kw">let </span><span class="kw-2">mut </span>h = parent_hash.clone();
 	<span class="comment">// dirty trick: flip the first bit of the parent hash to create a hash
@@ -1837,8 +1839,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// find_node_where will give you the node in the fork-tree which is an ancestor
 		// of the `parent_hash` by default. if the last epoch was signalled at the parent_hash,
-		// then it won&#39;t be returned. we need to create a new fake chain head hash which
-		// &quot;descends&quot; from our parent-hash.
+		// then it won't be returned. we need to create a new fake chain head hash which
+		// "descends" from our parent-hash.
 		</span><span class="kw">let </span>fake_head_hash = fake_head_hash(parent_hash);
 
 		<span class="kw">let </span>is_descendent_of =
@@ -1846,8 +1848,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// We want to find the deepest node in the tree which is an ancestor
 		// of our block and where the start slot of the epoch was before the
-		// slot of our block. The genesis special-case doesn&#39;t need to look
-		// at epoch_1 -- all we&#39;re doing here is figuring out which node
+		// slot of our block. The genesis special-case doesn't need to look
+		// at epoch_1 -- all we're doing here is figuring out which node
 		// we need.
 		</span><span class="kw">let </span>predicate = |epoch: <span class="kw-2">&amp;</span>PersistedEpochHeader&lt;E&gt;| <span class="kw">match </span><span class="kw-2">*</span>epoch {
 			PersistedEpochHeader::Genesis(<span class="kw-2">ref </span>epoch_0, <span class="kw">_</span>) =&gt; epoch_0.start_slot &lt;= slot,
@@ -1960,7 +1962,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="comment">// Found a node to be removed.
 				</span>FilterAction::Remove
 			} <span class="kw">else </span>{
-				<span class="comment">// Not a parent or child of the one we&#39;re looking for, stop processing this branch.
+				<span class="comment">// Not a parent or child of the one we're looking for, stop processing this branch.
 				</span>FilterAction::KeepTree
 			}
 		};
@@ -1993,18 +1995,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">impl </span>std::fmt::Display <span class="kw">for </span>TestError {
 		<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter) -&gt; std::fmt::Result {
-			<span class="macro">write!</span>(f, <span class="string">&quot;TestError&quot;</span>)
+			<span class="macro">write!</span>(f, <span class="string">"TestError"</span>)
 		}
 	}
 
 	<span class="kw">impl </span>std::error::Error <span class="kw">for </span>TestError {}
 
-	<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, F: <span class="lifetime">&#39;a</span>, H: <span class="lifetime">&#39;a </span>+ PartialEq + std::fmt::Debug&gt; IsDescendentOfBuilder&lt;H&gt; <span class="kw">for </span><span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>F
+	<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, F: <span class="lifetime">'a</span>, H: <span class="lifetime">'a </span>+ PartialEq + std::fmt::Debug&gt; IsDescendentOfBuilder&lt;H&gt; <span class="kw">for </span><span class="kw-2">&amp;</span><span class="lifetime">'a </span>F
 	<span class="kw">where
 		</span>F: Fn(<span class="kw-2">&amp;</span>H, <span class="kw-2">&amp;</span>H) -&gt; <span class="prelude-ty">Result</span>&lt;bool, TestError&gt;,
 	{
 		<span class="kw">type </span>Error = TestError;
-		<span class="kw">type </span>IsDescendentOf = Box&lt;<span class="kw">dyn </span>Fn(<span class="kw-2">&amp;</span>H, <span class="kw-2">&amp;</span>H) -&gt; <span class="prelude-ty">Result</span>&lt;bool, TestError&gt; + <span class="lifetime">&#39;a</span>&gt;;
+		<span class="kw">type </span>IsDescendentOf = Box&lt;<span class="kw">dyn </span>Fn(<span class="kw-2">&amp;</span>H, <span class="kw-2">&amp;</span>H) -&gt; <span class="prelude-ty">Result</span>&lt;bool, TestError&gt; + <span class="lifetime">'a</span>&gt;;
 
 		<span class="kw">fn </span>build_is_descendent_of(<span class="kw-2">&amp;</span><span class="self">self</span>, current: <span class="prelude-ty">Option</span>&lt;(H, H)&gt;) -&gt; <span class="self">Self</span>::IsDescendentOf {
 			<span class="kw">let </span>f = <span class="kw-2">*</span><span class="self">self</span>;
@@ -2061,16 +2063,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		//
 		</span><span class="kw">let </span>is_descendent_of = |base: <span class="kw-2">&amp;</span>Hash, block: <span class="kw-2">&amp;</span>Hash| -&gt; <span class="prelude-ty">Result</span>&lt;bool, TestError&gt; {
 			<span class="kw">match </span>(base, <span class="kw-2">*</span>block) {
-				(<span class="string">b&quot;A&quot;</span>, b) =&gt; <span class="prelude-val">Ok</span>(b == <span class="kw-2">*</span><span class="string">b&quot;B&quot; </span>|| b == <span class="kw-2">*</span><span class="string">b&quot;C&quot; </span>|| b == <span class="kw-2">*</span><span class="string">b&quot;D&quot;</span>),
-				(<span class="string">b&quot;B&quot;</span>, b) | (<span class="string">b&quot;C&quot;</span>, b) =&gt; <span class="prelude-val">Ok</span>(b == <span class="kw-2">*</span><span class="string">b&quot;D&quot;</span>),
-				(<span class="string">b&quot;0&quot;</span>, <span class="kw">_</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="bool-val">true</span>),
+				(<span class="string">b"A"</span>, b) =&gt; <span class="prelude-val">Ok</span>(b == <span class="kw-2">*</span><span class="string">b"B" </span>|| b == <span class="kw-2">*</span><span class="string">b"C" </span>|| b == <span class="kw-2">*</span><span class="string">b"D"</span>),
+				(<span class="string">b"B"</span>, b) | (<span class="string">b"C"</span>, b) =&gt; <span class="prelude-val">Ok</span>(b == <span class="kw-2">*</span><span class="string">b"D"</span>),
+				(<span class="string">b"0"</span>, <span class="kw">_</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="bool-val">true</span>),
 				<span class="kw">_ </span>=&gt; <span class="prelude-val">Ok</span>(<span class="bool-val">false</span>),
 			}
 		};
 
 		<span class="kw">let </span>epoch_changes = EpochChanges::&lt;<span class="kw">_</span>, <span class="kw">_</span>, Epoch&gt;::new();
 		<span class="kw">let </span>genesis_epoch = epoch_changes
-			.epoch_descriptor_for_child_of(<span class="kw-2">&amp;</span>is_descendent_of, <span class="string">b&quot;0&quot;</span>, <span class="number">0</span>, <span class="number">10101</span>)
+			.epoch_descriptor_for_child_of(<span class="kw-2">&amp;</span>is_descendent_of, <span class="string">b"0"</span>, <span class="number">0</span>, <span class="number">10101</span>)
 			.unwrap()
 			.unwrap();
 
@@ -2078,11 +2080,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			ViableEpochDescriptor::UnimportedGenesis(slot) =&gt; {
 				<span class="macro">assert_eq!</span>(slot, <span class="number">10101u64</span>);
 			},
-			<span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;should be unimported genesis&quot;</span>),
+			<span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"should be unimported genesis"</span>),
 		};
 
 		<span class="kw">let </span>genesis_epoch_2 = epoch_changes
-			.epoch_descriptor_for_child_of(<span class="kw-2">&amp;</span>is_descendent_of, <span class="string">b&quot;0&quot;</span>, <span class="number">0</span>, <span class="number">10102</span>)
+			.epoch_descriptor_for_child_of(<span class="kw-2">&amp;</span>is_descendent_of, <span class="string">b"0"</span>, <span class="number">0</span>, <span class="number">10102</span>)
 			.unwrap()
 			.unwrap();
 
@@ -2090,7 +2092,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			ViableEpochDescriptor::UnimportedGenesis(slot) =&gt; {
 				<span class="macro">assert_eq!</span>(slot, <span class="number">10102u64</span>);
 			},
-			<span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;should be unimported genesis&quot;</span>),
+			<span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"should be unimported genesis"</span>),
 		};
 	}
 
@@ -2103,9 +2105,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		//
 		</span><span class="kw">let </span>is_descendent_of = |base: <span class="kw-2">&amp;</span>Hash, block: <span class="kw-2">&amp;</span>Hash| -&gt; <span class="prelude-ty">Result</span>&lt;bool, TestError&gt; {
 			<span class="kw">match </span>(base, <span class="kw-2">*</span>block) {
-				(<span class="string">b&quot;A&quot;</span>, b) =&gt; <span class="prelude-val">Ok</span>(b == <span class="kw-2">*</span><span class="string">b&quot;B&quot; </span>|| b == <span class="kw-2">*</span><span class="string">b&quot;C&quot; </span>|| b == <span class="kw-2">*</span><span class="string">b&quot;D&quot;</span>),
-				(<span class="string">b&quot;B&quot;</span>, b) | (<span class="string">b&quot;C&quot;</span>, b) =&gt; <span class="prelude-val">Ok</span>(b == <span class="kw-2">*</span><span class="string">b&quot;D&quot;</span>),
-				(<span class="string">b&quot;0&quot;</span>, <span class="kw">_</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="bool-val">true</span>),
+				(<span class="string">b"A"</span>, b) =&gt; <span class="prelude-val">Ok</span>(b == <span class="kw-2">*</span><span class="string">b"B" </span>|| b == <span class="kw-2">*</span><span class="string">b"C" </span>|| b == <span class="kw-2">*</span><span class="string">b"D"</span>),
+				(<span class="string">b"B"</span>, b) | (<span class="string">b"C"</span>, b) =&gt; <span class="prelude-val">Ok</span>(b == <span class="kw-2">*</span><span class="string">b"D"</span>),
+				(<span class="string">b"0"</span>, <span class="kw">_</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="bool-val">true</span>),
 				<span class="kw">_ </span>=&gt; <span class="prelude-val">Ok</span>(<span class="bool-val">false</span>),
 			}
 		};
@@ -2114,7 +2116,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span><span class="kw-2">mut </span>epoch_changes = EpochChanges::&lt;<span class="kw">_</span>, <span class="kw">_</span>, Epoch&gt;::new();
 		<span class="kw">let </span>genesis_epoch = epoch_changes
-			.epoch_descriptor_for_child_of(<span class="kw-2">&amp;</span>is_descendent_of, <span class="string">b&quot;0&quot;</span>, <span class="number">0</span>, <span class="number">100</span>)
+			.epoch_descriptor_for_child_of(<span class="kw-2">&amp;</span>is_descendent_of, <span class="string">b"0"</span>, <span class="number">0</span>, <span class="number">100</span>)
 			.unwrap()
 			.unwrap();
 
@@ -2125,11 +2127,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>epoch_1 = import_epoch_1.as_ref().clone();
 
 		epoch_changes
-			.import(<span class="kw-2">&amp;</span>is_descendent_of, <span class="kw-2">*</span><span class="string">b&quot;A&quot;</span>, <span class="number">1</span>, <span class="kw-2">*</span><span class="string">b&quot;0&quot;</span>, import_epoch_1)
+			.import(<span class="kw-2">&amp;</span>is_descendent_of, <span class="kw-2">*</span><span class="string">b"A"</span>, <span class="number">1</span>, <span class="kw-2">*</span><span class="string">b"0"</span>, import_epoch_1)
 			.unwrap();
 		<span class="kw">let </span>genesis_epoch = epoch_changes.epoch_data(<span class="kw-2">&amp;</span>genesis_epoch, <span class="kw-2">&amp;</span>make_genesis).unwrap();
 
-		<span class="macro">assert!</span>(is_descendent_of(<span class="string">b&quot;0&quot;</span>, <span class="string">b&quot;A&quot;</span>).unwrap());
+		<span class="macro">assert!</span>(is_descendent_of(<span class="string">b"0"</span>, <span class="string">b"A"</span>).unwrap());
 
 		<span class="kw">let </span>end_slot = genesis_epoch.end_slot();
 		<span class="macro">assert_eq!</span>(end_slot, epoch_1.start_slot);
@@ -2137,7 +2139,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		{
 			<span class="comment">// x is still within the genesis epoch.
 			</span><span class="kw">let </span>x = epoch_changes
-				.epoch_data_for_child_of(<span class="kw-2">&amp;</span>is_descendent_of, <span class="string">b&quot;A&quot;</span>, <span class="number">1</span>, end_slot - <span class="number">1</span>, <span class="kw-2">&amp;</span>make_genesis)
+				.epoch_data_for_child_of(<span class="kw-2">&amp;</span>is_descendent_of, <span class="string">b"A"</span>, <span class="number">1</span>, end_slot - <span class="number">1</span>, <span class="kw-2">&amp;</span>make_genesis)
 				.unwrap()
 				.unwrap();
 
@@ -2148,7 +2150,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// x is now at the next epoch, because the block is now at the
 			// start slot of epoch 1.
 			</span><span class="kw">let </span>x = epoch_changes
-				.epoch_data_for_child_of(<span class="kw-2">&amp;</span>is_descendent_of, <span class="string">b&quot;A&quot;</span>, <span class="number">1</span>, end_slot, <span class="kw-2">&amp;</span>make_genesis)
+				.epoch_data_for_child_of(<span class="kw-2">&amp;</span>is_descendent_of, <span class="string">b"A"</span>, <span class="number">1</span>, end_slot, <span class="kw-2">&amp;</span>make_genesis)
 				.unwrap()
 				.unwrap();
 
@@ -2161,7 +2163,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="kw">let </span>x = epoch_changes
 				.epoch_data_for_child_of(
 					<span class="kw-2">&amp;</span>is_descendent_of,
-					<span class="string">b&quot;A&quot;</span>,
+					<span class="string">b"A"</span>,
 					<span class="number">1</span>,
 					epoch_1.end_slot() - <span class="number">1</span>,
 					<span class="kw-2">&amp;</span>make_genesis,
@@ -2181,9 +2183,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		//
 		</span><span class="kw">let </span>is_descendent_of = |base: <span class="kw-2">&amp;</span>Hash, block: <span class="kw-2">&amp;</span>Hash| -&gt; <span class="prelude-ty">Result</span>&lt;bool, TestError&gt; {
 			<span class="kw">match </span>(base, <span class="kw-2">*</span>block) {
-				(<span class="string">b&quot;A&quot;</span>, b) =&gt; <span class="prelude-val">Ok</span>(b == <span class="kw-2">*</span><span class="string">b&quot;B&quot;</span>),
-				(<span class="string">b&quot;X&quot;</span>, b) =&gt; <span class="prelude-val">Ok</span>(b == <span class="kw-2">*</span><span class="string">b&quot;Y&quot;</span>),
-				(<span class="string">b&quot;0&quot;</span>, <span class="kw">_</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="bool-val">true</span>),
+				(<span class="string">b"A"</span>, b) =&gt; <span class="prelude-val">Ok</span>(b == <span class="kw-2">*</span><span class="string">b"B"</span>),
+				(<span class="string">b"X"</span>, b) =&gt; <span class="prelude-val">Ok</span>(b == <span class="kw-2">*</span><span class="string">b"Y"</span>),
+				(<span class="string">b"0"</span>, <span class="kw">_</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="bool-val">true</span>),
 				<span class="kw">_ </span>=&gt; <span class="prelude-val">Ok</span>(<span class="bool-val">false</span>),
 			}
 		};
@@ -2198,7 +2200,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// insert genesis epoch for A
 		</span>{
 			<span class="kw">let </span>genesis_epoch_a_descriptor = epoch_changes
-				.epoch_descriptor_for_child_of(<span class="kw-2">&amp;</span>is_descendent_of, <span class="string">b&quot;0&quot;</span>, <span class="number">0</span>, <span class="number">100</span>)
+				.epoch_descriptor_for_child_of(<span class="kw-2">&amp;</span>is_descendent_of, <span class="string">b"0"</span>, <span class="number">0</span>, <span class="number">100</span>)
 				.unwrap()
 				.unwrap();
 
@@ -2208,14 +2210,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.increment(next_descriptor);
 
 			epoch_changes
-				.import(<span class="kw-2">&amp;</span>is_descendent_of, <span class="kw-2">*</span><span class="string">b&quot;A&quot;</span>, <span class="number">1</span>, <span class="kw-2">*</span><span class="string">b&quot;0&quot;</span>, incremented_epoch)
+				.import(<span class="kw-2">&amp;</span>is_descendent_of, <span class="kw-2">*</span><span class="string">b"A"</span>, <span class="number">1</span>, <span class="kw-2">*</span><span class="string">b"0"</span>, incremented_epoch)
 				.unwrap();
 		}
 
 		<span class="comment">// insert genesis epoch for X
 		</span>{
 			<span class="kw">let </span>genesis_epoch_x_descriptor = epoch_changes
-				.epoch_descriptor_for_child_of(<span class="kw-2">&amp;</span>is_descendent_of, <span class="string">b&quot;0&quot;</span>, <span class="number">0</span>, <span class="number">1000</span>)
+				.epoch_descriptor_for_child_of(<span class="kw-2">&amp;</span>is_descendent_of, <span class="string">b"0"</span>, <span class="number">0</span>, <span class="number">1000</span>)
 				.unwrap()
 				.unwrap();
 
@@ -2225,7 +2227,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.increment(next_descriptor);
 
 			epoch_changes
-				.import(<span class="kw-2">&amp;</span>is_descendent_of, <span class="kw-2">*</span><span class="string">b&quot;X&quot;</span>, <span class="number">1</span>, <span class="kw-2">*</span><span class="string">b&quot;0&quot;</span>, incremented_epoch)
+				.import(<span class="kw-2">&amp;</span>is_descendent_of, <span class="kw-2">*</span><span class="string">b"X"</span>, <span class="number">1</span>, <span class="kw-2">*</span><span class="string">b"0"</span>, incremented_epoch)
 				.unwrap();
 		}
 
@@ -2233,24 +2235,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		// respect the chain structure.
 		</span>{
 			<span class="kw">let </span>epoch_for_a_child = epoch_changes
-				.epoch_data_for_child_of(<span class="kw-2">&amp;</span>is_descendent_of, <span class="string">b&quot;A&quot;</span>, <span class="number">1</span>, <span class="number">101</span>, <span class="kw-2">&amp;</span>make_genesis)
+				.epoch_data_for_child_of(<span class="kw-2">&amp;</span>is_descendent_of, <span class="string">b"A"</span>, <span class="number">1</span>, <span class="number">101</span>, <span class="kw-2">&amp;</span>make_genesis)
 				.unwrap()
 				.unwrap();
 
 			<span class="macro">assert_eq!</span>(epoch_for_a_child, make_genesis(<span class="number">100</span>));
 
 			<span class="kw">let </span>epoch_for_x_child = epoch_changes
-				.epoch_data_for_child_of(<span class="kw-2">&amp;</span>is_descendent_of, <span class="string">b&quot;X&quot;</span>, <span class="number">1</span>, <span class="number">1001</span>, <span class="kw-2">&amp;</span>make_genesis)
+				.epoch_data_for_child_of(<span class="kw-2">&amp;</span>is_descendent_of, <span class="string">b"X"</span>, <span class="number">1</span>, <span class="number">1001</span>, <span class="kw-2">&amp;</span>make_genesis)
 				.unwrap()
 				.unwrap();
 
 			<span class="macro">assert_eq!</span>(epoch_for_x_child, make_genesis(<span class="number">1000</span>));
 
 			<span class="kw">let </span>epoch_for_x_child_before_genesis = epoch_changes
-				.epoch_data_for_child_of(<span class="kw-2">&amp;</span>is_descendent_of, <span class="string">b&quot;X&quot;</span>, <span class="number">1</span>, <span class="number">101</span>, <span class="kw-2">&amp;</span>make_genesis)
+				.epoch_data_for_child_of(<span class="kw-2">&amp;</span>is_descendent_of, <span class="string">b"X"</span>, <span class="number">1</span>, <span class="number">101</span>, <span class="kw-2">&amp;</span>make_genesis)
 				.unwrap();
 
-			<span class="comment">// even though there is a genesis epoch at that slot, it&#39;s not in
+			<span class="comment">// even though there is a genesis epoch at that slot, it's not in
 			// this chain.
 			</span><span class="macro">assert!</span>(epoch_for_x_child_before_genesis.is_none());
 		}
@@ -2268,17 +2270,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		//  - epoch duration: 100
 		//
 		//  We are going to prune the tree at:
-		//  - &#39;x&#39;, a node between B and C
-		//  - &#39;y&#39;, a node between C and G
+		//  - 'x', a node between B and C
+		//  - 'y', a node between C and G
 
 		</span><span class="kw">let </span>is_descendent_of = |base: <span class="kw-2">&amp;</span>Hash, block: <span class="kw-2">&amp;</span>Hash| -&gt; <span class="prelude-ty">Result</span>&lt;bool, TestError&gt; {
 			<span class="kw">match </span>(base, block) {
-				(<span class="string">b&quot;0&quot;</span>, <span class="kw">_</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="bool-val">true</span>),
-				(<span class="string">b&quot;A&quot;</span>, b) =&gt; <span class="prelude-val">Ok</span>(b != <span class="string">b&quot;0&quot;</span>),
-				(<span class="string">b&quot;B&quot;</span>, b) =&gt; <span class="prelude-val">Ok</span>(b != <span class="string">b&quot;0&quot; </span>&amp;&amp; b != <span class="string">b&quot;A&quot; </span>&amp;&amp; b != <span class="string">b&quot;D&quot;</span>),
-				(<span class="string">b&quot;C&quot;</span>, b) =&gt; <span class="prelude-val">Ok</span>(b == <span class="string">b&quot;F&quot; </span>|| b == <span class="string">b&quot;G&quot; </span>|| b == <span class="string">b&quot;y&quot;</span>),
-				(<span class="string">b&quot;x&quot;</span>, b) =&gt; <span class="prelude-val">Ok</span>(b == <span class="string">b&quot;C&quot; </span>|| b == <span class="string">b&quot;F&quot; </span>|| b == <span class="string">b&quot;G&quot; </span>|| b == <span class="string">b&quot;y&quot;</span>),
-				(<span class="string">b&quot;y&quot;</span>, b) =&gt; <span class="prelude-val">Ok</span>(b == <span class="string">b&quot;G&quot;</span>),
+				(<span class="string">b"0"</span>, <span class="kw">_</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="bool-val">true</span>),
+				(<span class="string">b"A"</span>, b) =&gt; <span class="prelude-val">Ok</span>(b != <span class="string">b"0"</span>),
+				(<span class="string">b"B"</span>, b) =&gt; <span class="prelude-val">Ok</span>(b != <span class="string">b"0" </span>&amp;&amp; b != <span class="string">b"A" </span>&amp;&amp; b != <span class="string">b"D"</span>),
+				(<span class="string">b"C"</span>, b) =&gt; <span class="prelude-val">Ok</span>(b == <span class="string">b"F" </span>|| b == <span class="string">b"G" </span>|| b == <span class="string">b"y"</span>),
+				(<span class="string">b"x"</span>, b) =&gt; <span class="prelude-val">Ok</span>(b == <span class="string">b"C" </span>|| b == <span class="string">b"F" </span>|| b == <span class="string">b"G" </span>|| b == <span class="string">b"y"</span>),
+				(<span class="string">b"y"</span>, b) =&gt; <span class="prelude-val">Ok</span>(b == <span class="string">b"G"</span>),
 				<span class="kw">_ </span>=&gt; <span class="prelude-val">Ok</span>(<span class="bool-val">false</span>),
 			}
 		};
@@ -2287,7 +2289,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span><span class="kw-2">mut </span>import_at = |slot, hash: <span class="kw-2">&amp;</span>Hash, number, parent_hash, parent_number| {
 			<span class="kw">let </span>make_genesis = |slot| Epoch { start_slot: slot, duration: <span class="number">100 </span>};
-			<span class="comment">// Get epoch descriptor valid for &#39;slot&#39;
+			<span class="comment">// Get epoch descriptor valid for 'slot'
 			</span><span class="kw">let </span>epoch_descriptor = epoch_changes
 				.epoch_descriptor_for_child_of(<span class="kw-2">&amp;</span>is_descendent_of, parent_hash, parent_number, slot)
 				.unwrap()
@@ -2303,40 +2305,40 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.unwrap();
 		};
 
-		import_at(<span class="number">100</span>, <span class="string">b&quot;A&quot;</span>, <span class="number">10</span>, <span class="string">b&quot;0&quot;</span>, <span class="number">0</span>);
-		import_at(<span class="number">200</span>, <span class="string">b&quot;B&quot;</span>, <span class="number">20</span>, <span class="string">b&quot;A&quot;</span>, <span class="number">10</span>);
-		import_at(<span class="number">300</span>, <span class="string">b&quot;C&quot;</span>, <span class="number">30</span>, <span class="string">b&quot;B&quot;</span>, <span class="number">20</span>);
-		import_at(<span class="number">200</span>, <span class="string">b&quot;D&quot;</span>, <span class="number">20</span>, <span class="string">b&quot;A&quot;</span>, <span class="number">10</span>);
-		import_at(<span class="number">300</span>, <span class="string">b&quot;E&quot;</span>, <span class="number">30</span>, <span class="string">b&quot;B&quot;</span>, <span class="number">20</span>);
-		import_at(<span class="number">400</span>, <span class="string">b&quot;F&quot;</span>, <span class="number">40</span>, <span class="string">b&quot;C&quot;</span>, <span class="number">30</span>);
-		import_at(<span class="number">400</span>, <span class="string">b&quot;G&quot;</span>, <span class="number">40</span>, <span class="string">b&quot;C&quot;</span>, <span class="number">30</span>);
-		import_at(<span class="number">100</span>, <span class="string">b&quot;H&quot;</span>, <span class="number">10</span>, <span class="string">b&quot;0&quot;</span>, <span class="number">0</span>);
+		import_at(<span class="number">100</span>, <span class="string">b"A"</span>, <span class="number">10</span>, <span class="string">b"0"</span>, <span class="number">0</span>);
+		import_at(<span class="number">200</span>, <span class="string">b"B"</span>, <span class="number">20</span>, <span class="string">b"A"</span>, <span class="number">10</span>);
+		import_at(<span class="number">300</span>, <span class="string">b"C"</span>, <span class="number">30</span>, <span class="string">b"B"</span>, <span class="number">20</span>);
+		import_at(<span class="number">200</span>, <span class="string">b"D"</span>, <span class="number">20</span>, <span class="string">b"A"</span>, <span class="number">10</span>);
+		import_at(<span class="number">300</span>, <span class="string">b"E"</span>, <span class="number">30</span>, <span class="string">b"B"</span>, <span class="number">20</span>);
+		import_at(<span class="number">400</span>, <span class="string">b"F"</span>, <span class="number">40</span>, <span class="string">b"C"</span>, <span class="number">30</span>);
+		import_at(<span class="number">400</span>, <span class="string">b"G"</span>, <span class="number">40</span>, <span class="string">b"C"</span>, <span class="number">30</span>);
+		import_at(<span class="number">100</span>, <span class="string">b"H"</span>, <span class="number">10</span>, <span class="string">b"0"</span>, <span class="number">0</span>);
 
 		<span class="kw">let </span><span class="kw-2">mut </span>nodes: Vec&lt;<span class="kw">_</span>&gt; = epoch_changes.tree().iter().map(|(h, <span class="kw">_</span>, <span class="kw">_</span>)| h).collect();
 		nodes.sort();
-		<span class="macro">assert_eq!</span>(nodes, <span class="macro">vec!</span>[<span class="string">b&quot;A&quot;</span>, <span class="string">b&quot;B&quot;</span>, <span class="string">b&quot;C&quot;</span>, <span class="string">b&quot;D&quot;</span>, <span class="string">b&quot;E&quot;</span>, <span class="string">b&quot;F&quot;</span>, <span class="string">b&quot;G&quot;</span>, <span class="string">b&quot;H&quot;</span>]);
+		<span class="macro">assert_eq!</span>(nodes, <span class="macro">vec!</span>[<span class="string">b"A"</span>, <span class="string">b"B"</span>, <span class="string">b"C"</span>, <span class="string">b"D"</span>, <span class="string">b"E"</span>, <span class="string">b"F"</span>, <span class="string">b"G"</span>, <span class="string">b"H"</span>]);
 
-		<span class="comment">// Finalize block &#39;x&#39; @ number 25, slot 230
+		<span class="comment">// Finalize block 'x' @ number 25, slot 230
 		// This should prune all nodes imported by blocks with a number &lt; 25 that are not
-		// ancestors of &#39;x&#39; and all nodes before the one holding the epoch information
-		// to which &#39;x&#39; belongs to (i.e. before A).
+		// ancestors of 'x' and all nodes before the one holding the epoch information
+		// to which 'x' belongs to (i.e. before A).
 
-		</span>epoch_changes.prune_finalized(<span class="kw-2">&amp;</span>is_descendent_of, <span class="string">b&quot;x&quot;</span>, <span class="number">25</span>, <span class="number">230</span>).unwrap();
+		</span>epoch_changes.prune_finalized(<span class="kw-2">&amp;</span>is_descendent_of, <span class="string">b"x"</span>, <span class="number">25</span>, <span class="number">230</span>).unwrap();
 
 		<span class="kw">let </span><span class="kw-2">mut </span>nodes: Vec&lt;<span class="kw">_</span>&gt; = epoch_changes.tree().iter().map(|(h, <span class="kw">_</span>, <span class="kw">_</span>)| h).collect();
 		nodes.sort();
-		<span class="macro">assert_eq!</span>(nodes, <span class="macro">vec!</span>[<span class="string">b&quot;A&quot;</span>, <span class="string">b&quot;B&quot;</span>, <span class="string">b&quot;C&quot;</span>, <span class="string">b&quot;F&quot;</span>, <span class="string">b&quot;G&quot;</span>]);
+		<span class="macro">assert_eq!</span>(nodes, <span class="macro">vec!</span>[<span class="string">b"A"</span>, <span class="string">b"B"</span>, <span class="string">b"C"</span>, <span class="string">b"F"</span>, <span class="string">b"G"</span>]);
 
 		<span class="comment">// Finalize block y @ number 35, slot 330
 		// This should prune all nodes imported by blocks with a number &lt; 35 that are not
-		// ancestors of &#39;y&#39; and all nodes before the one holding the epoch information
-		// to which &#39;y&#39; belongs to (i.e. before B).
+		// ancestors of 'y' and all nodes before the one holding the epoch information
+		// to which 'y' belongs to (i.e. before B).
 
-		</span>epoch_changes.prune_finalized(<span class="kw-2">&amp;</span>is_descendent_of, <span class="string">b&quot;y&quot;</span>, <span class="number">35</span>, <span class="number">330</span>).unwrap();
+		</span>epoch_changes.prune_finalized(<span class="kw-2">&amp;</span>is_descendent_of, <span class="string">b"y"</span>, <span class="number">35</span>, <span class="number">330</span>).unwrap();
 
 		<span class="kw">let </span><span class="kw-2">mut </span>nodes: Vec&lt;<span class="kw">_</span>&gt; = epoch_changes.tree().iter().map(|(h, <span class="kw">_</span>, <span class="kw">_</span>)| h).collect();
 		nodes.sort();
-		<span class="macro">assert_eq!</span>(nodes, <span class="macro">vec!</span>[<span class="string">b&quot;B&quot;</span>, <span class="string">b&quot;C&quot;</span>, <span class="string">b&quot;G&quot;</span>]);
+		<span class="macro">assert_eq!</span>(nodes, <span class="macro">vec!</span>[<span class="string">b"B"</span>, <span class="string">b"C"</span>, <span class="string">b"G"</span>]);
 	}
 
 	<span class="attr">#[test]
@@ -2349,20 +2351,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		</span><span class="kw">let </span>is_descendent_of = |base: <span class="kw-2">&amp;</span>Hash, block: <span class="kw-2">&amp;</span>Hash| -&gt; <span class="prelude-ty">Result</span>&lt;bool, TestError&gt; {
 			<span class="kw">match </span>(block, base) {
-				| (<span class="string">b&quot;A&quot;</span>, <span class="string">b&quot;0&quot;</span>) |
-				(<span class="string">b&quot;B&quot;</span>, <span class="string">b&quot;0&quot; </span>| <span class="string">b&quot;A&quot;</span>) |
-				(<span class="string">b&quot;C&quot;</span>, <span class="string">b&quot;0&quot; </span>| <span class="string">b&quot;A&quot; </span>| <span class="string">b&quot;B&quot;</span>) |
-				(<span class="string">b&quot;D&quot;</span>, <span class="string">b&quot;0&quot; </span>| <span class="string">b&quot;A&quot; </span>| <span class="string">b&quot;B&quot; </span>| <span class="string">b&quot;C&quot;</span>) |
-				(<span class="string">b&quot;E&quot;</span>, <span class="string">b&quot;0&quot; </span>| <span class="string">b&quot;A&quot; </span>| <span class="string">b&quot;B&quot; </span>| <span class="string">b&quot;C&quot; </span>| <span class="string">b&quot;D&quot;</span>) |
-				(<span class="string">b&quot;F&quot;</span>, <span class="string">b&quot;0&quot; </span>| <span class="string">b&quot;A&quot; </span>| <span class="string">b&quot;B&quot; </span>| <span class="string">b&quot;C&quot; </span>| <span class="string">b&quot;D&quot; </span>| <span class="string">b&quot;E&quot;</span>) |
-				(<span class="string">b&quot;G&quot;</span>, <span class="string">b&quot;0&quot; </span>| <span class="string">b&quot;A&quot; </span>| <span class="string">b&quot;B&quot; </span>| <span class="string">b&quot;C&quot; </span>| <span class="string">b&quot;D&quot; </span>| <span class="string">b&quot;E&quot;</span>) |
-				(<span class="string">b&quot;H&quot;</span>, <span class="string">b&quot;0&quot; </span>| <span class="string">b&quot;A&quot; </span>| <span class="string">b&quot;B&quot; </span>| <span class="string">b&quot;C&quot; </span>| <span class="string">b&quot;D&quot; </span>| <span class="string">b&quot;E&quot; </span>| <span class="string">b&quot;G&quot;</span>) |
-				(<span class="string">b&quot;I&quot;</span>, <span class="string">b&quot;0&quot; </span>| <span class="string">b&quot;A&quot; </span>| <span class="string">b&quot;B&quot; </span>| <span class="string">b&quot;C&quot; </span>| <span class="string">b&quot;D&quot; </span>| <span class="string">b&quot;E&quot; </span>| <span class="string">b&quot;G&quot; </span>| <span class="string">b&quot;H&quot;</span>) |
-				(<span class="string">b&quot;J&quot;</span>, <span class="string">b&quot;0&quot; </span>| <span class="string">b&quot;A&quot; </span>| <span class="string">b&quot;B&quot; </span>| <span class="string">b&quot;C&quot; </span>| <span class="string">b&quot;D&quot; </span>| <span class="string">b&quot;E&quot; </span>| <span class="string">b&quot;G&quot; </span>| <span class="string">b&quot;H&quot; </span>| <span class="string">b&quot;I&quot;</span>) |
-				(<span class="string">b&quot;K&quot;</span>, <span class="string">b&quot;0&quot; </span>| <span class="string">b&quot;A&quot; </span>| <span class="string">b&quot;B&quot; </span>| <span class="string">b&quot;C&quot; </span>| <span class="string">b&quot;D&quot; </span>| <span class="string">b&quot;E&quot; </span>| <span class="string">b&quot;G&quot; </span>| <span class="string">b&quot;H&quot; </span>| <span class="string">b&quot;I&quot; </span>| <span class="string">b&quot;J&quot;</span>) |
+				| (<span class="string">b"A"</span>, <span class="string">b"0"</span>) |
+				(<span class="string">b"B"</span>, <span class="string">b"0" </span>| <span class="string">b"A"</span>) |
+				(<span class="string">b"C"</span>, <span class="string">b"0" </span>| <span class="string">b"A" </span>| <span class="string">b"B"</span>) |
+				(<span class="string">b"D"</span>, <span class="string">b"0" </span>| <span class="string">b"A" </span>| <span class="string">b"B" </span>| <span class="string">b"C"</span>) |
+				(<span class="string">b"E"</span>, <span class="string">b"0" </span>| <span class="string">b"A" </span>| <span class="string">b"B" </span>| <span class="string">b"C" </span>| <span class="string">b"D"</span>) |
+				(<span class="string">b"F"</span>, <span class="string">b"0" </span>| <span class="string">b"A" </span>| <span class="string">b"B" </span>| <span class="string">b"C" </span>| <span class="string">b"D" </span>| <span class="string">b"E"</span>) |
+				(<span class="string">b"G"</span>, <span class="string">b"0" </span>| <span class="string">b"A" </span>| <span class="string">b"B" </span>| <span class="string">b"C" </span>| <span class="string">b"D" </span>| <span class="string">b"E"</span>) |
+				(<span class="string">b"H"</span>, <span class="string">b"0" </span>| <span class="string">b"A" </span>| <span class="string">b"B" </span>| <span class="string">b"C" </span>| <span class="string">b"D" </span>| <span class="string">b"E" </span>| <span class="string">b"G"</span>) |
+				(<span class="string">b"I"</span>, <span class="string">b"0" </span>| <span class="string">b"A" </span>| <span class="string">b"B" </span>| <span class="string">b"C" </span>| <span class="string">b"D" </span>| <span class="string">b"E" </span>| <span class="string">b"G" </span>| <span class="string">b"H"</span>) |
+				(<span class="string">b"J"</span>, <span class="string">b"0" </span>| <span class="string">b"A" </span>| <span class="string">b"B" </span>| <span class="string">b"C" </span>| <span class="string">b"D" </span>| <span class="string">b"E" </span>| <span class="string">b"G" </span>| <span class="string">b"H" </span>| <span class="string">b"I"</span>) |
+				(<span class="string">b"K"</span>, <span class="string">b"0" </span>| <span class="string">b"A" </span>| <span class="string">b"B" </span>| <span class="string">b"C" </span>| <span class="string">b"D" </span>| <span class="string">b"E" </span>| <span class="string">b"G" </span>| <span class="string">b"H" </span>| <span class="string">b"I" </span>| <span class="string">b"J"</span>) |
 				(
-					<span class="string">b&quot;L&quot;</span>,
-					<span class="string">b&quot;0&quot; </span>| <span class="string">b&quot;A&quot; </span>| <span class="string">b&quot;B&quot; </span>| <span class="string">b&quot;C&quot; </span>| <span class="string">b&quot;D&quot; </span>| <span class="string">b&quot;E&quot; </span>| <span class="string">b&quot;G&quot; </span>| <span class="string">b&quot;H&quot; </span>| <span class="string">b&quot;I&quot; </span>| <span class="string">b&quot;J&quot; </span>| <span class="string">b&quot;K&quot;</span>,
+					<span class="string">b"L"</span>,
+					<span class="string">b"0" </span>| <span class="string">b"A" </span>| <span class="string">b"B" </span>| <span class="string">b"C" </span>| <span class="string">b"D" </span>| <span class="string">b"E" </span>| <span class="string">b"G" </span>| <span class="string">b"H" </span>| <span class="string">b"I" </span>| <span class="string">b"J" </span>| <span class="string">b"K"</span>,
 				) =&gt; <span class="prelude-val">Ok</span>(<span class="bool-val">true</span>),
 				<span class="kw">_ </span>=&gt; <span class="prelude-val">Ok</span>(<span class="bool-val">false</span>),
 			}
@@ -2374,7 +2376,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>epoch = PersistedEpoch::Genesis(epoch.clone(), epoch.increment(()));
 
 		epoch_changes
-			.import(<span class="kw-2">&amp;</span>is_descendent_of, <span class="kw-2">*</span><span class="string">b&quot;A&quot;</span>, <span class="number">1</span>, Default::default(), IncrementedEpoch(epoch))
+			.import(<span class="kw-2">&amp;</span>is_descendent_of, <span class="kw-2">*</span><span class="string">b"A"</span>, <span class="number">1</span>, Default::default(), IncrementedEpoch(epoch))
 			.unwrap();
 
 		<span class="kw">let </span>import_at = |epoch_changes: <span class="kw-2">&amp;mut </span>EpochChanges&lt;<span class="kw">_</span>, <span class="kw">_</span>, Epoch&gt;,
@@ -2384,7 +2386,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		                 parent_hash,
 		                 parent_number| {
 			<span class="kw">let </span>make_genesis = |slot| Epoch { start_slot: slot, duration: <span class="number">5 </span>};
-			<span class="comment">// Get epoch descriptor valid for &#39;slot&#39;
+			<span class="comment">// Get epoch descriptor valid for 'slot'
 			</span><span class="kw">let </span>epoch_descriptor = epoch_changes
 				.epoch_descriptor_for_child_of(<span class="kw-2">&amp;</span>is_descendent_of, parent_hash, parent_number, slot)
 				.unwrap()
@@ -2401,24 +2403,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		};
 
 		<span class="comment">// Should not prune anything
-		</span>epoch_changes.prune_finalized(<span class="kw-2">&amp;</span>is_descendent_of, <span class="string">b&quot;C&quot;</span>, <span class="number">3</span>, <span class="number">278183813</span>).unwrap();
+		</span>epoch_changes.prune_finalized(<span class="kw-2">&amp;</span>is_descendent_of, <span class="string">b"C"</span>, <span class="number">3</span>, <span class="number">278183813</span>).unwrap();
 
-		import_at(<span class="kw-2">&amp;mut </span>epoch_changes, <span class="number">278183816</span>, <span class="string">b&quot;G&quot;</span>, <span class="number">6</span>, <span class="string">b&quot;E&quot;</span>, <span class="number">5</span>);
-		import_at(<span class="kw-2">&amp;mut </span>epoch_changes, <span class="number">278183816</span>, <span class="string">b&quot;F&quot;</span>, <span class="number">6</span>, <span class="string">b&quot;E&quot;</span>, <span class="number">5</span>);
+		import_at(<span class="kw-2">&amp;mut </span>epoch_changes, <span class="number">278183816</span>, <span class="string">b"G"</span>, <span class="number">6</span>, <span class="string">b"E"</span>, <span class="number">5</span>);
+		import_at(<span class="kw-2">&amp;mut </span>epoch_changes, <span class="number">278183816</span>, <span class="string">b"F"</span>, <span class="number">6</span>, <span class="string">b"E"</span>, <span class="number">5</span>);
 
 		<span class="comment">// Should not prune anything since we are on epoch0
-		</span>epoch_changes.prune_finalized(<span class="kw-2">&amp;</span>is_descendent_of, <span class="string">b&quot;C&quot;</span>, <span class="number">3</span>, <span class="number">278183813</span>).unwrap();
+		</span>epoch_changes.prune_finalized(<span class="kw-2">&amp;</span>is_descendent_of, <span class="string">b"C"</span>, <span class="number">3</span>, <span class="number">278183813</span>).unwrap();
 		<span class="kw">let </span><span class="kw-2">mut </span>list: Vec&lt;<span class="kw">_</span>&gt; = epoch_changes.inner.iter().map(|e| e.<span class="number">0</span>).collect();
 		list.sort();
-		<span class="macro">assert_eq!</span>(list, <span class="macro">vec!</span>[<span class="string">b&quot;A&quot;</span>, <span class="string">b&quot;F&quot;</span>, <span class="string">b&quot;G&quot;</span>]);
+		<span class="macro">assert_eq!</span>(list, <span class="macro">vec!</span>[<span class="string">b"A"</span>, <span class="string">b"F"</span>, <span class="string">b"G"</span>]);
 
-		import_at(<span class="kw-2">&amp;mut </span>epoch_changes, <span class="number">278183821</span>, <span class="string">b&quot;L&quot;</span>, <span class="number">11</span>, <span class="string">b&quot;K&quot;</span>, <span class="number">10</span>);
+		import_at(<span class="kw-2">&amp;mut </span>epoch_changes, <span class="number">278183821</span>, <span class="string">b"L"</span>, <span class="number">11</span>, <span class="string">b"K"</span>, <span class="number">10</span>);
 
-		<span class="comment">// Should prune any fork of our ancestor not in the canonical chain (i.e. &quot;F&quot;)
-		</span>epoch_changes.prune_finalized(<span class="kw-2">&amp;</span>is_descendent_of, <span class="string">b&quot;J&quot;</span>, <span class="number">9</span>, <span class="number">278183819</span>).unwrap();
+		<span class="comment">// Should prune any fork of our ancestor not in the canonical chain (i.e. "F")
+		</span>epoch_changes.prune_finalized(<span class="kw-2">&amp;</span>is_descendent_of, <span class="string">b"J"</span>, <span class="number">9</span>, <span class="number">278183819</span>).unwrap();
 		<span class="kw">let </span><span class="kw-2">mut </span>list: Vec&lt;<span class="kw">_</span>&gt; = epoch_changes.inner.iter().map(|e| e.<span class="number">0</span>).collect();
 		list.sort();
-		<span class="macro">assert_eq!</span>(list, <span class="macro">vec!</span>[<span class="string">b&quot;A&quot;</span>, <span class="string">b&quot;G&quot;</span>, <span class="string">b&quot;L&quot;</span>]);
+		<span class="macro">assert_eq!</span>(list, <span class="macro">vec!</span>[<span class="string">b"A"</span>, <span class="string">b"G"</span>, <span class="string">b"L"</span>]);
 	}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

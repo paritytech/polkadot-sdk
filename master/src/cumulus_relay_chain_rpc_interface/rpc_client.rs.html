@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `cumulus/client/relay-chain-rpc-interface/src/rpc_client.rs`."><title>rpc_client.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `cumulus/client/relay-chain-rpc-interface/src/rpc_client.rs`."><title>rpc_client.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="cumulus_relay_chain_rpc_interface" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="cumulus_relay_chain_rpc_interface" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../cumulus_relay_chain_rpc_interface/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -945,7 +947,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">pub use </span>url::Url;
 
-<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;relay-chain-rpc-client&quot;</span>;
+<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"relay-chain-rpc-client"</span>;
 <span class="kw">const </span>NOTIFICATION_CHANNEL_SIZE_LIMIT: usize = <span class="number">20</span>;
 
 <span class="doccomment">/// Messages for communication between [`RelayChainRpcClient`] and the RPC workers.
@@ -981,7 +983,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	task_manager
 		.spawn_essential_handle()
-		.spawn(<span class="string">&quot;relay-chain-rpc-worker&quot;</span>, <span class="prelude-val">None</span>, worker.run());
+		.spawn(<span class="string">"relay-chain-rpc-worker"</span>, <span class="prelude-val">None</span>, worker.run());
 
 	<span class="kw">let </span>client = RelayChainRpcClient::new(sender);
 
@@ -1000,7 +1002,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	task_manager
 		.spawn_essential_handle()
-		.spawn(<span class="string">&quot;relay-light-client-worker&quot;</span>, <span class="prelude-val">None</span>, worker.run());
+		.spawn(<span class="string">"relay-light-client-worker"</span>, <span class="prelude-val">None</span>, worker.run());
 
 	<span class="kw">let </span>client = RelayChainRpcClient::new(sender);
 
@@ -1038,13 +1040,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			hash
 		};
 		<span class="kw">let </span>res = <span class="self">self
-			</span>.request_tracing::&lt;sp_core::Bytes, <span class="kw">_</span>&gt;(<span class="string">&quot;state_call&quot;</span>, params, |err| {
+			</span>.request_tracing::&lt;sp_core::Bytes, <span class="kw">_</span>&gt;(<span class="string">"state_call"</span>, params, |err| {
 				<span class="macro">tracing::trace!</span>(
 					target: LOG_TARGET,
 					%method_name,
 					%hash,
 					error = %err,
-					<span class="string">&quot;Error during call to &#39;state_call&#39;.&quot;</span>,
+					<span class="string">"Error during call to 'state_call'."</span>,
 				);
 			})
 			.<span class="kw">await</span><span class="question-mark">?</span>;
@@ -1052,9 +1054,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Perform RPC request
-	</span><span class="kw">async fn </span>request&lt;<span class="lifetime">&#39;a</span>, R&gt;(
+	</span><span class="kw">async fn </span>request&lt;<span class="lifetime">'a</span>, R&gt;(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		method: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>str,
+		method: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>str,
 		params: ArrayParams,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;R, RelayChainError&gt;
 	<span class="kw">where
@@ -1063,15 +1065,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">self</span>.request_tracing(
 			method,
 			params,
-			|e| <span class="macro">tracing::trace!</span>(target:LOG_TARGET, error = %e, %method, <span class="string">&quot;Unable to complete RPC request&quot;</span>),
+			|e| <span class="macro">tracing::trace!</span>(target:LOG_TARGET, error = %e, %method, <span class="string">"Unable to complete RPC request"</span>),
 		)
 		.<span class="kw">await
 	</span>}
 
 	<span class="doccomment">/// Perform RPC request
-	</span><span class="kw">async fn </span>request_tracing&lt;<span class="lifetime">&#39;a</span>, R, OR&gt;(
+	</span><span class="kw">async fn </span>request_tracing&lt;<span class="lifetime">'a</span>, R, OR&gt;(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		method: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>str,
+		method: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>str,
 		params: ArrayParams,
 		trace_error: OR,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;R, RelayChainError&gt;
@@ -1084,27 +1086,27 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>message = RpcDispatcherMessage::Request(method.into(), params, tx);
 		<span class="self">self</span>.worker_channel.send(message).<span class="kw">await</span>.map_err(|err| {
 			RelayChainError::WorkerCommunicationError(<span class="macro">format!</span>(
-				<span class="string">&quot;Unable to send message to RPC worker: {}&quot;</span>,
+				<span class="string">"Unable to send message to RPC worker: {}"</span>,
 				err
 			))
 		})<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>value = rx.<span class="kw">await</span>.map_err(|err| {
 			RelayChainError::WorkerCommunicationError(<span class="macro">format!</span>(
-				<span class="string">&quot;RPC worker channel closed. This can hint and connectivity issues with the supplied RPC endpoints. Message: {}&quot;</span>,
+				<span class="string">"RPC worker channel closed. This can hint and connectivity issues with the supplied RPC endpoints. Message: {}"</span>,
 				err
 			))
 		})<span class="question-mark">??</span>;
 
 		serde_json::from_value(value).map_err(|<span class="kw">_</span>| {
-			trace_error(<span class="kw-2">&amp;</span>RelayChainError::GenericError(<span class="string">&quot;Unable to deserialize value&quot;</span>.to_string()));
+			trace_error(<span class="kw-2">&amp;</span>RelayChainError::GenericError(<span class="string">"Unable to deserialize value"</span>.to_string()));
 			RelayChainError::RpcCallError(method.to_string())
 		})
 	}
 
 	<span class="doccomment">/// Returns information regarding the current epoch.
 	</span><span class="kw">pub async fn </span>babe_api_current_epoch(<span class="kw-2">&amp;</span><span class="self">self</span>, at: RelayHash) -&gt; <span class="prelude-ty">Result</span>&lt;Epoch, RelayChainError&gt; {
-		<span class="self">self</span>.call_remote_runtime_function(<span class="string">&quot;BabeApi_current_epoch&quot;</span>, at, <span class="prelude-val">None</span>::&lt;()&gt;).<span class="kw">await
+		<span class="self">self</span>.call_remote_runtime_function(<span class="string">"BabeApi_current_epoch"</span>, at, <span class="prelude-val">None</span>::&lt;()&gt;).<span class="kw">await
 	</span>}
 
 	<span class="doccomment">/// Scrape dispute relevant from on-chain, backing votes and resolved disputes.
@@ -1112,7 +1114,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		at: RelayHash,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;ScrapedOnChainVotes&lt;RelayHash&gt;&gt;, RelayChainError&gt; {
-		<span class="self">self</span>.call_remote_runtime_function(<span class="string">&quot;ParachainHost_on_chain_votes&quot;</span>, at, <span class="prelude-val">None</span>::&lt;()&gt;)
+		<span class="self">self</span>.call_remote_runtime_function(<span class="string">"ParachainHost_on_chain_votes"</span>, at, <span class="prelude-val">None</span>::&lt;()&gt;)
 			.<span class="kw">await
 	</span>}
 
@@ -1121,7 +1123,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		at: RelayHash,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;ValidationCodeHash&gt;, RelayChainError&gt; {
-		<span class="self">self</span>.call_remote_runtime_function(<span class="string">&quot;ParachainHost_pvfs_require_precheck&quot;</span>, at, <span class="prelude-val">None</span>::&lt;()&gt;)
+		<span class="self">self</span>.call_remote_runtime_function(<span class="string">"ParachainHost_pvfs_require_precheck"</span>, at, <span class="prelude-val">None</span>::&lt;()&gt;)
 			.<span class="kw">await
 	</span>}
 
@@ -1133,7 +1135,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		signature: ValidatorSignature,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), RelayChainError&gt; {
 		<span class="self">self</span>.call_remote_runtime_function(
-			<span class="string">&quot;ParachainHost_submit_pvf_check_statement&quot;</span>,
+			<span class="string">"ParachainHost_submit_pvf_check_statement"</span>,
 			at,
 			<span class="prelude-val">Some</span>((stmt, signature)),
 		)
@@ -1142,7 +1144,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Get system health information
 	</span><span class="kw">pub async fn </span>system_health(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Health, RelayChainError&gt; {
-		<span class="self">self</span>.request(<span class="string">&quot;system_health&quot;</span>, <span class="macro">rpc_params!</span>[]).<span class="kw">await
+		<span class="self">self</span>.request(<span class="string">"system_health"</span>, <span class="macro">rpc_params!</span>[]).<span class="kw">await
 	</span>}
 
 	<span class="doccomment">/// Get read proof for `storage_keys`
@@ -1152,7 +1154,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		at: <span class="prelude-ty">Option</span>&lt;RelayHash&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;ReadProof&lt;RelayHash&gt;, RelayChainError&gt; {
 		<span class="kw">let </span>params = <span class="macro">rpc_params!</span>[storage_keys, at];
-		<span class="self">self</span>.request(<span class="string">&quot;state_getReadProof&quot;</span>, params).<span class="kw">await
+		<span class="self">self</span>.request(<span class="string">"state_getReadProof"</span>, params).<span class="kw">await
 	</span>}
 
 	<span class="doccomment">/// Retrieve storage item at `storage_key`
@@ -1162,7 +1164,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		at: <span class="prelude-ty">Option</span>&lt;RelayHash&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;StorageData&gt;, RelayChainError&gt; {
 		<span class="kw">let </span>params = <span class="macro">rpc_params!</span>[storage_key, at];
-		<span class="self">self</span>.request(<span class="string">&quot;state_getStorage&quot;</span>, params).<span class="kw">await
+		<span class="self">self</span>.request(<span class="string">"state_getStorage"</span>, params).<span class="kw">await
 	</span>}
 
 	<span class="doccomment">/// Get hash of the n-th block in the canon chain.
@@ -1170,7 +1172,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// By default returns latest block hash.
 	</span><span class="kw">pub async fn </span>chain_get_head(<span class="kw-2">&amp;</span><span class="self">self</span>, at: <span class="prelude-ty">Option</span>&lt;u64&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;RelayHash, RelayChainError&gt; {
 		<span class="kw">let </span>params = <span class="macro">rpc_params!</span>[at];
-		<span class="self">self</span>.request(<span class="string">&quot;chain_getHead&quot;</span>, params).<span class="kw">await
+		<span class="self">self</span>.request(<span class="string">"chain_getHead"</span>, params).<span class="kw">await
 	</span>}
 
 	<span class="doccomment">/// Returns the validator groups and rotation info localized based on the hypothetical child
@@ -1180,7 +1182,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		at: RelayHash,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(Vec&lt;Vec&lt;ValidatorIndex&gt;&gt;, GroupRotationInfo), RelayChainError&gt; {
-		<span class="self">self</span>.call_remote_runtime_function(<span class="string">&quot;ParachainHost_validator_groups&quot;</span>, at, <span class="prelude-val">None</span>::&lt;()&gt;)
+		<span class="self">self</span>.call_remote_runtime_function(<span class="string">"ParachainHost_validator_groups"</span>, at, <span class="prelude-val">None</span>::&lt;()&gt;)
 			.<span class="kw">await
 	</span>}
 
@@ -1189,7 +1191,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		at: RelayHash,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;CandidateEvent&gt;, RelayChainError&gt; {
-		<span class="self">self</span>.call_remote_runtime_function(<span class="string">&quot;ParachainHost_candidate_events&quot;</span>, at, <span class="prelude-val">None</span>::&lt;()&gt;)
+		<span class="self">self</span>.call_remote_runtime_function(<span class="string">"ParachainHost_candidate_events"</span>, at, <span class="prelude-val">None</span>::&lt;()&gt;)
 			.<span class="kw">await
 	</span>}
 
@@ -1201,7 +1203,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		outputs: CandidateCommitments,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;bool, RelayChainError&gt; {
 		<span class="self">self</span>.call_remote_runtime_function(
-			<span class="string">&quot;ParachainHost_check_validation_outputs&quot;</span>,
+			<span class="string">"ParachainHost_check_validation_outputs"</span>,
 			at,
 			<span class="prelude-val">Some</span>((para_id, outputs)),
 		)
@@ -1210,7 +1212,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Returns the persisted validation data for the given `ParaId` along with the corresponding
 	/// validation code hash. Instead of accepting assumption about the para, matches the validation
-	/// data hash against an expected one and yields `None` if they&#39;re not equal.
+	/// data hash against an expected one and yields `None` if they're not equal.
 	</span><span class="kw">pub async fn </span>parachain_host_assumed_validation_data(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		at: RelayHash,
@@ -1218,7 +1220,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		expected_hash: RelayHash,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;(PersistedValidationData, ValidationCodeHash)&gt;, RelayChainError&gt; {
 		<span class="self">self</span>.call_remote_runtime_function(
-			<span class="string">&quot;ParachainHost_persisted_assumed_validation_data&quot;</span>,
+			<span class="string">"ParachainHost_persisted_assumed_validation_data"</span>,
 			at,
 			<span class="prelude-val">Some</span>((para_id, expected_hash)),
 		)
@@ -1227,7 +1229,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Get hash of last finalized block.
 	</span><span class="kw">pub async fn </span>chain_get_finalized_head(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;RelayHash, RelayChainError&gt; {
-		<span class="self">self</span>.request(<span class="string">&quot;chain_getFinalizedHead&quot;</span>, <span class="macro">rpc_params!</span>[]).<span class="kw">await
+		<span class="self">self</span>.request(<span class="string">"chain_getFinalizedHead"</span>, <span class="macro">rpc_params!</span>[]).<span class="kw">await
 	</span>}
 
 	<span class="doccomment">/// Get hash of n-th block.
@@ -1236,7 +1238,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		block_number: <span class="prelude-ty">Option</span>&lt;BlockNumber&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;RelayHash&gt;, RelayChainError&gt; {
 		<span class="kw">let </span>params = <span class="macro">rpc_params!</span>[block_number];
-		<span class="self">self</span>.request(<span class="string">&quot;chain_getBlockHash&quot;</span>, params).<span class="kw">await
+		<span class="self">self</span>.request(<span class="string">"chain_getBlockHash"</span>, params).<span class="kw">await
 	</span>}
 
 	<span class="doccomment">/// Yields the persisted validation data for the given `ParaId` along with an assumption that
@@ -1251,7 +1253,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		occupied_core_assumption: OccupiedCoreAssumption,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;PersistedValidationData&gt;, RelayChainError&gt; {
 		<span class="self">self</span>.call_remote_runtime_function(
-			<span class="string">&quot;ParachainHost_persisted_validation_data&quot;</span>,
+			<span class="string">"ParachainHost_persisted_validation_data"</span>,
 			at,
 			<span class="prelude-val">Some</span>((para_id, occupied_core_assumption)),
 		)
@@ -1265,7 +1267,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		validation_code_hash: ValidationCodeHash,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;ValidationCode&gt;, RelayChainError&gt; {
 		<span class="self">self</span>.call_remote_runtime_function(
-			<span class="string">&quot;ParachainHost_validation_code_by_hash&quot;</span>,
+			<span class="string">"ParachainHost_validation_code_by_hash"</span>,
 			at,
 			<span class="prelude-val">Some</span>(validation_code_hash),
 		)
@@ -1278,14 +1280,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		at: RelayHash,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;CoreState&lt;RelayHash, BlockNumber&gt;&gt;, RelayChainError&gt; {
-		<span class="self">self</span>.call_remote_runtime_function(<span class="string">&quot;ParachainHost_availability_cores&quot;</span>, at, <span class="prelude-val">None</span>::&lt;()&gt;)
+		<span class="self">self</span>.call_remote_runtime_function(<span class="string">"ParachainHost_availability_cores"</span>, at, <span class="prelude-val">None</span>::&lt;()&gt;)
 			.<span class="kw">await
 	</span>}
 
 	<span class="doccomment">/// Get runtime version
 	</span><span class="kw">pub async fn </span>runtime_version(<span class="kw-2">&amp;</span><span class="self">self</span>, at: RelayHash) -&gt; <span class="prelude-ty">Result</span>&lt;RuntimeVersion, RelayChainError&gt; {
 		<span class="kw">let </span>params = <span class="macro">rpc_params!</span>[at];
-		<span class="self">self</span>.request(<span class="string">&quot;state_getRuntimeVersion&quot;</span>, params).<span class="kw">await
+		<span class="self">self</span>.request(<span class="string">"state_getRuntimeVersion"</span>, params).<span class="kw">await
 	</span>}
 
 	<span class="doccomment">/// Returns all onchain disputes.
@@ -1293,7 +1295,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		at: RelayHash,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;(SessionIndex, CandidateHash, DisputeState&lt;BlockNumber&gt;)&gt;, RelayChainError&gt; {
-		<span class="self">self</span>.call_remote_runtime_function(<span class="string">&quot;ParachainHost_disputes&quot;</span>, at, <span class="prelude-val">None</span>::&lt;()&gt;)
+		<span class="self">self</span>.call_remote_runtime_function(<span class="string">"ParachainHost_disputes"</span>, at, <span class="prelude-val">None</span>::&lt;()&gt;)
 			.<span class="kw">await
 	</span>}
 
@@ -1304,7 +1306,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		at: RelayHash,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;(SessionIndex, CandidateHash, slashing::PendingSlashes)&gt;, RelayChainError&gt; {
-		<span class="self">self</span>.call_remote_runtime_function(<span class="string">&quot;ParachainHost_unapplied_slashes&quot;</span>, at, <span class="prelude-val">None</span>::&lt;()&gt;)
+		<span class="self">self</span>.call_remote_runtime_function(<span class="string">"ParachainHost_unapplied_slashes"</span>, at, <span class="prelude-val">None</span>::&lt;()&gt;)
 			.<span class="kw">await
 	</span>}
 
@@ -1317,7 +1319,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		validator_id: ValidatorId,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;slashing::OpaqueKeyOwnershipProof&gt;, RelayChainError&gt; {
 		<span class="self">self</span>.call_remote_runtime_function(
-			<span class="string">&quot;ParachainHost_key_ownership_proof&quot;</span>,
+			<span class="string">"ParachainHost_key_ownership_proof"</span>,
 			at,
 			<span class="prelude-val">Some</span>(validator_id),
 		)
@@ -1335,7 +1337,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		key_ownership_proof: slashing::OpaqueKeyOwnershipProof,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;()&gt;, RelayChainError&gt; {
 		<span class="self">self</span>.call_remote_runtime_function(
-			<span class="string">&quot;ParachainHost_submit_report_dispute_lost&quot;</span>,
+			<span class="string">"ParachainHost_submit_report_dispute_lost"</span>,
 			at,
 			<span class="prelude-val">Some</span>((dispute_proof, key_ownership_proof)),
 		)
@@ -1346,7 +1348,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		at: RelayHash,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;sp_authority_discovery::AuthorityId&gt;, RelayChainError&gt; {
-		<span class="self">self</span>.call_remote_runtime_function(<span class="string">&quot;AuthorityDiscoveryApi_authorities&quot;</span>, at, <span class="prelude-val">None</span>::&lt;()&gt;)
+		<span class="self">self</span>.call_remote_runtime_function(<span class="string">"AuthorityDiscoveryApi_authorities"</span>, at, <span class="prelude-val">None</span>::&lt;()&gt;)
 			.<span class="kw">await
 	</span>}
 
@@ -1361,7 +1363,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		occupied_core_assumption: OccupiedCoreAssumption,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;ValidationCode&gt;, RelayChainError&gt; {
 		<span class="self">self</span>.call_remote_runtime_function(
-			<span class="string">&quot;ParachainHost_validation_code&quot;</span>,
+			<span class="string">"ParachainHost_validation_code"</span>,
 			at,
 			<span class="prelude-val">Some</span>((para_id, occupied_core_assumption)),
 		)
@@ -1377,7 +1379,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		occupied_core_assumption: OccupiedCoreAssumption,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;ValidationCodeHash&gt;, RelayChainError&gt; {
 		<span class="self">self</span>.call_remote_runtime_function(
-			<span class="string">&quot;ParachainHost_validation_code_hash&quot;</span>,
+			<span class="string">"ParachainHost_validation_code_hash"</span>,
 			at,
 			<span class="prelude-val">Some</span>((para_id, occupied_core_assumption)),
 		)
@@ -1390,7 +1392,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		at: RelayHash,
 		index: SessionIndex,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;SessionInfo&gt;, RelayChainError&gt; {
-		<span class="self">self</span>.call_remote_runtime_function(<span class="string">&quot;ParachainHost_session_info&quot;</span>, at, <span class="prelude-val">Some</span>(index))
+		<span class="self">self</span>.call_remote_runtime_function(<span class="string">"ParachainHost_session_info"</span>, at, <span class="prelude-val">Some</span>(index))
 			.<span class="kw">await
 	</span>}
 
@@ -1401,7 +1403,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		session_index: SessionIndex,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;ExecutorParams&gt;, RelayChainError&gt; {
 		<span class="self">self</span>.call_remote_runtime_function(
-			<span class="string">&quot;ParachainHost_session_executor_params&quot;</span>,
+			<span class="string">"ParachainHost_session_executor_params"</span>,
 			at,
 			<span class="prelude-val">Some</span>(session_index),
 		)
@@ -1414,7 +1416,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		hash: <span class="prelude-ty">Option</span>&lt;RelayHash&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;RelayHeader&gt;, RelayChainError&gt; {
 		<span class="kw">let </span>params = <span class="macro">rpc_params!</span>[hash];
-		<span class="self">self</span>.request(<span class="string">&quot;chain_getHeader&quot;</span>, params).<span class="kw">await
+		<span class="self">self</span>.request(<span class="string">"chain_getHeader"</span>, params).<span class="kw">await
 	</span>}
 
 	<span class="doccomment">/// Get the receipt of a candidate pending availability. This returns `Some` for any paras
@@ -1425,7 +1427,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		para_id: ParaId,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;CommittedCandidateReceipt&gt;, RelayChainError&gt; {
 		<span class="self">self</span>.call_remote_runtime_function(
-			<span class="string">&quot;ParachainHost_candidate_pending_availability&quot;</span>,
+			<span class="string">"ParachainHost_candidate_pending_availability"</span>,
 			at,
 			<span class="prelude-val">Some</span>(para_id),
 		)
@@ -1439,7 +1441,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		at: RelayHash,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;SessionIndex, RelayChainError&gt; {
-		<span class="self">self</span>.call_remote_runtime_function(<span class="string">&quot;ParachainHost_session_index_for_child&quot;</span>, at, <span class="prelude-val">None</span>::&lt;()&gt;)
+		<span class="self">self</span>.call_remote_runtime_function(<span class="string">"ParachainHost_session_index_for_child"</span>, at, <span class="prelude-val">None</span>::&lt;()&gt;)
 			.<span class="kw">await
 	</span>}
 
@@ -1448,7 +1450,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		at: RelayHash,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;ValidatorId&gt;, RelayChainError&gt; {
-		<span class="self">self</span>.call_remote_runtime_function(<span class="string">&quot;ParachainHost_validators&quot;</span>, at, <span class="prelude-val">None</span>::&lt;()&gt;)
+		<span class="self">self</span>.call_remote_runtime_function(<span class="string">"ParachainHost_validators"</span>, at, <span class="prelude-val">None</span>::&lt;()&gt;)
 			.<span class="kw">await
 	</span>}
 
@@ -1460,7 +1462,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		at: RelayHash,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;BTreeMap&lt;ParaId, Vec&lt;InboundHrmpMessage&gt;&gt;, RelayChainError&gt; {
 		<span class="self">self</span>.call_remote_runtime_function(
-			<span class="string">&quot;ParachainHost_inbound_hrmp_channels_contents&quot;</span>,
+			<span class="string">"ParachainHost_inbound_hrmp_channels_contents"</span>,
 			at,
 			<span class="prelude-val">Some</span>(para_id),
 		)
@@ -1473,7 +1475,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		para_id: ParaId,
 		at: RelayHash,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;InboundDownwardMessage&gt;, RelayChainError&gt; {
-		<span class="self">self</span>.call_remote_runtime_function(<span class="string">&quot;ParachainHost_dmq_contents&quot;</span>, at, <span class="prelude-val">Some</span>(para_id))
+		<span class="self">self</span>.call_remote_runtime_function(<span class="string">"ParachainHost_dmq_contents"</span>, at, <span class="prelude-val">Some</span>(para_id))
 			.<span class="kw">await
 	</span>}
 
@@ -1483,7 +1485,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		at: RelayHash,
 		_session_index: SessionIndex,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;u32, RelayChainError&gt; {
-		<span class="self">self</span>.call_remote_runtime_function(<span class="string">&quot;ParachainHost_minimum_backing_votes&quot;</span>, at, <span class="prelude-val">None</span>::&lt;()&gt;)
+		<span class="self">self</span>.call_remote_runtime_function(<span class="string">"ParachainHost_minimum_backing_votes"</span>, at, <span class="prelude-val">None</span>::&lt;()&gt;)
 			.<span class="kw">await
 	</span>}
 
@@ -1491,7 +1493,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		at: RelayHash,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;NodeFeatures, RelayChainError&gt; {
-		<span class="self">self</span>.call_remote_runtime_function(<span class="string">&quot;ParachainHost_node_features&quot;</span>, at, <span class="prelude-val">None</span>::&lt;()&gt;)
+		<span class="self">self</span>.call_remote_runtime_function(<span class="string">"ParachainHost_node_features"</span>, at, <span class="prelude-val">None</span>::&lt;()&gt;)
 			.<span class="kw">await
 	</span>}
 
@@ -1499,7 +1501,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		at: RelayHash,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;ValidatorIndex&gt;, RelayChainError&gt; {
-		<span class="self">self</span>.call_remote_runtime_function(<span class="string">&quot;ParachainHost_disabled_validators&quot;</span>, at, <span class="prelude-val">None</span>::&lt;()&gt;)
+		<span class="self">self</span>.call_remote_runtime_function(<span class="string">"ParachainHost_disabled_validators"</span>, at, <span class="prelude-val">None</span>::&lt;()&gt;)
 			.<span class="kw">await
 	</span>}
 
@@ -1508,7 +1510,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		at: RelayHash,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;AsyncBackingParams, RelayChainError&gt; {
-		<span class="self">self</span>.call_remote_runtime_function(<span class="string">&quot;ParachainHost_async_backing_params&quot;</span>, at, <span class="prelude-val">None</span>::&lt;()&gt;)
+		<span class="self">self</span>.call_remote_runtime_function(<span class="string">"ParachainHost_async_backing_params"</span>, at, <span class="prelude-val">None</span>::&lt;()&gt;)
 			.<span class="kw">await
 	</span>}
 
@@ -1519,7 +1521,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		_session_index: SessionIndex,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;ApprovalVotingParams, RelayChainError&gt; {
 		<span class="self">self</span>.call_remote_runtime_function(
-			<span class="string">&quot;ParachainHost_staging_approval_voting_params&quot;</span>,
+			<span class="string">"ParachainHost_staging_approval_voting_params"</span>,
 			at,
 			<span class="prelude-val">None</span>::&lt;()&gt;,
 		)
@@ -1531,7 +1533,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		at: RelayHash,
 		para_id: ParaId,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;BackingState&gt;, RelayChainError&gt; {
-		<span class="self">self</span>.call_remote_runtime_function(<span class="string">&quot;ParachainHost_para_backing_state&quot;</span>, at, <span class="prelude-val">Some</span>(para_id))
+		<span class="self">self</span>.call_remote_runtime_function(<span class="string">"ParachainHost_para_backing_state"</span>, at, <span class="prelude-val">Some</span>(para_id))
 			.<span class="kw">await
 	</span>}
 
@@ -1539,7 +1541,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		at: RelayHash,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;BTreeMap&lt;CoreIndex, VecDeque&lt;ParaId&gt;&gt;, RelayChainError&gt; {
-		<span class="self">self</span>.call_remote_runtime_function(<span class="string">&quot;ParachainHost_claim_queue&quot;</span>, at, <span class="prelude-val">None</span>::&lt;()&gt;)
+		<span class="self">self</span>.call_remote_runtime_function(<span class="string">"ParachainHost_claim_queue"</span>, at, <span class="prelude-val">None</span>::&lt;()&gt;)
 			.<span class="kw">await
 	</span>}
 
@@ -1550,7 +1552,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		para_id: ParaId,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;CommittedCandidateReceipt&gt;, RelayChainError&gt; {
 		<span class="self">self</span>.call_remote_runtime_function(
-			<span class="string">&quot;ParachainHost_candidates_pending_availability&quot;</span>,
+			<span class="string">"ParachainHost_candidates_pending_availability"</span>,
 			at,
 			<span class="prelude-val">Some</span>(para_id),
 		)
@@ -1564,7 +1566,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		occupied_core_assumption: OccupiedCoreAssumption,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;ValidationCodeHash&gt;, RelayChainError&gt; {
 		<span class="self">self</span>.call_remote_runtime_function(
-			<span class="string">&quot;ParachainHost_validation_code_hash&quot;</span>,
+			<span class="string">"ParachainHost_validation_code_hash"</span>,
 			at,
 			<span class="prelude-val">Some</span>((para_id, occupied_core_assumption)),
 		)
@@ -1618,7 +1620,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					// TODO: Improve error handling here
 					// https://github.com/paritytech/cumulus/issues/1482
 					</span><span class="prelude-val">Err</span>(error) =&gt; {
-						<span class="macro">tracing::error!</span>(target: LOG_TARGET, <span class="question-mark">?</span>error, <span class="string">&quot;Event distribution channel has reached its limit. This can lead to missed notifications.&quot;</span>);
+						<span class="macro">tracing::error!</span>(target: LOG_TARGET, <span class="question-mark">?</span>error, <span class="string">"Event distribution channel has reached its limit. This can lead to missed notifications."</span>);
 						<span class="bool-val">true
 					</span>},
 					<span class="kw">_ </span>=&gt; <span class="bool-val">true</span>,

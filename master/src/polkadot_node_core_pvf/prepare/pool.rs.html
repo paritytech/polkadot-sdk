@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/core/pvf/src/prepare/pool.rs`."><title>pool.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/core/pvf/src/prepare/pool.rs`."><title>pool.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_node_core_pvf" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_node_core_pvf" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../polkadot_node_core_pvf/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -714,7 +716,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub enum </span>ToPool {
 	<span class="doccomment">/// Request a new worker to spawn.
 	///
-	/// This request won&#39;t fail in case if the worker cannot be created. Instead, we consider
+	/// This request won't fail in case if the worker cannot be created. Instead, we consider
 	/// the failures transient and we try to spawn a worker after a delay.
 	///
 	/// [`FromPool::Spawned`] will be returned as soon as the worker is spawned.
@@ -725,7 +727,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Kill the given worker. No-op if the given worker is not running.
 	///
-	/// [`FromPool::Rip`] won&#39;t be sent in this case. However, the client should be prepared to
+	/// [`FromPool::Rip`] won't be sent in this case. However, the client should be prepared to
 	/// receive [`FromPool::Rip`] nonetheless, since the worker may be have been ripped before
 	/// this message is processed.
 	</span>Kill(Worker),
@@ -733,7 +735,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Request the given worker to start working on the given code.
 	///
 	/// Once the job either succeeded or failed, a [`FromPool::Concluded`] message will be sent
-	/// back. It&#39;s also possible that the worker dies before handling the message in which case
+	/// back. It's also possible that the worker dies before handling the message in which case
 	/// [`FromPool::Rip`] will be sent back.
 	///
 	/// In either case, the worker is considered busy and no further `StartWork` messages should be
@@ -768,8 +770,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl </span>fmt::Debug <span class="kw">for </span>WorkerData {
-	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; fmt::Result {
-		<span class="macro">write!</span>(f, <span class="string">&quot;WorkerData(pid={})&quot;</span>, <span class="self">self</span>.handle.id())
+	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; fmt::Result {
+		<span class="macro">write!</span>(f, <span class="string">"WorkerData(pid={})"</span>, <span class="self">self</span>.handle.id())
 	}
 }
 
@@ -778,7 +780,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	StartWork(Worker, Outcome),
 }
 
-<span class="kw">type </span>Mux = FuturesUnordered&lt;BoxFuture&lt;<span class="lifetime">&#39;static</span>, PoolEvent&gt;&gt;;
+<span class="kw">type </span>Mux = FuturesUnordered&lt;BoxFuture&lt;<span class="lifetime">'static</span>, PoolEvent&gt;&gt;;
 
 <span class="kw">struct </span>Pool {
 	<span class="comment">// Some variables related to the current session.
@@ -889,7 +891,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ) {
 	<span class="kw">match </span>to_pool {
 		ToPool::Spawn =&gt; {
-			<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="string">&quot;spawning a new prepare worker&quot;</span>);
+			<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="string">"spawning a new prepare worker"</span>);
 			metrics.prepare_worker().on_begin_spawn();
 			mux.push(
 				spawn_worker_task(
@@ -923,15 +925,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					// work items concluded;
 					// thus idle token is Some;
 					// qed.
-					</span><span class="macro">never!</span>(<span class="string">&quot;unexpected absence of the idle token in prepare pool&quot;</span>);
+					</span><span class="macro">never!</span>(<span class="string">"unexpected absence of the idle token in prepare pool"</span>);
 				}
 			} <span class="kw">else </span>{
-				<span class="comment">// That&#39;s a relatively normal situation since the queue may send `start_work` and
+				<span class="comment">// That's a relatively normal situation since the queue may send `start_work` and
 				// before receiving it the pool would report that the worker died.
 			</span>}
 		},
 		ToPool::Kill(worker) =&gt; {
-			<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="question-mark">?</span>worker, <span class="string">&quot;killing prepare worker&quot;</span>);
+			<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="question-mark">?</span>worker, <span class="string">"killing prepare worker"</span>);
 			<span class="comment">// It may be absent if it were previously already removed by `purge_dead`.
 			</span><span class="kw">let _ </span>= attempt_retire(metrics, spawned, worker);
 		},
@@ -959,7 +961,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>{
 			<span class="prelude-val">Ok</span>((idle, handle)) =&gt; <span class="kw">break </span>PoolEvent::Spawn(idle, handle),
 			<span class="prelude-val">Err</span>(err) =&gt; {
-				<span class="macro">gum::warn!</span>(target: LOG_TARGET, <span class="string">&quot;failed to spawn a prepare worker: {:?}&quot;</span>, err);
+				<span class="macro">gum::warn!</span>(target: LOG_TARGET, <span class="string">"failed to spawn a prepare worker: {:?}"</span>, err);
 
 				<span class="comment">// Assume that the failure intermittent and retry after a delay.
 				</span>Delay::new(Duration::from_secs(<span class="number">3</span>)).<span class="kw">await</span>;
@@ -1021,7 +1023,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						idle,
 						<span class="prelude-val">Err</span>(PrepareError::RenameTmpFile { err, src, dest }),
 					),
-				<span class="comment">// Could not clear worker cache. Kill the worker so other jobs can&#39;t see the data.
+				<span class="comment">// Could not clear worker cache. Kill the worker so other jobs can't see the data.
 				</span>Outcome::ClearWorkerDir { err } =&gt; {
 					<span class="kw">if </span>attempt_retire(metrics, spawned, worker) {
 						reply(
@@ -1154,7 +1156,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">let </span>old = data.idle.replace(idle);
 	<span class="macro">never!</span>(
 		old.is_some(),
-		<span class="string">&quot;old idle worker was taken out when starting work; we only replace it here; qed&quot;
+		<span class="string">"old idle worker was taken out when starting work; we only replace it here; qed"
 	</span>);
 
 	reply(from_pool, FromPool::Concluded { worker, rip: <span class="bool-val">false</span>, result })<span class="question-mark">?</span>;

@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/core/pvf/src/security.rs`."><title>security.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/core/pvf/src/security.rs`."><title>security.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_node_core_pvf" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_node_core_pvf" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../polkadot_node_core_pvf/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -579,16 +581,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">if </span>full_security_status.err_occurred() {
 		print_secure_mode_error_or_warning(<span class="kw-2">&amp;</span>full_security_status);
 		<span class="kw">if </span>!full_security_status.all_errs_allowed() {
-			<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;could not enable Secure Validator Mode; check logs&quot;</span>.into())
+			<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"could not enable Secure Validator Mode; check logs"</span>.into())
 		}
 	}
 
 	<span class="kw">if </span>security_status.secure_validator_mode {
 		<span class="macro">gum::info!</span>(
 			target: LOG_TARGET,
-			<span class="string">&quot;👮‍♀️ Running in Secure Validator Mode. \
+			<span class="string">"👮‍♀️ Running in Secure Validator Mode. \
 			 It is highly recommended that you operate according to our security guidelines. \
-			 \nMore information: https://wiki.polkadot.network/docs/maintain-guides-secure-validator#secure-validator-mode&quot;
+			 \nMore information: https://wiki.polkadot.network/docs/maintain-guides-secure-validator#secure-validator-mode"
 		</span>);
 	}
 
@@ -642,8 +644,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.iter()
 			.map(|err| {
 				<span class="macro">format!</span>(
-					<span class="string">&quot;\n  - {}{}&quot;</span>,
-					<span class="kw">if </span>err.is_allowed_in_secure_mode(<span class="kw-2">&amp;</span><span class="self">self</span>.partial) { <span class="string">&quot;Optional: &quot; </span>} <span class="kw">else </span>{ <span class="string">&quot;&quot; </span>},
+					<span class="string">"\n  - {}{}"</span>,
+					<span class="kw">if </span>err.is_allowed_in_secure_mode(<span class="kw-2">&amp;</span><span class="self">self</span>.partial) { <span class="string">"Optional: " </span>} <span class="kw">else </span>{ <span class="string">"" </span>},
 					err
 				)
 			})
@@ -671,12 +673,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			// capability is present, providing FS sandboxing a different way.
 			</span>CannotEnableLandlock { .. } =&gt;
 				security_status.can_unshare_user_namespace_and_change_root,
-			<span class="comment">// seccomp should be present on all modern Linuxes unless it&#39;s been disabled.
+			<span class="comment">// seccomp should be present on all modern Linuxes unless it's been disabled.
 			</span>CannotEnableSeccomp(<span class="kw">_</span>) =&gt; <span class="bool-val">false</span>,
 			<span class="comment">// Should always be present on modern Linuxes. If not, Landlock also provides FS
-			// sandboxing, so don&#39;t enforce this.
+			// sandboxing, so don't enforce this.
 			</span>CannotUnshareUserNamespaceAndChangeRoot(<span class="kw">_</span>) =&gt; security_status.can_enable_landlock,
-			<span class="comment">// We have not determined the kernel requirements for this capability, and it&#39;s also not
+			<span class="comment">// We have not determined the kernel requirements for this capability, and it's also not
 			// necessary for FS or networking restrictions.
 			</span>CannotDoSecureClone(<span class="kw">_</span>) =&gt; <span class="bool-val">true</span>,
 		}
@@ -684,13 +686,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl </span>fmt::Display <span class="kw">for </span>SecureModeError {
-	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; fmt::Result {
+	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; fmt::Result {
 		<span class="kw">use </span>SecureModeError::<span class="kw-2">*</span>;
 		<span class="kw">match </span><span class="self">self </span>{
-			CannotEnableLandlock{err, abi} =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Cannot enable landlock (ABI {abi}), a Linux 5.13+ kernel security feature: {err}&quot;</span>),
-			CannotEnableSeccomp(err) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Cannot enable seccomp, a Linux-specific kernel security feature: {err}&quot;</span>),
-			CannotUnshareUserNamespaceAndChangeRoot(err) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Cannot unshare user namespace and change root, which are Linux-specific kernel security features: {err}&quot;</span>),
-			CannotDoSecureClone(err) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Cannot call clone with all sandboxing flags, a Linux-specific kernel security features: {err}&quot;</span>),
+			CannotEnableLandlock{err, abi} =&gt; <span class="macro">write!</span>(f, <span class="string">"Cannot enable landlock (ABI {abi}), a Linux 5.13+ kernel security feature: {err}"</span>),
+			CannotEnableSeccomp(err) =&gt; <span class="macro">write!</span>(f, <span class="string">"Cannot enable seccomp, a Linux-specific kernel security feature: {err}"</span>),
+			CannotUnshareUserNamespaceAndChangeRoot(err) =&gt; <span class="macro">write!</span>(f, <span class="string">"Cannot unshare user namespace and change root, which are Linux-specific kernel security features: {err}"</span>),
+			CannotDoSecureClone(err) =&gt; <span class="macro">write!</span>(f, <span class="string">"Cannot call clone with all sandboxing flags, a Linux-specific kernel security features: {err}"</span>),
 		}
 	}
 }
@@ -703,14 +705,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">if </span>all_errs_allowed {
 		<span class="macro">gum::warn!</span>(
 			target: LOG_TARGET,
-			<span class="string">&quot;{}{}&quot;</span>,
+			<span class="string">"{}{}"</span>,
 			<span class="kw">crate</span>::SECURE_MODE_WARNING,
 			errs_string,
 		);
 	} <span class="kw">else </span>{
 		<span class="macro">gum::error!</span>(
 			target: LOG_TARGET,
-			<span class="string">&quot;{}{}{}&quot;</span>,
+			<span class="string">"{}{}{}"</span>,
 			<span class="kw">crate</span>::SECURE_MODE_ERROR,
 			errs_string,
 			<span class="kw">crate</span>::IGNORE_SECURE_MODE_TIP
@@ -728,17 +730,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	cache_path: <span class="kw-2">&amp;</span>Path,
 ) -&gt; SecureModeResult {
 	<span class="kw">let </span>cache_dir_tempdir = tempfile::Builder::new()
-		.prefix(<span class="string">&quot;check-can-unshare-&quot;</span>)
+		.prefix(<span class="string">"check-can-unshare-"</span>)
 		.tempdir_in(cache_path)
 		.map_err(|err| {
 			SecureModeError::CannotUnshareUserNamespaceAndChangeRoot(<span class="macro">format!</span>(
-				<span class="string">&quot;could not create a temporary directory in {:?}: {}&quot;</span>,
+				<span class="string">"could not create a temporary directory in {:?}: {}"</span>,
 				cache_path, err
 			))
 		})<span class="question-mark">?</span>;
 	spawn_process_for_security_check(
 		prepare_worker_program_path,
-		<span class="string">&quot;--check-can-unshare-user-namespace-and-change-root&quot;</span>,
+		<span class="string">"--check-can-unshare-user-namespace-and-change-root"</span>,
 		<span class="kw-2">&amp;</span>[cache_dir_tempdir.path()],
 	)
 	.<span class="kw">await
@@ -754,7 +756,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>abi = polkadot_node_core_pvf_common::worker::security::landlock::LANDLOCK_ABI <span class="kw">as </span>u8;
 	spawn_process_for_security_check(
 		prepare_worker_program_path,
-		<span class="string">&quot;--check-can-enable-landlock&quot;</span>,
+		<span class="string">"--check-can-enable-landlock"</span>,
 		std::iter::empty::&lt;<span class="kw-2">&amp;</span>str&gt;(),
 	)
 	.<span class="kw">await
@@ -767,21 +769,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// to running the check in a worker, we try it... in a worker. The expected return status is 0 on
 /// success and -1 on failure.
 
-</span><span class="attr">#[cfg(target_arch = <span class="string">&quot;x86_64&quot;</span>)]
+</span><span class="attr">#[cfg(target_arch = <span class="string">"x86_64"</span>)]
 </span><span class="kw">async fn </span>check_seccomp(prepare_worker_program_path: <span class="kw-2">&amp;</span>Path) -&gt; SecureModeResult {
 	spawn_process_for_security_check(
 		prepare_worker_program_path,
-		<span class="string">&quot;--check-can-enable-seccomp&quot;</span>,
+		<span class="string">"--check-can-enable-seccomp"</span>,
 		std::iter::empty::&lt;<span class="kw-2">&amp;</span>str&gt;(),
 	)
 	.<span class="kw">await
 	</span>.map_err(|err| SecureModeError::CannotEnableSeccomp(err))
 }
 
-<span class="attr">#[cfg(not(target_arch = <span class="string">&quot;x86_64&quot;</span>))]
+<span class="attr">#[cfg(not(target_arch = <span class="string">"x86_64"</span>))]
 </span><span class="kw">async fn </span>check_seccomp(<span class="kw">_</span>: <span class="kw-2">&amp;</span>Path) -&gt; SecureModeResult {
 	<span class="prelude-val">Err</span>(SecureModeError::CannotEnableSeccomp(
-		<span class="string">&quot;only supported on CPUs from the x86_64 family (usually Intel or AMD)&quot;</span>.into(),
+		<span class="string">"only supported on CPUs from the x86_64 family (usually Intel or AMD)"</span>.into(),
 	))
 }
 
@@ -793,7 +795,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">async fn </span>check_can_do_secure_clone(prepare_worker_program_path: <span class="kw-2">&amp;</span>Path) -&gt; SecureModeResult {
 	spawn_process_for_security_check(
 		prepare_worker_program_path,
-		<span class="string">&quot;--check-can-do-secure-clone&quot;</span>,
+		<span class="string">"--check-can-do-secure-clone"</span>,
 		std::iter::empty::&lt;<span class="kw-2">&amp;</span>str&gt;(),
 	)
 	.<span class="kw">await
@@ -802,7 +804,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">async fn </span>spawn_process_for_security_check&lt;I, S&gt;(
 	prepare_worker_program_path: <span class="kw-2">&amp;</span>Path,
-	check_arg: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
+	check_arg: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
 	extra_args: I,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(), String&gt;
 <span class="kw">where
@@ -814,23 +816,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	// outcomes of the checks.)
 	</span>command.env_clear();
 	<span class="comment">// Add back any env vars we want to keep.
-	</span><span class="kw">if let </span><span class="prelude-val">Ok</span>(value) = std::env::var(<span class="string">&quot;RUST_LOG&quot;</span>) {
-		command.env(<span class="string">&quot;RUST_LOG&quot;</span>, value);
+	</span><span class="kw">if let </span><span class="prelude-val">Ok</span>(value) = std::env::var(<span class="string">"RUST_LOG"</span>) {
+		command.env(<span class="string">"RUST_LOG"</span>, value);
 	}
 
 	<span class="kw">match </span>command.arg(check_arg).args(extra_args).output().<span class="kw">await </span>{
 		<span class="prelude-val">Ok</span>(output) <span class="kw">if </span>output.status.success() =&gt; <span class="prelude-val">Ok</span>(()),
 		<span class="prelude-val">Ok</span>(output) =&gt; {
 			<span class="kw">let </span>stderr = std::str::from_utf8(<span class="kw-2">&amp;</span>output.stderr)
-				.expect(<span class="string">&quot;child process writes a UTF-8 string to stderr; qed&quot;</span>)
+				.expect(<span class="string">"child process writes a UTF-8 string to stderr; qed"</span>)
 				.trim();
 			<span class="kw">if </span>stderr.is_empty() {
-				<span class="prelude-val">Err</span>(<span class="string">&quot;not available&quot;</span>.into())
+				<span class="prelude-val">Err</span>(<span class="string">"not available"</span>.into())
 			} <span class="kw">else </span>{
-				<span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">&quot;not available: {}&quot;</span>, stderr))
+				<span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">"not available: {}"</span>, stderr))
 			}
 		},
-		<span class="prelude-val">Err</span>(err) =&gt; <span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">&quot;could not start child process: {}&quot;</span>, err)),
+		<span class="prelude-val">Err</span>(err) =&gt; <span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">"could not start child process: {}"</span>, err)),
 	}
 }
 

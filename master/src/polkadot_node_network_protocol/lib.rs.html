@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/network/protocol/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/network/protocol/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_node_network_protocol" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_node_network_protocol" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../polkadot_node_network_protocol/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1135,8 +1137,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub struct </span>WrongVariant;
 
 <span class="kw">impl </span>fmt::Display <span class="kw">for </span>WrongVariant {
-	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, formatter: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; fmt::Result {
-		<span class="macro">write!</span>(formatter, <span class="string">&quot;Wrong message variant&quot;</span>)
+	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, formatter: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; fmt::Result {
+		<span class="macro">write!</span>(formatter, <span class="string">"Wrong message variant"</span>)
 	}
 }
 
@@ -1217,7 +1219,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Construct a new [`OurView`] with the given chain heads, finalized number 0 and disabled
-/// [`jaeger::Span`]&#39;s.
+/// [`jaeger::Span`]'s.
 ///
 /// NOTE: Use for tests only.
 ///
@@ -1238,7 +1240,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	};
 }
 
-<span class="doccomment">/// A succinct representation of a peer&#39;s view. This consists of a bounded amount of chain heads
+<span class="doccomment">/// A succinct representation of a peer's view. This consists of a bounded amount of chain heads
 /// and the highest known finalized block number.
 ///
 /// Up to `N` (5?) chain heads.
@@ -1312,12 +1314,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Returns an iterator of the hashes present in `Self` but not in `other`.
-	</span><span class="kw">pub fn </span>difference&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>, other: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>View) -&gt; <span class="kw">impl </span>Iterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Hash&gt; + <span class="lifetime">&#39;a </span>{
+	</span><span class="kw">pub fn </span>difference&lt;<span class="lifetime">'a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>, other: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>View) -&gt; <span class="kw">impl </span>Iterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Hash&gt; + <span class="lifetime">'a </span>{
 		<span class="self">self</span>.heads.iter().filter(<span class="kw">move </span>|h| !other.contains(h))
 	}
 
 	<span class="doccomment">/// An iterator containing hashes present in both `Self` and in `other`.
-	</span><span class="kw">pub fn </span>intersection&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>, other: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>View) -&gt; <span class="kw">impl </span>Iterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Hash&gt; + <span class="lifetime">&#39;a </span>{
+	</span><span class="kw">pub fn </span>intersection&lt;<span class="lifetime">'a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>, other: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>View) -&gt; <span class="kw">impl </span>Iterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Hash&gt; + <span class="lifetime">'a </span>{
 		<span class="self">self</span>.heads.iter().filter(<span class="kw">move </span>|h| other.contains(h))
 	}
 
@@ -1346,7 +1348,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>V3(V3),
 }
 
-<span class="kw">impl</span>&lt;V1: Clone, V2: Clone, V3: Clone&gt; Versioned&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;_ </span>V1, <span class="kw-2">&amp;</span><span class="lifetime">&#39;_ </span>V2, <span class="kw-2">&amp;</span><span class="lifetime">&#39;_ </span>V3&gt; {
+<span class="kw">impl</span>&lt;V1: Clone, V2: Clone, V3: Clone&gt; Versioned&lt;<span class="kw-2">&amp;</span><span class="lifetime">'_ </span>V1, <span class="kw-2">&amp;</span><span class="lifetime">'_ </span>V2, <span class="kw-2">&amp;</span><span class="lifetime">'_ </span>V3&gt; {
 	<span class="doccomment">/// Convert to a fully-owned version of the message.
 	</span><span class="kw">pub fn </span>clone_inner(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Versioned&lt;V1, V2, V3&gt; {
 		<span class="kw">match </span><span class="kw-2">*</span><span class="self">self </span>{
@@ -1431,10 +1433,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			}
 		}
 
-		<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; TryFrom&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="macro-nonterminal">$from</span>&gt; <span class="kw">for </span><span class="macro-nonterminal">$out </span>{
+		<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; TryFrom&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="macro-nonterminal">$from</span>&gt; <span class="kw">for </span><span class="macro-nonterminal">$out </span>{
 			<span class="kw">type </span>Error = <span class="kw">crate</span>::WrongVariant;
 
-			<span class="kw">fn </span>try_from(x: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="macro-nonterminal">$from</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="macro-nonterminal">$out</span>, <span class="self">Self</span>::Error&gt; {
+			<span class="kw">fn </span>try_from(x: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="macro-nonterminal">$from</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="macro-nonterminal">$out</span>, <span class="self">Self</span>::Error&gt; {
 				<span class="attr">#[allow(unreachable_patterns)] </span><span class="comment">// when there is only one variant
 				</span><span class="kw">match </span>x {
 					Versioned::V1(<span class="macro-nonterminal">$v1_pat</span>) =&gt; <span class="prelude-val">Ok</span>(Versioned::V1(<span class="macro-nonterminal">$v1_out</span>.clone())),
@@ -1520,9 +1522,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; TryFrom&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>VersionedValidationProtocol&gt; <span class="kw">for </span>GossipSupportNetworkMessage {
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; TryFrom&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>VersionedValidationProtocol&gt; <span class="kw">for </span>GossipSupportNetworkMessage {
 	<span class="kw">type </span>Error = WrongVariant;
-	<span class="kw">fn </span>try_from(<span class="kw">_</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>VersionedValidationProtocol) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Error&gt; {
+	<span class="kw">fn </span>try_from(<span class="kw">_</span>: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>VersionedValidationProtocol) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Error&gt; {
 		<span class="prelude-val">Err</span>(WrongVariant)
 	}
 }
@@ -1696,7 +1698,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// controls the collator key it is declaring an intention to collate under.
 	</span><span class="kw">pub fn </span>declare_signature_payload(peer_id: <span class="kw-2">&amp;</span>sc_network_types::PeerId) -&gt; Vec&lt;u8&gt; {
 		<span class="kw">let </span><span class="kw-2">mut </span>payload = peer_id.to_bytes();
-		payload.extend_from_slice(<span class="string">b&quot;COLL&quot;</span>);
+		payload.extend_from_slice(<span class="string">b"COLL"</span>);
 		payload
 	}
 }
@@ -1728,9 +1730,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// about a candidate.
 	</span><span class="attr">#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq)]
 	</span><span class="kw">pub struct </span>StatementFilter {
-		<span class="doccomment">/// Seconded statements. &#39;1&#39; is known or undesired.
+		<span class="doccomment">/// Seconded statements. '1' is known or undesired.
 		</span><span class="kw">pub </span>seconded_in_group: BitVec&lt;u8, Lsb0&gt;,
-		<span class="doccomment">/// Valid statements. &#39;1&#39; is known or undesired.
+		<span class="doccomment">/// Valid statements. '1' is known or undesired.
 		</span><span class="kw">pub </span>validated_in_group: BitVec&lt;u8, Lsb0&gt;,
 	}
 
@@ -1824,8 +1826,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="doccomment">/// The head-data corresponding to the candidate.
 		</span><span class="kw">pub </span>parent_head_data_hash: Hash,
 		<span class="doccomment">/// A statement filter which indicates which validators in the
-		/// para&#39;s group at the relay-parent have validated this candidate
-		/// and issued statements about it, to the advertiser&#39;s knowledge.
+		/// para's group at the relay-parent have validated this candidate
+		/// and issued statements about it, to the advertiser's knowledge.
 		///
 		/// This MUST have exactly the minimum amount of bytes
 		/// necessary to represent the number of validators in the assigned
@@ -1839,8 +1841,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="doccomment">/// The hash of the candidate.
 		</span><span class="kw">pub </span>candidate_hash: CandidateHash,
 		<span class="doccomment">/// A statement filter which indicates which validators in the
-		/// para&#39;s group at the relay-parent have validated this candidate
-		/// and issued statements about it, to the advertiser&#39;s knowledge.
+		/// para's group at the relay-parent have validated this candidate
+		/// and issued statements about it, to the advertiser's knowledge.
 		///
 		/// This MUST have exactly the minimum amount of bytes
 		/// necessary to represent the number of validators in the assigned
@@ -1867,7 +1869,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>BackedCandidateKnown(BackedCandidateAcknowledgement),
 
 		<span class="doccomment">/// All messages for V1 for compatibility with the statement distribution
-		/// protocol, for relay-parents that don&#39;t support asynchronous backing.
+		/// protocol, for relay-parents that don't support asynchronous backing.
 		///
 		/// These are illegal to send to V1 peers, and illegal to send concerning relay-parents
 		/// which support asynchronous backing. This backwards compatibility should be
@@ -1949,7 +1951,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// controls the collator key it is declaring an intention to collate under.
 	</span><span class="kw">pub fn </span>declare_signature_payload(peer_id: <span class="kw-2">&amp;</span>sc_network_types::PeerId) -&gt; Vec&lt;u8&gt; {
 		<span class="kw">let </span><span class="kw-2">mut </span>payload = peer_id.to_bytes();
-		payload.extend_from_slice(<span class="string">b&quot;COLL&quot;</span>);
+		payload.extend_from_slice(<span class="string">b"COLL"</span>);
 		payload
 	}
 }

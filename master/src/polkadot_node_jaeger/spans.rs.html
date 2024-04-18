@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/jaeger/src/spans.rs`."><title>spans.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/jaeger/src/spans.rs`."><title>spans.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_node_jaeger" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_node_jaeger" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../polkadot_node_jaeger/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -701,13 +703,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! let foo = Foo::default();
 //!
 //! let span =
-//! 	jaeger::Span::new(relay_parent, &quot;root_of_aaall_spans&quot;)
+//! 	jaeger::Span::new(relay_parent, "root_of_aaall_spans")
 //! 		// explicit well defined items
 //! 		.with_candidate(candidate)
 //! 		// anything that implements `trait std::fmt::Debug`
-//! 		.with_string_fmt_debug_tag(&quot;foo&quot;, foo)
+//! 		.with_string_fmt_debug_tag("foo", foo)
 //! 		// anything that implements `trait std::str::ToString`
-//! 		.with_string_tag(&quot;again&quot;, 1337_u32)
+//! 		.with_string_tag("again", 1337_u32)
 //! 		// add a `Stage` for [`dot-jaeger`](https://github.com/paritytech/dot-jaeger)
 //! 		.with_stage(jaeger::Stage::CandidateBacking);
 //! 		// complete by design, no completion required
@@ -735,18 +737,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! # let foo = Foo::default();
 //!
 //! let root_span =
-//! 	jaeger::Span::new(relay_parent, &quot;root_of_aaall_spans&quot;);
+//! 	jaeger::Span::new(relay_parent, "root_of_aaall_spans");
 //!
 //! // the preferred way of adding additional delayed information:
-//! let span = root_span.child(&quot;inner&quot;);
+//! let span = root_span.child("inner");
 //!
 //! // ... more operations ...
 //!
 //! // but this is also possible:
 //!
 //! let mut root_span = root_span;
-//! root_span.add_string_fmt_debug_tag(&quot;foo_constructed&quot;, &amp;foo);
-//! root_span.add_string_tag(&quot;bar&quot;, true);
+//! root_span.add_string_fmt_debug_tag("foo_constructed", &amp;foo);
+//! root_span.add_string_tag("bar", true);
 //! # }
 //! ```
 
@@ -759,7 +761,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">use </span><span class="kw">super</span>::INSTANCE;
 
-<span class="doccomment">/// A special &quot;per leaf span&quot;.
+<span class="doccomment">/// A special "per leaf span".
 ///
 /// Essentially this span wraps two spans:
 ///
@@ -779,7 +781,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// Takes the `leaf_span` that is created by the overseer per leaf and a name for a child span.
 	/// Both will be stored in this object, while the child span is implicitly accessible by using
 	/// the [`Deref`](std::ops::Deref) implementation.
-	</span><span class="kw">pub fn </span>new(leaf_span: Arc&lt;Span&gt;, name: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str) -&gt; <span class="self">Self </span>{
+	</span><span class="kw">pub fn </span>new(leaf_span: Arc&lt;Span&gt;, name: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str) -&gt; <span class="self">Self </span>{
 		<span class="kw">let </span>span = leaf_span.child(name);
 
 		<span class="self">Self </span>{ span, leaf_span }
@@ -861,7 +863,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>extra_tags(<span class="kw-2">&amp;</span><span class="self">self</span>, _span: <span class="kw-2">&amp;mut </span>Span) {}
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; LazyIdent <span class="kw">for </span><span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8] {
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; LazyIdent <span class="kw">for </span><span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8] {
 	<span class="kw">fn </span>eval(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TraceIdentifier {
 		hash_to_trace_identifier(BlakeTwo256::hash_of(<span class="self">self</span>))
 	}
@@ -883,7 +885,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">fn </span>extra_tags(<span class="kw-2">&amp;</span><span class="self">self</span>, span: <span class="kw-2">&amp;mut </span>Span) {
-		span.add_string_fmt_debug_tag(<span class="string">&quot;relay-parent&quot;</span>, <span class="self">self</span>);
+		span.add_string_fmt_debug_tag(<span class="string">"relay-parent"</span>, <span class="self">self</span>);
 	}
 }
 
@@ -893,7 +895,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">fn </span>extra_tags(<span class="kw-2">&amp;</span><span class="self">self</span>, span: <span class="kw-2">&amp;mut </span>Span) {
-		span.add_string_fmt_debug_tag(<span class="string">&quot;relay-parent&quot;</span>, <span class="self">self</span>);
+		span.add_string_fmt_debug_tag(<span class="string">"relay-parent"</span>, <span class="self">self</span>);
 	}
 }
 
@@ -903,13 +905,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">fn </span>extra_tags(<span class="kw-2">&amp;</span><span class="self">self</span>, span: <span class="kw-2">&amp;mut </span>Span) {
-		span.add_string_fmt_debug_tag(<span class="string">&quot;candidate-hash&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>);
+		span.add_string_fmt_debug_tag(<span class="string">"candidate-hash"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>);
 		<span class="comment">// A convenience for usage with the grafana tempo UI,
 		// not a technical requirement. It merely provides an easy anchor
 		// where the true trace identifier of the span is not based on
 		// a candidate hash (which it should be!), but is required to
 		// continue investigating.
-		</span>span.add_string_tag(<span class="string">&quot;traceID&quot;</span>, <span class="self">self</span>.eval().to_string());
+		</span>span.add_string_tag(<span class="string">"traceID"</span>, <span class="self">self</span>.eval().to_string());
 	}
 }
 
@@ -919,7 +921,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// Attention: The primary identifier will be used for identification
 	/// and as such should be
-	</span><span class="kw">pub fn </span>new&lt;I: LazyIdent&gt;(identifier: I, span_name: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str) -&gt; Span {
+	</span><span class="kw">pub fn </span>new&lt;I: LazyIdent&gt;(identifier: I, span_name: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str) -&gt; Span {
 		<span class="kw">let </span><span class="kw-2">mut </span>span = INSTANCE
 			.read_recursive()
 			.span(|| &lt;I <span class="kw">as </span>LazyIdent&gt;::eval(<span class="kw-2">&amp;</span>identifier), span_name)
@@ -930,7 +932,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Creates a new span builder based on an encodable type.
 	/// The encoded bytes are then used to derive the true trace identifier.
-	</span><span class="kw">pub fn </span>from_encodable&lt;I: Encode&gt;(identifier: I, span_name: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str) -&gt; Span {
+	</span><span class="kw">pub fn </span>from_encodable&lt;I: Encode&gt;(identifier: I, span_name: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str) -&gt; Span {
 		INSTANCE
 			.read_recursive()
 			.span(
@@ -951,15 +953,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="doccomment">/// Attach a &#39;traceID&#39; tag set to the decimal representation of the candidate hash.
+	<span class="doccomment">/// Attach a 'traceID' tag set to the decimal representation of the candidate hash.
 	</span><span class="attr">#[inline(always)]
 	</span><span class="kw">pub fn </span>with_trace_id(<span class="kw-2">mut </span><span class="self">self</span>, candidate_hash: CandidateHash) -&gt; <span class="self">Self </span>{
-		<span class="self">self</span>.add_string_tag(<span class="string">&quot;traceID&quot;</span>, hash_to_trace_identifier(candidate_hash.<span class="number">0</span>));
+		<span class="self">self</span>.add_string_tag(<span class="string">"traceID"</span>, hash_to_trace_identifier(candidate_hash.<span class="number">0</span>));
 		<span class="self">self
 	</span>}
 
 	<span class="attr">#[inline(always)]
-	</span><span class="kw">pub fn </span>with_string_tag&lt;V: ToString&gt;(<span class="kw-2">mut </span><span class="self">self</span>, tag: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str, val: V) -&gt; <span class="self">Self </span>{
+	</span><span class="kw">pub fn </span>with_string_tag&lt;V: ToString&gt;(<span class="kw-2">mut </span><span class="self">self</span>, tag: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str, val: V) -&gt; <span class="self">Self </span>{
 		<span class="self">self</span>.add_string_tag::&lt;V&gt;(tag, val);
 		<span class="self">self
 	</span>}
@@ -967,7 +969,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Attach a peer-id tag to the span.
 	</span><span class="attr">#[inline(always)]
 	</span><span class="kw">pub fn </span>with_peer_id(<span class="self">self</span>, peer: <span class="kw-2">&amp;</span>PeerId) -&gt; <span class="self">Self </span>{
-		<span class="self">self</span>.with_string_tag(<span class="string">&quot;peer-id&quot;</span>, <span class="kw-2">&amp;</span>peer.to_base58())
+		<span class="self">self</span>.with_string_tag(<span class="string">"peer-id"</span>, <span class="kw-2">&amp;</span>peer.to_base58())
 	}
 
 	<span class="doccomment">/// Attach a `peer-id` tag to the span when peer is present.
@@ -983,40 +985,40 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Attach a candidate hash to the span.
 	</span><span class="attr">#[inline(always)]
 	</span><span class="kw">pub fn </span>with_candidate(<span class="self">self</span>, candidate_hash: CandidateHash) -&gt; <span class="self">Self </span>{
-		<span class="self">self</span>.with_string_fmt_debug_tag(<span class="string">&quot;candidate-hash&quot;</span>, <span class="kw-2">&amp;</span>candidate_hash.<span class="number">0</span>)
+		<span class="self">self</span>.with_string_fmt_debug_tag(<span class="string">"candidate-hash"</span>, <span class="kw-2">&amp;</span>candidate_hash.<span class="number">0</span>)
 	}
 
 	<span class="doccomment">/// Attach a para-id to the span.
 	</span><span class="attr">#[inline(always)]
 	</span><span class="kw">pub fn </span>with_para_id(<span class="self">self</span>, para_id: ParaId) -&gt; <span class="self">Self </span>{
-		<span class="self">self</span>.with_int_tag(<span class="string">&quot;para-id&quot;</span>, u32::from(para_id) <span class="kw">as </span>i64)
+		<span class="self">self</span>.with_int_tag(<span class="string">"para-id"</span>, u32::from(para_id) <span class="kw">as </span>i64)
 	}
 
 	<span class="doccomment">/// Attach a candidate stage.
 	/// Should always come with a `CandidateHash`.
 	</span><span class="attr">#[inline(always)]
 	</span><span class="kw">pub fn </span>with_stage(<span class="self">self</span>, stage: Stage) -&gt; <span class="self">Self </span>{
-		<span class="self">self</span>.with_string_tag(<span class="string">&quot;candidate-stage&quot;</span>, stage <span class="kw">as </span>u8)
+		<span class="self">self</span>.with_string_tag(<span class="string">"candidate-stage"</span>, stage <span class="kw">as </span>u8)
 	}
 
 	<span class="attr">#[inline(always)]
 	</span><span class="kw">pub fn </span>with_validator_index(<span class="self">self</span>, validator: ValidatorIndex) -&gt; <span class="self">Self </span>{
-		<span class="self">self</span>.with_string_tag(<span class="string">&quot;validator-index&quot;</span>, <span class="kw-2">&amp;</span>validator.<span class="number">0</span>)
+		<span class="self">self</span>.with_string_tag(<span class="string">"validator-index"</span>, <span class="kw-2">&amp;</span>validator.<span class="number">0</span>)
 	}
 
 	<span class="attr">#[inline(always)]
 	</span><span class="kw">pub fn </span>with_chunk_index(<span class="self">self</span>, chunk_index: u32) -&gt; <span class="self">Self </span>{
-		<span class="self">self</span>.with_string_tag(<span class="string">&quot;chunk-index&quot;</span>, chunk_index)
+		<span class="self">self</span>.with_string_tag(<span class="string">"chunk-index"</span>, chunk_index)
 	}
 
 	<span class="attr">#[inline(always)]
 	</span><span class="kw">pub fn </span>with_relay_parent(<span class="self">self</span>, relay_parent: Hash) -&gt; <span class="self">Self </span>{
-		<span class="self">self</span>.with_string_fmt_debug_tag(<span class="string">&quot;relay-parent&quot;</span>, relay_parent)
+		<span class="self">self</span>.with_string_fmt_debug_tag(<span class="string">"relay-parent"</span>, relay_parent)
 	}
 
 	<span class="attr">#[inline(always)]
 	</span><span class="kw">pub fn </span>with_claimed_validator_index(<span class="self">self</span>, claimed_validator_index: ValidatorIndex) -&gt; <span class="self">Self </span>{
-		<span class="self">self</span>.with_string_tag(<span class="string">&quot;claimed-validator&quot;</span>, <span class="kw-2">&amp;</span>claimed_validator_index.<span class="number">0</span>)
+		<span class="self">self</span>.with_string_tag(<span class="string">"claimed-validator"</span>, <span class="kw-2">&amp;</span>claimed_validator_index.<span class="number">0</span>)
 	}
 
 	<span class="attr">#[inline(always)]
@@ -1029,20 +1031,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// Should be used sparingly, introduction of new types is preferred.
 	</span><span class="attr">#[inline(always)]
-	</span><span class="kw">pub fn </span>with_int_tag(<span class="kw-2">mut </span><span class="self">self</span>, tag: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str, i: i64) -&gt; <span class="self">Self </span>{
+	</span><span class="kw">pub fn </span>with_int_tag(<span class="kw-2">mut </span><span class="self">self</span>, tag: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str, i: i64) -&gt; <span class="self">Self </span>{
 		<span class="self">self</span>.add_int_tag(tag, i);
 		<span class="self">self
 	</span>}
 
 	<span class="attr">#[inline(always)]
-	</span><span class="kw">pub fn </span>with_uint_tag(<span class="kw-2">mut </span><span class="self">self</span>, tag: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str, u: u64) -&gt; <span class="self">Self </span>{
+	</span><span class="kw">pub fn </span>with_uint_tag(<span class="kw-2">mut </span><span class="self">self</span>, tag: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str, u: u64) -&gt; <span class="self">Self </span>{
 		<span class="self">self</span>.add_uint_tag(tag, u);
 		<span class="self">self
 	</span>}
 
 	<span class="attr">#[inline(always)]
-	</span><span class="kw">pub fn </span>with_string_fmt_debug_tag&lt;V: fmt::Debug&gt;(<span class="kw-2">mut </span><span class="self">self</span>, tag: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str, val: V) -&gt; <span class="self">Self </span>{
-		<span class="self">self</span>.add_string_tag(tag, <span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, val));
+	</span><span class="kw">pub fn </span>with_string_fmt_debug_tag&lt;V: fmt::Debug&gt;(<span class="kw-2">mut </span><span class="self">self</span>, tag: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str, val: V) -&gt; <span class="self">Self </span>{
+		<span class="self">self</span>.add_string_tag(tag, <span class="macro">format!</span>(<span class="string">"{:?}"</span>, val));
 		<span class="self">self
 	</span>}
 
@@ -1061,17 +1063,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub fn </span>add_pov(<span class="kw-2">&amp;mut </span><span class="self">self</span>, pov: <span class="kw-2">&amp;</span>PoV) {
 		<span class="kw">if </span><span class="self">self</span>.is_enabled() {
 			<span class="comment">// avoid computing the PoV hash if jaeger is not enabled
-			</span><span class="self">self</span>.add_string_fmt_debug_tag(<span class="string">&quot;pov&quot;</span>, pov.hash());
+			</span><span class="self">self</span>.add_string_fmt_debug_tag(<span class="string">"pov"</span>, pov.hash());
 		}
 	}
 
 	<span class="attr">#[inline(always)]
 	</span><span class="kw">pub fn </span>add_para_id(<span class="kw-2">&amp;mut </span><span class="self">self</span>, para_id: ParaId) {
-		<span class="self">self</span>.add_int_tag(<span class="string">&quot;para-id&quot;</span>, u32::from(para_id) <span class="kw">as </span>i64);
+		<span class="self">self</span>.add_int_tag(<span class="string">"para-id"</span>, u32::from(para_id) <span class="kw">as </span>i64);
 	}
 
 	<span class="doccomment">/// Add a string tag, without consuming the span.
-	</span><span class="kw">pub fn </span>add_string_tag&lt;V: ToString&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, tag: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str, val: V) {
+	</span><span class="kw">pub fn </span>add_string_tag&lt;V: ToString&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, tag: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str, val: V) {
 		<span class="kw">match </span><span class="self">self </span>{
 			<span class="self">Self</span>::Enabled(<span class="kw-2">ref mut </span>inner) =&gt; inner.add_string_tag(tag, val.to_string().as_str()),
 			<span class="self">Self</span>::Disabled =&gt; {},
@@ -1079,22 +1081,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Add a string tag, without consuming the span.
-	</span><span class="kw">pub fn </span>add_string_fmt_debug_tag&lt;V: fmt::Debug&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, tag: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str, val: V) {
+	</span><span class="kw">pub fn </span>add_string_fmt_debug_tag&lt;V: fmt::Debug&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, tag: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str, val: V) {
 		<span class="kw">match </span><span class="self">self </span>{
 			<span class="self">Self</span>::Enabled(<span class="kw-2">ref mut </span>inner) =&gt;
-				inner.add_string_tag(tag, <span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, val).as_str()),
+				inner.add_string_tag(tag, <span class="macro">format!</span>(<span class="string">"{:?}"</span>, val).as_str()),
 			<span class="self">Self</span>::Disabled =&gt; {},
 		}
 	}
 
-	<span class="kw">pub fn </span>add_int_tag(<span class="kw-2">&amp;mut </span><span class="self">self</span>, tag: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str, value: i64) {
+	<span class="kw">pub fn </span>add_int_tag(<span class="kw-2">&amp;mut </span><span class="self">self</span>, tag: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str, value: i64) {
 		<span class="kw">match </span><span class="self">self </span>{
 			<span class="self">Self</span>::Enabled(<span class="kw-2">ref mut </span>inner) =&gt; inner.add_int_tag(tag, value),
 			<span class="self">Self</span>::Disabled =&gt; {},
 		}
 	}
 
-	<span class="kw">pub fn </span>add_uint_tag(<span class="kw-2">&amp;mut </span><span class="self">self</span>, tag: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str, value: u64) {
+	<span class="kw">pub fn </span>add_uint_tag(<span class="kw-2">&amp;mut </span><span class="self">self</span>, tag: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str, value: u64) {
 		<span class="kw">match </span><span class="self">self </span>{
 			<span class="self">Self</span>::Enabled(<span class="kw-2">ref mut </span>inner) =&gt; inner.add_int_tag(tag, value <span class="kw">as </span>i64),
 			<span class="self">Self</span>::Disabled =&gt; {},
@@ -1121,7 +1123,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl </span>std::fmt::Debug <span class="kw">for </span>Span {
 	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter) -&gt; std::fmt::Result {
-		<span class="macro">write!</span>(f, <span class="string">&quot;&lt;jaeger span&gt;&quot;</span>)
+		<span class="macro">write!</span>(f, <span class="string">"&lt;jaeger span&gt;"</span>)
 	}
 }
 
@@ -1164,7 +1166,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.zip(trace_id.to_be_bytes().iter())
 			.enumerate()
 		{
-			<span class="macro">assert_eq!</span>(<span class="kw-2">*</span>a, <span class="kw-2">*</span>b, <span class="string">&quot;Index [{}] does not match: {} != {}&quot;</span>, idx, a, b);
+			<span class="macro">assert_eq!</span>(<span class="kw-2">*</span>a, <span class="kw-2">*</span>b, <span class="string">"Index [{}] does not match: {} != {}"</span>, idx, a, b);
 		}
 	}
 
@@ -1174,11 +1176,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>candidate_hash = <span class="macro">dbg!</span>(Hash::from(<span class="kw-2">&amp;</span>RAW));
 		<span class="kw">let </span>trace_id = hash_to_trace_identifier(candidate_hash);
 
-		<span class="kw">let </span>span = Span::new(candidate_hash, <span class="string">&quot;foo&quot;</span>);
+		<span class="kw">let </span>span = Span::new(candidate_hash, <span class="string">"foo"</span>);
 
 		<span class="macro">assert_eq!</span>(span.trace_id(), <span class="prelude-val">Some</span>(trace_id));
 
-		<span class="kw">let </span>span = span.with_int_tag(<span class="string">&quot;tag&quot;</span>, <span class="number">7i64</span>);
+		<span class="kw">let </span>span = span.with_int_tag(<span class="string">"tag"</span>, <span class="number">7i64</span>);
 
 		<span class="macro">assert_eq!</span>(span.trace_id(), <span class="prelude-val">Some</span>(trace_id));
 	}

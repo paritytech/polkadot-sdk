@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/transaction-pool/src/graph/base_pool.rs`."><title>base_pool.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/transaction-pool/src/graph/base_pool.rs`."><title>base_pool.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sc_transaction_pool" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sc_transaction_pool" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../sc_transaction_pool/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1343,8 +1345,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Explicit transaction clone.
 	///
 	/// Transaction should be cloned only if absolutely necessary &amp;&amp; we want
-	/// every reason to be commented. That&#39;s why we `Transaction` is not `Clone`,
-	/// but there&#39;s explicit `duplicate` method.
+	/// every reason to be commented. That's why we `Transaction` is not `Clone`,
+	/// but there's explicit `duplicate` method.
 	</span><span class="kw">pub fn </span>duplicate(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
 		<span class="self">Self </span>{
 			data: <span class="self">self</span>.data.clone(),
@@ -1370,20 +1372,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			tags.iter()
 				.map(|tag| HexDisplay::from(tag).to_string())
 				.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
-				.join(<span class="string">&quot;, &quot;</span>)
+				.join(<span class="string">", "</span>)
 		};
 
-		<span class="macro">write!</span>(fmt, <span class="string">&quot;Transaction {{ &quot;</span>)<span class="question-mark">?</span>;
-		<span class="macro">write!</span>(fmt, <span class="string">&quot;hash: {:?}, &quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.hash)<span class="question-mark">?</span>;
-		<span class="macro">write!</span>(fmt, <span class="string">&quot;priority: {:?}, &quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.priority)<span class="question-mark">?</span>;
-		<span class="macro">write!</span>(fmt, <span class="string">&quot;valid_till: {:?}, &quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.valid_till)<span class="question-mark">?</span>;
-		<span class="macro">write!</span>(fmt, <span class="string">&quot;bytes: {:?}, &quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.bytes)<span class="question-mark">?</span>;
-		<span class="macro">write!</span>(fmt, <span class="string">&quot;propagate: {:?}, &quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.propagate)<span class="question-mark">?</span>;
-		<span class="macro">write!</span>(fmt, <span class="string">&quot;source: {:?}, &quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.source)<span class="question-mark">?</span>;
-		<span class="macro">write!</span>(fmt, <span class="string">&quot;requires: [{}], &quot;</span>, join_tags(<span class="kw-2">&amp;</span><span class="self">self</span>.requires))<span class="question-mark">?</span>;
-		<span class="macro">write!</span>(fmt, <span class="string">&quot;provides: [{}], &quot;</span>, join_tags(<span class="kw-2">&amp;</span><span class="self">self</span>.provides))<span class="question-mark">?</span>;
-		<span class="macro">write!</span>(fmt, <span class="string">&quot;data: {:?}&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.data)<span class="question-mark">?</span>;
-		<span class="macro">write!</span>(fmt, <span class="string">&quot;}}&quot;</span>)<span class="question-mark">?</span>;
+		<span class="macro">write!</span>(fmt, <span class="string">"Transaction {{ "</span>)<span class="question-mark">?</span>;
+		<span class="macro">write!</span>(fmt, <span class="string">"hash: {:?}, "</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.hash)<span class="question-mark">?</span>;
+		<span class="macro">write!</span>(fmt, <span class="string">"priority: {:?}, "</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.priority)<span class="question-mark">?</span>;
+		<span class="macro">write!</span>(fmt, <span class="string">"valid_till: {:?}, "</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.valid_till)<span class="question-mark">?</span>;
+		<span class="macro">write!</span>(fmt, <span class="string">"bytes: {:?}, "</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.bytes)<span class="question-mark">?</span>;
+		<span class="macro">write!</span>(fmt, <span class="string">"propagate: {:?}, "</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.propagate)<span class="question-mark">?</span>;
+		<span class="macro">write!</span>(fmt, <span class="string">"source: {:?}, "</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.source)<span class="question-mark">?</span>;
+		<span class="macro">write!</span>(fmt, <span class="string">"requires: [{}], "</span>, join_tags(<span class="kw-2">&amp;</span><span class="self">self</span>.requires))<span class="question-mark">?</span>;
+		<span class="macro">write!</span>(fmt, <span class="string">"provides: [{}], "</span>, join_tags(<span class="kw-2">&amp;</span><span class="self">self</span>.provides))<span class="question-mark">?</span>;
+		<span class="macro">write!</span>(fmt, <span class="string">"data: {:?}"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.data)<span class="question-mark">?</span>;
+		<span class="macro">write!</span>(fmt, <span class="string">"}}"</span>)<span class="question-mark">?</span>;
 		<span class="prelude-val">Ok</span>(())
 	}
 }
@@ -1408,7 +1410,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	ready: ReadyTransactions&lt;Hash, Ex&gt;,
 	<span class="doccomment">/// Store recently pruned tags (for last two invocations).
 	///
-	/// This is used to make sure we don&#39;t accidentally put
+	/// This is used to make sure we don't accidentally put
 	/// transactions to future in case they were just stuck in verification.
 	</span>recently_pruned: [HashSet&lt;Tag&gt;; RECENTLY_PRUNED_TAGS],
 	recently_pruned_index: usize,
@@ -1466,12 +1468,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 
 		<span class="kw">let </span>tx = WaitingTransaction::new(tx, <span class="self">self</span>.ready.provided_tags(), <span class="kw-2">&amp;</span><span class="self">self</span>.recently_pruned);
-		<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">&quot;[{:?}] {:?}&quot;</span>, tx.transaction.hash, tx);
+		<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">"[{:?}] {:?}"</span>, tx.transaction.hash, tx);
 		<span class="macro">debug!</span>(
 			target: LOG_TARGET,
-			<span class="string">&quot;[{:?}] Importing to {}&quot;</span>,
+			<span class="string">"[{:?}] Importing to {}"</span>,
 			tx.transaction.hash,
-			<span class="kw">if </span>tx.is_ready() { <span class="string">&quot;ready&quot; </span>} <span class="kw">else </span>{ <span class="string">&quot;future&quot; </span>}
+			<span class="kw">if </span>tx.is_ready() { <span class="string">"ready" </span>} <span class="kw">else </span>{ <span class="string">"future" </span>}
 		);
 
 		<span class="comment">// If all tags are not satisfied import to future.
@@ -1522,7 +1524,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="comment">// transaction failed to be imported.
 				</span><span class="prelude-val">Err</span>(e) =&gt;
 					<span class="kw">if </span>first {
-						<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;[{:?}] Error importing: {:?}&quot;</span>, current_hash, e);
+						<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"[{:?}] Error importing: {:?}"</span>, current_hash, e);
 						<span class="kw">return </span><span class="prelude-val">Err</span>(e)
 					} <span class="kw">else </span>{
 						failed.push(current_hash);
@@ -1535,13 +1537,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		// some future transactions to be imported and that
 		// future transactions pushed out current transaction.
 		// This means that there is a cycle and the transactions should
-		// be moved back to future, since we can&#39;t resolve it.
+		// be moved back to future, since we can't resolve it.
 		</span><span class="kw">if </span>removed.iter().any(|tx| tx.hash == hash) {
 			<span class="comment">// We still need to remove all transactions that we promoted
 			// since they depend on each other and will never get to the best iterator.
 			</span><span class="self">self</span>.ready.remove_subtree(<span class="kw-2">&amp;</span>promoted);
 
-			<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;[{:?}] Cycle detected, bailing.&quot;</span>, hash);
+			<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"[{:?}] Cycle detected, bailing."</span>, hash);
 			<span class="kw">return </span><span class="prelude-val">Err</span>(error::Error::CycleDetected)
 		}
 
@@ -1593,7 +1595,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">let </span>transaction = <span class="kw-2">&amp;</span>current.transaction;
 				worst
 					.map(|worst| {
-						<span class="comment">// Here we don&#39;t use `TransactionRef`&#39;s ordering implementation because
+						<span class="comment">// Here we don't use `TransactionRef`'s ordering implementation because
 						// while it prefers priority like need here, it also prefers older
 						// transactions for inclusion purposes and limit enforcement needs to prefer
 						// newer transactions instead and drop the older ones.
@@ -1643,7 +1645,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// NOTE some transactions might still be valid, but were just removed because
 	/// they were part of a chain, you may attempt to re-import them later.
 	/// NOTE If you want to remove ready transactions that were already used
-	/// and you don&#39;t want them to be stored in the pool use `prune_tags` method.
+	/// and you don't want them to be stored in the pool use `prune_tags` method.
 	</span><span class="kw">pub fn </span>remove_subtree(<span class="kw-2">&amp;mut </span><span class="self">self</span>, hashes: <span class="kw-2">&amp;</span>[Hash]) -&gt; Vec&lt;Arc&lt;Transaction&lt;Hash, Ex&gt;&gt;&gt; {
 		<span class="kw">let </span><span class="kw-2">mut </span>removed = <span class="self">self</span>.ready.remove_subtree(hashes);
 		removed.extend(<span class="self">self</span>.future.remove(hashes));
@@ -1660,7 +1662,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// This will cause all transactions that provide these tags to be removed from the pool,
 	/// but unlike `remove_subtree`, dependent transactions are not touched.
 	/// Additional transactions from future queue might be promoted to ready if you satisfy tags
-	/// that the pool didn&#39;t previously know about.
+	/// that the pool didn't previously know about.
 	</span><span class="kw">pub fn </span>prune_tags(<span class="kw-2">&amp;mut </span><span class="self">self</span>, tags: <span class="kw">impl </span>IntoIterator&lt;Item = Tag&gt;) -&gt; PruneStatus&lt;Hash, Ex&gt; {
 		<span class="kw">let </span><span class="kw-2">mut </span>to_import = <span class="macro">vec!</span>[];
 		<span class="kw">let </span><span class="kw-2">mut </span>pruned = <span class="macro">vec!</span>[];
@@ -1686,7 +1688,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="prelude-val">Err</span>(e) =&gt; {
 					<span class="macro">warn!</span>(
 						target: LOG_TARGET,
-						<span class="string">&quot;[{:?}] Failed to promote during pruning: {:?}&quot;</span>, hash, e,
+						<span class="string">"[{:?}] Failed to promote during pruning: {:?}"</span>, hash, e,
 					);
 					failed.push(hash)
 				},
@@ -1908,10 +1910,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span><span class="kw-2">mut </span>it = pool.ready().into_iter().map(|tx| tx.data[<span class="number">0</span>]);
 			<span class="macro">assert_eq!</span>(it.next(), <span class="prelude-val">None</span>);
 		}
-		<span class="comment">// all transactions occupy the Future queue - it&#39;s fine
+		<span class="comment">// all transactions occupy the Future queue - it's fine
 		</span><span class="macro">assert_eq!</span>(pool.future.len(), <span class="number">3</span>);
 
-		<span class="comment">// let&#39;s close the cycle with one additional transaction
+		<span class="comment">// let's close the cycle with one additional transaction
 		</span><span class="kw">let </span>res = pool
 			.import(Transaction {
 				data: <span class="macro">vec!</span>[<span class="number">4u8</span>],
@@ -1970,10 +1972,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span><span class="kw-2">mut </span>it = pool.ready().into_iter().map(|tx| tx.data[<span class="number">0</span>]);
 			<span class="macro">assert_eq!</span>(it.next(), <span class="prelude-val">None</span>);
 		}
-		<span class="comment">// all transactions occupy the Future queue - it&#39;s fine
+		<span class="comment">// all transactions occupy the Future queue - it's fine
 		</span><span class="macro">assert_eq!</span>(pool.future.len(), <span class="number">3</span>);
 
-		<span class="comment">// let&#39;s close the cycle with one additional transaction
+		<span class="comment">// let's close the cycle with one additional transaction
 		</span><span class="kw">let </span>err = pool
 			.import(Transaction {
 				data: <span class="macro">vec!</span>[<span class="number">4u8</span>],
@@ -1989,7 +1991,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">assert_eq!</span>(pool.future.len(), <span class="number">0</span>);
 		<span class="kw">if let </span>error::Error::CycleDetected = err {
 		} <span class="kw">else </span>{
-			<span class="macro">assert!</span>(<span class="bool-val">false</span>, <span class="string">&quot;Invalid error kind: {:?}&quot;</span>, err);
+			<span class="macro">assert!</span>(<span class="bool-val">false</span>, <span class="string">"Invalid error kind: {:?}"</span>, err);
 		}
 	}
 
@@ -2119,7 +2121,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>transaction_debug() {
 		<span class="macro">assert_eq!</span>(
 			<span class="macro">format!</span>(
-				<span class="string">&quot;{:?}&quot;</span>,
+				<span class="string">"{:?}"</span>,
 				Transaction {
 					data: <span class="macro">vec!</span>[<span class="number">4u8</span>],
 					hash: <span class="number">4</span>,
@@ -2129,9 +2131,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					..DEFAULT_TX.clone()
 				}
 			),
-			<span class="string">&quot;Transaction { \
+			<span class="string">"Transaction { \
 hash: 4, priority: 1000, valid_till: 64, bytes: 1, propagate: true, \
-source: TransactionSource::External, requires: [03, 02], provides: [04], data: [4]}&quot;
+source: TransactionSource::External, requires: [03, 02], provides: [04], data: [4]}"
 				</span>.to_owned()
 		);
 	}
@@ -2184,7 +2186,7 @@ source: TransactionSource::External, requires: [03, 02], provides: [04], data: [
 
 		<span class="kw">if let </span><span class="prelude-val">Err</span>(error::Error::RejectedFutureTransaction) = err {
 		} <span class="kw">else </span>{
-			<span class="macro">assert!</span>(<span class="bool-val">false</span>, <span class="string">&quot;Invalid error kind: {:?}&quot;</span>, err);
+			<span class="macro">assert!</span>(<span class="bool-val">false</span>, <span class="string">"Invalid error kind: {:?}"</span>, err);
 		}
 	}
 

@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/tracing/src/logging/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/tracing/src/logging/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sc_tracing" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sc_tracing" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../sc_tracing/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -846,7 +848,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="doccomment">//! Substrate logging library.
 //!
-//! This crate uses tokio&#39;s [tracing](https://github.com/tokio-rs/tracing/) library for logging.
+//! This crate uses tokio's [tracing](https://github.com/tokio-rs/tracing/) library for logging.
 
 </span><span class="attr">#![warn(missing_docs)]
 
@@ -928,17 +930,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	builder_hook: <span class="kw">impl </span>Fn(
 		SubscriberBuilder&lt;format::DefaultFields, EventFormat, EnvFilter, DefaultLogger&gt;,
 	) -&gt; SubscriberBuilder&lt;N, E, F, W&gt;,
-) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw">impl </span>Subscriber + <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; LookupSpan&lt;<span class="lifetime">&#39;a</span>&gt;&gt;
+) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw">impl </span>Subscriber + <span class="kw">for</span>&lt;<span class="lifetime">'a</span>&gt; LookupSpan&lt;<span class="lifetime">'a</span>&gt;&gt;
 <span class="kw">where
-	</span>N: <span class="kw">for</span>&lt;<span class="lifetime">&#39;writer</span>&gt; FormatFields&lt;<span class="lifetime">&#39;writer</span>&gt; + <span class="lifetime">&#39;static</span>,
-	E: FormatEvent&lt;Registry, N&gt; + <span class="lifetime">&#39;static</span>,
-	W: <span class="kw">for</span>&lt;<span class="lifetime">&#39;writer</span>&gt; MakeWriter&lt;<span class="lifetime">&#39;writer</span>&gt; + <span class="lifetime">&#39;static</span>,
-	F: layer::Layer&lt;Formatter&lt;N, E, W&gt;&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
-	FmtLayer&lt;Registry, N, E, W&gt;: layer::Layer&lt;Registry&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
+	</span>N: <span class="kw">for</span>&lt;<span class="lifetime">'writer</span>&gt; FormatFields&lt;<span class="lifetime">'writer</span>&gt; + <span class="lifetime">'static</span>,
+	E: FormatEvent&lt;Registry, N&gt; + <span class="lifetime">'static</span>,
+	W: <span class="kw">for</span>&lt;<span class="lifetime">'writer</span>&gt; MakeWriter&lt;<span class="lifetime">'writer</span>&gt; + <span class="lifetime">'static</span>,
+	F: layer::Layer&lt;Formatter&lt;N, E, W&gt;&gt; + Send + Sync + <span class="lifetime">'static</span>,
+	FmtLayer&lt;Registry, N, E, W&gt;: layer::Layer&lt;Registry&gt; + Send + Sync + <span class="lifetime">'static</span>,
 {
 	<span class="comment">// Accept all valid directives and print invalid ones
 	</span><span class="kw">fn </span>parse_user_directives(<span class="kw-2">mut </span>env_filter: EnvFilter, dirs: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;EnvFilter&gt; {
-		<span class="kw">for </span>dir <span class="kw">in </span>dirs.split(<span class="string">&#39;,&#39;</span>) {
+		<span class="kw">for </span>dir <span class="kw">in </span>dirs.split(<span class="string">','</span>) {
 			env_filter = env_filter.add_directive(parse_default_directive(dir)<span class="question-mark">?</span>);
 		}
 		<span class="prelude-val">Ok</span>(env_filter)
@@ -948,43 +950,43 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	// after log filter reloading by RPC
 	</span><span class="kw">let </span><span class="kw-2">mut </span>env_filter = EnvFilter::default()
 		<span class="comment">// Enable info
-		</span>.add_directive(parse_default_directive(<span class="string">&quot;info&quot;</span>).expect(<span class="string">&quot;provided directive is valid&quot;</span>))
+		</span>.add_directive(parse_default_directive(<span class="string">"info"</span>).expect(<span class="string">"provided directive is valid"</span>))
 		<span class="comment">// Disable info logging by default for some modules.
-		</span>.add_directive(parse_default_directive(<span class="string">&quot;ws=off&quot;</span>).expect(<span class="string">&quot;provided directive is valid&quot;</span>))
-		.add_directive(parse_default_directive(<span class="string">&quot;yamux=off&quot;</span>).expect(<span class="string">&quot;provided directive is valid&quot;</span>))
+		</span>.add_directive(parse_default_directive(<span class="string">"ws=off"</span>).expect(<span class="string">"provided directive is valid"</span>))
+		.add_directive(parse_default_directive(<span class="string">"yamux=off"</span>).expect(<span class="string">"provided directive is valid"</span>))
 		.add_directive(
-			parse_default_directive(<span class="string">&quot;regalloc=off&quot;</span>).expect(<span class="string">&quot;provided directive is valid&quot;</span>),
+			parse_default_directive(<span class="string">"regalloc=off"</span>).expect(<span class="string">"provided directive is valid"</span>),
 		)
 		.add_directive(
-			parse_default_directive(<span class="string">&quot;cranelift_codegen=off&quot;</span>).expect(<span class="string">&quot;provided directive is valid&quot;</span>),
+			parse_default_directive(<span class="string">"cranelift_codegen=off"</span>).expect(<span class="string">"provided directive is valid"</span>),
 		)
 		<span class="comment">// Set warn logging by default for some modules.
 		</span>.add_directive(
-			parse_default_directive(<span class="string">&quot;cranelift_wasm=warn&quot;</span>).expect(<span class="string">&quot;provided directive is valid&quot;</span>),
+			parse_default_directive(<span class="string">"cranelift_wasm=warn"</span>).expect(<span class="string">"provided directive is valid"</span>),
 		)
-		.add_directive(parse_default_directive(<span class="string">&quot;hyper=warn&quot;</span>).expect(<span class="string">&quot;provided directive is valid&quot;</span>))
+		.add_directive(parse_default_directive(<span class="string">"hyper=warn"</span>).expect(<span class="string">"provided directive is valid"</span>))
 		.add_directive(
-			parse_default_directive(<span class="string">&quot;trust_dns_proto=off&quot;</span>).expect(<span class="string">&quot;provided directive is valid&quot;</span>),
+			parse_default_directive(<span class="string">"trust_dns_proto=off"</span>).expect(<span class="string">"provided directive is valid"</span>),
 		)
 		.add_directive(
-			parse_default_directive(<span class="string">&quot;libp2p_mdns::behaviour::iface=off&quot;</span>)
-				.expect(<span class="string">&quot;provided directive is valid&quot;</span>),
+			parse_default_directive(<span class="string">"libp2p_mdns::behaviour::iface=off"</span>)
+				.expect(<span class="string">"provided directive is valid"</span>),
 		);
 
-	<span class="kw">if let </span><span class="prelude-val">Ok</span>(lvl) = std::env::var(<span class="string">&quot;RUST_LOG&quot;</span>) {
-		<span class="kw">if </span>lvl != <span class="string">&quot;&quot; </span>{
+	<span class="kw">if let </span><span class="prelude-val">Ok</span>(lvl) = std::env::var(<span class="string">"RUST_LOG"</span>) {
+		<span class="kw">if </span>lvl != <span class="string">"" </span>{
 			env_filter = parse_user_directives(env_filter, <span class="kw-2">&amp;</span>lvl)<span class="question-mark">?</span>;
 		}
 	}
 
-	<span class="kw">if </span>directives != <span class="string">&quot;&quot; </span>{
+	<span class="kw">if </span>directives != <span class="string">"" </span>{
 		env_filter = parse_user_directives(env_filter, directives)<span class="question-mark">?</span>;
 	}
 
 	<span class="kw">if let </span><span class="prelude-val">Some</span>(profiling_targets) = profiling_targets {
 		env_filter = parse_user_directives(env_filter, profiling_targets)<span class="question-mark">?</span>;
 		env_filter = env_filter.add_directive(
-			parse_default_directive(<span class="string">&quot;sc_tracing=trace&quot;</span>).expect(<span class="string">&quot;provided directive is valid&quot;</span>),
+			parse_default_directive(<span class="string">"sc_tracing=trace"</span>).expect(<span class="string">"provided directive is valid"</span>),
 		);
 	}
 
@@ -993,7 +995,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	tracing_log::LogTracer::builder().with_max_level(max_level).init()<span class="question-mark">?</span>;
 
-	<span class="comment">// If we&#39;re only logging `INFO` entries then we&#39;ll use a simplified logging format.
+	<span class="comment">// If we're only logging `INFO` entries then we'll use a simplified logging format.
 	</span><span class="kw">let </span>detailed_output = <span class="kw">match </span>max_level_hint {
 		<span class="prelude-val">Some</span>(level) <span class="kw">if </span>level &lt;= tracing_subscriber::filter::LevelFilter::INFO =&gt; <span class="bool-val">false</span>,
 		<span class="kw">_ </span>=&gt; <span class="bool-val">true</span>,
@@ -1176,8 +1178,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	};
 	<span class="kw">use </span>tracing::{metadata::Kind, subscriber::Interest, Callsite, Level, Metadata};
 
-	<span class="kw">const </span>EXPECTED_LOG_MESSAGE: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;yeah logging works as expected&quot;</span>;
-	<span class="kw">const </span>EXPECTED_NODE_NAME: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;THE_NODE&quot;</span>;
+	<span class="kw">const </span>EXPECTED_LOG_MESSAGE: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"yeah logging works as expected"</span>;
+	<span class="kw">const </span>EXPECTED_NODE_NAME: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"THE_NODE"</span>;
 
 	<span class="kw">fn </span>init_logger(directives: <span class="kw-2">&amp;</span>str) {
 		<span class="kw">let _ </span>= LoggerBuilder::new(directives).init().unwrap();
@@ -1187,13 +1189,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		test_name: <span class="kw-2">&amp;</span>str,
 		test_body: <span class="kw">impl </span>FnOnce(),
 	) -&gt; <span class="prelude-ty">Option</span>&lt;std::process::Output&gt; {
-		<span class="kw">if </span>env::var(<span class="string">&quot;RUN_FORKED_TEST&quot;</span>).is_ok() {
+		<span class="kw">if </span>env::var(<span class="string">"RUN_FORKED_TEST"</span>).is_ok() {
 			test_body();
 			<span class="prelude-val">None
 		</span>} <span class="kw">else </span>{
 			<span class="kw">let </span>output = Command::new(env::current_exe().unwrap())
 				.arg(test_name)
-				.env(<span class="string">&quot;RUN_FORKED_TEST&quot;</span>, <span class="string">&quot;1&quot;</span>)
+				.env(<span class="string">"RUN_FORKED_TEST"</span>, <span class="string">"1"</span>)
 				.output()
 				.unwrap();
 
@@ -1204,9 +1206,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>test_logger_filters() {
-		run_test_in_another_process(<span class="string">&quot;test_logger_filters&quot;</span>, || {
+		run_test_in_another_process(<span class="string">"test_logger_filters"</span>, || {
 			<span class="kw">let </span>test_directives =
-				<span class="string">&quot;grandpa=debug,sync=trace,client=warn,telemetry,something-with-dash=error&quot;</span>;
+				<span class="string">"grandpa=debug,sync=trace,client=warn,telemetry,something-with-dash=error"</span>;
 			init_logger(<span class="kw-2">&amp;</span>test_directives);
 
 			tracing::dispatcher::get_default(|dispatcher| {
@@ -1214,13 +1216,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw">struct </span>DummyCallSite;
 					<span class="kw">impl </span>Callsite <span class="kw">for </span>DummyCallSite {
 						<span class="kw">fn </span>set_interest(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw">_</span>: Interest) {}
-						<span class="kw">fn </span>metadata(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Metadata&lt;<span class="lifetime">&#39;_</span>&gt; {
+						<span class="kw">fn </span>metadata(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Metadata&lt;<span class="lifetime">'_</span>&gt; {
 							<span class="macro">unreachable!</span>();
 						}
 					}
 
 					<span class="kw">let </span>metadata = <span class="macro">tracing::metadata!</span>(
-						name: <span class="string">&quot;&quot;</span>,
+						name: <span class="string">""</span>,
 						target: target,
 						level: level,
 						fields: <span class="kw-2">&amp;</span>[],
@@ -1231,15 +1233,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					dispatcher.enabled(<span class="kw-2">&amp;</span>metadata)
 				};
 
-				<span class="macro">assert!</span>(test_filter(<span class="string">&quot;grandpa&quot;</span>, Level::INFO));
-				<span class="macro">assert!</span>(test_filter(<span class="string">&quot;grandpa&quot;</span>, Level::DEBUG));
-				<span class="macro">assert!</span>(!test_filter(<span class="string">&quot;grandpa&quot;</span>, Level::TRACE));
+				<span class="macro">assert!</span>(test_filter(<span class="string">"grandpa"</span>, Level::INFO));
+				<span class="macro">assert!</span>(test_filter(<span class="string">"grandpa"</span>, Level::DEBUG));
+				<span class="macro">assert!</span>(!test_filter(<span class="string">"grandpa"</span>, Level::TRACE));
 
-				<span class="macro">assert!</span>(test_filter(<span class="string">&quot;sync&quot;</span>, Level::TRACE));
-				<span class="macro">assert!</span>(test_filter(<span class="string">&quot;client&quot;</span>, Level::WARN));
+				<span class="macro">assert!</span>(test_filter(<span class="string">"sync"</span>, Level::TRACE));
+				<span class="macro">assert!</span>(test_filter(<span class="string">"client"</span>, Level::WARN));
 
-				<span class="macro">assert!</span>(test_filter(<span class="string">&quot;telemetry&quot;</span>, Level::TRACE));
-				<span class="macro">assert!</span>(test_filter(<span class="string">&quot;something-with-dash&quot;</span>, Level::ERROR));
+				<span class="macro">assert!</span>(test_filter(<span class="string">"telemetry"</span>, Level::TRACE));
+				<span class="macro">assert!</span>(test_filter(<span class="string">"something-with-dash"</span>, Level::ERROR));
 			});
 		});
 	}
@@ -1250,8 +1252,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>dash_in_target_name_works() {
 		<span class="kw">let </span>executable = env::current_exe().unwrap();
 		<span class="kw">let </span>output = Command::new(executable)
-			.env(<span class="string">&quot;ENABLE_LOGGING&quot;</span>, <span class="string">&quot;1&quot;</span>)
-			.args(<span class="kw-2">&amp;</span>[<span class="string">&quot;--nocapture&quot;</span>, <span class="string">&quot;log_something_with_dash_target_name&quot;</span>])
+			.env(<span class="string">"ENABLE_LOGGING"</span>, <span class="string">"1"</span>)
+			.args(<span class="kw-2">&amp;</span>[<span class="string">"--nocapture"</span>, <span class="string">"log_something_with_dash_target_name"</span>])
 			.output()
 			.unwrap();
 
@@ -1265,30 +1267,30 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// name that contains a dash. This ensures that target names with dashes work.
 	</span><span class="attr">#[test]
 	</span><span class="kw">fn </span>log_something_with_dash_target_name() {
-		<span class="kw">if </span>env::var(<span class="string">&quot;ENABLE_LOGGING&quot;</span>).is_ok() {
-			<span class="kw">let </span>test_directives = <span class="string">&quot;test-target=info&quot;</span>;
+		<span class="kw">if </span>env::var(<span class="string">"ENABLE_LOGGING"</span>).is_ok() {
+			<span class="kw">let </span>test_directives = <span class="string">"test-target=info"</span>;
 			<span class="kw">let </span>_guard = init_logger(<span class="kw-2">&amp;</span>test_directives);
 
-			<span class="macro">log::info!</span>(target: <span class="string">&quot;test-target&quot;</span>, <span class="string">&quot;{}&quot;</span>, EXPECTED_LOG_MESSAGE);
+			<span class="macro">log::info!</span>(target: <span class="string">"test-target"</span>, <span class="string">"{}"</span>, EXPECTED_LOG_MESSAGE);
 		}
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>prefix_in_log_lines() {
 		<span class="kw">let </span>re = regex::Regex::new(<span class="kw-2">&amp;</span><span class="macro">format!</span>(
-			<span class="string">r&quot;^\d{{4}}-\d{{2}}-\d{{2}} \d{{2}}:\d{{2}}:\d{{2}} \[{}\] {}$&quot;</span>,
+			<span class="string">r"^\d{{4}}-\d{{2}}-\d{{2}} \d{{2}}:\d{{2}}:\d{{2}} \[{}\] {}$"</span>,
 			EXPECTED_NODE_NAME, EXPECTED_LOG_MESSAGE,
 		))
 		.unwrap();
 		<span class="kw">let </span>executable = env::current_exe().unwrap();
 		<span class="kw">let </span>output = Command::new(executable)
-			.env(<span class="string">&quot;ENABLE_LOGGING&quot;</span>, <span class="string">&quot;1&quot;</span>)
-			.args(<span class="kw-2">&amp;</span>[<span class="string">&quot;--nocapture&quot;</span>, <span class="string">&quot;prefix_in_log_lines_entrypoint&quot;</span>])
+			.env(<span class="string">"ENABLE_LOGGING"</span>, <span class="string">"1"</span>)
+			.args(<span class="kw-2">&amp;</span>[<span class="string">"--nocapture"</span>, <span class="string">"prefix_in_log_lines_entrypoint"</span>])
 			.output()
 			.unwrap();
 
 		<span class="kw">let </span>output = String::from_utf8(output.stderr).unwrap();
-		<span class="macro">assert!</span>(re.is_match(output.trim()), <span class="string">&quot;Expected:\n{}\nGot:\n{}&quot;</span>, re, output);
+		<span class="macro">assert!</span>(re.is_match(output.trim()), <span class="string">"Expected:\n{}\nGot:\n{}"</span>, re, output);
 	}
 
 	<span class="doccomment">/// This is not an actual test, it is used by the `prefix_in_log_lines` test.
@@ -1296,15 +1298,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// only prints a log line prefixed by the node name `EXPECTED_NODE_NAME`.
 	</span><span class="attr">#[test]
 	</span><span class="kw">fn </span>prefix_in_log_lines_entrypoint() {
-		<span class="kw">if </span>env::var(<span class="string">&quot;ENABLE_LOGGING&quot;</span>).is_ok() {
-			<span class="kw">let </span>_guard = init_logger(<span class="string">&quot;&quot;</span>);
+		<span class="kw">if </span>env::var(<span class="string">"ENABLE_LOGGING"</span>).is_ok() {
+			<span class="kw">let </span>_guard = init_logger(<span class="string">""</span>);
 			prefix_in_log_lines_process();
 		}
 	}
 
 	<span class="attr">#[<span class="kw">crate</span>::logging::prefix_logs_with(EXPECTED_NODE_NAME)]
 	</span><span class="kw">fn </span>prefix_in_log_lines_process() {
-		<span class="macro">log::info!</span>(<span class="string">&quot;{}&quot;</span>, EXPECTED_LOG_MESSAGE);
+		<span class="macro">log::info!</span>(<span class="string">"{}"</span>, EXPECTED_LOG_MESSAGE);
 	}
 
 	<span class="doccomment">/// This is not an actual test, it is used by the `do_not_write_with_colors_on_tty` test.
@@ -1312,28 +1314,28 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// only prints a log line with some colors in it.
 	</span><span class="attr">#[test]
 	</span><span class="kw">fn </span>do_not_write_with_colors_on_tty_entrypoint() {
-		<span class="kw">if </span>env::var(<span class="string">&quot;ENABLE_LOGGING&quot;</span>).is_ok() {
-			<span class="kw">let </span>_guard = init_logger(<span class="string">&quot;&quot;</span>);
-			<span class="macro">log::info!</span>(<span class="string">&quot;{}&quot;</span>, ansi_term::Colour::Yellow.paint(EXPECTED_LOG_MESSAGE));
+		<span class="kw">if </span>env::var(<span class="string">"ENABLE_LOGGING"</span>).is_ok() {
+			<span class="kw">let </span>_guard = init_logger(<span class="string">""</span>);
+			<span class="macro">log::info!</span>(<span class="string">"{}"</span>, ansi_term::Colour::Yellow.paint(EXPECTED_LOG_MESSAGE));
 		}
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>do_not_write_with_colors_on_tty() {
 		<span class="kw">let </span>re = regex::Regex::new(<span class="kw-2">&amp;</span><span class="macro">format!</span>(
-			<span class="string">r&quot;^\d{{4}}-\d{{2}}-\d{{2}} \d{{2}}:\d{{2}}:\d{{2}} {}$&quot;</span>,
+			<span class="string">r"^\d{{4}}-\d{{2}}-\d{{2}} \d{{2}}:\d{{2}}:\d{{2}} {}$"</span>,
 			EXPECTED_LOG_MESSAGE,
 		))
 		.unwrap();
 		<span class="kw">let </span>executable = env::current_exe().unwrap();
 		<span class="kw">let </span>output = Command::new(executable)
-			.env(<span class="string">&quot;ENABLE_LOGGING&quot;</span>, <span class="string">&quot;1&quot;</span>)
-			.args(<span class="kw-2">&amp;</span>[<span class="string">&quot;--nocapture&quot;</span>, <span class="string">&quot;do_not_write_with_colors_on_tty_entrypoint&quot;</span>])
+			.env(<span class="string">"ENABLE_LOGGING"</span>, <span class="string">"1"</span>)
+			.args(<span class="kw-2">&amp;</span>[<span class="string">"--nocapture"</span>, <span class="string">"do_not_write_with_colors_on_tty_entrypoint"</span>])
 			.output()
 			.unwrap();
 
 		<span class="kw">let </span>output = String::from_utf8(output.stderr).unwrap();
-		<span class="macro">assert!</span>(re.is_match(output.trim()), <span class="string">&quot;Expected:\n{}\nGot:\n{}&quot;</span>, re, output);
+		<span class="macro">assert!</span>(re.is_match(output.trim()), <span class="string">"Expected:\n{}\nGot:\n{}"</span>, re, output);
 	}
 
 	<span class="attr">#[test]
@@ -1343,15 +1345,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span><span class="kw-2">mut </span>command = Command::new(executable);
 
 			command
-				.env(<span class="string">&quot;PRINT_MAX_LOG_LEVEL&quot;</span>, <span class="string">&quot;1&quot;</span>)
-				.args(<span class="kw-2">&amp;</span>[<span class="string">&quot;--nocapture&quot;</span>, <span class="string">&quot;log_max_level_is_set_properly&quot;</span>]);
+				.env(<span class="string">"PRINT_MAX_LOG_LEVEL"</span>, <span class="string">"1"</span>)
+				.args(<span class="kw-2">&amp;</span>[<span class="string">"--nocapture"</span>, <span class="string">"log_max_level_is_set_properly"</span>]);
 
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(rust_log) = rust_log {
-				command.env(<span class="string">&quot;RUST_LOG&quot;</span>, rust_log);
+				command.env(<span class="string">"RUST_LOG"</span>, rust_log);
 			}
 
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(tracing_targets) = tracing_targets {
-				command.env(<span class="string">&quot;TRACING_TARGETS&quot;</span>, tracing_targets);
+				command.env(<span class="string">"TRACING_TARGETS"</span>, tracing_targets);
 			}
 
 			<span class="kw">let </span>output = command.output().unwrap();
@@ -1359,27 +1361,27 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">dbg!</span>(String::from_utf8(output.stderr)).unwrap()
 		}
 
-		<span class="kw">if </span>env::var(<span class="string">&quot;PRINT_MAX_LOG_LEVEL&quot;</span>).is_ok() {
-			<span class="kw">let </span><span class="kw-2">mut </span>builder = LoggerBuilder::new(<span class="string">&quot;&quot;</span>);
+		<span class="kw">if </span>env::var(<span class="string">"PRINT_MAX_LOG_LEVEL"</span>).is_ok() {
+			<span class="kw">let </span><span class="kw-2">mut </span>builder = LoggerBuilder::new(<span class="string">""</span>);
 
-			<span class="kw">if let </span><span class="prelude-val">Ok</span>(targets) = env::var(<span class="string">&quot;TRACING_TARGETS&quot;</span>) {
+			<span class="kw">if let </span><span class="prelude-val">Ok</span>(targets) = env::var(<span class="string">"TRACING_TARGETS"</span>) {
 				builder.with_profiling(<span class="kw">crate</span>::TracingReceiver::Log, targets);
 			}
 
 			builder.init().unwrap();
 
-			<span class="macro">eprint!</span>(<span class="string">&quot;MAX_LOG_LEVEL={:?}&quot;</span>, log::max_level());
+			<span class="macro">eprint!</span>(<span class="string">"MAX_LOG_LEVEL={:?}"</span>, log::max_level());
 		} <span class="kw">else </span>{
-			<span class="macro">assert_eq!</span>(<span class="string">&quot;MAX_LOG_LEVEL=Info&quot;</span>, run_test(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>));
-			<span class="macro">assert_eq!</span>(<span class="string">&quot;MAX_LOG_LEVEL=Trace&quot;</span>, run_test(<span class="prelude-val">Some</span>(<span class="string">&quot;test=trace&quot;</span>.into()), <span class="prelude-val">None</span>));
-			<span class="macro">assert_eq!</span>(<span class="string">&quot;MAX_LOG_LEVEL=Debug&quot;</span>, run_test(<span class="prelude-val">Some</span>(<span class="string">&quot;test=debug&quot;</span>.into()), <span class="prelude-val">None</span>));
-			<span class="macro">assert_eq!</span>(<span class="string">&quot;MAX_LOG_LEVEL=Trace&quot;</span>, run_test(<span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(<span class="string">&quot;test=info&quot;</span>.into())));
+			<span class="macro">assert_eq!</span>(<span class="string">"MAX_LOG_LEVEL=Info"</span>, run_test(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>));
+			<span class="macro">assert_eq!</span>(<span class="string">"MAX_LOG_LEVEL=Trace"</span>, run_test(<span class="prelude-val">Some</span>(<span class="string">"test=trace"</span>.into()), <span class="prelude-val">None</span>));
+			<span class="macro">assert_eq!</span>(<span class="string">"MAX_LOG_LEVEL=Debug"</span>, run_test(<span class="prelude-val">Some</span>(<span class="string">"test=debug"</span>.into()), <span class="prelude-val">None</span>));
+			<span class="macro">assert_eq!</span>(<span class="string">"MAX_LOG_LEVEL=Trace"</span>, run_test(<span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(<span class="string">"test=info"</span>.into())));
 		}
 	}
 
 	<span class="comment">// This creates a bunch of threads and makes sure they start executing
 	// a given callback almost exactly at the same time.
-	</span><span class="kw">fn </span>run_on_many_threads(thread_count: usize, callback: <span class="kw">impl </span>Fn(usize) + <span class="lifetime">&#39;static </span>+ Send + Clone) {
+	</span><span class="kw">fn </span>run_on_many_threads(thread_count: usize, callback: <span class="kw">impl </span>Fn(usize) + <span class="lifetime">'static </span>+ Send + Clone) {
 		<span class="kw">let </span>started_count = Arc::new(AtomicUsize::new(<span class="number">0</span>));
 		<span class="kw">let </span>barrier = Arc::new(AtomicBool::new(<span class="bool-val">false</span>));
 		<span class="kw">let </span>threads: Vec&lt;<span class="kw">_</span>&gt; = (<span class="number">0</span>..thread_count)
@@ -1406,7 +1408,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">for </span>thread <span class="kw">in </span>threads {
 			<span class="kw">if let </span><span class="prelude-val">Err</span>(error) = thread.join() {
-				<span class="macro">println!</span>(<span class="string">&quot;error: failed to join thread: {:?}&quot;</span>, error);
+				<span class="macro">println!</span>(<span class="string">"error: failed to join thread: {:?}"</span>, error);
 				<span class="kw">unsafe </span>{ libc::abort() }
 			}
 		}
@@ -1418,14 +1420,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">const </span>LOGS_PER_THREAD: usize = <span class="number">1024</span>;
 
 		<span class="kw">let </span>output = run_test_in_another_process(
-			<span class="string">&quot;parallel_logs_from_multiple_threads_are_properly_gathered&quot;</span>,
+			<span class="string">"parallel_logs_from_multiple_threads_are_properly_gathered"</span>,
 			|| {
-				<span class="kw">let </span>builder = LoggerBuilder::new(<span class="string">&quot;&quot;</span>);
+				<span class="kw">let </span>builder = LoggerBuilder::new(<span class="string">""</span>);
 				builder.init().unwrap();
 
 				run_on_many_threads(THREAD_COUNT, |nth_thread| {
 					<span class="kw">for _ in </span><span class="number">0</span>..LOGS_PER_THREAD {
-						<span class="macro">info!</span>(<span class="string">&quot;Thread &lt;&lt;{}&gt;&gt;&quot;</span>, nth_thread);
+						<span class="macro">info!</span>(<span class="string">"Thread &lt;&lt;{}&gt;&gt;"</span>, nth_thread);
 					}
 				});
 			},
@@ -1434,10 +1436,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(output) = output {
 			<span class="kw">let </span>stderr = String::from_utf8(output.stderr).unwrap();
 			<span class="kw">let </span><span class="kw-2">mut </span>count_per_thread = BTreeMap::new();
-			<span class="kw">for </span>line <span class="kw">in </span>stderr.split(<span class="string">&quot;\n&quot;</span>) {
-				<span class="kw">if let </span><span class="prelude-val">Some</span>(index_s) = line.find(<span class="string">&quot;Thread &lt;&lt;&quot;</span>) {
-					<span class="kw">let </span>index_s = index_s + <span class="string">&quot;Thread &lt;&lt;&quot;</span>.len();
-					<span class="kw">let </span>index_e = line.find(<span class="string">&quot;&gt;&gt;&quot;</span>).unwrap();
+			<span class="kw">for </span>line <span class="kw">in </span>stderr.split(<span class="string">"\n"</span>) {
+				<span class="kw">if let </span><span class="prelude-val">Some</span>(index_s) = line.find(<span class="string">"Thread &lt;&lt;"</span>) {
+					<span class="kw">let </span>index_s = index_s + <span class="string">"Thread &lt;&lt;"</span>.len();
+					<span class="kw">let </span>index_e = line.find(<span class="string">"&gt;&gt;"</span>).unwrap();
 					<span class="kw">let </span>nth_thread: usize = line[index_s..index_e].parse().unwrap();
 					<span class="kw-2">*</span>count_per_thread.entry(nth_thread).or_insert(<span class="number">0</span>) += <span class="number">1</span>;
 				}
@@ -1453,18 +1455,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>huge_single_line_log_is_properly_printed_out() {
 		<span class="kw">let </span><span class="kw-2">mut </span>line = String::new();
-		line.push_str(<span class="string">&quot;$$START$$&quot;</span>);
+		line.push_str(<span class="string">"$$START$$"</span>);
 		<span class="kw">for </span>n <span class="kw">in </span><span class="number">0</span>..<span class="number">16 </span>* <span class="number">1024 </span>* <span class="number">1024 </span>{
-			<span class="kw">let </span>ch = <span class="string">b&#39;a&#39; </span>+ (n <span class="kw">as </span>u8 % (<span class="string">b&#39;z&#39; </span>- <span class="string">b&#39;a&#39;</span>));
+			<span class="kw">let </span>ch = <span class="string">b'a' </span>+ (n <span class="kw">as </span>u8 % (<span class="string">b'z' </span>- <span class="string">b'a'</span>));
 			line.push(char::from(ch));
 		}
-		line.push_str(<span class="string">&quot;$$END$$&quot;</span>);
+		line.push_str(<span class="string">"$$END$$"</span>);
 
 		<span class="kw">let </span>output =
-			run_test_in_another_process(<span class="string">&quot;huge_single_line_log_is_properly_printed_out&quot;</span>, || {
-				<span class="kw">let </span>builder = LoggerBuilder::new(<span class="string">&quot;&quot;</span>);
+			run_test_in_another_process(<span class="string">"huge_single_line_log_is_properly_printed_out"</span>, || {
+				<span class="kw">let </span>builder = LoggerBuilder::new(<span class="string">""</span>);
 				builder.init().unwrap();
-				<span class="macro">info!</span>(<span class="string">&quot;{}&quot;</span>, line);
+				<span class="macro">info!</span>(<span class="string">"{}"</span>, line);
 			});
 
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(output) = output {
@@ -1475,17 +1477,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>control_characters_are_always_stripped_out_from_the_log_messages() {
-		<span class="kw">const </span>RAW_LINE: <span class="kw-2">&amp;</span>str = <span class="string">&quot;$$START$$\x1B[1;32mIn\u{202a}\u{202e}\u{2066}\u{2069}ner\n\r\x7ftext!\u{80}\u{9f}\x1B[0m$$END$$&quot;</span>;
-		<span class="kw">const </span>SANITIZED_LINE: <span class="kw-2">&amp;</span>str = <span class="string">&quot;$$START$$Inner\ntext!$$END$$&quot;</span>;
+		<span class="kw">const </span>RAW_LINE: <span class="kw-2">&amp;</span>str = <span class="string">"$$START$$\x1B[1;32mIn\u{202a}\u{202e}\u{2066}\u{2069}ner\n\r\x7ftext!\u{80}\u{9f}\x1B[0m$$END$$"</span>;
+		<span class="kw">const </span>SANITIZED_LINE: <span class="kw-2">&amp;</span>str = <span class="string">"$$START$$Inner\ntext!$$END$$"</span>;
 
 		<span class="kw">let </span>output = run_test_in_another_process(
-			<span class="string">&quot;control_characters_are_always_stripped_out_from_the_log_messages&quot;</span>,
+			<span class="string">"control_characters_are_always_stripped_out_from_the_log_messages"</span>,
 			|| {
-				std::env::set_var(<span class="string">&quot;RUST_LOG&quot;</span>, <span class="string">&quot;trace&quot;</span>);
-				<span class="kw">let </span><span class="kw-2">mut </span>builder = LoggerBuilder::new(<span class="string">&quot;&quot;</span>);
+				std::env::set_var(<span class="string">"RUST_LOG"</span>, <span class="string">"trace"</span>);
+				<span class="kw">let </span><span class="kw-2">mut </span>builder = LoggerBuilder::new(<span class="string">""</span>);
 				builder.with_colors(<span class="bool-val">true</span>);
 				builder.init().unwrap();
-				<span class="macro">log::error!</span>(<span class="string">&quot;{}&quot;</span>, RAW_LINE);
+				<span class="macro">log::error!</span>(<span class="string">"{}"</span>, RAW_LINE);
 			},
 		);
 
@@ -1495,12 +1497,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="macro">assert!</span>(!stderr.contains(RAW_LINE));
 			<span class="macro">assert!</span>(stderr.contains(SANITIZED_LINE));
 
-			<span class="comment">// The part where the timestamp, the logging level, etc. is printed out doesn&#39;t
-			// always have to be sanitized unless it&#39;s necessary, and here it shouldn&#39;t be.
-			</span><span class="macro">assert!</span>(stderr.contains(<span class="string">&quot;\x1B[31mERROR\x1B[0m&quot;</span>));
+			<span class="comment">// The part where the timestamp, the logging level, etc. is printed out doesn't
+			// always have to be sanitized unless it's necessary, and here it shouldn't be.
+			</span><span class="macro">assert!</span>(stderr.contains(<span class="string">"\x1B[31mERROR\x1B[0m"</span>));
 
-			<span class="comment">// Make sure the logs aren&#39;t being duplicated.
-			</span><span class="macro">assert_eq!</span>(stderr.find(<span class="string">&quot;ERROR&quot;</span>), stderr.rfind(<span class="string">&quot;ERROR&quot;</span>));
+			<span class="comment">// Make sure the logs aren't being duplicated.
+			</span><span class="macro">assert_eq!</span>(stderr.find(<span class="string">"ERROR"</span>), stderr.rfind(<span class="string">"ERROR"</span>));
 			<span class="macro">assert_eq!</span>(stderr.find(SANITIZED_LINE), stderr.rfind(SANITIZED_LINE));
 		}
 	}

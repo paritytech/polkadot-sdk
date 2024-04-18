@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/session/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/session/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_session" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_session" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../pallet_session/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1086,14 +1088,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -1125,18 +1127,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!
 //! - **Session key configuration process:** Session keys are set using `set_keys` for use not in
 //!   the next session, but the session after next. They are stored in `NextKeys`, a mapping between
-//!   the caller&#39;s `ValidatorId` and the session keys provided. `set_keys` allows users to set their
+//!   the caller's `ValidatorId` and the session keys provided. `set_keys` allows users to set their
 //!   session key prior to being selected as validator. It is a public call since it uses
 //!   `ensure_signed`, which checks that the origin is a signed account. As such, the account ID of
 //!   the origin stored in `NextKeys` may not necessarily be associated with a block author or a
 //!   validator. The session keys of accounts are removed once their account balance is zero.
 //!
 //! - **Session length:** This pallet does not assume anything about the length of each session.
-//!   Rather, it relies on an implementation of `ShouldEndSession` to dictate a new session&#39;s start.
+//!   Rather, it relies on an implementation of `ShouldEndSession` to dictate a new session's start.
 //!   This pallet provides the `PeriodicSessions` struct for simple periodic sessions.
 //!
-//! - **Session rotation configuration:** Configure as either a &#39;normal&#39; (rewardable session where
-//!   rewards are applied) or &#39;exceptional&#39; (slashable) session rotation.
+//! - **Session rotation configuration:** Configure as either a 'normal' (rewardable session where
+//!   rewards are applied) or 'exceptional' (slashable) session rotation.
 //!
 //! - **Session rotation process:** At the beginning of each block, the `on_initialize` function
 //!   queries the provided implementation of `ShouldEndSession`. If the session is to end the newly
@@ -1158,7 +1160,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!
 //! ### Dispatchable Functions
 //!
-//! - `set_keys` - Set a validator&#39;s session keys for upcoming sessions.
+//! - `set_keys` - Set a validator's session keys for upcoming sessions.
 //!
 //! ### Public Functions
 //!
@@ -1187,9 +1189,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!
 //! - [Staking](../pallet_staking/index.html)
 
-</span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
+</span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
-#[cfg(feature = <span class="string">&quot;historical&quot;</span>)]
+#[cfg(feature = <span class="string">"historical"</span>)]
 </span><span class="kw">pub mod </span>historical;
 <span class="kw">pub mod </span>migrations;
 <span class="attr">#[cfg(test)]
@@ -1356,7 +1358,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// The order must be the same as it expects them in
 	/// [`on_new_session`](Self::on_new_session&lt;Ks&gt;) and
 	/// [`on_genesis_session`](Self::on_genesis_session&lt;Ks&gt;).
-	</span><span class="kw">const </span>KEY_TYPE_IDS: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[KeyTypeId];
+	</span><span class="kw">const </span>KEY_TYPE_IDS: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>[KeyTypeId];
 
 	<span class="doccomment">/// The given validator set will be used for the genesis session.
 	/// It is guaranteed that the given validator set will also be used
@@ -1393,7 +1395,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 #[tuple_types_custom_trait_bound(OneSessionHandler&lt;AId&gt;)]
 </span><span class="kw">impl</span>&lt;AId&gt; SessionHandler&lt;AId&gt; <span class="kw">for </span>Tuple {
 	<span class="macro">for_tuples!</span>(
-		<span class="kw">const </span>KEY_TYPE_IDS: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[KeyTypeId] = <span class="kw-2">&amp;</span>[ #( &lt;Tuple::Key <span class="kw">as </span>RuntimeAppPublic&gt;::ID ),* ];
+		<span class="kw">const </span>KEY_TYPE_IDS: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>[KeyTypeId] = <span class="kw-2">&amp;</span>[ #( &lt;Tuple::Key <span class="kw">as </span>RuntimeAppPublic&gt;::ID ),* ];
 	);
 
 	<span class="kw">fn </span>on_genesis_session&lt;Ks: OpaqueKeys&gt;(validators: <span class="kw-2">&amp;</span>[(AId, Ks)]) {
@@ -1442,7 +1444,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// `SessionHandler` for tests that use `UintAuthorityId` as `Keys`.
 </span><span class="kw">pub struct </span>TestSessionHandler;
 <span class="kw">impl</span>&lt;AId&gt; SessionHandler&lt;AId&gt; <span class="kw">for </span>TestSessionHandler {
-	<span class="kw">const </span>KEY_TYPE_IDS: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[KeyTypeId] = <span class="kw-2">&amp;</span>[sp_runtime::key_types::DUMMY];
+	<span class="kw">const </span>KEY_TYPE_IDS: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>[KeyTypeId] = <span class="kw-2">&amp;</span>[sp_runtime::key_types::DUMMY];
 	<span class="kw">fn </span>on_genesis_session&lt;Ks: OpaqueKeys&gt;(<span class="kw">_</span>: <span class="kw-2">&amp;</span>[(AId, Ks)]) {}
 	<span class="kw">fn </span>on_new_session&lt;Ks: OpaqueKeys&gt;(<span class="kw">_</span>: bool, <span class="kw">_</span>: <span class="kw-2">&amp;</span>[(AId, Ks)], <span class="kw">_</span>: <span class="kw-2">&amp;</span>[(AId, Ks)]) {}
 	<span class="kw">fn </span>on_before_session_ending() {}
@@ -1511,7 +1513,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">impl</span>&lt;T: Config&gt; BuildGenesisConfig <span class="kw">for </span>GenesisConfig&lt;T&gt; {
 		<span class="kw">fn </span>build(<span class="kw-2">&amp;</span><span class="self">self</span>) {
 			<span class="kw">if </span>T::SessionHandler::KEY_TYPE_IDS.len() != T::Keys::key_ids().len() {
-				<span class="macro">panic!</span>(<span class="string">&quot;Number of keys in session handler and session keys does not match&quot;</span>);
+				<span class="macro">panic!</span>(<span class="string">"Number of keys in session handler and session keys does not match"</span>);
 			}
 
 			T::SessionHandler::KEY_TYPE_IDS
@@ -1521,7 +1523,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.for_each(|(i, (sk, kk))| {
 					<span class="kw">if </span>sk != kk {
 						<span class="macro">panic!</span>(
-							<span class="string">&quot;Session handler and session key expect different key type at index: {}&quot;</span>,
+							<span class="string">"Session handler and session key expect different key type at index: {}"</span>,
 							i,
 						);
 					}
@@ -1529,11 +1531,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="kw">for </span>(account, val, keys) <span class="kw">in </span><span class="self">self</span>.keys.iter().cloned() {
 				&lt;Pallet&lt;T&gt;&gt;::inner_set_keys(<span class="kw-2">&amp;</span>val, keys)
-					.expect(<span class="string">&quot;genesis config must not contain duplicates; qed&quot;</span>);
+					.expect(<span class="string">"genesis config must not contain duplicates; qed"</span>);
 				<span class="kw">if </span>frame_system::Pallet::&lt;T&gt;::inc_consumers_without_limit(<span class="kw-2">&amp;</span>account).is_err() {
 					<span class="comment">// This will leak a provider reference, however it only happens once (at
-					// genesis) so it&#39;s really not a big deal and we assume that the user wants to
-					// do this since it&#39;s the only way a non-endowed account can contain a session
+					// genesis) so it's really not a big deal and we assume that the user wants to
+					// do this since it's the only way a non-endowed account can contain a session
 					// key.
 					</span>frame_system::Pallet::&lt;T&gt;::inc_providers(<span class="kw-2">&amp;</span>account);
 				}
@@ -1542,8 +1544,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>initial_validators_0 =
 				T::SessionManager::new_session_genesis(<span class="number">0</span>).unwrap_or_else(|| {
 					frame_support::print(
-						<span class="string">&quot;No initial validator provided by `SessionManager`, use \
-						session config keys to generate initial validator set.&quot;</span>,
+						<span class="string">"No initial validator provided by `SessionManager`, use \
+						session config keys to generate initial validator set."</span>,
 					);
 					<span class="self">self</span>.keys.iter().map(|x| x.<span class="number">1</span>.clone()).collect()
 				});
@@ -1582,7 +1584,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub type </span>QueuedChanged&lt;T&gt; = StorageValue&lt;<span class="kw">_</span>, bool, ValueQuery&gt;;
 
 	<span class="doccomment">/// The queued keys for the next session. When the next session begins, these keys
-	/// will be used to determine the validator&#39;s session keys.
+	/// will be used to determine the validator's session keys.
 	</span><span class="attr">#[pallet::storage]
 	#[pallet::getter(<span class="kw">fn </span>queued_keys)]
 	</span><span class="kw">pub type </span>QueuedKeys&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, Vec&lt;(T::ValidatorId, T::Keys)&gt;, ValueQuery&gt;;
@@ -1625,7 +1627,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>DuplicatedKey,
 		<span class="doccomment">/// No keys are associated with this account.
 		</span>NoKeys,
-		<span class="doccomment">/// Key setting account is not live, so it&#39;s impossible to associate keys.
+		<span class="doccomment">/// Key setting account is not live, so it's impossible to associate keys.
 		</span>NoAccount,
 	}
 
@@ -1650,7 +1652,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
 		<span class="doccomment">/// Sets the session key(s) of the function caller to `keys`.
 		/// Allows an account to set its session key prior to becoming a validator.
-		/// This doesn&#39;t take effect until the next session.
+		/// This doesn't take effect until the next session.
 		///
 		/// The dispatch origin of this function must be signed.
 		///
@@ -1669,10 +1671,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="doccomment">/// Removes any session key(s) of the function caller.
 		///
-		/// This doesn&#39;t take effect until the next session.
+		/// This doesn't take effect until the next session.
 		///
 		/// The dispatch origin of this function must be Signed and the account must be either be
-		/// convertible to a validator ID using the chain&#39;s typical addressing system (this usually
+		/// convertible to a validator ID using the chain's typical addressing system (this usually
 		/// means being a controller account) or directly convertible into a validator ID (which
 		/// usually means being a stash account).
 		///
@@ -1695,7 +1697,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// punishment after a fork.
 	</span><span class="kw">pub fn </span>rotate_session() {
 		<span class="kw">let </span>session_index = &lt;CurrentIndex&lt;T&gt;&gt;::get();
-		<span class="macro">log::trace!</span>(target: <span class="string">&quot;runtime::session&quot;</span>, <span class="string">&quot;rotating session {:?}&quot;</span>, session_index);
+		<span class="macro">log::trace!</span>(target: <span class="string">"runtime::session"</span>, <span class="string">"rotating session {:?}"</span>, session_index);
 
 		<span class="kw">let </span>changed = &lt;QueuedChanged&lt;T&gt;&gt;::get();
 
@@ -1816,7 +1818,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// This is an invariant that the session pallet typically maintains internally.
 	///
 	/// As the actual values of the keys are typically not known at runtime upgrade,
-	/// it&#39;s recommended to initialize the keys to a (unique) dummy value with the expectation
+	/// it's recommended to initialize the keys to a (unique) dummy value with the expectation
 	/// that all validators should invoke `set_keys` before those keys are actually
 	/// required.
 	</span><span class="kw">pub fn </span>upgrade_keys&lt;Old, F&gt;(upgrade: F)
@@ -1866,7 +1868,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>old_keys = <span class="self">Self</span>::inner_set_keys(<span class="kw-2">&amp;</span>who, keys)<span class="question-mark">?</span>;
 		<span class="kw">if </span>old_keys.is_none() {
 			<span class="kw">let </span>assertion = frame_system::Pallet::&lt;T&gt;::inc_consumers(account).is_ok();
-			<span class="macro">debug_assert!</span>(assertion, <span class="string">&quot;can_inc_consumer() returned true; no change since; qed&quot;</span>);
+			<span class="macro">debug_assert!</span>(assertion, <span class="string">"can_inc_consumer() returned true; no change since; qed"</span>);
 		}
 
 		<span class="prelude-val">Ok</span>(())
@@ -1942,7 +1944,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		&lt;NextKeys&lt;T&gt;&gt;::insert(v, keys);
 	}
 
-	<span class="doccomment">/// Query the owner of a session key by returning the owner&#39;s validator ID.
+	<span class="doccomment">/// Query the owner of a session key by returning the owner's validator ID.
 	</span><span class="kw">pub fn </span>key_owner(id: KeyTypeId, key_data: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Option</span>&lt;T::ValidatorId&gt; {
 		&lt;KeyOwner&lt;T&gt;&gt;::get((id, key_data))
 	}
@@ -2005,9 +2007,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl</span>&lt;T: Config, Inner: FindAuthor&lt;u32&gt;&gt; FindAuthor&lt;T::ValidatorId&gt;
 	<span class="kw">for </span>FindAccountFromAuthorIndex&lt;T, Inner&gt;
 {
-	<span class="kw">fn </span>find_author&lt;<span class="lifetime">&#39;a</span>, I&gt;(digests: I) -&gt; <span class="prelude-ty">Option</span>&lt;T::ValidatorId&gt;
+	<span class="kw">fn </span>find_author&lt;<span class="lifetime">'a</span>, I&gt;(digests: I) -&gt; <span class="prelude-ty">Option</span>&lt;T::ValidatorId&gt;
 	<span class="kw">where
-		</span>I: <span class="lifetime">&#39;a </span>+ IntoIterator&lt;Item = (ConsensusEngineId, <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8])&gt;,
+		</span>I: <span class="lifetime">'a </span>+ IntoIterator&lt;Item = (ConsensusEngineId, <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8])&gt;,
 	{
 		<span class="kw">let </span>i = Inner::find_author(digests)<span class="question-mark">?</span>;
 

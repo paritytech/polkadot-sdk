@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/runtime/parachains/src/hrmp.rs`."><title>hrmp.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/runtime/parachains/src/hrmp.rs`."><title>hrmp.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_runtime_parachains" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_runtime_parachains" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../polkadot_runtime_parachains/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -2076,7 +2078,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[cfg(test)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>tests;
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 </span><span class="kw">mod </span>benchmarking;
 
 <span class="kw">pub trait </span>WeightInfo {
@@ -2191,7 +2193,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// An error returned by [`Pallet::check_hrmp_watermark`] that indicates an acceptance criteria
-/// check didn&#39;t pass.
+/// check didn't pass.
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">enum </span>HrmpWatermarkAcceptanceErr&lt;BlockNumber&gt; {
 	AdvancementRule { new_watermark: BlockNumber, last_watermark: BlockNumber },
 	AheadRelayParent { new_watermark: BlockNumber, relay_chain_parent_number: BlockNumber },
@@ -2199,7 +2201,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// An error returned by [`Pallet::check_outbound_hrmp`] that indicates an acceptance criteria check
-/// didn&#39;t pass.
+/// didn't pass.
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">enum </span>OutboundHrmpAcceptanceErr {
 	MoreMessagesThanPermitted { sent: u32, permitted: u32 },
 	NotSorted { idx: u32 },
@@ -2218,17 +2220,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">match </span><span class="self">self </span>{
 			AdvancementRule { new_watermark, last_watermark } =&gt; <span class="macro">write!</span>(
 				fmt,
-				<span class="string">&quot;the HRMP watermark is not advanced relative to the last watermark ({:?} &gt; {:?})&quot;</span>,
+				<span class="string">"the HRMP watermark is not advanced relative to the last watermark ({:?} &gt; {:?})"</span>,
 				new_watermark, last_watermark,
 			),
 			AheadRelayParent { new_watermark, relay_chain_parent_number } =&gt; <span class="macro">write!</span>(
 				fmt,
-				<span class="string">&quot;the HRMP watermark is ahead the relay-parent ({:?} &gt; {:?})&quot;</span>,
+				<span class="string">"the HRMP watermark is ahead the relay-parent ({:?} &gt; {:?})"</span>,
 				new_watermark, relay_chain_parent_number
 			),
 			LandsOnBlockWithNoMessages { new_watermark } =&gt; <span class="macro">write!</span>(
 				fmt,
-				<span class="string">&quot;the HRMP watermark ({:?}) doesn&#39;t land on a block with messages received&quot;</span>,
+				<span class="string">"the HRMP watermark ({:?}) doesn't land on a block with messages received"</span>,
 				new_watermark
 			),
 		}
@@ -2241,30 +2243,30 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">match </span><span class="self">self </span>{
 			MoreMessagesThanPermitted { sent, permitted } =&gt; <span class="macro">write!</span>(
 				fmt,
-				<span class="string">&quot;more HRMP messages than permitted by config ({} &gt; {})&quot;</span>,
+				<span class="string">"more HRMP messages than permitted by config ({} &gt; {})"</span>,
 				sent, permitted,
 			),
 			NotSorted { idx } =&gt; {
-				<span class="macro">write!</span>(fmt, <span class="string">&quot;the HRMP messages are not sorted (first unsorted is at index {})&quot;</span>, idx,)
+				<span class="macro">write!</span>(fmt, <span class="string">"the HRMP messages are not sorted (first unsorted is at index {})"</span>, idx,)
 			},
 			NoSuchChannel { idx, channel_id } =&gt; <span class="macro">write!</span>(
 				fmt,
-				<span class="string">&quot;the HRMP message at index {} is sent to a non existent channel {:?}-&gt;{:?}&quot;</span>,
+				<span class="string">"the HRMP message at index {} is sent to a non existent channel {:?}-&gt;{:?}"</span>,
 				idx, channel_id.sender, channel_id.recipient,
 			),
 			MaxMessageSizeExceeded { idx, msg_size, max_size } =&gt; <span class="macro">write!</span>(
 				fmt,
-				<span class="string">&quot;the HRMP message at index {} exceeds the negotiated channel maximum message size ({} &gt; {})&quot;</span>,
+				<span class="string">"the HRMP message at index {} exceeds the negotiated channel maximum message size ({} &gt; {})"</span>,
 				idx, msg_size, max_size,
 			),
 			TotalSizeExceeded { idx, total_size, limit } =&gt; <span class="macro">write!</span>(
 				fmt,
-				<span class="string">&quot;sending the HRMP message at index {} would exceed the negotiated channel total size  ({} &gt; {})&quot;</span>,
+				<span class="string">"sending the HRMP message at index {} would exceed the negotiated channel total size  ({} &gt; {})"</span>,
 				idx, total_size, limit,
 			),
 			CapacityExceeded { idx, count, limit } =&gt; <span class="macro">write!</span>(
 				fmt,
-				<span class="string">&quot;sending the HRMP message at index {} would exceed the negotiated channel capacity  ({} &gt; {})&quot;</span>,
+				<span class="string">"sending the HRMP message at index {} would exceed the negotiated channel capacity  ({} &gt; {})"</span>,
 				idx, count, limit,
 			),
 		}
@@ -2290,7 +2292,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			+ From&lt;&lt;<span class="self">Self </span><span class="kw">as </span>frame_system::Config&gt;::RuntimeOrigin&gt;
 			+ Into&lt;<span class="prelude-ty">Result</span>&lt;<span class="kw">crate</span>::Origin, &lt;<span class="self">Self </span><span class="kw">as </span>Config&gt;::RuntimeOrigin&gt;&gt;;
 
-		<span class="doccomment">/// The origin that can perform &quot;force&quot; actions on channels.
+		<span class="doccomment">/// The origin that can perform "force" actions on channels.
 		</span><span class="kw">type </span>ChannelManager: EnsureOrigin&lt;&lt;<span class="self">Self </span><span class="kw">as </span>frame_system::Config&gt;::RuntimeOrigin&gt;;
 
 		<span class="doccomment">/// An interface for reserving deposits for opening channels.
@@ -2338,7 +2340,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			proposed_max_capacity: u32,
 			proposed_max_message_size: u32,
 		},
-		<span class="doccomment">/// An HRMP channel&#39;s deposits were updated.
+		<span class="doccomment">/// An HRMP channel's deposits were updated.
 		</span>OpenChannelDepositsUpdated { sender: ParaId, recipient: ParaId },
 	}
 
@@ -2362,7 +2364,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>OpenHrmpChannelAlreadyRequested,
 		<span class="doccomment">/// The sender already has the maximum number of allowed outbound channels.
 		</span>OpenHrmpChannelLimitExceeded,
-		<span class="doccomment">/// The channel from the sender to the origin doesn&#39;t exist.
+		<span class="doccomment">/// The channel from the sender to the origin doesn't exist.
 		</span>AcceptHrmpChannelDoesntExist,
 		<span class="doccomment">/// The channel is already confirmed.
 		</span>AcceptHrmpChannelAlreadyConfirmed,
@@ -2370,13 +2372,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>AcceptHrmpChannelLimitExceeded,
 		<span class="doccomment">/// The origin tries to close a channel where it is neither the sender nor the recipient.
 		</span>CloseHrmpChannelUnauthorized,
-		<span class="doccomment">/// The channel to be closed doesn&#39;t exist.
+		<span class="doccomment">/// The channel to be closed doesn't exist.
 		</span>CloseHrmpChannelDoesntExist,
 		<span class="doccomment">/// The channel close request is already requested.
 		</span>CloseHrmpChannelAlreadyUnderway,
 		<span class="doccomment">/// Canceling is requested by neither the sender nor recipient of the open channel request.
 		</span>CancelHrmpOpenChannelUnauthorized,
-		<span class="doccomment">/// The open request doesn&#39;t exist.
+		<span class="doccomment">/// The open request doesn't exist.
 		</span>OpenHrmpChannelDoesntExist,
 		<span class="doccomment">/// Cannot cancel an HRMP open channel request because it is already confirmed.
 		</span>OpenHrmpChannelAlreadyConfirmed,
@@ -2396,7 +2398,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub type </span>HrmpOpenChannelRequests&lt;T: Config&gt; =
 		StorageMap&lt;<span class="kw">_</span>, Twox64Concat, HrmpChannelId, HrmpOpenChannelRequest&gt;;
 
-	<span class="comment">// NOTE: could become bounded, but we don&#39;t have a global maximum for this.
+	<span class="comment">// NOTE: could become bounded, but we don't have a global maximum for this.
 	// `HRMP_MAX_INBOUND_CHANNELS_BOUND` are per parachain, while this storage tracks the
 	// global state.
 	</span><span class="attr">#[pallet::storage]
@@ -2686,7 +2688,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 
 		<span class="doccomment">/// Open a channel from a `sender` to a `recipient` `ParaId`. Although opened by governance,
-		/// the `max_capacity` and `max_message_size` are still subject to the Relay Chain&#39;s
+		/// the `max_capacity` and `max_message_size` are still subject to the Relay Chain's
 		/// configured limits.
 		///
 		/// Expected use is when one (and only one) of the `ParaId`s involved in the channel is
@@ -2734,7 +2736,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="doccomment">/// Establish an HRMP channel between two system chains. If the channel does not already
 		/// exist, the transaction fees will be refunded to the caller. The system does not take
 		/// deposits for channels between system chains, and automatically sets the message number
-		/// and size limits to the maximum allowed by the network&#39;s configuration.
+		/// and size limits to the maximum allowed by the network's configuration.
 		///
 		/// Arguments:
 		///
@@ -2923,7 +2925,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if let </span><span class="prelude-val">Err</span>(err) =
 			preopen_hrmp_channel::&lt;T&gt;(sender, recipient, max_capacity, max_message_size)
 		{
-			<span class="macro">panic!</span>(<span class="string">&quot;failed to initialize the genesis storage: {:?}&quot;</span>, err);
+			<span class="macro">panic!</span>(<span class="string">"failed to initialize the genesis storage: {:?}"</span>, err);
 		}
 	}
 	Pallet::&lt;T&gt;::process_hrmp_open_channel_requests(<span class="kw-2">&amp;</span>host_config);
@@ -2992,7 +2994,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="comment">// Go over the HRMP open channel requests and remove all in which offboarding paras participate.
 	//
-	// This will also perform the refunds for the counterparty if it doesn&#39;t offboard.
+	// This will also perform the refunds for the counterparty if it doesn't offboard.
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>clean_open_channel_requests(
 		config: <span class="kw-2">&amp;</span>HostConfiguration&lt;BlockNumberFor&lt;T&gt;&gt;,
 		outgoing: <span class="kw-2">&amp;</span>[ParaId],
@@ -3014,7 +3016,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>req_data = <span class="kw">match </span>HrmpOpenChannelRequests::&lt;T&gt;::take(<span class="kw-2">&amp;</span>req_id) {
 				<span class="prelude-val">Some</span>(req_data) =&gt; req_data,
 				<span class="prelude-val">None </span>=&gt; {
-					<span class="comment">// Can&#39;t normally happen but no need to panic.
+					<span class="comment">// Can't normally happen but no need to panic.
 					</span><span class="kw">continue
 				</span>},
 			};
@@ -3028,7 +3030,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			}
 
 			<span class="comment">// If the request was confirmed, then it means it was confirmed in the finished session.
-			// Therefore, the config&#39;s hrmp_recipient_deposit represents the actual value of the
+			// Therefore, the config's hrmp_recipient_deposit represents the actual value of the
 			// deposit.
 			//
 			// We still want to refund the deposit only if the para is not being offboarded.
@@ -3080,7 +3082,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		// can leverage `swap_remove` to efficiently remove an item during iteration.
 		</span><span class="kw">let </span><span class="kw-2">mut </span>idx = open_req_channels.len();
 		<span class="kw">loop </span>{
-			<span class="comment">// bail if we&#39;ve iterated over all items.
+			<span class="comment">// bail if we've iterated over all items.
 			</span><span class="kw">if </span>idx == <span class="number">0 </span>{
 				<span class="kw">break
 			</span>}
@@ -3088,7 +3090,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			idx -= <span class="number">1</span>;
 			<span class="kw">let </span>channel_id = open_req_channels[idx].clone();
 			<span class="kw">let </span>request = HrmpOpenChannelRequests::&lt;T&gt;::get(<span class="kw-2">&amp;</span>channel_id).expect(
-				<span class="string">&quot;can&#39;t be `None` due to the invariant that the list contains the same items as the set; qed&quot;</span>,
+				<span class="string">"can't be `None` due to the invariant that the list contains the same items as the set; qed"</span>,
 			);
 
 			<span class="kw">let </span>system_channel = channel_id.sender.is_system() || channel_id.recipient.is_system();
@@ -3150,7 +3152,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// This includes returning the deposits.
 	///
 	/// This function is idempotent, meaning that after the first application it should have no
-	/// effect (i.e. it won&#39;t return the deposits twice).
+	/// effect (i.e. it won't return the deposits twice).
 	</span><span class="kw">fn </span>close_hrmp_channel(channel_id: <span class="kw-2">&amp;</span>HrmpChannelId) {
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(HrmpChannel { sender_deposit, recipient_deposit, .. }) =
 			HrmpChannels::&lt;T&gt;::take(channel_id)
@@ -3187,11 +3189,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), HrmpWatermarkAcceptanceErr&lt;BlockNumberFor&lt;T&gt;&gt;&gt; {
 		<span class="comment">// First, check where the watermark CANNOT legally land.
 		//
-		// (a) For ensuring that messages are eventually processed, we require each parablock&#39;s
+		// (a) For ensuring that messages are eventually processed, we require each parablock's
 		//     watermark to be greater than the last one. The exception to this is if the previous
 		//     watermark was already equal to the current relay-parent number.
 		//
-		// (b) However, a parachain cannot read into &quot;the future&quot;, therefore the watermark should
+		// (b) However, a parachain cannot read into "the future", therefore the watermark should
 		//     not be greater than the relay-chain context block which the parablock refers to.
 		</span><span class="kw">if </span>new_hrmp_watermark == relay_chain_parent_number {
 			<span class="kw">return </span><span class="prelude-val">Ok</span>(())
@@ -3213,7 +3215,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			}
 		}
 
-		<span class="comment">// Second, check where the watermark CAN land. It&#39;s one of the following:
+		<span class="comment">// Second, check where the watermark CAN land. It's one of the following:
 		//
 		// (a) The relay parent block number (checked above).
 		// (b) A relay-chain block in which this para received at least one message (checked here)
@@ -3421,9 +3423,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			HrmpChannelContents::&lt;T&gt;::append(<span class="kw-2">&amp;</span>channel_id, inbound);
 
 			<span class="comment">// The digests are sorted in ascending by block number order. There are only two
-			// possible scenarios here (&quot;the current&quot; is the block of candidate&#39;s inclusion):
+			// possible scenarios here ("the current" is the block of candidate's inclusion):
 			//
-			// (a) It&#39;s the first time anybody sends a message to this recipient within this block.
+			// (a) It's the first time anybody sends a message to this recipient within this block.
 			//     In this case, the digest vector would be empty or the block number of the latest
 			//     entry is smaller than the current.
 			//
@@ -3542,8 +3544,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// this should never happen unless the max downward message size is configured to a
 			// jokingly small number.
 			</span><span class="macro">log::error!</span>(
-				target: <span class="string">&quot;runtime::hrmp&quot;</span>,
-				<span class="string">&quot;sending &#39;init_open_channel::notification_bytes&#39; failed.&quot;
+				target: <span class="string">"runtime::hrmp"</span>,
+				<span class="string">"sending 'init_open_channel::notification_bytes' failed."
 			</span>);
 			<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
 		}
@@ -3600,8 +3602,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// this should never happen unless the max downward message size is configured to an
 			// jokingly small number.
 			</span><span class="macro">log::error!</span>(
-				target: <span class="string">&quot;runtime::hrmp&quot;</span>,
-				<span class="string">&quot;sending &#39;accept_open_channel::notification_bytes&#39; failed.&quot;
+				target: <span class="string">"runtime::hrmp"</span>,
+				<span class="string">"sending 'accept_open_channel::notification_bytes' failed."
 			</span>);
 			<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
 		}
@@ -3626,10 +3628,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		});
 
 		<span class="self">Self</span>::decrease_open_channel_request_count(channel_id.sender);
-		<span class="comment">// Don&#39;t decrease `HrmpAcceptedChannelRequestCount` because we don&#39;t consider confirmed
+		<span class="comment">// Don't decrease `HrmpAcceptedChannelRequestCount` because we don't consider confirmed
 		// requests here.
 
-		// Unreserve the sender&#39;s deposit. The recipient could not have left their deposit because
+		// Unreserve the sender's deposit. The recipient could not have left their deposit because
 		// we ensured that the request is not confirmed.
 		</span>T::Currency::unreserve(
 			<span class="kw-2">&amp;</span>channel_id.sender.into_account_truncating(),
@@ -3678,8 +3680,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// this should never happen unless the max downward message size is configured to an
 			// jokingly small number.
 			</span><span class="macro">log::error!</span>(
-				target: <span class="string">&quot;runtime::hrmp&quot;</span>,
-				<span class="string">&quot;sending &#39;close_channel::notification_bytes&#39; failed.&quot;
+				target: <span class="string">"runtime::hrmp"</span>,
+				<span class="string">"sending 'close_channel::notification_bytes' failed."
 			</span>);
 			<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
 		}
@@ -3688,7 +3690,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Returns the list of MQC heads for the inbound channels of the given recipient para paired
-	/// with the sender para ids. This vector is sorted ascending by the para id and doesn&#39;t contain
+	/// with the sender para ids. This vector is sorted ascending by the para id and doesn't contain
 	/// multiple entries with the same sender.
 	</span><span class="attr">#[cfg(test)]
 	</span><span class="kw">fn </span>hrmp_mqc_heads(recipient: ParaId) -&gt; Vec&lt;(ParaId, Hash)&gt; {
@@ -3748,17 +3750,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		});
 	}
 
-	<span class="attr">#[cfg(any(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>, test))]
+	<span class="attr">#[cfg(any(feature = <span class="string">"runtime-benchmarks"</span>, test))]
 	</span><span class="kw">fn </span>assert_storage_consistency_exhaustive() {
 		<span class="kw">fn </span>assert_is_sorted&lt;T: Ord&gt;(slice: <span class="kw-2">&amp;</span>[T], id: <span class="kw-2">&amp;</span>str) {
-			<span class="macro">assert!</span>(slice.windows(<span class="number">2</span>).all(|xs| xs[<span class="number">0</span>] &lt;= xs[<span class="number">1</span>]), <span class="string">&quot;{} supposed to be sorted&quot;</span>, id);
+			<span class="macro">assert!</span>(slice.windows(<span class="number">2</span>).all(|xs| xs[<span class="number">0</span>] &lt;= xs[<span class="number">1</span>]), <span class="string">"{} supposed to be sorted"</span>, id);
 		}
 
 		<span class="kw">let </span>assert_contains_only_onboarded = |paras: Vec&lt;ParaId&gt;, cause: <span class="kw-2">&amp;</span>str| {
 			<span class="kw">for </span>para <span class="kw">in </span>paras {
 				<span class="macro">assert!</span>(
 					<span class="kw">crate</span>::paras::Pallet::&lt;T&gt;::is_valid_para(para),
-					<span class="string">&quot;{}: {:?} para is offboarded&quot;</span>,
+					<span class="string">"{}: {:?} para is offboarded"</span>,
 					cause,
 					para
 				);
@@ -3813,10 +3815,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		);
 
 		<span class="comment">// A HRMP watermark can be None for an onboarded parachain. However, an offboarded parachain
-		// cannot have an HRMP watermark: it should&#39;ve been cleanup.
+		// cannot have an HRMP watermark: it should've been cleanup.
 		</span>assert_contains_only_onboarded(
 			HrmpWatermarks::&lt;T&gt;::iter().map(|(k, <span class="kw">_</span>)| k).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
-			<span class="string">&quot;HRMP watermarks should contain only onboarded paras&quot;</span>,
+			<span class="string">"HRMP watermarks should contain only onboarded paras"</span>,
 		);
 
 		<span class="comment">// An entry in `HrmpChannels` indicates that the channel is open. Only open channels can
@@ -3835,7 +3837,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			HrmpChannels::&lt;T&gt;::iter()
 				.flat_map(|(k, <span class="kw">_</span>)| <span class="macro">vec!</span>[k.sender, k.recipient])
 				.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
-			<span class="string">&quot;senders and recipients in all channels should be onboarded&quot;</span>,
+			<span class="string">"senders and recipients in all channels should be onboarded"</span>,
 		);
 
 		<span class="comment">// Check the docs for `HrmpIngressChannelsIndex` and `HrmpEgressChannelsIndex` in decl
@@ -3871,14 +3873,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		HrmpIngressChannelsIndex::&lt;T&gt;::iter()
 			.map(|(<span class="kw">_</span>, v)| v)
-			.for_each(|v| assert_is_sorted(<span class="kw-2">&amp;</span>v, <span class="string">&quot;HrmpIngressChannelsIndex&quot;</span>));
+			.for_each(|v| assert_is_sorted(<span class="kw-2">&amp;</span>v, <span class="string">"HrmpIngressChannelsIndex"</span>));
 		HrmpEgressChannelsIndex::&lt;T&gt;::iter()
 			.map(|(<span class="kw">_</span>, v)| v)
-			.for_each(|v| assert_is_sorted(<span class="kw-2">&amp;</span>v, <span class="string">&quot;HrmpIngressChannelsIndex&quot;</span>));
+			.for_each(|v| assert_is_sorted(<span class="kw-2">&amp;</span>v, <span class="string">"HrmpIngressChannelsIndex"</span>));
 
 		assert_contains_only_onboarded(
 			HrmpChannelDigests::&lt;T&gt;::iter().map(|(k, <span class="kw">_</span>)| k).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
-			<span class="string">&quot;HRMP channel digests should contain only onboarded paras&quot;</span>,
+			<span class="string">"HRMP channel digests should contain only onboarded paras"</span>,
 		);
 		<span class="kw">for </span>(_digest_for_para, digest) <span class="kw">in </span>HrmpChannelDigests::&lt;T&gt;::iter() {
 			<span class="comment">// Assert that items are in **strictly** ascending order. The strictness also implies
@@ -3895,7 +3897,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				senders.dedup();
 				<span class="macro">assert_eq!</span>(
 					orig_senders, senders,
-					<span class="string">&quot;duplicates removed implies existence of duplicates&quot;
+					<span class="string">"duplicates removed implies existence of duplicates"
 				</span>);
 			}
 		}

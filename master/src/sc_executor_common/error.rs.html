@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/executor/common/src/error.rs`."><title>error.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/executor/common/src/error.rs`."><title>error.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_executor_common" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_executor_common" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sc_executor_common/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -378,84 +380,84 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[derive(Debug, thiserror::Error)]
 #[allow(missing_docs)]
 </span><span class="kw">pub enum </span>Error {
-	<span class="attr">#[error(<span class="string">&quot;Error calling api function: {0}&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Error calling api function: {0}"</span>)]
 	</span>ApiError(Box&lt;<span class="kw">dyn </span>std::error::Error + Send + Sync&gt;),
 
-	<span class="attr">#[error(<span class="string">&quot;Method not found: &#39;{0}&#39;&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Method not found: '{0}'"</span>)]
 	</span>MethodNotFound(String),
 
-	<span class="attr">#[error(<span class="string">&quot;On-chain runtime does not specify version&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"On-chain runtime does not specify version"</span>)]
 	</span>VersionInvalid,
 
-	<span class="attr">#[error(<span class="string">&quot;Externalities error&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Externalities error"</span>)]
 	</span>Externalities,
 
-	<span class="attr">#[error(<span class="string">&quot;Invalid index provided&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Invalid index provided"</span>)]
 	</span>InvalidIndex,
 
-	<span class="attr">#[error(<span class="string">&quot;Invalid type returned (should be u64)&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Invalid type returned (should be u64)"</span>)]
 	</span>InvalidReturn,
 
-	<span class="attr">#[error(<span class="string">&quot;Runtime panicked: {0}&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Runtime panicked: {0}"</span>)]
 	</span>RuntimePanicked(String),
 
-	<span class="attr">#[error(<span class="string">&quot;Invalid memory reference&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Invalid memory reference"</span>)]
 	</span>InvalidMemoryReference,
 
-	<span class="attr">#[error(<span class="string">&quot;The runtime doesn&#39;t provide a global named `__heap_base` of type `i32`&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"The runtime doesn't provide a global named `__heap_base` of type `i32`"</span>)]
 	</span>HeapBaseNotFoundOrInvalid,
 
-	<span class="attr">#[error(<span class="string">&quot;The runtime must not have the `start` function defined&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"The runtime must not have the `start` function defined"</span>)]
 	</span>RuntimeHasStartFn,
 
-	<span class="attr">#[error(<span class="string">&quot;Other: {0}&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Other: {0}"</span>)]
 	</span>Other(String),
 
 	<span class="attr">#[error(transparent)]
 	</span>Allocator(<span class="attr">#[from] </span>sc_allocator::Error),
 
-	<span class="attr">#[error(<span class="string">&quot;Host function {0} execution failed with: {1}&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Host function {0} execution failed with: {1}"</span>)]
 	</span>FunctionExecution(String, String),
 
-	<span class="attr">#[error(<span class="string">&quot;No table exported by wasm blob&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"No table exported by wasm blob"</span>)]
 	</span>NoTable,
 
-	<span class="attr">#[error(<span class="string">&quot;No table entry with index {0} in wasm blob exported table&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"No table entry with index {0} in wasm blob exported table"</span>)]
 	</span>NoTableEntryWithIndex(u32),
 
-	<span class="attr">#[error(<span class="string">&quot;Table element with index {0} is not a function in wasm blob exported table&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Table element with index {0} is not a function in wasm blob exported table"</span>)]
 	</span>TableElementIsNotAFunction(u32),
 
-	<span class="attr">#[error(<span class="string">&quot;Table entry with index {0} in wasm blob is null&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Table entry with index {0} in wasm blob is null"</span>)]
 	</span>FunctionRefIsNull(u32),
 
 	<span class="attr">#[error(transparent)]
 	</span>RuntimeConstruction(<span class="attr">#[from] </span>WasmError),
 
-	<span class="attr">#[error(<span class="string">&quot;Shared memory is not supported&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Shared memory is not supported"</span>)]
 	</span>SharedMemUnsupported,
 
-	<span class="attr">#[error(<span class="string">&quot;Imported globals are not supported yet&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Imported globals are not supported yet"</span>)]
 	</span>ImportedGlobalsUnsupported,
 
-	<span class="attr">#[error(<span class="string">&quot;initializer expression can have only up to 2 expressions in wasm 1.0&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"initializer expression can have only up to 2 expressions in wasm 1.0"</span>)]
 	</span>InitializerHasTooManyExpressions,
 
-	<span class="attr">#[error(<span class="string">&quot;Invalid initializer expression provided {0}&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Invalid initializer expression provided {0}"</span>)]
 	</span>InvalidInitializerExpression(String),
 
-	<span class="attr">#[error(<span class="string">&quot;Execution aborted due to panic: {0}&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Execution aborted due to panic: {0}"</span>)]
 	</span>AbortedDueToPanic(MessageWithBacktrace),
 
-	<span class="attr">#[error(<span class="string">&quot;Execution aborted due to trap: {0}&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Execution aborted due to trap: {0}"</span>)]
 	</span>AbortedDueToTrap(MessageWithBacktrace),
 
-	<span class="attr">#[error(<span class="string">&quot;Output exceeds bounds of wasm memory&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Output exceeds bounds of wasm memory"</span>)]
 	</span>OutputExceedsBounds,
 }
 
-<span class="kw">impl </span>From&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; <span class="kw">for </span>Error {
-	<span class="kw">fn </span>from(err: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str) -&gt; Error {
+<span class="kw">impl </span>From&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; <span class="kw">for </span>Error {
+	<span class="kw">fn </span>from(err: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str) -&gt; Error {
 		Error::Other(err.into())
 	}
 }
@@ -470,36 +472,36 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[derive(Debug, thiserror::Error)]
 #[allow(missing_docs)]
 </span><span class="kw">pub enum </span>WasmError {
-	<span class="attr">#[error(<span class="string">&quot;Code could not be read from the state.&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Code could not be read from the state."</span>)]
 	</span>CodeNotFound,
 
-	<span class="attr">#[error(<span class="string">&quot;Failure to reinitialize runtime instance from snapshot.&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Failure to reinitialize runtime instance from snapshot."</span>)]
 	</span>ApplySnapshotFailed,
 
 	<span class="doccomment">/// Failure to erase the wasm memory.
 	///
 	/// Depending on the implementation might mean failure of allocating memory.
-	</span><span class="attr">#[error(<span class="string">&quot;Failure to erase the wasm memory: {0}&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"Failure to erase the wasm memory: {0}"</span>)]
 	</span>ErasingFailed(String),
 
-	<span class="attr">#[error(<span class="string">&quot;Wasm code failed validation.&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Wasm code failed validation."</span>)]
 	</span>InvalidModule,
 
-	<span class="attr">#[error(<span class="string">&quot;Wasm code could not be deserialized.&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Wasm code could not be deserialized."</span>)]
 	</span>CantDeserializeWasm,
 
-	<span class="attr">#[error(<span class="string">&quot;The module does not export a linear memory named `memory`.&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"The module does not export a linear memory named `memory`."</span>)]
 	</span>InvalidMemory,
 
-	<span class="attr">#[error(<span class="string">&quot;The number of heap pages requested is disallowed by the module.&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"The number of heap pages requested is disallowed by the module."</span>)]
 	</span>InvalidHeapPages,
 
 	<span class="doccomment">/// Instantiation error.
-	</span><span class="attr">#[error(<span class="string">&quot;{0}&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"{0}"</span>)]
 	</span>Instantiation(String),
 
 	<span class="doccomment">/// Other error happened.
-	</span><span class="attr">#[error(<span class="string">&quot;Other error happened while constructing the runtime: {0}&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"Other error happened while constructing the runtime: {0}"</span>)]
 	</span>Other(String),
 }
 
@@ -535,7 +537,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, fmt: <span class="kw-2">&amp;mut </span>std::fmt::Formatter) -&gt; std::fmt::Result {
 		fmt.write_str(<span class="kw-2">&amp;</span><span class="self">self</span>.message)<span class="question-mark">?</span>;
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>backtrace) = <span class="self">self</span>.backtrace {
-			fmt.write_str(<span class="string">&quot;\nWASM backtrace:\n&quot;</span>)<span class="question-mark">?</span>;
+			fmt.write_str(<span class="string">"\nWASM backtrace:\n"</span>)<span class="question-mark">?</span>;
 			backtrace.backtrace_string.fmt(fmt)<span class="question-mark">?</span>;
 		}
 

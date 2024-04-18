@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/support/src/storage/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/support/src/storage/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="frame_support" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="frame_support" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../frame_support/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -2299,19 +2301,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-</span><span class="doccomment">//! Stuff to do with the runtime&#39;s storage.
+</span><span class="doccomment">//! Stuff to do with the runtime's storage.
 
 </span><span class="kw">use crate</span>::{
 	hash::{ReversibleStorageHasher, StorageHasher},
@@ -2394,7 +2396,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// This would typically be called inside the module implementation of on_runtime_upgrade, while
 	/// ensuring **no usage of this storage are made before the call to `on_runtime_upgrade`**.
-	/// (More precisely prior initialized modules doesn&#39;t make use of this storage).
+	/// (More precisely prior initialized modules doesn't make use of this storage).
 	</span><span class="kw">fn </span>translate&lt;O: Decode, F: FnOnce(<span class="prelude-ty">Option</span>&lt;O&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;T&gt;&gt;(f: F) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;T&gt;, ()&gt;;
 
 	<span class="doccomment">/// Store a value under this key into the provided storage instance.
@@ -2480,7 +2482,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// ignored by this function.
 	///
 	/// # Example
-	</span><span class="attr">#[doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;src/storage/mod.rs&quot;</span>, btree_set_decode_non_dedup_len)]
+	</span><span class="attr">#[doc = <span class="macro">docify::embed!</span>(<span class="string">"src/storage/mod.rs"</span>, btree_set_decode_non_dedup_len)]
 	</span><span class="doccomment">/// This demonstrates how `decode_non_dedup_len` will count even the duplicate values in the
 	/// storage (in this case, the number `4` is counted twice).
 	</span><span class="kw">fn </span>decode_non_dedup_len() -&gt; <span class="prelude-ty">Option</span>&lt;usize&gt;
@@ -2692,12 +2694,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Migrate an item with the given `key` from a defunct `OldHasher` to the current hasher.
 	///
-	/// If the key doesn&#39;t exist, then it&#39;s a no-op. If it does, then it returns its value.
+	/// If the key doesn't exist, then it's a no-op. If it does, then it returns its value.
 	</span><span class="kw">fn </span>migrate_key&lt;OldHasher: StorageHasher, KeyArg: EncodeLike&lt;K&gt;&gt;(key: KeyArg) -&gt; <span class="prelude-ty">Option</span>&lt;V&gt;;
 
 	<span class="doccomment">/// Migrate an item with the given `key` from a `blake2_256` hasher to the current hasher.
 	///
-	/// If the key doesn&#39;t exist, then it&#39;s a no-op. If it does, then it returns its value.
+	/// If the key doesn't exist, then it's a no-op. If it does, then it returns its value.
 	</span><span class="kw">fn </span>migrate_key_from_blake&lt;KeyArg: EncodeLike&lt;K&gt;&gt;(key: KeyArg) -&gt; <span class="prelude-ty">Option</span>&lt;V&gt; {
 		<span class="self">Self</span>::migrate_key::&lt;<span class="kw">crate</span>::hash::Blake2_256, KeyArg&gt;(key)
 	}
@@ -2711,35 +2713,35 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">type </span>KeyIterator: Iterator&lt;Item = K&gt;;
 
 	<span class="doccomment">/// Enumerate all elements in the map in lexicographical order of the encoded key. If you
-	/// alter the map while doing this, you&#39;ll get undefined results.
+	/// alter the map while doing this, you'll get undefined results.
 	</span><span class="kw">fn </span>iter() -&gt; <span class="self">Self</span>::Iterator;
 
 	<span class="doccomment">/// Enumerate all elements in the map after a specified `starting_raw_key` in lexicographical
-	/// order of the encoded key. If you alter the map while doing this, you&#39;ll get undefined
+	/// order of the encoded key. If you alter the map while doing this, you'll get undefined
 	/// results.
 	</span><span class="kw">fn </span>iter_from(starting_raw_key: Vec&lt;u8&gt;) -&gt; <span class="self">Self</span>::Iterator;
 
 	<span class="doccomment">/// Enumerate all keys in the map in lexicographical order of the encoded key, skipping over
-	/// the elements. If you alter the map while doing this, you&#39;ll get undefined results.
+	/// the elements. If you alter the map while doing this, you'll get undefined results.
 	</span><span class="kw">fn </span>iter_keys() -&gt; <span class="self">Self</span>::KeyIterator;
 
 	<span class="doccomment">/// Enumerate all keys in the map after a specified `starting_raw_key` in lexicographical order
-	/// of the encoded key. If you alter the map while doing this, you&#39;ll get undefined results.
+	/// of the encoded key. If you alter the map while doing this, you'll get undefined results.
 	</span><span class="kw">fn </span>iter_keys_from(starting_raw_key: Vec&lt;u8&gt;) -&gt; <span class="self">Self</span>::KeyIterator;
 
 	<span class="doccomment">/// Remove all elements from the map and iterate through them in lexicographical order of the
-	/// encoded key. If you add elements to the map while doing this, you&#39;ll get undefined results.
+	/// encoded key. If you add elements to the map while doing this, you'll get undefined results.
 	</span><span class="kw">fn </span>drain() -&gt; <span class="self">Self</span>::Iterator;
 
 	<span class="doccomment">/// Translate the values of all elements by a function `f`, in the map in lexicographical order
 	/// of the encoded key.
-	/// By returning `None` from `f` for an element, you&#39;ll remove it from the map.
+	/// By returning `None` from `f` for an element, you'll remove it from the map.
 	///
 	/// NOTE: If a value fail to decode because storage is corrupted then it is skipped.
 	</span><span class="kw">fn </span>translate&lt;O: Decode, F: FnMut(K, O) -&gt; <span class="prelude-ty">Option</span>&lt;V&gt;&gt;(f: F);
 
 	<span class="doccomment">/// Translate the next entry following `previous_key` by a function `f`.
-	/// By returning `None` from `f` for an element, you&#39;ll remove it from the map.
+	/// By returning `None` from `f` for an element, you'll remove it from the map.
 	///
 	/// Returns the next key to iterate from in lexicographical order of the encoded key.
 	</span><span class="kw">fn </span>translate_next&lt;O: Decode, F: FnMut(K, O) -&gt; <span class="prelude-ty">Option</span>&lt;V&gt;&gt;(
@@ -2766,23 +2768,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Enumerate all elements in the map with first key `k1` in lexicographical order of the
 	/// encoded key. If you add or remove values whose first key is `k1` to the map while doing
-	/// this, you&#39;ll get undefined results.
+	/// this, you'll get undefined results.
 	</span><span class="kw">fn </span>iter_prefix(k1: <span class="kw">impl </span>EncodeLike&lt;K1&gt;) -&gt; <span class="self">Self</span>::PrefixIterator;
 
 	<span class="doccomment">/// Enumerate all elements in the map with first key `k1` after a specified `starting_raw_key`
 	/// in lexicographical order of the encoded key. If you add or remove values whose first key is
-	/// `k1` to the map while doing this, you&#39;ll get undefined results.
+	/// `k1` to the map while doing this, you'll get undefined results.
 	</span><span class="kw">fn </span>iter_prefix_from(k1: <span class="kw">impl </span>EncodeLike&lt;K1&gt;, starting_raw_key: Vec&lt;u8&gt;)
 		-&gt; <span class="self">Self</span>::PrefixIterator;
 
 	<span class="doccomment">/// Enumerate all second keys `k2` in the map with the same first key `k1` in lexicographical
 	/// order of the encoded key. If you add or remove values whose first key is `k1` to the map
-	/// while doing this, you&#39;ll get undefined results.
+	/// while doing this, you'll get undefined results.
 	</span><span class="kw">fn </span>iter_key_prefix(k1: <span class="kw">impl </span>EncodeLike&lt;K1&gt;) -&gt; <span class="self">Self</span>::PartialKeyIterator;
 
 	<span class="doccomment">/// Enumerate all second keys `k2` in the map with the same first key `k1` after a specified
 	/// `starting_raw_key` in lexicographical order of the encoded key. If you add or remove values
-	/// whose first key is `k1` to the map while doing this, you&#39;ll get undefined results.
+	/// whose first key is `k1` to the map while doing this, you'll get undefined results.
 	</span><span class="kw">fn </span>iter_key_prefix_from(
 		k1: <span class="kw">impl </span>EncodeLike&lt;K1&gt;,
 		starting_raw_key: Vec&lt;u8&gt;,
@@ -2790,34 +2792,34 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Remove all elements from the map with first key `k1` and iterate through them in
 	/// lexicographical order of the encoded key. If you add elements with first key `k1` to the
-	/// map while doing this, you&#39;ll get undefined results.
+	/// map while doing this, you'll get undefined results.
 	</span><span class="kw">fn </span>drain_prefix(k1: <span class="kw">impl </span>EncodeLike&lt;K1&gt;) -&gt; <span class="self">Self</span>::PrefixIterator;
 
 	<span class="doccomment">/// Enumerate all elements in the map in lexicographical order of the encoded key. If you add
-	/// or remove values to the map while doing this, you&#39;ll get undefined results.
+	/// or remove values to the map while doing this, you'll get undefined results.
 	</span><span class="kw">fn </span>iter() -&gt; <span class="self">Self</span>::Iterator;
 
 	<span class="doccomment">/// Enumerate all elements in the map after a specified `starting_raw_key` in lexicographical
-	/// order of the encoded key. If you add or remove values to the map while doing this, you&#39;ll
+	/// order of the encoded key. If you add or remove values to the map while doing this, you'll
 	/// get undefined results.
 	</span><span class="kw">fn </span>iter_from(starting_raw_key: Vec&lt;u8&gt;) -&gt; <span class="self">Self</span>::Iterator;
 
 	<span class="doccomment">/// Enumerate all keys `k1` and `k2` in the map in lexicographical order of the encoded key. If
-	/// you add or remove values to the map while doing this, you&#39;ll get undefined results.
+	/// you add or remove values to the map while doing this, you'll get undefined results.
 	</span><span class="kw">fn </span>iter_keys() -&gt; <span class="self">Self</span>::FullKeyIterator;
 
 	<span class="doccomment">/// Enumerate all keys `k1` and `k2` in the map after a specified `starting_raw_key` in
 	/// lexicographical order of the encoded key. If you add or remove values to the map while
-	/// doing this, you&#39;ll get undefined results.
+	/// doing this, you'll get undefined results.
 	</span><span class="kw">fn </span>iter_keys_from(starting_raw_key: Vec&lt;u8&gt;) -&gt; <span class="self">Self</span>::FullKeyIterator;
 
 	<span class="doccomment">/// Remove all elements from the map and iterate through them in lexicographical order of the
-	/// encoded key. If you add elements to the map while doing this, you&#39;ll get undefined results.
+	/// encoded key. If you add elements to the map while doing this, you'll get undefined results.
 	</span><span class="kw">fn </span>drain() -&gt; <span class="self">Self</span>::Iterator;
 
 	<span class="doccomment">/// Translate the values of all elements by a function `f`, in the map in lexicographical order
 	/// of the encoded key.
-	/// By returning `None` from `f` for an element, you&#39;ll remove it from the map.
+	/// By returning `None` from `f` for an element, you'll remove it from the map.
 	///
 	/// NOTE: If a value fail to decode because storage is corrupted then it is skipped.
 	</span><span class="kw">fn </span>translate&lt;O: Decode, F: FnMut(K1, K2, O) -&gt; <span class="prelude-ty">Option</span>&lt;V&gt;&gt;(f: F);
@@ -2834,14 +2836,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Enumerate all elements in the map with prefix key `kp` in lexicographical order of the
 	/// encoded key. If you add or remove values whose prefix is `kp` to the map while doing this,
-	/// you&#39;ll get undefined results.
+	/// you'll get undefined results.
 	</span><span class="kw">fn </span>iter_prefix&lt;KP&gt;(kp: KP) -&gt; PrefixIterator&lt;(&lt;K <span class="kw">as </span>HasKeyPrefix&lt;KP&gt;&gt;::Suffix, V)&gt;
 	<span class="kw">where
 		</span>K: HasReversibleKeyPrefix&lt;KP&gt;;
 
 	<span class="doccomment">/// Enumerate all elements in the map with prefix key `kp` after a specified `starting_raw_key`
 	/// in lexicographical order of the encoded key. If you add or remove values whose prefix is
-	/// `kp` to the map while doing this, you&#39;ll get undefined results.
+	/// `kp` to the map while doing this, you'll get undefined results.
 	</span><span class="kw">fn </span>iter_prefix_from&lt;KP&gt;(
 		kp: KP,
 		starting_raw_key: Vec&lt;u8&gt;,
@@ -2851,14 +2853,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Enumerate all suffix keys in the map with prefix key `kp` in lexicographical order of the
 	/// encoded key. If you add or remove values whose prefix is `kp` to the map while doing this,
-	/// you&#39;ll get undefined results.
+	/// you'll get undefined results.
 	</span><span class="kw">fn </span>iter_key_prefix&lt;KP&gt;(kp: KP) -&gt; KeyPrefixIterator&lt;&lt;K <span class="kw">as </span>HasKeyPrefix&lt;KP&gt;&gt;::Suffix&gt;
 	<span class="kw">where
 		</span>K: HasReversibleKeyPrefix&lt;KP&gt;;
 
 	<span class="doccomment">/// Enumerate all suffix keys in the map with prefix key `kp` after a specified
 	/// `starting_raw_key` in lexicographical order of the encoded key. If you add or remove values
-	/// whose prefix is `kp` to the map while doing this, you&#39;ll get undefined results.
+	/// whose prefix is `kp` to the map while doing this, you'll get undefined results.
 	</span><span class="kw">fn </span>iter_key_prefix_from&lt;KP&gt;(
 		kp: KP,
 		starting_raw_key: Vec&lt;u8&gt;,
@@ -2868,36 +2870,36 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Remove all elements from the map with prefix key `kp` and iterate through them in
 	/// lexicographical order of the encoded key. If you add elements with prefix key `kp` to the
-	/// map while doing this, you&#39;ll get undefined results.
+	/// map while doing this, you'll get undefined results.
 	</span><span class="kw">fn </span>drain_prefix&lt;KP&gt;(kp: KP) -&gt; PrefixIterator&lt;(&lt;K <span class="kw">as </span>HasKeyPrefix&lt;KP&gt;&gt;::Suffix, V)&gt;
 	<span class="kw">where
 		</span>K: HasReversibleKeyPrefix&lt;KP&gt;;
 
 	<span class="doccomment">/// Enumerate all elements in the map in lexicographical order of the encoded key. If you add
-	/// or remove values to the map while doing this, you&#39;ll get undefined results.
+	/// or remove values to the map while doing this, you'll get undefined results.
 	</span><span class="kw">fn </span>iter() -&gt; <span class="self">Self</span>::Iterator;
 
 	<span class="doccomment">/// Enumerate all elements in the map after a specified `starting_raw_key` in lexicographical
-	/// order of the encoded key. If you add or remove values to the map while doing this, you&#39;ll
+	/// order of the encoded key. If you add or remove values to the map while doing this, you'll
 	/// get undefined results.
 	</span><span class="kw">fn </span>iter_from(starting_raw_key: Vec&lt;u8&gt;) -&gt; <span class="self">Self</span>::Iterator;
 
 	<span class="doccomment">/// Enumerate all keys in the map in lexicographical order of the encoded key. If you add or
-	/// remove values to the map while doing this, you&#39;ll get undefined results.
+	/// remove values to the map while doing this, you'll get undefined results.
 	</span><span class="kw">fn </span>iter_keys() -&gt; <span class="self">Self</span>::KeyIterator;
 
 	<span class="doccomment">/// Enumerate all keys in the map after `starting_raw_key` in lexicographical order of the
-	/// encoded key. If you add or remove values to the map while doing this, you&#39;ll get undefined
+	/// encoded key. If you add or remove values to the map while doing this, you'll get undefined
 	/// results.
 	</span><span class="kw">fn </span>iter_keys_from(starting_raw_key: Vec&lt;u8&gt;) -&gt; <span class="self">Self</span>::KeyIterator;
 
 	<span class="doccomment">/// Remove all elements from the map and iterate through them in lexicographical order of the
-	/// encoded key. If you add elements to the map while doing this, you&#39;ll get undefined results.
+	/// encoded key. If you add elements to the map while doing this, you'll get undefined results.
 	</span><span class="kw">fn </span>drain() -&gt; <span class="self">Self</span>::Iterator;
 
 	<span class="doccomment">/// Translate the values of all elements by a function `f`, in the map in lexicographical order
 	/// of the encoded key.
-	/// By returning `None` from `f` for an element, you&#39;ll remove it from the map.
+	/// By returning `None` from `f` for an element, you'll remove it from the map.
 	///
 	/// NOTE: If a value fail to decode because storage is corrupted then it is skipped.
 	</span><span class="kw">fn </span>translate&lt;O: Decode, F: FnMut(K::Key, O) -&gt; <span class="prelude-ty">Option</span>&lt;V&gt;&gt;(f: F);
@@ -2978,7 +2980,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// Calling this multiple times per block with a `limit` set leads always to the same keys being
 	/// removed and the same result being returned. This happens because the keys to delete in the
 	/// overlay are not taken into account when deleting keys in the backend.
-	</span><span class="attr">#[deprecated = <span class="string">&quot;Use `clear_prefix` instead&quot;</span>]
+	</span><span class="attr">#[deprecated = <span class="string">"Use `clear_prefix` instead"</span>]
 	</span><span class="kw">fn </span>remove_prefix&lt;KArg1&gt;(k1: KArg1, limit: <span class="prelude-ty">Option</span>&lt;u32&gt;) -&gt; sp_io::KillStorageResult
 	<span class="kw">where
 		</span>KArg1: <span class="question-mark">?</span>Sized + EncodeLike&lt;K1&gt;;
@@ -2994,7 +2996,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// The `maybe_cursor` parameter should be `None` for the first call to initial removal.
 	/// If the resultant `maybe_cursor` is `Some`, then another call is required to complete the
-	/// removal operation. This value must be passed in as the subsequent call&#39;s `maybe_cursor`
+	/// removal operation. This value must be passed in as the subsequent call's `maybe_cursor`
 	/// parameter. If the resultant `maybe_cursor` is `None`, then the operation is complete and no
 	/// items remain in storage provided that no items were added between the first calls and the
 	/// final call.
@@ -3109,7 +3111,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Migrate an item with the given `key1` and `key2` from defunct `OldHasher1` and
 	/// `OldHasher2` to the current hashers.
 	///
-	/// If the key doesn&#39;t exist, then it&#39;s a no-op. If it does, then it returns its value.
+	/// If the key doesn't exist, then it's a no-op. If it does, then it returns its value.
 	</span><span class="kw">fn </span>migrate_keys&lt;
 		OldHasher1: StorageHasher,
 		OldHasher2: StorageHasher,
@@ -3173,7 +3175,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// Calling this multiple times per block with a `limit` set leads always to the same keys being
 	/// removed and the same result being returned. This happens because the keys to delete in the
 	/// overlay are not taken into account when deleting keys in the backend.
-	</span><span class="attr">#[deprecated = <span class="string">&quot;Use `clear_prefix` instead&quot;</span>]
+	</span><span class="attr">#[deprecated = <span class="string">"Use `clear_prefix` instead"</span>]
 	</span><span class="kw">fn </span>remove_prefix&lt;KP&gt;(partial_key: KP, limit: <span class="prelude-ty">Option</span>&lt;u32&gt;) -&gt; sp_io::KillStorageResult
 	<span class="kw">where
 		</span>K: HasKeyPrefix&lt;KP&gt;;
@@ -3200,7 +3202,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// A *cursor* may be passed in to this operation with `maybe_cursor`. `None` should only be
 	/// passed once (in the initial call) for any given storage map and `partial_key`. Subsequent
 	/// calls operating on the same map/`partial_key` should always pass `Some`, and this should be
-	/// equal to the previous call result&#39;s `maybe_cursor` field.
+	/// equal to the previous call result's `maybe_cursor` field.
 	</span><span class="kw">fn </span>clear_prefix&lt;KP&gt;(
 		partial_key: KP,
 		limit: u32,
@@ -3288,7 +3290,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Migrate an item with the given `key` from defunct `hash_fns` to the current hashers.
 	///
-	/// If the key doesn&#39;t exist, then it&#39;s a no-op. If it does, then it returns its value.
+	/// If the key doesn't exist, then it's a no-op. If it does, then it returns its value.
 	</span><span class="kw">fn </span>migrate_keys&lt;KArg&gt;(key: KArg, hash_fns: K::HArg) -&gt; <span class="prelude-ty">Option</span>&lt;V&gt;
 	<span class="kw">where
 		</span>KArg: EncodeLikeTuple&lt;K::KArg&gt; + TupleToEncodedIter;
@@ -3311,7 +3313,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl</span>&lt;T, OnRemoval1&gt; PrefixIterator&lt;T, OnRemoval1&gt; {
-	<span class="doccomment">/// Converts to the same iterator but with the different &#39;OnRemoval&#39; type
+	<span class="doccomment">/// Converts to the same iterator but with the different 'OnRemoval' type
 	</span><span class="kw">pub fn </span>convert_on_removal&lt;OnRemoval2&gt;(<span class="self">self</span>) -&gt; PrefixIterator&lt;T, OnRemoval2&gt; {
 		PrefixIterator::&lt;T, OnRemoval2&gt; {
 			prefix: <span class="self">self</span>.prefix,
@@ -3393,7 +3395,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="prelude-val">Some</span>(raw_value) =&gt; raw_value,
 						<span class="prelude-val">None </span>=&gt; {
 							<span class="macro">log::error!</span>(
-								<span class="string">&quot;next_key returned a key with no value at {:?}&quot;</span>,
+								<span class="string">"next_key returned a key with no value at {:?}"</span>,
 								<span class="self">self</span>.previous_key,
 							);
 							<span class="kw">continue
@@ -3408,7 +3410,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="prelude-val">Ok</span>(item) =&gt; item,
 						<span class="prelude-val">Err</span>(e) =&gt; {
 							<span class="macro">log::error!</span>(
-								<span class="string">&quot;(key, value) failed to decode at {:?}: {:?}&quot;</span>,
+								<span class="string">"(key, value) failed to decode at {:?}: {:?}"</span>,
 								<span class="self">self</span>.previous_key,
 								e,
 							);
@@ -3493,7 +3495,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">match </span>(<span class="self">self</span>.closure)(raw_key_without_prefix) {
 					<span class="prelude-val">Ok</span>(item) =&gt; <span class="kw">return </span><span class="prelude-val">Some</span>(item),
 					<span class="prelude-val">Err</span>(e) =&gt; {
-						<span class="macro">log::error!</span>(<span class="string">&quot;key failed to decode at {:?}: {:?}&quot;</span>, <span class="self">self</span>.previous_key, e);
+						<span class="macro">log::error!</span>(<span class="string">"key failed to decode at {:?}: {:?}"</span>, <span class="self">self</span>.previous_key, e);
 						<span class="kw">continue
 					</span>},
 				}
@@ -3606,7 +3608,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="prelude-val">Some</span>(raw_value) =&gt; raw_value,
 						<span class="prelude-val">None </span>=&gt; {
 							<span class="macro">log::error!</span>(
-								<span class="string">&quot;next_key returned a key with no value at {:?}&quot;</span>,
+								<span class="string">"next_key returned a key with no value at {:?}"</span>,
 								<span class="self">self</span>.previous_key,
 							);
 							<span class="kw">continue
@@ -3620,7 +3622,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="prelude-val">Ok</span>(item) =&gt; item,
 						<span class="prelude-val">Err</span>(e) =&gt; {
 							<span class="macro">log::error!</span>(
-								<span class="string">&quot;(key, value) failed to decode at {:?}: {:?}&quot;</span>,
+								<span class="string">"(key, value) failed to decode at {:?}: {:?}"</span>,
 								<span class="self">self</span>.previous_key,
 								e,
 							);
@@ -3639,10 +3641,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Trait for storage types that store all its value after a unique prefix.
 </span><span class="kw">pub trait </span>StoragePrefixedContainer {
 	<span class="doccomment">/// Pallet prefix. Used for generating final key.
-	</span><span class="kw">fn </span>pallet_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8];
+	</span><span class="kw">fn </span>pallet_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>[u8];
 
 	<span class="doccomment">/// Storage prefix. Used for generating final key.
-	</span><span class="kw">fn </span>storage_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8];
+	</span><span class="kw">fn </span>storage_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>[u8];
 
 	<span class="doccomment">/// Final full prefix that prefixes all keys.
 	</span><span class="kw">fn </span>final_prefix() -&gt; [u8; <span class="number">32</span>] {
@@ -3658,10 +3660,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// ```
 </span><span class="kw">pub trait </span>StoragePrefixedMap&lt;Value: FullCodec&gt; {
 	<span class="doccomment">/// Pallet prefix. Used for generating final key.
-	</span><span class="kw">fn </span>pallet_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8]; <span class="comment">// TODO move to StoragePrefixedContainer
+	</span><span class="kw">fn </span>pallet_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>[u8]; <span class="comment">// TODO move to StoragePrefixedContainer
 
 	</span><span class="doccomment">/// Storage prefix. Used for generating final key.
-	</span><span class="kw">fn </span>storage_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8];
+	</span><span class="kw">fn </span>storage_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>[u8];
 
 	<span class="doccomment">/// Final full prefix that prefixes all keys.
 	</span><span class="kw">fn </span>final_prefix() -&gt; [u8; <span class="number">32</span>] {
@@ -3679,7 +3681,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// Calling this multiple times per block with a `limit` set leads always to the same keys being
 	/// removed and the same result being returned. This happens because the keys to delete in the
 	/// overlay are not taken into account when deleting keys in the backend.
-	</span><span class="attr">#[deprecated = <span class="string">&quot;Use `clear` instead&quot;</span>]
+	</span><span class="attr">#[deprecated = <span class="string">"Use `clear` instead"</span>]
 	</span><span class="kw">fn </span>remove_all(limit: <span class="prelude-ty">Option</span>&lt;u32&gt;) -&gt; sp_io::KillStorageResult {
 		unhashed::clear_prefix(<span class="kw-2">&amp;</span><span class="self">Self</span>::final_prefix(), limit, <span class="prelude-val">None</span>).into()
 	}
@@ -3706,7 +3708,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// A *cursor* may be passed in to this operation with `maybe_cursor`. `None` should only be
 	/// passed once (in the initial call) for any given storage map. Subsequent calls
 	/// operating on the same map should always pass `Some`, and this should be equal to the
-	/// previous call result&#39;s `maybe_cursor` field.
+	/// previous call result's `maybe_cursor` field.
 	</span><span class="kw">fn </span>clear(limit: u32, maybe_cursor: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>[u8]&gt;) -&gt; sp_io::MultiRemovalResults {
 		unhashed::clear_prefix(<span class="kw-2">&amp;</span><span class="self">Self</span>::final_prefix(), <span class="prelude-val">Some</span>(limit), maybe_cursor)
 	}
@@ -3726,7 +3728,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Translate the values of all elements by a function `f`, in the map in no particular order.
-	/// By returning `None` from `f` for an element, you&#39;ll remove it from the map.
+	/// By returning `None` from `f` for an element, you'll remove it from the map.
 	///
 	/// NOTE: If a value fail to decode because storage is corrupted then it is skipped.
 	///
@@ -3752,7 +3754,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="prelude-val">None </span>=&gt; unhashed::kill(<span class="kw-2">&amp;</span>previous_key),
 				},
 				<span class="prelude-val">None </span>=&gt; {
-					<span class="macro">log::error!</span>(<span class="string">&quot;old key failed to decode at {:?}&quot;</span>, previous_key);
+					<span class="macro">log::error!</span>(<span class="string">"old key failed to decode at {:?}"</span>, previous_key);
 					<span class="kw">continue
 				</span>},
 			}
@@ -3824,7 +3826,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">impl</span>&lt;K, V, S&gt; Sealed <span class="kw">for </span>bounded_btree_map::BoundedBTreeMap&lt;K, V, S&gt; {}
 	<span class="kw">impl</span>&lt;T, S&gt; Sealed <span class="kw">for </span>bounded_btree_set::BoundedBTreeSet&lt;T, S&gt; {}
 	<span class="kw">impl</span>&lt;T: Encode&gt; Sealed <span class="kw">for </span>BTreeSet&lt;T&gt; {}
-	<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, T: EncodeLike&lt;U&gt;, U: Encode&gt; Sealed <span class="kw">for </span>codec::Ref&lt;<span class="lifetime">&#39;a</span>, T, U&gt; {}
+	<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, T: EncodeLike&lt;U&gt;, U: Encode&gt; Sealed <span class="kw">for </span>codec::Ref&lt;<span class="lifetime">'a</span>, T, U&gt; {}
 
 	<span class="macro">macro_rules! </span>impl_sealed_for_tuple {
 		($(<span class="macro-nonterminal">$elem</span>:ident),+) =&gt; {
@@ -4018,12 +4020,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		TestExternalities::default().execute_with(|| {
 			<span class="kw">struct </span>MyStorage;
 			<span class="kw">impl </span>StoragePrefixedMap&lt;u64&gt; <span class="kw">for </span>MyStorage {
-				<span class="kw">fn </span>pallet_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8] {
-					<span class="string">b&quot;MyModule&quot;
+				<span class="kw">fn </span>pallet_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>[u8] {
+					<span class="string">b"MyModule"
 				</span>}
 
-				<span class="kw">fn </span>storage_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8] {
-					<span class="string">b&quot;MyStorage&quot;
+				<span class="kw">fn </span>storage_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>[u8] {
+					<span class="string">b"MyStorage"
 				</span>}
 			}
 
@@ -4043,7 +4045,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			unhashed::put(<span class="kw-2">&amp;</span>key_before[..], <span class="kw-2">&amp;</span><span class="number">32u64</span>);
 			unhashed::put(<span class="kw-2">&amp;</span>key_after[..], <span class="kw-2">&amp;</span><span class="number">33u64</span>);
 
-			<span class="kw">let </span>k = [twox_128(<span class="string">b&quot;MyModule&quot;</span>), twox_128(<span class="string">b&quot;MyStorage&quot;</span>)].concat();
+			<span class="kw">let </span>k = [twox_128(<span class="string">b"MyModule"</span>), twox_128(<span class="string">b"MyStorage"</span>)].concat();
 			<span class="macro">assert_eq!</span>(MyStorage::final_prefix().to_vec(), k);
 
 			<span class="comment">// test iteration
@@ -4095,12 +4097,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">impl </span>generator::StorageValue&lt;Digest&gt; <span class="kw">for </span>Storage {
 				<span class="kw">type </span>Query = Digest;
 
-				<span class="kw">fn </span>pallet_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8] {
-					<span class="string">b&quot;MyModule&quot;
+				<span class="kw">fn </span>pallet_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>[u8] {
+					<span class="string">b"MyModule"
 				</span>}
 
-				<span class="kw">fn </span>storage_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8] {
-					<span class="string">b&quot;Storage&quot;
+				<span class="kw">fn </span>storage_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>[u8] {
+					<span class="string">b"Storage"
 				</span>}
 
 				<span class="kw">fn </span>from_optional_value_to_query(v: <span class="prelude-ty">Option</span>&lt;Digest&gt;) -&gt; <span class="self">Self</span>::Query {
@@ -4134,12 +4136,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">type </span>Query = u64;
 				<span class="kw">type </span>Hasher = Twox64Concat;
 
-				<span class="kw">fn </span>pallet_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8] {
-					<span class="string">b&quot;MyModule&quot;
+				<span class="kw">fn </span>pallet_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>[u8] {
+					<span class="string">b"MyModule"
 				</span>}
 
-				<span class="kw">fn </span>storage_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8] {
-					<span class="string">b&quot;MyStorageMap&quot;
+				<span class="kw">fn </span>storage_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>[u8] {
+					<span class="string">b"MyStorageMap"
 				</span>}
 
 				<span class="kw">fn </span>prefix_hash() -&gt; [u8; <span class="number">32</span>] {
@@ -4155,7 +4157,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				}
 			}
 
-			<span class="kw">let </span>k = [twox_128(<span class="string">b&quot;MyModule&quot;</span>), twox_128(<span class="string">b&quot;MyStorageMap&quot;</span>)].concat();
+			<span class="kw">let </span>k = [twox_128(<span class="string">b"MyModule"</span>), twox_128(<span class="string">b"MyStorageMap"</span>)].concat();
 			<span class="macro">assert_eq!</span>(MyStorageMap::prefix_hash().to_vec(), k);
 
 			<span class="comment">// empty to start
@@ -4246,7 +4248,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>child_trie_prefixed_map_works() {
 		TestExternalities::default().execute_with(|| {
-			<span class="kw">let </span>child_info_a = child::ChildInfo::new_default(<span class="string">b&quot;a&quot;</span>);
+			<span class="kw">let </span>child_info_a = child::ChildInfo::new_default(<span class="string">b"a"</span>);
 			child::put(<span class="kw-2">&amp;</span>child_info_a, <span class="kw-2">&amp;</span>[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>], <span class="kw-2">&amp;</span><span class="number">8u16</span>);
 			child::put(<span class="kw-2">&amp;</span>child_info_a, <span class="kw-2">&amp;</span>[<span class="number">2</span>], <span class="kw-2">&amp;</span><span class="number">8u16</span>);
 			child::put(<span class="kw-2">&amp;</span>child_info_a, <span class="kw-2">&amp;</span>[<span class="number">2</span>, <span class="number">1</span>, <span class="number">3</span>], <span class="kw-2">&amp;</span><span class="number">8u8</span>);

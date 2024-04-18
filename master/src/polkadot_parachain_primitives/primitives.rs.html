@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/parachain/src/primitives.rs`."><title>primitives.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/parachain/src/primitives.rs`."><title>primitives.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_parachain_primitives" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_parachain_primitives" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../polkadot_parachain_primitives/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -615,8 +617,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	Serialize,
 	Deserialize,
 )]
-#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(Hash, Default))]
-</span><span class="kw">pub struct </span>HeadData(<span class="attr">#[serde(with = <span class="string">&quot;bytes&quot;</span>)] </span><span class="kw">pub </span>Vec&lt;u8&gt;);
+#[cfg_attr(feature = <span class="string">"std"</span>, derive(Hash, Default))]
+</span><span class="kw">pub struct </span>HeadData(<span class="attr">#[serde(with = <span class="string">"bytes"</span>)] </span><span class="kw">pub </span>Vec&lt;u8&gt;);
 
 <span class="kw">impl </span>HeadData {
 	<span class="doccomment">/// Returns the hash of this head data.
@@ -638,8 +640,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	Serialize,
 	Deserialize,
 )]
-#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(Hash))]
-</span><span class="kw">pub struct </span>ValidationCode(<span class="attr">#[serde(with = <span class="string">&quot;bytes&quot;</span>)] </span><span class="kw">pub </span>Vec&lt;u8&gt;);
+#[cfg_attr(feature = <span class="string">"std"</span>, derive(Hash))]
+</span><span class="kw">pub struct </span>ValidationCode(<span class="attr">#[serde(with = <span class="string">"bytes"</span>)] </span><span class="kw">pub </span>Vec&lt;u8&gt;);
 
 <span class="kw">impl </span>ValidationCode {
 	<span class="doccomment">/// Get the blake2-256 hash of the validation code bytes.
@@ -658,14 +660,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub struct </span>ValidationCodeHash(Hash);
 
 <span class="kw">impl </span>sp_std::fmt::Display <span class="kw">for </span>ValidationCodeHash {
-	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; sp_std::fmt::Result {
+	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; sp_std::fmt::Result {
 		<span class="self">self</span>.<span class="number">0</span>.fmt(f)
 	}
 }
 
 <span class="kw">impl </span>sp_std::fmt::Debug <span class="kw">for </span>ValidationCodeHash {
-	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; sp_std::fmt::Result {
-		<span class="macro">write!</span>(f, <span class="string">&quot;{:?}&quot;</span>, <span class="self">self</span>.<span class="number">0</span>)
+	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; sp_std::fmt::Result {
+		<span class="macro">write!</span>(f, <span class="string">"{:?}"</span>, <span class="self">self</span>.<span class="number">0</span>)
 	}
 }
 
@@ -688,7 +690,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl </span>sp_std::fmt::LowerHex <span class="kw">for </span>ValidationCodeHash {
-	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; sp_std::fmt::Result {
+	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; sp_std::fmt::Result {
 		sp_std::fmt::LowerHex::fmt(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>, f)
 	}
 }
@@ -697,8 +699,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// Contains everything required to validate para-block, may contain block and witness data.
 </span><span class="attr">#[derive(PartialEq, Eq, Clone, Encode, Decode, derive_more::From, TypeInfo, RuntimeDebug)]
-#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(Serialize, Deserialize))]
-</span><span class="kw">pub struct </span>BlockData(<span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, serde(with = <span class="string">&quot;bytes&quot;</span>))] </span><span class="kw">pub </span>Vec&lt;u8&gt;);
+#[cfg_attr(feature = <span class="string">"std"</span>, derive(Serialize, Deserialize))]
+</span><span class="kw">pub struct </span>BlockData(<span class="attr">#[cfg_attr(feature = <span class="string">"std"</span>, serde(with = <span class="string">"bytes"</span>))] </span><span class="kw">pub </span>Vec&lt;u8&gt;);
 
 <span class="doccomment">/// Unique identifier of a parachain.
 </span><span class="attr">#[derive(
@@ -719,11 +721,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	serde::Deserialize,
 	TypeInfo,
 )]
-#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(derive_more::Display))]
+#[cfg_attr(feature = <span class="string">"std"</span>, derive(derive_more::Display))]
 </span><span class="kw">pub struct </span>Id(u32);
 
 <span class="kw">impl </span>TypeId <span class="kw">for </span>Id {
-	<span class="kw">const </span>TYPE_ID: [u8; <span class="number">4</span>] = <span class="kw-2">*</span><span class="string">b&quot;para&quot;</span>;
+	<span class="kw">const </span>TYPE_ID: [u8; <span class="number">4</span>] = <span class="kw-2">*</span><span class="string">b"para"</span>;
 }
 
 <span class="kw">impl </span>From&lt;Id&gt; <span class="kw">for </span>u32 {
@@ -740,7 +742,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl </span>From&lt;usize&gt; <span class="kw">for </span>Id {
 	<span class="kw">fn </span>from(x: usize) -&gt; <span class="self">Self </span>{
-		<span class="comment">// can&#39;t panic, so need to truncate
+		<span class="comment">// can't panic, so need to truncate
 		</span><span class="kw">let </span>x = x.try_into().unwrap_or(u32::MAX);
 		Id(x)
 	}
@@ -749,14 +751,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="comment">// When we added a second From impl for Id, type inference could no longer
 // determine which impl should apply for things like `5.into()`. It therefore
 // raised a bunch of errors in our test code, scattered throughout the
-// various modules&#39; tests, that there is no impl of `From&lt;i32&gt;` (`i32` being
+// various modules' tests, that there is no impl of `From&lt;i32&gt;` (`i32` being
 // the default numeric type).
 //
-// We can&#39;t use `cfg(test)` here, because that configuration directive does not
+// We can't use `cfg(test)` here, because that configuration directive does not
 // propagate between crates, which would fail to fix tests in crates other than
 // this one.
 //
-// Instead, let&#39;s take advantage of the observation that what really matters for a
+// Instead, let's take advantage of the observation that what really matters for a
 // ParaId within a test context is that it is unique and constant. I believe that
 // there is no case where someone does `(-1).into()` anyway, but if they do, it
 // never matters whether the actual contained ID is `-1` or `4294967295`. Nobody
@@ -833,7 +835,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl </span>TypeId <span class="kw">for </span>Sibling {
-	<span class="kw">const </span>TYPE_ID: [u8; <span class="number">4</span>] = <span class="kw-2">*</span><span class="string">b&quot;sibl&quot;</span>;
+	<span class="kw">const </span>TYPE_ID: [u8; <span class="number">4</span>] = <span class="kw-2">*</span><span class="string">b"sibl"</span>;
 }
 
 <span class="kw">impl </span>From&lt;Sibling&gt; <span class="kw">for </span>u32 {
@@ -862,7 +864,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// different channels identified by `(A, B)`. A channel with the same para id in sender and
 /// recipient is invalid. That is, however, not enforced.
 </span><span class="attr">#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Encode, Decode, RuntimeDebug, TypeInfo)]
-#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(Hash))]
+#[cfg_attr(feature = <span class="string">"std"</span>, derive(Hash))]
 </span><span class="kw">pub struct </span>HrmpChannelId {
 	<span class="doccomment">/// The para that acts as the sender in this channel.
 	</span><span class="kw">pub </span>sender: Id,
@@ -918,13 +920,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// messages).
 	///
 	/// Also, process messages up to some `max_weight`.
-	</span><span class="kw">fn </span>handle_xcmp_messages&lt;<span class="lifetime">&#39;a</span>, I: Iterator&lt;Item = (Id, RelayChainBlockNumber, <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8])&gt;&gt;(
+	</span><span class="kw">fn </span>handle_xcmp_messages&lt;<span class="lifetime">'a</span>, I: Iterator&lt;Item = (Id, RelayChainBlockNumber, <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8])&gt;&gt;(
 		iter: I,
 		max_weight: Weight,
 	) -&gt; Weight;
 }
 <span class="kw">impl </span>XcmpMessageHandler <span class="kw">for </span>() {
-	<span class="kw">fn </span>handle_xcmp_messages&lt;<span class="lifetime">&#39;a</span>, I: Iterator&lt;Item = (Id, RelayChainBlockNumber, <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8])&gt;&gt;(
+	<span class="kw">fn </span>handle_xcmp_messages&lt;<span class="lifetime">'a</span>, I: Iterator&lt;Item = (Id, RelayChainBlockNumber, <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8])&gt;&gt;(
 		iter: I,
 		_max_weight: Weight,
 	) -&gt; Weight {
@@ -936,7 +938,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Validation parameters for evaluating the parachain validity function.
 </span><span class="comment">// TODO: balance downloads (https://github.com/paritytech/polkadot/issues/220)
 </span><span class="attr">#[derive(PartialEq, Eq, Decode, Clone)]
-#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(Debug, Encode))]
+#[cfg_attr(feature = <span class="string">"std"</span>, derive(Debug, Encode))]
 </span><span class="kw">pub struct </span>ValidationParams {
 	<span class="doccomment">/// Previous head-data.
 	</span><span class="kw">pub </span>parent_head: HeadData,
@@ -944,7 +946,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>block_data: BlockData,
 	<span class="doccomment">/// The current relay-chain block number.
 	</span><span class="kw">pub </span>relay_parent_number: RelayChainBlockNumber,
-	<span class="doccomment">/// The relay-chain block&#39;s storage root.
+	<span class="doccomment">/// The relay-chain block's storage root.
 	</span><span class="kw">pub </span>relay_parent_storage_root: Hash,
 }
 
@@ -967,7 +969,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// The result of parachain validation.
 </span><span class="comment">// TODO: balance uploads (https://github.com/paritytech/polkadot/issues/220)
 </span><span class="attr">#[derive(PartialEq, Eq, Clone, Encode)]
-#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(Debug, Decode))]
+#[cfg_attr(feature = <span class="string">"std"</span>, derive(Debug, Decode))]
 </span><span class="kw">pub struct </span>ValidationResult {
 	<span class="doccomment">/// New head data that should be included in the relay chain state.
 	</span><span class="kw">pub </span>head_data: HeadData,

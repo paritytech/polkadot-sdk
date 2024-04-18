@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/contracts/src/exec.rs`."><title>exec.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/contracts/src/exec.rs`."><title>exec.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_contracts" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_contracts" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../pallet_contracts/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -4064,14 +4066,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -4250,13 +4252,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Returns the storage entry of the executing account by the given `key`.
 	///
-	/// Returns `None` if the `key` wasn&#39;t previously set by `set_storage` or
+	/// Returns `None` if the `key` wasn't previously set by `set_storage` or
 	/// was deleted.
 	</span><span class="kw">fn </span>get_storage(<span class="kw-2">&amp;mut </span><span class="self">self</span>, key: <span class="kw-2">&amp;</span>Key&lt;<span class="self">Self</span>::T&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt;;
 
 	<span class="doccomment">/// Returns `Some(len)` (in bytes) if a storage item exists at `key`.
 	///
-	/// Returns `None` if the `key` wasn&#39;t previously set by `set_storage` or
+	/// Returns `None` if the `key` wasn't previously set by `set_storage` or
 	/// was deleted.
 	</span><span class="kw">fn </span>get_storage_size(<span class="kw-2">&amp;mut </span><span class="self">self</span>, key: <span class="kw-2">&amp;</span>Key&lt;<span class="self">Self</span>::T&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;u32&gt;;
 
@@ -4394,11 +4396,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// # Note
 	///
-	/// A contract whose reference count dropped to zero isn&#39;t automatically removed. A
+	/// A contract whose reference count dropped to zero isn't automatically removed. A
 	/// `remove_code` transaction must be submitted by the original uploader to do so.
 	</span><span class="kw">fn </span>decrement_refcount(code_hash: CodeHash&lt;<span class="self">Self</span>::T&gt;);
 
-	<span class="doccomment">/// Adds a delegate dependency to [`ContractInfo`]&#39;s `delegate_dependencies` field.
+	<span class="doccomment">/// Adds a delegate dependency to [`ContractInfo`]'s `delegate_dependencies` field.
 	///
 	/// This ensures that the delegated contract is not removed while it is still in use. It
 	/// increases the reference count of the code hash and charges a fraction (see
@@ -4414,7 +4416,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		code_hash: CodeHash&lt;<span class="self">Self</span>::T&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), DispatchError&gt;;
 
-	<span class="doccomment">/// Removes a delegate dependency from [`ContractInfo`]&#39;s `delegate_dependencies` field.
+	<span class="doccomment">/// Removes a delegate dependency from [`ContractInfo`]'s `delegate_dependencies` field.
 	///
 	/// This is the counterpart of [`Self::lock_delegate_dependency`]. It decreases the reference
 	/// count and refunds the deposit that was charged by [`Self::lock_delegate_dependency`].
@@ -4495,7 +4497,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// The call stack is initiated by either a signed origin or one of the contract RPC calls.
 /// This type implements `Ext` and by that exposes the business logic of contract execution to
 /// the runtime module which interfaces with the contract (the wasm blob) itself.
-</span><span class="kw">pub struct </span>Stack&lt;<span class="lifetime">&#39;a</span>, T: Config, E&gt; {
+</span><span class="kw">pub struct </span>Stack&lt;<span class="lifetime">'a</span>, T: Config, E&gt; {
 	<span class="doccomment">/// The origin that initiated the call stack. It could either be a Signed plain account that
 	/// holds an account id or Root.
 	///
@@ -4506,11 +4508,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// client can freely choose the origin. This usually makes no sense but is still possible.
 	</span>origin: Origin&lt;T&gt;,
 	<span class="doccomment">/// The cost schedule used when charging from the gas meter.
-	</span>schedule: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Schedule&lt;T&gt;,
+	</span>schedule: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Schedule&lt;T&gt;,
 	<span class="doccomment">/// The gas meter where costs are charged to.
-	</span>gas_meter: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>GasMeter&lt;T&gt;,
+	</span>gas_meter: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>GasMeter&lt;T&gt;,
 	<span class="doccomment">/// The storage meter makes sure that the storage deposit limit is obeyed.
-	</span>storage_meter: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>storage::meter::Meter&lt;T&gt;,
+	</span>storage_meter: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>storage::meter::Meter&lt;T&gt;,
 	<span class="doccomment">/// The timestamp at the point of call stack instantiation.
 	</span>timestamp: MomentOf&lt;T&gt;,
 	<span class="doccomment">/// The block number at the time of call stack instantiation.
@@ -4528,7 +4530,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// All the bytes added to this field should be valid UTF-8. The buffer has no defined
 	/// structure and is intended to be shown to users as-is for debugging purposes.
-	</span>debug_message: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>DebugBufferVec&lt;T&gt;&gt;,
+	</span>debug_message: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>DebugBufferVec&lt;T&gt;&gt;,
 	<span class="doccomment">/// The determinism requirement of this call stack.
 	</span>determinism: Determinism,
 	<span class="doccomment">/// No executable is held by the struct but influences its behaviour.
@@ -4574,7 +4576,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Parameter passed in when creating a new `Frame`.
 ///
 /// It determines whether the new frame is for a call or an instantiate.
-</span><span class="kw">enum </span>FrameArgs&lt;<span class="lifetime">&#39;a</span>, T: Config, E&gt; {
+</span><span class="kw">enum </span>FrameArgs&lt;<span class="lifetime">'a</span>, T: Config, E&gt; {
 	Call {
 		<span class="doccomment">/// The account id of the contract that is to be called.
 		</span>dest: T::AccountId,
@@ -4593,9 +4595,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="doccomment">/// The executable whose `deploy` function is run.
 		</span>executable: E,
 		<span class="doccomment">/// A salt used in the contract address derivation of the new contract.
-		</span>salt: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8],
+		</span>salt: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8],
 		<span class="doccomment">/// The input data is used in the contract address derivation of the new contract.
-		</span>input_data: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8],
+		</span>input_data: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8],
 	},
 }
 
@@ -4660,11 +4662,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			contract
 		} <span class="kw">else </span>{
 			<span class="macro">panic!</span>(
-				<span class="string">&quot;It is impossible to remove a contract that is on the call stack;\
+				<span class="string">"It is impossible to remove a contract that is on the call stack;\
 				See implementations of terminate;\
 				Therefore fetching a contract will never fail while using an account id
 				that is currently active on the call stack;\
-				qed&quot;
+				qed"
 			</span>);
 		}
 	}};
@@ -4673,7 +4675,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Same as [`Stack::top_frame`].
 ///
 /// We need this access as a macro because sometimes hiding the lifetimes behind
-/// a function won&#39;t work out.
+/// a function won't work out.
 </span><span class="macro">macro_rules! </span>top_frame {
 	(<span class="macro-nonterminal">$stack</span>:expr) =&gt; {
 		<span class="macro-nonterminal">$stack</span>.frames.last().unwrap_or(<span class="kw-2">&amp;</span><span class="macro-nonterminal">$stack</span>.first_frame)
@@ -4683,7 +4685,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Same as [`Stack::top_frame_mut`].
 ///
 /// We need this access as a macro because sometimes hiding the lifetimes behind
-/// a function won&#39;t work out.
+/// a function won't work out.
 </span><span class="macro">macro_rules! </span>top_frame_mut {
 	(<span class="macro-nonterminal">$stack</span>:expr) =&gt; {
 		<span class="macro-nonterminal">$stack</span>.frames.last_mut().unwrap_or(<span class="kw-2">&amp;mut </span><span class="macro-nonterminal">$stack</span>.first_frame)
@@ -4714,7 +4716,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, T, E&gt; Stack&lt;<span class="lifetime">&#39;a</span>, T, E&gt;
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, T, E&gt; Stack&lt;<span class="lifetime">'a</span>, T, E&gt;
 <span class="kw">where
 	</span>T: Config,
 	E: Executable&lt;T&gt;,
@@ -4732,12 +4734,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub fn </span>run_call(
 		origin: Origin&lt;T&gt;,
 		dest: T::AccountId,
-		gas_meter: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>GasMeter&lt;T&gt;,
-		storage_meter: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>storage::meter::Meter&lt;T&gt;,
-		schedule: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Schedule&lt;T&gt;,
+		gas_meter: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>GasMeter&lt;T&gt;,
+		storage_meter: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>storage::meter::Meter&lt;T&gt;,
+		schedule: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Schedule&lt;T&gt;,
 		value: BalanceOf&lt;T&gt;,
 		input_data: Vec&lt;u8&gt;,
-		debug_message: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>DebugBufferVec&lt;T&gt;&gt;,
+		debug_message: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>DebugBufferVec&lt;T&gt;&gt;,
 		determinism: Determinism,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;ExecReturnValue, ExecError&gt; {
 		<span class="kw">let </span>(<span class="kw-2">mut </span>stack, executable) = <span class="self">Self</span>::new(
@@ -4766,13 +4768,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub fn </span>run_instantiate(
 		origin: T::AccountId,
 		executable: E,
-		gas_meter: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>GasMeter&lt;T&gt;,
-		storage_meter: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>storage::meter::Meter&lt;T&gt;,
-		schedule: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Schedule&lt;T&gt;,
+		gas_meter: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>GasMeter&lt;T&gt;,
+		storage_meter: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>storage::meter::Meter&lt;T&gt;,
+		schedule: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Schedule&lt;T&gt;,
 		value: BalanceOf&lt;T&gt;,
 		input_data: Vec&lt;u8&gt;,
 		salt: <span class="kw-2">&amp;</span>[u8],
-		debug_message: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>DebugBufferVec&lt;T&gt;&gt;,
+		debug_message: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>DebugBufferVec&lt;T&gt;&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(T::AccountId, ExecReturnValue), ExecError&gt; {
 		<span class="kw">let </span>(<span class="kw-2">mut </span>stack, executable) = <span class="self">Self</span>::new(
 			FrameArgs::Instantiate {
@@ -4794,15 +4796,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		stack.run(executable, input_data).map(|ret| (account_id, ret))
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">pub fn </span>bench_new_call(
 		dest: T::AccountId,
 		origin: Origin&lt;T&gt;,
-		gas_meter: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>GasMeter&lt;T&gt;,
-		storage_meter: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>storage::meter::Meter&lt;T&gt;,
-		schedule: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Schedule&lt;T&gt;,
+		gas_meter: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>GasMeter&lt;T&gt;,
+		storage_meter: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>storage::meter::Meter&lt;T&gt;,
+		schedule: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Schedule&lt;T&gt;,
 		value: BalanceOf&lt;T&gt;,
-		debug_message: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>DebugBufferVec&lt;T&gt;&gt;,
+		debug_message: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>DebugBufferVec&lt;T&gt;&gt;,
 		determinism: Determinism,
 	) -&gt; (<span class="self">Self</span>, E) {
 		<span class="self">Self</span>::new(
@@ -4822,11 +4824,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>new(
 		args: FrameArgs&lt;T, E&gt;,
 		origin: Origin&lt;T&gt;,
-		gas_meter: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>GasMeter&lt;T&gt;,
-		storage_meter: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>storage::meter::Meter&lt;T&gt;,
-		schedule: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Schedule&lt;T&gt;,
+		gas_meter: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>GasMeter&lt;T&gt;,
+		storage_meter: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>storage::meter::Meter&lt;T&gt;,
+		schedule: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Schedule&lt;T&gt;,
 		value: BalanceOf&lt;T&gt;,
-		debug_message: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>DebugBufferVec&lt;T&gt;&gt;,
+		debug_message: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>DebugBufferVec&lt;T&gt;&gt;,
 		determinism: Determinism,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(<span class="self">Self</span>, E), ExecError&gt; {
 		<span class="kw">let </span>(first_frame, executable, nonce) = <span class="self">Self</span>::new_frame(
@@ -4981,7 +4983,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// We need to charge the storage deposit before the initial transfer so that
 			// it can create the account in case the initial transfer is &lt; ed.
 			</span><span class="kw">if </span>entry_point == ExportedFunction::Constructor {
-				<span class="comment">// Root origin can&#39;t be used to instantiate a contract, so it is safe to assume that
+				<span class="comment">// Root origin can't be used to instantiate a contract, so it is safe to assume that
 				// if we reached this point the origin has an associated account.
 				</span><span class="kw">let </span>origin = <span class="kw-2">&amp;</span><span class="self">self</span>.origin.account_id()<span class="question-mark">?</span>;
 				<span class="kw">let </span>frame = <span class="macro">top_frame_mut!</span>(<span class="self">self</span>);
@@ -5130,14 +5132,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span>}
 
 			<span class="comment">// Record the storage meter changes of the nested call into the parent meter.
-			// If the dropped frame&#39;s contract wasn&#39;t terminated we update the deposit counter
+			// If the dropped frame's contract wasn't terminated we update the deposit counter
 			// in its contract info. The load is necessary to pull it from storage in case
 			// it was invalidated.
 			</span>frame.contract_info.load(account_id);
 			<span class="kw">let </span><span class="kw-2">mut </span>contract = frame.contract_info.into_contract();
 			prev.nested_storage.absorb(frame.nested_storage, account_id, contract.as_mut());
 
-			<span class="comment">// In case the contract wasn&#39;t terminated we need to persist changes made to it.
+			<span class="comment">// In case the contract wasn't terminated we need to persist changes made to it.
 			</span><span class="kw">if let </span><span class="prelude-val">Some</span>(contract) = contract {
 				<span class="comment">// optimization: Predecessor is the same contract.
 				// We can just copy the contract into the predecessor without a storage write.
@@ -5162,8 +5164,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">if let </span><span class="prelude-val">Some</span>((msg, <span class="bool-val">false</span>)) = <span class="self">self</span>.debug_message.as_ref().map(|m| (m, m.is_empty())) {
 				<span class="macro">log::debug!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Execution finished with debug buffer: {}&quot;</span>,
-					core::str::from_utf8(msg).unwrap_or(<span class="string">&quot;&lt;Invalid UTF8&gt;&quot;</span>),
+					<span class="string">"Execution finished with debug buffer: {}"</span>,
+					core::str::from_utf8(msg).unwrap_or(<span class="string">"&lt;Invalid UTF8&gt;"</span>),
 				);
 			}
 			<span class="self">self</span>.gas_meter.absorb_nested(mem::take(<span class="kw-2">&amp;mut </span><span class="self">self</span>.first_frame.nested_gas));
@@ -5203,7 +5205,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>initial_transfer(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; DispatchResult {
 		<span class="kw">let </span>frame = <span class="self">self</span>.top_frame();
 
-		<span class="comment">// If it is a delegate call, then we&#39;ve already transferred tokens in the
+		<span class="comment">// If it is a delegate call, then we've already transferred tokens in the
 		// last non-delegate frame.
 		</span><span class="kw">if </span>frame.delegate_caller.is_some() {
 			<span class="kw">return </span><span class="prelude-val">Ok</span>(())
@@ -5212,7 +5214,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>value = frame.value_transferred;
 
 		<span class="comment">// Get the account id from the caller.
-		// If the caller is root there is no account to transfer from, and therefore we can&#39;t take
+		// If the caller is root there is no account to transfer from, and therefore we can't take
 		// any `value` other than 0.
 		</span><span class="kw">let </span>caller = <span class="kw">match </span><span class="self">self</span>.caller() {
 			Origin::Signed(caller) =&gt; caller,
@@ -5255,7 +5257,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		!<span class="self">self</span>.frames().any(|f| <span class="kw-2">&amp;</span>f.account_id == id &amp;&amp; !f.allows_reentry)
 	}
 
-	<span class="doccomment">/// Increments and returns the next nonce. Pulls it from storage if it isn&#39;t in cache.
+	<span class="doccomment">/// Increments and returns the next nonce. Pulls it from storage if it isn't in cache.
 	</span><span class="kw">fn </span>next_nonce(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; u64 {
 		<span class="kw">let </span>next = <span class="self">self</span>.nonce().wrapping_add(<span class="number">1</span>);
 		<span class="self">self</span>.nonce = <span class="prelude-val">Some</span>(next);
@@ -5263,7 +5265,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, T, E&gt; Ext <span class="kw">for </span>Stack&lt;<span class="lifetime">&#39;a</span>, T, E&gt;
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, T, E&gt; Ext <span class="kw">for </span>Stack&lt;<span class="lifetime">'a</span>, T, E&gt;
 <span class="kw">where
 	</span>T: Config,
 	E: Executable&lt;T&gt;,
@@ -5454,7 +5456,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">fn </span>caller_is_root(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
-		<span class="comment">// if the caller isn&#39;t origin, then it can&#39;t be root.
+		<span class="comment">// if the caller isn't origin, then it can't be root.
 		</span><span class="self">self</span>.caller_is_origin() &amp;&amp; <span class="self">self</span>.origin == Origin::Root
 	}
 
@@ -5528,7 +5530,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.map_err(|<span class="kw">_</span>| {
 					<span class="macro">log::debug!</span>(
 						target: LOG_TARGET,
-						<span class="string">&quot;Debug buffer (of {} bytes) exhausted!&quot;</span>,
+						<span class="string">"Debug buffer (of {} bytes) exhausted!"</span>,
 						DebugBufferVec::&lt;T&gt;::bound(),
 					)
 				})
@@ -5679,7 +5681,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">pub trait </span>Sealed {}
 
-	<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, T: Config, E&gt; Sealed <span class="kw">for </span>Stack&lt;<span class="lifetime">&#39;a</span>, T, E&gt; {}
+	<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, T: Config, E&gt; Sealed <span class="kw">for </span>Stack&lt;<span class="lifetime">'a</span>, T, E&gt; {}
 
 	<span class="attr">#[cfg(test)]
 	</span><span class="kw">impl </span>Sealed <span class="kw">for </span><span class="kw">crate</span>::wasm::MockExt {}
@@ -5717,7 +5719,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">type </span>System = frame_system::Pallet&lt;Test&gt;;
 
-	<span class="kw">type </span>MockStack&lt;<span class="lifetime">&#39;a</span>&gt; = Stack&lt;<span class="lifetime">&#39;a</span>, Test, MockExecutable&gt;;
+	<span class="kw">type </span>MockStack&lt;<span class="lifetime">'a</span>&gt; = Stack&lt;<span class="lifetime">'a</span>, Test, MockExecutable&gt;;
 
 	<span class="macro">parameter_types! </span>{
 		<span class="kw">static </span>Loader: MockLoader = MockLoader::default();
@@ -5733,14 +5735,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.collect()
 	}
 
-	<span class="kw">struct </span>MockCtx&lt;<span class="lifetime">&#39;a</span>&gt; {
-		ext: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>MockStack&lt;<span class="lifetime">&#39;a</span>&gt;,
+	<span class="kw">struct </span>MockCtx&lt;<span class="lifetime">'a</span>&gt; {
+		ext: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>MockStack&lt;<span class="lifetime">'a</span>&gt;,
 		input_data: Vec&lt;u8&gt;,
 	}
 
 	<span class="attr">#[derive(Clone)]
 	</span><span class="kw">struct </span>MockExecutable {
-		func: Rc&lt;<span class="kw">dyn for</span>&lt;<span class="lifetime">&#39;a</span>&gt; Fn(MockCtx&lt;<span class="lifetime">&#39;a</span>&gt;, <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; ExecResult + <span class="lifetime">&#39;static</span>&gt;,
+		func: Rc&lt;<span class="kw">dyn for</span>&lt;<span class="lifetime">'a</span>&gt; Fn(MockCtx&lt;<span class="lifetime">'a</span>&gt;, <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; ExecResult + <span class="lifetime">'static</span>&gt;,
 		func_type: ExportedFunction,
 		code_hash: CodeHash&lt;Test&gt;,
 		code_info: CodeInfo&lt;Test&gt;,
@@ -5759,7 +5761,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">fn </span>insert(
 			func_type: ExportedFunction,
-			f: <span class="kw">impl </span>Fn(MockCtx, <span class="kw-2">&amp;</span>MockExecutable) -&gt; ExecResult + <span class="lifetime">&#39;static</span>,
+			f: <span class="kw">impl </span>Fn(MockCtx, <span class="kw-2">&amp;</span>MockExecutable) -&gt; ExecResult + <span class="lifetime">'static</span>,
 		) -&gt; CodeHash&lt;Test&gt; {
 			Loader::mutate(|loader| {
 				<span class="comment">// Generate code hashes as monotonically increasing values.
@@ -5805,7 +5807,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			// # Note
 			//
 			// The transmute is necessary because `execute` has to be generic over all
-			// `E: Ext`. However, `MockExecutable` can&#39;t be generic over `E` as it would
+			// `E: Ext`. However, `MockExecutable` can't be generic over `E` as it would
 			// constitute a cycle.
 			</span><span class="kw">let </span>ext = <span class="kw">unsafe </span>{ mem::transmute(ext) };
 			<span class="kw">if </span>function == <span class="kw-2">&amp;</span><span class="self">self</span>.func_type {
@@ -6020,7 +6022,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>balance_too_low() {
-		<span class="comment">// This test verifies that a contract can&#39;t send value if it&#39;s
+		<span class="comment">// This test verifies that a contract can't send value if it's
 		// balance is too low.
 		</span><span class="kw">let </span>origin = ALICE;
 		<span class="kw">let </span>dest = BOB;
@@ -6188,7 +6190,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			ReachedBottom::mutate(|reached_bottom| {
 				<span class="kw">if </span>!<span class="kw-2">*</span>reached_bottom {
 					<span class="comment">// We are first time here, it means we just reached bottom.
-					// Verify that we&#39;ve got proper error and set `reached_bottom`.
+					// Verify that we've got proper error and set `reached_bottom`.
 					</span><span class="macro">assert_eq!</span>(r, <span class="prelude-val">Err</span>(Error::&lt;Test&gt;::MaxCallDepthReached.into()));
 					<span class="kw-2">*</span>reached_bottom = <span class="bool-val">true</span>;
 				} <span class="kw">else </span>{
@@ -6696,7 +6698,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>instantiator_ch = MockLoader::insert(Call, {
 			<span class="kw">let </span>instantiated_contract_address = Rc::clone(<span class="kw-2">&amp;</span>instantiated_contract_address);
 			<span class="kw">move </span>|ctx, <span class="kw">_</span>| {
-				<span class="comment">// Instantiate a contract and save it&#39;s address in `instantiated_contract_address`.
+				<span class="comment">// Instantiate a contract and save it's address in `instantiated_contract_address`.
 				</span><span class="kw">let </span>(address, output) = ctx
 					.ext
 					.instantiate(
@@ -6770,10 +6772,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>instantiation_traps() {
-		<span class="kw">let </span>dummy_ch = MockLoader::insert(Constructor, |<span class="kw">_</span>, <span class="kw">_</span>| <span class="prelude-val">Err</span>(<span class="string">&quot;It&#39;s a trap!&quot;</span>.into()));
+		<span class="kw">let </span>dummy_ch = MockLoader::insert(Constructor, |<span class="kw">_</span>, <span class="kw">_</span>| <span class="prelude-val">Err</span>(<span class="string">"It's a trap!"</span>.into()));
 		<span class="kw">let </span>instantiator_ch = MockLoader::insert(Call, {
 			<span class="kw">move </span>|ctx, <span class="kw">_</span>| {
-				<span class="comment">// Instantiate a contract and save it&#39;s address in `instantiated_contract_address`.
+				<span class="comment">// Instantiate a contract and save it's address in `instantiated_contract_address`.
 				</span><span class="macro">assert_matches!</span>(
 					ctx.ext.instantiate(
 						Weight::zero(),
@@ -6784,7 +6786,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="kw-2">&amp;</span>[],
 					),
 					<span class="prelude-val">Err</span>(ExecError {
-						error: DispatchError::Other(<span class="string">&quot;It&#39;s a trap!&quot;</span>),
+						error: DispatchError::Other(<span class="string">"It's a trap!"</span>),
 						origin: ErrorOrigin::Callee,
 					})
 				);
@@ -6821,7 +6823,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="prelude-val">Ok</span>(<span class="kw">_</span>)
 				);
 
-				<span class="comment">// The contract wasn&#39;t instantiated so we don&#39;t expect to see an instantiation
+				<span class="comment">// The contract wasn't instantiated so we don't expect to see an instantiation
 				// event here.
 				</span><span class="macro">assert_eq!</span>(
 					<span class="kw-2">&amp;</span>events(),
@@ -6872,11 +6874,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>in_memory_changes_not_discarded() {
-		<span class="comment">// Call stack: BOB -&gt; CHARLIE (trap) -&gt; BOB&#39; (success)
+		<span class="comment">// Call stack: BOB -&gt; CHARLIE (trap) -&gt; BOB' (success)
 		// This tests verifies some edge case of the contract info cache:
 		// We change some value in our contract info before calling into a contract
 		// that calls into ourself. This triggers a case where BOBs contract info
-		// is written to storage and invalidated by the successful execution of BOB&#39;.
+		// is written to storage and invalidated by the successful execution of BOB'.
 		// The trap of CHARLIE reverts the storage changes to BOB. When the root BOB regains
 		// control it reloads its contract info from storage. We check that changes that
 		// are made before calling into CHARLIE are not discarded.
@@ -6974,8 +6976,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>printing_works() {
 		<span class="kw">let </span>code_hash = MockLoader::insert(Call, |ctx, <span class="kw">_</span>| {
-			ctx.ext.append_debug_buffer(<span class="string">&quot;This is a test&quot;</span>);
-			ctx.ext.append_debug_buffer(<span class="string">&quot;More text&quot;</span>);
+			ctx.ext.append_debug_buffer(<span class="string">"This is a test"</span>);
+			ctx.ext.append_debug_buffer(<span class="string">"More text"</span>);
 			exec_success()
 		});
 
@@ -7004,14 +7006,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.unwrap();
 		});
 
-		<span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span>String::from_utf8(debug_buffer.to_vec()).unwrap(), <span class="string">&quot;This is a testMore text&quot;</span>);
+		<span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span>String::from_utf8(debug_buffer.to_vec()).unwrap(), <span class="string">"This is a testMore text"</span>);
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>printing_works_on_fail() {
 		<span class="kw">let </span>code_hash = MockLoader::insert(Call, |ctx, <span class="kw">_</span>| {
-			ctx.ext.append_debug_buffer(<span class="string">&quot;This is a test&quot;</span>);
-			ctx.ext.append_debug_buffer(<span class="string">&quot;More text&quot;</span>);
+			ctx.ext.append_debug_buffer(<span class="string">"This is a test"</span>);
+			ctx.ext.append_debug_buffer(<span class="string">"More text"</span>);
 			exec_trapped()
 		});
 
@@ -7040,13 +7042,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">assert!</span>(result.is_err());
 		});
 
-		<span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span>String::from_utf8(debug_buffer.to_vec()).unwrap(), <span class="string">&quot;This is a testMore text&quot;</span>);
+		<span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span>String::from_utf8(debug_buffer.to_vec()).unwrap(), <span class="string">"This is a testMore text"</span>);
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>debug_buffer_is_limited() {
 		<span class="kw">let </span>code_hash = MockLoader::insert(Call, <span class="kw">move </span>|ctx, <span class="kw">_</span>| {
-			ctx.ext.append_debug_buffer(<span class="string">&quot;overflowing bytes&quot;</span>);
+			ctx.ext.append_debug_buffer(<span class="string">"overflowing bytes"</span>);
 			exec_success()
 		});
 
@@ -7142,7 +7144,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			}
 		});
 
-		<span class="comment">// call BOB with input set to &#39;1&#39;
+		<span class="comment">// call BOB with input set to '1'
 		</span><span class="kw">let </span>code_charlie = MockLoader::insert(Call, |ctx, <span class="kw">_</span>| {
 			ctx.ext.call(Weight::zero(), BalanceOf::&lt;Test&gt;::zero(), BOB, <span class="number">0</span>, <span class="macro">vec!</span>[<span class="number">1</span>], <span class="bool-val">true</span>)
 		});
@@ -7178,7 +7180,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>call_runtime_works() {
 		<span class="kw">let </span>code_hash = MockLoader::insert(Call, |ctx, <span class="kw">_</span>| {
 			<span class="kw">let </span>call = RuntimeCall::System(frame_system::Call::remark_with_event {
-				remark: <span class="string">b&quot;Hello World&quot;</span>.to_vec(),
+				remark: <span class="string">b"Hello World"</span>.to_vec(),
 			});
 			ctx.ext.call_runtime(call).unwrap();
 			exec_success()
@@ -7207,7 +7209,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			)
 			.unwrap();
 
-			<span class="kw">let </span>remark_hash = &lt;Test <span class="kw">as </span>frame_system::Config&gt;::Hashing::hash(<span class="string">b&quot;Hello World&quot;</span>);
+			<span class="kw">let </span>remark_hash = &lt;Test <span class="kw">as </span>frame_system::Config&gt;::Hashing::hash(<span class="string">b"Hello World"</span>);
 			<span class="macro">assert_eq!</span>(
 				System::events(),
 				<span class="macro">vec!</span>[
@@ -7241,7 +7243,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="comment">// remark should still be allowed
 			</span><span class="kw">let </span>allowed_call =
-				RuntimeCall::System(SysCall::remark_with_event { remark: <span class="string">b&quot;Hello&quot;</span>.to_vec() });
+				RuntimeCall::System(SysCall::remark_with_event { remark: <span class="string">b"Hello"</span>.to_vec() });
 
 			<span class="comment">// transfers are disallowed by the `TestFiler` (see below)
 			</span><span class="kw">let </span>forbidden_call = RuntimeCall::Balances(BalanceCall::transfer_allow_death {
@@ -7260,7 +7262,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				calls: <span class="macro">vec!</span>[allowed_call.clone(), forbidden_call, allowed_call]
 			})),);
 
-			<span class="comment">// the transfer wasn&#39;t performed
+			<span class="comment">// the transfer wasn't performed
 			</span><span class="macro">assert_eq!</span>(get_balance(<span class="kw-2">&amp;</span>CHARLIE), <span class="number">0</span>);
 
 			exec_success()
@@ -7294,7 +7296,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			)
 			.unwrap();
 
-			<span class="kw">let </span>remark_hash = &lt;Test <span class="kw">as </span>frame_system::Config&gt;::Hashing::hash(<span class="string">b&quot;Hello&quot;</span>);
+			<span class="kw">let </span>remark_hash = &lt;Test <span class="kw">as </span>frame_system::Config&gt;::Hashing::hash(<span class="string">b"Hello"</span>);
 			<span class="macro">assert_eq!</span>(
 				System::events(),
 				<span class="macro">vec!</span>[
@@ -7839,12 +7841,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>ecdsa_to_eth_address_returns_proper_value() {
 		<span class="kw">let </span>bob_ch = MockLoader::insert(Call, |ctx, <span class="kw">_</span>| {
 			<span class="kw">let </span>pubkey_compressed = array_bytes::hex2array_unchecked(
-				<span class="string">&quot;028db55b05db86c0b1786ca49f095d76344c9e6056b2f02701a7e7f3c20aabfd91&quot;</span>,
+				<span class="string">"028db55b05db86c0b1786ca49f095d76344c9e6056b2f02701a7e7f3c20aabfd91"</span>,
 			);
 			<span class="macro">assert_eq!</span>(
 				ctx.ext.ecdsa_to_eth_address(<span class="kw-2">&amp;</span>pubkey_compressed).unwrap(),
 				array_bytes::hex2array_unchecked::&lt;<span class="kw">_</span>, <span class="number">20</span>&gt;(
-					<span class="string">&quot;09231da7b19A016f9e576d23B16277062F4d46A8&quot;
+					<span class="string">"09231da7b19A016f9e576d23B16277062F4d46A8"
 				</span>)
 			);
 			exec_success()
@@ -7942,7 +7944,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// functions happens in the wasm stack which is mocked for exec tests.
 	</span><span class="attr">#[test]
 	</span><span class="kw">fn </span>randomness_works() {
-		<span class="kw">let </span>subject = <span class="string">b&quot;nice subject&quot;</span>.as_ref();
+		<span class="kw">let </span>subject = <span class="string">b"nice subject"</span>.as_ref();
 		<span class="kw">let </span>code_hash = MockLoader::insert(Call, <span class="kw">move </span>|ctx, <span class="kw">_</span>| {
 			<span class="kw">let </span>rand = &lt;Test <span class="kw">as </span>Config&gt;::Randomness::random(subject);
 			<span class="macro">assert_eq!</span>(rand, ctx.ext.random(subject));

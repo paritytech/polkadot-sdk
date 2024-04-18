@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/election-provider-multi-phase/src/unsigned.rs`."><title>unsigned.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/election-provider-multi-phase/src/unsigned.rs`."><title>unsigned.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_election_provider_multi_phase" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_election_provider_multi_phase" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../pallet_election_provider_multi_phase/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -2165,14 +2167,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -2204,14 +2206,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 
 <span class="doccomment">/// Storage key used to store the last block number at which offchain worker ran.
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>OFFCHAIN_LAST_BLOCK: <span class="kw-2">&amp;</span>[u8] = <span class="string">b&quot;parity/multi-phase-unsigned-election&quot;</span>;
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>OFFCHAIN_LAST_BLOCK: <span class="kw-2">&amp;</span>[u8] = <span class="string">b"parity/multi-phase-unsigned-election"</span>;
 <span class="doccomment">/// Storage key used to store the offchain worker running status.
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>OFFCHAIN_LOCK: <span class="kw-2">&amp;</span>[u8] = <span class="string">b&quot;parity/multi-phase-unsigned-election/lock&quot;</span>;
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>OFFCHAIN_LOCK: <span class="kw-2">&amp;</span>[u8] = <span class="string">b"parity/multi-phase-unsigned-election/lock"</span>;
 
 <span class="doccomment">/// Storage key used to cache the solution `call`.
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>OFFCHAIN_CACHED_CALL: <span class="kw-2">&amp;</span>[u8] = <span class="string">b&quot;parity/multi-phase-unsigned-election/call&quot;</span>;
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>OFFCHAIN_CACHED_CALL: <span class="kw-2">&amp;</span>[u8] = <span class="string">b"parity/multi-phase-unsigned-election/call"</span>;
 
-<span class="doccomment">/// A voter&#39;s fundamental data: their ID, their stake, and the list of candidates for whom they
+<span class="doccomment">/// A voter's fundamental data: their ID, their stake, and the list of candidates for whom they
 /// voted.
 </span><span class="kw">pub type </span>VoterOf&lt;T&gt; = frame_election_provider_support::VoterOf&lt;&lt;T <span class="kw">as </span>Config&gt;::DataProvider&gt;;
 
@@ -2221,7 +2223,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	&lt;T <span class="kw">as </span>MinerConfig&gt;::MaxVotesPerVoter,
 &gt;;
 
-<span class="doccomment">/// The relative distribution of a voter&#39;s stake among the winning targets.
+<span class="doccomment">/// The relative distribution of a voter's stake among the winning targets.
 </span><span class="kw">pub type </span>Assignment&lt;T&gt; =
 	sp_npos_elections::Assignment&lt;&lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId, SolutionAccuracyOf&lt;T&gt;&gt;;
 
@@ -2229,7 +2231,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// particular runtime `T`.
 </span><span class="kw">pub type </span>IndexAssignmentOf&lt;T&gt; = frame_election_provider_support::IndexAssignmentOf&lt;SolutionOf&lt;T&gt;&gt;;
 
-<span class="doccomment">/// Error type of the pallet&#39;s [`crate::Config::Solver`].
+<span class="doccomment">/// Error type of the pallet's [`crate::Config::Solver`].
 </span><span class="kw">pub type </span>SolverErrorOf&lt;T&gt; = &lt;&lt;T <span class="kw">as </span>Config&gt;::Solver <span class="kw">as </span>NposSolver&gt;::Error;
 <span class="doccomment">/// Error type for operations related to the OCW npos solution miner.
 </span><span class="attr">#[derive(frame_support::DebugNoBound, frame_support::PartialEqNoBound)]
@@ -2245,7 +2247,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// The solution generated from the miner is not feasible.
 	</span>Feasibility(FeasibilityError),
 	<span class="doccomment">/// Something went wrong fetching the lock.
-	</span>Lock(<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str),
+	</span>Lock(<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str),
 	<span class="doccomment">/// Cannot restore a solution that was not stored.
 	</span>NoStoredSolution,
 	<span class="doccomment">/// Cached solution is not a `submit_unsigned` call.
@@ -2293,7 +2295,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Save a given call into OCW storage.
 </span><span class="kw">fn </span>save_solution&lt;T: Config&gt;(call: <span class="kw-2">&amp;</span>Call&lt;T&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), MinerError&gt; {
-	<span class="macro">log!</span>(debug, <span class="string">&quot;saving a call to the offchain storage.&quot;</span>);
+	<span class="macro">log!</span>(debug, <span class="string">"saving a call to the offchain storage."</span>);
 	<span class="kw">let </span>storage = StorageValueRef::persistent(OFFCHAIN_CACHED_CALL);
 	<span class="kw">match </span>storage.mutate::&lt;<span class="kw">_</span>, (), <span class="kw">_</span>&gt;(|<span class="kw">_</span>| <span class="prelude-val">Ok</span>(call.clone())) {
 		<span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; <span class="prelude-val">Ok</span>(()),
@@ -2320,7 +2322,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Clear a saved solution from OCW storage.
 </span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>kill_ocw_solution&lt;T: Config&gt;() {
-	<span class="macro">log!</span>(debug, <span class="string">&quot;clearing offchain call cache storage.&quot;</span>);
+	<span class="macro">log!</span>(debug, <span class="string">"clearing offchain call cache storage."</span>);
 	<span class="kw">let </span><span class="kw-2">mut </span>storage = StorageValueRef::persistent(OFFCHAIN_CACHED_CALL);
 	storage.clear();
 }
@@ -2363,26 +2365,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Attempt to restore a solution from cache. Otherwise, compute it fresh. Either way, submit
-	/// if our call&#39;s score is greater than that of the cached solution.
+	/// if our call's score is greater than that of the cached solution.
 	</span><span class="kw">pub fn </span>restore_or_compute_then_maybe_submit() -&gt; <span class="prelude-ty">Result</span>&lt;(), MinerError&gt; {
-		<span class="macro">log!</span>(debug, <span class="string">&quot;miner attempting to restore or compute an unsigned solution.&quot;</span>);
+		<span class="macro">log!</span>(debug, <span class="string">"miner attempting to restore or compute an unsigned solution."</span>);
 
 		<span class="kw">let </span>call = restore_solution::&lt;T&gt;()
 			.and_then(|call| {
 				<span class="comment">// ensure the cached call is still current before submitting
 				</span><span class="kw">if let </span>Call::submit_unsigned { raw_solution, .. } = <span class="kw-2">&amp;</span>call {
 					<span class="comment">// prevent errors arising from state changes in a forkful chain
-					</span><span class="self">Self</span>::basic_checks(raw_solution, <span class="string">&quot;restored&quot;</span>)<span class="question-mark">?</span>;
+					</span><span class="self">Self</span>::basic_checks(raw_solution, <span class="string">"restored"</span>)<span class="question-mark">?</span>;
 					<span class="prelude-val">Ok</span>(call)
 				} <span class="kw">else </span>{
 					<span class="prelude-val">Err</span>(MinerError::SolutionCallInvalid)
 				}
 			})
 			.or_else::&lt;MinerError, <span class="kw">_</span>&gt;(|error| {
-				<span class="macro">log!</span>(debug, <span class="string">&quot;restoring solution failed due to {:?}&quot;</span>, error);
+				<span class="macro">log!</span>(debug, <span class="string">"restoring solution failed due to {:?}"</span>, error);
 				<span class="kw">match </span>error {
 					MinerError::NoStoredSolution =&gt; {
-						<span class="macro">log!</span>(trace, <span class="string">&quot;mining a new solution.&quot;</span>);
+						<span class="macro">log!</span>(trace, <span class="string">"mining a new solution."</span>);
 						<span class="comment">// if not present or cache invalidated due to feasibility, regenerate.
 						// note that failing `Feasibility` can only mean that the solution was
 						// computed over a snapshot that has changed due to a fork.
@@ -2391,7 +2393,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="prelude-val">Ok</span>(call)
 					},
 					MinerError::Feasibility(<span class="kw">_</span>) =&gt; {
-						<span class="macro">log!</span>(trace, <span class="string">&quot;wiping infeasible solution.&quot;</span>);
+						<span class="macro">log!</span>(trace, <span class="string">"wiping infeasible solution."</span>);
 						<span class="comment">// kill the infeasible solution, hopefully in the next runs (whenever they
 						// may be) we mine a new one.
 						</span>kill_ocw_solution::&lt;T&gt;();
@@ -2410,7 +2412,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Mine a new solution, cache it, and submit it back to the chain as an unsigned transaction.
 	</span><span class="kw">pub fn </span>mine_check_save_submit() -&gt; <span class="prelude-ty">Result</span>&lt;(), MinerError&gt; {
-		<span class="macro">log!</span>(debug, <span class="string">&quot;miner attempting to compute an unsigned solution.&quot;</span>);
+		<span class="macro">log!</span>(debug, <span class="string">"miner attempting to compute an unsigned solution."</span>);
 
 		<span class="kw">let </span>call = <span class="self">Self</span>::mine_checked_call()<span class="question-mark">?</span>;
 		save_solution(<span class="kw-2">&amp;</span>call)<span class="question-mark">?</span>;
@@ -2427,7 +2429,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="macro">log!</span>(
 			debug,
-			<span class="string">&quot;mined a solution with score {:?} and size {}&quot;</span>,
+			<span class="string">"mined a solution with score {:?} and size {}"</span>,
 			score,
 			call.using_encoded(|b| b.len())
 		);
@@ -2436,13 +2438,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">fn </span>submit_call(call: Call&lt;T&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), MinerError&gt; {
-		<span class="macro">log!</span>(debug, <span class="string">&quot;miner submitting a solution as an unsigned transaction&quot;</span>);
+		<span class="macro">log!</span>(debug, <span class="string">"miner submitting a solution as an unsigned transaction"</span>);
 
 		SubmitTransaction::&lt;T, Call&lt;T&gt;&gt;::submit_unsigned_transaction(call.into())
 			.map_err(|<span class="kw">_</span>| MinerError::PoolSubmissionFailed)
 	}
 
-	<span class="comment">// perform basic checks of a solution&#39;s validity
+	<span class="comment">// perform basic checks of a solution's validity
 	//
 	// Performance: note that it internally clones the provided solution.
 	</span><span class="kw">pub fn </span>basic_checks(
@@ -2450,13 +2452,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		solution_type: <span class="kw-2">&amp;</span>str,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), MinerError&gt; {
 		<span class="self">Self</span>::unsigned_pre_dispatch_checks(raw_solution).map_err(|err| {
-			<span class="macro">log!</span>(debug, <span class="string">&quot;pre-dispatch checks failed for {} solution: {:?}&quot;</span>, solution_type, err);
+			<span class="macro">log!</span>(debug, <span class="string">"pre-dispatch checks failed for {} solution: {:?}"</span>, solution_type, err);
 			MinerError::PreDispatchChecksFailed(err)
 		})<span class="question-mark">?</span>;
 
 		<span class="self">Self</span>::feasibility_check(raw_solution.clone(), ElectionCompute::Unsigned).map_err(
 			|err| {
-				<span class="macro">log!</span>(debug, <span class="string">&quot;feasibility check failed for {} solution: {:?}&quot;</span>, solution_type, err);
+				<span class="macro">log!</span>(debug, <span class="string">"feasibility check failed for {} solution: {:?}"</span>, solution_type, err);
 				err
 			},
 		)<span class="question-mark">?</span>;
@@ -2475,7 +2477,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		MinerError,
 	&gt; {
 		<span class="kw">let </span>(raw_solution, witness, is_trimmed) = <span class="self">Self</span>::mine_solution()<span class="question-mark">?</span>;
-		<span class="self">Self</span>::basic_checks(<span class="kw-2">&amp;</span>raw_solution, <span class="string">&quot;mined&quot;</span>)<span class="question-mark">?</span>;
+		<span class="self">Self</span>::basic_checks(<span class="kw-2">&amp;</span>raw_solution, <span class="string">"mined"</span>)<span class="question-mark">?</span>;
 		<span class="prelude-val">Ok</span>((raw_solution, witness, is_trimmed))
 	}
 
@@ -2483,8 +2485,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// not.
 	///
 	/// This makes sure that
-	/// 1. we don&#39;t run on previous blocks in case of a re-org
-	/// 2. we don&#39;t run twice within a window of length `T::OffchainRepeat`.
+	/// 1. we don't run on previous blocks in case of a re-org
+	/// 2. we don't run twice within a window of length `T::OffchainRepeat`.
 	///
 	/// Returns `Ok(())` if offchain worker limit is respected, `Err(reason)` otherwise. If `Ok()`
 	/// is returned, `now` is written in storage and will be used in further calls as the baseline.
@@ -2492,18 +2494,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>threshold = T::OffchainRepeat::get();
 		<span class="kw">let </span>last_block = StorageValueRef::persistent(OFFCHAIN_LAST_BLOCK);
 
-		<span class="kw">let </span>mutate_stat = last_block.mutate::&lt;<span class="kw">_</span>, <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str, <span class="kw">_</span>&gt;(
+		<span class="kw">let </span>mutate_stat = last_block.mutate::&lt;<span class="kw">_</span>, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str, <span class="kw">_</span>&gt;(
 			|maybe_head: <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;BlockNumberFor&lt;T&gt;&gt;, <span class="kw">_</span>&gt;| {
 				<span class="kw">match </span>maybe_head {
-					<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(head)) <span class="kw">if </span>now &lt; head =&gt; <span class="prelude-val">Err</span>(<span class="string">&quot;fork.&quot;</span>),
+					<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(head)) <span class="kw">if </span>now &lt; head =&gt; <span class="prelude-val">Err</span>(<span class="string">"fork."</span>),
 					<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(head)) <span class="kw">if </span>now &gt;= head &amp;&amp; now &lt;= head + threshold =&gt;
-						<span class="prelude-val">Err</span>(<span class="string">&quot;recently executed.&quot;</span>),
+						<span class="prelude-val">Err</span>(<span class="string">"recently executed."</span>),
 					<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(head)) <span class="kw">if </span>now &gt; head + threshold =&gt; {
 						<span class="comment">// we can run again now. Write the new head.
 						</span><span class="prelude-val">Ok</span>(now)
 					},
 					<span class="kw">_ </span>=&gt; {
-						<span class="comment">// value doesn&#39;t exists. Probably this node just booted up. Write, and run
+						<span class="comment">// value doesn't exists. Probably this node just booted up. Write, and run
 						</span><span class="prelude-val">Ok</span>(now)
 					},
 				}
@@ -2515,7 +2517,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; <span class="prelude-val">Ok</span>(()),
 			<span class="comment">// failed to write.
 			</span><span class="prelude-val">Err</span>(MutateStorageError::ConcurrentModification(<span class="kw">_</span>)) =&gt;
-				<span class="prelude-val">Err</span>(MinerError::Lock(<span class="string">&quot;failed to write to offchain db (concurrent modification).&quot;</span>)),
+				<span class="prelude-val">Err</span>(MinerError::Lock(<span class="string">"failed to write to offchain db (concurrent modification)."</span>)),
 			<span class="comment">// fork etc.
 			</span><span class="prelude-val">Err</span>(MutateStorageError::ValueFunctionFailed(why)) =&gt; <span class="prelude-val">Err</span>(MinerError::Lock(why)),
 		}
@@ -2526,12 +2528,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// Can optionally also be called during dispatch, if needed.
 	///
-	/// NOTE: Ideally, these tests should move more and more outside of this and more to the miner&#39;s
+	/// NOTE: Ideally, these tests should move more and more outside of this and more to the miner's
 	/// code, so that we do less and less storage reads here.
 	</span><span class="kw">pub fn </span>unsigned_pre_dispatch_checks(
 		raw_solution: <span class="kw-2">&amp;</span>RawSolution&lt;SolutionOf&lt;T::MinerConfig&gt;&gt;,
 	) -&gt; DispatchResult {
-		<span class="comment">// ensure solution is timely. Don&#39;t panic yet. This is a cheap check.
+		<span class="comment">// ensure solution is timely. Don't panic yet. This is a cheap check.
 		</span><span class="macro">ensure!</span>(<span class="self">Self</span>::current_phase().is_unsigned_open(), Error::&lt;T&gt;::PreDispatchEarlySubmission);
 
 		<span class="comment">// ensure round is current
@@ -2603,7 +2605,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	{
 		S::solve(desired_targets <span class="kw">as </span>usize, targets.clone(), voters.clone())
 			.map_err(|e| {
-				<span class="macro">log_no_system!</span>(error, <span class="string">&quot;solver error: {:?}&quot;</span>, e);
+				<span class="macro">log_no_system!</span>(error, <span class="string">"solver error: {:?}"</span>, e);
 				MinerError::Solver
 			})
 			.and_then(|e| {
@@ -2637,7 +2639,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// Compute the size of a solution comprised of the selected arguments.
 		//
-		// This function completes in `O(edges)`; it&#39;s expensive, but linear.
+		// This function completes in `O(edges)`; it's expensive, but linear.
 		</span><span class="kw">let </span>encoded_size_of = |assignments: <span class="kw-2">&amp;</span>[IndexAssignmentOf&lt;T&gt;]| {
 			SolutionOf::&lt;T&gt;::try_from(assignments).map(|s| s.encoded_size())
 		};
@@ -2649,7 +2651,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// convert to staked and reduce.
 			</span><span class="kw">let </span><span class="kw-2">mut </span>staked = assignment_ratio_to_staked_normalized(assignments, <span class="kw-2">&amp;</span>stake_of)<span class="question-mark">?</span>;
 
-			<span class="comment">// we reduce before sorting in order to ensure that the reduction process doesn&#39;t
+			<span class="comment">// we reduce before sorting in order to ensure that the reduction process doesn't
 			// accidentally change the sort order
 			</span>sp_npos_elections::reduce(<span class="kw-2">&amp;mut </span>staked);
 
@@ -2657,7 +2659,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			// truncate the list.
 			</span>staked.sort_by_key(
 				|sp_npos_elections::StakedAssignment::&lt;T::AccountId&gt; { who, .. }| {
-					<span class="comment">// though staked assignments are expressed in terms of absolute stake, we&#39;d
+					<span class="comment">// though staked assignments are expressed in terms of absolute stake, we'd
 					// still need to iterate over all votes in order to actually compute the total
 					// stake. it should be faster to look it up from the cache.
 					</span><span class="kw">let </span>stake = cache
@@ -2773,7 +2775,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="macro">log_no_system!</span>(
 			debug,
-			<span class="string">&quot;from {} assignments, truncating to {} for length, removing {}&quot;</span>,
+			<span class="string">"from {} assignments, truncating to {} for length, removing {}"</span>,
 			assignments.len(),
 			maximum_allowed_voters,
 			remove
@@ -2810,7 +2812,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			assignments.len().saturating_sub(maximum_allowed_voters.saturated_into());
 		<span class="macro">log_no_system!</span>(
 			debug,
-			<span class="string">&quot;from {} assignments, truncating to {} for weight, removing {}&quot;</span>,
+			<span class="string">"from {} assignments, truncating to {} for weight, removing {}"</span>,
 			assignments.len(),
 			maximum_allowed_voters,
 			removing,
@@ -2850,7 +2852,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			} <span class="kw">else if </span>current_weight.any_gt(max_weight) {
 				voters.checked_sub(step).ok_or(())
 			} <span class="kw">else </span>{
-				<span class="comment">// If any of the constituent weights is equal to the max weight, we&#39;re at max
+				<span class="comment">// If any of the constituent weights is equal to the max weight, we're at max
 				</span><span class="prelude-val">Ok</span>(voters)
 			}
 		};
@@ -2886,7 +2888,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>final_decision = voters.min(size.voters);
 		<span class="macro">debug_assert!</span>(
 			weight_with(final_decision).all_lte(max_weight),
-			<span class="string">&quot;weight_with({}) &lt;= {}&quot;</span>,
+			<span class="string">"weight_with({}) &lt;= {}"</span>,
 			final_decision,
 			max_weight,
 		);
@@ -2915,7 +2917,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// Fail early if targets requested by data provider exceed maximum winners supported.
 		</span><span class="macro">ensure!</span>(desired_targets &lt;= T::MaxWinners::get(), FeasibilityError::TooManyDesiredTargets);
 
-		<span class="comment">// Ensure that the solution&#39;s score can pass absolute min-score.
+		<span class="comment">// Ensure that the solution's score can pass absolute min-score.
 		</span><span class="kw">let </span>submitted_score = raw_solution.score;
 		<span class="macro">ensure!</span>(
 			minimum_untrusted_score.map_or(<span class="bool-val">true</span>, |min_score| {
@@ -3293,7 +3295,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			};
 			&lt;QueuedSolution&lt;Runtime&gt;&gt;::put(ready);
 
-			<span class="comment">// won&#39;t work anymore.
+			<span class="comment">// won't work anymore.
 			</span><span class="macro">assert!</span>(<span class="macro">matches!</span>(
 				&lt;MultiPhase <span class="kw">as </span>ValidateUnsigned&gt;::validate_unsigned(
 					TransactionSource::Local,
@@ -3323,7 +3325,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				Call::submit_unsigned { raw_solution: Box::new(raw.clone()), witness: witness() };
 			<span class="macro">assert_eq!</span>(raw.solution.unique_targets().len(), <span class="number">0</span>);
 
-			<span class="comment">// won&#39;t work anymore.
+			<span class="comment">// won't work anymore.
 			</span><span class="macro">assert!</span>(<span class="macro">matches!</span>(
 				&lt;MultiPhase <span class="kw">as </span>ValidateUnsigned&gt;::validate_unsigned(
 					TransactionSource::Local,
@@ -3366,10 +3368,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="attr">#[test]
-	#[should_panic(expected = <span class="string">&quot;Invalid unsigned submission must produce invalid block and \
+	#[should_panic(expected = <span class="string">"Invalid unsigned submission must produce invalid block and \
 	                           deprive validator from their authoring reward.: \
 	                           Module(ModuleError { index: 2, error: [1, 0, 0, 0], message: \
-	                           Some(\&quot;PreDispatchWrongWinnerCount\&quot;) })&quot;</span>)]
+	                           Some(\"PreDispatchWrongWinnerCount\") })"</span>)]
 	</span><span class="kw">fn </span>unfeasible_solution_panics() {
 		ExtBuilder::default().build_and_execute(|| {
 			roll_to_unsigned();
@@ -3390,14 +3392,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="attr">#[test]
-	#[should_panic(expected = <span class="string">&quot;Invalid unsigned submission must produce invalid block and \
-	                           deprive validator from their authoring reward.&quot;</span>)]
+	#[should_panic(expected = <span class="string">"Invalid unsigned submission must produce invalid block and \
+	                           deprive validator from their authoring reward."</span>)]
 	</span><span class="kw">fn </span>wrong_witness_panics() {
 		ExtBuilder::default().build_and_execute(|| {
 			roll_to_unsigned();
 			<span class="macro">assert!</span>(MultiPhase::current_phase().is_unsigned());
 
-			<span class="comment">// This solution is unfeasible as well, but we won&#39;t even get there.
+			<span class="comment">// This solution is unfeasible as well, but we won't even get there.
 			</span><span class="kw">let </span>solution = RawSolution::&lt;TestNposSolution&gt; {
 				score: ElectionScore { minimal_stake: <span class="number">5</span>, ..Default::default() },
 				..Default::default()
@@ -3505,11 +3507,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			solution.solution.votes1[<span class="number">0</span>].<span class="number">1 </span>= <span class="number">4</span>;
 
 			<span class="macro">assert_eq!</span>(
-				MultiPhase::basic_checks(<span class="kw-2">&amp;</span>solution, <span class="string">&quot;mined&quot;</span>).unwrap_err(),
+				MultiPhase::basic_checks(<span class="kw-2">&amp;</span>solution, <span class="string">"mined"</span>).unwrap_err(),
 				MinerError::PreDispatchChecksFailed(DispatchError::Module(ModuleError {
 					index: <span class="number">2</span>,
 					error: [<span class="number">1</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>],
-					message: <span class="prelude-val">Some</span>(<span class="string">&quot;PreDispatchWrongWinnerCount&quot;</span>),
+					message: <span class="prelude-val">Some</span>(<span class="string">"PreDispatchWrongWinnerCount"</span>),
 				})),
 			);
 		})
@@ -3534,7 +3536,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						Assignment { who: <span class="number">10</span>, distribution: <span class="macro">vec!</span>[(<span class="number">10</span>, PerU16::one())] },
 						Assignment {
 							who: <span class="number">7</span>,
-							<span class="comment">// note: this percent doesn&#39;t even matter, in solution it is 100%.
+							<span class="comment">// note: this percent doesn't even matter, in solution it is 100%.
 							</span>distribution: <span class="macro">vec!</span>[(<span class="number">10</span>, PerU16::one())],
 						},
 					],
@@ -3560,7 +3562,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				));
 				<span class="macro">assert_eq!</span>(MultiPhase::queued_solution().unwrap().score.minimal_stake, <span class="number">12</span>);
 
-				<span class="comment">// trial 1: a solution who&#39;s minimal stake is 10, i.e. worse than the first solution
+				<span class="comment">// trial 1: a solution who's minimal stake is 10, i.e. worse than the first solution
 				// of 12.
 				</span><span class="kw">let </span>result = ElectionResult {
 					winners: <span class="macro">vec!</span>[(<span class="number">10</span>, <span class="number">10</span>)],
@@ -3593,7 +3595,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						Assignment { who: <span class="number">10</span>, distribution: <span class="macro">vec!</span>[(<span class="number">10</span>, PerU16::one())] },
 						Assignment {
 							who: <span class="number">7</span>,
-							<span class="comment">// note: this percent doesn&#39;t even matter, in solution it is 100%.
+							<span class="comment">// note: this percent doesn't even matter, in solution it is 100%.
 							</span>distribution: <span class="macro">vec!</span>[(<span class="number">10</span>, PerU16::one())],
 						},
 					],
@@ -3615,7 +3617,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					Error::&lt;Runtime&gt;::PreDispatchWeakSubmission,
 				);
 
-				<span class="comment">// trial 3: a solution who&#39;s minimal stake is 13, i.e. 1 better than the queued
+				<span class="comment">// trial 3: a solution who's minimal stake is 13, i.e. 1 better than the queued
 				// solution of 12.
 				</span><span class="kw">let </span>result = ElectionResult {
 					winners: <span class="macro">vec!</span>[(<span class="number">10</span>, <span class="number">12</span>)],
@@ -3644,7 +3646,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					witness
 				));
 
-				<span class="comment">// trial 4: a solution who&#39;s minimal stake is 17, i.e. 4 better than the last
+				<span class="comment">// trial 4: a solution who's minimal stake is 17, i.e. 4 better than the last
 				// solution.
 				</span><span class="kw">let </span>result = ElectionResult {
 					winners: <span class="macro">vec!</span>[(<span class="number">10</span>, <span class="number">12</span>)],
@@ -3653,7 +3655,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						Assignment { who: <span class="number">7</span>, distribution: <span class="macro">vec!</span>[(<span class="number">10</span>, PerU16::one())] },
 						Assignment {
 							who: <span class="number">8</span>,
-							<span class="comment">// note: this percent doesn&#39;t even matter, in solution it is 100%.
+							<span class="comment">// note: this percent doesn't even matter, in solution it is 100%.
 							</span>distribution: <span class="macro">vec!</span>[(<span class="number">10</span>, PerU16::one())],
 						},
 					],
@@ -3694,7 +3696,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// next block: rejected.
 			</span><span class="macro">assert_noop!</span>(
 				MultiPhase::ensure_offchain_repeat_frequency(<span class="number">26</span>),
-				MinerError::Lock(<span class="string">&quot;recently executed.&quot;</span>)
+				MinerError::Lock(<span class="string">"recently executed."</span>)
 			);
 
 			<span class="comment">// allowed after `OFFCHAIN_REPEAT`
@@ -3778,7 +3780,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			roll_to_unsigned();
 			<span class="macro">assert_eq!</span>(MultiPhase::current_phase(), Phase::Unsigned((<span class="bool-val">true</span>, <span class="number">25</span>)));
 
-			<span class="comment">// we must clear the offchain storage to ensure the offchain execution check doesn&#39;t get
+			<span class="comment">// we must clear the offchain storage to ensure the offchain execution check doesn't get
 			// in the way.
 			</span><span class="kw">let </span><span class="kw-2">mut </span>storage = StorageValueRef::persistent(<span class="kw-2">&amp;</span>OFFCHAIN_LAST_BLOCK);
 
@@ -3812,14 +3814,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="macro">assert!</span>(
 				!ocw_solution_exists::&lt;Runtime&gt;(),
-				<span class="string">&quot;no solution should be present before we mine one&quot;</span>,
+				<span class="string">"no solution should be present before we mine one"</span>,
 			);
 
 			<span class="comment">// create and cache a solution on the first block of the unsigned phase
 			</span>MultiPhase::offchain_worker(BLOCK);
 			<span class="macro">assert!</span>(
 				ocw_solution_exists::&lt;Runtime&gt;(),
-				<span class="string">&quot;a solution must be cached after running the worker&quot;</span>,
+				<span class="string">"a solution must be cached after running the worker"</span>,
 			);
 
 			<span class="comment">// record the submitted tx,
@@ -3828,10 +3830,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span>pool.try_write().unwrap().transactions.clear();
 
 			<span class="comment">// after an election, the solution is not cleared
-			// we don&#39;t actually care about the result of the election
+			// we don't actually care about the result of the election
 			</span><span class="kw">let _ </span>= MultiPhase::do_elect();
 			MultiPhase::offchain_worker(block_plus(<span class="number">1</span>));
-			<span class="macro">assert!</span>(ocw_solution_exists::&lt;Runtime&gt;(), <span class="string">&quot;elections does not clear the ocw cache&quot;</span>);
+			<span class="macro">assert!</span>(ocw_solution_exists::&lt;Runtime&gt;(), <span class="string">"elections does not clear the ocw cache"</span>);
 
 			<span class="comment">// submit a solution with the offchain worker after the repeat interval
 			</span>MultiPhase::offchain_worker(block_plus(offchain_repeat + <span class="number">1</span>));
@@ -3893,7 +3895,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			roll_to(BLOCK);
 			<span class="macro">assert_eq!</span>(MultiPhase::current_phase(), Phase::Unsigned((<span class="bool-val">true</span>, BLOCK)));
 
-			<span class="comment">// we must clear the offchain storage to ensure the offchain execution check doesn&#39;t get
+			<span class="comment">// we must clear the offchain storage to ensure the offchain execution check doesn't get
 			// in the way.
 			</span><span class="kw">let </span><span class="kw-2">mut </span>storage = StorageValueRef::persistent(<span class="kw-2">&amp;</span>OFFCHAIN_LAST_BLOCK);
 
@@ -3931,7 +3933,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			roll_to(BLOCK);
 			<span class="macro">assert_eq!</span>(MultiPhase::current_phase(), Phase::Unsigned((<span class="bool-val">true</span>, BLOCK)));
 
-			<span class="comment">// we must clear the offchain storage to ensure the offchain execution check doesn&#39;t get
+			<span class="comment">// we must clear the offchain storage to ensure the offchain execution check doesn't get
 			// in the way.
 			</span><span class="kw">let </span><span class="kw-2">mut </span>storage = StorageValueRef::persistent(<span class="kw-2">&amp;</span>OFFCHAIN_LAST_BLOCK);
 
@@ -3947,7 +3949,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span>pool.try_write().unwrap().transactions.clear();
 
 			<span class="comment">// remove the cached submitted tx
-			// this ensures that when the resubmit window rolls around, we&#39;re ready to regenerate
+			// this ensures that when the resubmit window rolls around, we're ready to regenerate
 			// from scratch if necessary
 			</span><span class="kw">let </span><span class="kw-2">mut </span>call_cache = StorageValueRef::persistent(<span class="kw-2">&amp;</span>OFFCHAIN_CACHED_CALL);
 			<span class="macro">assert!</span>(<span class="macro">matches!</span>(call_cache.get::&lt;Call&lt;Runtime&gt;&gt;(), <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(_call))));
@@ -3994,7 +3996,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>extrinsic = Extrinsic::decode(<span class="kw-2">&amp;mut &amp;*</span>encoded).unwrap();
 			<span class="kw">let </span>call = <span class="kw">match </span>extrinsic.call {
 				RuntimeCall::MultiPhase(call @ Call::submit_unsigned { .. }) =&gt; call,
-				<span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;bad call: unexpected submission&quot;</span>),
+				<span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"bad call: unexpected submission"</span>),
 			};
 
 			<span class="comment">// Custom(7) maps to PreDispatchChecksFailed
@@ -4095,17 +4097,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.unwrap();
 
 			<span class="comment">// then
-			</span><span class="macro">assert_eq!</span>(assignments.len(), count - <span class="number">1</span>, <span class="string">&quot;we must have removed exactly one assignment&quot;</span>);
+			</span><span class="macro">assert_eq!</span>(assignments.len(), count - <span class="number">1</span>, <span class="string">"we must have removed exactly one assignment"</span>);
 			<span class="macro">assert!</span>(
 				assignments.iter().all(|IndexAssignment { who, .. }| <span class="kw-2">*</span>who != min_stake_voter),
-				<span class="string">&quot;min_stake_voter must no longer be in the set of voters&quot;</span>,
+				<span class="string">"min_stake_voter must no longer be in the set of voters"</span>,
 			);
 		});
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>trim_assignments_length_wont_panic() {
-		<span class="comment">// we shan&#39;t panic if assignments are initially empty.
+		<span class="comment">// we shan't panic if assignments are initially empty.
 		</span>ExtBuilder::default().build_and_execute(|| {
 			<span class="kw">let </span>encoded_size_of = Box::new(|assignments: <span class="kw-2">&amp;</span>[IndexAssignmentOf&lt;Runtime&gt;]| {
 				SolutionOf::&lt;Runtime&gt;::try_from(assignments).map(|solution| solution.encoded_size())

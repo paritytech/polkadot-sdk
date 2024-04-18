@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/version/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/version/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_version" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_version" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sp_version/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -627,14 +629,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -655,13 +657,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! be generated in the runtime using the [`runtime_version`] attribute. The `Core` runtime api also
 //! needs to be implemented for the runtime using `impl_runtime_apis!`.
 
-</span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
+</span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
-#[cfg(feature = <span class="string">&quot;serde&quot;</span>)]
+#[cfg(feature = <span class="string">"serde"</span>)]
 </span><span class="kw">use </span>serde::{Deserialize, Serialize};
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">use </span>std::collections::HashSet;
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">use </span>std::fmt;
 
 <span class="kw">use </span>codec::{Decode, Encode, Input};
@@ -671,10 +673,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[doc(hidden)]
 </span><span class="kw">pub use </span>sp_std;
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">use </span>sp_runtime::traits::Block <span class="kw">as </span>BlockT;
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">pub mod </span>embed;
 
 <span class="doccomment">/// An attribute that accepts a version declaration of a runtime and generates a custom wasm
@@ -682,7 +684,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// The custom section allows to read the version of the runtime without having to execute any
 /// code. Instead, the generated custom section can be relatively easily parsed from the wasm
-/// binary. The identifier of the custom section is &quot;runtime_version&quot;.
+/// binary. The identifier of the custom section is "runtime_version".
 ///
 /// A shortcoming of this macro is that it is unable to embed information regarding supported
 /// APIs. This is supported by the `construct_runtime!` macro.
@@ -696,8 +698,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// #[sp_version::runtime_version]
 /// pub const VERSION: RuntimeVersion = RuntimeVersion {
-/// 	spec_name: create_runtime_str!(&quot;test&quot;),
-/// 	impl_name: create_runtime_str!(&quot;test&quot;),
+/// 	spec_name: create_runtime_str!("test"),
+/// 	impl_name: create_runtime_str!("test"),
 /// 	authoring_version: 10,
 /// 	spec_version: 265,
 /// 	impl_version: 1,
@@ -715,26 +717,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// following considerations:
 ///
 /// - The `spec_name` and `impl_name` must be set by a macro-like expression. The name of the
-///   macro doesn&#39;t matter though.
+///   macro doesn't matter though.
 ///
 /// - `authoring_version`, `spec_version`, `impl_version` and `transaction_version` must be set
 ///   by a literal. Literal must be an integer. No other expressions are allowed there. In
-///   particular, you can&#39;t supply a constant variable.
+///   particular, you can't supply a constant variable.
 ///
-/// - `apis` doesn&#39;t have any specific constraints. This is because this information doesn&#39;t
+/// - `apis` doesn't have any specific constraints. This is because this information doesn't
 ///   get into the custom section and is not parsed.
 ///
-/// # Compilation Target &amp; &quot;std&quot; feature
+/// # Compilation Target &amp; "std" feature
 ///
 /// This macro assumes it will be used within a runtime. By convention, a runtime crate defines
-/// a feature named &quot;std&quot;. This feature is enabled when the runtime is compiled to native code
+/// a feature named "std". This feature is enabled when the runtime is compiled to native code
 /// and disabled when it is compiled to the wasm code.
 ///
 /// The custom section can only be emitted while compiling to wasm. In order to detect the
-/// compilation target we use the &quot;std&quot; feature. This macro will emit the custom section only
-/// if the &quot;std&quot; feature is **not** enabled.
+/// compilation target we use the "std" feature. This macro will emit the custom section only
+/// if the "std" feature is **not** enabled.
 ///
-/// Including this macro in the context where there is no &quot;std&quot; feature and the code is not
+/// Including this macro in the context where there is no "std" feature and the code is not
 /// compiled to wasm can lead to cryptic linking errors.
 </span><span class="kw">pub use </span>sp_version_proc_macro::runtime_version;
 
@@ -758,12 +760,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// function.
 ///
 /// As Rust supports renaming of traits, the name of a runtime api given to `impl_runtime_apis!`
-/// doesn&#39;t need to be the same as in `decl_runtime_apis!`, but only the name in
+/// doesn't need to be the same as in `decl_runtime_apis!`, but only the name in
 /// `decl_runtime_apis!` is the important one!
 </span><span class="kw">pub type </span>ApiId = [u8; <span class="number">8</span>];
 
 <span class="doccomment">/// A vector of pairs of `ApiId` and a `u32` for version.
-</span><span class="kw">pub type </span>ApisVec = sp_std::borrow::Cow&lt;<span class="lifetime">&#39;static</span>, [(ApiId, u32)]&gt;;
+</span><span class="kw">pub type </span>ApisVec = sp_std::borrow::Cow&lt;<span class="lifetime">'static</span>, [(ApiId, u32)]&gt;;
 
 <span class="doccomment">/// Create a vector of Api declarations.
 </span><span class="attr">#[macro_export]
@@ -780,10 +782,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// `authoring_version`, absolutely not `impl_version` since they change the semantics of the
 /// runtime.
 </span><span class="attr">#[derive(Clone, PartialEq, Eq, Encode, Default, sp_runtime::RuntimeDebug, TypeInfo)]
-#[cfg_attr(feature = <span class="string">&quot;serde&quot;</span>, derive(Serialize, Deserialize))]
-#[cfg_attr(feature = <span class="string">&quot;serde&quot;</span>, serde(rename_all = <span class="string">&quot;camelCase&quot;</span>))]
+#[cfg_attr(feature = <span class="string">"serde"</span>, derive(Serialize, Deserialize))]
+#[cfg_attr(feature = <span class="string">"serde"</span>, serde(rename_all = <span class="string">"camelCase"</span>))]
 </span><span class="kw">pub struct </span>RuntimeVersion {
-	<span class="doccomment">/// Identifies the different Substrate runtimes. There&#39;ll be at least polkadot and node.
+	<span class="doccomment">/// Identifies the different Substrate runtimes. There'll be at least polkadot and node.
 	/// A different on-chain spec_name to that of the native runtime would normally result
 	/// in node not attempting to sync or author blocks.
 	</span><span class="kw">pub </span>spec_name: RuntimeString,
@@ -819,17 +821,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// This number can be reverted to `0` after a [`spec_version`](Self::spec_version) bump.
 	</span><span class="kw">pub </span>impl_version: u32,
 
-	<span class="doccomment">/// List of supported API &quot;features&quot; along with their versions.
+	<span class="doccomment">/// List of supported API "features" along with their versions.
 	</span><span class="attr">#[cfg_attr(
-		feature = <span class="string">&quot;serde&quot;</span>,
+		feature = <span class="string">"serde"</span>,
 		serde(
-			serialize_with = <span class="string">&quot;apis_serialize::serialize&quot;</span>,
-			deserialize_with = <span class="string">&quot;apis_serialize::deserialize&quot;</span>,
+			serialize_with = <span class="string">"apis_serialize::serialize"</span>,
+			deserialize_with = <span class="string">"apis_serialize::deserialize"</span>,
 		)
 	)]
 	</span><span class="kw">pub </span>apis: ApisVec,
 
-	<span class="doccomment">/// All existing calls (dispatchables) are fully compatible when this number doesn&#39;t change. If
+	<span class="doccomment">/// All existing calls (dispatchables) are fully compatible when this number doesn't change. If
 	/// this number changes, then [`spec_version`](Self::spec_version) must change, also.
 	///
 	/// This number must change when an existing call (pallet index, call index) is changed,
@@ -838,13 +840,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// of the user level semantics is for example when the call was before `transfer` and now is
 	/// `transfer_all`, the semantics of the call changed completely.
 	///
-	/// Removing a pallet or a call doesn&#39;t require a *bump* as long as no pallet or call is put at
-	/// the same index. Removing doesn&#39;t require a bump as the chain will reject a transaction
-	/// referencing this removed call/pallet while decoding and thus, the user isn&#39;t at risk to
+	/// Removing a pallet or a call doesn't require a *bump* as long as no pallet or call is put at
+	/// the same index. Removing doesn't require a bump as the chain will reject a transaction
+	/// referencing this removed call/pallet while decoding and thus, the user isn't at risk to
 	/// execute any unknown call. FRAME runtime devs have control over the index of a call/pallet
 	/// to prevent that an index gets reused.
 	///
-	/// Adding a new pallet or call also doesn&#39;t require a *bump* as long as they also don&#39;t reuse
+	/// Adding a new pallet or call also doesn't require a *bump* as long as they also don't reuse
 	/// any previously used index.
 	///
 	/// This number should never decrease.
@@ -856,7 +858,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl </span>RuntimeVersion {
-	<span class="doccomment">/// `Decode` while giving a &quot;version hint&quot;
+	<span class="doccomment">/// `Decode` while giving a "version hint"
 	///
 	/// There exists multiple versions of [`RuntimeVersion`] and they are versioned using the `Core`
 	/// runtime api:
@@ -898,12 +900,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">impl </span>fmt::Display <span class="kw">for </span>RuntimeVersion {
 	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter) -&gt; fmt::Result {
 		<span class="macro">write!</span>(
 			f,
-			<span class="string">&quot;{}-{} ({}-{}.tx{}.au{})&quot;</span>,
+			<span class="string">"{}-{} ({}-{}.tx{}.au{})"</span>,
 			<span class="self">self</span>.spec_name,
 			<span class="self">self</span>.spec_version,
 			<span class="self">self</span>.impl_name,
@@ -914,18 +916,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">fn </span>has_api_with&lt;P: Fn(u32) -&gt; bool&gt;(apis: <span class="kw-2">&amp;</span>ApisVec, id: <span class="kw-2">&amp;</span>ApiId, predicate: P) -&gt; bool {
 	apis.iter().any(|(s, v)| s == id &amp;&amp; predicate(<span class="kw-2">*</span>v))
 }
 
 <span class="doccomment">/// Returns the version of the `Core` runtime api.
 </span><span class="kw">pub fn </span>core_version_from_apis(apis: <span class="kw-2">&amp;</span>ApisVec) -&gt; <span class="prelude-ty">Option</span>&lt;u32&gt; {
-	<span class="kw">let </span>id = <span class="macro">sp_crypto_hashing_proc_macro::blake2b_64!</span>(<span class="string">b&quot;Core&quot;</span>);
+	<span class="kw">let </span>id = <span class="macro">sp_crypto_hashing_proc_macro::blake2b_64!</span>(<span class="string">b"Core"</span>);
 	apis.iter().find(|(s, _v)| s == <span class="kw-2">&amp;</span>id).map(|(_s, v)| <span class="kw-2">*</span>v)
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">impl </span>RuntimeVersion {
 	<span class="doccomment">/// Check if this version matches other version for calling into runtime.
 	</span><span class="kw">pub fn </span>can_call_with(<span class="kw-2">&amp;</span><span class="self">self</span>, other: <span class="kw-2">&amp;</span>RuntimeVersion) -&gt; bool {
@@ -963,7 +965,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// In contrast to the bare [`RuntimeVersion`] this also carries a list of `spec_version`s of
 /// runtimes this native runtime can be used to author blocks for.
 </span><span class="attr">#[derive(Debug)]
-#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">pub struct </span>NativeVersion {
 	<span class="doccomment">/// Basic runtime version info.
 	</span><span class="kw">pub </span>runtime_version: RuntimeVersion,
@@ -971,7 +973,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>can_author_with: HashSet&lt;u32&gt;,
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">impl </span>NativeVersion {
 	<span class="doccomment">/// Check if this version matches other version for authoring blocks.
 	///
@@ -982,15 +984,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub fn </span>can_author_with(<span class="kw-2">&amp;</span><span class="self">self</span>, other: <span class="kw-2">&amp;</span>RuntimeVersion) -&gt; <span class="prelude-ty">Result</span>&lt;(), String&gt; {
 		<span class="kw">if </span><span class="self">self</span>.runtime_version.spec_name != other.spec_name {
 			<span class="prelude-val">Err</span>(<span class="macro">format!</span>(
-				<span class="string">&quot;`spec_name` does not match `{}` vs `{}`&quot;</span>,
+				<span class="string">"`spec_name` does not match `{}` vs `{}`"</span>,
 				<span class="self">self</span>.runtime_version.spec_name, other.spec_name,
 			))
 		} <span class="kw">else if </span><span class="self">self</span>.runtime_version.authoring_version != other.authoring_version &amp;&amp;
 			!<span class="self">self</span>.can_author_with.contains(<span class="kw-2">&amp;</span>other.authoring_version)
 		{
 			<span class="prelude-val">Err</span>(<span class="macro">format!</span>(
-				<span class="string">&quot;`authoring_version` does not match `{version}` vs `{other_version}` and \
-				`can_author_with` not contains `{other_version}`&quot;</span>,
+				<span class="string">"`authoring_version` does not match `{version}` vs `{other_version}` and \
+				`can_author_with` not contains `{other_version}`"</span>,
 				version = <span class="self">self</span>.runtime_version.authoring_version,
 				other_version = other.authoring_version,
 			))
@@ -1000,7 +1002,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="doccomment">/// Returns the version of the native runtime.
 </span><span class="kw">pub trait </span>GetNativeVersion {
 	<span class="doccomment">/// Returns the version of the native runtime.
@@ -1008,13 +1010,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Something that can provide the runtime version at a given block.
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+</span><span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">pub trait </span>GetRuntimeVersionAt&lt;Block: BlockT&gt; {
 	<span class="doccomment">/// Returns the version of runtime at the given block.
 	</span><span class="kw">fn </span>runtime_version(<span class="kw-2">&amp;</span><span class="self">self</span>, at: &lt;Block <span class="kw">as </span>BlockT&gt;::Hash) -&gt; <span class="prelude-ty">Result</span>&lt;RuntimeVersion, String&gt;;
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">impl</span>&lt;T: GetRuntimeVersionAt&lt;Block&gt;, Block: BlockT&gt; GetRuntimeVersionAt&lt;Block&gt;
 	<span class="kw">for </span>std::sync::Arc&lt;T&gt;
 {
@@ -1023,14 +1025,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">impl</span>&lt;T: GetNativeVersion&gt; GetNativeVersion <span class="kw">for </span>std::sync::Arc&lt;T&gt; {
 	<span class="kw">fn </span>native_version(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>NativeVersion {
 		(<span class="kw-2">&amp;**</span><span class="self">self</span>).native_version()
 	}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;serde&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"serde"</span>)]
 </span><span class="kw">mod </span>apis_serialize {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use </span>impl_serde::serialize <span class="kw">as </span>bytes;
@@ -1038,7 +1040,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use </span>sp_std::vec::Vec;
 
 	<span class="attr">#[derive(Serialize)]
-	</span><span class="kw">struct </span>ApiId&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="attr">#[serde(serialize_with = <span class="string">&quot;serialize_bytesref&quot;</span>)] </span><span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw">super</span>::ApiId, <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>u32);
+	</span><span class="kw">struct </span>ApiId&lt;<span class="lifetime">'a</span>&gt;(<span class="attr">#[serde(serialize_with = <span class="string">"serialize_bytesref"</span>)] </span><span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw">super</span>::ApiId, <span class="kw-2">&amp;</span><span class="lifetime">'a </span>u32);
 
 	<span class="kw">pub fn </span>serialize&lt;S&gt;(apis: <span class="kw-2">&amp;</span>ApisVec, ser: S) -&gt; <span class="prelude-ty">Result</span>&lt;S::Ok, S::Error&gt;
 	<span class="kw">where
@@ -1060,23 +1062,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="attr">#[derive(Deserialize)]
-	</span><span class="kw">struct </span>ApiIdOwned(<span class="attr">#[serde(deserialize_with = <span class="string">&quot;deserialize_bytes&quot;</span>)] </span><span class="kw">super</span>::ApiId, u32);
+	</span><span class="kw">struct </span>ApiIdOwned(<span class="attr">#[serde(deserialize_with = <span class="string">"deserialize_bytes"</span>)] </span><span class="kw">super</span>::ApiId, u32);
 
-	<span class="kw">pub fn </span>deserialize&lt;<span class="lifetime">&#39;de</span>, D&gt;(deserializer: D) -&gt; <span class="prelude-ty">Result</span>&lt;ApisVec, D::Error&gt;
+	<span class="kw">pub fn </span>deserialize&lt;<span class="lifetime">'de</span>, D&gt;(deserializer: D) -&gt; <span class="prelude-ty">Result</span>&lt;ApisVec, D::Error&gt;
 	<span class="kw">where
-		</span>D: de::Deserializer&lt;<span class="lifetime">&#39;de</span>&gt;,
+		</span>D: de::Deserializer&lt;<span class="lifetime">'de</span>&gt;,
 	{
 		<span class="kw">struct </span>Visitor;
-		<span class="kw">impl</span>&lt;<span class="lifetime">&#39;de</span>&gt; de::Visitor&lt;<span class="lifetime">&#39;de</span>&gt; <span class="kw">for </span>Visitor {
+		<span class="kw">impl</span>&lt;<span class="lifetime">'de</span>&gt; de::Visitor&lt;<span class="lifetime">'de</span>&gt; <span class="kw">for </span>Visitor {
 			<span class="kw">type </span>Value = ApisVec;
 
 			<span class="kw">fn </span>expecting(<span class="kw-2">&amp;</span><span class="self">self</span>, formatter: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter) -&gt; sp_std::fmt::Result {
-				formatter.write_str(<span class="string">&quot;a sequence of api id and version tuples&quot;</span>)
+				formatter.write_str(<span class="string">"a sequence of api id and version tuples"</span>)
 			}
 
 			<span class="kw">fn </span>visit_seq&lt;V&gt;(<span class="self">self</span>, <span class="kw-2">mut </span>visitor: V) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Value, V::Error&gt;
 			<span class="kw">where
-				</span>V: de::SeqAccess&lt;<span class="lifetime">&#39;de</span>&gt;,
+				</span>V: de::SeqAccess&lt;<span class="lifetime">'de</span>&gt;,
 			{
 				<span class="kw">let </span><span class="kw-2">mut </span>apis = Vec::new();
 				<span class="kw">while let </span><span class="prelude-val">Some</span>(value) = visitor.next_element::&lt;ApiIdOwned&gt;()<span class="question-mark">? </span>{
@@ -1088,9 +1090,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		deserializer.deserialize_seq(Visitor)
 	}
 
-	<span class="kw">pub fn </span>deserialize_bytes&lt;<span class="lifetime">&#39;de</span>, D&gt;(d: D) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw">super</span>::ApiId, D::Error&gt;
+	<span class="kw">pub fn </span>deserialize_bytes&lt;<span class="lifetime">'de</span>, D&gt;(d: D) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw">super</span>::ApiId, D::Error&gt;
 	<span class="kw">where
-		</span>D: de::Deserializer&lt;<span class="lifetime">&#39;de</span>&gt;,
+		</span>D: de::Deserializer&lt;<span class="lifetime">'de</span>&gt;,
 	{
 		<span class="kw">let </span><span class="kw-2">mut </span>arr = [<span class="number">0</span>; <span class="number">8</span>];
 		bytes::deserialize_check_len(d, bytes::ExpectedLen::Exact(<span class="kw-2">&amp;mut </span>arr[..]))<span class="question-mark">?</span>;

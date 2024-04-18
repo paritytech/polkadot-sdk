@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/support/src/migrations.rs`."><title>migrations.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/support/src/migrations.rs`."><title>migrations.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="frame_support" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="frame_support" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../frame_support/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1151,14 +1153,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -1191,7 +1193,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// - `To`: The version being upgraded to.
 /// - `Inner`: An implementation of `UncheckedOnRuntimeUpgrade`.
 /// - `Pallet`: The Pallet being upgraded.
-/// - `Weight`: The runtime&#39;s RuntimeDbWeight implementation.
+/// - `Weight`: The runtime's RuntimeDbWeight implementation.
 ///
 /// When a [`VersionedMigration`] `on_runtime_upgrade`, `pre_upgrade`, or `post_upgrade` method is
 /// called, the on-chain version of the pallet is compared to `From`. If they match, the `Inner`
@@ -1272,7 +1274,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Executes pre_upgrade if the migration will run, and wraps the pre_upgrade bytes in
 	/// [`VersionedPostUpgradeData`] before passing them to post_upgrade, so it knows whether the
 	/// migration ran or not.
-	</span><span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+	</span><span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 	</span><span class="kw">fn </span>pre_upgrade() -&gt; <span class="prelude-ty">Result</span>&lt;sp_std::vec::Vec&lt;u8&gt;, sp_runtime::TryRuntimeError&gt; {
 		<span class="kw">let </span>on_chain_version = Pallet::on_chain_storage_version();
 		<span class="kw">if </span>on_chain_version == FROM {
@@ -1292,7 +1294,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>on_chain_version = Pallet::on_chain_storage_version();
 		<span class="kw">if </span>on_chain_version == FROM {
 			<span class="macro">log::info!</span>(
-				<span class="string">&quot;🚚 Pallet {:?} VersionedMigration migrating storage version from {:?} to {:?}.&quot;</span>,
+				<span class="string">"🚚 Pallet {:?} VersionedMigration migrating storage version from {:?} to {:?}."</span>,
 				Pallet::name(),
 				FROM,
 				TO
@@ -1307,7 +1309,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			weight.saturating_add(DbWeight::get().reads_writes(<span class="number">1</span>, <span class="number">1</span>))
 		} <span class="kw">else </span>{
 			<span class="macro">log::warn!</span>(
-				<span class="string">&quot;🚚 Pallet {:?} VersionedMigration migration {}-&gt;{} can be removed; on-chain is already at {:?}.&quot;</span>,
+				<span class="string">"🚚 Pallet {:?} VersionedMigration migration {}-&gt;{} can be removed; on-chain is already at {:?}."</span>,
 				Pallet::name(),
 				FROM,
 				TO,
@@ -1321,13 +1323,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// pre_upgrade passes [`VersionedPostUpgradeData::MigrationExecuted`] to post_upgrade if
 	/// the migration ran, and [`VersionedPostUpgradeData::Noop`] otherwise.
-	</span><span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+	</span><span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 	</span><span class="kw">fn </span>post_upgrade(
 		versioned_post_upgrade_data_bytes: sp_std::vec::Vec&lt;u8&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), sp_runtime::TryRuntimeError&gt; {
 		<span class="kw">use </span>codec::DecodeAll;
 		<span class="kw">match </span>&lt;VersionedPostUpgradeData&gt;::decode_all(<span class="kw-2">&amp;mut &amp;</span>versioned_post_upgrade_data_bytes[..])
-			.map_err(|<span class="kw">_</span>| <span class="string">&quot;VersionedMigration post_upgrade failed to decode PreUpgradeData&quot;</span>)<span class="question-mark">?
+			.map_err(|<span class="kw">_</span>| <span class="string">"VersionedMigration post_upgrade failed to decode PreUpgradeData"</span>)<span class="question-mark">?
 		</span>{
 			VersionedPostUpgradeData::MigrationExecuted(inner_bytes) =&gt;
 				Inner::post_upgrade(inner_bytes),
@@ -1369,7 +1371,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>T::InCodeStorageVersion: StoreInCodeStorageVersion&lt;T&gt;,
 {
 	<span class="kw">fn </span>migrate(db_weight: <span class="kw-2">&amp;</span>RuntimeDbWeight) -&gt; Weight {
-		<span class="kw">const </span>PALLET_VERSION_STORAGE_KEY_POSTFIX: <span class="kw-2">&amp;</span>[u8] = <span class="string">b&quot;:__PALLET_VERSION__:&quot;</span>;
+		<span class="kw">const </span>PALLET_VERSION_STORAGE_KEY_POSTFIX: <span class="kw-2">&amp;</span>[u8] = <span class="string">b":__PALLET_VERSION__:"</span>;
 
 		<span class="kw">fn </span>pallet_version_key(name: <span class="kw-2">&amp;</span>str) -&gt; [u8; <span class="number">32</span>] {
 			<span class="kw">crate</span>::storage::storage_prefix(name.as_bytes(), PALLET_VERSION_STORAGE_KEY_POSTFIX)
@@ -1383,9 +1385,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="attr">#[cfg_attr(all(not(feature = <span class="string">&quot;tuples-96&quot;</span>), not(feature = <span class="string">&quot;tuples-128&quot;</span>)), impl_for_tuples(<span class="number">64</span>))]
-#[cfg_attr(all(feature = <span class="string">&quot;tuples-96&quot;</span>, not(feature = <span class="string">&quot;tuples-128&quot;</span>)), impl_for_tuples(<span class="number">96</span>))]
-#[cfg_attr(feature = <span class="string">&quot;tuples-128&quot;</span>, impl_for_tuples(<span class="number">128</span>))]
+<span class="attr">#[cfg_attr(all(not(feature = <span class="string">"tuples-96"</span>), not(feature = <span class="string">"tuples-128"</span>)), impl_for_tuples(<span class="number">64</span>))]
+#[cfg_attr(all(feature = <span class="string">"tuples-96"</span>, not(feature = <span class="string">"tuples-128"</span>)), impl_for_tuples(<span class="number">96</span>))]
+#[cfg_attr(feature = <span class="string">"tuples-128"</span>, impl_for_tuples(<span class="number">128</span>))]
 </span><span class="kw">impl </span>PalletVersionToStorageVersionHelper <span class="kw">for </span>T {
 	<span class="kw">fn </span>migrate(db_weight: <span class="kw-2">&amp;</span>RuntimeDbWeight) -&gt; Weight {
 		<span class="kw">let </span><span class="kw-2">mut </span>weight = Weight::zero();
@@ -1398,7 +1400,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Migrate from the `PalletVersion` struct to the new [`StorageVersion`] struct.
 ///
-/// This will remove all `PalletVersion&#39;s` from the state and insert the in-code storage version.
+/// This will remove all `PalletVersion's` from the state and insert the in-code storage version.
 </span><span class="kw">pub fn </span>migrate_from_pallet_version_to_storage_version&lt;
 	Pallets: PalletVersionToStorageVersionHelper,
 &gt;(
@@ -1411,7 +1413,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// pallet.
 ///
 /// This struct is generic over two parameters:
-/// - `P` is a type that implements the `Get` trait for a static string, representing the pallet&#39;s
+/// - `P` is a type that implements the `Get` trait for a static string, representing the pallet's
 ///   name.
 /// - `DbWeight` is a type that implements the `Get` trait for `RuntimeDbWeight`, providing the
 ///   weight for database operations.
@@ -1436,8 +1438,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// };
 ///
 /// parameter_types! {
-/// 		pub const SomePalletToRemoveStr: &amp;&#39;static str = &quot;SomePalletToRemove&quot;;
-/// 		pub const AnotherPalletToRemoveStr: &amp;&#39;static str = &quot;AnotherPalletToRemove&quot;;
+/// 		pub const SomePalletToRemoveStr: &amp;'static str = "SomePalletToRemove";
+/// 		pub const AnotherPalletToRemoveStr: &amp;'static str = "AnotherPalletToRemove";
 /// }
 ///
 /// pub type Migrations = (
@@ -1462,10 +1464,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// a multi-block scheduler currently under development which will allow for removal of storage
 /// items (and performing other heavy migrations) over multiple blocks
 /// (see &lt;https://github.com/paritytech/substrate/issues/13690&gt;).
-</span><span class="kw">pub struct </span>RemovePallet&lt;P: Get&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt;, DbWeight: Get&lt;RuntimeDbWeight&gt;&gt;(
+</span><span class="kw">pub struct </span>RemovePallet&lt;P: Get&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt;, DbWeight: Get&lt;RuntimeDbWeight&gt;&gt;(
 	PhantomData&lt;(P, DbWeight)&gt;,
 );
-<span class="kw">impl</span>&lt;P: Get&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt;, DbWeight: Get&lt;RuntimeDbWeight&gt;&gt; frame_support::traits::OnRuntimeUpgrade
+<span class="kw">impl</span>&lt;P: Get&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt;, DbWeight: Get&lt;RuntimeDbWeight&gt;&gt; frame_support::traits::OnRuntimeUpgrade
 	<span class="kw">for </span>RemovePallet&lt;P, DbWeight&gt;
 {
 	<span class="kw">fn </span>on_runtime_upgrade() -&gt; frame_support::weights::Weight {
@@ -1474,44 +1476,44 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			KillStorageResult::AllRemoved(value) =&gt; value,
 			KillStorageResult::SomeRemaining(value) =&gt; {
 				<span class="macro">log::error!</span>(
-					<span class="string">&quot;`clear_prefix` failed to remove all keys for {}. THIS SHOULD NEVER HAPPEN! 🚨&quot;</span>,
+					<span class="string">"`clear_prefix` failed to remove all keys for {}. THIS SHOULD NEVER HAPPEN! 🚨"</span>,
 					P::get()
 				);
 				value
 			},
 		} <span class="kw">as </span>u64;
 
-		<span class="macro">log::info!</span>(<span class="string">&quot;Removed {} {} keys 🧹&quot;</span>, keys_removed, P::get());
+		<span class="macro">log::info!</span>(<span class="string">"Removed {} {} keys 🧹"</span>, keys_removed, P::get());
 
 		DbWeight::get().reads_writes(keys_removed + <span class="number">1</span>, keys_removed)
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 	</span><span class="kw">fn </span>pre_upgrade() -&gt; <span class="prelude-ty">Result</span>&lt;sp_std::vec::Vec&lt;u8&gt;, sp_runtime::TryRuntimeError&gt; {
 		<span class="kw">use </span><span class="kw">crate</span>::storage::unhashed::contains_prefixed_key;
 
 		<span class="kw">let </span>hashed_prefix = twox_128(P::get().as_bytes());
 		<span class="kw">match </span>contains_prefixed_key(<span class="kw-2">&amp;</span>hashed_prefix) {
-			<span class="bool-val">true </span>=&gt; <span class="macro">log::info!</span>(<span class="string">&quot;Found {} keys pre-removal 👀&quot;</span>, P::get()),
+			<span class="bool-val">true </span>=&gt; <span class="macro">log::info!</span>(<span class="string">"Found {} keys pre-removal 👀"</span>, P::get()),
 			<span class="bool-val">false </span>=&gt; <span class="macro">log::warn!</span>(
-				<span class="string">&quot;Migration RemovePallet&lt;{}&gt; can be removed (no keys found pre-removal).&quot;</span>,
+				<span class="string">"Migration RemovePallet&lt;{}&gt; can be removed (no keys found pre-removal)."</span>,
 				P::get()
 			),
 		};
 		<span class="prelude-val">Ok</span>(sp_std::vec::Vec::new())
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 	</span><span class="kw">fn </span>post_upgrade(_state: sp_std::vec::Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), sp_runtime::TryRuntimeError&gt; {
 		<span class="kw">use </span><span class="kw">crate</span>::storage::unhashed::contains_prefixed_key;
 
 		<span class="kw">let </span>hashed_prefix = twox_128(P::get().as_bytes());
 		<span class="kw">match </span>contains_prefixed_key(<span class="kw-2">&amp;</span>hashed_prefix) {
 			<span class="bool-val">true </span>=&gt; {
-				<span class="macro">log::error!</span>(<span class="string">&quot;{} has keys remaining post-removal ❗&quot;</span>, P::get());
-				<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;Keys remaining post-removal, this should never happen 🚨&quot;</span>.into())
+				<span class="macro">log::error!</span>(<span class="string">"{} has keys remaining post-removal ❗"</span>, P::get());
+				<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Keys remaining post-removal, this should never happen 🚨"</span>.into())
 			},
-			<span class="bool-val">false </span>=&gt; <span class="macro">log::info!</span>(<span class="string">&quot;No {} keys found post-removal 🎉&quot;</span>, P::get()),
+			<span class="bool-val">false </span>=&gt; <span class="macro">log::info!</span>(<span class="string">"No {} keys found post-removal 🎉"</span>, P::get()),
 		};
 		<span class="prelude-val">Ok</span>(())
 	}
@@ -1582,7 +1584,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="doccomment">/// The migration cannot decode its cursor and therefore not proceed.
 	///
 	/// This should not happen unless (1) the migration itself returned an invalid cursor in a
-	/// previous iteration, (2) the storage got corrupted or (3) there is a bug in the caller&#39;s
+	/// previous iteration, (2) the storage got corrupted or (3) there is a bug in the caller's
 	/// code.
 	</span>InvalidCursor,
 	<span class="doccomment">/// The migration encountered a permanent error and cannot continue.
@@ -1673,7 +1675,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>ForceUnstuck,
 	<span class="doccomment">/// Set the cursor to `Stuck` and keep blocking extrinsics.
 	</span>KeepStuck,
-	<span class="doccomment">/// Don&#39;t do anything with the cursor and let the handler decide.
+	<span class="doccomment">/// Don't do anything with the cursor and let the handler decide.
 	///
 	/// This can be useful in cases where the other two options would overwrite any changes that
 	/// were done by the handler to the cursor.
@@ -1744,23 +1746,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// Should be executed as part of a test prior to runtime usage. May or may not need
 	/// externalities.
-	</span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
-	</span><span class="kw">fn </span>integrity_test() -&gt; <span class="prelude-ty">Result</span>&lt;(), <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; {
+	</span><span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
+	</span><span class="kw">fn </span>integrity_test() -&gt; <span class="prelude-ty">Result</span>&lt;(), <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
 		<span class="kw">use </span><span class="kw">crate</span>::ensure;
 		<span class="kw">let </span>l = <span class="self">Self</span>::len();
 
 		<span class="kw">for </span>n <span class="kw">in </span><span class="number">0</span>..l {
-			<span class="macro">ensure!</span>(<span class="self">Self</span>::nth_id(n).is_some(), <span class="string">&quot;id is None&quot;</span>);
-			<span class="macro">ensure!</span>(<span class="self">Self</span>::nth_max_steps(n).is_some(), <span class="string">&quot;steps is None&quot;</span>);
+			<span class="macro">ensure!</span>(<span class="self">Self</span>::nth_id(n).is_some(), <span class="string">"id is None"</span>);
+			<span class="macro">ensure!</span>(<span class="self">Self</span>::nth_max_steps(n).is_some(), <span class="string">"steps is None"</span>);
 
 			<span class="comment">// The cursor that we use does not matter. Hence use empty.
 			</span><span class="macro">ensure!</span>(
 				<span class="self">Self</span>::nth_step(n, <span class="prelude-val">Some</span>(<span class="macro">vec!</span>[]), <span class="kw-2">&amp;mut </span>WeightMeter::new()).is_some(),
-				<span class="string">&quot;steps is None&quot;
+				<span class="string">"steps is None"
 			</span>);
 			<span class="macro">ensure!</span>(
 				<span class="self">Self</span>::nth_transactional_step(n, <span class="prelude-val">Some</span>(<span class="macro">vec!</span>[]), <span class="kw-2">&amp;mut </span>WeightMeter::new()).is_some(),
-				<span class="string">&quot;steps is None&quot;
+				<span class="string">"steps is None"
 			</span>);
 		}
 
@@ -1820,7 +1822,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// It should be generally fine to call with n&gt;0, but the code should not attempt to.
 		</span>n.is_zero()
 			.then_some(T::max_steps())
-			.defensive_proof(<span class="string">&quot;nth_max_steps should only be called with n==0&quot;</span>)
+			.defensive_proof(<span class="string">"nth_max_steps should only be called with n==0"</span>)
 	}
 
 	<span class="kw">fn </span>nth_step(
@@ -1829,7 +1831,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		meter: <span class="kw-2">&amp;mut </span>WeightMeter,
 	) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt;, SteppedMigrationError&gt;&gt; {
 		<span class="kw">if </span>!_n.is_zero() {
-			<span class="macro">defensive!</span>(<span class="string">&quot;nth_step should only be called with n==0&quot;</span>);
+			<span class="macro">defensive!</span>(<span class="string">"nth_step should only be called with n==0"</span>);
 			<span class="kw">return </span><span class="prelude-val">None
 		</span>}
 
@@ -1850,7 +1852,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		meter: <span class="kw-2">&amp;mut </span>WeightMeter,
 	) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt;, SteppedMigrationError&gt;&gt; {
 		<span class="kw">if </span>n != <span class="number">0 </span>{
-			<span class="macro">defensive!</span>(<span class="string">&quot;nth_transactional_step should only be called with n==0&quot;</span>);
+			<span class="macro">defensive!</span>(<span class="string">"nth_transactional_step should only be called with n==0"</span>);
 			<span class="kw">return </span><span class="prelude-val">None
 		</span>}
 
@@ -1991,7 +1993,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			_cursor: <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::Cursor&gt;,
 			_meter: <span class="kw-2">&amp;mut </span>WeightMeter,
 		) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::Cursor&gt;, SteppedMigrationError&gt; {
-			<span class="macro">log::info!</span>(<span class="string">&quot;M0&quot;</span>);
+			<span class="macro">log::info!</span>(<span class="string">"M0"</span>);
 			unhashed::put(<span class="kw-2">&amp;</span>[<span class="number">0</span>], <span class="kw-2">&amp;</span>());
 			<span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
 		}
@@ -2010,7 +2012,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			_cursor: <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::Cursor&gt;,
 			_meter: <span class="kw-2">&amp;mut </span>WeightMeter,
 		) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::Cursor&gt;, SteppedMigrationError&gt; {
-			<span class="macro">log::info!</span>(<span class="string">&quot;M1&quot;</span>);
+			<span class="macro">log::info!</span>(<span class="string">"M1"</span>);
 			unhashed::put(<span class="kw-2">&amp;</span>[<span class="number">1</span>], <span class="kw-2">&amp;</span>());
 			<span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
 		}
@@ -2033,7 +2035,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			_cursor: <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::Cursor&gt;,
 			_meter: <span class="kw-2">&amp;mut </span>WeightMeter,
 		) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::Cursor&gt;, SteppedMigrationError&gt; {
-			<span class="macro">log::info!</span>(<span class="string">&quot;M2&quot;</span>);
+			<span class="macro">log::info!</span>(<span class="string">"M2"</span>);
 			unhashed::put(<span class="kw-2">&amp;</span>[<span class="number">2</span>], <span class="kw-2">&amp;</span>());
 			<span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
 		}
@@ -2056,7 +2058,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			_cursor: <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::Cursor&gt;,
 			_meter: <span class="kw-2">&amp;mut </span>WeightMeter,
 		) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::Cursor&gt;, SteppedMigrationError&gt; {
-			<span class="macro">log::info!</span>(<span class="string">&quot;F0&quot;</span>);
+			<span class="macro">log::info!</span>(<span class="string">"F0"</span>);
 			unhashed::put(<span class="kw-2">&amp;</span>[<span class="number">3</span>], <span class="kw-2">&amp;</span>());
 			<span class="prelude-val">Err</span>(SteppedMigrationError::Failed)
 		}

@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/xcm/src/v3/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/xcm/src/v3/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="staging_xcm" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="staging_xcm" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../staging_xcm/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1932,18 +1934,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="comment">// These parts of XCM v2 are unchanged in XCM v3, and are re-imported here.
 </span><span class="kw">pub use </span><span class="kw">super</span>::v2::{GetWeight, OriginKind};
 
-<span class="doccomment">/// This module&#39;s XCM version.
+<span class="doccomment">/// This module's XCM version.
 </span><span class="kw">pub const </span>VERSION: <span class="kw">super</span>::Version = <span class="number">3</span>;
 
 <span class="doccomment">/// An identifier for a query.
 </span><span class="kw">pub type </span>QueryId = u64;
 
 <span class="attr">#[derive(Derivative, Default, Encode, TypeInfo)]
-#[derivative(Clone(bound = <span class="string">&quot;&quot;</span>), Eq(bound = <span class="string">&quot;&quot;</span>), PartialEq(bound = <span class="string">&quot;&quot;</span>), Debug(bound = <span class="string">&quot;&quot;</span>))]
+#[derivative(Clone(bound = <span class="string">""</span>), Eq(bound = <span class="string">""</span>), PartialEq(bound = <span class="string">""</span>), Debug(bound = <span class="string">""</span>))]
 #[codec(encode_bound())]
 #[scale_info(bounds(), skip_type_params(Call))]
-#[scale_info(replace_segment(<span class="string">&quot;staging_xcm&quot;</span>, <span class="string">&quot;xcm&quot;</span>))]
-#[cfg_attr(feature = <span class="string">&quot;json-schema&quot;</span>, derive(schemars::JsonSchema))]
+#[scale_info(replace_segment(<span class="string">"staging_xcm"</span>, <span class="string">"xcm"</span>))]
+#[cfg_attr(feature = <span class="string">"json-schema"</span>, derive(schemars::JsonSchema))]
 </span><span class="kw">pub struct </span>Xcm&lt;Call&gt;(<span class="kw">pub </span>Vec&lt;Instruction&lt;Call&gt;&gt;);
 
 <span class="doccomment">/// The maximal number of instructions in an XCM before decoding fails.
@@ -1960,7 +1962,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			instructions_count::with(|count| {
 				<span class="kw-2">*</span>count = count.saturating_add(number_of_instructions <span class="kw">as </span>u8);
 				<span class="kw">if </span><span class="kw-2">*</span>count &gt; MAX_INSTRUCTIONS_TO_DECODE {
-					<span class="kw">return </span><span class="prelude-val">Err</span>(CodecError::from(<span class="string">&quot;Max instructions exceeded&quot;</span>))
+					<span class="kw">return </span><span class="prelude-val">Err</span>(CodecError::from(<span class="string">"Max instructions exceeded"</span>))
 				}
 				<span class="prelude-val">Ok</span>(())
 			})
@@ -2017,7 +2019,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">self</span>.<span class="number">0</span>.into_iter()
 	}
 
-	<span class="doccomment">/// Consume and either return `self` if it contains some instructions, or if it&#39;s empty, then
+	<span class="doccomment">/// Consume and either return `self` if it contains some instructions, or if it's empty, then
 	/// instead return the result of `f`.
 	</span><span class="kw">pub fn </span>or_else(<span class="self">self</span>, f: <span class="kw">impl </span>FnOnce() -&gt; <span class="self">Self</span>) -&gt; <span class="self">Self </span>{
 		<span class="kw">if </span><span class="self">self</span>.<span class="number">0</span>.is_empty() {
@@ -2107,19 +2109,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="macro">parameter_types! </span>{
-	<span class="attr">#[cfg_attr(feature = <span class="string">&quot;json-schema&quot;</span>, derive(schemars::JsonSchema))]
+	<span class="attr">#[cfg_attr(feature = <span class="string">"json-schema"</span>, derive(schemars::JsonSchema))]
 	</span><span class="kw">pub </span>MaxPalletNameLen: u32 = <span class="number">48</span>;
 	<span class="doccomment">/// Maximum size of the encoded error code coming from a `Dispatch` result, used for
-	/// `MaybeErrorCode`. This is not (yet) enforced, so it&#39;s just an indication of expectation.
-	</span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;json-schema&quot;</span>, derive(schemars::JsonSchema))]
+	/// `MaybeErrorCode`. This is not (yet) enforced, so it's just an indication of expectation.
+	</span><span class="attr">#[cfg_attr(feature = <span class="string">"json-schema"</span>, derive(schemars::JsonSchema))]
 	</span><span class="kw">pub </span>MaxDispatchErrorLen: u32 = <span class="number">128</span>;
-	<span class="attr">#[cfg_attr(feature = <span class="string">&quot;json-schema&quot;</span>, derive(schemars::JsonSchema))]
+	<span class="attr">#[cfg_attr(feature = <span class="string">"json-schema"</span>, derive(schemars::JsonSchema))]
 	</span><span class="kw">pub </span>MaxPalletsInfo: u32 = <span class="number">64</span>;
 }
 
 <span class="attr">#[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
-#[scale_info(replace_segment(<span class="string">&quot;staging_xcm&quot;</span>, <span class="string">&quot;xcm&quot;</span>))]
-#[cfg_attr(feature = <span class="string">&quot;json-schema&quot;</span>, derive(schemars::JsonSchema))]
+#[scale_info(replace_segment(<span class="string">"staging_xcm"</span>, <span class="string">"xcm"</span>))]
+#[cfg_attr(feature = <span class="string">"json-schema"</span>, derive(schemars::JsonSchema))]
 </span><span class="kw">pub struct </span>PalletInfo {
 	<span class="attr">#[codec(compact)]
 	</span><span class="kw">pub </span>index: u32,
@@ -2166,8 +2168,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="attr">#[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
-#[scale_info(replace_segment(<span class="string">&quot;staging_xcm&quot;</span>, <span class="string">&quot;xcm&quot;</span>))]
-#[cfg_attr(feature = <span class="string">&quot;json-schema&quot;</span>, derive(schemars::JsonSchema))]
+#[scale_info(replace_segment(<span class="string">"staging_xcm"</span>, <span class="string">"xcm"</span>))]
+#[cfg_attr(feature = <span class="string">"json-schema"</span>, derive(schemars::JsonSchema))]
 </span><span class="kw">pub enum </span>MaybeErrorCode {
 	Success,
 	Error(BoundedVec&lt;u8, MaxDispatchErrorLen&gt;),
@@ -2191,8 +2193,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Response data to a query.
 </span><span class="attr">#[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
-#[scale_info(replace_segment(<span class="string">&quot;staging_xcm&quot;</span>, <span class="string">&quot;xcm&quot;</span>))]
-#[cfg_attr(feature = <span class="string">&quot;json-schema&quot;</span>, derive(schemars::JsonSchema))]
+#[scale_info(replace_segment(<span class="string">"staging_xcm"</span>, <span class="string">"xcm"</span>))]
+#[cfg_attr(feature = <span class="string">"json-schema"</span>, derive(schemars::JsonSchema))]
 </span><span class="kw">pub enum </span>Response {
 	<span class="doccomment">/// No response. Serves as a neutral default.
 	</span>Null,
@@ -2242,8 +2244,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Information regarding the composition of a query response.
 </span><span class="attr">#[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo)]
-#[scale_info(replace_segment(<span class="string">&quot;staging_xcm&quot;</span>, <span class="string">&quot;xcm&quot;</span>))]
-#[cfg_attr(feature = <span class="string">&quot;json-schema&quot;</span>, derive(schemars::JsonSchema))]
+#[scale_info(replace_segment(<span class="string">"staging_xcm"</span>, <span class="string">"xcm"</span>))]
+#[cfg_attr(feature = <span class="string">"json-schema"</span>, derive(schemars::JsonSchema))]
 </span><span class="kw">pub struct </span>QueryResponseInfo {
 	<span class="doccomment">/// The destination to which the query response message should be send.
 	</span><span class="kw">pub </span>destination: MultiLocation,
@@ -2268,8 +2270,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// An optional weight limit.
 </span><span class="attr">#[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo)]
-#[scale_info(replace_segment(<span class="string">&quot;staging_xcm&quot;</span>, <span class="string">&quot;xcm&quot;</span>))]
-#[cfg_attr(feature = <span class="string">&quot;json-schema&quot;</span>, derive(schemars::JsonSchema))]
+#[scale_info(replace_segment(<span class="string">"staging_xcm"</span>, <span class="string">"xcm"</span>))]
+#[cfg_attr(feature = <span class="string">"json-schema"</span>, derive(schemars::JsonSchema))]
 </span><span class="kw">pub enum </span>WeightLimit {
 	<span class="doccomment">/// No weight limit imposed.
 	</span>Unlimited,
@@ -2320,7 +2322,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl </span>XcmContext {
 	<span class="doccomment">/// Constructor which sets the message ID to the supplied parameter and leaves the origin and
 	/// topic unset.
-	</span><span class="attr">#[deprecated = <span class="string">&quot;Use `with_message_id` instead.&quot;</span>]
+	</span><span class="attr">#[deprecated = <span class="string">"Use `with_message_id` instead."</span>]
 	</span><span class="kw">pub fn </span>with_message_hash(message_id: XcmHash) -&gt; XcmContext {
 		XcmContext { origin: <span class="prelude-val">None</span>, message_id, topic: <span class="prelude-val">None </span>}
 	}
@@ -2348,12 +2350,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	xcm_procedural::XcmWeightInfoTrait,
 	xcm_procedural::Builder,
 )]
-#[derivative(Clone(bound = <span class="string">&quot;&quot;</span>), Eq(bound = <span class="string">&quot;&quot;</span>), PartialEq(bound = <span class="string">&quot;&quot;</span>), Debug(bound = <span class="string">&quot;&quot;</span>))]
+#[derivative(Clone(bound = <span class="string">""</span>), Eq(bound = <span class="string">""</span>), PartialEq(bound = <span class="string">""</span>), Debug(bound = <span class="string">""</span>))]
 #[codec(encode_bound())]
 #[codec(decode_bound())]
 #[scale_info(bounds(), skip_type_params(Call))]
-#[scale_info(replace_segment(<span class="string">&quot;staging_xcm&quot;</span>, <span class="string">&quot;xcm&quot;</span>))]
-#[cfg_attr(feature = <span class="string">&quot;json-schema&quot;</span>, derive(schemars::JsonSchema))]
+#[scale_info(replace_segment(<span class="string">"staging_xcm"</span>, <span class="string">"xcm"</span>))]
+#[cfg_attr(feature = <span class="string">"json-schema"</span>, derive(schemars::JsonSchema))]
 </span><span class="kw">pub enum </span>Instruction&lt;Call&gt; {
 	<span class="doccomment">/// Withdraw asset(s) (`assets`) from the ownership of `origin` and place them into the Holding
 	/// Register.
@@ -2458,7 +2460,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// The Transact Status Register is set according to the result of dispatching the call.
 	///
 	/// - `origin_kind`: The means of expressing the message origin as a dispatch origin.
-	/// - `require_weight_at_most`: The weight of `call`; this should be at least the chain&#39;s
+	/// - `require_weight_at_most`: The weight of `call`; this should be at least the chain's
 	///   calculated weight and will be used in the weight determination arithmetic.
 	/// - `call`: The encoded transaction to be applied.
 	///
@@ -2500,7 +2502,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// Errors:
 	</span>HrmpChannelAccepted {
 		<span class="comment">// NOTE: We keep this as a structured item to a) keep it consistent with the other Hrmp
-		// items; and b) because the field&#39;s meaning is not obvious/mentioned from the item name.
+		// items; and b) because the field's meaning is not obvious/mentioned from the item name.
 		</span><span class="attr">#[codec(compact)]
 		</span>recipient: u32,
 	},
@@ -2724,7 +2726,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// Kind: *Command*
 	///
 	/// Errors:
-	/// - `Trap`: All circumstances, whose inner value is the same as this item&#39;s inner value.
+	/// - `Trap`: All circumstances, whose inner value is the same as this item's inner value.
 	</span>Trap(<span class="attr">#[codec(compact)] </span>u64),
 
 	<span class="doccomment">/// Ask the destination system to respond with the most recent version of XCM that they
@@ -3157,11 +3159,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">pub mod </span>opaque {
-	<span class="doccomment">/// The basic concrete type of `Xcm`, which doesn&#39;t make any assumptions about the
+	<span class="doccomment">/// The basic concrete type of `Xcm`, which doesn't make any assumptions about the
 	/// format of a call other than it is pre-encoded.
 	</span><span class="kw">pub type </span>Xcm = <span class="kw">super</span>::Xcm&lt;()&gt;;
 
-	<span class="doccomment">/// The basic concrete type of `Instruction`, which doesn&#39;t make any assumptions about the
+	<span class="doccomment">/// The basic concrete type of `Instruction`, which doesn't make any assumptions about the
 	/// format of a call other than it is pre-encoded.
 	</span><span class="kw">pub type </span>Instruction = <span class="kw">super</span>::Instruction&lt;()&gt;;
 }
@@ -3259,14 +3261,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="self">Self</span>::ExchangeAsset { give, want, maximal }
 			},
 			InitiateReserveWithdraw { assets, reserve, xcm } =&gt; {
-				<span class="comment">// No `max_assets` here, so if there&#39;s a connt, then we cannot translate.
+				<span class="comment">// No `max_assets` here, so if there's a connt, then we cannot translate.
 				</span><span class="kw">let </span>assets = assets.try_into()<span class="question-mark">?</span>;
 				<span class="kw">let </span>reserve = reserve.try_into()<span class="question-mark">?</span>;
 				<span class="kw">let </span>xcm = xcm.try_into()<span class="question-mark">?</span>;
 				<span class="self">Self</span>::InitiateReserveWithdraw { assets, reserve, xcm }
 			},
 			InitiateTeleport { assets, dest, xcm } =&gt; {
-				<span class="comment">// No `max_assets` here, so if there&#39;s a connt, then we cannot translate.
+				<span class="comment">// No `max_assets` here, so if there's a connt, then we cannot translate.
 				</span><span class="kw">let </span>assets = assets.try_into()<span class="question-mark">?</span>;
 				<span class="kw">let </span>dest = dest.try_into()<span class="question-mark">?</span>;
 				<span class="kw">let </span>xcm = xcm.try_into()<span class="question-mark">?</span>;
@@ -3583,7 +3585,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>encoded = even_more_nested_xcm.encode();
 		<span class="macro">assert_eq!</span>(encoded.len(), <span class="number">342530</span>);
 		<span class="comment">// This should not decode since the limit is 100
-		</span><span class="macro">assert_eq!</span>(MAX_INSTRUCTIONS_TO_DECODE, <span class="number">100</span>, <span class="string">&quot;precondition&quot;</span>);
+		</span><span class="macro">assert_eq!</span>(MAX_INSTRUCTIONS_TO_DECODE, <span class="number">100</span>, <span class="string">"precondition"</span>);
 		<span class="macro">assert!</span>(Xcm::&lt;()&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>encoded[..]).is_err());
 	}
 }

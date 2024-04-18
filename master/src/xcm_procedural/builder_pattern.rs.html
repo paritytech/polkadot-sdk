@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/xcm/procedural/src/builder_pattern.rs`."><title>builder_pattern.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/xcm/procedural/src/builder_pattern.rs`."><title>builder_pattern.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="xcm_procedural" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="xcm_procedural" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../xcm_procedural/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -518,7 +520,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">pub fn </span>derive(input: DeriveInput) -&gt; <span class="prelude-ty">Result</span>&lt;TokenStream2&gt; {
 	<span class="kw">let </span>data_enum = <span class="kw">match </span><span class="kw-2">&amp;</span>input.data {
 		Data::Enum(data_enum) =&gt; data_enum,
-		<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Error::new_spanned(<span class="kw-2">&amp;</span>input, <span class="string">&quot;Expected the `Instruction` enum&quot;</span>)),
+		<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Error::new_spanned(<span class="kw-2">&amp;</span>input, <span class="string">"Expected the `Instruction` enum"</span>)),
 	};
 	<span class="kw">let </span>builder_raw_impl = generate_builder_raw_impl(<span class="kw-2">&amp;</span>input.ident, data_enum);
 	<span class="kw">let </span>builder_impl = generate_builder_impl(<span class="kw-2">&amp;</span>input.ident, data_enum)<span class="question-mark">?</span>;
@@ -533,7 +535,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">pub enum </span>PaymentRequired {}
 		<span class="doccomment">/// The holding register was loaded, now to buy execution
 		</span><span class="kw">pub enum </span>LoadedHolding {}
-		<span class="doccomment">/// Need to explicitly state it won&#39;t pay for fees
+		<span class="doccomment">/// Need to explicitly state it won't pay for fees
 		</span><span class="kw">pub enum </span>ExplicitUnpaidRequired {}
 
 		<span class="kw">impl </span>XcmBuilderState <span class="kw">for </span>AnythingGoes {}
@@ -594,7 +596,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					.unnamed
 					.iter()
 					.enumerate()
-					.map(|(index, <span class="kw">_</span>)| <span class="macro">format_ident!</span>(<span class="string">&quot;arg{}&quot;</span>, index))
+					.map(|(index, <span class="kw">_</span>)| <span class="macro">format_ident!</span>(<span class="string">"arg{}"</span>, index))
 					.collect();
 				<span class="kw">let </span>arg_types: Vec&lt;<span class="kw">_</span>&gt; = fields.unnamed.iter().map(|field| <span class="kw-2">&amp;</span>field.ty).collect();
 				<span class="macro">quote! </span>{
@@ -641,23 +643,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		.iter()
 		.map(|variant| {
 			<span class="kw">let </span>maybe_builder_attr = variant.attrs.iter().find(|attr| <span class="kw">match </span>attr.meta {
-				Meta::List(<span class="kw-2">ref </span>list) =&gt; list.path.is_ident(<span class="string">&quot;builder&quot;</span>),
+				Meta::List(<span class="kw-2">ref </span>list) =&gt; list.path.is_ident(<span class="string">"builder"</span>),
 				<span class="kw">_ </span>=&gt; <span class="bool-val">false</span>,
 			});
 			<span class="kw">let </span>builder_attr = <span class="kw">match </span>maybe_builder_attr {
 				<span class="prelude-val">Some</span>(builder) =&gt; builder.clone(),
-				<span class="prelude-val">None </span>=&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>), <span class="comment">/* It&#39;s not going to be an instruction that loads the
+				<span class="prelude-val">None </span>=&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>), <span class="comment">/* It's not going to be an instruction that loads the
 				                          * holding register */
 			</span>};
-			<span class="kw">let </span>Meta::List(<span class="kw-2">ref </span>list) = builder_attr.meta <span class="kw">else </span>{ <span class="macro">unreachable!</span>(<span class="string">&quot;We checked before&quot;</span>) };
+			<span class="kw">let </span>Meta::List(<span class="kw-2">ref </span>list) = builder_attr.meta <span class="kw">else </span>{ <span class="macro">unreachable!</span>(<span class="string">"We checked before"</span>) };
 			<span class="kw">let </span>inner_ident: Ident = syn::parse2(list.tokens.clone()).map_err(|<span class="kw">_</span>| {
-				Error::new_spanned(<span class="kw-2">&amp;</span>builder_attr, <span class="string">&quot;Expected `builder(loads_holding)`&quot;</span>)
+				Error::new_spanned(<span class="kw-2">&amp;</span>builder_attr, <span class="string">"Expected `builder(loads_holding)`"</span>)
 			})<span class="question-mark">?</span>;
 			<span class="kw">let </span>ident_to_match: Ident = <span class="macro">syn::parse_quote!</span>(loads_holding);
 			<span class="kw">if </span>inner_ident == ident_to_match {
 				<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(variant))
 			} <span class="kw">else </span>{
-				<span class="prelude-val">Err</span>(Error::new_spanned(<span class="kw-2">&amp;</span>builder_attr, <span class="string">&quot;Expected `builder(loads_holding)`&quot;</span>))
+				<span class="prelude-val">Err</span>(Error::new_spanned(<span class="kw-2">&amp;</span>builder_attr, <span class="string">"Expected `builder(loads_holding)`"</span>))
 			}
 		})
 		.collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;&gt;()<span class="question-mark">?</span>;
@@ -676,7 +678,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						.unnamed
 						.iter()
 						.enumerate()
-						.map(|(index, <span class="kw">_</span>)| <span class="macro">format_ident!</span>(<span class="string">&quot;arg{}&quot;</span>, index))
+						.map(|(index, <span class="kw">_</span>)| <span class="macro">format_ident!</span>(<span class="string">"arg{}"</span>, index))
 						.collect();
 					<span class="kw">let </span>arg_types: Vec&lt;<span class="kw">_</span>&gt; = fields.unnamed.iter().map(|field| <span class="kw-2">&amp;</span>field.ty).collect();
 					<span class="macro">quote! </span>{
@@ -711,7 +713,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">_ </span>=&gt;
 					<span class="kw">return </span><span class="prelude-val">Err</span>(Error::new_spanned(
 						variant,
-						<span class="string">&quot;Instructions that load the holding register should take operands&quot;</span>,
+						<span class="string">"Instructions that load the holding register should take operands"</span>,
 					)),
 			};
 			<span class="prelude-val">Ok</span>(method)
@@ -728,9 +730,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">let </span>buy_execution_method = data_enum
 		.variants
 		.iter()
-		.find(|variant| variant.ident == <span class="string">&quot;BuyExecution&quot;</span>)
+		.find(|variant| variant.ident == <span class="string">"BuyExecution"</span>)
 		.map_or(
-			<span class="prelude-val">Err</span>(Error::new_spanned(<span class="kw-2">&amp;</span>data_enum.variants, <span class="string">&quot;No BuyExecution instruction&quot;</span>)),
+			<span class="prelude-val">Err</span>(Error::new_spanned(<span class="kw-2">&amp;</span>data_enum.variants, <span class="string">"No BuyExecution instruction"</span>)),
 			|variant| {
 				<span class="kw">let </span>variant_name = <span class="kw-2">&amp;</span>variant.ident;
 				<span class="kw">let </span>method_name_string = <span class="kw-2">&amp;</span>variant_name.to_string().to_snake_case();
@@ -758,7 +760,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw">_ </span>=&gt;
 						<span class="kw">return </span><span class="prelude-val">Err</span>(Error::new_spanned(
 							variant,
-							<span class="string">&quot;BuyExecution should have named fields&quot;</span>,
+							<span class="string">"BuyExecution should have named fields"</span>,
 						)),
 				};
 				<span class="prelude-val">Ok</span>(fields)
@@ -783,8 +785,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>unpaid_execution_variant = data_enum
 		.variants
 		.iter()
-		.find(|variant| variant.ident == <span class="string">&quot;UnpaidExecution&quot;</span>)
-		.ok_or(Error::new_spanned(<span class="kw-2">&amp;</span>data_enum.variants, <span class="string">&quot;No UnpaidExecution instruction&quot;</span>))<span class="question-mark">?</span>;
+		.find(|variant| variant.ident == <span class="string">"UnpaidExecution"</span>)
+		.ok_or(Error::new_spanned(<span class="kw-2">&amp;</span>data_enum.variants, <span class="string">"No UnpaidExecution instruction"</span>))<span class="question-mark">?</span>;
 	<span class="kw">let </span>unpaid_execution_ident = <span class="kw-2">&amp;</span>unpaid_execution_variant.ident;
 	<span class="kw">let </span>unpaid_execution_method_name = Ident::new(
 		<span class="kw-2">&amp;</span>unpaid_execution_ident.to_string().to_snake_case(),
@@ -796,7 +798,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">_ </span>=&gt;
 			<span class="kw">return </span><span class="prelude-val">Err</span>(Error::new_spanned(
 				unpaid_execution_variant,
-				<span class="string">&quot;UnpaidExecution should have named fields&quot;</span>,
+				<span class="string">"UnpaidExecution should have named fields"</span>,
 			)),
 	};
 	<span class="kw">let </span>arg_names: Vec&lt;<span class="kw">_</span>&gt; = fields.named.iter().map(|field| <span class="kw-2">&amp;</span>field.ident).collect();
@@ -825,10 +827,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			Meta::NameValue(MetaNameValue {
 				value: Expr::Lit(ExprLit { lit: Lit::Str(literal), .. }),
 				..
-			}) <span class="kw">if </span>attr.path().is_ident(<span class="string">&quot;doc&quot;</span>) =&gt; <span class="prelude-val">Some</span>(literal.value()),
+			}) <span class="kw">if </span>attr.path().is_ident(<span class="string">"doc"</span>) =&gt; <span class="prelude-val">Some</span>(literal.value()),
 			<span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
 		})
-		.map(|doc| syn::parse_str::&lt;TokenStream2&gt;(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;/// {}&quot;</span>, doc)).unwrap())
+		.map(|doc| syn::parse_str::&lt;TokenStream2&gt;(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"/// {}"</span>, doc)).unwrap())
 		.collect()
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

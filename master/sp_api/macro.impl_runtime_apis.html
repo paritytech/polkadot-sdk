@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Tags given trait implementations as runtime apis."><title>impl_runtime_apis in sp_api - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Tags given trait implementations as runtime apis."><title>impl_runtime_apis in sp_api - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="sp_api" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="sp_api" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-4c98445ec4002617.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../theme.css"><link rel="alternate icon" type="image/png" href="../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc macro"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../sp_api/index.html">sp_api</a><span class="version">26.0.0</span></h2></div><div class="sidebar-elems"></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Macro <a href="index.html">sp_api</a>::<wbr><a class="macro" href="#">impl_runtime_apis</a><button id="copy-path" title="Copy item path to clipboard"><img src="../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../src/sp_api_proc_macro/lib.rs.html#32">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>impl_runtime_apis!() { /* proc-macro */ }</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Tags given trait implementations as runtime apis.</p>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc macro"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../sp_api/index.html">sp_api</a><span class="version">26.0.0</span></h2></div><div class="sidebar-elems"></div></nav><div class="sidebar-resizer"></div>
+    <main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../sp_api/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Macro <a href="index.html">sp_api</a>::<wbr><a class="macro" href="#">impl_runtime_apis</a><button id="copy-path" title="Copy item path to clipboard"><img src="../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../src/sp_api_proc_macro/lib.rs.html#32">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>impl_runtime_apis!() { <span class="comment">/* proc-macro */</span> }</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Tags given trait implementations as runtime apis.</p>
 <p>All traits given to this macro, need to be declared with the
 <a href="macro.decl_runtime_apis.html"><code>decl_runtime_apis!</code></a> macro. The implementation of the trait
 should follow the declaration given to the
@@ -160,7 +161,7 @@ through the <code>RuntimeApi</code> type. The <code>RuntimeApi</code> is hidden 
 <p>To expose version information about all implemented api traits, the constant
 <code>RUNTIME_API_VERSIONS</code> is generated. This constant should be used to instantiate the <code>apis</code>
 field of <code>RuntimeVersion</code>.</p>
-<h2 id="example"><a href="#example">Example</a></h2>
+<h2 id="example"><a class="doc-anchor" href="#example">§</a>Example</h2>
 <div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>sp_version::create_runtime_str;
 
 <span class="doccomment">/// All runtime api implementations need to be done in one call of the macro!
@@ -177,15 +178,15 @@ field of <code>RuntimeVersion</code>.</p>
 
     <span class="kw">impl </span><span class="self">self</span>::BlockBuilder&lt;Block&gt; <span class="kw">for </span>Runtime {
         <span class="kw">fn </span>build_block() -&gt; Block {
-             <span class="macro">unimplemented!</span>(<span class="string">&quot;Please implement me!&quot;</span>)
+             <span class="macro">unimplemented!</span>(<span class="string">"Please implement me!"</span>)
         }
     }
 }
 
 <span class="doccomment">/// Runtime version. This needs to be declared for each runtime.
 </span><span class="kw">pub const </span>VERSION: sp_version::RuntimeVersion = sp_version::RuntimeVersion {
-    spec_name: <span class="macro">create_runtime_str!</span>(<span class="string">&quot;node&quot;</span>),
-    impl_name: <span class="macro">create_runtime_str!</span>(<span class="string">&quot;test-node&quot;</span>),
+    spec_name: <span class="macro">create_runtime_str!</span>(<span class="string">"node"</span>),
+    impl_name: <span class="macro">create_runtime_str!</span>(<span class="string">"test-node"</span>),
     authoring_version: <span class="number">1</span>,
     spec_version: <span class="number">1</span>,
     impl_version: <span class="number">0</span>,
@@ -195,7 +196,7 @@ field of <code>RuntimeVersion</code>.</p>
     state_version: <span class="number">1</span>,
 };
 </code></pre></div>
-<h2 id="implementing-specific-api-version"><a href="#implementing-specific-api-version">Implementing specific api version</a></h2>
+<h2 id="implementing-specific-api-version"><a class="doc-anchor" href="#implementing-specific-api-version">§</a>Implementing specific api version</h2>
 <p>If <code>decl_runtime_apis!</code> declares multiple versions for an api <code>impl_runtime_apis!</code>
 should specify which version it implements by adding <code>api_version</code> attribute to the
 <code>impl</code> block. If omitted - the base/default version is implemented. Here is an example:</p>
@@ -208,7 +209,7 @@ should specify which version it implements by adding <code>api_version</code> at
 }</code></pre></div>
 <p>In this case <code>Balance</code> api version 3 is being implemented for <code>Runtime</code>. The <code>impl</code> block
 must contain all methods declared in version 3 and below.</p>
-<h2 id="conditional-version-implementation"><a href="#conditional-version-implementation">Conditional version implementation</a></h2>
+<h2 id="conditional-version-implementation"><a class="doc-anchor" href="#conditional-version-implementation">§</a>Conditional version implementation</h2>
 <p><code>impl_runtime_apis!</code> supports <code>cfg_attr</code> attribute for conditional compilation. For example
 let’s say you want to implement a staging version of the runtime api and put it behind a
 feature flag. You can do it this way:</p>
@@ -224,11 +225,11 @@ feature flag. You can do it this way:</p>
 }
 
 <span class="macro">sp_api::impl_runtime_apis! </span>{
-    <span class="attr">#[cfg_attr(feature = <span class="string">&quot;enable-staging-api&quot;</span>, api_version(<span class="number">99</span>))]
+    <span class="attr">#[cfg_attr(feature = <span class="string">"enable-staging-api"</span>, api_version(<span class="number">99</span>))]
     </span><span class="kw">impl </span><span class="self">self</span>::ApiWithStagingMethod&lt;Block&gt; <span class="kw">for </span>Runtime {
         <span class="kw">fn </span>stable_one(<span class="kw">_</span>: u64) {}
 
-        <span class="attr">#[cfg(feature = <span class="string">&quot;enable-staging-api&quot;</span>)]
+        <span class="attr">#[cfg(feature = <span class="string">"enable-staging-api"</span>)]
         </span><span class="kw">fn </span>staging_one() {}
     }
 }</code></pre></div>
@@ -244,7 +245,7 @@ built which doesn’t include <code>staging_one</code>.</p>
 version 99 if <code>enable-staging-api</code> is enabled and version 2 otherwise because both
 <code>cfg_attr</code> and <code>api_version</code> are attached to the impl block:</p>
 
-<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[cfg_attr(feature = <span class="string">&quot;enable-staging-api&quot;</span>, api_version(<span class="number">99</span>))]
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#[cfg_attr(feature = <span class="string">"enable-staging-api"</span>, api_version(<span class="number">99</span>))]
 #[api_version(<span class="number">2</span>)]
 </span><span class="kw">impl </span><span class="self">self</span>::ApiWithStagingAndVersionedMethods&lt;Block&gt; <span class="kw">for </span>Runtime {
  <span class="comment">// impl skipped

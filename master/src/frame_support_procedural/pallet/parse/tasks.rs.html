@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/support/procedural/src/pallet/parse/tasks.rs`."><title>tasks.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/support/procedural/src/pallet/parse/tasks.rs`."><title>tasks.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="frame_support_procedural" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="frame_support_procedural" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../../frame_support_procedural/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1120,14 +1122,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -1191,7 +1193,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(extra_tasks_attr) = tasks_attrs.get(<span class="number">1</span>) {
 			<span class="kw">return </span><span class="prelude-val">Err</span>(Error::new(
 				extra_tasks_attr.span(),
-				<span class="string">&quot;unexpected extra `#[pallet::tasks_experimental]` attribute&quot;</span>,
+				<span class="string">"unexpected extra `#[pallet::tasks_experimental]` attribute"</span>,
 			))
 		}
 		<span class="kw">let </span>tasks: Vec&lt;TaskDef&gt; = <span class="kw">if </span>tasks_attr.is_some() {
@@ -1211,7 +1213,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">if </span>!task_indices.insert(task_index.clone()) {
 				<span class="kw">return </span><span class="prelude-val">Err</span>(Error::new(
 					task_index.span(),
-					<span class="macro">format!</span>(<span class="string">&quot;duplicate task index `{}`&quot;</span>, task_index),
+					<span class="macro">format!</span>(<span class="string">"duplicate task index `{}`"</span>, task_index),
 				))
 			}
 		}
@@ -1224,8 +1226,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>(<span class="prelude-val">Some</span>(last_seg), <span class="prelude-val">None</span>) = (segments.get(<span class="number">0</span>), segments.get(<span class="number">1</span>)) <span class="kw">else </span>{
 			<span class="kw">return </span><span class="prelude-val">Err</span>(Error::new(
 				enum_path.span(),
-				<span class="string">&quot;if specified manually, the task enum must be defined locally in this \
-				pallet and cannot be a re-export&quot;</span>,
+				<span class="string">"if specified manually, the task enum must be defined locally in this \
+				pallet and cannot be a re-export"</span>,
 			))
 		};
 		<span class="kw">let </span>enum_ident = last_seg.ident.clone();
@@ -1233,7 +1235,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// We do this here because it would be improper to do something fallible like this at
 		// the expansion phase. Fallible stuff should happen during parsing.
-		</span><span class="kw">let </span>scrate = generate_access_from_frame_or_crate(<span class="string">&quot;frame-support&quot;</span>)<span class="question-mark">?</span>;
+		</span><span class="kw">let </span>scrate = generate_access_from_frame_or_crate(<span class="string">"frame-support"</span>)<span class="question-mark">?</span>;
 
 		<span class="prelude-val">Ok</span>(TasksDef { tasks_attr, item_impl, tasks, scrate, enum_ident, enum_arguments })
 	}
@@ -1282,7 +1284,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// We do this here because it would be improper to do something fallible like this at
 		// the expansion phase. Fallible stuff should happen during parsing.
-		</span><span class="kw">let </span>scrate = generate_access_from_frame_or_crate(<span class="string">&quot;frame-support&quot;</span>)<span class="question-mark">?</span>;
+		</span><span class="kw">let </span>scrate = generate_access_from_frame_or_crate(<span class="string">"frame-support"</span>)<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>type_use_generics = <span class="macro">quote!</span>(T);
 
@@ -1321,7 +1323,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">else </span>{
 			<span class="kw">return </span><span class="prelude-val">Err</span>(Error::new(
 				item.sig.ident.span(),
-				<span class="string">&quot;missing `#[pallet::task_index(..)]` attribute&quot;</span>,
+				<span class="string">"missing `#[pallet::task_index(..)]` attribute"</span>,
 			))
 		};
 
@@ -1332,7 +1334,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">else </span>{
 			<span class="kw">return </span><span class="prelude-val">Err</span>(Error::new(
 				item.sig.ident.span(),
-				<span class="string">&quot;missing `#[pallet::task_condition(..)]` attribute&quot;</span>,
+				<span class="string">"missing `#[pallet::task_condition(..)]` attribute"</span>,
 			))
 		};
 
@@ -1343,7 +1345,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">else </span>{
 			<span class="kw">return </span><span class="prelude-val">Err</span>(Error::new(
 				item.sig.ident.span(),
-				<span class="string">&quot;missing `#[pallet::task_list(..)]` attribute&quot;</span>,
+				<span class="string">"missing `#[pallet::task_list(..)]` attribute"</span>,
 			))
 		};
 
@@ -1354,7 +1356,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">else </span>{
 			<span class="kw">return </span><span class="prelude-val">Err</span>(Error::new(
 				item.sig.ident.span(),
-				<span class="string">&quot;missing `#[pallet::task_weight(..)]` attribute&quot;</span>,
+				<span class="string">"missing `#[pallet::task_weight(..)]` attribute"</span>,
 			))
 		};
 
@@ -1366,7 +1368,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		{
 			<span class="kw">return </span><span class="prelude-val">Err</span>(Error::new(
 				duplicate.span(),
-				<span class="string">&quot;unexpected extra `#[pallet::task_condition(..)]` attribute&quot;</span>,
+				<span class="string">"unexpected extra `#[pallet::task_condition(..)]` attribute"</span>,
 			))
 		}
 
@@ -1378,7 +1380,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		{
 			<span class="kw">return </span><span class="prelude-val">Err</span>(Error::new(
 				duplicate.span(),
-				<span class="string">&quot;unexpected extra `#[pallet::task_list(..)]` attribute&quot;</span>,
+				<span class="string">"unexpected extra `#[pallet::task_list(..)]` attribute"</span>,
 			))
 		}
 
@@ -1390,7 +1392,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		{
 			<span class="kw">return </span><span class="prelude-val">Err</span>(Error::new(
 				duplicate.span(),
-				<span class="string">&quot;unexpected extra `#[pallet::task_index(..)]` attribute&quot;</span>,
+				<span class="string">"unexpected extra `#[pallet::task_index(..)]` attribute"</span>,
 			))
 		}
 
@@ -1399,16 +1401,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">match </span>input {
 				syn::FnArg::Typed(pat_type) =&gt; <span class="kw">match </span><span class="kw-2">&amp;*</span>pat_type.pat {
 					syn::Pat::Ident(ident) =&gt; arg_names.push(ident.ident.clone()),
-					<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Error::new(input.span(), <span class="string">&quot;unexpected pattern type&quot;</span>)),
+					<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Error::new(input.span(), <span class="string">"unexpected pattern type"</span>)),
 				},
-				<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Error::new(input.span(), <span class="string">&quot;unexpected function argument type&quot;</span>)),
+				<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Error::new(input.span(), <span class="string">"unexpected function argument type"</span>)),
 			}
 		}
 
-		<span class="kw">let </span>index_attr = index_attr.try_into().expect(<span class="string">&quot;we check the type above; QED&quot;</span>);
-		<span class="kw">let </span>condition_attr = condition_attr.try_into().expect(<span class="string">&quot;we check the type above; QED&quot;</span>);
-		<span class="kw">let </span>list_attr = list_attr.try_into().expect(<span class="string">&quot;we check the type above; QED&quot;</span>);
-		<span class="kw">let </span>weight_attr = weight_attr.try_into().expect(<span class="string">&quot;we check the type above; QED&quot;</span>);
+		<span class="kw">let </span>index_attr = index_attr.try_into().expect(<span class="string">"we check the type above; QED"</span>);
+		<span class="kw">let </span>condition_attr = condition_attr.try_into().expect(<span class="string">"we check the type above; QED"</span>);
+		<span class="kw">let </span>list_attr = list_attr.try_into().expect(<span class="string">"we check the type above; QED"</span>);
+		<span class="kw">let </span>weight_attr = weight_attr.try_into().expect(<span class="string">"we check the type above; QED"</span>);
 
 		<span class="prelude-val">Ok</span>(TaskDef {
 			index_attr,
@@ -1425,13 +1427,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// The contents of a [`TasksDef`]-related attribute.
 </span><span class="attr">#[derive(Parse, Debug, Clone)]
 </span><span class="kw">pub enum </span>TaskAttrMeta {
-	<span class="attr">#[peek(keywords::task_list, name = <span class="string">&quot;#[pallet::task_list(..)]&quot;</span>)]
+	<span class="attr">#[peek(keywords::task_list, name = <span class="string">"#[pallet::task_list(..)]"</span>)]
 	</span>TaskList(TaskListAttrMeta),
-	<span class="attr">#[peek(keywords::task_index, name = <span class="string">&quot;#[pallet::task_index(..)&quot;</span>)]
+	<span class="attr">#[peek(keywords::task_index, name = <span class="string">"#[pallet::task_index(..)"</span>)]
 	</span>TaskIndex(TaskIndexAttrMeta),
-	<span class="attr">#[peek(keywords::task_condition, name = <span class="string">&quot;#[pallet::task_condition(..)&quot;</span>)]
+	<span class="attr">#[peek(keywords::task_condition, name = <span class="string">"#[pallet::task_condition(..)"</span>)]
 	</span>TaskCondition(TaskConditionAttrMeta),
-	<span class="attr">#[peek(keywords::task_weight, name = <span class="string">&quot;#[pallet::task_weight(..)&quot;</span>)]
+	<span class="attr">#[peek(keywords::task_weight, name = <span class="string">"#[pallet::task_weight(..)"</span>)]
 	</span>TaskWeight(TaskWeightAttrMeta),
 }
 
@@ -1554,7 +1556,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">_ </span>=&gt;
 				<span class="kw">return </span><span class="prelude-val">Err</span>(Error::new(
 					value.span(),
-					<span class="macro">format!</span>(<span class="string">&quot;`{:?}` cannot be converted to a `TaskIndexAttr`&quot;</span>, value.meta),
+					<span class="macro">format!</span>(<span class="string">"`{:?}` cannot be converted to a `TaskIndexAttr`"</span>, value.meta),
 				)),
 		}
 	}
@@ -1572,7 +1574,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">_ </span>=&gt;
 				<span class="kw">return </span><span class="prelude-val">Err</span>(Error::new(
 					value.span(),
-					<span class="macro">format!</span>(<span class="string">&quot;`{:?}` cannot be converted to a `TaskConditionAttr`&quot;</span>, value.meta),
+					<span class="macro">format!</span>(<span class="string">"`{:?}` cannot be converted to a `TaskConditionAttr`"</span>, value.meta),
 				)),
 		}
 	}
@@ -1590,7 +1592,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">_ </span>=&gt;
 				<span class="kw">return </span><span class="prelude-val">Err</span>(Error::new(
 					value.span(),
-					<span class="macro">format!</span>(<span class="string">&quot;`{:?}` cannot be converted to a `TaskWeightAttr`&quot;</span>, value.meta),
+					<span class="macro">format!</span>(<span class="string">"`{:?}` cannot be converted to a `TaskWeightAttr`"</span>, value.meta),
 				)),
 		}
 	}
@@ -1608,7 +1610,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">_ </span>=&gt;
 				<span class="kw">return </span><span class="prelude-val">Err</span>(Error::new(
 					value.span(),
-					<span class="macro">format!</span>(<span class="string">&quot;`{:?}` cannot be converted to a `TaskListAttr`&quot;</span>, value.meta),
+					<span class="macro">format!</span>(<span class="string">"`{:?}` cannot be converted to a `TaskListAttr`"</span>, value.meta),
 				)),
 		}
 	}
@@ -1630,7 +1632,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>(<span class="prelude-val">Some</span>(seg1), <span class="prelude-val">Some</span>(<span class="kw">_</span>), <span class="prelude-val">None</span>) = (segs.get(<span class="number">0</span>), segs.get(<span class="number">1</span>), segs.get(<span class="number">2</span>)) <span class="kw">else </span>{
 				<span class="kw">return </span><span class="bool-val">true
 			</span>};
-			<span class="kw">if </span>seg1 != <span class="string">&quot;pallet&quot; </span>{
+			<span class="kw">if </span>seg1 != <span class="string">"pallet" </span>{
 				<span class="kw">return </span><span class="bool-val">true
 			</span>}
 			<span class="kw">if </span>attr.is_some() {
@@ -1642,7 +1644,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		.cloned()
 		.collect();
 	<span class="kw">if let </span><span class="prelude-val">Some</span>(span) = duplicate {
-		<span class="kw">return </span><span class="prelude-val">Err</span>(Error::new(span, <span class="string">&quot;only one `#[pallet::_]` attribute is supported on this item&quot;</span>))
+		<span class="kw">return </span><span class="prelude-val">Err</span>(Error::new(span, <span class="string">"only one `#[pallet::_]` attribute is supported on this item"</span>))
 	}
 	<span class="prelude-val">Ok</span>(attr)
 }
@@ -1655,7 +1657,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">else </span>{
 			<span class="kw">return </span><span class="bool-val">false
 		</span>};
-		prefix.ident == <span class="string">&quot;pallet&quot; </span>&amp;&amp; suffix.ident == <span class="string">&quot;tasks_experimental&quot;
+		prefix.ident == <span class="string">"pallet" </span>&amp;&amp; suffix.ident == <span class="string">"tasks_experimental"
 	</span>})
 }
 
@@ -1667,12 +1669,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>};
 		<span class="comment">// N.B: the `PartialEq` impl between `Ident` and `&amp;str` is more efficient than
 		// parsing and makes no stack or heap allocations
-		</span>prefix.ident == <span class="string">&quot;pallet&quot; </span>&amp;&amp;
-			(suffix.ident == <span class="string">&quot;tasks_experimental&quot; </span>||
-				suffix.ident == <span class="string">&quot;task_list&quot; </span>||
-				suffix.ident == <span class="string">&quot;task_condition&quot; </span>||
-				suffix.ident == <span class="string">&quot;task_weight&quot; </span>||
-				suffix.ident == <span class="string">&quot;task_index&quot;</span>)
+		</span>prefix.ident == <span class="string">"pallet" </span>&amp;&amp;
+			(suffix.ident == <span class="string">"tasks_experimental" </span>||
+				suffix.ident == <span class="string">"task_list" </span>||
+				suffix.ident == <span class="string">"task_condition" </span>||
+				suffix.ident == <span class="string">"task_weight" </span>||
+				suffix.ident == <span class="string">"task_index"</span>)
 	})
 }
 
@@ -1683,11 +1685,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	parse2::&lt;TaskAttr&gt;(<span class="macro">quote!</span>(<span class="attr">#[pallet::task_list(iter())]</span>)).unwrap();
 	<span class="macro">assert_parse_error_matches!</span>(
 		parse2::&lt;TaskAttr&gt;(<span class="macro">quote!</span>(<span class="attr">#[pallet::task_list()]</span>)),
-		<span class="string">&quot;expected an expression&quot;
+		<span class="string">"expected an expression"
 	</span>);
 	<span class="macro">assert_parse_error_matches!</span>(
 		parse2::&lt;TaskAttr&gt;(<span class="macro">quote!</span>(<span class="attr">#[pallet::task_list]</span>)),
-		<span class="string">&quot;expected parentheses&quot;
+		<span class="string">"expected parentheses"
 	</span>);
 }
 
@@ -1698,15 +1700,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	parse2::&lt;TaskAttr&gt;(<span class="macro">quote!</span>(<span class="attr">#[pallet::task_index(<span class="number">17</span>)]</span>)).unwrap();
 	<span class="macro">assert_parse_error_matches!</span>(
 		parse2::&lt;TaskAttr&gt;(<span class="macro">quote!</span>(<span class="attr">#[pallet::task_index]</span>)),
-		<span class="string">&quot;expected parentheses&quot;
+		<span class="string">"expected parentheses"
 	</span>);
 	<span class="macro">assert_parse_error_matches!</span>(
-		parse2::&lt;TaskAttr&gt;(<span class="macro">quote!</span>(<span class="attr">#[pallet::task_index(<span class="string">&quot;hey&quot;</span>)]</span>)),
-		<span class="string">&quot;expected integer literal&quot;
+		parse2::&lt;TaskAttr&gt;(<span class="macro">quote!</span>(<span class="attr">#[pallet::task_index(<span class="string">"hey"</span>)]</span>)),
+		<span class="string">"expected integer literal"
 	</span>);
 	<span class="macro">assert_parse_error_matches!</span>(
 		parse2::&lt;TaskAttr&gt;(<span class="macro">quote!</span>(<span class="attr">#[pallet::task_index(<span class="number">0.3</span>)]</span>)),
-		<span class="string">&quot;expected integer literal&quot;
+		<span class="string">"expected integer literal"
 	</span>);
 }
 
@@ -1723,28 +1725,28 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	parse2::&lt;PalletTasksAttr&gt;(<span class="macro">quote!</span>(<span class="attr">#[pallet::tasks_experimental]</span>)).unwrap();
 	<span class="macro">assert_parse_error_matches!</span>(
 		parse2::&lt;PalletTasksAttr&gt;(<span class="macro">quote!</span>(<span class="attr">#[pallet::taskss]</span>)),
-		<span class="string">&quot;expected `tasks_experimental`&quot;
+		<span class="string">"expected `tasks_experimental`"
 	</span>);
 	<span class="macro">assert_parse_error_matches!</span>(
 		parse2::&lt;PalletTasksAttr&gt;(<span class="macro">quote!</span>(<span class="attr">#[pallet::tasks_]</span>)),
-		<span class="string">&quot;expected `tasks_experimental`&quot;
+		<span class="string">"expected `tasks_experimental`"
 	</span>);
 	<span class="macro">assert_parse_error_matches!</span>(
 		parse2::&lt;PalletTasksAttr&gt;(<span class="macro">quote!</span>(<span class="attr">#[pal::tasks]</span>)),
-		<span class="string">&quot;expected `pallet`&quot;
+		<span class="string">"expected `pallet`"
 	</span>);
 	<span class="macro">assert_parse_error_matches!</span>(
 		parse2::&lt;PalletTasksAttr&gt;(<span class="macro">quote!</span>(<span class="attr">#[pallet::tasks_experimental()]</span>)),
-		<span class="string">&quot;unexpected token&quot;
+		<span class="string">"unexpected token"
 	</span>);
 }
 
 <span class="attr">#[test]
 </span><span class="kw">fn </span>test_parse_tasks_def_basic() {
-	simulate_manifest_dir(<span class="string">&quot;../../examples/basic&quot;</span>, || {
+	simulate_manifest_dir(<span class="string">"../../examples/basic"</span>, || {
 		<span class="kw">let </span>parsed = parse2::&lt;TasksDef&gt;(<span class="macro">quote! </span>{
 			<span class="attr">#[pallet::tasks_experimental]
-			</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; Pallet&lt;T, I&gt; {
+			</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Pallet&lt;T, I&gt; {
 				<span class="doccomment">/// Add a pair of numbers into the totals and remove them.
 				</span><span class="attr">#[pallet::task_list(Numbers::&lt;T, I&gt;::iter_keys())]
 				#[pallet::task_condition(|i| Numbers::&lt;T, I&gt;::contains_key(i))]
@@ -1767,10 +1769,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="attr">#[test]
 </span><span class="kw">fn </span>test_parse_tasks_def_basic_increment_decrement() {
-	simulate_manifest_dir(<span class="string">&quot;../../examples/basic&quot;</span>, || {
+	simulate_manifest_dir(<span class="string">"../../examples/basic"</span>, || {
 		<span class="kw">let </span>parsed = parse2::&lt;TasksDef&gt;(<span class="macro">quote! </span>{
 			<span class="attr">#[pallet::tasks_experimental]
-			</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; Pallet&lt;T, I&gt; {
+			</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Pallet&lt;T, I&gt; {
 				<span class="doccomment">/// Get the value and check if it can be incremented
 				</span><span class="attr">#[pallet::task_index(<span class="number">0</span>)]
 				#[pallet::task_condition(|| {
@@ -1819,11 +1821,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="attr">#[test]
 </span><span class="kw">fn </span>test_parse_tasks_def_duplicate_index() {
-	simulate_manifest_dir(<span class="string">&quot;../../examples/basic&quot;</span>, || {
+	simulate_manifest_dir(<span class="string">"../../examples/basic"</span>, || {
 		<span class="macro">assert_parse_error_matches!</span>(
 			parse2::&lt;TasksDef&gt;(<span class="macro">quote! </span>{
 				<span class="attr">#[pallet::tasks_experimental]
-				</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; Pallet&lt;T, I&gt; {
+				</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Pallet&lt;T, I&gt; {
 					<span class="attr">#[pallet::task_list(Something::iter())]
 					#[pallet::task_condition(|i| i % <span class="number">2 </span>== <span class="number">0</span>)]
 					#[pallet::task_index(<span class="number">0</span>)]
@@ -1841,18 +1843,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					}
 				}
 			}),
-			<span class="string">&quot;duplicate task index `0`&quot;
+			<span class="string">"duplicate task index `0`"
 		</span>);
 	});
 }
 
 <span class="attr">#[test]
 </span><span class="kw">fn </span>test_parse_tasks_def_missing_task_list() {
-	simulate_manifest_dir(<span class="string">&quot;../../examples/basic&quot;</span>, || {
+	simulate_manifest_dir(<span class="string">"../../examples/basic"</span>, || {
 		<span class="macro">assert_parse_error_matches!</span>(
 			parse2::&lt;TasksDef&gt;(<span class="macro">quote! </span>{
 				<span class="attr">#[pallet::tasks_experimental]
-				</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; Pallet&lt;T, I&gt; {
+				</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Pallet&lt;T, I&gt; {
 					<span class="attr">#[pallet::task_condition(|i| i % <span class="number">2 </span>== <span class="number">0</span>)]
 					#[pallet::task_index(<span class="number">0</span>)]
 					</span><span class="kw">pub fn </span>foo(i: u32) -&gt; DispatchResult {
@@ -1860,18 +1862,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					}
 				}
 			}),
-			<span class="string">r&quot;missing `#\[pallet::task_list\(\.\.\)\]`&quot;
+			<span class="string">r"missing `#\[pallet::task_list\(\.\.\)\]`"
 		</span>);
 	});
 }
 
 <span class="attr">#[test]
 </span><span class="kw">fn </span>test_parse_tasks_def_missing_task_condition() {
-	simulate_manifest_dir(<span class="string">&quot;../../examples/basic&quot;</span>, || {
+	simulate_manifest_dir(<span class="string">"../../examples/basic"</span>, || {
 		<span class="macro">assert_parse_error_matches!</span>(
 			parse2::&lt;TasksDef&gt;(<span class="macro">quote! </span>{
 				<span class="attr">#[pallet::tasks_experimental]
-				</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; Pallet&lt;T, I&gt; {
+				</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Pallet&lt;T, I&gt; {
 					<span class="attr">#[pallet::task_list(Something::iter())]
 					#[pallet::task_index(<span class="number">0</span>)]
 					</span><span class="kw">pub fn </span>foo(i: u32) -&gt; DispatchResult {
@@ -1879,18 +1881,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					}
 				}
 			}),
-			<span class="string">r&quot;missing `#\[pallet::task_condition\(\.\.\)\]`&quot;
+			<span class="string">r"missing `#\[pallet::task_condition\(\.\.\)\]`"
 		</span>);
 	});
 }
 
 <span class="attr">#[test]
 </span><span class="kw">fn </span>test_parse_tasks_def_missing_task_index() {
-	simulate_manifest_dir(<span class="string">&quot;../../examples/basic&quot;</span>, || {
+	simulate_manifest_dir(<span class="string">"../../examples/basic"</span>, || {
 		<span class="macro">assert_parse_error_matches!</span>(
 			parse2::&lt;TasksDef&gt;(<span class="macro">quote! </span>{
 				<span class="attr">#[pallet::tasks_experimental]
-				</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; Pallet&lt;T, I&gt; {
+				</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Pallet&lt;T, I&gt; {
 					<span class="attr">#[pallet::task_condition(|i| i % <span class="number">2 </span>== <span class="number">0</span>)]
 					#[pallet::task_list(Something::iter())]
 					</span><span class="kw">pub fn </span>foo(i: u32) -&gt; DispatchResult {
@@ -1898,18 +1900,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					}
 				}
 			}),
-			<span class="string">r&quot;missing `#\[pallet::task_index\(\.\.\)\]`&quot;
+			<span class="string">r"missing `#\[pallet::task_index\(\.\.\)\]`"
 		</span>);
 	});
 }
 
 <span class="attr">#[test]
 </span><span class="kw">fn </span>test_parse_tasks_def_missing_task_weight() {
-	simulate_manifest_dir(<span class="string">&quot;../../examples/basic&quot;</span>, || {
+	simulate_manifest_dir(<span class="string">"../../examples/basic"</span>, || {
 		<span class="macro">assert_parse_error_matches!</span>(
 			parse2::&lt;TasksDef&gt;(<span class="macro">quote! </span>{
 				<span class="attr">#[pallet::tasks_experimental]
-				</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; Pallet&lt;T, I&gt; {
+				</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Pallet&lt;T, I&gt; {
 					<span class="attr">#[pallet::task_condition(|i| i % <span class="number">2 </span>== <span class="number">0</span>)]
 					#[pallet::task_list(Something::iter())]
 					#[pallet::task_index(<span class="number">0</span>)]
@@ -1918,18 +1920,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					}
 				}
 			}),
-			<span class="string">r&quot;missing `#\[pallet::task_weight\(\.\.\)\]`&quot;
+			<span class="string">r"missing `#\[pallet::task_weight\(\.\.\)\]`"
 		</span>);
 	});
 }
 
 <span class="attr">#[test]
 </span><span class="kw">fn </span>test_parse_tasks_def_unexpected_extra_task_list_attr() {
-	simulate_manifest_dir(<span class="string">&quot;../../examples/basic&quot;</span>, || {
+	simulate_manifest_dir(<span class="string">"../../examples/basic"</span>, || {
 		<span class="macro">assert_parse_error_matches!</span>(
 			parse2::&lt;TasksDef&gt;(<span class="macro">quote! </span>{
 				<span class="attr">#[pallet::tasks_experimental]
-				</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; Pallet&lt;T, I&gt; {
+				</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Pallet&lt;T, I&gt; {
 					<span class="attr">#[pallet::task_condition(|i| i % <span class="number">2 </span>== <span class="number">0</span>)]
 					#[pallet::task_index(<span class="number">0</span>)]
 					#[pallet::task_weight(<span class="number">0</span>)]
@@ -1940,18 +1942,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					}
 				}
 			}),
-			<span class="string">r&quot;unexpected extra `#\[pallet::task_list\(\.\.\)\]`&quot;
+			<span class="string">r"unexpected extra `#\[pallet::task_list\(\.\.\)\]`"
 		</span>);
 	});
 }
 
 <span class="attr">#[test]
 </span><span class="kw">fn </span>test_parse_tasks_def_unexpected_extra_task_condition_attr() {
-	simulate_manifest_dir(<span class="string">&quot;../../examples/basic&quot;</span>, || {
+	simulate_manifest_dir(<span class="string">"../../examples/basic"</span>, || {
 		<span class="macro">assert_parse_error_matches!</span>(
 			parse2::&lt;TasksDef&gt;(<span class="macro">quote! </span>{
 				<span class="attr">#[pallet::tasks_experimental]
-				</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; Pallet&lt;T, I&gt; {
+				</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Pallet&lt;T, I&gt; {
 					<span class="attr">#[pallet::task_condition(|i| i % <span class="number">2 </span>== <span class="number">0</span>)]
 					#[pallet::task_condition(|i| i % <span class="number">4 </span>== <span class="number">0</span>)]
 					#[pallet::task_index(<span class="number">0</span>)]
@@ -1962,18 +1964,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					}
 				}
 			}),
-			<span class="string">r&quot;unexpected extra `#\[pallet::task_condition\(\.\.\)\]`&quot;
+			<span class="string">r"unexpected extra `#\[pallet::task_condition\(\.\.\)\]`"
 		</span>);
 	});
 }
 
 <span class="attr">#[test]
 </span><span class="kw">fn </span>test_parse_tasks_def_unexpected_extra_task_index_attr() {
-	simulate_manifest_dir(<span class="string">&quot;../../examples/basic&quot;</span>, || {
+	simulate_manifest_dir(<span class="string">"../../examples/basic"</span>, || {
 		<span class="macro">assert_parse_error_matches!</span>(
 			parse2::&lt;TasksDef&gt;(<span class="macro">quote! </span>{
 				<span class="attr">#[pallet::tasks_experimental]
-				</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; Pallet&lt;T, I&gt; {
+				</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Pallet&lt;T, I&gt; {
 					<span class="attr">#[pallet::task_condition(|i| i % <span class="number">2 </span>== <span class="number">0</span>)]
 					#[pallet::task_index(<span class="number">0</span>)]
 					#[pallet::task_index(<span class="number">0</span>)]
@@ -1984,28 +1986,28 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					}
 				}
 			}),
-			<span class="string">r&quot;unexpected extra `#\[pallet::task_index\(\.\.\)\]`&quot;
+			<span class="string">r"unexpected extra `#\[pallet::task_index\(\.\.\)\]`"
 		</span>);
 	});
 }
 
 <span class="attr">#[test]
 </span><span class="kw">fn </span>test_parse_tasks_def_extra_tasks_attribute() {
-	simulate_manifest_dir(<span class="string">&quot;../../examples/basic&quot;</span>, || {
+	simulate_manifest_dir(<span class="string">"../../examples/basic"</span>, || {
 		<span class="macro">assert_parse_error_matches!</span>(
 			parse2::&lt;TasksDef&gt;(<span class="macro">quote! </span>{
 				<span class="attr">#[pallet::tasks_experimental]
 				#[pallet::tasks_experimental]
-				</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; Pallet&lt;T, I&gt; {}
+				</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Pallet&lt;T, I&gt; {}
 			}),
-			<span class="string">r&quot;unexpected extra `#\[pallet::tasks_experimental\]` attribute&quot;
+			<span class="string">r"unexpected extra `#\[pallet::tasks_experimental\]` attribute"
 		</span>);
 	});
 }
 
 <span class="attr">#[test]
 </span><span class="kw">fn </span>test_parse_task_enum_def_basic() {
-	simulate_manifest_dir(<span class="string">&quot;../../examples/basic&quot;</span>, || {
+	simulate_manifest_dir(<span class="string">"../../examples/basic"</span>, || {
 		parse2::&lt;TaskEnumDef&gt;(<span class="macro">quote! </span>{
 			<span class="attr">#[pallet::task_enum]
 			</span><span class="kw">pub enum </span>Task&lt;T: Config&gt; {
@@ -2019,7 +2021,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="attr">#[test]
 </span><span class="kw">fn </span>test_parse_task_enum_def_non_task_name() {
-	simulate_manifest_dir(<span class="string">&quot;../../examples/basic&quot;</span>, || {
+	simulate_manifest_dir(<span class="string">"../../examples/basic"</span>, || {
 		parse2::&lt;TaskEnumDef&gt;(<span class="macro">quote! </span>{
 			<span class="attr">#[pallet::task_enum]
 			</span><span class="kw">pub enum </span>Something {
@@ -2032,7 +2034,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="attr">#[test]
 </span><span class="kw">fn </span>test_parse_task_enum_def_missing_attr_allowed() {
-	simulate_manifest_dir(<span class="string">&quot;../../examples/basic&quot;</span>, || {
+	simulate_manifest_dir(<span class="string">"../../examples/basic"</span>, || {
 		parse2::&lt;TaskEnumDef&gt;(<span class="macro">quote! </span>{
 			<span class="kw">pub enum </span>Task&lt;T: Config&gt; {
 				Increment,
@@ -2045,7 +2047,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="attr">#[test]
 </span><span class="kw">fn </span>test_parse_task_enum_def_missing_attr_alternate_name_allowed() {
-	simulate_manifest_dir(<span class="string">&quot;../../examples/basic&quot;</span>, || {
+	simulate_manifest_dir(<span class="string">"../../examples/basic"</span>, || {
 		parse2::&lt;TaskEnumDef&gt;(<span class="macro">quote! </span>{
 			<span class="kw">pub enum </span>Foo {
 				Red,
@@ -2057,7 +2059,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="attr">#[test]
 </span><span class="kw">fn </span>test_parse_task_enum_def_wrong_attr() {
-	simulate_manifest_dir(<span class="string">&quot;../../examples/basic&quot;</span>, || {
+	simulate_manifest_dir(<span class="string">"../../examples/basic"</span>, || {
 		<span class="macro">assert_parse_error_matches!</span>(
 			parse2::&lt;TaskEnumDef&gt;(<span class="macro">quote! </span>{
 				<span class="attr">#[pallet::something]
@@ -2066,20 +2068,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					Decrement,
 				}
 			}),
-			<span class="string">&quot;expected `task_enum`&quot;
+			<span class="string">"expected `task_enum`"
 		</span>);
 	});
 }
 
 <span class="attr">#[test]
 </span><span class="kw">fn </span>test_parse_task_enum_def_wrong_item() {
-	simulate_manifest_dir(<span class="string">&quot;../../examples/basic&quot;</span>, || {
+	simulate_manifest_dir(<span class="string">"../../examples/basic"</span>, || {
 		<span class="macro">assert_parse_error_matches!</span>(
 			parse2::&lt;TaskEnumDef&gt;(<span class="macro">quote! </span>{
 				<span class="attr">#[pallet::task_enum]
 				</span><span class="kw">pub struct </span>Something;
 			}),
-			<span class="string">&quot;expected `enum`&quot;
+			<span class="string">"expected `enum`"
 		</span>);
 	});
 }

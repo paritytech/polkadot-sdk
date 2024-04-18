@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/support/procedural/src/pallet/parse/config.rs`."><title>config.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/support/procedural/src/pallet/parse/config.rs`."><title>config.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="frame_support_procedural" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="frame_support_procedural" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../../frame_support_procedural/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -768,14 +770,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -852,7 +854,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">fn </span>try_from(trait_ty: <span class="kw-2">&amp;</span>syn::TraitItemType) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Error&gt; {
 		<span class="kw">let </span>err = |span, msg| {
-			syn::Error::new(span, <span class="macro">format!</span>(<span class="string">&quot;Invalid usage of `#[pallet::constant]`: {}&quot;</span>, msg))
+			syn::Error::new(span, <span class="macro">format!</span>(<span class="string">"Invalid usage of `#[pallet::constant]`: {}"</span>, msg))
 		};
 		<span class="kw">let </span>doc = get_doc_literals(<span class="kw-2">&amp;</span>trait_ty.attrs);
 		<span class="kw">let </span>ident = trait_ty.ident.clone();
@@ -864,27 +866,27 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					tb.path
 						.segments
 						.last()
-						.and_then(|s| <span class="kw">if </span>s.ident == <span class="string">&quot;Get&quot; </span>{ <span class="prelude-val">Some</span>(s) } <span class="kw">else </span>{ <span class="prelude-val">None </span>})
+						.and_then(|s| <span class="kw">if </span>s.ident == <span class="string">"Get" </span>{ <span class="prelude-val">Some</span>(s) } <span class="kw">else </span>{ <span class="prelude-val">None </span>})
 				} <span class="kw">else </span>{
 					<span class="prelude-val">None
 				</span>}
 			})
-			.ok_or_else(|| err(trait_ty.span(), <span class="string">&quot;`Get&lt;T&gt;` trait bound not found&quot;</span>))<span class="question-mark">?</span>;
+			.ok_or_else(|| err(trait_ty.span(), <span class="string">"`Get&lt;T&gt;` trait bound not found"</span>))<span class="question-mark">?</span>;
 		<span class="kw">let </span>type_arg = <span class="kw">if let </span>syn::PathArguments::AngleBracketed(<span class="kw-2">ref </span>ab) = bound.arguments {
 			<span class="kw">if </span>ab.args.len() == <span class="number">1 </span>{
 				<span class="kw">if let </span>syn::GenericArgument::Type(<span class="kw-2">ref </span>ty) = ab.args[<span class="number">0</span>] {
 					<span class="prelude-val">Ok</span>(ty)
 				} <span class="kw">else </span>{
-					<span class="prelude-val">Err</span>(err(ab.args[<span class="number">0</span>].span(), <span class="string">&quot;Expected a type argument&quot;</span>))
+					<span class="prelude-val">Err</span>(err(ab.args[<span class="number">0</span>].span(), <span class="string">"Expected a type argument"</span>))
 				}
 			} <span class="kw">else </span>{
-				<span class="prelude-val">Err</span>(err(bound.span(), <span class="string">&quot;Expected a single type argument&quot;</span>))
+				<span class="prelude-val">Err</span>(err(bound.span(), <span class="string">"Expected a single type argument"</span>))
 			}
 		} <span class="kw">else </span>{
-			<span class="prelude-val">Err</span>(err(bound.span(), <span class="string">&quot;Expected trait generic args&quot;</span>))
+			<span class="prelude-val">Err</span>(err(bound.span(), <span class="string">"Expected trait generic args"</span>))
 		}<span class="question-mark">?</span>;
 		<span class="kw">let </span>type_ = syn::parse2::&lt;syn::Type&gt;(replace_self_by_t(type_arg.to_token_stream()))
-			.expect(<span class="string">&quot;Internal error: replacing `Self` by `T` should result in valid type&quot;</span>);
+			.expect(<span class="string">"Internal error: replacing `Self` by `T` should result in valid type"</span>);
 
 		<span class="prelude-val">Ok</span>(<span class="self">Self </span>{ ident, type_, doc })
 	}
@@ -909,11 +911,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Parsing for the `typ` portion of `PalletAttr`
 </span><span class="attr">#[derive(derive_syn_parse::Parse, PartialEq, Eq)]
 </span><span class="kw">pub enum </span>PalletAttrType {
-	<span class="attr">#[peek(keyword::no_default, name = <span class="string">&quot;no_default&quot;</span>)]
+	<span class="attr">#[peek(keyword::no_default, name = <span class="string">"no_default"</span>)]
 	</span>NoDefault(keyword::no_default),
-	<span class="attr">#[peek(keyword::no_default_bounds, name = <span class="string">&quot;no_default_bounds&quot;</span>)]
+	<span class="attr">#[peek(keyword::no_default_bounds, name = <span class="string">"no_default_bounds"</span>)]
 	</span>NoBounds(keyword::no_default_bounds),
-	<span class="attr">#[peek(keyword::constant, name = <span class="string">&quot;constant&quot;</span>)]
+	<span class="attr">#[peek(keyword::constant, name = <span class="string">"constant"</span>)]
 	</span>Constant(keyword::constant),
 }
 
@@ -989,11 +991,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	trait_has_instance: bool,
 ) -&gt; syn::Result&lt;bool&gt; {
 	<span class="kw">if let </span>syn::TraitItem::Type(type_) = trait_item {
-		<span class="kw">if </span>type_.ident == <span class="string">&quot;RuntimeEvent&quot; </span>{
+		<span class="kw">if </span>type_.ident == <span class="string">"RuntimeEvent" </span>{
 			<span class="comment">// Check event has no generics
 			</span><span class="kw">if </span>!type_.generics.params.is_empty() || type_.generics.where_clause.is_some() {
-				<span class="kw">let </span>msg = <span class="string">&quot;Invalid `type RuntimeEvent`, associated type `RuntimeEvent` is reserved and must have\
-					no generics nor where_clause&quot;</span>;
+				<span class="kw">let </span>msg = <span class="string">"Invalid `type RuntimeEvent`, associated type `RuntimeEvent` is reserved and must have\
+					no generics nor where_clause"</span>;
 				<span class="kw">return </span><span class="prelude-val">Err</span>(syn::Error::new(trait_item.span(), msg))
 			}
 
@@ -1004,8 +1006,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			});
 
 			<span class="kw">if </span>!has_is_type_bound {
-				<span class="kw">let </span>msg = <span class="string">&quot;Invalid `type RuntimeEvent`, associated type `RuntimeEvent` is reserved and must \
-					bound: `IsType&lt;&lt;Self as frame_system::Config&gt;::RuntimeEvent&gt;`&quot;</span>.to_string();
+				<span class="kw">let </span>msg = <span class="string">"Invalid `type RuntimeEvent`, associated type `RuntimeEvent` is reserved and must \
+					bound: `IsType&lt;&lt;Self as frame_system::Config&gt;::RuntimeEvent&gt;`"</span>.to_string();
 				<span class="kw">return </span><span class="prelude-val">Err</span>(syn::Error::new(type_.span(), msg))
 			}
 
@@ -1017,16 +1019,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>from_event_bound = <span class="kw">if let </span><span class="prelude-val">Some</span>(b) = from_event_bound {
 				b
 			} <span class="kw">else </span>{
-				<span class="kw">let </span>msg = <span class="string">&quot;Invalid `type RuntimeEvent`, associated type `RuntimeEvent` is reserved and must \
-					bound: `From&lt;Event&gt;` or `From&lt;Event&lt;Self&gt;&gt;` or `From&lt;Event&lt;Self, I&gt;&gt;`&quot;</span>;
+				<span class="kw">let </span>msg = <span class="string">"Invalid `type RuntimeEvent`, associated type `RuntimeEvent` is reserved and must \
+					bound: `From&lt;Event&gt;` or `From&lt;Event&lt;Self&gt;&gt;` or `From&lt;Event&lt;Self, I&gt;&gt;`"</span>;
 				<span class="kw">return </span><span class="prelude-val">Err</span>(syn::Error::new(type_.span(), msg))
 			};
 
 			<span class="kw">if </span>from_event_bound.is_generic &amp;&amp; (from_event_bound.has_instance != trait_has_instance)
 			{
-				<span class="kw">let </span>msg = <span class="string">&quot;Invalid `type RuntimeEvent`, associated type `RuntimeEvent` bounds inconsistent \
+				<span class="kw">let </span>msg = <span class="string">"Invalid `type RuntimeEvent`, associated type `RuntimeEvent` bounds inconsistent \
 					`From&lt;Event..&gt;`. Config and generic Event must be both with instance or \
-					without instance&quot;</span>;
+					without instance"</span>;
 				<span class="kw">return </span><span class="prelude-val">Err</span>(syn::Error::new(type_.span(), msg))
 			}
 
@@ -1043,21 +1045,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// `frame_system::Config` or when using the `frame` crate it is
 /// `polkadot_sdk_frame::xyz::frame_system::Config`.
 </span><span class="kw">fn </span>has_expected_system_config(path: syn::Path, frame_system: <span class="kw-2">&amp;</span>syn::Path) -&gt; bool {
-	<span class="comment">// Check if `frame_system` is actually &#39;frame_system&#39;.
-	</span><span class="kw">if </span>path.segments.iter().all(|s| s.ident != <span class="string">&quot;frame_system&quot;</span>) {
+	<span class="comment">// Check if `frame_system` is actually 'frame_system'.
+	</span><span class="kw">if </span>path.segments.iter().all(|s| s.ident != <span class="string">"frame_system"</span>) {
 		<span class="kw">return </span><span class="bool-val">false
 	</span>}
 
 	<span class="kw">let </span><span class="kw-2">mut </span>expected_system_config =
 		<span class="kw">match </span>(is_using_frame_crate(<span class="kw-2">&amp;</span>path), is_using_frame_crate(<span class="kw-2">&amp;</span>frame_system)) {
 			(<span class="bool-val">true</span>, <span class="bool-val">false</span>) =&gt;
-			<span class="comment">// We can&#39;t use the path to `frame_system` from `frame` if `frame_system` is not being
+			<span class="comment">// We can't use the path to `frame_system` from `frame` if `frame_system` is not being
 			// in scope through `frame`.
 				</span><span class="kw">return </span><span class="bool-val">false</span>,
 			(<span class="bool-val">false</span>, <span class="bool-val">true</span>) =&gt;
 			<span class="comment">// We know that the only valid frame_system path is one that is `frame_system`, as
 			// `frame` re-exports it as such.
-				</span>syn::parse2::&lt;syn::Path&gt;(<span class="macro">quote::quote!</span>(frame_system)).expect(<span class="string">&quot;is a valid path; qed&quot;</span>),
+				</span>syn::parse2::&lt;syn::Path&gt;(<span class="macro">quote::quote!</span>(frame_system)).expect(<span class="string">"is a valid path; qed"</span>),
 			(<span class="kw">_</span>, <span class="kw">_</span>) =&gt;
 			<span class="comment">// They are either both `frame_system` or both `polkadot_sdk_frame::xyz::frame_system`.
 				</span>frame_system.clone(),
@@ -1065,7 +1067,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	expected_system_config
 		.segments
-		.push(syn::PathSegment::from(syn::Ident::new(<span class="string">&quot;Config&quot;</span>, path.span())));
+		.push(syn::PathSegment::from(syn::Ident::new(<span class="string">"Config"</span>, path.span())));
 
 	<span class="comment">// the parse path might be something like `frame_system::Config&lt;...&gt;`, so we
 	// only compare the idents along the path.
@@ -1084,8 +1086,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		.map(|token_tree| <span class="kw">match </span>token_tree {
 			proc_macro2::TokenTree::Group(group) =&gt;
 				proc_macro2::Group::new(group.delimiter(), replace_self_by_t(group.stream())).into(),
-			proc_macro2::TokenTree::Ident(ident) <span class="kw">if </span>ident == <span class="string">&quot;Self&quot; </span>=&gt;
-				proc_macro2::Ident::new(<span class="string">&quot;T&quot;</span>, ident.span()).into(),
+			proc_macro2::TokenTree::Ident(ident) <span class="kw">if </span>ident == <span class="string">"Self" </span>=&gt;
+				proc_macro2::Ident::new(<span class="string">"T"</span>, ident.span()).into(),
 			other =&gt; other,
 		})
 		.collect()
@@ -1102,12 +1104,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>item = <span class="kw">if let </span>syn::Item::Trait(item) = item {
 			item
 		} <span class="kw">else </span>{
-			<span class="kw">let </span>msg = <span class="string">&quot;Invalid pallet::config, expected trait definition&quot;</span>;
+			<span class="kw">let </span>msg = <span class="string">"Invalid pallet::config, expected trait definition"</span>;
 			<span class="kw">return </span><span class="prelude-val">Err</span>(syn::Error::new(item.span(), msg))
 		};
 
 		<span class="kw">if </span>!<span class="macro">matches!</span>(item.vis, syn::Visibility::Public(<span class="kw">_</span>)) {
-			<span class="kw">let </span>msg = <span class="string">&quot;Invalid pallet::config, trait must be public&quot;</span>;
+			<span class="kw">let </span>msg = <span class="string">"Invalid pallet::config, trait must be public"</span>;
 			<span class="kw">return </span><span class="prelude-val">Err</span>(syn::Error::new(item.span(), msg))
 		}
 
@@ -1116,13 +1118,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>where_clause = {
 			<span class="kw">let </span>stream = replace_self_by_t(item.generics.where_clause.to_token_stream());
 			syn::parse2::&lt;<span class="prelude-ty">Option</span>&lt;syn::WhereClause&gt;&gt;(stream).expect(
-				<span class="string">&quot;Internal error: replacing `Self` by `T` should result in valid where
-					clause&quot;</span>,
+				<span class="string">"Internal error: replacing `Self` by `T` should result in valid where
+					clause"</span>,
 			)
 		};
 
 		<span class="kw">if </span>item.generics.params.len() &gt; <span class="number">1 </span>{
-			<span class="kw">let </span>msg = <span class="string">&quot;Invalid pallet::config, expected no more than one generic&quot;</span>;
+			<span class="kw">let </span>msg = <span class="string">"Invalid pallet::config, expected no more than one generic"</span>;
 			<span class="kw">return </span><span class="prelude-val">Err</span>(syn::Error::new(item.generics.params[<span class="number">2</span>].span(), msg))
 		}
 
@@ -1164,7 +1166,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="kw">if </span>already_constant {
 							<span class="kw">return </span><span class="prelude-val">Err</span>(syn::Error::new(
 								pallet_attr._bracket.span.join(),
-								<span class="string">&quot;Duplicate #[pallet::constant] attribute not allowed.&quot;</span>,
+								<span class="string">"Duplicate #[pallet::constant] attribute not allowed."</span>,
 							))
 						}
 						already_constant = <span class="bool-val">true</span>;
@@ -1173,20 +1175,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					(PalletAttrType::Constant(<span class="kw">_</span>), <span class="kw">_</span>) =&gt;
 						<span class="kw">return </span><span class="prelude-val">Err</span>(syn::Error::new(
 							trait_item.span(),
-							<span class="string">&quot;Invalid #[pallet::constant] in #[pallet::config], expected type item&quot;</span>,
+							<span class="string">"Invalid #[pallet::constant] in #[pallet::config], expected type item"</span>,
 						)),
 					(PalletAttrType::NoDefault(<span class="kw">_</span>), <span class="kw">_</span>) =&gt; {
 						<span class="kw">if </span>!enable_default {
 							<span class="kw">return </span><span class="prelude-val">Err</span>(syn::Error::new(
 								pallet_attr._bracket.span.join(),
-								<span class="string">&quot;`#[pallet:no_default]` can only be used if `#[pallet::config(with_default)]` \
-								has been specified&quot;
+								<span class="string">"`#[pallet:no_default]` can only be used if `#[pallet::config(with_default)]` \
+								has been specified"
 							</span>))
 						}
 						<span class="kw">if </span>already_no_default {
 							<span class="kw">return </span><span class="prelude-val">Err</span>(syn::Error::new(
 								pallet_attr._bracket.span.join(),
-								<span class="string">&quot;Duplicate #[pallet::no_default] attribute not allowed.&quot;</span>,
+								<span class="string">"Duplicate #[pallet::no_default] attribute not allowed."</span>,
 							))
 						}
 
@@ -1196,14 +1198,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="kw">if </span>!enable_default {
 							<span class="kw">return </span><span class="prelude-val">Err</span>(syn::Error::new(
 								pallet_attr._bracket.span.join(),
-								<span class="string">&quot;`#[pallet:no_default_bounds]` can only be used if `#[pallet::config(with_default)]` \
-								has been specified&quot;
+								<span class="string">"`#[pallet:no_default_bounds]` can only be used if `#[pallet::config(with_default)]` \
+								has been specified"
 							</span>))
 						}
 						<span class="kw">if </span>already_no_default_bounds {
 							<span class="kw">return </span><span class="prelude-val">Err</span>(syn::Error::new(
 								pallet_attr._bracket.span.join(),
-								<span class="string">&quot;Duplicate #[pallet::no_default_bounds] attribute not allowed.&quot;</span>,
+								<span class="string">"Duplicate #[pallet::no_default_bounds] attribute not allowed."</span>,
 							))
 						}
 						already_no_default_bounds = <span class="bool-val">true</span>;
@@ -1214,7 +1216,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">if </span>!already_no_default &amp;&amp; enable_default {
 				default_sub_trait
 					.as_mut()
-					.expect(<span class="string">&quot;is &#39;Some(_)&#39; if &#39;enable_default&#39;; qed&quot;</span>)
+					.expect(<span class="string">"is 'Some(_)' if 'enable_default'; qed"</span>)
 					.items
 					.push((trait_item.clone(), already_no_default_bounds));
 			}
@@ -1226,23 +1228,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">if </span>!has_frame_system_supertrait &amp;&amp; !disable_system_supertrait_check {
 			<span class="kw">let </span>found = <span class="kw">if </span>item.supertraits.is_empty() {
-				<span class="string">&quot;none&quot;</span>.to_string()
+				<span class="string">"none"</span>.to_string()
 			} <span class="kw">else </span>{
 				<span class="kw">let </span><span class="kw-2">mut </span>found = item
 					.supertraits
 					.iter()
-					.fold(String::new(), |acc, s| <span class="macro">format!</span>(<span class="string">&quot;{}`{}`, &quot;</span>, acc, <span class="macro">quote::quote!</span>(#s)));
+					.fold(String::new(), |acc, s| <span class="macro">format!</span>(<span class="string">"{}`{}`, "</span>, acc, <span class="macro">quote::quote!</span>(#s)));
 				found.pop();
 				found.pop();
 				found
 			};
 
 			<span class="kw">let </span>msg = <span class="macro">format!</span>(
-				<span class="string">&quot;Invalid pallet::trait, expected explicit `{}::Config` as supertrait, \
+				<span class="string">"Invalid pallet::trait, expected explicit `{}::Config` as supertrait, \
 				found {}. \
 				(try `pub trait Config: frame_system::Config {{ ...` or \
-				`pub trait Config&lt;I: &#39;static&gt;: frame_system::Config {{ ...`). \
-				To disable this check, use `#[pallet::disable_frame_system_supertrait_check]`&quot;</span>,
+				`pub trait Config&lt;I: 'static&gt;: frame_system::Config {{ ...`). \
+				To disable this check, use `#[pallet::disable_frame_system_supertrait_check]`"</span>,
 				frame_system.to_token_stream(),
 				found,
 			);

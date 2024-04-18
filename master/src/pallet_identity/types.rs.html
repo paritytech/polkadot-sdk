@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/identity/src/types.rs`."><title>types.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/identity/src/types.rs`."><title>types.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_identity" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_identity" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../pallet_identity/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -561,14 +563,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -630,7 +632,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			n @ <span class="number">1</span>..=<span class="number">33 </span>=&gt; {
 				<span class="kw">let </span><span class="kw-2">mut </span>r: BoundedVec&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt; = <span class="macro">vec!</span>[<span class="number">0u8</span>; n <span class="kw">as </span>usize - <span class="number">1</span>]
 					.try_into()
-					.expect(<span class="string">&quot;bound checked in match arm condition; qed&quot;</span>);
+					.expect(<span class="string">"bound checked in match arm condition; qed"</span>);
 				input.read(<span class="kw-2">&amp;mut </span>r[..])<span class="question-mark">?</span>;
 				Data::Raw(r)
 			},
@@ -638,7 +640,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="number">35 </span>=&gt; Data::Sha256(&lt;[u8; <span class="number">32</span>]&gt;::decode(input)<span class="question-mark">?</span>),
 			<span class="number">36 </span>=&gt; Data::Keccak256(&lt;[u8; <span class="number">32</span>]&gt;::decode(input)<span class="question-mark">?</span>),
 			<span class="number">37 </span>=&gt; Data::ShaThree256(&lt;[u8; <span class="number">32</span>]&gt;::decode(input)<span class="question-mark">?</span>),
-			<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(codec::Error::from(<span class="string">&quot;invalid leading byte&quot;</span>)),
+			<span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(codec::Error::from(<span class="string">"invalid leading byte"</span>)),
 		})
 	}
 }
@@ -667,7 +669,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
     (<span class="macro-nonterminal">$variants</span>:ident, $((<span class="macro-nonterminal">$index</span>:literal, <span class="macro-nonterminal">$size</span>:literal)),* ) =&gt; {
 		<span class="macro-nonterminal">$variants
 		</span>$(
-			.variant(<span class="macro">concat!</span>(<span class="string">&quot;Raw&quot;</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$size</span>)), |v| v
+			.variant(<span class="macro">concat!</span>(<span class="string">"Raw"</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$size</span>)), |v| v
 				.index(<span class="macro-nonterminal">$index</span>)
 				.fields(Fields::unnamed().field(|f| f.ty::&lt;[u8; <span class="macro-nonterminal">$size</span>]&gt;()))
 			)
@@ -679,7 +681,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>Identity = <span class="self">Self</span>;
 
 	<span class="kw">fn </span>type_info() -&gt; Type {
-		<span class="kw">let </span>variants = Variants::new().variant(<span class="string">&quot;None&quot;</span>, |v| v.index(<span class="number">0</span>));
+		<span class="kw">let </span>variants = Variants::new().variant(<span class="string">"None"</span>, |v| v.index(<span class="number">0</span>));
 
 		<span class="comment">// create a variant for all sizes of Raw data from 0-32
 		</span><span class="kw">let </span>variants = <span class="macro">data_raw_variants!</span>(
@@ -720,20 +722,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		);
 
 		<span class="kw">let </span>variants = variants
-			.variant(<span class="string">&quot;BlakeTwo256&quot;</span>, |v| {
+			.variant(<span class="string">"BlakeTwo256"</span>, |v| {
 				v.index(<span class="number">34</span>).fields(Fields::unnamed().field(|f| f.ty::&lt;[u8; <span class="number">32</span>]&gt;()))
 			})
-			.variant(<span class="string">&quot;Sha256&quot;</span>, |v| {
+			.variant(<span class="string">"Sha256"</span>, |v| {
 				v.index(<span class="number">35</span>).fields(Fields::unnamed().field(|f| f.ty::&lt;[u8; <span class="number">32</span>]&gt;()))
 			})
-			.variant(<span class="string">&quot;Keccak256&quot;</span>, |v| {
+			.variant(<span class="string">"Keccak256"</span>, |v| {
 				v.index(<span class="number">36</span>).fields(Fields::unnamed().field(|f| f.ty::&lt;[u8; <span class="number">32</span>]&gt;()))
 			})
-			.variant(<span class="string">&quot;ShaThree256&quot;</span>, |v| {
+			.variant(<span class="string">"ShaThree256"</span>, |v| {
 				v.index(<span class="number">37</span>).fields(Fields::unnamed().field(|f| f.ty::&lt;[u8; <span class="number">32</span>]&gt;()))
 			});
 
-		Type::builder().path(Path::new(<span class="string">&quot;Data&quot;</span>, <span class="macro">module_path!</span>())).variant(variants)
+		Type::builder().path(Path::new(<span class="string">"Data"</span>, <span class="macro">module_path!</span>())).variant(variants)
 	}
 }
 
@@ -758,7 +760,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// checks (such as in-person meetings or formal KYC) have been conducted.
 	</span>Reasonable,
 	<span class="doccomment">/// The target is known directly by the registrar and the registrar can fully attest to the
-	/// the data&#39;s accuracy.
+	/// the data's accuracy.
 	</span>KnownGood,
 	<span class="doccomment">/// The data was once good but is currently out of date. There is no malicious intent in the
 	/// inaccuracy. This judgement can be removed through updating the data.
@@ -781,7 +783,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Returns `true` if this judgement is one that should not be generally be replaced outside
-	/// of specialized handlers. Examples include &quot;malicious&quot; judgements and deposit-holding
+	/// of specialized handlers. Examples include "malicious" judgements and deposit-holding
 	/// judgements.
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>is_sticky(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
 		<span class="macro">matches!</span>(<span class="self">self</span>, Judgement::FeePaid(<span class="kw">_</span>) | Judgement::Erroneous)
@@ -799,11 +801,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>has_identity(<span class="kw-2">&amp;</span><span class="self">self</span>, fields: <span class="self">Self</span>::FieldsIdentifier) -&gt; bool;
 
 	<span class="doccomment">/// Create a basic instance of the identity information.
-	</span><span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	</span><span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">fn </span>create_identity_info() -&gt; <span class="self">Self</span>;
 
 	<span class="doccomment">/// The identity information representation for all identity fields enabled.
-	</span><span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	</span><span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">fn </span>all_fields() -&gt; <span class="self">Self</span>::FieldsIdentifier;
 }
 
@@ -889,7 +891,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[derive(Clone, Encode, Decode, MaxEncodedLen, TypeInfo, PartialEq, Debug)]
 </span><span class="kw">pub struct </span>AuthorityProperties&lt;Suffix&gt; {
 	<span class="doccomment">/// The suffix added to usernames granted by this authority. Will be appended to usernames; for
-	/// example, a suffix of `wallet` will result in `.wallet` being appended to a user&#39;s selected
+	/// example, a suffix of `wallet` will result in `.wallet` being appended to a user's selected
 	/// name.
 	</span><span class="kw">pub </span>suffix: Suffix,
 	<span class="doccomment">/// The number of usernames remaining that this authority can grant.
@@ -912,19 +914,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>check_type_info = |data: <span class="kw-2">&amp;</span>Data| {
 			<span class="kw">let </span>variant_name = <span class="kw">match </span>data {
-				Data::None =&gt; <span class="string">&quot;None&quot;</span>.to_string(),
-				Data::BlakeTwo256(<span class="kw">_</span>) =&gt; <span class="string">&quot;BlakeTwo256&quot;</span>.to_string(),
-				Data::Sha256(<span class="kw">_</span>) =&gt; <span class="string">&quot;Sha256&quot;</span>.to_string(),
-				Data::Keccak256(<span class="kw">_</span>) =&gt; <span class="string">&quot;Keccak256&quot;</span>.to_string(),
-				Data::ShaThree256(<span class="kw">_</span>) =&gt; <span class="string">&quot;ShaThree256&quot;</span>.to_string(),
-				Data::Raw(bytes) =&gt; <span class="macro">format!</span>(<span class="string">&quot;Raw{}&quot;</span>, bytes.len()),
+				Data::None =&gt; <span class="string">"None"</span>.to_string(),
+				Data::BlakeTwo256(<span class="kw">_</span>) =&gt; <span class="string">"BlakeTwo256"</span>.to_string(),
+				Data::Sha256(<span class="kw">_</span>) =&gt; <span class="string">"Sha256"</span>.to_string(),
+				Data::Keccak256(<span class="kw">_</span>) =&gt; <span class="string">"Keccak256"</span>.to_string(),
+				Data::ShaThree256(<span class="kw">_</span>) =&gt; <span class="string">"ShaThree256"</span>.to_string(),
+				Data::Raw(bytes) =&gt; <span class="macro">format!</span>(<span class="string">"Raw{}"</span>, bytes.len()),
 			};
 			<span class="kw">if let </span>scale_info::TypeDef::Variant(variant) = <span class="kw-2">&amp;</span>type_info.type_def {
 				<span class="kw">let </span>variant = variant
 					.variants
 					.iter()
 					.find(|v| v.name == variant_name)
-					.expect(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;Expected to find variant {}&quot;</span>, variant_name));
+					.expect(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"Expected to find variant {}"</span>, variant_name));
 
 				<span class="kw">let </span>field_arr_len = variant
 					.fields
@@ -934,7 +936,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="kw">if let </span>scale_info::TypeDef::Array(arr) = <span class="kw-2">&amp;</span>ty.type_def {
 							arr.len
 						} <span class="kw">else </span>{
-							<span class="macro">panic!</span>(<span class="string">&quot;Should be an array type&quot;</span>)
+							<span class="macro">panic!</span>(<span class="string">"Should be an array type"</span>)
 						}
 					})
 					.unwrap_or(<span class="number">0</span>);
@@ -943,7 +945,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="macro">assert_eq!</span>(encoded[<span class="number">0</span>], variant.index);
 				<span class="macro">assert_eq!</span>(encoded.len() <span class="kw">as </span>u32 - <span class="number">1</span>, field_arr_len);
 			} <span class="kw">else </span>{
-				<span class="macro">panic!</span>(<span class="string">&quot;Should be a variant type&quot;</span>)
+				<span class="macro">panic!</span>(<span class="string">"Should be a variant type"</span>)
 			};
 		};
 

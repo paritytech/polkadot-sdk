@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/network/statement-distribution/src/v2/cluster.rs`."><title>cluster.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/network/statement-distribution/src/v2/cluster.rs`."><title>cluster.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_statement_distribution" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_statement_distribution" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../polkadot_statement_distribution/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1416,18 +1418,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! one partition of the backing group and one set to another. Of course, in practice
 //! these types of partitions will not exist, but in the worst case each validator in the
 //! group would see an entirely different set of X `Seconded` statements from some validator
-//! and each validator is in its own partition. After that partition resolves, we&#39;d have to
+//! and each validator is in its own partition. After that partition resolves, we'd have to
 //! deal with up to `limit*group_size` `Seconded` statements from that validator. And then
-//! if every validator in the group does the same thing, we&#39;re dealing with something like
+//! if every validator in the group does the same thing, we're dealing with something like
 //! `limit*group_size^2` `Seconded` statements in total.
 //!
 //! Given that both our group sizes and our limits per relay-parent are small, this is
 //! quite manageable, and the utility here lets us deal with it in only a few kilobytes
 //! of memory.
 //!
-//! It&#39;s also worth noting that any case where a validator issues more than the legal limit
+//! It's also worth noting that any case where a validator issues more than the legal limit
 //! of `Seconded` statements at a relay parent is trivially slashable on-chain, which means
-//! the &#39;worst case&#39; adversary that this code defends against is effectively lighting money
+//! the 'worst case' adversary that this code defends against is effectively lighting money
 //! on fire. Nevertheless, we handle the case here to ensure that the behavior of the
 //! system is well-defined even if an adversary is willing to be slashed.
 //!
@@ -1478,7 +1480,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	validators: Vec&lt;ValidatorIndex&gt;,
 	seconding_limit: usize,
 	knowledge: HashMap&lt;ValidatorIndex, HashSet&lt;TaggedKnowledge&gt;&gt;,
-	<span class="comment">// Statements known locally which haven&#39;t been sent to particular validators.
+	<span class="comment">// Statements known locally which haven't been sent to particular validators.
 	// maps target validator to (originator, statement) pairs.
 	</span>pending: HashMap&lt;ValidatorIndex, HashSet&lt;(ValidatorIndex, CompactStatement)&gt;&gt;,
 }
@@ -1517,7 +1519,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">match </span>statement {
 			CompactStatement::Seconded(candidate_hash) =&gt; {
 				<span class="comment">// check whether the sender has not sent too many seconded statements for the
-				// originator. we know by the duplicate check above that this iterator doesn&#39;t
+				// originator. we know by the duplicate check above that this iterator doesn't
 				// include the statement itself.
 				</span><span class="kw">let </span>other_seconded_for_orig_from_remote = <span class="self">self
 					</span>.knowledge
@@ -1537,7 +1539,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw">return </span><span class="prelude-val">Err</span>(RejectIncoming::ExcessiveSeconded)
 				}
 
-				<span class="comment">// at this point, it doesn&#39;t seem like the remote has done anything wrong.
+				<span class="comment">// at this point, it doesn't seem like the remote has done anything wrong.
 				</span><span class="kw">if </span><span class="self">self</span>.seconded_already_or_within_limit(originator, candidate_hash) {
 					<span class="prelude-val">Ok</span>(Accept::Ok)
 				} <span class="kw">else </span>{
@@ -1559,7 +1561,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">for </span>cluster_member <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.validators {
 			<span class="kw">if </span>!<span class="self">self</span>.they_know_statement(<span class="kw-2">*</span>cluster_member, originator, statement.clone()) {
 				<span class="comment">// add the statement to pending knowledge for all peers
-				// which don&#39;t know the statement.
+				// which don't know the statement.
 				</span><span class="self">self</span>.pending
 					.entry(<span class="kw-2">*</span>cluster_member)
 					.or_default()
@@ -1584,7 +1586,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				}
 			} <span class="kw">else if </span>!<span class="self">self</span>.they_know_statement(<span class="kw-2">*</span>cluster_member, originator, statement.clone()) {
 				<span class="comment">// add the statement to pending knowledge for all peers
-				// which don&#39;t know the statement.
+				// which don't know the statement.
 				</span><span class="self">self</span>.pending
 					.entry(<span class="kw-2">*</span>cluster_member)
 					.or_default()
@@ -1607,7 +1609,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">if let </span>CompactStatement::Seconded(candidate_hash) = statement {
 			<span class="comment">// since we accept additional `Seconded` statements beyond the limits
-			// &#39;with prejudice&#39;, we must respect the limit here.
+			// 'with prejudice', we must respect the limit here.
 			</span><span class="kw">if </span><span class="self">self</span>.seconded_already_or_within_limit(originator, candidate_hash) {
 				<span class="kw">let </span>originator_knowledge = <span class="self">self</span>.knowledge.entry(originator).or_default();
 				originator_knowledge.insert(TaggedKnowledge::Seconded(candidate_hash));
@@ -1681,7 +1683,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="doccomment">/// Get all targets as validator-indices. This doesn&#39;t attempt to filter
+	<span class="doccomment">/// Get all targets as validator-indices. This doesn't attempt to filter
 	/// out the local validator index.
 	</span><span class="kw">pub fn </span>targets(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[ValidatorIndex] {
 		<span class="kw-2">&amp;</span><span class="self">self</span>.validators
@@ -1743,10 +1745,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		v
 	}
 
-	<span class="comment">// returns true if it&#39;s legal to accept a new `Seconded` message from this validator.
+	<span class="comment">// returns true if it's legal to accept a new `Seconded` message from this validator.
 	// This is either
-	//   1. because we&#39;ve already accepted it.
-	//   2. because there&#39;s space for more seconding.
+	//   1. because we've already accepted it.
+	//   2. because there's space for more seconding.
 	</span><span class="kw">fn </span>seconded_already_or_within_limit(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		validator: ValidatorIndex,
@@ -1811,9 +1813,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Dumps pending statement for this cluster.
 	///
 	/// Normally we should not have pending statements to validators in our cluster,
-	/// but if we do for all validators in our cluster, then we don&#39;t participate
+	/// but if we do for all validators in our cluster, then we don't participate
 	/// in backing. Occasional pending statements are expected if two authorities
-	/// can&#39;t detect each other or after restart, where it takes a while to discover
+	/// can't detect each other or after restart, where it takes a while to discover
 	/// the whole network.
 
 	</span><span class="kw">pub fn </span>warn_if_too_many_pending_statements(<span class="kw-2">&amp;</span><span class="self">self</span>, parent_hash: Hash) {
@@ -1824,8 +1826,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				target: LOG_TARGET,
 				pending_statements  = <span class="question-mark">?</span><span class="self">self</span>.pending,
 				<span class="question-mark">?</span>parent_hash,
-				<span class="string">&quot;Cluster has too many pending statements, something wrong with our connection to our group peers
-				Restart might be needed if validator gets 0 backing rewards for more than 3-4 consecutive sessions&quot;
+				<span class="string">"Cluster has too many pending statements, something wrong with our connection to our group peers
+				Restart might be needed if validator gets 0 backing rewards for more than 3-4 consecutive sessions"
 			</span>);
 		}
 	}
@@ -1837,7 +1839,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Neither the peer nor the originator have apparently exceeded limits.
 	/// Candidate or statement may already be known.
 	</span><span class="prelude-val">Ok</span>,
-	<span class="doccomment">/// Accept the message; the peer hasn&#39;t exceeded limits but the originator has.
+	<span class="doccomment">/// Accept the message; the peer hasn't exceeded limits but the originator has.
 	</span>WithPrejudice,
 }
 
@@ -1860,7 +1862,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Candidate was unknown. Only applies to `Valid` statements.
 	</span>CandidateUnknown,
 	<span class="doccomment">/// We attempted to send excessive `Seconded` statements.
-	/// indicates a bug on the local node&#39;s code.
+	/// indicates a bug on the local node's code.
 	</span>ExcessiveSeconded,
 	<span class="doccomment">/// The statement was already known to the peer.
 	</span>Known,
@@ -1880,7 +1882,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>seconding_limit = <span class="number">2</span>;
 
-		<span class="kw">let </span>tracker = ClusterTracker::new(group.clone(), seconding_limit).expect(<span class="string">&quot;not empty&quot;</span>);
+		<span class="kw">let </span>tracker = ClusterTracker::new(group.clone(), seconding_limit).expect(<span class="string">"not empty"</span>);
 
 		<span class="macro">assert_eq!</span>(
 			tracker.can_receive(
@@ -1911,7 +1913,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>hash_b = CandidateHash(Hash::repeat_byte(<span class="number">2</span>));
 		<span class="kw">let </span>hash_c = CandidateHash(Hash::repeat_byte(<span class="number">3</span>));
 
-		<span class="kw">let </span><span class="kw-2">mut </span>tracker = ClusterTracker::new(group.clone(), seconding_limit).expect(<span class="string">&quot;not empty&quot;</span>);
+		<span class="kw">let </span><span class="kw-2">mut </span>tracker = ClusterTracker::new(group.clone(), seconding_limit).expect(<span class="string">"not empty"</span>);
 
 		<span class="macro">assert_eq!</span>(
 			tracker.can_receive(
@@ -1961,7 +1963,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>hash_b = CandidateHash(Hash::repeat_byte(<span class="number">2</span>));
 		<span class="kw">let </span>hash_c = CandidateHash(Hash::repeat_byte(<span class="number">3</span>));
 
-		<span class="kw">let </span><span class="kw-2">mut </span>tracker = ClusterTracker::new(group.clone(), seconding_limit).expect(<span class="string">&quot;not empty&quot;</span>);
+		<span class="kw">let </span><span class="kw-2">mut </span>tracker = ClusterTracker::new(group.clone(), seconding_limit).expect(<span class="string">"not empty"</span>);
 
 		<span class="macro">assert_eq!</span>(
 			tracker.can_receive(
@@ -2009,7 +2011,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>seconding_limit = <span class="number">2</span>;
 		<span class="kw">let </span>hash_a = CandidateHash(Hash::repeat_byte(<span class="number">1</span>));
 
-		<span class="kw">let </span><span class="kw-2">mut </span>tracker = ClusterTracker::new(group, seconding_limit).expect(<span class="string">&quot;not empty&quot;</span>);
+		<span class="kw">let </span><span class="kw-2">mut </span>tracker = ClusterTracker::new(group, seconding_limit).expect(<span class="string">"not empty"</span>);
 
 		tracker.note_received(
 			ValidatorIndex(<span class="number">5</span>),
@@ -2049,7 +2051,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>seconding_limit = <span class="number">2</span>;
 
-		<span class="kw">let </span>tracker = ClusterTracker::new(group, seconding_limit).expect(<span class="string">&quot;not empty&quot;</span>);
+		<span class="kw">let </span>tracker = ClusterTracker::new(group, seconding_limit).expect(<span class="string">"not empty"</span>);
 
 		<span class="kw">let </span>hash_a = CandidateHash(Hash::repeat_byte(<span class="number">1</span>));
 
@@ -2070,7 +2072,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>seconding_limit = <span class="number">2</span>;
 
-		<span class="kw">let </span><span class="kw-2">mut </span>tracker = ClusterTracker::new(group.clone(), seconding_limit).expect(<span class="string">&quot;not empty&quot;</span>);
+		<span class="kw">let </span><span class="kw-2">mut </span>tracker = ClusterTracker::new(group.clone(), seconding_limit).expect(<span class="string">"not empty"</span>);
 		<span class="kw">let </span>hash_a = CandidateHash(Hash::repeat_byte(<span class="number">1</span>));
 
 		tracker.note_received(
@@ -2096,7 +2098,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>seconding_limit = <span class="number">2</span>;
 
-		<span class="kw">let </span><span class="kw-2">mut </span>tracker = ClusterTracker::new(group.clone(), seconding_limit).expect(<span class="string">&quot;not empty&quot;</span>);
+		<span class="kw">let </span><span class="kw-2">mut </span>tracker = ClusterTracker::new(group.clone(), seconding_limit).expect(<span class="string">"not empty"</span>);
 		<span class="kw">let </span>hash_a = CandidateHash(Hash::repeat_byte(<span class="number">1</span>));
 
 		tracker.note_sent(
@@ -2122,7 +2124,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>seconding_limit = <span class="number">2</span>;
 
-		<span class="kw">let </span><span class="kw-2">mut </span>tracker = ClusterTracker::new(group.clone(), seconding_limit).expect(<span class="string">&quot;not empty&quot;</span>);
+		<span class="kw">let </span><span class="kw-2">mut </span>tracker = ClusterTracker::new(group.clone(), seconding_limit).expect(<span class="string">"not empty"</span>);
 		<span class="kw">let </span>hash_a = CandidateHash(Hash::repeat_byte(<span class="number">1</span>));
 		<span class="kw">let </span>hash_b = CandidateHash(Hash::repeat_byte(<span class="number">2</span>));
 		<span class="kw">let </span>hash_c = CandidateHash(Hash::repeat_byte(<span class="number">3</span>));
@@ -2165,7 +2167,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>seconding_limit = <span class="number">2</span>;
 
-		<span class="kw">let </span><span class="kw-2">mut </span>tracker = ClusterTracker::new(group.clone(), seconding_limit).expect(<span class="string">&quot;not empty&quot;</span>);
+		<span class="kw">let </span><span class="kw-2">mut </span>tracker = ClusterTracker::new(group.clone(), seconding_limit).expect(<span class="string">"not empty"</span>);
 		<span class="kw">let </span>hash_a = CandidateHash(Hash::repeat_byte(<span class="number">1</span>));
 
 		tracker.note_sent(
@@ -2191,7 +2193,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>seconding_limit = <span class="number">2</span>;
 
-		<span class="kw">let </span><span class="kw-2">mut </span>tracker = ClusterTracker::new(group.clone(), seconding_limit).expect(<span class="string">&quot;not empty&quot;</span>);
+		<span class="kw">let </span><span class="kw-2">mut </span>tracker = ClusterTracker::new(group.clone(), seconding_limit).expect(<span class="string">"not empty"</span>);
 		<span class="kw">let </span>hash_a = CandidateHash(Hash::repeat_byte(<span class="number">1</span>));
 
 		tracker.note_received(
@@ -2210,7 +2212,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		);
 	}
 
-	<span class="comment">// Ensure statements received with prejudice don&#39;t prevent sending later.
+	<span class="comment">// Ensure statements received with prejudice don't prevent sending later.
 	</span><span class="attr">#[test]
 	</span><span class="kw">fn </span>can_send_statements_received_with_prejudice() {
 		<span class="kw">let </span>group =
@@ -2218,7 +2220,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>seconding_limit = <span class="number">1</span>;
 
-		<span class="kw">let </span><span class="kw-2">mut </span>tracker = ClusterTracker::new(group.clone(), seconding_limit).expect(<span class="string">&quot;not empty&quot;</span>);
+		<span class="kw">let </span><span class="kw-2">mut </span>tracker = ClusterTracker::new(group.clone(), seconding_limit).expect(<span class="string">"not empty"</span>);
 		<span class="kw">let </span>hash_a = CandidateHash(Hash::repeat_byte(<span class="number">1</span>));
 		<span class="kw">let </span>hash_b = CandidateHash(Hash::repeat_byte(<span class="number">2</span>));
 
@@ -2272,11 +2274,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>seconding_limit = <span class="number">1</span>;
 
-		<span class="kw">let </span><span class="kw-2">mut </span>tracker = ClusterTracker::new(group.clone(), seconding_limit).expect(<span class="string">&quot;not empty&quot;</span>);
+		<span class="kw">let </span><span class="kw-2">mut </span>tracker = ClusterTracker::new(group.clone(), seconding_limit).expect(<span class="string">"not empty"</span>);
 		<span class="kw">let </span>hash_a = CandidateHash(Hash::repeat_byte(<span class="number">1</span>));
 		<span class="kw">let </span>hash_b = CandidateHash(Hash::repeat_byte(<span class="number">2</span>));
 
-		<span class="comment">// Receive a &#39;Seconded&#39; statement for candidate A.
+		<span class="comment">// Receive a 'Seconded' statement for candidate A.
 		</span>{
 			<span class="macro">assert_eq!</span>(
 				tracker.can_receive(
@@ -2307,7 +2309,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			);
 		}
 
-		<span class="comment">// Receive a &#39;Valid&#39; statement for candidate A.
+		<span class="comment">// Receive a 'Valid' statement for candidate A.
 		</span>{
 			<span class="comment">// First, send a `Seconded` statement for the candidate.
 			</span><span class="macro">assert_eq!</span>(
@@ -2325,7 +2327,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			);
 
 			<span class="comment">// We have to see that the candidate is known by the sender, e.g. we sent them
-			// &#39;Seconded&#39; above.
+			// 'Seconded' above.
 			</span><span class="macro">assert_eq!</span>(
 				tracker.can_receive(
 					ValidatorIndex(<span class="number">24</span>),
@@ -2364,7 +2366,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			);
 		}
 
-		<span class="comment">// Receive a &#39;Seconded&#39; statement for candidate B.
+		<span class="comment">// Receive a 'Seconded' statement for candidate B.
 		</span>{
 			<span class="macro">assert_eq!</span>(
 				tracker.can_receive(
@@ -2429,11 +2431,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>seconding_limit = <span class="number">1</span>;
 
-		<span class="kw">let </span><span class="kw-2">mut </span>tracker = ClusterTracker::new(group.clone(), seconding_limit).expect(<span class="string">&quot;not empty&quot;</span>);
+		<span class="kw">let </span><span class="kw-2">mut </span>tracker = ClusterTracker::new(group.clone(), seconding_limit).expect(<span class="string">"not empty"</span>);
 		<span class="kw">let </span>hash_a = CandidateHash(Hash::repeat_byte(<span class="number">1</span>));
 		<span class="kw">let </span>hash_b = CandidateHash(Hash::repeat_byte(<span class="number">2</span>));
 
-		<span class="comment">// Receive a &#39;Seconded&#39; statement for candidate A.
+		<span class="comment">// Receive a 'Seconded' statement for candidate A.
 		</span>{
 			<span class="macro">assert_eq!</span>(
 				tracker.can_receive(
@@ -2465,7 +2467,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			);
 		}
 
-		<span class="comment">// Receive a &#39;Valid&#39; statement for candidate B.
+		<span class="comment">// Receive a 'Valid' statement for candidate B.
 		</span>{
 			<span class="comment">// First, send a `Seconded` statement for the candidate.
 			</span><span class="macro">assert_eq!</span>(
@@ -2482,7 +2484,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				CompactStatement::Seconded(hash_b),
 			);
 
-			<span class="comment">// We have to see the candidate is known by the sender, e.g. we sent them &#39;Seconded&#39;.
+			<span class="comment">// We have to see the candidate is known by the sender, e.g. we sent them 'Seconded'.
 			</span><span class="macro">assert_eq!</span>(
 				tracker.can_receive(
 					ValidatorIndex(<span class="number">24</span>),
@@ -2522,7 +2524,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			);
 		}
 
-		<span class="comment">// Send a &#39;Seconded&#39; statement.
+		<span class="comment">// Send a 'Seconded' statement.
 		</span>{
 			<span class="macro">assert_eq!</span>(
 				tracker.can_send(
@@ -2560,7 +2562,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			);
 		}
 
-		<span class="comment">// Send a &#39;Valid&#39; statement.
+		<span class="comment">// Send a 'Valid' statement.
 		</span>{
 			<span class="comment">// First, send a `Seconded` statement for the candidate.
 			</span><span class="macro">assert_eq!</span>(
@@ -2578,7 +2580,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			);
 
 			<span class="comment">// We have to see that the candidate is known by the sender, e.g. we sent them
-			// &#39;Seconded&#39; above.
+			// 'Seconded' above.
 			</span><span class="macro">assert_eq!</span>(
 				tracker.can_send(
 					ValidatorIndex(<span class="number">5</span>),

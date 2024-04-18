@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/state-machine/src/trie_backend.rs`."><title>trie_backend.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/state-machine/src/trie_backend.rs`."><title>trie_backend.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_state_machine" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_state_machine" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sp_state_machine/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1739,21 +1741,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
 </span><span class="doccomment">//! Trie-based state machine backend.
 
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+</span><span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">use </span><span class="kw">crate</span>::backend::AsTrieBackend;
 <span class="kw">use crate</span>::{
 	backend::{IterArgs, StorageIterator},
@@ -1762,29 +1764,29 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 
 <span class="kw">use </span>codec::Codec;
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">use </span>hash_db::HashDB;
 <span class="kw">use </span>hash_db::Hasher;
 <span class="kw">use </span>sp_core::storage::{ChildInfo, StateVersion};
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">use </span>sp_trie::{
 	cache::{LocalTrieCache, TrieCache},
 	MemoryDB,
 };
-<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
 </span><span class="kw">use </span>sp_trie::{Error, NodeCodec};
 <span class="kw">use </span>sp_trie::{MerkleValue, PrefixedMemoryDB, StorageProof, TrieRecorderProvider};
 
 <span class="kw">use </span>trie_db::TrieCache <span class="kw">as </span>TrieCacheT;
-<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
 </span><span class="kw">use </span>trie_db::{node::NodeOwned, CachedValue};
 
 <span class="doccomment">/// A provider of trie caches that are compatible with [`trie_db::TrieDB`].
 </span><span class="kw">pub trait </span>TrieCacheProvider&lt;H: Hasher&gt; {
 	<span class="doccomment">/// Cache type that implements [`trie_db::TrieCache`].
-	</span><span class="kw">type </span>Cache&lt;<span class="lifetime">&#39;a</span>&gt;: TrieCacheT&lt;sp_trie::NodeCodec&lt;H&gt;&gt; + <span class="lifetime">&#39;a
+	</span><span class="kw">type </span>Cache&lt;<span class="lifetime">'a</span>&gt;: TrieCacheT&lt;sp_trie::NodeCodec&lt;H&gt;&gt; + <span class="lifetime">'a
 	</span><span class="kw">where
-		</span><span class="self">Self</span>: <span class="lifetime">&#39;a</span>;
+		</span><span class="self">Self</span>: <span class="lifetime">'a</span>;
 
 	<span class="doccomment">/// Return a [`trie_db::TrieDB`] compatible cache.
 	///
@@ -1792,65 +1794,65 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// NOTE: Implementors should use the `storage_root` to differentiate between storage keys that
 	/// may belong to different tries.
-	</span><span class="kw">fn </span>as_trie_db_cache(<span class="kw-2">&amp;</span><span class="self">self</span>, storage_root: H::Out) -&gt; <span class="self">Self</span>::Cache&lt;<span class="lifetime">&#39;_</span>&gt;;
+	</span><span class="kw">fn </span>as_trie_db_cache(<span class="kw-2">&amp;</span><span class="self">self</span>, storage_root: H::Out) -&gt; <span class="self">Self</span>::Cache&lt;<span class="lifetime">'_</span>&gt;;
 
 	<span class="doccomment">/// Returns a cache that can be used with a [`trie_db::TrieDBMut`].
 	///
 	/// When finished with the operation on the trie, it is required to call [`Self::merge`] to
 	/// merge the cached items for the correct `storage_root`.
-	</span><span class="kw">fn </span>as_trie_db_mut_cache(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self</span>::Cache&lt;<span class="lifetime">&#39;_</span>&gt;;
+	</span><span class="kw">fn </span>as_trie_db_mut_cache(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self</span>::Cache&lt;<span class="lifetime">'_</span>&gt;;
 
 	<span class="doccomment">/// Merge the cached data in `other` into the provider using the given `new_root`.
 	///
 	/// This must be used for the cache returned by [`Self::as_trie_db_mut_cache`] as otherwise the
 	/// cached data is just thrown away.
-	</span><span class="kw">fn </span>merge&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>, other: <span class="self">Self</span>::Cache&lt;<span class="lifetime">&#39;a</span>&gt;, new_root: H::Out);
+	</span><span class="kw">fn </span>merge&lt;<span class="lifetime">'a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>, other: <span class="self">Self</span>::Cache&lt;<span class="lifetime">'a</span>&gt;, new_root: H::Out);
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">impl</span>&lt;H: Hasher&gt; TrieCacheProvider&lt;H&gt; <span class="kw">for </span>LocalTrieCache&lt;H&gt; {
-	<span class="kw">type </span>Cache&lt;<span class="lifetime">&#39;a</span>&gt; = TrieCache&lt;<span class="lifetime">&#39;a</span>, H&gt; <span class="kw">where </span>H: <span class="lifetime">&#39;a</span>;
+	<span class="kw">type </span>Cache&lt;<span class="lifetime">'a</span>&gt; = TrieCache&lt;<span class="lifetime">'a</span>, H&gt; <span class="kw">where </span>H: <span class="lifetime">'a</span>;
 
-	<span class="kw">fn </span>as_trie_db_cache(<span class="kw-2">&amp;</span><span class="self">self</span>, storage_root: H::Out) -&gt; <span class="self">Self</span>::Cache&lt;<span class="lifetime">&#39;_</span>&gt; {
+	<span class="kw">fn </span>as_trie_db_cache(<span class="kw-2">&amp;</span><span class="self">self</span>, storage_root: H::Out) -&gt; <span class="self">Self</span>::Cache&lt;<span class="lifetime">'_</span>&gt; {
 		<span class="self">self</span>.as_trie_db_cache(storage_root)
 	}
 
-	<span class="kw">fn </span>as_trie_db_mut_cache(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self</span>::Cache&lt;<span class="lifetime">&#39;_</span>&gt; {
+	<span class="kw">fn </span>as_trie_db_mut_cache(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self</span>::Cache&lt;<span class="lifetime">'_</span>&gt; {
 		<span class="self">self</span>.as_trie_db_mut_cache()
 	}
 
-	<span class="kw">fn </span>merge&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>, other: <span class="self">Self</span>::Cache&lt;<span class="lifetime">&#39;a</span>&gt;, new_root: H::Out) {
+	<span class="kw">fn </span>merge&lt;<span class="lifetime">'a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>, other: <span class="self">Self</span>::Cache&lt;<span class="lifetime">'a</span>&gt;, new_root: H::Out) {
 		other.merge_into(<span class="self">self</span>, new_root)
 	}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">impl</span>&lt;H: Hasher&gt; TrieCacheProvider&lt;H&gt; <span class="kw">for </span><span class="kw-2">&amp;</span>LocalTrieCache&lt;H&gt; {
-	<span class="kw">type </span>Cache&lt;<span class="lifetime">&#39;a</span>&gt; = TrieCache&lt;<span class="lifetime">&#39;a</span>, H&gt; <span class="kw">where </span><span class="self">Self</span>: <span class="lifetime">&#39;a</span>;
+	<span class="kw">type </span>Cache&lt;<span class="lifetime">'a</span>&gt; = TrieCache&lt;<span class="lifetime">'a</span>, H&gt; <span class="kw">where </span><span class="self">Self</span>: <span class="lifetime">'a</span>;
 
-	<span class="kw">fn </span>as_trie_db_cache(<span class="kw-2">&amp;</span><span class="self">self</span>, storage_root: H::Out) -&gt; <span class="self">Self</span>::Cache&lt;<span class="lifetime">&#39;_</span>&gt; {
+	<span class="kw">fn </span>as_trie_db_cache(<span class="kw-2">&amp;</span><span class="self">self</span>, storage_root: H::Out) -&gt; <span class="self">Self</span>::Cache&lt;<span class="lifetime">'_</span>&gt; {
 		(<span class="kw-2">*</span><span class="self">self</span>).as_trie_db_cache(storage_root)
 	}
 
-	<span class="kw">fn </span>as_trie_db_mut_cache(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self</span>::Cache&lt;<span class="lifetime">&#39;_</span>&gt; {
+	<span class="kw">fn </span>as_trie_db_mut_cache(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self</span>::Cache&lt;<span class="lifetime">'_</span>&gt; {
 		(<span class="kw-2">*</span><span class="self">self</span>).as_trie_db_mut_cache()
 	}
 
-	<span class="kw">fn </span>merge&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>, other: <span class="self">Self</span>::Cache&lt;<span class="lifetime">&#39;a</span>&gt;, new_root: H::Out) {
+	<span class="kw">fn </span>merge&lt;<span class="lifetime">'a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>, other: <span class="self">Self</span>::Cache&lt;<span class="lifetime">'a</span>&gt;, new_root: H::Out) {
 		other.merge_into(<span class="self">self</span>, new_root)
 	}
 }
 
 <span class="doccomment">/// Cache provider that allows construction of a [`TrieBackend`] and satisfies the requirements, but
 /// can never be instantiated.
-</span><span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+</span><span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
 </span><span class="kw">pub struct </span>UnimplementedCacheProvider&lt;H&gt; {
 	<span class="comment">// Not strictly necessary, but the H bound allows to use this as a drop-in
 	// replacement for the `LocalTrieCache` in no-std contexts.
 	</span>_phantom: core::marker::PhantomData&lt;H&gt;,
 }
 
-<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
 </span><span class="kw">impl</span>&lt;H: Hasher&gt; trie_db::TrieCache&lt;NodeCodec&lt;H&gt;&gt; <span class="kw">for </span>UnimplementedCacheProvider&lt;H&gt; {
 	<span class="kw">fn </span>lookup_value_for_key(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _key: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>CachedValue&lt;H::Out&gt;&gt; {
 		<span class="macro">unimplemented!</span>()
@@ -1873,35 +1875,35 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
 </span><span class="kw">impl</span>&lt;H: Hasher&gt; TrieCacheProvider&lt;H&gt; <span class="kw">for </span>UnimplementedCacheProvider&lt;H&gt; {
-	<span class="kw">type </span>Cache&lt;<span class="lifetime">&#39;a</span>&gt; = UnimplementedCacheProvider&lt;H&gt; <span class="kw">where </span>H: <span class="lifetime">&#39;a</span>;
+	<span class="kw">type </span>Cache&lt;<span class="lifetime">'a</span>&gt; = UnimplementedCacheProvider&lt;H&gt; <span class="kw">where </span>H: <span class="lifetime">'a</span>;
 
-	<span class="kw">fn </span>as_trie_db_cache(<span class="kw-2">&amp;</span><span class="self">self</span>, _storage_root: &lt;H <span class="kw">as </span>Hasher&gt;::Out) -&gt; <span class="self">Self</span>::Cache&lt;<span class="lifetime">&#39;_</span>&gt; {
+	<span class="kw">fn </span>as_trie_db_cache(<span class="kw-2">&amp;</span><span class="self">self</span>, _storage_root: &lt;H <span class="kw">as </span>Hasher&gt;::Out) -&gt; <span class="self">Self</span>::Cache&lt;<span class="lifetime">'_</span>&gt; {
 		<span class="macro">unimplemented!</span>()
 	}
 
-	<span class="kw">fn </span>as_trie_db_mut_cache(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self</span>::Cache&lt;<span class="lifetime">&#39;_</span>&gt; {
+	<span class="kw">fn </span>as_trie_db_mut_cache(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self</span>::Cache&lt;<span class="lifetime">'_</span>&gt; {
 		<span class="macro">unimplemented!</span>()
 	}
 
-	<span class="kw">fn </span>merge&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>, _other: <span class="self">Self</span>::Cache&lt;<span class="lifetime">&#39;a</span>&gt;, _new_root: &lt;H <span class="kw">as </span>Hasher&gt;::Out) {
+	<span class="kw">fn </span>merge&lt;<span class="lifetime">'a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>, _other: <span class="self">Self</span>::Cache&lt;<span class="lifetime">'a</span>&gt;, _new_root: &lt;H <span class="kw">as </span>Hasher&gt;::Out) {
 		<span class="macro">unimplemented!</span>()
 	}
 }
 
 <span class="doccomment">/// Recorder provider that allows construction of a [`TrieBackend`] and satisfies the requirements,
 /// but can never be instantiated.
-</span><span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+</span><span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
 </span><span class="kw">pub struct </span>UnimplementedRecorderProvider&lt;H&gt; {
 	<span class="comment">// Not strictly necessary, but the H bound allows to use this as a drop-in
 	// replacement for the [`sp_trie::recorder::Recorder`] in no-std contexts.
 	</span>_phantom: core::marker::PhantomData&lt;H&gt;,
 }
 
-<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
 </span><span class="kw">impl</span>&lt;H: Hasher&gt; trie_db::TrieRecorder&lt;H::Out&gt; <span class="kw">for </span>UnimplementedRecorderProvider&lt;H&gt; {
-	<span class="kw">fn </span>record&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _access: trie_db::TrieAccess&lt;<span class="lifetime">&#39;a</span>, H::Out&gt;) {
+	<span class="kw">fn </span>record&lt;<span class="lifetime">'a</span>&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _access: trie_db::TrieAccess&lt;<span class="lifetime">'a</span>, H::Out&gt;) {
 		<span class="macro">unimplemented!</span>()
 	}
 
@@ -1910,29 +1912,29 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
 </span><span class="kw">impl</span>&lt;H: Hasher&gt; TrieRecorderProvider&lt;H&gt; <span class="kw">for </span>UnimplementedRecorderProvider&lt;H&gt; {
-	<span class="kw">type </span>Recorder&lt;<span class="lifetime">&#39;a</span>&gt; = UnimplementedRecorderProvider&lt;H&gt; <span class="kw">where </span>H: <span class="lifetime">&#39;a</span>;
+	<span class="kw">type </span>Recorder&lt;<span class="lifetime">'a</span>&gt; = UnimplementedRecorderProvider&lt;H&gt; <span class="kw">where </span>H: <span class="lifetime">'a</span>;
 
 	<span class="kw">fn </span>drain_storage_proof(<span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;StorageProof&gt; {
 		<span class="macro">unimplemented!</span>()
 	}
 
-	<span class="kw">fn </span>as_trie_recorder(<span class="kw-2">&amp;</span><span class="self">self</span>, _storage_root: H::Out) -&gt; <span class="self">Self</span>::Recorder&lt;<span class="lifetime">&#39;_</span>&gt; {
+	<span class="kw">fn </span>as_trie_recorder(<span class="kw-2">&amp;</span><span class="self">self</span>, _storage_root: H::Out) -&gt; <span class="self">Self</span>::Recorder&lt;<span class="lifetime">'_</span>&gt; {
 		<span class="macro">unimplemented!</span>()
 	}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">type </span>DefaultCache&lt;H&gt; = LocalTrieCache&lt;H&gt;;
 
-<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
 </span><span class="kw">type </span>DefaultCache&lt;H&gt; = UnimplementedCacheProvider&lt;H&gt;;
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">type </span>DefaultRecorder&lt;H&gt; = sp_trie::recorder::Recorder&lt;H&gt;;
 
-<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
 </span><span class="kw">type </span>DefaultRecorder&lt;H&gt; = UnimplementedRecorderProvider&lt;H&gt;;
 
 <span class="doccomment">/// Builder for creating a [`TrieBackend`].
@@ -2046,18 +2048,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">type </span>CacheCell&lt;T&gt; = parking_lot::Mutex&lt;T&gt;;
 
-<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
 </span><span class="kw">type </span>CacheCell&lt;T&gt; = core::cell::RefCell&lt;T&gt;;
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">fn </span>access_cache&lt;T, R&gt;(cell: <span class="kw-2">&amp;</span>CacheCell&lt;T&gt;, callback: <span class="kw">impl </span>FnOnce(<span class="kw-2">&amp;mut </span>T) -&gt; R) -&gt; R {
 	callback(<span class="kw-2">&amp;mut *</span>cell.lock())
 }
 
-<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
 </span><span class="kw">fn </span>access_cache&lt;T, R&gt;(cell: <span class="kw-2">&amp;</span>CacheCell&lt;T&gt;, callback: <span class="kw">impl </span>FnOnce(<span class="kw-2">&amp;mut </span>T) -&gt; R) -&gt; R {
 	callback(<span class="kw-2">&amp;mut *</span>cell.borrow_mut())
 }
@@ -2128,8 +2130,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl</span>&lt;S: TrieBackendStorage&lt;H&gt;, H: Hasher, C: TrieCacheProvider&lt;H&gt;, R: TrieRecorderProvider&lt;H&gt;&gt;
 	core::fmt::Debug <span class="kw">for </span>TrieBackend&lt;S, H, C, R&gt;
 {
-	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; core::fmt::Result {
-		<span class="macro">write!</span>(f, <span class="string">&quot;TrieBackend&quot;</span>)
+	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; core::fmt::Result {
+		<span class="macro">write!</span>(f, <span class="string">"TrieBackend"</span>)
 	}
 }
 
@@ -2210,7 +2212,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="self">self</span>.essence
 				.next_storage_key_slow(key)
 				.expect(
-					<span class="string">&quot;fetching the next key through iterator didn&#39;t fail so this shouldn&#39;t either&quot;
+					<span class="string">"fetching the next key through iterator didn't fail so this shouldn't either"
 				</span>)
 				.as_ref(),
 			<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>next_key)
@@ -2231,9 +2233,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">self</span>.essence.raw_iter(args)
 	}
 
-	<span class="kw">fn </span>storage_root&lt;<span class="lifetime">&#39;a</span>&gt;(
+	<span class="kw">fn </span>storage_root&lt;<span class="lifetime">'a</span>&gt;(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		delta: <span class="kw">impl </span>Iterator&lt;Item = (<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8], <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8]&gt;)&gt;,
+		delta: <span class="kw">impl </span>Iterator&lt;Item = (<span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8], <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8]&gt;)&gt;,
 		state_version: StateVersion,
 	) -&gt; (H::Out, PrefixedMemoryDB&lt;H&gt;)
 	<span class="kw">where
@@ -2242,10 +2244,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">self</span>.essence.storage_root(delta, state_version)
 	}
 
-	<span class="kw">fn </span>child_storage_root&lt;<span class="lifetime">&#39;a</span>&gt;(
+	<span class="kw">fn </span>child_storage_root&lt;<span class="lifetime">'a</span>&gt;(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		child_info: <span class="kw-2">&amp;</span>ChildInfo,
-		delta: <span class="kw">impl </span>Iterator&lt;Item = (<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8], <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8]&gt;)&gt;,
+		delta: <span class="kw">impl </span>Iterator&lt;Item = (<span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8], <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8]&gt;)&gt;,
 		state_version: StateVersion,
 	) -&gt; (H::Out, bool, PrefixedMemoryDB&lt;H&gt;)
 	<span class="kw">where
@@ -2265,7 +2267,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">impl</span>&lt;S: TrieBackendStorage&lt;H&gt;, H: Hasher, C&gt; AsTrieBackend&lt;H, C&gt; <span class="kw">for </span>TrieBackend&lt;S, H, C&gt; {
 	<span class="kw">type </span>TrieBackendStorage = S;
 
@@ -2277,7 +2279,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Create a backend used for checking the proof, using `H` as hasher.
 ///
 /// `proof` and `root` must match, i.e. `root` must be the correct root of `proof` nodes.
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+</span><span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">pub fn </span>create_proof_check_backend&lt;H&gt;(
 	root: H::Out,
 	proof: StorageProof,
@@ -2311,7 +2313,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use </span>std::iter;
 	<span class="kw">use </span>trie_db::NodeCodec;
 
-	<span class="kw">const </span>CHILD_KEY_1: <span class="kw-2">&amp;</span>[u8] = <span class="string">b&quot;sub1&quot;</span>;
+	<span class="kw">const </span>CHILD_KEY_1: <span class="kw-2">&amp;</span>[u8] = <span class="string">b"sub1"</span>;
 
 	<span class="kw">type </span>Recorder = sp_trie::recorder::Recorder&lt;BlakeTwo256&gt;;
 	<span class="kw">type </span>Cache = LocalTrieCache&lt;BlakeTwo256&gt;;
@@ -2342,7 +2344,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 				<span class="kw">for </span>(version, cache, recorder) <span class="kw">in </span>parameters {
 					<span class="macro">eprintln!</span>(
-						<span class="string">&quot;Running with version {:?}, cache enabled {} and recorder enabled {}&quot;</span>,
+						<span class="string">"Running with version {:?}, cache enabled {} and recorder enabled {}"</span>,
 						version,
 						cache.is_some(),
 						recorder.is_some()
@@ -2365,13 +2367,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">match </span>state_version {
 				StateVersion::V0 =&gt; {
 					<span class="kw">let </span><span class="kw-2">mut </span>trie = TrieDBMutBuilderV0::new(<span class="kw-2">&amp;mut </span>mdb, <span class="kw-2">&amp;mut </span>root).build();
-					trie.insert(<span class="string">b&quot;value3&quot;</span>, <span class="kw-2">&amp;</span>[<span class="number">142</span>; <span class="number">33</span>]).expect(<span class="string">&quot;insert failed&quot;</span>);
-					trie.insert(<span class="string">b&quot;value4&quot;</span>, <span class="kw-2">&amp;</span>[<span class="number">124</span>; <span class="number">33</span>]).expect(<span class="string">&quot;insert failed&quot;</span>);
+					trie.insert(<span class="string">b"value3"</span>, <span class="kw-2">&amp;</span>[<span class="number">142</span>; <span class="number">33</span>]).expect(<span class="string">"insert failed"</span>);
+					trie.insert(<span class="string">b"value4"</span>, <span class="kw-2">&amp;</span>[<span class="number">124</span>; <span class="number">33</span>]).expect(<span class="string">"insert failed"</span>);
 				},
 				StateVersion::V1 =&gt; {
 					<span class="kw">let </span><span class="kw-2">mut </span>trie = TrieDBMutBuilderV1::new(<span class="kw-2">&amp;mut </span>mdb, <span class="kw-2">&amp;mut </span>root).build();
-					trie.insert(<span class="string">b&quot;value3&quot;</span>, <span class="kw-2">&amp;</span>[<span class="number">142</span>; <span class="number">33</span>]).expect(<span class="string">&quot;insert failed&quot;</span>);
-					trie.insert(<span class="string">b&quot;value4&quot;</span>, <span class="kw-2">&amp;</span>[<span class="number">124</span>; <span class="number">33</span>]).expect(<span class="string">&quot;insert failed&quot;</span>);
+					trie.insert(<span class="string">b"value3"</span>, <span class="kw-2">&amp;</span>[<span class="number">142</span>; <span class="number">33</span>]).expect(<span class="string">"insert failed"</span>);
+					trie.insert(<span class="string">b"value4"</span>, <span class="kw-2">&amp;</span>[<span class="number">124</span>; <span class="number">33</span>]).expect(<span class="string">"insert failed"</span>);
 				},
 			};
 		};
@@ -2386,11 +2388,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				sub_root: <span class="kw-2">&amp;</span>[u8],
 			) {
 				trie.insert(child_info.prefixed_storage_key().as_slice(), sub_root)
-					.expect(<span class="string">&quot;insert failed&quot;</span>);
-				trie.insert(<span class="string">b&quot;key&quot;</span>, <span class="string">b&quot;value&quot;</span>).expect(<span class="string">&quot;insert failed&quot;</span>);
-				trie.insert(<span class="string">b&quot;value1&quot;</span>, <span class="kw-2">&amp;</span>[<span class="number">42</span>]).expect(<span class="string">&quot;insert failed&quot;</span>);
-				trie.insert(<span class="string">b&quot;value2&quot;</span>, <span class="kw-2">&amp;</span>[<span class="number">24</span>]).expect(<span class="string">&quot;insert failed&quot;</span>);
-				trie.insert(<span class="string">b&quot;:code&quot;</span>, <span class="string">b&quot;return 42&quot;</span>).expect(<span class="string">&quot;insert failed&quot;</span>);
+					.expect(<span class="string">"insert failed"</span>);
+				trie.insert(<span class="string">b"key"</span>, <span class="string">b"value"</span>).expect(<span class="string">"insert failed"</span>);
+				trie.insert(<span class="string">b"value1"</span>, <span class="kw-2">&amp;</span>[<span class="number">42</span>]).expect(<span class="string">"insert failed"</span>);
+				trie.insert(<span class="string">b"value2"</span>, <span class="kw-2">&amp;</span>[<span class="number">24</span>]).expect(<span class="string">"insert failed"</span>);
+				trie.insert(<span class="string">b":code"</span>, <span class="string">b"return 42"</span>).expect(<span class="string">"insert failed"</span>);
 				<span class="kw">for </span>i <span class="kw">in </span><span class="number">128u8</span>..<span class="number">255u8 </span>{
 					trie.insert(<span class="kw-2">&amp;</span>[i], <span class="kw-2">&amp;</span>[i]).unwrap();
 				}
@@ -2467,8 +2469,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		recorder: <span class="prelude-ty">Option</span>&lt;Recorder&gt;,
 	) {
 		<span class="macro">assert_eq!</span>(
-			test_trie(state_version, cache, recorder).storage(<span class="string">b&quot;key&quot;</span>).unwrap(),
-			<span class="prelude-val">Some</span>(<span class="string">b&quot;value&quot;</span>.to_vec())
+			test_trie(state_version, cache, recorder).storage(<span class="string">b"key"</span>).unwrap(),
+			<span class="prelude-val">Some</span>(<span class="string">b"value"</span>.to_vec())
 		);
 	}
 
@@ -2484,7 +2486,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>test_trie = test_trie(state_version, cache, recorder);
 		<span class="macro">assert_eq!</span>(
 			test_trie
-				.child_storage(<span class="kw-2">&amp;</span>ChildInfo::new_default(CHILD_KEY_1), <span class="string">b&quot;value3&quot;</span>)
+				.child_storage(<span class="kw-2">&amp;</span>ChildInfo::new_default(CHILD_KEY_1), <span class="string">b"value3"</span>)
 				.unwrap(),
 			<span class="prelude-val">Some</span>(<span class="macro">vec!</span>[<span class="number">142u8</span>; <span class="number">33</span>]),
 		);
@@ -2494,13 +2496,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.cache
 			.write()
 			.child_root
-			.entry(<span class="string">b&quot;sub1&quot;</span>.to_vec())
+			.entry(<span class="string">b"sub1"</span>.to_vec())
 			.and_modify(|value| {
 				<span class="kw-2">*</span>value = <span class="prelude-val">None</span>;
 			});
 		<span class="macro">assert_eq!</span>(
 			test_trie
-				.child_storage(<span class="kw-2">&amp;</span>ChildInfo::new_default(CHILD_KEY_1), <span class="string">b&quot;value3&quot;</span>)
+				.child_storage(<span class="kw-2">&amp;</span>ChildInfo::new_default(CHILD_KEY_1), <span class="string">b"value3"</span>)
 				.unwrap(),
 			<span class="prelude-val">None</span>,
 		);
@@ -2513,7 +2515,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		recorder: <span class="prelude-ty">Option</span>&lt;Recorder&gt;,
 	) {
 		<span class="macro">assert_eq!</span>(
-			test_trie(state_version, cache, recorder).storage(<span class="string">b&quot;non-existing-key&quot;</span>).unwrap(),
+			test_trie(state_version, cache, recorder).storage(<span class="string">b"non-existing-key"</span>).unwrap(),
 			<span class="prelude-val">None
 		</span>);
 	}
@@ -2563,70 +2565,70 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.take(<span class="number">5</span>)
 				.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
 			<span class="macro">vec!</span>[
-				<span class="string">b&quot;:child_storage:default:sub1&quot;</span>.to_vec(),
-				<span class="string">b&quot;:code&quot;</span>.to_vec(),
-				<span class="string">b&quot;key&quot;</span>.to_vec(),
-				<span class="string">b&quot;value1&quot;</span>.to_vec(),
-				<span class="string">b&quot;value2&quot;</span>.to_vec(),
+				<span class="string">b":child_storage:default:sub1"</span>.to_vec(),
+				<span class="string">b":code"</span>.to_vec(),
+				<span class="string">b"key"</span>.to_vec(),
+				<span class="string">b"value1"</span>.to_vec(),
+				<span class="string">b"value2"</span>.to_vec(),
 			]
 		);
 
 		<span class="comment">// Fetch starting at a given key (full key).
 		</span><span class="macro">assert_eq!</span>(
-			trie.keys(IterArgs { start_at: <span class="prelude-val">Some</span>(<span class="string">b&quot;key&quot;</span>), ..IterArgs::default() })
+			trie.keys(IterArgs { start_at: <span class="prelude-val">Some</span>(<span class="string">b"key"</span>), ..IterArgs::default() })
 				.unwrap()
 				.map(|result| result.unwrap())
 				.take(<span class="number">3</span>)
 				.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
-			<span class="macro">vec!</span>[<span class="string">b&quot;key&quot;</span>.to_vec(), <span class="string">b&quot;value1&quot;</span>.to_vec(), <span class="string">b&quot;value2&quot;</span>.to_vec(),]
+			<span class="macro">vec!</span>[<span class="string">b"key"</span>.to_vec(), <span class="string">b"value1"</span>.to_vec(), <span class="string">b"value2"</span>.to_vec(),]
 		);
 
 		<span class="comment">// Fetch starting at a given key (partial key).
 		</span><span class="macro">assert_eq!</span>(
-			trie.keys(IterArgs { start_at: <span class="prelude-val">Some</span>(<span class="string">b&quot;ke&quot;</span>), ..IterArgs::default() })
+			trie.keys(IterArgs { start_at: <span class="prelude-val">Some</span>(<span class="string">b"ke"</span>), ..IterArgs::default() })
 				.unwrap()
 				.map(|result| result.unwrap())
 				.take(<span class="number">3</span>)
 				.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
-			<span class="macro">vec!</span>[<span class="string">b&quot;key&quot;</span>.to_vec(), <span class="string">b&quot;value1&quot;</span>.to_vec(), <span class="string">b&quot;value2&quot;</span>.to_vec(),]
+			<span class="macro">vec!</span>[<span class="string">b"key"</span>.to_vec(), <span class="string">b"value1"</span>.to_vec(), <span class="string">b"value2"</span>.to_vec(),]
 		);
 
 		<span class="comment">// Fetch starting at a given key (empty key).
 		</span><span class="macro">assert_eq!</span>(
-			trie.keys(IterArgs { start_at: <span class="prelude-val">Some</span>(<span class="string">b&quot;&quot;</span>), ..IterArgs::default() })
+			trie.keys(IterArgs { start_at: <span class="prelude-val">Some</span>(<span class="string">b""</span>), ..IterArgs::default() })
 				.unwrap()
 				.map(|result| result.unwrap())
 				.take(<span class="number">5</span>)
 				.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
 			<span class="macro">vec!</span>[
-				<span class="string">b&quot;:child_storage:default:sub1&quot;</span>.to_vec(),
-				<span class="string">b&quot;:code&quot;</span>.to_vec(),
-				<span class="string">b&quot;key&quot;</span>.to_vec(),
-				<span class="string">b&quot;value1&quot;</span>.to_vec(),
-				<span class="string">b&quot;value2&quot;</span>.to_vec(),
+				<span class="string">b":child_storage:default:sub1"</span>.to_vec(),
+				<span class="string">b":code"</span>.to_vec(),
+				<span class="string">b"key"</span>.to_vec(),
+				<span class="string">b"value1"</span>.to_vec(),
+				<span class="string">b"value2"</span>.to_vec(),
 			]
 		);
 
-		<span class="comment">// Fetch starting at a given key and with prefix which doesn&#39;t match that key.
+		<span class="comment">// Fetch starting at a given key and with prefix which doesn't match that key.
 		// (Start *before* the prefix.)
 		</span><span class="macro">assert_eq!</span>(
 			trie.keys(IterArgs {
-				prefix: <span class="prelude-val">Some</span>(<span class="string">b&quot;value&quot;</span>),
-				start_at: <span class="prelude-val">Some</span>(<span class="string">b&quot;key&quot;</span>),
+				prefix: <span class="prelude-val">Some</span>(<span class="string">b"value"</span>),
+				start_at: <span class="prelude-val">Some</span>(<span class="string">b"key"</span>),
 				..IterArgs::default()
 			})
 			.unwrap()
 			.map(|result| result.unwrap())
 			.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
-			<span class="macro">vec!</span>[<span class="string">b&quot;value1&quot;</span>.to_vec(), <span class="string">b&quot;value2&quot;</span>.to_vec(),]
+			<span class="macro">vec!</span>[<span class="string">b"value1"</span>.to_vec(), <span class="string">b"value2"</span>.to_vec(),]
 		);
 
-		<span class="comment">// Fetch starting at a given key and with prefix which doesn&#39;t match that key.
+		<span class="comment">// Fetch starting at a given key and with prefix which doesn't match that key.
 		// (Start *after* the prefix.)
 		</span><span class="macro">assert!</span>(trie
 			.keys(IterArgs {
-				prefix: <span class="prelude-val">Some</span>(<span class="string">b&quot;value&quot;</span>),
-				start_at: <span class="prelude-val">Some</span>(<span class="string">b&quot;vblue&quot;</span>),
+				prefix: <span class="prelude-val">Some</span>(<span class="string">b"value"</span>),
+				start_at: <span class="prelude-val">Some</span>(<span class="string">b"vblue"</span>),
 				..IterArgs::default()
 			})
 			.unwrap()
@@ -2637,14 +2639,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// Fetch starting at a given key and with prefix which does match that key.
 		</span><span class="macro">assert_eq!</span>(
 			trie.keys(IterArgs {
-				prefix: <span class="prelude-val">Some</span>(<span class="string">b&quot;value&quot;</span>),
-				start_at: <span class="prelude-val">Some</span>(<span class="string">b&quot;value&quot;</span>),
+				prefix: <span class="prelude-val">Some</span>(<span class="string">b"value"</span>),
+				start_at: <span class="prelude-val">Some</span>(<span class="string">b"value"</span>),
 				..IterArgs::default()
 			})
 			.unwrap()
 			.map(|result| result.unwrap())
 			.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
-			<span class="macro">vec!</span>[<span class="string">b&quot;value1&quot;</span>.to_vec(), <span class="string">b&quot;value2&quot;</span>.to_vec(),]
+			<span class="macro">vec!</span>[<span class="string">b"value1"</span>.to_vec(), <span class="string">b"value2"</span>.to_vec(),]
 		);
 	}
 
@@ -2659,45 +2661,45 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		recorder: <span class="prelude-ty">Option</span>&lt;Recorder&gt;,
 	) {
 		<span class="kw">let </span>trie = test_trie_with_hex_keys(state_version, cache, recorder, <span class="kw-2">&amp;</span>[
-			<span class="string">&quot;6cf4040bbce30824850f1a4823d8c65faeefaa25a5bae16a431719647c1d99da&quot;</span>,
-			<span class="string">&quot;6cf4040bbce30824850f1a4823d8c65ff536928ca5ba50039bc2766a48ddbbab&quot;</span>,
-			<span class="string">&quot;70f943199f1a2dde80afdaf3f447db834e7b9012096b41c4eb3aaf947f6ea429&quot;</span>,
-			<span class="string">&quot;7474449cca95dc5d0c00e71735a6d17d3cd15a3fd6e04e47bee3922dbfa92c8d007fc7effcb0c044a0c41fd8a77eb55d2133058a86d1f4d6f8e45612cd271eefd77f91caeaacfe011b8f41540e0a793b0fd51b245dae19382b45386570f2b545fab75e3277910f7324b55f47c29f9965e8298371404e50ac&quot;</span>,
-			<span class="string">&quot;7474449cca95dc5d0c00e71735a6d17d3cd15a3fd6e04e47bee3922dbfa92c8d0179c23cd593c770fde9fc7aa8f84b3e401e654b8986c67728844da0080ec9ee222b41a85708a471a511548302870b53f40813d8354b6d2969e1b7ca9e083ecf96f9647e004ecb41c7f26f0110f778bdb3d9da31bef323d9&quot;</span>,
-			<span class="string">&quot;7474449cca95dc5d0c00e71735a6d17d3cd15a3fd6e04e47bee3922dbfa92c8d024de296f88310247001277477f4ace4d0aa5685ea2928d518a807956e4806a656520d6520b8ac259f684aa0d91961d76f697716f04e6c997338d03560ab7d703829fe7b9d0e6d7eff8d8412fc428364c2f474a67b36586d&quot;</span>,
-			<span class="string">&quot;7474449cca95dc5d0c00e71735a6d17d3cd15a3fd6e04e47bee3922dbfa92c8d13dc5d83f2361c14d05933eb3182a92ac14665718569703baf1da25c7d571843b6489f03d8549c87bfa5709836ba729443c319659e83ad5ee133e6f11af51d883e56216e9e1bbb1e2920c7c6120cbb55cd469b1f95b61601&quot;</span>,
-			<span class="string">&quot;7474449cca95dc5d0c00e71735a6d17d3cd15a3fd6e04e47bee3922dbfa92c8d1786d20bbb4b91eb1f5765432d750bd0111a0807c8d04f05110ffaf73f4fa7b360422c13bc97efc3a2324d9fa8f954b424c0bcfce7236a2e8107dd31c2042a9860a964f8472fda49749dec3f146e81470b55aa0f3930d854&quot;</span>,
-			<span class="string">&quot;7474449cca95dc5d0c00e71735a6d17d3cd15a3fd6e04e47bee3922dbfa92c8d18c246484ec5335a40903e7cd05771be7c0b8459333f1ae2925c3669fc3e5accd0f38c4711a15544bfa5709836ba729443c319659e83ad5ee133e6f11af51d883e56216e9e1bbb1e2920c7c6120cbb55cd469b1f95b61601&quot;</span>,
-			<span class="string">&quot;7474449cca95dc5d0c00e71735a6d17d3cd15a3fd6e04e47bee3922dbfa92c8d1aca749033252ce75245528397430d14cb8e8c09248d81ee5de00b6ae93ee880b6d19a595e6dc106bfa5709836ba729443c319659e83ad5ee133e6f11af51d883e56216e9e1bbb1e2920c7c6120cbb55cd469b1f95b61601&quot;</span>,
-			<span class="string">&quot;7474449cca95dc5d0c00e71735a6d17d3cd15a3fd6e04e47bee3922dbfa92c8d1d6bceb91bc07973e7b3296f83af9f1c4300ce9198cc3b44c54dafddb58f4a43aee44a9bef1a2e9dbfa5709836ba729443c319659e83ad5ee133e6f11af51d883e56216e9e1bbb1e2920c7c6120cbb55cd469b1f95b61601&quot;</span>,
-			<span class="string">&quot;7474449cca95dc5d0c00e71735a6d17d3cd15a3fd6e04e47bee3922dbfa92c8d203383772f45721232139e1a8863b0f2f8d480bdc15bcc1f2033cf467e137059558da743838f6b58bfa5709836ba729443c319659e83ad5ee133e6f11af51d883e56216e9e1bbb1e2920c7c6120cbb55cd469b1f95b61601&quot;</span>,
-			<span class="string">&quot;7474449cca95dc5d0c00e71735a6d17d3cd15a3fd6e04e47bee3922dbfa92c8d2197cc5c3eb3a6a67538e0dc3eaaf8c820d71310d377499c4a5d276381789e0a234475e69cddf709d207458083d6146d3a36fce7f1fe05b232702bf154096e5e3a8c378bdc237d7a27909acd663563917f0f70bb0e8e61a3&quot;</span>,
-			<span class="string">&quot;7474449cca95dc5d0c00e71735a6d17d3cd15a3fd6e04e47bee3922dbfa92c8d4f19c117f2ea36100f753c4885aa8d63b4d65a0dc32106f829f89eeabd52c37105c9bdb75f752469729fa3f0e7d907c1d949192c8e264a1a510c32abe3a05ed50be2262d5bfb981673ec80a07fd2ce28c7f27cd0043a788c&quot;</span>,
-			<span class="string">&quot;7474449cca95dc5d0c00e71735a6d17d3cd15a3fd6e04e47bee3922dbfa92c8d547d5aaa651bafa63d077560dfe823ac75665ebf1dcfd96a06e45499f03dda31282977706918d4821b8f41540e0a793b0fd51b245dae19382b45386570f2b545fab75e3277910f7324b55f47c29f9965e8298371404e50ac&quot;</span>,
-			<span class="string">&quot;7474449cca95dc5d0c00e71735a6d17d3cd15a3fd6e04e47bee3922dbfa92c8d6037207d54d69a082ea225ab4a412e4b87d6f5612053b07c405cf05ea25e482a4908c0713be2998abfa5709836ba729443c319659e83ad5ee133e6f11af51d883e56216e9e1bbb1e2920c7c6120cbb55cd469b1f95b61601&quot;</span>,
-			<span class="string">&quot;7474449cca95dc5d0c00e71735a6d17d3cd15a3fd6e04e47bee3922dbfa92c8d63d0920de0c7315ebaed1d639d926961d28af89461c31eca890441e449147d23bb7c9d4fc42d7c16bfa5709836ba729443c319659e83ad5ee133e6f11af51d883e56216e9e1bbb1e2920c7c6120cbb55cd469b1f95b61601&quot;</span>,
-			<span class="string">&quot;7474449cca95dc5d0c00e71735a6d17d3cd15a3fd6e04e47bee3922dbfa92c8d7912c66be82a5972e5bc11c8d10551a296ba9aaff8ca6ab22a8cd1987974b87a97121c871f786d2e17e0a629acf01c38947f170b7e02a9ebb4ee60f83779acb99b71114c01a4f0a60694611a1502c399c77214ffa26e955b&quot;</span>,
-			<span class="string">&quot;7474449cca95dc5d0c00e71735a6d17d3cd15a3fd6e04e47bee3922dbfa92c8d7aa00f217f3a374a2f1ca0f388719f84099e8157a8a83c5ccf54eae1617f93933fa976baa629e6febfa5709836ba729443c319659e83ad5ee133e6f11af51d883e56216e9e1bbb1e2920c7c6120cbb55cd469b1f95b61601&quot;</span>,
-			<span class="string">&quot;7474449cca95dc5d0c00e71735a6d17d3cd15a3fd6e04e47bee3922dbfa92c8d9e1c3c8ab41943cf377b1aa724d7f518a3cfc96a732bdc4658155d09ed2bfc31b5ccbc6d8646b59f1b8f41540e0a793b0fd51b245dae19382b45386570f2b545fab75e3277910f7324b55f47c29f9965e8298371404e50ac&quot;</span>,
-			<span class="string">&quot;7474449cca95dc5d0c00e71735a6d17d3cd15a3fd6e04e47bee3922dbfa92c8d9fb8d6d95d5214a3305a4fa07e344eb99fad4be3565d646c8ac5af85514d9c96702c9c207be234958dbdb9185f467d2be3b84e8b2f529f7ec3844b378a889afd6bd31a9b5ed22ffee2019ad82c6692f1736dd41c8bb85726&quot;</span>,
-			<span class="string">&quot;7474449cca95dc5d0c00e71735a6d17d3cd15a3fd6e04e47bee3922dbfa92c8d9fb8d6d95d5214a3305a4fa07e344eb99fad4be3565d646c8ac5af85514d9c96702c9c207be23495ec1caa509591a36a8403684384ce40838c9bd7fc49d933a10d3b26e979273e2f17ebf0bf41cd90e4287e126a59d5a243&quot;</span>,
-			<span class="string">&quot;7474449cca95dc5d0c00e71735a6d17d3cd15a3fd6e04e47bee3922dbfa92c8da7fc066aae2ffe03b36e9a72f9a39cb2befac7e47f320309f31f1c1676288d9596045807304b3d79bfa5709836ba729443c319659e83ad5ee133e6f11af51d883e56216e9e1bbb1e2920c7c6120cbb55cd469b1f95b61601&quot;</span>,
-			<span class="string">&quot;7474449cca95dc5d0c00e71735a6d17d3cd15a3fd6e04e47bee3922dbfa92c8daf3c377b0fddf7c7ad6d390fab0ab45ac16c21645be880af5cab2fbbeb04820401a4c9f766c17bef9fc14a2e16ade86fe26ee81d4497dc6aab81cc5f5bb0458d6149a763ecb09aefec06950dd61db1ba025401d2a04e3b9d&quot;</span>,
-			<span class="string">&quot;7474449cca95dc5d0c00e71735a6d17d3cd15a3fd6e04e47bee3922dbfa92c8daf3c377b0fddf7c7ad6d390fab0ab45ac16c21645be880af5cab2fbbeb04820401a4c9f766c17befbfa5709836ba729443c319659e83ad5ee133e6f11af51d883e56216e9e1bbb1e2920c7c6120cbb55cd469b1f95b61601&quot;</span>,
-			<span class="string">&quot;7474449cca95dc5d0c00e71735a6d17d3cd15a3fd6e04e47bee3922dbfa92c8db60505ba8b77ef03ed805436d3242f26dc828084b12aaf4bcb96af468816a182b5360149398aad6b1dafe949b0918138ceef924f6393d1818a04842301294604972da17b24b31b155e4409a01273733b8d21a156c2e7eb71&quot;</span>,
-			<span class="string">&quot;7474449cca95dc5d0c00e71735a6d17d3cd15a3fd6e04e47bee3922dbfa92c8dbd27136a6e028656073cc840bfabb48fe935880c4c4c990ee98458b2fed308e9765f7f7f717dd3b2862fa5361d3b55afa6040e582687403c852b2d065b24f253276cc581226991f8e1818a78fc64c39da7f0b383c6726e0f&quot;</span>,
-			<span class="string">&quot;7474449cca95dc5d0c00e71735a6d17d3cd15a3fd6e04e47bee3922dbfa92c8dca40d91320edd326500f9e8b5a0b23a8bdf21549f98f0e014f66b6a18bdd78e337a6c05d670c80c88a55d4c7bb6fbae546e2d03ac9ab16e85fe11dad6adfd6a20618905477b831d7d48ca32d0bfd2bdc8dbeba26ffe2c710&quot;</span>,
-			<span class="string">&quot;7474449cca95dc5d0c00e71735a6d17d3cd15a3fd6e04e47bee3922dbfa92c8dd27478512243ed62c1c1f7066021798a464d4cf9099546d5d9907b3369f1b9d7a5aa5d60ca845619bfa5709836ba729443c319659e83ad5ee133e6f11af51d883e56216e9e1bbb1e2920c7c6120cbb55cd469b1f95b61601&quot;</span>,
-			<span class="string">&quot;7474449cca95dc5d0c00e71735a6d17d3cd15a3fd6e04e47bee3922dbfa92c8de6da5659cbbe1489abbe99c4d3a474f4d1e78edb55a9be68d8f52c6fe730388a298e6f6325db3da7bfa5709836ba729443c319659e83ad5ee133e6f11af51d883e56216e9e1bbb1e2920c7c6120cbb55cd469b1f95b61601&quot;</span>,
-			<span class="string">&quot;7474449cca95dc5d0c00e71735a6d17d3cd15a3fd6e04e47bee3922dbfa92c8de6da5659cbbe1489abbe99c4d3a474f4d1e78edb55a9be68d8f52c6fe730388a298e6f6325db3da7e94ca3e8c297d82f71e232a2892992d1f6480475fb797ce64e58f773d8fafd9fbcee4bdf4b14f2a71b6d3a428cf9f24b&quot;</span>,
-			<span class="string">&quot;7474449cca95dc5d0c00e71735a6d17d3cd15a3fd6e04e47bee3922dbfa92c8decdd1760c61ff7234f2876dbe817af803170233320d778b92043b2359e3de6d16c9e5359f6302da31c84d6f551ad2a831263ef956f0cdb3b4810cefcb2d0b57bcce7b82007016ae4fe752c31d1a01b589a7966cea03ec65c&quot;</span>,
-			<span class="string">&quot;7474449cca95dc5d0c00e71735a6d17d3cd15a3fd6e04e47bee3922dbfa92c8df9981ee6b69eb7af2153af34f39ffc06e2daa5272c99798c8849091284dc8905f2a76b65754c2089bfa5709836ba729443c319659e83ad5ee133e6f11af51d883e56216e9e1bbb1e2920c7c6120cbb55cd469b1f95b61601&quot;</span>,
-			<span class="string">&quot;7474449cca95dc5d0c00e71735a6d17d4e7b9012096b41c4eb3aaf947f6ea429&quot;</span>,
-			<span class="string">&quot;89d139e01a5eb2256f222e5fc5dbe6b33c9c1284130706f5aea0c8b3d4c54d89&quot;</span>,
-			<span class="string">&quot;89d139e01a5eb2256f222e5fc5dbe6b36254e9d55588784fa2a62b726696e2b1&quot;
+			<span class="string">"6cf4040bbce30824850f1a4823d8c65faeefaa25a5bae16a431719647c1d99da"</span>,
+			<span class="string">"6cf4040bbce30824850f1a4823d8c65ff536928ca5ba50039bc2766a48ddbbab"</span>,
+			<span class="string">"70f943199f1a2dde80afdaf3f447db834e7b9012096b41c4eb3aaf947f6ea429"</span>,
+			<span class="string">"7474449cca95dc5d0c00e71735a6d17d3cd15a3fd6e04e47bee3922dbfa92c8d007fc7effcb0c044a0c41fd8a77eb55d2133058a86d1f4d6f8e45612cd271eefd77f91caeaacfe011b8f41540e0a793b0fd51b245dae19382b45386570f2b545fab75e3277910f7324b55f47c29f9965e8298371404e50ac"</span>,
+			<span class="string">"7474449cca95dc5d0c00e71735a6d17d3cd15a3fd6e04e47bee3922dbfa92c8d0179c23cd593c770fde9fc7aa8f84b3e401e654b8986c67728844da0080ec9ee222b41a85708a471a511548302870b53f40813d8354b6d2969e1b7ca9e083ecf96f9647e004ecb41c7f26f0110f778bdb3d9da31bef323d9"</span>,
+			<span class="string">"7474449cca95dc5d0c00e71735a6d17d3cd15a3fd6e04e47bee3922dbfa92c8d024de296f88310247001277477f4ace4d0aa5685ea2928d518a807956e4806a656520d6520b8ac259f684aa0d91961d76f697716f04e6c997338d03560ab7d703829fe7b9d0e6d7eff8d8412fc428364c2f474a67b36586d"</span>,
+			<span class="string">"7474449cca95dc5d0c00e71735a6d17d3cd15a3fd6e04e47bee3922dbfa92c8d13dc5d83f2361c14d05933eb3182a92ac14665718569703baf1da25c7d571843b6489f03d8549c87bfa5709836ba729443c319659e83ad5ee133e6f11af51d883e56216e9e1bbb1e2920c7c6120cbb55cd469b1f95b61601"</span>,
+			<span class="string">"7474449cca95dc5d0c00e71735a6d17d3cd15a3fd6e04e47bee3922dbfa92c8d1786d20bbb4b91eb1f5765432d750bd0111a0807c8d04f05110ffaf73f4fa7b360422c13bc97efc3a2324d9fa8f954b424c0bcfce7236a2e8107dd31c2042a9860a964f8472fda49749dec3f146e81470b55aa0f3930d854"</span>,
+			<span class="string">"7474449cca95dc5d0c00e71735a6d17d3cd15a3fd6e04e47bee3922dbfa92c8d18c246484ec5335a40903e7cd05771be7c0b8459333f1ae2925c3669fc3e5accd0f38c4711a15544bfa5709836ba729443c319659e83ad5ee133e6f11af51d883e56216e9e1bbb1e2920c7c6120cbb55cd469b1f95b61601"</span>,
+			<span class="string">"7474449cca95dc5d0c00e71735a6d17d3cd15a3fd6e04e47bee3922dbfa92c8d1aca749033252ce75245528397430d14cb8e8c09248d81ee5de00b6ae93ee880b6d19a595e6dc106bfa5709836ba729443c319659e83ad5ee133e6f11af51d883e56216e9e1bbb1e2920c7c6120cbb55cd469b1f95b61601"</span>,
+			<span class="string">"7474449cca95dc5d0c00e71735a6d17d3cd15a3fd6e04e47bee3922dbfa92c8d1d6bceb91bc07973e7b3296f83af9f1c4300ce9198cc3b44c54dafddb58f4a43aee44a9bef1a2e9dbfa5709836ba729443c319659e83ad5ee133e6f11af51d883e56216e9e1bbb1e2920c7c6120cbb55cd469b1f95b61601"</span>,
+			<span class="string">"7474449cca95dc5d0c00e71735a6d17d3cd15a3fd6e04e47bee3922dbfa92c8d203383772f45721232139e1a8863b0f2f8d480bdc15bcc1f2033cf467e137059558da743838f6b58bfa5709836ba729443c319659e83ad5ee133e6f11af51d883e56216e9e1bbb1e2920c7c6120cbb55cd469b1f95b61601"</span>,
+			<span class="string">"7474449cca95dc5d0c00e71735a6d17d3cd15a3fd6e04e47bee3922dbfa92c8d2197cc5c3eb3a6a67538e0dc3eaaf8c820d71310d377499c4a5d276381789e0a234475e69cddf709d207458083d6146d3a36fce7f1fe05b232702bf154096e5e3a8c378bdc237d7a27909acd663563917f0f70bb0e8e61a3"</span>,
+			<span class="string">"7474449cca95dc5d0c00e71735a6d17d3cd15a3fd6e04e47bee3922dbfa92c8d4f19c117f2ea36100f753c4885aa8d63b4d65a0dc32106f829f89eeabd52c37105c9bdb75f752469729fa3f0e7d907c1d949192c8e264a1a510c32abe3a05ed50be2262d5bfb981673ec80a07fd2ce28c7f27cd0043a788c"</span>,
+			<span class="string">"7474449cca95dc5d0c00e71735a6d17d3cd15a3fd6e04e47bee3922dbfa92c8d547d5aaa651bafa63d077560dfe823ac75665ebf1dcfd96a06e45499f03dda31282977706918d4821b8f41540e0a793b0fd51b245dae19382b45386570f2b545fab75e3277910f7324b55f47c29f9965e8298371404e50ac"</span>,
+			<span class="string">"7474449cca95dc5d0c00e71735a6d17d3cd15a3fd6e04e47bee3922dbfa92c8d6037207d54d69a082ea225ab4a412e4b87d6f5612053b07c405cf05ea25e482a4908c0713be2998abfa5709836ba729443c319659e83ad5ee133e6f11af51d883e56216e9e1bbb1e2920c7c6120cbb55cd469b1f95b61601"</span>,
+			<span class="string">"7474449cca95dc5d0c00e71735a6d17d3cd15a3fd6e04e47bee3922dbfa92c8d63d0920de0c7315ebaed1d639d926961d28af89461c31eca890441e449147d23bb7c9d4fc42d7c16bfa5709836ba729443c319659e83ad5ee133e6f11af51d883e56216e9e1bbb1e2920c7c6120cbb55cd469b1f95b61601"</span>,
+			<span class="string">"7474449cca95dc5d0c00e71735a6d17d3cd15a3fd6e04e47bee3922dbfa92c8d7912c66be82a5972e5bc11c8d10551a296ba9aaff8ca6ab22a8cd1987974b87a97121c871f786d2e17e0a629acf01c38947f170b7e02a9ebb4ee60f83779acb99b71114c01a4f0a60694611a1502c399c77214ffa26e955b"</span>,
+			<span class="string">"7474449cca95dc5d0c00e71735a6d17d3cd15a3fd6e04e47bee3922dbfa92c8d7aa00f217f3a374a2f1ca0f388719f84099e8157a8a83c5ccf54eae1617f93933fa976baa629e6febfa5709836ba729443c319659e83ad5ee133e6f11af51d883e56216e9e1bbb1e2920c7c6120cbb55cd469b1f95b61601"</span>,
+			<span class="string">"7474449cca95dc5d0c00e71735a6d17d3cd15a3fd6e04e47bee3922dbfa92c8d9e1c3c8ab41943cf377b1aa724d7f518a3cfc96a732bdc4658155d09ed2bfc31b5ccbc6d8646b59f1b8f41540e0a793b0fd51b245dae19382b45386570f2b545fab75e3277910f7324b55f47c29f9965e8298371404e50ac"</span>,
+			<span class="string">"7474449cca95dc5d0c00e71735a6d17d3cd15a3fd6e04e47bee3922dbfa92c8d9fb8d6d95d5214a3305a4fa07e344eb99fad4be3565d646c8ac5af85514d9c96702c9c207be234958dbdb9185f467d2be3b84e8b2f529f7ec3844b378a889afd6bd31a9b5ed22ffee2019ad82c6692f1736dd41c8bb85726"</span>,
+			<span class="string">"7474449cca95dc5d0c00e71735a6d17d3cd15a3fd6e04e47bee3922dbfa92c8d9fb8d6d95d5214a3305a4fa07e344eb99fad4be3565d646c8ac5af85514d9c96702c9c207be23495ec1caa509591a36a8403684384ce40838c9bd7fc49d933a10d3b26e979273e2f17ebf0bf41cd90e4287e126a59d5a243"</span>,
+			<span class="string">"7474449cca95dc5d0c00e71735a6d17d3cd15a3fd6e04e47bee3922dbfa92c8da7fc066aae2ffe03b36e9a72f9a39cb2befac7e47f320309f31f1c1676288d9596045807304b3d79bfa5709836ba729443c319659e83ad5ee133e6f11af51d883e56216e9e1bbb1e2920c7c6120cbb55cd469b1f95b61601"</span>,
+			<span class="string">"7474449cca95dc5d0c00e71735a6d17d3cd15a3fd6e04e47bee3922dbfa92c8daf3c377b0fddf7c7ad6d390fab0ab45ac16c21645be880af5cab2fbbeb04820401a4c9f766c17bef9fc14a2e16ade86fe26ee81d4497dc6aab81cc5f5bb0458d6149a763ecb09aefec06950dd61db1ba025401d2a04e3b9d"</span>,
+			<span class="string">"7474449cca95dc5d0c00e71735a6d17d3cd15a3fd6e04e47bee3922dbfa92c8daf3c377b0fddf7c7ad6d390fab0ab45ac16c21645be880af5cab2fbbeb04820401a4c9f766c17befbfa5709836ba729443c319659e83ad5ee133e6f11af51d883e56216e9e1bbb1e2920c7c6120cbb55cd469b1f95b61601"</span>,
+			<span class="string">"7474449cca95dc5d0c00e71735a6d17d3cd15a3fd6e04e47bee3922dbfa92c8db60505ba8b77ef03ed805436d3242f26dc828084b12aaf4bcb96af468816a182b5360149398aad6b1dafe949b0918138ceef924f6393d1818a04842301294604972da17b24b31b155e4409a01273733b8d21a156c2e7eb71"</span>,
+			<span class="string">"7474449cca95dc5d0c00e71735a6d17d3cd15a3fd6e04e47bee3922dbfa92c8dbd27136a6e028656073cc840bfabb48fe935880c4c4c990ee98458b2fed308e9765f7f7f717dd3b2862fa5361d3b55afa6040e582687403c852b2d065b24f253276cc581226991f8e1818a78fc64c39da7f0b383c6726e0f"</span>,
+			<span class="string">"7474449cca95dc5d0c00e71735a6d17d3cd15a3fd6e04e47bee3922dbfa92c8dca40d91320edd326500f9e8b5a0b23a8bdf21549f98f0e014f66b6a18bdd78e337a6c05d670c80c88a55d4c7bb6fbae546e2d03ac9ab16e85fe11dad6adfd6a20618905477b831d7d48ca32d0bfd2bdc8dbeba26ffe2c710"</span>,
+			<span class="string">"7474449cca95dc5d0c00e71735a6d17d3cd15a3fd6e04e47bee3922dbfa92c8dd27478512243ed62c1c1f7066021798a464d4cf9099546d5d9907b3369f1b9d7a5aa5d60ca845619bfa5709836ba729443c319659e83ad5ee133e6f11af51d883e56216e9e1bbb1e2920c7c6120cbb55cd469b1f95b61601"</span>,
+			<span class="string">"7474449cca95dc5d0c00e71735a6d17d3cd15a3fd6e04e47bee3922dbfa92c8de6da5659cbbe1489abbe99c4d3a474f4d1e78edb55a9be68d8f52c6fe730388a298e6f6325db3da7bfa5709836ba729443c319659e83ad5ee133e6f11af51d883e56216e9e1bbb1e2920c7c6120cbb55cd469b1f95b61601"</span>,
+			<span class="string">"7474449cca95dc5d0c00e71735a6d17d3cd15a3fd6e04e47bee3922dbfa92c8de6da5659cbbe1489abbe99c4d3a474f4d1e78edb55a9be68d8f52c6fe730388a298e6f6325db3da7e94ca3e8c297d82f71e232a2892992d1f6480475fb797ce64e58f773d8fafd9fbcee4bdf4b14f2a71b6d3a428cf9f24b"</span>,
+			<span class="string">"7474449cca95dc5d0c00e71735a6d17d3cd15a3fd6e04e47bee3922dbfa92c8decdd1760c61ff7234f2876dbe817af803170233320d778b92043b2359e3de6d16c9e5359f6302da31c84d6f551ad2a831263ef956f0cdb3b4810cefcb2d0b57bcce7b82007016ae4fe752c31d1a01b589a7966cea03ec65c"</span>,
+			<span class="string">"7474449cca95dc5d0c00e71735a6d17d3cd15a3fd6e04e47bee3922dbfa92c8df9981ee6b69eb7af2153af34f39ffc06e2daa5272c99798c8849091284dc8905f2a76b65754c2089bfa5709836ba729443c319659e83ad5ee133e6f11af51d883e56216e9e1bbb1e2920c7c6120cbb55cd469b1f95b61601"</span>,
+			<span class="string">"7474449cca95dc5d0c00e71735a6d17d4e7b9012096b41c4eb3aaf947f6ea429"</span>,
+			<span class="string">"89d139e01a5eb2256f222e5fc5dbe6b33c9c1284130706f5aea0c8b3d4c54d89"</span>,
+			<span class="string">"89d139e01a5eb2256f222e5fc5dbe6b36254e9d55588784fa2a62b726696e2b1"
 		</span>]);
 
-		<span class="kw">let </span>key = array_bytes::hex2bytes(<span class="string">&quot;7474449cca95dc5d0c00e71735a6d17d3cd15a3fd6e04e47bee3922dbfa92c8da7dad55cf08ffe8194efa962146801b0503092b1ed6a3fa6aee9107334aefd7965bbe568c3d24c6d&quot;</span>).unwrap();
+		<span class="kw">let </span>key = array_bytes::hex2bytes(<span class="string">"7474449cca95dc5d0c00e71735a6d17d3cd15a3fd6e04e47bee3922dbfa92c8da7dad55cf08ffe8194efa962146801b0503092b1ed6a3fa6aee9107334aefd7965bbe568c3d24c6d"</span>).unwrap();
 
 		<span class="macro">assert_eq!</span>(
 			trie.keys(IterArgs {
@@ -2736,7 +2738,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		recorder: <span class="prelude-ty">Option</span>&lt;Recorder&gt;,
 	) {
 		<span class="kw">let </span>(new_root, <span class="kw-2">mut </span>tx) = test_trie(state_version, cache, recorder)
-			.storage_root(iter::once((<span class="kw-2">&amp;</span><span class="string">b&quot;new-key&quot;</span>[..], <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="string">b&quot;new-value&quot;</span>[..]))), state_version);
+			.storage_root(iter::once((<span class="kw-2">&amp;</span><span class="string">b"new-key"</span>[..], <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="string">b"new-value"</span>[..]))), state_version);
 		<span class="macro">assert!</span>(!tx.drain().is_empty());
 		<span class="macro">assert!</span>(
 			new_root !=
@@ -2801,7 +2803,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>backend = TrieBackendBuilder::wrap(<span class="kw-2">&amp;</span>trie_backend)
 			.with_recorder(Recorder::default())
 			.build();
-		<span class="macro">assert_eq!</span>(backend.storage(<span class="string">b&quot;key&quot;</span>).unwrap(), <span class="prelude-val">Some</span>(<span class="string">b&quot;value&quot;</span>.to_vec()));
+		<span class="macro">assert_eq!</span>(backend.storage(<span class="string">b"key"</span>).unwrap(), <span class="prelude-val">Some</span>(<span class="string">b"value"</span>.to_vec()));
 		<span class="macro">assert!</span>(!backend.extract_proof().unwrap().is_empty());
 	}
 
@@ -2824,7 +2826,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>proving_backend = TrieBackendBuilder::wrap(<span class="kw-2">&amp;</span>trie_backend)
 			.with_recorder(Recorder::default())
 			.build();
-		<span class="macro">assert_eq!</span>(trie_backend.storage(<span class="string">b&quot;key&quot;</span>).unwrap(), proving_backend.storage(<span class="string">b&quot;key&quot;</span>).unwrap());
+		<span class="macro">assert_eq!</span>(trie_backend.storage(<span class="string">b"key"</span>).unwrap(), proving_backend.storage(<span class="string">b"key"</span>).unwrap());
 		<span class="macro">assert_eq!</span>(
 			trie_backend
 				.pairs(Default::default())
@@ -2955,8 +2957,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		proof_recorded_and_checked_with_child_inner(StateVersion::V1);
 	}
 	<span class="kw">fn </span>proof_recorded_and_checked_with_child_inner(state_version: StateVersion) {
-		<span class="kw">let </span>child_info_1 = ChildInfo::new_default(<span class="string">b&quot;sub1&quot;</span>);
-		<span class="kw">let </span>child_info_2 = ChildInfo::new_default(<span class="string">b&quot;sub2&quot;</span>);
+		<span class="kw">let </span>child_info_1 = ChildInfo::new_default(<span class="string">b"sub1"</span>);
+		<span class="kw">let </span>child_info_2 = ChildInfo::new_default(<span class="string">b"sub2"</span>);
 		<span class="kw">let </span>child_info_1 = <span class="kw-2">&amp;</span>child_info_1;
 		<span class="kw">let </span>child_info_2 = <span class="kw-2">&amp;</span>child_info_2;
 		<span class="kw">let </span>contents = <span class="macro">vec!</span>[
@@ -2985,7 +2987,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">for </span>cache <span class="kw">in </span>[<span class="prelude-val">Some</span>(SharedTrieCache::new(CacheSize::unlimited())), <span class="prelude-val">None</span>] {
 			<span class="comment">// Run multiple times to have a different cache conditions.
 			</span><span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..<span class="number">5 </span>{
-				<span class="macro">eprintln!</span>(<span class="string">&quot;Running with cache {}, iteration {}&quot;</span>, cache.is_some(), i);
+				<span class="macro">eprintln!</span>(<span class="string">"Running with cache {}, iteration {}"</span>, cache.is_some(), i);
 
 				<span class="kw">if let </span><span class="prelude-val">Some</span>(cache) = <span class="kw-2">&amp;</span>cache {
 					<span class="kw">if </span>i == <span class="number">2 </span>{
@@ -3056,7 +3058,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		child_proof_recording_with_edge_cases_works_inner(StateVersion::V1);
 	}
 	<span class="kw">fn </span>child_proof_recording_with_edge_cases_works_inner(state_version: StateVersion) {
-		<span class="kw">let </span>child_info_1 = ChildInfo::new_default(<span class="string">b&quot;sub1&quot;</span>);
+		<span class="kw">let </span>child_info_1 = ChildInfo::new_default(<span class="string">b"sub1"</span>);
 		<span class="kw">let </span>child_info_1 = <span class="kw-2">&amp;</span>child_info_1;
 		<span class="kw">let </span>contents = <span class="macro">vec!</span>[
 			(<span class="prelude-val">None</span>, (<span class="number">0</span>..<span class="number">64</span>).map(|i| (<span class="macro">vec!</span>[i], <span class="prelude-val">Some</span>(<span class="macro">vec!</span>[i]))).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()),
@@ -3160,18 +3162,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>has_cache = cache.is_some();
 		<span class="kw">let </span>trie_backend = test_trie(state_version, cache, recorder);
 		<span class="kw">let </span>keys = <span class="kw-2">&amp;</span>[
-			<span class="kw-2">&amp;</span><span class="string">b&quot;key&quot;</span>[..],
-			<span class="kw-2">&amp;</span><span class="string">b&quot;value1&quot;</span>[..],
-			<span class="kw-2">&amp;</span><span class="string">b&quot;value2&quot;</span>[..],
-			<span class="kw-2">&amp;</span><span class="string">b&quot;doesnotexist&quot;</span>[..],
-			<span class="kw-2">&amp;</span><span class="string">b&quot;doesnotexist2&quot;</span>[..],
+			<span class="kw-2">&amp;</span><span class="string">b"key"</span>[..],
+			<span class="kw-2">&amp;</span><span class="string">b"value1"</span>[..],
+			<span class="kw-2">&amp;</span><span class="string">b"value2"</span>[..],
+			<span class="kw-2">&amp;</span><span class="string">b"doesnotexist"</span>[..],
+			<span class="kw-2">&amp;</span><span class="string">b"doesnotexist2"</span>[..],
 		];
 
 		<span class="kw">fn </span>check_estimation(
 			backend: TrieBackend&lt;
 				<span class="kw">impl </span>TrieBackendStorage&lt;BlakeTwo256&gt;,
 				BlakeTwo256,
-				<span class="kw-2">&amp;</span><span class="lifetime">&#39;_ </span>LocalTrieCache&lt;BlakeTwo256&gt;,
+				<span class="kw-2">&amp;</span><span class="lifetime">'_ </span>LocalTrieCache&lt;BlakeTwo256&gt;,
 			&gt;,
 			has_cache: bool,
 		) {
@@ -3207,11 +3209,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>new_data_is_added_to_the_cache() {
 		<span class="kw">let </span>shared_cache = SharedTrieCache::new(CacheSize::unlimited());
 		<span class="kw">let </span>new_data = <span class="macro">vec!</span>[
-			(<span class="kw-2">&amp;</span><span class="string">b&quot;new_data0&quot;</span>[..], <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="string">b&quot;0&quot;</span>[..])),
-			(<span class="kw-2">&amp;</span><span class="string">b&quot;new_data1&quot;</span>[..], <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="string">b&quot;1&quot;</span>[..])),
-			(<span class="kw-2">&amp;</span><span class="string">b&quot;new_data2&quot;</span>[..], <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="string">b&quot;2&quot;</span>[..])),
-			(<span class="kw-2">&amp;</span><span class="string">b&quot;new_data3&quot;</span>[..], <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="string">b&quot;3&quot;</span>[..])),
-			(<span class="kw-2">&amp;</span><span class="string">b&quot;new_data4&quot;</span>[..], <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="string">b&quot;4&quot;</span>[..])),
+			(<span class="kw-2">&amp;</span><span class="string">b"new_data0"</span>[..], <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="string">b"0"</span>[..])),
+			(<span class="kw-2">&amp;</span><span class="string">b"new_data1"</span>[..], <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="string">b"1"</span>[..])),
+			(<span class="kw-2">&amp;</span><span class="string">b"new_data2"</span>[..], <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="string">b"2"</span>[..])),
+			(<span class="kw-2">&amp;</span><span class="string">b"new_data3"</span>[..], <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="string">b"3"</span>[..])),
+			(<span class="kw-2">&amp;</span><span class="string">b"new_data4"</span>[..], <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="string">b"4"</span>[..])),
 		];
 
 		<span class="kw">let </span>new_root = {
@@ -3242,14 +3244,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		recording_same_key_access_in_different_tries_inner(StateVersion::V1);
 	}
 	<span class="kw">fn </span>recording_same_key_access_in_different_tries_inner(state_version: StateVersion) {
-		<span class="kw">let </span>key = <span class="string">b&quot;test_key&quot;</span>.to_vec();
-		<span class="comment">// Use some big values to ensure that we don&#39;t keep them inline
+		<span class="kw">let </span>key = <span class="string">b"test_key"</span>.to_vec();
+		<span class="comment">// Use some big values to ensure that we don't keep them inline
 		</span><span class="kw">let </span>top_trie_val = <span class="macro">vec!</span>[<span class="number">1</span>; <span class="number">1024</span>];
 		<span class="kw">let </span>child_trie_1_val = <span class="macro">vec!</span>[<span class="number">2</span>; <span class="number">1024</span>];
 		<span class="kw">let </span>child_trie_2_val = <span class="macro">vec!</span>[<span class="number">3</span>; <span class="number">1024</span>];
 
-		<span class="kw">let </span>child_info_1 = ChildInfo::new_default(<span class="string">b&quot;sub1&quot;</span>);
-		<span class="kw">let </span>child_info_2 = ChildInfo::new_default(<span class="string">b&quot;sub2&quot;</span>);
+		<span class="kw">let </span>child_info_1 = ChildInfo::new_default(<span class="string">b"sub1"</span>);
+		<span class="kw">let </span>child_info_2 = ChildInfo::new_default(<span class="string">b"sub2"</span>);
 		<span class="kw">let </span>child_info_1 = <span class="kw-2">&amp;</span>child_info_1;
 		<span class="kw">let </span>child_info_2 = <span class="kw-2">&amp;</span>child_info_2;
 		<span class="kw">let </span>contents = <span class="macro">vec!</span>[
@@ -3274,7 +3276,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">for </span>cache <span class="kw">in </span>[<span class="prelude-val">Some</span>(SharedTrieCache::new(CacheSize::unlimited())), <span class="prelude-val">None</span>] {
 			<span class="comment">// Run multiple times to have a different cache conditions.
 			</span><span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..<span class="number">5 </span>{
-				<span class="macro">eprintln!</span>(<span class="string">&quot;Running with cache {}, iteration {}&quot;</span>, cache.is_some(), i);
+				<span class="macro">eprintln!</span>(<span class="string">"Running with cache {}, iteration {}"</span>, cache.is_some(), i);
 
 				<span class="kw">if let </span><span class="prelude-val">Some</span>(cache) = <span class="kw-2">&amp;</span>cache {
 					<span class="kw">if </span>i == <span class="number">2 </span>{

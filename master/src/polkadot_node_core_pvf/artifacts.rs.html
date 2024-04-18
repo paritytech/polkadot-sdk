@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/core/pvf/src/artifacts.rs`."><title>artifacts.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/core/pvf/src/artifacts.rs`."><title>artifacts.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_node_core_pvf" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_node_core_pvf" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../polkadot_node_core_pvf/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -488,7 +490,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!
 //! 3. The pool gets an available worker and instructs it to work on the given PVF. The worker
 //!    starts compilation. When the worker finishes successfully, it writes the serialized artifact
-//!    into a temporary file and notifies the host that it&#39;s done. The host atomically moves
+//!    into a temporary file and notifies the host that it's done. The host atomically moves
 //!    (renames) the temporary file to the destination filename of the artifact.
 //!
 //! 4. If the worker concluded successfully or returned an error, then the pool notifies the queue.
@@ -501,7 +503,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!
 //! 6. On success, the execution request will come through the execution queue and ultimately be
 //!    processed by an execution worker. When this worker receives the request, it will read the
-//!    requested artifact. If it doesn&#39;t exist it reports an internal error. A request for execution
+//!    requested artifact. If it doesn't exist it reports an internal error. A request for execution
 //!    will bump the `last_time_needed` to the current time.
 //!
 //! 7. There is a separate process for pruning the prepared artifacts whose `last_time_needed` is
@@ -521,10 +523,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 
 <span class="doccomment">/// The extension to use for cached artifacts.
-</span><span class="kw">const </span>ARTIFACT_EXTENSION: <span class="kw-2">&amp;</span>str = <span class="string">&quot;pvf&quot;</span>;
+</span><span class="kw">const </span>ARTIFACT_EXTENSION: <span class="kw-2">&amp;</span>str = <span class="string">"pvf"</span>;
 
 <span class="doccomment">/// The prefix that artifacts used to start with under the old naming scheme.
-</span><span class="kw">const </span>ARTIFACT_OLD_PREFIX: <span class="kw-2">&amp;</span>str = <span class="string">&quot;wasmtime_&quot;</span>;
+</span><span class="kw">const </span>ARTIFACT_OLD_PREFIX: <span class="kw-2">&amp;</span>str = <span class="string">"wasmtime_"</span>;
 
 <span class="kw">pub fn </span>generate_artifact_path(cache_path: <span class="kw-2">&amp;</span>Path) -&gt; PathBuf {
 	<span class="kw">let </span>file_name = {
@@ -532,7 +534,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">use </span>rand::RngCore;
 		<span class="kw">let </span><span class="kw-2">mut </span>bytes = [<span class="number">0u8</span>; <span class="number">64</span>];
 		rand::thread_rng().fill_bytes(<span class="kw-2">&amp;mut </span>bytes);
-		bytes.hex(<span class="string">&quot;0x&quot;</span>)
+		bytes.hex(<span class="string">"0x"</span>)
 	};
 	<span class="kw">let </span><span class="kw-2">mut </span>artifact_path = cache_path.join(file_name);
 	artifact_path.set_extension(ARTIFACT_EXTENSION);
@@ -601,8 +603,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="doccomment">/// The number of times this artifact has failed to prepare.
 		</span>num_failures: u32,
 	},
-	<span class="doccomment">/// The code couldn&#39;t be compiled due to an error. Such artifacts
-	/// never reach the executor and stay in the host&#39;s memory.
+	<span class="doccomment">/// The code couldn't be compiled due to an error. Such artifacts
+	/// never reach the executor and stay in the host's memory.
 	</span>FailedToProcess {
 		<span class="doccomment">/// Keep track of the last time that processing this artifact failed.
 		</span>last_time_failed: SystemTime,
@@ -629,12 +631,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">self</span>.inner.len()
 	}
 
-	<span class="doccomment">/// Create an empty table and the cache directory on-disk if it doesn&#39;t exist.
+	<span class="doccomment">/// Create an empty table and the cache directory on-disk if it doesn't exist.
 	</span><span class="kw">pub async fn </span>new(cache_path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="self">Self </span>{
 		<span class="comment">// Make sure that the cache path directory and all its parents are created.
 		</span><span class="kw">let _ </span>= tokio::fs::create_dir_all(cache_path).<span class="kw">await</span>;
 
-		<span class="comment">// Delete any leftover artifacts and worker dirs from previous runs. We don&#39;t delete the
+		<span class="comment">// Delete any leftover artifacts and worker dirs from previous runs. We don't delete the
 		// entire cache directory in case the user made a mistake and set it to e.g. their home
 		// directory. This is a best-effort to do clean-up, so ignore any errors.
 		</span><span class="kw">for </span>entry <span class="kw">in </span>fs::read_dir(cache_path).into_iter().flatten().flatten() {
@@ -657,7 +659,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">self</span>.inner.get_mut(artifact_id)
 	}
 
-	<span class="doccomment">/// Inform the table about the artifact with the given ID. The state will be set to &quot;preparing&quot;.
+	<span class="doccomment">/// Inform the table about the artifact with the given ID. The state will be set to "preparing".
 	///
 	/// This function must be used only for brand-new artifacts and should never be used for
 	/// replacing existing ones.
@@ -673,7 +675,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.is_none());
 	}
 
-	<span class="doccomment">/// Insert an artifact with the given ID as &quot;prepared&quot;.
+	<span class="doccomment">/// Insert an artifact with the given ID as "prepared".
 	///
 	/// This function should only be used to build the artifact table at startup with valid
 	/// artifact caches.
@@ -735,14 +737,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>cache_path = tempdir.path();
 
 		<span class="comment">// These should be cleared.
-		</span>fs::write(cache_path.join(<span class="string">&quot;abcd.pvf&quot;</span>), <span class="string">&quot;test&quot;</span>).unwrap();
-		fs::write(cache_path.join(<span class="string">&quot;wasmtime_...&quot;</span>), <span class="string">&quot;test&quot;</span>).unwrap();
-		fs::create_dir(cache_path.join(<span class="string">&quot;worker-dir-prepare-test&quot;</span>)).unwrap();
+		</span>fs::write(cache_path.join(<span class="string">"abcd.pvf"</span>), <span class="string">"test"</span>).unwrap();
+		fs::write(cache_path.join(<span class="string">"wasmtime_..."</span>), <span class="string">"test"</span>).unwrap();
+		fs::create_dir(cache_path.join(<span class="string">"worker-dir-prepare-test"</span>)).unwrap();
 
 		<span class="comment">// These should not be touched.
-		</span>fs::write(cache_path.join(<span class="string">&quot;abcd.pvfartifact&quot;</span>), <span class="string">&quot;test&quot;</span>).unwrap();
-		fs::write(cache_path.join(<span class="string">&quot;polkadot_...&quot;</span>), <span class="string">&quot;test&quot;</span>).unwrap();
-		fs::create_dir(cache_path.join(<span class="string">&quot;worker-prepare-test&quot;</span>)).unwrap();
+		</span>fs::write(cache_path.join(<span class="string">"abcd.pvfartifact"</span>), <span class="string">"test"</span>).unwrap();
+		fs::write(cache_path.join(<span class="string">"polkadot_..."</span>), <span class="string">"test"</span>).unwrap();
+		fs::create_dir(cache_path.join(<span class="string">"worker-prepare-test"</span>)).unwrap();
 
 		<span class="kw">let </span>artifacts = Artifacts::new(cache_path).<span class="kw">await</span>;
 
@@ -751,9 +753,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.map(|entry| entry.unwrap().file_name().into_string().unwrap())
 			.collect();
 		<span class="macro">assert_eq!</span>(entries.len(), <span class="number">3</span>);
-		<span class="macro">assert!</span>(entries.contains(<span class="kw-2">&amp;</span>String::from(<span class="string">&quot;abcd.pvfartifact&quot;</span>)));
-		<span class="macro">assert!</span>(entries.contains(<span class="kw-2">&amp;</span>String::from(<span class="string">&quot;polkadot_...&quot;</span>)));
-		<span class="macro">assert!</span>(entries.contains(<span class="kw-2">&amp;</span>String::from(<span class="string">&quot;worker-prepare-test&quot;</span>)));
+		<span class="macro">assert!</span>(entries.contains(<span class="kw-2">&amp;</span>String::from(<span class="string">"abcd.pvfartifact"</span>)));
+		<span class="macro">assert!</span>(entries.contains(<span class="kw-2">&amp;</span>String::from(<span class="string">"polkadot_..."</span>)));
+		<span class="macro">assert!</span>(entries.contains(<span class="kw-2">&amp;</span>String::from(<span class="string">"worker-prepare-test"</span>)));
 		<span class="macro">assert_eq!</span>(artifacts.len(), <span class="number">0</span>);
 	}
 }

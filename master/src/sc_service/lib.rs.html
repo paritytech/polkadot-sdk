@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/service/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/service/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_service" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_service" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sc_service/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -740,16 +742,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! Manages communication between them.
 
 </span><span class="attr">#![warn(missing_docs)]
-#![recursion_limit = <span class="string">&quot;1024&quot;</span>]
+#![recursion_limit = <span class="string">"1024"</span>]
 
 </span><span class="kw">pub mod </span>chain_ops;
 <span class="kw">pub mod </span>config;
 <span class="kw">pub mod </span>error;
 
 <span class="kw">mod </span>builder;
-<span class="attr">#[cfg(feature = <span class="string">&quot;test-helpers&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"test-helpers"</span>)]
 </span><span class="kw">pub mod </span>client;
-<span class="attr">#[cfg(not(feature = <span class="string">&quot;test-helpers&quot;</span>))]
+<span class="attr">#[cfg(not(feature = <span class="string">"test-helpers"</span>))]
 </span><span class="kw">mod </span>client;
 <span class="kw">mod </span>metrics;
 <span class="kw">mod </span>task_manager;
@@ -812,7 +814,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub use </span>std::{ops::Deref, result::Result, sync::Arc};
 <span class="kw">pub use </span>task_manager::{SpawnTaskHandle, Task, TaskManager, TaskRegistry, DEFAULT_GROUP_NAME};
 
-<span class="kw">const </span>DEFAULT_PROTOCOL_ID: <span class="kw-2">&amp;</span>str = <span class="string">&quot;sup&quot;</span>;
+<span class="kw">const </span>DEFAULT_PROTOCOL_ID: <span class="kw-2">&amp;</span>str = <span class="string">"sup"</span>;
 
 <span class="doccomment">/// RPC handlers that can perform RPC queries.
 </span><span class="attr">#[derive(Clone)]
@@ -833,7 +835,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		json_query: <span class="kw-2">&amp;</span>str,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(String, tokio::sync::mpsc::Receiver&lt;String&gt;), serde_json::Error&gt; {
 		<span class="comment">// Because `tokio::sync::mpsc::channel` is used under the hood
-		// it will panic if it&#39;s set to usize::MAX.
+		// it will panic if it's set to usize::MAX.
 		//
 		// This limit is used to prevent panics and is large enough.
 		</span><span class="kw">const </span>TOKIO_MPSC_MAX_SIZE: usize = tokio::sync::Semaphore::MAX_PERMITS;
@@ -877,7 +879,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		+ ProofProvider&lt;B&gt;
 		+ Send
 		+ Sync
-		+ <span class="lifetime">&#39;static</span>,
+		+ <span class="lifetime">'static</span>,
 	H: sc_network_common::ExHashT,
 	N: NetworkBackend&lt;B, &lt;B <span class="kw">as </span>BlockT&gt;::Hash&gt;,
 &gt;(
@@ -903,7 +905,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="comment">// If this stream is shut down, that means the client has shut down, and the
 					// most appropriate thing to do for the network future is to shut down too.
 					</span><span class="prelude-val">None </span>=&gt; {
-						<span class="macro">debug!</span>(<span class="string">&quot;Block import stream has terminated, shutting down the network future.&quot;</span>);
+						<span class="macro">debug!</span>(<span class="string">"Block import stream has terminated, shutting down the network future."</span>);
 						<span class="kw">return
 					</span>},
 				};
@@ -927,7 +929,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="comment">// Drive the network. Shut down the network future if `NetworkWorker` has terminated.
 			</span><span class="kw">_ </span>= network_run =&gt; {
-				<span class="macro">debug!</span>(<span class="string">&quot;`NetworkWorker` has terminated, shutting down the network future.&quot;</span>);
+				<span class="macro">debug!</span>(<span class="string">"`NetworkWorker` has terminated, shutting down the network future."</span>);
 				<span class="kw">return
 			</span>}
 		}
@@ -944,7 +946,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		+ ProofProvider&lt;B&gt;
 		+ Send
 		+ Sync
-		+ <span class="lifetime">&#39;static</span>,
+		+ <span class="lifetime">'static</span>,
 	H: sc_network_common::ExHashT,
 &gt;(
 	role: Role,
@@ -960,7 +962,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">loop </span>{
 		<span class="comment">// Answer incoming RPC requests.
 		</span><span class="kw">let </span><span class="prelude-val">Some</span>(req) = rpc_rx.next().<span class="kw">await else </span>{
-			<span class="macro">debug!</span>(<span class="string">&quot;RPC requests stream has terminated, shutting down the system RPC future.&quot;</span>);
+			<span class="macro">debug!</span>(<span class="string">"RPC requests stream has terminated, shutting down the system RPC future."</span>);
 			<span class="kw">return
 		</span>};
 
@@ -973,7 +975,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						should_have_peers,
 					});
 				},
-				<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="macro">log::error!</span>(<span class="string">&quot;`SyncingEngine` shut down&quot;</span>),
+				<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="macro">log::error!</span>(<span class="string">"`SyncingEngine` shut down"</span>),
 			},
 			sc_rpc::system::Request::LocalPeerId(sender) =&gt; {
 				<span class="kw">let _ </span>= sender.send(network_service.local_peer_id().to_base58());
@@ -994,14 +996,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						info.into_iter()
 							.map(|(peer_id, p)| sc_rpc::system::PeerInfo {
 								peer_id: peer_id.to_base58(),
-								roles: <span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, p.roles),
+								roles: <span class="macro">format!</span>(<span class="string">"{:?}"</span>, p.roles),
 								best_hash: p.best_hash,
 								best_number: p.best_number,
 							})
 							.collect(),
 					);
 				},
-				<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="macro">log::error!</span>(<span class="string">&quot;`SyncingEngine` shut down&quot;</span>),
+				<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="macro">log::error!</span>(<span class="string">"`SyncingEngine` shut down"</span>),
 			},
 			sc_rpc::system::Request::NetworkState(sender) =&gt; {
 				<span class="kw">let </span>network_state = network_service.network_state().<span class="kw">await</span>;
@@ -1062,13 +1064,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							highest_block: best_seen_block.unwrap_or(best_number),
 						});
 					},
-					<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="macro">log::error!</span>(<span class="string">&quot;`SyncingEngine` shut down&quot;</span>),
+					<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="macro">log::error!</span>(<span class="string">"`SyncingEngine` shut down"</span>),
 				}
 			},
 		}
 	}
 
-	<span class="macro">debug!</span>(<span class="string">&quot;`NetworkWorker` has terminated, shutting down the system RPC future.&quot;</span>);
+	<span class="macro">debug!</span>(<span class="string">"`NetworkWorker` has terminated, shutting down the system RPC future."</span>);
 }
 
 <span class="comment">// Wrapper for HTTP and WS servers that makes sure they are properly shut down.
@@ -1078,7 +1080,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">impl </span>Drop <span class="kw">for </span>Server {
 		<span class="kw">fn </span>drop(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(server) = <span class="self">self</span>.<span class="number">0</span>.take() {
-				<span class="comment">// This doesn&#39;t not wait for the server to be stopped but fires the signal.
+				<span class="comment">// This doesn't not wait for the server to be stopped but fires the signal.
 				</span><span class="kw">let _ </span>= server.stop();
 			}
 		}
@@ -1182,11 +1184,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		+ ProofProvider&lt;B&gt;
 		+ Send
 		+ Sync
-		+ <span class="lifetime">&#39;static</span>,
-	Pool: <span class="lifetime">&#39;static </span>+ TransactionPool&lt;Block = B, Hash = H, Error = E&gt;,
+		+ <span class="lifetime">'static</span>,
+	Pool: <span class="lifetime">'static </span>+ TransactionPool&lt;Block = B, Hash = H, Error = E&gt;,
 	B: BlockT,
 	H: std::hash::Hash + Eq + sp_runtime::traits::Member + sp_runtime::traits::MaybeSerialize,
-	E: <span class="lifetime">&#39;static </span>+ IntoPoolError + From&lt;sc_transaction_pool_api::error::Error&gt;,
+	E: <span class="lifetime">'static </span>+ IntoPoolError + From&lt;sc_transaction_pool_api::error::Error&gt;,
 {
 	<span class="kw">fn </span>transactions(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;(H, B::Extrinsic)&gt; {
 		transactions_to_propagate(<span class="kw-2">&amp;*</span><span class="self">self</span>.pool)
@@ -1201,7 +1203,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>uxt = <span class="kw">match </span>Decode::decode(<span class="kw-2">&amp;mut &amp;</span>encoded[..]) {
 			<span class="prelude-val">Ok</span>(uxt) =&gt; uxt,
 			<span class="prelude-val">Err</span>(e) =&gt; {
-				<span class="macro">debug!</span>(<span class="string">&quot;Transaction invalid: {:?}&quot;</span>, e);
+				<span class="macro">debug!</span>(<span class="string">"Transaction invalid: {:?}"</span>, e);
 				<span class="kw">return </span>Box::pin(futures::future::ready(TransactionImport::Bad))
 			},
 		};
@@ -1218,11 +1220,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="prelude-val">Ok</span>(sc_transaction_pool_api::error::Error::AlreadyImported(<span class="kw">_</span>)) =&gt;
 						TransactionImport::KnownGood,
 					<span class="prelude-val">Ok</span>(e) =&gt; {
-						<span class="macro">debug!</span>(<span class="string">&quot;Error adding transaction to the pool: {:?}&quot;</span>, e);
+						<span class="macro">debug!</span>(<span class="string">"Error adding transaction to the pool: {:?}"</span>, e);
 						TransactionImport::Bad
 					},
 					<span class="prelude-val">Err</span>(e) =&gt; {
-						<span class="macro">debug!</span>(<span class="string">&quot;Error converting pool error: {}&quot;</span>, e);
+						<span class="macro">debug!</span>(<span class="string">"Error converting pool error: {}"</span>, e);
 						<span class="comment">// it is not bad at least, just some internal node logic error, so peer is
 						// innocent.
 						</span>TransactionImport::KnownGood

@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/executor/wasmtime/src/runtime.rs`."><title>runtime.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/executor/wasmtime/src/runtime.rs`."><title>runtime.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_executor_wasmtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_executor_wasmtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sc_executor_wasmtime/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -952,7 +954,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Returns the host memory.
 	</span><span class="kw">pub fn </span>memory(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Memory {
-		<span class="self">self</span>.memory.expect(<span class="string">&quot;memory is always set; qed&quot;</span>)
+		<span class="self">self</span>.memory.expect(<span class="string">"memory is always set; qed"</span>)
 	}
 }
 
@@ -1007,7 +1009,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// Blocks if there is no free instance available.
 	///
-	/// The returned [`ReleaseInstanceHandle`] should be dropped when the instance isn&#39;t used
+	/// The returned [`ReleaseInstanceHandle`] should be dropped when the instance isn't used
 	/// anymore.
 	</span><span class="kw">pub fn </span>acquire_instance(<span class="self">self</span>: Arc&lt;<span class="self">Self</span>&gt;) -&gt; ReleaseInstanceHandle {
 		<span class="kw">let </span><span class="kw-2">mut </span>counter = <span class="self">self</span>.counter.lock();
@@ -1091,31 +1093,31 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ) -&gt; std::result::Result&lt;(), String&gt; {
 	<span class="kw">use </span>std::fs;
 
-	<span class="kw">let </span>wasmtime_cache_root = cache_path.join(<span class="string">&quot;wasmtime&quot;</span>);
+	<span class="kw">let </span>wasmtime_cache_root = cache_path.join(<span class="string">"wasmtime"</span>);
 	fs::create_dir_all(<span class="kw-2">&amp;</span>wasmtime_cache_root)
-		.map_err(|err| <span class="macro">format!</span>(<span class="string">&quot;cannot create the dirs to cache: {}&quot;</span>, err))<span class="question-mark">?</span>;
+		.map_err(|err| <span class="macro">format!</span>(<span class="string">"cannot create the dirs to cache: {}"</span>, err))<span class="question-mark">?</span>;
 
 	<span class="comment">// Canonicalize the path after creating the directories.
 	</span><span class="kw">let </span>wasmtime_cache_root = wasmtime_cache_root
 		.canonicalize()
-		.map_err(|err| <span class="macro">format!</span>(<span class="string">&quot;failed to canonicalize the path: {}&quot;</span>, err))<span class="question-mark">?</span>;
+		.map_err(|err| <span class="macro">format!</span>(<span class="string">"failed to canonicalize the path: {}"</span>, err))<span class="question-mark">?</span>;
 
 	<span class="comment">// Write the cache config file
-	</span><span class="kw">let </span>cache_config_path = wasmtime_cache_root.join(<span class="string">&quot;cache-config.toml&quot;</span>);
+	</span><span class="kw">let </span>cache_config_path = wasmtime_cache_root.join(<span class="string">"cache-config.toml"</span>);
 	<span class="kw">let </span>config_content = <span class="macro">format!</span>(
-		<span class="string">&quot;\
+		<span class="string">"\
 [cache]
 enabled = true
-directory = \&quot;{cache_dir}\&quot;
-&quot;</span>,
+directory = \"{cache_dir}\"
+"</span>,
 		cache_dir = wasmtime_cache_root.display()
 	);
 	fs::write(<span class="kw-2">&amp;</span>cache_config_path, config_content)
-		.map_err(|err| <span class="macro">format!</span>(<span class="string">&quot;cannot write the cache config: {}&quot;</span>, err))<span class="question-mark">?</span>;
+		.map_err(|err| <span class="macro">format!</span>(<span class="string">"cannot write the cache config: {}"</span>, err))<span class="question-mark">?</span>;
 
 	config
 		.cache_config_load(cache_config_path)
-		.map_err(|err| <span class="macro">format!</span>(<span class="string">&quot;failed to parse the config: {:#}&quot;</span>, err))<span class="question-mark">?</span>;
+		.map_err(|err| <span class="macro">format!</span>(<span class="string">"failed to parse the config: {:#}"</span>, err))<span class="question-mark">?</span>;
 
 	<span class="prelude-val">Ok</span>(())
 }
@@ -1126,19 +1128,19 @@ directory = \&quot;{cache_dir}\&quot;
 	config.cranelift_nan_canonicalization(semantics.canonicalize_nans);
 
 	<span class="comment">// Since wasmtime 6.0.0 the default for this is `true`, but that heavily regresses
-	// the contracts pallet&#39;s performance, so disable it for now.
+	// the contracts pallet's performance, so disable it for now.
 	</span><span class="attr">#[allow(deprecated)]
 	</span>config.cranelift_use_egraphs(<span class="bool-val">false</span>);
 
-	<span class="kw">let </span>profiler = <span class="kw">match </span>std::env::var_os(<span class="string">&quot;WASMTIME_PROFILING_STRATEGY&quot;</span>) {
-		<span class="prelude-val">Some</span>(os_string) <span class="kw">if </span>os_string == <span class="string">&quot;jitdump&quot; </span>=&gt; wasmtime::ProfilingStrategy::JitDump,
+	<span class="kw">let </span>profiler = <span class="kw">match </span>std::env::var_os(<span class="string">"WASMTIME_PROFILING_STRATEGY"</span>) {
+		<span class="prelude-val">Some</span>(os_string) <span class="kw">if </span>os_string == <span class="string">"jitdump" </span>=&gt; wasmtime::ProfilingStrategy::JitDump,
 		<span class="prelude-val">None </span>=&gt; wasmtime::ProfilingStrategy::None,
 		<span class="prelude-val">Some</span>(<span class="kw">_</span>) =&gt; {
 			<span class="comment">// Remember if we have already logged a warning due to an unknown profiling strategy.
 			</span><span class="kw">static </span>UNKNOWN_PROFILING_STRATEGY: AtomicBool = AtomicBool::new(<span class="bool-val">false</span>);
 			<span class="comment">// Make sure that the warning will not be relogged regularly.
 			</span><span class="kw">if </span>!UNKNOWN_PROFILING_STRATEGY.swap(<span class="bool-val">true</span>, Ordering::Relaxed) {
-				<span class="macro">log::warn!</span>(<span class="string">&quot;WASMTIME_PROFILING_STRATEGY is set to unknown value, ignored.&quot;</span>);
+				<span class="macro">log::warn!</span>(<span class="string">"WASMTIME_PROFILING_STRATEGY is set to unknown value, ignored."</span>);
 			}
 			wasmtime::ProfilingStrategy::None
 		},
@@ -1222,7 +1224,7 @@ directory = \&quot;{cache_dir}\&quot;
 
 <span class="doccomment">/// Knobs for deterministic stack height limiting.
 ///
-/// The WebAssembly standard defines a call/value stack but it doesn&#39;t say anything about its
+/// The WebAssembly standard defines a call/value stack but it doesn't say anything about its
 /// size except that it has to be finite. The implementations are free to choose their own notion
 /// of limit: some may count the number of calls or values, others would rely on the host machine
 /// stack and trap on reaching a guard page.
@@ -1234,11 +1236,11 @@ directory = \&quot;{cache_dir}\&quot;
 ///
 /// The deterministic stack height limiting feature allows to instrument the code so that it will
 /// count the number of items that may be on the stack. This counting will only act as an rough
-/// estimate of the actual stack limit in wasmtime. This is because wasmtime measures it&#39;s stack
+/// estimate of the actual stack limit in wasmtime. This is because wasmtime measures it's stack
 /// usage in bytes.
 ///
 /// The actual number of bytes consumed by a function is not trivial to compute  without going
-/// through full compilation. Therefore, it&#39;s expected that `native_stack_max` is greatly
+/// through full compilation. Therefore, it's expected that `native_stack_max` is greatly
 /// overestimated and thus never reached in practice. The stack overflow check introduced by the
 /// instrumentation and that relies on the logical item count should be reached first.
 ///
@@ -1247,14 +1249,14 @@ directory = \&quot;{cache_dir}\&quot;
 /// [stack_height]: https://github.com/paritytech/wasm-instrument/blob/master/src/stack_limiter/mod.rs
 </span><span class="attr">#[derive(Clone)]
 </span><span class="kw">pub struct </span>DeterministicStackLimit {
-	<span class="doccomment">/// A number of logical &quot;values&quot; that can be pushed on the wasm stack. A trap will be triggered
+	<span class="doccomment">/// A number of logical "values" that can be pushed on the wasm stack. A trap will be triggered
 	/// if exceeded.
 	///
 	/// A logical value is a local, an argument or a value pushed on operand stack.
 	</span><span class="kw">pub </span>logical_max: u32,
 	<span class="doccomment">/// The maximum number of bytes for stack used by wasmtime JITed code.
 	///
-	/// It&#39;s not specified how much bytes will be consumed by a stack frame for a given wasm
+	/// It's not specified how much bytes will be consumed by a stack frame for a given wasm
 	/// function after translation into machine code. It is also not quite trivial.
 	///
 	/// Therefore, this number should be chosen conservatively. It must be so large so that it can
@@ -1268,8 +1270,8 @@ directory = \&quot;{cache_dir}\&quot;
 <span class="doccomment">/// The instantiation strategy to use for the WASM executor.
 ///
 /// All of the CoW strategies (with `CopyOnWrite` suffix) are only supported when either:
-///   a) we&#39;re running on Linux,
-///   b) we&#39;re running on an Unix-like system and we&#39;re precompiling
+///   a) we're running on Linux,
+///   b) we're running on an Unix-like system and we're precompiling
 ///      our module beforehand and instantiating from a file.
 ///
 /// If the CoW variant of a strategy is unsupported the executor will
@@ -1316,7 +1318,7 @@ directory = \&quot;{cache_dir}\&quot;
 	</span><span class="comment">// I.e. if [`CodeSupplyMode::Verbatim`] is used.
 	</span><span class="kw">pub </span>deterministic_stack_limit: <span class="prelude-ty">Option</span>&lt;DeterministicStackLimit&gt;,
 
-	<span class="doccomment">/// Controls whether wasmtime should compile floating point in a way that doesn&#39;t allow for
+	<span class="doccomment">/// Controls whether wasmtime should compile floating point in a way that doesn't allow for
 	/// non-determinism.
 	///
 	/// By default, the wasm spec allows some local non-determinism wrt. certain floating point
@@ -1364,7 +1366,7 @@ directory = \&quot;{cache_dir}\&quot;
 	</span><span class="kw">pub </span>semantics: Semantics,
 }
 
-<span class="kw">enum </span>CodeSupplyMode&lt;<span class="lifetime">&#39;a</span>&gt; {
+<span class="kw">enum </span>CodeSupplyMode&lt;<span class="lifetime">'a</span>&gt; {
 	<span class="doccomment">/// The runtime is instantiated using the given runtime blob.
 	</span>Fresh(RuntimeBlob),
 
@@ -1374,14 +1376,14 @@ directory = \&quot;{cache_dir}\&quot;
 	/// used.
 	///
 	/// We use a `Path` here instead of simply passing a byte slice to allow `wasmtime` to
-	/// map the runtime&#39;s linear memory on supported platforms in a copy-on-write fashion.
-	</span>Precompiled(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Path),
+	/// map the runtime's linear memory on supported platforms in a copy-on-write fashion.
+	</span>Precompiled(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>Path),
 
 	<span class="doccomment">/// The runtime is instantiated using a precompiled module with the given bytes.
 	///
 	/// This assumes that the code is already prepared for execution and the same `Config` was
 	/// used.
-	</span>PrecompiledBytes(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8]),
+	</span>PrecompiledBytes(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8]),
 }
 
 <span class="doccomment">/// Create a new `WasmtimeRuntime` given the code. This function performs translation from Wasm to
@@ -1396,7 +1398,7 @@ directory = \&quot;{cache_dir}\&quot;
 <span class="kw">where
 	</span>H: HostFunctions,
 {
-	<span class="comment">// SAFETY: this is safe because it doesn&#39;t use `CodeSupplyMode::Precompiled`.
+	<span class="comment">// SAFETY: this is safe because it doesn't use `CodeSupplyMode::Precompiled`.
 	</span><span class="kw">unsafe </span>{ do_create_runtime::&lt;H&gt;(CodeSupplyMode::Fresh(blob), config) }
 }
 
@@ -1456,7 +1458,7 @@ directory = \&quot;{cache_dir}\&quot;
 /// This is only unsafe if called with [`CodeSupplyMode::Artifact`]. See
 /// [`create_runtime_from_artifact`] to get more details.
 </span><span class="kw">unsafe fn </span>do_create_runtime&lt;H&gt;(
-	code_supply_mode: CodeSupplyMode&lt;<span class="lifetime">&#39;_</span>&gt;,
+	code_supply_mode: CodeSupplyMode&lt;<span class="lifetime">'_</span>&gt;,
 	<span class="kw-2">mut </span>config: Config,
 ) -&gt; std::result::Result&lt;WasmtimeRuntime, WasmError&gt;
 <span class="kw">where
@@ -1468,14 +1470,14 @@ directory = \&quot;{cache_dir}\&quot;
 	<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>cache_path) = config.cache_path {
 		<span class="kw">if let </span><span class="prelude-val">Err</span>(reason) = setup_wasmtime_caching(cache_path, <span class="kw-2">&amp;mut </span>wasmtime_config) {
 			<span class="macro">log::warn!</span>(
-				<span class="string">&quot;failed to setup wasmtime cache. Performance may degrade significantly: {}.&quot;</span>,
+				<span class="string">"failed to setup wasmtime cache. Performance may degrade significantly: {}."</span>,
 				reason,
 			);
 		}
 	}
 
 	<span class="kw">let </span>engine = Engine::new(<span class="kw-2">&amp;</span>wasmtime_config)
-		.map_err(|e| WasmError::Other(<span class="macro">format!</span>(<span class="string">&quot;cannot create the wasmtime engine: {:#}&quot;</span>, e)))<span class="question-mark">?</span>;
+		.map_err(|e| WasmError::Other(<span class="macro">format!</span>(<span class="string">"cannot create the wasmtime engine: {:#}"</span>, e)))<span class="question-mark">?</span>;
 
 	<span class="kw">let </span>(module, instantiation_strategy) = <span class="kw">match </span>code_supply_mode {
 		CodeSupplyMode::Fresh(blob) =&gt; {
@@ -1483,7 +1485,7 @@ directory = \&quot;{cache_dir}\&quot;
 			<span class="kw">let </span>serialized_blob = blob.clone().serialize();
 
 			<span class="kw">let </span>module = wasmtime::Module::new(<span class="kw-2">&amp;</span>engine, <span class="kw-2">&amp;</span>serialized_blob)
-				.map_err(|e| WasmError::Other(<span class="macro">format!</span>(<span class="string">&quot;cannot create module: {:#}&quot;</span>, e)))<span class="question-mark">?</span>;
+				.map_err(|e| WasmError::Other(<span class="macro">format!</span>(<span class="string">"cannot create module: {:#}"</span>, e)))<span class="question-mark">?</span>;
 
 			<span class="kw">match </span>config.semantics.instantiation_strategy {
 				InstantiationStrategy::Pooling |
@@ -1499,7 +1501,7 @@ directory = \&quot;{cache_dir}\&quot;
 			//
 			//         See [`create_runtime_from_artifact`] for more details.
 			</span><span class="kw">let </span>module = wasmtime::Module::deserialize_file(<span class="kw-2">&amp;</span>engine, compiled_artifact_path)
-				.map_err(|e| WasmError::Other(<span class="macro">format!</span>(<span class="string">&quot;cannot deserialize module: {:#}&quot;</span>, e)))<span class="question-mark">?</span>;
+				.map_err(|e| WasmError::Other(<span class="macro">format!</span>(<span class="string">"cannot deserialize module: {:#}"</span>, e)))<span class="question-mark">?</span>;
 
 			(module, InternalInstantiationStrategy::Builtin)
 		},
@@ -1509,7 +1511,7 @@ directory = \&quot;{cache_dir}\&quot;
 			//
 			//         See [`create_runtime_from_artifact_bytes`] for more details.
 			</span><span class="kw">let </span>module = wasmtime::Module::deserialize(<span class="kw-2">&amp;</span>engine, compiled_artifact_bytes)
-				.map_err(|e| WasmError::Other(<span class="macro">format!</span>(<span class="string">&quot;cannot deserialize module: {:#}&quot;</span>, e)))<span class="question-mark">?</span>;
+				.map_err(|e| WasmError::Other(<span class="macro">format!</span>(<span class="string">"cannot deserialize module: {:#}"</span>, e)))<span class="question-mark">?</span>;
 
 			(module, InternalInstantiationStrategy::Builtin)
 		},
@@ -1520,7 +1522,7 @@ directory = \&quot;{cache_dir}\&quot;
 
 	<span class="kw">let </span>instance_pre = linker
 		.instantiate_pre(<span class="kw-2">&amp;</span>module)
-		.map_err(|e| WasmError::Other(<span class="macro">format!</span>(<span class="string">&quot;cannot preinstantiate module: {:#}&quot;</span>, e)))<span class="question-mark">?</span>;
+		.map_err(|e| WasmError::Other(<span class="macro">format!</span>(<span class="string">"cannot preinstantiate module: {:#}"</span>, e)))<span class="question-mark">?</span>;
 
 	<span class="prelude-val">Ok</span>(WasmtimeRuntime {
 		engine,
@@ -1538,10 +1540,10 @@ directory = \&quot;{cache_dir}\&quot;
 		blob = blob.inject_stack_depth_metering(logical_max)<span class="question-mark">?</span>;
 	}
 
-	<span class="comment">// We don&#39;t actually need the memory to be imported so we can just convert any memory
+	<span class="comment">// We don't actually need the memory to be imported so we can just convert any memory
 	// import into an export with impunity. This simplifies our code since `wasmtime` will
 	// now automatically take care of creating the memory for us, and it is also necessary
-	// to enable `wasmtime`&#39;s instance pooling. (Imported memories are ineligible for pooling.)
+	// to enable `wasmtime`'s instance pooling. (Imported memories are ineligible for pooling.)
 	</span>blob.convert_memory_import_into_export()<span class="question-mark">?</span>;
 	blob.setup_memory_according_to_heap_alloc_strategy(semantics.heap_alloc_strategy)<span class="question-mark">?</span>;
 
@@ -1560,11 +1562,11 @@ directory = \&quot;{cache_dir}\&quot;
 	<span class="kw">let </span>blob = prepare_blob_for_compilation(blob, <span class="kw-2">&amp;</span>semantics)<span class="question-mark">?</span>;
 
 	<span class="kw">let </span>engine = Engine::new(<span class="kw-2">&amp;</span>common_config(<span class="kw-2">&amp;</span>semantics)<span class="question-mark">?</span>)
-		.map_err(|e| WasmError::Other(<span class="macro">format!</span>(<span class="string">&quot;cannot create the engine: {:#}&quot;</span>, e)))<span class="question-mark">?</span>;
+		.map_err(|e| WasmError::Other(<span class="macro">format!</span>(<span class="string">"cannot create the engine: {:#}"</span>, e)))<span class="question-mark">?</span>;
 
 	engine
 		.precompile_module(<span class="kw-2">&amp;</span>blob.serialize())
-		.map_err(|e| WasmError::Other(<span class="macro">format!</span>(<span class="string">&quot;cannot precompile module: {:#}&quot;</span>, e)))
+		.map_err(|e| WasmError::Other(<span class="macro">format!</span>(<span class="string">"cannot precompile module: {:#}"</span>, e)))
 }
 
 <span class="kw">fn </span>perform_call(
@@ -1587,7 +1589,7 @@ directory = \&quot;{cache_dir}\&quot;
 
 	<span class="comment">// Reset the host state
 	</span><span class="kw">let </span>host_state = instance_wrapper.store_mut().data_mut().host_state.take().expect(
-		<span class="string">&quot;the host state is always set before calling into WASM so it can&#39;t be None here; qed&quot;</span>,
+		<span class="string">"the host state is always set before calling into WASM so it can't be None here; qed"</span>,
 	);
 	<span class="kw-2">*</span>allocation_stats = <span class="prelude-val">Some</span>(host_state.allocation_stats());
 

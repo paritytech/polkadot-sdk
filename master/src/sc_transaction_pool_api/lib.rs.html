@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/transaction-pool/api/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/transaction-pool/api/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_transaction_pool_api" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_transaction_pool_api" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sc_transaction_pool_api/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -758,7 +760,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sp_runtime::traits::{Block <span class="kw">as </span>BlockT, Member, NumberFor};
 <span class="kw">use </span>std::{collections::HashMap, hash::Hash, marker::PhantomData, pin::Pin, sync::Arc};
 
-<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;txpool::api&quot;</span>;
+<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"txpool::api"</span>;
 
 <span class="kw">pub use </span>sp_runtime::transaction_validity::{
 	TransactionLongevity, TransactionPriority, TransactionSource, TransactionTag,
@@ -856,7 +858,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// See [`TransactionStatus::is_retriable`] for more details.
 </span><span class="attr">#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = <span class="string">&quot;camelCase&quot;</span>)]
+#[serde(rename_all = <span class="string">"camelCase"</span>)]
 </span><span class="kw">pub enum </span>TransactionStatus&lt;Hash, BlockHash&gt; {
 	<span class="doccomment">/// Transaction is part of the future queue.
 	</span>Future,
@@ -866,7 +868,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>Broadcast(Vec&lt;String&gt;),
 	<span class="doccomment">/// Transaction has been included in block with given hash
 	/// at the given position.
-	</span><span class="attr">#[serde(with = <span class="string">&quot;v1_compatible&quot;</span>)]
+	</span><span class="attr">#[serde(with = <span class="string">"v1_compatible"</span>)]
 	</span>InBlock((BlockHash, TxIndex)),
 	<span class="doccomment">/// The block this transaction was included in has been retracted.
 	</span>Retracted(BlockHash),
@@ -874,7 +876,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// old watchers are being removed.
 	</span>FinalityTimeout(BlockHash),
 	<span class="doccomment">/// Transaction has been finalized by a finality-gadget, e.g GRANDPA.
-	</span><span class="attr">#[serde(with = <span class="string">&quot;v1_compatible&quot;</span>)]
+	</span><span class="attr">#[serde(with = <span class="string">"v1_compatible"</span>)]
 	</span>Finalized((BlockHash, TxIndex)),
 	<span class="doccomment">/// Transaction has been replaced in the pool, by another transaction
 	/// that provides the same tags. (e.g. same (sender, nonce)).
@@ -934,7 +936,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub type </span>TransactionStatusStreamFor&lt;P&gt; = TransactionStatusStream&lt;TxHash&lt;P&gt;, BlockHash&lt;P&gt;&gt;;
 <span class="doccomment">/// Transaction type for a local pool.
 </span><span class="kw">pub type </span>LocalTransactionFor&lt;P&gt; = &lt;&lt;P <span class="kw">as </span>LocalTransactionPool&gt;::Block <span class="kw">as </span>BlockT&gt;::Extrinsic;
-<span class="doccomment">/// Transaction&#39;s index within the block in which it was included.
+<span class="doccomment">/// Transaction's index within the block in which it was included.
 </span><span class="kw">pub type </span>TxIndex = usize;
 
 <span class="doccomment">/// Typical future type used in transaction pool api.
@@ -1172,7 +1174,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), ()&gt; {
 		<span class="macro">log::debug!</span>(
 			target: LOG_TARGET,
-			<span class="string">&quot;(offchain call) Submitting a transaction to the pool: {:?}&quot;</span>,
+			<span class="string">"(offchain call) Submitting a transaction to the pool: {:?}"</span>,
 			extrinsic
 		);
 
@@ -1181,7 +1183,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		result.map(|<span class="kw">_</span>| ()).map_err(|e| {
 			<span class="macro">log::warn!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;(offchain call) Error submitting a transaction to the pool: {}&quot;</span>,
+				<span class="string">"(offchain call) Error submitting a transaction to the pool: {}"</span>,
 				e
 			)
 		})
@@ -1199,7 +1201,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl</span>&lt;Block: BlockT&gt; OffchainTransactionPoolFactory&lt;Block&gt; {
 	<span class="doccomment">/// Creates a new instance using the given `tx_pool`.
-	</span><span class="kw">pub fn </span>new&lt;T: LocalTransactionPool&lt;Block = Block&gt; + <span class="lifetime">&#39;static</span>&gt;(tx_pool: T) -&gt; <span class="self">Self </span>{
+	</span><span class="kw">pub fn </span>new&lt;T: LocalTransactionPool&lt;Block = Block&gt; + <span class="lifetime">'static</span>&gt;(tx_pool: T) -&gt; <span class="self">Self </span>{
 		<span class="self">Self </span>{ pool: Arc::new(tx_pool) <span class="kw">as </span>Arc&lt;<span class="kw">_</span>&gt; }
 	}
 
@@ -1225,7 +1227,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Err</span>(e) =&gt; {
 				<span class="macro">log::error!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Failed to decode extrinsic in `OffchainTransactionPool::submit_transaction`: {e:?}&quot;
+					<span class="string">"Failed to decode extrinsic in `OffchainTransactionPool::submit_transaction`: {e:?}"
 				</span>);
 
 				<span class="kw">return </span><span class="prelude-val">Err</span>(())
@@ -1249,10 +1251,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		serde::Serialize::serialize(<span class="kw-2">&amp;</span>hash, serializer)
 	}
 
-	<span class="kw">pub fn </span>deserialize&lt;<span class="lifetime">&#39;de</span>, D, H&gt;(deserializer: D) -&gt; <span class="prelude-ty">Result</span>&lt;(H, usize), D::Error&gt;
+	<span class="kw">pub fn </span>deserialize&lt;<span class="lifetime">'de</span>, D, H&gt;(deserializer: D) -&gt; <span class="prelude-ty">Result</span>&lt;(H, usize), D::Error&gt;
 	<span class="kw">where
-		</span>D: Deserializer&lt;<span class="lifetime">&#39;de</span>&gt;,
-		H: Deserialize&lt;<span class="lifetime">&#39;de</span>&gt;,
+		</span>D: Deserializer&lt;<span class="lifetime">'de</span>&gt;,
+		H: Deserialize&lt;<span class="lifetime">'de</span>&gt;,
 	{
 		<span class="kw">let </span>hash: H = serde::Deserialize::deserialize(deserializer)<span class="question-mark">?</span>;
 		<span class="prelude-val">Ok</span>((hash, <span class="number">0</span>))
@@ -1291,7 +1293,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>event: TransactionStatus&lt;u8, u8&gt; = TransactionStatus::InBlock((<span class="number">1</span>, <span class="number">2</span>));
 		<span class="kw">let </span>ser = serde_json::to_string(<span class="kw-2">&amp;</span>event).unwrap();
 
-		<span class="kw">let </span>exp = <span class="string">r#&quot;{&quot;inBlock&quot;:1}&quot;#</span>;
+		<span class="kw">let </span>exp = <span class="string">r#"{"inBlock":1}"#</span>;
 		<span class="macro">assert_eq!</span>(ser, exp);
 
 		<span class="kw">let </span>event_dec: TransactionStatus&lt;u8, u8&gt; = serde_json::from_str(exp).unwrap();
@@ -1300,7 +1302,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>event: TransactionStatus&lt;u8, u8&gt; = TransactionStatus::Finalized((<span class="number">1</span>, <span class="number">2</span>));
 		<span class="kw">let </span>ser = serde_json::to_string(<span class="kw-2">&amp;</span>event).unwrap();
 
-		<span class="kw">let </span>exp = <span class="string">r#&quot;{&quot;finalized&quot;:1}&quot;#</span>;
+		<span class="kw">let </span>exp = <span class="string">r#"{"finalized":1}"#</span>;
 		<span class="macro">assert_eq!</span>(ser, exp);
 
 		<span class="kw">let </span>event_dec: TransactionStatus&lt;u8, u8&gt; = serde_json::from_str(exp).unwrap();

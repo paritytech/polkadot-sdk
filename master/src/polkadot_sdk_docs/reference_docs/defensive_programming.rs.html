@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `docs/sdk/src/reference_docs/defensive_programming.rs`."><title>defensive_programming.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `docs/sdk/src/reference_docs/defensive_programming.rs`."><title>defensive_programming.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_sdk_docs" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="icon" href="https://polkadot.network/favicon-32x32.png"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_sdk_docs" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="icon" href="https://polkadot.network/favicon-32x32.png"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../polkadot_sdk_docs/index.html"><img src="https://europe1.discourse-cdn.com/standard21/uploads/polkadot2/original/1X/eb57081e2bb7c39e5fcb1a98b443e423fa4448ae.svg" alt="polkadot_sdk_docs"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../polkadot_sdk_docs/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -545,14 +547,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -575,14 +577,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! &gt; It’s important to differentiate between the runtime and node. The runtime refers to the core
 //! &gt; business logic of a Substrate-based chain, whereas the node refers to the outer client, which
 //! &gt; deals with telemetry and gossip from other nodes. For more information, read about
-//! &gt; [Substrate&#39;s node
+//! &gt; [Substrate's node
 //! &gt; architecture](crate::reference_docs::wasm_meta_protocol#node-vs-runtime). It’s also important
 //! &gt; to note that the criticality of the node is slightly lesser
 //! &gt; than that of the runtime, which is why you may see `unwrap()` or other “non-defensive”
 //! &gt; approaches
-//! in a few places of the node&#39;s code repository.
+//! in a few places of the node's code repository.
 //!
-//! Most of these practices fall within Rust&#39;s
+//! Most of these practices fall within Rust's
 //! colloquial usage of proper error propagation, handling, and arithmetic-based edge cases.
 //!
 //!  General guidelines:
@@ -592,7 +594,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!   collection types, i.e., `get()` which allow defensive handling of the resulting [`Option`] are
 //!   recommended to be used.
 //! - **It may be acceptable to use `except()`,** but only if one is completely certain (and has
-//!   performed a check beforehand) that a value won&#39;t panic upon unwrapping.  *Even this is
+//!   performed a check beforehand) that a value won't panic upon unwrapping.  *Even this is
 //!   discouraged*, however, as future changes to that function could then cause that statement to
 //!   panic.  It is important to ensure all possible errors are propagated and handled effectively.
 //! - **If a function *can* panic,** it usually is prefaced with `unchecked_` to indicate its
@@ -615,7 +617,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! ### Defensive Traits
 //!
 //! The [`Defensive`](frame::traits::Defensive) trait provides a number of functions, all of which
-//! provide an alternative to &#39;vanilla&#39; Rust functions, e.g.,:
+//! provide an alternative to 'vanilla' Rust functions, e.g.,:
 //!
 //! - [`defensive_unwrap_or()`](frame::traits::Defensive::defensive_unwrap_or) instead of
 //!   `unwrap_or()`
@@ -634,7 +636,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! **release** mode, it resorts to silently _wrapping_ the overflowed amount in a modular fashion
 //! (from the `MAX` back to zero).
 //!
-//! In runtime development, we don&#39;t always have control over what is being supplied
+//! In runtime development, we don't always have control over what is being supplied
 //! as a parameter. For example, even this simple add function could present one of two outcomes
 //! depending on whether it is in **release** or **debug** mode:
 //!
@@ -682,12 +684,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! catching any unexpected behavior in the event of an overflow through simple pattern matching.
 //!
 //! This is an example of a valid operation:
-</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;./src/reference_docs/defensive_programming.rs&quot;</span>, checked_add_example)]
+</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">"./src/reference_docs/defensive_programming.rs"</span>, checked_add_example)]
 </span><span class="doccomment">//!
 //! This is an example of an invalid operation. In this case, a simulated integer overflow, which
 //! would simply result in `None`:
 </span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(
-    <span class="string">&quot;./src/reference_docs/defensive_programming.rs&quot;</span>,
+    <span class="string">"./src/reference_docs/defensive_programming.rs"</span>,
     checked_add_handle_error_example
 )]
 </span><span class="doccomment">//!
@@ -705,10 +707,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!
 //! Because wrapped operations return `Option&lt;T&gt;`, you can use a more verbose/explicit form of error
 //! handling via `if` or `if let`:
-</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;./src/reference_docs/defensive_programming.rs&quot;</span>, increase_balance)]
+</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">"./src/reference_docs/defensive_programming.rs"</span>, increase_balance)]
 </span><span class="doccomment">//!
 //! Optionally, match may also be directly used in a more concise manner:
-</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;./src/reference_docs/defensive_programming.rs&quot;</span>, increase_balance_match)]
+</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">"./src/reference_docs/defensive_programming.rs"</span>, increase_balance_match)]
 </span><span class="doccomment">//!
 //! This is generally a useful convention for handling checked types and most types that return
 //! `Option&lt;T&gt;`.
@@ -718,16 +720,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! In the Polkadot SDK codebase, checked operations are handled as a `Result` via `ok_or`. This is
 //! a less verbose way of expressing the above. This usage often boils down to the developer’s
 //! preference:
-</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;./src/reference_docs/defensive_programming.rs&quot;</span>, increase_balance_result)]
+</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">"./src/reference_docs/defensive_programming.rs"</span>, increase_balance_result)]
 </span><span class="doccomment">//!
 //! ### Saturating Operations
 //!
 //! Saturating a number limits it to the type’s upper or lower bound, even if the integer type
 //! overflowed in runtime. For example, adding to `u32::MAX` would simply limit itself to
 //! `u32::MAX`:
-</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;./src/reference_docs/defensive_programming.rs&quot;</span>, saturated_add_example)]
+</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">"./src/reference_docs/defensive_programming.rs"</span>, saturated_add_example)]
 </span><span class="doccomment">//!
-//! Saturating calculations can be used if one is very sure that something won&#39;t overflow, but wants
+//! Saturating calculations can be used if one is very sure that something won't overflow, but wants
 //! to avoid introducing the notion of any potential-panic or wrapping behavior.
 //!
 //! There is also a series of defensive alternatives via
@@ -735,7 +737,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! of the [`Defensive`](frame::traits::Defensive) trait, only with saturating, mathematical
 //! operations:
 </span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(
-    <span class="string">&quot;./src/reference_docs/defensive_programming.rs&quot;</span>,
+    <span class="string">"./src/reference_docs/defensive_programming.rs"</span>,
     saturated_defensive_example
 )]
 </span><span class="doccomment">//!
@@ -747,7 +749,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! 2. **Saturating** operations - limited to the lower and upper bounds of a number type
 //! 3. **Wrapped** operations (the default) - wrap around to above or below the bounds of a type
 //!
-//! #### The problem with &#39;default&#39; wrapped operations
+//! #### The problem with 'default' wrapped operations
 //!
 //! **Wrapped operations** cause the overflow to wrap around to either the maximum or minimum of
 //! that type. Imagine this in the context of a blockchain, where there are account balances, voting
@@ -756,32 +758,32 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! While it may seem trivial, choosing how to handle numbers is quite important. As a thought
 //! exercise, here are some scenarios of which will shed more light on when to use which.
 //!
-//! #### Bob&#39;s Overflowed Balance
+//! #### Bob's Overflowed Balance
 //!
-//! **Bob&#39;s** balance exceeds the `Balance` type on the `EduChain`. Because the pallet developer did
-//! not handle the calculation to add to Bob&#39;s balance with any regard to this overflow, **Bob&#39;s**
+//! **Bob's** balance exceeds the `Balance` type on the `EduChain`. Because the pallet developer did
+//! not handle the calculation to add to Bob's balance with any regard to this overflow, **Bob's**
 //! balance is now essentially `0`, the operation **wrapped**.
 //!
 //! &lt;details&gt;
 //!   &lt;summary&gt;&lt;b&gt;Solution: Saturating or Checked&lt;/b&gt;&lt;/summary&gt;
-//!     For Bob&#39;s balance problems, using a `saturating_add` or `checked_add` could&#39;ve mitigated
-//! this issue.  They simply would&#39;ve reached the upper, or lower bounds, of the particular type for
-//! an on-chain balance.  In other words: Bob&#39;s balance would&#39;ve stayed at the maximum of the
+//!     For Bob's balance problems, using a `saturating_add` or `checked_add` could've mitigated
+//! this issue.  They simply would've reached the upper, or lower bounds, of the particular type for
+//! an on-chain balance.  In other words: Bob's balance would've stayed at the maximum of the
 //! Balance type. &lt;/details&gt;
 //!
-//! #### Alice&#39;s &#39;Underflowed&#39; Balance
+//! #### Alice's 'Underflowed' Balance
 //!
 //! Alice’s balance has reached `0` after a transfer to Bob. Suddenly, she has been slashed on
 //! EduChain, causing her balance to reach near the limit of `u32::MAX` - a very large amount - as
 //! wrapped operations can go both ways. Alice can now successfully vote using her new, overpowered
-//! token balance, destroying the chain&#39;s integrity.
+//! token balance, destroying the chain's integrity.
 //!
 //! &lt;details&gt;
 //!   &lt;summary&gt;&lt;b&gt;Solution: Saturating&lt;/b&gt;&lt;/summary&gt;
-//!   For Alice&#39;s balance problem, using `saturated_sub` could&#39;ve mitigated this issue. A saturating
-//! calculation would&#39;ve simply limited her balance to the lower bound of u32, as having a negative
-//! balance is not a concept within blockchains.   In other words: Alice&#39;s balance would&#39;ve stayed
-//! at &quot;0&quot;, even after being slashed.
+//!   For Alice's balance problem, using `saturated_sub` could've mitigated this issue. A saturating
+//! calculation would've simply limited her balance to the lower bound of u32, as having a negative
+//! balance is not a concept within blockchains.   In other words: Alice's balance would've stayed
+//! at "0", even after being slashed.
 //!
 //!   This is also an example that while one system may work in isolation, shared interfaces, such
 //!   as the notion of balances, are often shared across multiple pallets - meaning these small
@@ -791,15 +793,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!
 //! A `u8` parameter, called `proposals_count`, represents the type for counting the number of
 //! proposals on-chain. Every time a new proposal is added to the system, this number increases.
-//! With the proposal pallet&#39;s high usage, it has reached `u8::MAX`’s limit of 255, causing
+//! With the proposal pallet's high usage, it has reached `u8::MAX`’s limit of 255, causing
 //! `proposals_count` to go to 0. Unfortunately, this results in new proposals overwriting old ones,
 //! effectively erasing any notion of past proposals!
 //!
 //! &lt;details&gt;
 //!  &lt;summary&gt;&lt;b&gt;Solution: Checked&lt;/b&gt;&lt;/summary&gt;
-//! For the proposal IDs, proper handling via `checked` math would&#39;ve been suitable,
-//! Saturating could&#39;ve been used - but it also would&#39;ve &#39;failed&#39; silently. Using `checked_add` to
-//! ensure that the next proposal ID would&#39;ve been valid would&#39;ve been a viable way to let the user
+//! For the proposal IDs, proper handling via `checked` math would've been suitable,
+//! Saturating could've been used - but it also would've 'failed' silently. Using `checked_add` to
+//! ensure that the next proposal ID would've been valid would've been a viable way to let the user
 //! know the state of their proposal:
 //!
 //! ```ignore
@@ -820,13 +822,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! authoring, consensus, or other protocol-level dependencies, going through with an action may
 //! actually cause harm to the network, and thus stalling would be the better option.
 //!
-//! Take the example of the BABE pallet ([`pallet_babe`]), which doesn&#39;t allow for a validator to
+//! Take the example of the BABE pallet ([`pallet_babe`]), which doesn't allow for a validator to
 //! participate if it is disabled (see: [`frame::traits::DisabledValidators`]):
 //!
 //! ```ignore
 //! if T::DisabledValidators::is_disabled(authority_index) {
 //!     panic!(
-//!       &quot;Validator with index {:?} is disabled and should not be attempting to author blocks.&quot;,
+//!       "Validator with index {:?} is disabled and should not be attempting to author blocks.",
 //!         authority_index,
 //!     );
 //! }
@@ -863,7 +865,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[docify::export]
 	</span><span class="kw">fn </span>increase_balance(account: Address, amount: u64) -&gt; <span class="prelude-ty">Result</span>&lt;(), RuntimeError&gt; {
-		<span class="comment">// Get a user&#39;s current balance
+		<span class="comment">// Get a user's current balance
 		</span><span class="kw">let </span>balance = Runtime::get_balance(account)<span class="question-mark">?</span>;
 		<span class="comment">// SAFELY increase the balance by some amount
 		</span><span class="kw">if let </span><span class="prelude-val">Some</span>(new_balance) = balance.checked_add(amount) {
@@ -876,7 +878,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[docify::export]
 	</span><span class="kw">fn </span>increase_balance_match(account: Address, amount: u64) -&gt; <span class="prelude-ty">Result</span>&lt;(), RuntimeError&gt; {
-		<span class="comment">// Get a user&#39;s current balance
+		<span class="comment">// Get a user's current balance
 		</span><span class="kw">let </span>balance = Runtime::get_balance(account)<span class="question-mark">?</span>;
 		<span class="comment">// SAFELY increase the balance by some amount
 		</span><span class="kw">let </span>new_balance = <span class="kw">match </span>balance.checked_add(amount) {
@@ -891,7 +893,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[docify::export]
 	</span><span class="kw">fn </span>increase_balance_result(account: Address, amount: u64) -&gt; <span class="prelude-ty">Result</span>&lt;(), RuntimeError&gt; {
-		<span class="comment">// Get a user&#39;s current balance
+		<span class="comment">// Get a user's current balance
 		</span><span class="kw">let </span>balance = Runtime::get_balance(account)<span class="question-mark">?</span>;
 		<span class="comment">// SAFELY increase the balance by some amount - this time, by using `ok_or`
 		</span><span class="kw">let </span>new_balance = balance.checked_add(amount).ok_or(RuntimeError::Overflow)<span class="question-mark">?</span>;
@@ -931,7 +933,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[docify::export]
 	#[test]
-	#[cfg_attr(debug_assertions, should_panic(expected = <span class="string">&quot;Defensive failure has been triggered!&quot;</span>))]
+	#[cfg_attr(debug_assertions, should_panic(expected = <span class="string">"Defensive failure has been triggered!"</span>))]
 	</span><span class="kw">fn </span>saturated_defensive_example() {
 		<span class="kw">let </span>saturated_defensive = u32::MAX.defensive_saturating_add(<span class="number">10</span>);
 		<span class="macro">assert_eq!</span>(saturated_defensive, u32::MAX);

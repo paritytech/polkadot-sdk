@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/offchain/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/offchain/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_offchain" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_offchain" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sc_offchain/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -684,7 +686,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!
 //! The offchain workers is a special function of the runtime that
 //! gets executed after block is imported. During execution
-//! it&#39;s able to asynchronously submit extrinsics that will either
+//! it's able to asynchronously submit extrinsics that will either
 //! be propagated to other nodes or added to the next block
 //! produced by the node as unsigned transactions.
 //!
@@ -721,7 +723,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">pub use </span>sp_core::offchain::storage::OffchainDb;
 <span class="kw">pub use </span>sp_offchain::{OffchainWorkerApi, STORAGE_PREFIX};
 
-<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;offchain-worker&quot;</span>;
+<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"offchain-worker"</span>;
 
 <span class="doccomment">/// NetworkProvider provides [`OffchainWorkers`] with all necessary hooks into the
 /// underlying Substrate networking.
@@ -738,19 +740,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl </span>offchain::OffchainStorage <span class="kw">for </span>NoOffchainStorage {
 	<span class="kw">fn </span>set(<span class="kw-2">&amp;mut </span><span class="self">self</span>, <span class="kw">_</span>: <span class="kw-2">&amp;</span>[u8], <span class="kw">_</span>: <span class="kw-2">&amp;</span>[u8], <span class="kw">_</span>: <span class="kw-2">&amp;</span>[u8]) {
-		<span class="macro">unimplemented!</span>(<span class="string">&quot;`NoOffchainStorage` can not be constructed!&quot;</span>)
+		<span class="macro">unimplemented!</span>(<span class="string">"`NoOffchainStorage` can not be constructed!"</span>)
 	}
 
 	<span class="kw">fn </span>remove(<span class="kw-2">&amp;mut </span><span class="self">self</span>, <span class="kw">_</span>: <span class="kw-2">&amp;</span>[u8], <span class="kw">_</span>: <span class="kw-2">&amp;</span>[u8]) {
-		<span class="macro">unimplemented!</span>(<span class="string">&quot;`NoOffchainStorage` can not be constructed!&quot;</span>)
+		<span class="macro">unimplemented!</span>(<span class="string">"`NoOffchainStorage` can not be constructed!"</span>)
 	}
 
 	<span class="kw">fn </span>get(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw">_</span>: <span class="kw-2">&amp;</span>[u8], <span class="kw">_</span>: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt; {
-		<span class="macro">unimplemented!</span>(<span class="string">&quot;`NoOffchainStorage` can not be constructed!&quot;</span>)
+		<span class="macro">unimplemented!</span>(<span class="string">"`NoOffchainStorage` can not be constructed!"</span>)
 	}
 
 	<span class="kw">fn </span>compare_and_set(<span class="kw-2">&amp;mut </span><span class="self">self</span>, <span class="kw">_</span>: <span class="kw-2">&amp;</span>[u8], <span class="kw">_</span>: <span class="kw-2">&amp;</span>[u8], <span class="kw">_</span>: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>[u8]&gt;, <span class="kw">_</span>: <span class="kw-2">&amp;</span>[u8]) -&gt; bool {
-		<span class="macro">unimplemented!</span>(<span class="string">&quot;`NoOffchainStorage` can not be constructed!&quot;</span>)
+		<span class="macro">unimplemented!</span>(<span class="string">"`NoOffchainStorage` can not be constructed!"</span>)
 	}
 }
 
@@ -806,7 +808,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl</span>&lt;RA, Block: traits::Block, Storage&gt; OffchainWorkers&lt;RA, Block, Storage&gt; {
 	<span class="doccomment">/// Creates new [`OffchainWorkers`].
-	</span><span class="kw">pub fn </span>new&lt;CE: Fn(Block::Hash) -&gt; Vec&lt;Box&lt;<span class="kw">dyn </span>Extension&gt;&gt; + Send + <span class="lifetime">&#39;static</span>&gt;(
+	</span><span class="kw">pub fn </span>new&lt;CE: Fn(Block::Hash) -&gt; Vec&lt;Box&lt;<span class="kw">dyn </span>Extension&gt;&gt; + Send + <span class="lifetime">'static</span>&gt;(
 		OffchainWorkerOptions {
 			runtime_api_provider,
 			keystore,
@@ -821,7 +823,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">Self </span>{
 			runtime_api_provider,
 			thread_pool: Mutex::new(ThreadPool::with_name(
-				<span class="string">&quot;offchain-worker&quot;</span>.into(),
+				<span class="string">"offchain-worker"</span>.into(),
 				num_cpus::get(),
 			)),
 			shared_http_client: api::SharedClient::new(),
@@ -840,16 +842,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">for </span>OffchainWorkers&lt;RA, Block, Storage&gt;
 {
 	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter) -&gt; fmt::Result {
-		f.debug_tuple(<span class="string">&quot;OffchainWorkers&quot;</span>).finish()
+		f.debug_tuple(<span class="string">"OffchainWorkers"</span>).finish()
 	}
 }
 
 <span class="kw">impl</span>&lt;RA, Block, Storage&gt; OffchainWorkers&lt;RA, Block, Storage&gt;
 <span class="kw">where
 	</span>Block: traits::Block,
-	RA: ProvideRuntimeApi&lt;Block&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
+	RA: ProvideRuntimeApi&lt;Block&gt; + Send + Sync + <span class="lifetime">'static</span>,
 	RA::Api: OffchainWorkerApi&lt;Block&gt;,
-	Storage: offchain::OffchainStorage + <span class="lifetime">&#39;static</span>,
+	Storage: offchain::OffchainStorage + <span class="lifetime">'static</span>,
 {
 	<span class="doccomment">/// Run the offchain workers on every block import.
 	</span><span class="kw">pub async fn </span>run&lt;BE: BlockchainEvents&lt;Block&gt;&gt;(
@@ -862,14 +864,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.for_each(<span class="kw">move </span>|n| {
 				<span class="kw">if </span>n.is_new_best {
 					spawner.spawn(
-						<span class="string">&quot;offchain-on-block&quot;</span>,
-						<span class="prelude-val">Some</span>(<span class="string">&quot;offchain-worker&quot;</span>),
+						<span class="string">"offchain-on-block"</span>,
+						<span class="prelude-val">Some</span>(<span class="string">"offchain-worker"</span>),
 						<span class="self">self</span>.on_block_imported(<span class="kw-2">&amp;</span>n.header).boxed(),
 					);
 				} <span class="kw">else </span>{
 					<span class="macro">tracing::debug!</span>(
 						target: LOG_TARGET,
-						<span class="string">&quot;Skipping offchain workers for non-canon block: {:?}&quot;</span>,
+						<span class="string">"Skipping offchain workers for non-canon block: {:?}"</span>,
 						n.header,
 					)
 				}
@@ -891,10 +893,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			(<span class="prelude-val">Ok</span>(<span class="bool-val">true</span>), <span class="kw">_</span>) =&gt; <span class="number">1</span>,
 			err =&gt; {
 				<span class="kw">let </span>help =
-					<span class="string">&quot;Consider turning off offchain workers if they are not part of your runtime.&quot;</span>;
+					<span class="string">"Consider turning off offchain workers if they are not part of your runtime."</span>;
 				<span class="macro">tracing::error!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Unsupported Offchain Worker API version: {:?}. {}.&quot;</span>,
+					<span class="string">"Unsupported Offchain Worker API version: {:?}. {}."</span>,
 					err,
 					help
 				);
@@ -903,7 +905,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		};
 		<span class="macro">tracing::debug!</span>(
 			target: LOG_TARGET,
-			<span class="string">&quot;Checking offchain workers at {hash:?}: version: {version}&quot;</span>,
+			<span class="string">"Checking offchain workers at {hash:?}: version: {version}"</span>,
 		);
 
 		<span class="kw">let </span>process = (version &gt; <span class="number">0</span>).then(|| {
@@ -912,7 +914,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="self">self</span>.is_validator,
 				<span class="self">self</span>.shared_http_client.clone(),
 			);
-			<span class="macro">tracing::debug!</span>(target: LOG_TARGET, <span class="string">&quot;Spawning offchain workers at {hash:?}&quot;</span>);
+			<span class="macro">tracing::debug!</span>(target: LOG_TARGET, <span class="string">"Spawning offchain workers at {hash:?}"</span>);
 			<span class="kw">let </span>header = header.clone();
 			<span class="kw">let </span>client = <span class="self">self</span>.runtime_api_provider.clone();
 
@@ -927,7 +929,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="self">self</span>.spawn_worker(<span class="kw">move </span>|| {
 				<span class="kw">let </span><span class="kw-2">mut </span>runtime = client.runtime_api();
 				<span class="kw">let </span>api = Box::new(api);
-				<span class="macro">tracing::debug!</span>(target: LOG_TARGET, <span class="string">&quot;Running offchain workers at {hash:?}&quot;</span>);
+				<span class="macro">tracing::debug!</span>(target: LOG_TARGET, <span class="string">"Running offchain workers at {hash:?}"</span>);
 
 				<span class="kw">if let </span><span class="prelude-val">Some</span>(keystore) = keystore {
 					runtime.register_extension(KeystoreExt(keystore.clone()));
@@ -959,7 +961,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">if let </span><span class="prelude-val">Err</span>(e) = run {
 					<span class="macro">tracing::error!</span>(
 						target: LOG_TARGET,
-						<span class="string">&quot;Error running offchain workers at {:?}: {}&quot;</span>,
+						<span class="string">"Error running offchain workers at {:?}: {}"</span>,
 						hash,
 						e
 					);
@@ -978,11 +980,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// We spawn offchain workers for each block in a separate thread,
 	/// since they can run for a significant amount of time
-	/// in a blocking fashion and we don&#39;t want to block the runtime.
+	/// in a blocking fashion and we don't want to block the runtime.
 	///
 	/// Note that we should avoid that if we switch to future-based runtime in the future,
 	/// alternatively:
-	</span><span class="kw">fn </span>spawn_worker(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw">impl </span>FnOnce() -&gt; () + Send + <span class="lifetime">&#39;static</span>) {
+	</span><span class="kw">fn </span>spawn_worker(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw">impl </span>FnOnce() -&gt; () + Send + <span class="lifetime">'static</span>) {
 		<span class="self">self</span>.thread_pool.lock().execute(f);
 	}
 }
@@ -1148,8 +1150,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span><span class="kw-2">mut </span>client = Arc::new(client);
 		<span class="kw">let </span>offchain_db = backend.offchain_storage().unwrap();
 
-		<span class="kw">let </span>key = <span class="kw-2">&amp;</span><span class="string">b&quot;hello&quot;</span>[..];
-		<span class="kw">let </span>value = <span class="kw-2">&amp;</span><span class="string">b&quot;world&quot;</span>[..];
+		<span class="kw">let </span>key = <span class="kw-2">&amp;</span><span class="string">b"hello"</span>[..];
+		<span class="kw">let </span>value = <span class="kw-2">&amp;</span><span class="string">b"world"</span>[..];
 		<span class="kw">let </span><span class="kw-2">mut </span>block_builder = BlockBuilderBuilder::new(<span class="kw-2">&amp;*</span>client)
 			.on_parent_block(client.chain_info().genesis_hash)
 			.with_parent_block_number(<span class="number">0</span>)

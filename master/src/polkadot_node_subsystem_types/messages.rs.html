@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/subsystem-types/src/messages.rs`."><title>messages.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/subsystem-types/src/messages.rs`."><title>messages.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_node_subsystem_types" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_node_subsystem_types" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../polkadot_node_subsystem_types/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1397,7 +1399,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! with each other and signals that they receive from an overseer to coordinate their work.
 //! This is intended for use with the `polkadot-overseer` crate.
 //!
-//! Subsystems&#39; APIs are defined separately from their implementation, leading to easier mocking.
+//! Subsystems' APIs are defined separately from their implementation, leading to easier mocking.
 
 </span><span class="kw">use </span>futures::channel::oneshot;
 <span class="kw">use </span>sc_network::{Multiaddr, ReputationChange};
@@ -1466,17 +1468,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		HashMap&lt;ParaId, Vec&lt;(CandidateHash, Hash)&gt;&gt;,
 		oneshot::Sender&lt;HashMap&lt;ParaId, Vec&lt;BackedCandidate&gt;&gt;&gt;,
 	),
-	<span class="doccomment">/// Request the subsystem to check whether it&#39;s allowed to second given candidate.
+	<span class="doccomment">/// Request the subsystem to check whether it's allowed to second given candidate.
 	/// The rule is to only fetch collations that are either built on top of the root
 	/// of some fragment tree or have a parent node which represents backed candidate.
 	///
-	/// Always responses with `false` if async backing is disabled for candidate&#39;s relay
+	/// Always responses with `false` if async backing is disabled for candidate's relay
 	/// parent.
 	</span>CanSecond(CanSecondRequest, oneshot::Sender&lt;bool&gt;),
 	<span class="doccomment">/// Note that the Candidate Backing subsystem should second the given candidate in the context
 	/// of the given relay-parent (ref. by hash). This candidate must be validated.
 	</span>Second(Hash, CandidateReceipt, PersistedValidationData, PoV),
-	<span class="doccomment">/// Note a validator&#39;s statement about a particular candidate in the context of the given
+	<span class="doccomment">/// Note a validator's statement about a particular candidate in the context of the given
 	/// relay-parent. Disagreements about validity must be escalated to a broader check by the
 	/// Disputes Subsystem, though that escalation is deferred until the approval voting stage to
 	/// guarantee availability. Agreements are simply tallied until a quorum is reached.
@@ -1485,10 +1487,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Blanket error for validation failing for internal reasons.
 </span><span class="attr">#[derive(Debug, Error)]
-#[error(<span class="string">&quot;Validation failed with {0:?}&quot;</span>)]
+#[error(<span class="string">"Validation failed with {0:?}"</span>)]
 </span><span class="kw">pub struct </span>ValidationFailed(<span class="kw">pub </span>String);
 
-<span class="doccomment">/// The outcome of the candidate-validation&#39;s PVF pre-check request.
+<span class="doccomment">/// The outcome of the candidate-validation's PVF pre-check request.
 </span><span class="attr">#[derive(Debug, PartialEq)]
 </span><span class="kw">pub enum </span>PreCheckOutcome {
 	<span class="doccomment">/// The PVF has been compiled successfully within the given constraints.
@@ -1532,7 +1534,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>candidate_receipt: CandidateReceipt,
 		<span class="doccomment">/// The proof-of-validity
 		</span>pov: Arc&lt;PoV&gt;,
-		<span class="doccomment">/// Session&#39;s executor parameters
+		<span class="doccomment">/// Session's executor parameters
 		</span>executor_params: ExecutorParams,
 		<span class="doccomment">/// Execution kind, used for timeouts and retries (backing/approvals)
 		</span>exec_kind: PvfExecKind,
@@ -1544,7 +1546,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// Explicitly provide the `PersistedValidationData` and `ValidationCode` so this can do full
 	/// validation without needing to access the state of the relay-chain.
 	///
-	/// This request doesn&#39;t involve acceptance criteria checking, therefore only useful for the
+	/// This request doesn't involve acceptance criteria checking, therefore only useful for the
 	/// cases where the validity of the candidate is established. This is the case for the typical
 	/// use-case: secondary checkers would use this request relying on the full prior checks
 	/// performed by the relay-chain.
@@ -1557,7 +1559,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>candidate_receipt: CandidateReceipt,
 		<span class="doccomment">/// The proof-of-validity
 		</span>pov: Arc&lt;PoV&gt;,
-		<span class="doccomment">/// Session&#39;s executor parameters
+		<span class="doccomment">/// Session's executor parameters
 		</span>executor_params: ExecutorParams,
 		<span class="doccomment">/// Execution kind, used for timeouts and retries (backing/approvals)
 		</span>exec_kind: PvfExecKind,
@@ -1623,7 +1625,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>Seconded(Hash, SignedFullStatement),
 	<span class="doccomment">/// The candidate received enough validity votes from the backing group.
 	</span>Backed {
-		<span class="doccomment">/// Candidate&#39;s para id.
+		<span class="doccomment">/// Candidate's para id.
 		</span>para_id: ParaId,
 		<span class="doccomment">/// Hash of the para head generated by candidate.
 		</span>para_head: Hash,
@@ -1886,7 +1888,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Query whether a `AvailableData` exists within the AV Store.
 	///
 	/// This is useful in cases when existence
-	/// matters, but we don&#39;t want to necessarily pass around multiple
+	/// matters, but we don't want to necessarily pass around multiple
 	/// megabytes of data to get a single bit of information.
 	</span>QueryDataAvailability(CandidateHash, oneshot::Sender&lt;bool&gt;),
 
@@ -1902,7 +1904,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Query whether an `ErasureChunk` exists within the AV Store.
 	///
 	/// This is useful in cases like bitfield signing, when existence
-	/// matters, but we don&#39;t want to necessarily pass around large
+	/// matters, but we don't want to necessarily pass around large
 	/// quantities of data to get a single bit of information.
 	</span>QueryChunkAvailability(CandidateHash, ValidatorIndex, oneshot::Sender&lt;bool&gt;),
 
@@ -1940,7 +1942,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[derive(Error, Debug, Clone, PartialEq, Eq)]
 #[allow(missing_docs)]
 </span><span class="kw">pub enum </span>StoreAvailableDataError {
-	<span class="attr">#[error(<span class="string">&quot;The computed erasure root did not match expected one&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"The computed erasure root did not match expected one"</span>)]
 	</span>InvalidErasureRoot,
 }
 
@@ -2104,9 +2106,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>DisabledValidators(RuntimeApiSender&lt;Vec&lt;ValidatorIndex&gt;&gt;),
 	<span class="doccomment">/// Get the backing state of the given para.
 	</span>ParaBackingState(ParaId, RuntimeApiSender&lt;<span class="prelude-ty">Option</span>&lt;async_backing::BackingState&gt;&gt;),
-	<span class="doccomment">/// Get candidate&#39;s acceptance limitations for asynchronous backing for a relay parent.
+	<span class="doccomment">/// Get candidate's acceptance limitations for asynchronous backing for a relay parent.
 	///
-	/// If it&#39;s not supported by the Runtime, the async backing is said to be disabled.
+	/// If it's not supported by the Runtime, the async backing is said to be disabled.
 	</span>AsyncBackingParams(RuntimeApiSender&lt;async_backing::AsyncBackingParams&gt;),
 	<span class="doccomment">/// Get the node features.
 	</span>NodeFeatures(SessionIndex, RuntimeApiSender&lt;NodeFeatures&gt;),
@@ -2259,19 +2261,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[derive(Error, Debug, Clone, PartialEq, Eq)]
 #[allow(missing_docs)]
 </span><span class="kw">pub enum </span>AssignmentCheckError {
-	<span class="attr">#[error(<span class="string">&quot;Unknown block: {0:?}&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Unknown block: {0:?}"</span>)]
 	</span>UnknownBlock(Hash),
-	<span class="attr">#[error(<span class="string">&quot;Unknown session index: {0}&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Unknown session index: {0}"</span>)]
 	</span>UnknownSessionIndex(SessionIndex),
-	<span class="attr">#[error(<span class="string">&quot;Invalid candidate index: {0}&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Invalid candidate index: {0}"</span>)]
 	</span>InvalidCandidateIndex(CandidateIndex),
-	<span class="attr">#[error(<span class="string">&quot;Invalid candidate {0}: {1:?}&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Invalid candidate {0}: {1:?}"</span>)]
 	</span>InvalidCandidate(CandidateIndex, CandidateHash),
-	<span class="attr">#[error(<span class="string">&quot;Invalid cert: {0:?}, reason: {1}&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Invalid cert: {0:?}, reason: {1}"</span>)]
 	</span>InvalidCert(ValidatorIndex, String),
-	<span class="attr">#[error(<span class="string">&quot;Internal state mismatch: {0:?}, {1:?}&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Internal state mismatch: {0:?}, {1:?}"</span>)]
 	</span>Internal(Hash, CandidateHash),
-	<span class="attr">#[error(<span class="string">&quot;Oversized candidate or core bitfield &gt;= {0}&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Oversized candidate or core bitfield &gt;= {0}"</span>)]
 	</span>InvalidBitfield(usize),
 }
 
@@ -2288,21 +2290,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[derive(Error, Debug, Clone, PartialEq, Eq)]
 #[allow(missing_docs)]
 </span><span class="kw">pub enum </span>ApprovalCheckError {
-	<span class="attr">#[error(<span class="string">&quot;Unknown block: {0:?}&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Unknown block: {0:?}"</span>)]
 	</span>UnknownBlock(Hash),
-	<span class="attr">#[error(<span class="string">&quot;Unknown session index: {0}&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Unknown session index: {0}"</span>)]
 	</span>UnknownSessionIndex(SessionIndex),
-	<span class="attr">#[error(<span class="string">&quot;Invalid candidate index: {0}&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Invalid candidate index: {0}"</span>)]
 	</span>InvalidCandidateIndex(CandidateIndex),
-	<span class="attr">#[error(<span class="string">&quot;Invalid validator index: {0:?}&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Invalid validator index: {0:?}"</span>)]
 	</span>InvalidValidatorIndex(ValidatorIndex),
-	<span class="attr">#[error(<span class="string">&quot;Invalid candidate {0}: {1:?}&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Invalid candidate {0}: {1:?}"</span>)]
 	</span>InvalidCandidate(CandidateIndex, CandidateHash),
-	<span class="attr">#[error(<span class="string">&quot;Invalid signature: {0:?}&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Invalid signature: {0:?}"</span>)]
 	</span>InvalidSignature(ValidatorIndex),
-	<span class="attr">#[error(<span class="string">&quot;No assignment for {0:?}&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"No assignment for {0:?}"</span>)]
 	</span>NoAssignment(ValidatorIndex),
-	<span class="attr">#[error(<span class="string">&quot;Internal state mismatch: {0:?}, {1:?}&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Internal state mismatch: {0:?}, {1:?}"</span>)]
 	</span>Internal(Hash, CandidateHash),
 }
 
@@ -2349,7 +2351,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>CheckAndImportApproval(IndirectSignedApprovalVoteV2, oneshot::Sender&lt;ApprovalCheckResult&gt;),
 	<span class="doccomment">/// Returns the highest possible ancestor hash of the provided block hash which is
 	/// acceptable to vote on finality for.
-	/// The `BlockNumber` provided is the number of the block&#39;s ancestor which is the
+	/// The `BlockNumber` provided is the number of the block's ancestor which is the
 	/// earliest possible vote.
 	///
 	/// It can also return the same block hash, if that is acceptable to vote upon.
@@ -2471,7 +2473,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="doccomment">/// Get candidate&#39;s relay parent.
+	<span class="doccomment">/// Get candidate's relay parent.
 	</span><span class="kw">pub fn </span>relay_parent(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Hash {
 		<span class="kw">match </span><span class="kw-2">*</span><span class="self">self </span>{
 			HypotheticalCandidate::Complete { <span class="kw-2">ref </span>receipt, .. } =&gt;
@@ -2560,9 +2562,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// parachain, under the given relay-parent hash, which is a descendant of the given ancestors.
 	/// Timed out ancestors should not be included in the collection.
 	/// N should represent the number of scheduled cores of this ParaId.
-	/// A timed out ancestor frees the cores of all of its descendants, so if there&#39;s a hole in the
-	/// supplied ancestor path, we&#39;ll get candidates that backfill those timed out slots first. It
-	/// may also return less/no candidates, if there aren&#39;t enough backable candidates recorded.
+	/// A timed out ancestor frees the cores of all of its descendants, so if there's a hole in the
+	/// supplied ancestor path, we'll get candidates that backfill those timed out slots first. It
+	/// may also return less/no candidates, if there aren't enough backable candidates recorded.
 	</span>GetBackableCandidates(
 		Hash,
 		ParaId,
@@ -2571,7 +2573,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		oneshot::Sender&lt;Vec&lt;(CandidateHash, Hash)&gt;&gt;,
 	),
 	<span class="doccomment">/// Get the hypothetical frontier membership of candidates with the given properties
-	/// under the specified active leaves&#39; fragment trees.
+	/// under the specified active leaves' fragment trees.
 	///
 	/// For any candidate which is already known, this returns the depths the candidate
 	/// occupies.
@@ -2595,7 +2597,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// Para-IDs are returned in no particular order.
 	</span>GetMinimumRelayParents(Hash, oneshot::Sender&lt;Vec&lt;(ParaId, BlockNumber)&gt;&gt;),
-	<span class="doccomment">/// Get the validation data of some prospective candidate. The candidate doesn&#39;t need
+	<span class="doccomment">/// Get the validation data of some prospective candidate. The candidate doesn't need
 	/// to be part of any fragment tree, but this only succeeds if the parent head-data and
 	/// relay-parent are part of some fragment tree.
 	</span>GetProspectiveValidationData(

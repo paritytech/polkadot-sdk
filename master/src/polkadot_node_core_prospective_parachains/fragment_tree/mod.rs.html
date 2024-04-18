@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/core/prospective-parachains/src/fragment_tree/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/core/prospective-parachains/src/fragment_tree/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_node_core_prospective_parachains" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_node_core_prospective_parachains" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../polkadot_node_core_prospective_parachains/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1325,7 +1327,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! A tree has an associated [`Scope`] which defines limits on candidates within the tree.
 //! Candidates themselves have their own [`Constraints`] which are either the constraints from the
 //! scope, or, if there are previous nodes in the tree, a modified version of the previous
-//! candidate&#39;s constraints.
+//! candidate's constraints.
 //!
 //! This module also makes use of types provided by the Inclusion Emulator module, such as
 //! [`Fragment`] and [`Constraints`]. These perform the actual job of checking for validity of
@@ -1333,7 +1335,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!
 //! # Usage
 //!
-//! It&#39;s expected that higher-level code will have a tree for each relay-chain block which might
+//! It's expected that higher-level code will have a tree for each relay-chain block which might
 //! reasonably have blocks built upon it.
 //!
 //! Because a para only has a single candidate storage, trees only store indices into the storage.
@@ -1342,15 +1344,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! # Cycles
 //!
 //! Nodes do not uniquely refer to a parachain block for two reasons.
-//!   1. There&#39;s no requirement that head-data is unique for a parachain. Furthermore, a parachain
-//!      is under no obligation to be acyclic, and this is mostly just because it&#39;s totally
+//!   1. There's no requirement that head-data is unique for a parachain. Furthermore, a parachain
+//!      is under no obligation to be acyclic, and this is mostly just because it's totally
 //!      inefficient to enforce it. Practical use-cases are acyclic, but there is still more than
 //!      one way to reach the same head-data.
 //!   2. and candidates only refer to their parent by its head-data. This whole issue could be
 //!      resolved by having candidates reference their parent by candidate hash.
 //!
 //! The implication is that when we receive a candidate receipt, there are actually multiple
-//! possibilities for any candidates between the para-head recorded in the relay parent&#39;s state
+//! possibilities for any candidates between the para-head recorded in the relay parent's state
 //! and the candidate in question.
 //!
 //! This means that our candidates need to handle multiple parents and that depth is an
@@ -1410,7 +1412,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Kinds of failures to import a candidate into storage.
 </span><span class="attr">#[derive(Debug, Clone, PartialEq)]
 </span><span class="kw">pub enum </span>CandidateStorageInsertionError {
-	<span class="doccomment">/// An error indicating that a supplied candidate didn&#39;t match the persisted
+	<span class="doccomment">/// An error indicating that a supplied candidate didn't match the persisted
 	/// validation data provided alongside it.
 	</span>PersistedValidationDataMismatch,
 	<span class="doccomment">/// The candidate was already known.
@@ -1505,10 +1507,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Note that an existing candidate has been backed.
 	</span><span class="kw">pub fn </span>mark_backed(<span class="kw-2">&amp;mut </span><span class="self">self</span>, candidate_hash: <span class="kw-2">&amp;</span>CandidateHash) {
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(entry) = <span class="self">self</span>.by_candidate_hash.get_mut(candidate_hash) {
-			<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>candidate_hash, <span class="string">&quot;Candidate marked as backed&quot;</span>);
+			<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>candidate_hash, <span class="string">"Candidate marked as backed"</span>);
 			entry.state = CandidateState::Backed;
 		} <span class="kw">else </span>{
-			<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>candidate_hash, <span class="string">&quot;Candidate not found while marking as backed&quot;</span>);
+			<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>candidate_hash, <span class="string">"Candidate not found while marking as backed"</span>);
 		}
 	}
 
@@ -1558,7 +1560,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			})
 	}
 
-	<span class="doccomment">/// Returns candidate&#39;s relay parent, if present.
+	<span class="doccomment">/// Returns candidate's relay parent, if present.
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>relay_parent_by_candidate_hash(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		candidate_hash: <span class="kw-2">&amp;</span>CandidateHash,
@@ -1566,10 +1568,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">self</span>.by_candidate_hash.get(candidate_hash).map(|entry| entry.relay_parent)
 	}
 
-	<span class="kw">fn </span>iter_para_children&lt;<span class="lifetime">&#39;a</span>&gt;(
-		<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>,
+	<span class="kw">fn </span>iter_para_children&lt;<span class="lifetime">'a</span>&gt;(
+		<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>,
 		parent_head_hash: <span class="kw-2">&amp;</span>Hash,
-	) -&gt; <span class="kw">impl </span>Iterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>CandidateEntry&gt; + <span class="lifetime">&#39;a </span>{
+	) -&gt; <span class="kw">impl </span>Iterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">'a </span>CandidateEntry&gt; + <span class="lifetime">'a </span>{
 		<span class="kw">let </span>by_candidate_hash = <span class="kw-2">&amp;</span><span class="self">self</span>.by_candidate_hash;
 		<span class="self">self</span>.by_parent_head
 			.get(parent_head_hash)
@@ -1578,7 +1580,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.filter_map(<span class="kw">move </span>|h| by_candidate_hash.get(h))
 	}
 
-	<span class="kw">fn </span>get(<span class="kw-2">&amp;</span><span class="lifetime">&#39;_ </span><span class="self">self</span>, candidate_hash: <span class="kw-2">&amp;</span>CandidateHash) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;_ </span>CandidateEntry&gt; {
+	<span class="kw">fn </span>get(<span class="kw-2">&amp;</span><span class="lifetime">'_ </span><span class="self">self</span>, candidate_hash: <span class="kw-2">&amp;</span>CandidateHash) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'_ </span>CandidateEntry&gt; {
 		<span class="self">self</span>.by_candidate_hash.get(candidate_hash)
 	}
 
@@ -1590,7 +1592,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// The state of a candidate.
 ///
-/// Candidates aren&#39;t even considered until they&#39;ve at least been seconded.
+/// Candidates aren't even considered until they've at least been seconded.
 </span><span class="attr">#[derive(Debug, PartialEq)]
 </span><span class="kw">enum </span>CandidateState {
 	<span class="doccomment">/// The candidate has been introduced in a spam-protected way but
@@ -1606,7 +1608,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">struct </span>CandidateEntry {
 	candidate_hash: CandidateHash,
 	relay_parent: Hash,
-	candidate: ProspectiveCandidate&lt;<span class="lifetime">&#39;static</span>&gt;,
+	candidate: ProspectiveCandidate&lt;<span class="lifetime">'static</span>&gt;,
 	state: CandidateState,
 }
 
@@ -1655,7 +1657,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// This function will only consume ancestors up to the `min_relay_parent_number` of
 	/// the `base_constraints`.
 	///
-	/// Only ancestors whose children have the same session as the relay-parent&#39;s
+	/// Only ancestors whose children have the same session as the relay-parent's
 	/// children should be provided.
 	///
 	/// It is allowed to provide zero ancestors.
@@ -1739,10 +1741,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// A hypothetical candidate, which may or may not exist in
 /// the fragment tree already.
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">enum </span>HypotheticalCandidate&lt;<span class="lifetime">&#39;a</span>&gt; {
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">enum </span>HypotheticalCandidate&lt;<span class="lifetime">'a</span>&gt; {
 	Complete {
-		receipt: Cow&lt;<span class="lifetime">&#39;a</span>, CommittedCandidateReceipt&gt;,
-		persisted_validation_data: Cow&lt;<span class="lifetime">&#39;a</span>, PersistedValidationData&gt;,
+		receipt: Cow&lt;<span class="lifetime">'a</span>, CommittedCandidateReceipt&gt;,
+		persisted_validation_data: Cow&lt;<span class="lifetime">'a</span>, PersistedValidationData&gt;,
 	},
 	Incomplete {
 		relay_parent: Hash,
@@ -1750,7 +1752,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	},
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; HypotheticalCandidate&lt;<span class="lifetime">&#39;a</span>&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; HypotheticalCandidate&lt;<span class="lifetime">'a</span>&gt; {
 	<span class="kw">fn </span>parent_head_data_hash(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Hash {
 		<span class="kw">match </span><span class="kw-2">*</span><span class="self">self </span>{
 			HypotheticalCandidate::Complete { <span class="kw-2">ref </span>persisted_validation_data, .. } =&gt;
@@ -1772,11 +1774,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// This is a tree of candidates based on some underlying storage of candidates and a scope.
 ///
 /// All nodes in the tree must be either pending availability or within the scope. Within the scope
-/// means it&#39;s built off of the relay-parent or an ancestor.
+/// means it's built off of the relay-parent or an ancestor.
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>FragmentTree {
 	scope: Scope,
 
-	<span class="comment">// Invariant: a contiguous prefix of the &#39;nodes&#39; storage will contain
+	<span class="comment">// Invariant: a contiguous prefix of the 'nodes' storage will contain
 	// the top-level children.
 	</span>nodes: Vec&lt;FragmentNode&gt;,
 
@@ -1797,7 +1799,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			relay_parent_num = scope.relay_parent.number,
 			para_id = <span class="question-mark">?</span>scope.para,
 			ancestors = scope.ancestors.len(),
-			<span class="string">&quot;Instantiating Fragment Tree&quot;</span>,
+			<span class="string">"Instantiating Fragment Tree"</span>,
 		);
 
 		<span class="kw">let </span><span class="kw-2">mut </span>tree = FragmentTree { scope, nodes: Vec::new(), candidates: HashMap::new() };
@@ -1871,7 +1873,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Returns an O(n) iterator over the hashes of candidates contained in the
 	/// tree.
-	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>candidates(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw">impl </span>Iterator&lt;Item = CandidateHash&gt; + <span class="lifetime">&#39;_ </span>{
+	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>candidates(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw">impl </span>Iterator&lt;Item = CandidateHash&gt; + <span class="lifetime">'_ </span>{
 		<span class="self">self</span>.candidates.keys().cloned()
 	}
 
@@ -1915,7 +1917,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="self">self</span>.populate_from_bases(storage, bases);
 	}
 
-	<span class="doccomment">/// Returns `true` if the path from the root to the node&#39;s parent (inclusive)
+	<span class="doccomment">/// Returns `true` if the path from the root to the node's parent (inclusive)
 	/// only contains backed candidates, `false` otherwise.
 	</span><span class="kw">fn </span>path_contains_backed_only_candidates(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
@@ -1990,7 +1992,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 								.get_pending_availability(<span class="kw-2">&amp;</span>node.candidate_hash)
 								.map(|<span class="kw">_</span>| <span class="self">self</span>.scope.earliest_relay_parent())
 						})
-						.expect(<span class="string">&quot;All nodes in tree are either pending availability or within scope; qed&quot;</span>);
+						.expect(<span class="string">"All nodes in tree are either pending availability or within scope; qed"</span>);
 
 					(node.cumulative_modifications.clone(), node.depth + <span class="number">1</span>, parent_rp)
 				},
@@ -2011,7 +2013,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							target: LOG_TARGET,
 							new_parent_head = <span class="question-mark">?</span>modifications.required_parent,
 							err = <span class="question-mark">?</span>e,
-							<span class="string">&quot;Failed to apply modifications&quot;</span>,
+							<span class="string">"Failed to apply modifications"</span>,
 						);
 
 						<span class="kw">continue
@@ -2067,7 +2069,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// candidates will be returned.
 	/// If the ancestors do not draw out a full path (the path contains holes), candidates will be
 	/// suggested that may fill these holes.
-	/// If the ancestors don&#39;t draw out a valid path, no candidates will be returned. If there are
+	/// If the ancestors don't draw out a valid path, no candidates will be returned. If there are
 	/// multiple possibilities of the same size, this will select the first one. If there is no
 	/// chain of size `count` that matches the criteria, this will return the largest chain it could
 	/// find with the criteria. If there are no candidates meeting those criteria, returns an empty
@@ -2103,11 +2105,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="comment">// Try finding a candidate chain starting from `base_node` of length `expected_count`.
 	// If not possible, return the longest one we could find.
-	// Does a depth-first search, since we&#39;re optimistic that there won&#39;t be more than one such
-	// chains (parachains shouldn&#39;t usually have forks). So in the usual case, this will conclude
+	// Does a depth-first search, since we're optimistic that there won't be more than one such
+	// chains (parachains shouldn't usually have forks). So in the usual case, this will conclude
 	// in `O(expected_count)`.
-	// Cycles are accepted, but this doesn&#39;t allow for infinite execution time, because the maximum
-	// depth we&#39;ll reach is `expected_count`.
+	// Cycles are accepted, but this doesn't allow for infinite execution time, because the maximum
+	// depth we'll reach is `expected_count`.
 	//
 	// Worst case performance is `O(num_forks ^ expected_count)`, the same as populating the tree.
 	// Although an exponential function, this is actually a constant that can only be altered via
@@ -2130,7 +2132,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		accumulator: <span class="kw-2">&amp;mut </span>Vec&lt;CandidateHash&gt;,
 	) -&gt; Vec&lt;CandidateHash&gt; {
 		<span class="kw">if </span>remaining_count == <span class="number">0 </span>{
-			<span class="comment">// The best option is the chain we&#39;ve accumulated so far.
+			<span class="comment">// The best option is the chain we've accumulated so far.
 			</span><span class="kw">return </span>accumulator.to_vec();
 		}
 
@@ -2171,9 +2173,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			accumulator.pop();
 
-			<span class="comment">// Short-circuit the search if we&#39;ve found the right length. Otherwise, we&#39;ll
+			<span class="comment">// Short-circuit the search if we've found the right length. Otherwise, we'll
 			// search for a max.
-			// Taking the first best selection doesn&#39;t introduce bias or become gameable,
+			// Taking the first best selection doesn't introduce bias or become gameable,
 			// because `find_ancestor_path` uses a `HashSet` to track the ancestors, which
 			// makes the order in which ancestors are visited non-deterministic.
 			</span><span class="kw">if </span>result.len() == expected_count <span class="kw">as </span>usize {
@@ -2193,7 +2195,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	// If we cannot use all ancestors, stop at the first found hole in the chain. This usually
 	// translates to a timed out candidate.
 	</span><span class="kw">fn </span>find_ancestor_path(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw-2">mut </span>ancestors: Ancestors) -&gt; <span class="prelude-ty">Option</span>&lt;NodePointer&gt; {
-		<span class="comment">// The number of elements in the path we&#39;ve processed so far.
+		<span class="comment">// The number of elements in the path we've processed so far.
 		</span><span class="kw">let </span><span class="kw-2">mut </span>depth = <span class="number">0</span>;
 		<span class="kw">let </span><span class="kw-2">mut </span>last_node = NodePointer::Root;
 		<span class="kw">let </span><span class="kw-2">mut </span>next_node: <span class="prelude-ty">Option</span>&lt;NodePointer&gt; = <span class="prelude-val">Some</span>(NodePointer::Root);
@@ -2234,13 +2236,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="comment">// Find a node from the given iterator which is present in the ancestors
-	// collection. If there are multiple such nodes, return an error and log a warning. We don&#39;t
+	// collection. If there are multiple such nodes, return an error and log a warning. We don't
 	// accept forks in a parachain to be backed. The supplied ancestors should all form a chain.
 	// If there is no such node, return None.
-	</span><span class="kw">fn </span>find_valid_child&lt;<span class="lifetime">&#39;a</span>&gt;(
+	</span><span class="kw">fn </span>find_valid_child&lt;<span class="lifetime">'a</span>&gt;(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		ancestors: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>Ancestors,
-		nodes: <span class="kw">impl </span>Iterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>(NodePointer, CandidateHash)&gt; + <span class="lifetime">&#39;a</span>,
+		ancestors: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>Ancestors,
+		nodes: <span class="kw">impl </span>Iterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">'a </span>(NodePointer, CandidateHash)&gt; + <span class="lifetime">'a</span>,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;NodePointer&gt;, ()&gt; {
 		<span class="kw">let </span><span class="kw-2">mut </span>possible_children =
 			nodes.filter_map(|(node_ptr, hash)| <span class="kw">match </span>ancestors.remove(<span class="kw-2">&amp;</span>hash) {
@@ -2248,7 +2250,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="bool-val">false </span>=&gt; <span class="prelude-val">None</span>,
 			});
 
-		<span class="comment">// We don&#39;t accept forks in a parachain to be backed. The supplied ancestors
+		<span class="comment">// We don't accept forks in a parachain to be backed. The supplied ancestors
 		// should all form a chain.
 		</span><span class="kw">let </span>next = possible_children.next();
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(second_child) = possible_children.next() {
@@ -2259,9 +2261,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					target: LOG_TARGET,
 					para_id = <span class="question-mark">?</span><span class="self">self</span>.scope.para,
 					relay_parent = <span class="question-mark">?</span><span class="self">self</span>.scope.relay_parent,
-					<span class="string">&quot;Trying to find new backable candidates for a parachain for which we&#39;ve backed a fork.\
+					<span class="string">"Trying to find new backable candidates for a parachain for which we've backed a fork.\
 					This is a bug and the runtime should not have allowed it.\n\
-					Backed candidates with the same parent: {}, {}&quot;</span>,
+					Backed candidates with the same parent: {}, {}"</span>,
 					<span class="self">self</span>.nodes[<span class="kw-2">*</span>first_child].candidate_hash,
 					<span class="self">self</span>.nodes[<span class="kw-2">*</span>second_child].candidate_hash,
 				);
@@ -2309,7 +2311,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 									.get_pending_availability(<span class="kw-2">&amp;</span>node.candidate_hash)
 									.map(|c| c.relay_parent.clone())
 							})
-							.expect(<span class="string">&quot;All nodes in tree are either pending availability or within scope; qed&quot;</span>);
+							.expect(<span class="string">"All nodes in tree are either pending availability or within scope; qed"</span>);
 
 						(node.cumulative_modifications.clone(), node.depth + <span class="number">1</span>, parent_rp)
 					},
@@ -2326,7 +2328,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 								target: LOG_TARGET,
 								new_parent_head = <span class="question-mark">?</span>modifications.required_parent,
 								err = <span class="question-mark">?</span>e,
-								<span class="string">&quot;Failed to apply modifications&quot;</span>,
+								<span class="string">"Failed to apply modifications"</span>,
 							);
 
 							<span class="kw">continue
@@ -2351,7 +2353,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="prelude-val">None </span>=&gt; <span class="kw">continue</span>,
 					};
 
-					<span class="comment">// require: pending availability candidates don&#39;t move backwards
+					<span class="comment">// require: pending availability candidates don't move backwards
 					// and only those can be out-of-scope.
 					//
 					// earliest_rp can be before the earliest relay parent in the scope
@@ -2373,7 +2375,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="kw">continue </span><span class="comment">// relay parent moved backwards.
 					</span>}
 
-					<span class="comment">// don&#39;t add candidates where the parent already has it as a child.
+					<span class="comment">// don't add candidates where the parent already has it as a child.
 					</span><span class="kw">if </span><span class="self">self</span>.node_has_candidate_child(parent_pointer, <span class="kw-2">&amp;</span>candidate.candidate_hash) {
 						<span class="kw">continue
 					</span>}
@@ -2399,7 +2401,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 									err = <span class="question-mark">?</span>e,
 									<span class="question-mark">?</span>relay_parent,
 									candidate_hash = <span class="question-mark">?</span>candidate.candidate_hash,
-									<span class="string">&quot;Failed to instantiate fragment&quot;</span>,
+									<span class="string">"Failed to instantiate fragment"</span>,
 								);
 
 								<span class="kw">continue
@@ -2431,7 +2433,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">struct </span>FragmentNode {
 	<span class="comment">// A pointer to the parent node.
 	</span>parent: NodePointer,
-	fragment: Fragment&lt;<span class="lifetime">&#39;static</span>&gt;,
+	fragment: Fragment&lt;<span class="lifetime">'static</span>&gt;,
 	candidate_hash: CandidateHash,
 	depth: usize,
 	cumulative_modifications: ConstraintModifications,

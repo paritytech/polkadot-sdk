@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/contracts/src/storage.rs`."><title>storage.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/contracts/src/storage.rs`."><title>storage.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_contracts" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_contracts" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../pallet_contracts/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -609,14 +611,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -657,9 +659,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>trie_id: TrieId,
 	<span class="doccomment">/// The code associated with a given account.
 	</span><span class="kw">pub </span>code_hash: CodeHash&lt;T&gt;,
-	<span class="doccomment">/// How many bytes of storage are accumulated in this contract&#39;s child trie.
+	<span class="doccomment">/// How many bytes of storage are accumulated in this contract's child trie.
 	</span>storage_bytes: u32,
-	<span class="doccomment">/// How many items of storage are accumulated in this contract&#39;s child trie.
+	<span class="doccomment">/// How many items of storage are accumulated in this contract's child trie.
 	</span>storage_items: u32,
 	<span class="doccomment">/// This records to how much deposit the accumulated `storage_bytes` amount to.
 	</span><span class="kw">pub </span>storage_byte_deposit: BalanceOf&lt;T&gt;,
@@ -697,7 +699,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			buf.as_ref()
 				.to_vec()
 				.try_into()
-				.expect(<span class="string">&quot;Runtime uses a reasonable hash size. Hence sizeof(T::Hash) &lt;= 128; qed&quot;</span>)
+				.expect(<span class="string">"Runtime uses a reasonable hash size. Hence sizeof(T::Hash) &lt;= 128; qed"</span>)
 		};
 
 		<span class="kw">let </span>contract = <span class="self">Self </span>{
@@ -724,7 +726,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		ChildInfo::new_default(<span class="self">self</span>.trie_id.as_ref())
 	}
 
-	<span class="doccomment">/// The deposit paying for the accumulated storage generated within the contract&#39;s child trie.
+	<span class="doccomment">/// The deposit paying for the accumulated storage generated within the contract's child trie.
 	</span><span class="kw">pub fn </span>extra_deposit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; BalanceOf&lt;T&gt; {
 		<span class="self">self</span>.storage_byte_deposit.saturating_add(<span class="self">self</span>.storage_item_deposit)
 	}
@@ -742,20 +744,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Reads a storage kv pair of a contract.
 	///
 	/// The read is performed from the `trie_id` only. The `address` is not necessary. If the
-	/// contract doesn&#39;t store under the given `key` `None` is returned.
+	/// contract doesn't store under the given `key` `None` is returned.
 	</span><span class="kw">pub fn </span>read(<span class="kw-2">&amp;</span><span class="self">self</span>, key: <span class="kw-2">&amp;</span>Key&lt;T&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt; {
 		child::get_raw(<span class="kw-2">&amp;</span><span class="self">self</span>.child_trie_info(), key.hash().as_slice())
 	}
 
 	<span class="doccomment">/// Returns `Some(len)` (in bytes) if a storage item exists at `key`.
 	///
-	/// Returns `None` if the `key` wasn&#39;t previously set by `set_storage` or
+	/// Returns `None` if the `key` wasn't previously set by `set_storage` or
 	/// was deleted.
 	</span><span class="kw">pub fn </span>size(<span class="kw-2">&amp;</span><span class="self">self</span>, key: <span class="kw-2">&amp;</span>Key&lt;T&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;u32&gt; {
 		child::len(<span class="kw-2">&amp;</span><span class="self">self</span>.child_trie_info(), key.hash().as_slice())
 	}
 
-	<span class="doccomment">/// Update a storage entry into a contract&#39;s kv storage.
+	<span class="doccomment">/// Update a storage entry into a contract's kv storage.
 	///
 	/// If the `new_value` is `None` then the kv pair is removed. If `take` is true
 	/// a [`WriteOutcome::Taken`] is returned instead of a [`WriteOutcome::Overwritten`].
@@ -815,7 +817,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Sets and returns the contract base deposit.
 	///
 	/// The base deposit is updated when the `code_hash` of the contract changes, as it depends on
-	/// the deposit paid to upload the contract&#39;s code.
+	/// the deposit paid to upload the contract's code.
 	</span><span class="kw">pub fn </span>update_base_deposit(<span class="kw-2">&amp;mut </span><span class="self">self</span>, code_info: <span class="kw-2">&amp;</span>CodeInfo&lt;T&gt;) -&gt; BalanceOf&lt;T&gt; {
 		<span class="kw">let </span>info_deposit =
 			Diff { bytes_added: <span class="self">self</span>.encoded_size() <span class="kw">as </span>u32, items_added: <span class="number">1</span>, ..Default::default() }
@@ -852,7 +854,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Removes the delegate dependency from the contract and returns the deposit held for this
 	/// dependency.
 	///
-	/// Returns an error if the entry doesn&#39;t exist.
+	/// Returns an error if the entry doesn't exist.
 	</span><span class="kw">pub fn </span>unlock_delegate_dependency(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		code_hash: <span class="kw-2">&amp;</span>CodeHash&lt;T&gt;,
@@ -869,7 +871,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw-2">&amp;</span><span class="self">self</span>.delegate_dependencies
 	}
 
-	<span class="doccomment">/// Push a contract&#39;s trie to the deletion queue for lazy removal.
+	<span class="doccomment">/// Push a contract's trie to the deletion queue for lazy removal.
 	///
 	/// You must make sure that the contract is also removed when queuing the trie for deletion.
 	</span><span class="kw">pub fn </span>queue_trie_for_deletion(<span class="kw-2">&amp;</span><span class="self">self</span>) {
@@ -917,7 +919,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			);
 
 			<span class="kw">match </span>outcome {
-				<span class="comment">// This happens when our budget wasn&#39;t large enough to remove all keys.
+				<span class="comment">// This happens when our budget wasn't large enough to remove all keys.
 				</span>KillStorageResult::SomeRemaining(keys_removed) =&gt; {
 					remaining_key_budget.saturating_reduce(keys_removed);
 					<span class="kw">break
@@ -1000,16 +1002,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// View on a contract that is marked for deletion.
-</span><span class="kw">struct </span>DeletionQueueEntry&lt;<span class="lifetime">&#39;a</span>, T: Config&gt; {
+</span><span class="kw">struct </span>DeletionQueueEntry&lt;<span class="lifetime">'a</span>, T: Config&gt; {
 	<span class="doccomment">/// the trie id of the contract to delete.
 	</span>trie_id: TrieId,
 
 	<span class="doccomment">/// A mutable reference on the queue so that the contract can be removed, and none can be added
 	/// or read in the meantime.
-	</span>queue: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>DeletionQueueManager&lt;T&gt;,
+	</span>queue: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>DeletionQueueManager&lt;T&gt;,
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, T: Config&gt; DeletionQueueEntry&lt;<span class="lifetime">&#39;a</span>, T&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, T: Config&gt; DeletionQueueEntry&lt;<span class="lifetime">'a</span>, T&gt; {
 	<span class="doccomment">/// Remove the contract from the deletion queue.
 	</span><span class="kw">fn </span>remove(<span class="self">self</span>) {
 		&lt;DeletionQueue&lt;T&gt;&gt;::remove(<span class="self">self</span>.queue.delete_counter);
@@ -1040,7 +1042,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Fetch the next contract to be deleted.
 	///
 	/// Note:
-	/// we use the delete counter to get the next value to read from the queue and thus don&#39;t pay
+	/// we use the delete counter to get the next value to read from the queue and thus don't pay
 	/// the cost of an extra call to `sp_io::storage::next_key` to lookup the next entry in the map
 	</span><span class="kw">fn </span>next(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;DeletionQueueEntry&lt;T&gt;&gt; {
 		<span class="kw">if </span><span class="self">self</span>.is_empty() {

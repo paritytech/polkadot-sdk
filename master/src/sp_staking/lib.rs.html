@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/staking/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/staking/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_staking" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_staking" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sp_staking/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -577,19 +579,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-</span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
+</span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
 </span><span class="doccomment">//! A crate which contains primitives that are useful for implementation that uses staking
 //! approaches in general. Definitions related to sessions, slashing, etc go here.
@@ -628,7 +630,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	Controller(AccountId),
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">impl</span>&lt;AccountId&gt; From&lt;AccountId&gt; <span class="kw">for </span>StakingAccount&lt;AccountId&gt; {
 	<span class="kw">fn </span>from(account: AccountId) -&gt; <span class="self">Self </span>{
 		StakingAccount::Stash(account)
@@ -637,7 +639,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Representation of the status of a staker.
 </span><span class="attr">#[derive(RuntimeDebug, TypeInfo)]
-#[cfg_attr(feature = <span class="string">&quot;serde&quot;</span>, derive(serde::Serialize, serde::Deserialize, PartialEq, Eq, Clone))]
+#[cfg_attr(feature = <span class="string">"serde"</span>, derive(serde::Serialize, serde::Deserialize, PartialEq, Eq, Clone))]
 </span><span class="kw">pub enum </span>StakerStatus&lt;AccountId&gt; {
 	<span class="doccomment">/// Chilling.
 	</span>Idle,
@@ -648,7 +650,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// A struct that reflects stake that an account has in the staking system. Provides a set of
-/// methods to operate on it&#39;s properties. Aimed at making `StakingInterface` more concise.
+/// methods to operate on it's properties. Aimed at making `StakingInterface` more concise.
 </span><span class="attr">#[derive(RuntimeDebug, Clone, Copy, Eq, PartialEq, Default)]
 </span><span class="kw">pub struct </span>Stake&lt;Balance&gt; {
 	<span class="doccomment">/// The total stake that `stash` has in the staking system. This includes the
@@ -658,10 +660,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// # Note
 	///
 	/// This is only guaranteed to reflect the amount locked by the staking system. If there are
-	/// non-staking locks on the bonded pair&#39;s balance this amount is going to be larger in
+	/// non-staking locks on the bonded pair's balance this amount is going to be larger in
 	/// reality.
 	</span><span class="kw">pub </span>total: Balance,
-	<span class="doccomment">/// The total amount of the stash&#39;s balance that will be at stake in any forthcoming
+	<span class="doccomment">/// The total amount of the stash's balance that will be at stake in any forthcoming
 	/// rounds.
 	</span><span class="kw">pub </span>active: Balance,
 }
@@ -728,7 +730,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) {
 	}
 
-	<span class="doccomment">/// Fired when a portion of a staker&#39;s balance has been withdrawn.
+	<span class="doccomment">/// Fired when a portion of a staker's balance has been withdrawn.
 	</span><span class="kw">fn </span>on_withdraw(_stash: <span class="kw-2">&amp;</span>AccountId, _amount: Balance) {}
 }
 
@@ -787,7 +789,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">Self</span>::stake(who).map(|s| s.total)
 	}
 
-	<span class="doccomment">/// Total active portion of a staker&#39;s [`Stake`], `Err` if not a staker.
+	<span class="doccomment">/// Total active portion of a staker's [`Stake`], `Err` if not a staker.
 	</span><span class="kw">fn </span>active_stake(who: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Balance, DispatchError&gt; {
 		<span class="self">Self</span>::stake(who).map(|s| s.active)
 	}
@@ -802,7 +804,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">Self</span>::unbond(who, <span class="self">Self</span>::stake(who)<span class="question-mark">?</span>.active)
 	}
 
-	<span class="doccomment">/// Bond (lock) `value` of `who`&#39;s balance, while forwarding any rewards to `payee`.
+	<span class="doccomment">/// Bond (lock) `value` of `who`'s balance, while forwarding any rewards to `payee`.
 	</span><span class="kw">fn </span>bond(who: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId, value: <span class="self">Self</span>::Balance, payee: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId)
 		-&gt; DispatchResult;
 
@@ -812,8 +814,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Chill `who`.
 	</span><span class="kw">fn </span>chill(who: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId) -&gt; DispatchResult;
 
-	<span class="doccomment">/// Bond some extra amount in `who`&#39;s free balance against the active bonded balance of
-	/// the account. The amount extra actually bonded will never be more than `who`&#39;s free
+	<span class="doccomment">/// Bond some extra amount in `who`'s free balance against the active bonded balance of
+	/// the account. The amount extra actually bonded will never be more than `who`'s free
 	/// balance.
 	</span><span class="kw">fn </span>bond_extra(who: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId, extra: <span class="self">Self</span>::Balance) -&gt; DispatchResult;
 
@@ -864,17 +866,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">fn </span>max_exposure_page_size() -&gt; Page;
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">fn </span>add_era_stakers(
 		current_era: <span class="kw-2">&amp;</span>EraIndex,
 		stash: <span class="kw-2">&amp;</span><span class="self">Self</span>::AccountId,
 		exposures: Vec&lt;(<span class="self">Self</span>::AccountId, <span class="self">Self</span>::Balance)&gt;,
 	);
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">fn </span>set_current_era(era: EraIndex);
 }
 
@@ -894,7 +896,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// The total balance backing this validator.
 	</span><span class="attr">#[codec(compact)]
 	</span><span class="kw">pub </span>total: Balance,
-	<span class="doccomment">/// The validator&#39;s own stash that is exposed.
+	<span class="doccomment">/// The validator's own stash that is exposed.
 	</span><span class="attr">#[codec(compact)]
 	</span><span class="kw">pub </span>own: Balance,
 	<span class="doccomment">/// The portions of nominators stashes that are exposed.
@@ -987,7 +989,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// The total balance backing this validator.
 	</span><span class="attr">#[codec(compact)]
 	</span><span class="kw">pub </span>total: Balance,
-	<span class="doccomment">/// The validator&#39;s own stash that is exposed.
+	<span class="doccomment">/// The validator's own stash that is exposed.
 	</span><span class="attr">#[codec(compact)]
 	</span><span class="kw">pub </span>own: Balance,
 	<span class="doccomment">/// Number of nominators backing this validator.
@@ -996,7 +998,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>page_count: Page,
 }
 
-<span class="macro">sp_core::generate_feature_enabled_macro!</span>(runtime_benchmarks_enabled, feature = <span class="string">&quot;runtime-benchmarks&quot;</span>, $);
+<span class="macro">sp_core::generate_feature_enabled_macro!</span>(runtime_benchmarks_enabled, feature = <span class="string">"runtime-benchmarks"</span>, $);
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

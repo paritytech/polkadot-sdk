@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/support/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/support/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="frame_support" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="frame_support" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../frame_support/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -2793,14 +2795,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -2817,7 +2819,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // or the `tuples-128` complication flag. Note that these features *will increase* the compilation
 // of this crate.
 
-</span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
+</span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
 </span><span class="doccomment">/// Export ourself as `frame_support` to make tests happy.
 </span><span class="attr">#[doc(hidden)]
@@ -2837,16 +2839,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">pub use </span>sp_core::{Get, OpaqueMetadata, Void};
 	<span class="kw">pub use </span>sp_crypto_hashing_proc_macro;
 	<span class="kw">pub use </span>sp_inherents;
-	<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 	</span><span class="kw">pub use </span>sp_io::TestExternalities;
 	<span class="kw">pub use </span>sp_io::{<span class="self">self</span>, hashing, storage::root <span class="kw">as </span>storage_root};
 	<span class="kw">pub use </span>sp_metadata_ir <span class="kw">as </span>metadata_ir;
-	<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 	</span><span class="kw">pub use </span>sp_runtime::{bounded_btree_map, bounded_vec};
 	<span class="kw">pub use </span>sp_runtime::{
 		traits::Dispatchable, DispatchError, RuntimeDebug, StateVersion, TransactionOutcome,
 	};
-	<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 	</span><span class="kw">pub use </span>sp_state_machine::BasicExternalities;
 	<span class="kw">pub use </span>sp_std;
 	<span class="kw">pub use </span>sp_tracing;
@@ -2876,7 +2878,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	};
 }
 
-<span class="attr">#[cfg(any(feature = <span class="string">&quot;std&quot;</span>, feature = <span class="string">&quot;runtime-benchmarks&quot;</span>, feature = <span class="string">&quot;try-runtime&quot;</span>, test))]
+<span class="attr">#[cfg(any(feature = <span class="string">"std"</span>, feature = <span class="string">"runtime-benchmarks"</span>, feature = <span class="string">"try-runtime"</span>, test))]
 </span><span class="kw">pub use </span><span class="self">self</span>::storage::storage_noop_guard::StorageNoopGuard;
 <span class="kw">pub use </span><span class="self">self</span>::{
 	dispatch::{Callable, Parameter},
@@ -2903,7 +2905,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sp_runtime::TypeId;
 
 <span class="doccomment">/// A unified log target for support operations.
-</span><span class="kw">pub const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;runtime::frame-support&quot;</span>;
+</span><span class="kw">pub const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"runtime::frame-support"</span>;
 
 <span class="doccomment">/// A type that cannot be instantiated.
 </span><span class="attr">#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, TypeInfo)]
@@ -2914,7 +2916,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub struct </span>PalletId(<span class="kw">pub </span>[u8; <span class="number">8</span>]);
 
 <span class="kw">impl </span>TypeId <span class="kw">for </span>PalletId {
-	<span class="kw">const </span>TYPE_ID: [u8; <span class="number">4</span>] = <span class="kw-2">*</span><span class="string">b&quot;modl&quot;</span>;
+	<span class="kw">const </span>TYPE_ID: [u8; <span class="number">4</span>] = <span class="kw-2">*</span><span class="string">b"modl"</span>;
 }
 
 <span class="doccomment">/// Generate a [`#[pallet::storage]`](pallet_macros::storage) alias outside of a pallet.
@@ -2943,30 +2945,30 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// 1. Use the `verbatim` prefix type. This prefix type uses the given identifier as the
 /// `prefix`:
-</span><span class="attr">#[doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;src/tests/storage_alias.rs&quot;</span>, verbatim_attribute)]
+</span><span class="attr">#[doc = <span class="macro">docify::embed!</span>(<span class="string">"src/tests/storage_alias.rs"</span>, verbatim_attribute)]
 </span><span class="doccomment">///
 /// 2. Use the `pallet_name` prefix type. This prefix type uses the name of the pallet as
 /// configured in    [`construct_runtime!`] as the `prefix`:
-</span><span class="attr">#[doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;src/tests/storage_alias.rs&quot;</span>, pallet_name_attribute)]
+</span><span class="attr">#[doc = <span class="macro">docify::embed!</span>(<span class="string">"src/tests/storage_alias.rs"</span>, pallet_name_attribute)]
 </span><span class="doccomment">/// It requires that the given prefix type implements
 /// [`PalletInfoAccess`](traits::PalletInfoAccess) (which is always the case for FRAME pallet
 /// structs). In the example above, `Pallet&lt;T&gt;` is the prefix type.
 ///
 /// 3. Use the `dynamic` prefix type. This prefix type calls [`Get::get()`](traits::Get::get)
 ///    to get the `prefix`:
-</span><span class="attr">#[doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;src/tests/storage_alias.rs&quot;</span>, dynamic_attribute)]
-</span><span class="doccomment">/// It requires that the given prefix type implements [`Get&lt;&#39;static str&gt;`](traits::Get).
+</span><span class="attr">#[doc = <span class="macro">docify::embed!</span>(<span class="string">"src/tests/storage_alias.rs"</span>, dynamic_attribute)]
+</span><span class="doccomment">/// It requires that the given prefix type implements [`Get&lt;'static str&gt;`](traits::Get).
 ///
-/// 4. Let the macro &quot;guess&quot; what kind of prefix type to use. This only supports verbatim or
+/// 4. Let the macro "guess" what kind of prefix type to use. This only supports verbatim or
 ///    pallet name. The macro uses the presence of generic arguments to the prefix type as an
 ///    indication that it should use the pallet name as the `prefix`:
-</span><span class="attr">#[doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;src/tests/storage_alias.rs&quot;</span>, storage_alias_guess)]
+</span><span class="attr">#[doc = <span class="macro">docify::embed!</span>(<span class="string">"src/tests/storage_alias.rs"</span>, storage_alias_guess)]
 </span><span class="kw">pub use </span>frame_support_procedural::storage_alias;
 
 <span class="kw">pub use </span>frame_support_procedural::derive_impl;
 
 <span class="doccomment">/// Experimental macros for defining dynamic params that can be used in pallet configs.
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;experimental&quot;</span>)]
+</span><span class="attr">#[cfg(feature = <span class="string">"experimental"</span>)]
 </span><span class="kw">pub mod </span>dynamic_params {
 	<span class="kw">pub use </span>frame_support_procedural::{
 		dynamic_aggregated_params_internal, dynamic_pallet_params, dynamic_params,
@@ -2988,7 +2990,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///   [`Encode`](codec::Encode) and [`Decode`](codec::Decode). The key for looking up the value in
 ///   the storage is built using the following formula:
 ///
-///   `twox_128(&quot;:&quot; ++ NAME ++ &quot;:&quot;)` where `NAME` is the name that is passed as type name.
+///   `twox_128(":" ++ NAME ++ ":")` where `NAME` is the name that is passed as type name.
 ///
 /// - Using `static` to create a static parameter type. Its value is being provided by a static
 ///   variable with the equivalent name in `UPPER_SNAKE_CASE`. An additional `set` function is
@@ -3128,7 +3130,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">impl</span>&lt; $(<span class="macro-nonterminal">$ty_params</span>),* &gt; <span class="macro-nonterminal">$name</span>&lt; $(<span class="macro-nonterminal">$ty_params</span>),* &gt; {
 			<span class="doccomment">/// Returns the key for this parameter type.
 			</span><span class="kw">pub fn </span>key() -&gt; [u8; <span class="number">16</span>] {
-				<span class="macro-nonterminal">$</span><span class="macro">crate::__private::sp_crypto_hashing_proc_macro::twox_128!</span>(<span class="string">b&quot;:&quot;</span>, <span class="macro-nonterminal">$name</span>, <span class="string">b&quot;:&quot;</span>)
+				<span class="macro-nonterminal">$</span><span class="macro">crate::__private::sp_crypto_hashing_proc_macro::twox_128!</span>(<span class="string">b":"</span>, <span class="macro-nonterminal">$name</span>, <span class="string">b":"</span>)
 			}
 
 			<span class="doccomment">/// Set the value of this parameter type in the storage.
@@ -3173,15 +3175,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	);
 }
 
-<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
 #[macro_export]
 </span><span class="macro">macro_rules! </span>parameter_types_impl_thread_local {
 	( $( <span class="macro-nonterminal">$any</span>:tt )* ) =&gt; {
-		<span class="macro">compile_error!</span>(<span class="string">&quot;static parameter types is only available in std and for testing.&quot;</span>);
+		<span class="macro">compile_error!</span>(<span class="string">"static parameter types is only available in std and for testing."</span>);
 	};
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 #[macro_export]
 </span><span class="macro">macro_rules! </span>parameter_types_impl_thread_local {
 	(
@@ -3260,7 +3262,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">fn </span>contains(t: <span class="kw-2">&amp;</span><span class="macro-nonterminal">$</span><span class="kw">type</span>) -&gt; <span class="macro-nonterminal">bool </span>{ <span class="kw-2">&amp;</span><span class="macro-nonterminal">$value </span>== t }
 			<span class="kw">fn </span>sorted_members() -&gt; <span class="macro-nonterminal">$crate::__private::sp_std::prelude::Vec</span>&lt;<span class="macro-nonterminal">$</span><span class="kw">type</span>&gt; { <span class="macro">vec!</span>[<span class="macro-nonterminal">$value</span>] }
 			<span class="kw">fn </span>count() -&gt; usize { <span class="number">1 </span>}
-			<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+			<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 			</span><span class="kw">fn </span>add(<span class="kw">_</span>: <span class="kw-2">&amp;</span><span class="macro-nonterminal">$</span><span class="kw">type</span>) {}
 		}
 		<span class="kw">impl </span><span class="macro-nonterminal">$crate::traits::Contains</span>&lt;<span class="macro-nonterminal">$</span><span class="kw">type</span>&gt; <span class="kw">for </span><span class="macro-nonterminal">$name </span>{
@@ -3274,7 +3276,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// # Example
 ///
 /// ```
-/// frame_support::runtime_print!(&quot;my value is {}&quot;, 3);
+/// frame_support::runtime_print!("my value is {}", 3);
 /// ```
 </span><span class="attr">#[macro_export]
 </span><span class="macro">macro_rules! </span>runtime_print {
@@ -3290,7 +3292,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Print out the debuggable type.
 </span><span class="kw">pub fn </span>debug(data: <span class="kw-2">&amp;</span><span class="kw">impl </span>sp_std::fmt::Debug) {
-	<span class="macro">runtime_print!</span>(<span class="string">&quot;{:?}&quot;</span>, data);
+	<span class="macro">runtime_print!</span>(<span class="string">"{:?}"</span>, data);
 }
 
 <span class="attr">#[doc(inline)]
@@ -3298,7 +3300,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	construct_runtime, match_and_insert, transactional, PalletError, RuntimeDebugNoBound,
 };
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;experimental&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"experimental"</span>)]
 </span><span class="kw">pub use </span>frame_support_procedural::runtime;
 
 <span class="attr">#[doc(hidden)]
@@ -3314,7 +3316,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// }
 ///
 /// // Foo implements [`Clone`] because `C` bounds [`Clone`].
-/// // Otherwise compilation will fail with an output telling `c` doesn&#39;t implement [`Clone`].
+/// // Otherwise compilation will fail with an output telling `c` doesn't implement [`Clone`].
 /// #[derive(CloneNoBound)]
 /// struct Foo&lt;T: Config&gt; {
 /// 		c: T::C,
@@ -3332,7 +3334,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// }
 ///
 /// // Foo implements [`Eq`] because `C` bounds [`Eq`].
-/// // Otherwise compilation will fail with an output telling `c` doesn&#39;t implement [`Eq`].
+/// // Otherwise compilation will fail with an output telling `c` doesn't implement [`Eq`].
 /// #[derive(PartialEqNoBound, EqNoBound)]
 /// struct Foo&lt;T: Config&gt; {
 /// 		c: T::C,
@@ -3350,7 +3352,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// }
 ///
 /// // Foo implements [`PartialEq`] because `C` bounds [`PartialEq`].
-/// // Otherwise compilation will fail with an output telling `c` doesn&#39;t implement [`PartialEq`].
+/// // Otherwise compilation will fail with an output telling `c` doesn't implement [`PartialEq`].
 /// #[derive(PartialEqNoBound)]
 /// struct Foo&lt;T: Config&gt; {
 /// 		c: T::C,
@@ -3368,7 +3370,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// }
 ///
 /// // Foo implements [`Ord`] because `C` bounds [`Ord`].
-/// // Otherwise compilation will fail with an output telling `c` doesn&#39;t implement [`Ord`].
+/// // Otherwise compilation will fail with an output telling `c` doesn't implement [`Ord`].
 /// #[derive(EqNoBound, OrdNoBound, PartialEqNoBound, PartialOrdNoBound)]
 /// struct Foo&lt;T: Config&gt; {
 /// 		c: T::C,
@@ -3386,7 +3388,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// }
 ///
 /// // Foo implements [`PartialOrd`] because `C` bounds [`PartialOrd`].
-/// // Otherwise compilation will fail with an output telling `c` doesn&#39;t implement [`PartialOrd`].
+/// // Otherwise compilation will fail with an output telling `c` doesn't implement [`PartialOrd`].
 /// #[derive(PartialOrdNoBound, PartialEqNoBound, EqNoBound)]
 /// struct Foo&lt;T: Config&gt; {
 /// 		c: T::C,
@@ -3405,7 +3407,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// }
 ///
 /// // Foo implements [`Debug`] because `C` bounds [`Debug`].
-/// // Otherwise compilation will fail with an output telling `c` doesn&#39;t implement [`Debug`].
+/// // Otherwise compilation will fail with an output telling `c` doesn't implement [`Debug`].
 /// #[derive(DebugNoBound)]
 /// struct Foo&lt;T: Config&gt; {
 /// 		c: T::C,
@@ -3424,7 +3426,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// }
 ///
 /// // Foo implements [`Default`] because `C` bounds [`Default`].
-/// // Otherwise compilation will fail with an output telling `c` doesn&#39;t implement [`Default`].
+/// // Otherwise compilation will fail with an output telling `c` doesn't implement [`Default`].
 /// #[derive(DefaultNoBound)]
 /// struct Foo&lt;T: Config&gt; {
 /// 	c: T::C,
@@ -3524,7 +3526,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">assert_eq!</span>(
 			h,
 			<span class="macro-nonterminal">$crate::__private::storage_root</span>(<span class="macro-nonterminal">$crate::__private::StateVersion::V1</span>),
-			<span class="string">&quot;storage has been mutated&quot;
+			<span class="string">"storage has been mutated"
 		</span>);
 	};
 }
@@ -3573,12 +3575,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro-nonterminal">$</span><span class="macro">crate::assert_err!</span>(<span class="macro-nonterminal">$call</span>.map(|<span class="kw">_</span>| ()).map_err(|e| e.error), <span class="macro-nonterminal">$err</span>);
 			<span class="macro">assert_eq!</span>(dispatch_err_with_post.post_info.actual_weight, <span class="macro-nonterminal">$weight</span>);
 		} <span class="kw">else </span>{
-			<span class="macro">::core::panic!</span>(<span class="string">&quot;expected Err(_), got Ok(_).&quot;</span>)
+			<span class="macro">::core::panic!</span>(<span class="string">"expected Err(_), got Ok(_)."</span>)
 		}
 	};
 }
 
-<span class="doccomment">/// Panic if an expression doesn&#39;t evaluate to `Ok`.
+<span class="doccomment">/// Panic if an expression doesn't evaluate to `Ok`.
 ///
 /// Used as `assert_ok!(expression_to_assert, expected_ok_expression)`,
 /// or `assert_ok!(expression_to_assert)` which would assert against `Ok(())`.
@@ -3588,7 +3590,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>is = <span class="macro-nonterminal">$x</span>;
 		<span class="kw">match </span>is {
 			<span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; (),
-			<span class="kw">_ </span>=&gt; <span class="macro">assert!</span>(<span class="bool-val">false</span>, <span class="string">&quot;Expected Ok(_). Got {:#?}&quot;</span>, is),
+			<span class="kw">_ </span>=&gt; <span class="macro">assert!</span>(<span class="bool-val">false</span>, <span class="string">"Expected Ok(_). Got {:#?}"</span>, is),
 		}
 	};
 	( <span class="macro-nonterminal">$x</span>:expr, <span class="macro-nonterminal">$y</span>:expr $(,)<span class="question-mark">? </span>) =&gt; {
@@ -3626,13 +3628,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// Returns the original result of the closure.
 </span><span class="attr">#[macro_export]
-#[cfg(feature = <span class="string">&quot;experimental&quot;</span>)]
+#[cfg(feature = <span class="string">"experimental"</span>)]
 </span><span class="macro">macro_rules! </span>hypothetically {
 	( <span class="macro-nonterminal">$e</span>:expr ) =&gt; {
 		<span class="macro-nonterminal">$crate::storage::transactional::with_transaction</span>(|| -&gt; <span class="macro-nonterminal">$crate::__private::TransactionOutcome</span>&lt;<span class="prelude-ty">Result</span>&lt;<span class="kw">_</span>, <span class="macro-nonterminal">$crate::__private::DispatchError</span>&gt;&gt; {
 			<span class="macro-nonterminal">$crate::__private::TransactionOutcome::Rollback</span>(<span class="prelude-val">Ok</span>(<span class="macro-nonterminal">$e</span>))
 		},
-		).expect(<span class="string">&quot;Always returning Ok; qed&quot;</span>)
+		).expect(<span class="string">"Always returning Ok; qed"</span>)
 	};
 }
 
@@ -3640,7 +3642,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// Reverts any storage changes made by the closure.
 </span><span class="attr">#[macro_export]
-#[cfg(feature = <span class="string">&quot;experimental&quot;</span>)]
+#[cfg(feature = <span class="string">"experimental"</span>)]
 </span><span class="macro">macro_rules! </span>hypothetically_ok {
 	(<span class="macro-nonterminal">$e</span>:expr $(, <span class="macro-nonterminal">$args</span>:expr)* $(,)<span class="question-mark">?</span>) =&gt; {
 		<span class="macro-nonterminal">$</span><span class="macro">crate::assert_ok!</span>(<span class="macro-nonterminal">$</span><span class="macro">crate::hypothetically!</span>(<span class="macro-nonterminal">$e</span>) $(, <span class="macro-nonterminal">$args</span>)<span class="kw-2">*</span>);
@@ -3655,7 +3657,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub use </span>macro_magic;
 
 <span class="doccomment">/// Prelude to be used for pallet testing, for ease of use.
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+</span><span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">pub mod </span>testing_prelude {
 	<span class="kw">pub use super</span>::{
 		assert_err, assert_err_ignore_postinfo, assert_err_with_weight, assert_error_encoded_size,
@@ -3703,12 +3705,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// [`#[derive_impl(..)]`](`frame_support::derive_impl`) will use the correct
 	/// type auto-generated by
 	/// `construct_runtime!`.
-	</span><span class="attr">#[doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;src/tests/inject_runtime_type.rs&quot;</span>, derive_impl_works_with_runtime_type_injection)]
+	</span><span class="attr">#[doc = <span class="macro">docify::embed!</span>(<span class="string">"src/tests/inject_runtime_type.rs"</span>, derive_impl_works_with_runtime_type_injection)]
 	</span><span class="doccomment">///
 	/// However, if `no_aggregated_types` is specified while using
 	/// `[`#[derive_impl(..)]`](`frame_support::derive_impl`)`, then these items are attached
 	/// verbatim to the combined impl.
-	</span><span class="attr">#[doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;src/tests/inject_runtime_type.rs&quot;</span>, derive_impl_works_with_no_aggregated_types)]
+	</span><span class="attr">#[doc = <span class="macro">docify::embed!</span>(<span class="string">"src/tests/inject_runtime_type.rs"</span>, derive_impl_works_with_no_aggregated_types)]
 	</span><span class="kw">pub use </span>frame_support_procedural::inject_runtime_type;
 	<span class="kw">pub use </span>frame_support_procedural::register_default_impl;
 	<span class="kw">pub use </span>scale_info::TypeInfo;
@@ -3792,12 +3794,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// argument cannot be specified anywhere else, including but not limited to the
 /// `#[pallet::pallet]` attribute macro.
 ///
-/// &lt;div class=&quot;example-wrap&quot; style=&quot;display:inline-block&quot;&gt;&lt;pre class=&quot;compile_fail&quot;
-/// style=&quot;white-space:normal;font:inherit;&quot;&gt;
+/// &lt;div class="example-wrap" style="display:inline-block"&gt;&lt;pre class="compile_fail"
+/// style="white-space:normal;font:inherit;"&gt;
 /// &lt;strong&gt;WARNING&lt;/strong&gt;:
 /// You should never deploy or use dev mode pallets in production. Doing so can break your
 /// chain. Once you are done tinkering, you should
-/// remove the &#39;dev_mode&#39; argument from your #[pallet] declaration and fix any compile
+/// remove the 'dev_mode' argument from your #[pallet] declaration and fix any compile
 /// errors before attempting to use your pallet in a production scenario.
 /// &lt;/pre&gt;&lt;/div&gt;
 ///
@@ -3857,7 +3859,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub mod </span>pallet_macros {
 	<span class="doccomment">/// Declare the storage as whitelisted from benchmarking.
 	///
-	/// Doing so will exclude reads of that value&#39;s storage key from counting towards weight
+	/// Doing so will exclude reads of that value's storage key from counting towards weight
 	/// calculations during benchmarking.
 	///
 	/// This attribute should only be attached to storages that are known to be
@@ -3970,7 +3972,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Defines what storage prefix to use for a storage item when building the trie.
 	///
-	/// This is helpful if you wish to rename the storage field but don&#39;t want to perform a
+	/// This is helpful if you wish to rename the storage field but don't want to perform a
 	/// migration.
 	///
 	/// ## Example
@@ -3984,7 +3986,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// 	pub struct Pallet&lt;T&gt;(_);
 	///
 	/// 	#[pallet::storage]
-	/// 	#[pallet::storage_prefix = &quot;foo&quot;]
+	/// 	#[pallet::storage_prefix = "foo"]
 	/// 	pub type MyStorage&lt;T&gt; = StorageValue&lt;_, u32&gt;;
 	/// #
 	/// # 	#[pallet::config]
@@ -4024,13 +4026,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// Also note that because of how `#[pallet_section]` works, pallet section names must be
 	/// globally unique _within the crate in which they are defined_. For more information on
-	/// why this must be the case, see macro_magic&#39;s
+	/// why this must be the case, see macro_magic's
 	/// [`#[export_tokens]`](https://docs.rs/macro_magic/latest/macro_magic/attr.export_tokens.html) macro.
 	///
 	/// Optionally, you may provide an argument to `#[pallet_section]` such as
 	/// `#[pallet_section(some_ident)]`, in the event that there is another pallet section in
 	/// same crate with the same ident/name. The ident you specify can then be used instead of
-	/// the module&#39;s ident name when you go to import it via
+	/// the module's ident name when you go to import it via
 	/// [`#[import_section]`](`import_section`).
 	</span><span class="kw">pub use </span>frame_support_procedural::pallet_section;
 
@@ -4056,7 +4058,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// # 	use sp_std::result;
 	/// #
 	/// 	// Example inherent identifier
-	/// 	pub const INHERENT_IDENTIFIER: InherentIdentifier = *b&quot;timstap0&quot;;
+	/// 	pub const INHERENT_IDENTIFIER: InherentIdentifier = *b"timstap0";
 	///
 	/// 	#[pallet::pallet]
 	/// 	pub struct Pallet&lt;T&gt;(_);
@@ -4138,7 +4140,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// This will result in the contents of `some_section` being _verbatim_ imported into
 	/// the pallet above. Note that since the tokens for `some_section` are essentially
-	/// copy-pasted into the target pallet, you cannot refer to imports that don&#39;t also
+	/// copy-pasted into the target pallet, you cannot refer to imports that don't also
 	/// exist in the target pallet, but this is easily resolved by including all relevant
 	/// `use` statements within your pallet section, so they are imported as well, or by
 	/// otherwise ensuring that you have the same imports on the target pallet.
@@ -4337,8 +4339,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// ### `DefaultConfig` Caveats
 	///
 	/// The auto-generated `DefaultConfig` trait:
-	/// - is always a _subset_ of your pallet&#39;s `Config` trait.
-	/// - can only contain items that don&#39;t rely on externalities, such as
+	/// - is always a _subset_ of your pallet's `Config` trait.
+	/// - can only contain items that don't rely on externalities, such as
 	///   `frame_system::Config`.
 	///
 	/// Trait items that _do_ rely on externalities should be marked with
@@ -4349,7 +4351,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///   [`#[pallet::no_default]`](`no_default`) or your trait will fail to compile when used
 	///   with [`derive_impl`](`frame_support::derive_impl`).
 	/// - Items marked with [`#[pallet::no_default]`](`no_default`) are entirely excluded from
-	///   the `DefaultConfig` trait, and therefore any impl of `DefaultConfig` doesn&#39;t need to
+	///   the `DefaultConfig` trait, and therefore any impl of `DefaultConfig` doesn't need to
 	///   implement such items.
 	///
 	/// For more information, see:
@@ -4452,7 +4454,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// ease the use of storage types.
 	///
 	/// This attribute is meant to be used alongside [`#[pallet::storage]`](`storage`) to
-	/// define a storage&#39;s default value. This attribute can be used multiple times.
+	/// define a storage's default value. This attribute can be used multiple times.
 	///
 	/// Item must be defined as:
 	///
@@ -4673,7 +4675,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// [`frame_support::MAX_MODULE_ERROR_ENCODED_SIZE`].
 	///
 	/// (1 byte can still be 256 different errors. The more specific the error, the easier it
-	/// is to diagnose problems and give a better experience to the user. Don&#39;t skimp on having
+	/// is to diagnose problems and give a better experience to the user. Don't skimp on having
 	/// lots of individual error conditions.)
 	///
 	/// Field types in enum variants must also implement [`frame_support::PalletError`],
@@ -4690,14 +4692,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// The macro implements the [`Debug`] trait and functions `as_u8` using variant position,
 	/// and `as_str` using variant doc.
 	///
-	/// The macro also implements `From&lt;Error&lt;T&gt;&gt;` for `&amp;&#39;static str` and `From&lt;Error&lt;T&gt;&gt;` for
+	/// The macro also implements `From&lt;Error&lt;T&gt;&gt;` for `&amp;'static str` and `From&lt;Error&lt;T&gt;&gt;` for
 	/// `DispatchError`.
 	</span><span class="kw">pub use </span>frame_support_procedural::error;
 
 	<span class="doccomment">/// Allows defining pallet events.
 	///
 	/// Pallet events are stored under the `system` / `events` key when the block is applied
-	/// (and then replaced when the next block writes it&#39;s events).
+	/// (and then replaced when the next block writes it's events).
 	///
 	/// The Event enum can be defined as follows:
 	///
@@ -4737,7 +4739,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Allows a pallet to declare a set of functions as a *dispatchable extrinsic*.
 	///
-	/// In slightly simplified terms, this macro declares the set of &quot;transactions&quot; of a
+	/// In slightly simplified terms, this macro declares the set of "transactions" of a
 	/// pallet.
 	///
 	/// &gt; The exact definition of **extrinsic** can be found in
@@ -4745,7 +4747,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// A **dispatchable** is a common term in FRAME, referring to process of constructing a
 	/// function, and dispatching it with the correct inputs. This is commonly used with
-	/// extrinsics, for example &quot;an extrinsic has been dispatched&quot;. See
+	/// extrinsics, for example "an extrinsic has been dispatched". See
 	/// [`sp_runtime::traits::Dispatchable`] and [`crate::traits::UnfilteredDispatchable`].
 	///
 	/// ## Call Enum
@@ -4904,7 +4906,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub use </span>frame_support_procedural::genesis_config;
 
 	<span class="doccomment">/// Allows you to define how the state of your pallet at genesis is built. This
-	/// takes as input the `GenesisConfig` type (as `self`) and constructs the pallet&#39;s initial
+	/// takes as input the `GenesisConfig` type (as `self`) and constructs the pallet's initial
 	/// state.
 	///
 	/// The fields of the `GenesisConfig` can in turn be populated by the chain-spec.
@@ -5069,13 +5071,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// Every storage type mentioned above has a generic type called
 	/// [`QueryKind`](frame_support::storage::types::QueryKindTrait) that determines its
-	/// &quot;query&quot; type. This refers to the kind of value returned when querying the storage, for
+	/// "query" type. This refers to the kind of value returned when querying the storage, for
 	/// instance, through a `::get()` method.
 	///
 	/// There are three types of queries:
 	///
 	/// 1. [`OptionQuery`](frame_support::storage::types::OptionQuery): The default query type.
-	///    It returns `Some(V)` if the value is present, or `None` if it isn&#39;t, where `V` is
+	///    It returns `Some(V)` if the value is present, or `None` if it isn't, where `V` is
 	///    the value type.
 	/// 2. [`ValueQuery`](frame_support::storage::types::ValueQuery): Returns the value itself
 	///    if present; otherwise, it returns `Default::default()`. This behavior can be
@@ -5099,22 +5101,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// the storage type, additional key specifications may be needed.
 	///
 	/// #### Example
-	</span><span class="attr">#[doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;src/lib.rs&quot;</span>, example_storage_value_append)]
+	</span><span class="attr">#[doc = <span class="macro">docify::embed!</span>(<span class="string">"src/lib.rs"</span>, example_storage_value_append)]
 	</span><span class="doccomment">/// Similarly, there also exists a `::try_append()` method, which can be used when handling
 	/// types where an append operation might fail, such as a
 	/// [`BoundedVec`](frame_support::BoundedVec).
 	///
 	/// #### Example
-	</span><span class="attr">#[doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;src/lib.rs&quot;</span>, example_storage_value_try_append)]
+	</span><span class="attr">#[doc = <span class="macro">docify::embed!</span>(<span class="string">"src/lib.rs"</span>, example_storage_value_try_append)]
 	</span><span class="doccomment">/// ### Optimized Length Decoding
 	///
 	/// All storage items — such as
 	/// [`StorageValue`](frame_support::storage::types::StorageValue),
 	/// [`StorageMap`](frame_support::storage::types::StorageMap), and their counterparts —
 	/// incorporate the `::decode_len()` method. This method allows for efficient retrieval of
-	/// a collection&#39;s length without the necessity of decoding the entire dataset.
+	/// a collection's length without the necessity of decoding the entire dataset.
 	/// #### Example
-	</span><span class="attr">#[doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;src/lib.rs&quot;</span>, example_storage_value_decode_len)]
+	</span><span class="attr">#[doc = <span class="macro">docify::embed!</span>(<span class="string">"src/lib.rs"</span>, example_storage_value_decode_len)]
 	</span><span class="doccomment">/// ### Hashers
 	///
 	/// For all storage types, except
@@ -5138,13 +5140,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// For more information, look at the types that implement
 	/// [`frame_support::StorageHasher`](frame_support::StorageHasher).
 	///
-	/// Lastly, it&#39;s recommended for hashers with &quot;concat&quot; to have reversible hashes. Refer to
+	/// Lastly, it's recommended for hashers with "concat" to have reversible hashes. Refer to
 	/// the implementors section of
 	/// [`hash::ReversibleStorageHasher`](frame_support::hash::ReversibleStorageHasher).
 	///
 	/// ### Prefixes
 	///
-	/// Internally, every storage type generates a &quot;prefix&quot;. This prefix serves as the initial
+	/// Internally, every storage type generates a "prefix". This prefix serves as the initial
 	/// segment of the key utilized to store values in the on-chain state (i.e., the final key
 	/// used in [`sp_io::storage`](sp_io::storage)). For all storage types, the following rule
 	/// applies:
@@ -5162,7 +5164,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// map.
 	///
 	/// #### Example
-	</span><span class="attr">#[doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;src/lib.rs&quot;</span>, example_storage_value_map_prefixes)]
+	</span><span class="attr">#[doc = <span class="macro">docify::embed!</span>(<span class="string">"src/lib.rs"</span>, example_storage_value_map_prefixes)]
 	</span><span class="doccomment">/// ## Related Macros
 	///
 	/// The following attribute macros can be used in conjunction with the `#[storage]` macro:
@@ -5185,7 +5187,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// 	/// A kitchen-sink StorageValue, with all possible additional attributes.
 	///     #[pallet::storage]
 	/// 	#[pallet::getter(fn foo)]
-	/// 	#[pallet::storage_prefix = &quot;OtherFoo&quot;]
+	/// 	#[pallet::storage_prefix = "OtherFoo"]
 	/// 	#[pallet::unbounded]
 	/// 	#[pallet::disable_try_decode_storage]
 	///     pub type Foo&lt;T&gt; = StorageValue&lt;_, u32, ValueQuery&gt;;
@@ -5256,9 +5258,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// submit such tasks via an extrinsic defined in `frame_system` called `do_task`.
 	///
 	/// ## Example
-	</span><span class="attr">#[doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;src/tests/tasks.rs&quot;</span>, tasks_example)]
+	</span><span class="attr">#[doc = <span class="macro">docify::embed!</span>(<span class="string">"src/tests/tasks.rs"</span>, tasks_example)]
 	</span><span class="doccomment">/// Now, this can be executed as follows:
-	</span><span class="attr">#[doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;src/tests/tasks.rs&quot;</span>, tasks_work)]
+	</span><span class="attr">#[doc = <span class="macro">docify::embed!</span>(<span class="string">"src/tests/tasks.rs"</span>, tasks_work)]
 	</span><span class="kw">pub use </span>frame_support_procedural::tasks_experimental;
 
 	<span class="doccomment">/// Allows a pallet to declare a type as an origin.
@@ -5312,7 +5314,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// ## Warning
 	///
-	/// Modifying any pallet&#39;s origin type will cause the runtime level origin type to also
+	/// Modifying any pallet's origin type will cause the runtime level origin type to also
 	/// change in encoding. If stored anywhere on-chain, this will require a data migration.
 	///
 	/// Read more about origins at the [Origin Reference
@@ -5320,7 +5322,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub use </span>frame_support_procedural::origin;
 }
 
-<span class="attr">#[deprecated(note = <span class="string">&quot;Will be removed after July 2023; Use `sp_runtime::traits` directly instead.&quot;</span>)]
+<span class="attr">#[deprecated(note = <span class="string">"Will be removed after July 2023; Use `sp_runtime::traits` directly instead."</span>)]
 </span><span class="kw">pub mod </span>error {
 	<span class="attr">#[doc(hidden)]
 	</span><span class="kw">pub use </span>sp_runtime::traits::{BadOrigin, LookupError};
@@ -5330,7 +5332,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub use </span>frame_support_procedural::register_default_impl;
 
 <span class="comment">// Generate a macro that will enable/disable code based on `std` feature being active.
-</span><span class="macro">sp_core::generate_feature_enabled_macro!</span>(std_enabled, feature = <span class="string">&quot;std&quot;</span>, $);
+</span><span class="macro">sp_core::generate_feature_enabled_macro!</span>(std_enabled, feature = <span class="string">"std"</span>, $);
 
 <span class="comment">// Helper for implementing GenesisBuilder runtime API
 </span><span class="kw">pub mod </span>genesis_builder_helper;
@@ -5348,25 +5350,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">struct </span>Prefix;
 	<span class="kw">impl </span>StorageInstance <span class="kw">for </span>Prefix {
-		<span class="kw">fn </span>pallet_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str {
-			<span class="string">&quot;test&quot;
+		<span class="kw">fn </span>pallet_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
+			<span class="string">"test"
 		</span>}
-		<span class="kw">const </span>STORAGE_PREFIX: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;foo&quot;</span>;
+		<span class="kw">const </span>STORAGE_PREFIX: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"foo"</span>;
 	}
 
 	<span class="kw">struct </span>Prefix1;
 	<span class="kw">impl </span>StorageInstance <span class="kw">for </span>Prefix1 {
-		<span class="kw">fn </span>pallet_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str {
-			<span class="string">&quot;test&quot;
+		<span class="kw">fn </span>pallet_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
+			<span class="string">"test"
 		</span>}
-		<span class="kw">const </span>STORAGE_PREFIX: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;MyVal&quot;</span>;
+		<span class="kw">const </span>STORAGE_PREFIX: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"MyVal"</span>;
 	}
 	<span class="kw">struct </span>Prefix2;
 	<span class="kw">impl </span>StorageInstance <span class="kw">for </span>Prefix2 {
-		<span class="kw">fn </span>pallet_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str {
-			<span class="string">&quot;test&quot;
+		<span class="kw">fn </span>pallet_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
+			<span class="string">"test"
 		</span>}
-		<span class="kw">const </span>STORAGE_PREFIX: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;MyMap&quot;</span>;
+		<span class="kw">const </span>STORAGE_PREFIX: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"MyMap"</span>;
 	}
 
 	<span class="attr">#[docify::export]
@@ -5414,16 +5416,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">type </span>MyVal = StorageValue&lt;Prefix1, u32, ValueQuery&gt;;
 		<span class="kw">type </span>MyMap = StorageMap&lt;Prefix2, Blake2_128Concat, u16, u32, ValueQuery&gt;;
 		TestExternalities::default().execute_with(|| {
-			<span class="comment">// This example assumes `pallet_prefix` to be &quot;test&quot;
+			<span class="comment">// This example assumes `pallet_prefix` to be "test"
 			// Get storage key for `MyVal` StorageValue
 			</span><span class="macro">assert_eq!</span>(
 				MyVal::hashed_key().to_vec(),
-				[twox_128(<span class="string">b&quot;test&quot;</span>), twox_128(<span class="string">b&quot;MyVal&quot;</span>)].concat()
+				[twox_128(<span class="string">b"test"</span>), twox_128(<span class="string">b"MyVal"</span>)].concat()
 			);
 			<span class="comment">// Get storage key for `MyMap` StorageMap and `key` = 1
 			</span><span class="kw">let </span><span class="kw-2">mut </span>k: Vec&lt;u8&gt; = <span class="macro">vec!</span>[];
-			k.extend(<span class="kw-2">&amp;</span>twox_128(<span class="string">b&quot;test&quot;</span>));
-			k.extend(<span class="kw-2">&amp;</span>twox_128(<span class="string">b&quot;MyMap&quot;</span>));
+			k.extend(<span class="kw-2">&amp;</span>twox_128(<span class="string">b"test"</span>));
+			k.extend(<span class="kw-2">&amp;</span>twox_128(<span class="string">b"MyMap"</span>));
 			k.extend(<span class="kw-2">&amp;</span><span class="number">1u16</span>.blake2_128_concat());
 			<span class="macro">assert_eq!</span>(MyMap::hashed_key_for(<span class="number">1</span>).to_vec(), k);
 		});

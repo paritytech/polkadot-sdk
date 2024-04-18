@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/network/bridge/src/rx/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/network/bridge/src/rx/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_network_bridge" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_network_bridge" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../polkadot_network_bridge/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1384,7 +1386,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">mod </span>tests;
 
 <span class="comment">// network bridge log target
-</span><span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;parachain::network-bridge-rx&quot;</span>;
+</span><span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"parachain::network-bridge-rx"</span>;
 
 <span class="doccomment">/// The network bridge subsystem - network receiving side.
 </span><span class="kw">pub struct </span>NetworkBridgeRx&lt;N, AD&gt; {
@@ -1419,10 +1421,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>validation_service = notification_services
 			.remove(<span class="kw-2">&amp;</span>PeerSet::Validation)
-			.expect(<span class="string">&quot;validation protocol was enabled so `NotificationService` must exist; qed&quot;</span>);
+			.expect(<span class="string">"validation protocol was enabled so `NotificationService` must exist; qed"</span>);
 		<span class="kw">let </span>collation_service = notification_services
 			.remove(<span class="kw-2">&amp;</span>PeerSet::Collation)
-			.expect(<span class="string">&quot;collation protocol was enabled so `NotificationService` must exist; qed&quot;</span>);
+			.expect(<span class="string">"collation protocol was enabled so `NotificationService` must exist; qed"</span>);
 
 		<span class="self">Self </span>{
 			network_service,
@@ -1448,9 +1450,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// Swallow error because failure is fatal to the node and we log with more precision
 		// within `run_network`.
 		</span><span class="kw">let </span>future = run_network_in(<span class="self">self</span>, ctx)
-			.map_err(|e| SubsystemError::with_origin(<span class="string">&quot;network-bridge&quot;</span>, e))
+			.map_err(|e| SubsystemError::with_origin(<span class="string">"network-bridge"</span>, e))
 			.boxed();
-		SpawnedSubsystem { name: <span class="string">&quot;network-bridge-rx-subsystem&quot;</span>, future }
+		SpawnedSubsystem { name: <span class="string">"network-bridge-rx-subsystem"</span>, future }
 	}
 }
 
@@ -1488,7 +1490,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="macro">gum::debug!</span>(
 						target: LOG_TARGET,
 						<span class="question-mark">?</span>peer,
-						<span class="string">&quot;Failed to determine peer role for validation protocol&quot;</span>,
+						<span class="string">"Failed to determine peer role for validation protocol"</span>,
 					);
 					<span class="kw">return
 				</span>},
@@ -1506,7 +1508,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 								fallback = <span class="kw-2">&amp;*</span>fallback,
 								<span class="question-mark">?</span>peer,
 								peerset = <span class="question-mark">?</span>peer_set,
-								<span class="string">&quot;Unknown fallback&quot;</span>,
+								<span class="string">"Unknown fallback"</span>,
 							);
 
 							<span class="kw">return
@@ -1518,7 +1520,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 									fallback = <span class="kw-2">&amp;*</span>fallback,
 									fallback_peerset = <span class="question-mark">?</span>p2,
 									peerset = <span class="question-mark">?</span>peer_set,
-									<span class="string">&quot;Fallback mismatched peer-set&quot;</span>,
+									<span class="string">"Fallback mismatched peer-set"</span>,
 								);
 
 								<span class="kw">return
@@ -1544,7 +1546,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						version = %version,
 						<span class="question-mark">?</span>peer,
 						<span class="question-mark">?</span>role,
-						<span class="string">&quot;Message sink not available for peer&quot;</span>,
+						<span class="string">"Message sink not available for peer"</span>,
 					);
 					<span class="kw">return
 				</span>},
@@ -1552,7 +1554,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="macro">gum::debug!</span>(
 				target: LOG_TARGET,
-				action = <span class="string">&quot;PeerConnected&quot;</span>,
+				action = <span class="string">"PeerConnected"</span>,
 				peer_set = <span class="question-mark">?</span>peer_set,
 				version = %version,
 				peer = <span class="question-mark">?</span>peer,
@@ -1589,7 +1591,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.<span class="kw">await</span>;
 
 			<span class="kw">match </span>ValidationVersion::try_from(version)
-				.expect(<span class="string">&quot;try_get_protocol has already checked version is known; qed&quot;</span>)
+				.expect(<span class="string">"try_get_protocol has already checked version is known; qed"</span>)
 			{
 				ValidationVersion::V1 =&gt; send_validation_message_v1(
 					<span class="macro">vec!</span>[peer],
@@ -1616,7 +1618,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="macro">gum::debug!</span>(
 				target: LOG_TARGET,
-				action = <span class="string">&quot;PeerDisconnected&quot;</span>,
+				action = <span class="string">"PeerDisconnected"</span>,
 				<span class="question-mark">?</span>peer_set,
 				<span class="question-mark">?</span>peer
 			);
@@ -1656,7 +1658,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="macro">gum::trace!</span>(
 				target: LOG_TARGET,
-				action = <span class="string">&quot;PeerMessage&quot;</span>,
+				action = <span class="string">"PeerMessage"</span>,
 				peerset = <span class="question-mark">?</span>PeerSet::Validation,
 				<span class="question-mark">?</span>peer,
 			);
@@ -1691,14 +1693,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="macro">gum::warn!</span>(
 					target: LOG_TARGET,
 					version = <span class="question-mark">?</span>expected_versions[PeerSet::Validation],
-					<span class="string">&quot;Major logic bug. Peer somehow has unsupported validation protocol version.&quot;
+					<span class="string">"Major logic bug. Peer somehow has unsupported validation protocol version."
 				</span>);
 
 				<span class="macro">never!</span>(
-					<span class="string">&quot;Only versions 1 and 2 are supported; peer set connection checked above; qed&quot;
+					<span class="string">"Only versions 1 and 2 are supported; peer set connection checked above; qed"
 				</span>);
 
-				<span class="comment">// If a peer somehow triggers this, we&#39;ll disconnect them
+				<span class="comment">// If a peer somehow triggers this, we'll disconnect them
 				// eventually.
 				</span>(Vec::new(), <span class="macro">vec!</span>[UNCONNECTED_PEERSET_COST])
 			};
@@ -1746,7 +1748,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="macro">gum::debug!</span>(
 						target: LOG_TARGET,
 						<span class="question-mark">?</span>peer,
-						<span class="string">&quot;Failed to determine peer role for validation protocol&quot;</span>,
+						<span class="string">"Failed to determine peer role for validation protocol"</span>,
 					);
 					<span class="kw">return
 				</span>},
@@ -1764,7 +1766,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 								fallback = <span class="kw-2">&amp;*</span>fallback,
 								<span class="question-mark">?</span>peer,
 								<span class="question-mark">?</span>peer_set,
-								<span class="string">&quot;Unknown fallback&quot;</span>,
+								<span class="string">"Unknown fallback"</span>,
 							);
 
 							<span class="kw">return
@@ -1776,7 +1778,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 									fallback = <span class="kw-2">&amp;*</span>fallback,
 									fallback_peerset = <span class="question-mark">?</span>p2,
 									peerset = <span class="question-mark">?</span>peer_set,
-									<span class="string">&quot;Fallback mismatched peer-set&quot;</span>,
+									<span class="string">"Fallback mismatched peer-set"</span>,
 								);
 
 								<span class="kw">return
@@ -1803,7 +1805,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						version = %version,
 						peer = <span class="question-mark">?</span>peer,
 						role = <span class="question-mark">?</span>role,
-						<span class="string">&quot;Message sink not available for peer&quot;</span>,
+						<span class="string">"Message sink not available for peer"</span>,
 					);
 					<span class="kw">return
 				</span>},
@@ -1811,7 +1813,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="macro">gum::debug!</span>(
 				target: LOG_TARGET,
-				action = <span class="string">&quot;PeerConnected&quot;</span>,
+				action = <span class="string">"PeerConnected"</span>,
 				peer_set = <span class="question-mark">?</span>peer_set,
 				version = %version,
 				peer = <span class="question-mark">?</span>peer,
@@ -1847,7 +1849,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.<span class="kw">await</span>;
 
 			<span class="kw">match </span>CollationVersion::try_from(version)
-				.expect(<span class="string">&quot;try_get_protocol has already checked version is known; qed&quot;</span>)
+				.expect(<span class="string">"try_get_protocol has already checked version is known; qed"</span>)
 			{
 				CollationVersion::V1 =&gt; send_collation_message_v1(
 					<span class="macro">vec!</span>[peer],
@@ -1868,7 +1870,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="macro">gum::debug!</span>(
 				target: LOG_TARGET,
-				action = <span class="string">&quot;PeerDisconnected&quot;</span>,
+				action = <span class="string">"PeerDisconnected"</span>,
 				<span class="question-mark">?</span>peer_set,
 				<span class="question-mark">?</span>peer
 			);
@@ -1905,7 +1907,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="macro">gum::trace!</span>(
 				target: LOG_TARGET,
-				action = <span class="string">&quot;PeerMessage&quot;</span>,
+				action = <span class="string">"PeerMessage"</span>,
 				peerset = <span class="question-mark">?</span>PeerSet::Collation,
 				<span class="question-mark">?</span>peer,
 			);
@@ -1932,12 +1934,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="macro">gum::warn!</span>(
 						target: LOG_TARGET,
 						version = <span class="question-mark">?</span>expected_versions[PeerSet::Collation],
-						<span class="string">&quot;Major logic bug. Peer somehow has unsupported collation protocol version.&quot;
+						<span class="string">"Major logic bug. Peer somehow has unsupported collation protocol version."
 					</span>);
 
-					<span class="macro">never!</span>(<span class="string">&quot;Only versions 1 and 2 are supported; peer set connection checked above; qed&quot;</span>);
+					<span class="macro">never!</span>(<span class="string">"Only versions 1 and 2 are supported; peer set connection checked above; qed"</span>);
 
-					<span class="comment">// If a peer somehow triggers this, we&#39;ll disconnect them
+					<span class="comment">// If a peer somehow triggers this, we'll disconnect them
 					// eventually.
 					</span>(Vec::new(), <span class="macro">vec!</span>[UNCONNECTED_PEERSET_COST])
 				};
@@ -2014,8 +2016,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="macro">gum::debug!</span>(
 				target: LOG_TARGET,
 				<span class="question-mark">?</span>validator_index,
-				<span class="string">&quot;Could not determine peer_id for validator, let the team know in \n
-				https://github.com/paritytech/polkadot-sdk/issues/2138&quot;
+				<span class="string">"Could not determine peer_id for validator, let the team know in \n
+				https://github.com/paritytech/polkadot-sdk/issues/2138"
 			</span>)
 		}
 		peers.push(TopologyPeerInfo {
@@ -2058,10 +2060,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			} =&gt; {
 				<span class="macro">gum::debug!</span>(
 					target: LOG_TARGET,
-					action = <span class="string">&quot;NewGossipTopology&quot;</span>,
+					action = <span class="string">"NewGossipTopology"</span>,
 					<span class="question-mark">?</span>session,
 					<span class="question-mark">?</span>local_index,
-					<span class="string">&quot;Gossip topology has changed&quot;</span>,
+					<span class="string">"Gossip topology has changed"</span>,
 				);
 
 				<span class="kw">let </span>topology_peers =
@@ -2082,10 +2084,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			} =&gt; {
 				<span class="macro">gum::debug!</span>(
 					target: LOG_TARGET,
-					action = <span class="string">&quot;UpdatedAuthorityIds&quot;</span>,
+					action = <span class="string">"UpdatedAuthorityIds"</span>,
 					<span class="question-mark">?</span>peer_id,
 					<span class="question-mark">?</span>authority_ids,
-					<span class="string">&quot;`AuthorityDiscoveryId`s have changed&quot;</span>,
+					<span class="string">"`AuthorityDiscoveryId`s have changed"</span>,
 				);
 				<span class="comment">// using unbounded send to avoid cycles
 				// the messages are sent only once per session up to one per peer
@@ -2103,7 +2105,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">let </span>ActiveLeavesUpdate { activated, deactivated } = active_leaves;
 				<span class="macro">gum::trace!</span>(
 					target: LOG_TARGET,
-					action = <span class="string">&quot;ActiveLeaves&quot;</span>,
+					action = <span class="string">"ActiveLeaves"</span>,
 					has_activated = activated.is_some(),
 					num_deactivated = %deactivated.len(),
 				);
@@ -2117,8 +2119,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				}
 				live_heads.retain(|h| !deactivated.contains(<span class="kw-2">&amp;</span>h.hash));
 
-				<span class="comment">// if we&#39;re done syncing, set the mode to `Mode::Active`.
-				// Otherwise, we don&#39;t need to send view updates.
+				<span class="comment">// if we're done syncing, set the mode to `Mode::Active`.
+				// Otherwise, we don't need to send view updates.
 				</span>{
 					<span class="kw">let </span>is_done_syncing = <span class="kw">match </span>mode {
 						Mode::Active =&gt; <span class="bool-val">true</span>,
@@ -2141,11 +2143,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				}
 			},
 			FromOrchestra::Signal(OverseerSignal::BlockFinalized(_hash, number)) =&gt; {
-				<span class="macro">gum::trace!</span>(target: LOG_TARGET, action = <span class="string">&quot;BlockFinalized&quot;</span>);
+				<span class="macro">gum::trace!</span>(target: LOG_TARGET, action = <span class="string">"BlockFinalized"</span>);
 
 				<span class="macro">debug_assert!</span>(finalized_number &lt; number);
 
-				<span class="comment">// we don&#39;t send the view updates here, but delay them until the next `ActiveLeaves`
+				<span class="comment">// we don't send the view updates here, but delay them until the next `ActiveLeaves`
 				// otherwise it might break assumptions of some of the subsystems
 				// that we never send the same `ActiveLeavesUpdate`
 				</span>finalized_number = number;
@@ -2163,7 +2165,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// ```compile_fail
 /// #use parking_lot::MutexGuard;
 /// #fn is_send&lt;T: Send&gt;();
-/// #is_send::&lt;parking_lot::MutexGuard&lt;&#39;static, ()&gt;();
+/// #is_send::&lt;parking_lot::MutexGuard&lt;'static, ()&gt;();
 /// ```
 </span><span class="attr">#[overseer::contextbounds(NetworkBridgeRx, prefix = <span class="self">self</span>::overseer)]
 </span><span class="kw">async fn </span>run_network_in&lt;N, AD, Context&gt;(
@@ -2199,7 +2201,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	)
 	.remote_handle();
 
-	ctx.spawn_blocking(<span class="string">&quot;network-bridge-in-network-worker&quot;</span>, Box::pin(task))<span class="question-mark">?</span>;
+	ctx.spawn_blocking(<span class="string">"network-bridge-in-network-worker"</span>, Box::pin(task))<span class="question-mark">?</span>;
 	<span class="macro">futures::pin_mut!</span>(network_event_handler);
 
 	<span class="kw">let </span>orchestra_signal_handler = run_incoming_orchestra_signals(

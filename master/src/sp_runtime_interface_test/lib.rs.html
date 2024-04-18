@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/runtime-interface/test/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/runtime-interface/test/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_runtime_interface_test" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_runtime_interface_test" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sp_runtime_interface_test/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -456,14 +458,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -499,14 +501,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	.build();
 
 	<span class="kw">let </span>(result, allocation_stats) = executor.uncached_call_with_allocation_stats(
-		RuntimeBlob::uncompress_if_needed(binary).expect(<span class="string">&quot;Failed to parse binary&quot;</span>),
+		RuntimeBlob::uncompress_if_needed(binary).expect(<span class="string">"Failed to parse binary"</span>),
 		<span class="kw-2">&amp;mut </span>ext_ext,
 		<span class="bool-val">false</span>,
 		method,
 		<span class="kw-2">&amp;</span>[],
 	);
 	<span class="kw">let </span>result = result
-		.map_err(|e| <span class="macro">format!</span>(<span class="string">&quot;Failed to execute `{}`: {}&quot;</span>, method, e))
+		.map_err(|e| <span class="macro">format!</span>(<span class="string">"Failed to execute `{}`: {}"</span>, method, e))
 		.map(|<span class="kw">_</span>| ext);
 	(result, allocation_stats)
 }
@@ -517,61 +519,61 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="attr">#[test]
 </span><span class="kw">fn </span>test_return_data() {
-	call_wasm_method::&lt;HostFunctions&gt;(wasm_binary_unwrap(), <span class="string">&quot;test_return_data&quot;</span>);
+	call_wasm_method::&lt;HostFunctions&gt;(wasm_binary_unwrap(), <span class="string">"test_return_data"</span>);
 }
 
 <span class="attr">#[test]
 </span><span class="kw">fn </span>test_return_option_data() {
-	call_wasm_method::&lt;HostFunctions&gt;(wasm_binary_unwrap(), <span class="string">&quot;test_return_option_data&quot;</span>);
+	call_wasm_method::&lt;HostFunctions&gt;(wasm_binary_unwrap(), <span class="string">"test_return_option_data"</span>);
 }
 
 <span class="attr">#[test]
 </span><span class="kw">fn </span>test_set_storage() {
-	<span class="kw">let </span><span class="kw-2">mut </span>ext = call_wasm_method::&lt;HostFunctions&gt;(wasm_binary_unwrap(), <span class="string">&quot;test_set_storage&quot;</span>);
+	<span class="kw">let </span><span class="kw-2">mut </span>ext = call_wasm_method::&lt;HostFunctions&gt;(wasm_binary_unwrap(), <span class="string">"test_set_storage"</span>);
 
-	<span class="kw">let </span>expected = <span class="string">&quot;world&quot;</span>;
-	<span class="macro">assert_eq!</span>(expected.as_bytes(), <span class="kw-2">&amp;</span>ext.ext().storage(<span class="string">&quot;hello&quot;</span>.as_bytes()).unwrap()[..]);
+	<span class="kw">let </span>expected = <span class="string">"world"</span>;
+	<span class="macro">assert_eq!</span>(expected.as_bytes(), <span class="kw-2">&amp;</span>ext.ext().storage(<span class="string">"hello"</span>.as_bytes()).unwrap()[..]);
 }
 
 <span class="attr">#[test]
 </span><span class="kw">fn </span>test_return_value_into_mutable_reference() {
 	call_wasm_method::&lt;HostFunctions&gt;(
 		wasm_binary_unwrap(),
-		<span class="string">&quot;test_return_value_into_mutable_reference&quot;</span>,
+		<span class="string">"test_return_value_into_mutable_reference"</span>,
 	);
 }
 
 <span class="attr">#[test]
 </span><span class="kw">fn </span>test_get_and_return_array() {
-	call_wasm_method::&lt;HostFunctions&gt;(wasm_binary_unwrap(), <span class="string">&quot;test_get_and_return_array&quot;</span>);
+	call_wasm_method::&lt;HostFunctions&gt;(wasm_binary_unwrap(), <span class="string">"test_get_and_return_array"</span>);
 }
 
 <span class="attr">#[test]
 </span><span class="kw">fn </span>test_array_as_mutable_reference() {
-	call_wasm_method::&lt;HostFunctions&gt;(wasm_binary_unwrap(), <span class="string">&quot;test_array_as_mutable_reference&quot;</span>);
+	call_wasm_method::&lt;HostFunctions&gt;(wasm_binary_unwrap(), <span class="string">"test_array_as_mutable_reference"</span>);
 }
 
 <span class="attr">#[test]
 </span><span class="kw">fn </span>test_return_input_public_key() {
-	call_wasm_method::&lt;HostFunctions&gt;(wasm_binary_unwrap(), <span class="string">&quot;test_return_input_public_key&quot;</span>);
+	call_wasm_method::&lt;HostFunctions&gt;(wasm_binary_unwrap(), <span class="string">"test_return_input_public_key"</span>);
 }
 
 <span class="attr">#[test]
 </span><span class="kw">fn </span>host_function_not_found() {
-	<span class="kw">let </span>err = call_wasm_method_with_result::&lt;()&gt;(wasm_binary_unwrap(), <span class="string">&quot;test_return_data&quot;</span>)
+	<span class="kw">let </span>err = call_wasm_method_with_result::&lt;()&gt;(wasm_binary_unwrap(), <span class="string">"test_return_data"</span>)
 		.<span class="number">0
 		</span>.unwrap_err();
 
-	<span class="macro">assert!</span>(err.contains(<span class="string">&quot;test_return_data&quot;</span>));
-	<span class="macro">assert!</span>(err.contains(<span class="string">&quot; Failed to create module&quot;</span>));
+	<span class="macro">assert!</span>(err.contains(<span class="string">"test_return_data"</span>));
+	<span class="macro">assert!</span>(err.contains(<span class="string">" Failed to create module"</span>));
 }
 
 <span class="attr">#[test]
-#[should_panic(expected = <span class="string">&quot;Invalid utf8 data provided&quot;</span>)]
+#[should_panic(expected = <span class="string">"Invalid utf8 data provided"</span>)]
 </span><span class="kw">fn </span>test_invalid_utf8_data_should_return_an_error() {
 	call_wasm_method::&lt;HostFunctions&gt;(
 		wasm_binary_unwrap(),
-		<span class="string">&quot;test_invalid_utf8_data_should_return_an_error&quot;</span>,
+		<span class="string">"test_invalid_utf8_data_should_return_an_error"</span>,
 	);
 }
 
@@ -579,7 +581,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">fn </span>test_overwrite_native_function_implementation() {
 	call_wasm_method::&lt;HostFunctions&gt;(
 		wasm_binary_unwrap(),
-		<span class="string">&quot;test_overwrite_native_function_implementation&quot;</span>,
+		<span class="string">"test_overwrite_native_function_implementation"</span>,
 	);
 }
 
@@ -587,7 +589,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">fn </span>test_u128_i128_as_parameter_and_return_value() {
 	call_wasm_method::&lt;HostFunctions&gt;(
 		wasm_binary_unwrap(),
-		<span class="string">&quot;test_u128_i128_as_parameter_and_return_value&quot;</span>,
+		<span class="string">"test_u128_i128_as_parameter_and_return_value"</span>,
 	);
 }
 
@@ -595,7 +597,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">fn </span>test_vec_return_value_memory_is_freed() {
 	call_wasm_method::&lt;HostFunctions&gt;(
 		wasm_binary_unwrap(),
-		<span class="string">&quot;test_vec_return_value_memory_is_freed&quot;</span>,
+		<span class="string">"test_vec_return_value_memory_is_freed"</span>,
 	);
 }
 
@@ -603,7 +605,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">fn </span>test_encoded_return_value_memory_is_freed() {
 	call_wasm_method::&lt;HostFunctions&gt;(
 		wasm_binary_unwrap(),
-		<span class="string">&quot;test_encoded_return_value_memory_is_freed&quot;</span>,
+		<span class="string">"test_encoded_return_value_memory_is_freed"</span>,
 	);
 }
 
@@ -611,36 +613,36 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">fn </span>test_array_return_value_memory_is_freed() {
 	call_wasm_method::&lt;HostFunctions&gt;(
 		wasm_binary_unwrap(),
-		<span class="string">&quot;test_array_return_value_memory_is_freed&quot;</span>,
+		<span class="string">"test_array_return_value_memory_is_freed"</span>,
 	);
 }
 
 <span class="attr">#[test]
 </span><span class="kw">fn </span>test_versioning_with_new_host_works() {
 	<span class="comment">// We call to the new wasm binary with new host function.
-	</span>call_wasm_method::&lt;HostFunctions&gt;(wasm_binary_unwrap(), <span class="string">&quot;test_versioning_works&quot;</span>);
+	</span>call_wasm_method::&lt;HostFunctions&gt;(wasm_binary_unwrap(), <span class="string">"test_versioning_works"</span>);
 
 	<span class="comment">// we call to the old wasm binary with a new host functions
 	// old versions of host functions should be called and test should be ok!
-	</span>call_wasm_method::&lt;HostFunctions&gt;(wasm_binary_deprecated_unwrap(), <span class="string">&quot;test_versioning_works&quot;</span>);
+	</span>call_wasm_method::&lt;HostFunctions&gt;(wasm_binary_deprecated_unwrap(), <span class="string">"test_versioning_works"</span>);
 }
 
 <span class="attr">#[test]
 </span><span class="kw">fn </span>test_versioning_register_only() {
-	call_wasm_method::&lt;HostFunctions&gt;(wasm_binary_unwrap(), <span class="string">&quot;test_versioning_register_only_works&quot;</span>);
+	call_wasm_method::&lt;HostFunctions&gt;(wasm_binary_unwrap(), <span class="string">"test_versioning_register_only_works"</span>);
 }
 
 <span class="kw">fn </span>run_test_in_another_process(
 	test_name: <span class="kw-2">&amp;</span>str,
 	test_body: <span class="kw">impl </span>FnOnce(),
 ) -&gt; <span class="prelude-ty">Option</span>&lt;std::process::Output&gt; {
-	<span class="kw">if </span>std::env::var(<span class="string">&quot;RUN_FORKED_TEST&quot;</span>).is_ok() {
+	<span class="kw">if </span>std::env::var(<span class="string">"RUN_FORKED_TEST"</span>).is_ok() {
 		test_body();
 		<span class="prelude-val">None
 	</span>} <span class="kw">else </span>{
 		<span class="kw">let </span>output = std::process::Command::new(std::env::current_exe().unwrap())
 			.arg(test_name)
-			.env(<span class="string">&quot;RUN_FORKED_TEST&quot;</span>, <span class="string">&quot;1&quot;</span>)
+			.env(<span class="string">"RUN_FORKED_TEST"</span>, <span class="string">"1"</span>)
 			.output()
 			.unwrap();
 
@@ -653,7 +655,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">fn </span>test_tracing() {
 	<span class="comment">// Run in a different process to ensure that the `Span` is registered with our local
 	// `TracingSubscriber`.
-	</span>run_test_in_another_process(<span class="string">&quot;test_tracing&quot;</span>, || {
+	</span>run_test_in_another_process(<span class="string">"test_tracing"</span>, || {
 		<span class="kw">use </span>std::fmt;
 		<span class="kw">use </span>tracing::span::Id <span class="kw">as </span>SpanId;
 		<span class="kw">use </span>tracing_core::field::{Field, Visit};
@@ -661,11 +663,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="attr">#[derive(Clone)]
 		</span><span class="kw">struct </span>TracingSubscriber(Arc&lt;Mutex&lt;Inner&gt;&gt;);
 
-		<span class="kw">struct </span>FieldConsumer(<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str, <span class="prelude-ty">Option</span>&lt;String&gt;);
+		<span class="kw">struct </span>FieldConsumer(<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str, <span class="prelude-ty">Option</span>&lt;String&gt;);
 		<span class="kw">impl </span>Visit <span class="kw">for </span>FieldConsumer {
 			<span class="kw">fn </span>record_debug(<span class="kw-2">&amp;mut </span><span class="self">self</span>, field: <span class="kw-2">&amp;</span>Field, value: <span class="kw-2">&amp;</span><span class="kw">dyn </span>fmt::Debug) {
 				<span class="kw">if </span>field.name() == <span class="self">self</span>.<span class="number">0 </span>{
-					<span class="self">self</span>.<span class="number">1 </span>= <span class="prelude-val">Some</span>(<span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, value))
+					<span class="self">self</span>.<span class="number">1 </span>= <span class="prelude-val">Some</span>(<span class="macro">format!</span>(<span class="string">"{:?}"</span>, value))
 				}
 			}
 		}
@@ -683,7 +685,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">fn </span>new_span(<span class="kw-2">&amp;</span><span class="self">self</span>, span: <span class="kw-2">&amp;</span>tracing::span::Attributes) -&gt; tracing::Id {
 				<span class="kw">let </span><span class="kw-2">mut </span>inner = <span class="self">self</span>.<span class="number">0</span>.lock().unwrap();
 				<span class="kw">let </span>id = SpanId::from_u64((inner.spans.len() + <span class="number">1</span>) <span class="kw">as _</span>);
-				<span class="kw">let </span><span class="kw-2">mut </span>f = FieldConsumer(<span class="string">&quot;name&quot;</span>, <span class="prelude-val">None</span>);
+				<span class="kw">let </span><span class="kw-2">mut </span>f = FieldConsumer(<span class="string">"name"</span>, <span class="prelude-val">None</span>);
 				span.record(<span class="kw-2">&amp;mut </span>f);
 				inner.spans.insert(f.<span class="number">1</span>.unwrap_or_else(|| span.metadata().name().to_owned()));
 				id
@@ -704,28 +706,28 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>_guard = tracing::subscriber::set_default(subscriber.clone());
 
 		<span class="comment">// Call some method to generate a trace
-		</span>call_wasm_method::&lt;HostFunctions&gt;(wasm_binary_unwrap(), <span class="string">&quot;test_return_data&quot;</span>);
+		</span>call_wasm_method::&lt;HostFunctions&gt;(wasm_binary_unwrap(), <span class="string">"test_return_data"</span>);
 
 		<span class="kw">let </span>inner = subscriber.<span class="number">0</span>.lock().unwrap();
-		<span class="macro">assert!</span>(inner.spans.contains(<span class="string">&quot;return_input_version_1&quot;</span>));
+		<span class="macro">assert!</span>(inner.spans.contains(<span class="string">"return_input_version_1"</span>));
 	});
 }
 
 <span class="attr">#[test]
 </span><span class="kw">fn </span>test_return_input_as_tuple() {
-	call_wasm_method::&lt;HostFunctions&gt;(wasm_binary_unwrap(), <span class="string">&quot;test_return_input_as_tuple&quot;</span>);
+	call_wasm_method::&lt;HostFunctions&gt;(wasm_binary_unwrap(), <span class="string">"test_return_input_as_tuple"</span>);
 }
 
 <span class="attr">#[test]
 </span><span class="kw">fn </span>test_returning_option_bytes_from_a_host_function_is_efficient() {
 	<span class="kw">let </span>(result, stats_vec) = call_wasm_method_with_result::&lt;HostFunctions&gt;(
 		wasm_binary_unwrap(),
-		<span class="string">&quot;test_return_option_vec&quot;</span>,
+		<span class="string">"test_return_option_vec"</span>,
 	);
 	result.unwrap();
 	<span class="kw">let </span>(result, stats_bytes) = call_wasm_method_with_result::&lt;HostFunctions&gt;(
 		wasm_binary_unwrap(),
-		<span class="string">&quot;test_return_option_bytes&quot;</span>,
+		<span class="string">"test_return_option_bytes"</span>,
 	);
 	result.unwrap();
 
@@ -748,7 +750,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	// and it still requires two allocations, however since `Bytes` is zero-copy
 	// only the first allocation is `Vec&lt;u8&gt;`-sized, and the second allocation
 	// which creates the deserialized `Bytes` is tiny, and is only necessary because
-	// the underlying `Bytes` buffer from which we&#39;re deserializing gets automatically
+	// the underlying `Bytes` buffer from which we're deserializing gets automatically
 	// turned into an `Arc`.
 	//
 	// So this assertion tests that deserializing `Option&lt;Bytes&gt;` allocates less than

@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `cumulus/polkadot-parachain/src/chain_spec/asset_hubs.rs`."><title>asset_hubs.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `cumulus/polkadot-parachain/src/chain_spec/asset_hubs.rs`."><title>asset_hubs.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_parachain" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_parachain" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../polkadot_parachain/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -590,28 +592,28 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">pub fn </span>asset_hub_westend_development_config() -&gt; GenericChainSpec {
 	<span class="kw">let </span><span class="kw-2">mut </span>properties = sc_chain_spec::Properties::new();
-	properties.insert(<span class="string">&quot;tokenSymbol&quot;</span>.into(), <span class="string">&quot;WND&quot;</span>.into());
-	properties.insert(<span class="string">&quot;tokenDecimals&quot;</span>.into(), <span class="number">12</span>.into());
+	properties.insert(<span class="string">"tokenSymbol"</span>.into(), <span class="string">"WND"</span>.into());
+	properties.insert(<span class="string">"tokenDecimals"</span>.into(), <span class="number">12</span>.into());
 
 	GenericChainSpec::builder(
 		asset_hub_westend_runtime::WASM_BINARY
-			.expect(<span class="string">&quot;WASM binary was not built, please build it!&quot;</span>),
-		Extensions { relay_chain: <span class="string">&quot;westend&quot;</span>.into(), para_id: <span class="number">1000 </span>},
+			.expect(<span class="string">"WASM binary was not built, please build it!"</span>),
+		Extensions { relay_chain: <span class="string">"westend"</span>.into(), para_id: <span class="number">1000 </span>},
 	)
-	.with_name(<span class="string">&quot;Westend Asset Hub Development&quot;</span>)
-	.with_id(<span class="string">&quot;asset-hub-westend-dev&quot;</span>)
+	.with_name(<span class="string">"Westend Asset Hub Development"</span>)
+	.with_id(<span class="string">"asset-hub-westend-dev"</span>)
 	.with_chain_type(ChainType::Local)
 	.with_genesis_config_patch(asset_hub_westend_genesis(
 		<span class="comment">// initial collators.
 		</span><span class="macro">vec!</span>[(
-			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>),
-			get_collator_keys_from_seed::&lt;AuraId&gt;(<span class="string">&quot;Alice&quot;</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Alice"</span>),
+			get_collator_keys_from_seed::&lt;AuraId&gt;(<span class="string">"Alice"</span>),
 		)],
 		<span class="macro">vec!</span>[
-			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>),
-			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Bob&quot;</span>),
-			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice//stash&quot;</span>),
-			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Bob//stash&quot;</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Alice"</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Bob"</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Alice//stash"</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Bob//stash"</span>),
 		],
 		testnet_parachains_constants::westend::currency::UNITS * <span class="number">1_000_000</span>,
 		<span class="number">1000</span>.into(),
@@ -622,42 +624,42 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">pub fn </span>asset_hub_westend_local_config() -&gt; GenericChainSpec {
 	<span class="kw">let </span><span class="kw-2">mut </span>properties = sc_chain_spec::Properties::new();
-	properties.insert(<span class="string">&quot;tokenSymbol&quot;</span>.into(), <span class="string">&quot;WND&quot;</span>.into());
-	properties.insert(<span class="string">&quot;tokenDecimals&quot;</span>.into(), <span class="number">12</span>.into());
+	properties.insert(<span class="string">"tokenSymbol"</span>.into(), <span class="string">"WND"</span>.into());
+	properties.insert(<span class="string">"tokenDecimals"</span>.into(), <span class="number">12</span>.into());
 
 	GenericChainSpec::builder(
 		asset_hub_westend_runtime::WASM_BINARY
-			.expect(<span class="string">&quot;WASM binary was not built, please build it!&quot;</span>),
-		Extensions { relay_chain: <span class="string">&quot;westend-local&quot;</span>.into(), para_id: <span class="number">1000 </span>},
+			.expect(<span class="string">"WASM binary was not built, please build it!"</span>),
+		Extensions { relay_chain: <span class="string">"westend-local"</span>.into(), para_id: <span class="number">1000 </span>},
 	)
-	.with_name(<span class="string">&quot;Westend Asset Hub Local&quot;</span>)
-	.with_id(<span class="string">&quot;asset-hub-westend-local&quot;</span>)
+	.with_name(<span class="string">"Westend Asset Hub Local"</span>)
+	.with_id(<span class="string">"asset-hub-westend-local"</span>)
 	.with_chain_type(ChainType::Local)
 	.with_genesis_config_patch(asset_hub_westend_genesis(
 		<span class="comment">// initial collators.
 		</span><span class="macro">vec!</span>[
 			(
-				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>),
-				get_collator_keys_from_seed::&lt;AuraId&gt;(<span class="string">&quot;Alice&quot;</span>),
+				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Alice"</span>),
+				get_collator_keys_from_seed::&lt;AuraId&gt;(<span class="string">"Alice"</span>),
 			),
 			(
-				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Bob&quot;</span>),
-				get_collator_keys_from_seed::&lt;AuraId&gt;(<span class="string">&quot;Bob&quot;</span>),
+				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Bob"</span>),
+				get_collator_keys_from_seed::&lt;AuraId&gt;(<span class="string">"Bob"</span>),
 			),
 		],
 		<span class="macro">vec!</span>[
-			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>),
-			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Bob&quot;</span>),
-			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Charlie&quot;</span>),
-			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Dave&quot;</span>),
-			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Eve&quot;</span>),
-			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Ferdie&quot;</span>),
-			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice//stash&quot;</span>),
-			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Bob//stash&quot;</span>),
-			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Charlie//stash&quot;</span>),
-			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Dave//stash&quot;</span>),
-			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Eve//stash&quot;</span>),
-			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Ferdie//stash&quot;</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Alice"</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Bob"</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Charlie"</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Dave"</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Eve"</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Ferdie"</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Alice//stash"</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Bob//stash"</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Charlie//stash"</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Dave//stash"</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Eve//stash"</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Ferdie//stash"</span>),
 		],
 		testnet_parachains_constants::westend::currency::UNITS * <span class="number">1_000_000</span>,
 		<span class="number">1000</span>.into(),
@@ -668,38 +670,38 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">pub fn </span>asset_hub_westend_config() -&gt; GenericChainSpec {
 	<span class="kw">let </span><span class="kw-2">mut </span>properties = sc_chain_spec::Properties::new();
-	properties.insert(<span class="string">&quot;tokenSymbol&quot;</span>.into(), <span class="string">&quot;WND&quot;</span>.into());
-	properties.insert(<span class="string">&quot;tokenDecimals&quot;</span>.into(), <span class="number">12</span>.into());
+	properties.insert(<span class="string">"tokenSymbol"</span>.into(), <span class="string">"WND"</span>.into());
+	properties.insert(<span class="string">"tokenDecimals"</span>.into(), <span class="number">12</span>.into());
 
 	GenericChainSpec::builder(
 		asset_hub_westend_runtime::WASM_BINARY
-			.expect(<span class="string">&quot;WASM binary was not built, please build it!&quot;</span>),
-		Extensions { relay_chain: <span class="string">&quot;westend&quot;</span>.into(), para_id: <span class="number">1000 </span>},
+			.expect(<span class="string">"WASM binary was not built, please build it!"</span>),
+		Extensions { relay_chain: <span class="string">"westend"</span>.into(), para_id: <span class="number">1000 </span>},
 	)
-	.with_name(<span class="string">&quot;Westend Asset Hub&quot;</span>)
-	.with_id(<span class="string">&quot;asset-hub-westend&quot;</span>)
+	.with_name(<span class="string">"Westend Asset Hub"</span>)
+	.with_id(<span class="string">"asset-hub-westend"</span>)
 	.with_chain_type(ChainType::Live)
 	.with_genesis_config_patch(asset_hub_westend_genesis(
 		<span class="comment">// initial collators.
 		</span><span class="macro">vec!</span>[
 			(
-				<span class="macro">hex!</span>(<span class="string">&quot;9cfd429fa002114f33c1d3e211501d62830c9868228eb3b4b8ae15a83de04325&quot;</span>).into(),
-				<span class="macro">hex!</span>(<span class="string">&quot;9cfd429fa002114f33c1d3e211501d62830c9868228eb3b4b8ae15a83de04325&quot;</span>)
+				<span class="macro">hex!</span>(<span class="string">"9cfd429fa002114f33c1d3e211501d62830c9868228eb3b4b8ae15a83de04325"</span>).into(),
+				<span class="macro">hex!</span>(<span class="string">"9cfd429fa002114f33c1d3e211501d62830c9868228eb3b4b8ae15a83de04325"</span>)
 					.unchecked_into(),
 			),
 			(
-				<span class="macro">hex!</span>(<span class="string">&quot;12a03fb4e7bda6c9a07ec0a11d03c24746943e054ff0bb04938970104c783876&quot;</span>).into(),
-				<span class="macro">hex!</span>(<span class="string">&quot;12a03fb4e7bda6c9a07ec0a11d03c24746943e054ff0bb04938970104c783876&quot;</span>)
+				<span class="macro">hex!</span>(<span class="string">"12a03fb4e7bda6c9a07ec0a11d03c24746943e054ff0bb04938970104c783876"</span>).into(),
+				<span class="macro">hex!</span>(<span class="string">"12a03fb4e7bda6c9a07ec0a11d03c24746943e054ff0bb04938970104c783876"</span>)
 					.unchecked_into(),
 			),
 			(
-				<span class="macro">hex!</span>(<span class="string">&quot;1256436307dfde969324e95b8c62cb9101f520a39435e6af0f7ac07b34e1931f&quot;</span>).into(),
-				<span class="macro">hex!</span>(<span class="string">&quot;1256436307dfde969324e95b8c62cb9101f520a39435e6af0f7ac07b34e1931f&quot;</span>)
+				<span class="macro">hex!</span>(<span class="string">"1256436307dfde969324e95b8c62cb9101f520a39435e6af0f7ac07b34e1931f"</span>).into(),
+				<span class="macro">hex!</span>(<span class="string">"1256436307dfde969324e95b8c62cb9101f520a39435e6af0f7ac07b34e1931f"</span>)
 					.unchecked_into(),
 			),
 			(
-				<span class="macro">hex!</span>(<span class="string">&quot;98102b7bca3f070f9aa19f58feed2c0a4e107d203396028ec17a47e1ed80e322&quot;</span>).into(),
-				<span class="macro">hex!</span>(<span class="string">&quot;98102b7bca3f070f9aa19f58feed2c0a4e107d203396028ec17a47e1ed80e322&quot;</span>)
+				<span class="macro">hex!</span>(<span class="string">"98102b7bca3f070f9aa19f58feed2c0a4e107d203396028ec17a47e1ed80e322"</span>).into(),
+				<span class="macro">hex!</span>(<span class="string">"98102b7bca3f070f9aa19f58feed2c0a4e107d203396028ec17a47e1ed80e322"</span>)
 					.unchecked_into(),
 			),
 		],
@@ -718,22 +720,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	id: ParaId,
 ) -&gt; serde_json::Value {
 	<span class="macro">serde_json::json!</span>({
-		<span class="string">&quot;balances&quot;</span>: {
-			<span class="string">&quot;balances&quot;</span>: endowed_accounts
+		<span class="string">"balances"</span>: {
+			<span class="string">"balances"</span>: endowed_accounts
 				.iter()
 				.cloned()
 				.map(|k| (k, endowment))
 				.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
 		},
-		<span class="string">&quot;parachainInfo&quot;</span>: {
-			<span class="string">&quot;parachainId&quot;</span>: id,
+		<span class="string">"parachainInfo"</span>: {
+			<span class="string">"parachainId"</span>: id,
 		},
-		<span class="string">&quot;collatorSelection&quot;</span>: {
-			<span class="string">&quot;invulnerables&quot;</span>: invulnerables.iter().cloned().map(|(acc, <span class="kw">_</span>)| acc).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
-			<span class="string">&quot;candidacyBond&quot;</span>: ASSET_HUB_WESTEND_ED * <span class="number">16</span>,
+		<span class="string">"collatorSelection"</span>: {
+			<span class="string">"invulnerables"</span>: invulnerables.iter().cloned().map(|(acc, <span class="kw">_</span>)| acc).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
+			<span class="string">"candidacyBond"</span>: ASSET_HUB_WESTEND_ED * <span class="number">16</span>,
 		},
-		<span class="string">&quot;session&quot;</span>: {
-			<span class="string">&quot;keys&quot;</span>: invulnerables
+		<span class="string">"session"</span>: {
+			<span class="string">"keys"</span>: invulnerables
 				.into_iter()
 				.map(|(acc, aura)| {
 					(
@@ -744,21 +746,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				})
 				.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
 		},
-		<span class="string">&quot;polkadotXcm&quot;</span>: {
-			<span class="string">&quot;safeXcmVersion&quot;</span>: <span class="prelude-val">Some</span>(SAFE_XCM_VERSION),
+		<span class="string">"polkadotXcm"</span>: {
+			<span class="string">"safeXcmVersion"</span>: <span class="prelude-val">Some</span>(SAFE_XCM_VERSION),
 		},
 	})
 }
 
 <span class="kw">pub fn </span>asset_hub_rococo_development_config() -&gt; GenericChainSpec {
 	<span class="kw">let </span><span class="kw-2">mut </span>properties = sc_chain_spec::Properties::new();
-	properties.insert(<span class="string">&quot;ss58Format&quot;</span>.into(), <span class="number">42</span>.into());
-	properties.insert(<span class="string">&quot;tokenSymbol&quot;</span>.into(), <span class="string">&quot;ROC&quot;</span>.into());
-	properties.insert(<span class="string">&quot;tokenDecimals&quot;</span>.into(), <span class="number">12</span>.into());
+	properties.insert(<span class="string">"ss58Format"</span>.into(), <span class="number">42</span>.into());
+	properties.insert(<span class="string">"tokenSymbol"</span>.into(), <span class="string">"ROC"</span>.into());
+	properties.insert(<span class="string">"tokenDecimals"</span>.into(), <span class="number">12</span>.into());
 	asset_hub_rococo_like_development_config(
 		properties,
-		<span class="string">&quot;Rococo Asset Hub Development&quot;</span>,
-		<span class="string">&quot;asset-hub-rococo-dev&quot;</span>,
+		<span class="string">"Rococo Asset Hub Development"</span>,
+		<span class="string">"asset-hub-rococo-dev"</span>,
 		<span class="number">1000</span>,
 	)
 }
@@ -770,8 +772,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	para_id: u32,
 ) -&gt; GenericChainSpec {
 	GenericChainSpec::builder(
-		asset_hub_rococo_runtime::WASM_BINARY.expect(<span class="string">&quot;WASM binary was not built, please build it!&quot;</span>),
-		Extensions { relay_chain: <span class="string">&quot;rococo-dev&quot;</span>.into(), para_id },
+		asset_hub_rococo_runtime::WASM_BINARY.expect(<span class="string">"WASM binary was not built, please build it!"</span>),
+		Extensions { relay_chain: <span class="string">"rococo-dev"</span>.into(), para_id },
 	)
 	.with_name(name)
 	.with_id(chain_id)
@@ -779,14 +781,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	.with_genesis_config_patch(asset_hub_rococo_genesis(
 		<span class="comment">// initial collators.
 		</span><span class="macro">vec!</span>[(
-			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>),
-			get_collator_keys_from_seed::&lt;AuraId&gt;(<span class="string">&quot;Alice&quot;</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Alice"</span>),
+			get_collator_keys_from_seed::&lt;AuraId&gt;(<span class="string">"Alice"</span>),
 		)],
 		<span class="macro">vec!</span>[
-			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>),
-			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Bob&quot;</span>),
-			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice//stash&quot;</span>),
-			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Bob//stash&quot;</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Alice"</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Bob"</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Alice//stash"</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Bob//stash"</span>),
 		],
 		testnet_parachains_constants::rococo::currency::UNITS * <span class="number">1_000_000</span>,
 		para_id.into(),
@@ -797,13 +799,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">pub fn </span>asset_hub_rococo_local_config() -&gt; GenericChainSpec {
 	<span class="kw">let </span><span class="kw-2">mut </span>properties = sc_chain_spec::Properties::new();
-	properties.insert(<span class="string">&quot;ss58Format&quot;</span>.into(), <span class="number">42</span>.into());
-	properties.insert(<span class="string">&quot;tokenSymbol&quot;</span>.into(), <span class="string">&quot;ROC&quot;</span>.into());
-	properties.insert(<span class="string">&quot;tokenDecimals&quot;</span>.into(), <span class="number">12</span>.into());
+	properties.insert(<span class="string">"ss58Format"</span>.into(), <span class="number">42</span>.into());
+	properties.insert(<span class="string">"tokenSymbol"</span>.into(), <span class="string">"ROC"</span>.into());
+	properties.insert(<span class="string">"tokenDecimals"</span>.into(), <span class="number">12</span>.into());
 	asset_hub_rococo_like_local_config(
 		properties,
-		<span class="string">&quot;Rococo Asset Hub Local&quot;</span>,
-		<span class="string">&quot;asset-hub-rococo-local&quot;</span>,
+		<span class="string">"Rococo Asset Hub Local"</span>,
+		<span class="string">"asset-hub-rococo-local"</span>,
 		<span class="number">1000</span>,
 	)
 }
@@ -815,8 +817,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	para_id: u32,
 ) -&gt; GenericChainSpec {
 	GenericChainSpec::builder(
-		asset_hub_rococo_runtime::WASM_BINARY.expect(<span class="string">&quot;WASM binary was not built, please build it!&quot;</span>),
-		Extensions { relay_chain: <span class="string">&quot;rococo-local&quot;</span>.into(), para_id },
+		asset_hub_rococo_runtime::WASM_BINARY.expect(<span class="string">"WASM binary was not built, please build it!"</span>),
+		Extensions { relay_chain: <span class="string">"rococo-local"</span>.into(), para_id },
 	)
 	.with_name(name)
 	.with_id(chain_id)
@@ -825,27 +827,27 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// initial collators.
 		</span><span class="macro">vec!</span>[
 			(
-				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>),
-				get_collator_keys_from_seed::&lt;AuraId&gt;(<span class="string">&quot;Alice&quot;</span>),
+				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Alice"</span>),
+				get_collator_keys_from_seed::&lt;AuraId&gt;(<span class="string">"Alice"</span>),
 			),
 			(
-				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Bob&quot;</span>),
-				get_collator_keys_from_seed::&lt;AuraId&gt;(<span class="string">&quot;Bob&quot;</span>),
+				get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Bob"</span>),
+				get_collator_keys_from_seed::&lt;AuraId&gt;(<span class="string">"Bob"</span>),
 			),
 		],
 		<span class="macro">vec!</span>[
-			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>),
-			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Bob&quot;</span>),
-			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Charlie&quot;</span>),
-			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Dave&quot;</span>),
-			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Eve&quot;</span>),
-			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Ferdie&quot;</span>),
-			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice//stash&quot;</span>),
-			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Bob//stash&quot;</span>),
-			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Charlie//stash&quot;</span>),
-			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Dave//stash&quot;</span>),
-			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Eve//stash&quot;</span>),
-			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Ferdie//stash&quot;</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Alice"</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Bob"</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Charlie"</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Dave"</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Eve"</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Ferdie"</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Alice//stash"</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Bob//stash"</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Charlie//stash"</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Dave//stash"</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Eve//stash"</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Ferdie//stash"</span>),
 		],
 		testnet_parachains_constants::rococo::currency::UNITS * <span class="number">1_000_000</span>,
 		para_id.into(),
@@ -856,41 +858,41 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">pub fn </span>asset_hub_rococo_genesis_config() -&gt; GenericChainSpec {
 	<span class="kw">let </span><span class="kw-2">mut </span>properties = sc_chain_spec::Properties::new();
-	properties.insert(<span class="string">&quot;tokenSymbol&quot;</span>.into(), <span class="string">&quot;ROC&quot;</span>.into());
-	properties.insert(<span class="string">&quot;tokenDecimals&quot;</span>.into(), <span class="number">12</span>.into());
+	properties.insert(<span class="string">"tokenSymbol"</span>.into(), <span class="string">"ROC"</span>.into());
+	properties.insert(<span class="string">"tokenDecimals"</span>.into(), <span class="number">12</span>.into());
 	<span class="kw">let </span>para_id = <span class="number">1000</span>;
 	GenericChainSpec::builder(
-		asset_hub_rococo_runtime::WASM_BINARY.expect(<span class="string">&quot;WASM binary was not built, please build it!&quot;</span>),
-		Extensions { relay_chain: <span class="string">&quot;rococo&quot;</span>.into(), para_id },
+		asset_hub_rococo_runtime::WASM_BINARY.expect(<span class="string">"WASM binary was not built, please build it!"</span>),
+		Extensions { relay_chain: <span class="string">"rococo"</span>.into(), para_id },
 	)
-	.with_name(<span class="string">&quot;Rococo Asset Hub&quot;</span>)
-	.with_id(<span class="string">&quot;asset-hub-rococo&quot;</span>)
+	.with_name(<span class="string">"Rococo Asset Hub"</span>)
+	.with_id(<span class="string">"asset-hub-rococo"</span>)
 	.with_chain_type(ChainType::Live)
 	.with_genesis_config_patch(asset_hub_rococo_genesis(
 		<span class="comment">// initial collators.
 		</span><span class="macro">vec!</span>[
 			<span class="comment">// E8XC6rTJRsioKCp6KMy6zd24ykj4gWsusZ3AkSeyavpVBAG
 			</span>(
-				<span class="macro">hex!</span>(<span class="string">&quot;44cb62d1d6cdd2fff2a5ef3bb7ef827be5b3e117a394ecaa634d8dd9809d5608&quot;</span>).into(),
-				<span class="macro">hex!</span>(<span class="string">&quot;44cb62d1d6cdd2fff2a5ef3bb7ef827be5b3e117a394ecaa634d8dd9809d5608&quot;</span>)
+				<span class="macro">hex!</span>(<span class="string">"44cb62d1d6cdd2fff2a5ef3bb7ef827be5b3e117a394ecaa634d8dd9809d5608"</span>).into(),
+				<span class="macro">hex!</span>(<span class="string">"44cb62d1d6cdd2fff2a5ef3bb7ef827be5b3e117a394ecaa634d8dd9809d5608"</span>)
 					.unchecked_into(),
 			),
 			<span class="comment">// G28iWEybndgGRbhfx83t7Q42YhMPByHpyqWDUgeyoGF94ri
 			</span>(
-				<span class="macro">hex!</span>(<span class="string">&quot;9864b85e23aa4506643db9879c3dbbeabaa94d269693a4447f537dd6b5893944&quot;</span>).into(),
-				<span class="macro">hex!</span>(<span class="string">&quot;9864b85e23aa4506643db9879c3dbbeabaa94d269693a4447f537dd6b5893944&quot;</span>)
+				<span class="macro">hex!</span>(<span class="string">"9864b85e23aa4506643db9879c3dbbeabaa94d269693a4447f537dd6b5893944"</span>).into(),
+				<span class="macro">hex!</span>(<span class="string">"9864b85e23aa4506643db9879c3dbbeabaa94d269693a4447f537dd6b5893944"</span>)
 					.unchecked_into(),
 			),
 			<span class="comment">// G839e2eMiq7UXbConsY6DS1XDAYG2XnQxAmLuRLGGQ3Px9c
 			</span>(
-				<span class="macro">hex!</span>(<span class="string">&quot;9ce5741ee2f1ac3bdedbde9f3339048f4da2cb88ddf33a0977fa0b4cf86e2948&quot;</span>).into(),
-				<span class="macro">hex!</span>(<span class="string">&quot;9ce5741ee2f1ac3bdedbde9f3339048f4da2cb88ddf33a0977fa0b4cf86e2948&quot;</span>)
+				<span class="macro">hex!</span>(<span class="string">"9ce5741ee2f1ac3bdedbde9f3339048f4da2cb88ddf33a0977fa0b4cf86e2948"</span>).into(),
+				<span class="macro">hex!</span>(<span class="string">"9ce5741ee2f1ac3bdedbde9f3339048f4da2cb88ddf33a0977fa0b4cf86e2948"</span>)
 					.unchecked_into(),
 			),
 			<span class="comment">// GLao4ukFUW6qhexuZowdFrKa2NLCfnEjZMftSXXfvGv1vvt
 			</span>(
-				<span class="macro">hex!</span>(<span class="string">&quot;a676ed15f5a325eab49ed8d5f8c00f3f814b19bb58cda14ad10894c078dd337f&quot;</span>).into(),
-				<span class="macro">hex!</span>(<span class="string">&quot;a676ed15f5a325eab49ed8d5f8c00f3f814b19bb58cda14ad10894c078dd337f&quot;</span>)
+				<span class="macro">hex!</span>(<span class="string">"a676ed15f5a325eab49ed8d5f8c00f3f814b19bb58cda14ad10894c078dd337f"</span>).into(),
+				<span class="macro">hex!</span>(<span class="string">"a676ed15f5a325eab49ed8d5f8c00f3f814b19bb58cda14ad10894c078dd337f"</span>)
 					.unchecked_into(),
 			),
 		],
@@ -909,23 +911,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	id: ParaId,
 ) -&gt; serde_json::Value {
 	<span class="macro">serde_json::json!</span>({
-		<span class="string">&quot;balances&quot;</span>: asset_hub_rococo_runtime::BalancesConfig {
+		<span class="string">"balances"</span>: asset_hub_rococo_runtime::BalancesConfig {
 			balances: endowed_accounts
 				.iter()
 				.cloned()
 				.map(|k| (k, endowment))
 				.collect(),
 		},
-		<span class="string">&quot;parachainInfo&quot;</span>: asset_hub_rococo_runtime::ParachainInfoConfig {
+		<span class="string">"parachainInfo"</span>: asset_hub_rococo_runtime::ParachainInfoConfig {
 			parachain_id: id,
 			..Default::default()
 		},
-		<span class="string">&quot;collatorSelection&quot;</span>: asset_hub_rococo_runtime::CollatorSelectionConfig {
+		<span class="string">"collatorSelection"</span>: asset_hub_rococo_runtime::CollatorSelectionConfig {
 			invulnerables: invulnerables.iter().cloned().map(|(acc, <span class="kw">_</span>)| acc).collect(),
 			candidacy_bond: ASSET_HUB_ROCOCO_ED * <span class="number">16</span>,
 			..Default::default()
 		},
-		<span class="string">&quot;session&quot;</span>: asset_hub_rococo_runtime::SessionConfig {
+		<span class="string">"session"</span>: asset_hub_rococo_runtime::SessionConfig {
 			keys: invulnerables
 				.into_iter()
 				.map(|(acc, aura)| {
@@ -937,7 +939,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				})
 				.collect(),
 		},
-		<span class="string">&quot;polkadotXcm&quot;</span>: asset_hub_rococo_runtime::PolkadotXcmConfig {
+		<span class="string">"polkadotXcm"</span>: asset_hub_rococo_runtime::PolkadotXcmConfig {
 			safe_xcm_version: <span class="prelude-val">Some</span>(SAFE_XCM_VERSION),
 			..Default::default()
 		}

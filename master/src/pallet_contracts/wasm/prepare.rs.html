@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/contracts/src/wasm/prepare.rs`."><title>prepare.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/contracts/src/wasm/prepare.rs`."><title>prepare.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="pallet_contracts" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="pallet_contracts" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../pallet_contracts/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1007,14 +1009,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -1034,7 +1036,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>codec::MaxEncodedLen;
 <span class="kw">use </span>sp_runtime::{traits::Hash, DispatchError};
-<span class="attr">#[cfg(any(test, feature = <span class="string">&quot;runtime-benchmarks&quot;</span>))]
+<span class="attr">#[cfg(any(test, feature = <span class="string">"runtime-benchmarks"</span>))]
 </span><span class="kw">use </span>sp_std::prelude::Vec;
 <span class="kw">use </span>wasmi::{
 	core::ValueType <span class="kw">as </span>WasmiValueType, Config <span class="kw">as </span>WasmiConfig, Engine, ExternType,
@@ -1042,8 +1044,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 
 <span class="doccomment">/// Imported memory must be located inside this module. The reason for hardcoding is that current
-/// compiler toolchains might not support specifying other modules than &quot;env&quot; for memory imports.
-</span><span class="kw">pub const </span>IMPORT_MODULE_MEMORY: <span class="kw-2">&amp;</span>str = <span class="string">&quot;env&quot;</span>;
+/// compiler toolchains might not support specifying other modules than "env" for memory imports.
+</span><span class="kw">pub const </span>IMPORT_MODULE_MEMORY: <span class="kw-2">&amp;</span>str = <span class="string">"env"</span>;
 
 <span class="doccomment">/// The inner deserialized module is valid and contains only allowed WebAssembly features.
 /// This is checked by loading it into wasmi interpreter `engine`.
@@ -1076,7 +1078,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		determinism: Determinism,
 		stack_limits: <span class="prelude-ty">Option</span>&lt;StackLimits&gt;,
 		_mode: LoadingMode,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; {
+	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
 		<span class="comment">// NOTE: wasmi does not support unstable WebAssembly features. The module is implicitly
 		// checked for not having those ones when creating `wasmi::Module` below.
 		</span><span class="kw">let </span><span class="kw-2">mut </span>config = WasmiConfig::default();
@@ -1101,8 +1103,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// TODO use Module::new_unchecked when validate_module is true once we are on wasmi@0.32
 		</span><span class="kw">let </span>module = Module::new(<span class="kw-2">&amp;</span>engine, code).map_err(|err| {
-			<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;Module creation failed: {:?}&quot;</span>, err);
-			<span class="string">&quot;Can&#39;t load the module into wasmi!&quot;
+			<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"Module creation failed: {:?}"</span>, err);
+			<span class="string">"Can't load the module into wasmi!"
 		</span>})<span class="question-mark">?</span>;
 
 		<span class="attr">#[cfg(test)]
@@ -1116,11 +1118,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Check that the module has required exported functions. For now
 	/// these are just entrypoints:
 	///
-	/// - &#39;call&#39;
-	/// - &#39;deploy&#39;
+	/// - 'call'
+	/// - 'deploy'
 	///
 	/// Any other exports are not allowed.
-	</span><span class="kw">fn </span>scan_exports(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; {
+	</span><span class="kw">fn </span>scan_exports(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
 		<span class="kw">let </span><span class="kw-2">mut </span>deploy_found = <span class="bool-val">false</span>;
 		<span class="kw">let </span><span class="kw-2">mut </span>call_found = <span class="bool-val">false</span>;
 		<span class="kw">let </span>module = <span class="kw-2">&amp;</span><span class="self">self</span>.module;
@@ -1130,33 +1132,33 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">match </span>export.ty() {
 				ExternType::Func(ft) =&gt; {
 					<span class="kw">match </span>export.name() {
-						<span class="string">&quot;call&quot; </span>=&gt; call_found = <span class="bool-val">true</span>,
-						<span class="string">&quot;deploy&quot; </span>=&gt; deploy_found = <span class="bool-val">true</span>,
+						<span class="string">"call" </span>=&gt; call_found = <span class="bool-val">true</span>,
+						<span class="string">"deploy" </span>=&gt; deploy_found = <span class="bool-val">true</span>,
 						<span class="kw">_ </span>=&gt;
 							<span class="kw">return </span><span class="prelude-val">Err</span>(
-								<span class="string">&quot;unknown function export: expecting only deploy and call functions&quot;</span>,
+								<span class="string">"unknown function export: expecting only deploy and call functions"</span>,
 							),
 					}
 					<span class="comment">// Check the signature.
-					// Both &quot;call&quot; and &quot;deploy&quot; have the () -&gt; () function type.
+					// Both "call" and "deploy" have the () -&gt; () function type.
 					// We still support () -&gt; (i32) for backwards compatibility.
 					</span><span class="kw">if </span>!(ft.params().is_empty() &amp;&amp;
 						(ft.results().is_empty() || ft.results() == [WasmiValueType::I32]))
 					{
-						<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;entry point has wrong signature&quot;</span>)
+						<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"entry point has wrong signature"</span>)
 					}
 				},
-				ExternType::Memory(<span class="kw">_</span>) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;memory export is forbidden&quot;</span>),
-				ExternType::Global(<span class="kw">_</span>) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;global export is forbidden&quot;</span>),
-				ExternType::Table(<span class="kw">_</span>) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;table export is forbidden&quot;</span>),
+				ExternType::Memory(<span class="kw">_</span>) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"memory export is forbidden"</span>),
+				ExternType::Global(<span class="kw">_</span>) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"global export is forbidden"</span>),
+				ExternType::Table(<span class="kw">_</span>) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"table export is forbidden"</span>),
 			}
 		}
 
 		<span class="kw">if </span>!deploy_found {
-			<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;deploy function isn&#39;t exported&quot;</span>)
+			<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"deploy function isn't exported"</span>)
 		}
 		<span class="kw">if </span>!call_found {
-			<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;call function isn&#39;t exported&quot;</span>)
+			<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"call function isn't exported"</span>)
 		}
 
 		<span class="prelude-val">Ok</span>(())
@@ -1181,34 +1183,34 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub fn </span>scan_imports&lt;T: Config&gt;(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		schedule: <span class="kw-2">&amp;</span>Schedule&lt;T&gt;,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;(u32, u32), <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; {
+	) -&gt; <span class="prelude-ty">Result</span>&lt;(u32, u32), <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
 		<span class="kw">let </span>module = <span class="kw-2">&amp;</span><span class="self">self</span>.module;
 		<span class="kw">let </span>imports = module.imports();
 		<span class="kw">let </span><span class="kw-2">mut </span>memory_limits = <span class="prelude-val">None</span>;
 
 		<span class="kw">for </span>import <span class="kw">in </span>imports {
 			<span class="kw">match </span><span class="kw-2">*</span>import.ty() {
-				ExternType::Table(<span class="kw">_</span>) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;Cannot import tables&quot;</span>),
-				ExternType::Global(<span class="kw">_</span>) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;Cannot import globals&quot;</span>),
+				ExternType::Table(<span class="kw">_</span>) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Cannot import tables"</span>),
+				ExternType::Global(<span class="kw">_</span>) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Cannot import globals"</span>),
 				ExternType::Func(<span class="kw">_</span>) =&gt; {
-					<span class="kw">let _ </span>= import.ty().func().ok_or(<span class="string">&quot;expected a function&quot;</span>)<span class="question-mark">?</span>;
+					<span class="kw">let _ </span>= import.ty().func().ok_or(<span class="string">"expected a function"</span>)<span class="question-mark">?</span>;
 
 					<span class="kw">if </span>!&lt;T <span class="kw">as </span>Config&gt;::ChainExtension::enabled() &amp;&amp;
-						(import.name().as_bytes() == <span class="string">b&quot;seal_call_chain_extension&quot; </span>||
-							import.name().as_bytes() == <span class="string">b&quot;call_chain_extension&quot;</span>)
+						(import.name().as_bytes() == <span class="string">b"seal_call_chain_extension" </span>||
+							import.name().as_bytes() == <span class="string">b"call_chain_extension"</span>)
 					{
-						<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;Module uses chain extensions but chain extensions are disabled&quot;</span>)
+						<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Module uses chain extensions but chain extensions are disabled"</span>)
 					}
 				},
 				ExternType::Memory(mt) =&gt; {
 					<span class="kw">if </span>import.module().as_bytes() != IMPORT_MODULE_MEMORY.as_bytes() {
-						<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;Invalid module for imported memory&quot;</span>)
+						<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Invalid module for imported memory"</span>)
 					}
-					<span class="kw">if </span>import.name().as_bytes() != <span class="string">b&quot;memory&quot; </span>{
-						<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;Memory import must have the field name &#39;memory&#39;&quot;</span>)
+					<span class="kw">if </span>import.name().as_bytes() != <span class="string">b"memory" </span>{
+						<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Memory import must have the field name 'memory'"</span>)
 					}
 					<span class="kw">if </span>memory_limits.is_some() {
-						<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;Multiple memory imports defined&quot;</span>)
+						<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Multiple memory imports defined"</span>)
 					}
 					<span class="comment">// Parse memory limits defaulting it to (0,0).
 					// Any access to it will then lead to out of bounds trap.
@@ -1221,11 +1223,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					);
 					<span class="kw">if </span>initial &gt; maximum {
 						<span class="kw">return </span><span class="prelude-val">Err</span>(
-						<span class="string">&quot;Requested initial number of memory pages should not exceed the requested maximum&quot;</span>,
+						<span class="string">"Requested initial number of memory pages should not exceed the requested maximum"</span>,
 					)
 					}
 					<span class="kw">if </span>maximum &gt; schedule.limits.memory_pages {
-						<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;Maximum number of memory pages should not exceed the maximum configured in the Schedule&quot;</span>)
+						<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Maximum number of memory pages should not exceed the maximum configured in the Schedule"</span>)
 					}
 
 					memory_limits = <span class="prelude-val">Some</span>((initial, maximum));
@@ -1234,7 +1236,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			}
 		}
 
-		memory_limits.ok_or(<span class="string">&quot;No memory import found in the module&quot;</span>)
+		memory_limits.ok_or(<span class="string">"No memory import found in the module"</span>)
 	}
 }
 
@@ -1248,15 +1250,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	code: <span class="kw-2">&amp;</span>[u8],
 	schedule: <span class="kw-2">&amp;</span>Schedule&lt;T&gt;,
 	determinism: <span class="kw-2">&amp;mut </span>Determinism,
-) -&gt; <span class="prelude-ty">Result</span>&lt;(), (DispatchError, <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str)&gt;
+) -&gt; <span class="prelude-ty">Result</span>&lt;(), (DispatchError, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str)&gt;
 <span class="kw">where
 	</span>E: Environment&lt;()&gt;,
 	T: Config,
 {
 	<span class="kw">let </span>module = (|| {
-		<span class="comment">// We don&#39;t actually ever execute this instance so we can get away with a minimal stack
+		<span class="comment">// We don't actually ever execute this instance so we can get away with a minimal stack
 		// which reduces the amount of memory that needs to be zeroed.
-		</span><span class="kw">let </span>stack_limits = <span class="prelude-val">Some</span>(StackLimits::new(<span class="number">1</span>, <span class="number">1</span>, <span class="number">0</span>).expect(<span class="string">&quot;initial &lt;= max; qed&quot;</span>));
+		</span><span class="kw">let </span>stack_limits = <span class="prelude-val">Some</span>(StackLimits::new(<span class="number">1</span>, <span class="number">1</span>, <span class="number">0</span>).expect(<span class="string">"initial &lt;= max; qed"</span>));
 
 		<span class="comment">// We check that the module is generally valid,
 		// and does not have restricted WebAssembly features, here.
@@ -1287,18 +1289,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Ok</span>(contract_module)
 	})()
 	.map_err(|msg: <span class="kw-2">&amp;</span>str| {
-		<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;New code rejected on validation: {}&quot;</span>, msg);
+		<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"New code rejected on validation: {}"</span>, msg);
 		(Error::&lt;T&gt;::CodeRejected.into(), msg)
 	})<span class="question-mark">?</span>;
 
 	<span class="comment">// This will make sure that the module can be actually run within wasmi:
 	//
-	// - It doesn&#39;t use any unknown imports.
-	// - It doesn&#39;t explode the wasmi bytecode generation.
+	// - It doesn't use any unknown imports.
+	// - It doesn't explode the wasmi bytecode generation.
 	</span>WasmBlob::&lt;T&gt;::instantiate::&lt;E, <span class="kw">_</span>&gt;(module, (), schedule, AllowDeprecatedInterface::No)
 		.map_err(|err| {
-			<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;{err}&quot;</span>);
-			(Error::&lt;T&gt;::CodeRejected.into(), <span class="string">&quot;New code rejected on wasmi instantiation!&quot;</span>)
+			<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"{err}"</span>);
+			(Error::&lt;T&gt;::CodeRejected.into(), <span class="string">"New code rejected on wasmi instantiation!"</span>)
 		})<span class="question-mark">?</span>;
 
 	<span class="prelude-val">Ok</span>(())
@@ -1306,7 +1308,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Validates the given binary `code` is a valid Wasm module satisfying following constraints:
 ///
-/// - The module doesn&#39;t export any memory.
+/// - The module doesn't export any memory.
 /// - The module does imports memory, which limits lay within the limits permitted by the
 ///   `schedule`.
 /// - All imported functions from the external environment match defined by `env` module.
@@ -1317,7 +1319,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	schedule: <span class="kw-2">&amp;</span>Schedule&lt;T&gt;,
 	owner: AccountIdOf&lt;T&gt;,
 	<span class="kw-2">mut </span>determinism: Determinism,
-) -&gt; <span class="prelude-ty">Result</span>&lt;WasmBlob&lt;T&gt;, (DispatchError, <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str)&gt;
+) -&gt; <span class="prelude-ty">Result</span>&lt;WasmBlob&lt;T&gt;, (DispatchError, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str)&gt;
 <span class="kw">where
 	</span>E: Environment&lt;()&gt;,
 	T: Config,
@@ -1341,7 +1343,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// For benchmarking we need to construct special contracts that might not pass our
 /// sanity checks. We hide functions allowing this behind a feature that is only set during
 /// benchmarking or testing to prevent usage in production code.
-</span><span class="attr">#[cfg(any(test, feature = <span class="string">&quot;runtime-benchmarks&quot;</span>))]
+</span><span class="attr">#[cfg(any(test, feature = <span class="string">"runtime-benchmarks"</span>))]
 </span><span class="kw">pub mod </span>benchmarking {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 
@@ -1383,7 +1385,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">impl </span>fmt::Debug <span class="kw">for </span>WasmBlob&lt;Test&gt; {
 		<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter) -&gt; fmt::Result {
-			<span class="macro">write!</span>(f, <span class="string">&quot;ContractCode {{ .. }}&quot;</span>)
+			<span class="macro">write!</span>(f, <span class="string">"ContractCode {{ .. }}"</span>)
 		}
 	}
 
@@ -1394,14 +1396,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">use </span><span class="kw">crate</span>::wasm::runtime::{AllowDeprecatedInterface, AllowUnstableInterface, TrapReason};
 
 		<span class="comment">// Define test environment for tests. We need ImportSatisfyCheck
-		// implementation from it. So actual implementations doesn&#39;t matter.
+		// implementation from it. So actual implementations doesn't matter.
 		</span><span class="attr">#[define_env]
 		</span><span class="kw">pub mod </span>test_env {
 			<span class="kw">fn </span>panic(_ctx: <span class="kw">_</span>, _memory: <span class="kw">_</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), TrapReason&gt; {
 				<span class="prelude-val">Ok</span>(())
 			}
 
-			<span class="comment">// gas is an implementation defined function and a contract can&#39;t import it.
+			<span class="comment">// gas is an implementation defined function and a contract can't import it.
 			</span><span class="kw">fn </span>gas(_ctx: <span class="kw">_</span>, _memory: <span class="kw">_</span>, _amount: u64) -&gt; <span class="prelude-ty">Result</span>&lt;(), TrapReason&gt; {
 				<span class="prelude-val">Ok</span>(())
 			}
@@ -1443,9 +1445,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="macro">prepare_test!</span>(
 		no_floats,
-		<span class="string">r#&quot;
+		<span class="string">r#"
 		(module
-			(func (export &quot;call&quot;)
+			(func (export "call")
 				(drop
 					(f32.add
 						(f32.const 0)
@@ -1453,9 +1455,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					)
 				)
 			)
-			(func (export &quot;deploy&quot;))
-		)&quot;#</span>,
-		<span class="prelude-val">Err</span>(<span class="string">&quot;Can&#39;t load the module into wasmi!&quot;</span>)
+			(func (export "deploy"))
+		)"#</span>,
+		<span class="prelude-val">Err</span>(<span class="string">"Can't load the module into wasmi!"</span>)
 	);
 
 	<span class="kw">mod </span>memories {
@@ -1463,131 +1465,131 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="macro">prepare_test!</span>(
 			memory_with_one_page,
-			<span class="string">r#&quot;
+			<span class="string">r#"
 			(module
-				(import &quot;env&quot; &quot;memory&quot; (memory 1 1))
+				(import "env" "memory" (memory 1 1))
 
-				(func (export &quot;call&quot;))
-				(func (export &quot;deploy&quot;))
+				(func (export "call"))
+				(func (export "deploy"))
 			)
-			&quot;#</span>,
+			"#</span>,
 			<span class="prelude-val">Ok</span>(<span class="kw">_</span>)
 		);
 
 		<span class="macro">prepare_test!</span>(
 			internal_memory_declaration,
-			<span class="string">r#&quot;
+			<span class="string">r#"
 			(module
 				(memory 1 1)
 
-				(func (export &quot;call&quot;))
-				(func (export &quot;deploy&quot;))
+				(func (export "call"))
+				(func (export "deploy"))
 			)
-			&quot;#</span>,
-			<span class="prelude-val">Err</span>(<span class="string">&quot;No memory import found in the module&quot;</span>)
+			"#</span>,
+			<span class="prelude-val">Err</span>(<span class="string">"No memory import found in the module"</span>)
 		);
 
 		<span class="macro">prepare_test!</span>(
 			no_memory_import,
-			<span class="string">r#&quot;
+			<span class="string">r#"
 			(module
 				;; no memory imported
 
-				(func (export &quot;call&quot;))
-				(func (export &quot;deploy&quot;))
-			)&quot;#</span>,
-			<span class="prelude-val">Err</span>(<span class="string">&quot;No memory import found in the module&quot;</span>)
+				(func (export "call"))
+				(func (export "deploy"))
+			)"#</span>,
+			<span class="prelude-val">Err</span>(<span class="string">"No memory import found in the module"</span>)
 		);
 
 		<span class="macro">prepare_test!</span>(
 			initial_exceeds_maximum,
-			<span class="string">r#&quot;
+			<span class="string">r#"
 			(module
-				(import &quot;env&quot; &quot;memory&quot; (memory 16 1))
+				(import "env" "memory" (memory 16 1))
 
-				(func (export &quot;call&quot;))
-				(func (export &quot;deploy&quot;))
+				(func (export "call"))
+				(func (export "deploy"))
 			)
-			&quot;#</span>,
-			<span class="prelude-val">Err</span>(<span class="string">&quot;Can&#39;t load the module into wasmi!&quot;</span>)
+			"#</span>,
+			<span class="prelude-val">Err</span>(<span class="string">"Can't load the module into wasmi!"</span>)
 		);
 
 		<span class="macro">prepare_test!</span>(
 			requested_maximum_valid,
-			<span class="string">r#&quot;
+			<span class="string">r#"
 			(module
-				(import &quot;env&quot; &quot;memory&quot; (memory 1 16))
+				(import "env" "memory" (memory 1 16))
 
-				(func (export &quot;call&quot;))
-				(func (export &quot;deploy&quot;))
+				(func (export "call"))
+				(func (export "deploy"))
 			)
-			&quot;#</span>,
+			"#</span>,
 			<span class="prelude-val">Ok</span>(<span class="kw">_</span>)
 		);
 
 		<span class="macro">prepare_test!</span>(
 			requested_maximum_exceeds_configured_maximum,
-			<span class="string">r#&quot;
+			<span class="string">r#"
 			(module
-				(import &quot;env&quot; &quot;memory&quot; (memory 1 17))
+				(import "env" "memory" (memory 1 17))
 
-				(func (export &quot;call&quot;))
-				(func (export &quot;deploy&quot;))
+				(func (export "call"))
+				(func (export "deploy"))
 			)
-			&quot;#</span>,
-			<span class="prelude-val">Err</span>(<span class="string">&quot;Maximum number of memory pages should not exceed the maximum configured in the Schedule&quot;</span>)
+			"#</span>,
+			<span class="prelude-val">Err</span>(<span class="string">"Maximum number of memory pages should not exceed the maximum configured in the Schedule"</span>)
 		);
 
 		<span class="macro">prepare_test!</span>(
 			field_name_not_memory,
-			<span class="string">r#&quot;
+			<span class="string">r#"
 			(module
-				(import &quot;env&quot; &quot;forgetit&quot; (memory 1 1))
+				(import "env" "forgetit" (memory 1 1))
 
-				(func (export &quot;call&quot;))
-				(func (export &quot;deploy&quot;))
+				(func (export "call"))
+				(func (export "deploy"))
 			)
-			&quot;#</span>,
-			<span class="prelude-val">Err</span>(<span class="string">&quot;Memory import must have the field name &#39;memory&#39;&quot;</span>)
+			"#</span>,
+			<span class="prelude-val">Err</span>(<span class="string">"Memory import must have the field name 'memory'"</span>)
 		);
 
 		<span class="macro">prepare_test!</span>(
 			multiple_memory_imports,
-			<span class="string">r#&quot;
+			<span class="string">r#"
 			(module
-				(import &quot;env&quot; &quot;memory&quot; (memory 1 1))
-				(import &quot;env&quot; &quot;memory&quot; (memory 1 1))
+				(import "env" "memory" (memory 1 1))
+				(import "env" "memory" (memory 1 1))
 
-				(func (export &quot;call&quot;))
-				(func (export &quot;deploy&quot;))
+				(func (export "call"))
+				(func (export "deploy"))
 			)
-			&quot;#</span>,
-			<span class="prelude-val">Err</span>(<span class="string">&quot;Can&#39;t load the module into wasmi!&quot;</span>)
+			"#</span>,
+			<span class="prelude-val">Err</span>(<span class="string">"Can't load the module into wasmi!"</span>)
 		);
 
 		<span class="macro">prepare_test!</span>(
 			table_import,
-			<span class="string">r#&quot;
+			<span class="string">r#"
 			(module
-				(import &quot;seal0&quot; &quot;table&quot; (table 1 anyfunc))
+				(import "seal0" "table" (table 1 anyfunc))
 
-				(func (export &quot;call&quot;))
-				(func (export &quot;deploy&quot;))
+				(func (export "call"))
+				(func (export "deploy"))
 			)
-			&quot;#</span>,
-			<span class="prelude-val">Err</span>(<span class="string">&quot;Cannot import tables&quot;</span>)
+			"#</span>,
+			<span class="prelude-val">Err</span>(<span class="string">"Cannot import tables"</span>)
 		);
 
 		<span class="macro">prepare_test!</span>(
 			global_import,
-			<span class="string">r#&quot;
+			<span class="string">r#"
 			(module
-				(global $g (import &quot;seal0&quot; &quot;global&quot;) i32)
-				(func (export &quot;call&quot;))
-				(func (export &quot;deploy&quot;))
+				(global $g (import "seal0" "global") i32)
+				(func (export "call"))
+				(func (export "deploy"))
 			)
-			&quot;#</span>,
-			<span class="prelude-val">Err</span>(<span class="string">&quot;Cannot import globals&quot;</span>)
+			"#</span>,
+			<span class="prelude-val">Err</span>(<span class="string">"Cannot import globals"</span>)
 		);
 	}
 
@@ -1596,101 +1598,101 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="macro">prepare_test!</span>(
 			can_import_legit_function,
-			<span class="string">r#&quot;
+			<span class="string">r#"
 			(module
-				(import &quot;seal0&quot; &quot;nop&quot; (func (param i64)))
-				(import &quot;env&quot; &quot;memory&quot; (memory 1 1))
+				(import "seal0" "nop" (func (param i64)))
+				(import "env" "memory" (memory 1 1))
 
-				(func (export &quot;call&quot;))
-				(func (export &quot;deploy&quot;))
+				(func (export "call"))
+				(func (export "deploy"))
 			)
-			&quot;#</span>,
+			"#</span>,
 			<span class="prelude-val">Ok</span>(<span class="kw">_</span>)
 		);
 
-		<span class="comment">// memory is in &quot;env&quot; and not in &quot;seal0&quot;
+		<span class="comment">// memory is in "env" and not in "seal0"
 		</span><span class="macro">prepare_test!</span>(
 			memory_not_in_seal0,
-			<span class="string">r#&quot;
+			<span class="string">r#"
 			(module
-				(import &quot;seal0&quot; &quot;memory&quot; (memory 1 1))
+				(import "seal0" "memory" (memory 1 1))
 
-				(func (export &quot;call&quot;))
-				(func (export &quot;deploy&quot;))
+				(func (export "call"))
+				(func (export "deploy"))
 			)
-			&quot;#</span>,
-			<span class="prelude-val">Err</span>(<span class="string">&quot;Invalid module for imported memory&quot;</span>)
+			"#</span>,
+			<span class="prelude-val">Err</span>(<span class="string">"Invalid module for imported memory"</span>)
 		);
 
-		<span class="comment">// Memory is in &quot;env&quot; and not in some arbitrary module
+		<span class="comment">// Memory is in "env" and not in some arbitrary module
 		</span><span class="macro">prepare_test!</span>(
 			memory_not_in_arbitrary_module,
-			<span class="string">r#&quot;
+			<span class="string">r#"
 			(module
-				(import &quot;any_module&quot; &quot;memory&quot; (memory 1 1))
+				(import "any_module" "memory" (memory 1 1))
 
-				(func (export &quot;call&quot;))
-				(func (export &quot;deploy&quot;))
+				(func (export "call"))
+				(func (export "deploy"))
 			)
-			&quot;#</span>,
-			<span class="prelude-val">Err</span>(<span class="string">&quot;Invalid module for imported memory&quot;</span>)
+			"#</span>,
+			<span class="prelude-val">Err</span>(<span class="string">"Invalid module for imported memory"</span>)
 		);
 
 		<span class="macro">prepare_test!</span>(
 			function_in_other_module_works,
-			<span class="string">r#&quot;
+			<span class="string">r#"
 			(module
-				(import &quot;seal1&quot; &quot;nop&quot; (func (param i32)))
-				(import &quot;env&quot; &quot;memory&quot; (memory 1 1))
+				(import "seal1" "nop" (func (param i32)))
+				(import "env" "memory" (memory 1 1))
 
 
-				(func (export &quot;call&quot;))
-				(func (export &quot;deploy&quot;))
+				(func (export "call"))
+				(func (export "deploy"))
 			)
-			&quot;#</span>,
+			"#</span>,
 			<span class="prelude-val">Ok</span>(<span class="kw">_</span>)
 		);
 
 		<span class="macro">prepare_test!</span>(
 			wrong_signature,
-			<span class="string">r#&quot;
+			<span class="string">r#"
 			(module
-				(import &quot;seal0&quot; &quot;input&quot; (func (param i64)))
-				(import &quot;env&quot; &quot;memory&quot; (memory 1 1))
+				(import "seal0" "input" (func (param i64)))
+				(import "env" "memory" (memory 1 1))
 
-				(func (export &quot;call&quot;))
-				(func (export &quot;deploy&quot;))
+				(func (export "call"))
+				(func (export "deploy"))
 			)
-			&quot;#</span>,
-			<span class="prelude-val">Err</span>(<span class="string">&quot;New code rejected on wasmi instantiation!&quot;</span>)
+			"#</span>,
+			<span class="prelude-val">Err</span>(<span class="string">"New code rejected on wasmi instantiation!"</span>)
 		);
 
 		<span class="macro">prepare_test!</span>(
 			unknown_func_name,
-			<span class="string">r#&quot;
+			<span class="string">r#"
 			(module
-				(import &quot;seal0&quot; &quot;unknown_func&quot; (func))
+				(import "seal0" "unknown_func" (func))
 
-				(func (export &quot;call&quot;))
-				(func (export &quot;deploy&quot;))
+				(func (export "call"))
+				(func (export "deploy"))
 			)
-			&quot;#</span>,
-			<span class="prelude-val">Err</span>(<span class="string">&quot;No memory import found in the module&quot;</span>)
+			"#</span>,
+			<span class="prelude-val">Err</span>(<span class="string">"No memory import found in the module"</span>)
 		);
 
-		<span class="comment">// Try to import function from not a &quot;seal*&quot; module.
+		<span class="comment">// Try to import function from not a "seal*" module.
 		</span><span class="macro">prepare_test!</span>(
 			try_import_from_wrong_module,
-			<span class="string">r#&quot;
+			<span class="string">r#"
 			(module
-				(import &quot;env&quot; &quot;panic&quot; (func))
-				(import &quot;env&quot; &quot;memory&quot; (memory 1 1))
+				(import "env" "panic" (func))
+				(import "env" "memory" (memory 1 1))
 
-				(func (export &quot;call&quot;))
-				(func (export &quot;deploy&quot;))
+				(func (export "call"))
+				(func (export "deploy"))
 			)
-			&quot;#</span>,
-			<span class="prelude-val">Err</span>(<span class="string">&quot;New code rejected on wasmi instantiation!&quot;</span>)
+			"#</span>,
+			<span class="prelude-val">Err</span>(<span class="string">"New code rejected on wasmi instantiation!"</span>)
 		);
 	}
 
@@ -1699,161 +1701,161 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="macro">prepare_test!</span>(
 			it_works,
-			<span class="string">r#&quot;
+			<span class="string">r#"
 			(module
-				(import &quot;env&quot; &quot;memory&quot; (memory 1 1))
-				(func (export &quot;call&quot;))
-				(func (export &quot;deploy&quot;))
+				(import "env" "memory" (memory 1 1))
+				(func (export "call"))
+				(func (export "deploy"))
 			)
-			&quot;#</span>,
+			"#</span>,
 			<span class="prelude-val">Ok</span>(<span class="kw">_</span>)
 		);
 
 		<span class="macro">prepare_test!</span>(
 			signed_extension_works,
-			<span class="string">r#&quot;
+			<span class="string">r#"
 			(module
-				(import &quot;env&quot; &quot;memory&quot; (memory 1 1))
-				(func (export &quot;deploy&quot;))
-				(func (export &quot;call&quot;))
+				(import "env" "memory" (memory 1 1))
+				(func (export "deploy"))
+				(func (export "call"))
 				(func (param i32) (result i32)
 					local.get 0
 					i32.extend8_s
 				)
 			)
-			&quot;#</span>,
+			"#</span>,
 			<span class="prelude-val">Ok</span>(<span class="kw">_</span>)
 		);
 
 		<span class="macro">prepare_test!</span>(
 			omit_memory,
-			<span class="string">r#&quot;
+			<span class="string">r#"
 			(module
-				(func (export &quot;call&quot;))
-				(func (export &quot;deploy&quot;))
+				(func (export "call"))
+				(func (export "deploy"))
 			)
-			&quot;#</span>,
-			<span class="prelude-val">Err</span>(<span class="string">&quot;No memory import found in the module&quot;</span>)
+			"#</span>,
+			<span class="prelude-val">Err</span>(<span class="string">"No memory import found in the module"</span>)
 		);
 
 		<span class="macro">prepare_test!</span>(
 			omit_deploy,
-			<span class="string">r#&quot;
+			<span class="string">r#"
 			(module
-				(func (export &quot;call&quot;))
+				(func (export "call"))
 			)
-			&quot;#</span>,
-			<span class="prelude-val">Err</span>(<span class="string">&quot;deploy function isn&#39;t exported&quot;</span>)
+			"#</span>,
+			<span class="prelude-val">Err</span>(<span class="string">"deploy function isn't exported"</span>)
 		);
 
 		<span class="macro">prepare_test!</span>(
 			omit_call,
-			<span class="string">r#&quot;
+			<span class="string">r#"
 			(module
-				(func (export &quot;deploy&quot;))
+				(func (export "deploy"))
 			)
-			&quot;#</span>,
-			<span class="prelude-val">Err</span>(<span class="string">&quot;call function isn&#39;t exported&quot;</span>)
+			"#</span>,
+			<span class="prelude-val">Err</span>(<span class="string">"call function isn't exported"</span>)
 		);
 
 		<span class="comment">// Try to use imported function as an entry point.
 		// This is allowed.
 		</span><span class="macro">prepare_test!</span>(
 			try_sneak_export_as_entrypoint,
-			<span class="string">r#&quot;
+			<span class="string">r#"
 			(module
-				(import &quot;seal0&quot; &quot;panic&quot; (func))
-				(import &quot;env&quot; &quot;memory&quot; (memory 1 1))
+				(import "seal0" "panic" (func))
+				(import "env" "memory" (memory 1 1))
 
-				(func (export &quot;deploy&quot;))
+				(func (export "deploy"))
 
-				(export &quot;call&quot; (func 0))
+				(export "call" (func 0))
 			)
-			&quot;#</span>,
+			"#</span>,
 			<span class="prelude-val">Ok</span>(<span class="kw">_</span>)
 		);
 
 		<span class="comment">// Try to use global as an entry point.
 		</span><span class="macro">prepare_test!</span>(
 			try_sneak_export_as_global,
-			<span class="string">r#&quot;
+			<span class="string">r#"
 			(module
-				(func (export &quot;deploy&quot;))
-				(global (export &quot;call&quot;) i32 (i32.const 0))
+				(func (export "deploy"))
+				(global (export "call") i32 (i32.const 0))
 			)
-			&quot;#</span>,
-			<span class="prelude-val">Err</span>(<span class="string">&quot;global export is forbidden&quot;</span>)
+			"#</span>,
+			<span class="prelude-val">Err</span>(<span class="string">"global export is forbidden"</span>)
 		);
 
 		<span class="macro">prepare_test!</span>(
 			wrong_signature,
-			<span class="string">r#&quot;
+			<span class="string">r#"
 			(module
-				(func (export &quot;deploy&quot;))
-				(func (export &quot;call&quot;) (param i32))
+				(func (export "deploy"))
+				(func (export "call") (param i32))
 			)
-			&quot;#</span>,
-			<span class="prelude-val">Err</span>(<span class="string">&quot;entry point has wrong signature&quot;</span>)
+			"#</span>,
+			<span class="prelude-val">Err</span>(<span class="string">"entry point has wrong signature"</span>)
 		);
 
 		<span class="macro">prepare_test!</span>(
 			unknown_exports,
-			<span class="string">r#&quot;
+			<span class="string">r#"
 			(module
-				(func (export &quot;call&quot;))
-				(func (export &quot;deploy&quot;))
-				(func (export &quot;whatevs&quot;))
+				(func (export "call"))
+				(func (export "deploy"))
+				(func (export "whatevs"))
 			)
-			&quot;#</span>,
-			<span class="prelude-val">Err</span>(<span class="string">&quot;unknown function export: expecting only deploy and call functions&quot;</span>)
+			"#</span>,
+			<span class="prelude-val">Err</span>(<span class="string">"unknown function export: expecting only deploy and call functions"</span>)
 		);
 
 		<span class="macro">prepare_test!</span>(
 			global_float,
-			<span class="string">r#&quot;
+			<span class="string">r#"
 			(module
 				(global $x f32 (f32.const 0))
-				(func (export &quot;call&quot;))
-				(func (export &quot;deploy&quot;))
+				(func (export "call"))
+				(func (export "deploy"))
 			)
-			&quot;#</span>,
-			<span class="prelude-val">Err</span>(<span class="string">&quot;Can&#39;t load the module into wasmi!&quot;</span>)
+			"#</span>,
+			<span class="prelude-val">Err</span>(<span class="string">"Can't load the module into wasmi!"</span>)
 		);
 
 		<span class="macro">prepare_test!</span>(
 			local_float,
-			<span class="string">r#&quot;
+			<span class="string">r#"
 			(module
 				(func $foo (local f32))
-				(func (export &quot;call&quot;))
-				(func (export &quot;deploy&quot;))
+				(func (export "call"))
+				(func (export "deploy"))
 			)
-			&quot;#</span>,
-			<span class="prelude-val">Err</span>(<span class="string">&quot;Can&#39;t load the module into wasmi!&quot;</span>)
+			"#</span>,
+			<span class="prelude-val">Err</span>(<span class="string">"Can't load the module into wasmi!"</span>)
 		);
 
 		<span class="macro">prepare_test!</span>(
 			param_float,
-			<span class="string">r#&quot;
+			<span class="string">r#"
 			(module
 				(func $foo (param f32))
-				(func (export &quot;call&quot;))
-				(func (export &quot;deploy&quot;))
+				(func (export "call"))
+				(func (export "deploy"))
 			)
-			&quot;#</span>,
-			<span class="prelude-val">Err</span>(<span class="string">&quot;Can&#39;t load the module into wasmi!&quot;</span>)
+			"#</span>,
+			<span class="prelude-val">Err</span>(<span class="string">"Can't load the module into wasmi!"</span>)
 		);
 
 		<span class="macro">prepare_test!</span>(
 			result_float,
-			<span class="string">r#&quot;
+			<span class="string">r#"
 			(module
 				(func $foo (result f32) (f32.const 0))
-				(func (export &quot;call&quot;))
-				(func (export &quot;deploy&quot;))
+				(func (export "call"))
+				(func (export "deploy"))
 			)
-			&quot;#</span>,
-			<span class="prelude-val">Err</span>(<span class="string">&quot;Can&#39;t load the module into wasmi!&quot;</span>)
+			"#</span>,
+			<span class="prelude-val">Err</span>(<span class="string">"Can't load the module into wasmi!"</span>)
 		);
 	}
 }

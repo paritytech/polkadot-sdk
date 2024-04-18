@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/runtime/src/generic/unchecked_extrinsic.rs`."><title>unchecked_extrinsic.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/runtime/src/generic/unchecked_extrinsic.rs`."><title>unchecked_extrinsic.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sp_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sp_runtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../sp_runtime/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -719,14 +721,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -745,7 +747,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>codec::{Compact, Decode, Encode, EncodeLike, Error, Input};
 <span class="kw">use </span>scale_info::{build::Fields, meta_type, Path, StaticTypeInfo, Type, TypeInfo, TypeParameter};
 <span class="kw">use </span>sp_io::hashing::blake2_256;
-<span class="attr">#[cfg(all(not(feature = <span class="string">&quot;std&quot;</span>), feature = <span class="string">&quot;serde&quot;</span>))]
+<span class="attr">#[cfg(all(not(feature = <span class="string">"std"</span>), feature = <span class="string">"serde"</span>))]
 </span><span class="kw">use </span>sp_std::alloc::format;
 <span class="kw">use </span>sp_std::{fmt, prelude::<span class="kw-2">*</span>};
 
@@ -765,7 +767,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// the runtime and fed into the runtime as a part of the block-body.
 ///
 /// Inherents are special types of extrinsics that are placed into the block by the block-builder.
-/// They are unsigned because the assertion is that they are &quot;inherently true&quot; by virtue of getting
+/// They are unsigned because the assertion is that they are "inherently true" by virtue of getting
 /// past all validators.
 ///
 /// Transactions are all other statements provided by external entities that the chain deems values
@@ -773,7 +775,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// could in principle be any other interaction. Transactions are either signed or unsigned. A
 /// sensible transaction pool should ensure that only transactions that are worthwhile are
 /// considered for block-building.
-</span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, doc = <span class="macro">simple_mermaid::mermaid!</span>(<span class="string">&quot;../../docs/mermaid/extrinsics.mmd&quot;</span>))]
+</span><span class="attr">#[cfg_attr(feature = <span class="string">"std"</span>, doc = <span class="macro">simple_mermaid::mermaid!</span>(<span class="string">"../../docs/mermaid/extrinsics.mmd"</span>))]
 </span><span class="doccomment">/// This type is by no means enforced within Substrate, but given its genericness, it is highly
 /// likely that for most use-cases it will suffice. Thus, the encoding of this type will dictate
 /// exactly what bytes should be sent to a runtime to transact with it.
@@ -819,17 +821,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">fn </span>type_info() -&gt; Type {
 		Type::builder()
-			.path(Path::new(<span class="string">&quot;UncheckedExtrinsic&quot;</span>, <span class="macro">module_path!</span>()))
+			.path(Path::new(<span class="string">"UncheckedExtrinsic"</span>, <span class="macro">module_path!</span>()))
 			<span class="comment">// Include the type parameter types, even though they are not used directly in any of
 			// the described fields. These type definitions can be used by downstream consumers
 			// to help construct the custom decoding from the opaque bytes (see below).
 			</span>.type_params(<span class="macro">vec!</span>[
-				TypeParameter::new(<span class="string">&quot;Address&quot;</span>, <span class="prelude-val">Some</span>(meta_type::&lt;Address&gt;())),
-				TypeParameter::new(<span class="string">&quot;Call&quot;</span>, <span class="prelude-val">Some</span>(meta_type::&lt;Call&gt;())),
-				TypeParameter::new(<span class="string">&quot;Signature&quot;</span>, <span class="prelude-val">Some</span>(meta_type::&lt;Signature&gt;())),
-				TypeParameter::new(<span class="string">&quot;Extra&quot;</span>, <span class="prelude-val">Some</span>(meta_type::&lt;Extra&gt;())),
+				TypeParameter::new(<span class="string">"Address"</span>, <span class="prelude-val">Some</span>(meta_type::&lt;Address&gt;())),
+				TypeParameter::new(<span class="string">"Call"</span>, <span class="prelude-val">Some</span>(meta_type::&lt;Call&gt;())),
+				TypeParameter::new(<span class="string">"Signature"</span>, <span class="prelude-val">Some</span>(meta_type::&lt;Signature&gt;())),
+				TypeParameter::new(<span class="string">"Extra"</span>, <span class="prelude-val">Some</span>(meta_type::&lt;Extra&gt;())),
 			])
-			.docs(<span class="kw-2">&amp;</span>[<span class="string">&quot;UncheckedExtrinsic raw bytes, requires custom decoding routine&quot;</span>])
+			.docs(<span class="kw-2">&amp;</span>[<span class="string">"UncheckedExtrinsic raw bytes, requires custom decoding routine"</span>])
 			<span class="comment">// Because of the custom encoding, we can only accurately describe the encoding as an
 			// opaque `Vec&lt;u8&gt;`. Downstream consumers will need to manually implement the codec to
 			// encode/decode the `signature` and `function` fields.
@@ -840,12 +842,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl</span>&lt;Address, Call, Signature, Extra: SignedExtension&gt;
 	UncheckedExtrinsic&lt;Address, Call, Signature, Extra&gt;
 {
-	<span class="doccomment">/// New instance of a signed extrinsic aka &quot;transaction&quot;.
+	<span class="doccomment">/// New instance of a signed extrinsic aka "transaction".
 	</span><span class="kw">pub fn </span>new_signed(function: Call, signed: Address, signature: Signature, extra: Extra) -&gt; <span class="self">Self </span>{
 		<span class="self">Self </span>{ signature: <span class="prelude-val">Some</span>((signed, signature, extra)), function }
 	}
 
-	<span class="doccomment">/// New instance of an unsigned extrinsic aka &quot;inherent&quot;.
+	<span class="doccomment">/// New instance of an unsigned extrinsic aka "inherent".
 	</span><span class="kw">pub fn </span>new_unsigned(function: Call) -&gt; <span class="self">Self </span>{
 		<span class="self">Self </span>{ signature: <span class="prelude-val">None</span>, function }
 	}
@@ -900,7 +902,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		})
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 	</span><span class="kw">fn </span>unchecked_into_checked_i_know_what_i_am_doing(
 		<span class="self">self</span>,
 		lookup: <span class="kw-2">&amp;</span>Lookup,
@@ -952,7 +954,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">Self</span>((call, extra, additional_signed))
 	}
 
-	<span class="doccomment">/// Deconstruct the payload into it&#39;s components.
+	<span class="doccomment">/// Deconstruct the payload into it's components.
 	</span><span class="kw">pub fn </span>deconstruct(<span class="self">self</span>) -&gt; (Call, Extra, Extra::AdditionalSigned) {
 		<span class="self">self</span>.<span class="number">0
 	</span>}
@@ -993,7 +995,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 {
 	<span class="kw">fn </span>decode&lt;I: Input&gt;(input: <span class="kw-2">&amp;mut </span>I) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, Error&gt; {
 		<span class="comment">// This is a little more complicated than usual since the binary format must be compatible
-		// with SCALE&#39;s generic `Vec&lt;u8&gt;` type. Basically this just means accepting that there
+		// with SCALE's generic `Vec&lt;u8&gt;` type. Basically this just means accepting that there
 		// will be a prefix of vector length.
 		</span><span class="kw">let </span>expected_length: Compact&lt;u32&gt; = Decode::decode(input)<span class="question-mark">?</span>;
 		<span class="kw">let </span>before_length = input.remaining_len()<span class="question-mark">?</span>;
@@ -1003,7 +1005,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>is_signed = version &amp; <span class="number">0b1000_0000 </span>!= <span class="number">0</span>;
 		<span class="kw">let </span>version = version &amp; <span class="number">0b0111_1111</span>;
 		<span class="kw">if </span>version != EXTRINSIC_FORMAT_VERSION {
-			<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;Invalid transaction version&quot;</span>.into())
+			<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Invalid transaction version"</span>.into())
 		}
 
 		<span class="kw">let </span>signature = is_signed.then(|| Decode::decode(input)).transpose()<span class="question-mark">?</span>;
@@ -1015,7 +1017,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>length = before_length.saturating_sub(after_length);
 
 			<span class="kw">if </span>length != expected_length.<span class="number">0 </span><span class="kw">as </span>usize {
-				<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;Invalid length prefix&quot;</span>.into())
+				<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Invalid length prefix"</span>.into())
 			}
 		}
 
@@ -1068,7 +1070,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 {
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;serde&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"serde"</span>)]
 </span><span class="kw">impl</span>&lt;Address: Encode, Signature: Encode, Call: Encode, Extra: SignedExtension&gt; serde::Serialize
 	<span class="kw">for </span>UncheckedExtrinsic&lt;Address, Call, Signature, Extra&gt;
 {
@@ -1080,17 +1082,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;serde&quot;</span>)]
-</span><span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, Address: Decode, Signature: Decode, Call: Decode, Extra: SignedExtension&gt;
-	serde::Deserialize&lt;<span class="lifetime">&#39;a</span>&gt; <span class="kw">for </span>UncheckedExtrinsic&lt;Address, Call, Signature, Extra&gt;
+<span class="attr">#[cfg(feature = <span class="string">"serde"</span>)]
+</span><span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, Address: Decode, Signature: Decode, Call: Decode, Extra: SignedExtension&gt;
+	serde::Deserialize&lt;<span class="lifetime">'a</span>&gt; <span class="kw">for </span>UncheckedExtrinsic&lt;Address, Call, Signature, Extra&gt;
 {
 	<span class="kw">fn </span>deserialize&lt;D&gt;(de: D) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, D::Error&gt;
 	<span class="kw">where
-		</span>D: serde::Deserializer&lt;<span class="lifetime">&#39;a</span>&gt;,
+		</span>D: serde::Deserializer&lt;<span class="lifetime">'a</span>&gt;,
 	{
 		<span class="kw">let </span>r = sp_core::bytes::deserialize(de)<span class="question-mark">?</span>;
 		Decode::decode(<span class="kw-2">&amp;mut &amp;</span>r[..])
-			.map_err(|e| serde::de::Error::custom(<span class="macro">format!</span>(<span class="string">&quot;Decode error: {}&quot;</span>, e)))
+			.map_err(|e| serde::de::Error::custom(<span class="macro">format!</span>(<span class="string">"Decode error: {}"</span>, e)))
 	}
 }
 
@@ -1104,7 +1106,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter) -&gt; fmt::Result {
 		<span class="macro">write!</span>(
 			f,
-			<span class="string">&quot;UncheckedExtrinsic({:?}, {:?})&quot;</span>,
+			<span class="string">"UncheckedExtrinsic({:?}, {:?})"</span>,
 			<span class="self">self</span>.signature.as_ref().map(|x| (<span class="kw-2">&amp;</span>x.<span class="number">0</span>, <span class="kw-2">&amp;</span>x.<span class="number">2</span>)),
 			<span class="self">self</span>.function,
 		)
@@ -1121,8 +1123,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 {
 	<span class="kw">fn </span>from(extrinsic: UncheckedExtrinsic&lt;Address, Call, Signature, Extra&gt;) -&gt; <span class="self">Self </span>{
 		<span class="self">Self</span>::from_bytes(extrinsic.encode().as_slice()).expect(
-			<span class="string">&quot;both OpaqueExtrinsic and UncheckedExtrinsic have encoding that is compatible with \
-				raw Vec&lt;u8&gt; encoding; qed&quot;</span>,
+			<span class="string">"both OpaqueExtrinsic and UncheckedExtrinsic have encoding that is compatible with \
+				raw Vec&lt;u8&gt; encoding; qed"</span>,
 		)
 	}
 }
@@ -1147,7 +1149,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="attr">#[derive(Debug, Encode, Decode, Clone, Eq, PartialEq, Ord, PartialOrd, TypeInfo)]
 	</span><span class="kw">struct </span>TestExtra;
 	<span class="kw">impl </span>SignedExtension <span class="kw">for </span>TestExtra {
-		<span class="kw">const </span>IDENTIFIER: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;TestExtra&quot;</span>;
+		<span class="kw">const </span>IDENTIFIER: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"TestExtra"</span>;
 		<span class="kw">type </span>AccountId = u64;
 		<span class="kw">type </span>Call = ();
 		<span class="kw">type </span>AdditionalSigned = ();
@@ -1186,7 +1188,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>length = Compact::&lt;u32&gt;::decode(<span class="kw-2">&amp;mut &amp;</span>encoded[..]).unwrap();
 		Compact(length.<span class="number">0 </span>+ <span class="number">10</span>).encode_to(<span class="kw-2">&amp;mut &amp;mut </span>encoded[..<span class="number">1</span>]);
 
-		<span class="macro">assert_eq!</span>(Ex::decode(<span class="kw-2">&amp;mut &amp;</span>encoded[..]), <span class="prelude-val">Err</span>(<span class="string">&quot;Invalid length prefix&quot;</span>.into()));
+		<span class="macro">assert_eq!</span>(Ex::decode(<span class="kw-2">&amp;mut &amp;</span>encoded[..]), <span class="prelude-val">Err</span>(<span class="string">"Invalid length prefix"</span>.into()));
 	}
 
 	<span class="attr">#[test]
@@ -1277,7 +1279,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>encoded = Compact::&lt;u32&gt;::from(u32::MAX).encode();
 		<span class="macro">assert_eq!</span>(
 			Ex::decode(<span class="kw-2">&amp;mut &amp;</span>encoded[..]),
-			<span class="prelude-val">Err</span>(Error::from(<span class="string">&quot;Not enough data to fill buffer&quot;</span>))
+			<span class="prelude-val">Err</span>(Error::from(<span class="string">"Not enough data to fill buffer"</span>))
 		);
 	}
 }

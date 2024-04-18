@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/elections-phragmen/src/benchmarking.rs`."><title>benchmarking.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/elections-phragmen/src/benchmarking.rs`."><title>benchmarking.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_elections_phragmen" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_elections_phragmen" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../pallet_elections_phragmen/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -582,21 +584,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
 </span><span class="doccomment">//! Elections-Phragmen pallet benchmarking.
 
-</span><span class="attr">#![cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+</span><span class="attr">#![cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 
 </span><span class="kw">use super</span>::<span class="kw-2">*</span>;
 
@@ -609,7 +611,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">const </span>BALANCE_FACTOR: u32 = <span class="number">250</span>;
 
 <span class="doccomment">/// grab new account with infinite balance.
-</span><span class="kw">fn </span>endowed_account&lt;T: Config&gt;(name: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str, index: u32) -&gt; T::AccountId {
+</span><span class="kw">fn </span>endowed_account&lt;T: Config&gt;(name: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str, index: u32) -&gt; T::AccountId {
 	<span class="kw">let </span>account: T::AccountId = account(name, index, <span class="number">0</span>);
 	<span class="comment">// Fund each account with at-least their stake but still a sane amount as to not mess up
 	// the vote calculation.
@@ -627,7 +629,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	T::Lookup::unlookup(account)
 }
 
-<span class="doccomment">/// Get a reasonable amount of stake based on the execution trait&#39;s configuration
+<span class="doccomment">/// Get a reasonable amount of stake based on the execution trait's configuration
 </span><span class="kw">fn </span>default_stake&lt;T: Config&gt;(num_votes: u32) -&gt; BalanceOf&lt;T&gt; {
 	<span class="kw">let </span>min = T::Currency::minimum_balance();
 	Elections::&lt;T&gt;::deposit_of(num_votes <span class="kw">as </span>usize).max(min)
@@ -641,8 +643,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Add `c` new candidates.
 </span><span class="kw">fn </span>submit_candidates&lt;T: Config&gt;(
 	c: u32,
-	prefix: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
-) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;T::AccountId&gt;, <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; {
+	prefix: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
+) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;T::AccountId&gt;, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
 	(<span class="number">0</span>..c)
 		.map(|i| {
 			<span class="kw">let </span>account = endowed_account::&lt;T&gt;(prefix, i);
@@ -650,7 +652,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				RawOrigin::Signed(account.clone()).into(),
 				candidate_count::&lt;T&gt;(),
 			)
-			.map_err(|<span class="kw">_</span>| <span class="string">&quot;failed to submit candidacy&quot;</span>)<span class="question-mark">?</span>;
+			.map_err(|<span class="kw">_</span>| <span class="string">"failed to submit candidacy"</span>)<span class="question-mark">?</span>;
 			<span class="prelude-val">Ok</span>(account)
 		})
 		.collect::&lt;<span class="prelude-ty">Result</span>&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;()
@@ -659,8 +661,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Add `c` new candidates with self vote.
 </span><span class="kw">fn </span>submit_candidates_with_self_vote&lt;T: Config&gt;(
 	c: u32,
-	prefix: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
-) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;T::AccountId&gt;, <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; {
+	prefix: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
+) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;T::AccountId&gt;, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
 	<span class="kw">let </span>candidates = submit_candidates::&lt;T&gt;(c, prefix)<span class="question-mark">?</span>;
 	<span class="kw">let </span>stake = default_stake::&lt;T&gt;(c);
 	<span class="kw">let _ </span>= candidates
@@ -684,13 +686,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw-2">mut </span>all_candidates: Vec&lt;T::AccountId&gt;,
 	num_voters: u32,
 	votes: usize,
-) -&gt; <span class="prelude-ty">Result</span>&lt;(), <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; {
+) -&gt; <span class="prelude-ty">Result</span>&lt;(), <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
 	<span class="kw">let </span>stake = default_stake::&lt;T&gt;(num_voters);
 	<span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..num_voters {
 		<span class="comment">// to ensure that votes are different
 		</span>all_candidates.rotate_left(<span class="number">1</span>);
 		<span class="kw">let </span>votes = all_candidates.iter().cloned().take(votes).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
-		<span class="kw">let </span>voter = endowed_account::&lt;T&gt;(<span class="string">&quot;voter&quot;</span>, i);
+		<span class="kw">let </span>voter = endowed_account::&lt;T&gt;(<span class="string">"voter"</span>, i);
 		submit_voter::&lt;T&gt;(voter, votes, stake)<span class="question-mark">?</span>;
 	}
 	<span class="prelude-val">Ok</span>(())
@@ -698,15 +700,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Fill the seats of members and runners-up up until `m`. Note that this might include either only
 /// members, or members and runners-up.
-</span><span class="kw">fn </span>fill_seats_up_to&lt;T: Config&gt;(m: u32) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;T::AccountId&gt;, <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; {
-	<span class="kw">let _ </span>= submit_candidates_with_self_vote::&lt;T&gt;(m, <span class="string">&quot;fill_seats_up_to&quot;</span>)<span class="question-mark">?</span>;
-	<span class="macro">assert_eq!</span>(&lt;Elections&lt;T&gt;&gt;::candidates().len() <span class="kw">as </span>u32, m, <span class="string">&quot;wrong number of candidates.&quot;</span>);
+</span><span class="kw">fn </span>fill_seats_up_to&lt;T: Config&gt;(m: u32) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;T::AccountId&gt;, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
+	<span class="kw">let _ </span>= submit_candidates_with_self_vote::&lt;T&gt;(m, <span class="string">"fill_seats_up_to"</span>)<span class="question-mark">?</span>;
+	<span class="macro">assert_eq!</span>(&lt;Elections&lt;T&gt;&gt;::candidates().len() <span class="kw">as </span>u32, m, <span class="string">"wrong number of candidates."</span>);
 	&lt;Elections&lt;T&gt;&gt;::do_phragmen();
-	<span class="macro">assert_eq!</span>(&lt;Elections&lt;T&gt;&gt;::candidates().len(), <span class="number">0</span>, <span class="string">&quot;some candidates remaining.&quot;</span>);
+	<span class="macro">assert_eq!</span>(&lt;Elections&lt;T&gt;&gt;::candidates().len(), <span class="number">0</span>, <span class="string">"some candidates remaining."</span>);
 	<span class="macro">assert_eq!</span>(
 		&lt;Elections&lt;T&gt;&gt;::members().len() + &lt;Elections&lt;T&gt;&gt;::runners_up().len(),
 		m <span class="kw">as </span>usize,
-		<span class="string">&quot;wrong number of members and runners-up&quot;</span>,
+		<span class="string">"wrong number of members and runners-up"</span>,
 	);
 	<span class="prelude-val">Ok</span>(&lt;Elections&lt;T&gt;&gt;::members()
 		.into_iter()
@@ -731,9 +733,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		clean::&lt;T&gt;();
 
 		<span class="comment">// create a bunch of candidates.
-		</span><span class="kw">let </span>all_candidates = submit_candidates::&lt;T&gt;(v, <span class="string">&quot;candidates&quot;</span>)<span class="question-mark">?</span>;
+		</span><span class="kw">let </span>all_candidates = submit_candidates::&lt;T&gt;(v, <span class="string">"candidates"</span>)<span class="question-mark">?</span>;
 
-		<span class="kw">let </span>caller = endowed_account::&lt;T&gt;(<span class="string">&quot;caller&quot;</span>, <span class="number">0</span>);
+		<span class="kw">let </span>caller = endowed_account::&lt;T&gt;(<span class="string">"caller"</span>, <span class="number">0</span>);
 		<span class="kw">let </span>stake = default_stake::&lt;T&gt;(v);
 
 		<span class="comment">// original votes.
@@ -751,9 +753,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		clean::&lt;T&gt;();
 
 		<span class="comment">// create a bunch of candidates.
-		</span><span class="kw">let </span>all_candidates = submit_candidates::&lt;T&gt;(v, <span class="string">&quot;candidates&quot;</span>)<span class="question-mark">?</span>;
+		</span><span class="kw">let </span>all_candidates = submit_candidates::&lt;T&gt;(v, <span class="string">"candidates"</span>)<span class="question-mark">?</span>;
 
-		<span class="kw">let </span>caller = endowed_account::&lt;T&gt;(<span class="string">&quot;caller&quot;</span>, <span class="number">0</span>);
+		<span class="kw">let </span>caller = endowed_account::&lt;T&gt;(<span class="string">"caller"</span>, <span class="number">0</span>);
 		<span class="comment">// Multiply the stake with 10 since we want to be able to divide it by 10 again.
 		</span><span class="kw">let </span>stake = default_stake::&lt;T&gt;(v) * BalanceOf::&lt;T&gt;::from(<span class="number">10u32</span>);
 
@@ -773,9 +775,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		clean::&lt;T&gt;();
 
 		<span class="comment">// create a bunch of candidates.
-		</span><span class="kw">let </span>all_candidates = submit_candidates::&lt;T&gt;(v, <span class="string">&quot;candidates&quot;</span>)<span class="question-mark">?</span>;
+		</span><span class="kw">let </span>all_candidates = submit_candidates::&lt;T&gt;(v, <span class="string">"candidates"</span>)<span class="question-mark">?</span>;
 
-		<span class="kw">let </span>caller = endowed_account::&lt;T&gt;(<span class="string">&quot;caller&quot;</span>, <span class="number">0</span>);
+		<span class="kw">let </span>caller = endowed_account::&lt;T&gt;(<span class="string">"caller"</span>, <span class="number">0</span>);
 		<span class="kw">let </span>stake = default_stake::&lt;T&gt;(v);
 
 		<span class="comment">// original votes.
@@ -795,9 +797,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		clean::&lt;T&gt;();
 
 		<span class="comment">// create a bunch of candidates.
-		</span><span class="kw">let </span>all_candidates = submit_candidates::&lt;T&gt;(v, <span class="string">&quot;candidates&quot;</span>)<span class="question-mark">?</span>;
+		</span><span class="kw">let </span>all_candidates = submit_candidates::&lt;T&gt;(v, <span class="string">"candidates"</span>)<span class="question-mark">?</span>;
 
-		<span class="kw">let </span>caller = endowed_account::&lt;T&gt;(<span class="string">&quot;caller&quot;</span>, <span class="number">0</span>);
+		<span class="kw">let </span>caller = endowed_account::&lt;T&gt;(<span class="string">"caller"</span>, <span class="number">0</span>);
 
 		<span class="kw">let </span>stake = default_stake::&lt;T&gt;(v);
 		submit_voter::&lt;T&gt;(caller.clone(), all_candidates, stake)<span class="question-mark">?</span>;
@@ -808,7 +810,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	submit_candidacy {
 		<span class="comment">// number of already existing candidates.
 		</span><span class="kw">let </span>c <span class="kw">in </span><span class="number">1 </span>.. T::MaxCandidates::get();
-		<span class="comment">// we fix the number of members to the number of desired members and runners-up. We&#39;ll be in
+		<span class="comment">// we fix the number of members to the number of desired members and runners-up. We'll be in
 		// this state almost always.
 		</span><span class="kw">let </span>m = T::DesiredMembers::get() + T::DesiredRunnersUp::get();
 
@@ -819,10 +821,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">let _ </span>= fill_seats_up_to::&lt;T&gt;(m)<span class="question-mark">?</span>;
 
 		<span class="comment">// create previous candidates;
-		</span><span class="kw">let _ </span>= submit_candidates::&lt;T&gt;(c, <span class="string">&quot;candidates&quot;</span>)<span class="question-mark">?</span>;
+		</span><span class="kw">let _ </span>= submit_candidates::&lt;T&gt;(c, <span class="string">"candidates"</span>)<span class="question-mark">?</span>;
 
 		<span class="comment">// we assume worse case that: extrinsic is successful and candidate is not duplicate.
-		</span><span class="kw">let </span>candidate_account = endowed_account::&lt;T&gt;(<span class="string">&quot;caller&quot;</span>, <span class="number">0</span>);
+		</span><span class="kw">let </span>candidate_account = endowed_account::&lt;T&gt;(<span class="string">"caller"</span>, <span class="number">0</span>);
 		<span class="macro">whitelist!</span>(candidate_account);
 	}: <span class="kw">_</span>(RawOrigin::Signed(candidate_account.clone()), candidate_count::&lt;T&gt;())
 	verify {
@@ -839,7 +841,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		// limited by the runtime bound, nonetheless we fill them by `m`.
 		// number of already existing candidates.
 		</span><span class="kw">let </span>c <span class="kw">in </span><span class="number">1 </span>.. T::MaxCandidates::get();
-		<span class="comment">// we fix the number of members to the number of desired members and runners-up. We&#39;ll be in
+		<span class="comment">// we fix the number of members to the number of desired members and runners-up. We'll be in
 		// this state almost always.
 		</span><span class="kw">let </span>m = T::DesiredMembers::get() + T::DesiredRunnersUp::get();
 
@@ -847,9 +849,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// create m members and runners combined.
 		</span><span class="kw">let _ </span>= fill_seats_up_to::&lt;T&gt;(m)<span class="question-mark">?</span>;
-		<span class="kw">let </span>all_candidates = submit_candidates::&lt;T&gt;(c, <span class="string">&quot;caller&quot;</span>)<span class="question-mark">?</span>;
+		<span class="kw">let </span>all_candidates = submit_candidates::&lt;T&gt;(c, <span class="string">"caller"</span>)<span class="question-mark">?</span>;
 
-		<span class="kw">let </span>bailing = all_candidates[<span class="number">0</span>].clone(); <span class="comment">// Should be (&quot;caller&quot;, 0)
+		<span class="kw">let </span>bailing = all_candidates[<span class="number">0</span>].clone(); <span class="comment">// Should be ("caller", 0)
 		</span><span class="kw">let </span>count = candidate_count::&lt;T&gt;();
 		<span class="macro">whitelist!</span>(bailing);
 	}: renounce_candidacy(RawOrigin::Signed(bailing), Renouncing::Candidate(count))
@@ -864,7 +866,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	renounce_candidacy_members {
 		<span class="comment">// removing members and runners will be cheaper than a candidate.
-		// we fix the number of members to when members and runners-up to the desired. We&#39;ll be in
+		// we fix the number of members to when members and runners-up to the desired. We'll be in
 		// this state almost always.
 		</span><span class="kw">let </span>m = T::DesiredMembers::get() + T::DesiredRunnersUp::get();
 		clean::&lt;T&gt;();
@@ -888,7 +890,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	renounce_candidacy_runners_up {
 		<span class="comment">// removing members and runners will be cheaper than a candidate.
-		// we fix the number of members to when members and runners-up to the desired. We&#39;ll be in
+		// we fix the number of members to when members and runners-up to the desired. We'll be in
 		// this state almost always.
 		</span><span class="kw">let </span>m = T::DesiredMembers::get() + T::DesiredRunnersUp::get();
 		clean::&lt;T&gt;();
@@ -946,7 +948,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// remove any previous stuff.
 		</span>clean::&lt;T&gt;();
 
-		<span class="kw">let </span>all_candidates = submit_candidates::&lt;T&gt;(T::MaxCandidates::get(), <span class="string">&quot;candidates&quot;</span>)<span class="question-mark">?</span>;
+		<span class="kw">let </span>all_candidates = submit_candidates::&lt;T&gt;(T::MaxCandidates::get(), <span class="string">"candidates"</span>)<span class="question-mark">?</span>;
 		distribute_voters::&lt;T&gt;(all_candidates, v, T::MaxVotesPerVoter::get() <span class="kw">as </span>usize)<span class="question-mark">?</span>;
 
 		<span class="comment">// all candidates leave.
@@ -980,7 +982,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		// T::MaxVotesPerVoter::get(). Note that this might cause `v` to be an overestimate.
 		</span><span class="kw">let </span>votes_per_voter = (e / v).min(T::MaxVotesPerVoter::get());
 
-		<span class="kw">let </span>all_candidates = submit_candidates_with_self_vote::&lt;T&gt;(c, <span class="string">&quot;candidates&quot;</span>)<span class="question-mark">?</span>;
+		<span class="kw">let </span>all_candidates = submit_candidates_with_self_vote::&lt;T&gt;(c, <span class="string">"candidates"</span>)<span class="question-mark">?</span>;
 		<span class="kw">let _ </span>= distribute_voters::&lt;T&gt;(all_candidates, v.saturating_sub(c), votes_per_voter <span class="kw">as </span>usize)<span class="question-mark">?</span>;
 	}: {
 		&lt;Elections&lt;T&gt;&gt;::on_initialize(T::TermDuration::get());

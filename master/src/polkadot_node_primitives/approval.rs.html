@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/primitives/src/approval.rs`."><title>approval.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/primitives/src/approval.rs`."><title>approval.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_node_primitives" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_node_primitives" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../polkadot_node_primitives/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -770,29 +772,29 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// A static context used to compute the Relay VRF story based on the
 	/// VRF output included in the header-chain.
-	</span><span class="kw">pub const </span>RELAY_VRF_STORY_CONTEXT: <span class="kw-2">&amp;</span>[u8] = <span class="string">b&quot;A&amp;V RC-VRF&quot;</span>;
+	</span><span class="kw">pub const </span>RELAY_VRF_STORY_CONTEXT: <span class="kw-2">&amp;</span>[u8] = <span class="string">b"A&amp;V RC-VRF"</span>;
 
 	<span class="doccomment">/// A static context used for all relay-vrf-modulo VRFs.
-	</span><span class="kw">pub const </span>RELAY_VRF_MODULO_CONTEXT: <span class="kw-2">&amp;</span>[u8] = <span class="string">b&quot;A&amp;V MOD&quot;</span>;
+	</span><span class="kw">pub const </span>RELAY_VRF_MODULO_CONTEXT: <span class="kw-2">&amp;</span>[u8] = <span class="string">b"A&amp;V MOD"</span>;
 
 	<span class="doccomment">/// A static context used for all relay-vrf-modulo VRFs.
-	</span><span class="kw">pub const </span>RELAY_VRF_DELAY_CONTEXT: <span class="kw-2">&amp;</span>[u8] = <span class="string">b&quot;A&amp;V DELAY&quot;</span>;
+	</span><span class="kw">pub const </span>RELAY_VRF_DELAY_CONTEXT: <span class="kw-2">&amp;</span>[u8] = <span class="string">b"A&amp;V DELAY"</span>;
 
 	<span class="doccomment">/// A static context used for transcripts indicating assigned availability core.
-	</span><span class="kw">pub const </span>ASSIGNED_CORE_CONTEXT: <span class="kw-2">&amp;</span>[u8] = <span class="string">b&quot;A&amp;V ASSIGNED&quot;</span>;
+	</span><span class="kw">pub const </span>ASSIGNED_CORE_CONTEXT: <span class="kw-2">&amp;</span>[u8] = <span class="string">b"A&amp;V ASSIGNED"</span>;
 
 	<span class="doccomment">/// A static context associated with producing randomness for a core.
-	</span><span class="kw">pub const </span>CORE_RANDOMNESS_CONTEXT: <span class="kw-2">&amp;</span>[u8] = <span class="string">b&quot;A&amp;V CORE&quot;</span>;
+	</span><span class="kw">pub const </span>CORE_RANDOMNESS_CONTEXT: <span class="kw-2">&amp;</span>[u8] = <span class="string">b"A&amp;V CORE"</span>;
 
 	<span class="doccomment">/// A static context associated with producing randomness for a tranche.
-	</span><span class="kw">pub const </span>TRANCHE_RANDOMNESS_CONTEXT: <span class="kw-2">&amp;</span>[u8] = <span class="string">b&quot;A&amp;V TRANCHE&quot;</span>;
+	</span><span class="kw">pub const </span>TRANCHE_RANDOMNESS_CONTEXT: <span class="kw-2">&amp;</span>[u8] = <span class="string">b"A&amp;V TRANCHE"</span>;
 
 	<span class="doccomment">/// random bytes derived from the VRF submitted within the block by the
 	/// block author as a credential and used as input to approval assignment criteria.
 	</span><span class="attr">#[derive(Debug, Clone, Encode, Decode, PartialEq)]
 	</span><span class="kw">pub struct </span>RelayVRFStory(<span class="kw">pub </span>[u8; <span class="number">32</span>]);
 
-	<span class="doccomment">/// Different kinds of input data or criteria that can prove a validator&#39;s assignment
+	<span class="doccomment">/// Different kinds of input data or criteria that can prove a validator's assignment
 	/// to check a particular parachain.
 	</span><span class="attr">#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq)]
 	</span><span class="kw">pub enum </span>AssignmentCertKind {
@@ -873,9 +875,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="attr">#[derive(Debug, thiserror::Error)]
 	#[allow(missing_docs)]
 	</span><span class="kw">pub enum </span>ApprovalError {
-		<span class="attr">#[error(<span class="string">&quot;Schnorrkel signature error&quot;</span>)]
+		<span class="attr">#[error(<span class="string">"Schnorrkel signature error"</span>)]
 		</span>SchnorrkelSignature(schnorrkel::errors::SignatureError),
-		<span class="attr">#[error(<span class="string">&quot;Authority index {0} out of bounds&quot;</span>)]
+		<span class="attr">#[error(<span class="string">"Authority index {0} out of bounds"</span>)]
 		</span>AuthorityOutOfBounds(usize),
 	}
 
@@ -958,11 +960,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	};
 
 	<span class="doccomment">/// A static context associated with producing randomness for a core.
-	</span><span class="kw">pub const </span>CORE_RANDOMNESS_CONTEXT: <span class="kw-2">&amp;</span>[u8] = <span class="string">b&quot;A&amp;V CORE v2&quot;</span>;
+	</span><span class="kw">pub const </span>CORE_RANDOMNESS_CONTEXT: <span class="kw-2">&amp;</span>[u8] = <span class="string">b"A&amp;V CORE v2"</span>;
 	<span class="doccomment">/// A static context associated with producing randomness for v2 multi-core assignments.
-	</span><span class="kw">pub const </span>ASSIGNED_CORE_CONTEXT: <span class="kw-2">&amp;</span>[u8] = <span class="string">b&quot;A&amp;V ASSIGNED v2&quot;</span>;
+	</span><span class="kw">pub const </span>ASSIGNED_CORE_CONTEXT: <span class="kw-2">&amp;</span>[u8] = <span class="string">b"A&amp;V ASSIGNED v2"</span>;
 	<span class="doccomment">/// A static context used for all relay-vrf-modulo VRFs for v2 multi-core assignments.
-	</span><span class="kw">pub const </span>RELAY_VRF_MODULO_CONTEXT: <span class="kw-2">&amp;</span>[u8] = <span class="string">b&quot;A&amp;V MOD v2&quot;</span>;
+	</span><span class="kw">pub const </span>RELAY_VRF_MODULO_CONTEXT: <span class="kw-2">&amp;</span>[u8] = <span class="string">b"A&amp;V MOD v2"</span>;
 	<span class="doccomment">/// A read-only bitvec wrapper
 	</span><span class="attr">#[derive(Clone, Debug, Encode, Decode, Hash, PartialEq, Eq)]
 	</span><span class="kw">pub struct </span>Bitfield&lt;T&gt;(BitVec&lt;u8, bitvec::order::Lsb0&gt;, std::marker::PhantomData&lt;T&gt;);
@@ -1079,7 +1081,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			}
 
 			<span class="kw">let </span>initial_bitfield =
-				value.pop().expect(<span class="string">&quot;Just checked above it&#39;s not empty; qed&quot;</span>).into();
+				value.pop().expect(<span class="string">"Just checked above it's not empty; qed"</span>).into();
 
 			<span class="prelude-val">Ok</span>(<span class="self">Self</span>(
 				value.into_iter().fold(initial_bitfield.<span class="number">0</span>, |initial_bitfield, element| {
@@ -1240,7 +1242,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Ok</span>(<span class="self">Self </span>{
 				block_hash: value.block_hash,
 				validator: value.validator,
-				candidate_index: value.candidate_indices.first_one().expect(<span class="string">&quot;Qed we checked above&quot;</span>)
+				candidate_index: value.candidate_indices.first_one().expect(<span class="string">"Qed we checked above"</span>)
 					<span class="kw">as </span>u32,
 				signature: value.signature,
 			})

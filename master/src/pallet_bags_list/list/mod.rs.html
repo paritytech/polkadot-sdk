@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/bags-list/src/list/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/bags-list/src/list/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="pallet_bags_list" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="pallet_bags_list" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../pallet_bags_list/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1079,19 +1081,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-</span><span class="doccomment">//! Implementation of a &quot;bags list&quot;: a semi-sorted list where ordering granularity is dictated by
+</span><span class="doccomment">//! Implementation of a "bags list": a semi-sorted list where ordering granularity is dictated by
 //! configurable thresholds that delineate the boundaries of bags. It uses a pattern of composite
 //! data structures, where multiple storage items are masked by one outer API. See
 //! [`crate::ListNodes`], [`crate::ListBags`] for more information.
@@ -1118,7 +1120,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	prelude::<span class="kw-2">*</span>,
 };
 
-<span class="attr">#[cfg(any(test, feature = <span class="string">&quot;try-runtime&quot;</span>, feature = <span class="string">&quot;fuzz&quot;</span>))]
+<span class="attr">#[cfg(any(test, feature = <span class="string">"try-runtime"</span>, feature = <span class="string">"fuzz"</span>))]
 </span><span class="kw">use </span>sp_runtime::TryRuntimeError;
 
 <span class="attr">#[derive(Debug, PartialEq, Eq, Encode, Decode, MaxEncodedLen, TypeInfo, PalletError)]
@@ -1143,7 +1145,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// Note that even if the thresholds list does not have `T::Score::max_value()` as its final member,
 /// this function behaves as if it does.
-</span><span class="kw">pub fn </span>notional_bag_for&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt;(score: T::Score) -&gt; T::Score {
+</span><span class="kw">pub fn </span>notional_bag_for&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt;(score: T::Score) -&gt; T::Score {
 	<span class="kw">let </span>thresholds = T::BagThresholds::get();
 	<span class="kw">let </span>idx = thresholds.partition_point(|<span class="kw-2">&amp;</span>threshold| score &gt; threshold);
 	thresholds.get(idx).copied().unwrap_or_else(T::Score::max_value)
@@ -1154,7 +1156,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="comment">//
 // Data structure providing efficient mostly-accurate selection of the top N id by `Score`.
 //
-// It&#39;s implemented as a set of linked lists. Each linked list comprises a bag of ids of
+// It's implemented as a set of linked lists. Each linked list comprises a bag of ids of
 // arbitrary and unbounded length, all having a score within a particular constant range.
 // This structure means that ids can be added and removed in `O(1)` time.
 //
@@ -1163,9 +1165,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // decreases as successive bags are reached. This means that it is valid to truncate
 // iteration at any desired point; only those ids in the lowest bag can be excluded. This
 // satisfies both the desire for fairness and the requirement for efficiency.
-</span><span class="kw">pub struct </span>List&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt;(PhantomData&lt;(T, I)&gt;);
+</span><span class="kw">pub struct </span>List&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt;(PhantomData&lt;(T, I)&gt;);
 
-<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; List&lt;T, I&gt; {
+<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; List&lt;T, I&gt; {
 	<span class="doccomment">/// Remove all data associated with the list from storage.
 	///
 	/// ## WARNING
@@ -1201,7 +1203,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Migrate the list from one set of thresholds to another.
 	///
-	/// This should only be called as part of an intentional migration; it&#39;s fairly expensive.
+	/// This should only be called as part of an intentional migration; it's fairly expensive.
 	///
 	/// Returns the number of accounts affected.
 	///
@@ -1225,16 +1227,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">return </span><span class="number">0
 		</span>}
 
-		<span class="comment">// we can&#39;t check all preconditions, but we can check one
+		<span class="comment">// we can't check all preconditions, but we can check one
 		</span><span class="macro">debug_assert!</span>(
 			<span class="kw">crate</span>::ListBags::&lt;T, I&gt;::iter()
 				.all(|(threshold, <span class="kw">_</span>)| old_thresholds.contains(<span class="kw-2">&amp;</span>threshold)),
-			<span class="string">&quot;not all `bag_upper` currently in storage are members of `old_thresholds`&quot;</span>,
+			<span class="string">"not all `bag_upper` currently in storage are members of `old_thresholds`"</span>,
 		);
 		<span class="macro">debug_assert!</span>(
 			<span class="kw">crate</span>::ListNodes::&lt;T, I&gt;::iter()
 				.all(|(<span class="kw">_</span>, node)| old_thresholds.contains(<span class="kw-2">&amp;</span>node.bag_upper)),
-			<span class="string">&quot;not all `node.bag_upper` currently in storage are members of `old_thresholds`&quot;</span>,
+			<span class="string">"not all `node.bag_upper` currently in storage are members of `old_thresholds`"</span>,
 		);
 
 		<span class="kw">let </span>old_set: BTreeSet&lt;<span class="kw">_</span>&gt; = old_thresholds.iter().copied().collect();
@@ -1246,7 +1248,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">let </span><span class="kw-2">mut </span>affected_old_bags = BTreeSet::new();
 
 		<span class="kw">let </span>new_bags = new_set.difference(<span class="kw-2">&amp;</span>old_set).copied();
-		<span class="comment">// a new bag means that all accounts previously using the old bag&#39;s threshold must now
+		<span class="comment">// a new bag means that all accounts previously using the old bag's threshold must now
 		// be rebagged
 		</span><span class="kw">for </span>inserted_bag <span class="kw">in </span>new_bags {
 			<span class="kw">let </span>affected_bag = {
@@ -1255,7 +1257,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				old_thresholds.get(idx).copied().unwrap_or_else(T::Score::max_value)
 			};
 			<span class="kw">if </span>!affected_old_bags.insert(affected_bag) {
-				<span class="comment">// If the previous threshold list was [10, 20], and we insert [3, 5], then there&#39;s
+				<span class="comment">// If the previous threshold list was [10, 20], and we insert [3, 5], then there's
 				// no point iterating through bag 10 twice.
 				</span><span class="kw">continue
 			</span>}
@@ -1285,16 +1287,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>_inserted = <span class="self">Self</span>::insert_many(affected_accounts.into_iter(), score_of);
 		<span class="macro">debug_assert_eq!</span>(_inserted, num_affected);
 
-		<span class="comment">// we couldn&#39;t previously remove the old bags because both insertion and removal assume that
-		// it&#39;s always safe to add a bag if it&#39;s not present. Now that that&#39;s sorted, we can get rid
+		<span class="comment">// we couldn't previously remove the old bags because both insertion and removal assume that
+		// it's always safe to add a bag if it's not present. Now that that's sorted, we can get rid
 		// of them.
 		//
-		// it&#39;s pretty cheap to iterate this again, because both sets are in-memory and require no
+		// it's pretty cheap to iterate this again, because both sets are in-memory and require no
 		// lookups.
 		</span><span class="kw">for </span>removed_bag <span class="kw">in </span>removed_bags {
 			<span class="macro">debug_assert!</span>(
 				!<span class="kw">crate</span>::ListNodes::&lt;T, I&gt;::iter().any(|(<span class="kw">_</span>, node)| node.bag_upper == removed_bag),
-				<span class="string">&quot;no id should be present in a removed bag&quot;</span>,
+				<span class="string">"no id should be present in a removed bag"</span>,
 			);
 			<span class="kw">crate</span>::ListBags::&lt;T, I&gt;::remove(removed_bag);
 		}
@@ -1314,14 +1316,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Iterate over all nodes in all bags in the list.
 	///
-	/// Full iteration can be expensive; it&#39;s recommended to limit the number of items with
+	/// Full iteration can be expensive; it's recommended to limit the number of items with
 	/// `.take(n)`.
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>iter() -&gt; <span class="kw">impl </span>Iterator&lt;Item = Node&lt;T, I&gt;&gt; {
 		<span class="comment">// We need a touch of special handling here: because we permit `T::BagThresholds` to
 		// omit the final bound, we need to ensure that we explicitly include that threshold in the
 		// list.
 		//
-		// It&#39;s important to retain the ability to omit the final bound because it makes tests much
+		// It's important to retain the ability to omit the final bound because it makes tests much
 		// easier; they can just configure `type BagThresholds = ()`.
 		</span><span class="kw">let </span>thresholds = T::BagThresholds::get();
 		<span class="kw">let </span>iter = thresholds.iter().copied();
@@ -1346,7 +1348,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw">impl </span>Iterator&lt;Item = Node&lt;T, I&gt;&gt;, ListError&gt; {
 		<span class="comment">// We chain two iterators:
 		// 1. from the given `start` till the end of the bag
-		// 2. all the bags that come after `start`&#39;s bag.
+		// 2. all the bags that come after `start`'s bag.
 
 		</span><span class="kw">let </span>start_node = Node::&lt;T, I&gt;::get(start).ok_or(ListError::NodeNotFound)<span class="question-mark">?</span>;
 		<span class="kw">let </span>start_node_upper = start_node.bag_upper;
@@ -1402,7 +1404,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="macro">crate::log!</span>(
 			debug,
-			<span class="string">&quot;inserted {:?} with score {:?} into bag {:?}, new count is {}&quot;</span>,
+			<span class="string">"inserted {:?} with score {:?} into bag {:?}, new count is {}"</span>,
 			id,
 			score,
 			bag_score,
@@ -1426,7 +1428,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// This is more efficient than repeated calls to `Self::remove`.
 	///
 	/// Returns the final count of number of ids removed.
-	</span><span class="kw">fn </span>remove_many&lt;<span class="lifetime">&#39;a</span>&gt;(ids: <span class="kw">impl </span>IntoIterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>T::AccountId&gt;) -&gt; u32 {
+	</span><span class="kw">fn </span>remove_many&lt;<span class="lifetime">'a</span>&gt;(ids: <span class="kw">impl </span>IntoIterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">'a </span>T::AccountId&gt;) -&gt; u32 {
 		<span class="kw">let </span><span class="kw-2">mut </span>bags = BTreeMap::new();
 		<span class="kw">let </span><span class="kw-2">mut </span>count = <span class="number">0</span>;
 
@@ -1460,13 +1462,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		count
 	}
 
-	<span class="doccomment">/// Update a node&#39;s position in the list.
+	<span class="doccomment">/// Update a node's position in the list.
 	///
 	/// If the node was in the correct bag, no effect. If the node was in the incorrect bag, they
 	/// are moved into the correct bag.
 	///
 	/// Returns `Some((old_idx, new_idx))` if the node moved, otherwise `None`. In both cases, the
-	/// node&#39;s score is written to the `score` field. Thus, this is not a noop, even if `None`.
+	/// node's score is written to the `score` field. Thus, this is not a noop, even if `None`.
 	///
 	/// This operation is somewhat more efficient than simply calling [`self.remove`] followed by
 	/// [`self.insert`]. However, given large quantities of nodes to move, it may be more efficient
@@ -1489,7 +1491,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				bag.put();
 			} <span class="kw">else </span>{
 				<span class="macro">frame_support::defensive!</span>(
-					<span class="string">&quot;Node did not have a bag; BagsList is in an inconsistent state&quot;
+					<span class="string">"Node did not have a bag; BagsList is in an inconsistent state"
 				</span>);
 			}
 
@@ -1529,7 +1531,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// remove the heavier node from this list. Note that this removes the node from storage and
 		// decrements the node counter.
 		</span><span class="kw">let _ </span>=
-			<span class="self">Self</span>::remove(<span class="kw-2">&amp;</span>heavier_id).defensive_proof(<span class="string">&quot;both nodes have been checked to exist; qed&quot;</span>);
+			<span class="self">Self</span>::remove(<span class="kw-2">&amp;</span>heavier_id).defensive_proof(<span class="string">"both nodes have been checked to exist; qed"</span>);
 
 		<span class="comment">// re-fetch `lighter_node` from storage since it may have been updated when `heavier_node`
 		// was removed.
@@ -1567,7 +1569,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			// nodes in the bag, and 2) only `node` could be the head and only `at` could be the
 			// tail.
 			</span><span class="kw">let </span><span class="kw-2">mut </span>bag = Bag::&lt;T, I&gt;::get(at.bag_upper)
-				.expect(<span class="string">&quot;given nodes must always have a valid bag. qed.&quot;</span>);
+				.expect(<span class="string">"given nodes must always have a valid bag. qed."</span>);
 
 			<span class="kw">if </span>node.prev == <span class="prelude-val">None </span>{
 				bag.head = <span class="prelude-val">Some</span>(node.id().clone())
@@ -1590,27 +1592,27 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// * length of this list is in sync with `ListNodes::count()`,
 	/// * and sanity-checks all bags and nodes. This will cascade down all the checks and makes sure
 	/// all bags and nodes are checked per *any* update to `List`.
-	</span><span class="attr">#[cfg(any(test, feature = <span class="string">&quot;try-runtime&quot;</span>, feature = <span class="string">&quot;fuzz&quot;</span>))]
+	</span><span class="attr">#[cfg(any(test, feature = <span class="string">"try-runtime"</span>, feature = <span class="string">"fuzz"</span>))]
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>do_try_state() -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
 		<span class="kw">let </span><span class="kw-2">mut </span>seen_in_list = BTreeSet::new();
 		<span class="macro">ensure!</span>(
 			<span class="self">Self</span>::iter().map(|node| node.id).all(|id| seen_in_list.insert(id)),
-			<span class="string">&quot;duplicate identified&quot;
+			<span class="string">"duplicate identified"
 		</span>);
 
 		<span class="kw">let </span>iter_count = <span class="self">Self</span>::iter().count() <span class="kw">as </span>u32;
 		<span class="kw">let </span>stored_count = <span class="kw">crate</span>::ListNodes::&lt;T, I&gt;::count();
 		<span class="kw">let </span>nodes_count = <span class="kw">crate</span>::ListNodes::&lt;T, I&gt;::iter().count() <span class="kw">as </span>u32;
-		<span class="macro">ensure!</span>(iter_count == stored_count, <span class="string">&quot;iter_count != stored_count&quot;</span>);
-		<span class="macro">ensure!</span>(stored_count == nodes_count, <span class="string">&quot;stored_count != nodes_count&quot;</span>);
+		<span class="macro">ensure!</span>(iter_count == stored_count, <span class="string">"iter_count != stored_count"</span>);
+		<span class="macro">ensure!</span>(stored_count == nodes_count, <span class="string">"stored_count != nodes_count"</span>);
 
-		<span class="macro">crate::log!</span>(trace, <span class="string">&quot;count of nodes: {}&quot;</span>, stored_count);
+		<span class="macro">crate::log!</span>(trace, <span class="string">"count of nodes: {}"</span>, stored_count);
 
 		<span class="kw">let </span>active_bags = {
 			<span class="kw">let </span>thresholds = T::BagThresholds::get().iter().copied();
 			<span class="kw">let </span>thresholds: Vec&lt;T::Score&gt; =
 				<span class="kw">if </span>thresholds.clone().last() == <span class="prelude-val">Some</span>(T::Score::max_value()) {
-					<span class="comment">// in the event that they included it, we don&#39;t need to make any changes
+					<span class="comment">// in the event that they included it, we don't need to make any changes
 					</span>thresholds.collect()
 				} <span class="kw">else </span>{
 					<span class="comment">// otherwise, insert it here.
@@ -1632,18 +1634,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>nodes_in_bags_count =
 			active_bags.clone().fold(<span class="number">0u32</span>, |acc, cur| acc + cur.iter().count() <span class="kw">as </span>u32);
-		<span class="macro">ensure!</span>(nodes_count == nodes_in_bags_count, <span class="string">&quot;stored_count != nodes_in_bags_count&quot;</span>);
+		<span class="macro">ensure!</span>(nodes_count == nodes_in_bags_count, <span class="string">"stored_count != nodes_in_bags_count"</span>);
 
-		<span class="macro">crate::log!</span>(trace, <span class="string">&quot;count of active bags {}&quot;</span>, active_bags.count());
+		<span class="macro">crate::log!</span>(trace, <span class="string">"count of active bags {}"</span>, active_bags.count());
 
 		<span class="comment">// check that all nodes are sane. We check the `ListNodes` storage item directly in case we
-		// have some &quot;stale&quot; nodes that are not in a bag.
+		// have some "stale" nodes that are not in a bag.
 		</span><span class="kw">for </span>(_id, node) <span class="kw">in </span><span class="kw">crate</span>::ListNodes::&lt;T, I&gt;::iter() {
 			<span class="comment">// check that the node is in the correct bag
 			</span><span class="kw">let </span>expected_bag = bags_map
 				.get(<span class="kw-2">&amp;</span>node.bag_upper)
-				.ok_or(<span class="string">&quot;bag not found for the node in active bags&quot;</span>)<span class="question-mark">?</span>;
-			<span class="macro">frame_support::ensure!</span>(expected_bag.contains(node.id()), <span class="string">&quot;node not found in the bag&quot;</span>);
+				.ok_or(<span class="string">"bag not found for the node in active bags"</span>)<span class="question-mark">?</span>;
+			<span class="macro">frame_support::ensure!</span>(expected_bag.contains(node.id()), <span class="string">"node not found in the bag"</span>);
 
 			<span class="comment">// verify node state
 			</span>node.do_try_state()<span class="question-mark">?
@@ -1653,7 +1655,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Returns the nodes of all non-empty bags. For testing and benchmarks.
-	</span><span class="attr">#[cfg(any(feature = <span class="string">&quot;std&quot;</span>, feature = <span class="string">&quot;runtime-benchmarks&quot;</span>))]
+	</span><span class="attr">#[cfg(any(feature = <span class="string">"std"</span>, feature = <span class="string">"runtime-benchmarks"</span>))]
 	#[allow(dead_code)]
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>get_bags() -&gt; Vec&lt;(T::Score, Vec&lt;T::AccountId&gt;)&gt; {
 		<span class="kw">use </span>frame_support::traits::Get <span class="kw">as _</span>;
@@ -1681,15 +1683,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// A Bag is a doubly-linked list of ids, where each id is mapped to a [`Node`].
 ///
 /// Note that we maintain both head and tail pointers. While it would be possible to get away with
-/// maintaining only a head pointer and cons-ing elements onto the front of the list, it&#39;s more
-/// desirable to ensure that there is some element of first-come, first-serve to the list&#39;s
-/// iteration so that there&#39;s no incentive to churn ids positioning to improve the chances of
+/// maintaining only a head pointer and cons-ing elements onto the front of the list, it's more
+/// desirable to ensure that there is some element of first-come, first-serve to the list's
+/// iteration so that there's no incentive to churn ids positioning to improve the chances of
 /// appearing within the ids set.
 </span><span class="attr">#[derive(DefaultNoBound, Encode, Decode, MaxEncodedLen, TypeInfo)]
 #[codec(mel_bound())]
 #[scale_info(skip_type_params(T, I))]
-#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(frame_support::DebugNoBound, Clone, PartialEq))]
-</span><span class="kw">pub struct </span>Bag&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; {
+#[cfg_attr(feature = <span class="string">"std"</span>, derive(frame_support::DebugNoBound, Clone, PartialEq))]
+</span><span class="kw">pub struct </span>Bag&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; {
 	head: <span class="prelude-ty">Option</span>&lt;T::AccountId&gt;,
 	tail: <span class="prelude-ty">Option</span>&lt;T::AccountId&gt;,
 
@@ -1699,7 +1701,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>_phantom: PhantomData&lt;I&gt;,
 }
 
-<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; Bag&lt;T, I&gt; {
+<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Bag&lt;T, I&gt; {
 	<span class="attr">#[cfg(test)]
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new(
 		head: <span class="prelude-ty">Option</span>&lt;T::AccountId&gt;,
@@ -1754,14 +1756,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Insert a new id into this bag.
 	///
-	/// This is private on purpose because it&#39;s naive: it doesn&#39;t check whether this is the
+	/// This is private on purpose because it's naive: it doesn't check whether this is the
 	/// appropriate bag for this id at all. Generally, use [`List::insert`] instead.
 	///
 	/// Storage note: this modifies storage, but only for the nodes. You still need to call
 	/// `self.put()` after use.
 	</span><span class="kw">fn </span>insert_unchecked(<span class="kw-2">&amp;mut </span><span class="self">self</span>, id: T::AccountId, score: T::Score) {
 		<span class="comment">// insert_node will overwrite `prev`, `next` and `bag_upper` to the proper values. As long
-		// as this bag is the correct one, we&#39;re good. All calls to this must come after getting the
+		// as this bag is the correct one, we're good. All calls to this must come after getting the
 		// correct [`notional_bag_for`].
 		</span><span class="self">self</span>.insert_node_unchecked(Node::&lt;T, I&gt; {
 			id,
@@ -1775,7 +1777,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Insert a node into this bag.
 	///
-	/// This is private on purpose because it&#39;s naive; it doesn&#39;t check whether this is the
+	/// This is private on purpose because it's naive; it doesn't check whether this is the
 	/// appropriate bag for this node at all. Generally, use [`List::insert`] instead.
 	///
 	/// Storage note: this modifies storage, but only for the node. You still need to call
@@ -1785,7 +1787,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">if </span><span class="kw-2">*</span>tail == node.id {
 				<span class="comment">// this should never happen, but this check prevents one path to a worst case
 				// infinite loop.
-				</span><span class="macro">defensive!</span>(<span class="string">&quot;system logic error: inserting a node who has the id of tail&quot;</span>);
+				</span><span class="macro">defensive!</span>(<span class="string">"system logic error: inserting a node who has the id of tail"</span>);
 				<span class="kw">return
 			</span>};
 		}
@@ -1818,7 +1820,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Remove a node from this bag.
 	///
-	/// This is private on purpose because it doesn&#39;t check whether this bag contains the node in
+	/// This is private on purpose because it doesn't check whether this bag contains the node in
 	/// the first place. Generally, use [`List::remove`] instead, similar to `insert_unchecked`.
 	///
 	/// Storage note: this modifies storage, but only for adjacent nodes. You still need to call
@@ -1844,7 +1846,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// * Ensures head has no prev.
 	/// * Ensures tail has no next.
 	/// * Ensures there are no loops, traversal from head to tail is correct.
-	</span><span class="attr">#[cfg(any(test, feature = <span class="string">&quot;try-runtime&quot;</span>, feature = <span class="string">&quot;fuzz&quot;</span>))]
+	</span><span class="attr">#[cfg(any(test, feature = <span class="string">"try-runtime"</span>, feature = <span class="string">"fuzz"</span>))]
 	</span><span class="kw">fn </span>do_try_state(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
 		<span class="macro">frame_support::ensure!</span>(
 			<span class="self">self</span>.head()
@@ -1852,7 +1854,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="comment">// if there is no head, then there must not be a tail, meaning that the bag is
 				// empty.
 				</span>.unwrap_or_else(|| <span class="self">self</span>.tail.is_none()),
-			<span class="string">&quot;head has a prev&quot;
+			<span class="string">"head has a prev"
 		</span>);
 
 		<span class="macro">frame_support::ensure!</span>(
@@ -1861,7 +1863,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="comment">// if there is no tail, then there must not be a head, meaning that the bag is
 				// empty.
 				</span>.unwrap_or_else(|| <span class="self">self</span>.head.is_none()),
-			<span class="string">&quot;tail has a next&quot;
+			<span class="string">"tail has a next"
 		</span>);
 
 		<span class="kw">let </span><span class="kw-2">mut </span>seen_in_bag = BTreeSet::new();
@@ -1870,14 +1872,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.map(|node| node.id)
 				<span class="comment">// each voter is only seen once, thus there is no cycle within a bag
 				</span>.all(|voter| seen_in_bag.insert(voter)),
-			<span class="string">&quot;duplicate found in bag&quot;
+			<span class="string">"duplicate found in bag"
 		</span>);
 
 		<span class="prelude-val">Ok</span>(())
 	}
 
 	<span class="doccomment">/// Iterate over the nodes in this bag (public for tests).
-	</span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+	</span><span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 	#[allow(dead_code)]
 	</span><span class="kw">pub fn </span>std_iter(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw">impl </span>Iterator&lt;Item = Node&lt;T, I&gt;&gt; {
 		sp_std::iter::successors(<span class="self">self</span>.head(), |prev| prev.next())
@@ -1888,8 +1890,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[derive(Encode, Decode, MaxEncodedLen, TypeInfo)]
 #[codec(mel_bound())]
 #[scale_info(skip_type_params(T, I))]
-#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(frame_support::DebugNoBound, Clone, PartialEq))]
-</span><span class="kw">pub struct </span>Node&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; {
+#[cfg_attr(feature = <span class="string">"std"</span>, derive(frame_support::DebugNoBound, Clone, PartialEq))]
+</span><span class="kw">pub struct </span>Node&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; {
 	<span class="kw">pub</span>(<span class="kw">crate</span>) id: T::AccountId,
 	<span class="kw">pub</span>(<span class="kw">crate</span>) prev: <span class="prelude-ty">Option</span>&lt;T::AccountId&gt;,
 	<span class="kw">pub</span>(<span class="kw">crate</span>) next: <span class="prelude-ty">Option</span>&lt;T::AccountId&gt;,
@@ -1899,7 +1901,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) _phantom: PhantomData&lt;I&gt;,
 }
 
-<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; Node&lt;T, I&gt; {
+<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Node&lt;T, I&gt; {
 	<span class="doccomment">/// Get a node by id.
 	</span><span class="kw">pub fn </span>get(id: <span class="kw-2">&amp;</span>T::AccountId) -&gt; <span class="prelude-ty">Option</span>&lt;Node&lt;T, I&gt;&gt; {
 		<span class="kw">crate</span>::ListNodes::&lt;T, I&gt;::try_get(id).ok()
@@ -1965,27 +1967,27 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Get the underlying voter (public fo tests).
-	</span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+	</span><span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 	#[allow(dead_code)]
 	</span><span class="kw">pub fn </span>std_id(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>T::AccountId {
 		<span class="kw-2">&amp;</span><span class="self">self</span>.id
 	}
 
-	<span class="attr">#[cfg(any(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>, feature = <span class="string">&quot;fuzz&quot;</span>, test))]
+	<span class="attr">#[cfg(any(feature = <span class="string">"runtime-benchmarks"</span>, feature = <span class="string">"fuzz"</span>, test))]
 	</span><span class="kw">pub fn </span>set_score(<span class="kw-2">&amp;mut </span><span class="self">self</span>, s: T::Score) {
 		<span class="self">self</span>.score = s
 	}
 
 	<span class="doccomment">/// The bag this nodes belongs to (public for benchmarks).
-	</span><span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	</span><span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	#[allow(dead_code)]
 	</span><span class="kw">pub fn </span>bag_upper(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; T::Score {
 		<span class="self">self</span>.bag_upper
 	}
 
-	<span class="attr">#[cfg(any(test, feature = <span class="string">&quot;try-runtime&quot;</span>, feature = <span class="string">&quot;fuzz&quot;</span>))]
+	<span class="attr">#[cfg(any(test, feature = <span class="string">"try-runtime"</span>, feature = <span class="string">"fuzz"</span>))]
 	</span><span class="kw">fn </span>do_try_state(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
-		<span class="kw">let </span>expected_bag = Bag::&lt;T, I&gt;::get(<span class="self">self</span>.bag_upper).ok_or(<span class="string">&quot;bag not found for node&quot;</span>)<span class="question-mark">?</span>;
+		<span class="kw">let </span>expected_bag = Bag::&lt;T, I&gt;::get(<span class="self">self</span>.bag_upper).ok_or(<span class="string">"bag not found for node"</span>)<span class="question-mark">?</span>;
 		<span class="kw">let </span>id = <span class="self">self</span>.id();
 
 		<span class="kw">let </span>non_terminal_check = !<span class="self">self</span>.is_terminal() &amp;&amp;
@@ -1995,7 +1997,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			expected_bag.head.as_ref() == <span class="prelude-val">Some</span>(id) || expected_bag.tail.as_ref() == <span class="prelude-val">Some</span>(id);
 		<span class="macro">frame_support::ensure!</span>(
 			non_terminal_check || terminal_check,
-			<span class="string">&quot;a terminal node is neither its bag head or tail&quot;
+			<span class="string">"a terminal node is neither its bag head or tail"
 		</span>);
 
 		<span class="prelude-val">Ok</span>(())

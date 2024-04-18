@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `bridges/modules/xcm-bridge-hub-router/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `bridges/modules/xcm-bridge-hub-router/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_xcm_bridge_hub_router" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_xcm_bridge_hub_router" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../pallet_xcm_bridge_hub_router/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -815,7 +817,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! `pallet-xcm-bridge-hub`, ...). It may be the system bridge hub parachain or any other
 //! chain.
 
-</span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
+</span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
 </span><span class="kw">use </span>bp_xcm_bridge_hub_router::{
 	BridgeState, XcmChannelStatusProvider, MINIMAL_DELIVERY_FEE_FACTOR,
@@ -849,11 +851,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// The target that will be used when publishing logs related to this pallet.
 ///
-/// This doesn&#39;t match the pattern used by other bridge pallets (`runtime::bridge-*`). But this
+/// This doesn't match the pattern used by other bridge pallets (`runtime::bridge-*`). But this
 /// pallet has significant differences with those pallets. The main one is that is intended to
 /// be deployed at sending chains. Other bridge pallets are likely to be deployed at the separate
 /// bridge hub parachain.
-</span><span class="kw">pub const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;xcm::bridge-hub-router&quot;</span>;
+</span><span class="kw">pub const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"xcm::bridge-hub-router"</span>;
 
 <span class="attr">#[frame_support::pallet]
 </span><span class="kw">pub mod </span>pallet {
@@ -862,8 +864,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use </span>frame_system::pallet_prelude::<span class="kw-2">*</span>;
 
 	<span class="attr">#[pallet::config]
-	</span><span class="kw">pub trait </span>Config&lt;I: <span class="lifetime">&#39;static </span>= ()&gt;: frame_system::Config {
-		<span class="doccomment">/// Benchmarks results from runtime we&#39;re plugged into.
+	</span><span class="kw">pub trait </span>Config&lt;I: <span class="lifetime">'static </span>= ()&gt;: frame_system::Config {
+		<span class="doccomment">/// Benchmarks results from runtime we're plugged into.
 		</span><span class="kw">type </span>WeightInfo: WeightInfo;
 
 		<span class="doccomment">/// Universal location of this runtime.
@@ -897,26 +899,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub struct </span>Pallet&lt;T, I = ()&gt;(PhantomData&lt;(T, I)&gt;);
 
 	<span class="attr">#[pallet::hooks]
-	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; Hooks&lt;BlockNumberFor&lt;T&gt;&gt; <span class="kw">for </span>Pallet&lt;T, I&gt; {
+	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Hooks&lt;BlockNumberFor&lt;T&gt;&gt; <span class="kw">for </span>Pallet&lt;T, I&gt; {
 		<span class="kw">fn </span>on_initialize(_n: BlockNumberFor&lt;T&gt;) -&gt; Weight {
 			<span class="comment">// TODO: make sure that `WithBridgeHubChannel::is_congested` returns true if either
 			// of XCM channels (outbound/inbound) is suspended. Because if outbound is suspended
 			// that is definitely congestion. If inbound is suspended, then we are not able to
-			// receive the &quot;report_bridge_status&quot; signal (that maybe sent by the bridge hub).
+			// receive the "report_bridge_status" signal (that maybe sent by the bridge hub).
 
-			// if the channel with sibling/child bridge hub is suspended, we don&#39;t change
+			// if the channel with sibling/child bridge hub is suspended, we don't change
 			// anything
 			</span><span class="kw">if </span>T::WithBridgeHubChannel::is_congested() {
 				<span class="kw">return </span>T::WeightInfo::on_initialize_when_congested()
 			}
 
-			<span class="comment">// if bridge has reported congestion, we don&#39;t change anything
+			<span class="comment">// if bridge has reported congestion, we don't change anything
 			</span><span class="kw">let </span><span class="kw-2">mut </span>bridge = <span class="self">Self</span>::bridge();
 			<span class="kw">if </span>bridge.is_congested {
 				<span class="kw">return </span>T::WeightInfo::on_initialize_when_congested()
 			}
 
-			<span class="comment">// if fee factor is already minimal, we don&#39;t change anything
+			<span class="comment">// if fee factor is already minimal, we don't change anything
 			</span><span class="kw">if </span>bridge.delivery_fee_factor == MINIMAL_DELIVERY_FEE_FACTOR {
 				<span class="kw">return </span>T::WeightInfo::on_initialize_when_congested()
 			}
@@ -926,7 +928,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				MINIMAL_DELIVERY_FEE_FACTOR.max(bridge.delivery_fee_factor / EXPONENTIAL_FEE_BASE);
 			<span class="macro">log::info!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;Bridge queue is uncongested. Decreased fee factor from {} to {}&quot;</span>,
+				<span class="string">"Bridge queue is uncongested. Decreased fee factor from {} to {}"</span>,
 				previous_factor,
 				bridge.delivery_fee_factor,
 			);
@@ -937,13 +939,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="attr">#[pallet::call]
-	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; Pallet&lt;T, I&gt; {
+	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Pallet&lt;T, I&gt; {
 		<span class="doccomment">/// Notification about congested bridge queue.
 		</span><span class="attr">#[pallet::call_index(<span class="number">0</span>)]
 		#[pallet::weight(T::WeightInfo::report_bridge_status())]
 		</span><span class="kw">pub fn </span>report_bridge_status(
 			origin: OriginFor&lt;T&gt;,
-			<span class="comment">// this argument is not currently used, but to ease future migration, we&#39;ll keep it
+			<span class="comment">// this argument is not currently used, but to ease future migration, we'll keep it
 			// here
 			</span>bridge_id: H256,
 			is_congested: bool,
@@ -952,7 +954,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="macro">log::info!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;Received bridge status from {:?}: congested = {}&quot;</span>,
+				<span class="string">"Received bridge status from {:?}: congested = {}"</span>,
 				bridge_id,
 				is_congested,
 			);
@@ -968,19 +970,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// **bridges-v1** assumptions: all outbound messages through this router are using single lane
 	/// and to single remote consensus. If there is some other remote consensus that uses the same
-	/// bridge hub, the separate pallet instance shall be used, In `v2` we&#39;ll have all required
+	/// bridge hub, the separate pallet instance shall be used, In `v2` we'll have all required
 	/// primitives (lane-id aka bridge-id, derived from XCM locations) to support multiple  bridges
 	/// by the same pallet instance.
 	</span><span class="attr">#[pallet::storage]
 	#[pallet::getter(<span class="kw">fn </span>bridge)]
-	</span><span class="kw">pub type </span>Bridge&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; = StorageValue&lt;<span class="kw">_</span>, BridgeState, ValueQuery&gt;;
+	</span><span class="kw">pub type </span>Bridge&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; = StorageValue&lt;<span class="kw">_</span>, BridgeState, ValueQuery&gt;;
 
-	<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; Pallet&lt;T, I&gt; {
+	<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Pallet&lt;T, I&gt; {
 		<span class="doccomment">/// Called when new message is sent (queued to local outbound XCM queue) over the bridge.
 		</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>on_message_sent_to_bridge(message_size: u32) {
 			<span class="macro">log::trace!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;on_message_sent_to_bridge - message_size: {message_size:?}&quot;</span>,
+				<span class="string">"on_message_sent_to_bridge - message_size: {message_size:?}"</span>,
 			);
 			<span class="kw">let _ </span>= Bridge::&lt;T, I&gt;::try_mutate(|bridge| {
 				<span class="kw">let </span>is_channel_with_bridge_hub_congested = T::WithBridgeHubChannel::is_congested();
@@ -992,7 +994,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw">return </span><span class="prelude-val">Err</span>(())
 				}
 
-				<span class="comment">// ok - we need to increase the fee factor, let&#39;s do that
+				<span class="comment">// ok - we need to increase the fee factor, let's do that
 				</span><span class="kw">let </span>message_size_factor = FixedU128::from_u32(message_size.saturating_div(<span class="number">1024</span>))
 					.saturating_mul(MESSAGE_SIZE_FEE_BASE);
 				<span class="kw">let </span>total_factor = EXPONENTIAL_FEE_BASE.saturating_add(message_size_factor);
@@ -1002,7 +1004,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 				<span class="macro">log::info!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Bridge channel is congested. Increased fee factor from {} to {}&quot;</span>,
+					<span class="string">"Bridge channel is congested. Increased fee factor from {} to {}"</span>,
 					previous_factor,
 					bridge.delivery_fee_factor,
 				);
@@ -1013,7 +1015,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="doccomment">/// We&#39;ll be using `SovereignPaidRemoteExporter` to send remote messages over the sibling/child
+<span class="doccomment">/// We'll be using `SovereignPaidRemoteExporter` to send remote messages over the sibling/child
 /// bridge hub.
 </span><span class="kw">type </span>ViaBridgeHubExporter&lt;T, I&gt; = SovereignPaidRemoteExporter&lt;
 	Pallet&lt;T, I&gt;,
@@ -1023,7 +1025,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="comment">// This pallet acts as the `ExporterFor` for the `SovereignPaidRemoteExporter` to compute
 // message fee using fee factor.
-</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; ExporterFor <span class="kw">for </span>Pallet&lt;T, I&gt; {
+</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; ExporterFor <span class="kw">for </span>Pallet&lt;T, I&gt; {
 	<span class="kw">fn </span>exporter_for(
 		network: <span class="kw-2">&amp;</span>NetworkId,
 		remote_location: <span class="kw-2">&amp;</span>InteriorLocation,
@@ -1031,14 +1033,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; <span class="prelude-ty">Option</span>&lt;(Location, <span class="prelude-ty">Option</span>&lt;Asset&gt;)&gt; {
 		<span class="macro">log::trace!</span>(
 			target: LOG_TARGET,
-			<span class="string">&quot;exporter_for - network: {network:?}, remote_location: {remote_location:?}, msg: {message:?}&quot;</span>,
+			<span class="string">"exporter_for - network: {network:?}, remote_location: {remote_location:?}, msg: {message:?}"</span>,
 		);
 		<span class="comment">// ensure that the message is sent to the expected bridged network (if specified).
 		</span><span class="kw">if let </span><span class="prelude-val">Some</span>(bridged_network) = T::BridgedNetworkId::get() {
 			<span class="kw">if </span><span class="kw-2">*</span>network != bridged_network {
 				<span class="macro">log::trace!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Router with bridged_network_id {bridged_network:?} does not support bridging to network {network:?}!&quot;</span>,
+					<span class="string">"Router with bridged_network_id {bridged_network:?} does not support bridging to network {network:?}!"</span>,
 				);
 				<span class="kw">return </span><span class="prelude-val">None
 			</span>}
@@ -1050,7 +1052,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">else </span>{
 			<span class="macro">log::trace!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;Router with bridged_network_id {:?} does not support bridging to network {:?} and remote_location {:?}!&quot;</span>,
+				<span class="string">"Router with bridged_network_id {:?} does not support bridging to network {:?} and remote_location {:?}!"</span>,
 				T::BridgedNetworkId::get(),
 				network,
 				remote_location,
@@ -1065,8 +1067,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				invalid_asset =&gt; {
 					<span class="macro">log::error!</span>(
 						target: LOG_TARGET,
-						<span class="string">&quot;Router with bridged_network_id {:?} is configured for `T::FeeAsset` {:?} which is not \
-						compatible with {:?} for bridge_hub_location: {:?} for bridging to {:?}/{:?}!&quot;</span>,
+						<span class="string">"Router with bridged_network_id {:?} is configured for `T::FeeAsset` {:?} which is not \
+						compatible with {:?} for bridge_hub_location: {:?} for bridging to {:?}/{:?}!"</span>,
 						T::BridgedNetworkId::get(),
 						T::FeeAsset::get(),
 						invalid_asset,
@@ -1093,7 +1095,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="macro">log::info!</span>(
 			target: LOG_TARGET,
-			<span class="string">&quot;Validate send message to {:?} ({} bytes) over bridge. Computed bridge fee {:?} using fee factor {}&quot;</span>,
+			<span class="string">"Validate send message to {:?} ({} bytes) over bridge. Computed bridge fee {:?} using fee factor {}"</span>,
 			(network, remote_location),
 			message_size,
 			fee,
@@ -1107,14 +1109,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="comment">// This pallet acts as the `SendXcm` to the sibling/child bridge hub instead of regular
 // XCMP/DMP transport. This allows injecting dynamic message fees into XCM programs that
 // are going to the bridged network.
-</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; SendXcm <span class="kw">for </span>Pallet&lt;T, I&gt; {
+</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; SendXcm <span class="kw">for </span>Pallet&lt;T, I&gt; {
 	<span class="kw">type </span>Ticket = (u32, &lt;T::ToBridgeHubSender <span class="kw">as </span>SendXcm&gt;::Ticket);
 
 	<span class="kw">fn </span>validate(
 		dest: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;Location&gt;,
 		xcm: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;Xcm&lt;()&gt;&gt;,
 	) -&gt; SendResult&lt;<span class="self">Self</span>::Ticket&gt; {
-		<span class="macro">log::trace!</span>(target: LOG_TARGET, <span class="string">&quot;validate - msg: {xcm:?}, destination: {dest:?}&quot;</span>);
+		<span class="macro">log::trace!</span>(target: LOG_TARGET, <span class="string">"validate - msg: {xcm:?}, destination: {dest:?}"</span>);
 
 		<span class="comment">// In case of success, the `ViaBridgeHubExporter` can modify XCM instructions and consume
 		// `dest` / `xcm`, so we retain the clone of original message and the destination for later
@@ -1135,19 +1137,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				</span><span class="kw">let </span>xcm_to_dest_clone = xcm_to_dest_clone.ok_or(SendError::MissingArgument)<span class="question-mark">?</span>;
 				<span class="kw">let </span>dest_clone = dest_clone.ok_or(SendError::MissingArgument)<span class="question-mark">?</span>;
 
-				<span class="comment">// We won&#39;t have access to `dest` and `xcm` in the `deliver` method, so we need to
+				<span class="comment">// We won't have access to `dest` and `xcm` in the `deliver` method, so we need to
 				// precompute everything required here. However, `dest` and `xcm` were consumed by
 				// `ViaBridgeHubExporter`, so we need to use their clones.
 				</span><span class="kw">let </span>message_size = xcm_to_dest_clone.encoded_size() <span class="kw">as _</span>;
 
-				<span class="comment">// The bridge doesn&#39;t support oversized or overweight messages. Therefore, it&#39;s
-				// better to drop such messages here rather than at the bridge hub. Let&#39;s check the
-				// message size.&quot;
+				<span class="comment">// The bridge doesn't support oversized or overweight messages. Therefore, it's
+				// better to drop such messages here rather than at the bridge hub. Let's check the
+				// message size."
 				</span><span class="kw">if </span>message_size &gt; HARD_MESSAGE_SIZE_LIMIT {
 					<span class="kw">return </span><span class="prelude-val">Err</span>(SendError::ExceedsMaxMessageSize)
 				}
 
-				<span class="comment">// We need to ensure that the known `dest`&#39;s XCM version can comprehend the current
+				<span class="comment">// We need to ensure that the known `dest`'s XCM version can comprehend the current
 				// `xcm` program. This may seem like an additional, unnecessary check, but it is
 				// not. A similar check is probably performed by the `ViaBridgeHubExporter`, which
 				// attempts to send a versioned message to the sibling bridge hub. However, the
@@ -1163,7 +1165,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="prelude-val">Ok</span>(((message_size, ticket), cost))
 			},
 			<span class="prelude-val">Err</span>(e) =&gt; {
-				<span class="macro">log::trace!</span>(target: LOG_TARGET, <span class="string">&quot;validate - ViaBridgeHubExporter - error: {e:?}&quot;</span>);
+				<span class="macro">log::trace!</span>(target: LOG_TARGET, <span class="string">"validate - ViaBridgeHubExporter - error: {e:?}"</span>);
 				<span class="prelude-val">Err</span>(e)
 			},
 		}
@@ -1178,7 +1180,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// increase delivery fee factor if required
 		</span><span class="self">Self</span>::on_message_sent_to_bridge(message_size);
 
-		<span class="macro">log::trace!</span>(target: LOG_TARGET, <span class="string">&quot;deliver - message sent, xcm_hash: {xcm_hash:?}&quot;</span>);
+		<span class="macro">log::trace!</span>(target: LOG_TARGET, <span class="string">"deliver - message sent, xcm_hash: {xcm_hash:?}"</span>);
 		<span class="prelude-val">Ok</span>(xcm_hash)
 	}
 }
@@ -1245,7 +1247,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				XcmBridgeHubRouter::on_initialize(One::one());
 			}
 
-			<span class="comment">// verify that it doesn&#39;t decreases anymore
+			<span class="comment">// verify that it doesn't decreases anymore
 			</span>XcmBridgeHubRouter::on_initialize(One::one());
 			<span class="macro">assert_eq!</span>(
 				XcmBridgeHubRouter::bridge(),
@@ -1310,7 +1312,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>destination_unsupported_if_wrap_version_fails() {
 		run_test(|| {
-			<span class="comment">// routable dest but we don&#39;t know XCM version
+			<span class="comment">// routable dest but we don't know XCM version
 			</span><span class="kw">let </span>dest = UnknownXcmVersionForRoutableLocation::get();
 			<span class="kw">let </span>xcm: Xcm&lt;()&gt; = <span class="macro">vec!</span>[ClearOrigin].into();
 

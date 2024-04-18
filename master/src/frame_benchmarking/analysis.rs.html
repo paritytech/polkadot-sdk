@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/benchmarking/src/analysis.rs`."><title>analysis.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/benchmarking/src/analysis.rs`."><title>analysis.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="frame_benchmarking" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="frame_benchmarking" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../frame_benchmarking/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -921,14 +923,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -1012,7 +1014,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.iter()
 			.map(|result| <span class="self">self</span>.get_value(result))
 			.min()
-			.expect(<span class="string">&quot;results cannot be empty&quot;</span>)
+			.expect(<span class="string">"results cannot be empty"</span>)
 	}
 }
 
@@ -1033,16 +1035,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl </span>TryFrom&lt;<span class="prelude-ty">Option</span>&lt;String&gt;&gt; <span class="kw">for </span>AnalysisChoice {
-	<span class="kw">type </span>Error = <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str;
+	<span class="kw">type </span>Error = <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str;
 
 	<span class="kw">fn </span>try_from(s: <span class="prelude-ty">Option</span>&lt;String&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Error&gt; {
 		<span class="kw">match </span>s {
 			<span class="prelude-val">None </span>=&gt; <span class="prelude-val">Ok</span>(AnalysisChoice::default()),
 			<span class="prelude-val">Some</span>(i) =&gt; <span class="kw">match </span><span class="kw-2">&amp;</span>i[..] {
-				<span class="string">&quot;min-squares&quot; </span>| <span class="string">&quot;min_squares&quot; </span>=&gt; <span class="prelude-val">Ok</span>(AnalysisChoice::MinSquares),
-				<span class="string">&quot;median-slopes&quot; </span>| <span class="string">&quot;median_slopes&quot; </span>=&gt; <span class="prelude-val">Ok</span>(AnalysisChoice::MedianSlopes),
-				<span class="string">&quot;max&quot; </span>=&gt; <span class="prelude-val">Ok</span>(AnalysisChoice::Max),
-				<span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(<span class="string">&quot;invalid analysis string&quot;</span>),
+				<span class="string">"min-squares" </span>| <span class="string">"min_squares" </span>=&gt; <span class="prelude-val">Ok</span>(AnalysisChoice::MinSquares),
+				<span class="string">"median-slopes" </span>| <span class="string">"median_slopes" </span>=&gt; <span class="prelude-val">Ok</span>(AnalysisChoice::MedianSlopes),
+				<span class="string">"max" </span>=&gt; <span class="prelude-val">Ok</span>(AnalysisChoice::Max),
+				<span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(<span class="string">"invalid analysis string"</span>),
 			},
 		}
 	}
@@ -1066,7 +1068,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	// In machine learning terms this is essentially the training data for the model.
 	//
 	// As a special case the very first input parameter represents the constant factor
-	// of the linear equation: the so called &quot;intercept value&quot;. Since it&#39;s supposed to
+	// of the linear equation: the so called "intercept value". Since it's supposed to
 	// be constant we can just put a dummy input parameter of either a `1` (in case we want it)
 	// or a `0` (in case we do not).
 	</span><span class="kw">for </span>(<span class="kw-2">&amp;</span>y, xs) <span class="kw">in </span>ys.iter().zip(xs.chunks_exact(x_vars)) {
@@ -1094,7 +1096,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="comment">// The intercept is negative.
-	// The weights must be always positive, so we can&#39;t have that.
+	// The weights must be always positive, so we can't have that.
 
 	</span><span class="kw">let </span><span class="kw-2">mut </span>min = ys[<span class="number">0</span>];
 	<span class="kw">for </span><span class="kw-2">&amp;</span>value <span class="kw">in </span><span class="kw-2">&amp;</span>ys {
@@ -1162,7 +1164,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw-2">*</span>counted.entry(p).or_default() += <span class="number">1</span>;
 				}
 				<span class="kw">let </span>others: Vec&lt;u32&gt; =
-					counted.iter().max_by_key(|i| i.<span class="number">1</span>).expect(<span class="string">&quot;r is not empty; qed&quot;</span>).<span class="number">0</span>.clone();
+					counted.iter().max_by_key(|i| i.<span class="number">1</span>).expect(<span class="string">"r is not empty; qed"</span>).<span class="number">0</span>.clone();
 				<span class="kw">let </span>values = r
 					.iter()
 					.filter(|v| {
@@ -1185,7 +1187,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						(result.components[i].<span class="number">1</span>, data)
 					})
 					.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
-				(<span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, param), i, others, values)
+				(<span class="macro">format!</span>(<span class="string">"{:?}"</span>, param), i, others, values)
 			})
 			.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 
@@ -1200,14 +1202,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						}
 					}
 				}
-				slopes.sort_by(|a, b| a.partial_cmp(b).expect(<span class="string">&quot;values well defined; qed&quot;</span>));
+				slopes.sort_by(|a, b| a.partial_cmp(b).expect(<span class="string">"values well defined; qed"</span>));
 				<span class="kw">let </span>slope = slopes[slopes.len() / <span class="number">2</span>];
 
 				<span class="kw">let </span><span class="kw-2">mut </span>offsets = <span class="macro">vec!</span>[];
 				<span class="kw">for </span><span class="kw-2">&amp;</span>(x, y) <span class="kw">in </span>values.iter() {
 					offsets.push(y <span class="kw">as </span>f64 - slope * x <span class="kw">as </span>f64);
 				}
-				offsets.sort_by(|a, b| a.partial_cmp(b).expect(<span class="string">&quot;values well defined; qed&quot;</span>));
+				offsets.sort_by(|a, b| a.partial_cmp(b).expect(<span class="string">"values well defined; qed"</span>));
 				<span class="kw">let </span>offset = offsets[offsets.len() / <span class="number">2</span>];
 
 				(offset, slope)
@@ -1268,7 +1270,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw-2">*</span>rs = rs[ql..rs.len() - ql].to_vec();
 		}
 
-		<span class="kw">let </span>names = r[<span class="number">0</span>].components.iter().map(|x| <span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, x.<span class="number">0</span>)).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+		<span class="kw">let </span>names = r[<span class="number">0</span>].components.iter().map(|x| <span class="macro">format!</span>(<span class="string">"{:?}"</span>, x.<span class="number">0</span>)).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 		<span class="kw">let </span>value_dists = results
 			.iter()
 			.map(|(p, vs)| {
@@ -1341,7 +1343,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.names
 			.iter()
 			.zip(min_squares.names.iter())
-			.for_each(|(a, b)| <span class="macro">assert!</span>(a == b, <span class="string">&quot;benchmark results not in the same order&quot;</span>));
+			.for_each(|(a, b)| <span class="macro">assert!</span>(a == b, <span class="string">"benchmark results not in the same order"</span>));
 		<span class="kw">let </span>names = median_slopes.names;
 		<span class="kw">let </span>value_dists = min_squares.value_dists;
 		<span class="kw">let </span>errors = min_squares.errors;
@@ -1360,42 +1362,42 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>}
 		x /= <span class="number">10</span>;
 	}
-	<span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, nanos <span class="kw">as </span>f64 / <span class="number">1_000f64</span>)
+	<span class="macro">format!</span>(<span class="string">"{}"</span>, nanos <span class="kw">as </span>f64 / <span class="number">1_000f64</span>)
 }
 
 <span class="kw">impl </span>std::fmt::Display <span class="kw">for </span>Analysis {
 	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter) -&gt; std::fmt::Result {
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>value_dists) = <span class="self">self</span>.value_dists {
-			<span class="macro">writeln!</span>(f, <span class="string">&quot;\nData points distribution:&quot;</span>)<span class="question-mark">?</span>;
+			<span class="macro">writeln!</span>(f, <span class="string">"\nData points distribution:"</span>)<span class="question-mark">?</span>;
 			<span class="macro">writeln!</span>(
 				f,
-				<span class="string">&quot;{}   mean µs  sigma µs       %&quot;</span>,
-				<span class="self">self</span>.names.iter().map(|p| <span class="macro">format!</span>(<span class="string">&quot;{:&gt;5}&quot;</span>, p)).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;().join(<span class="string">&quot; &quot;</span>)
+				<span class="string">"{}   mean µs  sigma µs       %"</span>,
+				<span class="self">self</span>.names.iter().map(|p| <span class="macro">format!</span>(<span class="string">"{:&gt;5}"</span>, p)).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;().join(<span class="string">" "</span>)
 			)<span class="question-mark">?</span>;
 			<span class="kw">for </span>(param_values, mean, sigma) <span class="kw">in </span>value_dists.iter() {
 				<span class="kw">if </span><span class="kw-2">*</span>mean == <span class="number">0 </span>{
 					<span class="macro">writeln!</span>(
 						f,
-						<span class="string">&quot;{}  {:&gt;8}  {:&gt;8}  {:&gt;3}.{}%&quot;</span>,
+						<span class="string">"{}  {:&gt;8}  {:&gt;8}  {:&gt;3}.{}%"</span>,
 						param_values
 							.iter()
-							.map(|v| <span class="macro">format!</span>(<span class="string">&quot;{:&gt;5}&quot;</span>, v))
+							.map(|v| <span class="macro">format!</span>(<span class="string">"{:&gt;5}"</span>, v))
 							.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
-							.join(<span class="string">&quot; &quot;</span>),
+							.join(<span class="string">" "</span>),
 						ms(<span class="kw-2">*</span>mean),
 						ms(<span class="kw-2">*</span>sigma),
-						<span class="string">&quot;?&quot;</span>,
-						<span class="string">&quot;?&quot;
+						<span class="string">"?"</span>,
+						<span class="string">"?"
 					</span>)<span class="question-mark">?</span>;
 				} <span class="kw">else </span>{
 					<span class="macro">writeln!</span>(
 						f,
-						<span class="string">&quot;{}  {:&gt;8}  {:&gt;8}  {:&gt;3}.{}%&quot;</span>,
+						<span class="string">"{}  {:&gt;8}  {:&gt;8}  {:&gt;3}.{}%"</span>,
 						param_values
 							.iter()
-							.map(|v| <span class="macro">format!</span>(<span class="string">&quot;{:&gt;5}&quot;</span>, v))
+							.map(|v| <span class="macro">format!</span>(<span class="string">"{:&gt;5}"</span>, v))
 							.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
-							.join(<span class="string">&quot; &quot;</span>),
+							.join(<span class="string">" "</span>),
 						ms(<span class="kw-2">*</span>mean),
 						ms(<span class="kw-2">*</span>sigma),
 						(sigma * <span class="number">100 </span>/ mean),
@@ -1406,29 +1408,29 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>errors) = <span class="self">self</span>.errors {
-			<span class="macro">writeln!</span>(f, <span class="string">&quot;\nQuality and confidence:&quot;</span>)<span class="question-mark">?</span>;
-			<span class="macro">writeln!</span>(f, <span class="string">&quot;param     error&quot;</span>)<span class="question-mark">?</span>;
+			<span class="macro">writeln!</span>(f, <span class="string">"\nQuality and confidence:"</span>)<span class="question-mark">?</span>;
+			<span class="macro">writeln!</span>(f, <span class="string">"param     error"</span>)<span class="question-mark">?</span>;
 			<span class="kw">for </span>(p, se) <span class="kw">in </span><span class="self">self</span>.names.iter().zip(errors.iter()) {
-				<span class="macro">writeln!</span>(f, <span class="string">&quot;{}      {:&gt;8}&quot;</span>, p, ms(<span class="self">self</span>.selector.nanos_from_weight(<span class="kw-2">*</span>se)))<span class="question-mark">?</span>;
+				<span class="macro">writeln!</span>(f, <span class="string">"{}      {:&gt;8}"</span>, p, ms(<span class="self">self</span>.selector.nanos_from_weight(<span class="kw-2">*</span>se)))<span class="question-mark">?</span>;
 			}
 		}
 
-		<span class="macro">writeln!</span>(f, <span class="string">&quot;\nModel:&quot;</span>)<span class="question-mark">?</span>;
-		<span class="macro">writeln!</span>(f, <span class="string">&quot;Time ~= {:&gt;8}&quot;</span>, ms(<span class="self">self</span>.selector.nanos_from_weight(<span class="self">self</span>.base)))<span class="question-mark">?</span>;
+		<span class="macro">writeln!</span>(f, <span class="string">"\nModel:"</span>)<span class="question-mark">?</span>;
+		<span class="macro">writeln!</span>(f, <span class="string">"Time ~= {:&gt;8}"</span>, ms(<span class="self">self</span>.selector.nanos_from_weight(<span class="self">self</span>.base)))<span class="question-mark">?</span>;
 		<span class="kw">for </span>(<span class="kw-2">&amp;</span>t, n) <span class="kw">in </span><span class="self">self</span>.slopes.iter().zip(<span class="self">self</span>.names.iter()) {
-			<span class="macro">writeln!</span>(f, <span class="string">&quot;    + {} {:&gt;8}&quot;</span>, n, ms(<span class="self">self</span>.selector.nanos_from_weight(t)))<span class="question-mark">?</span>;
+			<span class="macro">writeln!</span>(f, <span class="string">"    + {} {:&gt;8}"</span>, n, ms(<span class="self">self</span>.selector.nanos_from_weight(t)))<span class="question-mark">?</span>;
 		}
-		<span class="macro">writeln!</span>(f, <span class="string">&quot;              µs&quot;</span>)
+		<span class="macro">writeln!</span>(f, <span class="string">"              µs"</span>)
 	}
 }
 
 <span class="kw">impl </span>std::fmt::Debug <span class="kw">for </span>Analysis {
 	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter) -&gt; std::fmt::Result {
-		<span class="macro">write!</span>(f, <span class="string">&quot;{}&quot;</span>, <span class="self">self</span>.base)<span class="question-mark">?</span>;
+		<span class="macro">write!</span>(f, <span class="string">"{}"</span>, <span class="self">self</span>.base)<span class="question-mark">?</span>;
 		<span class="kw">for </span>(<span class="kw-2">&amp;</span>m, n) <span class="kw">in </span><span class="self">self</span>.slopes.iter().zip(<span class="self">self</span>.names.iter()) {
-			<span class="macro">write!</span>(f, <span class="string">&quot; + ({} * {})&quot;</span>, m, n)<span class="question-mark">?</span>;
+			<span class="macro">write!</span>(f, <span class="string">" + ({} * {})"</span>, m, n)<span class="question-mark">?</span>;
 		}
-		<span class="macro">write!</span>(f, <span class="string">&quot;&quot;</span>)
+		<span class="macro">write!</span>(f, <span class="string">""</span>)
 	}
 }
 

@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/xcm/src/v3/multiasset.rs`."><title>multiasset.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/xcm/src/v3/multiasset.rs`."><title>multiasset.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="staging_xcm" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="staging_xcm" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../staging_xcm/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1416,7 +1418,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!   amount of a fungible.
 //! - `MultiAssets`: A collection of `MultiAsset`s. These are stored in a `Vec` and sorted with
 //!   fungibles first.
-//! - `Wild`: A single asset wildcard, this can either be &quot;all&quot; assets, or all assets of a specific
+//! - `Wild`: A single asset wildcard, this can either be "all" assets, or all assets of a specific
 //!   kind.
 //! - `MultiAssetFilter`: A combination of `Wild` and `MultiAssets` designed for efficiently
 //!   filtering an XCM holding account.
@@ -1460,8 +1462,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	serde::Serialize,
 	serde::Deserialize,
 )]
-#[cfg_attr(feature = <span class="string">&quot;json-schema&quot;</span>, derive(schemars::JsonSchema))]
-#[scale_info(replace_segment(<span class="string">&quot;staging_xcm&quot;</span>, <span class="string">&quot;xcm&quot;</span>))]
+#[cfg_attr(feature = <span class="string">"json-schema"</span>, derive(schemars::JsonSchema))]
+#[scale_info(replace_segment(<span class="string">"staging_xcm"</span>, <span class="string">"xcm"</span>))]
 </span><span class="kw">pub enum </span>AssetInstance {
 	<span class="doccomment">/// Undefined - used if the non-fungible asset class has only one instance.
 	</span>Undefined,
@@ -1683,8 +1685,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	serde::Serialize,
 	serde::Deserialize,
 )]
-#[cfg_attr(feature = <span class="string">&quot;json-schema&quot;</span>, derive(schemars::JsonSchema))]
-#[scale_info(replace_segment(<span class="string">&quot;staging_xcm&quot;</span>, <span class="string">&quot;xcm&quot;</span>))]
+#[cfg_attr(feature = <span class="string">"json-schema"</span>, derive(schemars::JsonSchema))]
+#[scale_info(replace_segment(<span class="string">"staging_xcm"</span>, <span class="string">"xcm"</span>))]
 </span><span class="kw">pub enum </span>Fungibility {
 	<span class="doccomment">/// A fungible asset; we record a number of units, as a `u128` in the inner item.
 	</span>Fungible(<span class="attr">#[codec(compact)] </span>u128),
@@ -1705,7 +1707,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			UncheckedFungibility::Fungible(a) <span class="kw">if </span>a != <span class="number">0 </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::Fungible(a)),
 			UncheckedFungibility::NonFungible(i) =&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::NonFungible(i)),
 			UncheckedFungibility::Fungible(<span class="kw">_</span>) =&gt;
-				<span class="prelude-val">Err</span>(<span class="string">&quot;Fungible asset of zero amount is not allowed&quot;</span>.into()),
+				<span class="prelude-val">Err</span>(<span class="string">"Fungible asset of zero amount is not allowed"</span>.into()),
 		}
 	}
 }
@@ -1776,8 +1778,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	serde::Serialize,
 	serde::Deserialize,
 )]
-#[cfg_attr(feature = <span class="string">&quot;json-schema&quot;</span>, derive(schemars::JsonSchema))]
-#[scale_info(replace_segment(<span class="string">&quot;staging_xcm&quot;</span>, <span class="string">&quot;xcm&quot;</span>))]
+#[cfg_attr(feature = <span class="string">"json-schema"</span>, derive(schemars::JsonSchema))]
+#[scale_info(replace_segment(<span class="string">"staging_xcm"</span>, <span class="string">"xcm"</span>))]
 </span><span class="kw">pub enum </span>WildFungibility {
 	<span class="doccomment">/// The asset is fungible.
 	</span>Fungible,
@@ -1823,8 +1825,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	serde::Serialize,
 	serde::Deserialize,
 )]
-#[cfg_attr(feature = <span class="string">&quot;json-schema&quot;</span>, derive(schemars::JsonSchema))]
-#[scale_info(replace_segment(<span class="string">&quot;staging_xcm&quot;</span>, <span class="string">&quot;xcm&quot;</span>))]
+#[cfg_attr(feature = <span class="string">"json-schema"</span>, derive(schemars::JsonSchema))]
+#[scale_info(replace_segment(<span class="string">"staging_xcm"</span>, <span class="string">"xcm"</span>))]
 </span><span class="kw">pub enum </span>AssetId {
 	<span class="doccomment">/// A specific location identifying an asset.
 	</span>Concrete(MultiLocation),
@@ -1878,7 +1880,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Mutate the asset to represent the same value from the perspective of a new `target`
-	/// location. The local chain&#39;s location is provided in `context`.
+	/// location. The local chain's location is provided in `context`.
 	</span><span class="kw">pub fn </span>reanchor(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		target: <span class="kw-2">&amp;</span>MultiLocation,
@@ -1916,8 +1918,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	serde::Serialize,
 	serde::Deserialize,
 )]
-#[cfg_attr(feature = <span class="string">&quot;json-schema&quot;</span>, derive(schemars::JsonSchema))]
-#[scale_info(replace_segment(<span class="string">&quot;staging_xcm&quot;</span>, <span class="string">&quot;xcm&quot;</span>))]
+#[cfg_attr(feature = <span class="string">"json-schema"</span>, derive(schemars::JsonSchema))]
+#[scale_info(replace_segment(<span class="string">"staging_xcm"</span>, <span class="string">"xcm"</span>))]
 </span><span class="kw">pub struct </span>MultiAsset {
 	<span class="doccomment">/// The overall asset identity (aka *class*, in the case of a non-fungible).
 	</span><span class="kw">pub </span>id: AssetId,
@@ -2033,8 +2035,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	serde::Serialize,
 	serde::Deserialize,
 )]
-#[cfg_attr(feature = <span class="string">&quot;json-schema&quot;</span>, derive(schemars::JsonSchema))]
-#[scale_info(replace_segment(<span class="string">&quot;staging_xcm&quot;</span>, <span class="string">&quot;xcm&quot;</span>))]
+#[cfg_attr(feature = <span class="string">"json-schema"</span>, derive(schemars::JsonSchema))]
+#[scale_info(replace_segment(<span class="string">"staging_xcm"</span>, <span class="string">"xcm"</span>))]
 </span><span class="kw">pub struct </span>MultiAssets(Vec&lt;MultiAsset&gt;);
 
 <span class="doccomment">/// Maximum number of items in a single `MultiAssets` value that can be decoded.
@@ -2051,7 +2053,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>bounded_instructions =
 			BoundedVec::&lt;MultiAsset, ConstU32&lt;{ MAX_ITEMS_IN_MULTIASSETS <span class="kw">as </span>u32 }&gt;&gt;::decode(input)<span class="question-mark">?</span>;
 		<span class="self">Self</span>::from_sorted_and_deduplicated(bounded_instructions.into_inner())
-			.map_err(|()| <span class="string">&quot;Out of order&quot;</span>.into())
+			.map_err(|()| <span class="string">"Out of order"</span>.into())
 	}
 }
 
@@ -2129,7 +2131,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// and which contain no duplicates.
 	///
 	/// Returns `Ok` if the operation succeeds and `Err` if `r` is out of order or had duplicates.
-	/// If you can&#39;t guarantee that `r` is sorted and deduplicated, then use
+	/// If you can't guarantee that `r` is sorted and deduplicated, then use
 	/// `From::&lt;Vec&lt;MultiAsset&gt;&gt;::from` which is infallible.
 	</span><span class="kw">pub fn </span>from_sorted_and_deduplicated(r: Vec&lt;MultiAsset&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, ()&gt; {
 		<span class="kw">if </span>r.is_empty() {
@@ -2153,7 +2155,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// strict proof that `r` is valid.
 	</span><span class="attr">#[cfg(test)]
 	</span><span class="kw">pub fn </span>from_sorted_and_deduplicated_skip_checks(r: Vec&lt;MultiAsset&gt;) -&gt; <span class="self">Self </span>{
-		<span class="self">Self</span>::from_sorted_and_deduplicated(r).expect(<span class="string">&quot;Invalid input r is not sorted/deduped&quot;</span>)
+		<span class="self">Self</span>::from_sorted_and_deduplicated(r).expect(<span class="string">"Invalid input r is not sorted/deduped"</span>)
 	}
 	<span class="doccomment">/// Create a new instance of `MultiAssets` from a `Vec&lt;MultiAsset&gt;` whose contents are sorted
 	/// and which contain no duplicates.
@@ -2198,7 +2200,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Consume `self` and return the inner vec.
-	</span><span class="attr">#[deprecated = <span class="string">&quot;Use `into_inner()` instead&quot;</span>]
+	</span><span class="attr">#[deprecated = <span class="string">"Use `into_inner()` instead"</span>]
 	</span><span class="kw">pub fn </span>drain(<span class="self">self</span>) -&gt; Vec&lt;MultiAsset&gt; {
 		<span class="self">self</span>.<span class="number">0
 	</span>}
@@ -2237,7 +2239,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Ok</span>(())
 	}
 
-	<span class="doccomment">/// Return a reference to an item at a specific index or `None` if it doesn&#39;t exist.
+	<span class="doccomment">/// Return a reference to an item at a specific index or `None` if it doesn't exist.
 	</span><span class="kw">pub fn </span>get(<span class="kw-2">&amp;</span><span class="self">self</span>, index: usize) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>MultiAsset&gt; {
 		<span class="self">self</span>.<span class="number">0</span>.get(index)
 	}
@@ -2258,8 +2260,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	serde::Serialize,
 	serde::Deserialize,
 )]
-#[cfg_attr(feature = <span class="string">&quot;json-schema&quot;</span>, derive(schemars::JsonSchema))]
-#[scale_info(replace_segment(<span class="string">&quot;staging_xcm&quot;</span>, <span class="string">&quot;xcm&quot;</span>))]
+#[cfg_attr(feature = <span class="string">"json-schema"</span>, derive(schemars::JsonSchema))]
+#[scale_info(replace_segment(<span class="string">"staging_xcm"</span>, <span class="string">"xcm"</span>))]
 </span><span class="kw">pub enum </span>WildMultiAsset {
 	<span class="doccomment">/// All assets in Holding.
 	</span>All,
@@ -2332,13 +2334,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// Note that for `Counted` variants of wildcards, then it will disregard the count except for
 	/// always returning `false` when equal to 0.
-	</span><span class="attr">#[deprecated = <span class="string">&quot;Use `contains` instead&quot;</span>]
+	</span><span class="attr">#[deprecated = <span class="string">"Use `contains` instead"</span>]
 	</span><span class="kw">pub fn </span>matches(<span class="kw-2">&amp;</span><span class="self">self</span>, inner: <span class="kw-2">&amp;</span>MultiAsset) -&gt; bool {
 		<span class="self">self</span>.contains(inner)
 	}
 
 	<span class="doccomment">/// Mutate the asset to represent the same value from the perspective of a new `target`
-	/// location. The local chain&#39;s location is provided in `context`.
+	/// location. The local chain's location is provided in `context`.
 	</span><span class="kw">pub fn </span>reanchor(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		target: <span class="kw-2">&amp;</span>MultiLocation,
@@ -2398,8 +2400,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	serde::Serialize,
 	serde::Deserialize,
 )]
-#[cfg_attr(feature = <span class="string">&quot;json-schema&quot;</span>, derive(schemars::JsonSchema))]
-#[scale_info(replace_segment(<span class="string">&quot;staging_xcm&quot;</span>, <span class="string">&quot;xcm&quot;</span>))]
+#[cfg_attr(feature = <span class="string">"json-schema"</span>, derive(schemars::JsonSchema))]
+#[scale_info(replace_segment(<span class="string">"staging_xcm"</span>, <span class="string">"xcm"</span>))]
 </span><span class="kw">pub enum </span>MultiAssetFilter {
 	<span class="doccomment">/// Specify the filter as being everything contained by the given `MultiAssets` inner.
 	</span>Definite(MultiAssets),
@@ -2531,7 +2533,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>r = MultiAssets::from_sorted_and_deduplicated(dup_fun);
 		<span class="macro">assert!</span>(r.is_err());
 
-		<span class="kw">let </span>dup_nft = <span class="macro">vec!</span>[(Here, <span class="kw-2">*</span><span class="string">b&quot;notgood!&quot;</span>).into(), (Here, <span class="kw-2">*</span><span class="string">b&quot;notgood!&quot;</span>).into()];
+		<span class="kw">let </span>dup_nft = <span class="macro">vec!</span>[(Here, <span class="kw-2">*</span><span class="string">b"notgood!"</span>).into(), (Here, <span class="kw-2">*</span><span class="string">b"notgood!"</span>).into()];
 		<span class="kw">let </span>r = MultiAssets::from_sorted_and_deduplicated(dup_nft);
 		<span class="macro">assert!</span>(r.is_err());
 
@@ -2551,11 +2553,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>r = MultiAssets::from_sorted_and_deduplicated(bad_abstract_fun);
 		<span class="macro">assert!</span>(r.is_err());
 
-		<span class="kw">let </span>good_nft = <span class="macro">vec!</span>[(Here, ()).into(), (Here, <span class="kw-2">*</span><span class="string">b&quot;good&quot;</span>).into()];
+		<span class="kw">let </span>good_nft = <span class="macro">vec!</span>[(Here, ()).into(), (Here, <span class="kw-2">*</span><span class="string">b"good"</span>).into()];
 		<span class="kw">let </span>r = MultiAssets::from_sorted_and_deduplicated(good_nft.clone());
 		<span class="macro">assert_eq!</span>(r, <span class="prelude-val">Ok</span>(MultiAssets(good_nft)));
 
-		<span class="kw">let </span>bad_nft = <span class="macro">vec!</span>[(Here, <span class="kw-2">*</span><span class="string">b&quot;bad!&quot;</span>).into(), (Here, ()).into()];
+		<span class="kw">let </span>bad_nft = <span class="macro">vec!</span>[(Here, <span class="kw-2">*</span><span class="string">b"bad!"</span>).into(), (Here, ()).into()];
 		<span class="kw">let </span>r = MultiAssets::from_sorted_and_deduplicated(bad_nft);
 		<span class="macro">assert!</span>(r.is_err());
 
@@ -2567,11 +2569,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>r = MultiAssets::from_sorted_and_deduplicated(bad_abstract_nft);
 		<span class="macro">assert!</span>(r.is_err());
 
-		<span class="kw">let </span>mixed_good = <span class="macro">vec!</span>[(Here, <span class="number">10</span>).into(), (Here, <span class="kw-2">*</span><span class="string">b&quot;good&quot;</span>).into()];
+		<span class="kw">let </span>mixed_good = <span class="macro">vec!</span>[(Here, <span class="number">10</span>).into(), (Here, <span class="kw-2">*</span><span class="string">b"good"</span>).into()];
 		<span class="kw">let </span>r = MultiAssets::from_sorted_and_deduplicated(mixed_good.clone());
 		<span class="macro">assert_eq!</span>(r, <span class="prelude-val">Ok</span>(MultiAssets(mixed_good)));
 
-		<span class="kw">let </span>mixed_bad = <span class="macro">vec!</span>[(Here, <span class="kw-2">*</span><span class="string">b&quot;bad!&quot;</span>).into(), (Here, <span class="number">10</span>).into()];
+		<span class="kw">let </span>mixed_bad = <span class="macro">vec!</span>[(Here, <span class="kw-2">*</span><span class="string">b"bad!"</span>).into(), (Here, <span class="number">10</span>).into()];
 		<span class="kw">let </span>r = MultiAssets::from_sorted_and_deduplicated(mixed_bad);
 		<span class="macro">assert!</span>(r.is_err());
 	}

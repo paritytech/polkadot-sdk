@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `cumulus/polkadot-parachain/src/command.rs`."><title>command.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `cumulus/polkadot-parachain/src/command.rs`."><title>command.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_parachain" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_parachain" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../polkadot_parachain/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1266,7 +1268,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>std::{net::SocketAddr, path::PathBuf};
 
 <span class="doccomment">/// Helper enum that is used for better distinction of different parachain/runtime configuration
-/// (it is based/calculated on ChainSpec&#39;s ID attribute)
+/// (it is based/calculated on ChainSpec's ID attribute)
 </span><span class="attr">#[derive(Debug, PartialEq, Default)]
 </span><span class="kw">enum </span>Runtime {
 	<span class="doccomment">/// This is the default runtime (actually based on rococo)
@@ -1317,46 +1319,46 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">fn </span>runtime(id: <span class="kw-2">&amp;</span>str) -&gt; Runtime {
-	<span class="kw">let </span>id = id.replace(<span class="string">&#39;_&#39;</span>, <span class="string">&quot;-&quot;</span>);
+	<span class="kw">let </span>id = id.replace(<span class="string">'_'</span>, <span class="string">"-"</span>);
 	<span class="kw">let </span>(<span class="kw">_</span>, id, para_id) = extract_parachain_id(<span class="kw-2">&amp;</span>id);
 
-	<span class="kw">if </span>id.starts_with(<span class="string">&quot;shell&quot;</span>) {
+	<span class="kw">if </span>id.starts_with(<span class="string">"shell"</span>) {
 		Runtime::Shell
-	} <span class="kw">else if </span>id.starts_with(<span class="string">&quot;seedling&quot;</span>) {
+	} <span class="kw">else if </span>id.starts_with(<span class="string">"seedling"</span>) {
 		Runtime::Seedling
-	} <span class="kw">else if </span>id.starts_with(<span class="string">&quot;asset-hub-polkadot&quot;</span>) | id.starts_with(<span class="string">&quot;statemint&quot;</span>) {
+	} <span class="kw">else if </span>id.starts_with(<span class="string">"asset-hub-polkadot"</span>) | id.starts_with(<span class="string">"statemint"</span>) {
 		Runtime::AssetHubPolkadot
-	} <span class="kw">else if </span>id.starts_with(<span class="string">&quot;asset-hub-kusama&quot;</span>) | id.starts_with(<span class="string">&quot;statemine&quot;</span>) {
+	} <span class="kw">else if </span>id.starts_with(<span class="string">"asset-hub-kusama"</span>) | id.starts_with(<span class="string">"statemine"</span>) {
 		Runtime::AssetHubKusama
-	} <span class="kw">else if </span>id.starts_with(<span class="string">&quot;asset-hub-rococo&quot;</span>) {
+	} <span class="kw">else if </span>id.starts_with(<span class="string">"asset-hub-rococo"</span>) {
 		Runtime::AssetHubRococo
-	} <span class="kw">else if </span>id.starts_with(<span class="string">&quot;asset-hub-westend&quot;</span>) | id.starts_with(<span class="string">&quot;westmint&quot;</span>) {
+	} <span class="kw">else if </span>id.starts_with(<span class="string">"asset-hub-westend"</span>) | id.starts_with(<span class="string">"westmint"</span>) {
 		Runtime::AssetHubWestend
-	} <span class="kw">else if </span>id.starts_with(<span class="string">&quot;penpal&quot;</span>) {
+	} <span class="kw">else if </span>id.starts_with(<span class="string">"penpal"</span>) {
 		Runtime::Penpal(para_id.unwrap_or(ParaId::new(<span class="number">0</span>)))
-	} <span class="kw">else if </span>id.starts_with(<span class="string">&quot;contracts-rococo&quot;</span>) {
+	} <span class="kw">else if </span>id.starts_with(<span class="string">"contracts-rococo"</span>) {
 		Runtime::ContractsRococo
-	} <span class="kw">else if </span>id.starts_with(<span class="string">&quot;collectives-polkadot&quot;</span>) {
+	} <span class="kw">else if </span>id.starts_with(<span class="string">"collectives-polkadot"</span>) {
 		Runtime::CollectivesPolkadot
-	} <span class="kw">else if </span>id.starts_with(<span class="string">&quot;collectives-westend&quot;</span>) {
+	} <span class="kw">else if </span>id.starts_with(<span class="string">"collectives-westend"</span>) {
 		Runtime::CollectivesWestend
 	} <span class="kw">else if </span>id.starts_with(chain_spec::bridge_hubs::BridgeHubRuntimeType::ID_PREFIX) {
 		Runtime::BridgeHub(
 			id.parse::&lt;chain_spec::bridge_hubs::BridgeHubRuntimeType&gt;()
-				.expect(<span class="string">&quot;Invalid value&quot;</span>),
+				.expect(<span class="string">"Invalid value"</span>),
 		)
 	} <span class="kw">else if </span>id.starts_with(chain_spec::coretime::CoretimeRuntimeType::ID_PREFIX) {
 		Runtime::Coretime(
-			id.parse::&lt;chain_spec::coretime::CoretimeRuntimeType&gt;().expect(<span class="string">&quot;Invalid value&quot;</span>),
+			id.parse::&lt;chain_spec::coretime::CoretimeRuntimeType&gt;().expect(<span class="string">"Invalid value"</span>),
 		)
-	} <span class="kw">else if </span>id.starts_with(<span class="string">&quot;glutton-westend&quot;</span>) {
+	} <span class="kw">else if </span>id.starts_with(<span class="string">"glutton-westend"</span>) {
 		Runtime::GluttonWestend
-	} <span class="kw">else if </span>id.starts_with(<span class="string">&quot;glutton&quot;</span>) {
+	} <span class="kw">else if </span>id.starts_with(<span class="string">"glutton"</span>) {
 		Runtime::Glutton
 	} <span class="kw">else if </span>id.starts_with(chain_spec::people::PeopleRuntimeType::ID_PREFIX) {
-		Runtime::People(id.parse::&lt;chain_spec::people::PeopleRuntimeType&gt;().expect(<span class="string">&quot;Invalid value&quot;</span>))
+		Runtime::People(id.parse::&lt;chain_spec::people::PeopleRuntimeType&gt;().expect(<span class="string">"Invalid value"</span>))
 	} <span class="kw">else </span>{
-		<span class="macro">log::warn!</span>(<span class="string">&quot;No specific runtime was recognized for ChainSpec&#39;s id: &#39;{}&#39;, so Runtime::default() will be used&quot;</span>, id);
+		<span class="macro">log::warn!</span>(<span class="string">"No specific runtime was recognized for ChainSpec's id: '{}', so Runtime::default() will be used"</span>, id);
 		Runtime::default()
 	}
 }
@@ -1365,79 +1367,79 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>(id, <span class="kw">_</span>, para_id) = extract_parachain_id(id);
 	<span class="prelude-val">Ok</span>(<span class="kw">match </span>id {
 		<span class="comment">// - Default-like
-		</span><span class="string">&quot;staging&quot; </span>=&gt;
+		</span><span class="string">"staging" </span>=&gt;
 			Box::new(chain_spec::rococo_parachain::staging_rococo_parachain_local_config()),
-		<span class="string">&quot;tick&quot; </span>=&gt; Box::new(GenericChainSpec::from_json_bytes(
-			<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">&quot;../chain-specs/tick.json&quot;</span>)[..],
+		<span class="string">"tick" </span>=&gt; Box::new(GenericChainSpec::from_json_bytes(
+			<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">"../chain-specs/tick.json"</span>)[..],
 		)<span class="question-mark">?</span>),
-		<span class="string">&quot;trick&quot; </span>=&gt; Box::new(GenericChainSpec::from_json_bytes(
-			<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">&quot;../chain-specs/trick.json&quot;</span>)[..],
+		<span class="string">"trick" </span>=&gt; Box::new(GenericChainSpec::from_json_bytes(
+			<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">"../chain-specs/trick.json"</span>)[..],
 		)<span class="question-mark">?</span>),
-		<span class="string">&quot;track&quot; </span>=&gt; Box::new(GenericChainSpec::from_json_bytes(
-			<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">&quot;../chain-specs/track.json&quot;</span>)[..],
+		<span class="string">"track" </span>=&gt; Box::new(GenericChainSpec::from_json_bytes(
+			<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">"../chain-specs/track.json"</span>)[..],
 		)<span class="question-mark">?</span>),
 
 		<span class="comment">// -- Starters
-		</span><span class="string">&quot;shell&quot; </span>=&gt; Box::new(chain_spec::shell::get_shell_chain_spec()),
-		<span class="string">&quot;seedling&quot; </span>=&gt; Box::new(chain_spec::seedling::get_seedling_chain_spec()),
+		</span><span class="string">"shell" </span>=&gt; Box::new(chain_spec::shell::get_shell_chain_spec()),
+		<span class="string">"seedling" </span>=&gt; Box::new(chain_spec::seedling::get_seedling_chain_spec()),
 
 		<span class="comment">// -- Asset Hub Polkadot
-		</span><span class="string">&quot;asset-hub-polkadot&quot; </span>| <span class="string">&quot;statemint&quot; </span>=&gt; Box::new(GenericChainSpec::from_json_bytes(
-			<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">&quot;../chain-specs/asset-hub-polkadot.json&quot;</span>)[..],
+		</span><span class="string">"asset-hub-polkadot" </span>| <span class="string">"statemint" </span>=&gt; Box::new(GenericChainSpec::from_json_bytes(
+			<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">"../chain-specs/asset-hub-polkadot.json"</span>)[..],
 		)<span class="question-mark">?</span>),
 
 		<span class="comment">// -- Asset Hub Kusama
-		</span><span class="string">&quot;asset-hub-kusama&quot; </span>| <span class="string">&quot;statemine&quot; </span>=&gt; Box::new(GenericChainSpec::from_json_bytes(
-			<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">&quot;../chain-specs/asset-hub-kusama.json&quot;</span>)[..],
+		</span><span class="string">"asset-hub-kusama" </span>| <span class="string">"statemine" </span>=&gt; Box::new(GenericChainSpec::from_json_bytes(
+			<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">"../chain-specs/asset-hub-kusama.json"</span>)[..],
 		)<span class="question-mark">?</span>),
 
 		<span class="comment">// -- Asset Hub Rococo
-		</span><span class="string">&quot;asset-hub-rococo-dev&quot; </span>=&gt;
+		</span><span class="string">"asset-hub-rococo-dev" </span>=&gt;
 			Box::new(chain_spec::asset_hubs::asset_hub_rococo_development_config()),
-		<span class="string">&quot;asset-hub-rococo-local&quot; </span>=&gt;
+		<span class="string">"asset-hub-rococo-local" </span>=&gt;
 			Box::new(chain_spec::asset_hubs::asset_hub_rococo_local_config()),
 		<span class="comment">// the chain spec as used for generating the upgrade genesis values
-		</span><span class="string">&quot;asset-hub-rococo-genesis&quot; </span>=&gt;
+		</span><span class="string">"asset-hub-rococo-genesis" </span>=&gt;
 			Box::new(chain_spec::asset_hubs::asset_hub_rococo_genesis_config()),
-		<span class="string">&quot;asset-hub-rococo&quot; </span>=&gt; Box::new(GenericChainSpec::from_json_bytes(
-			<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">&quot;../chain-specs/asset-hub-rococo.json&quot;</span>)[..],
+		<span class="string">"asset-hub-rococo" </span>=&gt; Box::new(GenericChainSpec::from_json_bytes(
+			<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">"../chain-specs/asset-hub-rococo.json"</span>)[..],
 		)<span class="question-mark">?</span>),
 
 		<span class="comment">// -- Asset Hub Westend
-		</span><span class="string">&quot;asset-hub-westend-dev&quot; </span>| <span class="string">&quot;westmint-dev&quot; </span>=&gt;
+		</span><span class="string">"asset-hub-westend-dev" </span>| <span class="string">"westmint-dev" </span>=&gt;
 			Box::new(chain_spec::asset_hubs::asset_hub_westend_development_config()),
-		<span class="string">&quot;asset-hub-westend-local&quot; </span>| <span class="string">&quot;westmint-local&quot; </span>=&gt;
+		<span class="string">"asset-hub-westend-local" </span>| <span class="string">"westmint-local" </span>=&gt;
 			Box::new(chain_spec::asset_hubs::asset_hub_westend_local_config()),
 		<span class="comment">// the chain spec as used for generating the upgrade genesis values
-		</span><span class="string">&quot;asset-hub-westend-genesis&quot; </span>| <span class="string">&quot;westmint-genesis&quot; </span>=&gt;
+		</span><span class="string">"asset-hub-westend-genesis" </span>| <span class="string">"westmint-genesis" </span>=&gt;
 			Box::new(chain_spec::asset_hubs::asset_hub_westend_config()),
 		<span class="comment">// the shell-based chain spec as used for syncing
-		</span><span class="string">&quot;asset-hub-westend&quot; </span>| <span class="string">&quot;westmint&quot; </span>=&gt; Box::new(GenericChainSpec::from_json_bytes(
-			<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">&quot;../chain-specs/asset-hub-westend.json&quot;</span>)[..],
+		</span><span class="string">"asset-hub-westend" </span>| <span class="string">"westmint" </span>=&gt; Box::new(GenericChainSpec::from_json_bytes(
+			<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">"../chain-specs/asset-hub-westend.json"</span>)[..],
 		)<span class="question-mark">?</span>),
 
 		<span class="comment">// -- Polkadot Collectives
-		</span><span class="string">&quot;collectives-polkadot&quot; </span>=&gt; Box::new(GenericChainSpec::from_json_bytes(
-			<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">&quot;../chain-specs/collectives-polkadot.json&quot;</span>)[..],
+		</span><span class="string">"collectives-polkadot" </span>=&gt; Box::new(GenericChainSpec::from_json_bytes(
+			<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">"../chain-specs/collectives-polkadot.json"</span>)[..],
 		)<span class="question-mark">?</span>),
 
 		<span class="comment">// -- Westend Collectives
-		</span><span class="string">&quot;collectives-westend-dev&quot; </span>=&gt;
+		</span><span class="string">"collectives-westend-dev" </span>=&gt;
 			Box::new(chain_spec::collectives::collectives_westend_development_config()),
-		<span class="string">&quot;collectives-westend-local&quot; </span>=&gt;
+		<span class="string">"collectives-westend-local" </span>=&gt;
 			Box::new(chain_spec::collectives::collectives_westend_local_config()),
-		<span class="string">&quot;collectives-westend&quot; </span>=&gt; Box::new(GenericChainSpec::from_json_bytes(
-			<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">&quot;../chain-specs/collectives-westend.json&quot;</span>)[..],
+		<span class="string">"collectives-westend" </span>=&gt; Box::new(GenericChainSpec::from_json_bytes(
+			<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">"../chain-specs/collectives-westend.json"</span>)[..],
 		)<span class="question-mark">?</span>),
 
 		<span class="comment">// -- Contracts on Rococo
-		</span><span class="string">&quot;contracts-rococo-dev&quot; </span>=&gt;
+		</span><span class="string">"contracts-rococo-dev" </span>=&gt;
 			Box::new(chain_spec::contracts::contracts_rococo_development_config()),
-		<span class="string">&quot;contracts-rococo-local&quot; </span>=&gt;
+		<span class="string">"contracts-rococo-local" </span>=&gt;
 			Box::new(chain_spec::contracts::contracts_rococo_local_config()),
-		<span class="string">&quot;contracts-rococo-genesis&quot; </span>=&gt; Box::new(chain_spec::contracts::contracts_rococo_config()),
-		<span class="string">&quot;contracts-rococo&quot; </span>=&gt; Box::new(GenericChainSpec::from_json_bytes(
-			<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">&quot;../chain-specs/contracts-rococo.json&quot;</span>)[..],
+		<span class="string">"contracts-rococo-genesis" </span>=&gt; Box::new(chain_spec::contracts::contracts_rococo_config()),
+		<span class="string">"contracts-rococo" </span>=&gt; Box::new(GenericChainSpec::from_json_bytes(
+			<span class="kw-2">&amp;</span><span class="macro">include_bytes!</span>(<span class="string">"../chain-specs/contracts-rococo.json"</span>)[..],
 		)<span class="question-mark">?</span>),
 
 		<span class="comment">// -- BridgeHub
@@ -1446,7 +1448,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.starts_with(chain_spec::bridge_hubs::BridgeHubRuntimeType::ID_PREFIX) =&gt;
 			bridge_like_id
 				.parse::&lt;chain_spec::bridge_hubs::BridgeHubRuntimeType&gt;()
-				.expect(<span class="string">&quot;invalid value&quot;</span>)
+				.expect(<span class="string">"invalid value"</span>)
 				.load_config()<span class="question-mark">?</span>,
 
 		<span class="comment">// -- Coretime
@@ -1455,29 +1457,29 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.starts_with(chain_spec::coretime::CoretimeRuntimeType::ID_PREFIX) =&gt;
 			coretime_like_id
 				.parse::&lt;chain_spec::coretime::CoretimeRuntimeType&gt;()
-				.expect(<span class="string">&quot;invalid value&quot;</span>)
+				.expect(<span class="string">"invalid value"</span>)
 				.load_config()<span class="question-mark">?</span>,
 
 		<span class="comment">// -- Penpal
-		</span><span class="string">&quot;penpal-rococo&quot; </span>=&gt; Box::new(chain_spec::penpal::get_penpal_chain_spec(
-			para_id.expect(<span class="string">&quot;Must specify parachain id&quot;</span>),
-			<span class="string">&quot;rococo-local&quot;</span>,
+		</span><span class="string">"penpal-rococo" </span>=&gt; Box::new(chain_spec::penpal::get_penpal_chain_spec(
+			para_id.expect(<span class="string">"Must specify parachain id"</span>),
+			<span class="string">"rococo-local"</span>,
 		)),
-		<span class="string">&quot;penpal-westend&quot; </span>=&gt; Box::new(chain_spec::penpal::get_penpal_chain_spec(
-			para_id.expect(<span class="string">&quot;Must specify parachain id&quot;</span>),
-			<span class="string">&quot;westend-local&quot;</span>,
+		<span class="string">"penpal-westend" </span>=&gt; Box::new(chain_spec::penpal::get_penpal_chain_spec(
+			para_id.expect(<span class="string">"Must specify parachain id"</span>),
+			<span class="string">"westend-local"</span>,
 		)),
 
 		<span class="comment">// -- Glutton Westend
-		</span><span class="string">&quot;glutton-westend-dev&quot; </span>=&gt; Box::new(chain_spec::glutton::glutton_westend_development_config(
-			para_id.expect(<span class="string">&quot;Must specify parachain id&quot;</span>),
+		</span><span class="string">"glutton-westend-dev" </span>=&gt; Box::new(chain_spec::glutton::glutton_westend_development_config(
+			para_id.expect(<span class="string">"Must specify parachain id"</span>),
 		)),
-		<span class="string">&quot;glutton-westend-local&quot; </span>=&gt; Box::new(chain_spec::glutton::glutton_westend_local_config(
-			para_id.expect(<span class="string">&quot;Must specify parachain id&quot;</span>),
+		<span class="string">"glutton-westend-local" </span>=&gt; Box::new(chain_spec::glutton::glutton_westend_local_config(
+			para_id.expect(<span class="string">"Must specify parachain id"</span>),
 		)),
 		<span class="comment">// the chain spec as used for generating the upgrade genesis values
-		</span><span class="string">&quot;glutton-westend-genesis&quot; </span>=&gt; Box::new(chain_spec::glutton::glutton_westend_config(
-			para_id.expect(<span class="string">&quot;Must specify parachain id&quot;</span>),
+		</span><span class="string">"glutton-westend-genesis" </span>=&gt; Box::new(chain_spec::glutton::glutton_westend_config(
+			para_id.expect(<span class="string">"Must specify parachain id"</span>),
 		)),
 
 		<span class="comment">// -- People
@@ -1485,12 +1487,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">if </span>people_like_id.starts_with(chain_spec::people::PeopleRuntimeType::ID_PREFIX) =&gt;
 			people_like_id
 				.parse::&lt;chain_spec::people::PeopleRuntimeType&gt;()
-				.expect(<span class="string">&quot;invalid value&quot;</span>)
+				.expect(<span class="string">"invalid value"</span>)
 				.load_config()<span class="question-mark">?</span>,
 
 		<span class="comment">// -- Fallback (generic chainspec)
-		</span><span class="string">&quot;&quot; </span>=&gt; {
-			<span class="macro">log::warn!</span>(<span class="string">&quot;No ChainSpec.id specified, so using default one, based on rococo-parachain runtime&quot;</span>);
+		</span><span class="string">"" </span>=&gt; {
+			<span class="macro">log::warn!</span>(<span class="string">"No ChainSpec.id specified, so using default one, based on rococo-parachain runtime"</span>);
 			Box::new(chain_spec::rococo_parachain::rococo_parachain_local_config())
 		},
 
@@ -1501,46 +1503,46 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Extracts the normalized chain id and parachain id from the input chain id.
 /// (H/T to Phala for the idea)
-/// E.g. &quot;penpal-kusama-2004&quot; yields (&quot;penpal-kusama&quot;, Some(2004))
+/// E.g. "penpal-kusama-2004" yields ("penpal-kusama", Some(2004))
 </span><span class="kw">fn </span>extract_parachain_id(id: <span class="kw-2">&amp;</span>str) -&gt; (<span class="kw-2">&amp;</span>str, <span class="kw-2">&amp;</span>str, <span class="prelude-ty">Option</span>&lt;ParaId&gt;) {
-	<span class="kw">const </span>ROCOCO_TEST_PARA_PREFIX: <span class="kw-2">&amp;</span>str = <span class="string">&quot;penpal-rococo-&quot;</span>;
-	<span class="kw">const </span>KUSAMA_TEST_PARA_PREFIX: <span class="kw-2">&amp;</span>str = <span class="string">&quot;penpal-kusama-&quot;</span>;
-	<span class="kw">const </span>POLKADOT_TEST_PARA_PREFIX: <span class="kw-2">&amp;</span>str = <span class="string">&quot;penpal-polkadot-&quot;</span>;
+	<span class="kw">const </span>ROCOCO_TEST_PARA_PREFIX: <span class="kw-2">&amp;</span>str = <span class="string">"penpal-rococo-"</span>;
+	<span class="kw">const </span>KUSAMA_TEST_PARA_PREFIX: <span class="kw-2">&amp;</span>str = <span class="string">"penpal-kusama-"</span>;
+	<span class="kw">const </span>POLKADOT_TEST_PARA_PREFIX: <span class="kw-2">&amp;</span>str = <span class="string">"penpal-polkadot-"</span>;
 
-	<span class="kw">const </span>GLUTTON_PARA_DEV_PREFIX: <span class="kw-2">&amp;</span>str = <span class="string">&quot;glutton-kusama-dev-&quot;</span>;
-	<span class="kw">const </span>GLUTTON_PARA_LOCAL_PREFIX: <span class="kw-2">&amp;</span>str = <span class="string">&quot;glutton-kusama-local-&quot;</span>;
-	<span class="kw">const </span>GLUTTON_PARA_GENESIS_PREFIX: <span class="kw-2">&amp;</span>str = <span class="string">&quot;glutton-kusama-genesis-&quot;</span>;
+	<span class="kw">const </span>GLUTTON_PARA_DEV_PREFIX: <span class="kw-2">&amp;</span>str = <span class="string">"glutton-kusama-dev-"</span>;
+	<span class="kw">const </span>GLUTTON_PARA_LOCAL_PREFIX: <span class="kw-2">&amp;</span>str = <span class="string">"glutton-kusama-local-"</span>;
+	<span class="kw">const </span>GLUTTON_PARA_GENESIS_PREFIX: <span class="kw-2">&amp;</span>str = <span class="string">"glutton-kusama-genesis-"</span>;
 
-	<span class="kw">const </span>GLUTTON_WESTEND_PARA_DEV_PREFIX: <span class="kw-2">&amp;</span>str = <span class="string">&quot;glutton-westend-dev-&quot;</span>;
-	<span class="kw">const </span>GLUTTON_WESTEND_PARA_LOCAL_PREFIX: <span class="kw-2">&amp;</span>str = <span class="string">&quot;glutton-westend-local-&quot;</span>;
-	<span class="kw">const </span>GLUTTON_WESTEND_PARA_GENESIS_PREFIX: <span class="kw-2">&amp;</span>str = <span class="string">&quot;glutton-westend-genesis-&quot;</span>;
+	<span class="kw">const </span>GLUTTON_WESTEND_PARA_DEV_PREFIX: <span class="kw-2">&amp;</span>str = <span class="string">"glutton-westend-dev-"</span>;
+	<span class="kw">const </span>GLUTTON_WESTEND_PARA_LOCAL_PREFIX: <span class="kw-2">&amp;</span>str = <span class="string">"glutton-westend-local-"</span>;
+	<span class="kw">const </span>GLUTTON_WESTEND_PARA_GENESIS_PREFIX: <span class="kw-2">&amp;</span>str = <span class="string">"glutton-westend-genesis-"</span>;
 
 	<span class="kw">let </span>(norm_id, orig_id, para) = <span class="kw">if let </span><span class="prelude-val">Some</span>(suffix) = id.strip_prefix(ROCOCO_TEST_PARA_PREFIX) {
-		<span class="kw">let </span>para_id: u32 = suffix.parse().expect(<span class="string">&quot;Invalid parachain-id suffix&quot;</span>);
+		<span class="kw">let </span>para_id: u32 = suffix.parse().expect(<span class="string">"Invalid parachain-id suffix"</span>);
 		(<span class="kw-2">&amp;</span>id[..ROCOCO_TEST_PARA_PREFIX.len() - <span class="number">1</span>], id, <span class="prelude-val">Some</span>(para_id))
 	} <span class="kw">else if let </span><span class="prelude-val">Some</span>(suffix) = id.strip_prefix(KUSAMA_TEST_PARA_PREFIX) {
-		<span class="kw">let </span>para_id: u32 = suffix.parse().expect(<span class="string">&quot;Invalid parachain-id suffix&quot;</span>);
+		<span class="kw">let </span>para_id: u32 = suffix.parse().expect(<span class="string">"Invalid parachain-id suffix"</span>);
 		(<span class="kw-2">&amp;</span>id[..KUSAMA_TEST_PARA_PREFIX.len() - <span class="number">1</span>], id, <span class="prelude-val">Some</span>(para_id))
 	} <span class="kw">else if let </span><span class="prelude-val">Some</span>(suffix) = id.strip_prefix(POLKADOT_TEST_PARA_PREFIX) {
-		<span class="kw">let </span>para_id: u32 = suffix.parse().expect(<span class="string">&quot;Invalid parachain-id suffix&quot;</span>);
+		<span class="kw">let </span>para_id: u32 = suffix.parse().expect(<span class="string">"Invalid parachain-id suffix"</span>);
 		(<span class="kw-2">&amp;</span>id[..POLKADOT_TEST_PARA_PREFIX.len() - <span class="number">1</span>], id, <span class="prelude-val">Some</span>(para_id))
 	} <span class="kw">else if let </span><span class="prelude-val">Some</span>(suffix) = id.strip_prefix(GLUTTON_PARA_DEV_PREFIX) {
-		<span class="kw">let </span>para_id: u32 = suffix.parse().expect(<span class="string">&quot;Invalid parachain-id suffix&quot;</span>);
+		<span class="kw">let </span>para_id: u32 = suffix.parse().expect(<span class="string">"Invalid parachain-id suffix"</span>);
 		(<span class="kw-2">&amp;</span>id[..GLUTTON_PARA_DEV_PREFIX.len() - <span class="number">1</span>], id, <span class="prelude-val">Some</span>(para_id))
 	} <span class="kw">else if let </span><span class="prelude-val">Some</span>(suffix) = id.strip_prefix(GLUTTON_PARA_LOCAL_PREFIX) {
-		<span class="kw">let </span>para_id: u32 = suffix.parse().expect(<span class="string">&quot;Invalid parachain-id suffix&quot;</span>);
+		<span class="kw">let </span>para_id: u32 = suffix.parse().expect(<span class="string">"Invalid parachain-id suffix"</span>);
 		(<span class="kw-2">&amp;</span>id[..GLUTTON_PARA_LOCAL_PREFIX.len() - <span class="number">1</span>], id, <span class="prelude-val">Some</span>(para_id))
 	} <span class="kw">else if let </span><span class="prelude-val">Some</span>(suffix) = id.strip_prefix(GLUTTON_PARA_GENESIS_PREFIX) {
-		<span class="kw">let </span>para_id: u32 = suffix.parse().expect(<span class="string">&quot;Invalid parachain-id suffix&quot;</span>);
+		<span class="kw">let </span>para_id: u32 = suffix.parse().expect(<span class="string">"Invalid parachain-id suffix"</span>);
 		(<span class="kw-2">&amp;</span>id[..GLUTTON_PARA_GENESIS_PREFIX.len() - <span class="number">1</span>], id, <span class="prelude-val">Some</span>(para_id))
 	} <span class="kw">else if let </span><span class="prelude-val">Some</span>(suffix) = id.strip_prefix(GLUTTON_WESTEND_PARA_DEV_PREFIX) {
-		<span class="kw">let </span>para_id: u32 = suffix.parse().expect(<span class="string">&quot;Invalid parachain-id suffix&quot;</span>);
+		<span class="kw">let </span>para_id: u32 = suffix.parse().expect(<span class="string">"Invalid parachain-id suffix"</span>);
 		(<span class="kw-2">&amp;</span>id[..GLUTTON_WESTEND_PARA_DEV_PREFIX.len() - <span class="number">1</span>], id, <span class="prelude-val">Some</span>(para_id))
 	} <span class="kw">else if let </span><span class="prelude-val">Some</span>(suffix) = id.strip_prefix(GLUTTON_WESTEND_PARA_LOCAL_PREFIX) {
-		<span class="kw">let </span>para_id: u32 = suffix.parse().expect(<span class="string">&quot;Invalid parachain-id suffix&quot;</span>);
+		<span class="kw">let </span>para_id: u32 = suffix.parse().expect(<span class="string">"Invalid parachain-id suffix"</span>);
 		(<span class="kw-2">&amp;</span>id[..GLUTTON_WESTEND_PARA_LOCAL_PREFIX.len() - <span class="number">1</span>], id, <span class="prelude-val">Some</span>(para_id))
 	} <span class="kw">else if let </span><span class="prelude-val">Some</span>(suffix) = id.strip_prefix(GLUTTON_WESTEND_PARA_GENESIS_PREFIX) {
-		<span class="kw">let </span>para_id: u32 = suffix.parse().expect(<span class="string">&quot;Invalid parachain-id suffix&quot;</span>);
+		<span class="kw">let </span>para_id: u32 = suffix.parse().expect(<span class="string">"Invalid parachain-id suffix"</span>);
 		(<span class="kw-2">&amp;</span>id[..GLUTTON_WESTEND_PARA_GENESIS_PREFIX.len() - <span class="number">1</span>], id, <span class="prelude-val">Some</span>(para_id))
 	} <span class="kw">else </span>{
 		(id, id, <span class="prelude-val">None</span>)
@@ -1551,29 +1553,29 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl </span>SubstrateCli <span class="kw">for </span>Cli {
 	<span class="kw">fn </span>impl_name() -&gt; String {
-		<span class="string">&quot;Polkadot parachain&quot;</span>.into()
+		<span class="string">"Polkadot parachain"</span>.into()
 	}
 
 	<span class="kw">fn </span>impl_version() -&gt; String {
-		<span class="macro">env!</span>(<span class="string">&quot;SUBSTRATE_CLI_IMPL_VERSION&quot;</span>).into()
+		<span class="macro">env!</span>(<span class="string">"SUBSTRATE_CLI_IMPL_VERSION"</span>).into()
 	}
 
 	<span class="kw">fn </span>description() -&gt; String {
 		<span class="macro">format!</span>(
-			<span class="string">&quot;Polkadot parachain\n\nThe command-line arguments provided first will be \
+			<span class="string">"Polkadot parachain\n\nThe command-line arguments provided first will be \
 		passed to the parachain node, while the arguments provided after -- will be passed \
 		to the relaychain node.\n\n\
-		{} [parachain-args] -- [relaychain-args]&quot;</span>,
+		{} [parachain-args] -- [relaychain-args]"</span>,
 			<span class="self">Self</span>::executable_name()
 		)
 	}
 
 	<span class="kw">fn </span>author() -&gt; String {
-		<span class="macro">env!</span>(<span class="string">&quot;CARGO_PKG_AUTHORS&quot;</span>).into()
+		<span class="macro">env!</span>(<span class="string">"CARGO_PKG_AUTHORS"</span>).into()
 	}
 
 	<span class="kw">fn </span>support_url() -&gt; String {
-		<span class="string">&quot;https://github.com/paritytech/polkadot-sdk/issues/new&quot;</span>.into()
+		<span class="string">"https://github.com/paritytech/polkadot-sdk/issues/new"</span>.into()
 	}
 
 	<span class="kw">fn </span>copyright_start_year() -&gt; i32 {
@@ -1587,29 +1589,29 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl </span>SubstrateCli <span class="kw">for </span>RelayChainCli {
 	<span class="kw">fn </span>impl_name() -&gt; String {
-		<span class="string">&quot;Polkadot parachain&quot;</span>.into()
+		<span class="string">"Polkadot parachain"</span>.into()
 	}
 
 	<span class="kw">fn </span>impl_version() -&gt; String {
-		<span class="macro">env!</span>(<span class="string">&quot;SUBSTRATE_CLI_IMPL_VERSION&quot;</span>).into()
+		<span class="macro">env!</span>(<span class="string">"SUBSTRATE_CLI_IMPL_VERSION"</span>).into()
 	}
 
 	<span class="kw">fn </span>description() -&gt; String {
 		<span class="macro">format!</span>(
-			<span class="string">&quot;Polkadot parachain\n\nThe command-line arguments provided first will be \
+			<span class="string">"Polkadot parachain\n\nThe command-line arguments provided first will be \
 		passed to the parachain node, while the arguments provided after -- will be passed \
 		to the relay chain node.\n\n\
-		{} [parachain-args] -- [relay_chain-args]&quot;</span>,
+		{} [parachain-args] -- [relay_chain-args]"</span>,
 			<span class="self">Self</span>::executable_name()
 		)
 	}
 
 	<span class="kw">fn </span>author() -&gt; String {
-		<span class="macro">env!</span>(<span class="string">&quot;CARGO_PKG_AUTHORS&quot;</span>).into()
+		<span class="macro">env!</span>(<span class="string">"CARGO_PKG_AUTHORS"</span>).into()
 	}
 
 	<span class="kw">fn </span>support_url() -&gt; String {
-		<span class="string">&quot;https://github.com/paritytech/polkadot-sdk/issues/new&quot;</span>.into()
+		<span class="string">"https://github.com/paritytech/polkadot-sdk/issues/new"</span>.into()
 	}
 
 	<span class="kw">fn </span>copyright_start_year() -&gt; i32 {
@@ -1771,7 +1773,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw-2">&amp;</span>polkadot_cli,
 					config.tokio_handle.clone(),
 				)
-				.map_err(|err| <span class="macro">format!</span>(<span class="string">&quot;Relay chain argument error: {}&quot;</span>, err))<span class="question-mark">?</span>;
+				.map_err(|err| <span class="macro">format!</span>(<span class="string">"Relay chain argument error: {}"</span>, err))<span class="question-mark">?</span>;
 
 				cmd.run(config, polkadot_config)
 			})
@@ -1794,25 +1796,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// Switch on the concrete benchmark sub-command-
 			</span><span class="kw">match </span>cmd {
 				BenchmarkCmd::Pallet(cmd) =&gt;
-					<span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>) {
+					<span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">"runtime-benchmarks"</span>) {
 						runner.sync_run(|config| cmd.run_with_spec::&lt;sp_runtime::traits::HashingFor&lt;Block&gt;, ReclaimHostFunctions&gt;(<span class="prelude-val">Some</span>(config.chain_spec)))
 					} <span class="kw">else </span>{
-						<span class="prelude-val">Err</span>(<span class="string">&quot;Benchmarking wasn&#39;t enabled when building the node. \
-				You can enable it with `--features runtime-benchmarks`.&quot;
+						<span class="prelude-val">Err</span>(<span class="string">"Benchmarking wasn't enabled when building the node. \
+				You can enable it with `--features runtime-benchmarks`."
 							</span>.into())
 					},
 				BenchmarkCmd::Block(cmd) =&gt; runner.sync_run(|config| {
 					<span class="macro">construct_partials!</span>(config, |partials| cmd.run(partials.client))
 				}),
-				<span class="attr">#[cfg(not(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>))]
+				<span class="attr">#[cfg(not(feature = <span class="string">"runtime-benchmarks"</span>))]
 				</span>BenchmarkCmd::Storage(<span class="kw">_</span>) =&gt;
 					<span class="kw">return </span><span class="prelude-val">Err</span>(sc_cli::Error::Input(
-						<span class="string">&quot;Compile with --features=runtime-benchmarks \
-						to enable storage benchmarks.&quot;
+						<span class="string">"Compile with --features=runtime-benchmarks \
+						to enable storage benchmarks."
 							</span>.into(),
 					)
 					.into()),
-				<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+				<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 				</span>BenchmarkCmd::Storage(cmd) =&gt; runner.sync_run(|config| {
 					<span class="macro">construct_partials!</span>(config, |partials| {
 						<span class="kw">let </span>db = partials.backend.expose_db();
@@ -1826,7 +1828,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="comment">// NOTE: this allows the Client to leniently implement
 				// new benchmark commands without requiring a companion MR.
 				</span><span class="attr">#[allow(unreachable_patterns)]
-				</span><span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(<span class="string">&quot;Benchmarking sub-command unsupported&quot;</span>.into()),
+				</span><span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(<span class="string">"Benchmarking sub-command unsupported"</span>.into()),
 			}
 		},
 		<span class="prelude-val">Some</span>(Subcommand::Key(cmd)) =&gt; <span class="prelude-val">Ok</span>(cmd.run(<span class="kw-2">&amp;</span>cli)<span class="question-mark">?</span>),
@@ -1835,15 +1837,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>collator_options = cli.run.collator_options();
 
 			runner.run_node_until_exit(|config| <span class="kw">async move </span>{
-				<span class="comment">// If Statemint (Statemine, Westmint, Rockmine) DB exists and we&#39;re using the
+				<span class="comment">// If Statemint (Statemine, Westmint, Rockmine) DB exists and we're using the
 				// asset-hub chain spec, then rename the base path to the new chain ID. In the case
 				// that both file paths exist, the node will exit, as the user must decide (by
 				// deleting one path) the information that they want to use as their DB.
 				</span><span class="kw">let </span>old_name = <span class="kw">match </span>config.chain_spec.id() {
-					<span class="string">&quot;asset-hub-polkadot&quot; </span>=&gt; <span class="prelude-val">Some</span>(<span class="string">&quot;statemint&quot;</span>),
-					<span class="string">&quot;asset-hub-kusama&quot; </span>=&gt; <span class="prelude-val">Some</span>(<span class="string">&quot;statemine&quot;</span>),
-					<span class="string">&quot;asset-hub-westend&quot; </span>=&gt; <span class="prelude-val">Some</span>(<span class="string">&quot;westmint&quot;</span>),
-					<span class="string">&quot;asset-hub-rococo&quot; </span>=&gt; <span class="prelude-val">Some</span>(<span class="string">&quot;rockmine&quot;</span>),
+					<span class="string">"asset-hub-polkadot" </span>=&gt; <span class="prelude-val">Some</span>(<span class="string">"statemint"</span>),
+					<span class="string">"asset-hub-kusama" </span>=&gt; <span class="prelude-val">Some</span>(<span class="string">"statemine"</span>),
+					<span class="string">"asset-hub-westend" </span>=&gt; <span class="prelude-val">Some</span>(<span class="string">"westmint"</span>),
+					<span class="string">"asset-hub-rococo" </span>=&gt; <span class="prelude-val">Some</span>(<span class="string">"rockmine"</span>),
 					<span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
 				};
 
@@ -1853,7 +1855,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 					<span class="kw">if </span>old_path.exists() &amp;&amp; new_path.exists() {
 						<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(
-							<span class="string">&quot;Found legacy {} path {} and new asset-hub path {}. Delete one path such that only one exists.&quot;</span>,
+							<span class="string">"Found legacy {} path {} and new asset-hub path {}. Delete one path such that only one exists."</span>,
 							old_name, old_path.display(), new_path.display()
 						).into())
 					}
@@ -1861,7 +1863,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw">if </span>old_path.exists() {
 						std::fs::rename(old_path.clone(), new_path.clone())<span class="question-mark">?</span>;
 						<span class="macro">info!</span>(
-							<span class="string">&quot;Statemint renamed to Asset Hub. The filepath with associated data on disk has been renamed from {} to {}.&quot;</span>,
+							<span class="string">"Statemint renamed to Asset Hub. The filepath with associated data on disk has been renamed from {} to {}."</span>,
 							old_path.display(), new_path.display()
 						);
 					}
@@ -1875,7 +1877,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 				<span class="kw">let </span>para_id = chain_spec::Extensions::try_get(<span class="kw-2">&amp;*</span>config.chain_spec)
 					.map(|e| e.para_id)
-					.ok_or(<span class="string">&quot;Could not find parachain extension in chain-spec.&quot;</span>)<span class="question-mark">?</span>;
+					.ok_or(<span class="string">"Could not find parachain extension in chain-spec."</span>)<span class="question-mark">?</span>;
 
 				<span class="kw">let </span>polkadot_cli = RelayChainCli::new(
 					<span class="kw-2">&amp;</span>config,
@@ -1890,11 +1892,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">let </span>tokio_handle = config.tokio_handle.clone();
 				<span class="kw">let </span>polkadot_config =
 					SubstrateCli::create_configuration(<span class="kw-2">&amp;</span>polkadot_cli, <span class="kw-2">&amp;</span>polkadot_cli, tokio_handle)
-						.map_err(|err| <span class="macro">format!</span>(<span class="string">&quot;Relay chain argument error: {}&quot;</span>, err))<span class="question-mark">?</span>;
+						.map_err(|err| <span class="macro">format!</span>(<span class="string">"Relay chain argument error: {}"</span>, err))<span class="question-mark">?</span>;
 
-				<span class="macro">info!</span>(<span class="string">&quot;Parachain id: {:?}&quot;</span>, id);
-				<span class="macro">info!</span>(<span class="string">&quot;Parachain Account: {}&quot;</span>, parachain_account);
-				<span class="macro">info!</span>(<span class="string">&quot;Is collating: {}&quot;</span>, <span class="kw">if </span>config.role.is_authority() { <span class="string">&quot;yes&quot; </span>} <span class="kw">else </span>{ <span class="string">&quot;no&quot; </span>});
+				<span class="macro">info!</span>(<span class="string">"Parachain id: {:?}"</span>, id);
+				<span class="macro">info!</span>(<span class="string">"Parachain Account: {}"</span>, parachain_account);
+				<span class="macro">info!</span>(<span class="string">"Is collating: {}"</span>, <span class="kw">if </span>config.role.is_authority() { <span class="string">"yes" </span>} <span class="kw">else </span>{ <span class="string">"no" </span>});
 
 				<span class="kw">match </span>polkadot_config.network.network_backend {
 					sc_network::config::NetworkBackendType::Libp2p =&gt;
@@ -2139,7 +2141,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">where
 		</span>F: FnOnce(<span class="kw-2">&amp;mut </span>sc_cli::LoggerBuilder, <span class="kw-2">&amp;</span>sc_service::Configuration),
 	{
-		<span class="macro">unreachable!</span>(<span class="string">&quot;PolkadotCli is never initialized; qed&quot;</span>);
+		<span class="macro">unreachable!</span>(<span class="string">"PolkadotCli is never initialized; qed"</span>);
 	}
 
 	<span class="kw">fn </span>chain_id(<span class="kw-2">&amp;</span><span class="self">self</span>, is_dev: bool) -&gt; <span class="prelude-ty">Result</span>&lt;String&gt; {
@@ -2238,11 +2240,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>store_configuration(dir: <span class="kw-2">&amp;</span>TempDir, spec: Box&lt;<span class="kw">dyn </span>ChainSpec&gt;) -&gt; PathBuf {
 		<span class="kw">let </span>raw_output = <span class="bool-val">true</span>;
 		<span class="kw">let </span>json = sc_service::chain_ops::build_spec(<span class="kw-2">&amp;*</span>spec, raw_output)
-			.expect(<span class="string">&quot;Failed to build json string&quot;</span>);
+			.expect(<span class="string">"Failed to build json string"</span>);
 		<span class="kw">let </span><span class="kw-2">mut </span>cfg_file_path = dir.path().to_path_buf();
 		cfg_file_path.push(spec.id());
-		cfg_file_path.set_extension(<span class="string">&quot;json&quot;</span>);
-		std::fs::write(<span class="kw-2">&amp;</span>cfg_file_path, json).expect(<span class="string">&quot;Failed to write to json file&quot;</span>);
+		cfg_file_path.set_extension(<span class="string">"json"</span>);
+		std::fs::write(<span class="kw-2">&amp;</span>cfg_file_path, json).expect(<span class="string">"Failed to write to json file"</span>);
 		cfg_file_path
 	}
 
@@ -2254,19 +2256,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; DummyChainSpec&lt;E&gt; {
 		DummyChainSpec::builder(
 			rococo_parachain_runtime::WASM_BINARY
-				.expect(<span class="string">&quot;WASM binary was not built, please build it!&quot;</span>),
+				.expect(<span class="string">"WASM binary was not built, please build it!"</span>),
 			extension,
 		)
-		.with_name(<span class="string">&quot;Dummy local testnet&quot;</span>)
+		.with_name(<span class="string">"Dummy local testnet"</span>)
 		.with_id(id)
 		.with_chain_type(ChainType::Local)
 		.with_genesis_config_patch(<span class="kw">crate</span>::chain_spec::rococo_parachain::testnet_genesis(
-			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>),
+			get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Alice"</span>),
 			<span class="macro">vec!</span>[
-				get_from_seed::&lt;rococo_parachain_runtime::AuraId&gt;(<span class="string">&quot;Alice&quot;</span>),
-				get_from_seed::&lt;rococo_parachain_runtime::AuraId&gt;(<span class="string">&quot;Bob&quot;</span>),
+				get_from_seed::&lt;rococo_parachain_runtime::AuraId&gt;(<span class="string">"Alice"</span>),
+				get_from_seed::&lt;rococo_parachain_runtime::AuraId&gt;(<span class="string">"Bob"</span>),
 			],
-			<span class="macro">vec!</span>[get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">&quot;Alice&quot;</span>)],
+			<span class="macro">vec!</span>[get_account_id_from_seed::&lt;sr25519::Public&gt;(<span class="string">"Alice"</span>)],
 			<span class="number">1000</span>.into(),
 		))
 		.build()
@@ -2274,23 +2276,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>test_resolve_runtime_for_different_configuration_files() {
-		<span class="kw">let </span>temp_dir = tempfile::tempdir().expect(<span class="string">&quot;Failed to access tempdir&quot;</span>);
+		<span class="kw">let </span>temp_dir = tempfile::tempdir().expect(<span class="string">"Failed to access tempdir"</span>);
 
 		<span class="kw">let </span>path = store_configuration(
 			<span class="kw-2">&amp;</span>temp_dir,
-			Box::new(create_default_with_extensions(<span class="string">&quot;shell-1&quot;</span>, Extensions1::default())),
+			Box::new(create_default_with_extensions(<span class="string">"shell-1"</span>, Extensions1::default())),
 		);
 		<span class="macro">assert_eq!</span>(Runtime::Shell, path.runtime().unwrap());
 
 		<span class="kw">let </span>path = store_configuration(
 			<span class="kw-2">&amp;</span>temp_dir,
-			Box::new(create_default_with_extensions(<span class="string">&quot;shell-2&quot;</span>, Extensions2::default())),
+			Box::new(create_default_with_extensions(<span class="string">"shell-2"</span>, Extensions2::default())),
 		);
 		<span class="macro">assert_eq!</span>(Runtime::Shell, path.runtime().unwrap());
 
 		<span class="kw">let </span>path = store_configuration(
 			<span class="kw-2">&amp;</span>temp_dir,
-			Box::new(create_default_with_extensions(<span class="string">&quot;seedling&quot;</span>, Extensions2::default())),
+			Box::new(create_default_with_extensions(<span class="string">"seedling"</span>, Extensions2::default())),
 		);
 		<span class="macro">assert_eq!</span>(Runtime::Seedling, path.runtime().unwrap());
 

@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/state-machine/src/ext.rs`."><title>ext.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/state-machine/src/ext.rs`."><title>ext.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_state_machine" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_state_machine" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sp_state_machine/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1208,28 +1210,28 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
 </span><span class="doccomment">//! Concrete externalities implementation.
 
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+</span><span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">use </span><span class="kw">crate</span>::overlayed_changes::OverlayedExtensions;
 <span class="kw">use crate</span>::{
 	backend::Backend, IndexOperation, IterArgs, OverlayedChanges, StorageKey, StorageValue,
 };
 <span class="kw">use </span>codec::{Encode, EncodeAppend};
 <span class="kw">use </span>hash_db::Hasher;
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">use </span>sp_core::hexdisplay::HexDisplay;
 <span class="kw">use </span>sp_core::storage::{
 	well_known_keys::is_child_storage_key, ChildInfo, StateVersion, TrackedStorageKey,
@@ -1242,27 +1244,27 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	any::{Any, TypeId},
 	cmp::Ordering,
 };
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">use </span>std::error;
 
-<span class="kw">const </span>EXT_NOT_ALLOWED_TO_FAIL: <span class="kw-2">&amp;</span>str = <span class="string">&quot;Externalities not allowed to fail within runtime&quot;</span>;
-<span class="kw">const </span>BENCHMARKING_FN: <span class="kw-2">&amp;</span>str = <span class="string">&quot;\
+<span class="kw">const </span>EXT_NOT_ALLOWED_TO_FAIL: <span class="kw-2">&amp;</span>str = <span class="string">"Externalities not allowed to fail within runtime"</span>;
+<span class="kw">const </span>BENCHMARKING_FN: <span class="kw-2">&amp;</span>str = <span class="string">"\
 	This is a special fn only for benchmarking where a database commit happens from the runtime.
 	For that reason client started transactions before calling into runtime are not allowed.
-	Without client transactions the loop condition guarantees the success of the tx close.&quot;</span>;
+	Without client transactions the loop condition guarantees the success of the tx close."</span>;
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">fn </span>guard() -&gt; sp_panic_handler::AbortGuard {
 	sp_panic_handler::AbortGuard::force_abort()
 }
 
-<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
 </span><span class="kw">fn </span>guard() -&gt; () {
 	()
 }
 
 <span class="doccomment">/// Errors that can occur when interacting with the externalities.
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+</span><span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 #[derive(Debug, Copy, Clone)]
 </span><span class="kw">pub enum </span>Error&lt;B, E&gt; {
 	<span class="doccomment">/// Failure to load state data from the backend.
@@ -1273,60 +1275,60 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>Executor(E),
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">impl</span>&lt;B: std::fmt::Display, E: std::fmt::Display&gt; std::fmt::Display <span class="kw">for </span>Error&lt;B, E&gt; {
 	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter) -&gt; std::fmt::Result {
 		<span class="kw">match </span><span class="kw-2">*</span><span class="self">self </span>{
-			Error::Backend(<span class="kw-2">ref </span>e) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Storage backend error: {}&quot;</span>, e),
-			Error::Executor(<span class="kw-2">ref </span>e) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Sub-call execution error: {}&quot;</span>, e),
+			Error::Backend(<span class="kw-2">ref </span>e) =&gt; <span class="macro">write!</span>(f, <span class="string">"Storage backend error: {}"</span>, e),
+			Error::Executor(<span class="kw-2">ref </span>e) =&gt; <span class="macro">write!</span>(f, <span class="string">"Sub-call execution error: {}"</span>, e),
 		}
 	}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">impl</span>&lt;B: error::Error, E: error::Error&gt; error::Error <span class="kw">for </span>Error&lt;B, E&gt; {
 	<span class="kw">fn </span>description(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>str {
 		<span class="kw">match </span><span class="kw-2">*</span><span class="self">self </span>{
-			Error::Backend(..) =&gt; <span class="string">&quot;backend error&quot;</span>,
-			Error::Executor(..) =&gt; <span class="string">&quot;executor error&quot;</span>,
+			Error::Backend(..) =&gt; <span class="string">"backend error"</span>,
+			Error::Executor(..) =&gt; <span class="string">"executor error"</span>,
 		}
 	}
 }
 
 <span class="doccomment">/// Wraps a read-only backend, call executor, and current overlayed changes.
-</span><span class="kw">pub struct </span>Ext&lt;<span class="lifetime">&#39;a</span>, H, B&gt;
+</span><span class="kw">pub struct </span>Ext&lt;<span class="lifetime">'a</span>, H, B&gt;
 <span class="kw">where
 	</span>H: Hasher,
-	B: <span class="lifetime">&#39;a </span>+ Backend&lt;H&gt;,
+	B: <span class="lifetime">'a </span>+ Backend&lt;H&gt;,
 {
 	<span class="doccomment">/// The overlayed changes to write to.
-	</span>overlay: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>OverlayedChanges&lt;H&gt;,
+	</span>overlay: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>OverlayedChanges&lt;H&gt;,
 	<span class="doccomment">/// The storage backend to read from.
-	</span>backend: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>B,
+	</span>backend: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>B,
 	<span class="doccomment">/// Pseudo-unique id used for tracing.
 	</span><span class="kw">pub </span>id: u16,
 	<span class="doccomment">/// Extensions registered with this instance.
-	</span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
-	</span>extensions: <span class="prelude-ty">Option</span>&lt;OverlayedExtensions&lt;<span class="lifetime">&#39;a</span>&gt;&gt;,
+	</span><span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
+	</span>extensions: <span class="prelude-ty">Option</span>&lt;OverlayedExtensions&lt;<span class="lifetime">'a</span>&gt;&gt;,
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, H, B&gt; Ext&lt;<span class="lifetime">&#39;a</span>, H, B&gt;
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, H, B&gt; Ext&lt;<span class="lifetime">'a</span>, H, B&gt;
 <span class="kw">where
 	</span>H: Hasher,
 	B: Backend&lt;H&gt;,
 {
 	<span class="doccomment">/// Create a new `Ext`.
-	</span><span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
-	</span><span class="kw">pub fn </span>new(overlay: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>OverlayedChanges&lt;H&gt;, backend: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>B) -&gt; <span class="self">Self </span>{
+	</span><span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
+	</span><span class="kw">pub fn </span>new(overlay: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>OverlayedChanges&lt;H&gt;, backend: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>B) -&gt; <span class="self">Self </span>{
 		Ext { overlay, backend, id: <span class="number">0 </span>}
 	}
 
 	<span class="doccomment">/// Create a new `Ext` from overlayed changes and read-only backend
-	</span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+	</span><span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 	</span><span class="kw">pub fn </span>new(
-		overlay: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>OverlayedChanges&lt;H&gt;,
-		backend: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>B,
-		extensions: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>sp_externalities::Extensions&gt;,
+		overlay: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>OverlayedChanges&lt;H&gt;,
+		backend: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>B,
+		extensions: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>sp_externalities::Extensions&gt;,
 	) -&gt; <span class="self">Self </span>{
 		<span class="self">Self </span>{
 			overlay,
@@ -1338,19 +1340,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="attr">#[cfg(test)]
-</span><span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, H, B&gt; Ext&lt;<span class="lifetime">&#39;a</span>, H, B&gt;
+</span><span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, H, B&gt; Ext&lt;<span class="lifetime">'a</span>, H, B&gt;
 <span class="kw">where
 	</span>H: Hasher,
-	H::Out: Ord + <span class="lifetime">&#39;static</span>,
-	B: <span class="lifetime">&#39;a </span>+ Backend&lt;H&gt;,
+	H::Out: Ord + <span class="lifetime">'static</span>,
+	B: <span class="lifetime">'a </span>+ Backend&lt;H&gt;,
 {
 	<span class="kw">pub fn </span>storage_pairs(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;(StorageKey, StorageValue)&gt; {
 		<span class="kw">use </span>std::collections::HashMap;
 
 		<span class="self">self</span>.backend
 			.pairs(Default::default())
-			.expect(<span class="string">&quot;never fails in tests; qed.&quot;</span>)
-			.map(|key_value| key_value.expect(<span class="string">&quot;never fails in tests; qed.&quot;</span>))
+			.expect(<span class="string">"never fails in tests; qed."</span>)
+			.map(|key_value| key_value.expect(<span class="string">"never fails in tests; qed."</span>))
 			.map(|(k, v)| (k, <span class="prelude-val">Some</span>(v)))
 			.chain(<span class="self">self</span>.overlay.changes().map(|(k, v)| (k.clone(), v.value().cloned())))
 			.collect::&lt;HashMap&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;()
@@ -1360,10 +1362,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, H, B&gt; Externalities <span class="kw">for </span>Ext&lt;<span class="lifetime">&#39;a</span>, H, B&gt;
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, H, B&gt; Externalities <span class="kw">for </span>Ext&lt;<span class="lifetime">'a</span>, H, B&gt;
 <span class="kw">where
 	</span>H: Hasher,
-	H::Out: Ord + <span class="lifetime">&#39;static </span>+ codec::Codec,
+	H::Out: Ord + <span class="lifetime">'static </span>+ codec::Codec,
 	B: Backend&lt;H&gt;,
 {
 	<span class="kw">fn </span>set_offchain_storage(<span class="kw-2">&amp;mut </span><span class="self">self</span>, key: <span class="kw-2">&amp;</span>[u8], value: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>[u8]&gt;) {
@@ -1380,8 +1382,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// NOTE: be careful about touching the key names – used outside substrate!
 		</span><span class="macro">trace!</span>(
-			target: <span class="string">&quot;state&quot;</span>,
-			method = <span class="string">&quot;Get&quot;</span>,
+			target: <span class="string">"state"</span>,
+			method = <span class="string">"Get"</span>,
 			ext_id = %HexDisplay::from(<span class="kw-2">&amp;</span><span class="self">self</span>.id.to_le_bytes()),
 			key = %HexDisplay::from(<span class="kw-2">&amp;</span>key),
 			result = <span class="question-mark">?</span>result.as_ref().map(HexDisplay::from),
@@ -1405,8 +1407,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.unwrap_or_else(|| <span class="self">self</span>.backend.storage_hash(key).expect(EXT_NOT_ALLOWED_TO_FAIL));
 
 		<span class="macro">trace!</span>(
-			target: <span class="string">&quot;state&quot;</span>,
-			method = <span class="string">&quot;Hash&quot;</span>,
+			target: <span class="string">"state"</span>,
+			method = <span class="string">"Hash"</span>,
 			ext_id = %HexDisplay::from(<span class="kw-2">&amp;</span><span class="self">self</span>.id.to_le_bytes()),
 			key = %HexDisplay::from(<span class="kw-2">&amp;</span>key),
 			<span class="question-mark">?</span>result,
@@ -1425,8 +1427,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			});
 
 		<span class="macro">trace!</span>(
-			target: <span class="string">&quot;state&quot;</span>,
-			method = <span class="string">&quot;ChildGet&quot;</span>,
+			target: <span class="string">"state"</span>,
+			method = <span class="string">"ChildGet"</span>,
 			ext_id = %HexDisplay::from(<span class="kw-2">&amp;</span><span class="self">self</span>.id.to_le_bytes()),
 			child_info = %HexDisplay::from(<span class="kw-2">&amp;</span>child_info.storage_key()),
 			key = %HexDisplay::from(<span class="kw-2">&amp;</span>key),
@@ -1447,8 +1449,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			});
 
 		<span class="macro">trace!</span>(
-			target: <span class="string">&quot;state&quot;</span>,
-			method = <span class="string">&quot;ChildHash&quot;</span>,
+			target: <span class="string">"state"</span>,
+			method = <span class="string">"ChildHash"</span>,
 			ext_id = %HexDisplay::from(<span class="kw-2">&amp;</span><span class="self">self</span>.id.to_le_bytes()),
 			child_info = %HexDisplay::from(<span class="kw-2">&amp;</span>child_info.storage_key()),
 			key = %HexDisplay::from(<span class="kw-2">&amp;</span>key),
@@ -1466,8 +1468,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		};
 
 		<span class="macro">trace!</span>(
-			target: <span class="string">&quot;state&quot;</span>,
-			method = <span class="string">&quot;Exists&quot;</span>,
+			target: <span class="string">"state"</span>,
+			method = <span class="string">"Exists"</span>,
 			ext_id = %HexDisplay::from(<span class="kw-2">&amp;</span><span class="self">self</span>.id.to_le_bytes()),
 			key = %HexDisplay::from(<span class="kw-2">&amp;</span>key),
 			%result,
@@ -1488,8 +1490,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		};
 
 		<span class="macro">trace!</span>(
-			target: <span class="string">&quot;state&quot;</span>,
-			method = <span class="string">&quot;ChildExists&quot;</span>,
+			target: <span class="string">"state"</span>,
+			method = <span class="string">"ChildExists"</span>,
 			ext_id = %HexDisplay::from(<span class="kw-2">&amp;</span><span class="self">self</span>.id.to_le_bytes()),
 			child_info = %HexDisplay::from(<span class="kw-2">&amp;</span>child_info.storage_key()),
 			key = %HexDisplay::from(<span class="kw-2">&amp;</span>key),
@@ -1580,14 +1582,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>place_storage(<span class="kw-2">&amp;mut </span><span class="self">self</span>, key: StorageKey, value: <span class="prelude-ty">Option</span>&lt;StorageValue&gt;) {
 		<span class="kw">let </span>_guard = guard();
 		<span class="kw">if </span>is_child_storage_key(<span class="kw-2">&amp;</span>key) {
-			<span class="macro">warn!</span>(target: <span class="string">&quot;trie&quot;</span>, <span class="string">&quot;Refuse to directly set child storage key&quot;</span>);
+			<span class="macro">warn!</span>(target: <span class="string">"trie"</span>, <span class="string">"Refuse to directly set child storage key"</span>);
 			<span class="kw">return
 		</span>}
 
 		<span class="comment">// NOTE: be careful about touching the key names – used outside substrate!
 		</span><span class="macro">trace!</span>(
-			target: <span class="string">&quot;state&quot;</span>,
-			method = <span class="string">&quot;Put&quot;</span>,
+			target: <span class="string">"state"</span>,
+			method = <span class="string">"Put"</span>,
 			ext_id = %HexDisplay::from(<span class="kw-2">&amp;</span><span class="self">self</span>.id.to_le_bytes()),
 			key = %HexDisplay::from(<span class="kw-2">&amp;</span>key),
 			value = <span class="question-mark">?</span>value.as_ref().map(HexDisplay::from),
@@ -1609,8 +1611,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		value: <span class="prelude-ty">Option</span>&lt;StorageValue&gt;,
 	) {
 		<span class="macro">trace!</span>(
-			target: <span class="string">&quot;state&quot;</span>,
-			method = <span class="string">&quot;ChildPut&quot;</span>,
+			target: <span class="string">"state"</span>,
+			method = <span class="string">"ChildPut"</span>,
 			ext_id = %HexDisplay::from(<span class="kw-2">&amp;</span><span class="self">self</span>.id.to_le_bytes()),
 			child_info = %HexDisplay::from(<span class="kw-2">&amp;</span>child_info.storage_key()),
 			key = %HexDisplay::from(<span class="kw-2">&amp;</span>key),
@@ -1628,8 +1630,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		maybe_cursor: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>[u8]&gt;,
 	) -&gt; MultiRemovalResults {
 		<span class="macro">trace!</span>(
-			target: <span class="string">&quot;state&quot;</span>,
-			method = <span class="string">&quot;ChildKill&quot;</span>,
+			target: <span class="string">"state"</span>,
+			method = <span class="string">"ChildKill"</span>,
 			ext_id = %HexDisplay::from(<span class="kw-2">&amp;</span><span class="self">self</span>.id.to_le_bytes()),
 			child_info = %HexDisplay::from(<span class="kw-2">&amp;</span>child_info.storage_key()),
 		);
@@ -1647,8 +1649,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		maybe_cursor: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>[u8]&gt;,
 	) -&gt; MultiRemovalResults {
 		<span class="macro">trace!</span>(
-			target: <span class="string">&quot;state&quot;</span>,
-			method = <span class="string">&quot;ClearPrefix&quot;</span>,
+			target: <span class="string">"state"</span>,
+			method = <span class="string">"ClearPrefix"</span>,
 			ext_id = %HexDisplay::from(<span class="kw-2">&amp;</span><span class="self">self</span>.id.to_le_bytes()),
 			prefix = %HexDisplay::from(<span class="kw-2">&amp;</span>prefix),
 		);
@@ -1656,8 +1658,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">if </span>sp_core::storage::well_known_keys::starts_with_child_storage_key(prefix) {
 			<span class="macro">warn!</span>(
-				target: <span class="string">&quot;trie&quot;</span>,
-				<span class="string">&quot;Refuse to directly clear prefix that is part or contains of child storage key&quot;</span>,
+				target: <span class="string">"trie"</span>,
+				<span class="string">"Refuse to directly clear prefix that is part or contains of child storage key"</span>,
 			);
 			<span class="kw">return </span>MultiRemovalResults { maybe_cursor: <span class="prelude-val">None</span>, backend: <span class="number">0</span>, unique: <span class="number">0</span>, loops: <span class="number">0 </span>}
 		}
@@ -1676,8 +1678,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		maybe_cursor: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>[u8]&gt;,
 	) -&gt; MultiRemovalResults {
 		<span class="macro">trace!</span>(
-			target: <span class="string">&quot;state&quot;</span>,
-			method = <span class="string">&quot;ChildClearPrefix&quot;</span>,
+			target: <span class="string">"state"</span>,
+			method = <span class="string">"ChildClearPrefix"</span>,
 			ext_id = %HexDisplay::from(<span class="kw-2">&amp;</span><span class="self">self</span>.id.to_le_bytes()),
 			child_info = %HexDisplay::from(<span class="kw-2">&amp;</span>child_info.storage_key()),
 			prefix = %HexDisplay::from(<span class="kw-2">&amp;</span>prefix),
@@ -1696,8 +1698,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">fn </span>storage_append(<span class="kw-2">&amp;mut </span><span class="self">self</span>, key: Vec&lt;u8&gt;, value: Vec&lt;u8&gt;) {
 		<span class="macro">trace!</span>(
-			target: <span class="string">&quot;state&quot;</span>,
-			method = <span class="string">&quot;Append&quot;</span>,
+			target: <span class="string">"state"</span>,
+			method = <span class="string">"Append"</span>,
 			ext_id = %HexDisplay::from(<span class="kw-2">&amp;</span><span class="self">self</span>.id.to_le_bytes()),
 			key = %HexDisplay::from(<span class="kw-2">&amp;</span>key),
 			value = %HexDisplay::from(<span class="kw-2">&amp;</span>value),
@@ -1718,8 +1720,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>(root, _cached) = <span class="self">self</span>.overlay.storage_root(<span class="self">self</span>.backend, state_version);
 
 		<span class="macro">trace!</span>(
-			target: <span class="string">&quot;state&quot;</span>,
-			method = <span class="string">&quot;StorageRoot&quot;</span>,
+			target: <span class="string">"state"</span>,
+			method = <span class="string">"StorageRoot"</span>,
 			ext_id = %HexDisplay::from(<span class="kw-2">&amp;</span><span class="self">self</span>.id.to_le_bytes()),
 			storage_root = %HexDisplay::from(<span class="kw-2">&amp;</span>root.as_ref()),
 			cached = %_cached,
@@ -1741,8 +1743,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.expect(EXT_NOT_ALLOWED_TO_FAIL);
 
 		<span class="macro">trace!</span>(
-			target: <span class="string">&quot;state&quot;</span>,
-			method = <span class="string">&quot;ChildStorageRoot&quot;</span>,
+			target: <span class="string">"state"</span>,
+			method = <span class="string">"ChildStorageRoot"</span>,
 			ext_id = %HexDisplay::from(<span class="kw-2">&amp;</span><span class="self">self</span>.id.to_le_bytes()),
 			child_info = %HexDisplay::from(<span class="kw-2">&amp;</span>child_info.storage_key()),
 			storage_root = %HexDisplay::from(<span class="kw-2">&amp;</span>root.as_ref()),
@@ -1754,8 +1756,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">fn </span>storage_index_transaction(<span class="kw-2">&amp;mut </span><span class="self">self</span>, index: u32, hash: <span class="kw-2">&amp;</span>[u8], size: u32) {
 		<span class="macro">trace!</span>(
-			target: <span class="string">&quot;state&quot;</span>,
-			method = <span class="string">&quot;IndexTransaction&quot;</span>,
+			target: <span class="string">"state"</span>,
+			method = <span class="string">"IndexTransaction"</span>,
 			ext_id = %HexDisplay::from(<span class="kw-2">&amp;</span><span class="self">self</span>.id.to_le_bytes()),
 			%index,
 			tx_hash = %HexDisplay::from(<span class="kw-2">&amp;</span>hash),
@@ -1772,8 +1774,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Renew existing piece of data storage.
 	</span><span class="kw">fn </span>storage_renew_transaction_index(<span class="kw-2">&amp;mut </span><span class="self">self</span>, index: u32, hash: <span class="kw-2">&amp;</span>[u8]) {
 		<span class="macro">trace!</span>(
-			target: <span class="string">&quot;state&quot;</span>,
-			method = <span class="string">&quot;RenewTransactionIndex&quot;</span>,
+			target: <span class="string">"state"</span>,
+			method = <span class="string">"RenewTransactionIndex"</span>,
 			ext_id = %HexDisplay::from(<span class="kw-2">&amp;</span><span class="self">self</span>.id.to_le_bytes()),
 			%index,
 			tx_hash = %HexDisplay::from(<span class="kw-2">&amp;</span>hash),
@@ -1805,7 +1807,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">self</span>.backend.wipe().expect(EXT_NOT_ALLOWED_TO_FAIL);
 		<span class="self">self</span>.overlay
 			.enter_runtime()
-			.expect(<span class="string">&quot;We have reset the overlay above, so we can not be in the runtime; qed&quot;</span>);
+			.expect(<span class="string">"We have reset the overlay above, so we can not be in the runtime; qed"</span>);
 	}
 
 	<span class="kw">fn </span>commit(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
@@ -1828,7 +1830,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.expect(EXT_NOT_ALLOWED_TO_FAIL);
 		<span class="self">self</span>.overlay
 			.enter_runtime()
-			.expect(<span class="string">&quot;We have reset the overlay above, so we can not be in the runtime; qed&quot;</span>);
+			.expect(<span class="string">"We have reset the overlay above, so we can not be in the runtime; qed"</span>);
 	}
 
 	<span class="kw">fn </span>read_write_count(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; (u32, u32, u32, u32) {
@@ -1856,10 +1858,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, H, B&gt; Ext&lt;<span class="lifetime">&#39;a</span>, H, B&gt;
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, H, B&gt; Ext&lt;<span class="lifetime">'a</span>, H, B&gt;
 <span class="kw">where
 	</span>H: Hasher,
-	H::Out: Ord + <span class="lifetime">&#39;static </span>+ codec::Codec,
+	H::Out: Ord + <span class="lifetime">'static </span>+ codec::Codec,
 	B: Backend&lt;H&gt;,
 {
 	<span class="kw">fn </span>limit_remove_from_backend(
@@ -1877,7 +1879,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}) {
 			<span class="prelude-val">Ok</span>(iter) =&gt; iter,
 			<span class="prelude-val">Err</span>(error) =&gt; {
-				<span class="macro">log::debug!</span>(target: <span class="string">&quot;trie&quot;</span>, <span class="string">&quot;Error while iterating the storage: {}&quot;</span>, error);
+				<span class="macro">log::debug!</span>(target: <span class="string">"trie"</span>, <span class="string">"Error while iterating the storage: {}"</span>, error);
 				<span class="kw">return </span>(<span class="prelude-val">None</span>, <span class="number">0</span>, <span class="number">0</span>)
 			},
 		};
@@ -1889,7 +1891,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>key = <span class="kw">match </span>key {
 				<span class="prelude-val">Ok</span>(key) =&gt; key,
 				<span class="prelude-val">Err</span>(error) =&gt; {
-					<span class="macro">log::debug!</span>(target: <span class="string">&quot;trie&quot;</span>, <span class="string">&quot;Error while iterating the storage: {}&quot;</span>, error);
+					<span class="macro">log::debug!</span>(target: <span class="string">"trie"</span>, <span class="string">"Error while iterating the storage: {}"</span>, error);
 					<span class="kw">break
 				</span>},
 			};
@@ -1928,11 +1930,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Auxiliary structure for appending a value to a storage item.
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>StorageAppend&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>Vec&lt;u8&gt;);
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>StorageAppend&lt;<span class="lifetime">'a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>Vec&lt;u8&gt;);
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; StorageAppend&lt;<span class="lifetime">&#39;a</span>&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; StorageAppend&lt;<span class="lifetime">'a</span>&gt; {
 	<span class="doccomment">/// Create a new instance using the given `storage` reference.
-	</span><span class="kw">pub fn </span>new(storage: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>Vec&lt;u8&gt;) -&gt; <span class="self">Self </span>{
+	</span><span class="kw">pub fn </span>new(storage: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>Vec&lt;u8&gt;) -&gt; <span class="self">Self </span>{
 		<span class="self">Self</span>(storage)
 	}
 
@@ -1948,8 +1950,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Ok</span>(item) =&gt; item,
 			<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
 				<span class="macro">log_error!</span>(
-					target: <span class="string">&quot;runtime&quot;</span>,
-					<span class="string">&quot;Failed to append value, resetting storage item to `[value]`.&quot;</span>,
+					target: <span class="string">"runtime"</span>,
+					<span class="string">"Failed to append value, resetting storage item to `[value]`."</span>,
 				);
 				value.encode()
 			},
@@ -1957,11 +1959,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
-</span><span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, H, B&gt; ExtensionStore <span class="kw">for </span>Ext&lt;<span class="lifetime">&#39;a</span>, H, B&gt;
+<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
+</span><span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, H, B&gt; ExtensionStore <span class="kw">for </span>Ext&lt;<span class="lifetime">'a</span>, H, B&gt;
 <span class="kw">where
 	</span>H: Hasher,
-	H::Out: Ord + <span class="lifetime">&#39;static </span>+ codec::Codec,
+	H::Out: Ord + <span class="lifetime">'static </span>+ codec::Codec,
 	B: Backend&lt;H&gt;,
 {
 	<span class="kw">fn </span>extension_by_type_id(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _type_id: TypeId) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;mut </span><span class="kw">dyn </span>Any&gt; {
@@ -1984,11 +1986,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
-</span><span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, H, B&gt; ExtensionStore <span class="kw">for </span>Ext&lt;<span class="lifetime">&#39;a</span>, H, B&gt;
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
+</span><span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, H, B&gt; ExtensionStore <span class="kw">for </span>Ext&lt;<span class="lifetime">'a</span>, H, B&gt;
 <span class="kw">where
 	</span>H: Hasher,
-	B: <span class="lifetime">&#39;a </span>+ Backend&lt;H&gt;,
+	B: <span class="lifetime">'a </span>+ Backend&lt;H&gt;,
 {
 	<span class="kw">fn </span>extension_by_type_id(<span class="kw-2">&amp;mut </span><span class="self">self</span>, type_id: TypeId) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;mut </span><span class="kw">dyn </span>Any&gt; {
 		<span class="self">self</span>.extensions.as_mut().and_then(|exts| exts.get_mut(type_id))
@@ -2034,7 +2036,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	};
 
 	<span class="kw">type </span>TestBackend = InMemoryBackend&lt;Blake2Hasher&gt;;
-	<span class="kw">type </span>TestExt&lt;<span class="lifetime">&#39;a</span>&gt; = Ext&lt;<span class="lifetime">&#39;a</span>, Blake2Hasher, TestBackend&gt;;
+	<span class="kw">type </span>TestExt&lt;<span class="lifetime">'a</span>&gt; = Ext&lt;<span class="lifetime">'a</span>, Blake2Hasher, TestBackend&gt;;
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>next_storage_key_works() {
@@ -2065,14 +2067,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// next_overlay &lt; next_backend
 		</span><span class="macro">assert_eq!</span>(ext.next_storage_key(<span class="kw-2">&amp;</span>[<span class="number">20</span>]), <span class="prelude-val">Some</span>(<span class="macro">vec!</span>[<span class="number">30</span>]));
 
-		<span class="comment">// next_backend exist but next_overlay doesn&#39;t exist
+		<span class="comment">// next_backend exist but next_overlay doesn't exist
 		</span><span class="macro">assert_eq!</span>(ext.next_storage_key(<span class="kw-2">&amp;</span>[<span class="number">30</span>]), <span class="prelude-val">Some</span>(<span class="macro">vec!</span>[<span class="number">40</span>]));
 
 		drop(ext);
 		overlay.set_storage(<span class="macro">vec!</span>[<span class="number">50</span>], <span class="prelude-val">Some</span>(<span class="macro">vec!</span>[<span class="number">50</span>]));
 		<span class="kw">let </span>ext = TestExt::new(<span class="kw-2">&amp;mut </span>overlay, <span class="kw-2">&amp;</span>backend, <span class="prelude-val">None</span>);
 
-		<span class="comment">// next_overlay exist but next_backend doesn&#39;t exist
+		<span class="comment">// next_overlay exist but next_backend doesn't exist
 		</span><span class="macro">assert_eq!</span>(ext.next_storage_key(<span class="kw-2">&amp;</span>[<span class="number">40</span>]), <span class="prelude-val">Some</span>(<span class="macro">vec!</span>[<span class="number">50</span>]));
 	}
 
@@ -2109,7 +2111,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>next_child_storage_key_works() {
-		<span class="kw">let </span>child_info = ChildInfo::new_default(<span class="string">b&quot;Child1&quot;</span>);
+		<span class="kw">let </span>child_info = ChildInfo::new_default(<span class="string">b"Child1"</span>);
 		<span class="kw">let </span>child_info = <span class="kw-2">&amp;</span>child_info;
 
 		<span class="kw">let </span><span class="kw-2">mut </span>overlay = OverlayedChanges::default();
@@ -2144,20 +2146,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// next_overlay &lt; next_backend
 		</span><span class="macro">assert_eq!</span>(ext.next_child_storage_key(child_info, <span class="kw-2">&amp;</span>[<span class="number">20</span>]), <span class="prelude-val">Some</span>(<span class="macro">vec!</span>[<span class="number">30</span>]));
 
-		<span class="comment">// next_backend exist but next_overlay doesn&#39;t exist
+		<span class="comment">// next_backend exist but next_overlay doesn't exist
 		</span><span class="macro">assert_eq!</span>(ext.next_child_storage_key(child_info, <span class="kw-2">&amp;</span>[<span class="number">30</span>]), <span class="prelude-val">Some</span>(<span class="macro">vec!</span>[<span class="number">40</span>]));
 
 		drop(ext);
 		overlay.set_child_storage(child_info, <span class="macro">vec!</span>[<span class="number">50</span>], <span class="prelude-val">Some</span>(<span class="macro">vec!</span>[<span class="number">50</span>]));
 		<span class="kw">let </span>ext = TestExt::new(<span class="kw-2">&amp;mut </span>overlay, <span class="kw-2">&amp;</span>backend, <span class="prelude-val">None</span>);
 
-		<span class="comment">// next_overlay exist but next_backend doesn&#39;t exist
+		<span class="comment">// next_overlay exist but next_backend doesn't exist
 		</span><span class="macro">assert_eq!</span>(ext.next_child_storage_key(child_info, <span class="kw-2">&amp;</span>[<span class="number">40</span>]), <span class="prelude-val">Some</span>(<span class="macro">vec!</span>[<span class="number">50</span>]));
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>child_storage_works() {
-		<span class="kw">let </span>child_info = ChildInfo::new_default(<span class="string">b&quot;Child1&quot;</span>);
+		<span class="kw">let </span>child_info = ChildInfo::new_default(<span class="string">b"Child1"</span>);
 		<span class="kw">let </span>child_info = <span class="kw-2">&amp;</span>child_info;
 		<span class="kw">let </span><span class="kw-2">mut </span>overlay = OverlayedChanges::default();
 		overlay.set_child_storage(child_info, <span class="macro">vec!</span>[<span class="number">20</span>], <span class="prelude-val">None</span>);
@@ -2200,7 +2202,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>clear_prefix_cannot_delete_a_child_root() {
-		<span class="kw">let </span>child_info = ChildInfo::new_default(<span class="string">b&quot;Child1&quot;</span>);
+		<span class="kw">let </span>child_info = ChildInfo::new_default(<span class="string">b"Child1"</span>);
 		<span class="kw">let </span>child_info = <span class="kw-2">&amp;</span>child_info;
 		<span class="kw">let </span><span class="kw-2">mut </span>overlay = OverlayedChanges::default();
 		<span class="kw">let </span>backend = (
@@ -2225,13 +2227,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span><span class="kw-2">mut </span>ext = ext;
 		<span class="kw">let </span><span class="kw-2">mut </span>not_under_prefix = well_known_keys::CHILD_STORAGE_KEY_PREFIX.to_vec();
 		not_under_prefix[<span class="number">4</span>] = <span class="number">88</span>;
-		not_under_prefix.extend(<span class="string">b&quot;path&quot;</span>);
+		not_under_prefix.extend(<span class="string">b"path"</span>);
 		ext.set_storage(not_under_prefix.clone(), <span class="macro">vec!</span>[<span class="number">10</span>]);
 
 		<span class="kw">let _ </span>= ext.clear_prefix(<span class="kw-2">&amp;</span>[], <span class="prelude-val">None</span>, <span class="prelude-val">None</span>);
 		<span class="kw">let _ </span>= ext.clear_prefix(<span class="kw-2">&amp;</span>well_known_keys::CHILD_STORAGE_KEY_PREFIX[..<span class="number">4</span>], <span class="prelude-val">None</span>, <span class="prelude-val">None</span>);
 		<span class="kw">let </span><span class="kw-2">mut </span>under_prefix = well_known_keys::CHILD_STORAGE_KEY_PREFIX.to_vec();
-		under_prefix.extend(<span class="string">b&quot;path&quot;</span>);
+		under_prefix.extend(<span class="string">b"path"</span>);
 		<span class="kw">let _ </span>= ext.clear_prefix(<span class="kw-2">&amp;</span>well_known_keys::CHILD_STORAGE_KEY_PREFIX[..<span class="number">4</span>], <span class="prelude-val">None</span>, <span class="prelude-val">None</span>);
 		<span class="macro">assert_eq!</span>(ext.child_storage(child_info, <span class="kw-2">&amp;</span>[<span class="number">30</span>]), <span class="prelude-val">Some</span>(<span class="macro">vec!</span>[<span class="number">40</span>]));
 		<span class="macro">assert_eq!</span>(ext.storage(not_under_prefix.as_slice()), <span class="prelude-val">Some</span>(<span class="macro">vec!</span>[<span class="number">10</span>]));

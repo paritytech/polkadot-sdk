@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/subsystem-util/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/subsystem-util/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_node_subsystem_util" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_node_subsystem_util" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../polkadot_node_subsystem_util/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -762,7 +764,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// A utility for managing the implicit view of the relay-chain derived from active
 /// leaves and the minimum allowed relay-parents that parachain candidates can have
-/// and be backed in those leaves&#39; children.
+/// and be backed in those leaves' children.
 </span><span class="kw">pub mod </span>backing_implicit_view;
 <span class="doccomment">/// Database trait for subsystem.
 </span><span class="kw">pub mod </span>database;
@@ -788,7 +790,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests;
 
-<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;parachain::subsystem-util&quot;</span>;
+<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"parachain::subsystem-util"</span>;
 
 <span class="doccomment">/// Duration a job will wait after sending a stop signal before hard-aborting.
 </span><span class="kw">pub const </span>JOB_GRACEFUL_STOP_DURATION: Duration = Duration::from_secs(<span class="number">1</span>);
@@ -810,20 +812,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// An error in the Runtime API.
 	</span><span class="attr">#[error(transparent)]
 	</span>RuntimeApi(<span class="attr">#[from] </span>RuntimeApiError),
-	<span class="doccomment">/// The type system wants this even though it doesn&#39;t make sense
+	<span class="doccomment">/// The type system wants this even though it doesn't make sense
 	</span><span class="attr">#[error(transparent)]
 	</span>Infallible(<span class="attr">#[from] </span>std::convert::Infallible),
 	<span class="doccomment">/// Attempted to convert from an `AllMessages` to a `FromJob`, and failed.
-	</span><span class="attr">#[error(<span class="string">&quot;AllMessage not relevant to Job&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"AllMessage not relevant to Job"</span>)]
 	</span>SenderConversion(String),
 	<span class="doccomment">/// The local node is not a validator.
-	</span><span class="attr">#[error(<span class="string">&quot;Node is not a validator&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"Node is not a validator"</span>)]
 	</span>NotAValidator,
 	<span class="doccomment">/// Already forwarding errors to another sender
-	</span><span class="attr">#[error(<span class="string">&quot;AlreadyForwarding&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"AlreadyForwarding"</span>)]
 	</span>AlreadyForwarding,
 	<span class="doccomment">/// Data that are supposed to be there a not there
-	</span><span class="attr">#[error(<span class="string">&quot;Data are not available&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"Data are not available"</span>)]
 	</span>DataNotAvailable,
 }
 
@@ -879,7 +881,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">where
 	</span>Sender: SubsystemSender&lt;RuntimeApiMessage&gt;,
 {
-	<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>relay_parent, <span class="string">&quot;Fetching ParachainHost runtime api version&quot;</span>);
+	<span class="macro">gum::trace!</span>(target: LOG_TARGET, <span class="question-mark">?</span>relay_parent, <span class="string">"Fetching ParachainHost runtime api version"</span>);
 
 	<span class="kw">let </span>(tx, rx) = oneshot::channel();
 	sender
@@ -893,7 +895,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="question-mark">?</span>relay_parent,
 				<span class="question-mark">?</span>runtime_version,
 				<span class="question-mark">?</span>required_runtime_version,
-				<span class="string">&quot;Fetched  ParachainHost runtime api version&quot;
+				<span class="string">"Fetched  ParachainHost runtime api version"
 			</span>);
 			runtime_version &gt;= required_runtime_version
 		},
@@ -902,7 +904,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				target: LOG_TARGET,
 				<span class="question-mark">?</span>relay_parent,
 				<span class="question-mark">?</span>error,
-				<span class="string">&quot;Execution error while fetching ParachainHost runtime api version&quot;
+				<span class="string">"Execution error while fetching ParachainHost runtime api version"
 			</span>);
 			<span class="bool-val">false
 		</span>},
@@ -910,7 +912,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">gum::trace!</span>(
 				target: LOG_TARGET,
 				<span class="question-mark">?</span>relay_parent,
-				<span class="string">&quot;NotSupported error while fetching ParachainHost runtime api version&quot;
+				<span class="string">"NotSupported error while fetching ParachainHost runtime api version"
 			</span>);
 			<span class="bool-val">false
 		</span>},
@@ -918,7 +920,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">gum::trace!</span>(
 				target: LOG_TARGET,
 				<span class="question-mark">?</span>relay_parent,
-				<span class="string">&quot;Cancelled error while fetching ParachainHost runtime api version&quot;
+				<span class="string">"Cancelled error while fetching ParachainHost runtime api version"
 			</span>);
 			<span class="bool-val">false
 		</span>},
@@ -938,9 +940,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="comment">// create a single specialized request function
 	</span>(named <span class="macro-nonterminal">$doc_name</span>:expr ; <span class="kw">fn </span><span class="macro-nonterminal">$func_name</span>:ident( $( <span class="macro-nonterminal">$param_name</span>:ident : <span class="macro-nonterminal">$param_ty</span>:ty ),* ) -&gt; <span class="macro-nonterminal">$return_ty</span>:ty ; <span class="macro-nonterminal">$request_variant</span>:ident;) =&gt; {
-		<span class="attr">#[doc = <span class="string">&quot;Request `&quot;</span>]
+		<span class="attr">#[doc = <span class="string">"Request `"</span>]
 		#[doc = <span class="macro-nonterminal">$doc_name</span>]
-		#[doc = <span class="string">&quot;` from the runtime&quot;</span>]
+		#[doc = <span class="string">"` from the runtime"</span>]
 		</span><span class="kw">pub async fn </span><span class="macro-nonterminal">$func_name </span>(
 			parent: Hash,
 			$(
@@ -1007,7 +1009,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// parameters by session index.
 /// Returns an error if failed to communicate to the runtime, or the parameters are not in the
 /// storage, which should never happen.
-/// Returns default execution parameters if the runtime doesn&#39;t yet support `SessionExecutorParams`
+/// Returns default execution parameters if the runtime doesn't yet support `SessionExecutorParams`
 /// API call.
 /// Otherwise, returns execution parameters returned by the runtime.
 </span><span class="kw">pub async fn </span>executor_params_at_relay_parent(
@@ -1030,7 +1032,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					</span><span class="prelude-val">Err</span>(Error::Oneshot(err))
 				},
 				<span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(RuntimeApiError::NotSupported { .. })) =&gt; {
-					<span class="comment">// Runtime doesn&#39;t yet support the api requested, should execute anyway
+					<span class="comment">// Runtime doesn't yet support the api requested, should execute anyway
 					// with default set of parameters
 					</span><span class="prelude-val">Ok</span>(ExecutorParams::default())
 				},
@@ -1039,7 +1041,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					</span><span class="prelude-val">Err</span>(Error::RuntimeApi(err))
 				},
 				<span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)) =&gt; {
-					<span class="comment">// Storage doesn&#39;t contain a parameter set for the given session; should
+					<span class="comment">// Storage doesn't contain a parameter set for the given session; should
 					// never happen
 					</span><span class="prelude-val">Err</span>(Error::DataNotAvailable)
 				},
@@ -1050,8 +1052,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// From the given set of validators, find the first key we can sign with, if any.
-</span><span class="kw">pub fn </span>signing_key&lt;<span class="lifetime">&#39;a</span>&gt;(
-	validators: <span class="kw">impl </span>IntoIterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ValidatorId&gt;,
+</span><span class="kw">pub fn </span>signing_key&lt;<span class="lifetime">'a</span>&gt;(
+	validators: <span class="kw">impl </span>IntoIterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">'a </span>ValidatorId&gt;,
 	keystore: <span class="kw-2">&amp;</span>KeystorePtr,
 ) -&gt; <span class="prelude-ty">Option</span>&lt;ValidatorId&gt; {
 	signing_key_and_index(validators, keystore).map(|(k, <span class="kw">_</span>)| k)
@@ -1059,8 +1061,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// From the given set of validators, find the first key we can sign with, if any, and return it
 /// along with the validator index.
-</span><span class="kw">pub fn </span>signing_key_and_index&lt;<span class="lifetime">&#39;a</span>&gt;(
-	validators: <span class="kw">impl </span>IntoIterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ValidatorId&gt;,
+</span><span class="kw">pub fn </span>signing_key_and_index&lt;<span class="lifetime">'a</span>&gt;(
+	validators: <span class="kw">impl </span>IntoIterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">'a </span>ValidatorId&gt;,
 	keystore: <span class="kw-2">&amp;</span>KeystorePtr,
 ) -&gt; <span class="prelude-ty">Option</span>&lt;(ValidatorId, ValidatorIndex)&gt; {
 	<span class="kw">for </span>(i, v) <span class="kw">in </span>validators.into_iter().enumerate() {
@@ -1153,7 +1155,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl </span>Validator {
-	<span class="doccomment">/// Get a struct representing this node&#39;s validator if this node is in fact a validator in the
+	<span class="doccomment">/// Get a struct representing this node's validator if this node is in fact a validator in the
 	/// context of the given block.
 	</span><span class="kw">pub async fn </span>new&lt;S&gt;(parent: Hash, keystore: KeystorePtr, sender: <span class="kw-2">&amp;mut </span>S) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, Error&gt;
 	<span class="kw">where
@@ -1176,7 +1178,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		// `request_disabled_validators` call here
 		</span><span class="kw">let </span>disabled_validators = get_disabled_validators_with_fallback(sender, parent)
 			.<span class="kw">await
-			</span>.map_err(|e| Error::try_from(e).expect(<span class="string">&quot;the conversion is infallible; qed&quot;</span>))<span class="question-mark">?</span>;
+			</span>.map_err(|e| Error::try_from(e).expect(<span class="string">"the conversion is infallible; qed"</span>))<span class="question-mark">?</span>;
 
 		<span class="self">Self</span>::construct(<span class="kw-2">&amp;</span>validators, <span class="kw-2">&amp;</span>disabled_validators, signing_context, keystore)
 	}
@@ -1198,12 +1200,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Ok</span>(Validator { signing_context, key, index, disabled })
 	}
 
-	<span class="doccomment">/// Get this validator&#39;s id.
+	<span class="doccomment">/// Get this validator's id.
 	</span><span class="kw">pub fn </span>id(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; ValidatorId {
 		<span class="self">self</span>.key.clone()
 	}
 
-	<span class="doccomment">/// Get this validator&#39;s local index.
+	<span class="doccomment">/// Get this validator's local index.
 	</span><span class="kw">pub fn </span>index(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; ValidatorIndex {
 		<span class="self">self</span>.index
 	}

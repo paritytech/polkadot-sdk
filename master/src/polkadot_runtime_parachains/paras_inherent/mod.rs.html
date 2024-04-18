@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/runtime/parachains/src/paras_inherent/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/runtime/parachains/src/paras_inherent/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_runtime_parachains" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_runtime_parachains" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../polkadot_runtime_parachains/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1715,13 +1717,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	},
 };
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 </span><span class="kw">mod </span>benchmarking;
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests;
 
-<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;runtime::inclusion-inherent&quot;</span>;
+<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"runtime::inclusion-inherent"</span>;
 
 <span class="doccomment">/// A bitfield concerning concluded disputes for candidates
 /// associated to the core index equivalent to the bit position.
@@ -1774,7 +1776,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub enum </span>Error&lt;T&gt; {
 		<span class="doccomment">/// Inclusion inherent called more than once per block.
 		</span>TooManyInclusionInherents,
-		<span class="doccomment">/// The hash of the submitted parent header doesn&#39;t correspond to the saved block hash of
+		<span class="doccomment">/// The hash of the submitted parent header doesn't correspond to the saved block hash of
 		/// the parent.
 		</span>InvalidParentHeader,
 		<span class="doccomment">/// The data given to the inherent will result in an overweight block.
@@ -1789,7 +1791,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Whether the paras inherent was included within this block.
 	///
 	/// The `Option&lt;()&gt;` is effectively a `bool`, but it never hits storage in the `None` variant
-	/// due to the guarantees of FRAME&#39;s storage APIs.
+	/// due to the guarantees of FRAME's storage APIs.
 	///
 	/// If this is `None` at the end of the block, we panic and render the block invalid.
 	</span><span class="attr">#[pallet::storage]
@@ -1848,7 +1850,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">fn </span>on_finalize(<span class="kw">_</span>: BlockNumberFor&lt;T&gt;) {
 			<span class="kw">if </span>Included::&lt;T&gt;::take().is_none() {
-				<span class="macro">panic!</span>(<span class="string">&quot;Bitfields and heads must be included every block&quot;</span>);
+				<span class="macro">panic!</span>(<span class="string">"Bitfields and heads must be included every block"</span>);
 			}
 		}
 	}
@@ -1906,7 +1908,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(d)) =&gt; d,
 			<span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>) =&gt; <span class="kw">return </span><span class="prelude-val">None</span>,
 			<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
-				<span class="macro">log::warn!</span>(target: LOG_TARGET, <span class="string">&quot;ParachainsInherentData failed to decode&quot;</span>);
+				<span class="macro">log::warn!</span>(target: LOG_TARGET, <span class="string">"ParachainsInherentData failed to decode"</span>);
 				<span class="kw">return </span><span class="prelude-val">None
 			</span>},
 		};
@@ -1916,7 +1918,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		) {
 			<span class="prelude-val">Ok</span>((processed, <span class="kw">_</span>)) =&gt; <span class="prelude-val">Some</span>(processed),
 			<span class="prelude-val">Err</span>(err) =&gt; {
-				<span class="macro">log::warn!</span>(target: LOG_TARGET, <span class="string">&quot;Processing inherent data failed: {:?}&quot;</span>, err);
+				<span class="macro">log::warn!</span>(target: LOG_TARGET, <span class="string">"Processing inherent data failed: {:?}"</span>, err);
 				<span class="prelude-val">None
 			</span>},
 		}
@@ -1942,7 +1944,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		(ParachainsInherentData&lt;HeaderFor&lt;T&gt;&gt;, PostDispatchInfo),
 		DispatchErrorWithPostInfo,
 	&gt; {
-		<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-metrics&quot;</span>)]
+		<span class="attr">#[cfg(feature = <span class="string">"runtime-metrics"</span>)]
 		</span>sp_io::init_tracing();
 
 		<span class="kw">let </span>ParachainsInherentData {
@@ -1954,7 +1956,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="macro">log::debug!</span>(
 			target: LOG_TARGET,
-			<span class="string">&quot;[process_inherent_data] bitfields.len(): {}, backed_candidates.len(): {}, disputes.len() {}&quot;</span>,
+			<span class="string">"[process_inherent_data] bitfields.len(): {}, backed_candidates.len(): {}, disputes.len() {}"</span>,
 			bitfields.len(),
 			backed_candidates.len(),
 			disputes.len()
@@ -1994,8 +1996,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">let </span>all_weight_before = candidates_weight + bitfields_weight + disputes_weight;
 
 		METRICS.on_before_filter(all_weight_before.ref_time());
-		<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;Size before filter: {}, candidates + bitfields: {}, disputes: {}&quot;</span>, all_weight_before.proof_size(), candidates_weight.proof_size() + bitfields_weight.proof_size(), disputes_weight.proof_size());
-		<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;Time weight before filter: {}, candidates + bitfields: {}, disputes: {}&quot;</span>, all_weight_before.ref_time(), candidates_weight.ref_time() + bitfields_weight.ref_time(), disputes_weight.ref_time());
+		<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"Size before filter: {}, candidates + bitfields: {}, disputes: {}"</span>, all_weight_before.proof_size(), candidates_weight.proof_size() + bitfields_weight.proof_size(), disputes_weight.proof_size());
+		<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"Time weight before filter: {}, candidates + bitfields: {}, disputes: {}"</span>, all_weight_before.ref_time(), candidates_weight.ref_time() + bitfields_weight.ref_time(), disputes_weight.ref_time());
 
 		<span class="kw">let </span>current_session = shared::CurrentSessionIndex::&lt;T&gt;::get();
 		<span class="kw">let </span>expected_bits = scheduler::AvailabilityCores::&lt;T&gt;::get().len();
@@ -2010,7 +2012,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">let </span>max_block_weight = {
 			<span class="kw">let </span>dispatch_class = DispatchClass::Mandatory;
 			<span class="kw">let </span>max_block_weight_full = &lt;T <span class="kw">as </span>frame_system::Config&gt;::BlockWeights::get();
-			<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;Max block weight: {}&quot;</span>, max_block_weight_full.max_block);
+			<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"Max block weight: {}"</span>, max_block_weight_full.max_block);
 			<span class="comment">// Get max block weight for the mandatory class if defined, otherwise total max weight
 			// of the block.
 			</span><span class="kw">let </span>max_weight = max_block_weight_full
@@ -2018,23 +2020,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.get(dispatch_class)
 				.max_total
 				.unwrap_or(max_block_weight_full.max_block);
-			<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;Used max block time weight: {}&quot;</span>, max_weight);
+			<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"Used max block time weight: {}"</span>, max_weight);
 
 			<span class="kw">let </span>max_block_size_full = &lt;T <span class="kw">as </span>frame_system::Config&gt;::BlockLength::get();
 			<span class="kw">let </span>max_block_size = max_block_size_full.max.get(dispatch_class);
-			<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;Used max block size: {}&quot;</span>, max_block_size);
+			<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"Used max block size: {}"</span>, max_block_size);
 
 			<span class="comment">// Adjust proof size to max block size as we are tracking tx size.
 			</span>max_weight.set_proof_size(<span class="kw-2">*</span>max_block_size <span class="kw">as </span>u64)
 		};
-		<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;Used max block weight: {}&quot;</span>, max_block_weight);
+		<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"Used max block weight: {}"</span>, max_block_weight);
 
 		<span class="kw">let </span>entropy = compute_entropy::&lt;T&gt;(parent_hash);
 		<span class="kw">let </span><span class="kw-2">mut </span>rng = rand_chacha::ChaChaRng::from_seed(entropy.into());
 
 		<span class="comment">// Filter out duplicates and continue.
 		</span><span class="kw">if let </span><span class="prelude-val">Err</span>(()) = T::DisputesHandler::deduplicate_and_sort_dispute_data(<span class="kw-2">&amp;mut </span>disputes) {
-			<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;Found duplicate statement sets, retaining the first&quot;</span>);
+			<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"Found duplicate statement sets, retaining the first"</span>);
 		}
 
 		<span class="kw">let </span>post_conclusion_acceptance_period = config.dispute_post_conclusion_acceptance_period;
@@ -2068,16 +2070,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			METRICS.on_after_filter(all_weight_after.ref_time());
 			<span class="macro">log::debug!</span>(
 			target: LOG_TARGET,
-			<span class="string">&quot;[process_inherent_data] after filter: bitfields.len(): {}, backed_candidates.len(): {}, checked_disputes_sets.len() {}&quot;</span>,
+			<span class="string">"[process_inherent_data] after filter: bitfields.len(): {}, backed_candidates.len(): {}, checked_disputes_sets.len() {}"</span>,
 			bitfields.len(),
 			backed_candidates.len(),
 			checked_disputes_sets.len()
 			);
-			<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;Size after filter: {}, candidates + bitfields: {}, disputes: {}&quot;</span>, all_weight_after.proof_size(), non_disputes_weight.proof_size(), checked_disputes_sets_consumed_weight.proof_size());
-			<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;Time weight after filter: {}, candidates + bitfields: {}, disputes: {}&quot;</span>, all_weight_after.ref_time(), non_disputes_weight.ref_time(), checked_disputes_sets_consumed_weight.ref_time());
+			<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"Size after filter: {}, candidates + bitfields: {}, disputes: {}"</span>, all_weight_after.proof_size(), non_disputes_weight.proof_size(), checked_disputes_sets_consumed_weight.proof_size());
+			<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"Time weight after filter: {}, candidates + bitfields: {}, disputes: {}"</span>, all_weight_after.ref_time(), non_disputes_weight.ref_time(), checked_disputes_sets_consumed_weight.ref_time());
 
 			<span class="kw">if </span>all_weight_after.any_gt(max_block_weight) {
-				<span class="macro">log::warn!</span>(target: LOG_TARGET, <span class="string">&quot;Post weight limiting weight is still too large, time: {}, size: {}&quot;</span>, all_weight_after.ref_time(), all_weight_after.proof_size());
+				<span class="macro">log::warn!</span>(target: LOG_TARGET, <span class="string">"Post weight limiting weight is still too large, time: {}, size: {}"</span>, all_weight_after.ref_time(), all_weight_after.proof_size());
 			}
 			all_weight_after
 		} <span class="kw">else </span>{
@@ -2085,7 +2087,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			// invariants guaranteed by `create_inherent_data` for block authorship.
 			</span><span class="kw">if </span>all_weight_before.any_gt(max_block_weight) {
 				<span class="macro">log::error!</span>(
-					<span class="string">&quot;Overweight para inherent data reached the runtime {:?}: {} &gt; {}&quot;</span>,
+					<span class="string">"Overweight para inherent data reached the runtime {:?}: {} &gt; {}"</span>,
 					parent_hash,
 					all_weight_before,
 					max_block_weight
@@ -2099,13 +2101,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// Note that `process_checked_multi_dispute_data` will iterate and import each
 		// dispute; so the input here must be reasonably bounded,
 		// which is guaranteed by the checks and weight limitation above.
-		// We don&#39;t care about fresh or not disputes
-		// this writes them to storage, so let&#39;s query it via those means
-		// if this fails for whatever reason, that&#39;s ok.
+		// We don't care about fresh or not disputes
+		// this writes them to storage, so let's query it via those means
+		// if this fails for whatever reason, that's ok.
 		</span><span class="kw">if let </span><span class="prelude-val">Err</span>(e) =
 			T::DisputesHandler::process_checked_multi_dispute_data(<span class="kw-2">&amp;</span>checked_disputes_sets)
 		{
-			<span class="macro">log::warn!</span>(target: LOG_TARGET, <span class="string">&quot;MultiDisputesData failed to update: {:?}&quot;</span>, e);
+			<span class="macro">log::warn!</span>(target: LOG_TARGET, <span class="string">"MultiDisputesData failed to update: {:?}"</span>, e);
 		};
 		METRICS.on_disputes_imported(checked_disputes_sets.len() <span class="kw">as </span>u64);
 
@@ -2133,7 +2135,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// Contains the disputes that are concluded in the current session only,
 		// since these are the only ones that are relevant for the occupied cores
 		// and lightens the load on `free_disputed` significantly.
-		// Cores can&#39;t be occupied with candidates of the previous sessions, and only
+		// Cores can't be occupied with candidates of the previous sessions, and only
 		// things with new votes can have just concluded. We only need to collect
 		// cores with disputes that conclude just now, because disputes that
 		// concluded longer ago have already had any corresponding cores cleaned up.
@@ -2193,10 +2195,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		};
 
 		<span class="kw">if </span>!freed_timeout.is_empty() {
-			<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;Evicted timed out cores: {:?}&quot;</span>, freed_timeout);
+			<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"Evicted timed out cores: {:?}"</span>, freed_timeout);
 		}
 
-		<span class="comment">// We&#39;ll schedule paras again, given freed cores, and reasons for freeing.
+		<span class="comment">// We'll schedule paras again, given freed cores, and reasons for freeing.
 		</span><span class="kw">let </span>freed = freed_concluded
 			.into_iter()
 			.map(|(c, _hash)| (c, FreedReason::Concluded))
@@ -2287,12 +2289,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Derive a bitfield from dispute
-</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>create_disputed_bitfield&lt;<span class="lifetime">&#39;a</span>, I&gt;(
+</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>create_disputed_bitfield&lt;<span class="lifetime">'a</span>, I&gt;(
 	expected_bits: usize,
 	freed_cores: I,
 ) -&gt; DisputedBitfield
 <span class="kw">where
-	</span>I: <span class="lifetime">&#39;a </span>+ IntoIterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>CoreIndex&gt;,
+	</span>I: <span class="lifetime">'a </span>+ IntoIterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">'a </span>CoreIndex&gt;,
 {
 	<span class="kw">let </span><span class="kw-2">mut </span>bitvec = BitVec::repeat(<span class="bool-val">false</span>, expected_bits);
 	<span class="kw">for </span>core_idx <span class="kw">in </span>freed_cores {
@@ -2358,7 +2360,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="comment">// sorting indices, so the ordering is retained
 	// unstable sorting is fine, since there are no duplicates in indices
-	// and even if there were, they don&#39;t have an identity
+	// and even if there were, they don't have an identity
 	</span>picked_indices.sort_unstable();
 	(weight_acc, picked_indices)
 }
@@ -2398,7 +2400,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="comment">// Invariant: block author provides candidate in the order in which they form a chain
-	// wrt elastic scaling. If the invariant is broken, we&#39;d fail later when filtering candidates
+	// wrt elastic scaling. If the invariant is broken, we'd fail later when filtering candidates
 	// which are unchained.
 
 	</span><span class="kw">let </span><span class="kw-2">mut </span>chained_candidates: Vec&lt;Vec&lt;<span class="kw">_</span>&gt;&gt; = Vec::new();
@@ -2409,7 +2411,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if </span><span class="prelude-val">Some</span>(candidate_para_id) == current_para_id {
 			<span class="kw">let </span>chain = chained_candidates
 				.last_mut()
-				.expect(<span class="string">&quot;if the current_para_id is Some, then vec is not empty; qed&quot;</span>);
+				.expect(<span class="string">"if the current_para_id is Some, then vec is not empty; qed"</span>);
 			chain.push(candidate);
 		} <span class="kw">else </span>{
 			current_para_id = <span class="prelude-val">Some</span>(candidate_para_id);
@@ -2453,7 +2455,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				|candidates| backed_candidates_weight::&lt;T&gt;(<span class="kw-2">&amp;</span>candidates),
 				max_consumable_by_candidates,
 			);
-		<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;Indices Candidates: {:?}, size: {}&quot;</span>, chained_indices, candidates.len());
+		<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"Indices Candidates: {:?}, size: {}"</span>, chained_indices, candidates.len());
 		chained_candidates
 			.indexed_retain(|idx, _backed_candidates| chained_indices.binary_search(<span class="kw-2">&amp;</span>idx).is_ok());
 		<span class="comment">// pick all bitfields, and
@@ -2476,7 +2478,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		|bitfield| signed_bitfield_weight::&lt;T&gt;(<span class="kw-2">&amp;</span>bitfield),
 		max_consumable_weight,
 	);
-	<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;Indices Bitfields: {:?}, size: {}&quot;</span>, indices, bitfields.len());
+	<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"Indices Bitfields: {:?}, size: {}"</span>, indices, bitfields.len());
 
 	bitfields.indexed_retain(|idx, _bitfield| indices.binary_search(<span class="kw-2">&amp;</span>idx).is_ok());
 
@@ -2509,7 +2511,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">if </span>disputed_bitfield.<span class="number">0</span>.len() != expected_bits {
 		<span class="comment">// This is a system logic error that should never occur, but we want to handle it gracefully
 		// so we just drop all bitfields
-		</span><span class="macro">log::error!</span>(target: LOG_TARGET, <span class="string">&quot;BUG: disputed_bitfield != expected_bits&quot;</span>);
+		</span><span class="macro">log::error!</span>(target: LOG_TARGET, <span class="string">"BUG: disputed_bitfield != expected_bits"</span>);
 		<span class="kw">return </span><span class="macro">vec!</span>[]
 	}
 
@@ -2520,7 +2522,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">if </span>unchecked_bitfield.unchecked_payload().<span class="number">0</span>.len() != expected_bits {
 			<span class="macro">log::trace!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;bad bitfield length: {} != {:?}&quot;</span>,
+				<span class="string">"bad bitfield length: {} != {:?}"</span>,
 				unchecked_bitfield.unchecked_payload().<span class="number">0</span>.len(),
 				expected_bits,
 			);
@@ -2532,7 +2534,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		{
 			<span class="macro">log::trace!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;bitfield contains disputed cores: {:?}&quot;</span>,
+				<span class="string">"bitfield contains disputed cores: {:?}"</span>,
 				unchecked_bitfield.unchecked_payload().<span class="number">0</span>.clone() &amp; disputed_bitfield.<span class="number">0</span>.clone()
 			);
 			<span class="kw">continue
@@ -2543,7 +2545,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if </span>!last_index.map_or(<span class="bool-val">true</span>, |last_index: ValidatorIndex| last_index &lt; validator_index) {
 			<span class="macro">log::trace!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;bitfield validator index is not greater than last: !({:?} &lt; {})&quot;</span>,
+				<span class="string">"bitfield validator index is not greater than last: !({:?} &lt; {})"</span>,
 				last_index.as_ref().map(|x| x.<span class="number">0</span>),
 				validator_index.<span class="number">0
 			</span>);
@@ -2553,7 +2555,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if </span>unchecked_bitfield.unchecked_validator_index().<span class="number">0 </span><span class="kw">as </span>usize &gt;= validators.len() {
 			<span class="macro">log::trace!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;bitfield validator index is out of bounds: {} &gt;= {}&quot;</span>,
+				<span class="string">"bitfield validator index is out of bounds: {} &gt;= {}"</span>,
 				validator_index.<span class="number">0</span>,
 				validators.len(),
 			);
@@ -2569,7 +2571,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			bitfields.push(signed_bitfield);
 			METRICS.on_valid_bitfield_signature();
 		} <span class="kw">else </span>{
-			<span class="macro">log::warn!</span>(target: LOG_TARGET, <span class="string">&quot;Invalid bitfield signature&quot;</span>);
+			<span class="macro">log::warn!</span>(target: LOG_TARGET, <span class="string">"Invalid bitfield signature"</span>);
 			METRICS.on_invalid_bitfield_signature();
 		};
 
@@ -2584,7 +2586,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// subsequent candidates after the filtered one.
 ///
 /// Filter out:
-/// 1. any candidates which don&#39;t form a chain with the other candidates of the paraid (even if they
+/// 1. any candidates which don't form a chain with the other candidates of the paraid (even if they
 ///    do form a chain but are not in the right order).
 /// 2. any candidates that have a concluded invalid dispute or who are descendants of a concluded
 ///    invalid candidate.
@@ -2613,7 +2615,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="comment">// Check that candidates pertaining to the same para form a chain. Drop the ones that
-	// don&#39;t, along with the rest of candidates which follow them in the input vector.
+	// don't, along with the rest of candidates which follow them in the input vector.
 	</span>filter_unchained_candidates::&lt;T&gt;(<span class="kw-2">&amp;mut </span>candidates_per_para, allowed_relay_parents);
 
 	<span class="comment">// Remove any candidates that were concluded invalid or who are descendants of concluded invalid
@@ -2624,7 +2626,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if </span>!keep {
 			<span class="macro">log::debug!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;Found backed candidate {:?} which was concluded invalid or is a descendant of a concluded invalid candidate, for paraid {:?}.&quot;</span>,
+				<span class="string">"Found backed candidate {:?} which was concluded invalid or is a descendant of a concluded invalid candidate, for paraid {:?}."</span>,
 				candidate.candidate().hash(),
 				candidate.descriptor().para_id
 			);
@@ -2665,19 +2667,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// In the odd case none is available, uses the `parent_hash` and
 /// a const value, while emitting a warning.
 </span><span class="kw">fn </span>compute_entropy&lt;T: Config&gt;(parent_hash: T::Hash) -&gt; [u8; <span class="number">32</span>] {
-	<span class="kw">const </span>CANDIDATE_SEED_SUBJECT: [u8; <span class="number">32</span>] = <span class="kw-2">*</span><span class="string">b&quot;candidate-seed-selection-subject&quot;</span>;
+	<span class="kw">const </span>CANDIDATE_SEED_SUBJECT: [u8; <span class="number">32</span>] = <span class="kw-2">*</span><span class="string">b"candidate-seed-selection-subject"</span>;
 	<span class="comment">// NOTE: this is slightly gameable since this randomness was already public
 	// by the previous block, while for the block author this randomness was
 	// known 2 epochs ago. it is marginally better than using the parent block
-	// hash since it&#39;s harder to influence the VRF output than the block hash.
+	// hash since it's harder to influence the VRF output than the block hash.
 	</span><span class="kw">let </span>vrf_random = ParentBlockRandomness::&lt;T&gt;::random(<span class="kw-2">&amp;</span>CANDIDATE_SEED_SUBJECT[..]).<span class="number">0</span>;
 	<span class="kw">let </span><span class="kw-2">mut </span>entropy: [u8; <span class="number">32</span>] = CANDIDATE_SEED_SUBJECT;
 	<span class="kw">if let </span><span class="prelude-val">Some</span>(vrf_random) = vrf_random {
 		entropy.as_mut().copy_from_slice(vrf_random.as_ref());
 	} <span class="kw">else </span>{
 		<span class="comment">// in case there is no VRF randomness present, we utilize the relay parent
-		// as seed, it&#39;s better than a static value.
-		</span><span class="macro">log::warn!</span>(target: LOG_TARGET, <span class="string">&quot;ParentBlockRandomness did not provide entropy&quot;</span>);
+		// as seed, it's better than a static value.
+		</span><span class="macro">log::warn!</span>(target: LOG_TARGET, <span class="string">"ParentBlockRandomness did not provide entropy"</span>);
 		entropy.as_mut().copy_from_slice(parent_hash.as_ref());
 	}
 	entropy
@@ -2709,7 +2711,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">let </span>disputes_weight = multi_dispute_statement_sets_weight::&lt;T&gt;(<span class="kw-2">&amp;</span>disputes);
 
 	<span class="kw">if </span>disputes_weight.any_gt(max_consumable_weight) {
-		<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;Above max consumable weight: {}/{}&quot;</span>, disputes_weight, max_consumable_weight);
+		<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"Above max consumable weight: {}/{}"</span>, disputes_weight, max_consumable_weight);
 		<span class="kw">let </span><span class="kw-2">mut </span>checked_acc = Vec::&lt;CheckedDisputeStatementSet&gt;::with_capacity(disputes.len());
 
 		<span class="comment">// Accumulated weight of all disputes picked, that passed the checks.
@@ -2741,7 +2743,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="comment">// Helper function for filtering candidates which don&#39;t pass the given predicate. When/if the first
+<span class="comment">// Helper function for filtering candidates which don't pass the given predicate. When/if the first
 // candidate which failes the predicate is found, all the other candidates that follow are dropped.
 </span><span class="kw">fn </span>retain_candidates&lt;
 	T: inclusion::Config + paras::Config + inclusion::Config,
@@ -2812,7 +2814,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="prelude-val">None </span>=&gt; {
 					<span class="macro">log::debug!</span>(
 						target: LOG_TARGET,
-						<span class="string">&quot;Relay parent {:?} for candidate is not in the allowed relay parents. Dropping the candidate.&quot;</span>,
+						<span class="string">"Relay parent {:?} for candidate is not in the allowed relay parents. Dropping the candidate."</span>,
 						bc.descriptor().relay_parent
 					);
 					<span class="kw">return </span><span class="bool-val">false
@@ -2826,7 +2828,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		) {
 			<span class="prelude-val">Some</span>(group_idx) =&gt; group_idx,
 			<span class="prelude-val">None </span>=&gt; {
-				<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;Can&#39;t get the group index for core idx {:?}. Dropping the candidate.&quot;</span>, core_idx);
+				<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"Can't get the group index for core idx {:?}. Dropping the candidate."</span>, core_idx);
 				<span class="kw">return </span><span class="bool-val">false
 			</span>},
 		};
@@ -2835,7 +2837,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">let </span>validator_group = <span class="kw">match </span>scheduler::Pallet::&lt;T&gt;::group_validators(group_idx) {
 			<span class="prelude-val">Some</span>(validator_group) =&gt; validator_group,
 			<span class="prelude-val">None </span>=&gt; {
-				<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;Can&#39;t get the validators from group {:?}. Dropping the candidate.&quot;</span>, group_idx);
+				<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"Can't get the validators from group {:?}. Dropping the candidate."</span>, group_idx);
 				<span class="kw">return </span><span class="bool-val">false
 			</span>},
 		};
@@ -2865,7 +2867,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		{
 			<span class="macro">log::debug!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;Dropping candidate {:?} of paraid {:?} because it was left with too few backing votes after votes from disabled validators were filtered.&quot;</span>,
+				<span class="string">"Dropping candidate {:?} of paraid {:?} because it was left with too few backing votes after votes from disabled validators were filtered."</span>,
 				bc.candidate().hash(),
 				para_id
 			);
@@ -2878,7 +2880,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="comment">// Check that candidates pertaining to the same para form a chain. Drop the ones that
-// don&#39;t, along with the rest of candidates which follow them in the input vector.
+// don't, along with the rest of candidates which follow them in the input vector.
 // In the process, duplicated candidates will also be dropped (even if they form a valid cycle;
 // cycles are not allowed if they entail backing duplicated candidates).
 </span><span class="kw">fn </span>filter_unchained_candidates&lt;T: inclusion::Config + paras::Config + inclusion::Config&gt;(
@@ -2889,7 +2891,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">for </span>para_id <span class="kw">in </span>candidates.keys() {
 		<span class="kw">let </span>latest_head_data = <span class="kw">match </span>inclusion::Pallet::&lt;T&gt;::para_latest_head_data(<span class="kw-2">&amp;</span>para_id) {
 			<span class="prelude-val">None </span>=&gt; {
-				<span class="macro">defensive!</span>(<span class="string">&quot;Latest included head data for paraid {:?} is None&quot;</span>, para_id);
+				<span class="macro">defensive!</span>(<span class="string">"Latest included head data for paraid {:?} is None"</span>, para_id);
 				<span class="kw">continue
 			</span>},
 			<span class="prelude-val">Some</span>(latest_head_data) =&gt; latest_head_data,
@@ -2908,7 +2910,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if </span>visited_candidates.contains(<span class="kw-2">&amp;</span>candidate_hash) {
 			<span class="macro">log::debug!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;Found duplicate candidates for paraid {:?}. Dropping the candidates with hash {:?}&quot;</span>,
+				<span class="string">"Found duplicate candidates for paraid {:?}. Dropping the candidates with hash {:?}"</span>,
 				para_id,
 				candidate_hash
 			);
@@ -2931,7 +2933,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Err</span>(err) =&gt; {
 				<span class="macro">log::debug!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Backed candidate verification for candidate {:?} of paraid {:?} failed with {:?}&quot;</span>,
+					<span class="string">"Backed candidate verification for candidate {:?} of paraid {:?} failed with {:?}"</span>,
 					candidate_hash,
 					para_id,
 					err
@@ -2966,7 +2968,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">for </span>(para_id, backed_candidates) <span class="kw">in </span>candidates.into_iter() {
 		<span class="kw">if </span>backed_candidates.len() == <span class="number">0 </span>{
-			<span class="macro">defensive!</span>(<span class="string">&quot;Backed candidates for paraid {} is empty.&quot;</span>, para_id);
+			<span class="macro">defensive!</span>(<span class="string">"Backed candidates for paraid {} is empty."</span>, para_id);
 			<span class="kw">continue
 		</span>}
 
@@ -2977,7 +2979,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">if </span>scheduled_cores.len() == <span class="number">0 </span>{
 				<span class="macro">log::debug!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Paraid: {:?} has no scheduled cores but {} candidates were supplied.&quot;</span>,
+					<span class="string">"Paraid: {:?} has no scheduled cores but {} candidates were supplied."</span>,
 					para_id,
 					backed_candidates.len()
 				);
@@ -2989,8 +2991,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="macro">vec!</span>[(
 						<span class="comment">// We need the first one here, as we assume candidates of a para are in
 						// dependency order.
-						</span>backed_candidates.into_iter().next().expect(<span class="string">&quot;Length is at least 1&quot;</span>),
-						scheduled_cores.pop_first().expect(<span class="string">&quot;Length is 1&quot;</span>),
+						</span>backed_candidates.into_iter().next().expect(<span class="string">"Length is at least 1"</span>),
+						scheduled_cores.pop_first().expect(<span class="string">"Length is 1"</span>),
 					)],
 				);
 				<span class="kw">continue</span>;
@@ -3003,11 +3005,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 				<span class="kw">for </span>candidate <span class="kw">in </span>backed_candidates {
 					<span class="kw">if </span>scheduled_cores.len() == <span class="number">0 </span>{
-						<span class="comment">// We&#39;ve got candidates for all of this para&#39;s assigned cores. Move on to
+						<span class="comment">// We've got candidates for all of this para's assigned cores. Move on to
 						// the next para.
 						</span><span class="macro">log::debug!</span>(
 							target: LOG_TARGET,
-							<span class="string">&quot;Found enough candidates for paraid: {:?}.&quot;</span>,
+							<span class="string">"Found enough candidates for paraid: {:?}."</span>,
 							candidate.descriptor().para_id
 						);
 						<span class="kw">break</span>;
@@ -3024,7 +3026,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							// temp_backed_candidates is still fine though.
 							</span><span class="macro">log::debug!</span>(
 								target: LOG_TARGET,
-								<span class="string">&quot;Found a backed candidate {:?} with injected core index {}, which is not scheduled for paraid {:?}.&quot;</span>,
+								<span class="string">"Found a backed candidate {:?} with injected core index {}, which is not scheduled for paraid {:?}."</span>,
 								candidate.candidate().hash(),
 								core_index.<span class="number">0</span>,
 								candidate.descriptor().para_id
@@ -3039,7 +3041,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 						</span><span class="macro">log::debug!</span>(
 							target: LOG_TARGET,
-							<span class="string">&quot;Found a backed candidate {:?} with no injected core index, for paraid {:?} which has multiple scheduled cores.&quot;</span>,
+							<span class="string">"Found a backed candidate {:?} with no injected core index, for paraid {:?} which has multiple scheduled cores."</span>,
 							candidate.candidate().hash(),
 							candidate.descriptor().para_id
 						);
@@ -3057,7 +3059,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			} <span class="kw">else </span>{
 				<span class="macro">log::warn!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Found a paraid {:?} which has multiple scheduled cores but ElasticScalingMVP feature is not enabled: {:?}&quot;</span>,
+					<span class="string">"Found a paraid {:?} which has multiple scheduled cores but ElasticScalingMVP feature is not enabled: {:?}"</span>,
 					para_id,
 					scheduled_cores
 				);
@@ -3065,7 +3067,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		} <span class="kw">else </span>{
 			<span class="macro">log::debug!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;Paraid: {:?} has no scheduled cores but {} candidates were supplied.&quot;</span>,
+				<span class="string">"Paraid: {:?} has no scheduled cores but {} candidates were supplied."</span>,
 				para_id,
 				backed_candidates.len()
 			);
@@ -3080,7 +3082,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	candidate: <span class="kw-2">&amp;</span>BackedCandidate&lt;T::Hash&gt;,
 ) -&gt; <span class="prelude-ty">Option</span>&lt;CoreIndex&gt; {
 	<span class="comment">// After stripping the 8 bit extensions, the `validator_indices` field length is expected
-	// to be equal to backing group size. If these don&#39;t match, the `CoreIndex` is badly encoded,
+	// to be equal to backing group size. If these don't match, the `CoreIndex` is badly encoded,
 	// or not supported.
 	</span><span class="kw">let </span>(validator_indices, maybe_core_idx) = candidate.validator_indices_and_core_index(<span class="bool-val">true</span>);
 
@@ -3092,7 +3094,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">None </span>=&gt; {
 				<span class="macro">log::debug!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Relay parent {:?} for candidate {:?} is not in the allowed relay parents.&quot;</span>,
+					<span class="string">"Relay parent {:?} for candidate {:?} is not in the allowed relay parents."</span>,
 					candidate.descriptor().relay_parent,
 					candidate.candidate().hash(),
 				);
@@ -3109,7 +3111,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">None </span>=&gt; {
 			<span class="macro">log::debug!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;Can&#39;t get the group index for core idx {:?}.&quot;</span>,
+				<span class="string">"Can't get the group index for core idx {:?}."</span>,
 				core_idx,
 			);
 			<span class="kw">return </span><span class="prelude-val">None
@@ -3126,7 +3128,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	} <span class="kw">else </span>{
 		<span class="macro">log::debug!</span>(
 			target: LOG_TARGET,
-			<span class="string">&quot;Expected validator_indices count different than the real one: {}, {} for candidate {:?}&quot;</span>,
+			<span class="string">"Expected validator_indices count different than the real one: {}, {} for candidate {:?}"</span>,
 			group_validators.len(),
 			validator_indices.len(),
 			candidate.candidate().hash()

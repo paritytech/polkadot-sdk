@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/asset-conversion/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/asset-conversion/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_asset_conversion" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_asset_conversion" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../pallet_asset_conversion/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1471,14 +1473,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -1514,15 +1516,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! Here is an example `state_call` that asks for a quote of a pool of native versus asset 1:
 //!
 //! ```text
-//! curl -sS -H &quot;Content-Type: application/json&quot; -d \
-//! &#39;{&quot;id&quot;:1, &quot;jsonrpc&quot;:&quot;2.0&quot;, &quot;method&quot;: &quot;state_call&quot;, &quot;params&quot;: [&quot;AssetConversionApi_quote_price_tokens_for_exact_tokens&quot;, &quot;0x0101000000000000000000000011000000000000000000&quot;]}&#39; \
+//! curl -sS -H "Content-Type: application/json" -d \
+//! '{"id":1, "jsonrpc":"2.0", "method": "state_call", "params": ["AssetConversionApi_quote_price_tokens_for_exact_tokens", "0x0101000000000000000000000011000000000000000000"]}' \
 //! http://localhost:9933/
 //! ```
 //! (This can be run against the kitchen sync node in the `node` folder of this repo.)
 </span><span class="attr">#![deny(missing_docs)]
-#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
+#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
-#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 </span><span class="kw">mod </span>benchmarking;
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>mock;
@@ -1531,7 +1533,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">mod </span>tests;
 <span class="kw">mod </span>types;
 <span class="kw">pub mod </span>weights;
-<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 </span><span class="kw">pub use </span>benchmarking::{BenchmarkHelper, NativeOrWithIdFactory};
 <span class="kw">pub use </span>pallet::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>swap::<span class="kw-2">*</span>;
@@ -1607,7 +1609,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="doccomment">/// Liquidity pool identifier.
 		</span><span class="kw">type </span>PoolId: Parameter + MaxEncodedLen + Ord;
 
-		<span class="doccomment">/// Provides means to resolve the [`Config::PoolId`] and it&#39;s `AccountId` from a pair
+		<span class="doccomment">/// Provides means to resolve the [`Config::PoolId`] and it's `AccountId` from a pair
 		/// of [`Config::AssetKind`]s.
 		///
 		/// Examples: [`crate::types::WithFirstAsset`], [`crate::types::Ascending`].
@@ -1651,7 +1653,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="attr">#[pallet::constant]
 		</span><span class="kw">type </span>MaxSwapPathLength: Get&lt;u32&gt;;
 
-		<span class="doccomment">/// The pallet&#39;s id, used for deriving its sovereign account ID.
+		<span class="doccomment">/// The pallet's id, used for deriving its sovereign account ID.
 		</span><span class="attr">#[pallet::constant]
 		</span><span class="kw">type </span>PalletId: Get&lt;PalletId&gt;;
 
@@ -1659,12 +1661,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">type </span>WeightInfo: WeightInfo;
 
 		<span class="doccomment">/// The benchmarks need a way to create asset ids from u32s.
-		</span><span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+		</span><span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 		</span><span class="kw">type </span>BenchmarkHelper: BenchmarkHelper&lt;<span class="self">Self</span>::AssetKind&gt;;
 	}
 
 	<span class="doccomment">/// Map from `PoolAssetId` to `PoolInfo`. This establishes whether a pool has been officially
-	/// created rather than people sending tokens directly to a pool&#39;s public account.
+	/// created rather than people sending tokens directly to a pool's public account.
 	</span><span class="attr">#[pallet::storage]
 	</span><span class="kw">pub type </span>Pools&lt;T: Config&gt; =
 		StorageMap&lt;<span class="kw">_</span>, Blake2_128Concat, T::PoolId, PoolInfo&lt;T::PoolAssetId&gt;, OptionQuery&gt;;
@@ -1674,7 +1676,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="attr">#[pallet::storage]
 	</span><span class="kw">pub type </span>NextPoolAssetId&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, T::PoolAssetId, OptionQuery&gt;;
 
-	<span class="comment">// Pallet&#39;s events.
+	<span class="comment">// Pallet's events.
 	</span><span class="attr">#[pallet::event]
 	#[pallet::generate_deposit(<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>deposit_event)]
 	</span><span class="kw">pub enum </span>Event&lt;T: Config&gt; {
@@ -1769,38 +1771,38 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>InvalidAssetPair,
 		<span class="doccomment">/// Pool already exists.
 		</span>PoolExists,
-		<span class="doccomment">/// Desired amount can&#39;t be zero.
+		<span class="doccomment">/// Desired amount can't be zero.
 		</span>WrongDesiredAmount,
-		<span class="doccomment">/// Provided amount should be greater than or equal to the existential deposit/asset&#39;s
+		<span class="doccomment">/// Provided amount should be greater than or equal to the existential deposit/asset's
 		/// minimal amount.
 		</span>AmountOneLessThanMinimal,
-		<span class="doccomment">/// Provided amount should be greater than or equal to the existential deposit/asset&#39;s
+		<span class="doccomment">/// Provided amount should be greater than or equal to the existential deposit/asset's
 		/// minimal amount.
 		</span>AmountTwoLessThanMinimal,
-		<span class="doccomment">/// Reserve needs to always be greater than or equal to the existential deposit/asset&#39;s
+		<span class="doccomment">/// Reserve needs to always be greater than or equal to the existential deposit/asset's
 		/// minimal amount.
 		</span>ReserveLeftLessThanMinimal,
-		<span class="doccomment">/// Desired amount can&#39;t be equal to the pool reserve.
+		<span class="doccomment">/// Desired amount can't be equal to the pool reserve.
 		</span>AmountOutTooHigh,
-		<span class="doccomment">/// The pool doesn&#39;t exist.
+		<span class="doccomment">/// The pool doesn't exist.
 		</span>PoolNotFound,
 		<span class="doccomment">/// An overflow happened.
 		</span>Overflow,
-		<span class="doccomment">/// The minimal amount requirement for the first token in the pair wasn&#39;t met.
+		<span class="doccomment">/// The minimal amount requirement for the first token in the pair wasn't met.
 		</span>AssetOneDepositDidNotMeetMinimum,
-		<span class="doccomment">/// The minimal amount requirement for the second token in the pair wasn&#39;t met.
+		<span class="doccomment">/// The minimal amount requirement for the second token in the pair wasn't met.
 		</span>AssetTwoDepositDidNotMeetMinimum,
-		<span class="doccomment">/// The minimal amount requirement for the first token in the pair wasn&#39;t met.
+		<span class="doccomment">/// The minimal amount requirement for the first token in the pair wasn't met.
 		</span>AssetOneWithdrawalDidNotMeetMinimum,
-		<span class="doccomment">/// The minimal amount requirement for the second token in the pair wasn&#39;t met.
+		<span class="doccomment">/// The minimal amount requirement for the second token in the pair wasn't met.
 		</span>AssetTwoWithdrawalDidNotMeetMinimum,
 		<span class="doccomment">/// Optimal calculated amount is less than desired.
 		</span>OptimalAmountLessThanDesired,
 		<span class="doccomment">/// Insufficient liquidity minted.
 		</span>InsufficientLiquidityMinted,
-		<span class="doccomment">/// Requested liquidity can&#39;t be zero.
+		<span class="doccomment">/// Requested liquidity can't be zero.
 		</span>ZeroLiquidity,
-		<span class="doccomment">/// Amount can&#39;t be zero.
+		<span class="doccomment">/// Amount can't be zero.
 		</span>ZeroAmount,
 		<span class="doccomment">/// Calculated amount out is less than provided minimum amount.
 		</span>ProvidedMinimumNotSufficientForSwap,
@@ -1821,12 +1823,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">fn </span>integrity_test() {
 			<span class="macro">assert!</span>(
 				T::MaxSwapPathLength::get() &gt; <span class="number">1</span>,
-				<span class="string">&quot;the `MaxSwapPathLength` should be greater than 1&quot;</span>,
+				<span class="string">"the `MaxSwapPathLength` should be greater than 1"</span>,
 			);
 		}
 	}
 
-	<span class="doccomment">/// Pallet&#39;s callable functions.
+	<span class="doccomment">/// Pallet's callable functions.
 	</span><span class="attr">#[pallet::call]
 	</span><span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
 		<span class="doccomment">/// Creates an empty liquidity pool and an associated new `lp_token` asset
@@ -1891,7 +1893,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="doccomment">/// Provide liquidity into the pool of `asset1` and `asset2`.
 		/// NOTE: an optimal amount of asset1 and asset2 will be calculated and
 		/// might be different than the provided `amount1_desired`/`amount2_desired`
-		/// thus you should provide the min amount you&#39;re happy to provide.
+		/// thus you should provide the min amount you're happy to provide.
 		/// Params `amount1_min`/`amount2_min` represent that.
 		/// `mint_to` will be sent the liquidity tokens that represent this share of the pool.
 		///
@@ -2011,7 +2013,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="doccomment">/// Allows you to remove liquidity by providing the `lp_token_burn` tokens that will be
 		/// burned in the process. With the usage of `amount1_min_receive`/`amount2_min_receive`
-		/// it&#39;s possible to control the min amount of returned tokens you&#39;re happy with.
+		/// it's possible to control the min amount of returned tokens you're happy with.
 		</span><span class="attr">#[pallet::call_index(<span class="number">2</span>)]
 		#[pallet::weight(T::WeightInfo::remove_liquidity())]
 		</span><span class="kw">pub fn </span>remove_liquidity(
@@ -2085,7 +2087,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="doccomment">/// Swap the exact amount of `asset1` into `asset2`.
 		/// `amount_out_min` param allows you to specify the min amount of the `asset2`
-		/// you&#39;re happy to receive.
+		/// you're happy to receive.
 		///
 		/// [`AssetConversionApi::quote_price_exact_tokens_for_tokens`] runtime call can be called
 		/// for a quote.
@@ -2113,7 +2115,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="doccomment">/// Swap any amount of `asset1` to get the exact amount of `asset2`.
 		/// `amount_in_max` param allows to specify the max amount of the `asset1`
-		/// you&#39;re happy to provide.
+		/// you're happy to provide.
 		///
 		/// [`AssetConversionApi::quote_price_tokens_for_exact_tokens`] runtime call can be called
 		/// for a quote.
@@ -2140,9 +2142,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 
 		<span class="doccomment">/// Touch an existing pool to fulfill prerequisites before providing liquidity, such as
-		/// ensuring that the pool&#39;s accounts are in place. It is typically useful when a pool
-		/// creator removes the pool&#39;s accounts and does not provide a liquidity. This action may
-		/// involve holding assets from the caller as a deposit for creating the pool&#39;s accounts.
+		/// ensuring that the pool's accounts are in place. It is typically useful when a pool
+		/// creator removes the pool's accounts and does not provide a liquidity. This action may
+		/// involve holding assets from the caller as a deposit for creating the pool's accounts.
 		///
 		/// The origin must be Signed.
 		///
@@ -2282,7 +2284,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 
 		<span class="doccomment">/// Swap exactly `credit_in` of asset `path[0]` for asset `path[last]`.  If `amount_out_min`
-		/// is provided and the swap can&#39;t achieve at least this amount, an error is returned.
+		/// is provided and the swap can't achieve at least this amount, an error is returned.
 		///
 		/// On a successful swap, the function returns the `credit_out` of `path[last]` obtained
 		/// from the `credit_in`. On failure, it returns an `Err` containing the original
@@ -2379,7 +2381,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="doccomment">/// Swap assets along the `path`, withdrawing from `sender` and depositing in `send_to`.
 		///
-		/// Note: It&#39;s assumed that the provided `path` is valid.
+		/// Note: It's assumed that the provided `path` is valid.
 		///
 		/// WARNING: This may return an error after a partial storage mutation. It should be used
 		/// only inside a transactional storage context and an Err result must imply a storage
@@ -2404,7 +2406,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		///
 		/// If an error occurs, `credit_in` is returned back.
 		///
-		/// Note: It&#39;s assumed that the provided `path` is valid and `credit_in` corresponds to the
+		/// Note: It's assumed that the provided `path` is valid and `credit_in` corresponds to the
 		/// first asset in the `path`.
 		///
 		/// WARNING: This may return an error after a partial storage mutation. It should be used
@@ -2481,7 +2483,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			T::Assets::withdraw(asset, who, value, Exact, preservation, Polite)
 		}
 
-		<span class="doccomment">/// Get the `owner`&#39;s balance of `asset`, which could be the chain&#39;s native asset or another
+		<span class="doccomment">/// Get the `owner`'s balance of `asset`, which could be the chain's native asset or another
 		/// fungible. Returns a value in the form of an `Balance`.
 		</span><span class="kw">fn </span>get_balance(owner: <span class="kw-2">&amp;</span>T::AccountId, asset: T::AssetKind) -&gt; T::Balance {
 			T::Assets::reducible_balance(asset, owner, Expendable, Polite)
@@ -2740,11 +2742,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 
 		<span class="doccomment">/// Returns the next pool asset id for benchmark purposes only.
-		</span><span class="attr">#[cfg(any(test, feature = <span class="string">&quot;runtime-benchmarks&quot;</span>))]
+		</span><span class="attr">#[cfg(any(test, feature = <span class="string">"runtime-benchmarks"</span>))]
 		</span><span class="kw">pub fn </span>get_next_pool_asset_id() -&gt; T::PoolAssetId {
 			NextPoolAssetId::&lt;T&gt;::get()
 				.or(T::PoolAssetId::initial_value())
-				.expect(<span class="string">&quot;Next pool asset ID can not be None&quot;</span>)
+				.expect(<span class="string">"Next pool asset ID can not be None"</span>)
 		}
 	}
 }
@@ -2784,7 +2786,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="macro">sp_core::generate_feature_enabled_macro!</span>(runtime_benchmarks_enabled, feature = <span class="string">&quot;runtime-benchmarks&quot;</span>, $);
+<span class="macro">sp_core::generate_feature_enabled_macro!</span>(runtime_benchmarks_enabled, feature = <span class="string">"runtime-benchmarks"</span>, $);
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

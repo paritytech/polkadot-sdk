@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/utils/frame/benchmarking-cli/src/pallet/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/utils/frame/benchmarking-cli/src/pallet/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="frame_benchmarking_cli" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="frame_benchmarking_cli" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../frame_benchmarking_cli/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -398,14 +400,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -425,7 +427,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="comment">// Add a more relaxed parsing for pallet names by allowing pallet directory names with `-` to be
 // used like crate names with `_`
 </span><span class="kw">fn </span>parse_pallet_name(pallet: <span class="kw-2">&amp;</span>str) -&gt; std::result::Result&lt;String, String&gt; {
-	<span class="prelude-val">Ok</span>(pallet.replace(<span class="string">&quot;-&quot;</span>, <span class="string">&quot;_&quot;</span>))
+	<span class="prelude-val">Ok</span>(pallet.replace(<span class="string">"-"</span>, <span class="string">"_"</span>))
 }
 
 <span class="doccomment">/// List options for available benchmarks.
@@ -441,11 +443,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[derive(Debug, clap::Parser)]
 </span><span class="kw">pub struct </span>PalletCmd {
 	<span class="doccomment">/// Select a FRAME Pallet to benchmark, or `*` for all (in which case `extrinsic` must be `*`).
-	</span><span class="attr">#[arg(short, long, value_parser = parse_pallet_name, required_unless_present_any = [<span class="string">&quot;list&quot;</span>, <span class="string">&quot;json_input&quot;</span>, <span class="string">&quot;all&quot;</span>]</span>, default_value_if(<span class="string">&quot;all&quot;</span>, <span class="string">&quot;true&quot;</span>, <span class="prelude-val">Some</span>(<span class="string">&quot;*&quot;</span>.into())))]
+	</span><span class="attr">#[arg(short, long, value_parser = parse_pallet_name, required_unless_present_any = [<span class="string">"list"</span>, <span class="string">"json_input"</span>, <span class="string">"all"</span>]</span>, default_value_if(<span class="string">"all"</span>, <span class="string">"true"</span>, <span class="prelude-val">Some</span>(<span class="string">"*"</span>.into())))]
 	<span class="kw">pub </span>pallet: <span class="prelude-ty">Option</span>&lt;String&gt;,
 
 	<span class="doccomment">/// Select an extrinsic inside the pallet to benchmark, or `*` for all.
-	</span><span class="attr">#[arg(short, long, required_unless_present_any = [<span class="string">&quot;list&quot;</span>, <span class="string">&quot;json_input&quot;</span>, <span class="string">&quot;all&quot;</span>]</span>, default_value_if(<span class="string">&quot;all&quot;</span>, <span class="string">&quot;true&quot;</span>, <span class="prelude-val">Some</span>(<span class="string">&quot;*&quot;</span>.into())))]
+	</span><span class="attr">#[arg(short, long, required_unless_present_any = [<span class="string">"list"</span>, <span class="string">"json_input"</span>, <span class="string">"all"</span>]</span>, default_value_if(<span class="string">"all"</span>, <span class="string">"true"</span>, <span class="prelude-val">Some</span>(<span class="string">"*"</span>.into())))]
 	<span class="kw">pub </span>extrinsic: <span class="prelude-ty">Option</span>&lt;String&gt;,
 
 	<span class="doccomment">/// Run benchmarks for all pallets and extrinsics.
@@ -459,11 +461,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>steps: u32,
 
 	<span class="doccomment">/// Indicates lowest values for each of the component ranges.
-	</span><span class="attr">#[arg(long = <span class="string">&quot;low&quot;</span>, value_delimiter = <span class="string">&#39;,&#39;</span>)]
+	</span><span class="attr">#[arg(long = <span class="string">"low"</span>, value_delimiter = <span class="string">','</span>)]
 	</span><span class="kw">pub </span>lowest_range_values: Vec&lt;u32&gt;,
 
 	<span class="doccomment">/// Indicates highest values for each of the component ranges.
-	</span><span class="attr">#[arg(long = <span class="string">&quot;high&quot;</span>, value_delimiter = <span class="string">&#39;,&#39;</span>)]
+	</span><span class="attr">#[arg(long = <span class="string">"high"</span>, value_delimiter = <span class="string">','</span>)]
 	</span><span class="kw">pub </span>highest_range_values: Vec&lt;u32&gt;,
 
 	<span class="doccomment">/// Select how many repetitions of this benchmark should run from within the wasm.
@@ -477,18 +479,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>external_repeat: u32,
 
 	<span class="doccomment">/// Print the raw results in JSON format.
-	</span><span class="attr">#[arg(long = <span class="string">&quot;json&quot;</span>)]
+	</span><span class="attr">#[arg(long = <span class="string">"json"</span>)]
 	</span><span class="kw">pub </span>json_output: bool,
 
 	<span class="doccomment">/// Write the raw results in JSON format into the given file.
-	</span><span class="attr">#[arg(long, conflicts_with = <span class="string">&quot;json_output&quot;</span>)]
+	</span><span class="attr">#[arg(long, conflicts_with = <span class="string">"json_output"</span>)]
 	</span><span class="kw">pub </span>json_file: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
 
-	<span class="doccomment">/// Don&#39;t print the median-slopes linear regression analysis.
+	<span class="doccomment">/// Don't print the median-slopes linear regression analysis.
 	</span><span class="attr">#[arg(long)]
 	</span><span class="kw">pub </span>no_median_slopes: bool,
 
-	<span class="doccomment">/// Don&#39;t print the min-squares linear regression analysis.
+	<span class="doccomment">/// Don't print the min-squares linear regression analysis.
 	</span><span class="attr">#[arg(long)]
 	</span><span class="kw">pub </span>no_min_squares: bool,
 
@@ -516,11 +518,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>output_analysis: <span class="prelude-ty">Option</span>&lt;String&gt;,
 
 	<span class="doccomment">/// Which analysis function to use when analyzing measured proof sizes.
-	</span><span class="attr">#[arg(long, default_value(<span class="string">&quot;median-slopes&quot;</span>))]
+	</span><span class="attr">#[arg(long, default_value(<span class="string">"median-slopes"</span>))]
 	</span><span class="kw">pub </span>output_pov_analysis: <span class="prelude-ty">Option</span>&lt;String&gt;,
 
 	<span class="doccomment">/// The PoV estimation mode of a benchmark if no `pov_mode` attribute is present.
-	</span><span class="attr">#[arg(long, default_value(<span class="string">&quot;max-encoded-len&quot;</span>), value_enum)]
+	</span><span class="attr">#[arg(long, default_value(<span class="string">"max-encoded-len"</span>), value_enum)]
 	</span><span class="kw">pub </span>default_pov_mode: command::PovEstimationMode,
 
 	<span class="doccomment">/// Set the heap pages while running benchmarks. If not set, the default value from the client
@@ -543,8 +545,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Method for executing Wasm runtime code.
 	</span><span class="attr">#[arg(
-		long = <span class="string">&quot;wasm-execution&quot;</span>,
-		value_name = <span class="string">&quot;METHOD&quot;</span>,
+		long = <span class="string">"wasm-execution"</span>,
+		value_name = <span class="string">"METHOD"</span>,
 		value_enum,
 		ignore_case = <span class="bool-val">true</span>,
 		default_value_t = DEFAULT_WASM_EXECUTION_METHOD,
@@ -555,15 +557,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// Only has an effect when `wasm-execution` is set to `compiled`.
 	</span><span class="attr">#[arg(
-		long = <span class="string">&quot;wasm-instantiation-strategy&quot;</span>,
-		value_name = <span class="string">&quot;STRATEGY&quot;</span>,
+		long = <span class="string">"wasm-instantiation-strategy"</span>,
+		value_name = <span class="string">"STRATEGY"</span>,
 		default_value_t = DEFAULT_WASMTIME_INSTANTIATION_STRATEGY,
 		value_enum,
 	)]
 	</span><span class="kw">pub </span>wasmtime_instantiation_strategy: WasmtimeInstantiationStrategy,
 
 	<span class="doccomment">/// Optional runtime blob to use instead of the one from the genesis config.
-	</span><span class="attr">#[arg(long, conflicts_with = <span class="string">&quot;chain&quot;</span>)]
+	</span><span class="attr">#[arg(long, conflicts_with = <span class="string">"chain"</span>)]
 	</span><span class="kw">pub </span>runtime: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
 
 	<span class="doccomment">/// Do not fail if there are unknown but also unused host functions in the runtime.
@@ -577,21 +579,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>genesis_builder: <span class="prelude-ty">Option</span>&lt;GenesisBuilder&gt;,
 
 	<span class="doccomment">/// DEPRECATED: This argument has no effect.
-	</span><span class="attr">#[arg(long = <span class="string">&quot;execution&quot;</span>)]
+	</span><span class="attr">#[arg(long = <span class="string">"execution"</span>)]
 	</span><span class="kw">pub </span>execution: <span class="prelude-ty">Option</span>&lt;String&gt;,
 
 	<span class="doccomment">/// Limit the memory the database cache can use.
-	</span><span class="attr">#[arg(long = <span class="string">&quot;db-cache&quot;</span>, value_name = <span class="string">&quot;MiB&quot;</span>, default_value_t = <span class="number">1024</span>)]
+	</span><span class="attr">#[arg(long = <span class="string">"db-cache"</span>, value_name = <span class="string">"MiB"</span>, default_value_t = <span class="number">1024</span>)]
 	</span><span class="kw">pub </span>database_cache_size: u32,
 
 	<span class="doccomment">/// List and print available benchmarks in a csv-friendly format.
 	///
 	/// NOTE: `num_args` and `require_equals` are required to allow `--list`
-	</span><span class="attr">#[arg(long, value_enum, ignore_case = <span class="bool-val">true</span>, num_args = <span class="number">0</span>..=<span class="number">1</span>, require_equals = <span class="bool-val">true</span>, default_missing_value(<span class="string">&quot;All&quot;</span>))]
+	</span><span class="attr">#[arg(long, value_enum, ignore_case = <span class="bool-val">true</span>, num_args = <span class="number">0</span>..=<span class="number">1</span>, require_equals = <span class="bool-val">true</span>, default_missing_value(<span class="string">"All"</span>))]
 	</span><span class="kw">pub </span>list: <span class="prelude-ty">Option</span>&lt;ListOutput&gt;,
 
-	<span class="doccomment">/// Don&#39;t include csv header when listing benchmarks.
-	</span><span class="attr">#[arg(long, requires(<span class="string">&quot;list&quot;</span>))]
+	<span class="doccomment">/// Don't include csv header when listing benchmarks.
+	</span><span class="attr">#[arg(long, requires(<span class="string">"list"</span>))]
 	</span><span class="kw">pub </span>no_csv_header: bool,
 
 	<span class="doccomment">/// If enabled, the storage info is not displayed in the output next to the analysis.
@@ -607,7 +609,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// this value is used as a worst case scenario. It will affect the calculated worst case
 	/// PoV size for accessing a value in a map, since the PoV will need to include the trie
 	/// nodes down to the underlying value.
-	</span><span class="attr">#[clap(long = <span class="string">&quot;map-size&quot;</span>, default_value = <span class="string">&quot;1000000&quot;</span>)]
+	</span><span class="attr">#[clap(long = <span class="string">"map-size"</span>, default_value = <span class="string">"1000000"</span>)]
 	</span><span class="kw">pub </span>worst_case_map_values: u32,
 
 	<span class="doccomment">/// Adjust the PoV estimation by adding additional trie layers to it.
@@ -617,7 +619,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// Each layer will result in an additional 495 bytes PoV per distinct top-level access.
 	/// Therefore multiple `StorageMap` accesses only suffer from this increase once. The exact
 	/// number of storage items depends on the runtime and the deployed pallets.
-	</span><span class="attr">#[clap(long, default_value = <span class="string">&quot;2&quot;</span>)]
+	</span><span class="attr">#[clap(long, default_value = <span class="string">"2"</span>)]
 	</span><span class="kw">pub </span>additional_trie_layers: u8,
 
 	<span class="doccomment">/// A path to a `.json` file with existing benchmark results generated with `--json` or

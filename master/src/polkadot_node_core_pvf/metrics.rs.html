@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/core/pvf/src/metrics.rs`."><title>metrics.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/core/pvf/src/metrics.rs`."><title>metrics.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_node_core_pvf" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_node_core_pvf" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../polkadot_node_core_pvf/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -513,12 +515,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl </span>Metrics {
 	<span class="doccomment">/// Returns a handle to submit prepare workers metrics.
-	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>prepare_worker(<span class="kw-2">&amp;</span><span class="lifetime">&#39;_ </span><span class="self">self</span>) -&gt; WorkerRelatedMetrics&lt;<span class="lifetime">&#39;_</span>&gt; {
+	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>prepare_worker(<span class="kw-2">&amp;</span><span class="lifetime">'_ </span><span class="self">self</span>) -&gt; WorkerRelatedMetrics&lt;<span class="lifetime">'_</span>&gt; {
 		WorkerRelatedMetrics { metrics: <span class="self">self</span>, flavor: WorkerFlavor::Prepare }
 	}
 
 	<span class="doccomment">/// Returns a handle to submit execute workers metrics.
-	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>execute_worker(<span class="kw-2">&amp;</span><span class="lifetime">&#39;_ </span><span class="self">self</span>) -&gt; WorkerRelatedMetrics&lt;<span class="lifetime">&#39;_</span>&gt; {
+	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>execute_worker(<span class="kw-2">&amp;</span><span class="lifetime">'_ </span><span class="self">self</span>) -&gt; WorkerRelatedMetrics&lt;<span class="lifetime">'_</span>&gt; {
 		WorkerRelatedMetrics { metrics: <span class="self">self</span>, flavor: WorkerFlavor::Execute }
 	}
 
@@ -566,12 +568,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="attr">#[allow(unused_variables)]
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>observe_preparation_memory_metrics(<span class="kw-2">&amp;</span><span class="self">self</span>, memory_stats: MemoryStats) {
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0 </span>{
-			<span class="attr">#[cfg(target_os = <span class="string">&quot;linux&quot;</span>)]
+			<span class="attr">#[cfg(target_os = <span class="string">"linux"</span>)]
 			</span><span class="kw">if let </span><span class="prelude-val">Some</span>(max_rss) = memory_stats.max_rss {
 				metrics.preparation_max_rss.observe(max_rss <span class="kw">as </span>f64);
 			}
 
-			<span class="attr">#[cfg(any(target_os = <span class="string">&quot;linux&quot;</span>, feature = <span class="string">&quot;jemalloc-allocator&quot;</span>))]
+			<span class="attr">#[cfg(any(target_os = <span class="string">"linux"</span>, feature = <span class="string">"jemalloc-allocator"</span>))]
 			</span><span class="kw">if let </span><span class="prelude-val">Some</span>(tracker_stats) = memory_stats.memory_tracker_stats {
 				<span class="comment">// We convert these stats from B to KB to match the unit of `ru_maxrss` from
 				// `getrusage`.
@@ -600,13 +602,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	execute_finished: prometheus::Counter&lt;prometheus::U64&gt;,
 	preparation_time: prometheus::Histogram,
 	execution_time: prometheus::Histogram,
-	<span class="attr">#[cfg(target_os = <span class="string">&quot;linux&quot;</span>)]
+	<span class="attr">#[cfg(target_os = <span class="string">"linux"</span>)]
 	</span>preparation_max_rss: prometheus::Histogram,
 	<span class="comment">// Max. allocated memory, tracked by Jemallocator, polling-based
-	</span><span class="attr">#[cfg(any(target_os = <span class="string">&quot;linux&quot;</span>, feature = <span class="string">&quot;jemalloc-allocator&quot;</span>))]
+	</span><span class="attr">#[cfg(any(target_os = <span class="string">"linux"</span>, feature = <span class="string">"jemalloc-allocator"</span>))]
 	</span>preparation_max_allocated: prometheus::Histogram,
 	<span class="comment">// Max. resident memory, tracked by Jemallocator, polling-based
-	</span><span class="attr">#[cfg(any(target_os = <span class="string">&quot;linux&quot;</span>, feature = <span class="string">&quot;jemalloc-allocator&quot;</span>))]
+	</span><span class="attr">#[cfg(any(target_os = <span class="string">"linux"</span>, feature = <span class="string">"jemalloc-allocator"</span>))]
 	</span>preparation_max_resident: prometheus::Histogram,
 	<span class="comment">// Peak allocation value, tracked by tracking-allocator
 	</span>preparation_peak_tracked_allocation: prometheus::Histogram,
@@ -618,66 +620,66 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			worker_spawning: prometheus::register(
 				prometheus::CounterVec::new(
 					prometheus::Opts::new(
-						<span class="string">&quot;polkadot_pvf_worker_spawning&quot;</span>,
-						<span class="string">&quot;The total number of workers began to spawn&quot;</span>,
+						<span class="string">"polkadot_pvf_worker_spawning"</span>,
+						<span class="string">"The total number of workers began to spawn"</span>,
 					),
-					<span class="kw-2">&amp;</span>[<span class="string">&quot;flavor&quot;</span>],
+					<span class="kw-2">&amp;</span>[<span class="string">"flavor"</span>],
 				)<span class="question-mark">?</span>,
 				registry,
 			)<span class="question-mark">?</span>,
 			worker_spawned: prometheus::register(
 				prometheus::CounterVec::new(
 					prometheus::Opts::new(
-						<span class="string">&quot;polkadot_pvf_worker_spawned&quot;</span>,
-						<span class="string">&quot;The total number of workers spawned successfully&quot;</span>,
+						<span class="string">"polkadot_pvf_worker_spawned"</span>,
+						<span class="string">"The total number of workers spawned successfully"</span>,
 					),
-					<span class="kw-2">&amp;</span>[<span class="string">&quot;flavor&quot;</span>],
+					<span class="kw-2">&amp;</span>[<span class="string">"flavor"</span>],
 				)<span class="question-mark">?</span>,
 				registry,
 			)<span class="question-mark">?</span>,
 			worker_retired: prometheus::register(
 				prometheus::CounterVec::new(
 					prometheus::Opts::new(
-						<span class="string">&quot;polkadot_pvf_worker_retired&quot;</span>,
-						<span class="string">&quot;The total number of workers retired, either killed by the host or died on duty&quot;</span>,
+						<span class="string">"polkadot_pvf_worker_retired"</span>,
+						<span class="string">"The total number of workers retired, either killed by the host or died on duty"</span>,
 					),
-					<span class="kw-2">&amp;</span>[<span class="string">&quot;flavor&quot;</span>],
+					<span class="kw-2">&amp;</span>[<span class="string">"flavor"</span>],
 				)<span class="question-mark">?</span>,
 				registry,
 			)<span class="question-mark">?</span>,
 			prepare_enqueued: prometheus::register(
 				prometheus::Counter::new(
-					<span class="string">&quot;polkadot_pvf_prepare_enqueued&quot;</span>,
-					<span class="string">&quot;The total number of jobs enqueued into the preparation pipeline&quot;
+					<span class="string">"polkadot_pvf_prepare_enqueued"</span>,
+					<span class="string">"The total number of jobs enqueued into the preparation pipeline"
 				</span>)<span class="question-mark">?</span>,
 				registry,
 			)<span class="question-mark">?</span>,
 			prepare_concluded: prometheus::register(
 				prometheus::Counter::new(
-					<span class="string">&quot;polkadot_pvf_prepare_concluded&quot;</span>,
-					<span class="string">&quot;The total number of jobs concluded in the preparation pipeline&quot;
+					<span class="string">"polkadot_pvf_prepare_concluded"</span>,
+					<span class="string">"The total number of jobs concluded in the preparation pipeline"
 				</span>)<span class="question-mark">?</span>,
 				registry,
 			)<span class="question-mark">?</span>,
 			execute_enqueued: prometheus::register(
 				prometheus::Counter::new(
-					<span class="string">&quot;polkadot_pvf_execute_enqueued&quot;</span>,
-					<span class="string">&quot;The total number of jobs enqueued into the execution pipeline&quot;
+					<span class="string">"polkadot_pvf_execute_enqueued"</span>,
+					<span class="string">"The total number of jobs enqueued into the execution pipeline"
 				</span>)<span class="question-mark">?</span>,
 				registry,
 			)<span class="question-mark">?</span>,
 			execute_finished: prometheus::register(
 				prometheus::Counter::new(
-					<span class="string">&quot;polkadot_pvf_execute_finished&quot;</span>,
-					<span class="string">&quot;The total number of jobs done in the execution pipeline&quot;
+					<span class="string">"polkadot_pvf_execute_finished"</span>,
+					<span class="string">"The total number of jobs done in the execution pipeline"
 				</span>)<span class="question-mark">?</span>,
 				registry,
 			)<span class="question-mark">?</span>,
 			preparation_time: prometheus::register(
 				prometheus::Histogram::with_opts(
 					prometheus::HistogramOpts::new(
-						<span class="string">&quot;polkadot_pvf_preparation_time&quot;</span>,
-						<span class="string">&quot;Time spent in preparing PVF artifacts in seconds&quot;</span>,
+						<span class="string">"polkadot_pvf_preparation_time"</span>,
+						<span class="string">"Time spent in preparing PVF artifacts in seconds"</span>,
 					)
 					.buckets(<span class="macro">vec!</span>[
 						<span class="comment">// This is synchronized with the `DEFAULT_PRECHECK_PREPARATION_TIMEOUT=60s`
@@ -703,8 +705,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			execution_time: prometheus::register(
 				prometheus::Histogram::with_opts(
 					prometheus::HistogramOpts::new(
-						<span class="string">&quot;polkadot_pvf_execution_time&quot;</span>,
-						<span class="string">&quot;Time spent in executing PVFs&quot;</span>,
+						<span class="string">"polkadot_pvf_execution_time"</span>,
+						<span class="string">"Time spent in executing PVFs"</span>,
 					).buckets(<span class="macro">vec!</span>[
 						<span class="comment">// This is synchronized with `DEFAULT_APPROVAL_EXECUTION_TIMEOUT` and
 						// `DEFAULT_BACKING_EXECUTION_TIMEOUT` constants in
@@ -728,41 +730,41 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				)<span class="question-mark">?</span>,
 				registry,
 			)<span class="question-mark">?</span>,
-			<span class="attr">#[cfg(target_os = <span class="string">&quot;linux&quot;</span>)]
+			<span class="attr">#[cfg(target_os = <span class="string">"linux"</span>)]
 			</span>preparation_max_rss: prometheus::register(
 				prometheus::Histogram::with_opts(
 					prometheus::HistogramOpts::new(
-						<span class="string">&quot;polkadot_pvf_preparation_max_rss&quot;</span>,
-						<span class="string">&quot;ru_maxrss (maximum resident set size) observed for preparation (in kilobytes)&quot;</span>,
+						<span class="string">"polkadot_pvf_preparation_max_rss"</span>,
+						<span class="string">"ru_maxrss (maximum resident set size) observed for preparation (in kilobytes)"</span>,
 					).buckets(
 						prometheus::exponential_buckets(<span class="number">8192.0</span>, <span class="number">2.0</span>, <span class="number">10</span>)
-							.expect(<span class="string">&quot;arguments are always valid; qed&quot;</span>),
+							.expect(<span class="string">"arguments are always valid; qed"</span>),
 					),
 				)<span class="question-mark">?</span>,
 				registry,
 			)<span class="question-mark">?</span>,
-			<span class="attr">#[cfg(any(target_os = <span class="string">&quot;linux&quot;</span>, feature = <span class="string">&quot;jemalloc-allocator&quot;</span>))]
+			<span class="attr">#[cfg(any(target_os = <span class="string">"linux"</span>, feature = <span class="string">"jemalloc-allocator"</span>))]
 			</span>preparation_max_resident: prometheus::register(
 				prometheus::Histogram::with_opts(
 					prometheus::HistogramOpts::new(
-						<span class="string">&quot;polkadot_pvf_preparation_max_resident&quot;</span>,
-						<span class="string">&quot;max resident memory observed for preparation (in kilobytes)&quot;</span>,
+						<span class="string">"polkadot_pvf_preparation_max_resident"</span>,
+						<span class="string">"max resident memory observed for preparation (in kilobytes)"</span>,
 					).buckets(
 						prometheus::exponential_buckets(<span class="number">8192.0</span>, <span class="number">2.0</span>, <span class="number">10</span>)
-							.expect(<span class="string">&quot;arguments are always valid; qed&quot;</span>),
+							.expect(<span class="string">"arguments are always valid; qed"</span>),
 					),
 				)<span class="question-mark">?</span>,
 				registry,
 			)<span class="question-mark">?</span>,
-			<span class="attr">#[cfg(any(target_os = <span class="string">&quot;linux&quot;</span>, feature = <span class="string">&quot;jemalloc-allocator&quot;</span>))]
+			<span class="attr">#[cfg(any(target_os = <span class="string">"linux"</span>, feature = <span class="string">"jemalloc-allocator"</span>))]
 			</span>preparation_max_allocated: prometheus::register(
 				prometheus::Histogram::with_opts(
 					prometheus::HistogramOpts::new(
-						<span class="string">&quot;polkadot_pvf_preparation_max_allocated&quot;</span>,
-						<span class="string">&quot;max allocated memory observed for preparation (in kilobytes)&quot;</span>,
+						<span class="string">"polkadot_pvf_preparation_max_allocated"</span>,
+						<span class="string">"max allocated memory observed for preparation (in kilobytes)"</span>,
 					).buckets(
 						prometheus::exponential_buckets(<span class="number">8192.0</span>, <span class="number">2.0</span>, <span class="number">10</span>)
-							.expect(<span class="string">&quot;arguments are always valid; qed&quot;</span>),
+							.expect(<span class="string">"arguments are always valid; qed"</span>),
 					),
 				)<span class="question-mark">?</span>,
 				registry,
@@ -770,11 +772,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			preparation_peak_tracked_allocation: prometheus::register(
 				prometheus::Histogram::with_opts(
 					prometheus::HistogramOpts::new(
-						<span class="string">&quot;polkadot_pvf_preparation_peak_tracked_allocation&quot;</span>,
-						<span class="string">&quot;peak allocation observed for preparation (in kilobytes)&quot;</span>,
+						<span class="string">"polkadot_pvf_preparation_peak_tracked_allocation"</span>,
+						<span class="string">"peak allocation observed for preparation (in kilobytes)"</span>,
 					).buckets(
 						prometheus::exponential_buckets(<span class="number">8192.0</span>, <span class="number">2.0</span>, <span class="number">10</span>)
-							.expect(<span class="string">&quot;arguments are always valid; qed&quot;</span>),
+							.expect(<span class="string">"arguments are always valid; qed"</span>),
 					),
 				)<span class="question-mark">?</span>,
 				registry,
@@ -790,20 +792,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl </span>WorkerFlavor {
-	<span class="kw">fn </span>as_label(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str {
+	<span class="kw">fn </span>as_label(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
 		<span class="kw">match </span><span class="kw-2">*</span><span class="self">self </span>{
-			WorkerFlavor::Prepare =&gt; <span class="string">&quot;prepare&quot;</span>,
-			WorkerFlavor::Execute =&gt; <span class="string">&quot;execute&quot;</span>,
+			WorkerFlavor::Prepare =&gt; <span class="string">"prepare"</span>,
+			WorkerFlavor::Execute =&gt; <span class="string">"execute"</span>,
 		}
 	}
 }
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>WorkerRelatedMetrics&lt;<span class="lifetime">&#39;a</span>&gt; {
-	metrics: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Metrics,
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>WorkerRelatedMetrics&lt;<span class="lifetime">'a</span>&gt; {
+	metrics: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Metrics,
 	flavor: WorkerFlavor,
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; WorkerRelatedMetrics&lt;<span class="lifetime">&#39;a</span>&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; WorkerRelatedMetrics&lt;<span class="lifetime">'a</span>&gt; {
 	<span class="doccomment">/// When the spawning of a worker started.
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>on_begin_spawn(<span class="kw-2">&amp;</span><span class="self">self</span>) {
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="kw-2">&amp;</span><span class="self">self</span>.metrics.<span class="number">0 </span>{

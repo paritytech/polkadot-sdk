@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/network/availability-recovery/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/network/availability-recovery/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_availability_recovery" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_availability_recovery" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../polkadot_availability_recovery/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1082,12 +1084,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests;
 
-<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;parachain::availability-recovery&quot;</span>;
+<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"parachain::availability-recovery"</span>;
 
 <span class="comment">// Size of the LRU cache where we keep recovered data.
 </span><span class="kw">const </span>LRU_SIZE: u32 = <span class="number">16</span>;
 
-<span class="kw">const </span>COST_INVALID_REQUEST: Rep = Rep::CostMajor(<span class="string">&quot;Peer sent unparsable request&quot;</span>);
+<span class="kw">const </span>COST_INVALID_REQUEST: Rep = Rep::CostMajor(<span class="string">"Peer sent unparsable request"</span>);
 
 <span class="doccomment">/// PoV size limit in bytes for which prefer fetching from backers.
 </span><span class="kw">const </span>SMALL_POV_LIMIT: usize = <span class="number">128 </span>* <span class="number">1024</span>;
@@ -1163,7 +1165,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					candidate_hash = <span class="question-mark">?</span>params.candidate_hash,
 					validator_index = <span class="question-mark">?</span>chunk.index,
 					error = <span class="question-mark">?</span>e,
-					<span class="string">&quot;Invalid Merkle proof&quot;</span>,
+					<span class="string">"Invalid Merkle proof"</span>,
 				);
 				<span class="kw">return </span><span class="bool-val">false
 			</span>},
@@ -1174,7 +1176,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			target: LOG_TARGET,
 			candidate_hash = <span class="question-mark">?</span>params.candidate_hash,
 			validator_index = <span class="question-mark">?</span>chunk.index,
-			<span class="string">&quot;Merkle proof mismatch&quot;
+			<span class="string">"Merkle proof mismatch"
 		</span>);
 		<span class="kw">return </span><span class="bool-val">false
 	</span>}
@@ -1185,7 +1187,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// the root hash of the provided Merkle tree, which is built
 /// on-top of the encoded chunks.
 ///
-/// This (expensive) check is necessary, as otherwise we can&#39;t be sure that some chunks won&#39;t have
+/// This (expensive) check is necessary, as otherwise we can't be sure that some chunks won't have
 /// been tampered with by the backers, which would result in some validators considering the data
 /// valid and some invalid as having fetched different set of chunks. The checking of the Merkle
 /// proof for individual chunks only gives us guarantees, that we have fetched a chunk belonging to
@@ -1194,7 +1196,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// NOTE: It is fine to do this check with already decoded data, because if the decoding failed for
 /// some validators, we can be sure that chunks have been tampered with (by the backers) or the
 /// data was invalid to begin with. In the former case, validators fetching valid chunks will see
-/// invalid data as well, because the root won&#39;t match. In the latter case the situation is the
+/// invalid data as well, because the root won't match. In the latter case the situation is the
 /// same for anyone anyways.
 </span><span class="kw">fn </span>reconstructed_data_matches_root(
 	n_validators: usize,
@@ -1210,7 +1212,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">gum::debug!</span>(
 				target: LOG_TARGET,
 				err = <span class="question-mark">?</span>e,
-				<span class="string">&quot;Failed to obtain chunks&quot;</span>,
+				<span class="string">"Failed to obtain chunks"</span>,
 			);
 			<span class="kw">return </span><span class="bool-val">false
 		</span>},
@@ -1231,7 +1233,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl </span>Future <span class="kw">for </span>RecoveryHandle {
 	<span class="kw">type </span>Output = <span class="prelude-ty">Option</span>&lt;(CandidateHash, <span class="prelude-ty">Result</span>&lt;AvailableData, RecoveryError&gt;)&gt;;
 
-	<span class="kw">fn </span>poll(<span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;<span class="self">Self</span>::Output&gt; {
+	<span class="kw">fn </span>poll(<span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">'_</span>&gt;) -&gt; Poll&lt;<span class="self">Self</span>::Output&gt; {
 		<span class="kw">let </span><span class="kw-2">mut </span>indices_to_remove = Vec::new();
 		<span class="kw">for </span>(i, awaiting) <span class="kw">in </span><span class="self">self</span>.awaiting.iter_mut().enumerate().rev() {
 			<span class="kw">if let </span>Poll::Ready(()) = awaiting.poll_canceled(cx) {
@@ -1244,7 +1246,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">gum::debug!</span>(
 				target: LOG_TARGET,
 				candidate_hash = <span class="question-mark">?</span><span class="self">self</span>.candidate_hash,
-				<span class="string">&quot;Receiver for available data dropped.&quot;</span>,
+				<span class="string">"Receiver for available data dropped."</span>,
 			);
 
 			<span class="self">self</span>.awaiting.swap_remove(index);
@@ -1254,7 +1256,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">gum::debug!</span>(
 				target: LOG_TARGET,
 				candidate_hash = <span class="question-mark">?</span><span class="self">self</span>.candidate_hash,
-				<span class="string">&quot;All receivers for available data dropped.&quot;</span>,
+				<span class="string">"All receivers for available data dropped."</span>,
 			);
 
 			<span class="kw">return </span>Poll::Ready(<span class="prelude-val">None</span>)
@@ -1297,7 +1299,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">match </span>o {
 			<span class="prelude-val">Ok</span>(d) =&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::Valid(d)),
 			<span class="prelude-val">Err</span>(RecoveryError::Invalid) =&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::Invalid),
-			<span class="comment">// We don&#39;t want to cache unavailable state, as that state might change, so if
+			<span class="comment">// We don't want to cache unavailable state, as that state might change, so if
 			// requested again we want to try again!
 			</span><span class="prelude-val">Err</span>(RecoveryError::Unavailable) =&gt; <span class="prelude-val">Err</span>(()),
 			<span class="prelude-val">Err</span>(RecoveryError::ChannelClosed) =&gt; <span class="prelude-val">Err</span>(()),
@@ -1332,9 +1334,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>start(<span class="self">self</span>, ctx: Context) -&gt; SpawnedSubsystem {
 		<span class="kw">let </span>future = <span class="self">self
 			</span>.run(ctx)
-			.map_err(|e| SubsystemError::with_origin(<span class="string">&quot;availability-recovery&quot;</span>, e))
+			.map_err(|e| SubsystemError::with_origin(<span class="string">"availability-recovery"</span>, e))
 			.boxed();
-		SpawnedSubsystem { name: <span class="string">&quot;availability-recovery-subsystem&quot;</span>, future }
+		SpawnedSubsystem { name: <span class="string">"availability-recovery-subsystem"</span>, future }
 	}
 }
 
@@ -1392,11 +1394,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		awaiting: <span class="macro">vec!</span>[response_sender],
 	});
 
-	<span class="kw">if let </span><span class="prelude-val">Err</span>(e) = ctx.spawn(<span class="string">&quot;recovery-task&quot;</span>, Box::pin(remote)) {
+	<span class="kw">if let </span><span class="prelude-val">Err</span>(e) = ctx.spawn(<span class="string">"recovery-task"</span>, Box::pin(remote)) {
 		<span class="macro">gum::warn!</span>(
 			target: LOG_TARGET,
 			err = <span class="question-mark">?</span>e,
-			<span class="string">&quot;Failed to spawn a recovery task&quot;</span>,
+			<span class="string">"Failed to spawn a recovery task"</span>,
 		);
 	}
 
@@ -1420,7 +1422,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ) -&gt; error::Result&lt;()&gt; {
 	<span class="kw">let </span>candidate_hash = receipt.hash();
 
-	<span class="kw">let </span>span = jaeger::Span::new(candidate_hash, <span class="string">&quot;availability-recovery&quot;</span>)
+	<span class="kw">let </span>span = jaeger::Span::new(candidate_hash, <span class="string">"availability-recovery"</span>)
 		.with_stage(jaeger::Stage::AvailabilityRecovery);
 
 	<span class="kw">if let </span><span class="prelude-val">Some</span>(result) =
@@ -1430,7 +1432,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">gum::warn!</span>(
 				target: LOG_TARGET,
 				err = <span class="question-mark">?</span>e,
-				<span class="string">&quot;Error responding with an availability recovery result&quot;</span>,
+				<span class="string">"Error responding with an availability recovery result"</span>,
 			);
 		}
 		<span class="kw">return </span><span class="prelude-val">Ok</span>(())
@@ -1443,13 +1445,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">return </span><span class="prelude-val">Ok</span>(())
 	}
 
-	<span class="kw">let </span>_span = span.child(<span class="string">&quot;not-cached&quot;</span>);
+	<span class="kw">let </span>_span = span.child(<span class="string">"not-cached"</span>);
 	<span class="kw">let </span>session_info = request_session_info(state.live_block.<span class="number">1</span>, session_index, ctx.sender())
 		.<span class="kw">await
 		</span>.<span class="kw">await
 		</span>.map_err(error::Error::CanceledSessionInfo)<span class="question-mark">??</span>;
 
-	<span class="kw">let </span>_span = span.child(<span class="string">&quot;session-info-ctx-received&quot;</span>);
+	<span class="kw">let </span>_span = span.child(<span class="string">"session-info-ctx-received"</span>);
 	<span class="kw">match </span>session_info {
 		<span class="prelude-val">Some</span>(session_info) =&gt; {
 			<span class="kw">let </span><span class="kw-2">mut </span>recovery_strategies: VecDeque&lt;
@@ -1477,11 +1479,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 								pov_size_estimate,
 								small_pov_limit,
 								enabled = small_pov_size,
-								<span class="string">&quot;Prefer fetch from backing group&quot;</span>,
+								<span class="string">"Prefer fetch from backing group"</span>,
 							);
 						} <span class="kw">else </span>{
 							<span class="comment">// we have a POV limit but were not able to query the chunk size, so
-							// don&#39;t use the backing group.
+							// don't use the backing group.
 							</span>small_pov_size = <span class="bool-val">false</span>;
 						}
 					};
@@ -1518,7 +1520,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.<span class="kw">await
 		</span>},
 		<span class="prelude-val">None </span>=&gt; {
-			<span class="macro">gum::warn!</span>(target: LOG_TARGET, <span class="string">&quot;SessionInfo is `None` at {:?}&quot;</span>, state.live_block);
+			<span class="macro">gum::warn!</span>(target: LOG_TARGET, <span class="string">"SessionInfo is `None` at {:?}"</span>, state.live_block);
 			response_sender
 				.send(<span class="prelude-val">Err</span>(RecoveryError::Unavailable))
 				.map_err(|<span class="kw">_</span>| error::Error::CanceledResponseSender)<span class="question-mark">?</span>;
@@ -1649,7 +1651,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		// Create a thread pool with 2 workers.
 		</span><span class="kw">let </span><span class="kw-2">mut </span>to_pool = ThreadPoolBuilder::build(
 			<span class="comment">// Pool is guaranteed to have at least 1 worker thread.
-			</span>NonZeroUsize::new(<span class="number">2</span>).expect(<span class="string">&quot;There are 2 threads; qed&quot;</span>),
+			</span>NonZeroUsize::new(<span class="number">2</span>).expect(<span class="string">"There are 2 threads; qed"</span>),
 			metrics.clone(),
 			<span class="kw-2">&amp;mut </span>ctx,
 		)
@@ -1665,7 +1667,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="prelude-val">Some</span>(task) =&gt; {
 							<span class="kw">let </span>send_result = to_pool
 								.next()
-								.expect(<span class="string">&quot;Pool size is `NonZeroUsize`; qed&quot;</span>)
+								.expect(<span class="string">"Pool size is `NonZeroUsize`; qed"</span>)
 								.send(task)
 								.<span class="kw">await
 								</span>.map_err(|<span class="kw">_</span>| RecoveryError::ChannelClosed);
@@ -1674,17 +1676,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 								<span class="macro">gum::warn!</span>(
 									target: LOG_TARGET,
 									<span class="question-mark">?</span>err,
-									<span class="string">&quot;Failed to send erasure coding task&quot;</span>,
+									<span class="string">"Failed to send erasure coding task"</span>,
 								);
 							}
 						},
 						<span class="prelude-val">None </span>=&gt; {
 							<span class="macro">gum::debug!</span>(
 								target: LOG_TARGET,
-								<span class="string">&quot;Erasure task channel closed&quot;</span>,
+								<span class="string">"Erasure task channel closed"</span>,
 							);
 
-							<span class="kw">return </span><span class="prelude-val">Err</span>(SubsystemError::with_origin(<span class="string">&quot;availability-recovery&quot;</span>, RecoveryError::ChannelClosed))
+							<span class="kw">return </span><span class="prelude-val">Err</span>(SubsystemError::with_origin(<span class="string">"availability-recovery"</span>, RecoveryError::ChannelClosed))
 						}
 					}
 				}
@@ -1694,7 +1696,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							<span class="kw-2">&amp;mut </span>state,
 							signal,
 						).<span class="kw">await</span><span class="question-mark">? </span>{
-							<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="string">&quot;subsystem concluded&quot;</span>);
+							<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="string">"subsystem concluded"</span>);
 							<span class="kw">return </span><span class="prelude-val">Ok</span>(());
 						}
 						FromOrchestra::Communication { msg } =&gt; {
@@ -1721,7 +1723,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 										<span class="macro">gum::warn!</span>(
 											target: LOG_TARGET,
 											err = <span class="question-mark">?</span>e,
-											<span class="string">&quot;Error handling a recovery request&quot;</span>,
+											<span class="string">"Error handling a recovery request"</span>,
 										);
 									}
 								}
@@ -1730,12 +1732,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					}
 				}
 				in_req = recv_req =&gt; {
-					<span class="kw">match </span>in_req.into_nested().map_err(|fatal| SubsystemError::with_origin(<span class="string">&quot;availability-recovery&quot;</span>, fatal))<span class="question-mark">? </span>{
+					<span class="kw">match </span>in_req.into_nested().map_err(|fatal| SubsystemError::with_origin(<span class="string">"availability-recovery"</span>, fatal))<span class="question-mark">? </span>{
 						<span class="prelude-val">Ok</span>(req) =&gt; {
 							<span class="kw">if </span>bypass_availability_store {
 								<span class="macro">gum::debug!</span>(
 									target: LOG_TARGET,
-									<span class="string">&quot;Skipping request to availability-store.&quot;</span>,
+									<span class="string">"Skipping request to availability-store."</span>,
 								);
 								<span class="kw">let _ </span>= req.send_response(<span class="prelude-val">None</span>.into());
 								<span class="kw">continue
@@ -1748,7 +1750,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 									<span class="macro">gum::debug!</span>(
 										target: LOG_TARGET,
 										err = <span class="question-mark">?</span>e,
-										<span class="string">&quot;Failed to query available data.&quot;</span>,
+										<span class="string">"Failed to query available data."</span>,
 									);
 
 									<span class="kw">let _ </span>= req.send_response(<span class="prelude-val">None</span>.into());
@@ -1759,7 +1761,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							<span class="macro">gum::debug!</span>(
 								target: LOG_TARGET,
 								error = <span class="question-mark">?</span>jfyi,
-								<span class="string">&quot;Decoding incoming request failed&quot;
+								<span class="string">"Decoding incoming request failed"
 							</span>);
 							<span class="kw">continue
 						</span>}
@@ -1782,7 +1784,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">const </span>MAX_THREADS: NonZeroUsize = <span class="kw">match </span>NonZeroUsize::new(<span class="number">4</span>) {
 	<span class="prelude-val">Some</span>(max_threads) =&gt; max_threads,
-	<span class="prelude-val">None </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;MAX_THREADS must be non-zero&quot;</span>),
+	<span class="prelude-val">None </span>=&gt; <span class="macro">panic!</span>(<span class="string">"MAX_THREADS must be non-zero"</span>),
 };
 
 <span class="kw">impl </span>ThreadPoolBuilder {
@@ -1794,7 +1796,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	// larger the input (more or larger chunks/availability data), the more CPU cycles will be
 	// spent.
 	//
-	// For example, for 32KB PoVs, we&#39;d expect re-encode to eat as much as 90ms and 500ms for
+	// For example, for 32KB PoVs, we'd expect re-encode to eat as much as 90ms and 500ms for
 	// 2.5MiB.
 	//
 	// After executing such a task, the worker sends the response via a provided `oneshot` sender.
@@ -1815,13 +1817,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			senders.push(tx);
 
 			<span class="kw">if let </span><span class="prelude-val">Err</span>(e) = ctx
-				.spawn_blocking(<span class="string">&quot;erasure-task&quot;</span>, Box::pin(erasure_task_thread(metrics.clone(), rx)))
+				.spawn_blocking(<span class="string">"erasure-task"</span>, Box::pin(erasure_task_thread(metrics.clone(), rx)))
 			{
 				<span class="macro">gum::warn!</span>(
 					target: LOG_TARGET,
 					err = <span class="question-mark">?</span>e,
 					index,
-					<span class="string">&quot;Failed to spawn a erasure task&quot;</span>,
+					<span class="string">"Failed to spawn a erasure task"</span>,
 				);
 			}
 		}
@@ -1861,7 +1863,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">None </span>=&gt; {
 				<span class="macro">gum::trace!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Erasure task channel closed. Node shutting down ?&quot;</span>,
+					<span class="string">"Erasure task channel closed. Node shutting down ?"</span>,
 				);
 				<span class="kw">break
 			</span>},
@@ -1869,7 +1871,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// In benchmarks this is a very hot loop not yielding at all.
 		// To update CPU metrics for the task we need to yield.
-		</span><span class="attr">#[cfg(feature = <span class="string">&quot;subsystem-benchmarks&quot;</span>)]
+		</span><span class="attr">#[cfg(feature = <span class="string">"subsystem-benchmarks"</span>)]
 		</span>tokio::task::yield_now().<span class="kw">await</span>;
 	}
 }

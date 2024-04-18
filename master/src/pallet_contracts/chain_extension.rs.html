@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/contracts/src/chain_extension.rs`."><title>chain_extension.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/contracts/src/chain_extension.rs`."><title>chain_extension.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_contracts" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_contracts" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../pallet_contracts/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -640,14 +642,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -658,11 +660,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! [`bare_call`](crate::Pallet::bare_call). This already allows customization of runtime
 //! behaviour by user generated code (contracts). However, often it is more straightforward
 //! to allow the reverse behaviour: The contract calls into the runtime. We call the latter
-//! one a &quot;chain extension&quot; because it allows the chain to extend the set of functions that are
+//! one a "chain extension" because it allows the chain to extend the set of functions that are
 //! callable by a contract.
 //!
 //! In order to create a chain extension the runtime author implements the [`ChainExtension`]
-//! trait and declares it in this pallet&#39;s [configuration Trait](crate::Config). All types
+//! trait and declares it in this pallet's [configuration Trait](crate::Config). All types
 //! required for this endeavour are defined or re-exported in this module. There is an
 //! implementation on `()` which can be used to signal that no chain extension is available.
 //!
@@ -679,7 +681,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! useful should claim their `ID` with [the registry](https://github.com/paritytech/chainextension-registry)
 //! so that no collisions with other vendors will occur.
 //!
-//! **Chain specific extensions must use the reserved `ID = 0` so that they can&#39;t be registered with
+//! **Chain specific extensions must use the reserved `ID = 0` so that they can't be registered with
 //! the registry.**
 //!
 //! # Security
@@ -825,15 +827,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// It uses [typestate programming](https://docs.rust-embedded.org/book/static-guarantees/typestate-programming.html)
 /// to enforce the correct usage of the parameters passed to the chain extension.
-</span><span class="kw">pub struct </span>Environment&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>, E: Ext, S: State&gt; {
+</span><span class="kw">pub struct </span>Environment&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>, E: Ext, S: State&gt; {
 	<span class="doccomment">/// The actual data of this type.
-	</span>inner: Inner&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>, E&gt;,
+	</span>inner: Inner&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>, E&gt;,
 	<span class="doccomment">/// `S` is only used in the type system but never as value.
 	</span>phantom: PhantomData&lt;S&gt;,
 }
 
 <span class="doccomment">/// Functions that are available in every state of this type.
-</span><span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>, E: Ext, S: State&gt; Environment&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>, E, S&gt; {
+</span><span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>, E: Ext, S: State&gt; Environment&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>, E, S&gt; {
 	<span class="doccomment">/// The function id within the `id` passed by a contract.
 	///
 	/// It returns the two least significant bytes of the `id` passed by a contract as the other
@@ -888,14 +890,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// Those are the functions that determine how the arguments to the chain extensions
 /// should be consumed.
-</span><span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>, E: Ext&gt; Environment&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>, E, InitState&gt; {
+</span><span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>, E: Ext&gt; Environment&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>, E, InitState&gt; {
 	<span class="doccomment">/// Creates a new environment for consumption by a chain extension.
 	///
 	/// It is only available to this crate because only the wasm runtime module needs to
 	/// ever create this type. Chain extensions merely consume it.
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new(
-		runtime: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>Runtime&lt;<span class="lifetime">&#39;b</span>, E&gt;,
-		memory: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>[u8],
+		runtime: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>Runtime&lt;<span class="lifetime">'b</span>, E&gt;,
+		memory: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>[u8],
 		id: u32,
 		input_ptr: u32,
 		input_len: u32,
@@ -909,23 +911,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Use all arguments as integer values.
-	</span><span class="kw">pub fn </span>only_in(<span class="self">self</span>) -&gt; Environment&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>, E, OnlyInState&gt; {
+	</span><span class="kw">pub fn </span>only_in(<span class="self">self</span>) -&gt; Environment&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>, E, OnlyInState&gt; {
 		Environment { inner: <span class="self">self</span>.inner, phantom: PhantomData }
 	}
 
 	<span class="doccomment">/// Use input arguments as integer and output arguments as pointer to a buffer.
-	</span><span class="kw">pub fn </span>prim_in_buf_out(<span class="self">self</span>) -&gt; Environment&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>, E, PrimInBufOutState&gt; {
+	</span><span class="kw">pub fn </span>prim_in_buf_out(<span class="self">self</span>) -&gt; Environment&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>, E, PrimInBufOutState&gt; {
 		Environment { inner: <span class="self">self</span>.inner, phantom: PhantomData }
 	}
 
 	<span class="doccomment">/// Use input and output arguments as pointers to a buffer.
-	</span><span class="kw">pub fn </span>buf_in_buf_out(<span class="self">self</span>) -&gt; Environment&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>, E, BufInBufOutState&gt; {
+	</span><span class="kw">pub fn </span>buf_in_buf_out(<span class="self">self</span>) -&gt; Environment&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>, E, BufInBufOutState&gt; {
 		Environment { inner: <span class="self">self</span>.inner, phantom: PhantomData }
 	}
 }
 
 <span class="doccomment">/// Functions to use the input arguments as integers.
-</span><span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>, E: Ext, S: PrimIn&gt; Environment&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>, E, S&gt; {
+</span><span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>, E: Ext, S: PrimIn&gt; Environment&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>, E, S&gt; {
 	<span class="doccomment">/// The `input_ptr` argument.
 	</span><span class="kw">pub fn </span>val0(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u32 {
 		<span class="self">self</span>.inner.input_ptr
@@ -938,7 +940,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Functions to use the output arguments as integers.
-</span><span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>, E: Ext, S: PrimOut&gt; Environment&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>, E, S&gt; {
+</span><span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>, E: Ext, S: PrimOut&gt; Environment&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>, E, S&gt; {
 	<span class="doccomment">/// The `output_ptr` argument.
 	</span><span class="kw">pub fn </span>val2(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u32 {
 		<span class="self">self</span>.inner.output_ptr
@@ -951,7 +953,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Functions to use the input arguments as pointer to a buffer.
-</span><span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>, E: Ext, S: BufIn&gt; Environment&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>, E, S&gt; {
+</span><span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>, E: Ext, S: BufIn&gt; Environment&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>, E, S&gt; {
 	<span class="doccomment">/// Reads `min(max_len, in_len)` from contract memory.
 	///
 	/// This does **not** charge any weight. The caller must make sure that the an
@@ -1023,7 +1025,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Functions to use the output arguments as pointer to a buffer.
-</span><span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>, E: Ext, S: BufOut&gt; Environment&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>, E, S&gt; {
+</span><span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>, E: Ext, S: BufOut&gt; Environment&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>, E, S&gt; {
 	<span class="doccomment">/// Write the supplied buffer to contract memory.
 	///
 	/// If the contract supplied buffer is smaller than the passed `buffer` an `Err` is returned.
@@ -1055,11 +1057,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// All data is put into this struct to easily pass it around as part of the typestate
 /// pattern. Also it creates the opportunity to box this struct in the future in case it
 /// gets too large.
-</span><span class="kw">struct </span>Inner&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>, E: Ext&gt; {
+</span><span class="kw">struct </span>Inner&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>, E: Ext&gt; {
 	<span class="doccomment">/// The runtime contains all necessary functions to interact with the running contract.
-	</span>runtime: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>Runtime&lt;<span class="lifetime">&#39;b</span>, E&gt;,
+	</span>runtime: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>Runtime&lt;<span class="lifetime">'b</span>, E&gt;,
 	<span class="doccomment">/// Reference to the contracts memory.
-	</span>memory: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>[u8],
+	</span>memory: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>[u8],
 	<span class="doccomment">/// Verbatim argument passed to `seal_call_chain_extension`.
 	</span>id: u32,
 	<span class="doccomment">/// Verbatim argument passed to `seal_call_chain_extension`.

@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/api/src/in_mem.rs`."><title>in_mem.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/api/src/in_mem.rs`."><title>in_mem.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_client_api" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_client_api" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sc_client_api/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1251,7 +1253,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub fn </span>set_head(<span class="kw-2">&amp;</span><span class="self">self</span>, hash: Block::Hash) -&gt; sp_blockchain::Result&lt;()&gt; {
 		<span class="kw">let </span>header = <span class="self">self
 			</span>.header(hash)<span class="question-mark">?
-			</span>.ok_or_else(|| sp_blockchain::Error::UnknownBlock(<span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, hash)))<span class="question-mark">?</span>;
+			</span>.ok_or_else(|| sp_blockchain::Error::UnknownBlock(<span class="macro">format!</span>(<span class="string">"{}"</span>, hash)))<span class="question-mark">?</span>;
 
 		<span class="self">self</span>.apply_head(<span class="kw-2">&amp;</span>header)
 	}
@@ -1306,7 +1308,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>block = storage
 				.blocks
 				.get_mut(<span class="kw-2">&amp;</span>block)
-				.expect(<span class="string">&quot;hash was fetched from a block in the db; qed&quot;</span>);
+				.expect(<span class="string">"hash was fetched from a block in the db; qed"</span>);
 
 			<span class="kw">let </span>block_justifications = <span class="kw">match </span>block {
 				StoredBlock::Header(<span class="kw">_</span>, <span class="kw-2">ref mut </span>j) | StoredBlock::Full(<span class="kw">_</span>, <span class="kw-2">ref mut </span>j) =&gt; j,
@@ -1328,7 +1330,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>block = storage
 			.blocks
 			.get_mut(<span class="kw-2">&amp;</span>hash)
-			.expect(<span class="string">&quot;hash was fetched from a block in the db; qed&quot;</span>);
+			.expect(<span class="string">"hash was fetched from a block in the db; qed"</span>);
 
 		<span class="kw">let </span>block_justifications = <span class="kw">match </span>block {
 			StoredBlock::Header(<span class="kw">_</span>, <span class="kw-2">ref mut </span>j) | StoredBlock::Full(<span class="kw">_</span>, <span class="kw-2">ref mut </span>j) =&gt; j,
@@ -1337,7 +1339,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(stored_justifications) = block_justifications {
 			<span class="kw">if </span>!stored_justifications.append(justification) {
 				<span class="kw">return </span><span class="prelude-val">Err</span>(sp_blockchain::Error::BadJustification(
-					<span class="string">&quot;Duplicate consensus engine ID&quot;</span>.into(),
+					<span class="string">"Duplicate consensus engine ID"</span>.into(),
 				))
 			}
 		} <span class="kw">else </span>{
@@ -1413,7 +1415,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">self</span>.header(hash)<span class="question-mark">?
 			</span>.map(|header| CachedHeaderMetadata::from(<span class="kw-2">&amp;</span>header))
 			.ok_or_else(|| {
-				sp_blockchain::Error::UnknownBlock(<span class="macro">format!</span>(<span class="string">&quot;header not found: {}&quot;</span>, hash))
+				sp_blockchain::Error::UnknownBlock(<span class="macro">format!</span>(<span class="string">"header not found: {}"</span>, hash))
 			})
 	}
 
@@ -1469,24 +1471,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">fn </span>indexed_transaction(<span class="kw-2">&amp;</span><span class="self">self</span>, _hash: Block::Hash) -&gt; sp_blockchain::Result&lt;<span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt;&gt; {
-		<span class="macro">unimplemented!</span>(<span class="string">&quot;Not supported by the in-mem backend.&quot;</span>)
+		<span class="macro">unimplemented!</span>(<span class="string">"Not supported by the in-mem backend."</span>)
 	}
 
 	<span class="kw">fn </span>block_indexed_body(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		_hash: Block::Hash,
 	) -&gt; sp_blockchain::Result&lt;<span class="prelude-ty">Option</span>&lt;Vec&lt;Vec&lt;u8&gt;&gt;&gt;&gt; {
-		<span class="macro">unimplemented!</span>(<span class="string">&quot;Not supported by the in-mem backend.&quot;</span>)
+		<span class="macro">unimplemented!</span>(<span class="string">"Not supported by the in-mem backend."</span>)
 	}
 }
 
 <span class="kw">impl</span>&lt;Block: BlockT&gt; backend::AuxStore <span class="kw">for </span>Blockchain&lt;Block&gt; {
 	<span class="kw">fn </span>insert_aux&lt;
-		<span class="lifetime">&#39;a</span>,
-		<span class="lifetime">&#39;b</span>: <span class="lifetime">&#39;a</span>,
-		<span class="lifetime">&#39;c</span>: <span class="lifetime">&#39;a</span>,
-		I: IntoIterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>(<span class="kw-2">&amp;</span><span class="lifetime">&#39;c </span>[u8], <span class="kw-2">&amp;</span><span class="lifetime">&#39;c </span>[u8])&gt;,
-		D: IntoIterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">&amp;</span><span class="lifetime">&#39;b </span>[u8]&gt;,
+		<span class="lifetime">'a</span>,
+		<span class="lifetime">'b</span>: <span class="lifetime">'a</span>,
+		<span class="lifetime">'c</span>: <span class="lifetime">'a</span>,
+		I: IntoIterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">'a </span>(<span class="kw-2">&amp;</span><span class="lifetime">'c </span>[u8], <span class="kw-2">&amp;</span><span class="lifetime">'c </span>[u8])&gt;,
+		D: IntoIterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">&amp;</span><span class="lifetime">'b </span>[u8]&gt;,
 	&gt;(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		insert: I,
@@ -1561,7 +1563,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		justifications: <span class="prelude-ty">Option</span>&lt;Justifications&gt;,
 		state: NewBlockState,
 	) -&gt; sp_blockchain::Result&lt;()&gt; {
-		<span class="macro">assert!</span>(<span class="self">self</span>.pending_block.is_none(), <span class="string">&quot;Only one block per operation is allowed&quot;</span>);
+		<span class="macro">assert!</span>(<span class="self">self</span>.pending_block.is_none(), <span class="string">"Only one block per operation is allowed"</span>);
 		<span class="self">self</span>.pending_block =
 			<span class="prelude-val">Some</span>(PendingBlock { block: StoredBlock::new(header, body, justifications), state });
 		<span class="prelude-val">Ok</span>(())
@@ -1618,7 +1620,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">fn </span>mark_head(<span class="kw-2">&amp;mut </span><span class="self">self</span>, hash: Block::Hash) -&gt; sp_blockchain::Result&lt;()&gt; {
-		<span class="macro">assert!</span>(<span class="self">self</span>.pending_block.is_none(), <span class="string">&quot;Only one set block per operation is allowed&quot;</span>);
+		<span class="macro">assert!</span>(<span class="self">self</span>.pending_block.is_none(), <span class="string">"Only one set block per operation is allowed"</span>);
 		<span class="self">self</span>.set_head = <span class="prelude-val">Some</span>(hash);
 		<span class="prelude-val">Ok</span>(())
 	}
@@ -1633,7 +1635,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// In-memory backend. Keeps all states and blocks in memory.
 ///
-/// &gt; **Warning**: Doesn&#39;t support all the features necessary for a proper database. Only use this
+/// &gt; **Warning**: Doesn't support all the features necessary for a proper database. Only use this
 /// &gt; struct for testing purposes. Do **NOT** use in production.
 </span><span class="kw">pub struct </span>Backend&lt;Block: BlockT&gt; {
 	states: RwLock&lt;HashMap&lt;Block::Hash, InMemoryBackend&lt;HashingFor&lt;Block&gt;&gt;&gt;&gt;,
@@ -1670,11 +1672,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl</span>&lt;Block: BlockT&gt; backend::AuxStore <span class="kw">for </span>Backend&lt;Block&gt; {
 	<span class="kw">fn </span>insert_aux&lt;
-		<span class="lifetime">&#39;a</span>,
-		<span class="lifetime">&#39;b</span>: <span class="lifetime">&#39;a</span>,
-		<span class="lifetime">&#39;c</span>: <span class="lifetime">&#39;a</span>,
-		I: IntoIterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>(<span class="kw-2">&amp;</span><span class="lifetime">&#39;c </span>[u8], <span class="kw-2">&amp;</span><span class="lifetime">&#39;c </span>[u8])&gt;,
-		D: IntoIterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">&amp;</span><span class="lifetime">&#39;b </span>[u8]&gt;,
+		<span class="lifetime">'a</span>,
+		<span class="lifetime">'b</span>: <span class="lifetime">'a</span>,
+		<span class="lifetime">'c</span>: <span class="lifetime">'a</span>,
+		I: IntoIterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">'a </span>(<span class="kw-2">&amp;</span><span class="lifetime">'c </span>[u8], <span class="kw-2">&amp;</span><span class="lifetime">'c </span>[u8])&gt;,
+		D: IntoIterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">&amp;</span><span class="lifetime">'b </span>[u8]&gt;,
 	&gt;(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		insert: I,
@@ -1786,7 +1788,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.read()
 			.get(<span class="kw-2">&amp;</span>hash)
 			.cloned()
-			.ok_or_else(|| sp_blockchain::Error::UnknownBlock(<span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, hash)))
+			.ok_or_else(|| sp_blockchain::Error::UnknownBlock(<span class="macro">format!</span>(<span class="string">"{}"</span>, hash)))
 	}
 
 	<span class="kw">fn </span>revert(
@@ -1847,8 +1849,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use </span>sp_runtime::{traits::Header <span class="kw">as </span>HeaderT, ConsensusEngineId, Justifications};
 	<span class="kw">use </span>substrate_test_runtime::{Block, Header, H256};
 
-	<span class="kw">pub const </span>ID1: ConsensusEngineId = <span class="kw-2">*</span><span class="string">b&quot;TST1&quot;</span>;
-	<span class="kw">pub const </span>ID2: ConsensusEngineId = <span class="kw-2">*</span><span class="string">b&quot;TST2&quot;</span>;
+	<span class="kw">pub const </span>ID1: ConsensusEngineId = <span class="kw-2">*</span><span class="string">b"TST1"</span>;
+	<span class="kw">pub const </span>ID2: ConsensusEngineId = <span class="kw-2">*</span><span class="string">b"TST2"</span>;
 
 	<span class="kw">fn </span>header(number: u64) -&gt; Header {
 		<span class="kw">let </span>parent_hash = <span class="kw">match </span>number {

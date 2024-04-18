@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/core/pvf/src/host.rs`."><title>host.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/core/pvf/src/host.rs`."><title>host.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_node_core_pvf" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_node_core_pvf" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../polkadot_node_core_pvf/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1991,10 +1993,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub const </span>NUM_PREPARE_RETRIES: u32 = <span class="number">5</span>;
 
 <span class="doccomment">/// The name of binary spawned to prepare a PVF artifact
-</span><span class="kw">pub const </span>PREPARE_BINARY_NAME: <span class="kw-2">&amp;</span>str = <span class="string">&quot;polkadot-prepare-worker&quot;</span>;
+</span><span class="kw">pub const </span>PREPARE_BINARY_NAME: <span class="kw-2">&amp;</span>str = <span class="string">"polkadot-prepare-worker"</span>;
 
 <span class="doccomment">/// The name of binary spawned to execute a PVF
-</span><span class="kw">pub const </span>EXECUTE_BINARY_NAME: <span class="kw-2">&amp;</span>str = <span class="string">&quot;polkadot-execute-worker&quot;</span>;
+</span><span class="kw">pub const </span>EXECUTE_BINARY_NAME: <span class="kw-2">&amp;</span>str = <span class="string">"polkadot-execute-worker"</span>;
 
 <span class="doccomment">/// The size of incoming message queue
 </span><span class="kw">pub const </span>HOST_MESSAGE_QUEUE_SIZE: usize = <span class="number">10</span>;
@@ -2030,7 +2032,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">self</span>.to_host_tx
 			.send(ToHost::PrecheckPvf { pvf, result_tx })
 			.<span class="kw">await
-			</span>.map_err(|<span class="kw">_</span>| <span class="string">&quot;the inner loop hung up&quot;</span>.to_string())
+			</span>.map_err(|<span class="kw">_</span>| <span class="string">"the inner loop hung up"</span>.to_string())
 	}
 
 	<span class="doccomment">/// Execute PVF with the given code, execution timeout, parameters and priority.
@@ -2057,7 +2059,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				result_tx,
 			}))
 			.<span class="kw">await
-			</span>.map_err(|<span class="kw">_</span>| <span class="string">&quot;the inner loop hung up&quot;</span>.to_string())
+			</span>.map_err(|<span class="kw">_</span>| <span class="string">"the inner loop hung up"</span>.to_string())
 	}
 
 	<span class="doccomment">/// Sends a signal to the validation host requesting to prepare a list of the given PVFs.
@@ -2070,7 +2072,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">self</span>.to_host_tx
 			.send(ToHost::HeadsUp { active_pvfs })
 			.<span class="kw">await
-			</span>.map_err(|<span class="kw">_</span>| <span class="string">&quot;the inner loop hung up&quot;</span>.to_string())
+			</span>.map_err(|<span class="kw">_</span>| <span class="string">"the inner loop hung up"</span>.to_string())
 	}
 }
 
@@ -2154,34 +2156,34 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	config: Config,
 	metrics: Metrics,
 ) -&gt; SubsystemResult&lt;(ValidationHost, <span class="kw">impl </span>Future&lt;Output = ()&gt;)&gt; {
-	<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="question-mark">?</span>config, <span class="string">&quot;starting PVF validation host&quot;</span>);
+	<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="question-mark">?</span>config, <span class="string">"starting PVF validation host"</span>);
 
 	<span class="comment">// Make sure the cache is initialized before doing anything else.
 	</span><span class="kw">let </span>artifacts = Artifacts::new(<span class="kw-2">&amp;</span>config.cache_path).<span class="kw">await</span>;
 
 	<span class="comment">// Run checks for supported security features once per host startup. If some checks fail, warn
 	// if Secure Validator Mode is disabled and return an error otherwise.
-	</span><span class="attr">#[cfg(target_os = <span class="string">&quot;linux&quot;</span>)]
+	</span><span class="attr">#[cfg(target_os = <span class="string">"linux"</span>)]
 	</span><span class="kw">let </span>security_status = <span class="kw">match </span><span class="kw">crate</span>::security::check_security_status(<span class="kw-2">&amp;</span>config).<span class="kw">await </span>{
 		<span class="prelude-val">Ok</span>(ok) =&gt; ok,
 		<span class="prelude-val">Err</span>(err) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(SubsystemError::Context(err)),
 	};
-	<span class="attr">#[cfg(not(target_os = <span class="string">&quot;linux&quot;</span>))]
+	<span class="attr">#[cfg(not(target_os = <span class="string">"linux"</span>))]
 	</span><span class="kw">let </span>security_status = <span class="kw">if </span>config.secure_validator_mode {
 		<span class="macro">gum::error!</span>(
 			target: LOG_TARGET,
-			<span class="string">&quot;{}{}{}&quot;</span>,
+			<span class="string">"{}{}{}"</span>,
 			<span class="kw">crate</span>::SECURE_MODE_ERROR,
 			<span class="kw">crate</span>::SECURE_LINUX_NOTE,
 			<span class="kw">crate</span>::IGNORE_SECURE_MODE_TIP
 		);
 		<span class="kw">return </span><span class="prelude-val">Err</span>(SubsystemError::Context(
-			<span class="string">&quot;could not enable Secure Validator Mode for non-Linux; check logs&quot;</span>.into(),
+			<span class="string">"could not enable Secure Validator Mode for non-Linux; check logs"</span>.into(),
 		));
 	} <span class="kw">else </span>{
 		<span class="macro">gum::warn!</span>(
 			target: LOG_TARGET,
-			<span class="string">&quot;{}{}&quot;</span>,
+			<span class="string">"{}{}"</span>,
 			<span class="kw">crate</span>::SECURE_MODE_WARNING,
 			<span class="kw">crate</span>::SECURE_LINUX_NOTE,
 		);
@@ -2240,7 +2242,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>};
 
 	<span class="kw">let </span>task = <span class="kw">async move </span>{
-		<span class="comment">// Bundle the sub-components&#39; tasks together into a single future.
+		<span class="comment">// Bundle the sub-components' tasks together into a single future.
 		</span><span class="macro">futures::select! </span>{
 			<span class="kw">_ </span>= run_host.fuse() =&gt; {},
 			<span class="kw">_ </span>= run_prepare_queue.fuse() =&gt; {},
@@ -2254,7 +2256,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// A mapping from an artifact ID which is in preparation state to the list of pending execution
-/// requests that should be executed once the artifact&#39;s preparation is finished.
+/// requests that should be executed once the artifact's preparation is finished.
 </span><span class="attr">#[derive(Default)]
 </span><span class="kw">struct </span>AwaitingPrepare(HashMap&lt;ArtifactId, Vec&lt;PendingExecutionRequest&gt;&gt;);
 
@@ -2309,7 +2311,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="prelude-val">Err</span>(Fatal) =&gt; {
 					<span class="macro">gum::error!</span>(
 						target: LOG_TARGET,
-						<span class="string">&quot;Fatal error occurred, terminating the host. Line: {}&quot;</span>,
+						<span class="string">"Fatal error occurred, terminating the host. Line: {}"</span>,
 						<span class="macro">line!</span>(),
 					);
 					<span class="kw">break
@@ -2340,8 +2342,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				).<span class="kw">await</span>);
 			},
 			() = cleanup_pulse.select_next_some() =&gt; {
-				<span class="comment">// `select_next_some` because we don&#39;t expect this to fail, but if it does, we
-				// still don&#39;t fail. The trade-off is that the compiled cache will start growing
+				<span class="comment">// `select_next_some` because we don't expect this to fail, but if it does, we
+				// still don't fail. The trade-off is that the compiled cache will start growing
 				// in size. That is, however, rather a slow process and hopefully the operator
 				// will notice it.
 
@@ -2377,13 +2379,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 				<span class="comment">// Note that the preparation outcome is always reported as concluded.
 				//
-				// That&#39;s because the error conditions are written into the artifact and will be
+				// That's because the error conditions are written into the artifact and will be
 				// reported at the time of the execution. It potentially, but not necessarily, can
 				// be scheduled for execution as a result of this function call, in case there are
 				// pending executions.
 				//
 				// We could be eager in terms of reporting and plumb the result from the preparation
-				// worker but we don&#39;t for the sake of simplicity.
+				// worker but we don't for the sake of simplicity.
 				</span><span class="macro">break_if_fatal!</span>(handle_prepare_done(
 					<span class="kw-2">&amp;mut </span>artifacts,
 					<span class="kw-2">&amp;mut </span>to_execute_queue_tx,
@@ -2422,7 +2424,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// This tries to prepare the PVF by compiling the WASM blob within a timeout set in
 /// `PvfPrepData`.
 ///
-/// We don&#39;t retry artifacts that previously failed preparation. We don&#39;t expect multiple
+/// We don't retry artifacts that previously failed preparation. We don't expect multiple
 /// pre-checking requests.
 </span><span class="kw">async fn </span>handle_precheck_pvf(
 	artifacts: <span class="kw-2">&amp;mut </span>Artifacts,
@@ -2503,7 +2505,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						target: LOG_TARGET,
 						<span class="question-mark">?</span>pvf,
 						<span class="question-mark">?</span>artifact_id,
-						<span class="string">&quot;handle_execute_pvf: Re-queuing PVF preparation for prepared artifact with missing file.&quot;
+						<span class="string">"handle_execute_pvf: Re-queuing PVF preparation for prepared artifact with missing file."
 					</span>);
 
 					<span class="comment">// The artifact has been prepared previously but the file is missing, prepare it
@@ -2543,7 +2545,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="question-mark">?</span>last_time_failed,
 						%num_failures,
 						%error,
-						<span class="string">&quot;handle_execute_pvf: Re-trying failed PVF preparation.&quot;
+						<span class="string">"handle_execute_pvf: Re-trying failed PVF preparation."
 					</span>);
 
 					<span class="comment">// If we are allowed to retry the failed prepare job, change the state to
@@ -2604,7 +2606,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw-2">*</span>last_time_needed = now;
 				},
 				ArtifactState::Preparing { .. } =&gt; {
-					<span class="comment">// The artifact is already being prepared, so we don&#39;t need to do anything.
+					<span class="comment">// The artifact is already being prepared, so we don't need to do anything.
 				</span>},
 				ArtifactState::FailedToProcess { last_time_failed, num_failures, error } =&gt; {
 					<span class="kw">if </span>can_retry_prepare_after_failure(<span class="kw-2">*</span>last_time_failed, <span class="kw-2">*</span>num_failures, error) {
@@ -2615,7 +2617,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							<span class="question-mark">?</span>last_time_failed,
 							%num_failures,
 							%error,
-							<span class="string">&quot;handle_heads_up: Re-trying failed PVF preparation.&quot;
+							<span class="string">"handle_heads_up: Re-trying failed PVF preparation."
 						</span>);
 
 						<span class="comment">// If we are allowed to retry the failed prepare job, change the state to
@@ -2636,7 +2638,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				},
 			}
 		} <span class="kw">else </span>{
-			<span class="comment">// It&#39;s not in the artifacts, so we need to enqueue a job to prepare it.
+			<span class="comment">// It's not in the artifacts, so we need to enqueue a job to prepare it.
 			</span>artifacts.insert_preparing(artifact_id.clone(), Vec::new());
 
 			send_prepare(
@@ -2666,7 +2668,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			// there is only one possible state change: prepare is done;
 			// thus the artifact cannot be unknown, only preparing;
 			// qed.
-			</span><span class="macro">never!</span>(<span class="string">&quot;an unknown artifact was prepared: {:?}&quot;</span>, artifact_id);
+			</span><span class="macro">never!</span>(<span class="string">"an unknown artifact was prepared: {:?}"</span>, artifact_id);
 			<span class="kw">return </span><span class="prelude-val">Ok</span>(())
 		},
 		<span class="prelude-val">Some</span>(ArtifactState::Prepared { .. }) =&gt; {
@@ -2675,13 +2677,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			// there is only one possible state change: prepare is done;
 			// thus the artifact cannot be prepared, only preparing;
 			// qed.
-			</span><span class="macro">never!</span>(<span class="string">&quot;the artifact is already prepared: {:?}&quot;</span>, artifact_id);
+			</span><span class="macro">never!</span>(<span class="string">"the artifact is already prepared: {:?}"</span>, artifact_id);
 			<span class="kw">return </span><span class="prelude-val">Ok</span>(())
 		},
 		<span class="prelude-val">Some</span>(ArtifactState::FailedToProcess { .. }) =&gt; {
 			<span class="comment">// The reasoning is similar to the above, the artifact cannot be
 			// processed at this point.
-			</span><span class="macro">never!</span>(<span class="string">&quot;the artifact is already processed unsuccessfully: {:?}&quot;</span>, artifact_id);
+			</span><span class="macro">never!</span>(<span class="string">"the artifact is already processed unsuccessfully: {:?}"</span>, artifact_id);
 			<span class="kw">return </span><span class="prelude-val">Ok</span>(())
 		},
 		<span class="prelude-val">Some</span>(state @ ArtifactState::Preparing { .. }) =&gt; state,
@@ -2696,18 +2698,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 		num_failures
 	} <span class="kw">else </span>{
-		<span class="macro">never!</span>(<span class="string">&quot;The reasoning is similar to the above, the artifact can only be preparing at this point; qed&quot;</span>);
+		<span class="macro">never!</span>(<span class="string">"The reasoning is similar to the above, the artifact can only be preparing at this point; qed"</span>);
 		<span class="kw">return </span><span class="prelude-val">Ok</span>(())
 	};
 
-	<span class="comment">// It&#39;s finally time to dispatch all the execution requests that were waiting for this artifact
+	<span class="comment">// It's finally time to dispatch all the execution requests that were waiting for this artifact
 	// to be prepared.
 	</span><span class="kw">let </span>pending_requests = awaiting_prepare.take(<span class="kw-2">&amp;</span>artifact_id);
 	<span class="kw">for </span>PendingExecutionRequest { exec_timeout, params, executor_params, result_tx } <span class="kw">in
 		</span>pending_requests
 	{
 		<span class="kw">if </span>result_tx.is_canceled() {
-			<span class="comment">// Preparation could&#39;ve taken quite a bit of time and the requester may be not
+			<span class="comment">// Preparation could've taken quite a bit of time and the requester may be not
 			// interested in execution anymore, in which case we just skip the request.
 			</span><span class="kw">continue
 		</span>}
@@ -2747,7 +2749,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="question-mark">?</span>artifact_id,
 				time_failed = <span class="question-mark">?</span>last_time_failed,
 				%num_failures,
-				<span class="string">&quot;artifact preparation failed: {}&quot;</span>,
+				<span class="string">"artifact preparation failed: {}"</span>,
 				error
 			);
 			ArtifactState::FailedToProcess { last_time_failed, num_failures, error }
@@ -2797,14 +2799,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>to_remove = artifacts.prune(artifact_ttl);
 	<span class="macro">gum::debug!</span>(
 		target: LOG_TARGET,
-		<span class="string">&quot;PVF pruning: {} artifacts reached their end of life&quot;</span>,
+		<span class="string">"PVF pruning: {} artifacts reached their end of life"</span>,
 		to_remove.len(),
 	);
 	<span class="kw">for </span>(artifact_id, path) <span class="kw">in </span>to_remove {
 		<span class="macro">gum::debug!</span>(
 			target: LOG_TARGET,
 			validation_code_hash = <span class="question-mark">?</span>artifact_id.code_hash,
-			<span class="string">&quot;pruning artifact&quot;</span>,
+			<span class="string">"pruning artifact"</span>,
 		);
 		sweeper_tx.send(path).<span class="kw">await</span>.map_err(|<span class="kw">_</span>| Fatal)<span class="question-mark">?</span>;
 	}
@@ -2821,7 +2823,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>(artifact_id, path) = <span class="kw">if let </span><span class="prelude-val">Some</span>(artifact) = artifacts.remove(artifact_id) {
 		artifact
 	} <span class="kw">else </span>{
-		<span class="comment">// if we haven&#39;t found the artifact by its id,
+		<span class="comment">// if we haven't found the artifact by its id,
 		// it has been probably removed
 		// anyway with the randomness of the artifact name
 		// it is safe to ignore
@@ -2829,7 +2831,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	};
 	reply_to
 		.send(())
-		.expect(<span class="string">&quot;the execute queue waits for the artifact remove confirmation; qed&quot;</span>);
+		.expect(<span class="string">"the execute queue waits for the artifact remove confirmation; qed"</span>);
 	<span class="comment">// Thanks to the randomness of the artifact name (see
 	// `artifacts::generate_artifact_path`) there is no issue with any name conflict on
 	// future repreparation.
@@ -2837,7 +2839,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="macro">gum::debug!</span>(
 		target: LOG_TARGET,
 		validation_code_hash = <span class="question-mark">?</span>artifact_id.code_hash,
-		<span class="string">&quot;PVF pruning: pruning artifact by request from the execute queue&quot;</span>,
+		<span class="string">"PVF pruning: pruning artifact by request from the execute queue"</span>,
 	);
 	sweeper_tx.send(path).<span class="kw">await</span>.map_err(|<span class="kw">_</span>| Fatal)<span class="question-mark">?</span>;
 	<span class="prelude-val">Ok</span>(())
@@ -2853,7 +2855,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="macro">gum::trace!</span>(
 					target: LOG_TARGET,
 					<span class="question-mark">?</span>result,
-					<span class="string">&quot;Swept the artifact file {}&quot;</span>,
+					<span class="string">"Swept the artifact file {}"</span>,
 					condemned.display(),
 				);
 			},
@@ -2868,7 +2870,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	error: <span class="kw-2">&amp;</span>PrepareError,
 ) -&gt; bool {
 	<span class="kw">if </span>error.is_deterministic() {
-		<span class="comment">// This error is considered deterministic, so it will probably be reproducible. Don&#39;t retry.
+		<span class="comment">// This error is considered deterministic, so it will probably be reproducible. Don't retry.
 		</span><span class="kw">return </span><span class="bool-val">false
 	</span>}
 
@@ -2913,7 +2915,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let _ </span>= pulse.next().<span class="kw">await</span>.unwrap();
 
 			<span class="kw">let </span>el = start.elapsed().as_millis();
-			<span class="macro">assert!</span>(el &gt; <span class="number">50 </span>&amp;&amp; el &lt; <span class="number">150</span>, <span class="string">&quot;pulse duration: {}&quot;</span>, el);
+			<span class="macro">assert!</span>(el &gt; <span class="number">50 </span>&amp;&amp; el &lt; <span class="number">150</span>, <span class="string">"pulse duration: {}"</span>, el);
 		}
 	}
 
@@ -2954,7 +2956,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>from_execute_queue_tx: mpsc::UnboundedSender&lt;execute::FromQueue&gt;,
 		to_sweeper_rx: mpsc::Receiver&lt;PathBuf&gt;,
 
-		run: BoxFuture&lt;<span class="lifetime">&#39;static</span>, ()&gt;,
+		run: BoxFuture&lt;<span class="lifetime">'static</span>, ()&gt;,
 	}
 
 	<span class="kw">impl </span>Test {
@@ -3026,7 +3028,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="macro">futures::select! </span>{
 						<span class="kw">_ </span>= Delay::new(Duration::from_millis(<span class="number">500</span>)).fuse() =&gt; (),
 						<span class="kw">_ </span>= to_prepare_queue_rx.next().fuse() =&gt; {
-							<span class="macro">panic!</span>(<span class="string">&quot;the prepare queue is supposed to be empty&quot;</span>)
+							<span class="macro">panic!</span>(<span class="string">"the prepare queue is supposed to be empty"</span>)
 						}
 					}
 				}
@@ -3045,7 +3047,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="macro">futures::select! </span>{
 						<span class="kw">_ </span>= Delay::new(Duration::from_millis(<span class="number">500</span>)).fuse() =&gt; (),
 						<span class="kw">_ </span>= to_execute_queue_rx.next().fuse() =&gt; {
-							<span class="macro">panic!</span>(<span class="string">&quot;the execute queue is supposed to be empty&quot;</span>)
+							<span class="macro">panic!</span>(<span class="string">"the execute queue is supposed to be empty"</span>)
 						}
 					}
 				}
@@ -3064,7 +3066,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="macro">futures::select! </span>{
 						<span class="kw">_ </span>= Delay::new(Duration::from_millis(<span class="number">500</span>)).fuse() =&gt; (),
 						msg = to_sweeper_rx.next().fuse() =&gt; {
-							<span class="macro">panic!</span>(<span class="string">&quot;the sweeper is supposed to be empty, but received: {:?}&quot;</span>, msg)
+							<span class="macro">panic!</span>(<span class="string">"the sweeper is supposed to be empty, but received: {:?}"</span>, msg)
 						}
 					}
 				}
@@ -3086,7 +3088,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">if </span>start.elapsed() &gt; std::time::Duration::from_secs(<span class="number">2</span>) {
 				<span class="comment">// We expect that this will take only a couple of iterations and thus to take way
 				// less than a second.
-				</span><span class="macro">panic!</span>(<span class="string">&quot;timeout&quot;</span>);
+				</span><span class="macro">panic!</span>(<span class="string">"timeout"</span>);
 			}
 
 			<span class="kw">if let </span>Poll::Ready(r) = <span class="macro">futures::poll!</span>(<span class="kw-2">&amp;mut *</span>fut) {
@@ -3149,7 +3151,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		)
 		.<span class="kw">await</span>;
 
-		<span class="comment">// Extend TTL for the first artifact and make sure we don&#39;t receive another file removal
+		<span class="comment">// Extend TTL for the first artifact and make sure we don't receive another file removal
 		// request.
 		</span>host.heads_up(<span class="macro">vec!</span>[PvfPrepData::from_discriminator(<span class="number">1</span>)]).<span class="kw">await</span>.unwrap();
 		test.poll_ensure_to_sweeper_is_empty().<span class="kw">await</span>;
@@ -3164,7 +3166,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		host.execute_pvf(
 			PvfPrepData::from_discriminator(<span class="number">1</span>),
 			TEST_EXECUTION_TIMEOUT,
-			<span class="string">b&quot;pvf1&quot;</span>.to_vec(),
+			<span class="string">b"pvf1"</span>.to_vec(),
 			Priority::Normal,
 			result_tx,
 		)
@@ -3175,7 +3177,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		host.execute_pvf(
 			PvfPrepData::from_discriminator(<span class="number">1</span>),
 			TEST_EXECUTION_TIMEOUT,
-			<span class="string">b&quot;pvf1&quot;</span>.to_vec(),
+			<span class="string">b"pvf1"</span>.to_vec(),
 			Priority::Critical,
 			result_tx,
 		)
@@ -3186,7 +3188,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		host.execute_pvf(
 			PvfPrepData::from_discriminator(<span class="number">2</span>),
 			TEST_EXECUTION_TIMEOUT,
-			<span class="string">b&quot;pvf2&quot;</span>.to_vec(),
+			<span class="string">b"pvf2"</span>.to_vec(),
 			Priority::Normal,
 			result_tx,
 		)
@@ -3327,7 +3329,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		host.execute_pvf(
 			PvfPrepData::from_discriminator(<span class="number">1</span>),
 			TEST_EXECUTION_TIMEOUT,
-			<span class="string">b&quot;pvf2&quot;</span>.to_vec(),
+			<span class="string">b"pvf2"</span>.to_vec(),
 			Priority::Critical,
 			result_tx,
 		)
@@ -3345,7 +3347,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span>.unwrap();
 
 		<span class="comment">// Suppose the preparation failed, the execution queue is empty and both
-		// &quot;clients&quot; receive their results.
+		// "clients" receive their results.
 		</span>test.from_prepare_queue_tx
 			.send(prepare::FromQueue {
 				artifact_id: artifact_id(<span class="number">1</span>),
@@ -3374,7 +3376,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		host.execute_pvf(
 			PvfPrepData::from_discriminator(<span class="number">2</span>),
 			TEST_EXECUTION_TIMEOUT,
-			<span class="string">b&quot;pvf2&quot;</span>.to_vec(),
+			<span class="string">b"pvf2"</span>.to_vec(),
 			Priority::Critical,
 			result_tx,
 		)
@@ -3476,7 +3478,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		host.execute_pvf(
 			PvfPrepData::from_discriminator(<span class="number">1</span>),
 			TEST_EXECUTION_TIMEOUT,
-			<span class="string">b&quot;pvf&quot;</span>.to_vec(),
+			<span class="string">b"pvf"</span>.to_vec(),
 			Priority::Critical,
 			result_tx,
 		)
@@ -3501,12 +3503,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">let </span>result = test.poll_and_recv_result(result_rx).<span class="kw">await</span>;
 		<span class="macro">assert_matches!</span>(result, <span class="prelude-val">Err</span>(ValidationError::Internal(<span class="kw">_</span>)));
 
-		<span class="comment">// Submit another execute request. We shouldn&#39;t try to prepare again, yet.
+		<span class="comment">// Submit another execute request. We shouldn't try to prepare again, yet.
 		</span><span class="kw">let </span>(result_tx_2, result_rx_2) = oneshot::channel();
 		host.execute_pvf(
 			PvfPrepData::from_discriminator(<span class="number">1</span>),
 			TEST_EXECUTION_TIMEOUT,
-			<span class="string">b&quot;pvf&quot;</span>.to_vec(),
+			<span class="string">b"pvf"</span>.to_vec(),
 			Priority::Critical,
 			result_tx_2,
 		)
@@ -3528,7 +3530,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		host.execute_pvf(
 			PvfPrepData::from_discriminator(<span class="number">1</span>),
 			TEST_EXECUTION_TIMEOUT,
-			<span class="string">b&quot;pvf&quot;</span>.to_vec(),
+			<span class="string">b"pvf"</span>.to_vec(),
 			Priority::Critical,
 			result_tx_3,
 		)
@@ -3566,7 +3568,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		);
 	}
 
-	<span class="comment">// Test that multiple execution requests don&#39;t trigger preparation retries if the first one
+	<span class="comment">// Test that multiple execution requests don't trigger preparation retries if the first one
 	// failed due to a reproducible error (e.g. Prevalidation).
 	</span><span class="attr">#[tokio::test]
 	</span><span class="kw">async fn </span>test_execute_prepare_no_retry() {
@@ -3578,7 +3580,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		host.execute_pvf(
 			PvfPrepData::from_discriminator(<span class="number">1</span>),
 			TEST_EXECUTION_TIMEOUT,
-			<span class="string">b&quot;pvf&quot;</span>.to_vec(),
+			<span class="string">b"pvf"</span>.to_vec(),
 			Priority::Critical,
 			result_tx,
 		)
@@ -3594,7 +3596,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>test.from_prepare_queue_tx
 			.send(prepare::FromQueue {
 				artifact_id: artifact_id(<span class="number">1</span>),
-				result: <span class="prelude-val">Err</span>(PrepareError::Prevalidation(<span class="string">&quot;reproducible error&quot;</span>.into())),
+				result: <span class="prelude-val">Err</span>(PrepareError::Prevalidation(<span class="string">"reproducible error"</span>.into())),
 			})
 			.<span class="kw">await
 			</span>.unwrap();
@@ -3608,7 +3610,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		host.execute_pvf(
 			PvfPrepData::from_discriminator(<span class="number">1</span>),
 			TEST_EXECUTION_TIMEOUT,
-			<span class="string">b&quot;pvf&quot;</span>.to_vec(),
+			<span class="string">b"pvf"</span>.to_vec(),
 			Priority::Critical,
 			result_tx_2,
 		)
@@ -3630,7 +3632,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		host.execute_pvf(
 			PvfPrepData::from_discriminator(<span class="number">1</span>),
 			TEST_EXECUTION_TIMEOUT,
-			<span class="string">b&quot;pvf&quot;</span>.to_vec(),
+			<span class="string">b"pvf"</span>.to_vec(),
 			Priority::Critical,
 			result_tx_3,
 		)
@@ -3696,7 +3698,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		host.execute_pvf(
 			PvfPrepData::from_discriminator(<span class="number">1</span>),
 			TEST_EXECUTION_TIMEOUT,
-			<span class="string">b&quot;pvf1&quot;</span>.to_vec(),
+			<span class="string">b"pvf1"</span>.to_vec(),
 			Priority::Normal,
 			result_tx,
 		)

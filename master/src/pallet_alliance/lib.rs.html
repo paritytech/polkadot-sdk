@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/alliance/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/alliance/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_alliance" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_alliance" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../pallet_alliance/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1264,14 +1266,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -1292,7 +1294,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! Fellows, giving them voting rights within the Alliance.
 //!
 //! Voting members of the Alliance maintain a list of accounts and websites. Members can also vote
-//! to update the Alliance&#39;s rule and make announcements.
+//! to update the Alliance's rule and make announcements.
 //!
 //! ### Terminology
 //!
@@ -1320,14 +1322,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!
 //! - `give_retirement_notice` - Give a retirement notice and start a retirement period required to
 //!   pass in order to retire.
-//! - `retire` - Retire from the Alliance and release the caller&#39;s deposit.
+//! - `retire` - Retire from the Alliance and release the caller's deposit.
 //!
 //! #### For Voting Members
 //!
 //! - `propose` - Propose a motion.
 //! - `vote` - Vote on a motion.
 //! - `close` - Close a motion with enough votes or that has expired.
-//! - `set_rule` - Initialize or update the Alliance&#39;s rule by IPFS CID.
+//! - `set_rule` - Initialize or update the Alliance's rule by IPFS CID.
 //! - `announce` - Make announcement by IPFS CID.
 //! - `nominate_ally` - Nominate a non-member to become an Ally, without deposit.
 //! - `elevate_ally` - Approve an ally to become a Fellow.
@@ -1335,21 +1337,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! - `add_unscrupulous_items` - Add some items, either accounts or websites, to the list of
 //!   unscrupulous items.
 //! - `remove_unscrupulous_items` - Remove some items from the list of unscrupulous items.
-//! - `abdicate_fellow_status` - Abdicate one&#39;s voting rights, demoting themself to Ally.
+//! - `abdicate_fellow_status` - Abdicate one's voting rights, demoting themself to Ally.
 //!
 //! #### Root Calls
 //!
 //! - `init_members` - Initialize the Alliance, onboard fellows and allies.
 //! - `disband` - Disband the Alliance, remove all active members and unreserve deposits.
 
-</span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
+</span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
 #[cfg(test)]
 </span><span class="kw">mod </span>mock;
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests;
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 </span><span class="kw">mod </span>benchmarking;
 <span class="kw">pub mod </span>migration;
 <span class="kw">mod </span>types;
@@ -1380,7 +1382,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">pub use </span>weights::<span class="kw-2">*</span>;
 
 <span class="doccomment">/// The log target of this pallet.
-</span><span class="kw">pub const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;runtime::alliance&quot;</span>;
+</span><span class="kw">pub const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"runtime::alliance"</span>;
 
 <span class="doccomment">/// Simple index type for proposal counting.
 </span><span class="kw">pub type </span>ProposalIndex = u32;
@@ -1399,7 +1401,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// identity provider.
 	</span><span class="kw">fn </span>has_required_identities(who: <span class="kw-2">&amp;</span>AccountId) -&gt; bool;
 
-	<span class="doccomment">/// Whether an account has been deemed &quot;good&quot; by the provider.
+	<span class="doccomment">/// Whether an account has been deemed "good" by the provider.
 	</span><span class="kw">fn </span>has_good_judgement(who: <span class="kw-2">&amp;</span>AccountId) -&gt; bool;
 
 	<span class="doccomment">/// If the identity provider allows sub-accounts, provide the super of an account. Should
@@ -1483,7 +1485,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub struct </span>Pallet&lt;T, I = ()&gt;(PhantomData&lt;(T, I)&gt;);
 
 	<span class="attr">#[pallet::config]
-	</span><span class="kw">pub trait </span>Config&lt;I: <span class="lifetime">&#39;static </span>= ()&gt;: frame_system::Config {
+	</span><span class="kw">pub trait </span>Config&lt;I: <span class="lifetime">'static </span>= ()&gt;: frame_system::Config {
 		<span class="doccomment">/// The overarching event type.
 		</span><span class="kw">type </span>RuntimeEvent: From&lt;Event&lt;<span class="self">Self</span>, I&gt;&gt;
 			+ IsType&lt;&lt;<span class="self">Self </span><span class="kw">as </span>frame_system::Config&gt;::RuntimeEvent&gt;;
@@ -1497,7 +1499,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			+ IsSubType&lt;Call&lt;<span class="self">Self</span>, I&gt;&gt;
 			+ IsType&lt;&lt;<span class="self">Self </span><span class="kw">as </span>frame_system::Config&gt;::RuntimeCall&gt;;
 
-		<span class="doccomment">/// Origin for admin-level operations, like setting the Alliance&#39;s rules.
+		<span class="doccomment">/// Origin for admin-level operations, like setting the Alliance's rules.
 		</span><span class="kw">type </span>AdminOrigin: EnsureOrigin&lt;<span class="self">Self</span>::RuntimeOrigin&gt;;
 
 		<span class="doccomment">/// Origin that manages entry and forcible discharge from the Alliance.
@@ -1598,9 +1600,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>TooLongWebsiteUrl,
 		<span class="doccomment">/// Balance is insufficient for the required deposit.
 		</span>InsufficientFunds,
-		<span class="doccomment">/// The account&#39;s identity does not have display field and website field.
+		<span class="doccomment">/// The account's identity does not have display field and website field.
 		</span>WithoutRequiredIdentityFields,
-		<span class="doccomment">/// The account&#39;s identity has no good judgement.
+		<span class="doccomment">/// The account's identity has no good judgement.
 		</span>WithoutGoodIdentityJudgement,
 		<span class="doccomment">/// The proposal hash is not found.
 		</span>MissingProposalHash,
@@ -1624,7 +1626,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[pallet::event]
 	#[pallet::generate_deposit(<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>deposit_event)]
-	</span><span class="kw">pub enum </span>Event&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; {
+	</span><span class="kw">pub enum </span>Event&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; {
 		<span class="doccomment">/// A new rule has been set.
 		</span>NewRuleSet { rule: Cid },
 		<span class="doccomment">/// A new announcement has been proposed.
@@ -1659,7 +1661,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
-	</span><span class="kw">pub struct </span>GenesisConfig&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; {
+	</span><span class="kw">pub struct </span>GenesisConfig&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; {
 		<span class="kw">pub </span>fellows: Vec&lt;T::AccountId&gt;,
 		<span class="kw">pub </span>allies: Vec&lt;T::AccountId&gt;,
 		<span class="attr">#[serde(skip)]
@@ -1667,32 +1669,32 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="attr">#[pallet::genesis_build]
-	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; BuildGenesisConfig <span class="kw">for </span>GenesisConfig&lt;T, I&gt; {
+	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; BuildGenesisConfig <span class="kw">for </span>GenesisConfig&lt;T, I&gt; {
 		<span class="kw">fn </span>build(<span class="kw-2">&amp;</span><span class="self">self</span>) {
 			<span class="kw">for </span>m <span class="kw">in </span><span class="self">self</span>.fellows.iter().chain(<span class="self">self</span>.allies.iter()) {
-				<span class="macro">assert!</span>(Pallet::&lt;T, I&gt;::has_identity(m).is_ok(), <span class="string">&quot;Member does not set identity!&quot;</span>);
+				<span class="macro">assert!</span>(Pallet::&lt;T, I&gt;::has_identity(m).is_ok(), <span class="string">"Member does not set identity!"</span>);
 			}
 
 			<span class="kw">if </span>!<span class="self">self</span>.fellows.is_empty() {
 				<span class="macro">assert!</span>(
 					!Pallet::&lt;T, I&gt;::has_member(MemberRole::Fellow),
-					<span class="string">&quot;Fellows are already initialized!&quot;
+					<span class="string">"Fellows are already initialized!"
 				</span>);
 				<span class="kw">let </span>members: BoundedVec&lt;T::AccountId, T::MaxMembersCount&gt; =
-					<span class="self">self</span>.fellows.clone().try_into().expect(<span class="string">&quot;Too many genesis fellows&quot;</span>);
+					<span class="self">self</span>.fellows.clone().try_into().expect(<span class="string">"Too many genesis fellows"</span>);
 				Members::&lt;T, I&gt;::insert(MemberRole::Fellow, members);
 			}
 			<span class="kw">if </span>!<span class="self">self</span>.allies.is_empty() {
 				<span class="macro">assert!</span>(
 					!Pallet::&lt;T, I&gt;::has_member(MemberRole::Ally),
-					<span class="string">&quot;Allies are already initialized!&quot;
+					<span class="string">"Allies are already initialized!"
 				</span>);
 				<span class="macro">assert!</span>(
 					!<span class="self">self</span>.fellows.is_empty(),
-					<span class="string">&quot;Fellows must be provided to initialize the Alliance&quot;
+					<span class="string">"Fellows must be provided to initialize the Alliance"
 				</span>);
 				<span class="kw">let </span>members: BoundedVec&lt;T::AccountId, T::MaxMembersCount&gt; =
-					<span class="self">self</span>.allies.clone().try_into().expect(<span class="string">&quot;Too many genesis allies&quot;</span>);
+					<span class="self">self</span>.allies.clone().try_into().expect(<span class="string">"Too many genesis allies"</span>);
 				Members::&lt;T, I&gt;::insert(MemberRole::Ally, members);
 			}
 
@@ -1703,21 +1705,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// The IPFS CID of the alliance rule.
 	/// Fellows can propose a new rule with a super-majority.
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub type </span>Rule&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; = StorageValue&lt;<span class="kw">_</span>, Cid, OptionQuery&gt;;
+	</span><span class="kw">pub type </span>Rule&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; = StorageValue&lt;<span class="kw">_</span>, Cid, OptionQuery&gt;;
 
 	<span class="doccomment">/// The current IPFS CIDs of any announcements.
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub type </span>Announcements&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; =
+	</span><span class="kw">pub type </span>Announcements&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; =
 		StorageValue&lt;<span class="kw">_</span>, BoundedVec&lt;Cid, T::MaxAnnouncementsCount&gt;, ValueQuery&gt;;
 
 	<span class="doccomment">/// Maps members to their candidacy deposit.
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub type </span>DepositOf&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; =
+	</span><span class="kw">pub type </span>DepositOf&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; =
 		StorageMap&lt;<span class="kw">_</span>, Blake2_128Concat, T::AccountId, BalanceOf&lt;T, I&gt;, OptionQuery&gt;;
 
 	<span class="doccomment">/// Maps member type to members of each type.
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub type </span>Members&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; = StorageMap&lt;
+	</span><span class="kw">pub type </span>Members&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; = StorageMap&lt;
 		<span class="kw">_</span>,
 		Twox64Concat,
 		MemberRole,
@@ -1728,22 +1730,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// A set of members who gave a retirement notice. They can retire after the end of retirement
 	/// period stored as a future block number.
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub type </span>RetiringMembers&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; =
+	</span><span class="kw">pub type </span>RetiringMembers&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; =
 		StorageMap&lt;<span class="kw">_</span>, Blake2_128Concat, T::AccountId, BlockNumberFor&lt;T&gt;, OptionQuery&gt;;
 
 	<span class="doccomment">/// The current list of accounts deemed unscrupulous. These accounts non grata cannot submit
 	/// candidacy.
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub type </span>UnscrupulousAccounts&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; =
+	</span><span class="kw">pub type </span>UnscrupulousAccounts&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; =
 		StorageValue&lt;<span class="kw">_</span>, BoundedVec&lt;T::AccountId, T::MaxUnscrupulousItems&gt;, ValueQuery&gt;;
 
 	<span class="doccomment">/// The current list of websites deemed unscrupulous.
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub type </span>UnscrupulousWebsites&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; =
+	</span><span class="kw">pub type </span>UnscrupulousWebsites&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; =
 		StorageValue&lt;<span class="kw">_</span>, BoundedVec&lt;UrlOf&lt;T, I&gt;, T::MaxUnscrupulousItems&gt;, ValueQuery&gt;;
 
 	<span class="attr">#[pallet::call(weight(&lt;T <span class="kw">as </span>Config&lt;I&gt;&gt;::WeightInfo))]
-	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; Pallet&lt;T, I&gt; {
+	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Pallet&lt;T, I&gt; {
 		<span class="doccomment">/// Add a new proposal to be voted on.
 		///
 		/// Must be called by a Fellow.
@@ -1827,7 +1829,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="macro">log::debug!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;Initialize alliance fellows: {:?}, allies: {:?}&quot;</span>,
+				<span class="string">"Initialize alliance fellows: {:?}, allies: {:?}"</span>,
 				fellows,
 				allies
 			);
@@ -1940,7 +1942,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">pub fn </span>join_alliance(origin: OriginFor&lt;T&gt;) -&gt; DispatchResult {
 			<span class="kw">let </span>who = ensure_signed(origin)<span class="question-mark">?</span>;
 
-			<span class="comment">// We don&#39;t want anyone to join as an Ally before the Alliance has been initialized via
+			<span class="comment">// We don't want anyone to join as an Ally before the Alliance has been initialized via
 			// Root call. The reasons are two-fold:
 			//
 			// 1. There is no `Rule` or admission criteria, so the joiner would be an ally to
@@ -2154,7 +2156,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="self">Self</span>::do_close(proposal_hash, index, proposal_weight_bound, length_bound)
 		}
 
-		<span class="doccomment">/// Abdicate one&#39;s position as a voting member and just be an Ally. May be used by Fellows
+		<span class="doccomment">/// Abdicate one's position as a voting member and just be an Ally. May be used by Fellows
 		/// who do not want to leave the Alliance but do not have the capacity to participate
 		/// operationally for some time.
 		</span><span class="attr">#[pallet::call_index(<span class="number">17</span>)]
@@ -2173,7 +2175,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; Pallet&lt;T, I&gt; {
+<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Pallet&lt;T, I&gt; {
 	<span class="doccomment">/// Check if the Alliance has been initialized.
 	</span><span class="kw">fn </span>is_initialized() -&gt; bool {
 		<span class="self">Self</span>::has_member(MemberRole::Fellow) || <span class="self">Self</span>::has_member(MemberRole::Ally)

@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `cumulus/xcm/xcm-emulator/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `cumulus/xcm/xcm-emulator/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="xcm_emulator" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="xcm_emulator" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../xcm_emulator/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1875,8 +1877,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">pub trait </span>TestExt {
 	<span class="kw">fn </span>build_new_ext(storage: Storage) -&gt; TestExternalities;
 	<span class="kw">fn </span>new_ext() -&gt; TestExternalities;
-	<span class="kw">fn </span>move_ext_out(id: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str);
-	<span class="kw">fn </span>move_ext_in(id: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str);
+	<span class="kw">fn </span>move_ext_out(id: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str);
+	<span class="kw">fn </span>move_ext_in(id: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str);
 	<span class="kw">fn </span>reset_ext();
 	<span class="kw">fn </span>execute_with&lt;R&gt;(execute: <span class="kw">impl </span>FnOnce() -&gt; R) -&gt; R;
 	<span class="kw">fn </span>ext_wrapper&lt;R&gt;(func: <span class="kw">impl </span>FnOnce() -&gt; R) -&gt; R;
@@ -1889,8 +1891,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>new_ext() -&gt; TestExternalities {
 		TestExternalities::default()
 	}
-	<span class="kw">fn </span>move_ext_out(_id: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str) {}
-	<span class="kw">fn </span>move_ext_in(_id: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str) {}
+	<span class="kw">fn </span>move_ext_out(_id: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str) {}
+	<span class="kw">fn </span>move_ext_in(_id: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str) {}
 	<span class="kw">fn </span>reset_ext() {}
 	<span class="kw">fn </span>execute_with&lt;R&gt;(execute: <span class="kw">impl </span>FnOnce() -&gt; R) -&gt; R {
 		execute()
@@ -1904,7 +1906,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>Relay: RelayChain;
 	<span class="kw">type </span>Bridge: Bridge;
 
-	<span class="kw">fn </span>name() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str;
+	<span class="kw">fn </span>name() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str;
 	<span class="kw">fn </span>init();
 	<span class="kw">fn </span>reset();
 	<span class="kw">fn </span>para_ids() -&gt; Vec&lt;u32&gt;;
@@ -2064,7 +2066,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>dispatch_target_inbound_message(
 		_message: BridgeMessage,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), BridgeMessageDispatchError&gt; {
-		<span class="prelude-val">Err</span>(BridgeMessageDispatchError(Box::new(<span class="string">&quot;Not a bridge&quot;</span>)))
+		<span class="prelude-val">Err</span>(BridgeMessageDispatchError(Box::new(<span class="string">"Not a bridge"</span>)))
 	}
 
 	<span class="kw">fn </span>notify_source_message_delivery(_lane_id: u32) {}
@@ -2076,8 +2078,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl </span>Error <span class="kw">for </span>BridgeMessageDispatchError {}
 
 <span class="kw">impl </span>fmt::Display <span class="kw">for </span>BridgeMessageDispatchError {
-	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; fmt::Result {
-		<span class="macro">write!</span>(f, <span class="string">&quot;{:?}&quot;</span>, <span class="self">self</span>.<span class="number">0</span>)
+	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; fmt::Result {
+		<span class="macro">write!</span>(f, <span class="string">"{:?}"</span>, <span class="self">self</span>.<span class="number">0</span>)
 	}
 }
 
@@ -2209,7 +2211,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="self">Self</span>::build_new_ext(<span class="macro-nonterminal">$genesis</span>)
 			}
 
-			<span class="kw">fn </span>move_ext_out(id: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str) {
+			<span class="kw">fn </span>move_ext_out(id: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str) {
 				<span class="kw">use </span><span class="macro-nonterminal">$crate::Deref</span>;
 
 				<span class="comment">// Take TestExternality from thread_local
@@ -2224,7 +2226,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				</span>global_ext_guard.deref().borrow_mut().insert(id.to_string(), local_ext);
 			}
 
-			<span class="kw">fn </span>move_ext_in(id: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str) {
+			<span class="kw">fn </span>move_ext_in(id: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str) {
 				<span class="kw">use </span><span class="macro-nonterminal">$crate::Deref</span>;
 
 				<span class="kw">let </span><span class="kw-2">mut </span>global_ext_unlocked = <span class="bool-val">false</span>;
@@ -2290,7 +2292,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 						<span class="comment">// log events
 						</span><span class="self">Self</span>::events().iter().for_each(|event| {
-							<span class="macro-nonterminal">$</span><span class="macro">crate::log::debug!</span>(<span class="macro-nonterminal">target</span>: <span class="macro">concat!</span>(<span class="string">&quot;events::&quot;</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$name</span>)), <span class="string">&quot;{:?}&quot;</span>, event);
+							<span class="macro-nonterminal">$</span><span class="macro">crate::log::debug!</span>(<span class="macro-nonterminal">target</span>: <span class="macro">concat!</span>(<span class="string">"events::"</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$name</span>)), <span class="string">"{:?}"</span>, event);
 						});
 
 						<span class="comment">// clean events
@@ -2400,9 +2402,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						block_number += <span class="number">1</span>;
 						<span class="kw">let </span>parent_head_data = <span class="macro-nonterminal">$crate::LAST_HEAD</span>.with(|b| b.borrow_mut()
 							.get_mut(N::name())
-							.expect(<span class="string">&quot;network not initialized?&quot;</span>)
+							.expect(<span class="string">"network not initialized?"</span>)
 							.get(<span class="kw-2">&amp;</span>para_id)
-							.expect(<span class="string">&quot;network not initialized?&quot;</span>)
+							.expect(<span class="string">"network not initialized?"</span>)
 							.clone()
 						);
 						&lt;<span class="self">Self </span><span class="kw">as </span>Chain&gt;::System::initialize(<span class="kw-2">&amp;</span>block_number, <span class="kw-2">&amp;</span>parent_head_data.hash(), <span class="kw-2">&amp;</span>Default::default());
@@ -2437,7 +2439,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						</span><span class="kw">let </span>created_header = &lt;<span class="self">Self </span><span class="kw">as </span>Chain&gt;::System::finalize();
 						<span class="macro-nonterminal">$crate::LAST_HEAD</span>.with(|b| b.borrow_mut()
 							.get_mut(N::name())
-							.expect(<span class="string">&quot;network not initialized?&quot;</span>)
+							.expect(<span class="string">"network not initialized?"</span>)
 							.insert(para_id, HeadData(created_header.encode()))
 						);
 					});
@@ -2504,7 +2506,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="self">Self</span>::build_new_ext(<span class="macro-nonterminal">$genesis</span>)
 			}
 
-			<span class="kw">fn </span>move_ext_out(id: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str) {
+			<span class="kw">fn </span>move_ext_out(id: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str) {
 				<span class="kw">use </span><span class="macro-nonterminal">$crate::Deref</span>;
 
 				<span class="comment">// Take TestExternality from thread_local
@@ -2519,7 +2521,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				</span>global_ext_guard.deref().borrow_mut().insert(id.to_string(), local_ext);
 			}
 
-			<span class="kw">fn </span>move_ext_in(id: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str) {
+			<span class="kw">fn </span>move_ext_in(id: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str) {
 				<span class="kw">use </span><span class="macro-nonterminal">$crate::Deref</span>;
 
 				<span class="kw">let </span><span class="kw-2">mut </span>global_ext_unlocked = <span class="bool-val">false</span>;
@@ -2611,7 +2613,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 						<span class="comment">// log events
 						</span>&lt;<span class="self">Self </span><span class="kw">as </span><span class="macro-nonterminal">$crate::Chain</span>&gt;::events().iter().for_each(|event| {
-							<span class="macro-nonterminal">$</span><span class="macro">crate::log::debug!</span>(<span class="macro-nonterminal">target</span>: <span class="macro">concat!</span>(<span class="string">&quot;events::&quot;</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$name</span>)), <span class="string">&quot;{:?}&quot;</span>, event);
+							<span class="macro-nonterminal">$</span><span class="macro">crate::log::debug!</span>(<span class="macro-nonterminal">target</span>: <span class="macro">concat!</span>(<span class="string">"events::"</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$name</span>)), <span class="string">"{:?}"</span>, event);
 						});
 
 						<span class="comment">// clean events
@@ -2660,7 +2662,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">type </span>Relay = <span class="macro-nonterminal">$relay_chain</span>&lt;<span class="self">Self</span>&gt;;
 				<span class="kw">type </span>Bridge = <span class="macro-nonterminal">$bridge</span>;
 
-				<span class="kw">fn </span>name() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str {
+				<span class="kw">fn </span>name() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
 					<span class="macro-nonterminal">$crate::type_name</span>::&lt;<span class="self">Self</span>&gt;()
 				}
 
@@ -2763,7 +2765,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 											<span class="kw-2">&amp;mut </span>msg.using_encoded(<span class="macro-nonterminal">$crate::blake2_256</span>),
 										);
 									});
-									<span class="macro-nonterminal">$</span><span class="macro">crate::log::debug!</span>(<span class="macro-nonterminal">target</span>: <span class="macro">concat!</span>(<span class="string">&quot;dmp::&quot;</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$name</span>)) , <span class="string">&quot;DMP messages processed {:?} to para_id {:?}&quot;</span>, msgs.clone(), <span class="kw-2">&amp;</span>to_para_id);
+									<span class="macro-nonterminal">$</span><span class="macro">crate::log::debug!</span>(<span class="macro-nonterminal">target</span>: <span class="macro">concat!</span>(<span class="string">"dmp::"</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$name</span>)) , <span class="string">"DMP messages processed {:?} to para_id {:?}"</span>, msgs.clone(), <span class="kw-2">&amp;</span>to_para_id);
 									<span class="macro-nonterminal">$crate::DMP_DONE</span>.with(|b| b.borrow_mut().get_mut(<span class="self">Self</span>::name()).unwrap().push_back((to_para_id, block, msg)));
 								}
 							}
@@ -2786,7 +2788,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 									<span class="comment">// Nudge the MQ pallet to process immediately instead of in the next block.
 									</span><span class="kw">let _ </span>=  &lt;<span class="macro-nonterminal">$parachain</span>&lt;<span class="self">Self</span>&gt; <span class="kw">as </span>Parachain&gt;::MessageProcessor::service_queues(<span class="macro-nonterminal">$crate::Weight::MAX</span>);
 								});
-								<span class="macro-nonterminal">$</span><span class="macro">crate::log::debug!</span>(<span class="macro-nonterminal">target</span>: <span class="macro">concat!</span>(<span class="string">&quot;hrmp::&quot;</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$name</span>)) , <span class="string">&quot;HRMP messages processed {:?} to para_id {:?}&quot;</span>, <span class="kw-2">&amp;</span>messages, <span class="kw-2">&amp;</span>to_para_id);
+								<span class="macro-nonterminal">$</span><span class="macro">crate::log::debug!</span>(<span class="macro-nonterminal">target</span>: <span class="macro">concat!</span>(<span class="string">"hrmp::"</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$name</span>)) , <span class="string">"HRMP messages processed {:?} to para_id {:?}"</span>, <span class="kw-2">&amp;</span>messages, <span class="kw-2">&amp;</span>to_para_id);
 							}
 						)*
 					}
@@ -2805,7 +2807,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 								<span class="kw-2">&amp;mut </span>msg.using_encoded(<span class="macro-nonterminal">$crate::blake2_256</span>),
 							);
 						});
-						<span class="macro-nonterminal">$</span><span class="macro">crate::log::debug!</span>(<span class="macro-nonterminal">target</span>: <span class="macro">concat!</span>(<span class="string">&quot;ump::&quot;</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$name</span>)) , <span class="string">&quot;Upward message processed {:?} from para_id {:?}&quot;</span>, <span class="kw-2">&amp;</span>msg, <span class="kw-2">&amp;</span>from_para_id);
+						<span class="macro-nonterminal">$</span><span class="macro">crate::log::debug!</span>(<span class="macro-nonterminal">target</span>: <span class="macro">concat!</span>(<span class="string">"ump::"</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$name</span>)) , <span class="string">"Upward message processed {:?} from para_id {:?}"</span>, <span class="kw-2">&amp;</span>msg, <span class="kw-2">&amp;</span>from_para_id);
 					}
 				}
 
@@ -2820,12 +2822,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						});
 
 						<span class="kw">match </span>dispatch_result {
-							<span class="prelude-val">Err</span>(e) =&gt; <span class="macro">panic!</span>(<span class="string">&quot;Error {:?} processing bridged message: {:?}&quot;</span>, e, msg.clone()),
+							<span class="prelude-val">Err</span>(e) =&gt; <span class="macro">panic!</span>(<span class="string">"Error {:?} processing bridged message: {:?}"</span>, e, msg.clone()),
 							<span class="prelude-val">Ok</span>(()) =&gt; {
 								&lt;&lt;<span class="self">Self</span>::Bridge <span class="kw">as </span>Bridge&gt;::Source <span class="kw">as </span>TestExt&gt;::ext_wrapper(|| {
 									&lt;&lt;<span class="self">Self</span>::Bridge <span class="kw">as </span>Bridge&gt;::Handler <span class="kw">as </span>BridgeMessageHandler&gt;::notify_source_message_delivery(msg.id);
 								});
-								<span class="macro-nonterminal">$</span><span class="macro">crate::log::debug!</span>(<span class="macro-nonterminal">target</span>: <span class="macro">concat!</span>(<span class="string">&quot;bridge::&quot;</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$name</span>)) , <span class="string">&quot;Bridged message processed {:?}&quot;</span>, msg.clone());
+								<span class="macro-nonterminal">$</span><span class="macro">crate::log::debug!</span>(<span class="macro-nonterminal">target</span>: <span class="macro">concat!</span>(<span class="string">"bridge::"</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$name</span>)) , <span class="string">"Bridged message processed {:?}"</span>, msg.clone());
 							}
 						}
 					}
@@ -2987,7 +2989,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							</span><span class="kw">if </span>!<span class="macro-nonterminal">$condition </span>&amp;&amp; event_message.is_empty() {
 								conditions_message.push(
 									<span class="macro">format!</span>(
-										<span class="string">&quot; - The attribute {:?} = {:?} did not met the condition {:?}\n&quot;</span>,
+										<span class="string">" - The attribute {:?} = {:?} did not met the condition {:?}\n"</span>,
 										<span class="macro">stringify!</span>(<span class="macro-nonterminal">$attr</span>),
 										<span class="macro-nonterminal">$attr</span>,
 										<span class="macro">stringify!</span>(<span class="macro-nonterminal">$condition</span>)
@@ -3012,7 +3014,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">if </span>event_received &amp;&amp; !meet_conditions  {
 				message.push(
 					<span class="macro">format!</span>(
-						<span class="string">&quot;\n\n{}::\x1b[31m{}\x1b[0m was received but some of its attributes did not meet the conditions:\n{}&quot;</span>,
+						<span class="string">"\n\n{}::\x1b[31m{}\x1b[0m was received but some of its attributes did not meet the conditions:\n{}"</span>,
 						<span class="macro">stringify!</span>(<span class="macro-nonterminal">$chain</span>),
 						<span class="macro">stringify!</span>(<span class="macro-nonterminal">$event_pat</span>),
 						event_message.concat()
@@ -3021,7 +3023,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			} <span class="kw">else if </span>!event_received {
 				message.push(
 					<span class="macro">format!</span>(
-						<span class="string">&quot;\n\n{}::\x1b[31m{}\x1b[0m was never received. All events:\n{:#?}&quot;</span>,
+						<span class="string">"\n\n{}::\x1b[31m{}\x1b[0m was never received. All events:\n{:#?}"</span>,
 						<span class="macro">stringify!</span>(<span class="macro-nonterminal">$chain</span>),
 						<span class="macro">stringify!</span>(<span class="macro-nonterminal">$event_pat</span>),
 						&lt;<span class="macro-nonterminal">$chain </span><span class="kw">as </span><span class="macro-nonterminal">$crate::Chain</span>&gt;::events(),
@@ -3036,9 +3038,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if </span>!message.is_empty() {
 			<span class="comment">// Log events as they will not be logged after the panic
 			</span>&lt;<span class="macro-nonterminal">$chain </span><span class="kw">as </span><span class="macro-nonterminal">$crate::Chain</span>&gt;::events().iter().for_each(|event| {
-				<span class="macro-nonterminal">$</span><span class="macro">crate::log::debug!</span>(<span class="macro-nonterminal">target</span>: <span class="macro">concat!</span>(<span class="string">&quot;events::&quot;</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$chain</span>)), <span class="string">&quot;{:?}&quot;</span>, event);
+				<span class="macro-nonterminal">$</span><span class="macro">crate::log::debug!</span>(<span class="macro-nonterminal">target</span>: <span class="macro">concat!</span>(<span class="string">"events::"</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$chain</span>)), <span class="string">"{:?}"</span>, event);
 			});
-			<span class="macro">panic!</span>(<span class="string">&quot;{}&quot;</span>, message.concat())
+			<span class="macro">panic!</span>(<span class="string">"{}"</span>, message.concat())
 		}
 	}
 }
@@ -3089,7 +3091,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		_id: <span class="kw-2">&amp;mut </span>XcmHash,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;bool, ProcessMessageError&gt; {
 		MessageQueuePallet::&lt;T::Runtime&gt;::enqueue_message(
-			msg.try_into().expect(<span class="string">&quot;Message too long&quot;</span>),
+			msg.try_into().expect(<span class="string">"Message too long"</span>),
 			orig.clone(),
 		);
 		MessageQueuePallet::&lt;T::Runtime&gt;::service_queues(Weight::MAX);
@@ -3138,7 +3140,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		_id: <span class="kw-2">&amp;mut </span>XcmHash,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;bool, ProcessMessageError&gt; {
 		MessageQueuePallet::&lt;T::Runtime&gt;::enqueue_message(
-			msg.try_into().expect(<span class="string">&quot;Message too long&quot;</span>),
+			msg.try_into().expect(<span class="string">"Message too long"</span>),
 			AggregateMessageOrigin::Ump(UmpQueueId::Para(para)),
 		);
 		MessageQueuePallet::&lt;T::Runtime&gt;::service_queues(Weight::MAX);
@@ -3169,7 +3171,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="doccomment">/// Struct that keeps account&#39;s id and balance
+<span class="doccomment">/// Struct that keeps account's id and balance
 </span><span class="attr">#[derive(Clone)]
 </span><span class="kw">pub struct </span>TestAccount&lt;R: Chain&gt; {
 	<span class="kw">pub </span>account_id: AccountIdOf&lt;R::Runtime&gt;,
@@ -3231,7 +3233,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Struct that helps with tests where either dispatchables or assertions need
-/// to be reused. The struct keeps the test&#39;s arguments of your choice in the generic `Args`.
+/// to be reused. The struct keeps the test's arguments of your choice in the generic `Args`.
 /// These arguments can be easily reused and shared between the assertion functions
 /// and dispatchable functions, which are also stored in `Test`.
 /// `Origin` corresponds to the chain where the XCM interaction starts with an initial execution.
@@ -3341,8 +3343,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			From&lt;&lt;&lt;TPublic <span class="kw">as </span>sp_runtime::CryptoType&gt;::Pair <span class="kw">as </span>sp_core::Pair&gt;::Public&gt;,
 	{
 		<span class="kw">use </span>sp_runtime::traits::IdentifyAccount;
-		<span class="kw">let </span>pubkey = TPublic::Pair::from_string(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;//{}&quot;</span>, seed), <span class="prelude-val">None</span>)
-			.expect(<span class="string">&quot;static values are valid; qed&quot;</span>)
+		<span class="kw">let </span>pubkey = TPublic::Pair::from_string(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"//{}"</span>, seed), <span class="prelude-val">None</span>)
+			.expect(<span class="string">"static values are valid; qed"</span>)
 			.public();
 		sp_runtime::MultiSigner::from(pubkey).into_account()
 	}

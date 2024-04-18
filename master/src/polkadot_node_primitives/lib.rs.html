@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/primitives/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/primitives/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_node_primitives" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_node_primitives" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../polkadot_node_primitives/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -869,7 +871,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// relatively rare.
 ///
 /// The associated worker binaries should use the same version as the node that spawns them.
-</span><span class="kw">pub const </span>NODE_VERSION: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;1.10.0&quot;</span>;
+</span><span class="kw">pub const </span>NODE_VERSION: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"1.10.0"</span>;
 
 <span class="comment">// For a 16-ary Merkle Prefix Trie, we can expect at most 16 32-byte hashes per node
 // plus some overhead:
@@ -887,7 +889,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// How many blocks after finalization an information about backed/included candidate should be
 /// pre-loaded (when scraping onchain votes) and kept locally (when pruning).
 ///
-/// We don&#39;t want to remove scraped candidates on finalization because we want to
+/// We don't want to remove scraped candidates on finalization because we want to
 /// be sure that disputes will conclude on abandoned forks.
 /// Removing the candidate on finalization creates a possibility for an attacker to
 /// avoid slashing. If a bad fork is abandoned too quickly because another
@@ -896,8 +898,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// Why pre-load finalized blocks? I dispute might be raised against finalized candidate. In most
 /// of the cases it will conclude valid (otherwise we are in big trouble) but never the less the
-/// node must participate. It&#39;s possible to see a vote for such dispute onchain before we have it
-/// imported by `dispute-distribution`. In this case we won&#39;t have `CandidateReceipt` and the import
+/// node must participate. It's possible to see a vote for such dispute onchain before we have it
+/// imported by `dispute-distribution`. In this case we won't have `CandidateReceipt` and the import
 /// will fail unless we keep them preloaded.
 ///
 /// This value should consider the timeout we allow for participation in approval-voting. In
@@ -925,16 +927,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">/// Create a new checked `SessionWindowSize` which cannot be 0.
 </span><span class="macro">macro_rules! </span>new_session_window_size {
 	(<span class="number">0</span>) =&gt; {
-		<span class="macro">compile_error!</span>(<span class="string">&quot;Must be non zero&quot;</span>);
+		<span class="macro">compile_error!</span>(<span class="string">"Must be non zero"</span>);
 	};
 	(<span class="number">0_u32</span>) =&gt; {
-		<span class="macro">compile_error!</span>(<span class="string">&quot;Must be non zero&quot;</span>);
+		<span class="macro">compile_error!</span>(<span class="string">"Must be non zero"</span>);
 	};
 	(<span class="number">0 </span><span class="kw">as </span>u32) =&gt; {
-		<span class="macro">compile_error!</span>(<span class="string">&quot;Must be non zero&quot;</span>);
+		<span class="macro">compile_error!</span>(<span class="string">"Must be non zero"</span>);
 	};
 	(<span class="number">0 </span><span class="kw">as _</span>) =&gt; {
-		<span class="macro">compile_error!</span>(<span class="string">&quot;Must be non zero&quot;</span>);
+		<span class="macro">compile_error!</span>(<span class="string">"Must be non zero"</span>);
 	};
 	(<span class="macro-nonterminal">$l</span>:literal) =&gt; {
 		SessionWindowSize::unchecked_new(<span class="macro-nonterminal">$l </span><span class="kw">as _</span>)
@@ -942,7 +944,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// It would be nice to draw this from the chain state, but we have no tools for it right now.
-/// On Polkadot this is 1 day, and on Kusama it&#39;s 6 hours.
+/// On Polkadot this is 1 day, and on Kusama it's 6 hours.
 ///
 /// Number of sessions we want to consider in disputes.
 </span><span class="kw">pub const </span>DISPUTE_WINDOW: SessionWindowSize = <span class="macro">new_session_window_size!</span>(<span class="number">6</span>);
@@ -955,7 +957,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Helper function for `new_session_window_size`.
 	///
-	/// Don&#39;t use it. The only reason it is public, is because otherwise the
+	/// Don't use it. The only reason it is public, is because otherwise the
 	/// `new_session_window_size` macro would not work outside of this module.
 	</span><span class="attr">#[doc(hidden)]
 	</span><span class="kw">pub const fn </span>unchecked_new(size: SessionIndex) -&gt; <span class="self">Self </span>{
@@ -983,10 +985,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl </span>std::fmt::Debug <span class="kw">for </span>Statement {
-	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
+	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; std::fmt::Result {
 		<span class="kw">match </span><span class="self">self </span>{
-			Statement::Seconded(seconded) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Seconded: {:?}&quot;</span>, seconded.descriptor),
-			Statement::Valid(hash) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Valid: {:?}&quot;</span>, hash),
+			Statement::Seconded(seconded) =&gt; <span class="macro">write!</span>(f, <span class="string">"Seconded: {:?}"</span>, seconded.descriptor),
+			Statement::Valid(hash) =&gt; <span class="macro">write!</span>(f, <span class="string">"Valid: {:?}"</span>, hash),
 		}
 	}
 }
@@ -1021,7 +1023,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl </span>From&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;_ </span>Statement&gt; <span class="kw">for </span>CompactStatement {
+<span class="kw">impl </span>From&lt;<span class="kw-2">&amp;</span><span class="lifetime">'_ </span>Statement&gt; <span class="kw">for </span>CompactStatement {
 	<span class="kw">fn </span>from(stmt: <span class="kw-2">&amp;</span>Statement) -&gt; <span class="self">Self </span>{
 		stmt.to_compact()
 	}
@@ -1044,11 +1046,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl </span>std::fmt::Debug <span class="kw">for </span>StatementWithPVD {
-	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
+	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; std::fmt::Result {
 		<span class="kw">match </span><span class="self">self </span>{
 			StatementWithPVD::Seconded(seconded, <span class="kw">_</span>) =&gt;
-				<span class="macro">write!</span>(f, <span class="string">&quot;Seconded: {:?}&quot;</span>, seconded.descriptor),
-			StatementWithPVD::Valid(hash) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Valid: {:?}&quot;</span>, hash),
+				<span class="macro">write!</span>(f, <span class="string">"Seconded: {:?}"</span>, seconded.descriptor),
+			StatementWithPVD::Valid(hash) =&gt; <span class="macro">write!</span>(f, <span class="string">"Valid: {:?}"</span>, hash),
 		}
 	}
 }
@@ -1087,7 +1089,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub fn </span>drop_pvd_from_signed(signed: SignedFullStatementWithPVD) -&gt; SignedFullStatement {
 		signed
 			.convert_to_superpayload_with(|s| s.drop_pvd())
-			.expect(<span class="string">&quot;persisted_validation_data doesn&#39;t affect encode_as; qed&quot;</span>)
+			.expect(<span class="string">"persisted_validation_data doesn't affect encode_as; qed"</span>)
 	}
 
 	<span class="doccomment">/// Converts the statement to a compact signed statement by dropping the
@@ -1095,11 +1097,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub fn </span>signed_to_compact(signed: SignedFullStatementWithPVD) -&gt; Signed&lt;CompactStatement&gt; {
 		signed
 			.convert_to_superpayload_with(|s| s.to_compact())
-			.expect(<span class="string">&quot;doesn&#39;t affect encode_as; qed&quot;</span>)
+			.expect(<span class="string">"doesn't affect encode_as; qed"</span>)
 	}
 }
 
-<span class="kw">impl </span>From&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;_ </span>StatementWithPVD&gt; <span class="kw">for </span>CompactStatement {
+<span class="kw">impl </span>From&lt;<span class="kw-2">&amp;</span><span class="lifetime">'_ </span>StatementWithPVD&gt; <span class="kw">for </span>CompactStatement {
 	<span class="kw">fn </span>from(stmt: <span class="kw-2">&amp;</span>StatementWithPVD) -&gt; <span class="self">Self </span>{
 		stmt.to_compact()
 	}
@@ -1115,7 +1117,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// Signing context and validator set should be apparent from context.
 ///
-/// This statement is &quot;full&quot; in the sense that the `Seconded` variant includes the candidate
+/// This statement is "full" in the sense that the `Seconded` variant includes the candidate
 /// receipt. Only the compact `SignedStatement` is suitable for submission to the chain.
 </span><span class="kw">pub type </span>SignedFullStatement = Signed&lt;Statement, CompactStatement&gt;;
 
@@ -1134,7 +1136,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub enum </span>InvalidCandidate {
 	<span class="doccomment">/// Failed to execute `validate_block`. This includes function panicking.
 	</span>ExecutionError(String),
-	<span class="doccomment">/// Validation outputs check doesn&#39;t pass.
+	<span class="doccomment">/// Validation outputs check doesn't pass.
 	</span>InvalidOutputs,
 	<span class="doccomment">/// Execution timeout.
 	</span>Timeout,
@@ -1186,7 +1188,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// A type that represents a maybe compressed [`PoV`].
 </span><span class="attr">#[derive(Clone, Encode, Decode)]
-#[cfg(not(target_os = <span class="string">&quot;unknown&quot;</span>))]
+#[cfg(not(target_os = <span class="string">"unknown"</span>))]
 </span><span class="kw">pub enum </span>MaybeCompressedPoV {
 	<span class="doccomment">/// A raw [`PoV`], aka not compressed.
 	</span>Raw(PoV),
@@ -1194,19 +1196,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>Compressed(PoV),
 }
 
-<span class="attr">#[cfg(not(target_os = <span class="string">&quot;unknown&quot;</span>))]
+<span class="attr">#[cfg(not(target_os = <span class="string">"unknown"</span>))]
 </span><span class="kw">impl </span>std::fmt::Debug <span class="kw">for </span>MaybeCompressedPoV {
 	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter) -&gt; std::fmt::Result {
 		<span class="kw">let </span>(variant, size) = <span class="kw">match </span><span class="self">self </span>{
-			MaybeCompressedPoV::Raw(pov) =&gt; (<span class="string">&quot;Raw&quot;</span>, pov.block_data.<span class="number">0</span>.len()),
-			MaybeCompressedPoV::Compressed(pov) =&gt; (<span class="string">&quot;Compressed&quot;</span>, pov.block_data.<span class="number">0</span>.len()),
+			MaybeCompressedPoV::Raw(pov) =&gt; (<span class="string">"Raw"</span>, pov.block_data.<span class="number">0</span>.len()),
+			MaybeCompressedPoV::Compressed(pov) =&gt; (<span class="string">"Compressed"</span>, pov.block_data.<span class="number">0</span>.len()),
 		};
 
-		<span class="macro">write!</span>(f, <span class="string">&quot;{} PoV ({} bytes)&quot;</span>, variant, size)
+		<span class="macro">write!</span>(f, <span class="string">"{} PoV ({} bytes)"</span>, variant, size)
 	}
 }
 
-<span class="attr">#[cfg(not(target_os = <span class="string">&quot;unknown&quot;</span>))]
+<span class="attr">#[cfg(not(target_os = <span class="string">"unknown"</span>))]
 </span><span class="kw">impl </span>MaybeCompressedPoV {
 	<span class="doccomment">/// Convert into a compressed [`PoV`].
 	///
@@ -1223,10 +1225,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// This differs from `CandidateCommitments` in two ways:
 ///
-/// - does not contain the erasure root; that&#39;s computed at the Polkadot level, not at Cumulus
+/// - does not contain the erasure root; that's computed at the Polkadot level, not at Cumulus
 /// - contains a proof of validity.
 </span><span class="attr">#[derive(Debug, Clone, Encode, Decode)]
-#[cfg(not(target_os = <span class="string">&quot;unknown&quot;</span>))]
+#[cfg(not(target_os = <span class="string">"unknown"</span>))]
 </span><span class="kw">pub struct </span>Collation&lt;BlockNumber = polkadot_primitives::BlockNumber&gt; {
 	<span class="doccomment">/// Messages destined to be interpreted by the Relay chain itself.
 	</span><span class="kw">pub </span>upward_messages: UpwardMessages,
@@ -1247,7 +1249,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Signal that is being returned when a collation was seconded by a validator.
 </span><span class="attr">#[derive(Debug)]
-#[cfg(not(target_os = <span class="string">&quot;unknown&quot;</span>))]
+#[cfg(not(target_os = <span class="string">"unknown"</span>))]
 </span><span class="kw">pub struct </span>CollationSecondedSignal {
 	<span class="doccomment">/// The hash of the relay chain block that was used as context to sign [`Self::statement`].
 	</span><span class="kw">pub </span>relay_parent: Hash,
@@ -1258,7 +1260,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Result of the [`CollatorFn`] invocation.
-</span><span class="attr">#[cfg(not(target_os = <span class="string">&quot;unknown&quot;</span>))]
+</span><span class="attr">#[cfg(not(target_os = <span class="string">"unknown"</span>))]
 </span><span class="kw">pub struct </span>CollationResult {
 	<span class="doccomment">/// The collation that was build.
 	</span><span class="kw">pub </span>collation: Collation,
@@ -1270,7 +1272,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>result_sender: <span class="prelude-ty">Option</span>&lt;futures::channel::oneshot::Sender&lt;CollationSecondedSignal&gt;&gt;,
 }
 
-<span class="attr">#[cfg(not(target_os = <span class="string">&quot;unknown&quot;</span>))]
+<span class="attr">#[cfg(not(target_os = <span class="string">"unknown"</span>))]
 </span><span class="kw">impl </span>CollationResult {
 	<span class="doccomment">/// Convert into the inner values.
 	</span><span class="kw">pub fn </span>into_inner(
@@ -1287,7 +1289,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// the relay chain.
 ///
 /// Returns an optional [`CollationResult`].
-</span><span class="attr">#[cfg(not(target_os = <span class="string">&quot;unknown&quot;</span>))]
+</span><span class="attr">#[cfg(not(target_os = <span class="string">"unknown"</span>))]
 </span><span class="kw">pub type </span>CollatorFn = Box&lt;
 	<span class="kw">dyn </span>Fn(
 			Hash,
@@ -1298,9 +1300,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 &gt;;
 
 <span class="doccomment">/// Configuration for the collation generator
-</span><span class="attr">#[cfg(not(target_os = <span class="string">&quot;unknown&quot;</span>))]
+</span><span class="attr">#[cfg(not(target_os = <span class="string">"unknown"</span>))]
 </span><span class="kw">pub struct </span>CollationGenerationConfig {
-	<span class="doccomment">/// Collator&#39;s authentication key, so it can sign things.
+	<span class="doccomment">/// Collator's authentication key, so it can sign things.
 	</span><span class="kw">pub </span>key: CollatorPair,
 	<span class="doccomment">/// Collation function. See [`CollatorFn`] for more details.
 	///
@@ -1311,10 +1313,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>para_id: ParaId,
 }
 
-<span class="attr">#[cfg(not(target_os = <span class="string">&quot;unknown&quot;</span>))]
+<span class="attr">#[cfg(not(target_os = <span class="string">"unknown"</span>))]
 </span><span class="kw">impl </span>std::fmt::Debug <span class="kw">for </span>CollationGenerationConfig {
-	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
-		<span class="macro">write!</span>(f, <span class="string">&quot;CollationGenerationConfig {{ ... }}&quot;</span>)
+	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; std::fmt::Result {
+		<span class="macro">write!</span>(f, <span class="string">"CollationGenerationConfig {{ ... }}"</span>)
 	}
 }
 
@@ -1325,7 +1327,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>relay_parent: Hash,
 	<span class="doccomment">/// The collation itself (PoV and commitments)
 	</span><span class="kw">pub </span>collation: Collation,
-	<span class="doccomment">/// The parent block&#39;s head-data.
+	<span class="doccomment">/// The parent block's head-data.
 	</span><span class="kw">pub </span>parent_head: HeadData,
 	<span class="doccomment">/// The hash of the validation code the collation was created against.
 	</span><span class="kw">pub </span>validation_code_hash: ValidationCodeHash,
@@ -1369,11 +1371,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Possible errors when converting from `Vec&lt;Vec&lt;u8&gt;&gt;` into [`Proof`].
 </span><span class="attr">#[derive(thiserror::Error, Debug)]
 </span><span class="kw">pub enum </span>MerkleProofError {
-	<span class="attr">#[error(<span class="string">&quot;Merkle max proof depth exceeded {0} &gt; {} .&quot;</span>, MERKLE_PROOF_MAX_DEPTH)]
-	</span><span class="doccomment">/// This error signifies that the Proof length exceeds the trie&#39;s max depth
+	<span class="attr">#[error(<span class="string">"Merkle max proof depth exceeded {0} &gt; {} ."</span>, MERKLE_PROOF_MAX_DEPTH)]
+	</span><span class="doccomment">/// This error signifies that the Proof length exceeds the trie's max depth
 	</span>MerkleProofDepthExceeded(usize),
 
-	<span class="attr">#[error(<span class="string">&quot;Merkle node max size exceeded {0} &gt; {} .&quot;</span>, MERKLE_NODE_MAX_SIZE)]
+	<span class="attr">#[error(<span class="string">"Merkle node max size exceeded {0} &gt; {} ."</span>, MERKLE_NODE_MAX_SIZE)]
 	</span><span class="doccomment">/// This error signifies that a Proof node exceeds the 16-ary max node size
 	</span>MerkleProofNodeSizeExceeded(usize),
 }
@@ -1392,7 +1394,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.map_err(|<span class="kw">_</span>| <span class="self">Self</span>::Error::MerkleProofNodeSizeExceeded(length))<span class="question-mark">?</span>;
 			out.push(data);
 		}
-		<span class="prelude-val">Ok</span>(Proof(BoundedVec::from_vec(out).expect(<span class="string">&quot;Buffer size is deterined above. qed&quot;</span>)))
+		<span class="prelude-val">Ok</span>(Proof(BoundedVec::from_vec(out).expect(<span class="string">"Buffer size is deterined above. qed"</span>)))
 	}
 }
 
@@ -1403,12 +1405,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">for </span>element <span class="kw">in </span>temp.into_iter() {
 			<span class="kw">let </span>bounded_temp: <span class="prelude-ty">Result</span>&lt;BoundedVec&lt;u8, <span class="number">1</span>, MERKLE_NODE_MAX_SIZE&gt;, CodecError&gt; =
 				BoundedVec::from_vec(element)
-					.map_err(|<span class="kw">_</span>| <span class="string">&quot;Inner node exceeds maximum node size.&quot;</span>.into());
+					.map_err(|<span class="kw">_</span>| <span class="string">"Inner node exceeds maximum node size."</span>.into());
 			out.push(bounded_temp<span class="question-mark">?</span>);
 		}
 		BoundedVec::from_vec(out)
 			.map(<span class="self">Self</span>)
-			.map_err(|<span class="kw">_</span>| <span class="string">&quot;Merkle proof depth exceeds maximum trie depth&quot;</span>.into())
+			.map_err(|<span class="kw">_</span>| <span class="string">"Merkle proof depth exceeds maximum trie depth"</span>.into())
 	}
 }
 
@@ -1432,10 +1434,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;de</span>&gt; Deserialize&lt;<span class="lifetime">&#39;de</span>&gt; <span class="kw">for </span>Proof {
+<span class="kw">impl</span>&lt;<span class="lifetime">'de</span>&gt; Deserialize&lt;<span class="lifetime">'de</span>&gt; <span class="kw">for </span>Proof {
 	<span class="kw">fn </span>deserialize&lt;D&gt;(deserializer: D) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, D::Error&gt;
 	<span class="kw">where
-		</span>D: Deserializer&lt;<span class="lifetime">&#39;de</span>&gt;,
+		</span>D: Deserializer&lt;<span class="lifetime">'de</span>&gt;,
 	{
 		<span class="comment">// Deserialize the string and get individual components
 		</span><span class="kw">let </span>s = Vec::&lt;u8&gt;::deserialize(deserializer)<span class="question-mark">?</span>;
@@ -1451,7 +1453,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>chunk: Vec&lt;u8&gt;,
 	<span class="doccomment">/// The index of this erasure-encoded chunk of data.
 	</span><span class="kw">pub </span>index: ValidatorIndex,
-	<span class="doccomment">/// Proof for this chunk&#39;s branch in the Merkle tree.
+	<span class="doccomment">/// Proof for this chunk's branch in the Merkle tree.
 	</span><span class="kw">pub </span>proof: Proof,
 }
 
@@ -1463,7 +1465,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Compress a PoV, unless it exceeds the [`POV_BOMB_LIMIT`].
-</span><span class="attr">#[cfg(not(target_os = <span class="string">&quot;unknown&quot;</span>))]
+</span><span class="attr">#[cfg(not(target_os = <span class="string">"unknown"</span>))]
 </span><span class="kw">pub fn </span>maybe_compress_pov(pov: PoV) -&gt; PoV {
 	<span class="kw">let </span>PoV { block_data: BlockData(raw) } = pov;
 	<span class="kw">let </span>raw = sp_maybe_compressed_blob::compress(<span class="kw-2">&amp;</span>raw, POV_BOMB_LIMIT).unwrap_or(raw);

@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/bags-list/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/bags-list/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_bags_list" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_bags_list" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../pallet_bags_list/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -655,14 +657,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -705,7 +707,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! optimal position in a bag, the [`Pallet::put_in_front_of`] or [`Pallet::put_in_front_of_other`]
 //! can be used.
 //!
-//! Additional reading, about how this pallet is used in the context of Polkadot&#39;s staking system:
+//! Additional reading, about how this pallet is used in the context of Polkadot's staking system:
 //! &lt;https://polkadot.network/blog/staking-update-september-2021/#bags-list-in-depth&gt;
 //!
 //! ## Examples
@@ -717,7 +719,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! The data structure exposed by this pallet aims to be optimized for:
 //!
 //! - insertions and removals.
-//! - iteration over the top* N items by score, where the precise ordering of items doesn&#39;t
+//! - iteration over the top* N items by score, where the precise ordering of items doesn't
 //!   particularly matter.
 //!
 //! ### Further Details
@@ -730,11 +732,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!   it will worsen its position in list iteration; this reduces incentives for some types of spam
 //!   that involve consistently removing and inserting for better position. Further, ordering
 //!   granularity is thus dictated by range between each bag threshold.
-//! - if an item&#39;s score changes to a value no longer within the range of its current bag the item&#39;s
+//! - if an item's score changes to a value no longer within the range of its current bag the item's
 //!   position will need to be updated by an external actor with rebag (update), or removal and
 //!   insertion.
 
-</span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
+</span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
 #[cfg(doc)]
 #[cfg_attr(doc, aquamarine::aquamarine)]
@@ -771,7 +773,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// ```
 ///
 /// The equivalent of this in code would be:
-</span><span class="attr">#[doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;src/tests.rs&quot;</span>, examples_work)]
+</span><span class="attr">#[doc = <span class="macro">docify::embed!</span>(<span class="string">"src/tests.rs"</span>, examples_work)]
 </span><span class="kw">pub mod </span>example {}
 
 <span class="kw">use </span>codec::FullCodec;
@@ -780,15 +782,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sp_runtime::traits::{AtLeast32BitUnsigned, Bounded, StaticLookup};
 <span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 
-<span class="attr">#[cfg(any(test, feature = <span class="string">&quot;try-runtime&quot;</span>, feature = <span class="string">&quot;fuzz&quot;</span>))]
+<span class="attr">#[cfg(any(test, feature = <span class="string">"try-runtime"</span>, feature = <span class="string">"fuzz"</span>))]
 </span><span class="kw">use </span>sp_runtime::TryRuntimeError;
 
-<span class="attr">#[cfg(any(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>, test))]
+<span class="attr">#[cfg(any(feature = <span class="string">"runtime-benchmarks"</span>, test))]
 </span><span class="kw">mod </span>benchmarks;
 
 <span class="kw">mod </span>list;
 <span class="kw">pub mod </span>migrations;
-<span class="attr">#[cfg(any(test, feature = <span class="string">&quot;fuzz&quot;</span>))]
+<span class="attr">#[cfg(any(test, feature = <span class="string">"fuzz"</span>))]
 </span><span class="kw">pub mod </span>mock;
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests;
@@ -798,7 +800,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">pub use </span>pallet::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>weights::WeightInfo;
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;runtime::bags_list&quot;</span>;
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"runtime::bags_list"</span>;
 
 <span class="comment">// syntactic sugar for logging.
 </span><span class="attr">#[macro_export]
@@ -806,7 +808,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	(<span class="macro-nonterminal">$level</span>:tt, <span class="macro-nonterminal">$patter</span>:expr $(, <span class="macro-nonterminal">$values</span>:expr)* $(,)<span class="question-mark">?</span>) =&gt; {
 		log::<span class="macro-nonterminal">$</span><span class="macro">level!</span>(
 			<span class="macro-nonterminal">target</span>: <span class="kw">crate</span>::LOG_TARGET,
-			<span class="macro">concat!</span>(<span class="string">&quot;[{:?}] 👜 [{}]&quot;</span>, <span class="macro-nonterminal">$patter</span>),
+			<span class="macro">concat!</span>(<span class="string">"[{:?}] 👜 [{}]"</span>, <span class="macro-nonterminal">$patter</span>),
 			&lt;frame_system::Pallet&lt;T&gt;&gt;::block_number(),
 			&lt;<span class="kw">crate</span>::Pallet::&lt;T, I&gt; <span class="kw">as </span>frame_support::traits::PalletInfoAccess&gt;::name()
 			$(, <span class="macro-nonterminal">$values</span>)*
@@ -826,7 +828,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub struct </span>Pallet&lt;T, I = ()&gt;(<span class="kw">_</span>);
 
 	<span class="attr">#[pallet::config]
-	</span><span class="kw">pub trait </span>Config&lt;I: <span class="lifetime">&#39;static </span>= ()&gt;: frame_system::Config {
+	</span><span class="kw">pub trait </span>Config&lt;I: <span class="lifetime">'static </span>= ()&gt;: frame_system::Config {
 		<span class="doccomment">/// The overarching event type.
 		</span><span class="kw">type </span>RuntimeEvent: From&lt;Event&lt;<span class="self">Self</span>, I&gt;&gt;
 			+ IsType&lt;&lt;<span class="self">Self </span><span class="kw">as </span>frame_system::Config&gt;::RuntimeEvent&gt;;
@@ -840,7 +842,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="doccomment">/// The list of thresholds separating the various bags.
 		///
 		/// Ids are separated into unsorted bags according to their score. This specifies the
-		/// thresholds separating the bags. An id&#39;s bag is the largest bag for which the id&#39;s score
+		/// thresholds separating the bags. An id's bag is the largest bag for which the id's score
 		/// is less than or equal to its upper threshold.
 		///
 		/// When ids are iterated, higher bags are iterated completely before lower bags. This means
@@ -881,7 +883,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		/// In the event that this list ever changes, a copy of the old bags list must be retained.
 		/// With that `List::migrate` can be called, which will perform the appropriate migration.
 		</span><span class="attr">#[pallet::constant]
-		</span><span class="kw">type </span>BagThresholds: Get&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[<span class="self">Self</span>::Score]&gt;;
+		</span><span class="kw">type </span>BagThresholds: Get&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>[<span class="self">Self</span>::Score]&gt;;
 
 		<span class="doccomment">/// The type used to dictate a node position relative to other nodes.
 		</span><span class="kw">type </span>Score: Clone
@@ -903,19 +905,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// Nodes store links forward and back within their respective bags.
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>ListNodes&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; =
+	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>ListNodes&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; =
 		CountedStorageMap&lt;<span class="kw">_</span>, Twox64Concat, T::AccountId, list::Node&lt;T, I&gt;&gt;;
 
 	<span class="doccomment">/// A bag stored in storage.
 	///
 	/// Stores a `Bag` struct, which stores head and tail pointers to itself.
 	</span><span class="attr">#[pallet::storage]
-	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>ListBags&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; =
+	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>ListBags&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; =
 		StorageMap&lt;<span class="kw">_</span>, Twox64Concat, T::Score, list::Bag&lt;T, I&gt;&gt;;
 
 	<span class="attr">#[pallet::event]
 	#[pallet::generate_deposit(<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>deposit_event)]
-	</span><span class="kw">pub enum </span>Event&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static </span>= ()&gt; {
+	</span><span class="kw">pub enum </span>Event&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static </span>= ()&gt; {
 		<span class="doccomment">/// Moved an account from one bag to another.
 		</span>Rebagged { who: T::AccountId, from: T::Score, to: T::Score },
 		<span class="doccomment">/// Updated the score of some account to the given amount.
@@ -936,7 +938,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="attr">#[pallet::call]
-	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; Pallet&lt;T, I&gt; {
+	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Pallet&lt;T, I&gt; {
 		<span class="doccomment">/// Declare that some `dislocated` account has, through rewards or penalties, sufficiently
 		/// changed its score that it should properly fall into a different bag than its current
 		/// one.
@@ -958,7 +960,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Ok</span>(())
 		}
 
-		<span class="doccomment">/// Move the caller&#39;s Id directly in front of `lighter`.
+		<span class="doccomment">/// Move the caller's Id directly in front of `lighter`.
 		///
 		/// The dispatch origin for this call must be _Signed_ and can only be called by the Id of
 		/// the account going in front of `lighter`. Fee is payed by the origin under all
@@ -1001,30 +1003,30 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="attr">#[pallet::hooks]
-	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; Hooks&lt;BlockNumberFor&lt;T&gt;&gt; <span class="kw">for </span>Pallet&lt;T, I&gt; {
+	</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Hooks&lt;BlockNumberFor&lt;T&gt;&gt; <span class="kw">for </span>Pallet&lt;T, I&gt; {
 		<span class="kw">fn </span>integrity_test() {
 			<span class="comment">// ensure they are strictly increasing, this also implies that duplicates are detected.
 			</span><span class="macro">assert!</span>(
 				T::BagThresholds::get().windows(<span class="number">2</span>).all(|window| window[<span class="number">1</span>] &gt; window[<span class="number">0</span>]),
-				<span class="string">&quot;thresholds must strictly increase, and have no duplicates&quot;</span>,
+				<span class="string">"thresholds must strictly increase, and have no duplicates"</span>,
 			);
 		}
 
-		<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+		<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 		</span><span class="kw">fn </span>try_state(<span class="kw">_</span>: BlockNumberFor&lt;T&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
 			&lt;<span class="self">Self </span><span class="kw">as </span>SortedListProvider&lt;T::AccountId&gt;&gt;::try_state()
 		}
 	}
 }
 
-<span class="attr">#[cfg(any(test, feature = <span class="string">&quot;try-runtime&quot;</span>, feature = <span class="string">&quot;fuzz&quot;</span>))]
-</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; Pallet&lt;T, I&gt; {
+<span class="attr">#[cfg(any(test, feature = <span class="string">"try-runtime"</span>, feature = <span class="string">"fuzz"</span>))]
+</span><span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Pallet&lt;T, I&gt; {
 	<span class="kw">pub fn </span>do_try_state() -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
 		List::&lt;T, I&gt;::do_try_state()
 	}
 }
 
-<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; Pallet&lt;T, I&gt; {
+<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; Pallet&lt;T, I&gt; {
 	<span class="doccomment">/// Move an account from one bag to another, depositing an event on success.
 	///
 	/// If the account changed bags, returns `Ok(Some((from, to)))`.
@@ -1032,7 +1034,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		account: <span class="kw-2">&amp;</span>T::AccountId,
 		new_score: T::Score,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;(T::Score, T::Score)&gt;, ListError&gt; {
-		<span class="comment">// If no voter at that node, don&#39;t do anything. the caller just wasted the fee to call this.
+		<span class="comment">// If no voter at that node, don't do anything. the caller just wasted the fee to call this.
 		</span><span class="kw">let </span>node = list::Node::&lt;T, I&gt;::get(<span class="kw-2">&amp;</span>account).ok_or(ListError::NodeNotFound)<span class="question-mark">?</span>;
 		<span class="kw">let </span>maybe_movement = List::update_position_for(node, new_score);
 		<span class="kw">if let </span><span class="prelude-val">Some</span>((from, to)) = maybe_movement {
@@ -1043,13 +1045,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Equivalent to `ListBags::get`, but public. Useful for tests in outside of this crate.
-	</span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+	</span><span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 	</span><span class="kw">pub fn </span>list_bags_get(score: T::Score) -&gt; <span class="prelude-ty">Option</span>&lt;list::Bag&lt;T, I&gt;&gt; {
 		ListBags::get(score)
 	}
 }
 
-<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; SortedListProvider&lt;T::AccountId&gt; <span class="kw">for </span>Pallet&lt;T, I&gt; {
+<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; SortedListProvider&lt;T::AccountId&gt; <span class="kw">for </span>Pallet&lt;T, I&gt; {
 	<span class="kw">type </span>Error = ListError;
 	<span class="kw">type </span>Score = T::Score;
 
@@ -1098,7 +1100,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>List::&lt;T, I&gt;::unsafe_regenerate(all, score_of)
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 	</span><span class="kw">fn </span>try_state() -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
 		<span class="self">Self</span>::do_try_state()
 	}
@@ -1134,7 +1136,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; ScoreProvider&lt;T::AccountId&gt; <span class="kw">for </span>Pallet&lt;T, I&gt; {
+<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; ScoreProvider&lt;T::AccountId&gt; <span class="kw">for </span>Pallet&lt;T, I&gt; {
 	<span class="kw">type </span>Score = &lt;Pallet&lt;T, I&gt; <span class="kw">as </span>SortedListProvider&lt;T::AccountId&gt;&gt;::Score;
 
 	<span class="kw">fn </span>score(id: <span class="kw-2">&amp;</span>T::AccountId) -&gt; T::Score {
@@ -1147,7 +1149,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">if let </span><span class="prelude-val">Some</span>(node) = maybe_node.as_mut() {
 					node.score = new_score;
 				} <span class="kw">else </span>{
-					<span class="macro">panic!</span>(<span class="string">&quot;trying to mutate {:?} which does not exists&quot;</span>, id);
+					<span class="macro">panic!</span>(<span class="string">"trying to mutate {:?} which does not exists"</span>, id);
 				}
 			})
 		}

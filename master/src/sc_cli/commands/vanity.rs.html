@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/cli/src/commands/vanity.rs`."><title>vanity.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/cli/src/commands/vanity.rs`."><title>vanity.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sc_cli" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sc_cli" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../sc_cli/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -418,7 +420,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// The `vanity` command
 </span><span class="attr">#[derive(Debug, Clone, Parser)]
-#[command(name = <span class="string">&quot;vanity&quot;</span>, about = <span class="string">&quot;Generate a seed that provides a vanity address&quot;</span>)]
+#[command(name = <span class="string">"vanity"</span>, about = <span class="string">"Generate a seed that provides a vanity address"</span>)]
 </span><span class="kw">pub struct </span>VanityCmd {
 	<span class="doccomment">/// Desired pattern
 	</span><span class="attr">#[arg(long, value_parser = assert_non_empty_string)]
@@ -465,13 +467,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">fn </span>generate_key&lt;Pair&gt;(
 	desired: <span class="kw-2">&amp;</span>str,
 	network_override: Ss58AddressFormat,
-) -&gt; <span class="prelude-ty">Result</span>&lt;String, <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt;
+) -&gt; <span class="prelude-ty">Result</span>&lt;String, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt;
 <span class="kw">where
 	</span>Pair: sp_core::Pair,
 	Pair::Public: IdentifyAccount,
 	&lt;Pair::Public <span class="kw">as </span>IdentifyAccount&gt;::AccountId: Ss58Codec,
 {
-	<span class="macro">println!</span>(<span class="string">&quot;Generating key containing pattern &#39;{}&#39;&quot;</span>, desired);
+	<span class="macro">println!</span>(<span class="string">"Generating key containing pattern '{}'"</span>, desired);
 
 	<span class="kw">let </span>top = <span class="number">45 </span>+ (desired.len() * <span class="number">48</span>);
 	<span class="kw">let </span><span class="kw-2">mut </span>best = <span class="number">0</span>;
@@ -491,14 +493,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if </span>score &gt; best || desired.len() &lt; <span class="number">2 </span>{
 			best = score;
 			<span class="kw">if </span>best &gt;= top {
-				<span class="macro">println!</span>(<span class="string">&quot;best: {} == top: {}&quot;</span>, best, top);
+				<span class="macro">println!</span>(<span class="string">"best: {} == top: {}"</span>, best, top);
 				<span class="kw">return </span><span class="prelude-val">Ok</span>(utils::format_seed::&lt;Pair&gt;(seed.clone()))
 			}
 		}
 		done += <span class="number">1</span>;
 
 		<span class="kw">if </span>done % good_waypoint(done) == <span class="number">0 </span>{
-			<span class="macro">println!</span>(<span class="string">&quot;{} keys searched; best is {}/{} complete&quot;</span>, done, best, top);
+			<span class="macro">println!</span>(<span class="string">"{} keys searched; best is {}/{} complete"</span>, done, best, top);
 		}
 	}
 }
@@ -540,9 +542,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span>}
 
 <span class="doccomment">/// checks that `pattern` is non-empty
-</span><span class="kw">fn </span>assert_non_empty_string(pattern: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;String, <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; {
+</span><span class="kw">fn </span>assert_non_empty_string(pattern: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;String, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
 	<span class="kw">if </span>pattern.is_empty() {
-		<span class="prelude-val">Err</span>(<span class="string">&quot;Pattern must not be empty&quot;</span>)
+		<span class="prelude-val">Err</span>(<span class="string">"Pattern must not be empty"</span>)
 	} <span class="kw">else </span>{
 		<span class="prelude-val">Ok</span>(pattern.to_string())
 	}
@@ -555,46 +557,46 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		crypto::{default_ss58_version, Ss58AddressFormatRegistry, Ss58Codec},
 		sr25519, Pair,
 	};
-	<span class="attr">#[cfg(feature = <span class="string">&quot;bench&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"bench"</span>)]
 	</span><span class="kw">use </span>test::Bencher;
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>vanity() {
-		<span class="kw">let </span>vanity = VanityCmd::parse_from(<span class="kw-2">&amp;</span>[<span class="string">&quot;vanity&quot;</span>, <span class="string">&quot;--pattern&quot;</span>, <span class="string">&quot;j&quot;</span>]);
+		<span class="kw">let </span>vanity = VanityCmd::parse_from(<span class="kw-2">&amp;</span>[<span class="string">"vanity"</span>, <span class="string">"--pattern"</span>, <span class="string">"j"</span>]);
 		<span class="macro">assert!</span>(vanity.run().is_ok());
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>test_generation_with_single_char() {
-		<span class="kw">let </span>seed = generate_key::&lt;sr25519::Pair&gt;(<span class="string">&quot;ab&quot;</span>, default_ss58_version()).unwrap();
+		<span class="kw">let </span>seed = generate_key::&lt;sr25519::Pair&gt;(<span class="string">"ab"</span>, default_ss58_version()).unwrap();
 		<span class="macro">assert!</span>(sr25519::Pair::from_seed_slice(<span class="kw-2">&amp;</span>array_bytes::hex2bytes_unchecked(<span class="kw-2">&amp;</span>seed))
 			.unwrap()
 			.public()
 			.to_ss58check()
-			.contains(<span class="string">&quot;ab&quot;</span>));
+			.contains(<span class="string">"ab"</span>));
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>generate_key_respects_network_override() {
 		<span class="kw">let </span>seed =
-			generate_key::&lt;sr25519::Pair&gt;(<span class="string">&quot;ab&quot;</span>, Ss58AddressFormatRegistry::PolkadotAccount.into())
+			generate_key::&lt;sr25519::Pair&gt;(<span class="string">"ab"</span>, Ss58AddressFormatRegistry::PolkadotAccount.into())
 				.unwrap();
 		<span class="macro">assert!</span>(sr25519::Pair::from_seed_slice(<span class="kw-2">&amp;</span>array_bytes::hex2bytes_unchecked(<span class="kw-2">&amp;</span>seed))
 			.unwrap()
 			.public()
 			.to_ss58check_with_version(Ss58AddressFormatRegistry::PolkadotAccount.into())
-			.contains(<span class="string">&quot;ab&quot;</span>));
+			.contains(<span class="string">"ab"</span>));
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>test_score_1_char_100() {
-		<span class="kw">let </span>score = calculate_score(<span class="string">&quot;j&quot;</span>, <span class="string">&quot;5jolkadotwHY5k9GpdTgpqs9xjuNvtv8EcwCFpEeyEf3KHim&quot;</span>);
+		<span class="kw">let </span>score = calculate_score(<span class="string">"j"</span>, <span class="string">"5jolkadotwHY5k9GpdTgpqs9xjuNvtv8EcwCFpEeyEf3KHim"</span>);
 		<span class="macro">assert_eq!</span>(score, <span class="number">94</span>);
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>test_score_100() {
-		<span class="kw">let </span>score = calculate_score(<span class="string">&quot;Polkadot&quot;</span>, <span class="string">&quot;5PolkadotwHY5k9GpdTgpqs9xjuNvtv8EcwCFpEeyEf3KHim&quot;</span>);
+		<span class="kw">let </span>score = calculate_score(<span class="string">"Polkadot"</span>, <span class="string">"5PolkadotwHY5k9GpdTgpqs9xjuNvtv8EcwCFpEeyEf3KHim"</span>);
 		<span class="macro">assert_eq!</span>(score, <span class="number">430</span>);
 	}
 
@@ -602,7 +604,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>test_score_50_2() {
 		<span class="comment">// 50% for the position + 50% for the size
 		</span><span class="macro">assert_eq!</span>(
-			calculate_score(<span class="string">&quot;Polkadot&quot;</span>, <span class="string">&quot;5PolkXXXXwHY5k9GpdTgpqs9xjuNvtv8EcwCFpEeyEf3KHim&quot;</span>),
+			calculate_score(<span class="string">"Polkadot"</span>, <span class="string">"5PolkXXXXwHY5k9GpdTgpqs9xjuNvtv8EcwCFpEeyEf3KHim"</span>),
 			<span class="number">238
 		</span>);
 	}
@@ -610,21 +612,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>test_score_0() {
 		<span class="macro">assert_eq!</span>(
-			calculate_score(<span class="string">&quot;Polkadot&quot;</span>, <span class="string">&quot;5GUWv4bLCchGUHJrzULXnh4JgXsMpTKRnjuXTY7Qo1Kh9uYK&quot;</span>),
+			calculate_score(<span class="string">"Polkadot"</span>, <span class="string">"5GUWv4bLCchGUHJrzULXnh4JgXsMpTKRnjuXTY7Qo1Kh9uYK"</span>),
 			<span class="number">0
 		</span>);
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;bench&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"bench"</span>)]
 	#[bench]
 	</span><span class="kw">fn </span>bench_paranoiac(b: <span class="kw-2">&amp;mut </span>Bencher) {
-		b.iter(|| generate_key(<span class="string">&quot;polk&quot;</span>));
+		b.iter(|| generate_key(<span class="string">"polk"</span>));
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;bench&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"bench"</span>)]
 	#[bench]
 	</span><span class="kw">fn </span>bench_not_paranoiac(b: <span class="kw-2">&amp;mut </span>Bencher) {
-		b.iter(|| generate_key(<span class="string">&quot;polk&quot;</span>));
+		b.iter(|| generate_key(<span class="string">"polk"</span>));
 	}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

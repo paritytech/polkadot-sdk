@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/support/src/storage/migration.rs`."><title>migration.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/support/src/storage/migration.rs`."><title>migration.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="frame_support" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="frame_support" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../frame_support/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -669,14 +671,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -703,16 +705,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl</span>&lt;T&gt; StorageIterator&lt;T&gt; {
 	<span class="doccomment">/// Construct iterator to iterate over map items in `module` for the map called `item`.
-	</span><span class="attr">#[deprecated(note = <span class="string">&quot;Will be removed after July 2023; Please use the storage_iter or \
-		storage_iter_with_suffix functions instead&quot;</span>)]
+	</span><span class="attr">#[deprecated(note = <span class="string">"Will be removed after July 2023; Please use the storage_iter or \
+		storage_iter_with_suffix functions instead"</span>)]
 	</span><span class="kw">pub fn </span>new(module: <span class="kw-2">&amp;</span>[u8], item: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="self">Self </span>{
 		<span class="attr">#[allow(deprecated)]
 		</span><span class="self">Self</span>::with_suffix(module, item, <span class="kw-2">&amp;</span>[][..])
 	}
 
 	<span class="doccomment">/// Construct iterator to iterate over map items in `module` for the map called `item`.
-	</span><span class="attr">#[deprecated(note = <span class="string">&quot;Will be removed after July 2023; Please use the storage_iter or \
-		storage_iter_with_suffix functions instead&quot;</span>)]
+	</span><span class="attr">#[deprecated(note = <span class="string">"Will be removed after July 2023; Please use the storage_iter or \
+		storage_iter_with_suffix functions instead"</span>)]
 	</span><span class="kw">pub fn </span>with_suffix(module: <span class="kw-2">&amp;</span>[u8], item: <span class="kw-2">&amp;</span>[u8], suffix: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="self">Self </span>{
 		<span class="kw">let </span><span class="kw-2">mut </span>prefix = Vec::new();
 		<span class="kw">let </span>storage_prefix = storage_prefix(module, item);
@@ -766,16 +768,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl</span>&lt;K, T, H: ReversibleStorageHasher&gt; StorageKeyIterator&lt;K, T, H&gt; {
 	<span class="doccomment">/// Construct iterator to iterate over map items in `module` for the map called `item`.
-	</span><span class="attr">#[deprecated(note = <span class="string">&quot;Will be removed after July 2023; Please use the storage_key_iter or \
-		storage_key_iter_with_suffix functions instead&quot;</span>)]
+	</span><span class="attr">#[deprecated(note = <span class="string">"Will be removed after July 2023; Please use the storage_key_iter or \
+		storage_key_iter_with_suffix functions instead"</span>)]
 	</span><span class="kw">pub fn </span>new(module: <span class="kw-2">&amp;</span>[u8], item: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="self">Self </span>{
 		<span class="attr">#[allow(deprecated)]
 		</span><span class="self">Self</span>::with_suffix(module, item, <span class="kw-2">&amp;</span>[][..])
 	}
 
 	<span class="doccomment">/// Construct iterator to iterate over map items in `module` for the map called `item`.
-	</span><span class="attr">#[deprecated(note = <span class="string">&quot;Will be removed after July 2023; Please use the storage_key_iter or \
-		storage_key_iter_with_suffix functions instead&quot;</span>)]
+	</span><span class="attr">#[deprecated(note = <span class="string">"Will be removed after July 2023; Please use the storage_key_iter or \
+		storage_key_iter_with_suffix functions instead"</span>)]
 	</span><span class="kw">pub fn </span>with_suffix(module: <span class="kw-2">&amp;</span>[u8], item: <span class="kw-2">&amp;</span>[u8], suffix: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="self">Self </span>{
 		<span class="kw">let </span><span class="kw-2">mut </span>prefix = Vec::new();
 		<span class="kw">let </span>storage_prefix = storage_prefix(module, item);
@@ -884,12 +886,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	PrefixIterator { prefix, previous_key, drain: <span class="bool-val">false</span>, closure, phantom: Default::default() }
 }
 
-<span class="doccomment">/// Get a particular value in storage by the `module`, the map&#39;s `item` name and the key `hash`.
+<span class="doccomment">/// Get a particular value in storage by the `module`, the map's `item` name and the key `hash`.
 </span><span class="kw">pub fn </span>have_storage_value(module: <span class="kw-2">&amp;</span>[u8], item: <span class="kw-2">&amp;</span>[u8], hash: <span class="kw-2">&amp;</span>[u8]) -&gt; bool {
 	get_storage_value::&lt;()&gt;(module, item, hash).is_some()
 }
 
-<span class="doccomment">/// Get a particular value in storage by the `module`, the map&#39;s `item` name and the key `hash`.
+<span class="doccomment">/// Get a particular value in storage by the `module`, the map's `item` name and the key `hash`.
 </span><span class="kw">pub fn </span>get_storage_value&lt;T: Decode + Sized&gt;(module: <span class="kw-2">&amp;</span>[u8], item: <span class="kw-2">&amp;</span>[u8], hash: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Option</span>&lt;T&gt; {
 	<span class="kw">let </span><span class="kw-2">mut </span>key = <span class="macro">vec!</span>[<span class="number">0u8</span>; <span class="number">32 </span>+ hash.len()];
 	<span class="kw">let </span>storage_prefix = storage_prefix(module, item);
@@ -898,7 +900,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	frame_support::storage::unhashed::get::&lt;T&gt;(<span class="kw-2">&amp;</span>key)
 }
 
-<span class="doccomment">/// Take a particular value in storage by the `module`, the map&#39;s `item` name and the key `hash`.
+<span class="doccomment">/// Take a particular value in storage by the `module`, the map's `item` name and the key `hash`.
 </span><span class="kw">pub fn </span>take_storage_value&lt;T: Decode + Sized&gt;(module: <span class="kw-2">&amp;</span>[u8], item: <span class="kw-2">&amp;</span>[u8], hash: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Option</span>&lt;T&gt; {
 	<span class="kw">let </span><span class="kw-2">mut </span>key = <span class="macro">vec!</span>[<span class="number">0u8</span>; <span class="number">32 </span>+ hash.len()];
 	<span class="kw">let </span>storage_prefix = storage_prefix(module, item);
@@ -907,7 +909,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	frame_support::storage::unhashed::take::&lt;T&gt;(<span class="kw-2">&amp;</span>key)
 }
 
-<span class="doccomment">/// Put a particular value into storage by the `module`, the map&#39;s `item` name and the key `hash`.
+<span class="doccomment">/// Put a particular value into storage by the `module`, the map's `item` name and the key `hash`.
 </span><span class="kw">pub fn </span>put_storage_value&lt;T: Encode&gt;(module: <span class="kw-2">&amp;</span>[u8], item: <span class="kw-2">&amp;</span>[u8], hash: <span class="kw-2">&amp;</span>[u8], value: T) {
 	<span class="kw">let </span><span class="kw-2">mut </span>key = <span class="macro">vec!</span>[<span class="number">0u8</span>; <span class="number">32 </span>+ hash.len()];
 	<span class="kw">let </span>storage_prefix = storage_prefix(module, item);
@@ -916,9 +918,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	frame_support::storage::unhashed::put(<span class="kw-2">&amp;</span>key, <span class="kw-2">&amp;</span>value);
 }
 
-<span class="doccomment">/// Remove all items under a storage prefix by the `module`, the map&#39;s `item` name and the key
+<span class="doccomment">/// Remove all items under a storage prefix by the `module`, the map's `item` name and the key
 /// `hash`.
-</span><span class="attr">#[deprecated = <span class="string">&quot;Use `clear_storage_prefix` instead&quot;</span>]
+</span><span class="attr">#[deprecated = <span class="string">"Use `clear_storage_prefix` instead"</span>]
 </span><span class="kw">pub fn </span>remove_storage_prefix(module: <span class="kw-2">&amp;</span>[u8], item: <span class="kw-2">&amp;</span>[u8], hash: <span class="kw-2">&amp;</span>[u8]) {
 	<span class="kw">let </span><span class="kw-2">mut </span>key = <span class="macro">vec!</span>[<span class="number">0u8</span>; <span class="number">32 </span>+ hash.len()];
 	<span class="kw">let </span>storage_prefix = storage_prefix(module, item);
@@ -927,19 +929,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let _ </span>= frame_support::storage::unhashed::clear_prefix(<span class="kw-2">&amp;</span>key, <span class="prelude-val">None</span>, <span class="prelude-val">None</span>);
 }
 
-<span class="doccomment">/// Attempt to remove all values under a storage prefix by the `module`, the map&#39;s `item` name and
+<span class="doccomment">/// Attempt to remove all values under a storage prefix by the `module`, the map's `item` name and
 /// the key `hash`.
 ///
 /// All values in the client overlay will be deleted, if `maybe_limit` is `Some` then up to
 /// that number of values are deleted from the client backend by seeking and reading that number of
 /// storage values plus one. If `maybe_limit` is `None` then all values in the client backend are
-/// deleted. This is potentially unsafe since it&#39;s an unbounded operation.
+/// deleted. This is potentially unsafe since it's an unbounded operation.
 ///
 /// ## Cursors
 ///
 /// The `maybe_cursor` parameter should be `None` for the first call to initial removal.
 /// If the resultant `maybe_cursor` is `Some`, then another call is required to complete the
-/// removal operation. This value must be passed in as the subsequent call&#39;s `maybe_cursor`
+/// removal operation. This value must be passed in as the subsequent call's `maybe_cursor`
 /// parameter. If the resultant `maybe_cursor` is `None`, then the operation is complete and no
 /// items remain in storage provided that no items were added between the first calls and the
 /// final call.
@@ -957,7 +959,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	frame_support::storage::unhashed::clear_prefix(<span class="kw-2">&amp;</span>key, maybe_limit, maybe_cursor)
 }
 
-<span class="doccomment">/// Take a particular item in storage by the `module`, the map&#39;s `item` name and the key `hash`.
+<span class="doccomment">/// Take a particular item in storage by the `module`, the map's `item` name and the key `hash`.
 </span><span class="kw">pub fn </span>take_storage_item&lt;K: Encode + Sized, T: Decode + Sized, H: StorageHasher&gt;(
 	module: <span class="kw-2">&amp;</span>[u8],
 	item: <span class="kw-2">&amp;</span>[u8],
@@ -977,13 +979,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// # Example
 ///
-/// If a pallet named &quot;my_example&quot; has 2 storages named &quot;Foo&quot; and &quot;Bar&quot; and the pallet is renamed
-/// &quot;my_new_example_name&quot;, a migration can be:
+/// If a pallet named "my_example" has 2 storages named "Foo" and "Bar" and the pallet is renamed
+/// "my_new_example_name", a migration can be:
 /// ```
 /// # use frame_support::storage::migration::move_storage_from_pallet;
 /// # sp_io::TestExternalities::new_empty().execute_with(|| {
-/// move_storage_from_pallet(b&quot;Foo&quot;, b&quot;my_example&quot;, b&quot;my_new_example_name&quot;);
-/// move_storage_from_pallet(b&quot;Bar&quot;, b&quot;my_example&quot;, b&quot;my_new_example_name&quot;);
+/// move_storage_from_pallet(b"Foo", b"my_example", b"my_new_example_name");
+/// move_storage_from_pallet(b"Bar", b"my_example", b"my_new_example_name");
 /// # })
 /// ```
 </span><span class="kw">pub fn </span>move_storage_from_pallet(
@@ -1014,12 +1016,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// # Example
 ///
-/// If a pallet named &quot;my_example&quot; has some storages and the pallet is renamed
-/// &quot;my_new_example_name&quot;, a migration can be:
+/// If a pallet named "my_example" has some storages and the pallet is renamed
+/// "my_new_example_name", a migration can be:
 /// ```
 /// # use frame_support::storage::migration::move_pallet;
 /// # sp_io::TestExternalities::new_empty().execute_with(|| {
-/// move_pallet(b&quot;my_example&quot;, b&quot;my_new_example_name&quot;);
+/// move_pallet(b"my_example", b"my_new_example_name");
 /// # })
 /// ```
 </span><span class="kw">pub fn </span>move_pallet(old_pallet_name: <span class="kw-2">&amp;</span>[u8], new_pallet_name: <span class="kw-2">&amp;</span>[u8]) {
@@ -1064,36 +1066,36 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">struct </span>OldPalletStorageValuePrefix;
 	<span class="kw">impl </span>frame_support::traits::StorageInstance <span class="kw">for </span>OldPalletStorageValuePrefix {
-		<span class="kw">const </span>STORAGE_PREFIX: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;foo_value&quot;</span>;
-		<span class="kw">fn </span>pallet_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str {
-			<span class="string">&quot;my_old_pallet&quot;
+		<span class="kw">const </span>STORAGE_PREFIX: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"foo_value"</span>;
+		<span class="kw">fn </span>pallet_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
+			<span class="string">"my_old_pallet"
 		</span>}
 	}
 	<span class="kw">type </span>OldStorageValue = StorageValue&lt;OldPalletStorageValuePrefix, u32&gt;;
 
 	<span class="kw">struct </span>OldPalletStorageMapPrefix;
 	<span class="kw">impl </span>frame_support::traits::StorageInstance <span class="kw">for </span>OldPalletStorageMapPrefix {
-		<span class="kw">const </span>STORAGE_PREFIX: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;foo_map&quot;</span>;
-		<span class="kw">fn </span>pallet_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str {
-			<span class="string">&quot;my_old_pallet&quot;
+		<span class="kw">const </span>STORAGE_PREFIX: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"foo_map"</span>;
+		<span class="kw">fn </span>pallet_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
+			<span class="string">"my_old_pallet"
 		</span>}
 	}
 	<span class="kw">type </span>OldStorageMap = StorageMap&lt;OldPalletStorageMapPrefix, Twox64Concat, u32, u32&gt;;
 
 	<span class="kw">struct </span>NewPalletStorageValuePrefix;
 	<span class="kw">impl </span>frame_support::traits::StorageInstance <span class="kw">for </span>NewPalletStorageValuePrefix {
-		<span class="kw">const </span>STORAGE_PREFIX: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;foo_value&quot;</span>;
-		<span class="kw">fn </span>pallet_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str {
-			<span class="string">&quot;my_new_pallet&quot;
+		<span class="kw">const </span>STORAGE_PREFIX: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"foo_value"</span>;
+		<span class="kw">fn </span>pallet_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
+			<span class="string">"my_new_pallet"
 		</span>}
 	}
 	<span class="kw">type </span>NewStorageValue = StorageValue&lt;NewPalletStorageValuePrefix, u32&gt;;
 
 	<span class="kw">struct </span>NewPalletStorageMapPrefix;
 	<span class="kw">impl </span>frame_support::traits::StorageInstance <span class="kw">for </span>NewPalletStorageMapPrefix {
-		<span class="kw">const </span>STORAGE_PREFIX: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;foo_map&quot;</span>;
-		<span class="kw">fn </span>pallet_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str {
-			<span class="string">&quot;my_new_pallet&quot;
+		<span class="kw">const </span>STORAGE_PREFIX: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"foo_map"</span>;
+		<span class="kw">fn </span>pallet_prefix() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
+			<span class="string">"my_new_pallet"
 		</span>}
 	}
 	<span class="kw">type </span>NewStorageMap = StorageMap&lt;NewPalletStorageMapPrefix, Twox64Concat, u32, u32&gt;;
@@ -1105,7 +1107,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			OldStorageMap::insert(<span class="number">1</span>, <span class="number">2</span>);
 			OldStorageMap::insert(<span class="number">3</span>, <span class="number">4</span>);
 
-			move_prefix(<span class="kw-2">&amp;</span>Twox128::hash(<span class="string">b&quot;my_old_pallet&quot;</span>), <span class="kw-2">&amp;</span>Twox128::hash(<span class="string">b&quot;my_new_pallet&quot;</span>));
+			move_prefix(<span class="kw-2">&amp;</span>Twox128::hash(<span class="string">b"my_old_pallet"</span>), <span class="kw-2">&amp;</span>Twox128::hash(<span class="string">b"my_new_pallet"</span>));
 
 			<span class="macro">assert_eq!</span>(OldStorageValue::get(), <span class="prelude-val">None</span>);
 			<span class="macro">assert_eq!</span>(OldStorageMap::iter().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(), <span class="macro">vec!</span>[]);
@@ -1121,14 +1123,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			OldStorageMap::insert(<span class="number">1</span>, <span class="number">2</span>);
 			OldStorageMap::insert(<span class="number">3</span>, <span class="number">4</span>);
 
-			move_storage_from_pallet(<span class="string">b&quot;foo_map&quot;</span>, <span class="string">b&quot;my_old_pallet&quot;</span>, <span class="string">b&quot;my_new_pallet&quot;</span>);
+			move_storage_from_pallet(<span class="string">b"foo_map"</span>, <span class="string">b"my_old_pallet"</span>, <span class="string">b"my_new_pallet"</span>);
 
 			<span class="macro">assert_eq!</span>(OldStorageValue::get(), <span class="prelude-val">Some</span>(<span class="number">3</span>));
 			<span class="macro">assert_eq!</span>(OldStorageMap::iter().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(), <span class="macro">vec!</span>[]);
 			<span class="macro">assert_eq!</span>(NewStorageValue::get(), <span class="prelude-val">None</span>);
 			<span class="macro">assert_eq!</span>(NewStorageMap::iter().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(), <span class="macro">vec!</span>[(<span class="number">1</span>, <span class="number">2</span>), (<span class="number">3</span>, <span class="number">4</span>)]);
 
-			move_storage_from_pallet(<span class="string">b&quot;foo_value&quot;</span>, <span class="string">b&quot;my_old_pallet&quot;</span>, <span class="string">b&quot;my_new_pallet&quot;</span>);
+			move_storage_from_pallet(<span class="string">b"foo_value"</span>, <span class="string">b"my_old_pallet"</span>, <span class="string">b"my_new_pallet"</span>);
 
 			<span class="macro">assert_eq!</span>(OldStorageValue::get(), <span class="prelude-val">None</span>);
 			<span class="macro">assert_eq!</span>(OldStorageMap::iter().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(), <span class="macro">vec!</span>[]);
@@ -1144,7 +1146,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			OldStorageMap::insert(<span class="number">1</span>, <span class="number">2</span>);
 			OldStorageMap::insert(<span class="number">3</span>, <span class="number">4</span>);
 
-			move_pallet(<span class="string">b&quot;my_old_pallet&quot;</span>, <span class="string">b&quot;my_new_pallet&quot;</span>);
+			move_pallet(<span class="string">b"my_old_pallet"</span>, <span class="string">b"my_new_pallet"</span>);
 
 			<span class="macro">assert_eq!</span>(OldStorageValue::get(), <span class="prelude-val">None</span>);
 			<span class="macro">assert_eq!</span>(OldStorageMap::iter().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(), <span class="macro">vec!</span>[]);
@@ -1161,13 +1163,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			OldStorageMap::insert(<span class="number">3</span>, <span class="number">4</span>);
 
 			<span class="macro">assert_eq!</span>(
-				storage_key_iter::&lt;i32, i32, Twox64Concat&gt;(<span class="string">b&quot;my_old_pallet&quot;</span>, <span class="string">b&quot;foo_map&quot;</span>)
+				storage_key_iter::&lt;i32, i32, Twox64Concat&gt;(<span class="string">b"my_old_pallet"</span>, <span class="string">b"foo_map"</span>)
 					.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
 				<span class="macro">vec!</span>[(<span class="number">1</span>, <span class="number">2</span>), (<span class="number">3</span>, <span class="number">4</span>)],
 			);
 
 			<span class="macro">assert_eq!</span>(
-				storage_iter(<span class="string">b&quot;my_old_pallet&quot;</span>, <span class="string">b&quot;foo_map&quot;</span>)
+				storage_iter(<span class="string">b"my_old_pallet"</span>, <span class="string">b"foo_map"</span>)
 					.drain()
 					.map(|t| t.<span class="number">1</span>)
 					.collect::&lt;Vec&lt;i32&gt;&gt;(),
@@ -1176,7 +1178,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">assert_eq!</span>(OldStorageMap::iter().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(), <span class="macro">vec!</span>[]);
 
 			<span class="comment">// Empty because storage iterator skips over the entry under the first key
-			</span><span class="macro">assert_eq!</span>(storage_iter::&lt;i32&gt;(<span class="string">b&quot;my_old_pallet&quot;</span>, <span class="string">b&quot;foo_value&quot;</span>).drain().next(), <span class="prelude-val">None</span>);
+			</span><span class="macro">assert_eq!</span>(storage_iter::&lt;i32&gt;(<span class="string">b"my_old_pallet"</span>, <span class="string">b"foo_value"</span>).drain().next(), <span class="prelude-val">None</span>);
 			<span class="macro">assert_eq!</span>(OldStorageValue::get(), <span class="prelude-val">Some</span>(<span class="number">3</span>));
 		});
 	}

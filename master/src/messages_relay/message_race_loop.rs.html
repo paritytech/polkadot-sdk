@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `bridges/relays/messages/src/message_race_loop.rs`."><title>message_race_loop.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `bridges/relays/messages/src/message_race_loop.rs`."><title>message_race_loop.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="messages_relay" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="messages_relay" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../messages_relay/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1000,7 +1002,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! confirmations race.
 //!
 //! The idea of the race is simple - we have `nonce`-s on source and target
-//! nodes. We&#39;re trying to prove that the source node has this nonce (and
+//! nodes. We're trying to prove that the source node has this nonce (and
 //! associated data - like messages, lane state, etc) to the target node by
 //! generating and submitting proof.
 
@@ -1410,8 +1412,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw-2">&amp;mut </span>source_retry_backoff,
 					|(at_block, nonces)| {
 						<span class="macro">log::debug!</span>(
-							target: <span class="string">&quot;bridge&quot;</span>,
-							<span class="string">&quot;Received nonces from {}: {:?}&quot;</span>,
+							target: <span class="string">"bridge"</span>,
+							<span class="string">"Received nonces from {}: {:?}"</span>,
 							P::source_name(),
 							nonces,
 						);
@@ -1420,7 +1422,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					},
 					<span class="kw-2">&amp;mut </span>source_go_offline_future,
 					async_std::task::sleep,
-					|| <span class="macro">format!</span>(<span class="string">&quot;Error retrieving nonces from {}&quot;</span>, P::source_name()),
+					|| <span class="macro">format!</span>(<span class="string">"Error retrieving nonces from {}"</span>, P::source_name()),
 				).fail_if_connection_error(FailedClient::Source)<span class="question-mark">?</span>;
 
 				<span class="comment">// ask for more headers if we have nonces to deliver and required headers are missing
@@ -1436,8 +1438,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw-2">&amp;mut </span>target_retry_backoff,
 					|(<span class="kw">_</span>, nonces)| {
 						<span class="macro">log::debug!</span>(
-							target: <span class="string">&quot;bridge&quot;</span>,
-							<span class="string">&quot;Received best nonces from {}: {:?}&quot;</span>,
+							target: <span class="string">"bridge"</span>,
+							<span class="string">"Received best nonces from {}: {:?}"</span>,
 							P::target_name(),
 							nonces,
 						);
@@ -1446,7 +1448,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					},
 					<span class="kw-2">&amp;mut </span>target_go_offline_future,
 					async_std::task::sleep,
-					|| <span class="macro">format!</span>(<span class="string">&quot;Error retrieving best nonces from {}&quot;</span>, P::target_name()),
+					|| <span class="macro">format!</span>(<span class="string">"Error retrieving best nonces from {}"</span>, P::target_name()),
 				).fail_if_connection_error(FailedClient::Target)<span class="question-mark">?</span>;
 			},
 			nonces = target_finalized_nonces =&gt; {
@@ -1457,8 +1459,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw-2">&amp;mut </span>target_retry_backoff,
 					|(<span class="kw">_</span>, nonces)| {
 						<span class="macro">log::debug!</span>(
-							target: <span class="string">&quot;bridge&quot;</span>,
-							<span class="string">&quot;Received finalized nonces from {}: {:?}&quot;</span>,
+							target: <span class="string">"bridge"</span>,
+							<span class="string">"Received finalized nonces from {}: {:?}"</span>,
 							P::target_name(),
 							nonces,
 						);
@@ -1467,7 +1469,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					},
 					<span class="kw-2">&amp;mut </span>target_go_offline_future,
 					async_std::task::sleep,
-					|| <span class="macro">format!</span>(<span class="string">&quot;Error retrieving finalized nonces from {}&quot;</span>, P::target_name()),
+					|| <span class="macro">format!</span>(<span class="string">"Error retrieving finalized nonces from {}"</span>, P::target_name()),
 				).fail_if_connection_error(FailedClient::Target)<span class="question-mark">?</span>;
 			},
 
@@ -1480,21 +1482,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw-2">&amp;mut </span>target_retry_backoff,
 					|maybe_batch_transaction: <span class="prelude-ty">Option</span>&lt;TC::BatchTransaction&gt;| {
 						<span class="macro">log::debug!</span>(
-							target: <span class="string">&quot;bridge&quot;</span>,
-							<span class="string">&quot;Target {} client has been asked for more {} headers. Batch tx: {}&quot;</span>,
+							target: <span class="string">"bridge"</span>,
+							<span class="string">"Target {} client has been asked for more {} headers. Batch tx: {}"</span>,
 							P::target_name(),
 							P::source_name(),
 							maybe_batch_transaction
 								.as_ref()
-								.map(|bt| <span class="macro">format!</span>(<span class="string">&quot;yes ({:?})&quot;</span>, bt.required_header_id()))
-								.unwrap_or_else(|| <span class="string">&quot;no&quot;</span>.into()),
+								.map(|bt| <span class="macro">format!</span>(<span class="string">"yes ({:?})"</span>, bt.required_header_id()))
+								.unwrap_or_else(|| <span class="string">"no"</span>.into()),
 						);
 
 						target_batch_transaction = maybe_batch_transaction;
 					},
 					<span class="kw-2">&amp;mut </span>target_go_offline_future,
 					async_std::task::sleep,
-					|| <span class="macro">format!</span>(<span class="string">&quot;Error asking for source headers at {}&quot;</span>, P::target_name()),
+					|| <span class="macro">format!</span>(<span class="string">"Error asking for source headers at {}"</span>, P::target_name()),
 				).fail_if_connection_error(FailedClient::Target)<span class="question-mark">?</span>;
 			},
 			proof = source_generate_proof =&gt; {
@@ -1503,8 +1505,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw-2">&amp;mut </span>source_retry_backoff,
 					|(at_block, nonces_range, proof, batch_transaction)| {
 						<span class="macro">log::debug!</span>(
-							target: <span class="string">&quot;bridge&quot;</span>,
-							<span class="string">&quot;Received proof for nonces in range {:?} from {}&quot;</span>,
+							target: <span class="string">"bridge"</span>,
+							<span class="string">"Received proof for nonces in range {:?} from {}"</span>,
 							nonces_range,
 							P::source_name(),
 						);
@@ -1514,7 +1516,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					},
 					<span class="kw-2">&amp;mut </span>source_go_offline_future,
 					async_std::task::sleep,
-					|| <span class="macro">format!</span>(<span class="string">&quot;Error generating proof at {}&quot;</span>, P::source_name()),
+					|| <span class="macro">format!</span>(<span class="string">"Error generating proof at {}"</span>, P::source_name()),
 				).fail_if_error(FailedClient::Source).map(|<span class="kw">_</span>| <span class="bool-val">true</span>)<span class="question-mark">?</span>;
 			},
 			proof_submit_result = target_submit_proof =&gt; {
@@ -1523,8 +1525,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw-2">&amp;mut </span>target_retry_backoff,
 					|artifacts: NoncesSubmitArtifacts&lt;TC::TransactionTracker&gt;| {
 						<span class="macro">log::debug!</span>(
-							target: <span class="string">&quot;bridge&quot;</span>,
-							<span class="string">&quot;Successfully submitted proof of nonces {:?} to {}&quot;</span>,
+							target: <span class="string">"bridge"</span>,
+							<span class="string">"Successfully submitted proof of nonces {:?} to {}"</span>,
 							artifacts.nonces,
 							P::target_name(),
 						);
@@ -1534,10 +1536,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					},
 					<span class="kw-2">&amp;mut </span>target_go_offline_future,
 					async_std::task::sleep,
-					|| <span class="macro">format!</span>(<span class="string">&quot;Error submitting proof {}&quot;</span>, P::target_name()),
+					|| <span class="macro">format!</span>(<span class="string">"Error submitting proof {}"</span>, P::target_name()),
 				).fail_if_connection_error(FailedClient::Target)<span class="question-mark">?</span>;
 
-				<span class="comment">// in any case - we don&#39;t need to retry submitting the same nonces again until
+				<span class="comment">// in any case - we don't need to retry submitting the same nonces again until
 				// we read nonces from the target client
 				</span>race_state.reset_nonces_to_submit();
 				<span class="comment">// if we have failed to submit transaction AND that is not the connection issue,
@@ -1549,15 +1551,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			target_transaction_status = target_tx_tracker =&gt; {
 				<span class="kw">match </span>(target_transaction_status, race_state.nonces_submitted.as_ref()) {
 					(TrackedTransactionStatus::Finalized(at_block), <span class="prelude-val">Some</span>(nonces_submitted)) =&gt; {
-						<span class="comment">// our transaction has been mined, but was it successful or not? let&#39;s check the best
+						<span class="comment">// our transaction has been mined, but was it successful or not? let's check the best
 						// nonce at the target node.
 						</span><span class="kw">let _ </span>= race_target.nonces(at_block, <span class="bool-val">false</span>)
 							.<span class="kw">await
-							</span>.map_err(|e| <span class="macro">format!</span>(<span class="string">&quot;failed to read nonces from target node: {e:?}&quot;</span>))
+							</span>.map_err(|e| <span class="macro">format!</span>(<span class="string">"failed to read nonces from target node: {e:?}"</span>))
 							.and_then(|(<span class="kw">_</span>, nonces_at_target)| {
 								<span class="kw">if </span>nonces_at_target.latest_nonce &lt; <span class="kw-2">*</span>nonces_submitted.end() {
 									<span class="prelude-val">Err</span>(<span class="macro">format!</span>(
-										<span class="string">&quot;best nonce at target after tx is {:?} and we&#39;ve submitted {:?}&quot;</span>,
+										<span class="string">"best nonce at target after tx is {:?} and we've submitted {:?}"</span>,
 										nonces_at_target.latest_nonce,
 										nonces_submitted.end(),
 									))
@@ -1567,8 +1569,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							})
 							.map_err(|e| {
 								<span class="macro">log::error!</span>(
-									target: <span class="string">&quot;bridge&quot;</span>,
-									<span class="string">&quot;{} -&gt; {} race transaction failed: {}&quot;</span>,
+									target: <span class="string">"bridge"</span>,
+									<span class="string">"{} -&gt; {} race transaction failed: {}"</span>,
 									P::source_name(),
 									P::target_name(),
 									e,
@@ -1579,8 +1581,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					},
 					(TrackedTransactionStatus::Lost, <span class="kw">_</span>) =&gt; {
 						<span class="macro">log::warn!</span>(
-							target: <span class="string">&quot;bridge&quot;</span>,
-							<span class="string">&quot;{} -&gt; {} race transaction has been lost. State: {:?}. Strategy: {:?}&quot;</span>,
+							target: <span class="string">"bridge"</span>,
+							<span class="string">"{} -&gt; {} race transaction has been lost. State: {:?}. Strategy: {:?}"</span>,
 							P::source_name(),
 							P::target_name(),
 							race_state,
@@ -1593,7 +1595,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				}
 			},
 
-			<span class="comment">// when we&#39;re ready to retry request
+			<span class="comment">// when we're ready to retry request
 			</span><span class="kw">_ </span>= source_go_offline_future =&gt; {
 				source_client_is_online = <span class="bool-val">true</span>;
 			},
@@ -1607,9 +1609,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if </span>source_client_is_online {
 			source_client_is_online = <span class="bool-val">false</span>;
 
-			<span class="comment">// if we&#39;ve started to submit batch transaction, let&#39;s prioritize it
+			<span class="comment">// if we've started to submit batch transaction, let's prioritize it
 			//
-			// we&#39;re using `take` here, because we don&#39;t need batch transaction (i.e. some
+			// we're using `take` here, because we don't need batch transaction (i.e. some
 			// underlying finality proof) anymore for our future calls - we were unable to
 			// use it for our current state, so why would we need to keep an obsolete proof
 			// for the future?
@@ -1633,8 +1635,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="kw">if let </span><span class="prelude-val">Some</span>((at_block, nonces_range, proof_parameters)) = nonces_to_deliver {
 				<span class="macro">log::debug!</span>(
-					target: <span class="string">&quot;bridge&quot;</span>,
-					<span class="string">&quot;Asking {} to prove nonces in range {:?} at block {:?}&quot;</span>,
+					target: <span class="string">"bridge"</span>,
+					<span class="string">"Asking {} to prove nonces in range {:?} at block {:?}"</span>,
 					P::source_name(),
 					nonces_range,
 					at_block,
@@ -1649,13 +1651,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						.fuse(),
 				);
 			} <span class="kw">else if let </span>(<span class="bool-val">true</span>, <span class="prelude-val">Some</span>(best_at_source)) = (source_nonces_required, best_at_source) {
-				<span class="macro">log::debug!</span>(target: <span class="string">&quot;bridge&quot;</span>, <span class="string">&quot;Asking {} about message nonces&quot;</span>, P::source_name());
+				<span class="macro">log::debug!</span>(target: <span class="string">"bridge"</span>, <span class="string">"Asking {} about message nonces"</span>, P::source_name());
 				<span class="kw">let </span>at_block = race_state
 					.best_finalized_source_header_id_at_source
 					.as_ref()
 					.expect(
-						<span class="string">&quot;source_nonces_required is only true when\
-						best_finalized_source_header_id_at_source is Some; qed&quot;</span>,
+						<span class="string">"source_nonces_required is only true when\
+						best_finalized_source_header_id_at_source is Some; qed"</span>,
 					)
 					.clone();
 				source_nonces.set(race_source.nonces(at_block, best_at_source).fuse());
@@ -1669,12 +1671,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="kw">if let </span><span class="prelude-val">Some</span>((at_block, nonces_range, proof)) = race_state.nonces_to_submit.as_ref() {
 				<span class="macro">log::debug!</span>(
-					target: <span class="string">&quot;bridge&quot;</span>,
-					<span class="string">&quot;Going to submit proof of messages in range {:?} to {} node{}&quot;</span>,
+					target: <span class="string">"bridge"</span>,
+					<span class="string">"Going to submit proof of messages in range {:?} to {} node{}"</span>,
 					nonces_range,
 					P::target_name(),
 					race_state.nonces_to_submit_batch.as_ref().map(|tx| <span class="macro">format!</span>(
-						<span class="string">&quot;. This transaction is batched with sending the proof for header {:?}.&quot;</span>,
+						<span class="string">". This transaction is batched with sending the proof for header {:?}."</span>,
 						tx.required_header_id())
 					).unwrap_or_default(),
 				);
@@ -1691,8 +1693,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				);
 			} <span class="kw">else if let </span><span class="prelude-val">Some</span>(source_required_header) = source_required_header.clone() {
 				<span class="macro">log::debug!</span>(
-					target: <span class="string">&quot;bridge&quot;</span>,
-					<span class="string">&quot;Going to require {} header {:?} at {}&quot;</span>,
+					target: <span class="string">"bridge"</span>,
+					<span class="string">"Going to require {} header {:?} at {}"</span>,
 					P::source_name(),
 					source_required_header,
 					P::target_name(),
@@ -1700,21 +1702,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				target_require_source_header
 					.set(race_target.require_source_header(source_required_header).fuse());
 			} <span class="kw">else if </span>target_best_nonces_required {
-				<span class="macro">log::debug!</span>(target: <span class="string">&quot;bridge&quot;</span>, <span class="string">&quot;Asking {} about best message nonces&quot;</span>, P::target_name());
+				<span class="macro">log::debug!</span>(target: <span class="string">"bridge"</span>, <span class="string">"Asking {} about best message nonces"</span>, P::target_name());
 				<span class="kw">let </span>at_block = race_state
 					.best_target_header_id
 					.as_ref()
-					.expect(<span class="string">&quot;target_best_nonces_required is only true when best_target_header_id is Some; qed&quot;</span>)
+					.expect(<span class="string">"target_best_nonces_required is only true when best_target_header_id is Some; qed"</span>)
 					.clone();
 				target_best_nonces.set(race_target.nonces(at_block, <span class="bool-val">false</span>).fuse());
 			} <span class="kw">else if </span>target_finalized_nonces_required {
-				<span class="macro">log::debug!</span>(target: <span class="string">&quot;bridge&quot;</span>, <span class="string">&quot;Asking {} about finalized message nonces&quot;</span>, P::target_name());
+				<span class="macro">log::debug!</span>(target: <span class="string">"bridge"</span>, <span class="string">"Asking {} about finalized message nonces"</span>, P::target_name());
 				<span class="kw">let </span>at_block = race_state
 					.best_finalized_target_header_id
 					.as_ref()
 					.expect(
-						<span class="string">&quot;target_finalized_nonces_required is only true when\
-						best_finalized_target_header_id is Some; qed&quot;</span>,
+						<span class="string">"target_finalized_nonces_required is only true when\
+						best_finalized_target_header_id is Some; qed"</span>,
 					)
 					.clone();
 				target_finalized_nonces.set(race_target.nonces(at_block, <span class="bool-val">true</span>).fuse());
@@ -1741,8 +1743,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>now_best_nonce_at_source = strategy.best_at_source();
 	<span class="kw">let </span>now_best_nonce_at_target = strategy.best_at_target();
 	<span class="macro">log::info!</span>(
-		target: <span class="string">&quot;bridge&quot;</span>,
-		<span class="string">&quot;Synced {:?} of {:?} nonces in {} -&gt; {} race&quot;</span>,
+		target: <span class="string">"bridge"</span>,
+		<span class="string">"Synced {:?} of {:?} nonces in {} -&gt; {} race"</span>,
 		now_best_nonce_at_target,
 		now_best_nonce_at_source,
 		P::source_name(),
@@ -1781,7 +1783,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">const </span>BEST_AT_SOURCE: u64 = <span class="number">10</span>;
 		<span class="kw">const </span>BEST_AT_TARGET: u64 = <span class="number">8</span>;
 
-		<span class="comment">// target node only knows about source&#39; BEST_AT_TARGET block
+		<span class="comment">// target node only knows about source' BEST_AT_TARGET block
 		// source node has BEST_AT_SOURCE &gt; BEST_AT_TARGET block
 		</span><span class="kw">let </span><span class="kw-2">mut </span>race_state = RaceStateImpl::&lt;<span class="kw">_</span>, <span class="kw">_</span>, (), ()&gt; {
 			best_finalized_source_header_id_at_source: <span class="prelude-val">Some</span>(HeaderId(
@@ -1799,7 +1801,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			nonces_submitted: <span class="prelude-val">None</span>,
 		};
 
-		<span class="comment">// we have some nonces to deliver and they&#39;re generated at GENERATED_AT &lt; BEST_AT_SOURCE
+		<span class="comment">// we have some nonces to deliver and they're generated at GENERATED_AT &lt; BEST_AT_SOURCE
 		</span><span class="kw">let </span><span class="kw-2">mut </span>strategy = BasicStrategy::&lt;<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, ()&gt;::new();
 		strategy.source_nonces_updated(
 			HeaderId(GENERATED_AT, GENERATED_AT),

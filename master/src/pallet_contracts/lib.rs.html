@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/contracts/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/contracts/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_contracts" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_contracts" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../pallet_contracts/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -2059,14 +2061,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -2083,7 +2085,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!
 //! This module extends accounts based on the [`frame_support::traits::fungible`] traits to have
 //! smart-contract functionality. It can be used with other modules that implement accounts based on
-//! the [`frame_support::traits::fungible`] traits. These &quot;smart-contract accounts&quot; have the ability
+//! the [`frame_support::traits::fungible`] traits. These "smart-contract accounts" have the ability
 //! to instantiate smart-contracts and make calls to other contract and non-contract accounts.
 //!
 //! The smart-contract code is stored once, and later retrievable via its hash.
@@ -2104,16 +2106,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! execution outcome.
 //!
 //! If the weight limit is reached, then all calls and state changes (including balance transfers)
-//! are only reverted at the current call&#39;s contract level. For example, if contract A calls B and B
-//! runs out of gas mid-call, then all of B&#39;s calls are reverted. Assuming correct error handling by
-//! contract A, A&#39;s other calls and state changes still persist.
+//! are only reverted at the current call's contract level. For example, if contract A calls B and B
+//! runs out of gas mid-call, then all of B's calls are reverted. Assuming correct error handling by
+//! contract A, A's other calls and state changes still persist.
 //!
 //! ### Notable Scenarios
 //!
 //! Contract call failures are not always cascading. When failures occur in a sub-call, they do not
-//! &quot;bubble up&quot;, and the call will only revert at the specific contract level. For example, if
+//! "bubble up", and the call will only revert at the specific contract level. For example, if
 //! contract A calls contract B, and B fails, A can decide how to handle that failure, either
-//! proceeding or reverting A&#39;s changes.
+//! proceeding or reverting A's changes.
 //!
 //! ## Interface
 //!
@@ -2140,8 +2142,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!   Rust.
 
 </span><span class="attr">#![allow(rustdoc::private_intra_doc_links)]
-#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
-#![cfg_attr(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>, recursion_limit = <span class="string">&quot;1024&quot;</span>)]
+#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
+#![cfg_attr(feature = <span class="string">"runtime-benchmarks"</span>, recursion_limit = <span class="string">"1024"</span>)]
 
 </span><span class="kw">mod </span>address;
 <span class="kw">mod </span>benchmarking;
@@ -2229,7 +2231,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Used as a sentinel value when reading and writing contract memory.
 ///
 /// It is usually used to signal `None` to a contract when only a primitive is allowed
-/// and we don&#39;t want to go through encoding a full Rust type. Using `u32::Max` is a safe
+/// and we don't want to go through encoding a full Rust type. Using `u32::Max` is a safe
 /// sentinel because contracts are never allowed to use such a large amount of resources
 /// that this value makes sense for a memory location or length.
 </span><span class="kw">const </span>SENTINEL: u32 = u32::MAX;
@@ -2239,7 +2241,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// Hence you can use this target to selectively increase the log level for this crate.
 ///
 /// Example: `RUST_LOG=runtime::contracts=debug my_code --dev`
-</span><span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;runtime::contracts&quot;</span>;
+</span><span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"runtime::contracts"</span>;
 
 <span class="doccomment">/// Wrapper around `PhantomData` to prevent it being filtered by `scale-info`.
 ///
@@ -2247,7 +2249,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// in sized types. However, when trying to communicate **types** as opposed to **values**
 /// we want to have those zero sized types be included.
 </span><span class="attr">#[derive(Encode, Decode, DefaultNoBound, TypeInfo)]
-#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = <span class="string">"std"</span>, derive(serde::Serialize, serde::Deserialize))]
 </span><span class="kw">pub struct </span>EnvironmentType&lt;T&gt;(PhantomData&lt;T&gt;);
 
 <span class="doccomment">/// List of all runtime configurable types that are used in the communication between
@@ -2260,7 +2262,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// This type only exists in order to appear in the metadata where it can be read by
 /// offchain tooling.
 </span><span class="attr">#[derive(Encode, Decode, DefaultNoBound, TypeInfo)]
-#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = <span class="string">"std"</span>, derive(serde::Serialize, serde::Deserialize))]
 #[scale_info(skip_type_params(T))]
 </span><span class="kw">pub struct </span>Environment&lt;T: Config&gt; {
 	account_id: EnvironmentType&lt;AccountIdOf&lt;T&gt;&gt;,
@@ -2288,7 +2290,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="macro">assert_eq!</span>(
 		<span class="number">109</span>,
 		<span class="kw">crate</span>::wasm::STABLE_API_COUNT,
-		<span class="string">&quot;Stable API count has changed. Bump the returned value of ApiVersion::default() and update the test.&quot;
+		<span class="string">"Stable API count has changed. Bump the returned value of ApiVersion::default() and update the test."
 	</span>);
 }
 
@@ -2369,7 +2371,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="attr">#[pallet::no_default_bounds]
 		</span><span class="kw">type </span>CallFilter: Contains&lt;&lt;<span class="self">Self </span><span class="kw">as </span>frame_system::Config&gt;::RuntimeCall&gt;;
 
-		<span class="doccomment">/// Used to answer contracts&#39; queries regarding the current weight price. This is **not**
+		<span class="doccomment">/// Used to answer contracts' queries regarding the current weight price. This is **not**
 		/// used to calculate the actual fee and is only for informational purposes.
 		</span><span class="attr">#[pallet::no_default_bounds]
 		</span><span class="kw">type </span>WeightPrice: Convert&lt;Weight, BalanceOf&lt;<span class="self">Self</span>&gt;&gt;;
@@ -2391,7 +2393,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		///
 		/// The allowed depth is `CallStack::size() + 1`.
 		/// Therefore a size of `0` means that a contract cannot use call or instantiate.
-		/// In other words only the origin called &quot;root contract&quot; is allowed to execute then.
+		/// In other words only the origin called "root contract" is allowed to execute then.
 		///
 		/// This setting along with [`MaxCodeLen`](#associatedtype.MaxCodeLen) directly affects
 		/// memory usage of your runtime.
@@ -2407,7 +2409,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		#[pallet::no_default_bounds]
 		</span><span class="kw">type </span>DepositPerByte: Get&lt;BalanceOf&lt;<span class="self">Self</span>&gt;&gt;;
 
-		<span class="doccomment">/// Fallback value to limit the storage deposit if it&#39;s not being set by the caller.
+		<span class="doccomment">/// Fallback value to limit the storage deposit if it's not being set by the caller.
 		</span><span class="attr">#[pallet::constant]
 		#[pallet::no_default_bounds]
 		</span><span class="kw">type </span>DefaultDepositLimit: Get&lt;BalanceOf&lt;<span class="self">Self</span>&gt;&gt;;
@@ -2451,7 +2453,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="doccomment">/// Make contract callable functions marked as `#[unstable]` available.
 		///
-		/// Contracts that use `#[unstable]` functions won&#39;t be able to be uploaded unless
+		/// Contracts that use `#[unstable]` functions won't be able to be uploaded unless
 		/// this is set to `true`. This is only meant for testnets and dev nodes in order to
 		/// experiment with new features.
 		///
@@ -2505,9 +2507,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">type </span>Migrations: MigrateSequence;
 
 		<span class="doccomment">/// # Note
-		/// For most production chains, it&#39;s recommended to use the `()` implementation of this
+		/// For most production chains, it's recommended to use the `()` implementation of this
 		/// trait. This implementation offers additional logging when the log target
-		/// &quot;runtime::contracts&quot; is set to trace.
+		/// "runtime::contracts" is set to trace.
 		</span><span class="attr">#[pallet::no_default_bounds]
 		</span><span class="kw">type </span>Debug: Debugger&lt;<span class="self">Self</span>&gt;;
 
@@ -2568,14 +2570,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">impl</span>&lt;Output, BlockNumber&gt; Randomness&lt;Output, BlockNumber&gt; <span class="kw">for </span>TestDefaultConfig {
 			<span class="kw">fn </span>random(_subject: <span class="kw-2">&amp;</span>[u8]) -&gt; (Output, BlockNumber) {
-				<span class="macro">unimplemented!</span>(<span class="string">&quot;No default `random` implementation in `TestDefaultConfig`, provide a custom `T::Randomness` type.&quot;</span>)
+				<span class="macro">unimplemented!</span>(<span class="string">"No default `random` implementation in `TestDefaultConfig`, provide a custom `T::Randomness` type."</span>)
 			}
 		}
 
 		<span class="kw">impl </span>Time <span class="kw">for </span>TestDefaultConfig {
 			<span class="kw">type </span>Moment = u64;
 			<span class="kw">fn </span>now() -&gt; <span class="self">Self</span>::Moment {
-				<span class="macro">unimplemented!</span>(<span class="string">&quot;No default `now` implementation in `TestDefaultConfig` provide a custom `T::Time` type.&quot;</span>)
+				<span class="macro">unimplemented!</span>(<span class="string">"No default `now` implementation in `TestDefaultConfig` provide a custom `T::Time` type."</span>)
 			}
 		}
 
@@ -2634,7 +2636,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">loop </span>{
 				<span class="kw">match </span>Migration::&lt;T&gt;::migrate(<span class="kw-2">&amp;mut </span>meter) {
 					<span class="comment">// There is not enough weight to perform a migration.
-					// We can&#39;t do anything more, so we return the used weight.
+					// We can't do anything more, so we return the used weight.
 					</span>NoMigrationPerformed | InProgress { steps_done: <span class="number">0 </span>} =&gt; <span class="kw">return </span>meter.consumed(),
 					<span class="comment">// Migration is still in progress, we can start the next step.
 					</span>InProgress { .. } =&gt; <span class="kw">continue</span>,
@@ -2660,9 +2662,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="kw">let </span>max_heap_size = T::Schedule::get().limits.max_memory_size();
 			<span class="comment">// Max call depth is CallStack::size() + 1
 			</span><span class="kw">let </span>max_call_depth = u32::try_from(T::CallStack::size().saturating_add(<span class="number">1</span>))
-				.expect(<span class="string">&quot;CallStack size is too big&quot;</span>);
+				.expect(<span class="string">"CallStack size is too big"</span>);
 
-			<span class="comment">// Check that given configured `MaxCodeLen`, runtime heap memory limit can&#39;t be broken.
+			<span class="comment">// Check that given configured `MaxCodeLen`, runtime heap memory limit can't be broken.
 			//
 			// In worst case, the decoded Wasm contract code would be `x16` times larger than the
 			// encoded one. This is because even a single-byte wasm instruction has 16-byte size in
@@ -2698,8 +2700,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="macro">assert!</span>(
 				T::MaxCodeLen::get() &lt; code_len_limit,
-				<span class="string">&quot;Given `CallStack` height {:?}, `MaxCodeLen` should be set less than {:?} \
-				 (current value is {:?}), to avoid possible runtime oom issues.&quot;</span>,
+				<span class="string">"Given `CallStack` height {:?}, `MaxCodeLen` should be set less than {:?} \
+				 (current value is {:?}), to avoid possible runtime oom issues."</span>,
 				max_call_depth,
 				code_len_limit,
 				T::MaxCodeLen::get(),
@@ -2709,7 +2711,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="kw">const </span>MIN_DEBUG_BUF_SIZE: u32 = <span class="number">256</span>;
 			<span class="macro">assert!</span>(
 				T::MaxDebugBufferLen::get() &gt; MIN_DEBUG_BUF_SIZE,
-				<span class="string">&quot;Debug buffer should have minimum size of {} (current setting is {})&quot;</span>,
+				<span class="string">"Debug buffer should have minimum size of {} (current setting is {})"</span>,
 				MIN_DEBUG_BUF_SIZE,
 				T::MaxDebugBufferLen::get(),
 			)
@@ -2725,7 +2727,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="attr">#[pallet::call_index(<span class="number">0</span>)]
 		#[pallet::weight(T::WeightInfo::call().saturating_add(&lt;Pallet&lt;T&gt;&gt;::compat_weight_limit(<span class="kw-2">*</span>gas_limit)))]
 		#[allow(deprecated)]
-		#[deprecated(note = <span class="string">&quot;1D weight is used in this extrinsic, please migrate to `call`&quot;</span>)]
+		#[deprecated(note = <span class="string">"1D weight is used in this extrinsic, please migrate to `call`"</span>)]
 		</span><span class="kw">pub fn </span>call_old_weight(
 			origin: OriginFor&lt;T&gt;,
 			dest: AccountIdLookupOf&lt;T&gt;,
@@ -2752,7 +2754,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		)]
 		#[allow(deprecated)]
 		#[deprecated(
-			note = <span class="string">&quot;1D weight is used in this extrinsic, please migrate to `instantiate_with_code`&quot;
+			note = <span class="string">"1D weight is used in this extrinsic, please migrate to `instantiate_with_code`"
 		</span>)]
 		</span><span class="kw">pub fn </span>instantiate_with_code_old_weight(
 			origin: OriginFor&lt;T&gt;,
@@ -2780,7 +2782,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			T::WeightInfo::instantiate(data.len() <span class="kw">as </span>u32, salt.len() <span class="kw">as </span>u32).saturating_add(&lt;Pallet&lt;T&gt;&gt;::compat_weight_limit(<span class="kw-2">*</span>gas_limit))
 		)]
 		#[allow(deprecated)]
-		#[deprecated(note = <span class="string">&quot;1D weight is used in this extrinsic, please migrate to `instantiate`&quot;</span>)]
+		#[deprecated(note = <span class="string">"1D weight is used in this extrinsic, please migrate to `instantiate`"</span>)]
 		</span><span class="kw">pub fn </span>instantiate_old_weight(
 			origin: OriginFor&lt;T&gt;,
 			<span class="attr">#[pallet::compact] </span>value: BalanceOf&lt;T&gt;,
@@ -3078,7 +3080,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 
 		<span class="doccomment">/// When a migration is in progress, this dispatchable can be used to run migration steps.
-		/// Calls that contribute to advancing the migration have their fees waived, as it&#39;s helpful
+		/// Calls that contribute to advancing the migration have their fees waived, as it's helpful
 		/// for the chain. Note that while the migration is in progress, the pallet will also
 		/// leverage the `on_idle` hooks to run migration steps.
 		</span><span class="attr">#[pallet::call_index(<span class="number">9</span>)]
@@ -3145,7 +3147,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="doccomment">/// A code with the specified hash was removed.
 		</span>CodeRemoved { code_hash: T::Hash, deposit_released: BalanceOf&lt;T&gt;, remover: T::AccountId },
 
-		<span class="doccomment">/// A contract&#39;s code was updated.
+		<span class="doccomment">/// A contract's code was updated.
 		</span>ContractCodeUpdated {
 			<span class="doccomment">/// The contract that has been updated.
 			</span>contract: T::AccountId,
@@ -3209,8 +3211,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>OutOfGas,
 		<span class="doccomment">/// The output buffer supplied to a contract API call was too small.
 		</span>OutputBufferTooSmall,
-		<span class="doccomment">/// Performing the requested transfer failed. Probably because there isn&#39;t enough
-		/// free balance in the sender&#39;s account.
+		<span class="doccomment">/// Performing the requested transfer failed. Probably because there isn't enough
+		/// free balance in the sender's account.
 		</span>TransferFailed,
 		<span class="doccomment">/// Performing a call was denied because the calling depth reached the limit
 		/// of what is specified in the schedule.
@@ -3242,7 +3244,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="doccomment">/// The amount of topics passed to `seal_deposit_events` exceeds the limit.
 		</span>TooManyTopics,
 		<span class="doccomment">/// The chain does not provide a chain extension. Calling the chain extension results
-		/// in this error. Note that this usually  shouldn&#39;t happen as deploying such contracts
+		/// in this error. Note that this usually  shouldn't happen as deploying such contracts
 		/// is rejected.
 		</span>NoChainExtension,
 		<span class="doccomment">/// Failed to decode the XCM program.
@@ -3258,7 +3260,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		/// into `pallet-contracts`. This would make the whole pallet reentrant with regard to
 		/// contract code execution which is not supported.
 		</span>ReentranceDenied,
-		<span class="doccomment">/// Origin doesn&#39;t have enough balance to pay the required storage deposits.
+		<span class="doccomment">/// Origin doesn't have enough balance to pay the required storage deposits.
 		</span>StorageDepositNotEnoughFunds,
 		<span class="doccomment">/// More storage was created than allowed by the storage deposit limit.
 		</span>StorageDepositLimitExhausted,
@@ -3269,7 +3271,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		/// or via RPC an `Ok` will be returned. In this case the caller needs to inspect the flags
 		/// to determine whether a reversion has taken place.
 		</span>ContractReverted,
-		<span class="doccomment">/// The contract&#39;s code was found to be invalid during validation.
+		<span class="doccomment">/// The contract's code was found to be invalid during validation.
 		///
 		/// The most likely cause of this is that an API was used which is not supported by the
 		/// node. This happens if an older node is used with a new version of ink!. Try updating
@@ -3286,7 +3288,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>NoMigrationPerformed,
 		<span class="doccomment">/// The contract has reached its maximum number of delegate dependencies.
 		</span>MaxDelegateDependenciesReached,
-		<span class="doccomment">/// The dependency was not found in the contract&#39;s delegate dependencies.
+		<span class="doccomment">/// The dependency was not found in the contract's delegate dependencies.
 		</span>DelegateDependencyNotFound,
 		<span class="doccomment">/// The contract already depends on the given delegate dependency.
 		</span>DelegateDependencyAlreadyExists,
@@ -3303,11 +3305,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>StorageDepositReserve,
 	}
 
-	<span class="doccomment">/// A mapping from a contract&#39;s code hash to its code.
+	<span class="doccomment">/// A mapping from a contract's code hash to its code.
 	</span><span class="attr">#[pallet::storage]
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>PristineCode&lt;T: Config&gt; = StorageMap&lt;<span class="kw">_</span>, Identity, CodeHash&lt;T&gt;, CodeVec&lt;T&gt;&gt;;
 
-	<span class="doccomment">/// A mapping from a contract&#39;s code hash to its code info.
+	<span class="doccomment">/// A mapping from a contract's code hash to its code info.
 	</span><span class="attr">#[pallet::storage]
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>CodeInfoOf&lt;T: Config&gt; = StorageMap&lt;<span class="kw">_</span>, Identity, CodeHash&lt;T&gt;, CodeInfo&lt;T&gt;&gt;;
 
@@ -3324,14 +3326,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// This is bad because the contents of a trie are deleted lazily and there might be
 	/// storage of the old instantiation still in it when the new contract is created. Please
-	/// note that we can&#39;t replace the counter by the block number because the sequence above
-	/// can happen in the same block. We also can&#39;t keep the account counter in memory only
+	/// note that we can't replace the counter by the block number because the sequence above
+	/// can happen in the same block. We also can't keep the account counter in memory only
 	/// because storage is the only way to communicate across different extrinsics in the
 	/// same block.
 	///
 	/// # Note
 	///
-	/// Do not use it to determine the number of contracts. It won&#39;t be decremented if
+	/// Do not use it to determine the number of contracts. It won't be decremented if
 	/// a contract is destroyed.
 	</span><span class="attr">#[pallet::storage]
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>Nonce&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, u64, ValueQuery&gt;;
@@ -3393,13 +3395,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Context of a contract invocation.
-</span><span class="kw">struct </span>CommonInput&lt;<span class="lifetime">&#39;a</span>, T: Config&gt; {
+</span><span class="kw">struct </span>CommonInput&lt;<span class="lifetime">'a</span>, T: Config&gt; {
 	origin: Origin&lt;T&gt;,
 	value: BalanceOf&lt;T&gt;,
 	data: Vec&lt;u8&gt;,
 	gas_limit: Weight,
 	storage_deposit_limit: <span class="prelude-ty">Option</span>&lt;BalanceOf&lt;T&gt;&gt;,
-	debug_message: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>DebugBufferVec&lt;T&gt;&gt;,
+	debug_message: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>DebugBufferVec&lt;T&gt;&gt;,
 }
 
 <span class="doccomment">/// Input specific to a call into contract.
@@ -3505,7 +3507,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				</span><span class="kw-2">*</span>f = <span class="bool-val">true</span>;
 				<span class="prelude-val">Ok</span>(())
 			})
-			.expect(<span class="string">&quot;Returns `Ok` if called within `using_once`. It is syntactically obvious that this is the case; qed&quot;</span>)
+			.expect(<span class="string">"Returns `Ok` if called within `using_once`. It is syntactically obvious that this is the case; qed"</span>)
 			.map_or_else(
 				|<span class="kw">_</span>| InternalOutput {
 					gas_meter: GasMeter::new(gas_limit),
@@ -3650,7 +3652,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
 	<span class="doccomment">/// Perform a call to a specified contract.
 	///
-	/// This function is similar to [`Self::call`], but doesn&#39;t perform any address lookups
+	/// This function is similar to [`Self::call`], but doesn't perform any address lookups
 	/// and better suitable for calling directly from Rust.
 	///
 	/// # Note
@@ -3706,7 +3708,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Instantiate a new contract.
 	///
-	/// This function is similar to [`Self::instantiate`], but doesn&#39;t perform any address lookups
+	/// This function is similar to [`Self::instantiate`], but doesn't perform any address lookups
 	/// and better suitable for calling directly from Rust.
 	///
 	/// It returns the execution result, account id and the amount of used weight.
@@ -3802,7 +3804,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Upload new code without instantiating a contract from it.
 	///
-	/// This function is similar to [`Self::upload_code`], but doesn&#39;t perform any address lookups
+	/// This function is similar to [`Self::upload_code`], but doesn't perform any address lookups
 	/// and better suitable for calling directly from Rust.
 	</span><span class="kw">pub fn </span>bare_upload_code(
 		origin: T::AccountId,
@@ -3873,7 +3875,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Store code for benchmarks which does not validate the code.
-	</span><span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+	</span><span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 	</span><span class="kw">fn </span>store_code_raw(
 		code: Vec&lt;u8&gt;,
 		owner: T::AccountId,
@@ -3953,8 +3955,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="doccomment">/// Query a given storage key in a given contract.
 		///
 		/// Returns `Ok(Some(Vec&lt;u8&gt;))` if the storage value exists under the given key in the
-		/// specified account and `Ok(None)` if it doesn&#39;t. If the account specified by the address
-		/// doesn&#39;t exist, or doesn&#39;t have a contract then `Err` is returned.
+		/// specified account and `Ok(None)` if it doesn't. If the account specified by the address
+		/// doesn't exist, or doesn't have a contract then `Err` is returned.
 		</span><span class="kw">fn </span>get_storage(
 			address: AccountId,
 			key: Vec&lt;u8&gt;,

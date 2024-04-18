@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/executor/runtime-test/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/executor/runtime-test/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_runtime_test" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_runtime_test" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sc_runtime_test/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -581,39 +583,39 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see &lt;https://www.gnu.org/licenses/&gt;.
 
-</span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
+</span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
 </span><span class="comment">// Make the WASM binary available.
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
-</span><span class="macro">include!</span>(<span class="macro">concat!</span>(<span class="macro">env!</span>(<span class="string">&quot;OUT_DIR&quot;</span>), <span class="string">&quot;/wasm_binary.rs&quot;</span>));
+</span><span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
+</span><span class="macro">include!</span>(<span class="macro">concat!</span>(<span class="macro">env!</span>(<span class="string">"OUT_DIR"</span>), <span class="string">"/wasm_binary.rs"</span>));
 
 <span class="doccomment">/// Wasm binary unwrapped. If built with `SKIP_WASM_BUILD`, the function panics.
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
-</span><span class="kw">pub fn </span>wasm_binary_unwrap() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8] {
+</span><span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
+</span><span class="kw">pub fn </span>wasm_binary_unwrap() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>[u8] {
 	WASM_BINARY.expect(
-		<span class="string">&quot;Development wasm binary is not available. Testing is only supported with the flag \
-		 disabled.&quot;</span>,
+		<span class="string">"Development wasm binary is not available. Testing is only supported with the flag \
+		 disabled."</span>,
 	)
 }
 
-<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
 </span><span class="kw">use </span>sp_std::{vec, vec::Vec};
 
-<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
 </span><span class="kw">use </span>sp_core::{ed25519, sr25519};
-<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
 </span><span class="kw">use </span>sp_io::{
 	crypto::{ed25519_verify, sr25519_verify},
 	hashing::{blake2_128, blake2_256, sha2_256, twox_128, twox_256},
 	storage, wasm_tracing,
 };
-<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
 </span><span class="kw">use </span>sp_runtime::{
 	print,
 	traits::{BlakeTwo256, Hash},
 };
 
-<span class="kw">extern </span><span class="string">&quot;C&quot; </span>{
+<span class="kw">extern </span><span class="string">"C" </span>{
 	<span class="attr">#[allow(dead_code)]
 	</span><span class="kw">fn </span>missing_external();
 
@@ -621,16 +623,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>yet_another_missing_external();
 }
 
-<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
 </span><span class="doccomment">/// The size of a WASM page in bytes.
 </span><span class="kw">const </span>WASM_PAGE_SIZE: usize = <span class="number">65536</span>;
 
-<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
 </span><span class="doccomment">/// Mutable static variables should be always observed to have
 /// the initialized value at the start of a runtime call.
 </span><span class="kw">static </span><span class="kw-2">mut </span>MUTABLE_STATIC: u64 = <span class="number">32</span>;
 
-<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
 </span><span class="doccomment">/// This is similar to `MUTABLE_STATIC`. The tests need `MUTABLE_STATIC` for testing that
 /// non-null initialization data is properly restored during instance reusing.
 ///
@@ -648,29 +650,29 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">fn </span>test_data_in(input: Vec&lt;u8&gt;) -&gt; Vec&lt;u8&gt; {
-		print(<span class="string">&quot;set_storage&quot;</span>);
-		storage::set(<span class="string">b&quot;input&quot;</span>, <span class="kw-2">&amp;</span>input);
+		print(<span class="string">"set_storage"</span>);
+		storage::set(<span class="string">b"input"</span>, <span class="kw-2">&amp;</span>input);
 
-		print(<span class="string">&quot;storage&quot;</span>);
-		<span class="kw">let </span>foo = storage::get(<span class="string">b&quot;foo&quot;</span>).unwrap();
+		print(<span class="string">"storage"</span>);
+		<span class="kw">let </span>foo = storage::get(<span class="string">b"foo"</span>).unwrap();
 
-		print(<span class="string">&quot;set_storage&quot;</span>);
-		storage::set(<span class="string">b&quot;baz&quot;</span>, <span class="kw-2">&amp;</span>foo);
+		print(<span class="string">"set_storage"</span>);
+		storage::set(<span class="string">b"baz"</span>, <span class="kw-2">&amp;</span>foo);
 
-		print(<span class="string">&quot;finished!&quot;</span>);
-		<span class="string">b&quot;all ok!&quot;</span>.to_vec()
+		print(<span class="string">"finished!"</span>);
+		<span class="string">b"all ok!"</span>.to_vec()
 	}
 
 	<span class="kw">fn </span>test_clear_prefix(input: Vec&lt;u8&gt;) -&gt; Vec&lt;u8&gt; {
 		storage::clear_prefix(<span class="kw-2">&amp;</span>input, <span class="prelude-val">None</span>);
-		<span class="string">b&quot;all ok!&quot;</span>.to_vec()
+		<span class="string">b"all ok!"</span>.to_vec()
 	}
 
 	<span class="kw">fn </span>test_empty_return() {}
 
 	<span class="kw">fn </span>test_dirty_plenty_memory(heap_base: u32, heap_pages: u32) {
 		<span class="comment">// This piece of code will dirty multiple pages of memory. The number of pages is given by
-		// the `heap_pages`. It&#39;s unit is a wasm page (64KiB). The first page to be cleared
+		// the `heap_pages`. It's unit is a wasm page (64KiB). The first page to be cleared
 		// is a wasm page that that follows the one that holds the `heap_base` address.
 		//
 		// This function dirties the **host** pages. I.e. we dirty 4KiB at a time and it will take
@@ -708,11 +710,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		f32::to_le_bytes(a + b)
 	}
 
-	<span class="kw">fn </span>test_panic() { <span class="macro">panic!</span>(<span class="string">&quot;test panic&quot;</span>) }
+	<span class="kw">fn </span>test_panic() { <span class="macro">panic!</span>(<span class="string">"test panic"</span>) }
 
 	<span class="kw">fn </span>test_conditional_panic(input: Vec&lt;u8&gt;) -&gt; Vec&lt;u8&gt; {
 		<span class="kw">if </span>input.len() &gt; <span class="number">0 </span>{
-			<span class="macro">panic!</span>(<span class="string">&quot;test panic&quot;</span>)
+			<span class="macro">panic!</span>(<span class="string">"test panic"</span>)
 		}
 
 		input
@@ -745,7 +747,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		pubkey.copy_from_slice(<span class="kw-2">&amp;</span>input[<span class="number">0</span>..<span class="number">32</span>]);
 		sig.copy_from_slice(<span class="kw-2">&amp;</span>input[<span class="number">32</span>..<span class="number">96</span>]);
 
-		<span class="kw">let </span>msg = <span class="string">b&quot;all ok!&quot;</span>;
+		<span class="kw">let </span>msg = <span class="string">b"all ok!"</span>;
 		ed25519_verify(<span class="kw-2">&amp;</span>ed25519::Signature::from(sig), <span class="kw-2">&amp;</span>msg[..], <span class="kw-2">&amp;</span>ed25519::Public::from(pubkey))
 	}
 
@@ -756,65 +758,65 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		pubkey.copy_from_slice(<span class="kw-2">&amp;</span>input[<span class="number">0</span>..<span class="number">32</span>]);
 		sig.copy_from_slice(<span class="kw-2">&amp;</span>input[<span class="number">32</span>..<span class="number">96</span>]);
 
-		<span class="kw">let </span>msg = <span class="string">b&quot;all ok!&quot;</span>;
+		<span class="kw">let </span>msg = <span class="string">b"all ok!"</span>;
 		sr25519_verify(<span class="kw-2">&amp;</span>sr25519::Signature::from(sig), <span class="kw-2">&amp;</span>msg[..], <span class="kw-2">&amp;</span>sr25519::Public::from(pubkey))
 	}
 
 	<span class="kw">fn </span>test_ordered_trie_root() -&gt; Vec&lt;u8&gt; {
 		BlakeTwo256::ordered_trie_root(
 			<span class="macro">vec!</span>[
-				<span class="string">b&quot;zero&quot;</span>[..].into(),
-				<span class="string">b&quot;one&quot;</span>[..].into(),
-				<span class="string">b&quot;two&quot;</span>[..].into(),
+				<span class="string">b"zero"</span>[..].into(),
+				<span class="string">b"one"</span>[..].into(),
+				<span class="string">b"two"</span>[..].into(),
 			],
 			sp_core::storage::StateVersion::V1,
 		).as_ref().to_vec()
 	}
 
 	<span class="kw">fn </span>test_offchain_index_set() {
-		sp_io::offchain_index::set(<span class="string">b&quot;k&quot;</span>, <span class="string">b&quot;v&quot;</span>);
+		sp_io::offchain_index::set(<span class="string">b"k"</span>, <span class="string">b"v"</span>);
 	}
 
 	<span class="kw">fn </span>test_offchain_local_storage() -&gt; bool {
 		<span class="kw">let </span>kind = sp_core::offchain::StorageKind::PERSISTENT;
-		<span class="macro">assert_eq!</span>(sp_io::offchain::local_storage_get(kind, <span class="string">b&quot;test&quot;</span>), <span class="prelude-val">None</span>);
-		sp_io::offchain::local_storage_set(kind, <span class="string">b&quot;test&quot;</span>, <span class="string">b&quot;asd&quot;</span>);
-		<span class="macro">assert_eq!</span>(sp_io::offchain::local_storage_get(kind, <span class="string">b&quot;test&quot;</span>), <span class="prelude-val">Some</span>(<span class="string">b&quot;asd&quot;</span>.to_vec()));
+		<span class="macro">assert_eq!</span>(sp_io::offchain::local_storage_get(kind, <span class="string">b"test"</span>), <span class="prelude-val">None</span>);
+		sp_io::offchain::local_storage_set(kind, <span class="string">b"test"</span>, <span class="string">b"asd"</span>);
+		<span class="macro">assert_eq!</span>(sp_io::offchain::local_storage_get(kind, <span class="string">b"test"</span>), <span class="prelude-val">Some</span>(<span class="string">b"asd"</span>.to_vec()));
 
 		<span class="kw">let </span>res = sp_io::offchain::local_storage_compare_and_set(
 			kind,
-			<span class="string">b&quot;test&quot;</span>,
-			<span class="prelude-val">Some</span>(<span class="string">b&quot;asd&quot;</span>.to_vec()),
-			<span class="string">b&quot;&quot;</span>,
+			<span class="string">b"test"</span>,
+			<span class="prelude-val">Some</span>(<span class="string">b"asd"</span>.to_vec()),
+			<span class="string">b""</span>,
 		);
-		<span class="macro">assert_eq!</span>(sp_io::offchain::local_storage_get(kind, <span class="string">b&quot;test&quot;</span>), <span class="prelude-val">Some</span>(<span class="string">b&quot;&quot;</span>.to_vec()));
+		<span class="macro">assert_eq!</span>(sp_io::offchain::local_storage_get(kind, <span class="string">b"test"</span>), <span class="prelude-val">Some</span>(<span class="string">b""</span>.to_vec()));
 		res
 	}
 
 	<span class="kw">fn </span>test_offchain_local_storage_with_none() {
 		<span class="kw">let </span>kind = sp_core::offchain::StorageKind::PERSISTENT;
-		<span class="macro">assert_eq!</span>(sp_io::offchain::local_storage_get(kind, <span class="string">b&quot;test&quot;</span>), <span class="prelude-val">None</span>);
+		<span class="macro">assert_eq!</span>(sp_io::offchain::local_storage_get(kind, <span class="string">b"test"</span>), <span class="prelude-val">None</span>);
 
-		<span class="kw">let </span>res = sp_io::offchain::local_storage_compare_and_set(kind, <span class="string">b&quot;test&quot;</span>, <span class="prelude-val">None</span>, <span class="string">b&quot;value&quot;</span>);
+		<span class="kw">let </span>res = sp_io::offchain::local_storage_compare_and_set(kind, <span class="string">b"test"</span>, <span class="prelude-val">None</span>, <span class="string">b"value"</span>);
 		<span class="macro">assert_eq!</span>(res, <span class="bool-val">true</span>);
-		<span class="macro">assert_eq!</span>(sp_io::offchain::local_storage_get(kind, <span class="string">b&quot;test&quot;</span>), <span class="prelude-val">Some</span>(<span class="string">b&quot;value&quot;</span>.to_vec()));
+		<span class="macro">assert_eq!</span>(sp_io::offchain::local_storage_get(kind, <span class="string">b"test"</span>), <span class="prelude-val">Some</span>(<span class="string">b"value"</span>.to_vec()));
 	}
 
 	<span class="kw">fn </span>test_offchain_http() -&gt; bool {
 		<span class="kw">use </span>sp_core::offchain::HttpRequestStatus;
 		<span class="kw">let </span>run = || -&gt; <span class="prelude-ty">Option</span>&lt;()&gt; {
 			<span class="kw">let </span>id = sp_io::offchain::http_request_start(
-				<span class="string">&quot;POST&quot;</span>,
-				<span class="string">&quot;http://localhost:12345&quot;</span>,
+				<span class="string">"POST"</span>,
+				<span class="string">"http://localhost:12345"</span>,
 				<span class="kw-2">&amp;</span>[],
 			).ok()<span class="question-mark">?</span>;
-			sp_io::offchain::http_request_add_header(id, <span class="string">&quot;X-Auth&quot;</span>, <span class="string">&quot;test&quot;</span>).ok()<span class="question-mark">?</span>;
+			sp_io::offchain::http_request_add_header(id, <span class="string">"X-Auth"</span>, <span class="string">"test"</span>).ok()<span class="question-mark">?</span>;
 			sp_io::offchain::http_request_write_body(id, <span class="kw-2">&amp;</span>[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>], <span class="prelude-val">None</span>).ok()<span class="question-mark">?</span>;
 			sp_io::offchain::http_request_write_body(id, <span class="kw-2">&amp;</span>[], <span class="prelude-val">None</span>).ok()<span class="question-mark">?</span>;
 			<span class="kw">let </span>status = sp_io::offchain::http_response_wait(<span class="kw-2">&amp;</span>[id], <span class="prelude-val">None</span>);
-			<span class="macro">assert!</span>(status == <span class="macro">vec!</span>[HttpRequestStatus::Finished(<span class="number">200</span>)], <span class="string">&quot;Expected Finished(200) status.&quot;</span>);
+			<span class="macro">assert!</span>(status == <span class="macro">vec!</span>[HttpRequestStatus::Finished(<span class="number">200</span>)], <span class="string">"Expected Finished(200) status."</span>);
 			<span class="kw">let </span>headers = sp_io::offchain::http_response_headers(id);
-			<span class="macro">assert_eq!</span>(headers, <span class="macro">vec!</span>[(<span class="string">b&quot;X-Auth&quot;</span>.to_vec(), <span class="string">b&quot;hello&quot;</span>.to_vec())]);
+			<span class="macro">assert_eq!</span>(headers, <span class="macro">vec!</span>[(<span class="string">b"X-Auth"</span>.to_vec(), <span class="string">b"hello"</span>.to_vec())]);
 			<span class="kw">let </span><span class="kw-2">mut </span>buffer = <span class="macro">vec!</span>[<span class="number">0</span>; <span class="number">64</span>];
 			<span class="kw">let </span>read = sp_io::offchain::http_response_read_body(id, <span class="kw-2">&amp;mut </span>buffer, <span class="prelude-val">None</span>).ok()<span class="question-mark">?</span>;
 			<span class="macro">assert_eq!</span>(read, <span class="number">3</span>);
@@ -864,7 +866,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>allocates_huge_stack_array(trap: bool) -&gt; Vec&lt;u8&gt; {
 		<span class="comment">// Allocate a stack frame that is approx. 75% of the stack (assuming it is 1MB).
 		// This will just decrease (stacks in wasm32-u-u grow downwards) the stack
-		// pointer. This won&#39;t trap on the current compilers.
+		// pointer. This won't trap on the current compilers.
 		</span><span class="kw">let </span><span class="kw-2">mut </span>data = [<span class="number">0u8</span>; <span class="number">1024 </span>* <span class="number">768</span>];
 
 		<span class="comment">// Then make sure we actually write something to it.
@@ -889,12 +891,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		data.to_vec()
 	}
 
-	<span class="comment">// Check that the heap at `heap_base + offset` don&#39;t contains the test message.
+	<span class="comment">// Check that the heap at `heap_base + offset` don't contains the test message.
 	// After the check succeeds the test message is written into the heap.
 	//
 	// It is expected that the given pointer is not allocated.
 	</span><span class="kw">fn </span>check_and_set_in_heap(heap_base: u32, offset: u32) {
-		<span class="kw">let </span>test_message = <span class="string">b&quot;Hello invalid heap memory&quot;</span>;
+		<span class="kw">let </span>test_message = <span class="string">b"Hello invalid heap memory"</span>;
 		<span class="kw">let </span>ptr = (heap_base + offset) <span class="kw">as </span><span class="kw-2">*mut </span>u8;
 
 		<span class="kw">let </span>message_slice = <span class="kw">unsafe </span>{ sp_std::slice::from_raw_parts_mut(ptr, test_message.len()) };
@@ -921,7 +923,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">fn </span>test_abort_on_panic() {
-		sp_io::panic_handler::abort_on_panic(<span class="string">&quot;test_abort_on_panic called&quot;</span>);
+		sp_io::panic_handler::abort_on_panic(<span class="string">"test_abort_on_panic called"</span>);
 	}
 
 	<span class="kw">fn </span>test_unreachable_intrinsic() {
@@ -937,23 +939,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="comment">// Tests that check output validity. We explicitly return the ptr and len, so we avoid using the
 // `wasm_export_functions` macro.
 </span><span class="kw">mod </span>output_validity {
-	<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+	<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
 	</span><span class="kw">use </span><span class="kw">super</span>::WASM_PAGE_SIZE;
 
-	<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+	<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
 	</span><span class="kw">use </span>sp_runtime_interface::pack_ptr_and_len;
 
 	<span class="comment">// Returns a huge len. It should result in an error, and not an allocation.
 	</span><span class="attr">#[no_mangle]
-	#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
-	</span><span class="kw">pub extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>test_return_huge_len(_params: <span class="kw-2">*const </span>u8, _len: usize) -&gt; u64 {
+	#[cfg(not(feature = <span class="string">"std"</span>))]
+	</span><span class="kw">pub extern </span><span class="string">"C" </span><span class="kw">fn </span>test_return_huge_len(_params: <span class="kw-2">*const </span>u8, _len: usize) -&gt; u64 {
 		pack_ptr_and_len(<span class="number">0</span>, u32::MAX)
 	}
 
 	<span class="comment">// Returns an offset right before the edge of the wasm memory boundary. It should succeed.
 	</span><span class="attr">#[no_mangle]
-	#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
-	</span><span class="kw">pub extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>test_return_max_memory_offset(_params: <span class="kw-2">*const </span>u8, _len: usize) -&gt; u64 {
+	#[cfg(not(feature = <span class="string">"std"</span>))]
+	</span><span class="kw">pub extern </span><span class="string">"C" </span><span class="kw">fn </span>test_return_max_memory_offset(_params: <span class="kw-2">*const </span>u8, _len: usize) -&gt; u64 {
 		<span class="kw">let </span>output_ptr = (core::arch::wasm32::memory_size(<span class="number">0</span>) * WASM_PAGE_SIZE) <span class="kw">as </span>u32 - <span class="number">1</span>;
 		<span class="kw">let </span>ptr = output_ptr <span class="kw">as </span><span class="kw-2">*mut </span>u8;
 		<span class="kw">unsafe </span>{
@@ -964,8 +966,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="comment">// Returns an offset right after the edge of the wasm memory boundary. It should fail.
 	</span><span class="attr">#[no_mangle]
-	#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
-	</span><span class="kw">pub extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>test_return_max_memory_offset_plus_one(
+	#[cfg(not(feature = <span class="string">"std"</span>))]
+	</span><span class="kw">pub extern </span><span class="string">"C" </span><span class="kw">fn </span>test_return_max_memory_offset_plus_one(
 		_params: <span class="kw-2">*const </span>u8,
 		_len: usize,
 	) -&gt; u64 {
@@ -974,8 +976,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="comment">// Returns an output that overflows the u32 range. It should result in an error.
 	</span><span class="attr">#[no_mangle]
-	#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
-	</span><span class="kw">pub extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>test_return_overflow(_params: <span class="kw-2">*const </span>u8, _len: usize) -&gt; u64 {
+	#[cfg(not(feature = <span class="string">"std"</span>))]
+	</span><span class="kw">pub extern </span><span class="string">"C" </span><span class="kw">fn </span>test_return_overflow(_params: <span class="kw-2">*const </span>u8, _len: usize) -&gt; u64 {
 		pack_ptr_and_len(u32::MAX, <span class="number">1</span>)
 	}
 }

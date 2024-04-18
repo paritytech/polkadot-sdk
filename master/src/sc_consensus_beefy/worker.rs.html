@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/consensus/beefy/src/worker.rs`."><title>worker.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/consensus/beefy/src/worker.rs`."><title>worker.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_consensus_beefy" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_consensus_beefy" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sc_consensus_beefy/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1869,9 +1871,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// There are three voter states corresponding to three queue states:
 	/// 1. voter uninitialized: queue empty,
 	/// 2. up-to-date - all mandatory blocks leading up to current GRANDPA finalized: queue has ONE
-	///    element, the &#39;current session&#39; where `mandatory_done == true`,
+	///    element, the 'current session' where `mandatory_done == true`,
 	/// 3. lagging behind GRANDPA: queue has [1, N] elements, where all `mandatory_done == false`.
-	///    In this state, every time a session gets its mandatory block BEEFY finalized, it&#39;s
+	///    In this state, every time a session gets its mandatory block BEEFY finalized, it's
 	///    popped off the queue, eventually getting to state `2. up-to-date`.
 	</span>sessions: VecDeque&lt;Rounds&lt;B&gt;&gt;,
 	<span class="doccomment">/// Min delta in block numbers between two blocks, BEEFY should vote on.
@@ -1931,7 +1933,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		} <span class="kw">else </span>{
 			<span class="macro">error!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;🥩 Invalid sessions queue: {:?}; best-beefy {:?} best-grandpa-header {:?}.&quot;</span>,
+				<span class="string">"🥩 Invalid sessions queue: {:?}; best-beefy {:?} best-grandpa-header {:?}."</span>,
 				sessions,
 				best_beefy,
 				grandpa_header
@@ -1961,7 +1963,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	// To be called on each BEEFY finality and on each new rounds/session addition.
 	</span><span class="kw">fn </span>try_prune(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
 		<span class="kw">if </span><span class="self">self</span>.sessions.len() &gt; <span class="number">1 </span>{
-			<span class="comment">// when there&#39;s multiple sessions, only keep the `!mandatory_done()` ones.
+			<span class="comment">// when there's multiple sessions, only keep the `!mandatory_done()` ones.
 			</span><span class="self">self</span>.sessions.retain(|s| !s.mandatory_done())
 		}
 	}
@@ -1976,7 +1978,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Add new observed session to the Oracle.
 	</span><span class="kw">pub fn </span>add_session(<span class="kw-2">&amp;mut </span><span class="self">self</span>, rounds: Rounds&lt;B&gt;) {
 		<span class="self">self</span>.sessions.push_back(rounds);
-		<span class="comment">// Once we add a new session we can drop/prune previous session if it&#39;s been finalized.
+		<span class="comment">// Once we add a new session we can drop/prune previous session if it's been finalized.
 		</span><span class="self">self</span>.try_prune();
 	}
 
@@ -1984,7 +1986,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub fn </span>finalize(<span class="kw-2">&amp;mut </span><span class="self">self</span>, block: NumberFor&lt;B&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
 		<span class="comment">// Conclude voting round for this block.
 		</span><span class="self">self</span>.active_rounds_mut()<span class="question-mark">?</span>.conclude(block);
-		<span class="comment">// Prune any now &quot;finalized&quot; sessions from queue.
+		<span class="comment">// Prune any now "finalized" sessions from queue.
 		</span><span class="self">self</span>.try_prune();
 		<span class="prelude-val">Ok</span>(())
 	}
@@ -2005,7 +2007,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>rounds = <span class="self">self</span>.sessions.front().ok_or(Error::UninitSession)<span class="question-mark">?</span>;
 
 		<span class="kw">if </span>rounds.mandatory_done() {
-			<span class="comment">// There&#39;s only one session active and its mandatory is done.
+			<span class="comment">// There's only one session active and its mandatory is done.
 			// Accept any vote for a GRANDPA finalized block in a better round.
 			</span><span class="prelude-val">Ok</span>((
 				rounds.session_start().max(<span class="self">self</span>.best_beefy_block),
@@ -2034,7 +2036,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// return `None` if there is no block we should vote on.
 	</span><span class="kw">pub fn </span>voting_target(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;NumberFor&lt;B&gt;&gt; {
 		<span class="kw">let </span>rounds = <span class="self">self</span>.sessions.front().or_else(|| {
-			<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;🥩 No voting round started&quot;</span>);
+			<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"🥩 No voting round started"</span>);
 			<span class="prelude-val">None
 		</span>})<span class="question-mark">?</span>;
 		<span class="kw">let </span>best_grandpa = <span class="kw-2">*</span><span class="self">self</span>.best_grandpa_block_header.number();
@@ -2045,7 +2047,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			vote_target(best_grandpa, best_beefy, rounds.session_start(), <span class="self">self</span>.min_block_delta);
 		<span class="macro">trace!</span>(
 			target: LOG_TARGET,
-			<span class="string">&quot;🥩 best beefy: #{:?}, best finalized: #{:?}, current_vote_target: {:?}&quot;</span>,
+			<span class="string">"🥩 best beefy: #{:?}, best finalized: #{:?}, current_vote_target: {:?}"</span>,
 			best_beefy,
 			best_grandpa,
 			target
@@ -2124,14 +2126,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		metrics: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;VoterMetrics&gt;,
 		is_authority: bool,
 	) {
-		<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;🥩 New active validator set: {:?}&quot;</span>, validator_set);
+		<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"🥩 New active validator set: {:?}"</span>, validator_set);
 
 		<span class="comment">// BEEFY should finalize a mandatory block during each session.
 		</span><span class="kw">if let </span><span class="prelude-val">Ok</span>(active_session) = <span class="self">self</span>.voting_oracle.active_rounds() {
 			<span class="kw">if </span>!active_session.mandatory_done() {
 				<span class="macro">debug!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;🥩 New session {} while active session {} is still lagging.&quot;</span>,
+					<span class="string">"🥩 New session {} while active session {} is still lagging."</span>,
 					validator_set.id(),
 					active_session.validator_set_id(),
 				);
@@ -2143,9 +2145,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">if </span>is_authority &amp;&amp; key_store.public_keys().map_or(<span class="bool-val">false</span>, |k| k.is_empty()) {
 			<span class="macro">error!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;🥩 for session starting at block {:?} no BEEFY authority key found in store, \
+				<span class="string">"🥩 for session starting at block {:?} no BEEFY authority key found in store, \
 				you must generate valid session keys \
-				(https://wiki.polkadot.network/docs/maintain-guides-how-to-validate-polkadot#generating-the-session-keys)&quot;</span>,
+				(https://wiki.polkadot.network/docs/maintain-guides-how-to-validate-polkadot#generating-the-session-keys)"</span>,
 				new_session_start,
 			);
 			<span class="macro">metric_inc!</span>(metrics, beefy_no_authority_found_in_store);
@@ -2156,7 +2158,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">metric_set!</span>(metrics, beefy_validator_set_id, id);
 		<span class="macro">info!</span>(
 			target: LOG_TARGET,
-			<span class="string">&quot;🥩 New Rounds for validator set id: {:?} with session_start {:?}&quot;</span>,
+			<span class="string">"🥩 New Rounds for validator set id: {:?} with session_start {:?}"</span>,
 			id,
 			new_session_start
 		);
@@ -2186,7 +2188,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>persisted_state: PersistedState&lt;B&gt;,
 	<span class="doccomment">/// BEEFY voter metrics
 	</span><span class="kw">pub </span>metrics: <span class="prelude-ty">Option</span>&lt;VoterMetrics&gt;,
-	<span class="doccomment">/// Node runs under &quot;Authority&quot; role.
+	<span class="doccomment">/// Node runs under "Authority" role.
 	</span><span class="kw">pub </span>is_authority: bool,
 }
 
@@ -2234,7 +2236,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>header = <span class="kw-2">&amp;</span>notification.header;
 		<span class="macro">debug!</span>(
 			target: LOG_TARGET,
-			<span class="string">&quot;🥩 Finality notification: header(number {:?}, hash {:?}) tree_route {:?}&quot;</span>,
+			<span class="string">"🥩 Finality notification: header(number {:?}, hash {:?}) tree_route {:?}"</span>,
 			header.number(),
 			header.hash(),
 			notification.tree_route,
@@ -2262,7 +2264,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					backend
 						.blockchain()
 						.expect_header(<span class="kw-2">*</span>hash)
-						.expect(<span class="string">&quot;just finalized block should be available; qed.&quot;</span>)
+						.expect(<span class="string">"just finalized block should be available; qed."</span>)
 				})
 				.chain(std::iter::once(header.clone()))
 			{
@@ -2283,7 +2285,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.gossip_filter_config()
 				.map(|filter| <span class="self">self</span>.comms.gossip_validator.update_filter(filter))
 			{
-				<span class="macro">error!</span>(target: LOG_TARGET, <span class="string">&quot;🥩 Voter error: {:?}&quot;</span>, e);
+				<span class="macro">error!</span>(target: LOG_TARGET, <span class="string">"🥩 Voter error: {:?}"</span>, e);
 			}
 		}
 
@@ -2308,7 +2310,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					);
 				},
 			RoundAction::Drop =&gt; <span class="macro">metric_inc!</span>(<span class="self">self</span>.metrics, beefy_stale_votes),
-			RoundAction::Enqueue =&gt; <span class="macro">error!</span>(target: LOG_TARGET, <span class="string">&quot;🥩 unexpected vote: {:?}.&quot;</span>, vote),
+			RoundAction::Enqueue =&gt; <span class="macro">error!</span>(target: LOG_TARGET, <span class="string">"🥩 unexpected vote: {:?}."</span>, vote),
 		};
 		<span class="prelude-val">Ok</span>(())
 	}
@@ -2326,12 +2328,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>block_num = signed_commitment.commitment.block_number;
 		<span class="kw">match </span><span class="self">self</span>.voting_oracle().triage_round(block_num)<span class="question-mark">? </span>{
 			RoundAction::Process =&gt; {
-				<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;🥩 Process justification for round: {:?}.&quot;</span>, block_num);
+				<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"🥩 Process justification for round: {:?}."</span>, block_num);
 				<span class="macro">metric_inc!</span>(<span class="self">self</span>.metrics, beefy_imported_justifications);
 				<span class="self">self</span>.finalize(justification)<span class="question-mark">?
 			</span>},
 			RoundAction::Enqueue =&gt; {
-				<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;🥩 Buffer justification for round: {:?}.&quot;</span>, block_num);
+				<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"🥩 Buffer justification for round: {:?}."</span>, block_num);
 				<span class="kw">if </span><span class="self">self</span>.pending_justifications.len() &lt; MAX_BUFFERED_JUSTIFICATIONS {
 					<span class="self">self</span>.pending_justifications.entry(block_num).or_insert(justification);
 					<span class="macro">metric_inc!</span>(<span class="self">self</span>.metrics, beefy_buffered_justifications);
@@ -2339,7 +2341,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="macro">metric_inc!</span>(<span class="self">self</span>.metrics, beefy_buffered_justifications_dropped);
 					<span class="macro">warn!</span>(
 						target: LOG_TARGET,
-						<span class="string">&quot;🥩 Buffer justification dropped for round: {:?}.&quot;</span>, block_num
+						<span class="string">"🥩 Buffer justification dropped for round: {:?}."</span>, block_num
 					);
 				}
 			},
@@ -2360,7 +2362,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">let </span>finality_proof = VersionedFinalityProof::V1(signed_commitment);
 				<span class="macro">debug!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;🥩 Round #{} concluded, finality_proof: {:?}.&quot;</span>, block_number, finality_proof
+					<span class="string">"🥩 Round #{} concluded, finality_proof: {:?}."</span>, block_number, finality_proof
 				);
 				<span class="comment">// We created the `finality_proof` and know to be valid.
 				// New state is persisted after finalization.
@@ -2404,7 +2406,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		};
 
 		<span class="kw">if </span>block_num &lt;= <span class="self">self</span>.persisted_state.voting_oracle.best_beefy_block {
-			<span class="comment">// we&#39;ve already finalized this round before, short-circuit.
+			<span class="comment">// we've already finalized this round before, short-circuit.
 			</span><span class="kw">return </span><span class="prelude-val">Ok</span>(())
 		}
 
@@ -2428,21 +2430,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="self">self</span>.links
 					.to_rpc_best_block_sender
 					.notify(|| <span class="prelude-val">Ok</span>::&lt;<span class="kw">_</span>, ()&gt;(hash))
-					.expect(<span class="string">&quot;forwards closure result; the closure always returns Ok; qed.&quot;</span>);
+					.expect(<span class="string">"forwards closure result; the closure always returns Ok; qed."</span>);
 
 				<span class="self">self</span>.backend
 					.append_justification(hash, (BEEFY_ENGINE_ID, finality_proof.encode()))
 			}) {
 			<span class="macro">debug!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;🥩 Error {:?} on appending justification: {:?}&quot;</span>, e, finality_proof
+				<span class="string">"🥩 Error {:?} on appending justification: {:?}"</span>, e, finality_proof
 			);
 		}
 
 		<span class="self">self</span>.links
 			.to_rpc_justif_sender
 			.notify(|| <span class="prelude-val">Ok</span>::&lt;<span class="kw">_</span>, ()&gt;(finality_proof))
-			.expect(<span class="string">&quot;forwards closure result; the closure always returns Ok; qed.&quot;</span>);
+			.expect(<span class="string">"forwards closure result; the closure always returns Ok; qed."</span>);
 
 		<span class="comment">// Update gossip validator votes filter.
 		</span><span class="self">self</span>.persisted_state
@@ -2466,10 +2468,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="self">self</span>.pending_justifications = still_pending;
 
 			<span class="kw">for </span>(num, justification) <span class="kw">in </span>justifs_to_process.into_iter() {
-				<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;🥩 Handle buffered justification for: {:?}.&quot;</span>, num);
+				<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"🥩 Handle buffered justification for: {:?}."</span>, num);
 				<span class="macro">metric_inc!</span>(<span class="self">self</span>.metrics, beefy_imported_justifications);
 				<span class="kw">if let </span><span class="prelude-val">Err</span>(err) = <span class="self">self</span>.finalize(justification) {
-					<span class="macro">error!</span>(target: LOG_TARGET, <span class="string">&quot;🥩 Error finalizing block: {}&quot;</span>, err);
+					<span class="macro">error!</span>(target: LOG_TARGET, <span class="string">"🥩 Error finalizing block: {}"</span>, err);
 				}
 			}
 			<span class="macro">metric_set!</span>(
@@ -2481,9 +2483,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Ok</span>(())
 	}
 
-	<span class="doccomment">/// Decide if should vote, then vote.. or don&#39;t..
+	<span class="doccomment">/// Decide if should vote, then vote.. or don't..
 	</span><span class="kw">fn </span>try_to_vote(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
-		<span class="comment">// Vote if there&#39;s now a new vote target.
+		<span class="comment">// Vote if there's now a new vote target.
 		</span><span class="kw">if let </span><span class="prelude-val">Some</span>(target) = <span class="self">self</span>.voting_oracle().voting_target() {
 			<span class="macro">metric_set!</span>(<span class="self">self</span>.metrics, beefy_should_vote_on, target);
 			<span class="kw">if </span>target &gt; <span class="self">self</span>.persisted_state.best_voted {
@@ -2497,7 +2499,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// Also handle this self vote by calling `self.handle_vote()` for it.
 	</span><span class="kw">fn </span>do_vote(<span class="kw-2">&amp;mut </span><span class="self">self</span>, target_number: NumberFor&lt;B&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
-		<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;🥩 Try voting on {}&quot;</span>, target_number);
+		<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"🥩 Try voting on {}"</span>, target_number);
 
 		<span class="comment">// Most of the time we get here, `target` is actually `best_grandpa`,
 		// avoid getting header from backend in that case.
@@ -2510,7 +2512,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.expect_block_hash_from_id(<span class="kw-2">&amp;</span>BlockId::Number(target_number))
 				.map_err(|err| {
 					<span class="kw">let </span>err_msg = <span class="macro">format!</span>(
-						<span class="string">&quot;Couldn&#39;t get hash for block #{:?} (error: {:?}), skipping vote..&quot;</span>,
+						<span class="string">"Couldn't get hash for block #{:?} (error: {:?}), skipping vote.."</span>,
 						target_number, err
 					);
 					Error::Backend(err_msg)
@@ -2518,7 +2520,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="self">self</span>.backend.blockchain().expect_header(hash).map_err(|err| {
 				<span class="kw">let </span>err_msg = <span class="macro">format!</span>(
-					<span class="string">&quot;Couldn&#39;t get header for block #{:?} ({:?}) (error: {:?}), skipping vote..&quot;</span>,
+					<span class="string">"Couldn't get header for block #{:?} ({:?}) (error: {:?}), skipping vote.."</span>,
 					target_number, hash, err
 				);
 				Error::Backend(err_msg)
@@ -2529,7 +2531,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>payload = <span class="kw">if let </span><span class="prelude-val">Some</span>(hash) = <span class="self">self</span>.payload_provider.payload(<span class="kw-2">&amp;</span>target_header) {
 			hash
 		} <span class="kw">else </span>{
-			<span class="macro">warn!</span>(target: LOG_TARGET, <span class="string">&quot;🥩 No MMR root digest found for: {:?}&quot;</span>, target_hash);
+			<span class="macro">warn!</span>(target: LOG_TARGET, <span class="string">"🥩 No MMR root digest found for: {:?}"</span>, target_hash);
 			<span class="kw">return </span><span class="prelude-val">Ok</span>(())
 		};
 
@@ -2537,12 +2539,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>(validators, validator_set_id) = (rounds.validators(), rounds.validator_set_id());
 
 		<span class="kw">let </span>authority_id = <span class="kw">if let </span><span class="prelude-val">Some</span>(id) = <span class="self">self</span>.key_store.authority_id(validators) {
-			<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;🥩 Local authority id: {:?}&quot;</span>, id);
+			<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"🥩 Local authority id: {:?}"</span>, id);
 			id
 		} <span class="kw">else </span>{
 			<span class="macro">debug!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;🥩 Missing validator id - can&#39;t vote for: {:?}&quot;</span>, target_hash
+				<span class="string">"🥩 Missing validator id - can't vote for: {:?}"</span>, target_hash
 			);
 			<span class="kw">return </span><span class="prelude-val">Ok</span>(())
 		};
@@ -2553,21 +2555,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>signature = <span class="kw">match </span><span class="self">self</span>.key_store.sign(<span class="kw-2">&amp;</span>authority_id, <span class="kw-2">&amp;</span>encoded_commitment) {
 			<span class="prelude-val">Ok</span>(sig) =&gt; sig,
 			<span class="prelude-val">Err</span>(err) =&gt; {
-				<span class="macro">warn!</span>(target: LOG_TARGET, <span class="string">&quot;🥩 Error signing commitment: {:?}&quot;</span>, err);
+				<span class="macro">warn!</span>(target: LOG_TARGET, <span class="string">"🥩 Error signing commitment: {:?}"</span>, err);
 				<span class="kw">return </span><span class="prelude-val">Ok</span>(())
 			},
 		};
 
 		<span class="macro">trace!</span>(
 			target: LOG_TARGET,
-			<span class="string">&quot;🥩 Produced signature using {:?}, is_valid: {:?}&quot;</span>,
+			<span class="string">"🥩 Produced signature using {:?}, is_valid: {:?}"</span>,
 			authority_id,
 			BeefyKeystore::verify(<span class="kw-2">&amp;</span>authority_id, <span class="kw-2">&amp;</span>signature, <span class="kw-2">&amp;</span>encoded_commitment)
 		);
 
 		<span class="kw">let </span>vote = VoteMessage { commitment, id: authority_id, signature };
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(finality_proof) = <span class="self">self</span>.handle_vote(vote.clone()).map_err(|err| {
-			<span class="macro">error!</span>(target: LOG_TARGET, <span class="string">&quot;🥩 Error handling self vote: {}&quot;</span>, err);
+			<span class="macro">error!</span>(target: LOG_TARGET, <span class="string">"🥩 Error handling self vote: {}"</span>, err);
 			err
 		})<span class="question-mark">? </span>{
 			<span class="kw">let </span>encoded_proof = GossipMessage::&lt;B&gt;::FinalityProof(finality_proof).encode();
@@ -2576,7 +2578,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.gossip_message(proofs_topic::&lt;B&gt;(), encoded_proof, <span class="bool-val">true</span>);
 		} <span class="kw">else </span>{
 			<span class="macro">metric_inc!</span>(<span class="self">self</span>.metrics, beefy_votes_sent);
-			<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;🥩 Sent vote message: {:?}&quot;</span>, vote);
+			<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"🥩 Sent vote message: {:?}"</span>, vote);
 			<span class="kw">let </span>encoded_vote = GossipMessage::&lt;B&gt;::Vote(vote).encode();
 			<span class="self">self</span>.comms.gossip_engine.gossip_message(votes_topic::&lt;B&gt;(), encoded_vote, <span class="bool-val">false</span>);
 		}
@@ -2591,19 +2593,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>process_new_state(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
 		<span class="comment">// Handle pending justifications and/or votes for now GRANDPA finalized blocks.
 		</span><span class="kw">if let </span><span class="prelude-val">Err</span>(err) = <span class="self">self</span>.try_pending_justifications() {
-			<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;🥩 {}&quot;</span>, err);
+			<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"🥩 {}"</span>, err);
 		}
 
-		<span class="comment">// Don&#39;t bother voting or requesting justifications during major sync.
+		<span class="comment">// Don't bother voting or requesting justifications during major sync.
 		</span><span class="kw">if </span>!<span class="self">self</span>.sync.is_major_syncing() {
-			<span class="comment">// There were external events, &#39;state&#39; is changed, author a vote if needed/possible.
+			<span class="comment">// There were external events, 'state' is changed, author a vote if needed/possible.
 			</span><span class="kw">if let </span><span class="prelude-val">Err</span>(err) = <span class="self">self</span>.try_to_vote() {
-				<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;🥩 {}&quot;</span>, err);
+				<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"🥩 {}"</span>, err);
 			}
 			<span class="comment">// If the current target is a mandatory block,
-			// make sure there&#39;s also an on-demand justification request out for it.
+			// make sure there's also an on-demand justification request out for it.
 			</span><span class="kw">if let </span><span class="prelude-val">Some</span>((block, active)) = <span class="self">self</span>.voting_oracle().mandatory_pending() {
-				<span class="comment">// This only starts new request if there isn&#39;t already an active one.
+				<span class="comment">// This only starts new request if there isn't already an active one.
 				</span><span class="self">self</span>.comms.on_demand_justifications.request(block, active);
 			}
 		}
@@ -2620,7 +2622,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; (Error, BeefyComms&lt;B, N&gt;) {
 		<span class="macro">info!</span>(
 			target: LOG_TARGET,
-			<span class="string">&quot;🥩 run BEEFY worker, best grandpa: #{:?}.&quot;</span>,
+			<span class="string">"🥩 run BEEFY worker, best grandpa: #{:?}."</span>,
 			<span class="self">self</span>.best_grandpa_block()
 		);
 
@@ -2632,7 +2634,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw">let </span>vote = GossipMessage::&lt;B&gt;::decode_all(<span class="kw-2">&amp;mut &amp;</span>notification.message[..])
 						.ok()
 						.and_then(|message| message.unwrap_vote());
-					<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">&quot;🥩 Got vote message: {:?}&quot;</span>, vote);
+					<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">"🥩 Got vote message: {:?}"</span>, vote);
 					vote
 				})
 				.fuse(),
@@ -2645,7 +2647,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw">let </span>proof = GossipMessage::&lt;B&gt;::decode_all(<span class="kw-2">&amp;mut &amp;</span>notification.message[..])
 						.ok()
 						.and_then(|message| message.unwrap_finality_proof());
-					<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">&quot;🥩 Got gossip proof message: {:?}&quot;</span>, proof);
+					<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">"🥩 Got gossip proof message: {:?}"</span>, proof);
 					proof
 				})
 				.fuse(),
@@ -2657,8 +2659,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="kw">let </span><span class="kw-2">mut </span>gossip_engine = <span class="kw-2">&amp;mut </span><span class="self">self</span>.comms.gossip_engine;
 
 			<span class="comment">// Wait for, and handle external events.
-			// The branches below only change &#39;state&#39;, actual voting happens afterwards,
-			// based on the new resulting &#39;state&#39;.
+			// The branches below only change 'state', actual voting happens afterwards,
+			// based on the new resulting 'state'.
 			</span><span class="macro">futures::select_biased! </span>{
 				<span class="comment">// Use `select_biased!` to prioritize order below.
 				// Process finality notifications first since these drive the voter.
@@ -2680,7 +2682,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw">match </span>response_info {
 						ResponseInfo::ValidProof(justif, peer_report) =&gt; {
 							<span class="kw">if let </span><span class="prelude-val">Err</span>(err) = <span class="self">self</span>.triage_incoming_justif(justif) {
-								<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;🥩 {}&quot;</span>, err);
+								<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"🥩 {}"</span>, err);
 							}
 							<span class="self">self</span>.comms.gossip_engine.report(peer_report.who, peer_report.cost_benefit);
 						},
@@ -2695,7 +2697,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="comment">// Block import justifications have already been verified to be valid
 						// by `BeefyBlockImport`.
 						</span><span class="kw">if let </span><span class="prelude-val">Err</span>(err) = <span class="self">self</span>.triage_incoming_justif(justif) {
-							<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;🥩 {}&quot;</span>, err);
+							<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"🥩 {}"</span>, err);
 						}
 					} <span class="kw">else </span>{
 						<span class="kw">break </span>Error::BlockImportStreamTerminated;
@@ -2705,7 +2707,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw">if let </span><span class="prelude-val">Some</span>(justif) = justif {
 						<span class="comment">// Gossiped justifications have already been verified by `GossipValidator`.
 						</span><span class="kw">if let </span><span class="prelude-val">Err</span>(err) = <span class="self">self</span>.triage_incoming_justif(justif) {
-							<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;🥩 {}&quot;</span>, err);
+							<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"🥩 {}"</span>, err);
 						}
 					} <span class="kw">else </span>{
 						<span class="kw">break </span>Error::FinalityProofGossipStreamTerminated;
@@ -2716,7 +2718,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw">if let </span><span class="prelude-val">Some</span>(vote) = vote {
 						<span class="comment">// Votes have already been verified to be valid by the gossip validator.
 						</span><span class="kw">if let </span><span class="prelude-val">Err</span>(err) = <span class="self">self</span>.triage_incoming_vote(vote) {
-							<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;🥩 {}&quot;</span>, err);
+							<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"🥩 {}"</span>, err);
 						}
 					} <span class="kw">else </span>{
 						<span class="kw">break </span>Error::VotesGossipStreamTerminated;
@@ -2724,7 +2726,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				},
 			}
 
-			<span class="comment">// Act on changed &#39;state&#39;.
+			<span class="comment">// Act on changed 'state'.
 			</span><span class="self">self</span>.process_new_state();
 		};
 
@@ -2736,7 +2738,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// generates a session membership proof of the offender and then submits an
 	/// extrinsic to report the equivocation. In particular, the session membership
 	/// proof must be generated at the block at which the given set was active which
-	/// isn&#39;t necessarily the best block if there are pending authority set changes.
+	/// isn't necessarily the best block if there are pending authority set changes.
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>report_equivocation(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		proof: EquivocationProof&lt;NumberFor&lt;B&gt;, AuthorityId, Signature&gt;,
@@ -2746,11 +2748,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>offender_id = proof.offender_id().clone();
 
 		<span class="kw">if </span>!check_equivocation_proof::&lt;<span class="kw">_</span>, <span class="kw">_</span>, BeefySignatureHasher&gt;(<span class="kw-2">&amp;</span>proof) {
-			<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;🥩 Skip report for bad equivocation {:?}&quot;</span>, proof);
+			<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"🥩 Skip report for bad equivocation {:?}"</span>, proof);
 			<span class="kw">return </span><span class="prelude-val">Ok</span>(())
 		} <span class="kw">else if let </span><span class="prelude-val">Some</span>(local_id) = <span class="self">self</span>.key_store.authority_id(validators) {
 			<span class="kw">if </span>offender_id == local_id {
-				<span class="macro">warn!</span>(target: LOG_TARGET, <span class="string">&quot;🥩 Skip equivocation report for own equivocation&quot;</span>);
+				<span class="macro">warn!</span>(target: LOG_TARGET, <span class="string">"🥩 Skip equivocation report for own equivocation"</span>);
 				<span class="kw">return </span><span class="prelude-val">Ok</span>(())
 			}
 		}
@@ -2762,7 +2764,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.expect_block_hash_from_id(<span class="kw-2">&amp;</span>BlockId::Number(number))
 			.map_err(|err| {
 				<span class="kw">let </span>err_msg = <span class="macro">format!</span>(
-					<span class="string">&quot;Couldn&#39;t get hash for block #{:?} (error: {:?}), skipping report for equivocation&quot;</span>,
+					<span class="string">"Couldn't get hash for block #{:?} (error: {:?}), skipping report for equivocation"</span>,
 					number, err
 				);
 				Error::Backend(err_msg)
@@ -2777,7 +2779,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">None </span>=&gt; {
 				<span class="macro">debug!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;🥩 Equivocation offender not part of the authority set.&quot;
+					<span class="string">"🥩 Equivocation offender not part of the authority set."
 				</span>);
 				<span class="kw">return </span><span class="prelude-val">Ok</span>(())
 			},
@@ -2803,7 +2805,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="comment">// if the mandatory block (session_start) does not have a beefy justification yet,
 	// we vote on it
 	</span><span class="kw">let </span>target = <span class="kw">if </span>best_beefy &lt; session_start {
-		<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;🥩 vote target - mandatory block: #{:?}&quot;</span>, session_start);
+		<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"🥩 vote target - mandatory block: #{:?}"</span>, session_start);
 		session_start
 	} <span class="kw">else </span>{
 		<span class="kw">let </span>diff = best_grandpa.saturating_sub(best_beefy) + <span class="number">1u32</span>.into();
@@ -2811,7 +2813,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>target = best_beefy + min_delta.max(diff.next_power_of_two()).into();
 		<span class="macro">trace!</span>(
 			target: LOG_TARGET,
-			<span class="string">&quot;🥩 vote target - diff: {:?}, next_power_of_two: {:?}, target block: #{:?}&quot;</span>,
+			<span class="string">"🥩 vote target - diff: {:?}, next_power_of_two: {:?}, target block: #{:?}"</span>,
 			diff,
 			diff.next_power_of_two(),
 			target,
@@ -2820,7 +2822,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		target
 	};
 
-	<span class="comment">// Don&#39;t vote for targets until they&#39;ve been finalized
+	<span class="comment">// Don't vote for targets until they've been finalized
 	// (`target` can be &gt; `best_grandpa` when `min_delta` is big enough).
 	</span><span class="kw">if </span>target &gt; best_grandpa {
 		<span class="prelude-val">None
@@ -2928,14 +2930,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			network.clone(),
 			sync.clone(),
 			notification_service,
-			<span class="string">&quot;/beefy/1&quot;</span>,
+			<span class="string">"/beefy/1"</span>,
 			gossip_validator.clone(),
 			<span class="prelude-val">None</span>,
 		);
 		<span class="kw">let </span>metrics = <span class="prelude-val">None</span>;
 		<span class="kw">let </span>on_demand_justifications = OnDemandJustificationsEngine::new(
 			network.clone(),
-			<span class="string">&quot;/beefy/justifs/1&quot;</span>.into(),
+			<span class="string">"/beefy/justifs/1"</span>.into(),
 			known_peers,
 			<span class="prelude-val">None</span>,
 		);
@@ -3195,7 +3197,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">assert_eq!</span>(accepted_interval_with(<span class="kw-2">&amp;mut </span>oracle, i), <span class="prelude-val">Ok</span>((session_three, i)));
 		}
 
-		<span class="comment">// adding new session automatically prunes &quot;finalized&quot; previous session
+		<span class="comment">// adding new session automatically prunes "finalized" previous session
 		</span><span class="kw">let </span>session_four = <span class="number">31</span>;
 		oracle.add_session(Rounds::new(session_four, validator_set.clone()));
 		<span class="macro">assert_eq!</span>(oracle.sessions.front().unwrap().session_start(), session_four);
@@ -3256,7 +3258,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			VersionedFinalityProof::V1(SignedCommitment { commitment, signatures: <span class="macro">vec!</span>[<span class="prelude-val">None</span>] })
 		};
 
-		<span class="comment">// no &#39;best beefy block&#39; or finality proofs
+		<span class="comment">// no 'best beefy block' or finality proofs
 		</span><span class="macro">assert_eq!</span>(worker.persisted_state.best_beefy(), <span class="number">0</span>);
 		poll_fn(<span class="kw">move </span>|cx| {
 			<span class="macro">assert_eq!</span>(best_block_stream.poll_next_unpin(cx), Poll::Pending);
@@ -3288,13 +3290,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw">let </span>block_num = client.number(hash).unwrap();
 					<span class="macro">assert_eq!</span>(block_num, <span class="prelude-val">Some</span>(<span class="number">1</span>));
 				},
-				v =&gt; <span class="macro">panic!</span>(<span class="string">&quot;unexpected value: {:?}&quot;</span>, v),
+				v =&gt; <span class="macro">panic!</span>(<span class="string">"unexpected value: {:?}"</span>, v),
 			}
 			<span class="comment">// commitment streamed
 			</span><span class="kw">match </span>finality_proof.poll_next_unpin(cx) {
 				<span class="comment">// expect justification
 				</span>Poll::Ready(<span class="prelude-val">Some</span>(received)) =&gt; <span class="macro">assert_eq!</span>(received, justif),
-				v =&gt; <span class="macro">panic!</span>(<span class="string">&quot;unexpected value: {:?}&quot;</span>, v),
+				v =&gt; <span class="macro">panic!</span>(<span class="string">"unexpected value: {:?}"</span>, v),
 			}
 			Poll::Ready(())
 		})
@@ -3325,7 +3327,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw">let </span>block_num = net.peer(<span class="number">0</span>).client().as_client().number(hash).unwrap();
 					<span class="macro">assert_eq!</span>(block_num, <span class="prelude-val">Some</span>(<span class="number">2</span>));
 				},
-				v =&gt; <span class="macro">panic!</span>(<span class="string">&quot;unexpected value: {:?}&quot;</span>, v),
+				v =&gt; <span class="macro">panic!</span>(<span class="string">"unexpected value: {:?}"</span>, v),
 			}
 			Poll::Ready(())
 		})
@@ -3356,7 +3358,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// Since mandatory is not done for old rounds, we still get those.
 		</span><span class="kw">let </span>rounds = worker.persisted_state.voting_oracle.active_rounds_mut().unwrap();
 		<span class="macro">assert_eq!</span>(rounds.validator_set_id(), validator_set.id());
-		<span class="comment">// Let&#39;s finalize mandatory.
+		<span class="comment">// Let's finalize mandatory.
 		</span>rounds.test_set_mandatory_done(<span class="bool-val">true</span>);
 		worker.persisted_state.voting_oracle.try_prune();
 		<span class="comment">// Now we should get the next round.
@@ -3403,7 +3405,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 		api_alice.reported_equivocations.as_ref().unwrap().lock().clear();
 
-		<span class="comment">// now let&#39;s try with a bad proof
+		<span class="comment">// now let's try with a bad proof
 		</span><span class="kw">let </span><span class="kw-2">mut </span>bad_proof = good_proof.clone();
 		bad_proof.first.id = Keyring::Charlie.public();
 		<span class="comment">// bad proofs are simply ignored
@@ -3411,7 +3413,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// verify nothing reported to runtime
 		</span><span class="macro">assert!</span>(api_alice.reported_equivocations.as_ref().unwrap().lock().is_empty());
 
-		<span class="comment">// now let&#39;s try with old set it
+		<span class="comment">// now let's try with old set it
 		</span><span class="kw">let </span><span class="kw-2">mut </span>old_proof = good_proof.clone();
 		old_proof.first.commitment.validator_set_id = <span class="number">0</span>;
 		old_proof.second.commitment.validator_set_id = <span class="number">0</span>;
@@ -3420,12 +3422,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// verify nothing reported to runtime
 		</span><span class="macro">assert!</span>(api_alice.reported_equivocations.as_ref().unwrap().lock().is_empty());
 
-		<span class="comment">// now let&#39;s try reporting a self-equivocation
+		<span class="comment">// now let's try reporting a self-equivocation
 		</span><span class="kw">let </span>self_proof = generate_equivocation_proof(
 			(block_num, payload1.clone(), set_id, <span class="kw-2">&amp;</span>Keyring::Alice),
 			(block_num, payload2.clone(), set_id, <span class="kw-2">&amp;</span>Keyring::Alice),
 		);
-		<span class="comment">// equivocations done by &#39;self&#39; are simply ignored (not reported)
+		<span class="comment">// equivocations done by 'self' are simply ignored (not reported)
 		</span><span class="macro">assert_eq!</span>(worker.report_equivocation(self_proof), <span class="prelude-val">Ok</span>(()));
 		<span class="comment">// verify nothing reported to runtime
 		</span><span class="macro">assert!</span>(api_alice.reported_equivocations.as_ref().unwrap().lock().is_empty());

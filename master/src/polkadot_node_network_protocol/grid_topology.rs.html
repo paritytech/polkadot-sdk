@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/network/protocol/src/grid_topology.rs`."><title>grid_topology.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/network/protocol/src/grid_topology.rs`."><title>grid_topology.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_node_network_protocol" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_node_network_protocol" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../polkadot_node_network_protocol/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -827,9 +829,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!
 //! However, we also supplement this with some degree of random propagation:
 //! every validator, upon seeing a message for the first time, propagates it to 8 random peers.
-//! This inserts some redundancy in case the grid topology isn&#39;t working or is being attacked -
-//! an adversary doesn&#39;t know which peers a validator will send to.
-//! This is combined with the property that the adversary doesn&#39;t know which validators will elect
+//! This inserts some redundancy in case the grid topology isn't working or is being attacked -
+//! an adversary doesn't know which peers a validator will send to.
+//! This is combined with the property that the adversary doesn't know which validators will elect
 //! to check a block.
 
 </span><span class="kw">use </span><span class="kw">crate</span>::PeerId;
@@ -840,7 +842,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	fmt::Debug,
 };
 
-<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;parachain::grid-topology&quot;</span>;
+<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"parachain::grid-topology"</span>;
 
 <span class="doccomment">/// The sample rate for randomly propagating messages. This
 /// reduces the left tail of the binomial distribution but also
@@ -854,7 +856,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Information about a peer in the gossip topology for a session.
 </span><span class="attr">#[derive(Debug, Clone, PartialEq)]
 </span><span class="kw">pub struct </span>TopologyPeerInfo {
-	<span class="doccomment">/// The validator&#39;s known peer IDs.
+	<span class="doccomment">/// The validator's known peer IDs.
 	</span><span class="kw">pub </span>peer_ids: Vec&lt;PeerId&gt;,
 	<span class="doccomment">/// The index of the validator in the discovery keys of the corresponding
 	/// `SessionInfo`. This can extend _beyond_ the set of active parachain validators.
@@ -1007,7 +1009,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Given the originator of a message as a validator index, indicates the part of the topology
-	/// we&#39;re meant to send the message to.
+	/// we're meant to send the message to.
 	</span><span class="kw">pub fn </span>required_routing_by_index(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		originator: ValidatorIndex,
@@ -1025,12 +1027,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			(<span class="bool-val">true</span>, <span class="bool-val">false</span>) =&gt; RequiredRouting::GridY, <span class="comment">// messages from X go to Y
 			</span>(<span class="bool-val">false</span>, <span class="bool-val">true</span>) =&gt; RequiredRouting::GridX, <span class="comment">// messages from Y go to X
 			</span>(<span class="bool-val">true</span>, <span class="bool-val">true</span>) =&gt; RequiredRouting::GridXY, <span class="comment">/* if the grid works as expected, this
-			                                           * shouldn&#39;t happen. */
+			                                           * shouldn't happen. */
 		</span>}
 	}
 
 	<span class="doccomment">/// Given the originator of a message as a peer index, indicates the part of the topology
-	/// we&#39;re meant to send the message to.
+	/// we're meant to send the message to.
 	</span><span class="kw">pub fn </span>required_routing_by_peer_id(<span class="kw-2">&amp;</span><span class="self">self</span>, originator: PeerId, local: bool) -&gt; RequiredRouting {
 		<span class="kw">if </span>local {
 			<span class="kw">return </span>RequiredRouting::GridXY
@@ -1047,11 +1049,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="macro">gum::debug!</span>(
 					target: LOG_TARGET,
 					<span class="question-mark">?</span>originator,
-					<span class="string">&quot;Grid topology is unexpected, play it safe and send to X AND Y&quot;
+					<span class="string">"Grid topology is unexpected, play it safe and send to X AND Y"
 				</span>);
 				RequiredRouting::GridXY
 			}, <span class="comment">/* if the grid works as expected, this
-			                                           * shouldn&#39;t happen. */
+			                                           * shouldn't happen. */
 		</span>}
 	}
 
@@ -1329,7 +1331,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Routing mode
 </span><span class="attr">#[derive(Debug, Clone, Copy, PartialEq)]
 </span><span class="kw">pub enum </span>RequiredRouting {
-	<span class="doccomment">/// We don&#39;t know yet, because we&#39;re waiting for topology info
+	<span class="doccomment">/// We don't know yet, because we're waiting for topology info
 	/// (race condition between learning about the first blocks in a new session
 	/// and getting the topology for that session)
 	</span>PendingTopology,

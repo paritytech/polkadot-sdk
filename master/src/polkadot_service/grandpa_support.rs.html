@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/service/src/grandpa_support.rs`."><title>grandpa_support.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/service/src/grandpa_support.rs`."><title>grandpa_support.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_service" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_service" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../polkadot_service/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -334,7 +336,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">use </span><span class="kw">crate</span>::HeaderProvider;
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;full-node&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"full-node"</span>)]
 </span><span class="kw">use </span>polkadot_primitives::{Block, Hash};
 
 <span class="doccomment">/// Returns the block hash of the block at the given `target_number` by walking
@@ -354,9 +356,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">loop </span>{
 		<span class="kw">if </span><span class="kw-2">*</span>target_header.number() &lt; target_number {
 			<span class="macro">unreachable!</span>(
-				<span class="string">&quot;we are traversing backwards from a known block; \
+				<span class="string">"we are traversing backwards from a known block; \
 				 blocks are stored contiguously; \
-				 qed&quot;
+				 qed"
 			</span>);
 		}
 
@@ -367,7 +369,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		target_hash = <span class="kw-2">*</span>target_header.parent_hash();
 		target_header = backend
 			.header(target_hash)<span class="question-mark">?
-			</span>.expect(<span class="string">&quot;Header known to exist due to the existence of one of its descendants; qed&quot;</span>);
+			</span>.expect(<span class="string">"Header known to exist due to the existence of one of its descendants; qed"</span>);
 	}
 }
 
@@ -377,78 +379,78 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// intermediary pending changes are replaced with a static list comprised of
 /// w3f validators and randomly selected validators from the latest session (at
 /// #1500988).
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;full-node&quot;</span>)]
+</span><span class="attr">#[cfg(feature = <span class="string">"full-node"</span>)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>kusama_hard_forks() -&gt; Vec&lt;grandpa::AuthoritySetHardFork&lt;Block&gt;&gt; {
 	<span class="kw">use </span>sp_core::crypto::Ss58Codec;
 	<span class="kw">use </span>std::str::FromStr;
 
 	<span class="kw">let </span>forks = <span class="macro">vec!</span>[
-		(<span class="number">623</span>, <span class="string">&quot;01e94e1e7e9cf07b3b0bf4e1717fce7448e5563901c2ef2e3b8e9ecaeba088b1&quot;</span>, <span class="number">1492283</span>),
-		(<span class="number">624</span>, <span class="string">&quot;ddc4323c5e8966844dfaa87e0c2f74ef6b43115f17bf8e4ff38845a62d02b9a9&quot;</span>, <span class="number">1492436</span>),
-		(<span class="number">625</span>, <span class="string">&quot;38ba115b296663e424e32d7b1655cd795719cef4fd7d579271a6d01086cf1628&quot;</span>, <span class="number">1492586</span>),
-		(<span class="number">626</span>, <span class="string">&quot;f3172b6b8497c10fc772f5dada4eeb1f4c4919c97de9de2e1a439444d5a057ff&quot;</span>, <span class="number">1492955</span>),
-		(<span class="number">627</span>, <span class="string">&quot;b26526aea299e9d24af29fdacd5cf4751a663d24894e3d0a37833aa14c58424a&quot;</span>, <span class="number">1493338</span>),
-		(<span class="number">628</span>, <span class="string">&quot;3980d024327d53b8d01ef0d198a052cd058dd579508d8ed6283fe3614e0a3694&quot;</span>, <span class="number">1493913</span>),
-		(<span class="number">629</span>, <span class="string">&quot;31f22997a786c25ee677786373368cae6fd501fd1bc4b212b8e267235c88179d&quot;</span>, <span class="number">1495083</span>),
-		(<span class="number">630</span>, <span class="string">&quot;1c65eb250cf54b466c64f1a4003d1415a7ee275e49615450c0e0525179857eef&quot;</span>, <span class="number">1497404</span>),
-		(<span class="number">631</span>, <span class="string">&quot;9e44116467cc9d7e224e36487bf2cf571698cae16b25f54a7430f1278331fdd8&quot;</span>, <span class="number">1498598</span>),
+		(<span class="number">623</span>, <span class="string">"01e94e1e7e9cf07b3b0bf4e1717fce7448e5563901c2ef2e3b8e9ecaeba088b1"</span>, <span class="number">1492283</span>),
+		(<span class="number">624</span>, <span class="string">"ddc4323c5e8966844dfaa87e0c2f74ef6b43115f17bf8e4ff38845a62d02b9a9"</span>, <span class="number">1492436</span>),
+		(<span class="number">625</span>, <span class="string">"38ba115b296663e424e32d7b1655cd795719cef4fd7d579271a6d01086cf1628"</span>, <span class="number">1492586</span>),
+		(<span class="number">626</span>, <span class="string">"f3172b6b8497c10fc772f5dada4eeb1f4c4919c97de9de2e1a439444d5a057ff"</span>, <span class="number">1492955</span>),
+		(<span class="number">627</span>, <span class="string">"b26526aea299e9d24af29fdacd5cf4751a663d24894e3d0a37833aa14c58424a"</span>, <span class="number">1493338</span>),
+		(<span class="number">628</span>, <span class="string">"3980d024327d53b8d01ef0d198a052cd058dd579508d8ed6283fe3614e0a3694"</span>, <span class="number">1493913</span>),
+		(<span class="number">629</span>, <span class="string">"31f22997a786c25ee677786373368cae6fd501fd1bc4b212b8e267235c88179d"</span>, <span class="number">1495083</span>),
+		(<span class="number">630</span>, <span class="string">"1c65eb250cf54b466c64f1a4003d1415a7ee275e49615450c0e0525179857eef"</span>, <span class="number">1497404</span>),
+		(<span class="number">631</span>, <span class="string">"9e44116467cc9d7e224e36487bf2cf571698cae16b25f54a7430f1278331fdd8"</span>, <span class="number">1498598</span>),
 	];
 
 	<span class="kw">let </span>authorities = <span class="macro">vec!</span>[
-		<span class="string">&quot;CwjLJ1zPWK5Ao9WChAFp7rWGEgN3AyXXjTRPrqgm5WwBpoS&quot;</span>,
-		<span class="string">&quot;Dp8FHpZTzvoKXztkfrUAkF6xNf6sjVU5ZLZ29NEGUazouou&quot;</span>,
-		<span class="string">&quot;DtK7YfkhNWU6wEPF1dShsFdhtosVAuJPLkoGhKhG1r5LjKq&quot;</span>,
-		<span class="string">&quot;FLnHYBuoyThzqJ45tdb8P6yMLdocM7ir27Pg1AnpYoygm1K&quot;</span>,
-		<span class="string">&quot;FWEfJ5UMghr52UopgYjawAg6hQg3ztbQek75pfeRtLVi8pB&quot;</span>,
-		<span class="string">&quot;ECoLHAu7HKWGTB9od82HAtequYj6hvNHigkGSB9g3ApxAwB&quot;</span>,
-		<span class="string">&quot;GL1Tg3Uppo8GYL9NjKj4dWKcS6tW98REop9G5hpu7HgFwTa&quot;</span>,
-		<span class="string">&quot;ExnjU5LZMktrgtQBE3An6FsQfvaKG1ukxPqwhJydgdgarmY&quot;</span>,
-		<span class="string">&quot;CagLpgCBu5qJqYF2tpFX6BnU4yHvMGSjc7r3Ed1jY3tMbQt&quot;</span>,
-		<span class="string">&quot;DsrtmMsD4ijh3n4uodxPoiW9NZ7v7no5wVvPVj8fL1dfrWB&quot;</span>,
-		<span class="string">&quot;HQB4EctrVR68ozZDyBiRJzLRAEGh1YKgCkAsFjJcegL9RQA&quot;</span>,
-		<span class="string">&quot;H2YTYbXTFkDY1cGnv164ecnDT3hsD2bQXtyiDbcQuXcQZUV&quot;</span>,
-		<span class="string">&quot;H5WL8jXmbkCoEcLfvqJkbLUeGrDFsJiMXkhhRWn3joct1tE&quot;</span>,
-		<span class="string">&quot;DpB37GDrJDYcmg2df2eqsrPKMay1u8hyZ6sQi2FuUiUeNLu&quot;</span>,
-		<span class="string">&quot;FR8yjKRA9MTjvFGK8kfzrdC23Fr6xd7rfBvZXSjAsmuxURE&quot;</span>,
-		<span class="string">&quot;DxHPty3B9fpj3duu6Gc6gCSCAvsydJHJEY5G3oVYT8S5BYJ&quot;</span>,
-		<span class="string">&quot;DbVKC8ZJjevrhqSnZyJMMvmPL7oPPL4ed1roxawYnHVgyin&quot;</span>,
-		<span class="string">&quot;DVJV81kab2J6oTyRJ9T3NCwW2DSrysbWCssvMcE6cwZHnAd&quot;</span>,
-		<span class="string">&quot;Fg4rDAyzoVzf39Zo8JFPo4W314ntNWNwm3shr4xKe8M1fJg&quot;</span>,
-		<span class="string">&quot;GUaNcnAruMVxHGTs7gGpSUpigRJboQYQBBQyPohkFcP6NMH&quot;</span>,
-		<span class="string">&quot;J4BMGF4W9yWiJz4pkhQW73X6QMGpKUzmPppVnqzBCqw5dQq&quot;</span>,
-		<span class="string">&quot;E1cR61L1tdDEop4WdWVqcq1H1x6VqsDpSHvFyUeC41uruVJ&quot;</span>,
-		<span class="string">&quot;GoWLzBsj1f23YtdDpyntnvN1LwXKhF5TEeZvBeTVxofgWGR&quot;</span>,
-		<span class="string">&quot;CwHwmbogSwtRbrkajVBNubPvWmHBGU4bhMido54M9CjuKZD&quot;</span>,
-		<span class="string">&quot;FLT63y9oVXJnyiWMAL4RvWxsQx21Vymw9961Z7NRFmSG7rw&quot;</span>,
-		<span class="string">&quot;FoQ2y6JuHuHTG4rHFL3f2hCxfJMvtrq8wwPWdv8tsdkcyA8&quot;</span>,
-		<span class="string">&quot;D7QQKqqs8ocGorRA12h4QoBSHDia1DkHeXT4eMfjWQ483QH&quot;</span>,
-		<span class="string">&quot;J6z7FP35F9DiiU985bhkDTS3WxyeTBeoo9MtLdLoD3GiWPj&quot;</span>,
-		<span class="string">&quot;EjapydCK25AagodRbDECavHAy8yQY1tmeRhwUXhVWx4cFPv&quot;</span>,
-		<span class="string">&quot;H8admATcRkGCrF1dTDDBCjQDsYjMkuPaN9YwR2mSCj4DWMQ&quot;</span>,
-		<span class="string">&quot;FtHMRU1fxsoswJjBvyCGvECepC7gP2X77QbNpyikYSqqR6k&quot;</span>,
-		<span class="string">&quot;DzY5gwr45GVRUFzRMmeg8iffpqYF47nm3XbJhmjG97FijaE&quot;</span>,
-		<span class="string">&quot;D3HKWAihSUmg8HrfeFrftSwNK7no261yA9RNr3LUUdsuzuJ&quot;</span>,
-		<span class="string">&quot;D82DwwGJGTcSvtB3SmNrZejnSertbPzpkYvDUp3ibScL3ne&quot;</span>,
-		<span class="string">&quot;FTPxLXLQvMDQYFA6VqNLGwWPKhemMYP791XVj8TmDpFuV3b&quot;</span>,
-		<span class="string">&quot;FzGfKmS7N8Z1tvCBU5JH1eBXZQ9pCtRNoMUnNVv38wZNq72&quot;</span>,
-		<span class="string">&quot;GDfm1MyLAQ7Rh8YPtF6FtMweV4hz91zzeDy2sSABNNqAbmg&quot;</span>,
-		<span class="string">&quot;DiVQbq7sozeKp7PXPM1HLFc2m7ih8oepKLRK99oBY3QZak1&quot;</span>,
-		<span class="string">&quot;HErWh7D2RzrjWWB2fTJfcAejD9MJpadeWWZM2Wnk7LiNWfG&quot;</span>,
-		<span class="string">&quot;Es4DbDauYZYyRJbr6VxrhdcM1iufP9GtdBYf3YtSEvdwNyb&quot;</span>,
-		<span class="string">&quot;EBgXT6FaVo4WsN2LmfnB2jnpDFf4zay3E492RGSn6v1tY99&quot;</span>,
-		<span class="string">&quot;Dr9Zg4fxZurexParztL9SezFeHsPwdP8uGgULeRMbk8DDHJ&quot;</span>,
-		<span class="string">&quot;JEnSTZJpLh91cSryptj57RtFxq9xXqf4U5wBH3qoP91ZZhN&quot;</span>,
-		<span class="string">&quot;DqtRkrmtPANa8wrYR7Ce2LxJxk2iNFtiCxv1cXbx54uqdTN&quot;</span>,
-		<span class="string">&quot;GaxmF53xbuTFKopVEseWiaCTa8fC6f99n4YfW8MGPSPYX3s&quot;</span>,
-		<span class="string">&quot;EiCesgkAaighBKMpwFSAUdvwE4mRjBjNmmd5fP6d4FG8DAx&quot;</span>,
-		<span class="string">&quot;HVbwWGUx7kCgUGap1Mfcs37g6JAZ5qsfsM7TsDRcSqvfxmd&quot;</span>,
-		<span class="string">&quot;G45bc8Ajrd6YSXav77gQwjjGoAsR2qiGd1aLzkMy7o1RLwd&quot;</span>,
-		<span class="string">&quot;Cqix2rD93Mdf7ytg8tBavAig2TvhXPgPZ2mejQvkq7qgRPq&quot;</span>,
-		<span class="string">&quot;GpodE2S5dPeVjzHB4Drm8R9rEwcQPtwAspXqCVz1ooFWf5K&quot;</span>,
-		<span class="string">&quot;CwfmfRmzPKLj3ntSCejuVwYmQ1F9iZWY4meQrAVoJ2G8Kce&quot;</span>,
-		<span class="string">&quot;Fhp5NPvutRCJ4Gx3G8vCYGaveGcU3KgTwfrn5Zr8sLSgwVx&quot;</span>,
-		<span class="string">&quot;GeYRRPkyi23wSF3cJGjq82117fKJZUbWsAGimUnzb5RPbB1&quot;</span>,
-		<span class="string">&quot;DzCJ4y5oT611dfKQwbBDVbtCfENTdMCjb4KGMU3Mq6nyUMu&quot;</span>,
+		<span class="string">"CwjLJ1zPWK5Ao9WChAFp7rWGEgN3AyXXjTRPrqgm5WwBpoS"</span>,
+		<span class="string">"Dp8FHpZTzvoKXztkfrUAkF6xNf6sjVU5ZLZ29NEGUazouou"</span>,
+		<span class="string">"DtK7YfkhNWU6wEPF1dShsFdhtosVAuJPLkoGhKhG1r5LjKq"</span>,
+		<span class="string">"FLnHYBuoyThzqJ45tdb8P6yMLdocM7ir27Pg1AnpYoygm1K"</span>,
+		<span class="string">"FWEfJ5UMghr52UopgYjawAg6hQg3ztbQek75pfeRtLVi8pB"</span>,
+		<span class="string">"ECoLHAu7HKWGTB9od82HAtequYj6hvNHigkGSB9g3ApxAwB"</span>,
+		<span class="string">"GL1Tg3Uppo8GYL9NjKj4dWKcS6tW98REop9G5hpu7HgFwTa"</span>,
+		<span class="string">"ExnjU5LZMktrgtQBE3An6FsQfvaKG1ukxPqwhJydgdgarmY"</span>,
+		<span class="string">"CagLpgCBu5qJqYF2tpFX6BnU4yHvMGSjc7r3Ed1jY3tMbQt"</span>,
+		<span class="string">"DsrtmMsD4ijh3n4uodxPoiW9NZ7v7no5wVvPVj8fL1dfrWB"</span>,
+		<span class="string">"HQB4EctrVR68ozZDyBiRJzLRAEGh1YKgCkAsFjJcegL9RQA"</span>,
+		<span class="string">"H2YTYbXTFkDY1cGnv164ecnDT3hsD2bQXtyiDbcQuXcQZUV"</span>,
+		<span class="string">"H5WL8jXmbkCoEcLfvqJkbLUeGrDFsJiMXkhhRWn3joct1tE"</span>,
+		<span class="string">"DpB37GDrJDYcmg2df2eqsrPKMay1u8hyZ6sQi2FuUiUeNLu"</span>,
+		<span class="string">"FR8yjKRA9MTjvFGK8kfzrdC23Fr6xd7rfBvZXSjAsmuxURE"</span>,
+		<span class="string">"DxHPty3B9fpj3duu6Gc6gCSCAvsydJHJEY5G3oVYT8S5BYJ"</span>,
+		<span class="string">"DbVKC8ZJjevrhqSnZyJMMvmPL7oPPL4ed1roxawYnHVgyin"</span>,
+		<span class="string">"DVJV81kab2J6oTyRJ9T3NCwW2DSrysbWCssvMcE6cwZHnAd"</span>,
+		<span class="string">"Fg4rDAyzoVzf39Zo8JFPo4W314ntNWNwm3shr4xKe8M1fJg"</span>,
+		<span class="string">"GUaNcnAruMVxHGTs7gGpSUpigRJboQYQBBQyPohkFcP6NMH"</span>,
+		<span class="string">"J4BMGF4W9yWiJz4pkhQW73X6QMGpKUzmPppVnqzBCqw5dQq"</span>,
+		<span class="string">"E1cR61L1tdDEop4WdWVqcq1H1x6VqsDpSHvFyUeC41uruVJ"</span>,
+		<span class="string">"GoWLzBsj1f23YtdDpyntnvN1LwXKhF5TEeZvBeTVxofgWGR"</span>,
+		<span class="string">"CwHwmbogSwtRbrkajVBNubPvWmHBGU4bhMido54M9CjuKZD"</span>,
+		<span class="string">"FLT63y9oVXJnyiWMAL4RvWxsQx21Vymw9961Z7NRFmSG7rw"</span>,
+		<span class="string">"FoQ2y6JuHuHTG4rHFL3f2hCxfJMvtrq8wwPWdv8tsdkcyA8"</span>,
+		<span class="string">"D7QQKqqs8ocGorRA12h4QoBSHDia1DkHeXT4eMfjWQ483QH"</span>,
+		<span class="string">"J6z7FP35F9DiiU985bhkDTS3WxyeTBeoo9MtLdLoD3GiWPj"</span>,
+		<span class="string">"EjapydCK25AagodRbDECavHAy8yQY1tmeRhwUXhVWx4cFPv"</span>,
+		<span class="string">"H8admATcRkGCrF1dTDDBCjQDsYjMkuPaN9YwR2mSCj4DWMQ"</span>,
+		<span class="string">"FtHMRU1fxsoswJjBvyCGvECepC7gP2X77QbNpyikYSqqR6k"</span>,
+		<span class="string">"DzY5gwr45GVRUFzRMmeg8iffpqYF47nm3XbJhmjG97FijaE"</span>,
+		<span class="string">"D3HKWAihSUmg8HrfeFrftSwNK7no261yA9RNr3LUUdsuzuJ"</span>,
+		<span class="string">"D82DwwGJGTcSvtB3SmNrZejnSertbPzpkYvDUp3ibScL3ne"</span>,
+		<span class="string">"FTPxLXLQvMDQYFA6VqNLGwWPKhemMYP791XVj8TmDpFuV3b"</span>,
+		<span class="string">"FzGfKmS7N8Z1tvCBU5JH1eBXZQ9pCtRNoMUnNVv38wZNq72"</span>,
+		<span class="string">"GDfm1MyLAQ7Rh8YPtF6FtMweV4hz91zzeDy2sSABNNqAbmg"</span>,
+		<span class="string">"DiVQbq7sozeKp7PXPM1HLFc2m7ih8oepKLRK99oBY3QZak1"</span>,
+		<span class="string">"HErWh7D2RzrjWWB2fTJfcAejD9MJpadeWWZM2Wnk7LiNWfG"</span>,
+		<span class="string">"Es4DbDauYZYyRJbr6VxrhdcM1iufP9GtdBYf3YtSEvdwNyb"</span>,
+		<span class="string">"EBgXT6FaVo4WsN2LmfnB2jnpDFf4zay3E492RGSn6v1tY99"</span>,
+		<span class="string">"Dr9Zg4fxZurexParztL9SezFeHsPwdP8uGgULeRMbk8DDHJ"</span>,
+		<span class="string">"JEnSTZJpLh91cSryptj57RtFxq9xXqf4U5wBH3qoP91ZZhN"</span>,
+		<span class="string">"DqtRkrmtPANa8wrYR7Ce2LxJxk2iNFtiCxv1cXbx54uqdTN"</span>,
+		<span class="string">"GaxmF53xbuTFKopVEseWiaCTa8fC6f99n4YfW8MGPSPYX3s"</span>,
+		<span class="string">"EiCesgkAaighBKMpwFSAUdvwE4mRjBjNmmd5fP6d4FG8DAx"</span>,
+		<span class="string">"HVbwWGUx7kCgUGap1Mfcs37g6JAZ5qsfsM7TsDRcSqvfxmd"</span>,
+		<span class="string">"G45bc8Ajrd6YSXav77gQwjjGoAsR2qiGd1aLzkMy7o1RLwd"</span>,
+		<span class="string">"Cqix2rD93Mdf7ytg8tBavAig2TvhXPgPZ2mejQvkq7qgRPq"</span>,
+		<span class="string">"GpodE2S5dPeVjzHB4Drm8R9rEwcQPtwAspXqCVz1ooFWf5K"</span>,
+		<span class="string">"CwfmfRmzPKLj3ntSCejuVwYmQ1F9iZWY4meQrAVoJ2G8Kce"</span>,
+		<span class="string">"Fhp5NPvutRCJ4Gx3G8vCYGaveGcU3KgTwfrn5Zr8sLSgwVx"</span>,
+		<span class="string">"GeYRRPkyi23wSF3cJGjq82117fKJZUbWsAGimUnzb5RPbB1"</span>,
+		<span class="string">"DzCJ4y5oT611dfKQwbBDVbtCfENTdMCjb4KGMU3Mq6nyUMu"</span>,
 	];
 
 	<span class="kw">let </span>authorities = authorities
@@ -456,7 +458,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		.map(|address| {
 			(
 				grandpa_primitives::AuthorityId::from_ss58check(address)
-					.expect(<span class="string">&quot;hard fork authority addresses are static and they should be carefully defined; qed.&quot;</span>),
+					.expect(<span class="string">"hard fork authority addresses are static and they should be carefully defined; qed."</span>),
 				<span class="number">1</span>,
 			)
 		})
@@ -466,7 +468,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		.into_iter()
 		.map(|(set_id, hash, number)| {
 			<span class="kw">let </span>hash = Hash::from_str(hash)
-				.expect(<span class="string">&quot;hard fork hashes are static and they should be carefully defined; qed.&quot;</span>);
+				.expect(<span class="string">"hard fork hashes are static and they should be carefully defined; qed."</span>);
 
 			grandpa::AuthoritySetHardFork {
 				set_id,

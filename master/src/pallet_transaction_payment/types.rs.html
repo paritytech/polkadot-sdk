@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/transaction-payment/src/types.rs`."><title>types.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/transaction-payment/src/types.rs`."><title>types.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_transaction_payment" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_transaction_payment" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../pallet_transaction_payment/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -330,14 +332,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -345,7 +347,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! Types for transaction-payment RPC.
 
 </span><span class="kw">use </span>codec::{Decode, Encode};
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">use </span>serde::{Deserialize, Serialize};
 
 <span class="kw">use </span>scale_info::TypeInfo;
@@ -357,8 +359,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// The base fee and adjusted weight and length fees constitute the _inclusion fee_.
 </span><span class="attr">#[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
-#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(Debug, Serialize, Deserialize))]
-#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, serde(rename_all = <span class="string">&quot;camelCase&quot;</span>))]
+#[cfg_attr(feature = <span class="string">"std"</span>, derive(Debug, Serialize, Deserialize))]
+#[cfg_attr(feature = <span class="string">"std"</span>, serde(rename_all = <span class="string">"camelCase"</span>))]
 </span><span class="kw">pub struct </span>InclusionFee&lt;Balance&gt; {
 	<span class="doccomment">/// This is the minimum amount a user pays for a transaction. It is declared
 	/// as a base _weight_ in the runtime and converted to a fee using `WeightToFee`.
@@ -393,13 +395,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///   - `tip`: If included in the transaction, the tip will be added on top. Only signed
 ///     transactions can have a tip.
 </span><span class="attr">#[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
-#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(Debug, Serialize, Deserialize))]
-#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, serde(rename_all = <span class="string">&quot;camelCase&quot;</span>))]
+#[cfg_attr(feature = <span class="string">"std"</span>, derive(Debug, Serialize, Deserialize))]
+#[cfg_attr(feature = <span class="string">"std"</span>, serde(rename_all = <span class="string">"camelCase"</span>))]
 </span><span class="kw">pub struct </span>FeeDetails&lt;Balance&gt; {
 	<span class="doccomment">/// The minimum fee for a transaction to be included in a block.
 	</span><span class="kw">pub </span>inclusion_fee: <span class="prelude-ty">Option</span>&lt;InclusionFee&lt;Balance&gt;&gt;,
 	<span class="comment">// Do not serialize and deserialize `tip` as we actually can not pass any tip to the RPC.
-	</span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, serde(skip))]
+	</span><span class="attr">#[cfg_attr(feature = <span class="string">"std"</span>, serde(skip))]
 	</span><span class="kw">pub </span>tip: Balance,
 }
 
@@ -418,18 +420,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="doccomment">/// Information related to a dispatchable&#39;s class, weight, and fee that can be queried from the
+<span class="doccomment">/// Information related to a dispatchable's class, weight, and fee that can be queried from the
 /// runtime.
 </span><span class="attr">#[derive(Eq, PartialEq, Encode, Decode, Default, TypeInfo)]
-#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(Debug, Serialize, Deserialize, Clone))]
-#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, serde(rename_all = <span class="string">&quot;camelCase&quot;</span>))]
+#[cfg_attr(feature = <span class="string">"std"</span>, derive(Debug, Serialize, Deserialize, Clone))]
+#[cfg_attr(feature = <span class="string">"std"</span>, serde(rename_all = <span class="string">"camelCase"</span>))]
 #[cfg_attr(
-	feature = <span class="string">&quot;std&quot;</span>,
-	serde(bound(serialize = <span class="string">&quot;Balance: std::fmt::Display, Weight: Serialize&quot;</span>))
+	feature = <span class="string">"std"</span>,
+	serde(bound(serialize = <span class="string">"Balance: std::fmt::Display, Weight: Serialize"</span>))
 )]
 #[cfg_attr(
-	feature = <span class="string">&quot;std&quot;</span>,
-	serde(bound(deserialize = <span class="string">&quot;Balance: std::str::FromStr, Weight: Deserialize&lt;&#39;de&gt;&quot;</span>))
+	feature = <span class="string">"std"</span>,
+	serde(bound(deserialize = <span class="string">"Balance: std::str::FromStr, Weight: Deserialize&lt;'de&gt;"</span>))
 )]
 </span><span class="kw">pub struct </span>RuntimeDispatchInfo&lt;Balance, Weight = frame_support::weights::Weight&gt; {
 	<span class="doccomment">/// Weight of this dispatch.
@@ -440,11 +442,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// This does not include a tip or anything else that
 	/// depends on the signature (i.e. depends on a `SignedExtension`).
-	</span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, serde(with = <span class="string">&quot;serde_balance&quot;</span>))]
+	</span><span class="attr">#[cfg_attr(feature = <span class="string">"std"</span>, serde(with = <span class="string">"serde_balance"</span>))]
 	</span><span class="kw">pub </span>partial_fee: Balance,
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">mod </span>serde_balance {
 	<span class="kw">use </span>serde::{Deserialize, Deserializer, Serializer};
 
@@ -455,11 +457,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		serializer.serialize_str(<span class="kw-2">&amp;</span>t.to_string())
 	}
 
-	<span class="kw">pub fn </span>deserialize&lt;<span class="lifetime">&#39;de</span>, D: Deserializer&lt;<span class="lifetime">&#39;de</span>&gt;, T: std::str::FromStr&gt;(
+	<span class="kw">pub fn </span>deserialize&lt;<span class="lifetime">'de</span>, D: Deserializer&lt;<span class="lifetime">'de</span>&gt;, T: std::str::FromStr&gt;(
 		deserializer: D,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;T, D::Error&gt; {
 		<span class="kw">let </span>s = String::deserialize(deserializer)<span class="question-mark">?</span>;
-		s.parse::&lt;T&gt;().map_err(|<span class="kw">_</span>| serde::de::Error::custom(<span class="string">&quot;Parse from string failed&quot;</span>))
+		s.parse::&lt;T&gt;().map_err(|<span class="kw">_</span>| serde::de::Error::custom(<span class="string">"Parse from string failed"</span>))
 	}
 }
 
@@ -477,7 +479,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		};
 
 		<span class="kw">let </span>json_str =
-			<span class="string">r#&quot;{&quot;weight&quot;:{&quot;ref_time&quot;:5,&quot;proof_size&quot;:0},&quot;class&quot;:&quot;normal&quot;,&quot;partialFee&quot;:&quot;1000000&quot;}&quot;#</span>;
+			<span class="string">r#"{"weight":{"ref_time":5,"proof_size":0},"class":"normal","partialFee":"1000000"}"#</span>;
 
 		<span class="macro">assert_eq!</span>(serde_json::to_string(<span class="kw-2">&amp;</span>info).unwrap(), json_str);
 		<span class="macro">assert_eq!</span>(serde_json::from_str::&lt;RuntimeDispatchInfo&lt;u64&gt;&gt;(json_str).unwrap(), info);
@@ -494,7 +496,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			partial_fee: u128::max_value(),
 		};
 
-		<span class="kw">let </span>json_str = <span class="string">r#&quot;{&quot;weight&quot;:{&quot;ref_time&quot;:5,&quot;proof_size&quot;:0},&quot;class&quot;:&quot;normal&quot;,&quot;partialFee&quot;:&quot;340282366920938463463374607431768211455&quot;}&quot;#</span>;
+		<span class="kw">let </span>json_str = <span class="string">r#"{"weight":{"ref_time":5,"proof_size":0},"class":"normal","partialFee":"340282366920938463463374607431768211455"}"#</span>;
 
 		<span class="macro">assert_eq!</span>(serde_json::to_string(<span class="kw-2">&amp;</span>info).unwrap(), json_str);
 		<span class="macro">assert_eq!</span>(serde_json::from_str::&lt;RuntimeDispatchInfo&lt;u128&gt;&gt;(json_str).unwrap(), info);

@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/rpc-spec-v2/src/chain_head/subscription/inner.rs`."><title>inner.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/rpc-spec-v2/src/chain_head/subscription/inner.rs`."><title>inner.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="sc_rpc_spec_v2" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="sc_rpc_spec_v2" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../../sc_rpc_spec_v2/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1729,7 +1731,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// Dropping [`PermitOperations`] without executing an operation will release
 	/// the reserved capacity.
 	///
-	/// Returns nothing if there&#39;s no space available, else returns a permit
+	/// Returns nothing if there's no space available, else returns a permit
 	/// that guarantees that at least one operation can be executed.
 	</span><span class="kw">fn </span>reserve_at_most(<span class="kw-2">&amp;</span><span class="self">self</span>, to_reserve: usize) -&gt; <span class="prelude-ty">Option</span>&lt;PermitOperations&gt; {
 		<span class="kw">let </span>num_ops = std::cmp::min(<span class="self">self</span>.semaphore.available_permits(), to_reserve);
@@ -1951,7 +1953,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">struct </span>SubscriptionState&lt;Block: BlockT&gt; {
 	<span class="doccomment">/// The `with_runtime` parameter flag of the subscription.
 	</span>with_runtime: bool,
-	<span class="doccomment">/// Signals the &quot;Stop&quot; event.
+	<span class="doccomment">/// Signals the "Stop" event.
 	</span>tx_stop: <span class="prelude-ty">Option</span>&lt;oneshot::Sender&lt;()&gt;&gt;,
 	<span class="doccomment">/// The sender of message responses to the `chainHead_follow` events.
 	///
@@ -1962,7 +1964,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Track the block hashes available for this subscription.
 	///
 	/// This implementation assumes:
-	/// - most of the time subscriptions keep a few blocks of the chain&#39;s head pinned
+	/// - most of the time subscriptions keep a few blocks of the chain's head pinned
 	/// - iteration through the blocks happens only when the hard limit is exceeded.
 	///
 	/// Considering the assumption, iterating (in the unlike case) the hashmap O(N) is
@@ -2098,8 +2100,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="comment">// Custom implementation of Debug to avoid bounds on `backend: Debug` for `unwrap_err()` needed for
 // testing.
 </span><span class="kw">impl</span>&lt;Block: BlockT, BE: Backend&lt;Block&gt;&gt; std::fmt::Debug <span class="kw">for </span>BlockGuard&lt;Block, BE&gt; {
-	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
-		<span class="macro">write!</span>(f, <span class="string">&quot;BlockGuard hash {:?} with_runtime {:?}&quot;</span>, <span class="self">self</span>.hash, <span class="self">self</span>.with_runtime)
+	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; std::fmt::Result {
+		<span class="macro">write!</span>(f, <span class="string">"BlockGuard hash {:?} with_runtime {:?}"</span>, <span class="self">self</span>.hash, <span class="self">self</span>.with_runtime)
 	}
 }
 
@@ -2198,7 +2200,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if let </span>Entry::Vacant(entry) = <span class="self">self</span>.subs.entry(sub_id) {
 			<span class="kw">let </span>(tx_stop, rx_stop) = oneshot::channel();
 			<span class="kw">let </span>(response_sender, response_receiver) =
-				tracing_unbounded(<span class="string">&quot;chain-head-method-responses&quot;</span>, QUEUE_SIZE_WARNING);
+				tracing_unbounded(<span class="string">"chain-head-method-responses"</span>, QUEUE_SIZE_WARNING);
 			<span class="kw">let </span>state = SubscriptionState::&lt;Block&gt; {
 				with_runtime,
 				tx_stop: <span class="prelude-val">Some</span>(tx_stop),
@@ -2576,7 +2578,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>sub_state_register_twice() {
 		<span class="kw">let </span>(response_sender, _response_receiver) =
-			tracing_unbounded(<span class="string">&quot;test-chain-head-method-responses&quot;</span>, QUEUE_SIZE_WARNING);
+			tracing_unbounded(<span class="string">"test-chain-head-method-responses"</span>, QUEUE_SIZE_WARNING);
 		<span class="kw">let </span><span class="kw-2">mut </span>sub_state = SubscriptionState::&lt;Block&gt; {
 			with_runtime: <span class="bool-val">false</span>,
 			tx_stop: <span class="prelude-val">None</span>,
@@ -2605,7 +2607,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>sub_state_register_unregister() {
 		<span class="kw">let </span>(response_sender, _response_receiver) =
-			tracing_unbounded(<span class="string">&quot;test-chain-head-method-responses&quot;</span>, QUEUE_SIZE_WARNING);
+			tracing_unbounded(<span class="string">"test-chain-head-method-responses"</span>, QUEUE_SIZE_WARNING);
 		<span class="kw">let </span><span class="kw-2">mut </span>sub_state = SubscriptionState::&lt;Block&gt; {
 			with_runtime: <span class="bool-val">false</span>,
 			tx_stop: <span class="prelude-val">None</span>,
@@ -2648,8 +2650,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span><span class="kw-2">mut </span>subs =
 			SubscriptionsInner::new(<span class="number">10</span>, Duration::from_secs(<span class="number">10</span>), MAX_OPERATIONS_PER_SUB, backend);
-		<span class="kw">let </span>id_1 = <span class="string">&quot;abc&quot;</span>.to_string();
-		<span class="kw">let </span>id_2 = <span class="string">&quot;abcd&quot;</span>.to_string();
+		<span class="kw">let </span>id_1 = <span class="string">"abc"</span>.to_string();
+		<span class="kw">let </span>id_2 = <span class="string">"abcd"</span>.to_string();
 
 		<span class="comment">// Pin all blocks for the first subscription.
 		</span><span class="kw">let </span>_stop = subs.insert_subscription(id_1.clone(), <span class="bool-val">true</span>).unwrap();
@@ -2689,7 +2691,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span><span class="kw-2">mut </span>subs =
 			SubscriptionsInner::new(<span class="number">10</span>, Duration::from_secs(<span class="number">10</span>), MAX_OPERATIONS_PER_SUB, backend);
 
-		<span class="kw">let </span>id = <span class="string">&quot;abc&quot;</span>.to_string();
+		<span class="kw">let </span>id = <span class="string">"abc"</span>.to_string();
 		<span class="kw">let </span>hash = H256::random();
 
 		<span class="comment">// Subscription not inserted.
@@ -2720,7 +2722,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span><span class="kw-2">mut </span>subs =
 			SubscriptionsInner::new(<span class="number">10</span>, Duration::from_secs(<span class="number">10</span>), MAX_OPERATIONS_PER_SUB, backend);
-		<span class="kw">let </span>id = <span class="string">&quot;abc&quot;</span>.to_string();
+		<span class="kw">let </span>id = <span class="string">"abc"</span>.to_string();
 
 		<span class="kw">let </span>_stop = subs.insert_subscription(id.clone(), <span class="bool-val">true</span>).unwrap();
 
@@ -2731,7 +2733,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// Subscription started with runtime updates
 		</span><span class="macro">assert_eq!</span>(block.has_runtime(), <span class="bool-val">true</span>);
 
-		<span class="kw">let </span>invalid_id = <span class="string">&quot;abc-invalid&quot;</span>.to_string();
+		<span class="kw">let </span>invalid_id = <span class="string">"abc-invalid"</span>.to_string();
 		<span class="kw">let </span>err = subs.unpin_blocks(<span class="kw-2">&amp;</span>invalid_id, <span class="macro">vec!</span>[hash]).unwrap_err();
 		<span class="macro">assert_eq!</span>(err, SubscriptionManagementError::SubscriptionAbsent);
 
@@ -2750,7 +2752,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span><span class="kw-2">mut </span>subs =
 			SubscriptionsInner::new(<span class="number">10</span>, Duration::from_secs(<span class="number">10</span>), MAX_OPERATIONS_PER_SUB, backend);
-		<span class="kw">let </span>id = <span class="string">&quot;abc&quot;</span>.to_string();
+		<span class="kw">let </span>id = <span class="string">"abc"</span>.to_string();
 
 		<span class="kw">let </span>_stop = subs.insert_subscription(id.clone(), <span class="bool-val">true</span>).unwrap();
 		<span class="macro">assert_eq!</span>(subs.pin_block(<span class="kw-2">&amp;</span>id, hash).unwrap(), <span class="bool-val">true</span>);
@@ -2765,7 +2767,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="macro">assert_eq!</span>(<span class="kw-2">*</span>subs.global_blocks.get(<span class="kw-2">&amp;</span>hash).unwrap(), <span class="number">1</span>);
 
 		<span class="comment">// Ensure the hash propagates for the second subscription.
-		</span><span class="kw">let </span>id_second = <span class="string">&quot;abcd&quot;</span>.to_string();
+		</span><span class="kw">let </span>id_second = <span class="string">"abcd"</span>.to_string();
 		<span class="kw">let </span>_stop = subs.insert_subscription(id_second.clone(), <span class="bool-val">true</span>).unwrap();
 		<span class="macro">assert_eq!</span>(subs.pin_block(<span class="kw-2">&amp;</span>id_second, hash).unwrap(), <span class="bool-val">true</span>);
 		<span class="comment">// Check the global ref count.
@@ -2793,8 +2795,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span><span class="kw-2">mut </span>subs =
 			SubscriptionsInner::new(<span class="number">10</span>, Duration::from_secs(<span class="number">10</span>), MAX_OPERATIONS_PER_SUB, backend);
-		<span class="kw">let </span>id_1 = <span class="string">&quot;abc&quot;</span>.to_string();
-		<span class="kw">let </span>id_2 = <span class="string">&quot;abcd&quot;</span>.to_string();
+		<span class="kw">let </span>id_1 = <span class="string">"abc"</span>.to_string();
+		<span class="kw">let </span>id_2 = <span class="string">"abcd"</span>.to_string();
 
 		<span class="comment">// Pin all blocks for the first subscription.
 		</span><span class="kw">let </span>_stop = subs.insert_subscription(id_1.clone(), <span class="bool-val">true</span>).unwrap();
@@ -2833,8 +2835,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// Maximum number of pinned blocks is 2.
 		</span><span class="kw">let </span><span class="kw-2">mut </span>subs =
 			SubscriptionsInner::new(<span class="number">2</span>, Duration::from_secs(<span class="number">10</span>), MAX_OPERATIONS_PER_SUB, backend);
-		<span class="kw">let </span>id_1 = <span class="string">&quot;abc&quot;</span>.to_string();
-		<span class="kw">let </span>id_2 = <span class="string">&quot;abcd&quot;</span>.to_string();
+		<span class="kw">let </span>id_1 = <span class="string">"abc"</span>.to_string();
+		<span class="kw">let </span>id_2 = <span class="string">"abcd"</span>.to_string();
 
 		<span class="comment">// Both subscriptions can pin the maximum limit.
 		</span><span class="kw">let </span>_stop = subs.insert_subscription(id_1.clone(), <span class="bool-val">true</span>).unwrap();
@@ -2878,8 +2880,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// Maximum number of pinned blocks is 2 and maximum pin duration is 5 second.
 		</span><span class="kw">let </span><span class="kw-2">mut </span>subs =
 			SubscriptionsInner::new(<span class="number">2</span>, Duration::from_secs(<span class="number">5</span>), MAX_OPERATIONS_PER_SUB, backend);
-		<span class="kw">let </span>id_1 = <span class="string">&quot;abc&quot;</span>.to_string();
-		<span class="kw">let </span>id_2 = <span class="string">&quot;abcd&quot;</span>.to_string();
+		<span class="kw">let </span>id_1 = <span class="string">"abc"</span>.to_string();
+		<span class="kw">let </span>id_2 = <span class="string">"abcd"</span>.to_string();
 
 		<span class="kw">let </span>_stop = subs.insert_subscription(id_1.clone(), <span class="bool-val">true</span>).unwrap();
 		<span class="macro">assert_eq!</span>(subs.pin_block(<span class="kw-2">&amp;</span>id_1, hash_1).unwrap(), <span class="bool-val">true</span>);
@@ -2929,7 +2931,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span><span class="kw-2">mut </span>subs =
 			SubscriptionsInner::new(<span class="number">10</span>, Duration::from_secs(<span class="number">10</span>), MAX_OPERATIONS_PER_SUB, backend);
 
-		<span class="kw">let </span>id = <span class="string">&quot;abc&quot;</span>.to_string();
+		<span class="kw">let </span>id = <span class="string">"abc"</span>.to_string();
 
 		<span class="kw">let </span><span class="kw-2">mut </span>sub_data = subs.insert_subscription(id.clone(), <span class="bool-val">true</span>).unwrap();
 
@@ -2959,7 +2961,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// Number of reserved permits is smaller than provided.
 		</span><span class="macro">assert_eq!</span>(permit_two.num_ops, <span class="number">1</span>);
 
-		<span class="comment">// Try to reserve operations when there&#39;s no space.
+		<span class="comment">// Try to reserve operations when there's no space.
 		</span><span class="kw">let </span>permit = ops.reserve_at_most(<span class="number">1</span>);
 		<span class="macro">assert!</span>(permit.is_none());
 
@@ -2980,8 +2982,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span><span class="kw-2">mut </span>subs =
 			SubscriptionsInner::new(<span class="number">10</span>, Duration::from_secs(<span class="number">10</span>), MAX_OPERATIONS_PER_SUB, backend);
-		<span class="kw">let </span>id_1 = <span class="string">&quot;abc&quot;</span>.to_string();
-		<span class="kw">let </span>id_2 = <span class="string">&quot;abcd&quot;</span>.to_string();
+		<span class="kw">let </span>id_1 = <span class="string">"abc"</span>.to_string();
+		<span class="kw">let </span>id_2 = <span class="string">"abcd"</span>.to_string();
 
 		<span class="comment">// Pin all blocks for the first subscription.
 		</span><span class="kw">let </span>_stop = subs.insert_subscription(id_1.clone(), <span class="bool-val">true</span>).unwrap();
@@ -3038,9 +3040,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// Insert subscriptions.
 		</span><span class="kw">let </span>_sub_data_first =
-			reserved_sub_first.insert_subscription(<span class="string">&quot;sub1&quot;</span>.to_string(), <span class="bool-val">true</span>).unwrap();
+			reserved_sub_first.insert_subscription(<span class="string">"sub1"</span>.to_string(), <span class="bool-val">true</span>).unwrap();
 		<span class="kw">let </span>_sub_data_second =
-			reserved_sub_second.insert_subscription(<span class="string">&quot;sub2&quot;</span>.to_string(), <span class="bool-val">true</span>).unwrap();
+			reserved_sub_second.insert_subscription(<span class="string">"sub2"</span>.to_string(), <span class="bool-val">true</span>).unwrap();
 		<span class="comment">// Check we have 2 subscriptions under management.
 		</span><span class="macro">assert_eq!</span>(subs.read().subs.len(), <span class="number">2</span>);
 

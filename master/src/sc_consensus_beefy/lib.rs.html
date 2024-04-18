@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/consensus/beefy/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/consensus/beefy/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_consensus_beefy" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_consensus_beefy" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sc_consensus_beefy/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -971,7 +973,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests;
 
-<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;beefy&quot;</span>;
+<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"beefy"</span>;
 
 <span class="kw">const </span>HEADER_SYNC_DELAY: Duration = Duration::from_secs(<span class="number">60</span>);
 
@@ -1109,7 +1111,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>links: BeefyVoterLinks&lt;B&gt;,
 	<span class="doccomment">/// Handler for incoming BEEFY justifications requests from a remote peer.
 	</span><span class="kw">pub </span>on_demand_justifications_handler: BeefyJustifsRequestHandler&lt;B, C&gt;,
-	<span class="doccomment">/// Whether running under &quot;Authority&quot; role.
+	<span class="doccomment">/// Whether running under "Authority" role.
 	</span><span class="kw">pub </span>is_authority: bool,
 }
 <span class="doccomment">/// Helper object holding BEEFY worker communication/gossip components.
@@ -1228,7 +1230,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.ok()
 			.flatten()
 			.filter(|genesis| <span class="kw-2">*</span>genesis == beefy_genesis)
-			.ok_or_else(|| Error::Backend(<span class="string">&quot;BEEFY pallet expected to be active.&quot;</span>.into()))<span class="question-mark">?</span>;
+			.ok_or_else(|| Error::Backend(<span class="string">"BEEFY pallet expected to be active."</span>.into()))<span class="question-mark">?</span>;
 		<span class="comment">// Walk back the imported blocks and initialize voter either, at the last block with
 		// a BEEFY justification, or at pallet genesis block; voter will resume from there.
 		</span><span class="kw">let </span><span class="kw-2">mut </span>sessions = VecDeque::new();
@@ -1242,7 +1244,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			{
 				<span class="macro">debug!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;🥩 Initialize BEEFY voter at last BEEFY finalized block: {:?}.&quot;</span>,
+					<span class="string">"🥩 Initialize BEEFY voter at last BEEFY finalized block: {:?}."</span>,
 					<span class="kw-2">*</span>header.number()
 				);
 				<span class="kw">let </span>best_beefy = <span class="kw-2">*</span>header.number();
@@ -1262,18 +1264,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					min_block_delta,
 					beefy_genesis,
 				)
-				.ok_or_else(|| Error::Backend(<span class="string">&quot;Invalid BEEFY chain&quot;</span>.into()))<span class="question-mark">?</span>;
+				.ok_or_else(|| Error::Backend(<span class="string">"Invalid BEEFY chain"</span>.into()))<span class="question-mark">?</span>;
 				<span class="kw">break </span>state
 			}
 
 			<span class="kw">if </span><span class="kw-2">*</span>header.number() == beefy_genesis {
-				<span class="comment">// We&#39;ve reached BEEFY genesis, initialize voter here.
+				<span class="comment">// We've reached BEEFY genesis, initialize voter here.
 				</span><span class="kw">let </span>genesis_set =
 					expect_validator_set(runtime.as_ref(), backend.as_ref(), <span class="kw-2">&amp;</span>header).<span class="kw">await</span><span class="question-mark">?</span>;
 				<span class="macro">info!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;🥩 Loading BEEFY voter state from genesis on what appears to be first startup. \
-					Starting voting rounds at block {:?}, genesis validator set {:?}.&quot;</span>,
+					<span class="string">"🥩 Loading BEEFY voter state from genesis on what appears to be first startup. \
+					Starting voting rounds at block {:?}, genesis validator set {:?}."</span>,
 					beefy_genesis,
 					genesis_set,
 				);
@@ -1286,13 +1288,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					min_block_delta,
 					beefy_genesis,
 				)
-				.ok_or_else(|| Error::Backend(<span class="string">&quot;Invalid BEEFY chain&quot;</span>.into()))<span class="question-mark">?
+				.ok_or_else(|| Error::Backend(<span class="string">"Invalid BEEFY chain"</span>.into()))<span class="question-mark">?
 			</span>}
 
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(active) = find_authorities_change::&lt;B&gt;(<span class="kw-2">&amp;</span>header) {
 				<span class="macro">debug!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;🥩 Marking block {:?} as BEEFY Mandatory.&quot;</span>,
+					<span class="string">"🥩 Marking block {:?} as BEEFY Mandatory."</span>,
 					<span class="kw-2">*</span>header.number()
 				);
 				sessions.push_front(Rounds::new(<span class="kw-2">*</span>header.number(), active));
@@ -1326,7 +1328,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span>state.set_best_grandpa(best_grandpa.clone());
 			<span class="comment">// Overwrite persisted data with newly provided `min_block_delta`.
 			</span>state.set_min_block_delta(min_block_delta);
-			<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;🥩 Loading BEEFY voter state from db: {:?}.&quot;</span>, state);
+			<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"🥩 Loading BEEFY voter state from db: {:?}."</span>, state);
 
 			<span class="comment">// Make sure that all the headers that we need have been synced.
 			</span><span class="kw">let </span><span class="kw-2">mut </span>new_sessions = <span class="macro">vec!</span>[];
@@ -1341,11 +1343,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					wait_for_parent_header(backend.blockchain(), header, HEADER_SYNC_DELAY).<span class="kw">await</span><span class="question-mark">?</span>;
 			}
 
-			<span class="comment">// Make sure we didn&#39;t miss any sessions during node restart.
+			<span class="comment">// Make sure we didn't miss any sessions during node restart.
 			</span><span class="kw">for </span>(validator_set, new_session_start) <span class="kw">in </span>new_sessions.drain(..).rev() {
 				<span class="macro">debug!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;🥩 Handling missed BEEFY session after node restart: {:?}.&quot;</span>,
+					<span class="string">"🥩 Handling missed BEEFY session after node restart: {:?}."</span>,
 					new_session_start
 				);
 				state.init_session_at(
@@ -1376,8 +1378,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	P: PayloadProvider&lt;B&gt; + Clone,
 	R: ProvideRuntimeApi&lt;B&gt;,
 	R::Api: BeefyApi&lt;B, AuthorityId&gt; + MmrApi&lt;B, MmrRootHash, NumberFor&lt;B&gt;&gt;,
-	N: GossipNetwork&lt;B&gt; + NetworkRequest + Send + Sync + <span class="lifetime">&#39;static</span>,
-	S: GossipSyncing&lt;B&gt; + SyncOracle + <span class="lifetime">&#39;static</span>,
+	N: GossipNetwork&lt;B&gt; + NetworkRequest + Send + Sync + <span class="lifetime">'static</span>,
+	S: GossipSyncing&lt;B&gt; + SyncOracle + <span class="lifetime">'static</span>,
 {
 	<span class="kw">let </span>BeefyParams {
 		client,
@@ -1405,7 +1407,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>metrics = register_metrics(prometheus_registry.clone());
 
 	<span class="comment">// Subscribe to finality notifications and justifications before waiting for runtime pallet and
-	// reuse the streams, so we don&#39;t miss notifications while waiting for pallet to be available.
+	// reuse the streams, so we don't miss notifications while waiting for pallet to be available.
 	</span><span class="kw">let </span><span class="kw-2">mut </span>finality_notifications = client.finality_notification_stream().fuse();
 	<span class="kw">let </span><span class="kw-2">mut </span>block_import_justif = links.from_block_import_justif_stream.subscribe(<span class="number">100_000</span>).fuse();
 
@@ -1452,14 +1454,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">match </span>builder_init_result {
 					<span class="prelude-val">Ok</span>(builder) =&gt; builder,
 					<span class="prelude-val">Err</span>(e) =&gt; {
-						<span class="macro">error!</span>(target: LOG_TARGET, <span class="string">&quot;🥩 Error: {:?}. Terminating.&quot;</span>, e);
+						<span class="macro">error!</span>(target: LOG_TARGET, <span class="string">"🥩 Error: {:?}. Terminating."</span>, e);
 						<span class="kw">return
 					</span>},
 				}
 			},
 			<span class="comment">// Pump gossip engine.
 			</span><span class="kw">_ </span>= <span class="kw-2">&amp;mut </span>beefy_comms.gossip_engine =&gt; {
-				<span class="macro">error!</span>(target: LOG_TARGET, <span class="string">&quot;🥩 Gossip engine has unexpectedly terminated.&quot;</span>);
+				<span class="macro">error!</span>(target: LOG_TARGET, <span class="string">"🥩 Gossip engine has unexpectedly terminated."</span>);
 				<span class="kw">return
 			</span>}
 		};
@@ -1481,15 +1483,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>{
 			<span class="comment">// On `ConsensusReset` error, just reinit and restart voter.
 			</span>futures::future::Either::Left(((error::Error::ConsensusReset, reuse_comms), <span class="kw">_</span>)) =&gt; {
-				<span class="macro">error!</span>(target: LOG_TARGET, <span class="string">&quot;🥩 Error: {:?}. Restarting voter.&quot;</span>, error::Error::ConsensusReset);
+				<span class="macro">error!</span>(target: LOG_TARGET, <span class="string">"🥩 Error: {:?}. Restarting voter."</span>, error::Error::ConsensusReset);
 				beefy_comms = reuse_comms;
 				<span class="kw">continue
 			</span>},
 			<span class="comment">// On other errors, bring down / finish the task.
 			</span>futures::future::Either::Left(((worker_err, <span class="kw">_</span>), <span class="kw">_</span>)) =&gt;
-				<span class="macro">error!</span>(target: LOG_TARGET, <span class="string">&quot;🥩 Error: {:?}. Terminating.&quot;</span>, worker_err),
+				<span class="macro">error!</span>(target: LOG_TARGET, <span class="string">"🥩 Error: {:?}. Terminating."</span>, worker_err),
 			futures::future::Either::Right((odj_handler_err, <span class="kw">_</span>)) =&gt;
-				<span class="macro">error!</span>(target: LOG_TARGET, <span class="string">&quot;🥩 Error: {:?}. Terminating.&quot;</span>, odj_handler_err),
+				<span class="macro">error!</span>(target: LOG_TARGET, <span class="string">"🥩 Error: {:?}. Terminating."</span>, odj_handler_err),
 		};
 		<span class="kw">return
 	</span>}
@@ -1511,8 +1513,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	BC: BlockchainBackend&lt;B&gt;,
 {
 	<span class="kw">if </span><span class="kw-2">*</span>current.number() == Zero::zero() {
-		<span class="kw">let </span>msg = <span class="macro">format!</span>(<span class="string">&quot;header {} is Genesis, there is no parent for it&quot;</span>, current.hash());
-		<span class="macro">warn!</span>(target: LOG_TARGET, <span class="string">&quot;{}&quot;</span>, msg);
+		<span class="kw">let </span>msg = <span class="macro">format!</span>(<span class="string">"header {} is Genesis, there is no parent for it"</span>, current.hash());
+		<span class="macro">warn!</span>(target: LOG_TARGET, <span class="string">"{}"</span>, msg);
 		<span class="kw">return </span><span class="prelude-val">Err</span>(Error::Backend(msg));
 	}
 	<span class="kw">loop </span>{
@@ -1524,8 +1526,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">None </span>=&gt; {
 				<span class="macro">info!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;🥩 Parent of header number {} not found. \
-					BEEFY gadget waiting for header sync to finish ...&quot;</span>,
+					<span class="string">"🥩 Parent of header number {} not found. \
+					BEEFY gadget waiting for header sync to finish ..."</span>,
 					current.number()
 				);
 				tokio::time::sleep(delay).<span class="kw">await</span>;
@@ -1545,11 +1547,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	R: ProvideRuntimeApi&lt;B&gt;,
 	R::Api: BeefyApi&lt;B, AuthorityId&gt;,
 {
-	<span class="macro">info!</span>(target: LOG_TARGET, <span class="string">&quot;🥩 BEEFY gadget waiting for BEEFY pallet to become available...&quot;</span>);
+	<span class="macro">info!</span>(target: LOG_TARGET, <span class="string">"🥩 BEEFY gadget waiting for BEEFY pallet to become available..."</span>);
 	<span class="kw">loop </span>{
 		<span class="kw">let </span>notif = finality.next().<span class="kw">await</span>.ok_or_else(|| {
-			<span class="kw">let </span>err_msg = <span class="string">&quot;🥩 Finality stream has unexpectedly terminated.&quot;</span>.into();
-			<span class="macro">error!</span>(target: LOG_TARGET, <span class="string">&quot;{}&quot;</span>, err_msg);
+			<span class="kw">let </span>err_msg = <span class="string">"🥩 Finality stream has unexpectedly terminated."</span>.into();
+			<span class="macro">error!</span>(target: LOG_TARGET, <span class="string">"{}"</span>, err_msg);
 			Error::Backend(err_msg)
 		})<span class="question-mark">?</span>;
 		<span class="kw">let </span>at = notif.header.hash();
@@ -1558,7 +1560,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="comment">// Beefy pallet available, return header for best grandpa at the time.
 				</span><span class="macro">info!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;🥩 BEEFY pallet available: block {:?} beefy genesis {:?}&quot;</span>,
+					<span class="string">"🥩 BEEFY pallet available: block {:?} beefy genesis {:?}"</span>,
 					notif.header.number(), start
 				);
 				<span class="kw">return </span><span class="prelude-val">Ok</span>((start, notif.header))
@@ -1570,7 +1572,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Provides validator set active `at_header`. It tries to get it from state, otherwise falls
 /// back to walk up the chain looking the validator set enactment in header digests.
 ///
-/// Note: function will `async::sleep()` when walking back the chain if some needed header hasn&#39;t
+/// Note: function will `async::sleep()` when walking back the chain if some needed header hasn't
 /// been synced yet (as it happens when warp syncing when headers are synced in the background).
 </span><span class="kw">async fn </span>expect_validator_set&lt;B, BE, R&gt;(
 	runtime: <span class="kw-2">&amp;</span>R,
@@ -1584,23 +1586,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	R::Api: BeefyApi&lt;B, AuthorityId&gt;,
 {
 	<span class="kw">let </span>blockchain = backend.blockchain();
-	<span class="comment">// Walk up the chain looking for the validator set active at &#39;at_header&#39;. Process both state and
+	<span class="comment">// Walk up the chain looking for the validator set active at 'at_header'. Process both state and
 	// header digests.
 	</span><span class="macro">debug!</span>(
 		target: LOG_TARGET,
-		<span class="string">&quot;🥩 Trying to find validator set active at header(number {:?}, hash {:?})&quot;</span>,
+		<span class="string">"🥩 Trying to find validator set active at header(number {:?}, hash {:?})"</span>,
 		at_header.number(),
 		at_header.hash()
 	);
 	<span class="kw">let </span><span class="kw-2">mut </span>header = at_header.clone();
 	<span class="kw">loop </span>{
-		<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;🥩 Looking for auth set change at block number: {:?}&quot;</span>, <span class="kw-2">*</span>header.number());
+		<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"🥩 Looking for auth set change at block number: {:?}"</span>, <span class="kw-2">*</span>header.number());
 		<span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(active)) = runtime.runtime_api().validator_set(header.hash()) {
 			<span class="kw">return </span><span class="prelude-val">Ok</span>(active)
 		} <span class="kw">else </span>{
 			<span class="kw">match </span>find_authorities_change::&lt;B&gt;(<span class="kw-2">&amp;</span>header) {
 				<span class="prelude-val">Some</span>(active) =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(active),
-				<span class="comment">// Move up the chain. Ultimately we&#39;ll get it from chain genesis state, or error out
+				<span class="comment">// Move up the chain. Ultimately we'll get it from chain genesis state, or error out
 				// there.
 				</span><span class="prelude-val">None </span>=&gt;
 					header = wait_for_parent_header(blockchain, header, HEADER_SYNC_DELAY)

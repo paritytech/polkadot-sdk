@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/chain-spec/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/chain-spec/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_chain_spec" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_chain_spec" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sc_chain_spec/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -632,7 +634,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!       &lt;td&gt;chainType&lt;/td&gt;
 //!       &lt;td&gt;The chain type of this chain
 //!           (refer to
-//!            &lt;a href=&quot;enum.ChainType.html&quot; title=&quot;enum sc_chain_spec::ChainType&quot;&gt;
+//!            &lt;a href="enum.ChainType.html" title="enum sc_chain_spec::ChainType"&gt;
 //!              &lt;code&gt;ChainType&lt;/code&gt;
 //!            &lt;/a&gt;).
 //!       &lt;/td&gt;
@@ -640,7 +642,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!     &lt;tr&gt;
 //!       &lt;td&gt;bootNodes&lt;/td&gt;
 //!       &lt;td&gt;A list of
-//!       &lt;a href=&quot;https://github.com/multiformats/multiaddr&quot;&gt;multi addresses&lt;/a&gt;
+//!       &lt;a href="https://github.com/multiformats/multiaddr"&gt;multi addresses&lt;/a&gt;
 //!       that belong to boot nodes of the chain.&lt;/td&gt;
 //!     &lt;/tr&gt;
 //!     &lt;tr&gt;
@@ -693,7 +695,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! - the administrative account that controls the sudo key,
 //! - an initial authorities set for consensus, etc.
 //!
-//! As the compiled WASM blob of the runtime code is stored in the chain&#39;s state, the initial
+//! As the compiled WASM blob of the runtime code is stored in the chain's state, the initial
 //! runtime must also be provided within the chain specification.
 //!
 //! In essence, the most important formats of genesis initial state are:
@@ -712,9 +714,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!       &lt;/td&gt;
 //!       &lt;td&gt;A JSON object that provides an explicit and comprehensive representation of the
 //! &lt;code&gt;RuntimeGenesisConfig&lt;/code&gt; struct, which is generated by &lt;a
-//! href=&quot;../frame_support_procedural/macro.construct_runtime.html&quot;
+//! href="../frame_support_procedural/macro.construct_runtime.html"
 //! &gt;&lt;code&gt;polkadot_sdk_frame::runtime::prelude::construct_runtime&lt;/code&gt;&lt;/a&gt; macro (&lt;a
-//! href=&quot;../substrate_test_runtime/struct.RuntimeGenesisConfig.html#&quot;
+//! href="../substrate_test_runtime/struct.RuntimeGenesisConfig.html#"
 //! &gt;example of generated struct&lt;/a&gt;). Must contain all the keys of
 //! the genesis config, no defaults will be used.
 //!
@@ -726,7 +728,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!       &lt;/td&gt;
 //!       &lt;td&gt;A JSON object that offers a partial representation of the
 //!       &lt;code&gt;RuntimeGenesisConfig&lt;/code&gt; provided by the runtime. It contains a patch, which is
-//! essentially a list of key-value pairs to customize in the default runtime&#39;s
+//! essentially a list of key-value pairs to customize in the default runtime's
 //! &lt;code&gt;RuntimeGenesisConfig&lt;/code&gt;.
 //! This format explicitly provides the code of the runtime.
 //! &lt;/td&gt;&lt;/tr&gt;
@@ -782,7 +784,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! given block number until the `spec_version` on-chain changes. The given `wasm_code` should
 //! be as close as possible to the on-chain wasm code. A substitute should be used to fix a bug
 //! that cannot be fixed with a runtime upgrade, if for example the runtime is constantly
-//! panicking. Introducing new runtime APIs isn&#39;t supported, because the node
+//! panicking. Introducing new runtime APIs isn't supported, because the node
 //! will read the runtime version from the on-chain wasm code.
 //!
 //! Use this functionality only when there is no other way around it, and only patch the problematic
@@ -795,20 +797,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! specification, use [`ChainSpec::as_json`].
 //!
 //! The sample code to generate a chain spec is as follows:
-</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;src/chain_spec.rs&quot;</span>, build_chain_spec_with_patch_works)]
+</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">"src/chain_spec.rs"</span>, build_chain_spec_with_patch_works)]
 </span><span class="doccomment">//! # JSON chain specification example
 //!
 //! The following are the plain and `raw` versions of the chain specification JSON files, resulting
 //! from executing of the above [example](#building-a-chain-specification):
 //! ```ignore
-</span><span class="attr">#![doc = <span class="macro">include_str!</span>(<span class="string">&quot;../res/substrate_test_runtime_from_patch.json&quot;</span>)]
+</span><span class="attr">#![doc = <span class="macro">include_str!</span>(<span class="string">"../res/substrate_test_runtime_from_patch.json"</span>)]
 </span><span class="doccomment">//! ```
 //! ```ignore
-</span><span class="attr">#![doc = <span class="macro">include_str!</span>(<span class="string">&quot;../res/substrate_test_runtime_from_patch_raw.json&quot;</span>)]
+</span><span class="attr">#![doc = <span class="macro">include_str!</span>(<span class="string">"../res/substrate_test_runtime_from_patch_raw.json"</span>)]
 </span><span class="doccomment">//! ```
 //! The following example shows the plain full config version of chain spec:
 //! ```ignore
-</span><span class="attr">#![doc = <span class="macro">include_str!</span>(<span class="string">&quot;../res/substrate_test_runtime_from_config.json&quot;</span>)]
+</span><span class="attr">#![doc = <span class="macro">include_str!</span>(<span class="string">"../res/substrate_test_runtime_from_config.json"</span>)]
 </span><span class="doccomment">//! ```
 //! The [`ChainSpec`] trait represents the API to access values defined in the JSON chain specification.
 //!
@@ -864,7 +866,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! /// A chain spec supporting forkable `Extension`.
 //! pub type MyChainSpec2&lt;G&gt; = GenericChainSpec&lt;G, Forks&lt;BlockNumber, Extension&gt;&gt;;
 //! ```
-//! It&#39;s also possible to have a set of parameters that are allowed to change with block numbers
+//! It's also possible to have a set of parameters that are allowed to change with block numbers
 //! (i.e., they are forkable), and another set that is not subject to changes. This can also be
 //! achieved by declaring an extension that contains [`Forks`] within it.
 //! ```rust
@@ -968,7 +970,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>fork_id(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;;
 	<span class="doccomment">/// Additional loosely-typed properties of the chain.
 	///
-	/// Returns an empty JSON object if &#39;properties&#39; not defined in config
+	/// Returns an empty JSON object if 'properties' not defined in config
 	</span><span class="kw">fn </span>properties(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Properties;
 	<span class="doccomment">/// Returns a reference to the defined chain spec extensions.
 	</span><span class="kw">fn </span>extensions(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="kw">dyn </span>GetExtension;
@@ -992,7 +994,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl </span>std::fmt::Debug <span class="kw">for dyn </span>ChainSpec {
 	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter) -&gt; std::fmt::Result {
-		<span class="macro">write!</span>(f, <span class="string">&quot;ChainSpec(name = {:?}, id = {:?})&quot;</span>, <span class="self">self</span>.name(), <span class="self">self</span>.id())
+		<span class="macro">write!</span>(f, <span class="string">"ChainSpec(name = {:?}, id = {:?})"</span>, <span class="self">self</span>.name(), <span class="self">self</span>.id())
 	}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/nomination-pools/benchmarking/src/inner.rs`."><title>inner.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/nomination-pools/benchmarking/src/inner.rs`."><title>inner.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_nomination_pools_benchmarking" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_nomination_pools_benchmarking" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../pallet_nomination_pools_benchmarking/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -998,14 +1000,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -1054,7 +1056,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">pub struct </span>Pallet&lt;T: Config&gt;(Pools&lt;T&gt;);
 
 <span class="kw">fn </span>create_funded_user_with_balance&lt;T: pallet_nomination_pools::Config&gt;(
-	string: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
+	string: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
 	n: u32,
 	balance: BalanceOf&lt;T&gt;,
 ) -&gt; T::AccountId {
@@ -1072,7 +1074,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ) -&gt; (T::AccountId, T::AccountId) {
 	<span class="kw">let </span>ed = CurrencyOf::&lt;T&gt;::minimum_balance();
 	<span class="kw">let </span>pool_creator: T::AccountId =
-		create_funded_user_with_balance::&lt;T&gt;(<span class="string">&quot;pool_creator&quot;</span>, n, ed + balance * <span class="number">2u32</span>.into());
+		create_funded_user_with_balance::&lt;T&gt;(<span class="string">"pool_creator"</span>, n, ed + balance * <span class="number">2u32</span>.into());
 	<span class="kw">let </span>pool_creator_lookup = T::Lookup::unlookup(pool_creator.clone());
 
 	Pools::&lt;T&gt;::create(
@@ -1091,21 +1093,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			pool_id,
 			<span class="prelude-val">Some</span>((c, pool_creator.clone())),
 		)
-		.expect(<span class="string">&quot;pool just created, commission can be set by root; qed&quot;</span>);
+		.expect(<span class="string">"pool just created, commission can be set by root; qed"</span>);
 	}
 
 	<span class="kw">let </span>pool_account = pallet_nomination_pools::BondedPools::&lt;T&gt;::iter()
 		.find(|(<span class="kw">_</span>, bonded_pool)| bonded_pool.roles.depositor == pool_creator)
 		.map(|(pool_id, <span class="kw">_</span>)| Pools::&lt;T&gt;::create_bonded_account(pool_id))
-		.expect(<span class="string">&quot;pool_creator created a pool above&quot;</span>);
+		.expect(<span class="string">"pool_creator created a pool above"</span>);
 
 	(pool_creator, pool_account)
 }
 
 <span class="kw">fn </span>vote_to_balance&lt;T: pallet_nomination_pools::Config&gt;(
 	vote: u64,
-) -&gt; <span class="prelude-ty">Result</span>&lt;BalanceOf&lt;T&gt;, <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; {
-	vote.try_into().map_err(|<span class="kw">_</span>| <span class="string">&quot;could not convert u64 to Balance&quot;</span>)
+) -&gt; <span class="prelude-ty">Result</span>&lt;BalanceOf&lt;T&gt;, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
+	vote.try_into().map_err(|<span class="kw">_</span>| <span class="string">"could not convert u64 to Balance"</span>)
 }
 
 <span class="attr">#[allow(unused)]
@@ -1131,12 +1133,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new(
 		origin_weight: BalanceOf&lt;T&gt;,
 		is_increase: bool,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; {
-		<span class="macro">ensure!</span>(!origin_weight.is_zero(), <span class="string">&quot;origin weight must be greater than 0&quot;</span>);
+	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
+		<span class="macro">ensure!</span>(!origin_weight.is_zero(), <span class="string">"origin weight must be greater than 0"</span>);
 
 		<span class="macro">ensure!</span>(
 			pallet_nomination_pools::MaxPools::&lt;T&gt;::get().unwrap_or(<span class="number">0</span>) &gt;= <span class="number">3</span>,
-			<span class="string">&quot;must allow at least three pools for benchmarks&quot;
+			<span class="string">"must allow at least three pools for benchmarks"
 		</span>);
 
 		<span class="comment">// Burn the entire issuance.
@@ -1148,8 +1150,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		T::Staking::nominate(
 			<span class="kw-2">&amp;</span>pool_origin1,
-			<span class="comment">// NOTE: these don&#39;t really need to be validators.
-			</span><span class="macro">vec!</span>[account(<span class="string">&quot;random_validator&quot;</span>, <span class="number">0</span>, USER_SEED)],
+			<span class="comment">// NOTE: these don't really need to be validators.
+			</span><span class="macro">vec!</span>[account(<span class="string">"random_validator"</span>, <span class="number">0</span>, USER_SEED)],
 		)<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>(<span class="kw">_</span>, pool_origin2) =
@@ -1157,7 +1159,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		T::Staking::nominate(
 			<span class="kw-2">&amp;</span>pool_origin2,
-			<span class="macro">vec!</span>[account(<span class="string">&quot;random_validator&quot;</span>, <span class="number">0</span>, USER_SEED)].clone(),
+			<span class="macro">vec!</span>[account(<span class="string">"random_validator"</span>, <span class="number">0</span>, USER_SEED)].clone(),
 		)<span class="question-mark">?</span>;
 
 		<span class="comment">// Find a destination weight that will trigger the worst case scenario
@@ -1167,13 +1169,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		);
 
 		<span class="kw">let </span>dest_weight: BalanceOf&lt;T&gt; =
-			dest_weight_as_vote.try_into().map_err(|<span class="kw">_</span>| <span class="string">&quot;could not convert u64 to Balance&quot;</span>)<span class="question-mark">?</span>;
+			dest_weight_as_vote.try_into().map_err(|<span class="kw">_</span>| <span class="string">"could not convert u64 to Balance"</span>)<span class="question-mark">?</span>;
 
 		<span class="comment">// Create an account with the worst case destination weight
 		</span><span class="kw">let </span>(<span class="kw">_</span>, pool_dest1) =
 			create_pool_account::&lt;T&gt;(USER_SEED + <span class="number">3</span>, dest_weight, <span class="prelude-val">Some</span>(Perbill::from_percent(<span class="number">50</span>)));
 
-		T::Staking::nominate(<span class="kw-2">&amp;</span>pool_dest1, <span class="macro">vec!</span>[account(<span class="string">&quot;random_validator&quot;</span>, <span class="number">0</span>, USER_SEED)])<span class="question-mark">?</span>;
+		T::Staking::nominate(<span class="kw-2">&amp;</span>pool_dest1, <span class="macro">vec!</span>[account(<span class="string">"random_validator"</span>, <span class="number">0</span>, USER_SEED)])<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>weight_of = pallet_staking::Pallet::&lt;T&gt;::weight_of_fn();
 		<span class="macro">assert_eq!</span>(vote_to_balance::&lt;T&gt;(weight_of(<span class="kw-2">&amp;</span>pool_origin1)).unwrap(), origin_weight);
@@ -1195,7 +1197,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			// to ensure 1) the user can be created and 2) can join the pool
 			</span>.max(amount);
 
-		<span class="kw">let </span>joiner: T::AccountId = account(<span class="string">&quot;joiner&quot;</span>, USER_SEED, <span class="number">0</span>);
+		<span class="kw">let </span>joiner: T::AccountId = account(<span class="string">"joiner"</span>, USER_SEED, <span class="number">0</span>);
 		<span class="self">self</span>.origin1_member = <span class="prelude-val">Some</span>(joiner.clone());
 		CurrencyOf::&lt;T&gt;::set_balance(<span class="kw-2">&amp;</span>joiner, amount * <span class="number">2u32</span>.into());
 
@@ -1203,7 +1205,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// Unbond `amount` from the underlying pool account so when the member joins
 		// we will maintain `current_bonded`.
-		</span>T::Staking::unbond(<span class="kw-2">&amp;</span><span class="self">self</span>.origin1, amount).expect(<span class="string">&quot;the pool was created in `Self::new`.&quot;</span>);
+		</span>T::Staking::unbond(<span class="kw-2">&amp;</span><span class="self">self</span>.origin1, amount).expect(<span class="string">"the pool was created in `Self::new`."</span>);
 
 		<span class="comment">// Account pool points for the unbonded balance.
 		</span>BondedPools::&lt;T&gt;::mutate(<span class="kw-2">&amp;</span><span class="number">1</span>, |maybe_pool| {
@@ -1240,7 +1242,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>joiner_free = CurrencyOf::&lt;T&gt;::minimum_balance() + max_additional;
 
 		<span class="kw">let </span>joiner: T::AccountId
-			= create_funded_user_with_balance::&lt;T&gt;(<span class="string">&quot;joiner&quot;</span>, <span class="number">0</span>, joiner_free);
+			= create_funded_user_with_balance::&lt;T&gt;(<span class="string">"joiner"</span>, <span class="number">0</span>, joiner_free);
 
 		<span class="macro">whitelist_account!</span>(joiner);
 	}: <span class="kw">_</span>(RuntimeOrigin::Signed(joiner.clone()), max_additional, <span class="number">1</span>)
@@ -1268,13 +1270,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	bond_extra_other {
-		<span class="kw">let </span>claimer: T::AccountId = account(<span class="string">&quot;claimer&quot;</span>, USER_SEED + <span class="number">4</span>, <span class="number">0</span>);
+		<span class="kw">let </span>claimer: T::AccountId = account(<span class="string">"claimer"</span>, USER_SEED + <span class="number">4</span>, <span class="number">0</span>);
 
 		<span class="kw">let </span>origin_weight = Pools::&lt;T&gt;::depositor_min_bond() * <span class="number">2u32</span>.into();
 		<span class="kw">let </span>scenario = ListScenario::&lt;T&gt;::new(origin_weight, <span class="bool-val">true</span>)<span class="question-mark">?</span>;
 		<span class="kw">let </span>extra = (scenario.dest_weight - origin_weight).max(CurrencyOf::&lt;T&gt;::minimum_balance());
 
-		<span class="comment">// set claim preferences to `PermissionlessAll` to any account to bond extra on member&#39;s behalf.
+		<span class="comment">// set claim preferences to `PermissionlessAll` to any account to bond extra on member's behalf.
 		</span><span class="kw">let _ </span>= Pools::&lt;T&gt;::set_claim_permission(RuntimeOrigin::Signed(scenario.creator1.clone()).into(), ClaimPermission::PermissionlessAll);
 
 		<span class="comment">// transfer exactly `extra` to the depositor of the src pool (1),
@@ -1292,7 +1294,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	claim_payout {
-		<span class="kw">let </span>claimer: T::AccountId = account(<span class="string">&quot;claimer&quot;</span>, USER_SEED + <span class="number">4</span>, <span class="number">0</span>);
+		<span class="kw">let </span>claimer: T::AccountId = account(<span class="string">"claimer"</span>, USER_SEED + <span class="number">4</span>, <span class="number">0</span>);
 		<span class="kw">let </span>commission = Perbill::from_percent(<span class="number">50</span>);
 		<span class="kw">let </span>origin_weight = Pools::&lt;T&gt;::depositor_min_bond() * <span class="number">2u32</span>.into();
 		<span class="kw">let </span>ed = CurrencyOf::&lt;T&gt;::minimum_balance();
@@ -1302,7 +1304,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// Send funds to the reward account of the pool
 		</span>CurrencyOf::&lt;T&gt;::set_balance(<span class="kw-2">&amp;</span>reward_account, ed + origin_weight);
 
-		<span class="comment">// set claim preferences to `PermissionlessAll` so any account can claim rewards on member&#39;s
+		<span class="comment">// set claim preferences to `PermissionlessAll` so any account can claim rewards on member's
 		// behalf.
 		</span><span class="kw">let _ </span>= Pools::&lt;T&gt;::set_claim_permission(RuntimeOrigin::Signed(depositor.clone()).into(), ClaimPermission::PermissionlessAll);
 
@@ -1365,7 +1367,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// Add a new member
 		</span><span class="kw">let </span>min_join_bond = MinJoinBond::&lt;T&gt;::get().max(CurrencyOf::&lt;T&gt;::minimum_balance());
-		<span class="kw">let </span>joiner = create_funded_user_with_balance::&lt;T&gt;(<span class="string">&quot;joiner&quot;</span>, <span class="number">0</span>, min_join_bond * <span class="number">2u32</span>.into());
+		<span class="kw">let </span>joiner = create_funded_user_with_balance::&lt;T&gt;(<span class="string">"joiner"</span>, <span class="number">0</span>, min_join_bond * <span class="number">2u32</span>.into());
 		Pools::&lt;T&gt;::join(RuntimeOrigin::Signed(joiner.clone()).into(), min_join_bond, <span class="number">1</span>)
 			.unwrap();
 
@@ -1393,7 +1395,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">whitelist_account!</span>(pool_account);
 	}: <span class="kw">_</span>(RuntimeOrigin::Signed(pool_account.clone()), <span class="number">1</span>, s)
 	verify {
-		<span class="comment">// The joiners funds didn&#39;t change
+		<span class="comment">// The joiners funds didn't change
 		</span><span class="macro">assert_eq!</span>(CurrencyOf::&lt;T&gt;::balance(<span class="kw-2">&amp;</span>joiner), min_join_bond);
 		<span class="comment">// The unlocking chunk was removed
 		</span><span class="macro">assert_eq!</span>(pallet_staking::Ledger::&lt;T&gt;::get(pool_account).unwrap().unlocking.len(), <span class="number">0</span>);
@@ -1407,7 +1409,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// Add a new member
 		</span><span class="kw">let </span>min_join_bond = MinJoinBond::&lt;T&gt;::get().max(CurrencyOf::&lt;T&gt;::minimum_balance());
-		<span class="kw">let </span>joiner = create_funded_user_with_balance::&lt;T&gt;(<span class="string">&quot;joiner&quot;</span>, <span class="number">0</span>, min_join_bond * <span class="number">2u32</span>.into());
+		<span class="kw">let </span>joiner = create_funded_user_with_balance::&lt;T&gt;(<span class="string">"joiner"</span>, <span class="number">0</span>, min_join_bond * <span class="number">2u32</span>.into());
 		<span class="kw">let </span>joiner_lookup = T::Lookup::unlookup(joiner.clone());
 		Pools::&lt;T&gt;::join(RuntimeOrigin::Signed(joiner.clone()).into(), min_join_bond, <span class="number">1</span>)
 			.unwrap();
@@ -1513,7 +1515,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	create {
 		<span class="kw">let </span>min_create_bond = Pools::&lt;T&gt;::depositor_min_bond();
-		<span class="kw">let </span>depositor: T::AccountId = account(<span class="string">&quot;depositor&quot;</span>, USER_SEED, <span class="number">0</span>);
+		<span class="kw">let </span>depositor: T::AccountId = account(<span class="string">"depositor"</span>, USER_SEED, <span class="number">0</span>);
 		<span class="kw">let </span>depositor_lookup = T::Lookup::unlookup(depositor.clone());
 
 		<span class="comment">// Give the depositor some balance to bond
@@ -1563,10 +1565,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">let </span>min_create_bond = Pools::&lt;T&gt;::depositor_min_bond() * <span class="number">2u32</span>.into();
 		<span class="kw">let </span>(depositor, pool_account) = create_pool_account::&lt;T&gt;(<span class="number">0</span>, min_create_bond, <span class="prelude-val">None</span>);
 
-		<span class="comment">// Create some accounts to nominate. For the sake of benchmarking they don&#39;t need to be
+		<span class="comment">// Create some accounts to nominate. For the sake of benchmarking they don't need to be
 		// actual validators
 		 </span><span class="kw">let </span>validators: Vec&lt;<span class="kw">_</span>&gt; = (<span class="number">0</span>..n)
-			.map(|i| account(<span class="string">&quot;stash&quot;</span>, USER_SEED, i))
+			.map(|i| account(<span class="string">"stash"</span>, USER_SEED, i))
 			.collect();
 
 		<span class="macro">whitelist_account!</span>(depositor);
@@ -1605,7 +1607,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span>maybe_pool.as_mut().map(|pool| pool.points = min_create_bond * <span class="number">10u32</span>.into());
 		});
 
-		<span class="kw">let </span>caller = account(<span class="string">&quot;caller&quot;</span>, <span class="number">0</span>, USER_SEED);
+		<span class="kw">let </span>caller = account(<span class="string">"caller"</span>, <span class="number">0</span>, USER_SEED);
 		<span class="macro">whitelist_account!</span>(caller);
 	}:<span class="kw">_</span>(RuntimeOrigin::Signed(caller), <span class="number">1</span>, PoolState::Destroying)
 	verify {
@@ -1648,7 +1650,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	update_roles {
 		<span class="kw">let </span>first_id = pallet_nomination_pools::LastPoolId::&lt;T&gt;::get() + <span class="number">1</span>;
 		<span class="kw">let </span>(root, <span class="kw">_</span>) = create_pool_account::&lt;T&gt;(<span class="number">0</span>, Pools::&lt;T&gt;::depositor_min_bond() * <span class="number">2u32</span>.into(), <span class="prelude-val">None</span>);
-		<span class="kw">let </span>random: T::AccountId = account(<span class="string">&quot;but is anything really random in computers..?&quot;</span>, <span class="number">0</span>, USER_SEED);
+		<span class="kw">let </span>random: T::AccountId = account(<span class="string">"but is anything really random in computers..?"</span>, <span class="number">0</span>, USER_SEED);
 	}:<span class="kw">_</span>(
 		RuntimeOrigin::Signed(root.clone()),
 		first_id,
@@ -1673,7 +1675,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// Nominate with the pool.
 		 </span><span class="kw">let </span>validators: Vec&lt;<span class="kw">_</span>&gt; = (<span class="number">0</span>..MaxNominationsOf::&lt;T&gt;::get())
-			.map(|i| account(<span class="string">&quot;stash&quot;</span>, USER_SEED, i))
+			.map(|i| account(<span class="string">"stash"</span>, USER_SEED, i))
 			.collect();
 
 		<span class="macro">assert_ok!</span>(T::Staking::nominate(<span class="kw-2">&amp;</span>pool_account, validators));
@@ -1774,7 +1776,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// Join pool
 		</span><span class="kw">let </span>min_join_bond = MinJoinBond::&lt;T&gt;::get().max(CurrencyOf::&lt;T&gt;::minimum_balance());
-		<span class="kw">let </span>joiner = create_funded_user_with_balance::&lt;T&gt;(<span class="string">&quot;joiner&quot;</span>, <span class="number">0</span>, min_join_bond * <span class="number">4u32</span>.into());
+		<span class="kw">let </span>joiner = create_funded_user_with_balance::&lt;T&gt;(<span class="string">"joiner"</span>, <span class="number">0</span>, min_join_bond * <span class="number">4u32</span>.into());
 		<span class="kw">let </span>joiner_lookup = T::Lookup::unlookup(joiner.clone());
 		Pools::&lt;T&gt;::join(RuntimeOrigin::Signed(joiner.clone()).into(), min_join_bond, <span class="number">1</span>)
 			.unwrap();
@@ -1790,7 +1792,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	claim_commission {
-		<span class="kw">let </span>claimer: T::AccountId = account(<span class="string">&quot;claimer_member&quot;</span>, USER_SEED + <span class="number">4</span>, <span class="number">0</span>);
+		<span class="kw">let </span>claimer: T::AccountId = account(<span class="string">"claimer_member"</span>, USER_SEED + <span class="number">4</span>, <span class="number">0</span>);
 		<span class="kw">let </span>commission = Perbill::from_percent(<span class="number">50</span>);
 		<span class="kw">let </span>origin_weight = Pools::&lt;T&gt;::depositor_min_bond() * <span class="number">2u32</span>.into();
 		<span class="kw">let </span>ed = CurrencyOf::&lt;T&gt;::minimum_balance();

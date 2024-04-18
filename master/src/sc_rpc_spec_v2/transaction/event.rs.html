@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/rpc-spec-v2/src/transaction/event.rs`."><title>event.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/rpc-spec-v2/src/transaction/event.rs`."><title>event.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sc_rpc_spec_v2" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sc_rpc_spec_v2" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../sc_rpc_spec_v2/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -455,13 +457,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see &lt;https://www.gnu.org/licenses/&gt;.
 
-</span><span class="doccomment">//! The transaction&#39;s event returned as json compatible object.
+</span><span class="doccomment">//! The transaction's event returned as json compatible object.
 
 </span><span class="kw">use </span>serde::{Deserialize, Serialize};
 
 <span class="doccomment">/// The transaction was included in a block of the chain.
 </span><span class="attr">#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = <span class="string">&quot;camelCase&quot;</span>)]
+#[serde(rename_all = <span class="string">"camelCase"</span>)]
 </span><span class="kw">pub struct </span>TransactionBlock&lt;Hash&gt; {
 	<span class="doccomment">/// The hash of the block the transaction was included into.
 	</span><span class="kw">pub </span>hash: Hash,
@@ -471,7 +473,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// The transaction could not be processed due to an error.
 </span><span class="attr">#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = <span class="string">&quot;camelCase&quot;</span>)]
+#[serde(rename_all = <span class="string">"camelCase"</span>)]
 </span><span class="kw">pub struct </span>TransactionError {
 	<span class="doccomment">/// Reason of the error.
 	</span><span class="kw">pub </span>error: String,
@@ -479,7 +481,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// The transaction was dropped because of exceeding limits.
 </span><span class="attr">#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = <span class="string">&quot;camelCase&quot;</span>)]
+#[serde(rename_all = <span class="string">"camelCase"</span>)]
 </span><span class="kw">pub struct </span>TransactionDropped {
 	<span class="doccomment">/// Reason of the event.
 	</span><span class="kw">pub </span>error: String,
@@ -503,17 +505,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// 		- `Dropped`
 /// 		- `Error`
 ///
-/// The subscription&#39;s stream is considered finished whenever the following events are
+/// The subscription's stream is considered finished whenever the following events are
 /// received: `Finalized`, `Error`, `Invalid` or `Dropped`. However, the user is allowed
 /// to unsubscribe at any moment.
 </span><span class="attr">#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 </span><span class="comment">// We need to manually specify the trait bounds for the `Hash` trait to ensure `into` and
 // `from` still work.
 </span><span class="attr">#[serde(bound(
-	serialize = <span class="string">&quot;Hash: Serialize + Clone&quot;</span>,
-	deserialize = <span class="string">&quot;Hash: Deserialize&lt;&#39;de&gt; + Clone&quot;
+	serialize = <span class="string">"Hash: Serialize + Clone"</span>,
+	deserialize = <span class="string">"Hash: Deserialize&lt;'de&gt; + Clone"
 </span>))]
-#[serde(into = <span class="string">&quot;TransactionEventIR&lt;Hash&gt;&quot;</span>, from = <span class="string">&quot;TransactionEventIR&lt;Hash&gt;&quot;</span>)]
+#[serde(into = <span class="string">"TransactionEventIR&lt;Hash&gt;"</span>, from = <span class="string">"TransactionEventIR&lt;Hash&gt;"</span>)]
 </span><span class="kw">pub enum </span>TransactionEvent&lt;Hash&gt; {
 	<span class="doccomment">/// The transaction was validated by the runtime.
 	</span>Validated,
@@ -540,15 +542,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// The block events require a JSON compatible interpretation similar to:
 ///
 /// ```json
-/// { event: &quot;EVENT&quot;, block: { hash: &quot;0xFF&quot;, index: 0 } }
+/// { event: "EVENT", block: { hash: "0xFF", index: 0 } }
 /// ```
 ///
 /// This IR is introduced to circumvent that the block events need to
-/// be serialized/deserialized with &quot;tag&quot; and &quot;content&quot;, while other
-/// events only require &quot;tag&quot;.
+/// be serialized/deserialized with "tag" and "content", while other
+/// events only require "tag".
 </span><span class="attr">#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = <span class="string">&quot;camelCase&quot;</span>)]
-#[serde(tag = <span class="string">&quot;event&quot;</span>, content = <span class="string">&quot;block&quot;</span>)]
+#[serde(rename_all = <span class="string">"camelCase"</span>)]
+#[serde(tag = <span class="string">"event"</span>, content = <span class="string">"block"</span>)]
 </span><span class="kw">enum </span>TransactionEventBlockIR&lt;Hash&gt; {
 	<span class="doccomment">/// The transaction was included in the best block of the chain.
 	</span>BestChainBlockIncluded(<span class="prelude-ty">Option</span>&lt;TransactionBlock&lt;Hash&gt;&gt;),
@@ -562,15 +564,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// The non-block events require a JSON compatible interpretation similar to:
 ///
 /// ```json
-/// { event: &quot;EVENT&quot;, num_peers: 0 }
+/// { event: "EVENT", num_peers: 0 }
 /// ```
 ///
 /// This IR is introduced to circumvent that the block events need to
-/// be serialized/deserialized with &quot;tag&quot; and &quot;content&quot;, while other
-/// events only require &quot;tag&quot;.
+/// be serialized/deserialized with "tag" and "content", while other
+/// events only require "tag".
 </span><span class="attr">#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = <span class="string">&quot;camelCase&quot;</span>)]
-#[serde(tag = <span class="string">&quot;event&quot;</span>)]
+#[serde(rename_all = <span class="string">"camelCase"</span>)]
+#[serde(tag = <span class="string">"event"</span>)]
 </span><span class="kw">enum </span>TransactionEventNonBlockIR {
 	Validated,
 	Error(TransactionError),
@@ -581,13 +583,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Intermediate representation (IR) used for serialization/deserialization of the
 /// [`TransactionEvent`] in a JSON compatible format.
 ///
-/// Serde cannot mix `#[serde(tag = &quot;event&quot;)]` with `#[serde(tag = &quot;event&quot;, content = &quot;block&quot;)]`
+/// Serde cannot mix `#[serde(tag = "event")]` with `#[serde(tag = "event", content = "block")]`
 /// for specific enum variants. Therefore, this IR is introduced to circumvent this
 /// restriction, while exposing a simplified [`TransactionEvent`] for users of the
 /// rust ecosystem.
 </span><span class="attr">#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(bound(serialize = <span class="string">&quot;Hash: Serialize&quot;</span>, deserialize = <span class="string">&quot;Hash: Deserialize&lt;&#39;de&gt;&quot;</span>))]
-#[serde(rename_all = <span class="string">&quot;camelCase&quot;</span>)]
+#[serde(bound(serialize = <span class="string">"Hash: Serialize"</span>, deserialize = <span class="string">"Hash: Deserialize&lt;'de&gt;"</span>))]
+#[serde(rename_all = <span class="string">"camelCase"</span>)]
 #[serde(untagged)]
 </span><span class="kw">enum </span>TransactionEventIR&lt;Hash&gt; {
 	Block(TransactionEventBlockIR&lt;Hash&gt;),
@@ -641,7 +643,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>event: TransactionEvent&lt;()&gt; = TransactionEvent::Validated;
 		<span class="kw">let </span>ser = serde_json::to_string(<span class="kw-2">&amp;</span>event).unwrap();
 
-		<span class="kw">let </span>exp = <span class="string">r#&quot;{&quot;event&quot;:&quot;validated&quot;}&quot;#</span>;
+		<span class="kw">let </span>exp = <span class="string">r#"{"event":"validated"}"#</span>;
 		<span class="macro">assert_eq!</span>(ser, exp);
 
 		<span class="kw">let </span>event_dec: TransactionEvent&lt;()&gt; = serde_json::from_str(exp).unwrap();
@@ -653,7 +655,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>event: TransactionEvent&lt;()&gt; = TransactionEvent::BestChainBlockIncluded(<span class="prelude-val">None</span>);
 		<span class="kw">let </span>ser = serde_json::to_string(<span class="kw-2">&amp;</span>event).unwrap();
 
-		<span class="kw">let </span>exp = <span class="string">r#&quot;{&quot;event&quot;:&quot;bestChainBlockIncluded&quot;,&quot;block&quot;:null}&quot;#</span>;
+		<span class="kw">let </span>exp = <span class="string">r#"{"event":"bestChainBlockIncluded","block":null}"#</span>;
 		<span class="macro">assert_eq!</span>(ser, exp);
 
 		<span class="kw">let </span>event_dec: TransactionEvent&lt;()&gt; = serde_json::from_str(exp).unwrap();
@@ -666,7 +668,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			}));
 		<span class="kw">let </span>ser = serde_json::to_string(<span class="kw-2">&amp;</span>event).unwrap();
 
-		<span class="kw">let </span>exp = <span class="string">r#&quot;{&quot;event&quot;:&quot;bestChainBlockIncluded&quot;,&quot;block&quot;:{&quot;hash&quot;:&quot;0x0000000000000000000000000000000000000000000000000000000000000001&quot;,&quot;index&quot;:2}}&quot;#</span>;
+		<span class="kw">let </span>exp = <span class="string">r#"{"event":"bestChainBlockIncluded","block":{"hash":"0x0000000000000000000000000000000000000000000000000000000000000001","index":2}}"#</span>;
 		<span class="macro">assert_eq!</span>(ser, exp);
 
 		<span class="kw">let </span>event_dec: TransactionEvent&lt;H256&gt; = serde_json::from_str(exp).unwrap();
@@ -681,7 +683,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		});
 		<span class="kw">let </span>ser = serde_json::to_string(<span class="kw-2">&amp;</span>event).unwrap();
 
-		<span class="kw">let </span>exp = <span class="string">r#&quot;{&quot;event&quot;:&quot;finalized&quot;,&quot;block&quot;:{&quot;hash&quot;:&quot;0x0000000000000000000000000000000000000000000000000000000000000001&quot;,&quot;index&quot;:10}}&quot;#</span>;
+		<span class="kw">let </span>exp = <span class="string">r#"{"event":"finalized","block":{"hash":"0x0000000000000000000000000000000000000000000000000000000000000001","index":10}}"#</span>;
 		<span class="macro">assert_eq!</span>(ser, exp);
 
 		<span class="kw">let </span>event_dec: TransactionEvent&lt;H256&gt; = serde_json::from_str(exp).unwrap();
@@ -691,10 +693,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>error_event() {
 		<span class="kw">let </span>event: TransactionEvent&lt;()&gt; =
-			TransactionEvent::Error(TransactionError { error: <span class="string">&quot;abc&quot;</span>.to_string() });
+			TransactionEvent::Error(TransactionError { error: <span class="string">"abc"</span>.to_string() });
 		<span class="kw">let </span>ser = serde_json::to_string(<span class="kw-2">&amp;</span>event).unwrap();
 
-		<span class="kw">let </span>exp = <span class="string">r#&quot;{&quot;event&quot;:&quot;error&quot;,&quot;error&quot;:&quot;abc&quot;}&quot;#</span>;
+		<span class="kw">let </span>exp = <span class="string">r#"{"event":"error","error":"abc"}"#</span>;
 		<span class="macro">assert_eq!</span>(ser, exp);
 
 		<span class="kw">let </span>event_dec: TransactionEvent&lt;()&gt; = serde_json::from_str(exp).unwrap();
@@ -704,10 +706,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>invalid_event() {
 		<span class="kw">let </span>event: TransactionEvent&lt;()&gt; =
-			TransactionEvent::Invalid(TransactionError { error: <span class="string">&quot;abc&quot;</span>.to_string() });
+			TransactionEvent::Invalid(TransactionError { error: <span class="string">"abc"</span>.to_string() });
 		<span class="kw">let </span>ser = serde_json::to_string(<span class="kw-2">&amp;</span>event).unwrap();
 
-		<span class="kw">let </span>exp = <span class="string">r#&quot;{&quot;event&quot;:&quot;invalid&quot;,&quot;error&quot;:&quot;abc&quot;}&quot;#</span>;
+		<span class="kw">let </span>exp = <span class="string">r#"{"event":"invalid","error":"abc"}"#</span>;
 		<span class="macro">assert_eq!</span>(ser, exp);
 
 		<span class="kw">let </span>event_dec: TransactionEvent&lt;()&gt; = serde_json::from_str(exp).unwrap();
@@ -717,10 +719,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>dropped_event() {
 		<span class="kw">let </span>event: TransactionEvent&lt;()&gt; =
-			TransactionEvent::Dropped(TransactionDropped { error: <span class="string">&quot;abc&quot;</span>.to_string() });
+			TransactionEvent::Dropped(TransactionDropped { error: <span class="string">"abc"</span>.to_string() });
 		<span class="kw">let </span>ser = serde_json::to_string(<span class="kw-2">&amp;</span>event).unwrap();
 
-		<span class="kw">let </span>exp = <span class="string">r#&quot;{&quot;event&quot;:&quot;dropped&quot;,&quot;error&quot;:&quot;abc&quot;}&quot;#</span>;
+		<span class="kw">let </span>exp = <span class="string">r#"{"event":"dropped","error":"abc"}"#</span>;
 		<span class="macro">assert_eq!</span>(ser, exp);
 
 		<span class="kw">let </span>event_dec: TransactionEvent&lt;()&gt; = serde_json::from_str(exp).unwrap();

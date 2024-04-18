@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/malus/src/variants/dispute_finalized_candidates.rs`."><title>dispute_finalized_candidates.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/malus/src/variants/dispute_finalized_candidates.rs`."><title>dispute_finalized_candidates.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="malus" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="malus" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../malus/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -473,12 +475,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl</span>&lt;Sender, Spawner&gt; MessageInterceptor&lt;Sender&gt; <span class="kw">for </span>AncestorDisputer&lt;Spawner&gt;
 <span class="kw">where
-	</span>Sender: overseer::ApprovalVotingSenderTrait + Clone + Send + <span class="lifetime">&#39;static</span>,
-	Spawner: overseer::gen::Spawner + Clone + <span class="lifetime">&#39;static</span>,
+	</span>Sender: overseer::ApprovalVotingSenderTrait + Clone + Send + <span class="lifetime">'static</span>,
+	Spawner: overseer::gen::Spawner + Clone + <span class="lifetime">'static</span>,
 {
 	<span class="kw">type </span>Message = ApprovalVotingMessage;
 
-	<span class="doccomment">/// Intercept incoming `OverseerSignal::BlockFinalized&#39; and pass the rest as normal.
+	<span class="doccomment">/// Intercept incoming `OverseerSignal::BlockFinalized' and pass the rest as normal.
 	</span><span class="kw">fn </span>intercept_incoming(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		subsystem_sender: <span class="kw-2">&amp;mut </span>Sender,
@@ -492,7 +494,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			)) =&gt; {
 				<span class="macro">gum::debug!</span>(
 					target: MALUS,
-					<span class="string">&quot;😈 Block Finalization Interception! Block: {:?}&quot;</span>, finalized_hash,
+					<span class="string">"😈 Block Finalization Interception! Block: {:?}"</span>, finalized_hash,
 				);
 
 				<span class="comment">//Ensure that the chain is long enough for the target ancestor to exist
@@ -506,8 +508,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">let </span>dispute_offset = <span class="self">self</span>.dispute_offset;
 				<span class="kw">let </span><span class="kw-2">mut </span>sender = subsystem_sender.clone();
 				<span class="self">self</span>.spawner.spawn_blocking(
-					<span class="string">&quot;malus-dispute-finalized-block&quot;</span>,
-					<span class="prelude-val">Some</span>(<span class="string">&quot;malus&quot;</span>),
+					<span class="string">"malus-dispute-finalized-block"</span>,
+					<span class="prelude-val">Some</span>(<span class="string">"malus"</span>),
 					Box::pin(<span class="kw">async move </span>{
 						<span class="comment">// Query chain for the block hash at the target depth
 						</span><span class="kw">let </span>(tx, rx) = oneshot::channel();
@@ -521,14 +523,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							<span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(hash))) =&gt; {
 								<span class="macro">gum::debug!</span>(
 									target: MALUS,
-									<span class="string">&quot;😈 Time to search {:?}`th ancestor! Block: {:?}&quot;</span>, dispute_offset, hash,
+									<span class="string">"😈 Time to search {:?}`th ancestor! Block: {:?}"</span>, dispute_offset, hash,
 								);
 								hash
 							},
 							<span class="kw">_ </span>=&gt; {
 								<span class="macro">gum::debug!</span>(
 									target: MALUS,
-									<span class="string">&quot;😈 Seems the target is not yet finalized! Nothing to dispute.&quot;
+									<span class="string">"😈 Seems the target is not yet finalized! Nothing to dispute."
 								</span>);
 								<span class="kw">return </span><span class="comment">// Early return from the async block
 							</span>},
@@ -542,14 +544,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							<span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(e)) =&gt; {
 								<span class="macro">gum::error!</span>(
 									target: MALUS,
-									<span class="string">&quot;😈 Failed to fetch candidate events: {:?}&quot;</span>, e
+									<span class="string">"😈 Failed to fetch candidate events: {:?}"</span>, e
 								);
 								<span class="kw">return </span><span class="comment">// Early return from the async block
 							</span>},
 							<span class="prelude-val">Err</span>(e) =&gt; {
 								<span class="macro">gum::error!</span>(
 									target: MALUS,
-									<span class="string">&quot;😈 Failed to fetch candidate events: {:?}&quot;</span>, e
+									<span class="string">"😈 Failed to fetch candidate events: {:?}"</span>, e
 								);
 								<span class="kw">return </span><span class="comment">// Early return from the async block
 							</span>},
@@ -565,7 +567,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							<span class="kw">_ </span>=&gt; {
 								<span class="macro">gum::error!</span>(
 									target: MALUS,
-									<span class="string">&quot;😈 No candidate included event found! Nothing to dispute.&quot;
+									<span class="string">"😈 No candidate included event found! Nothing to dispute."
 								</span>);
 								<span class="kw">return </span><span class="comment">// Early return from the async block
 							</span>},
@@ -587,14 +589,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							<span class="kw">_ </span>=&gt; {
 								<span class="macro">gum::error!</span>(
 									target: MALUS,
-									<span class="string">&quot;😈 Failed to fetch session index for candidate.&quot;
+									<span class="string">"😈 Failed to fetch session index for candidate."
 								</span>);
 								<span class="kw">return </span><span class="comment">// Early return from the async block
 							</span>},
 						};
 						<span class="macro">gum::info!</span>(
 							target: MALUS,
-							<span class="string">&quot;😈 Disputing candidate with hash: {:?} in session {:?}&quot;</span>, candidate_hash, session_index,
+							<span class="string">"😈 Disputing candidate with hash: {:?} in session {:?}"</span>, candidate_hash, session_index,
 						);
 
 						<span class="comment">// Start dispute
@@ -623,7 +625,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="comment">//----------------------------------------------------------------------------------
 
 </span><span class="attr">#[derive(Debug, clap::Parser)]
-#[clap(rename_all = <span class="string">&quot;kebab-case&quot;</span>)]
+#[clap(rename_all = <span class="string">"kebab-case"</span>)]
 #[allow(missing_docs)]
 </span><span class="kw">pub struct </span>DisputeFinalizedCandidatesOptions {
 	<span class="doccomment">/// relative depth of the disputed block to the finalized block, 0=finalized, 1=parent of
@@ -646,16 +648,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>generate&lt;Spawner, RuntimeClient&gt;(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		connector: OverseerConnector,
-		args: OverseerGenArgs&lt;<span class="lifetime">&#39;_</span>, Spawner, RuntimeClient&gt;,
+		args: OverseerGenArgs&lt;<span class="lifetime">'_</span>, Spawner, RuntimeClient&gt;,
 		ext_args: <span class="prelude-ty">Option</span>&lt;ExtendedOverseerGenArgs&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(Overseer&lt;SpawnGlue&lt;Spawner&gt;, Arc&lt;RuntimeClient&gt;&gt;, OverseerHandle), Error&gt;
 	<span class="kw">where
-		</span>RuntimeClient: RuntimeApiSubsystemClient + ChainApiBackend + AuxStore + <span class="lifetime">&#39;static</span>,
-		Spawner: <span class="lifetime">&#39;static </span>+ SpawnNamed + Clone + Unpin,
+		</span>RuntimeClient: RuntimeApiSubsystemClient + ChainApiBackend + AuxStore + <span class="lifetime">'static</span>,
+		Spawner: <span class="lifetime">'static </span>+ SpawnNamed + Clone + Unpin,
 	{
 		<span class="macro">gum::info!</span>(
 			target: MALUS,
-			<span class="string">&quot;😈 Started Malus node that disputes finalized blocks after they are {:?} finalizations deep.&quot;</span>,
+			<span class="string">"😈 Started Malus node that disputes finalized blocks after they are {:?} finalizations deep."</span>,
 			<span class="kw-2">&amp;</span><span class="self">self</span>.dispute_offset,
 		);
 
@@ -666,7 +668,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		validator_overseer_builder(
 			args,
-			ext_args.expect(<span class="string">&quot;Extended arguments required to build validator overseer are provided&quot;</span>),
+			ext_args.expect(<span class="string">"Extended arguments required to build validator overseer are provided"</span>),
 		)<span class="question-mark">?
 		</span>.replace_approval_voting(<span class="kw">move </span>|cb| InterceptedSubsystem::new(cb, ancestor_disputer))
 		.build_with_connector(connector)

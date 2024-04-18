@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/assets/src/types.rs`."><title>types.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/assets/src/types.rs`."><title>types.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_assets" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_assets" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../pallet_assets/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -471,14 +473,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -551,7 +553,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// The amount of funds approved for the balance transfer from the owner to some delegated
 	/// target.
 	</span><span class="kw">pub</span>(<span class="kw">super</span>) amount: Balance,
-	<span class="doccomment">/// The amount reserved on the owner&#39;s account to hold this item in storage.
+	<span class="doccomment">/// The amount reserved on the owner's account to hold this item in storage.
 	</span><span class="kw">pub</span>(<span class="kw">super</span>) deposit: DepositBalance,
 }
 
@@ -561,7 +563,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="macro">assert_eq!</span>(<span class="bool-val">true</span>.encode(), ExistenceReason::&lt;(), ()&gt;::Sufficient.encode());
 }
 
-<span class="doccomment">/// The reason for an account&#39;s existence within an asset class.
+<span class="doccomment">/// The reason for an account's existence within an asset class.
 </span><span class="attr">#[derive(Clone, Encode, Decode, Eq, PartialEq, RuntimeDebug, MaxEncodedLen, TypeInfo)]
 </span><span class="kw">pub enum </span>ExistenceReason&lt;Balance, AccountId&gt; {
 	<span class="doccomment">/// A consumer reference was used to create this account.
@@ -648,7 +650,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub</span>(<span class="kw">super</span>) status: AccountStatus,
 	<span class="doccomment">/// The reason for the existence of the account.
 	</span><span class="kw">pub</span>(<span class="kw">super</span>) reason: ExistenceReason&lt;DepositBalance, AccountId&gt;,
-	<span class="doccomment">/// Additional &quot;sidecar&quot; data, in case some other pallet wants to use this storage item.
+	<span class="doccomment">/// Additional "sidecar" data, in case some other pallet wants to use this storage item.
 	</span><span class="kw">pub</span>(<span class="kw">super</span>) extra: Extra,
 }
 
@@ -675,11 +677,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Return the frozen balance.
 	///
 	/// Generally, the balance of every account must be at least the sum of this (if `Some`) and
-	/// the asset&#39;s `minimum_balance` (the latter since there may be complications to destroying an
-	/// asset&#39;s account completely).
+	/// the asset's `minimum_balance` (the latter since there may be complications to destroying an
+	/// asset's account completely).
 	///
 	/// Under normal behaviour, the account balance should not go below the sum of this (if `Some`)
-	/// and the asset&#39;s minimum balance. However, the account balance may reasonably begin below
+	/// and the asset's minimum balance. However, the account balance may reasonably begin below
 	/// this sum (e.g. if less than the sum had ever been transferred into the account).
 	///
 	/// In special cases (privileged intervention) the account balance may also go below the sum.
@@ -743,15 +745,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>AssetNotSufficient,
 }
 
-<span class="comment">// Type alias for `frame_system`&#39;s account id.
+<span class="comment">// Type alias for `frame_system`'s account id.
 </span><span class="kw">type </span>AccountIdOf&lt;T&gt; = &lt;T <span class="kw">as </span>frame_system::Config&gt;::AccountId;
-<span class="comment">// This pallet&#39;s asset id and balance type.
+<span class="comment">// This pallet's asset id and balance type.
 </span><span class="kw">type </span>AssetIdOf&lt;T, I&gt; = &lt;T <span class="kw">as </span>Config&lt;I&gt;&gt;::AssetId;
 <span class="kw">type </span>AssetBalanceOf&lt;T, I&gt; = &lt;T <span class="kw">as </span>Config&lt;I&gt;&gt;::Balance;
 <span class="comment">// Generic fungible balance type.
 </span><span class="kw">type </span>BalanceOf&lt;F, T&gt; = &lt;F <span class="kw">as </span>fungible::Inspect&lt;AccountIdOf&lt;T&gt;&gt;&gt;::Balance;
 
-<span class="doccomment">/// Converts a balance value into an asset balance based on the ratio between the fungible&#39;s
+<span class="doccomment">/// Converts a balance value into an asset balance based on the ratio between the fungible's
 /// minimum balance and the minimum asset balance.
 </span><span class="kw">pub struct </span>BalanceToAssetBalance&lt;F, T, CON, I = ()&gt;(PhantomData&lt;(F, T, CON, I)&gt;);
 <span class="kw">impl</span>&lt;F, T, CON, I&gt; ConversionToAssetBalance&lt;BalanceOf&lt;F, T&gt;, AssetIdOf&lt;T, I&gt;, AssetBalanceOf&lt;T, I&gt;&gt;
@@ -759,15 +761,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">where
 	</span>F: fungible::Inspect&lt;AccountIdOf&lt;T&gt;&gt;,
 	T: Config&lt;I&gt;,
-	I: <span class="lifetime">&#39;static</span>,
+	I: <span class="lifetime">'static</span>,
 	CON: Convert&lt;BalanceOf&lt;F, T&gt;, AssetBalanceOf&lt;T, I&gt;&gt;,
 {
 	<span class="kw">type </span>Error = ConversionError;
 
 	<span class="doccomment">/// Convert the given balance value into an asset balance based on the ratio between the
-	/// fungible&#39;s minimum balance and the minimum asset balance.
+	/// fungible's minimum balance and the minimum asset balance.
 	///
-	/// Will return `Err` if the asset is not found, not sufficient or the fungible&#39;s minimum
+	/// Will return `Err` if the asset is not found, not sufficient or the fungible's minimum
 	/// balance is zero.
 	</span><span class="kw">fn </span>to_asset_balance(
 		balance: BalanceOf&lt;F, T&gt;,
@@ -777,7 +779,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// only sufficient assets have a min balance with reliable value
 		</span><span class="macro">ensure!</span>(asset.is_sufficient, ConversionError::AssetNotSufficient);
 		<span class="kw">let </span>min_balance = CON::convert(F::minimum_balance());
-		<span class="comment">// make sure we don&#39;t divide by zero
+		<span class="comment">// make sure we don't divide by zero
 		</span><span class="macro">ensure!</span>(!min_balance.is_zero(), ConversionError::MinBalanceZero);
 		<span class="kw">let </span>balance = CON::convert(balance);
 		<span class="comment">// balance * asset.min_balance / min_balance

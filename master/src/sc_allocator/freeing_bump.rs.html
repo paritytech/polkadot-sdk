@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/allocator/src/freeing_bump.rs`."><title>freeing_bump.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/allocator/src/freeing_bump.rs`."><title>freeing_bump.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_allocator" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_allocator" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sc_allocator/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1282,14 +1284,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -1318,7 +1320,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! limited. Currently, the maximum size of an allocation is 32 MiB.
 //!
 //! When the allocator serves an allocation request it first checks the linked list for the
-//! respective order. If it doesn&#39;t have any free chunks, the allocator requests memory from the
+//! respective order. If it doesn't have any free chunks, the allocator requests memory from the
 //! bump allocator. In any case the order is stored in the header of the allocation.
 //!
 //! Upon deallocation we get the order of the allocation from its header and then add that
@@ -1330,10 +1332,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! that the user should keep in mind:
 //!
 //! - Once the bump allocator space is exhausted, there is no way to reclaim the memory. This means
-//!   that it&#39;s possible to end up in a situation where there are no live allocations yet a new
+//!   that it's possible to end up in a situation where there are no live allocations yet a new
 //!   allocation will fail.
 //!
-//!   Let&#39;s look into an example. Given a heap of 32 MiB. The user makes a 32 MiB allocation that we
+//!   Let's look into an example. Given a heap of 32 MiB. The user makes a 32 MiB allocation that we
 //!   call `X` . Now the heap is full. Then user deallocates `X`. Since all the space in the bump
 //!   allocator was consumed by the 32 MiB allocation, allocations of all sizes except 32 MiB will
 //!   fail.
@@ -1358,7 +1360,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// The minimal alignment guaranteed by this allocator.
 ///
 /// The alignment of 8 is chosen because it is the maximum size of a primitive type supported by the
-/// target version of wasm32: i64&#39;s natural alignment is 8.
+/// target version of wasm32: i64's natural alignment is 8.
 </span><span class="kw">const </span>ALIGNMENT: u32 = <span class="number">8</span>;
 
 <span class="comment">// Each pointer is prefixed with 8 bytes, which identify the list index
@@ -1366,11 +1368,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">const </span>HEADER_SIZE: u32 = <span class="number">8</span>;
 
 <span class="doccomment">/// Create an allocator error.
-</span><span class="kw">fn </span>error(msg: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str) -&gt; Error {
+</span><span class="kw">fn </span>error(msg: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str) -&gt; Error {
 	Error::Other(msg)
 }
 
-<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;wasm-heap&quot;</span>;
+<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"wasm-heap"</span>;
 
 <span class="comment">// The minimum possible allocation size is chosen to be 8 bytes because in that case we would have
 // easier time to provide the guaranteed alignment of 8.
@@ -1409,7 +1411,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if </span>order &lt; N_ORDERS <span class="kw">as </span>u32 {
 			<span class="prelude-val">Ok</span>(<span class="self">Self</span>(order))
 		} <span class="kw">else </span>{
-			<span class="prelude-val">Err</span>(error(<span class="string">&quot;invalid order&quot;</span>))
+			<span class="prelude-val">Err</span>(error(<span class="string">"invalid order"</span>))
 		}
 	}
 
@@ -1420,7 +1422,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// `MIN_POSSIBLE_ALLOCATION &lt;= size &lt;= MAX_POSSIBLE_ALLOCATION`
 	</span><span class="kw">fn </span>from_size(size: u32) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, Error&gt; {
 		<span class="kw">let </span>clamped_size = <span class="kw">if </span>size &gt; MAX_POSSIBLE_ALLOCATION {
-			<span class="macro">log::warn!</span>(target: LOG_TARGET, <span class="string">&quot;going to fail due to allocating {:?}&quot;</span>, size);
+			<span class="macro">log::warn!</span>(target: LOG_TARGET, <span class="string">"going to fail due to allocating {:?}"</span>, size);
 			<span class="kw">return </span><span class="prelude-val">Err</span>(Error::RequestedAllocationTooLarge)
 		} <span class="kw">else if </span>size &lt; MIN_POSSIBLE_ALLOCATION {
 			MIN_POSSIBLE_ALLOCATION
@@ -1615,10 +1617,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// The amount of address space (in bytes) used by the allocator.
 	///
-	/// This is calculated as the difference between the allocator&#39;s bumper
+	/// This is calculated as the difference between the allocator's bumper
 	/// and the heap base.
 	///
-	/// Currently the bumper&#39;s only ever incremented, so this is simultaneously
+	/// Currently the bumper's only ever incremented, so this is simultaneously
 	/// the current value as well as the peak value.
 	</span><span class="kw">pub </span>address_space_used: u32,
 }
@@ -1646,7 +1648,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl </span>Drop <span class="kw">for </span>FreeingBumpHeapAllocator {
 	<span class="kw">fn </span>drop(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
-		<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;allocator dropped: {:?}&quot;</span>, <span class="self">self</span>.stats)
+		<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"allocator dropped: {:?}"</span>, <span class="self">self</span>.stats)
 	}
 }
 
@@ -1690,7 +1692,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		size: WordSize,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;Pointer&lt;u8&gt;, Error&gt; {
 		<span class="kw">if </span><span class="self">self</span>.poisoned {
-			<span class="kw">return </span><span class="prelude-val">Err</span>(error(<span class="string">&quot;the allocator has been poisoned&quot;</span>))
+			<span class="kw">return </span><span class="prelude-val">Err</span>(error(<span class="string">"the allocator has been poisoned"</span>))
 		}
 
 		<span class="kw">let </span>bomb = PoisonBomb { poisoned: <span class="kw-2">&amp;mut </span><span class="self">self</span>.poisoned };
@@ -1703,13 +1705,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">if </span>(u64::from(header_ptr) + u64::from(order.size()) + u64::from(HEADER_SIZE)) &gt;
 					mem.size()
 				{
-					<span class="kw">return </span><span class="prelude-val">Err</span>(error(<span class="string">&quot;Invalid header pointer detected&quot;</span>))
+					<span class="kw">return </span><span class="prelude-val">Err</span>(error(<span class="string">"Invalid header pointer detected"</span>))
 				}
 
 				<span class="comment">// Remove this header from the free list.
 				</span><span class="kw">let </span>next_free = Header::read_from(mem, header_ptr)<span class="question-mark">?
 					</span>.into_free()
-					.ok_or_else(|| error(<span class="string">&quot;free list points to a occupied header&quot;</span>))<span class="question-mark">?</span>;
+					.ok_or_else(|| error(<span class="string">"free list points to a occupied header"</span>))<span class="question-mark">?</span>;
 				<span class="self">self</span>.free_lists[order] = next_free;
 
 				header_ptr
@@ -1729,7 +1731,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			max(<span class="self">self</span>.stats.bytes_allocated_peak, <span class="self">self</span>.stats.bytes_allocated);
 		<span class="self">self</span>.stats.address_space_used = <span class="self">self</span>.bumper - <span class="self">self</span>.original_heap_base;
 
-		<span class="macro">log::trace!</span>(target: LOG_TARGET, <span class="string">&quot;after allocation: {:?}&quot;</span>, <span class="self">self</span>.stats);
+		<span class="macro">log::trace!</span>(target: LOG_TARGET, <span class="string">"after allocation: {:?}"</span>, <span class="self">self</span>.stats);
 
 		bomb.disarm();
 		<span class="prelude-val">Ok</span>(Pointer::new(header_ptr + HEADER_SIZE))
@@ -1748,7 +1750,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// - `ptr` - pointer to the allocated chunk
 	</span><span class="kw">pub fn </span>deallocate(<span class="kw-2">&amp;mut </span><span class="self">self</span>, mem: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>Memory, ptr: Pointer&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
 		<span class="kw">if </span><span class="self">self</span>.poisoned {
-			<span class="kw">return </span><span class="prelude-val">Err</span>(error(<span class="string">&quot;the allocator has been poisoned&quot;</span>))
+			<span class="kw">return </span><span class="prelude-val">Err</span>(error(<span class="string">"the allocator has been poisoned"</span>))
 		}
 
 		<span class="kw">let </span>bomb = PoisonBomb { poisoned: <span class="kw-2">&amp;mut </span><span class="self">self</span>.poisoned };
@@ -1757,11 +1759,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>header_ptr = u32::from(ptr)
 			.checked_sub(HEADER_SIZE)
-			.ok_or_else(|| error(<span class="string">&quot;Invalid pointer for deallocation&quot;</span>))<span class="question-mark">?</span>;
+			.ok_or_else(|| error(<span class="string">"Invalid pointer for deallocation"</span>))<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>order = Header::read_from(mem, header_ptr)<span class="question-mark">?
 			</span>.into_occupied()
-			.ok_or_else(|| error(<span class="string">&quot;the allocation points to an empty header&quot;</span>))<span class="question-mark">?</span>;
+			.ok_or_else(|| error(<span class="string">"the allocation points to an empty header"</span>))<span class="question-mark">?</span>;
 
 		<span class="comment">// Update the just freed header and knit it back to the free list.
 		</span><span class="kw">let </span>prev_head = <span class="self">self</span>.free_lists.replace(order, Link::Ptr(header_ptr));
@@ -1771,9 +1773,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span>.stats
 			.bytes_allocated
 			.checked_sub(order.size() + HEADER_SIZE)
-			.ok_or_else(|| error(<span class="string">&quot;underflow of the currently allocated bytes count&quot;</span>))<span class="question-mark">?</span>;
+			.ok_or_else(|| error(<span class="string">"underflow of the currently allocated bytes count"</span>))<span class="question-mark">?</span>;
 
-		<span class="macro">log::trace!</span>(<span class="string">&quot;after deallocation: {:?}&quot;</span>, <span class="self">self</span>.stats);
+		<span class="macro">log::trace!</span>(<span class="string">"after deallocation: {:?}"</span>, <span class="self">self</span>.stats);
 
 		bomb.disarm();
 		<span class="prelude-val">Ok</span>(())
@@ -1799,27 +1801,27 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>max_pages = memory.max_pages().unwrap_or(MAX_WASM_PAGES);
 			<span class="macro">debug_assert!</span>(
 				current_pages &lt; required_pages,
-				<span class="string">&quot;current pages {current_pages} &lt; required pages {required_pages}&quot;
+				<span class="string">"current pages {current_pages} &lt; required pages {required_pages}"
 			</span>);
 
 			<span class="kw">if </span>current_pages &gt;= max_pages {
 				<span class="macro">log::debug!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Wasm pages ({current_pages}) are already at the maximum.&quot;</span>,
+					<span class="string">"Wasm pages ({current_pages}) are already at the maximum."</span>,
 				);
 
 				<span class="kw">return </span><span class="prelude-val">Err</span>(Error::AllocatorOutOfSpace)
 			} <span class="kw">else if </span>required_pages &gt; max_pages {
 				<span class="macro">log::debug!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Failed to grow memory from {current_pages} pages to at least {required_pages}\
-						 pages due to the maximum limit of {max_pages} pages&quot;</span>,
+					<span class="string">"Failed to grow memory from {current_pages} pages to at least {required_pages}\
+						 pages due to the maximum limit of {max_pages} pages"</span>,
 				);
 				<span class="kw">return </span><span class="prelude-val">Err</span>(Error::AllocatorOutOfSpace)
 			}
 
 			<span class="comment">// Ideally we want to double our current number of pages,
-			// as long as it&#39;s less than the absolute maximum we can have.
+			// as long as it's less than the absolute maximum we can have.
 			</span><span class="kw">let </span>next_pages = min(current_pages * <span class="number">2</span>, max_pages);
 			<span class="comment">// ...but if even more pages are required then try to allocate that many.
 			</span><span class="kw">let </span>next_pages = max(next_pages, required_pages);
@@ -1827,13 +1829,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">if </span>memory.grow(next_pages - current_pages).is_err() {
 				<span class="macro">log::error!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Failed to grow memory from {current_pages} pages to {next_pages} pages&quot;</span>,
+					<span class="string">"Failed to grow memory from {current_pages} pages to {next_pages} pages"</span>,
 				);
 
 				<span class="kw">return </span><span class="prelude-val">Err</span>(Error::AllocatorOutOfSpace)
 			}
 
-			<span class="macro">debug_assert_eq!</span>(memory.pages(), next_pages, <span class="string">&quot;Number of pages should have increased!&quot;</span>);
+			<span class="macro">debug_assert_eq!</span>(memory.pages(), next_pages, <span class="string">"Number of pages should have increased!"</span>);
 		}
 
 		<span class="kw">let </span>res = <span class="kw-2">*</span>bumper;
@@ -1856,7 +1858,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// A trait for abstraction of accesses to a wasm linear memory. Used to read or modify the
 /// allocation prefixes.
 ///
-/// A wasm linear memory behaves similarly to a vector. The address space doesn&#39;t have holes and is
+/// A wasm linear memory behaves similarly to a vector. The address space doesn't have holes and is
 /// accessible up to the reported size.
 ///
 /// The linear memory can grow in size with the wasm page granularity (64KiB), but it cannot shrink.
@@ -1866,10 +1868,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>read_le_u64(<span class="kw-2">&amp;</span><span class="self">self</span>, ptr: u32) -&gt; <span class="prelude-ty">Result</span>&lt;u64, Error&gt; {
 		<span class="self">self</span>.with_access(|memory| {
 			<span class="kw">let </span>range =
-				heap_range(ptr, <span class="number">8</span>, memory.len()).ok_or_else(|| error(<span class="string">&quot;read out of heap bounds&quot;</span>))<span class="question-mark">?</span>;
+				heap_range(ptr, <span class="number">8</span>, memory.len()).ok_or_else(|| error(<span class="string">"read out of heap bounds"</span>))<span class="question-mark">?</span>;
 			<span class="kw">let </span>bytes = memory[range]
 				.try_into()
-				.expect(<span class="string">&quot;[u8] slice of length 8 must be convertible to [u8; 8]&quot;</span>);
+				.expect(<span class="string">"[u8] slice of length 8 must be convertible to [u8; 8]"</span>);
 			<span class="prelude-val">Ok</span>(u64::from_le_bytes(bytes))
 		})
 	}
@@ -1879,7 +1881,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>write_le_u64(<span class="kw-2">&amp;mut </span><span class="self">self</span>, ptr: u32, val: u64) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
 		<span class="self">self</span>.with_access_mut(|memory| {
 			<span class="kw">let </span>range = heap_range(ptr, <span class="number">8</span>, memory.len())
-				.ok_or_else(|| error(<span class="string">&quot;write out of heap bounds&quot;</span>))<span class="question-mark">?</span>;
+				.ok_or_else(|| error(<span class="string">"write out of heap bounds"</span>))<span class="question-mark">?</span>;
 			<span class="kw">let </span>bytes = val.to_le_bytes();
 			memory[range].copy_from_slice(<span class="kw-2">&amp;</span>bytes[..]);
 			<span class="prelude-val">Ok</span>(())
@@ -1907,17 +1909,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// A guard that will raise the poisoned flag on drop unless disarmed.
-</span><span class="kw">struct </span>PoisonBomb&lt;<span class="lifetime">&#39;a</span>&gt; {
-	poisoned: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>bool,
+</span><span class="kw">struct </span>PoisonBomb&lt;<span class="lifetime">'a</span>&gt; {
+	poisoned: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>bool,
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; PoisonBomb&lt;<span class="lifetime">&#39;a</span>&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; PoisonBomb&lt;<span class="lifetime">'a</span>&gt; {
 	<span class="kw">fn </span>disarm(<span class="self">self</span>) {
 		mem::forget(<span class="self">self</span>)
 	}
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; Drop <span class="kw">for </span>PoisonBomb&lt;<span class="lifetime">&#39;a</span>&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; Drop <span class="kw">for </span>PoisonBomb&lt;<span class="lifetime">'a</span>&gt; {
 	<span class="kw">fn </span>drop(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
 		<span class="kw-2">*</span><span class="self">self</span>.poisoned = <span class="bool-val">true</span>;
 	}
@@ -2140,7 +2142,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		// there is no room for another half page incl. its 8 byte prefix
 		</span><span class="kw">match </span>ptr2.unwrap_err() {
 			Error::AllocatorOutOfSpace =&gt; {},
-			e =&gt; <span class="macro">panic!</span>(<span class="string">&quot;Expected allocator out of space error, got: {:?}&quot;</span>, e),
+			e =&gt; <span class="macro">panic!</span>(<span class="string">"Expected allocator out of space error, got: {:?}"</span>, e),
 		}
 	}
 
@@ -2179,21 +2181,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span><span class="kw-2">mut </span>ptrs = Vec::new();
 		<span class="kw">for _ in </span><span class="number">0</span>..(PAGE_SIZE <span class="kw">as </span>usize / <span class="number">40</span>) {
-			ptrs.push(heap.allocate(<span class="kw-2">&amp;mut </span>mem, <span class="number">32</span>).expect(<span class="string">&quot;Allocate 32 byte&quot;</span>));
+			ptrs.push(heap.allocate(<span class="kw-2">&amp;mut </span>mem, <span class="number">32</span>).expect(<span class="string">"Allocate 32 byte"</span>));
 		}
 
 		<span class="macro">assert_eq!</span>(heap.stats.bytes_allocated, PAGE_SIZE - <span class="number">16</span>);
 		<span class="macro">assert_eq!</span>(heap.bumper, PAGE_SIZE - <span class="number">16</span>);
 
 		ptrs.into_iter()
-			.for_each(|ptr| heap.deallocate(<span class="kw-2">&amp;mut </span>mem, ptr).expect(<span class="string">&quot;Deallocate 32 byte&quot;</span>));
+			.for_each(|ptr| heap.deallocate(<span class="kw-2">&amp;mut </span>mem, ptr).expect(<span class="string">"Deallocate 32 byte"</span>));
 
 		<span class="macro">assert_eq!</span>(heap.stats.bytes_allocated, <span class="number">0</span>);
 		<span class="macro">assert_eq!</span>(heap.stats.bytes_allocated_peak, PAGE_SIZE - <span class="number">16</span>);
 		<span class="macro">assert_eq!</span>(heap.bumper, PAGE_SIZE - <span class="number">16</span>);
 
 		<span class="comment">// Allocate another 8 byte to use the full heap.
-		</span>heap.allocate(<span class="kw-2">&amp;mut </span>mem, <span class="number">8</span>).expect(<span class="string">&quot;Allocate 8 byte&quot;</span>);
+		</span>heap.allocate(<span class="kw-2">&amp;mut </span>mem, <span class="number">8</span>).expect(<span class="string">"Allocate 8 byte"</span>);
 
 		<span class="comment">// when
 		// the `bumper` value is equal to `size` here and any
@@ -2404,7 +2406,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.allocate(<span class="kw-2">&amp;mut </span>mem, <span class="number">5</span>)
 			.unwrap_err()
 			.to_string()
-			.contains(<span class="string">&quot;Invalid header pointer&quot;</span>));
+			.contains(<span class="string">"Invalid header pointer"</span>));
 	}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

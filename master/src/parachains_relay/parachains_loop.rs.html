@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `bridges/relays/parachains/src/parachains_loop.rs`."><title>parachains_loop.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `bridges/relays/parachains/src/parachains_loop.rs`."><title>parachains_loop.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="parachains_relay" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="parachains_relay" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../parachains_relay/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1171,11 +1173,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub enum </span>AvailableHeader&lt;T&gt; {
 	<span class="doccomment">/// The client can not report actual parachain head at this moment.
 	///
-	/// It is a &quot;mild&quot; error, which may appear when e.g. on-demand parachains relay is used.
-	/// This variant must be treated as &quot;we don&#39;t want to update parachain head value at the
-	/// target chain at this moment&quot;.
+	/// It is a "mild" error, which may appear when e.g. on-demand parachains relay is used.
+	/// This variant must be treated as "we don't want to update parachain head value at the
+	/// target chain at this moment".
 	</span>Unavailable,
-	<span class="doccomment">/// There&#39;s no parachain header at the relay chain.
+	<span class="doccomment">/// There's no parachain header at the relay chain.
 	///
 	/// Normally it means that the parachain is not registered there.
 	</span>Missing,
@@ -1255,7 +1257,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// sync loop.
 </span><span class="kw">pub fn </span>metrics_prefix&lt;P: ParachainsPipeline&gt;() -&gt; String {
 	<span class="macro">format!</span>(
-		<span class="string">&quot;{}_to_{}_Parachains_{}&quot;</span>,
+		<span class="string">"{}_to_{}_Parachains_{}"</span>,
 		P::SourceRelayChain::NAME,
 		P::TargetChain::NAME,
 		P::SourceParachain::PARACHAIN_ID
@@ -1267,7 +1269,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	source_client: <span class="kw">impl </span>SourceClient&lt;P&gt;,
 	target_client: <span class="kw">impl </span>TargetClient&lt;P&gt;,
 	metrics_params: MetricsParams,
-	exit_signal: <span class="kw">impl </span>Future&lt;Output = ()&gt; + <span class="lifetime">&#39;static </span>+ Send,
+	exit_signal: <span class="kw">impl </span>Future&lt;Output = ()&gt; + <span class="lifetime">'static </span>+ Send,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(), relay_utils::Error&gt;
 <span class="kw">where
 	</span>P::SourceRelayChain: Chain&lt;BlockNumber = RelayBlockNumber&gt;,
@@ -1311,28 +1313,28 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">loop </span>{
 		<span class="comment">// Either wait for new block, or exit signal.
 		// Please note that we are prioritizing the exit signal since if both events happen at once
-		// it doesn&#39;t make sense to perform one more loop iteration.
+		// it doesn't make sense to perform one more loop iteration.
 		</span><span class="macro">select_biased! </span>{
 			<span class="kw">_ </span>= exit_signal =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(()),
 			<span class="kw">_ </span>= async_std::task::sleep(min_block_interval).fuse() =&gt; {},
 		}
 
-		<span class="comment">// if source client is not yet synced, we&#39;ll need to sleep. Otherwise we risk submitting too
+		<span class="comment">// if source client is not yet synced, we'll need to sleep. Otherwise we risk submitting too
 		// much redundant transactions
 		</span><span class="kw">match </span>source_client.ensure_synced().<span class="kw">await </span>{
 			<span class="prelude-val">Ok</span>(<span class="bool-val">true</span>) =&gt; (),
 			<span class="prelude-val">Ok</span>(<span class="bool-val">false</span>) =&gt; {
 				<span class="macro">log::warn!</span>(
-					target: <span class="string">&quot;bridge&quot;</span>,
-					<span class="string">&quot;{} client is syncing. Won&#39;t do anything until it is synced&quot;</span>,
+					target: <span class="string">"bridge"</span>,
+					<span class="string">"{} client is syncing. Won't do anything until it is synced"</span>,
 					P::SourceRelayChain::NAME,
 				);
 				<span class="kw">continue
 			</span>},
 			<span class="prelude-val">Err</span>(e) =&gt; {
 				<span class="macro">log::warn!</span>(
-					target: <span class="string">&quot;bridge&quot;</span>,
-					<span class="string">&quot;{} client has failed to return its sync status: {:?}&quot;</span>,
+					target: <span class="string">"bridge"</span>,
+					<span class="string">"{} client has failed to return its sync status: {:?}"</span>,
 					P::SourceRelayChain::NAME,
 					e,
 				);
@@ -1340,9 +1342,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			},
 		}
 
-		<span class="comment">// if we have active transaction, we&#39;ll need to wait until it is mined or dropped
+		<span class="comment">// if we have active transaction, we'll need to wait until it is mined or dropped
 		</span><span class="kw">let </span>best_target_block = target_client.best_block().<span class="kw">await</span>.map_err(|e| {
-			<span class="macro">log::warn!</span>(target: <span class="string">&quot;bridge&quot;</span>, <span class="string">&quot;Failed to read best {} block: {:?}&quot;</span>, P::SourceRelayChain::NAME, e);
+			<span class="macro">log::warn!</span>(target: <span class="string">"bridge"</span>, <span class="string">"Failed to read best {} block: {:?}"</span>, P::SourceRelayChain::NAME, e);
 			FailedClient::Target
 		})<span class="question-mark">?</span>;
 		<span class="kw">let </span>head_at_target =
@@ -1357,12 +1359,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw">continue
 				</span>},
 				SubmittedHeadStatus::Final(TrackedTransactionStatus::Finalized(<span class="kw">_</span>)) =&gt; {
-					<span class="comment">// all heads have been updated, we don&#39;t need this tracker anymore
+					<span class="comment">// all heads have been updated, we don't need this tracker anymore
 				</span>},
 				SubmittedHeadStatus::Final(TrackedTransactionStatus::Lost) =&gt; {
 					<span class="macro">log::warn!</span>(
-						target: <span class="string">&quot;bridge&quot;</span>,
-						<span class="string">&quot;Parachains synchronization from {} to {} has stalled. Going to restart&quot;</span>,
+						target: <span class="string">"bridge"</span>,
+						<span class="string">"Parachains synchronization from {} to {} has stalled. Going to restart"</span>,
 						P::SourceRelayChain::NAME,
 						P::TargetChain::NAME,
 					);
@@ -1379,8 +1381,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.<span class="kw">await
 			</span>.map_err(|e| {
 				<span class="macro">log::warn!</span>(
-					target: <span class="string">&quot;bridge&quot;</span>,
-					<span class="string">&quot;Failed to read best finalized {} block from {}: {:?}&quot;</span>,
+					target: <span class="string">"bridge"</span>,
+					<span class="string">"Failed to read best finalized {} block from {}: {:?}"</span>,
 					P::SourceRelayChain::NAME,
 					P::TargetChain::NAME,
 					e,
@@ -1403,8 +1405,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.<span class="kw">await
 				</span>.map_err(|e| {
 					<span class="macro">log::warn!</span>(
-						target: <span class="string">&quot;bridge&quot;</span>,
-						<span class="string">&quot;Failed to prove {} parachain ParaId({}) heads: {:?}&quot;</span>,
+						target: <span class="string">"bridge"</span>,
+						<span class="string">"Failed to prove {} parachain ParaId({}) heads: {:?}"</span>,
 						P::SourceRelayChain::NAME,
 						P::SourceParachain::PARACHAIN_ID,
 						e,
@@ -1412,8 +1414,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					FailedClient::Source
 				})<span class="question-mark">?</span>;
 			<span class="macro">log::info!</span>(
-				target: <span class="string">&quot;bridge&quot;</span>,
-				<span class="string">&quot;Submitting {} parachain ParaId({}) head update transaction to {}. Para hash at source relay {:?}: {:?}&quot;</span>,
+				target: <span class="string">"bridge"</span>,
+				<span class="string">"Submitting {} parachain ParaId({}) head update transaction to {}. Para hash at source relay {:?}: {:?}"</span>,
 				P::SourceRelayChain::NAME,
 				P::SourceParachain::PARACHAIN_ID,
 				P::TargetChain::NAME,
@@ -1426,8 +1428,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.<span class="kw">await
 				</span>.map_err(|e| {
 					<span class="macro">log::warn!</span>(
-						target: <span class="string">&quot;bridge&quot;</span>,
-						<span class="string">&quot;Failed to submit {} parachain ParaId({}) heads proof to {}: {:?}&quot;</span>,
+						target: <span class="string">"bridge"</span>,
+						<span class="string">"Failed to submit {} parachain ParaId({}) heads proof to {}: {:?}"</span>,
 						P::SourceRelayChain::NAME,
 						P::SourceParachain::PARACHAIN_ID,
 						P::TargetChain::NAME,
@@ -1452,10 +1454,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>P::SourceRelayChain: Chain&lt;BlockNumber = RelayBlockNumber&gt;,
 {
 	<span class="macro">log::trace!</span>(
-		target: <span class="string">&quot;bridge&quot;</span>,
-		<span class="string">&quot;Checking if {} parachain ParaId({}) needs update at {}:\n\t\
+		target: <span class="string">"bridge"</span>,
+		<span class="string">"Checking if {} parachain ParaId({}) needs update at {}:\n\t\
 			At {} ({:?}): {:?}\n\t\
-			At {} ({:?}): {:?}&quot;</span>,
+			At {} ({:?}): {:?}"</span>,
 		P::SourceRelayChain::NAME,
 		P::SourceParachain::PARACHAIN_ID,
 		P::TargetChain::NAME,
@@ -1496,15 +1498,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="bool-val">true
 		</span>},
 		(AvailableHeader::Missing, <span class="prelude-val">None</span>) =&gt; {
-			<span class="comment">// all&#39;s good - parachain is unknown to both clients
+			<span class="comment">// all's good - parachain is unknown to both clients
 			</span><span class="bool-val">false
 		</span>},
 	};
 
 	<span class="kw">if </span>needs_update {
 		<span class="macro">log::trace!</span>(
-			target: <span class="string">&quot;bridge&quot;</span>,
-			<span class="string">&quot;{} parachain ParaId({}) needs update at {}: {:?} vs {:?}&quot;</span>,
+			target: <span class="string">"bridge"</span>,
+			<span class="string">"{} parachain ParaId({}) needs update at {}: {:?} vs {:?}"</span>,
 			P::SourceRelayChain::NAME,
 			P::SourceParachain::PARACHAIN_ID,
 			P::TargetChain::NAME,
@@ -1536,8 +1538,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Ok</span>(r) =&gt; <span class="prelude-val">Ok</span>(r),
 		<span class="prelude-val">Err</span>(e) =&gt; {
 			<span class="macro">log::warn!</span>(
-				target: <span class="string">&quot;bridge&quot;</span>,
-				<span class="string">&quot;Failed to read head of {} parachain ParaId({:?}): {:?}&quot;</span>,
+				target: <span class="string">"bridge"</span>,
+				<span class="string">"Failed to read head of {} parachain ParaId({:?}): {:?}"</span>,
 				P::SourceRelayChain::NAME,
 				P::SourceParachain::PARACHAIN_ID,
 				e,
@@ -1567,8 +1569,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>),
 		<span class="prelude-val">Err</span>(e) =&gt; {
 			<span class="macro">log::warn!</span>(
-				target: <span class="string">&quot;bridge&quot;</span>,
-				<span class="string">&quot;Failed to read head of {} parachain ParaId({}) at {}: {:?}&quot;</span>,
+				target: <span class="string">"bridge"</span>,
+				<span class="string">"Failed to read head of {} parachain ParaId({}) at {}: {:?}"</span>,
 				P::SourceRelayChain::NAME,
 				P::SourceParachain::PARACHAIN_ID,
 				P::TargetChain::NAME,
@@ -1583,7 +1585,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">enum </span>SubmittedHeadStatus&lt;P: ParachainsPipeline&gt; {
 	<span class="doccomment">/// Heads are not yet updated.
 	</span>Waiting(SubmittedHeadsTracker&lt;P&gt;),
-	<span class="doccomment">/// Heads transaction has either been finalized or lost (i.e. received its &quot;final&quot; status).
+	<span class="doccomment">/// Heads transaction has either been finalized or lost (i.e. received its "final" status).
 	</span>Final(TrackedTransactionStatus&lt;HeaderIdOf&lt;P::TargetChain&gt;&gt;),
 }
 
@@ -1616,7 +1618,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Creates new parachain heads transaction tracker.
 	</span><span class="kw">pub fn </span>new(
 		submitted_head: AvailableHeader&lt;HeaderIdOf&lt;P::SourceParachain&gt;&gt;,
-		transaction_tracker: <span class="kw">impl </span>TransactionTracker&lt;HeaderId = HeaderIdOf&lt;P::TargetChain&gt;&gt; + <span class="lifetime">&#39;static</span>,
+		transaction_tracker: <span class="kw">impl </span>TransactionTracker&lt;HeaderId = HeaderIdOf&lt;P::TargetChain&gt;&gt; + <span class="lifetime">'static</span>,
 	) -&gt; <span class="self">Self </span>{
 		SubmittedHeadsTracker {
 			submitted_head,
@@ -1640,8 +1642,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		};
 		<span class="kw">if </span>is_head_updated {
 			<span class="macro">log::trace!</span>(
-				target: <span class="string">&quot;bridge&quot;</span>,
-				<span class="string">&quot;Head of parachain ParaId({}) has been updated at {}: {:?}&quot;</span>,
+				target: <span class="string">"bridge"</span>,
+				<span class="string">"Head of parachain ParaId({}) has been updated at {}: {:?}"</span>,
 				P::SourceParachain::PARACHAIN_ID,
 				P::TargetChain::NAME,
 				head_at_target,
@@ -1658,7 +1660,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">return </span>SubmittedHeadStatus::Final(TrackedTransactionStatus::Lost),
 			Poll::Ready(TrackedTransactionStatus::Finalized(<span class="kw">_</span>)) =&gt; {
 				<span class="comment">// so we are here and our transaction is mined+finalized, but some of heads were not
-				// updated =&gt; we&#39;re considering our loop as stalled
+				// updated =&gt; we're considering our loop as stalled
 				</span><span class="kw">return </span>SubmittedHeadStatus::Final(TrackedTransactionStatus::Lost)
 			},
 			<span class="kw">_ </span>=&gt; (),

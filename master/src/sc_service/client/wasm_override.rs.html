@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/service/src/client/wasm_override.rs`."><title>wasm_override.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/service/src/client/wasm_override.rs`."><title>wasm_override.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sc_service" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sc_service" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../sc_service/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -527,7 +529,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! WASM overrides may be enabled with the `--wasm-runtime-overrides` argument. The argument
 //! expects a path to a directory that holds custom WASM.
 //!
-//! Any file ending in &#39;.wasm&#39; will be scraped and instantiated as a WASM blob. WASM can be built by
+//! Any file ending in '.wasm' will be scraped and instantiated as a WASM blob. WASM can be built by
 //! compiling the required runtime with the changes needed. For example, compiling a runtime with
 //! tracing enabled would produce a WASM blob that can used.
 //!
@@ -549,7 +551,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 
 <span class="doccomment">/// The interval in that we will print a warning when a wasm blob `spec_name`
-/// doesn&#39;t match with the on-chain `spec_name`.
+/// doesn't match with the on-chain `spec_name`.
 </span><span class="kw">const </span>WARN_INTERVAL: Duration = Duration::from_secs(<span class="number">30</span>);
 
 <span class="doccomment">/// Auxiliary structure that holds a wasm blob and its hash.
@@ -594,17 +596,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[derive(Debug, thiserror::Error)]
 #[allow(missing_docs)]
 </span><span class="kw">pub enum </span>WasmOverrideError {
-	<span class="attr">#[error(<span class="string">&quot;Failed to get runtime version: {0}&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Failed to get runtime version: {0}"</span>)]
 	</span>VersionInvalid(String),
 
-	<span class="attr">#[error(<span class="string">&quot;WASM override IO error&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"WASM override IO error"</span>)]
 	</span>Io(PathBuf, <span class="attr">#[source] </span>std::io::Error),
 
-	<span class="attr">#[error(<span class="string">&quot;Overwriting WASM requires a directory where local \
-	WASM is stored. {} is not a directory&quot;</span>, .<span class="number">0</span>.display())]
+	<span class="attr">#[error(<span class="string">"Overwriting WASM requires a directory where local \
+	WASM is stored. {} is not a directory"</span>, .<span class="number">0</span>.display())]
 	</span>NotADirectory(PathBuf),
 
-	<span class="attr">#[error(<span class="string">&quot;Duplicate WASM Runtimes found: \n{}\n&quot;</span>, .<span class="number">0</span>.join(<span class="string">&quot;\n&quot;</span>) )]
+	<span class="attr">#[error(<span class="string">"Duplicate WASM Runtimes found: \n{}\n"</span>, .<span class="number">0</span>.join(<span class="string">"\n"</span>) )]
 	</span>DuplicateRuntime(Vec&lt;String&gt;),
 }
 
@@ -632,15 +634,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Ok</span>(<span class="self">Self </span>{ overrides })
 	}
 
-	<span class="doccomment">/// Gets an override by it&#39;s runtime spec version.
+	<span class="doccomment">/// Gets an override by it's runtime spec version.
 	///
 	/// Returns `None` if an override for a spec version does not exist.
-	</span><span class="kw">pub fn </span>get&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>: <span class="lifetime">&#39;a</span>&gt;(
-		<span class="kw-2">&amp;</span><span class="lifetime">&#39;b </span><span class="self">self</span>,
+	</span><span class="kw">pub fn </span>get&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>: <span class="lifetime">'a</span>&gt;(
+		<span class="kw-2">&amp;</span><span class="lifetime">'b </span><span class="self">self</span>,
 		spec: <span class="kw-2">&amp;</span>u32,
 		pages: <span class="prelude-ty">Option</span>&lt;u64&gt;,
 		spec_name: <span class="kw-2">&amp;</span>str,
-	) -&gt; <span class="prelude-ty">Option</span>&lt;(RuntimeCode&lt;<span class="lifetime">&#39;a</span>&gt;, RuntimeVersion)&gt; {
+	) -&gt; <span class="prelude-ty">Option</span>&lt;(RuntimeCode&lt;<span class="lifetime">'a</span>&gt;, RuntimeVersion)&gt; {
 		<span class="self">self</span>.overrides.get(spec).and_then(|w| {
 			<span class="kw">if </span>spec_name == <span class="kw-2">&amp;*</span>w.version.spec_name {
 				<span class="prelude-val">Some</span>((w.runtime_code(pages), w.version.clone()))
@@ -652,12 +654,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw-2">*</span>last_warn = <span class="prelude-val">Some</span>(now);
 
 					<span class="macro">tracing::warn!</span>(
-						target = <span class="string">&quot;wasm_overrides&quot;</span>,
+						target = <span class="string">"wasm_overrides"</span>,
 						on_chain_spec_name = %spec_name,
 						override_spec_name = %w.version,
 						spec_version = %spec,
 						wasm_file = %w.path.display(),
-						<span class="string">&quot;On chain and override `spec_name` do not match! Ignoring override.&quot;</span>,
+						<span class="string">"On chain and override `spec_name` do not match! Ignoring override."</span>,
 					);
 				}
 
@@ -685,26 +687,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">for </span>entry <span class="kw">in </span>fs::read_dir(dir).map_err(handle_err)<span class="question-mark">? </span>{
 			<span class="kw">let </span>entry = entry.map_err(handle_err)<span class="question-mark">?</span>;
 			<span class="kw">let </span>path = entry.path();
-			<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="string">&quot;wasm&quot;</span>) = path.extension().and_then(|e| e.to_str()) {
+			<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="string">"wasm"</span>) = path.extension().and_then(|e| e.to_str()) {
 				<span class="kw">let </span>code = fs::read(<span class="kw-2">&amp;</span>path).map_err(handle_err)<span class="question-mark">?</span>;
 				<span class="kw">let </span>code_hash = make_hash(<span class="kw-2">&amp;</span>code);
 				<span class="kw">let </span>version = <span class="self">Self</span>::runtime_version(executor, <span class="kw-2">&amp;</span>code, <span class="kw-2">&amp;</span>code_hash, <span class="prelude-val">Some</span>(<span class="number">128</span>))<span class="question-mark">?</span>;
 				<span class="macro">tracing::info!</span>(
-					target: <span class="string">&quot;wasm_overrides&quot;</span>,
+					target: <span class="string">"wasm_overrides"</span>,
 					version = %version,
 					file = %path.display(),
-					<span class="string">&quot;Found wasm override.&quot;</span>,
+					<span class="string">"Found wasm override."</span>,
 				);
 
 				<span class="kw">let </span>wasm = WasmBlob::new(code, code_hash, path.clone(), version.clone());
 
 				<span class="kw">if let </span><span class="prelude-val">Some</span>(other) = overrides.insert(version.spec_version, wasm) {
 					<span class="macro">tracing::info!</span>(
-						target: <span class="string">&quot;wasm_overrides&quot;</span>,
+						target: <span class="string">"wasm_overrides"</span>,
 						first = %other.path.display(),
 						second = %path.display(),
 						%version,
-						<span class="string">&quot;Found duplicate spec version for runtime.&quot;</span>,
+						<span class="string">"Found duplicate spec version for runtime."</span>,
 					);
 					duplicates.push(path.display().to_string());
 				}
@@ -744,7 +746,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Returns a WasmOverride struct filled with dummy data for testing.
 </span><span class="attr">#[cfg(test)]
 </span><span class="kw">pub fn </span>dummy_overrides() -&gt; WasmOverride {
-	<span class="kw">let </span>version = RuntimeVersion { spec_name: <span class="string">&quot;test&quot;</span>.into(), ..Default::default() };
+	<span class="kw">let </span>version = RuntimeVersion { spec_name: <span class="string">"test"</span>.into(), ..Default::default() };
 	<span class="kw">let </span><span class="kw-2">mut </span>overrides = HashMap::new();
 	overrides.insert(
 		<span class="number">0</span>,
@@ -784,9 +786,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	{
 		<span class="kw">let </span>exec = executor();
 		<span class="kw">let </span>bytes = substrate_test_runtime::wasm_binary_unwrap();
-		<span class="kw">let </span>dir = tempfile::tempdir().expect(<span class="string">&quot;Create a temporary directory&quot;</span>);
+		<span class="kw">let </span>dir = tempfile::tempdir().expect(<span class="string">"Create a temporary directory"</span>);
 		fun(dir.path(), bytes, <span class="kw-2">&amp;</span>exec);
-		dir.close().expect(<span class="string">&quot;Temporary Directory should close&quot;</span>);
+		dir.close().expect(<span class="string">"Temporary Directory should close"</span>);
 	}
 
 	<span class="attr">#[test]
@@ -799,17 +801,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw-2">&amp;</span>[<span class="number">1</span>],
 			<span class="prelude-val">Some</span>(<span class="number">128</span>),
 		)
-		.expect(<span class="string">&quot;should get the `RuntimeVersion` of the test-runtime wasm blob&quot;</span>);
+		.expect(<span class="string">"should get the `RuntimeVersion` of the test-runtime wasm blob"</span>);
 		<span class="macro">assert_eq!</span>(version.spec_version, <span class="number">2</span>);
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>should_scrape_wasm() {
 		wasm_test(|dir, wasm_bytes, exec| {
-			fs::write(dir.join(<span class="string">&quot;test.wasm&quot;</span>), wasm_bytes).expect(<span class="string">&quot;Create test file&quot;</span>);
+			fs::write(dir.join(<span class="string">"test.wasm"</span>), wasm_bytes).expect(<span class="string">"Create test file"</span>);
 			<span class="kw">let </span>overrides =
-				WasmOverride::scrape_overrides(dir, exec).expect(<span class="string">&quot;HashMap of u32 and WasmBlob&quot;</span>);
-			<span class="kw">let </span>wasm = overrides.get(<span class="kw-2">&amp;</span><span class="number">2</span>).expect(<span class="string">&quot;WASM binary&quot;</span>);
+				WasmOverride::scrape_overrides(dir, exec).expect(<span class="string">"HashMap of u32 and WasmBlob"</span>);
+			<span class="kw">let </span>wasm = overrides.get(<span class="kw-2">&amp;</span><span class="number">2</span>).expect(<span class="string">"WASM binary"</span>);
 			<span class="macro">assert_eq!</span>(wasm.code, substrate_test_runtime::wasm_binary_unwrap().to_vec())
 		});
 	}
@@ -817,8 +819,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>should_check_for_duplicates() {
 		wasm_test(|dir, wasm_bytes, exec| {
-			fs::write(dir.join(<span class="string">&quot;test0.wasm&quot;</span>), wasm_bytes).expect(<span class="string">&quot;Create test file&quot;</span>);
-			fs::write(dir.join(<span class="string">&quot;test1.wasm&quot;</span>), wasm_bytes).expect(<span class="string">&quot;Create test file&quot;</span>);
+			fs::write(dir.join(<span class="string">"test0.wasm"</span>), wasm_bytes).expect(<span class="string">"Create test file"</span>);
+			fs::write(dir.join(<span class="string">"test1.wasm"</span>), wasm_bytes).expect(<span class="string">"Create test file"</span>);
 			<span class="kw">let </span>scraped = WasmOverride::scrape_overrides(dir, exec);
 
 			<span class="kw">match </span>scraped {
@@ -827,10 +829,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="prelude-val">Some</span>(WasmOverrideError::DuplicateRuntime(duplicates)) =&gt; {
 							<span class="macro">assert_eq!</span>(duplicates.len(), <span class="number">1</span>);
 						},
-						<span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;Test should end with Msg Error Variant&quot;</span>),
+						<span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"Test should end with Msg Error Variant"</span>),
 					}
 				},
-				<span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;Test should end in error&quot;</span>),
+				<span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"Test should end in error"</span>),
 			}
 		});
 	}
@@ -838,11 +840,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>should_ignore_non_wasm() {
 		wasm_test(|dir, wasm_bytes, exec| {
-			File::create(dir.join(<span class="string">&quot;README.md&quot;</span>)).expect(<span class="string">&quot;Create test file&quot;</span>);
-			File::create(dir.join(<span class="string">&quot;LICENSE&quot;</span>)).expect(<span class="string">&quot;Create a test file&quot;</span>);
-			fs::write(dir.join(<span class="string">&quot;test0.wasm&quot;</span>), wasm_bytes).expect(<span class="string">&quot;Create test file&quot;</span>);
+			File::create(dir.join(<span class="string">"README.md"</span>)).expect(<span class="string">"Create test file"</span>);
+			File::create(dir.join(<span class="string">"LICENSE"</span>)).expect(<span class="string">"Create a test file"</span>);
+			fs::write(dir.join(<span class="string">"test0.wasm"</span>), wasm_bytes).expect(<span class="string">"Create test file"</span>);
 			<span class="kw">let </span>scraped =
-				WasmOverride::scrape_overrides(dir, exec).expect(<span class="string">&quot;HashMap of u32 and WasmBlob&quot;</span>);
+				WasmOverride::scrape_overrides(dir, exec).expect(<span class="string">"HashMap of u32 and WasmBlob"</span>);
 			<span class="macro">assert_eq!</span>(scraped.len(), <span class="number">1</span>);
 		});
 	}

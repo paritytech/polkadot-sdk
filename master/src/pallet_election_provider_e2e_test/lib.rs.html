@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/election-provider-multi-phase/test-staking-e2e/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/election-provider-multi-phase/test-staking-e2e/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_election_provider_e2e_test" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_election_provider_e2e_test" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../pallet_election_provider_e2e_test/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -679,14 +681,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -694,7 +696,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#![cfg(test)]
 </span><span class="kw">mod </span>mock;
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;tests::e2e-epm&quot;</span>;
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"tests::e2e-epm"</span>;
 
 <span class="kw">use </span>frame_support::{assert_err, assert_noop, assert_ok};
 <span class="kw">use </span>mock::<span class="kw-2">*</span>;
@@ -710,7 +712,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	(<span class="macro-nonterminal">$level</span>:tt, <span class="macro-nonterminal">$patter</span>:expr $(, <span class="macro-nonterminal">$values</span>:expr)* $(,)<span class="question-mark">?</span>) =&gt; {
 		log::<span class="macro-nonterminal">$</span><span class="macro">level!</span>(
 			<span class="macro-nonterminal">target</span>: <span class="kw">crate</span>::LOG_TARGET,
-			<span class="macro">concat!</span>(<span class="string">&quot;🛠️  &quot;</span>, <span class="macro-nonterminal">$patter</span>)  $(, <span class="macro-nonterminal">$values</span>)*
+			<span class="macro">concat!</span>(<span class="string">"🛠️  "</span>, <span class="macro-nonterminal">$patter</span>)  $(, <span class="macro-nonterminal">$values</span>)*
 		)
 	};
 }
@@ -718,7 +720,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">fn </span>log_current_time() {
 	<span class="macro">log!</span>(
 		trace,
-		<span class="string">&quot;block: {:?}, session: {:?}, era: {:?}, EPM phase: {:?} ts: {:?}&quot;</span>,
+		<span class="string">"block: {:?}, session: {:?}, era: {:?}, EPM phase: {:?} ts: {:?}"</span>,
 		System::block_number(),
 		Session::current_index(),
 		Staking::current_era(),
@@ -756,7 +758,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">assert!</span>(start_next_active_era_delayed_solution(pool_state).is_ok());
 		<span class="comment">// if the solution is delayed, EPM will end up in emergency mode..
 		</span><span class="macro">assert!</span>(ElectionProviderMultiPhase::current_phase().is_emergency());
-		<span class="comment">// .. era won&#39;t progress..
+		<span class="comment">// .. era won't progress..
 		</span><span class="macro">assert_eq!</span>(active_era(), <span class="number">0</span>);
 		<span class="comment">// .. but session does.
 		</span><span class="macro">assert_eq!</span>(Session::current_index(), <span class="number">2</span>);
@@ -786,7 +788,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="prelude-val">Some</span>(<span class="kw">_</span>) =&gt; current_phase.is_unsigned(),
 					<span class="prelude-val">None </span>=&gt; !current_phase.is_unsigned(),
 				},
-				<span class="string">&quot;solution must be queued *only* in unsigned phase&quot;
+				<span class="string">"solution must be queued *only* in unsigned phase"
 			</span>);
 		}
 
@@ -796,7 +798,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">assert_eq!</span>(
 				QueuedSolution::&lt;Runtime&gt;::get(),
 				<span class="prelude-val">None</span>,
-				<span class="string">&quot;solution must never be submitted and stored since it is delayed&quot;
+				<span class="string">"solution must never be submitted and stored since it is delayed"
 			</span>);
 		}
 	})
@@ -812,7 +814,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// have enough time to queue a new solution (snapshot + solution submission), the election request
 /// fails. If there is no election fallback mechanism in place, EPM enters in emergency mode.
 /// Recovery: Once EPM is in emergency mode, subsequent calls to `elect()` will fail until a new
-/// solution is added to EPM&#39;s `QueuedSolution` queue. This can be achieved through
+/// solution is added to EPM's `QueuedSolution` queue. This can be achieved through
 /// `Call::set_emergency_election_result` or `Call::governance_fallback` dispatchables. Once a new
 /// solution is added to the queue, EPM phase transitions to `Phase::Off` and the election flow
 /// restarts. Note that in this test case, the emergency throttling is disabled.
@@ -823,7 +825,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	execute_with(ext, || {
 		<span class="macro">log!</span>(
 			trace,
-			<span class="string">&quot;current validators (staking): {:?}&quot;</span>,
+			<span class="string">"current validators (staking): {:?}"</span>,
 			&lt;Runtime <span class="kw">as </span>pallet_staking::SessionInterface&lt;AccountId&gt;&gt;::validators()
 		);
 		<span class="kw">let </span>session_validators_before = Session::validators();
@@ -920,7 +922,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="macro">log!</span>(
 				trace,
-				<span class="string">&quot;slashed 10% of active validators ({:?}). After slash: {:?}&quot;</span>,
+				<span class="string">"slashed 10% of active validators ({:?}). After slash: {:?}"</span>,
 				slashed,
 				active_validator_set
 			);
@@ -1001,8 +1003,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[test]
 </span><span class="doccomment">/// Active ledger balance may fall below ED if account chills before unbonding.
 ///
-/// Unbonding call fails if the remaining ledger&#39;s stash balance falls below the existential
-/// deposit. However, if the stash is chilled before unbonding, the ledger&#39;s active balance may
+/// Unbonding call fails if the remaining ledger's stash balance falls below the existential
+/// deposit. However, if the stash is chilled before unbonding, the ledger's active balance may
 /// be below ED. In that case, only the stash (or root) can kill the ledger entry by calling
 /// `withdraw_unbonded` after the bonding period has passed.
 ///
@@ -1035,7 +1037,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="macro">assert_eq!</span>(Staking::ledger(<span class="number">11</span>.into()).unwrap().active, <span class="number">0</span>);
 		<span class="macro">assert_eq!</span>(Staking::ledger(<span class="number">11</span>.into()).unwrap().total, <span class="number">1000</span>);
 
-		<span class="comment">// trying to withdraw the unbonded balance won&#39;t work yet because not enough bonding
+		<span class="comment">// trying to withdraw the unbonded balance won't work yet because not enough bonding
 		// eras have passed.
 		</span><span class="macro">assert_ok!</span>(Staking::withdraw_unbonded(RuntimeOrigin::signed(<span class="number">11</span>), <span class="number">0</span>));
 		<span class="macro">assert_eq!</span>(Staking::ledger(<span class="number">11</span>.into()).unwrap().total, <span class="number">1000</span>);
@@ -1068,8 +1070,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">/// Automatic withdrawal of unlocking funds in staking propagates to the nomination pools and its
 /// state correctly.
 ///
-/// The staking pallet may withdraw unlocking funds from a pool&#39;s bonded account without a pool
-/// member or operator calling explicitly `Call::withdraw*`. This test verifies that the member&#39;s
+/// The staking pallet may withdraw unlocking funds from a pool's bonded account without a pool
+/// member or operator calling explicitly `Call::withdraw*`. This test verifies that the member's
 /// are eventually paid and the `TotalValueLocked` is kept in sync in those cases.
 </span><span class="kw">fn </span>automatic_unbonding_pools() {
 	<span class="kw">use </span>pallet_nomination_pools::TotalValueLocked;
@@ -1127,7 +1129,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="macro">assert_eq!</span>(unlocking_chunks_of(pool_bonded_account), <span class="number">1</span>);
 
 		<span class="comment">// tries to unbond 3 from pool. it will fail since there are no unlocking chunks left
-		// available and the current in the queue haven&#39;t been there for more than bonding
+		// available and the current in the queue haven't been there for more than bonding
 		// duration.
 		</span><span class="macro">assert_err!</span>(
 			Pools::unbond(RuntimeOrigin::signed(<span class="number">3</span>), <span class="number">3</span>, <span class="number">10</span>),
@@ -1146,7 +1148,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>locked_before_withdraw_pool = locked_amount_for(pool_bonded_account);
 		<span class="macro">assert_eq!</span>(Balances::free_balance(pool_bonded_account), <span class="number">26</span>);
 
-		<span class="comment">// now unbonding 3 will work, although the pool&#39;s ledger still has the unlocking chunks
+		<span class="comment">// now unbonding 3 will work, although the pool's ledger still has the unlocking chunks
 		// filled up.
 		</span><span class="macro">assert_ok!</span>(Pools::unbond(RuntimeOrigin::signed(<span class="number">3</span>), <span class="number">3</span>, <span class="number">10</span>));
 		<span class="macro">assert_eq!</span>(unlocking_chunks_of(pool_bonded_account), <span class="number">1</span>);
@@ -1154,23 +1156,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">assert_eq!</span>(
 			staking_events(),
 			[
-				<span class="comment">// auto-withdraw happened as expected to release 2&#39;s unbonding funds, but the funds
-				// were not transferred to 2 and stay in the pool&#39;s transferrable balance instead.
+				<span class="comment">// auto-withdraw happened as expected to release 2's unbonding funds, but the funds
+				// were not transferred to 2 and stay in the pool's transferrable balance instead.
 				</span>pallet_staking::Event::Withdrawn { stash: <span class="number">7939698191839293293</span>, amount: <span class="number">10 </span>},
 				pallet_staking::Event::Unbonded { stash: <span class="number">7939698191839293293</span>, amount: <span class="number">10 </span>}
 			]
 		);
 
-		<span class="comment">// balance of the pool remains the same, it hasn&#39;t withdraw explicitly from the pool yet.
+		<span class="comment">// balance of the pool remains the same, it hasn't withdraw explicitly from the pool yet.
 		</span><span class="macro">assert_eq!</span>(Balances::free_balance(pool_bonded_account), <span class="number">26</span>);
-		<span class="comment">// but the locked amount in the pool&#39;s account decreases due to the auto-withdraw:
+		<span class="comment">// but the locked amount in the pool's account decreases due to the auto-withdraw:
 		</span><span class="macro">assert_eq!</span>(locked_before_withdraw_pool - <span class="number">10</span>, locked_amount_for(pool_bonded_account));
 
 		<span class="comment">// TVL correctly updated.
 		</span><span class="macro">assert_eq!</span>(TotalValueLocked::&lt;Runtime&gt;::get(), <span class="number">25 </span>- <span class="number">10</span>);
 
 		<span class="comment">// however, note that the withdrawing from the pool still works for 2, the funds are taken
-		// from the pool&#39;s free balance.
+		// from the pool's free balance.
 		</span><span class="macro">assert_eq!</span>(Balances::free_balance(pool_bonded_account), <span class="number">26</span>);
 		<span class="macro">assert_ok!</span>(Pools::withdraw_unbonded(RuntimeOrigin::signed(<span class="number">2</span>), <span class="number">2</span>, <span class="number">10</span>));
 		<span class="macro">assert_eq!</span>(Balances::free_balance(pool_bonded_account), <span class="number">16</span>);

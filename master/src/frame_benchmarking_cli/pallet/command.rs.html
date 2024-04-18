@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/utils/frame/benchmarking-cli/src/pallet/command.rs`."><title>command.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/utils/frame/benchmarking-cli/src/pallet/command.rs`."><title>command.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="frame_benchmarking_cli" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="frame_benchmarking_cli" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../frame_benchmarking_cli/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1205,14 +1207,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -1256,7 +1258,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 
 <span class="doccomment">/// Logging target
-</span><span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;polkadot_sdk_frame::benchmark::pallet&quot;</span>;
+</span><span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"polkadot_sdk_frame::benchmark::pallet"</span>;
 
 <span class="doccomment">/// How the PoV size of a storage item should be estimated.
 </span><span class="attr">#[derive(clap::ValueEnum, Debug, Eq, PartialEq, Clone, Copy)]
@@ -1270,14 +1272,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl </span>FromStr <span class="kw">for </span>PovEstimationMode {
-	<span class="kw">type </span><span class="prelude-val">Err </span>= <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str;
+	<span class="kw">type </span><span class="prelude-val">Err </span>= <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str;
 
 	<span class="kw">fn </span>from_str(s: <span class="kw-2">&amp;</span>str) -&gt; std::result::Result&lt;<span class="self">Self</span>, <span class="self">Self</span>::Err&gt; {
 		<span class="kw">match </span>s {
-			<span class="string">&quot;MaxEncodedLen&quot; </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::MaxEncodedLen),
-			<span class="string">&quot;Measured&quot; </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::Measured),
-			<span class="string">&quot;Ignored&quot; </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::Ignored),
-			<span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(<span class="string">&quot;The benchmark! macro should have prevented this&quot;</span>),
+			<span class="string">"MaxEncodedLen" </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::MaxEncodedLen),
+			<span class="string">"Measured" </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::Measured),
+			<span class="string">"Ignored" </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::Ignored),
+			<span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(<span class="string">"The benchmark! macro should have prevented this"</span>),
 		}
 	}
 }
@@ -1332,7 +1334,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">match </span>all_benchmarks.get_mut(<span class="kw-2">&amp;</span>key) {
 				<span class="comment">// We already have this benchmark, so we extend the results.
 				</span><span class="prelude-val">Some</span>(x) =&gt; x.<span class="number">0</span>.extend(results),
-				<span class="prelude-val">None </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;all benchmark keys should have been populated by db batches&quot;</span>),
+				<span class="prelude-val">None </span>=&gt; <span class="macro">panic!</span>(<span class="string">"all benchmark keys should have been populated by db batches"</span>),
 			}
 		});
 
@@ -1345,32 +1347,32 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Explains possible reasons why the metadata for the benchmarking could not be found.
-</span><span class="kw">const </span>ERROR_METADATA_NOT_FOUND: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;Did not find the benchmarking metadata. \
+</span><span class="kw">const </span>ERROR_METADATA_NOT_FOUND: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"Did not find the benchmarking metadata. \
 This could mean that you either did not build the node correctly with the \
 `--features runtime-benchmarks` flag, or the chain spec that you are using was \
-not created by a node that was compiled with the flag&quot;</span>;
+not created by a node that was compiled with the flag"</span>;
 
 <span class="doccomment">/// When the runtime could not build the genesis storage.
-</span><span class="kw">const </span>ERROR_CANNOT_BUILD_GENESIS: <span class="kw-2">&amp;</span>str = <span class="string">&quot;The runtime returned \
+</span><span class="kw">const </span>ERROR_CANNOT_BUILD_GENESIS: <span class="kw-2">&amp;</span>str = <span class="string">"The runtime returned \
 an error when trying to build the genesis storage. Please ensure that all pallets \
 define a genesis config that can be built. This can be tested with: \
-https://github.com/paritytech/polkadot-sdk/pull/3412&quot;</span>;
+https://github.com/paritytech/polkadot-sdk/pull/3412"</span>;
 
 <span class="doccomment">/// Warn when using the chain spec to generate the genesis state.
-</span><span class="kw">const </span>WARN_SPEC_GENESIS_CTOR: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;Using the chain spec instead of the runtime to \
+</span><span class="kw">const </span>WARN_SPEC_GENESIS_CTOR: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"Using the chain spec instead of the runtime to \
 generate the genesis state is deprecated. Please remove the `--chain`/`--dev`/`--local` argument, \
 point `--runtime` to your runtime blob and set `--genesis-builder=runtime`. This warning may \
-become a hard error any time after December 2024.&quot;</span>;
+become a hard error any time after December 2024."</span>;
 
 <span class="doccomment">/// The preset that we expect to find in the GenesisBuilder runtime API.
-</span><span class="kw">const </span>GENESIS_PRESET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;development&quot;</span>;
+</span><span class="kw">const </span>GENESIS_PRESET: <span class="kw-2">&amp;</span>str = <span class="string">"development"</span>;
 
 <span class="kw">impl </span>PalletCmd {
 	<span class="doccomment">/// Runs the command and benchmarks a pallet.
 	</span><span class="attr">#[deprecated(
-		note = <span class="string">&quot;`run` will be removed after December 2024. Use `run_with_spec` instead or \
+		note = <span class="string">"`run` will be removed after December 2024. Use `run_with_spec` instead or \
 	completely remove the code and use the `frame-benchmarking-cli` instead (see \
-	https://github.com/paritytech/polkadot-sdk/pull/3512).&quot;
+	https://github.com/paritytech/polkadot-sdk/pull/3512)."
 	</span>)]
 	</span><span class="kw">pub fn </span>run&lt;Hasher, ExtraHostFunctions&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, config: sc_service::Configuration) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;
 	<span class="kw">where
@@ -1395,7 +1397,7 @@ become a hard error any time after December 2024.&quot;</span>;
 			</span>sp_core::defer::DeferGuard::new(<span class="kw">move </span>|| {
 				<span class="macro">log::error!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;⚠️  Argument `--execution` is deprecated. Its value of `{exec}` has on effect.&quot;</span>,
+					<span class="string">"⚠️  Argument `--execution` is deprecated. Its value of `{exec}` has on effect."</span>,
 				)
 			})
 		});
@@ -1404,12 +1406,12 @@ become a hard error any time after December 2024.&quot;</span>;
 			<span class="kw">let </span>raw_data = <span class="kw">match </span>std::fs::read(json_input) {
 				<span class="prelude-val">Ok</span>(raw_data) =&gt; raw_data,
 				<span class="prelude-val">Err</span>(error) =&gt;
-					<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">&quot;Failed to read {:?}: {}&quot;</span>, json_input, error).into()),
+					<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">"Failed to read {:?}: {}"</span>, json_input, error).into()),
 			};
 			<span class="kw">let </span>batches: Vec&lt;BenchmarkBatchSplitResults&gt; = <span class="kw">match </span>serde_json::from_slice(<span class="kw-2">&amp;</span>raw_data) {
 				<span class="prelude-val">Ok</span>(batches) =&gt; batches,
 				<span class="prelude-val">Err</span>(error) =&gt;
-					<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">&quot;Failed to deserialize {:?}: {}&quot;</span>, json_input, error).into()),
+					<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">"Failed to deserialize {:?}: {}"</span>, json_input, error).into()),
 			};
 			<span class="kw">return </span><span class="self">self</span>.output_from_results(<span class="kw-2">&amp;</span>batches)
 		}
@@ -1463,7 +1465,7 @@ become a hard error any time after December 2024.&quot;</span>;
 					state,
 					<span class="kw-2">&amp;mut </span>changes,
 					<span class="kw-2">&amp;</span>executor,
-					<span class="string">&quot;Benchmark_benchmark_metadata&quot;</span>,
+					<span class="string">"Benchmark_benchmark_metadata"</span>,
 					<span class="kw-2">&amp;</span>(<span class="self">self</span>.extra).encode(),
 					<span class="kw-2">&amp;mut </span><span class="self">Self</span>::build_extensions(executor.clone()),
 					<span class="kw-2">&amp;</span>runtime_code,
@@ -1489,12 +1491,12 @@ become a hard error any time after December 2024.&quot;</span>;
 		<span class="kw">let </span>pov_modes = <span class="self">Self</span>::parse_pov_modes(<span class="kw-2">&amp;</span>benchmarks_to_run)<span class="question-mark">?</span>;
 		<span class="kw">let </span><span class="kw-2">mut </span>failed = Vec::&lt;(String, String)&gt;::new();
 
-		<span class="lifetime">&#39;outer</span>: <span class="kw">for </span>(i, SelectedBenchmark { pallet, extrinsic, components, .. }) <span class="kw">in
+		<span class="lifetime">'outer</span>: <span class="kw">for </span>(i, SelectedBenchmark { pallet, extrinsic, components, .. }) <span class="kw">in
 			</span>benchmarks_to_run.clone().into_iter().enumerate()
 		{
 			<span class="macro">log::info!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;[{: &gt;3} % ] Starting benchmark: {pallet}::{extrinsic}&quot;</span>,
+				<span class="string">"[{: &gt;3} % ] Starting benchmark: {pallet}::{extrinsic}"</span>,
 				(i * <span class="number">100</span>) / benchmarks_to_run.len(),
 			);
 			<span class="kw">let </span>all_components = <span class="kw">if </span>components.is_empty() {
@@ -1506,12 +1508,12 @@ become a hard error any time after December 2024.&quot;</span>;
 					<span class="kw">let </span>highest = <span class="self">self</span>.highest_range_values.get(idx).cloned().unwrap_or(<span class="kw-2">*</span>high);
 
 					<span class="kw">let </span>diff =
-						highest.checked_sub(lowest).ok_or(<span class="string">&quot;`low` cannot be higher than `high`&quot;</span>)<span class="question-mark">?</span>;
+						highest.checked_sub(lowest).ok_or(<span class="string">"`low` cannot be higher than `high`"</span>)<span class="question-mark">?</span>;
 
 					<span class="comment">// The slope logic needs at least two points
 					// to compute a slope.
 					</span><span class="kw">if </span><span class="self">self</span>.steps &lt; <span class="number">2 </span>{
-						<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;`steps` must be at least 2.&quot;</span>.into())
+						<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"`steps` must be at least 2."</span>.into())
 					}
 
 					<span class="kw">let </span>step_size = (diff <span class="kw">as </span>f32 / (<span class="self">self</span>.steps - <span class="number">1</span>) <span class="kw">as </span>f32).max(<span class="number">0.0</span>);
@@ -1548,7 +1550,7 @@ become a hard error any time after December 2024.&quot;</span>;
 				</span><span class="kw">if </span>!<span class="self">self</span>.no_verify {
 					<span class="kw">let </span><span class="kw-2">mut </span>changes = genesis_changes.clone();
 					<span class="kw">let </span>state = <span class="kw-2">&amp;</span>state_without_tracking;
-					<span class="comment">// Don&#39;t use these results since verification code will add overhead.
+					<span class="comment">// Don't use these results since verification code will add overhead.
 					</span><span class="kw">let </span>_batch: Vec&lt;BenchmarkBatch&gt; = <span class="kw">match </span><span class="self">Self</span>::exec_state_machine::&lt;
 						std::result::Result&lt;Vec&lt;BenchmarkBatch&gt;, String&gt;,
 						<span class="kw">_</span>,
@@ -1558,7 +1560,7 @@ become a hard error any time after December 2024.&quot;</span>;
 							state,
 							<span class="kw-2">&amp;mut </span>changes,
 							<span class="kw-2">&amp;</span>executor,
-							<span class="string">&quot;Benchmark_dispatch_benchmark&quot;</span>,
+							<span class="string">"Benchmark_dispatch_benchmark"</span>,
 							<span class="kw-2">&amp;</span>(
 								pallet.as_bytes(),
 								extrinsic.as_bytes(),
@@ -1571,17 +1573,17 @@ become a hard error any time after December 2024.&quot;</span>;
 							<span class="kw-2">&amp;</span>runtime_code,
 							CallContext::Offchain,
 						),
-						<span class="string">&quot;dispatch a benchmark&quot;</span>,
+						<span class="string">"dispatch a benchmark"</span>,
 					) {
 						<span class="prelude-val">Err</span>(e) =&gt; {
-							<span class="macro">log::error!</span>(<span class="string">&quot;Error executing and verifying runtime benchmark: {}&quot;</span>, e);
+							<span class="macro">log::error!</span>(<span class="string">"Error executing and verifying runtime benchmark: {}"</span>, e);
 							failed.push((pallet.clone(), extrinsic.clone()));
-							<span class="kw">continue </span><span class="lifetime">&#39;outer
+							<span class="kw">continue </span><span class="lifetime">'outer
 						</span>},
 						<span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(e)) =&gt; {
-							<span class="macro">log::error!</span>(<span class="string">&quot;Error executing and verifying runtime benchmark: {}&quot;</span>, e);
+							<span class="macro">log::error!</span>(<span class="string">"Error executing and verifying runtime benchmark: {}"</span>, e);
 							failed.push((pallet.clone(), extrinsic.clone()));
-							<span class="kw">continue </span><span class="lifetime">&#39;outer
+							<span class="kw">continue </span><span class="lifetime">'outer
 						</span>},
 						<span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(b)) =&gt; b,
 					};
@@ -1599,12 +1601,12 @@ become a hard error any time after December 2024.&quot;</span>;
 							state, <span class="comment">// todo remove tracking
 							</span><span class="kw-2">&amp;mut </span>changes,
 							<span class="kw-2">&amp;</span>executor,
-							<span class="string">&quot;Benchmark_dispatch_benchmark&quot;</span>,
+							<span class="string">"Benchmark_dispatch_benchmark"</span>,
 							<span class="kw-2">&amp;</span>(
 								pallet.as_bytes(),
 								extrinsic.as_bytes(),
 								<span class="kw-2">&amp;</span>selected_components.clone(),
-								<span class="bool-val">false</span>, <span class="comment">// don&#39;t run verification code for final values
+								<span class="bool-val">false</span>, <span class="comment">// don't run verification code for final values
 								</span><span class="self">self</span>.repeat,
 							)
 								.encode(),
@@ -1612,17 +1614,17 @@ become a hard error any time after December 2024.&quot;</span>;
 							<span class="kw-2">&amp;</span>runtime_code,
 							CallContext::Offchain,
 						),
-						<span class="string">&quot;dispatch a benchmark&quot;</span>,
+						<span class="string">"dispatch a benchmark"</span>,
 					) {
 						<span class="prelude-val">Err</span>(e) =&gt; {
-							<span class="macro">log::error!</span>(<span class="string">&quot;Error executing runtime benchmark: {}&quot;</span>, e);
+							<span class="macro">log::error!</span>(<span class="string">"Error executing runtime benchmark: {}"</span>, e);
 							failed.push((pallet.clone(), extrinsic.clone()));
-							<span class="kw">continue </span><span class="lifetime">&#39;outer
+							<span class="kw">continue </span><span class="lifetime">'outer
 						</span>},
 						<span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(e)) =&gt; {
-							<span class="macro">log::error!</span>(<span class="string">&quot;Benchmark {pallet}::{extrinsic} failed: {e}&quot;</span>,);
+							<span class="macro">log::error!</span>(<span class="string">"Benchmark {pallet}::{extrinsic} failed: {e}"</span>,);
 							failed.push((pallet.clone(), extrinsic.clone()));
-							<span class="kw">continue </span><span class="lifetime">&#39;outer
+							<span class="kw">continue </span><span class="lifetime">'outer
 						</span>},
 						<span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(b)) =&gt; b,
 					};
@@ -1642,12 +1644,12 @@ become a hard error any time after December 2024.&quot;</span>;
 							state, <span class="comment">// todo remove tracking
 							</span><span class="kw-2">&amp;mut </span>changes,
 							<span class="kw-2">&amp;</span>executor,
-							<span class="string">&quot;Benchmark_dispatch_benchmark&quot;</span>,
+							<span class="string">"Benchmark_dispatch_benchmark"</span>,
 							<span class="kw-2">&amp;</span>(
 								pallet.as_bytes(),
 								extrinsic.as_bytes(),
 								<span class="kw-2">&amp;</span>selected_components.clone(),
-								<span class="bool-val">false</span>, <span class="comment">// don&#39;t run verification code for final values
+								<span class="bool-val">false</span>, <span class="comment">// don't run verification code for final values
 								</span><span class="self">self</span>.repeat,
 							)
 								.encode(),
@@ -1655,14 +1657,14 @@ become a hard error any time after December 2024.&quot;</span>;
 							<span class="kw-2">&amp;</span>runtime_code,
 							CallContext::Offchain,
 						),
-						<span class="string">&quot;dispatch a benchmark&quot;</span>,
+						<span class="string">"dispatch a benchmark"</span>,
 					) {
 						<span class="prelude-val">Err</span>(e) =&gt; {
-							<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">&quot;Error executing runtime benchmark: {e}&quot;</span>,).into());
+							<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">"Error executing runtime benchmark: {e}"</span>,).into());
 						},
 						<span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(e)) =&gt; {
 							<span class="kw">return </span><span class="prelude-val">Err</span>(
-								<span class="macro">format!</span>(<span class="string">&quot;Benchmark {pallet}::{extrinsic} failed: {e}&quot;</span>,).into()
+								<span class="macro">format!</span>(<span class="string">"Benchmark {pallet}::{extrinsic} failed: {e}"</span>,).into()
 							);
 						},
 						<span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(b)) =&gt; b,
@@ -1677,7 +1679,7 @@ become a hard error any time after December 2024.&quot;</span>;
 
 							<span class="macro">log::info!</span>(
 								target: LOG_TARGET,
-								<span class="string">&quot;[{: &gt;3} % ] Running  benchmark: {pallet}::{extrinsic}({} args) {}/{} {}/{}&quot;</span>,
+								<span class="string">"[{: &gt;3} % ] Running  benchmark: {pallet}::{extrinsic}({} args) {}/{} {}/{}"</span>,
 								(i * <span class="number">100</span>) / benchmarks_to_run.len(),
 								components.len(),
 								s + <span class="number">1</span>, <span class="comment">// s starts at 0.
@@ -1696,11 +1698,11 @@ become a hard error any time after December 2024.&quot;</span>;
 		<span class="kw">if </span>!failed.is_empty() {
 			failed.sort();
 			<span class="macro">eprintln!</span>(
-				<span class="string">&quot;The following {} benchmarks failed:\n{}&quot;</span>,
+				<span class="string">"The following {} benchmarks failed:\n{}"</span>,
 				failed.len(),
-				failed.iter().map(|(p, e)| <span class="macro">format!</span>(<span class="string">&quot;- {p}::{e}&quot;</span>)).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;().join(<span class="string">&quot;\n&quot;</span>)
+				failed.iter().map(|(p, e)| <span class="macro">format!</span>(<span class="string">"- {p}::{e}"</span>)).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;().join(<span class="string">"\n"</span>)
 			);
-			<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">&quot;{} benchmarks failed&quot;</span>, failed.len()).into())
+			<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">"{} benchmarks failed"</span>, failed.len()).into())
 		}
 
 		<span class="comment">// Combine all of the benchmark results, so that benchmarks of the same pallet/function
@@ -1714,18 +1716,18 @@ become a hard error any time after December 2024.&quot;</span>;
 		<span class="kw">let </span>pallet = pallet.as_bytes();
 
 		<span class="kw">let </span>extrinsic = <span class="self">self</span>.extrinsic.clone().unwrap_or_default();
-		<span class="kw">let </span>extrinsic_split: Vec&lt;<span class="kw-2">&amp;</span>str&gt; = extrinsic.split(<span class="string">&#39;,&#39;</span>).collect();
+		<span class="kw">let </span>extrinsic_split: Vec&lt;<span class="kw-2">&amp;</span>str&gt; = extrinsic.split(<span class="string">','</span>).collect();
 		<span class="kw">let </span>extrinsics: Vec&lt;<span class="kw">_</span>&gt; = extrinsic_split.iter().map(|x| x.trim().as_bytes()).collect();
 
 		<span class="comment">// Use the benchmark list and the user input to determine the set of benchmarks to run.
 		</span><span class="kw">let </span><span class="kw-2">mut </span>benchmarks_to_run = Vec::new();
 		list.iter()
-			.filter(|item| pallet.is_empty() || pallet == <span class="kw-2">&amp;</span><span class="string">b&quot;*&quot;</span>[..] || pallet == <span class="kw-2">&amp;</span>item.pallet[..])
+			.filter(|item| pallet.is_empty() || pallet == <span class="kw-2">&amp;</span><span class="string">b"*"</span>[..] || pallet == <span class="kw-2">&amp;</span>item.pallet[..])
 			.for_each(|item| {
 				<span class="kw">for </span>benchmark <span class="kw">in </span><span class="kw-2">&amp;</span>item.benchmarks {
 					<span class="kw">let </span>benchmark_name = <span class="kw-2">&amp;</span>benchmark.name;
 					<span class="kw">if </span>extrinsic.is_empty() ||
-						extrinsic.as_bytes() == <span class="kw-2">&amp;</span><span class="string">b&quot;*&quot;</span>[..] ||
+						extrinsic.as_bytes() == <span class="kw-2">&amp;</span><span class="string">b"*"</span>[..] ||
 						extrinsics.contains(&amp;&amp;benchmark_name[..])
 					{
 						benchmarks_to_run.push((
@@ -1741,9 +1743,9 @@ become a hard error any time after December 2024.&quot;</span>;
 		</span><span class="kw">let </span>benchmarks_to_run: Vec&lt;<span class="kw">_</span>&gt; = benchmarks_to_run
 			.into_iter()
 			.map(|(pallet, extrinsic, components, pov_modes)| {
-				<span class="kw">let </span>pallet = String::from_utf8(pallet.clone()).expect(<span class="string">&quot;Encoded from String; qed&quot;</span>);
+				<span class="kw">let </span>pallet = String::from_utf8(pallet.clone()).expect(<span class="string">"Encoded from String; qed"</span>);
 				<span class="kw">let </span>extrinsic =
-					String::from_utf8(extrinsic.clone()).expect(<span class="string">&quot;Encoded from String; qed&quot;</span>);
+					String::from_utf8(extrinsic.clone()).expect(<span class="string">"Encoded from String; qed"</span>);
 
 				SelectedBenchmark {
 					pallet,
@@ -1760,7 +1762,7 @@ become a hard error any time after December 2024.&quot;</span>;
 			.collect();
 
 		<span class="kw">if </span>benchmarks_to_run.is_empty() {
-			<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;No benchmarks found which match your input.&quot;</span>.into())
+			<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"No benchmarks found which match your input."</span>.into())
 		}
 
 		<span class="prelude-val">Ok</span>(benchmarks_to_run)
@@ -1779,14 +1781,14 @@ become a hard error any time after December 2024.&quot;</span>;
 		<span class="prelude-val">Ok</span>(<span class="kw">match </span>(<span class="self">self</span>.genesis_builder, <span class="self">self</span>.runtime.is_some()) {
 			(<span class="prelude-val">Some</span>(GenesisBuilder::None), <span class="kw">_</span>) =&gt; Default::default(),
 			(<span class="prelude-val">Some</span>(GenesisBuilder::Spec), <span class="kw">_</span>) | (<span class="prelude-val">None</span>, <span class="bool-val">false</span>) =&gt; {
-				<span class="macro">log::warn!</span>(<span class="string">&quot;{WARN_SPEC_GENESIS_CTOR}&quot;</span>);
+				<span class="macro">log::warn!</span>(<span class="string">"{WARN_SPEC_GENESIS_CTOR}"</span>);
 				<span class="kw">let </span><span class="prelude-val">Some</span>(chain_spec) = chain_spec <span class="kw">else </span>{
-					<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;No chain spec specified to generate the genesis state&quot;</span>.into());
+					<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"No chain spec specified to generate the genesis state"</span>.into());
 				};
 
 				<span class="kw">let </span>storage = chain_spec
 					.build_storage()
-					.map_err(|e| <span class="macro">format!</span>(<span class="string">&quot;{ERROR_CANNOT_BUILD_GENESIS}\nError: {e}&quot;</span>))<span class="question-mark">?</span>;
+					.map_err(|e| <span class="macro">format!</span>(<span class="string">"{ERROR_CANNOT_BUILD_GENESIS}\nError: {e}"</span>))<span class="question-mark">?</span>;
 
 				(storage, Default::default())
 			},
@@ -1826,34 +1828,34 @@ become a hard error any time after December 2024.&quot;</span>;
 				<span class="kw-2">&amp;</span>state,
 				<span class="kw-2">&amp;mut </span>Default::default(),
 				<span class="kw-2">&amp;</span>executor,
-				<span class="string">&quot;GenesisBuilder_get_preset&quot;</span>,
+				<span class="string">"GenesisBuilder_get_preset"</span>,
 				<span class="kw-2">&amp;</span><span class="prelude-val">None</span>::&lt;PresetId&gt;.encode(), <span class="comment">// Use the default preset
 				</span><span class="kw-2">&amp;mut </span><span class="self">Self</span>::build_extensions(executor.clone()),
 				<span class="kw-2">&amp;</span>runtime_code,
 				CallContext::Offchain,
 			),
-			<span class="string">&quot;build the genesis spec&quot;</span>,
+			<span class="string">"build the genesis spec"</span>,
 		)<span class="question-mark">?</span>;
 
 		<span class="kw">let </span><span class="prelude-val">Some</span>(base_genesis_json) = genesis_json <span class="kw">else </span>{
-			<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;GenesisBuilder::get_preset returned no data&quot;</span>.into())
+			<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"GenesisBuilder::get_preset returned no data"</span>.into())
 		};
 
 		<span class="kw">let </span>base_genesis_json = serde_json::from_slice::&lt;serde_json::Value&gt;(<span class="kw-2">&amp;</span>base_genesis_json)
-			.map_err(|e| <span class="macro">format!</span>(<span class="string">&quot;GenesisBuilder::get_preset returned invalid JSON: {:?}&quot;</span>, e))<span class="question-mark">?</span>;
+			.map_err(|e| <span class="macro">format!</span>(<span class="string">"GenesisBuilder::get_preset returned invalid JSON: {:?}"</span>, e))<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>dev_genesis_json: <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt; = <span class="self">Self</span>::exec_state_machine(
 			StateMachine::new(
 				<span class="kw-2">&amp;</span>state,
 				<span class="kw-2">&amp;mut </span>Default::default(),
 				<span class="kw-2">&amp;</span>executor,
-				<span class="string">&quot;GenesisBuilder_get_preset&quot;</span>,
+				<span class="string">"GenesisBuilder_get_preset"</span>,
 				<span class="kw-2">&amp;</span><span class="prelude-val">Some</span>::&lt;PresetId&gt;(GENESIS_PRESET.into()).encode(), <span class="comment">// Use the default preset
 				</span><span class="kw-2">&amp;mut </span><span class="self">Self</span>::build_extensions(executor.clone()),
 				<span class="kw-2">&amp;</span>runtime_code,
 				CallContext::Offchain,
 			),
-			<span class="string">&quot;build the genesis spec&quot;</span>,
+			<span class="string">"build the genesis spec"</span>,
 		)<span class="question-mark">?</span>;
 
 		<span class="kw">let </span><span class="kw-2">mut </span>genesis_json = serde_json::Value::default();
@@ -1861,17 +1863,17 @@ become a hard error any time after December 2024.&quot;</span>;
 
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(dev) = dev_genesis_json {
 			<span class="kw">let </span>dev: serde_json::Value = serde_json::from_slice(<span class="kw-2">&amp;</span>dev).map_err(|e| {
-				<span class="macro">format!</span>(<span class="string">&quot;GenesisBuilder::get_preset returned invalid JSON: {:?}&quot;</span>, e)
+				<span class="macro">format!</span>(<span class="string">"GenesisBuilder::get_preset returned invalid JSON: {:?}"</span>, e)
 			})<span class="question-mark">?</span>;
 			json_merge(<span class="kw-2">&amp;mut </span>genesis_json, dev);
 		} <span class="kw">else </span>{
 			<span class="macro">log::warn!</span>(
-				<span class="string">&quot;Could not find genesis preset &#39;{GENESIS_PRESET}&#39;. Falling back to default.&quot;
+				<span class="string">"Could not find genesis preset '{GENESIS_PRESET}'. Falling back to default."
 			</span>);
 		}
 
 		<span class="kw">let </span>json_pretty_str = serde_json::to_string_pretty(<span class="kw-2">&amp;</span>genesis_json)
-			.map_err(|e| <span class="macro">format!</span>(<span class="string">&quot;json to string failed: {e}&quot;</span>))<span class="question-mark">?</span>;
+			.map_err(|e| <span class="macro">format!</span>(<span class="string">"json to string failed: {e}"</span>))<span class="question-mark">?</span>;
 
 		<span class="kw">let </span><span class="kw-2">mut </span>changes = Default::default();
 		<span class="kw">let </span>build_res: GenesisBuildResult = <span class="self">Self</span>::exec_state_machine(
@@ -1879,17 +1881,17 @@ become a hard error any time after December 2024.&quot;</span>;
 				<span class="kw-2">&amp;</span>state,
 				<span class="kw-2">&amp;mut </span>changes,
 				<span class="kw-2">&amp;</span>executor,
-				<span class="string">&quot;GenesisBuilder_build_state&quot;</span>,
+				<span class="string">"GenesisBuilder_build_state"</span>,
 				<span class="kw-2">&amp;</span>json_pretty_str.encode(),
 				<span class="kw-2">&amp;mut </span>Extensions::default(),
 				<span class="kw-2">&amp;</span>runtime_code,
 				CallContext::Offchain,
 			),
-			<span class="string">&quot;populate the genesis state&quot;</span>,
+			<span class="string">"populate the genesis state"</span>,
 		)<span class="question-mark">?</span>;
 
 		<span class="kw">if let </span><span class="prelude-val">Err</span>(e) = build_res {
-			<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">&quot;GenesisBuilder::build_state failed: {}&quot;</span>, e).into())
+			<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">"GenesisBuilder::build_state failed: {}"</span>, e).into())
 		}
 
 		<span class="prelude-val">Ok</span>(changes)
@@ -1902,9 +1904,9 @@ become a hard error any time after December 2024.&quot;</span>;
 	) -&gt; <span class="prelude-ty">Result</span>&lt;R&gt; {
 		<span class="kw">let </span>res = machine
 			.execute()
-			.map_err(|e| <span class="macro">format!</span>(<span class="string">&quot;Could not call runtime API to {hint}: {}&quot;</span>, e))<span class="question-mark">?</span>;
+			.map_err(|e| <span class="macro">format!</span>(<span class="string">"Could not call runtime API to {hint}: {}"</span>, e))<span class="question-mark">?</span>;
 		<span class="kw">let </span>res = R::decode(<span class="kw-2">&amp;mut &amp;</span>res[..])
-			.map_err(|e| <span class="macro">format!</span>(<span class="string">&quot;Failed to decode runtime API result to {hint}: {:?}&quot;</span>, e))<span class="question-mark">?</span>;
+			.map_err(|e| <span class="macro">format!</span>(<span class="string">"Failed to decode runtime API result to {hint}: {:?}"</span>, e))<span class="question-mark">?</span>;
 		<span class="prelude-val">Ok</span>(res)
 	}
 
@@ -1926,19 +1928,19 @@ become a hard error any time after December 2024.&quot;</span>;
 	///
 	/// The blob will either be loaded from the `:code` key out of the chain spec, or from a file
 	/// when specified with `--runtime`.
-	</span><span class="kw">fn </span>runtime_blob&lt;<span class="lifetime">&#39;a</span>, H: Hash&gt;(
+	</span><span class="kw">fn </span>runtime_blob&lt;<span class="lifetime">'a</span>, H: Hash&gt;(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		state: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>BenchmarkingState&lt;H&gt;,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;FetchedCode&lt;<span class="lifetime">&#39;a</span>, BenchmarkingState&lt;H&gt;, H&gt;&gt; {
+		state: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>BenchmarkingState&lt;H&gt;,
+	) -&gt; <span class="prelude-ty">Result</span>&lt;FetchedCode&lt;<span class="lifetime">'a</span>, BenchmarkingState&lt;H&gt;, H&gt;&gt; {
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(runtime) = <span class="kw-2">&amp;</span><span class="self">self</span>.runtime {
-			<span class="macro">log::info!</span>(<span class="string">&quot;Loading WASM from {}&quot;</span>, runtime.display());
+			<span class="macro">log::info!</span>(<span class="string">"Loading WASM from {}"</span>, runtime.display());
 			<span class="kw">let </span>code = fs::read(runtime)<span class="question-mark">?</span>;
 			<span class="kw">let </span>hash = sp_core::blake2_256(<span class="kw-2">&amp;</span>code).to_vec();
 			<span class="kw">let </span>wrapped_code = WrappedRuntimeCode(Cow::Owned(code));
 
 			<span class="prelude-val">Ok</span>(FetchedCode::FromFile { wrapped_code, heap_pages: <span class="self">self</span>.heap_pages, hash })
 		} <span class="kw">else </span>{
-			<span class="macro">log::info!</span>(<span class="string">&quot;Loading WASM from genesis state&quot;</span>);
+			<span class="macro">log::info!</span>(<span class="string">"Loading WASM from genesis state"</span>);
 			<span class="kw">let </span>state = sp_state_machine::backend::BackendRuntimeCode::new(state);
 
 			<span class="prelude-val">Ok</span>(FetchedCode::FromGenesis { state })
@@ -2025,12 +2027,12 @@ become a hard error any time after December 2024.&quot;</span>;
 	</span><span class="kw">fn </span>jsonify(<span class="kw-2">&amp;</span><span class="self">self</span>, batches: <span class="kw-2">&amp;</span>[BenchmarkBatchSplitResults]) -&gt; <span class="prelude-ty">Result</span>&lt;bool&gt; {
 		<span class="kw">if </span><span class="self">self</span>.json_output || <span class="self">self</span>.json_file.is_some() {
 			<span class="kw">let </span>json = serde_json::to_string_pretty(<span class="kw-2">&amp;</span>batches)
-				.map_err(|e| <span class="macro">format!</span>(<span class="string">&quot;Serializing into JSON: {:?}&quot;</span>, e))<span class="question-mark">?</span>;
+				.map_err(|e| <span class="macro">format!</span>(<span class="string">"Serializing into JSON: {:?}"</span>, e))<span class="question-mark">?</span>;
 
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(path) = <span class="kw-2">&amp;</span><span class="self">self</span>.json_file {
 				fs::write(path, json)<span class="question-mark">?</span>;
 			} <span class="kw">else </span>{
-				<span class="macro">print!</span>(<span class="string">&quot;{json}&quot;</span>);
+				<span class="macro">print!</span>(<span class="string">"{json}"</span>);
 				<span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="bool-val">true</span>)
 			}
 		}
@@ -2047,11 +2049,11 @@ become a hard error any time after December 2024.&quot;</span>;
 	) {
 		<span class="kw">for </span>batch <span class="kw">in </span>batches.iter() {
 			<span class="comment">// Print benchmark metadata
-			</span><span class="kw">let </span>pallet = String::from_utf8(batch.pallet.clone()).expect(<span class="string">&quot;Encoded from String; qed&quot;</span>);
+			</span><span class="kw">let </span>pallet = String::from_utf8(batch.pallet.clone()).expect(<span class="string">"Encoded from String; qed"</span>);
 			<span class="kw">let </span>benchmark =
-				String::from_utf8(batch.benchmark.clone()).expect(<span class="string">&quot;Encoded from String; qed&quot;</span>);
+				String::from_utf8(batch.benchmark.clone()).expect(<span class="string">"Encoded from String; qed"</span>);
 			<span class="macro">println!</span>(
-					<span class="string">&quot;Pallet: {:?}, Extrinsic: {:?}, Lowest values: {:?}, Highest values: {:?}, Steps: {:?}, Repeat: {:?}&quot;</span>,
+					<span class="string">"Pallet: {:?}, Extrinsic: {:?}, Lowest values: {:?}, Highest values: {:?}, Steps: {:?}, Repeat: {:?}"</span>,
 					pallet,
 					benchmark,
 					<span class="self">self</span>.lowest_range_values,
@@ -2078,59 +2080,59 @@ become a hard error any time after December 2024.&quot;</span>;
 					<span class="self">self</span>.worst_case_map_values,
 					<span class="self">self</span>.additional_trie_layers,
 				);
-				<span class="macro">println!</span>(<span class="string">&quot;Raw Storage Info\n========&quot;</span>);
+				<span class="macro">println!</span>(<span class="string">"Raw Storage Info\n========"</span>);
 				<span class="kw">for </span>comment <span class="kw">in </span>comments {
-					<span class="macro">println!</span>(<span class="string">&quot;{}&quot;</span>, comment);
+					<span class="macro">println!</span>(<span class="string">"{}"</span>, comment);
 				}
 				<span class="macro">println!</span>();
 			}
 
 			<span class="comment">// Conduct analysis.
 			</span><span class="kw">if </span>!<span class="self">self</span>.no_median_slopes {
-				<span class="macro">println!</span>(<span class="string">&quot;Median Slopes Analysis\n========&quot;</span>);
+				<span class="macro">println!</span>(<span class="string">"Median Slopes Analysis\n========"</span>);
 				<span class="kw">if let </span><span class="prelude-val">Some</span>(analysis) =
 					Analysis::median_slopes(<span class="kw-2">&amp;</span>batch.time_results, BenchmarkSelector::ExtrinsicTime)
 				{
-					<span class="macro">println!</span>(<span class="string">&quot;-- Extrinsic Time --\n{}&quot;</span>, analysis);
+					<span class="macro">println!</span>(<span class="string">"-- Extrinsic Time --\n{}"</span>, analysis);
 				}
 				<span class="kw">if let </span><span class="prelude-val">Some</span>(analysis) =
 					Analysis::median_slopes(<span class="kw-2">&amp;</span>batch.db_results, BenchmarkSelector::Reads)
 				{
-					<span class="macro">println!</span>(<span class="string">&quot;Reads = {:?}&quot;</span>, analysis);
+					<span class="macro">println!</span>(<span class="string">"Reads = {:?}"</span>, analysis);
 				}
 				<span class="kw">if let </span><span class="prelude-val">Some</span>(analysis) =
 					Analysis::median_slopes(<span class="kw-2">&amp;</span>batch.db_results, BenchmarkSelector::Writes)
 				{
-					<span class="macro">println!</span>(<span class="string">&quot;Writes = {:?}&quot;</span>, analysis);
+					<span class="macro">println!</span>(<span class="string">"Writes = {:?}"</span>, analysis);
 				}
 				<span class="kw">if let </span><span class="prelude-val">Some</span>(analysis) =
 					Analysis::median_slopes(<span class="kw-2">&amp;</span>batch.db_results, BenchmarkSelector::ProofSize)
 				{
-					<span class="macro">println!</span>(<span class="string">&quot;Recorded proof Size = {:?}&quot;</span>, analysis);
+					<span class="macro">println!</span>(<span class="string">"Recorded proof Size = {:?}"</span>, analysis);
 				}
 				<span class="macro">println!</span>();
 			}
 			<span class="kw">if </span>!<span class="self">self</span>.no_min_squares {
-				<span class="macro">println!</span>(<span class="string">&quot;Min Squares Analysis\n========&quot;</span>);
+				<span class="macro">println!</span>(<span class="string">"Min Squares Analysis\n========"</span>);
 				<span class="kw">if let </span><span class="prelude-val">Some</span>(analysis) =
 					Analysis::min_squares_iqr(<span class="kw-2">&amp;</span>batch.time_results, BenchmarkSelector::ExtrinsicTime)
 				{
-					<span class="macro">println!</span>(<span class="string">&quot;-- Extrinsic Time --\n{}&quot;</span>, analysis);
+					<span class="macro">println!</span>(<span class="string">"-- Extrinsic Time --\n{}"</span>, analysis);
 				}
 				<span class="kw">if let </span><span class="prelude-val">Some</span>(analysis) =
 					Analysis::min_squares_iqr(<span class="kw-2">&amp;</span>batch.db_results, BenchmarkSelector::Reads)
 				{
-					<span class="macro">println!</span>(<span class="string">&quot;Reads = {:?}&quot;</span>, analysis);
+					<span class="macro">println!</span>(<span class="string">"Reads = {:?}"</span>, analysis);
 				}
 				<span class="kw">if let </span><span class="prelude-val">Some</span>(analysis) =
 					Analysis::min_squares_iqr(<span class="kw-2">&amp;</span>batch.db_results, BenchmarkSelector::Writes)
 				{
-					<span class="macro">println!</span>(<span class="string">&quot;Writes = {:?}&quot;</span>, analysis);
+					<span class="macro">println!</span>(<span class="string">"Writes = {:?}"</span>, analysis);
 				}
 				<span class="kw">if let </span><span class="prelude-val">Some</span>(analysis) =
 					Analysis::min_squares_iqr(<span class="kw-2">&amp;</span>batch.db_results, BenchmarkSelector::ProofSize)
 				{
-					<span class="macro">println!</span>(<span class="string">&quot;Recorded proof Size = {:?}&quot;</span>, analysis);
+					<span class="macro">println!</span>(<span class="string">"Recorded proof Size = {:?}"</span>, analysis);
 				}
 				<span class="macro">println!</span>();
 			}
@@ -2145,15 +2147,15 @@ become a hard error any time after December 2024.&quot;</span>;
 		<span class="kw">for </span>SelectedBenchmark { pallet, extrinsic, pov_modes, .. } <span class="kw">in </span>benchmarks {
 			<span class="kw">for </span>(pallet_storage, mode) <span class="kw">in </span>pov_modes {
 				<span class="kw">let </span>mode = PovEstimationMode::from_str(<span class="kw-2">&amp;</span>mode)<span class="question-mark">?</span>;
-				<span class="kw">let </span>splits = pallet_storage.split(<span class="string">&quot;::&quot;</span>).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+				<span class="kw">let </span>splits = pallet_storage.split(<span class="string">"::"</span>).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 				<span class="kw">if </span>splits.is_empty() || splits.len() &gt; <span class="number">2 </span>{
 					<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(
-						<span class="string">&quot;Expected &#39;Pallet::Storage&#39; as storage name but got: {}&quot;</span>,
+						<span class="string">"Expected 'Pallet::Storage' as storage name but got: {}"</span>,
 						pallet_storage
 					)
 					.into())
 				}
-				<span class="kw">let </span>(pov_pallet, pov_storage) = (splits[<span class="number">0</span>], splits.get(<span class="number">1</span>).unwrap_or(<span class="kw-2">&amp;</span><span class="string">&quot;ALL&quot;</span>));
+				<span class="kw">let </span>(pov_pallet, pov_storage) = (splits[<span class="number">0</span>], splits.get(<span class="number">1</span>).unwrap_or(<span class="kw-2">&amp;</span><span class="string">"ALL"</span>));
 
 				<span class="kw">match </span>parsed
 					.entry((pallet.clone(), extrinsic.clone()))
@@ -2162,7 +2164,7 @@ become a hard error any time after December 2024.&quot;</span>;
 				{
 					Entry::Occupied(<span class="kw">_</span>) =&gt;
 						<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(
-							<span class="string">&quot;Cannot specify pov_mode tag twice for the same key: {}&quot;</span>,
+							<span class="string">"Cannot specify pov_mode tag twice for the same key: {}"</span>,
 							pallet_storage
 						)
 						.into()),
@@ -2178,24 +2180,24 @@ become a hard error any time after December 2024.&quot;</span>;
 	<span class="doccomment">/// Sanity check the CLI arguments.
 	</span><span class="kw">fn </span>check_args(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
 		<span class="kw">if </span><span class="self">self</span>.runtime.is_some() &amp;&amp; <span class="self">self</span>.shared_params.chain.is_some() {
-			<span class="macro">unreachable!</span>(<span class="string">&quot;Clap should not allow both `--runtime` and `--chain` to be provided.&quot;</span>)
+			<span class="macro">unreachable!</span>(<span class="string">"Clap should not allow both `--runtime` and `--chain` to be provided."</span>)
 		}
 
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(output_path) = <span class="kw-2">&amp;</span><span class="self">self</span>.output {
 			<span class="kw">if </span>!output_path.is_dir() &amp;&amp; output_path.file_name().is_none() {
-				<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;Output file or path is invalid!&quot;</span>.into())
+				<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Output file or path is invalid!"</span>.into())
 			}
 		}
 
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(header_file) = <span class="kw-2">&amp;</span><span class="self">self</span>.header {
 			<span class="kw">if </span>!header_file.is_file() {
-				<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;Header file is invalid!&quot;</span>.into())
+				<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Header file is invalid!"</span>.into())
 			};
 		}
 
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(handlebars_template_file) = <span class="kw-2">&amp;</span><span class="self">self</span>.template {
 			<span class="kw">if </span>!handlebars_template_file.is_file() {
-				<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;Handlebars template file is invalid!&quot;</span>.into())
+				<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Handlebars template file is invalid!"</span>.into())
 			};
 		}
 
@@ -2211,7 +2213,7 @@ become a hard error any time after December 2024.&quot;</span>;
 	<span class="kw">fn </span>chain_id(<span class="kw-2">&amp;</span><span class="self">self</span>, _is_dev: bool) -&gt; <span class="prelude-ty">Result</span>&lt;String&gt; {
 		<span class="prelude-val">Ok</span>(<span class="kw">match </span><span class="self">self</span>.shared_params.chain {
 			<span class="prelude-val">Some</span>(<span class="kw-2">ref </span>chain) =&gt; chain.clone(),
-			<span class="prelude-val">None </span>=&gt; <span class="string">&quot;dev&quot;</span>.into(),
+			<span class="prelude-val">None </span>=&gt; <span class="string">"dev"</span>.into(),
 		})
 	}
 }
@@ -2235,20 +2237,20 @@ become a hard error any time after December 2024.&quot;</span>;
 	<span class="kw">match </span>list_output {
 		ListOutput::All =&gt; {
 			<span class="kw">if </span>!no_csv_header {
-				<span class="macro">println!</span>(<span class="string">&quot;pallet, extrinsic&quot;</span>);
+				<span class="macro">println!</span>(<span class="string">"pallet, extrinsic"</span>);
 			}
 			<span class="kw">for </span>(pallet, extrinsics) <span class="kw">in </span>benchmarks {
 				<span class="kw">for </span>extrinsic <span class="kw">in </span>extrinsics {
-					<span class="macro">println!</span>(<span class="string">&quot;{pallet}, {extrinsic}&quot;</span>);
+					<span class="macro">println!</span>(<span class="string">"{pallet}, {extrinsic}"</span>);
 				}
 			}
 		},
 		ListOutput::Pallets =&gt; {
 			<span class="kw">if </span>!no_csv_header {
-				<span class="macro">println!</span>(<span class="string">&quot;pallet&quot;</span>);
+				<span class="macro">println!</span>(<span class="string">"pallet"</span>);
 			};
 			<span class="kw">for </span>pallet <span class="kw">in </span>benchmarks.keys() {
-				<span class="macro">println!</span>(<span class="string">&quot;{pallet}&quot;</span>);
+				<span class="macro">println!</span>(<span class="string">"{pallet}"</span>);
 			}
 		},
 	}

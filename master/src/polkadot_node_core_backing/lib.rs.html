@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/core/backing/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/core/backing/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_node_core_backing" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_node_core_backing" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../polkadot_node_core_backing/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -2470,19 +2472,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! parachains to be validated and thereby increases performance.
 //!
 //! Most of the work of asynchronous backing is handled by the Prospective Parachains
-//! subsystem. The &#39;depth&#39; of a parachain block with respect to a relay chain block is
+//! subsystem. The 'depth' of a parachain block with respect to a relay chain block is
 //! a measure of how many parachain blocks are between the most recent included parachain block
 //! in the post-state of the relay-chain block and the candidate. For instance,
 //! a candidate that descends directly from the most recent parachain block in the relay-chain
 //! state has depth 0. The child of that candidate would have depth 1. And so on.
 //!
-//! The candidate backing subsystem keeps track of a set of &#39;active leaves&#39; which are the
+//! The candidate backing subsystem keeps track of a set of 'active leaves' which are the
 //! most recent blocks in the relay-chain (which is in fact a tree) which could be built
 //! upon. Depth is always measured against active leaves, and the valid relay-parent that
 //! each candidate can have is determined by the active leaves. The Prospective Parachains
 //! subsystem enforces that the relay-parent increases monotonically, so that logic
 //! is not handled here. By communicating with the Prospective Parachains subsystem,
-//! this subsystem extrapolates an &quot;implicit view&quot; from the set of currently active leaves,
+//! this subsystem extrapolates an "implicit view" from the set of currently active leaves,
 //! which determines the set of all recent relay-chain block hashes which could be relay-parents
 //! for candidates backed in children of the active leaves.
 //!
@@ -2491,7 +2493,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! active leaf. This bounds the number of candidates that the system needs to consider and
 //! is not handled within this subsystem, except for candidates seconded locally.
 //!
-//! This subsystem also handles relay-chain heads which don&#39;t support asynchronous backing.
+//! This subsystem also handles relay-chain heads which don't support asynchronous backing.
 //! For such active leaves, the only valid relay-parent is the leaf hash itself and the only
 //! allowed depth is 0.
 
@@ -2562,7 +2564,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests;
 
-<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;parachain::candidate-backing&quot;</span>;
+<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"parachain::candidate-backing"</span>;
 
 <span class="doccomment">/// PoV data to validate.
 </span><span class="kw">enum </span>PoVData {
@@ -2589,9 +2591,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter) -&gt; std::fmt::Result {
 		<span class="kw">let </span>candidate_hash = <span class="self">self</span>.candidate_hash();
 		<span class="kw">match </span><span class="kw-2">*</span><span class="self">self </span>{
-			ValidatedCandidateCommand::Second(<span class="kw">_</span>) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Second({})&quot;</span>, candidate_hash),
-			ValidatedCandidateCommand::Attest(<span class="kw">_</span>) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Attest({})&quot;</span>, candidate_hash),
-			ValidatedCandidateCommand::AttestNoPoV(<span class="kw">_</span>) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Attest({})&quot;</span>, candidate_hash),
+			ValidatedCandidateCommand::Second(<span class="kw">_</span>) =&gt; <span class="macro">write!</span>(f, <span class="string">"Second({})"</span>, candidate_hash),
+			ValidatedCandidateCommand::Attest(<span class="kw">_</span>) =&gt; <span class="macro">write!</span>(f, <span class="string">"Attest({})"</span>, candidate_hash),
+			ValidatedCandidateCommand::AttestNoPoV(<span class="kw">_</span>) =&gt; <span class="macro">write!</span>(f, <span class="string">"Attest({})"</span>, candidate_hash),
 		}
 	}
 }
@@ -2630,17 +2632,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>future = <span class="kw">async move </span>{
 			run(ctx, <span class="self">self</span>.keystore, <span class="self">self</span>.metrics)
 				.<span class="kw">await
-				</span>.map_err(|e| SubsystemError::with_origin(<span class="string">&quot;candidate-backing&quot;</span>, e))
+				</span>.map_err(|e| SubsystemError::with_origin(<span class="string">"candidate-backing"</span>, e))
 		}
 		.boxed();
 
-		SpawnedSubsystem { name: <span class="string">&quot;candidate-backing-subsystem&quot;</span>, future }
+		SpawnedSubsystem { name: <span class="string">"candidate-backing-subsystem"</span>, future }
 	}
 }
 
 <span class="kw">struct </span>PerRelayParentState {
 	prospective_parachains_mode: ProspectiveParachainsMode,
-	<span class="doccomment">/// The hash of the relay parent on top of which this job is doing it&#39;s work.
+	<span class="doccomment">/// The hash of the relay parent on top of which this job is doing it's work.
 	</span>parent: Hash,
 	<span class="doccomment">/// The `ParaId` assigned to the local validator at this relay parent.
 	</span>assigned_para: <span class="prelude-ty">Option</span>&lt;ParaId&gt;,
@@ -2660,7 +2662,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>fallbacks: HashMap&lt;CandidateHash, AttestingData&gt;,
 	<span class="doccomment">/// The minimum backing votes threshold.
 	</span>minimum_backing_votes: u32,
-	<span class="doccomment">/// If true, we&#39;re appending extra bits in the BackedCandidate validator indices bitfield,
+	<span class="doccomment">/// If true, we're appending extra bits in the BackedCandidate validator indices bitfield,
 	/// which represent the assigned core index. True if ElasticScalingMVP is enabled.
 	</span>inject_core_index: bool,
 	<span class="doccomment">/// The core states for all cores.
@@ -2708,7 +2710,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///   3. relay-chain blocks which are ancestors of an active leaf and do support prospective
 	///      parachains.
 	///
-	/// Relay-chain blocks which don&#39;t support prospective parachains are
+	/// Relay-chain blocks which don't support prospective parachains are
 	/// never included in the fragment trees of active leaves which do.
 	///
 	/// While it would be technically possible to support such leaves in
@@ -2788,7 +2790,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						metrics,
 					).<span class="kw">await</span><span class="question-mark">?</span>;
 				} <span class="kw">else </span>{
-					<span class="macro">panic!</span>(<span class="string">&quot;background_validation_tx always alive at this point; qed&quot;</span>);
+					<span class="macro">panic!</span>(<span class="string">"background_validation_tx always alive at this point; qed"</span>);
 				}
 			}
 			from_overseer = ctx.recv().fuse() =&gt; {
@@ -2870,7 +2872,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="comment">// It looks like it&#39;s not possible to do an `impl From` given the current state of
+<span class="comment">// It looks like it's not possible to do an `impl From` given the current state of
 // the code. So this does the necessary conversion.
 </span><span class="kw">fn </span>primitive_statement_to_table(s: <span class="kw-2">&amp;</span>SignedFullStatementWithPVD) -&gt; TableSignedStatement {
 	<span class="kw">let </span>statement = <span class="kw">match </span>s.payload() {
@@ -2917,7 +2919,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		} <span class="kw">else </span>{
 			<span class="macro">gum::warn!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;Logic error: Validity vote from table does not correspond to group&quot;</span>,
+				<span class="string">"Logic error: Validity vote from table does not correspond to group"</span>,
 			);
 
 			<span class="kw">return </span><span class="prelude-val">None
@@ -3145,7 +3147,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">gum::debug!</span>(
 				target: LOG_TARGET,
 				candidate_hash = <span class="question-mark">?</span>candidate.hash(),
-				<span class="string">&quot;Validation successful&quot;</span>,
+				<span class="string">"Validation successful"</span>,
 			);
 
 			<span class="kw">let </span>erasure_valid = make_pov_available(
@@ -3169,7 +3171,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						target: LOG_TARGET,
 						candidate_hash = <span class="question-mark">?</span>candidate.hash(),
 						actual_commitments = <span class="question-mark">?</span>commitments,
-						<span class="string">&quot;Erasure root doesn&#39;t match the announced by the candidate receipt&quot;</span>,
+						<span class="string">"Erasure root doesn't match the announced by the candidate receipt"</span>,
 					);
 					<span class="prelude-val">Err</span>(candidate)
 				},
@@ -3182,7 +3184,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="macro">gum::warn!</span>(
 				target: LOG_TARGET,
 				candidate_hash = <span class="question-mark">?</span>candidate.hash(),
-				<span class="string">&quot;Validation yielded different commitments&quot;</span>,
+				<span class="string">"Validation yielded different commitments"</span>,
 			);
 			<span class="prelude-val">Err</span>(candidate)
 		},
@@ -3191,7 +3193,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				target: LOG_TARGET,
 				candidate_hash = <span class="question-mark">?</span>candidate.hash(),
 				reason = <span class="question-mark">?</span>reason,
-				<span class="string">&quot;Validation yielded an invalid candidate&quot;</span>,
+				<span class="string">"Validation yielded an invalid candidate"</span>,
 			);
 			<span class="prelude-val">Err</span>(candidate)
 		},
@@ -3265,7 +3267,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	// as a result.
 	//
 	// when prospective parachains are disabled, the implicit view is empty,
-	// which means we&#39;ll clean up everything that&#39;s not a leaf - the expected behavior
+	// which means we'll clean up everything that's not a leaf - the expected behavior
 	// for pre-asynchronous backing.
 	</span>{
 		<span class="kw">let </span>remaining: HashSet&lt;<span class="kw">_</span>&gt; = state
@@ -3281,7 +3283,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	// are known.
 	//
 	// when prospective parachains are disabled, we clean up all candidates
-	// because we&#39;ve cleaned up all relay parents. this is correct.
+	// because we've cleaned up all relay parents. this is correct.
 	</span>state
 		.per_candidate
 		.retain(|<span class="kw">_</span>, pc| state.per_relay_parent.contains_key(<span class="kw-2">&amp;</span>pc.relay_parent));
@@ -3302,7 +3304,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					prospective_parachains_mode: ProspectiveParachainsMode::Disabled,
 					<span class="comment">// This is empty because the only allowed relay-parent and depth
 					// when prospective parachains are disabled is the leaf hash and 0,
-					// respectively. We&#39;ve just learned about the leaf hash, so we cannot
+					// respectively. We've just learned about the leaf hash, so we cannot
 					// have any candidates seconded with it as a relay-parent yet.
 					</span>seconded_at_depth: HashMap::new(),
 				},
@@ -3315,7 +3317,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				state.implicit_view.known_allowed_relay_parents_under(<span class="kw-2">&amp;</span>leaf.hash, <span class="prelude-val">None</span>);
 
 			<span class="comment">// At this point, all candidates outside of the implicit view
-			// have been cleaned up. For all which remain, which we&#39;ve seconded,
+			// have been cleaned up. For all which remain, which we've seconded,
 			// we ask the prospective parachains subsystem where they land in the fragment
 			// tree for the given active leaf. This comprises our `seconded_at_depth`.
 
@@ -3347,7 +3349,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="prelude-val">Err</span>(oneshot::Canceled) =&gt; {
 						<span class="macro">gum::warn!</span>(
 							target: LOG_TARGET,
-							<span class="string">&quot;Prospective parachains subsystem unreachable for membership request&quot;</span>,
+							<span class="string">"Prospective parachains subsystem unreachable for membership request"</span>,
 						);
 					},
 					<span class="prelude-val">Ok</span>((para_id, candidate_hash, membership)) =&gt; {
@@ -3378,7 +3380,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="macro">gum::warn!</span>(
 						target: LOG_TARGET,
 						leaf_hash = <span class="question-mark">?</span>leaf.hash,
-						<span class="string">&quot;Implicit view gave no relay-parents&quot;
+						<span class="string">"Implicit view gave no relay-parents"
 					</span>);
 
 					<span class="macro">vec!</span>[leaf.hash]
@@ -3391,7 +3393,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				target: LOG_TARGET,
 				leaf_hash = <span class="question-mark">?</span>leaf.hash,
 				err = <span class="question-mark">?</span>e,
-				<span class="string">&quot;Failed to load implicit view for leaf.&quot;
+				<span class="string">"Failed to load implicit view for leaf."
 			</span>);
 
 			<span class="kw">return </span><span class="prelude-val">Ok</span>(())
@@ -3406,7 +3408,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>mode = <span class="kw">match </span>state.per_leaf.get(<span class="kw-2">&amp;</span>maybe_new) {
 			<span class="prelude-val">None </span>=&gt; {
-				<span class="comment">// If the relay-parent isn&#39;t a leaf itself,
+				<span class="comment">// If the relay-parent isn't a leaf itself,
 				// then it is guaranteed by the prospective parachains
 				// subsystem that it is an ancestor of a leaf which
 				// has prospective parachains enabled and that the
@@ -3443,7 +3445,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="comment">// Only bubble up fatal errors.
 				</span>error::log_error(<span class="prelude-val">Err</span>(Into::&lt;runtime::Error&gt;::into(err).into()))<span class="question-mark">?</span>;
 
-				<span class="comment">// We can&#39;t do candidate validation work if we don&#39;t have the
+				<span class="comment">// We can't do candidate validation work if we don't have the
 				// requisite runtime API data. But these errors should not take
 				// down the node.
 				</span><span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
@@ -3470,7 +3472,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="question-mark">?</span>validator_to_group,
 		n_cores = <span class="question-mark">?</span>cores.len(),
 		<span class="question-mark">?</span>candidate_hash,
-		<span class="string">&quot;Extracting core index from statement&quot;
+		<span class="string">"Extracting core index from statement"
 	</span>);
 
 	<span class="kw">let </span>statement_validator_index = statement.validator_index();
@@ -3482,7 +3484,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="question-mark">?</span>validator_to_group,
 			n_cores = <span class="question-mark">?</span>cores.len() ,
 			<span class="question-mark">?</span>candidate_hash,
-			<span class="string">&quot;Invalid validator index: {:?}&quot;</span>,
+			<span class="string">"Invalid validator index: {:?}"</span>,
 			statement_validator_index
 		);
 		<span class="kw">return </span><span class="prelude-val">None
@@ -3492,7 +3494,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">let </span>core_index = group_rotation_info.core_for_group(<span class="kw-2">*</span>group_index, n_cores);
 
 	<span class="kw">if </span>core_index.<span class="number">0 </span><span class="kw">as </span>usize &gt; n_cores {
-		<span class="macro">gum::warn!</span>(target: LOG_TARGET, <span class="question-mark">?</span>candidate_hash, <span class="question-mark">?</span>core_index, n_cores, <span class="string">&quot;Invalid CoreIndex&quot;</span>);
+		<span class="macro">gum::warn!</span>(target: LOG_TARGET, <span class="question-mark">?</span>candidate_hash, <span class="question-mark">?</span>core_index, n_cores, <span class="string">"Invalid CoreIndex"</span>);
 		<span class="kw">return </span><span class="prelude-val">None
 	</span>}
 
@@ -3500,7 +3502,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>candidate_para_id = candidate.descriptor.para_id;
 		<span class="kw">let </span>assigned_para_id = <span class="kw">match </span><span class="kw-2">&amp;</span>cores[core_index.<span class="number">0 </span><span class="kw">as </span>usize] {
 			CoreState::Free =&gt; {
-				<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="question-mark">?</span>candidate_hash, <span class="string">&quot;Invalid CoreIndex, core is not assigned to any para_id&quot;</span>);
+				<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="question-mark">?</span>candidate_hash, <span class="string">"Invalid CoreIndex, core is not assigned to any para_id"</span>);
 				<span class="kw">return </span><span class="prelude-val">None
 			</span>},
 			CoreState::Occupied(occupied) =&gt;
@@ -3519,7 +3521,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="question-mark">?</span>core_index,
 				<span class="question-mark">?</span>assigned_para_id,
 				<span class="question-mark">?</span>candidate_para_id,
-				<span class="string">&quot;Invalid CoreIndex, core is assigned to a different para_id&quot;
+				<span class="string">"Invalid CoreIndex, core is assigned to a different para_id"
 			</span>);
 			<span class="kw">return </span><span class="prelude-val">None
 		</span>}
@@ -3563,7 +3565,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		.map(|b| <span class="kw-2">*</span>b)
 		.unwrap_or(<span class="bool-val">false</span>);
 
-	<span class="macro">gum::debug!</span>(target: LOG_TARGET, inject_core_index, <span class="question-mark">?</span>parent, <span class="string">&quot;New state&quot;</span>);
+	<span class="macro">gum::debug!</span>(target: LOG_TARGET, inject_core_index, <span class="question-mark">?</span>parent, <span class="string">"New state"</span>);
 
 	<span class="kw">let </span>validators: Vec&lt;<span class="kw">_</span>&gt; = <span class="macro">try_runtime_api!</span>(validators);
 	<span class="kw">let </span>(validator_groups, group_rotation_info) = <span class="macro">try_runtime_api!</span>(groups);
@@ -3577,7 +3579,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	// `try_join!` above and use `try_runtime_api!` to get `disabled_validators`
 	</span><span class="kw">let </span>disabled_validators =
 		get_disabled_validators_with_fallback(ctx.sender(), parent).<span class="kw">await</span>.map_err(|e| {
-			Error::UtilError(TryFrom::try_from(e).expect(<span class="string">&quot;the conversion is infallible; qed&quot;</span>))
+			Error::UtilError(TryFrom::try_from(e).expect(<span class="string">"the conversion is infallible; qed"</span>))
 		})<span class="question-mark">?</span>;
 
 	<span class="kw">let </span>signing_context = SigningContext { parent_hash: parent, session_index };
@@ -3593,7 +3595,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">gum::warn!</span>(
 				target: LOG_TARGET,
 				err = <span class="question-mark">?</span>e,
-				<span class="string">&quot;Cannot participate in candidate backing&quot;</span>,
+				<span class="string">"Cannot participate in candidate backing"</span>,
 			);
 
 			<span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
@@ -3634,7 +3636,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			groups.insert(core_index, g.clone());
 		}
 	}
-	<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="question-mark">?</span>groups, <span class="string">&quot;TableContext&quot;</span>);
+	<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="question-mark">?</span>groups, <span class="string">"TableContext"</span>);
 
 	<span class="kw">let </span>validator_to_group = validator_to_group_cache
 		.get_or_insert(session_index, || {
@@ -3648,7 +3650,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			Arc::new(IndexedVec::&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;::from(vector))
 		})
-		.expect(<span class="string">&quot;Just inserted&quot;</span>);
+		.expect(<span class="string">"Just inserted"</span>);
 
 	<span class="kw">let </span>table_context = TableContext { validator, groups, validators, disabled_validators };
 	<span class="kw">let </span>table_config = TableConfig {
@@ -3683,7 +3685,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Checks whether a candidate can be seconded based on its hypothetical frontiers in the fragment
-/// tree and what we&#39;ve already seconded in all active leaves.
+/// tree and what we've already seconded in all active leaves.
 </span><span class="attr">#[overseer::contextbounds(CandidateBacking, prefix = <span class="self">self</span>::overseer)]
 </span><span class="kw">async fn </span>seconding_sanity_check&lt;Context&gt;(
 	ctx: <span class="kw-2">&amp;mut </span>Context,
@@ -3693,7 +3695,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	backed_in_path_only: bool,
 ) -&gt; SecondingAllowed {
 	<span class="kw">let </span><span class="kw-2">mut </span>membership = Vec::new();
-	<span class="kw">let </span><span class="kw-2">mut </span>responses = FuturesOrdered::&lt;BoxFuture&lt;<span class="lifetime">&#39;_</span>, <span class="prelude-ty">Result</span>&lt;<span class="kw">_</span>, oneshot::Canceled&gt;&gt;&gt;::new();
+	<span class="kw">let </span><span class="kw-2">mut </span>responses = FuturesOrdered::&lt;BoxFuture&lt;<span class="lifetime">'_</span>, <span class="prelude-ty">Result</span>&lt;<span class="kw">_</span>, oneshot::Canceled&gt;&gt;&gt;::new();
 
 	<span class="kw">let </span>candidate_para = hypothetical_candidate.candidate_para();
 	<span class="kw">let </span>candidate_relay_parent = hypothetical_candidate.relay_parent();
@@ -3757,7 +3759,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Err</span>(oneshot::Canceled) =&gt; {
 				<span class="macro">gum::warn!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Failed to reach prospective parachains subsystem for hypothetical frontiers&quot;</span>,
+					<span class="string">"Failed to reach prospective parachains subsystem for hypothetical frontiers"</span>,
 				);
 
 				<span class="kw">return </span>SecondingAllowed::No
@@ -3774,7 +3776,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							<span class="question-mark">?</span>candidate_hash,
 							depth,
 							leaf_hash = <span class="question-mark">?</span>head,
-							<span class="string">&quot;Refusing to second candidate at depth - already occupied.&quot;
+							<span class="string">"Refusing to second candidate at depth - already occupied."
 						</span>);
 
 						<span class="kw">return </span>SecondingAllowed::No
@@ -3786,7 +3788,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="comment">// At this point we&#39;ve checked the depths of the candidate against all active
+	<span class="comment">// At this point we've checked the depths of the candidate against all active
 	// leaves.
 	</span>SecondingAllowed::Yes(membership)
 }
@@ -3868,10 +3870,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						};
 
 						<span class="kw">let </span>parent_head_data_hash = persisted_validation_data.parent_head.hash();
-						<span class="comment">// Note that `GetHypotheticalFrontier` doesn&#39;t account for recursion,
+						<span class="comment">// Note that `GetHypotheticalFrontier` doesn't account for recursion,
 						// i.e. candidates can appear at multiple depths in the tree and in fact
-						// at all depths, and we don&#39;t know what depths a candidate will ultimately
-						// occupy because that&#39;s dependent on other candidates we haven&#39;t yet
+						// at all depths, and we don't know what depths a candidate will ultimately
+						// occupy because that's dependent on other candidates we haven't yet
 						// received.
 						//
 						// The only way to effectively rule this out is to have candidate receipts
@@ -3886,8 +3888,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							receipt: Arc::new(receipt.clone()),
 							persisted_validation_data: persisted_validation_data.clone(),
 						};
-						<span class="comment">// sanity check that we&#39;re allowed to second the candidate
-						// and that it doesn&#39;t conflict with other candidates we&#39;ve
+						<span class="comment">// sanity check that we're allowed to second the candidate
+						// and that it doesn't conflict with other candidates we've
 						// seconded.
 						</span><span class="kw">let </span>fragment_tree_membership = <span class="kw">match </span>seconding_sanity_check(
 							ctx,
@@ -3924,7 +3926,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 								target: LOG_TARGET,
 								relay_parent = <span class="question-mark">?</span>candidate.descriptor().relay_parent,
 								<span class="question-mark">?</span>candidate_hash,
-								<span class="string">&quot;Attempted to second candidate but was rejected by prospective parachains&quot;</span>,
+								<span class="string">"Attempted to second candidate but was rejected by prospective parachains"</span>,
 							);
 
 							<span class="comment">// Ensure the collator is reported.
@@ -3943,7 +3945,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 									<span class="macro">gum::warn!</span>(
 										target: LOG_TARGET,
 										<span class="question-mark">?</span>candidate_hash,
-										<span class="string">&quot;Missing `per_candidate` for seconded candidate.&quot;</span>,
+										<span class="string">"Missing `per_candidate` for seconded candidate."</span>,
 									);
 								},
 								<span class="prelude-val">Some</span>(p) =&gt; p.seconded_locally = <span class="bool-val">true</span>,
@@ -3956,7 +3958,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 										<span class="macro">gum::warn!</span>(
 											target: LOG_TARGET,
 											leaf_hash = <span class="question-mark">?</span>leaf,
-											<span class="string">&quot;Missing `per_leaf` for known active leaf.&quot;
+											<span class="string">"Missing `per_leaf` for known active leaf."
 										</span>);
 
 										<span class="kw">continue
@@ -4019,11 +4021,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							attesting.from_validator = index;
 							<span class="kw">let </span>attesting = attesting.clone();
 
-							<span class="comment">// The candidate state should be available because we&#39;ve
+							<span class="comment">// The candidate state should be available because we've
 							// validated it before, the relay-parent is still around,
 							// and candidates are pruned on the basis of relay-parents.
 							//
-							// If it&#39;s not, then no point in validating it anyway.
+							// If it's not, then no point in validating it anyway.
 							</span><span class="kw">if let </span><span class="prelude-val">Some</span>(pvd) = state
 								.per_candidate
 								.get(<span class="kw-2">&amp;</span>candidate_hash)
@@ -4042,7 +4044,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					} <span class="kw">else </span>{
 						<span class="macro">gum::warn!</span>(
 							target: LOG_TARGET,
-							<span class="string">&quot;AttestNoPoV was triggered without fallback being available.&quot;
+							<span class="string">"AttestNoPoV was triggered without fallback being available."
 						</span>);
 						<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
 					}
@@ -4098,10 +4100,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		statement = <span class="question-mark">?</span>statement.payload().to_compact(),
 		validator_index = statement.validator_index().<span class="number">0</span>,
 		<span class="question-mark">?</span>candidate_hash,
-		<span class="string">&quot;Importing statement&quot;</span>,
+		<span class="string">"Importing statement"</span>,
 	);
 
-	<span class="comment">// If this is a new candidate (statement is &#39;seconded&#39; and candidate is unknown),
+	<span class="comment">// If this is a new candidate (statement is 'seconded' and candidate is unknown),
 	// we need to create an entry in the `PerCandidateState` map.
 	//
 	// If the relay parent supports prospective parachains, we also need
@@ -4132,7 +4134,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="prelude-val">Err</span>(oneshot::Canceled) =&gt; {
 						<span class="macro">gum::warn!</span>(
 							target: LOG_TARGET,
-							<span class="string">&quot;Could not reach the Prospective Parachains subsystem.&quot;
+							<span class="string">"Could not reach the Prospective Parachains subsystem."
 						</span>);
 
 						<span class="kw">return </span><span class="prelude-val">Err</span>(Error::RejectedByProspectiveParachains)
@@ -4194,7 +4196,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}) {
 		<span class="kw">let </span>candidate_hash = attested.candidate.hash();
 
-		<span class="comment">// `HashSet::insert` returns true if the thing wasn&#39;t in there already.
+		<span class="comment">// `HashSet::insert` returns true if the thing wasn't in there already.
 		</span><span class="kw">if </span>rp_state.backed.insert(candidate_hash) {
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(backed) = table_attested_to_backed(
 				attested,
@@ -4207,7 +4209,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					candidate_hash = <span class="question-mark">?</span>candidate_hash,
 					relay_parent = <span class="question-mark">?</span>rp_state.parent,
 					%para_id,
-					<span class="string">&quot;Candidate backed&quot;</span>,
+					<span class="string">"Candidate backed"</span>,
 				);
 
 				<span class="kw">if </span>rp_state.prospective_parachains_mode.is_enabled() {
@@ -4240,13 +4242,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					ctx.send_unbounded_message(message);
 				}
 			} <span class="kw">else </span>{
-				<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="question-mark">?</span>candidate_hash, <span class="string">&quot;Cannot get BackedCandidate&quot;</span>);
+				<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="question-mark">?</span>candidate_hash, <span class="string">"Cannot get BackedCandidate"</span>);
 			}
 		} <span class="kw">else </span>{
-			<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="question-mark">?</span>candidate_hash, <span class="string">&quot;Candidate already known&quot;</span>);
+			<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="question-mark">?</span>candidate_hash, <span class="string">"Candidate already known"</span>);
 		}
 	} <span class="kw">else </span>{
-		<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="string">&quot;No attested candidate&quot;</span>);
+		<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="string">"No attested candidate"</span>);
 	}
 
 	issue_new_misbehaviors(ctx, rp_state.parent, <span class="kw-2">&amp;mut </span>rp_state.table);
@@ -4306,7 +4308,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	rp_state: <span class="kw-2">&amp;mut </span>PerRelayParentState,
 	params: BackgroundValidationParams&lt;
 		<span class="kw">impl </span>overseer::CandidateBackingSenderTrait,
-		<span class="kw">impl </span>Fn(BackgroundValidationResult) -&gt; ValidatedCandidateCommand + Send + <span class="lifetime">&#39;static </span>+ Sync,
+		<span class="kw">impl </span>Fn(BackgroundValidationResult) -&gt; ValidatedCandidateCommand + Send + <span class="lifetime">'static </span>+ Sync,
 	&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
 	<span class="kw">let </span>candidate_hash = params.candidate.hash();
@@ -4319,20 +4321,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						target: LOG_TARGET,
 						<span class="question-mark">?</span>candidate_hash,
 						<span class="question-mark">?</span>error,
-						<span class="string">&quot;Mpsc background validation mpsc died during validation- leaf no longer active?&quot;
+						<span class="string">"Mpsc background validation mpsc died during validation- leaf no longer active?"
 					</span>);
 				} <span class="kw">else </span>{
 					<span class="macro">gum::error!</span>(
 						target: LOG_TARGET,
 						<span class="question-mark">?</span>candidate_hash,
 						<span class="question-mark">?</span>error,
-						<span class="string">&quot;Failed to validate and make available&quot;</span>,
+						<span class="string">"Failed to validate and make available"</span>,
 					);
 				}
 			}
 		};
 
-		ctx.spawn(<span class="string">&quot;backing-validation&quot;</span>, bg.boxed())
+		ctx.spawn(<span class="string">"backing-validation"</span>, bg.boxed())
 			.map_err(|<span class="kw">_</span>| Error::FailedToSpawnBackgroundTask)<span class="question-mark">?</span>;
 	}
 
@@ -4351,12 +4353,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="comment">// Do nothing if the local validator is disabled or not a validator at all
 	</span><span class="kw">match </span>rp_state.table_context.local_validator_is_disabled() {
 		<span class="prelude-val">Some</span>(<span class="bool-val">true</span>) =&gt; {
-			<span class="macro">gum::info!</span>(target: LOG_TARGET, <span class="string">&quot;We are disabled - don&#39;t kick off validation&quot;</span>);
+			<span class="macro">gum::info!</span>(target: LOG_TARGET, <span class="string">"We are disabled - don't kick off validation"</span>);
 			<span class="kw">return </span><span class="prelude-val">Ok</span>(())
 		},
 		<span class="prelude-val">Some</span>(<span class="bool-val">false</span>) =&gt; {}, <span class="comment">// we are not disabled - move on
 		</span><span class="prelude-val">None </span>=&gt; {
-			<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="string">&quot;We are not a validator - don&#39;t kick off validation&quot;</span>);
+			<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="string">"We are not a validator - don't kick off validation"</span>);
 			<span class="kw">return </span><span class="prelude-val">Ok</span>(())
 		},
 	}
@@ -4370,7 +4372,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		target: LOG_TARGET,
 		candidate_hash = <span class="question-mark">?</span>candidate_hash,
 		candidate_receipt = <span class="question-mark">?</span>attesting.candidate,
-		<span class="string">&quot;Kicking off validation&quot;</span>,
+		<span class="string">"Kicking off validation"</span>,
 	);
 
 	<span class="kw">let </span>bg_sender = ctx.sender().clone();
@@ -4411,19 +4413,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">gum::trace!</span>(
 				target: LOG_TARGET,
 				<span class="question-mark">?</span>relay_parent,
-				<span class="string">&quot;Received statement for unknown relay-parent&quot;
+				<span class="string">"Received statement for unknown relay-parent"
 			</span>);
 
 			<span class="kw">return </span><span class="prelude-val">Ok</span>(())
 		},
 	};
 
-	<span class="comment">// Don&#39;t import statement if the sender is disabled
+	<span class="comment">// Don't import statement if the sender is disabled
 	</span><span class="kw">if </span>rp_state.table_context.validator_is_disabled(<span class="kw-2">&amp;</span>statement.validator_index()) {
 		<span class="macro">gum::debug!</span>(
 			target: LOG_TARGET,
 			sender_validator_idx = <span class="question-mark">?</span>statement.validator_index(),
-			<span class="string">&quot;Not importing statement because the sender is disabled&quot;
+			<span class="string">"Not importing statement because the sender is disabled"
 		</span>);
 		<span class="kw">return </span><span class="prelude-val">Ok</span>(())
 	}
@@ -4436,7 +4438,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">gum::debug!</span>(
 			target: LOG_TARGET,
 			<span class="question-mark">?</span>relay_parent,
-			<span class="string">&quot;Statement rejected by prospective parachains.&quot;
+			<span class="string">"Statement rejected by prospective parachains."
 		</span>);
 
 		<span class="kw">return </span><span class="prelude-val">Ok</span>(())
@@ -4529,7 +4531,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		target: LOG_TARGET,
 		candidate_hash = <span class="question-mark">?</span>candidate_hash,
 		candidate_receipt = <span class="question-mark">?</span>candidate,
-		<span class="string">&quot;Validate and second candidate&quot;</span>,
+		<span class="string">"Validate and second candidate"</span>,
 	);
 
 	<span class="kw">let </span>bg_sender = ctx.sender().clone();
@@ -4570,7 +4572,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">gum::warn!</span>(
 			target: LOG_TARGET,
 			<span class="question-mark">?</span>candidate_hash,
-			<span class="string">&quot;Candidate backing was asked to second candidate with wrong PVD&quot;</span>,
+			<span class="string">"Candidate backing was asked to second candidate with wrong PVD"</span>,
 		);
 
 		<span class="kw">return </span><span class="prelude-val">Ok</span>(())
@@ -4582,7 +4584,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				target: LOG_TARGET,
 				<span class="question-mark">?</span>relay_parent,
 				<span class="question-mark">?</span>candidate_hash,
-				<span class="string">&quot;We were asked to second a candidate outside of our view.&quot;
+				<span class="string">"We were asked to second a candidate outside of our view."
 			</span>);
 
 			<span class="kw">return </span><span class="prelude-val">Ok</span>(())
@@ -4593,7 +4595,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="comment">// Just return if the local validator is disabled. If we are here the local node should be a
 	// validator but defensively use `unwrap_or(false)` to continue processing in this case.
 	</span><span class="kw">if </span>rp_state.table_context.local_validator_is_disabled().unwrap_or(<span class="bool-val">false</span>) {
-		<span class="macro">gum::warn!</span>(target: LOG_TARGET, <span class="string">&quot;Local validator is disabled. Don&#39;t validate and second&quot;</span>);
+		<span class="macro">gum::warn!</span>(target: LOG_TARGET, <span class="string">"Local validator is disabled. Don't validate and second"</span>);
 		<span class="kw">return </span><span class="prelude-val">Ok</span>(())
 	}
 
@@ -4604,7 +4606,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			our_assignment_core = <span class="question-mark">?</span>rp_state.assigned_core,
 			our_assignment_para = <span class="question-mark">?</span>rp_state.assigned_para,
 			collation = <span class="question-mark">?</span>candidate.descriptor().para_id,
-			<span class="string">&quot;Subsystem asked to second for para outside of our assignment&quot;</span>,
+			<span class="string">"Subsystem asked to second for para outside of our assignment"</span>,
 		);
 
 		<span class="kw">return </span><span class="prelude-val">Ok</span>(())
@@ -4615,13 +4617,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		our_assignment_core = <span class="question-mark">?</span>rp_state.assigned_core,
 		our_assignment_para = <span class="question-mark">?</span>rp_state.assigned_para,
 		collation = <span class="question-mark">?</span>candidate.descriptor().para_id,
-		<span class="string">&quot;Current assignments vs collation&quot;</span>,
+		<span class="string">"Current assignments vs collation"</span>,
 	);
 
 	<span class="comment">// If the message is a `CandidateBackingMessage::Second`, sign and dispatch a
 	// Seconded statement only if we have not signed a Valid statement for the requested candidate.
 	//
-	// The actual logic of issuing the signed statement checks that this isn&#39;t
+	// The actual logic of issuing the signed statement checks that this isn't
 	// conflicting with other seconded candidates. Not doing that check here
 	// gives other subsystems the ability to get us to execute arbitrary candidates,
 	// but no more.
@@ -4679,7 +4681,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						target: LOG_TARGET,
 						<span class="question-mark">?</span>relay_parent,
 						<span class="question-mark">?</span>candidate_hash,
-						<span class="string">&quot;Requested candidate&#39;s relay parent is out of view&quot;</span>,
+						<span class="string">"Requested candidate's relay parent is out of view"</span>,
 					);
 					<span class="kw">break
 				</span>},

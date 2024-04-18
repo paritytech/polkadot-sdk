@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/core/src/testing.rs`."><title>testing.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/core/src/testing.rs`."><title>testing.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_core" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_core" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sp_core/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -351,14 +353,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -368,19 +370,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">use </span><span class="kw">crate</span>::crypto::KeyTypeId;
 
 <span class="doccomment">/// Key type for generic Ed25519 key.
-</span><span class="kw">pub const </span>ED25519: KeyTypeId = KeyTypeId(<span class="kw-2">*</span><span class="string">b&quot;ed25&quot;</span>);
+</span><span class="kw">pub const </span>ED25519: KeyTypeId = KeyTypeId(<span class="kw-2">*</span><span class="string">b"ed25"</span>);
 <span class="doccomment">/// Key type for generic Sr25519 key.
-</span><span class="kw">pub const </span>SR25519: KeyTypeId = KeyTypeId(<span class="kw-2">*</span><span class="string">b&quot;sr25&quot;</span>);
+</span><span class="kw">pub const </span>SR25519: KeyTypeId = KeyTypeId(<span class="kw-2">*</span><span class="string">b"sr25"</span>);
 <span class="doccomment">/// Key type for generic ECDSA key.
-</span><span class="kw">pub const </span>ECDSA: KeyTypeId = KeyTypeId(<span class="kw-2">*</span><span class="string">b&quot;ecds&quot;</span>);
+</span><span class="kw">pub const </span>ECDSA: KeyTypeId = KeyTypeId(<span class="kw-2">*</span><span class="string">b"ecds"</span>);
 <span class="doccomment">/// Key type for generic Bandersnatch key.
-</span><span class="kw">pub const </span>BANDERSNATCH: KeyTypeId = KeyTypeId(<span class="kw-2">*</span><span class="string">b&quot;band&quot;</span>);
+</span><span class="kw">pub const </span>BANDERSNATCH: KeyTypeId = KeyTypeId(<span class="kw-2">*</span><span class="string">b"band"</span>);
 <span class="doccomment">/// Key type for generic BLS12-377 key.
-</span><span class="kw">pub const </span>BLS377: KeyTypeId = KeyTypeId(<span class="kw-2">*</span><span class="string">b&quot;bls7&quot;</span>);
+</span><span class="kw">pub const </span>BLS377: KeyTypeId = KeyTypeId(<span class="kw-2">*</span><span class="string">b"bls7"</span>);
 <span class="doccomment">/// Key type for generic BLS12-381 key.
-</span><span class="kw">pub const </span>BLS381: KeyTypeId = KeyTypeId(<span class="kw-2">*</span><span class="string">b&quot;bls8&quot;</span>);
+</span><span class="kw">pub const </span>BLS381: KeyTypeId = KeyTypeId(<span class="kw-2">*</span><span class="string">b"bls8"</span>);
 <span class="doccomment">/// Key type for (ECDSA,BLS12-377) key pair
-</span><span class="kw">pub const </span>ECDSA_BLS377: KeyTypeId = KeyTypeId(<span class="kw-2">*</span><span class="string">b&quot;ecb7&quot;</span>);
+</span><span class="kw">pub const </span>ECDSA_BLS377: KeyTypeId = KeyTypeId(<span class="kw-2">*</span><span class="string">b"ecb7"</span>);
 
 <span class="doccomment">/// Macro for exporting functions from wasm in with the expected signature for using it with the
 /// wasm executor. This is useful for tests where you need to call a function in wasm.
@@ -388,7 +390,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// The input parameters are expected to be SCALE encoded and will be automatically decoded for you.
 /// The output value is also SCALE encoded when returned back to the host.
 ///
-/// The functions are feature-gated with `#[cfg(not(feature = &quot;std&quot;))]`, so they are only available
+/// The functions are feature-gated with `#[cfg(not(feature = "std"))]`, so they are only available
 /// from within wasm.
 ///
 /// # Example
@@ -431,7 +433,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) =&gt; {
 		<span class="attr">#[no_mangle]
 		#[allow(unreachable_code)]
-		#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+		#[cfg(not(feature = <span class="string">"std"</span>))]
 		</span><span class="kw">pub fn </span><span class="macro-nonterminal">$name</span>(input_data: <span class="kw-2">*mut </span>u8, input_len: usize) -&gt; u64 {
 			<span class="kw">let </span>input: <span class="kw-2">&amp;</span>[u8] = <span class="kw">if </span>input_len == <span class="number">0 </span>{
 				<span class="kw-2">&amp;</span>[<span class="number">0u8</span>; <span class="number">0</span>]
@@ -444,7 +446,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			{
 				<span class="kw">let </span>($( <span class="macro-nonterminal">$arg_name </span>),<span class="kw-2">*</span>) : ($( <span class="macro-nonterminal">$arg_ty </span>),<span class="kw-2">*</span>) = <span class="macro-nonterminal">$crate::Decode::decode</span>(
 					<span class="kw-2">&amp;mut &amp;</span>input[..],
-				).expect(<span class="string">&quot;Input data is correctly encoded&quot;</span>);
+				).expect(<span class="string">"Input data is correctly encoded"</span>);
 
 				(|| { $( <span class="macro-nonterminal">$fn_impl </span>)* })()
 			}
@@ -459,7 +461,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) =&gt; {
 		<span class="attr">#[no_mangle]
 		#[allow(unreachable_code)]
-		#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+		#[cfg(not(feature = <span class="string">"std"</span>))]
 		</span><span class="kw">pub fn </span><span class="macro-nonterminal">$name</span>(input_data: <span class="kw-2">*mut </span>u8, input_len: usize) -&gt; u64 {
 			<span class="kw">let </span>input: <span class="kw-2">&amp;</span>[u8] = <span class="kw">if </span>input_len == <span class="number">0 </span>{
 				<span class="kw-2">&amp;</span>[<span class="number">0u8</span>; <span class="number">0</span>]
@@ -472,7 +474,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>output $( : <span class="macro-nonterminal">$ret_ty </span>)<span class="question-mark">? </span>= {
 				<span class="kw">let </span>($( <span class="macro-nonterminal">$arg_name </span>),<span class="kw-2">*</span>) : ($( <span class="macro-nonterminal">$arg_ty </span>),<span class="kw-2">*</span>) = <span class="macro-nonterminal">$crate::Decode::decode</span>(
 					<span class="kw-2">&amp;mut &amp;</span>input[..],
-				).expect(<span class="string">&quot;Input data is correctly encoded&quot;</span>);
+				).expect(<span class="string">"Input data is correctly encoded"</span>);
 
 				(|| { $( <span class="macro-nonterminal">$fn_impl </span>)* })()
 			};
@@ -486,61 +488,61 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// Internally this just wraps a `ThreadPool` with a pool size of `8`. This
 /// should ensure that we have enough threads in tests for spawning blocking futures.
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+</span><span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 #[derive(Clone)]
 </span><span class="kw">pub struct </span>TaskExecutor(futures::executor::ThreadPool);
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">impl </span>TaskExecutor {
 	<span class="doccomment">/// Create a new instance of `Self`.
 	</span><span class="kw">pub fn </span>new() -&gt; <span class="self">Self </span>{
 		<span class="kw">let </span><span class="kw-2">mut </span>builder = futures::executor::ThreadPoolBuilder::new();
-		<span class="self">Self</span>(builder.pool_size(<span class="number">8</span>).create().expect(<span class="string">&quot;Failed to create thread pool&quot;</span>))
+		<span class="self">Self</span>(builder.pool_size(<span class="number">8</span>).create().expect(<span class="string">"Failed to create thread pool"</span>))
 	}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">impl </span>Default <span class="kw">for </span>TaskExecutor {
 	<span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
 		<span class="self">Self</span>::new()
 	}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">impl </span><span class="kw">crate</span>::traits::SpawnNamed <span class="kw">for </span>TaskExecutor {
 	<span class="kw">fn </span>spawn_blocking(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		_name: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
-		_group: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt;,
-		future: futures::future::BoxFuture&lt;<span class="lifetime">&#39;static</span>, ()&gt;,
+		_name: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
+		_group: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt;,
+		future: futures::future::BoxFuture&lt;<span class="lifetime">'static</span>, ()&gt;,
 	) {
 		<span class="self">self</span>.<span class="number">0</span>.spawn_ok(future);
 	}
 	<span class="kw">fn </span>spawn(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		_name: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
-		_group: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt;,
-		future: futures::future::BoxFuture&lt;<span class="lifetime">&#39;static</span>, ()&gt;,
+		_name: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
+		_group: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt;,
+		future: futures::future::BoxFuture&lt;<span class="lifetime">'static</span>, ()&gt;,
 	) {
 		<span class="self">self</span>.<span class="number">0</span>.spawn_ok(future);
 	}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">impl </span><span class="kw">crate</span>::traits::SpawnEssentialNamed <span class="kw">for </span>TaskExecutor {
 	<span class="kw">fn </span>spawn_essential_blocking(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		<span class="kw">_</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
-		<span class="kw">_</span>: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt;,
-		future: futures::future::BoxFuture&lt;<span class="lifetime">&#39;static</span>, ()&gt;,
+		<span class="kw">_</span>: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
+		<span class="kw">_</span>: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt;,
+		future: futures::future::BoxFuture&lt;<span class="lifetime">'static</span>, ()&gt;,
 	) {
 		<span class="self">self</span>.<span class="number">0</span>.spawn_ok(future);
 	}
 	<span class="kw">fn </span>spawn_essential(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		<span class="kw">_</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
-		<span class="kw">_</span>: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt;,
-		future: futures::future::BoxFuture&lt;<span class="lifetime">&#39;static</span>, ()&gt;,
+		<span class="kw">_</span>: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
+		<span class="kw">_</span>: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt;,
+		future: futures::future::BoxFuture&lt;<span class="lifetime">'static</span>, ()&gt;,
 	) {
 		<span class="self">self</span>.<span class="number">0</span>.spawn_ok(future);
 	}

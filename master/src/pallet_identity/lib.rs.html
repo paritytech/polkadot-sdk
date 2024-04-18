@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/identity/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/identity/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_identity" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_identity" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../pallet_identity/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1609,14 +1611,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -1665,12 +1667,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! #### For General Users
 //! * `set_identity` - Set the associated identity of an account; a small deposit is reserved if not
 //!   already taken.
-//! * `clear_identity` - Remove an account&#39;s associated identity; the deposit is returned.
+//! * `clear_identity` - Remove an account's associated identity; the deposit is returned.
 //! * `request_judgement` - Request a judgement from a registrar, paying a fee.
 //! * `cancel_request` - Cancel the previous request for a judgement.
 //! * `accept_username` - Accept a username issued by a username authority.
 //! * `remove_expired_approval` - Remove a username that was issued but never accepted.
-//! * `set_primary_username` - Set a given username as an account&#39;s primary.
+//! * `set_primary_username` - Set a given username as an account's primary.
 //! * `remove_dangling_username` - Remove a username that maps to an account without an identity.
 //!
 //! #### For General Users with Sub-Identities
@@ -1697,7 +1699,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! [`Call`]: ./enum.Call.html
 //! [`Config`]: ./trait.Config.html
 
-</span><span class="attr">#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
+</span><span class="attr">#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
 </span><span class="kw">mod </span>benchmarking;
 <span class="kw">pub mod </span>legacy;
@@ -1755,7 +1757,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">type </span>ByteDeposit: Get&lt;BalanceOf&lt;<span class="self">Self</span>&gt;&gt;;
 
 		<span class="doccomment">/// The amount held on deposit for a registered subaccount. This should account for the fact
-		/// that one storage item&#39;s value will increase by the size of an account ID, and there will
+		/// that one storage item's value will increase by the size of an account ID, and there will
 		/// be another trie item whose value is the size of an account ID plus 32 bytes.
 		</span><span class="attr">#[pallet::constant]
 		</span><span class="kw">type </span>SubAccountDeposit: Get&lt;BalanceOf&lt;<span class="self">Self</span>&gt;&gt;;
@@ -1815,7 +1817,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub struct </span>Pallet&lt;T&gt;(<span class="kw">_</span>);
 
 	<span class="doccomment">/// Information that is pertinent to identify the entity behind an account. First item is the
-	/// registration, second is the account&#39;s primary username.
+	/// registration, second is the account's primary username.
 	///
 	/// TWOX-NOTE: OK ― `AccountId` is a secure hash.
 	</span><span class="attr">#[pallet::storage]
@@ -1828,14 +1830,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		OptionQuery,
 	&gt;;
 
-	<span class="doccomment">/// The super-identity of an alternative &quot;sub&quot; identity together with its name, within that
-	/// context. If the account is not some other account&#39;s sub-identity, then just `None`.
+	<span class="doccomment">/// The super-identity of an alternative "sub" identity together with its name, within that
+	/// context. If the account is not some other account's sub-identity, then just `None`.
 	</span><span class="attr">#[pallet::storage]
 	#[pallet::getter(<span class="kw">fn </span>super_of)]
 	</span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>SuperOf&lt;T: Config&gt; =
 		StorageMap&lt;<span class="kw">_</span>, Blake2_128Concat, T::AccountId, (T::AccountId, Data), OptionQuery&gt;;
 
-	<span class="doccomment">/// Alternative &quot;sub&quot; identities of this account.
+	<span class="doccomment">/// Alternative "sub" identities of this account.
 	///
 	/// The first item is the deposit, the second is a vector of the accounts.
 	///
@@ -1907,9 +1909,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub enum </span>Error&lt;T&gt; {
 		<span class="doccomment">/// Too many subs-accounts.
 		</span>TooManySubAccounts,
-		<span class="doccomment">/// Account isn&#39;t found.
+		<span class="doccomment">/// Account isn't found.
 		</span>NotFound,
-		<span class="doccomment">/// Account isn&#39;t named.
+		<span class="doccomment">/// Account isn't named.
 		</span>NotNamed,
 		<span class="doccomment">/// Empty index.
 		</span>EmptyIndex,
@@ -1933,7 +1935,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>AlreadyClaimed,
 		<span class="doccomment">/// Sender is not a sub-account.
 		</span>NotSub,
-		<span class="doccomment">/// Sub-account isn&#39;t owned by sender.
+		<span class="doccomment">/// Sub-account isn't owned by sender.
 		</span>NotOwned,
 		<span class="doccomment">/// The provided judgement was for a different identity.
 		</span>JudgementForDifferentIdentity,
@@ -2037,7 +2039,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(T::WeightInfo::add_registrar(registrar_count <span class="kw">as </span>u32)).into())
 		}
 
-		<span class="doccomment">/// Set an account&#39;s identity information and reserve the appropriate deposit.
+		<span class="doccomment">/// Set an account's identity information and reserve the appropriate deposit.
 		///
 		/// If the account already has identity information, the deposit is taken as part payment
 		/// for the new deposit.
@@ -2095,8 +2097,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		/// The dispatch origin for this call must be _Signed_ and the sender must have a registered
 		/// identity.
 		///
-		/// - `subs`: The identity&#39;s (new) sub-accounts.
-		</span><span class="comment">// TODO: This whole extrinsic screams &quot;not optimized&quot;. For example we could
+		/// - `subs`: The identity's (new) sub-accounts.
+		</span><span class="comment">// TODO: This whole extrinsic screams "not optimized". For example we could
 		// filter any overlap between new and old subs, and avoid reading/writing
 		// to those values... We could also ideally avoid needing to write to
 		// N storage items for N sub accounts. Right now the weight on this function
@@ -2130,7 +2132,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">let </span>err_amount = T::Currency::unreserve(<span class="kw-2">&amp;</span>sender, old_deposit - new_deposit);
 				<span class="macro">debug_assert!</span>(err_amount.is_zero());
 			}
-			<span class="comment">// do nothing if they&#39;re equal.
+			<span class="comment">// do nothing if they're equal.
 
 			</span><span class="kw">for </span>s <span class="kw">in </span>old_ids.iter() {
 				&lt;SuperOf&lt;T&gt;&gt;::remove(s);
@@ -2138,7 +2140,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span><span class="kw-2">mut </span>ids = BoundedVec::&lt;T::AccountId, T::MaxSubAccounts&gt;::default();
 			<span class="kw">for </span>(id, name) <span class="kw">in </span>subs {
 				&lt;SuperOf&lt;T&gt;&gt;::insert(<span class="kw-2">&amp;</span>id, (sender.clone(), name));
-				ids.try_push(id).expect(<span class="string">&quot;subs length is less than T::MaxSubAccounts; qed&quot;</span>);
+				ids.try_push(id).expect(<span class="string">"subs length is less than T::MaxSubAccounts; qed"</span>);
 			}
 			<span class="kw">let </span>new_subs = ids.len();
 
@@ -2156,7 +2158,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.into())
 		}
 
-		<span class="doccomment">/// Clear an account&#39;s identity info and all sub-accounts and return all deposits.
+		<span class="doccomment">/// Clear an account's identity info and all sub-accounts and return all deposits.
 		///
 		/// Payment: All reserved balances on the account are returned.
 		///
@@ -2392,7 +2394,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(T::WeightInfo::set_fields(registrars <span class="kw">as </span>u32)).into())
 		}
 
-		<span class="doccomment">/// Provide a judgement for an account&#39;s identity.
+		<span class="doccomment">/// Provide a judgement for an account's identity.
 		///
 		/// The dispatch origin for this call must be _Signed_ and the sender must be the account
 		/// of the registrar whose index is `reg_index`.
@@ -2458,7 +2460,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(T::WeightInfo::provide_judgement(judgements <span class="kw">as </span>u32)).into())
 		}
 
-		<span class="doccomment">/// Remove an account&#39;s identity and sub-account information and slash the deposits.
+		<span class="doccomment">/// Remove an account's identity and sub-account information and slash the deposits.
 		///
 		/// Payment: Reserved balances from `set_subs` and `set_identity` are slashed and handled by
 		/// `Slash`. Verification request deposits are not returned; they should be cancelled
@@ -2481,7 +2483,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		) -&gt; DispatchResultWithPostInfo {
 			T::ForceOrigin::ensure_origin(origin)<span class="question-mark">?</span>;
 
-			<span class="comment">// Figure out who we&#39;re meant to be clearing.
+			<span class="comment">// Figure out who we're meant to be clearing.
 			</span><span class="kw">let </span>target = T::Lookup::lookup(target)<span class="question-mark">?</span>;
 			<span class="comment">// Grab their deposit (and check that they have one).
 			</span><span class="kw">let </span>(subs_deposit, sub_ids) = &lt;SubsOf&lt;T&gt;&gt;::take(<span class="kw-2">&amp;</span>target);
@@ -2504,7 +2506,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.into())
 		}
 
-		<span class="doccomment">/// Add the given account to the sender&#39;s subs.
+		<span class="doccomment">/// Add the given account to the sender's subs.
 		///
 		/// Payment: Balance reserved by a previous `set_subs` call for one sub will be repatriated
 		/// to the sender.
@@ -2522,7 +2524,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>sub = T::Lookup::lookup(sub)<span class="question-mark">?</span>;
 			<span class="macro">ensure!</span>(IdentityOf::&lt;T&gt;::contains_key(<span class="kw-2">&amp;</span>sender), Error::&lt;T&gt;::NoIdentity);
 
-			<span class="comment">// Check if it&#39;s already claimed as sub-identity.
+			<span class="comment">// Check if it's already claimed as sub-identity.
 			</span><span class="macro">ensure!</span>(!SuperOf::&lt;T&gt;::contains_key(<span class="kw-2">&amp;</span>sub), Error::&lt;T&gt;::AlreadyClaimed);
 
 			SubsOf::&lt;T&gt;::try_mutate(<span class="kw-2">&amp;</span>sender, |(<span class="kw-2">ref mut </span>subs_deposit, <span class="kw-2">ref mut </span>sub_ids)| {
@@ -2535,7 +2537,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				T::Currency::reserve(<span class="kw-2">&amp;</span>sender, deposit)<span class="question-mark">?</span>;
 
 				SuperOf::&lt;T&gt;::insert(<span class="kw-2">&amp;</span>sub, (sender.clone(), data));
-				sub_ids.try_push(sub.clone()).expect(<span class="string">&quot;sub ids length checked above; qed&quot;</span>);
+				sub_ids.try_push(sub.clone()).expect(<span class="string">"sub ids length checked above; qed"</span>);
 				<span class="kw-2">*</span>subs_deposit = subs_deposit.saturating_add(deposit);
 
 				<span class="self">Self</span>::deposit_event(Event::SubIdentityAdded { sub, main: sender.clone(), deposit });
@@ -2562,7 +2564,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Ok</span>(())
 		}
 
-		<span class="doccomment">/// Remove the given account from the sender&#39;s subs.
+		<span class="doccomment">/// Remove the given account from the sender's subs.
 		///
 		/// Payment: Balance reserved by a previous `set_subs` call for one sub will be repatriated
 		/// to the sender.
@@ -2633,11 +2635,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		) -&gt; DispatchResult {
 			T::UsernameAuthorityOrigin::ensure_origin(origin)<span class="question-mark">?</span>;
 			<span class="kw">let </span>authority = T::Lookup::lookup(authority)<span class="question-mark">?</span>;
-			<span class="comment">// We don&#39;t need to check the length because it gets checked when casting into a
+			<span class="comment">// We don't need to check the length because it gets checked when casting into a
 			// `BoundedVec`.
 			</span><span class="self">Self</span>::validate_username(<span class="kw-2">&amp;</span>suffix, <span class="prelude-val">None</span>).map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::InvalidSuffix)<span class="question-mark">?</span>;
 			<span class="kw">let </span>suffix = Suffix::&lt;T&gt;::try_from(suffix).map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::InvalidSuffix)<span class="question-mark">?</span>;
-			<span class="comment">// The authority may already exist, but we don&#39;t need to check. They might be changing
+			<span class="comment">// The authority may already exist, but we don't need to check. They might be changing
 			// their suffix or adding allocation, so we just want to overwrite whatever was there.
 			</span>UsernameAuthorities::&lt;T&gt;::insert(
 				<span class="kw-2">&amp;</span>authority,
@@ -2702,12 +2704,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="kw">let </span><span class="kw-2">mut </span>full_username =
 				Vec::with_capacity(username.len().saturating_add(suffix.len()).saturating_add(<span class="number">1</span>));
 			full_username.extend(username);
-			full_username.extend(<span class="string">b&quot;.&quot;</span>);
+			full_username.extend(<span class="string">b"."</span>);
 			full_username.extend(suffix);
 			<span class="kw">let </span>bounded_username =
 				Username::&lt;T&gt;::try_from(full_username).map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::InvalidUsername)<span class="question-mark">?</span>;
 
-			<span class="comment">// Usernames must be unique. Ensure it&#39;s not taken.
+			<span class="comment">// Usernames must be unique. Ensure it's not taken.
 			</span><span class="macro">ensure!</span>(
 				!AccountOfUsername::&lt;T&gt;::contains_key(<span class="kw-2">&amp;</span>bounded_username),
 				Error::&lt;T&gt;::UsernameTaken
@@ -2854,7 +2856,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// with any protocol-added characters included, such as a `.`). The suffix is also separately
 	/// validated by this function to ensure the full username conforms.
 	</span><span class="kw">fn </span>validate_username(username: <span class="kw-2">&amp;</span>Vec&lt;u8&gt;, length: <span class="prelude-ty">Option</span>&lt;u32&gt;) -&gt; DispatchResult {
-		<span class="comment">// Verify input length before allocating a Vec with the user&#39;s input. `&lt;` instead of `&lt;=`
+		<span class="comment">// Verify input length before allocating a Vec with the user's input. `&lt;` instead of `&lt;=`
 		// because it needs one element for the point (`username` + `.` + `suffix`).
 		</span><span class="kw">if let </span><span class="prelude-val">Some</span>(l) = length {
 			<span class="macro">ensure!</span>(l &lt; T::MaxUsernameLength::get(), Error::&lt;T&gt;::InvalidUsername);
@@ -2881,8 +2883,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 		<span class="comment">// NOTE: for security reasons modern UIs implicitly wrap the data requested to sign into
 		// `&lt;Bytes&gt; + data + &lt;/Bytes&gt;`, so why we support both wrapped and raw versions.
-		</span><span class="kw">let </span>prefix = <span class="string">b&quot;&lt;Bytes&gt;&quot;</span>;
-		<span class="kw">let </span>suffix = <span class="string">b&quot;&lt;/Bytes&gt;&quot;</span>;
+		</span><span class="kw">let </span>prefix = <span class="string">b"&lt;Bytes&gt;"</span>;
+		<span class="kw">let </span>suffix = <span class="string">b"&lt;/Bytes&gt;"</span>;
 		<span class="kw">let </span><span class="kw-2">mut </span>wrapped: Vec&lt;u8&gt; = Vec::with_capacity(data.len() + prefix.len() + suffix.len());
 		wrapped.extend(prefix);
 		wrapped.extend(data);
@@ -3012,8 +3014,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				},
 			)<span class="question-mark">?
 		</span>} <span class="kw">else </span>{
-			<span class="comment">// If the item doesn&#39;t exist, there is no &quot;old&quot; deposit, and the new one is zero, so no
-			// need to call rejig, it&#39;d just be zero -&gt; zero.
+			<span class="comment">// If the item doesn't exist, there is no "old" deposit, and the new one is zero, so no
+			// need to call rejig, it'd just be zero -&gt; zero.
 			</span>Zero::zero()
 		};
 		<span class="prelude-val">Ok</span>((new_id_deposit, new_subs_deposit))
@@ -3021,7 +3023,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Set an identity with zero deposit. Used for benchmarking and XCM emulator tests that involve
 	/// `rejig_deposit`.
-	</span><span class="attr">#[cfg(any(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>, feature = <span class="string">&quot;std&quot;</span>))]
+	</span><span class="attr">#[cfg(any(feature = <span class="string">"runtime-benchmarks"</span>, feature = <span class="string">"std"</span>))]
 	</span><span class="kw">pub fn </span>set_identity_no_deposit(
 		who: <span class="kw-2">&amp;</span>T::AccountId,
 		info: T::IdentityInformation,
@@ -3042,7 +3044,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Set subs with zero deposit and default name. Only used for benchmarks that involve
 	/// `rejig_deposit`.
-	</span><span class="attr">#[cfg(any(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>, feature = <span class="string">&quot;std&quot;</span>))]
+	</span><span class="attr">#[cfg(any(feature = <span class="string">"runtime-benchmarks"</span>, feature = <span class="string">"std"</span>))]
 	</span><span class="kw">pub fn </span>set_subs_no_deposit(
 		who: <span class="kw-2">&amp;</span>T::AccountId,
 		subs: Vec&lt;(T::AccountId, Data)&gt;,
@@ -3052,7 +3054,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			&lt;SuperOf&lt;T&gt;&gt;::insert(<span class="kw-2">&amp;</span>sub, (who.clone(), name));
 			sub_accounts
 				.try_push(sub)
-				.expect(<span class="string">&quot;benchmark should not pass more than T::MaxSubAccounts&quot;</span>);
+				.expect(<span class="string">"benchmark should not pass more than T::MaxSubAccounts"</span>);
 		}
 		SubsOf::&lt;T&gt;::insert::&lt;
 			<span class="kw-2">&amp;</span>T::AccountId,

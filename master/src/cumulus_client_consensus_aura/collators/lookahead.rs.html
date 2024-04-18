@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `cumulus/client/consensus/aura/src/collators/lookahead.rs`."><title>lookahead.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `cumulus/client/consensus/aura/src/collators/lookahead.rs`."><title>lookahead.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="cumulus_client_consensus_aura" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="cumulus_client_consensus_aura" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../cumulus_client_consensus_aura/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -731,7 +733,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! is not supported, this assumes a maximum backlog size of 1.
 //!
 //! This takes more advantage of asynchronous backing, though not complete advantage.
-//! When the backlog is not saturated, this approach lets the backlog temporarily &#39;catch up&#39;
+//! When the backlog is not saturated, this approach lets the backlog temporarily 'catch up'
 //! with periods of higher throughput. When the backlog is saturated, we typically
 //! fall back to the limited cadence of a single parachain block per relay-chain block.
 //!
@@ -790,7 +792,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>block_import: BI,
 	<span class="doccomment">/// The underlying para client.
 	</span><span class="kw">pub </span>para_client: Arc&lt;Client&gt;,
-	<span class="doccomment">/// The para client&#39;s backend, used to access the database.
+	<span class="doccomment">/// The para client's backend, used to access the database.
 	</span><span class="kw">pub </span>para_backend: Arc&lt;Backend&gt;,
 	<span class="doccomment">/// A handle to the relay-chain client.
 	</span><span class="kw">pub </span>relay_client: RClient,
@@ -802,9 +804,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>keystore: KeystorePtr,
 	<span class="doccomment">/// The collator key used to sign collations before submitting to validators.
 	</span><span class="kw">pub </span>collator_key: CollatorPair,
-	<span class="doccomment">/// The para&#39;s ID.
+	<span class="doccomment">/// The para's ID.
 	</span><span class="kw">pub </span>para_id: ParaId,
-	<span class="doccomment">/// A handle to the relay-chain client&#39;s &quot;Overseer&quot; or task orchestrator.
+	<span class="doccomment">/// A handle to the relay-chain client's "Overseer" or task orchestrator.
 	</span><span class="kw">pub </span>overseer_handle: OverseerHandle,
 	<span class="doccomment">/// The length of slots in the relay chain.
 	</span><span class="kw">pub </span>relay_chain_slot_duration: Duration,
@@ -821,7 +823,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Run async-backing-friendly Aura.
 </span><span class="kw">pub fn </span>run&lt;Block, P, BI, CIDP, Client, Backend, RClient, CHP, SO, Proposer, CS&gt;(
 	<span class="kw-2">mut </span>params: Params&lt;BI, CIDP, Client, Backend, RClient, CHP, SO, Proposer, CS&gt;,
-) -&gt; <span class="kw">impl </span>Future&lt;Output = ()&gt; + Send + <span class="lifetime">&#39;static
+) -&gt; <span class="kw">impl </span>Future&lt;Output = ()&gt; + Send + <span class="lifetime">'static
 </span><span class="kw">where
 	</span>Block: BlockT,
 	Client: ProvideRuntimeApi&lt;Block&gt;
@@ -831,18 +833,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		+ BlockBackend&lt;Block&gt;
 		+ Send
 		+ Sync
-		+ <span class="lifetime">&#39;static</span>,
+		+ <span class="lifetime">'static</span>,
 	Client::Api:
 		AuraApi&lt;Block, P::Public&gt; + CollectCollationInfo&lt;Block&gt; + AuraUnincludedSegmentApi&lt;Block&gt;,
-	Backend: sc_client_api::Backend&lt;Block&gt; + <span class="lifetime">&#39;static</span>,
-	RClient: RelayChainInterface + Clone + <span class="lifetime">&#39;static</span>,
-	CIDP: CreateInherentDataProviders&lt;Block, ()&gt; + <span class="lifetime">&#39;static</span>,
+	Backend: sc_client_api::Backend&lt;Block&gt; + <span class="lifetime">'static</span>,
+	RClient: RelayChainInterface + Clone + <span class="lifetime">'static</span>,
+	CIDP: CreateInherentDataProviders&lt;Block, ()&gt; + <span class="lifetime">'static</span>,
 	CIDP::InherentDataProviders: Send,
-	BI: BlockImport&lt;Block&gt; + ParachainBlockImportMarker + Send + Sync + <span class="lifetime">&#39;static</span>,
-	SO: SyncOracle + Send + Sync + Clone + <span class="lifetime">&#39;static</span>,
-	Proposer: ProposerInterface&lt;Block&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
-	CS: CollatorServiceInterface&lt;Block&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
-	CHP: consensus_common::ValidationCodeHashProvider&lt;Block::Hash&gt; + Send + <span class="lifetime">&#39;static</span>,
+	BI: BlockImport&lt;Block&gt; + ParachainBlockImportMarker + Send + Sync + <span class="lifetime">'static</span>,
+	SO: SyncOracle + Send + Sync + Clone + <span class="lifetime">'static</span>,
+	Proposer: ProposerInterface&lt;Block&gt; + Send + Sync + <span class="lifetime">'static</span>,
+	CS: CollatorServiceInterface&lt;Block&gt; + Send + Sync + <span class="lifetime">'static</span>,
+	CHP: consensus_common::ValidationCodeHashProvider&lt;Block::Hash&gt; + Send + <span class="lifetime">'static</span>,
 	P: Pair,
 	P::Public: AppPublic + Member + Codec,
 	P::Signature: TryFrom&lt;Vec&lt;u8&gt;&gt; + Member + Codec,
@@ -852,7 +854,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	//
 	// Since we only search for parent blocks which have already been imported,
 	// we can guarantee that all imported blocks respect the unincluded segment
-	// rules specified by the parachain&#39;s runtime and thus will never be too deep.
+	// rules specified by the parachain's runtime and thus will never be too deep.
 	</span><span class="kw">const </span>PARENT_SEARCH_DEPTH: usize = <span class="number">10</span>;
 
 	<span class="kw">async move </span>{
@@ -871,7 +873,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="macro">tracing::error!</span>(
 					target: <span class="kw">crate</span>::LOG_TARGET,
 					<span class="question-mark">?</span>err,
-					<span class="string">&quot;Failed to initialize consensus: no relay chain import notification stream&quot;
+					<span class="string">"Failed to initialize consensus: no relay chain import notification stream"
 				</span>);
 
 				<span class="kw">return
@@ -912,7 +914,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					target: <span class="kw">crate</span>::LOG_TARGET,
 					<span class="question-mark">?</span>relay_parent,
 					<span class="question-mark">?</span>params.para_id,
-					<span class="string">&quot;Para is not scheduled on any core, skipping import notification&quot;</span>,
+					<span class="string">"Para is not scheduled on any core, skipping import notification"</span>,
 				);
 
 				<span class="kw">continue
@@ -930,7 +932,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>) =&gt; <span class="kw">continue</span>,
 				<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(pvd)) =&gt; pvd.max_pov_size,
 				<span class="prelude-val">Err</span>(err) =&gt; {
-					<span class="macro">tracing::error!</span>(target: <span class="kw">crate</span>::LOG_TARGET, <span class="question-mark">?</span>err, <span class="string">&quot;Failed to gather information from relay-client&quot;</span>);
+					<span class="macro">tracing::error!</span>(target: <span class="kw">crate</span>::LOG_TARGET, <span class="question-mark">?</span>err, <span class="string">"Failed to gather information from relay-client"</span>);
 					<span class="kw">continue
 				</span>},
 			};
@@ -960,7 +962,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						target: <span class="kw">crate</span>::LOG_TARGET,
 						<span class="question-mark">?</span>relay_parent,
 						err = <span class="question-mark">?</span>e,
-						<span class="string">&quot;Could not fetch potential parents to build upon&quot;
+						<span class="string">"Could not fetch potential parents to build upon"
 					</span>);
 
 					<span class="kw">continue
@@ -982,11 +984,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				) {
 					<span class="prelude-val">Ok</span>(sd) =&gt; sd,
 					<span class="prelude-val">Err</span>(err) =&gt; {
-						<span class="macro">tracing::error!</span>(target: <span class="kw">crate</span>::LOG_TARGET, <span class="question-mark">?</span>err, <span class="string">&quot;Failed to acquire parachain slot duration&quot;</span>);
+						<span class="macro">tracing::error!</span>(target: <span class="kw">crate</span>::LOG_TARGET, <span class="question-mark">?</span>err, <span class="string">"Failed to acquire parachain slot duration"</span>);
 						<span class="kw">return </span><span class="prelude-val">None
 					</span>},
 				};
-				<span class="macro">tracing::debug!</span>(target: <span class="kw">crate</span>::LOG_TARGET, <span class="question-mark">?</span>slot_duration, <span class="question-mark">?</span>block_hash, <span class="string">&quot;Parachain slot duration acquired&quot;</span>);
+				<span class="macro">tracing::debug!</span>(target: <span class="kw">crate</span>::LOG_TARGET, <span class="question-mark">?</span>slot_duration, <span class="question-mark">?</span>block_hash, <span class="string">"Parachain slot duration acquired"</span>);
 				<span class="kw">let </span>(relay_slot, timestamp) = consensus_common::relay_slot_and_timestamp(
 					<span class="kw-2">&amp;</span>relay_parent_header,
 					params.relay_chain_slot_duration,
@@ -999,7 +1001,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="question-mark">?</span>timestamp,
 					<span class="question-mark">?</span>slot_duration,
 					relay_chain_slot_duration = <span class="question-mark">?</span>params.relay_chain_slot_duration,
-					<span class="string">&quot;Adjusted relay-chain slot to parachain slot&quot;
+					<span class="string">"Adjusted relay-chain slot to parachain slot"
 				</span>);
 				<span class="prelude-val">Some</span>(can_build_upon::&lt;<span class="kw">_</span>, <span class="kw">_</span>, P&gt;(
 					slot_now,
@@ -1013,7 +1015,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="comment">// Sort by depth, ascending, to choose the longest chain.
 			//
-			// If the longest chain has space, build upon that. Otherwise, don&#39;t
+			// If the longest chain has space, build upon that. Otherwise, don't
 			// build at all.
 			</span>potential_parents.sort_by_key(|a| a.depth);
 			<span class="kw">let </span><span class="prelude-val">Some</span>(initial_parent) = potential_parents.pop() <span class="kw">else </span>{ <span class="kw">continue </span>};
@@ -1044,7 +1046,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					target: <span class="kw">crate</span>::LOG_TARGET,
 					<span class="question-mark">?</span>relay_parent,
 					unincluded_segment_len = initial_parent.depth + n_built,
-					<span class="string">&quot;Slot claimed. Building&quot;
+					<span class="string">"Slot claimed. Building"
 				</span>);
 
 				<span class="kw">let </span>validation_data = PersistedValidationData {
@@ -1075,7 +1077,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">let </span>validation_code_hash = <span class="kw">match </span>params.code_hash_provider.code_hash_at(parent_hash)
 				{
 					<span class="prelude-val">None </span>=&gt; {
-						<span class="macro">tracing::error!</span>(target: <span class="kw">crate</span>::LOG_TARGET, <span class="question-mark">?</span>parent_hash, <span class="string">&quot;Could not fetch validation code hash&quot;</span>);
+						<span class="macro">tracing::error!</span>(target: <span class="kw">crate</span>::LOG_TARGET, <span class="question-mark">?</span>parent_hash, <span class="string">"Could not fetch validation code hash"</span>);
 						<span class="kw">break
 					</span>},
 					<span class="prelude-val">Some</span>(v) =&gt; v,
@@ -1112,7 +1114,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="comment">// Send a submit-collation message to the collation generation subsystem,
 						// which then distributes this to validators.
 						//
-						// Here we are assuming that the leaf is imported, as we&#39;ve gotten an
+						// Here we are assuming that the leaf is imported, as we've gotten an
 						// import notification.
 						</span>overseer_handle
 							.send_msg(
@@ -1126,7 +1128,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 										core_index,
 									},
 								),
-								<span class="string">&quot;SubmitCollation&quot;</span>,
+								<span class="string">"SubmitCollation"</span>,
 							)
 							.<span class="kw">await</span>;
 
@@ -1134,7 +1136,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						parent_header = block_data.into_header();
 					},
 					<span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>) =&gt; {
-						<span class="macro">tracing::debug!</span>(target: <span class="kw">crate</span>::LOG_TARGET, <span class="string">&quot;No block proposal&quot;</span>);
+						<span class="macro">tracing::debug!</span>(target: <span class="kw">crate</span>::LOG_TARGET, <span class="string">"No block proposal"</span>);
 						<span class="kw">break
 					</span>},
 					<span class="prelude-val">Err</span>(err) =&gt; {
@@ -1190,7 +1192,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>) =&gt; {
 			<span class="macro">tracing::error!</span>(
 				target: <span class="kw">crate</span>::LOG_TARGET,
-				<span class="string">&quot;Active config is missing in relay chain storage&quot;</span>,
+				<span class="string">"Active config is missing in relay chain storage"</span>,
 			);
 			<span class="prelude-val">None
 		</span>},
@@ -1199,7 +1201,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				target: <span class="kw">crate</span>::LOG_TARGET,
 				<span class="question-mark">?</span>err,
 				<span class="question-mark">?</span>relay_parent,
-				<span class="string">&quot;Failed to read active config from relay chain client&quot;</span>,
+				<span class="string">"Failed to read active config from relay chain client"</span>,
 			);
 			<span class="prelude-val">None
 		</span>},
@@ -1217,7 +1219,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">let </span>(tx, rx) = oneshot::channel();
 	<span class="kw">let </span>request = RuntimeApiRequest::AvailabilityCores(tx);
 	overseer_handle
-		.send_msg(RuntimeApiMessage::Request(relay_parent, request), <span class="string">&quot;LookaheadCollator&quot;</span>)
+		.send_msg(RuntimeApiMessage::Request(relay_parent, request), <span class="string">"LookaheadCollator"</span>)
 		.<span class="kw">await</span>;
 
 	<span class="kw">let </span>cores = <span class="kw">match </span>rx.<span class="kw">await </span>{
@@ -1227,7 +1229,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				target: <span class="kw">crate</span>::LOG_TARGET,
 				<span class="question-mark">?</span>error,
 				<span class="question-mark">?</span>relay_parent,
-				<span class="string">&quot;Failed to query availability cores runtime API&quot;</span>,
+				<span class="string">"Failed to query availability cores runtime API"</span>,
 			);
 			<span class="kw">return </span>Vec::new()
 		},
@@ -1235,7 +1237,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">tracing::error!</span>(
 				target: <span class="kw">crate</span>::LOG_TARGET,
 				<span class="question-mark">?</span>relay_parent,
-				<span class="string">&quot;Sender for availability cores runtime request dropped&quot;</span>,
+				<span class="string">"Sender for availability cores runtime request dropped"</span>,
 			);
 			<span class="kw">return </span>Vec::new()
 		},

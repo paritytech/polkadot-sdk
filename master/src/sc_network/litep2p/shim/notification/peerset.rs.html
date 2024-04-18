@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/network/src/litep2p/shim/notification/peerset.rs`."><title>peerset.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/network/src/litep2p/shim/notification/peerset.rs`."><title>peerset.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../../../" data-static-root-path="../../../../../static.files/" data-current-crate="sc_network" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../../../src-files.js"></script><script defer src="../../../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../../../" data-static-root-path="../../../../../static.files/" data-current-crate="sc_network" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../../../src-files.js"></script><script defer src="../../../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../../../sc_network/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1600,7 +1602,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! an effort to do so by constantly checking that there are no disconnected reserved peers (except
 //! banned) and if there are, it will open substreams to them.
 //!
-//! [`Peerset`] may also contain &quot;slots&quot;, both inbound and outbound, which mark how many incoming
+//! [`Peerset`] may also contain "slots", both inbound and outbound, which mark how many incoming
 //! and outgoing connections it should maintain at all times. Peers for the inbound slots are filled
 //! by remote peers opening inbound substreams towards the local node and peers for the outbound
 //! slots are filled by querying the `Peerstore` which contains all peers known to `sc-network`.
@@ -1632,7 +1634,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 
 <span class="doccomment">/// Logging target for the file.
-</span><span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;sub-libp2p::peerset&quot;</span>;
+</span><span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"sub-libp2p::peerset"</span>;
 
 <span class="doccomment">/// Default backoff for connection re-attempts.
 </span><span class="kw">const </span>DEFAULT_BACKOFF: Duration = Duration::from_secs(<span class="number">5</span>);
@@ -1648,12 +1650,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Reputation adjustment when a peer gets disconnected.
 ///
 /// Lessens the likelyhood of the peer getting selected for an outbound connection soon.
-</span><span class="kw">const </span>DISCONNECT_ADJUSTMENT: Reputation = Reputation::new(-<span class="number">256</span>, <span class="string">&quot;Peer disconnected&quot;</span>);
+</span><span class="kw">const </span>DISCONNECT_ADJUSTMENT: Reputation = Reputation::new(-<span class="number">256</span>, <span class="string">"Peer disconnected"</span>);
 
 <span class="doccomment">/// Reputation adjustment when a substream fails to open.
 ///
 /// Lessens the likelyhood of the peer getting selected for an outbound connection soon.
-</span><span class="kw">const </span>OPEN_FAILURE_ADJUSTMENT: Reputation = Reputation::new(-<span class="number">1024</span>, <span class="string">&quot;Open failure&quot;</span>);
+</span><span class="kw">const </span>OPEN_FAILURE_ADJUSTMENT: Reputation = Reputation::new(-<span class="number">1024</span>, <span class="string">"Open failure"</span>);
 
 <span class="doccomment">/// Is the peer reserved?
 </span><span class="attr">#[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -1721,7 +1723,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Add one or more reserved peers.
 	///
-	/// This command doesn&#39;t remove any reserved peers but only add new peers.
+	/// This command doesn't remove any reserved peers but only add new peers.
 	</span>AddReservedPeers {
 		<span class="doccomment">/// Reserved peers to add.
 		</span>peers: HashSet&lt;PeerId&gt;,
@@ -1793,7 +1795,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// successfully, the slot count is not modified.
 ///
 /// Since closing a substream is not instantaneous, there is a separate [`PeerState::Closing`]
-/// state which indicates that the substream is being closed but hasn&#39;t been closed by litep2p yet.
+/// state which indicates that the substream is being closed but hasn't been closed by litep2p yet.
 /// This state is used to prevent invalid state transitions where, for example, [`Peerset`] would
 /// close a substream and then try to reopen it immediately.
 ///
@@ -1802,7 +1804,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// substreams are accepted/established. Any request to open an outbound substream while the peer
 /// is backed-off is ignored. If the peer is a reserved peer, an outbound substream is not opened
 /// for them immediately but after the back-off has expired, `Peerset` will attempt to open a
-/// substream to the peer if it&#39;s still counted as a reserved peer.
+/// substream to the peer if it's still counted as a reserved peer.
 ///
 /// Disconnections and open failures will contribute negatively to the peer score to prevent it from
 /// being selected for another outbound substream request soon after the failure/disconnection. The
@@ -1818,7 +1820,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// Since substream is not opened immediately, a peer can be disconnected even if the substream was
 /// not yet open. This can happen, for example, when a peer has connected over the syncing protocol
-/// and it was added to, e.g., GRANDPA&#39;s reserved peers, an outbound substream was opened
+/// and it was added to, e.g., GRANDPA's reserved peers, an outbound substream was opened
 /// ([`PeerState::Opening`]) and then the peer disconnected. This state transition is handled by the
 /// [`Peerset`] with `PeerState::Canceled` which indicates that should the substream open
 /// successfully, it should be closed immediately and if the connection is opened successfully while
@@ -1832,7 +1834,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Substream to peer was recently closed and the peer is currently backed off.
 	///
 	/// Backoff only applies to outbound substreams. Inbound substream will not experience any sort
-	/// of &quot;banning&quot; even if the peer is backed off and an inbound substream for the peer is
+	/// of "banning" even if the peer is backed off and an inbound substream for the peer is
 	/// received.
 	</span>Backoff,
 
@@ -1914,7 +1916,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>connected_peers: Arc&lt;AtomicUsize&gt;,
 
 	<span class="doccomment">/// Pending backoffs for peers who recently disconnected.
-	</span>pending_backoffs: FuturesUnordered&lt;BoxFuture&lt;<span class="lifetime">&#39;static</span>, (PeerId, Reputation)&gt;&gt;,
+	</span>pending_backoffs: FuturesUnordered&lt;BoxFuture&lt;<span class="lifetime">'static</span>, (PeerId, Reputation)&gt;&gt;,
 
 	<span class="doccomment">/// Next time when [`Peerset`] should perform slot allocation.
 	</span>next_slot_allocation: Delay,
@@ -1929,7 +1931,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">None </span>=&gt; {
 				<span class="macro">log::warn!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;{}: state mismatch, {:?} is not counted as part of {:?} slots&quot;</span>,
+					<span class="string">"{}: state mismatch, {:?} is not counted as part of {:?} slots"</span>,
 					<span class="macro-nonterminal">$protocol</span>, <span class="macro-nonterminal">$peer</span>, <span class="macro-nonterminal">$direction
 				</span>);
 				<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
@@ -1963,13 +1965,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		connected_peers: Arc&lt;AtomicUsize&gt;,
 		peerstore_handle: Arc&lt;<span class="kw">dyn </span>PeerStoreProvider&gt;,
 	) -&gt; (<span class="self">Self</span>, TracingUnboundedSender&lt;PeersetCommand&gt;) {
-		<span class="kw">let </span>(cmd_tx, cmd_rx) = tracing_unbounded(<span class="string">&quot;mpsc-peerset-protocol&quot;</span>, <span class="number">100_000</span>);
+		<span class="kw">let </span>(cmd_tx, cmd_rx) = tracing_unbounded(<span class="string">"mpsc-peerset-protocol"</span>, <span class="number">100_000</span>);
 		<span class="kw">let </span>peers = reserved_peers
 			.iter()
 			.map(|peer| (<span class="kw-2">*</span>peer, PeerState::Disconnected))
 			.collect::&lt;HashMap&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;();
 
-		<span class="comment">// register protocol&#39;s command channel to `Peerstore` so it can issue disconnect commands
+		<span class="comment">// register protocol's command channel to `Peerstore` so it can issue disconnect commands
 		// if some connected peer gets banned.
 		</span>peerstore_handle.register_protocol(Arc::new(PeersetHandle { tx: cmd_tx.clone() }));
 
@@ -1995,8 +1997,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Report to [`Peerset`] that a substream was opened.
 	///
-	/// Slot for the stream was &quot;preallocated&quot; when it was initiated (outbound) or accepted
-	/// (inbound) by the local node which is why this function doesn&#39;t allocate a slot for the peer.
+	/// Slot for the stream was "preallocated" when it was initiated (outbound) or accepted
+	/// (inbound) by the local node which is why this function doesn't allocate a slot for the peer.
 	///
 	/// Returns `true` if the substream should be kept open and `false` if the substream had been
 	/// canceled while it was opening and litep2p should close the substream.
@@ -2007,13 +2009,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; OpenResult {
 		<span class="macro">log::trace!</span>(
 			target: LOG_TARGET,
-			<span class="string">&quot;{}: substream opened to {peer:?}, direction {direction:?}, reserved peer {}&quot;</span>,
+			<span class="string">"{}: substream opened to {peer:?}, direction {direction:?}, reserved peer {}"</span>,
 			<span class="self">self</span>.protocol,
 			<span class="self">self</span>.reserved_peers.contains(<span class="kw-2">&amp;</span>peer),
 		);
 
 		<span class="kw">let </span><span class="prelude-val">Some</span>(state) = <span class="self">self</span>.peers.get_mut(<span class="kw-2">&amp;</span>peer) <span class="kw">else </span>{
-			<span class="macro">log::warn!</span>(target: LOG_TARGET, <span class="string">&quot;{}: substream opened for unknown peer {peer:?}&quot;</span>, <span class="self">self</span>.protocol);
+			<span class="macro">log::warn!</span>(target: LOG_TARGET, <span class="string">"{}: substream opened for unknown peer {peer:?}"</span>, <span class="self">self</span>.protocol);
 			<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
 			<span class="kw">return </span>OpenResult::Reject
 		};
@@ -2027,13 +2029,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 				<span class="kw">return </span>OpenResult::Accept { direction: real_direction }
 			},
-			<span class="comment">// litep2p doesn&#39;t support the ability to cancel an opening substream so if the
+			<span class="comment">// litep2p doesn't support the ability to cancel an opening substream so if the
 			// substream was closed while it was opening, it was marked as canceled and if the
 			// substream opens succesfully, it will be closed
 			</span>PeerState::Canceled { direction: substream_direction } =&gt; {
 				<span class="macro">log::trace!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;{}: substream to {peer:?} is canceled, issue disconnection request&quot;</span>,
+					<span class="string">"{}: substream to {peer:?} is canceled, issue disconnection request"</span>,
 					<span class="self">self</span>.protocol,
 				);
 
@@ -2043,7 +2045,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">return </span>OpenResult::Reject
 			},
 			state =&gt; {
-				<span class="macro">panic!</span>(<span class="string">&quot;{}: invalid state for open substream {peer:?} {state:?}&quot;</span>, <span class="self">self</span>.protocol);
+				<span class="macro">panic!</span>(<span class="string">"{}: invalid state for open substream {peer:?} {state:?}"</span>, <span class="self">self</span>.protocol);
 			},
 		}
 	}
@@ -2055,10 +2057,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// duration of [`DEFAULT_BACKOFF`] which prevens [`Peerset`] from establishing/accepting new
 	/// connections for that time period.
 	</span><span class="kw">pub fn </span>report_substream_closed(<span class="kw-2">&amp;mut </span><span class="self">self</span>, peer: PeerId) {
-		<span class="macro">log::trace!</span>(target: LOG_TARGET, <span class="string">&quot;{}: substream closed to {peer:?}&quot;</span>, <span class="self">self</span>.protocol);
+		<span class="macro">log::trace!</span>(target: LOG_TARGET, <span class="string">"{}: substream closed to {peer:?}"</span>, <span class="self">self</span>.protocol);
 
 		<span class="kw">let </span><span class="prelude-val">Some</span>(state) = <span class="self">self</span>.peers.get_mut(<span class="kw-2">&amp;</span>peer) <span class="kw">else </span>{
-			<span class="macro">log::warn!</span>(target: LOG_TARGET, <span class="string">&quot;{}: substream closed for unknown peer {peer:?}&quot;</span>, <span class="self">self</span>.protocol);
+			<span class="macro">log::warn!</span>(target: LOG_TARGET, <span class="string">"{}: substream closed for unknown peer {peer:?}"</span>, <span class="self">self</span>.protocol);
 			<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
 			<span class="kw">return
 		</span>};
@@ -2070,7 +2072,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			PeerState::Closing { direction: Direction::Inbound(Reserved::No) } =&gt; {
 				<span class="macro">log::trace!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;{}: inbound substream closed to non-reserved peer {peer:?}: {state:?}&quot;</span>,
+					<span class="string">"{}: inbound substream closed to non-reserved peer {peer:?}: {state:?}"</span>,
 					<span class="self">self</span>.protocol,
 				);
 
@@ -2087,7 +2089,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			PeerState::Closing { direction: Direction::Outbound(Reserved::No) } =&gt; {
 				<span class="macro">log::trace!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;{}: outbound substream closed to non-reserved peer {peer:?} {state:?}&quot;</span>,
+					<span class="string">"{}: outbound substream closed to non-reserved peer {peer:?} {state:?}"</span>,
 					<span class="self">self</span>.protocol,
 				);
 
@@ -2098,12 +2100,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					Direction::Outbound(Reserved::No)
 				);
 			},
-			<span class="comment">// reserved peers don&#39;t require adjustments to slot counts
+			<span class="comment">// reserved peers don't require adjustments to slot counts
 			</span>PeerState::Closing { .. } | PeerState::Connected { .. } =&gt; {
-				<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;{}: reserved peer {peer:?} disconnected&quot;</span>, <span class="self">self</span>.protocol);
+				<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"{}: reserved peer {peer:?} disconnected"</span>, <span class="self">self</span>.protocol);
 			},
 			state =&gt; {
-				<span class="macro">log::warn!</span>(target: LOG_TARGET, <span class="string">&quot;{}: invalid state for disconnected peer {peer:?}: {state:?}&quot;</span>, <span class="self">self</span>.protocol);
+				<span class="macro">log::warn!</span>(target: LOG_TARGET, <span class="string">"{}: invalid state for disconnected peer {peer:?}: {state:?}"</span>, <span class="self">self</span>.protocol);
 				<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
 			},
 		}
@@ -2118,12 +2120,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Report to [`Peerset`] that an inbound substream was opened and that it should validate it.
 	</span><span class="kw">pub fn </span>report_inbound_substream(<span class="kw-2">&amp;mut </span><span class="self">self</span>, peer: PeerId) -&gt; ValidationResult {
-		<span class="macro">log::trace!</span>(target: LOG_TARGET, <span class="string">&quot;{}: inbound substream from {peer:?}&quot;</span>, <span class="self">self</span>.protocol);
+		<span class="macro">log::trace!</span>(target: LOG_TARGET, <span class="string">"{}: inbound substream from {peer:?}"</span>, <span class="self">self</span>.protocol);
 
 		<span class="kw">if </span><span class="self">self</span>.peerstore_handle.is_banned(<span class="kw-2">&amp;</span>peer) {
 			<span class="macro">log::debug!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;{}: rejecting banned peer {peer:?}&quot;</span>,
+				<span class="string">"{}: rejecting banned peer {peer:?}"</span>,
 				<span class="self">self</span>.protocol,
 			);
 
@@ -2142,7 +2144,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">if </span>!is_reserved_peer &amp;&amp; <span class="self">self</span>.num_in == <span class="self">self</span>.max_in {
 					<span class="macro">log::trace!</span>(
 						target: LOG_TARGET,
-						<span class="string">&quot;{}: ({peer:?}) is backed-off and cannot accept, reject inbound substream&quot;</span>,
+						<span class="string">"{}: ({peer:?}) is backed-off and cannot accept, reject inbound substream"</span>,
 						<span class="self">self</span>.protocol,
 					);
 
@@ -2155,8 +2157,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			// the inbound peer since the local node had wished a connection to be opened either way
 			// but keep the direction of the substream as it was (outbound).
 			//
-			// litep2p doesn&#39;t care what `Peerset` considers the substream direction to be and since
-			// it&#39;s used for bookkeeping for substream counts, keeping the substream direction
+			// litep2p doesn't care what `Peerset` considers the substream direction to be and since
+			// it's used for bookkeeping for substream counts, keeping the substream direction
 			// unmodified simplies the implementation a lot. The direction would otherwise be
 			// irrelevant for protocols but because `SyncingEngine` has a hack to reject excess
 			// inbound substreams, that system has to be kept working for the time being. Once that
@@ -2164,7 +2166,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span>PeerState::Opening { direction: Direction::Outbound(reserved) } =&gt; {
 				<span class="macro">log::trace!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;{}: inbound substream received for {peer:?} ({reserved:?}) that was marked outbound&quot;</span>,
+					<span class="string">"{}: inbound substream received for {peer:?} ({reserved:?}) that was marked outbound"</span>,
 					<span class="self">self</span>.protocol,
 				);
 
@@ -2173,7 +2175,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			PeerState::Canceled { direction } =&gt; {
 				<span class="macro">log::trace!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;{}: {peer:?} is canceled, rejecting substream&quot;</span>,
+					<span class="string">"{}: {peer:?} is canceled, rejecting substream"</span>,
 					<span class="self">self</span>.protocol,
 				);
 
@@ -2183,7 +2185,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			state =&gt; {
 				<span class="macro">log::warn!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;{}: invalid state ({state:?}) for inbound substream, peer {peer:?}&quot;</span>,
+					<span class="string">"{}: invalid state ({state:?}) for inbound substream, peer {peer:?}"</span>,
 					<span class="self">self</span>.protocol
 				);
 				<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
@@ -2194,7 +2196,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if </span>is_reserved_peer {
 			<span class="macro">log::trace!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;{}: {peer:?} accepting peer as reserved peer&quot;</span>,
+				<span class="string">"{}: {peer:?} accepting peer as reserved peer"</span>,
 				<span class="self">self</span>.protocol,
 			);
 
@@ -2205,7 +2207,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if </span><span class="self">self</span>.num_in &lt; <span class="self">self</span>.max_in {
 			<span class="macro">log::trace!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;{}: {peer:?} accepting peer as regular peer&quot;</span>,
+				<span class="string">"{}: {peer:?} accepting peer as regular peer"</span>,
 				<span class="self">self</span>.protocol,
 			);
 
@@ -2217,7 +2219,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="macro">log::trace!</span>(
 			target: LOG_TARGET,
-			<span class="string">&quot;{}: reject {peer:?}, not a reserved peer and no free inbound slots&quot;</span>,
+			<span class="string">"{}: reject {peer:?}, not a reserved peer and no free inbound slots"</span>,
 			<span class="self">self</span>.protocol,
 		);
 
@@ -2229,7 +2231,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub fn </span>report_substream_open_failure(<span class="kw-2">&amp;mut </span><span class="self">self</span>, peer: PeerId, error: NotificationError) {
 		<span class="macro">log::trace!</span>(
 			target: LOG_TARGET,
-			<span class="string">&quot;{}: failed to open substream to {peer:?}: {error:?}&quot;</span>,
+			<span class="string">"{}: failed to open substream to {peer:?}: {error:?}"</span>,
 			<span class="self">self</span>.protocol,
 		);
 
@@ -2274,14 +2276,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Some</span>(PeerState::Opening { direction: Direction::Outbound(Reserved::Yes) }) =&gt; {
 				<span class="macro">log::debug!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;{}: substream open failure for reserved peer {peer:?}&quot;</span>,
+					<span class="string">"{}: substream open failure for reserved peer {peer:?}"</span>,
 					<span class="self">self</span>.protocol,
 				);
 			},
 			state =&gt; {
 				<span class="macro">log::debug!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;{}: substream open failure for a unknown state: {state:?}&quot;</span>,
+					<span class="string">"{}: substream open failure for a unknown state: {state:?}"</span>,
 					<span class="self">self</span>.protocol,
 				);
 
@@ -2298,14 +2300,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// [`Peerset`] had accepted a peer but it was then rejected by the protocol.
 	</span><span class="kw">pub fn </span>report_substream_rejected(<span class="kw-2">&amp;mut </span><span class="self">self</span>, peer: PeerId) {
-		<span class="macro">log::trace!</span>(target: LOG_TARGET, <span class="string">&quot;{}: {peer:?} rejected by the protocol&quot;</span>, <span class="self">self</span>.protocol);
+		<span class="macro">log::trace!</span>(target: LOG_TARGET, <span class="string">"{}: {peer:?} rejected by the protocol"</span>, <span class="self">self</span>.protocol);
 
 		<span class="kw">match </span><span class="self">self</span>.peers.remove(<span class="kw-2">&amp;</span>peer) {
 			<span class="prelude-val">Some</span>(PeerState::Opening { direction }) =&gt; <span class="kw">match </span>direction {
 				Direction::Inbound(Reserved::Yes) | Direction::Outbound(Reserved::Yes) =&gt; {
 					<span class="macro">log::warn!</span>(
 						target: LOG_TARGET,
-						<span class="string">&quot;{}: reserved peer {peer:?} rejected by the protocol&quot;</span>,
+						<span class="string">"{}: reserved peer {peer:?} rejected by the protocol"</span>,
 						<span class="self">self</span>.protocol,
 					);
 					<span class="self">self</span>.peers.insert(peer, PeerState::Disconnected);
@@ -2332,7 +2334,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Some</span>(state @ PeerState::Canceled { .. }) =&gt; {
 				<span class="macro">log::debug!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;{}: substream to {peer:?} rejected by protocol but already canceled&quot;</span>,
+					<span class="string">"{}: substream to {peer:?} rejected by protocol but already canceled"</span>,
 					<span class="self">self</span>.protocol,
 				);
 
@@ -2341,7 +2343,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Some</span>(state) =&gt; {
 				<span class="macro">log::debug!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;{}: {peer:?} rejected by the protocol but not opening anymore: {state:?}&quot;</span>,
+					<span class="string">"{}: {peer:?} rejected by the protocol but not opening anymore: {state:?}"</span>,
 					<span class="self">self</span>.protocol,
 				);
 
@@ -2353,9 +2355,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Calculate how many of the connected peers were counted as normal inbound/outbound peers
 	/// which is needed to adjust slot counts when new reserved peers are added
-	</span><span class="kw">fn </span>calculate_slot_adjustment&lt;<span class="lifetime">&#39;a</span>&gt;(
-		<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span><span class="self">self</span>,
-		peers: <span class="kw">impl </span>Iterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>PeerId&gt;,
+	</span><span class="kw">fn </span>calculate_slot_adjustment&lt;<span class="lifetime">'a</span>&gt;(
+		<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span><span class="self">self</span>,
+		peers: <span class="kw">impl </span>Iterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">'a </span>PeerId&gt;,
 	) -&gt; (usize, usize) {
 		peers.fold((<span class="number">0</span>, <span class="number">0</span>), |(<span class="kw-2">mut </span>inbound, <span class="kw-2">mut </span>outbound), peer| {
 			<span class="kw">match </span><span class="self">self</span>.peers.get_mut(peer) {
@@ -2415,10 +2417,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl </span>Stream <span class="kw">for </span>Peerset {
 	<span class="kw">type </span>Item = PeersetNotificationCommand;
 
-	<span class="kw">fn </span>poll_next(<span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;<span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::Item&gt;&gt; {
+	<span class="kw">fn </span>poll_next(<span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">'_</span>&gt;) -&gt; Poll&lt;<span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::Item&gt;&gt; {
 		<span class="kw">while let </span>Poll::Ready(<span class="prelude-val">Some</span>((peer, reputation))) = <span class="self">self</span>.pending_backoffs.poll_next_unpin(cx)
 		{
-			<span class="macro">log::trace!</span>(target: LOG_TARGET, <span class="string">&quot;{}: backoff expired for {peer:?}&quot;</span>, <span class="self">self</span>.protocol);
+			<span class="macro">log::trace!</span>(target: LOG_TARGET, <span class="string">"{}: backoff expired for {peer:?}"</span>, <span class="self">self</span>.protocol);
 
 			<span class="kw">if </span><span class="macro">std::matches!</span>(<span class="self">self</span>.peers.get(<span class="kw-2">&amp;</span>peer), <span class="prelude-val">None </span>| <span class="prelude-val">Some</span>(PeerState::Backoff)) {
 				<span class="self">self</span>.peers.insert(peer, PeerState::Disconnected);
@@ -2434,7 +2436,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="prelude-val">Some</span>(PeerState::Connected { direction }) =&gt; {
 							<span class="macro">log::trace!</span>(
 								target: LOG_TARGET,
-								<span class="string">&quot;{}: close connection to {peer:?}, direction {direction:?}&quot;</span>,
+								<span class="string">"{}: close connection to {peer:?}, direction {direction:?}"</span>,
 								<span class="self">self</span>.protocol,
 							);
 
@@ -2446,7 +2448,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="prelude-val">Some</span>(PeerState::Backoff) =&gt; {
 							<span class="macro">log::trace!</span>(
 								target: LOG_TARGET,
-								<span class="string">&quot;{}: cannot disconnect {peer:?}, already backed-off&quot;</span>,
+								<span class="string">"{}: cannot disconnect {peer:?}, already backed-off"</span>,
 								<span class="self">self</span>.protocol,
 							);
 
@@ -2460,19 +2462,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						</span><span class="prelude-val">Some</span>(PeerState::Opening { direction }) =&gt; {
 							<span class="macro">log::trace!</span>(
 								target: LOG_TARGET,
-								<span class="string">&quot;{}: canceling substream to disconnect peer {peer:?}&quot;</span>,
+								<span class="string">"{}: canceling substream to disconnect peer {peer:?}"</span>,
 								<span class="self">self</span>.protocol,
 							);
 
 							<span class="self">self</span>.peers.insert(peer, PeerState::Canceled { direction });
 						},
 						<span class="comment">// protocol had issued two disconnection requests in rapid succession and
-						// the substream hadn&#39;t closed before the second disconnection request was
+						// the substream hadn't closed before the second disconnection request was
 						// received, this is harmless and can be ignored.
 						</span><span class="prelude-val">Some</span>(state @ PeerState::Closing { .. }) =&gt; {
 							<span class="macro">log::trace!</span>(
 								target: LOG_TARGET,
-								<span class="string">&quot;{}: cannot disconnect {peer:?}, already closing ({state:?})&quot;</span>,
+								<span class="string">"{}: cannot disconnect {peer:?}, already closing ({state:?})"</span>,
 								<span class="self">self</span>.protocol,
 							);
 
@@ -2480,7 +2482,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						},
 						<span class="comment">// if peer is banned, e.g. due to genesis mismatch, `Peerstore` will issue a
 						// global disconnection request to all protocols, irrespective of the
-						// connectivity state. Peer isn&#39;t necessarily connected to all protocols at
+						// connectivity state. Peer isn't necessarily connected to all protocols at
 						// all times so this is a harmless state to be in if a disconnection request
 						// is received.
 						</span><span class="prelude-val">Some</span>(state @ PeerState::Disconnected) =&gt; {
@@ -2491,27 +2493,27 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						</span><span class="prelude-val">Some</span>(state @ PeerState::Canceled { .. }) =&gt; {
 							<span class="macro">log::debug!</span>(
 								target: LOG_TARGET,
-								<span class="string">&quot;{}: cannot disconnect {peer:?}, already canceled ({state:?})&quot;</span>,
+								<span class="string">"{}: cannot disconnect {peer:?}, already canceled ({state:?})"</span>,
 								<span class="self">self</span>.protocol,
 							);
 
 							<span class="self">self</span>.peers.insert(peer, state);
 						},
-						<span class="comment">// peer doesn&#39;t exist
+						<span class="comment">// peer doesn't exist
 						//
 						// this can happen, for example, when peer connects over
 						// `/block-announces/1` and it has wrong genesis hash which initiates a ban
 						// for that peer. Since the ban is reported to all protocols but the peer
-						// mightn&#39;t have been registered to GRANDPA or transactions yet, the peer
-						// doesn&#39;t exist in their `Peerset`s and the error can just be ignored.
+						// mightn't have been registered to GRANDPA or transactions yet, the peer
+						// doesn't exist in their `Peerset`s and the error can just be ignored.
 						</span><span class="prelude-val">None </span>=&gt; {
-							<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;{}: {peer:?} doesn&#39;t exist&quot;</span>, <span class="self">self</span>.protocol);
+							<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"{}: {peer:?} doesn't exist"</span>, <span class="self">self</span>.protocol);
 						},
 					},
 				PeersetCommand::DisconnectPeer { peer } =&gt; {
 					<span class="macro">log::debug!</span>(
 						target: LOG_TARGET,
-						<span class="string">&quot;{}: ignoring disconnection request for reserved peer {peer}&quot;</span>,
+						<span class="string">"{}: ignoring disconnection request for reserved peer {peer}"</span>,
 						<span class="self">self</span>.protocol,
 					);
 				},
@@ -2520,9 +2522,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				// current reserved peers not in the new set are disconnected and the new reserved
 				// peers are scheduled for outbound substreams
 				</span>PeersetCommand::SetReservedPeers { peers } =&gt; {
-					<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;{}: set reserved peers {peers:?}&quot;</span>, <span class="self">self</span>.protocol);
+					<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"{}: set reserved peers {peers:?}"</span>, <span class="self">self</span>.protocol);
 
-					<span class="comment">// reserved peers don&#39;t consume any slots so if there are any regular connected
+					<span class="comment">// reserved peers don't consume any slots so if there are any regular connected
 					// peers, inbound/outbound slot count must be adjusted to not account for these
 					// peers anymore
 					//
@@ -2555,7 +2557,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 								<span class="prelude-val">Some</span>(PeerState::Connected { direction }) =&gt; {
 									<span class="macro">log::trace!</span>(
 										target: LOG_TARGET,
-										<span class="string">&quot;{}: close connection to {peer:?}, direction {direction:?}&quot;</span>,
+										<span class="string">"{}: close connection to {peer:?}, direction {direction:?}"</span>,
 										<span class="self">self</span>.protocol,
 									);
 
@@ -2567,7 +2569,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 								</span><span class="prelude-val">Some</span>(PeerState::Opening { direction }) =&gt; {
 									<span class="macro">log::trace!</span>(
 										target: LOG_TARGET,
-										<span class="string">&quot;{}: cancel substream to {peer:?}, direction {direction:?}&quot;</span>,
+										<span class="string">"{}: cancel substream to {peer:?}, direction {direction:?}"</span>,
 										<span class="self">self</span>.protocol,
 									);
 
@@ -2579,7 +2581,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 									<span class="bool-val">false
 								</span>},
 								<span class="prelude-val">None </span>=&gt; {
-									<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;{}: {peer:?} doesn&#39;t exist&quot;</span>, <span class="self">self</span>.protocol);
+									<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"{}: {peer:?} doesn't exist"</span>, <span class="self">self</span>.protocol);
 									<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
 									<span class="bool-val">false
 								</span>},
@@ -2589,16 +2591,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 					<span class="macro">log::trace!</span>(
 						target: LOG_TARGET,
-						<span class="string">&quot;{}: close substreams to {peers:?}&quot;</span>,
+						<span class="string">"{}: close substreams to {peers:?}"</span>,
 						<span class="self">self</span>.protocol,
 					);
 
 					<span class="kw">return </span>Poll::Ready(<span class="prelude-val">Some</span>(PeersetNotificationCommand::CloseSubstream { peers }))
 				},
 				PeersetCommand::AddReservedPeers { peers } =&gt; {
-					<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;{}: add reserved peers {peers:?}&quot;</span>, <span class="self">self</span>.protocol);
+					<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"{}: add reserved peers {peers:?}"</span>, <span class="self">self</span>.protocol);
 
-					<span class="comment">// reserved peers don&#39;t consume any slots so if there are any regular connected
+					<span class="comment">// reserved peers don't consume any slots so if there are any regular connected
 					// peers, inbound/outbound slot count must be adjusted to not account for these
 					// peers anymore
 					//
@@ -2614,7 +2616,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							<span class="kw">if </span>!<span class="self">self</span>.reserved_peers.insert(<span class="kw-2">*</span>peer) {
 								<span class="macro">log::warn!</span>(
 									target: LOG_TARGET,
-									<span class="string">&quot;{}: {peer:?} is already a reserved peer&quot;</span>,
+									<span class="string">"{}: {peer:?} is already a reserved peer"</span>,
 									<span class="self">self</span>.protocol,
 								);
 								<span class="kw">return </span><span class="prelude-val">None
@@ -2636,12 +2638,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						})
 						.collect();
 
-					<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;{}: start connecting to {peers:?}&quot;</span>, <span class="self">self</span>.protocol);
+					<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"{}: start connecting to {peers:?}"</span>, <span class="self">self</span>.protocol);
 
 					<span class="kw">return </span>Poll::Ready(<span class="prelude-val">Some</span>(PeersetNotificationCommand::OpenSubstream { peers }))
 				},
 				PeersetCommand::RemoveReservedPeers { peers } =&gt; {
-					<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;{}: remove reserved peers {peers:?}&quot;</span>, <span class="self">self</span>.protocol);
+					<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"{}: remove reserved peers {peers:?}"</span>, <span class="self">self</span>.protocol);
 
 					<span class="kw">let </span>peers_to_remove = peers
 						.iter()
@@ -2649,7 +2651,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							<span class="kw">if </span>!<span class="self">self</span>.reserved_peers.remove(peer) {
 								<span class="macro">log::debug!</span>(
 									target: LOG_TARGET,
-									<span class="string">&quot;{}: {peer} is not a reserved peer&quot;</span>,
+									<span class="string">"{}: {peer} is not a reserved peer"</span>,
 									<span class="self">self</span>.protocol,
 								);
 								<span class="kw">return </span><span class="prelude-val">None
@@ -2663,7 +2665,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 								</span>PeerState::Backoff =&gt; {
 									<span class="macro">log::trace!</span>(
 										target: LOG_TARGET,
-										<span class="string">&quot;{}: cannot disconnect removed reserved peer {peer:?}, already backed-off&quot;</span>,
+										<span class="string">"{}: cannot disconnect removed reserved peer {peer:?}, already backed-off"</span>,
 										<span class="self">self</span>.protocol,
 									);
 
@@ -2683,7 +2685,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 								</span>PeerState::Canceled { direction } =&gt; {
 									<span class="macro">log::trace!</span>(
 										target: LOG_TARGET,
-										<span class="string">&quot;{}: cannot disconnect removed reserved peer {peer:?}, already canceled&quot;</span>,
+										<span class="string">"{}: cannot disconnect removed reserved peer {peer:?}, already canceled"</span>,
 										<span class="self">self</span>.protocol,
 									);
 
@@ -2693,26 +2695,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 								<span class="comment">// substream to the peer might have failed to open which caused
 								// the peer to be backed off
 								//
-								// the back-off might&#39;ve expired by the time the peer was
+								// the back-off might've expired by the time the peer was
 								// disconnected at which point the peer is already disconnected
 								// when the protocol asked the peer to be disconnected
 								</span>PeerState::Disconnected =&gt; {
 									<span class="macro">log::trace!</span>(
 										target: LOG_TARGET,
-										<span class="string">&quot;{}: cannot disconnect removed reserved peer {peer:?}, already disconnected&quot;</span>,
+										<span class="string">"{}: cannot disconnect removed reserved peer {peer:?}, already disconnected"</span>,
 										<span class="self">self</span>.protocol,
 									);
 
 									<span class="self">self</span>.peers.insert(<span class="kw-2">*</span>peer, PeerState::Disconnected);
 									<span class="prelude-val">None
 								</span>},
-								<span class="comment">// if a node disconnects, it&#39;s put into `PeerState::Closing`
+								<span class="comment">// if a node disconnects, it's put into `PeerState::Closing`
 								// which indicates that `Peerset` wants the substream closed and
-								// has asked litep2p to close it but it hasn&#39;t yet received a
+								// has asked litep2p to close it but it hasn't yet received a
 								// confirmation. If the peer is added as a reserved peer while
 								// the substream is closing, the peer will remain in the closing
-								// state as `Peerset` can&#39;t do anything with the peer until it
-								// has heard from litep2p. It&#39;s possible that the peer is then
+								// state as `Peerset` can't do anything with the peer until it
+								// has heard from litep2p. It's possible that the peer is then
 								// removed from the reserved set before substream close event
 								// has been reported to `Peerset` (which the code below is
 								// handling) and it will once again be ignored until the close
@@ -2720,7 +2722,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 								</span>PeerState::Closing { direction } =&gt; {
 									<span class="macro">log::trace!</span>(
 										target: LOG_TARGET,
-										<span class="string">&quot;{}: cannot disconnect removed reserved peer {peer:?}, already closing&quot;</span>,
+										<span class="string">"{}: cannot disconnect removed reserved peer {peer:?}, already closing"</span>,
 										<span class="self">self</span>.protocol,
 									);
 
@@ -2740,7 +2742,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 										<span class="bool-val">true </span>=&gt; {
 											<span class="macro">log::trace!</span>(
 												target: LOG_TARGET,
-												<span class="string">&quot;{}: {peer:?} converted to regular inbound peer (inbound open)&quot;</span>,
+												<span class="string">"{}: {peer:?} converted to regular inbound peer (inbound open)"</span>,
 												<span class="self">self</span>.protocol,
 											);
 
@@ -2769,7 +2771,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 										<span class="bool-val">true </span>=&gt; {
 											<span class="macro">log::trace!</span>(
 												target: LOG_TARGET,
-												<span class="string">&quot;{}: {peer:?} converted to regular outbound peer (outbound open)&quot;</span>,
+												<span class="string">"{}: {peer:?} converted to regular outbound peer (outbound open)"</span>,
 												<span class="self">self</span>.protocol,
 											);
 
@@ -2800,7 +2802,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 										<span class="bool-val">true </span>=&gt; {
 											<span class="macro">log::trace!</span>(
 												target: LOG_TARGET,
-												<span class="string">&quot;{}: {peer:?} converted to regular inbound peer (inbound opening)&quot;</span>,
+												<span class="string">"{}: {peer:?} converted to regular inbound peer (inbound opening)"</span>,
 												<span class="self">self</span>.protocol,
 											);
 
@@ -2829,7 +2831,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 										<span class="bool-val">true </span>=&gt; {
 											<span class="macro">log::trace!</span>(
 												target: LOG_TARGET,
-												<span class="string">&quot;{}: {peer:?} converted to regular outbound peer (outbound opening)&quot;</span>,
+												<span class="string">"{}: {peer:?} converted to regular outbound peer (outbound opening)"</span>,
 												<span class="self">self</span>.protocol,
 											);
 
@@ -2861,7 +2863,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 					<span class="macro">log::debug!</span>(
 						target: LOG_TARGET,
-						<span class="string">&quot;{}: close substreams to {peers_to_remove:?}&quot;</span>,
+						<span class="string">"{}: close substreams to {peers_to_remove:?}"</span>,
 						<span class="self">self</span>.protocol,
 					);
 
@@ -2870,9 +2872,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					}))
 				},
 				PeersetCommand::SetReservedOnly { reserved_only } =&gt; {
-					<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;{}: set reserved only mode to {reserved_only}&quot;</span>, <span class="self">self</span>.protocol);
+					<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"{}: set reserved only mode to {reserved_only}"</span>, <span class="self">self</span>.protocol);
 
-					<span class="comment">// update mode and if it&#39;s set to true, disconnect all non-reserved peers
+					<span class="comment">// update mode and if it's set to true, disconnect all non-reserved peers
 					</span><span class="self">self</span>.reserved_only = reserved_only;
 
 					<span class="kw">if </span>reserved_only {
@@ -2966,13 +2968,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			}
 
 			<span class="comment">// start timer for the next allocation and if there were peers which the `Peerset`
-			// wasn&#39;t connected but should be, send command to litep2p to start opening substreams.
+			// wasn't connected but should be, send command to litep2p to start opening substreams.
 			</span><span class="self">self</span>.next_slot_allocation = Delay::new(SLOT_ALLOCATION_FREQUENCY);
 
 			<span class="kw">if </span>!connect_to.is_empty() {
 				<span class="macro">log::trace!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;{}: start connecting to peers {connect_to:?}&quot;</span>,
+					<span class="string">"{}: start connecting to peers {connect_to:?}"</span>,
 					<span class="self">self</span>.protocol,
 				);
 

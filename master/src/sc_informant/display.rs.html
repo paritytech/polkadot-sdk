@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/informant/src/display.rs`."><title>display.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/informant/src/display.rs`."><title>display.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_informant" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_informant" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sc_informant/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -473,7 +475,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>(level, status, target) =
 			<span class="kw">match </span>(sync_status.state, sync_status.state_sync, sync_status.warp_sync) {
-				<span class="comment">// Do not set status to &quot;Block history&quot; when we are doing a major sync.
+				<span class="comment">// Do not set status to "Block history" when we are doing a major sync.
 				//
 				// A node could for example have been warp synced to the tip of the chain and
 				// shutdown. At the next start we still need to download the block history, but
@@ -482,12 +484,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					sync_status,
 					<span class="kw">_</span>,
 					<span class="prelude-val">Some</span>(WarpSyncProgress { phase: WarpSyncPhase::DownloadingBlocks(n), .. }),
-				) <span class="kw">if </span>!sync_status.is_major_syncing() =&gt; (<span class="string">&quot;⏩&quot;</span>, <span class="string">&quot;Block history&quot;</span>.into(), <span class="macro">format!</span>(<span class="string">&quot;, #{}&quot;</span>, n)),
+				) <span class="kw">if </span>!sync_status.is_major_syncing() =&gt; (<span class="string">"⏩"</span>, <span class="string">"Block history"</span>.into(), <span class="macro">format!</span>(<span class="string">", #{}"</span>, n)),
 				(
 					<span class="kw">_</span>,
 					<span class="kw">_</span>,
 					<span class="prelude-val">Some</span>(WarpSyncProgress { phase: WarpSyncPhase::AwaitingTargetBlock, .. }),
-				) =&gt; (<span class="string">&quot;⏩&quot;</span>, <span class="string">&quot;Waiting for pending target block&quot;</span>.into(), <span class="string">&quot;&quot;</span>.into()),
+				) =&gt; (<span class="string">"⏩"</span>, <span class="string">"Waiting for pending target block"</span>.into(), <span class="string">""</span>.into()),
 				<span class="comment">// Handle all phases besides the two phases we already handle above.
 				</span>(<span class="kw">_</span>, <span class="kw">_</span>, <span class="prelude-val">Some</span>(warp))
 					<span class="kw">if </span>!<span class="macro">matches!</span>(
@@ -495,34 +497,34 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						WarpSyncPhase::AwaitingTargetBlock | WarpSyncPhase::DownloadingBlocks(<span class="kw">_</span>)
 					) =&gt;
 					(
-						<span class="string">&quot;⏩&quot;</span>,
-						<span class="string">&quot;Warping&quot;</span>.into(),
+						<span class="string">"⏩"</span>,
+						<span class="string">"Warping"</span>.into(),
 						<span class="macro">format!</span>(
-							<span class="string">&quot;, {}, {:.2} Mib&quot;</span>,
+							<span class="string">", {}, {:.2} Mib"</span>,
 							warp.phase,
 							(warp.total_bytes <span class="kw">as </span>f32) / (<span class="number">1024f32 </span>* <span class="number">1024f32</span>)
 						),
 					),
 				(<span class="kw">_</span>, <span class="prelude-val">Some</span>(state), <span class="kw">_</span>) =&gt; (
-					<span class="string">&quot;⚙️ &quot;</span>,
-					<span class="string">&quot;State sync&quot;</span>.into(),
+					<span class="string">"⚙️ "</span>,
+					<span class="string">"State sync"</span>.into(),
 					<span class="macro">format!</span>(
-						<span class="string">&quot;, {}, {}%, {:.2} Mib&quot;</span>,
+						<span class="string">", {}, {}%, {:.2} Mib"</span>,
 						state.phase,
 						state.percentage,
 						(state.size <span class="kw">as </span>f32) / (<span class="number">1024f32 </span>* <span class="number">1024f32</span>)
 					),
 				),
-				(SyncState::Idle, <span class="kw">_</span>, <span class="kw">_</span>) =&gt; (<span class="string">&quot;💤&quot;</span>, <span class="string">&quot;Idle&quot;</span>.into(), <span class="string">&quot;&quot;</span>.into()),
+				(SyncState::Idle, <span class="kw">_</span>, <span class="kw">_</span>) =&gt; (<span class="string">"💤"</span>, <span class="string">"Idle"</span>.into(), <span class="string">""</span>.into()),
 				(SyncState::Downloading { target }, <span class="kw">_</span>, <span class="kw">_</span>) =&gt;
-					(<span class="string">&quot;⚙️ &quot;</span>, <span class="macro">format!</span>(<span class="string">&quot;Syncing{}&quot;</span>, speed), <span class="macro">format!</span>(<span class="string">&quot;, target=#{target}&quot;</span>)),
+					(<span class="string">"⚙️ "</span>, <span class="macro">format!</span>(<span class="string">"Syncing{}"</span>, speed), <span class="macro">format!</span>(<span class="string">", target=#{target}"</span>)),
 				(SyncState::Importing { target }, <span class="kw">_</span>, <span class="kw">_</span>) =&gt;
-					(<span class="string">&quot;⚙️ &quot;</span>, <span class="macro">format!</span>(<span class="string">&quot;Preparing{}&quot;</span>, speed), <span class="macro">format!</span>(<span class="string">&quot;, target=#{target}&quot;</span>)),
+					(<span class="string">"⚙️ "</span>, <span class="macro">format!</span>(<span class="string">"Preparing{}"</span>, speed), <span class="macro">format!</span>(<span class="string">", target=#{target}"</span>)),
 			};
 
 		<span class="macro">info!</span>(
-			target: <span class="string">&quot;substrate&quot;</span>,
-			<span class="string">&quot;{} {}{} ({} peers), best: #{} ({}), finalized #{} ({}), {} {}&quot;</span>,
+			target: <span class="string">"substrate"</span>,
+			<span class="string">"{} {}{} ({} peers), best: #{} ({}), finalized #{} ({}), {} {}"</span>,
 			level,
 			<span class="self">self</span>.format.print_with_color(Colour::White.bold(), status),
 			target,
@@ -531,8 +533,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			best_hash,
 			<span class="self">self</span>.format.print_with_color(Colour::White.bold(), finalized_number),
 			info.chain.finalized_hash,
-			<span class="self">self</span>.format.print_with_color(Colour::Green, <span class="macro">format!</span>(<span class="string">&quot;⬇ {}&quot;</span>, TransferRateFormat(avg_bytes_per_sec_inbound))),
-			<span class="self">self</span>.format.print_with_color(Colour::Red, <span class="macro">format!</span>(<span class="string">&quot;⬆ {}&quot;</span>, TransferRateFormat(avg_bytes_per_sec_outbound))),
+			<span class="self">self</span>.format.print_with_color(Colour::Green, <span class="macro">format!</span>(<span class="string">"⬇ {}"</span>, TransferRateFormat(avg_bytes_per_sec_inbound))),
+			<span class="self">self</span>.format.print_with_color(Colour::Red, <span class="macro">format!</span>(<span class="string">"⬆ {}"</span>, TransferRateFormat(avg_bytes_per_sec_outbound))),
 		)
 	}
 }
@@ -559,16 +561,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	};
 
 	<span class="kw">if let </span><span class="prelude-val">Ok</span>(diff) = TryInto::&lt;u128&gt;::try_into(diff) {
-		<span class="comment">// If the number of blocks can be converted to a regular integer, then it&#39;s easy: just
+		<span class="comment">// If the number of blocks can be converted to a regular integer, then it's easy: just
 		// do the math and turn it into a `f64`.
 		</span><span class="kw">let </span>speed = diff
 			.saturating_mul(<span class="number">10_000</span>)
 			.checked_div(u128::from(elapsed_ms))
 			.map_or(<span class="number">0.0</span>, |s| s <span class="kw">as </span>f64) /
 			<span class="number">10.0</span>;
-		<span class="macro">format!</span>(<span class="string">&quot; {:4.1} bps&quot;</span>, speed)
+		<span class="macro">format!</span>(<span class="string">" {:4.1} bps"</span>, speed)
 	} <span class="kw">else </span>{
-		<span class="comment">// If the number of blocks can&#39;t be converted to a regular integer, then we need a more
+		<span class="comment">// If the number of blocks can't be converted to a regular integer, then we need a more
 		// algebraic approach and we stay within the realm of integers.
 		</span><span class="kw">let </span>one_thousand = NumberFor::&lt;B&gt;::from(<span class="number">1_000u32</span>);
 		<span class="kw">let </span>elapsed =
@@ -578,7 +580,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.saturating_mul(one_thousand)
 			.checked_div(<span class="kw-2">&amp;</span>elapsed)
 			.unwrap_or_else(Zero::zero);
-		<span class="macro">format!</span>(<span class="string">&quot; {} bps&quot;</span>, speed)
+		<span class="macro">format!</span>(<span class="string">" {} bps"</span>, speed)
 	}
 }
 
@@ -589,20 +591,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter) -&gt; fmt::Result {
 		<span class="comment">// Special case 0.
 		</span><span class="kw">if </span><span class="self">self</span>.<span class="number">0 </span>== <span class="number">0 </span>{
-			<span class="kw">return </span><span class="macro">write!</span>(f, <span class="string">&quot;0&quot;</span>)
+			<span class="kw">return </span><span class="macro">write!</span>(f, <span class="string">"0"</span>)
 		}
 
 		<span class="comment">// Under 0.1 kiB, display plain bytes.
 		</span><span class="kw">if </span><span class="self">self</span>.<span class="number">0 </span>&lt; <span class="number">100 </span>{
-			<span class="kw">return </span><span class="macro">write!</span>(f, <span class="string">&quot;{} B/s&quot;</span>, <span class="self">self</span>.<span class="number">0</span>)
+			<span class="kw">return </span><span class="macro">write!</span>(f, <span class="string">"{} B/s"</span>, <span class="self">self</span>.<span class="number">0</span>)
 		}
 
 		<span class="comment">// Under 1.0 MiB/sec, display the value in kiB/sec.
 		</span><span class="kw">if </span><span class="self">self</span>.<span class="number">0 </span>&lt; <span class="number">1024 </span>* <span class="number">1024 </span>{
-			<span class="kw">return </span><span class="macro">write!</span>(f, <span class="string">&quot;{:.1}kiB/s&quot;</span>, <span class="self">self</span>.<span class="number">0 </span><span class="kw">as </span>f64 / <span class="number">1024.0</span>)
+			<span class="kw">return </span><span class="macro">write!</span>(f, <span class="string">"{:.1}kiB/s"</span>, <span class="self">self</span>.<span class="number">0 </span><span class="kw">as </span>f64 / <span class="number">1024.0</span>)
 		}
 
-		<span class="macro">write!</span>(f, <span class="string">&quot;{:.1}MiB/s&quot;</span>, <span class="self">self</span>.<span class="number">0 </span><span class="kw">as </span>f64 / (<span class="number">1024.0 </span>* <span class="number">1024.0</span>))
+		<span class="macro">write!</span>(f, <span class="string">"{:.1}MiB/s"</span>, <span class="self">self</span>.<span class="number">0 </span><span class="kw">as </span>f64 / (<span class="number">1024.0 </span>* <span class="number">1024.0</span>))
 	}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

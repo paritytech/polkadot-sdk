@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/utils/frame/benchmarking-cli/src/machine/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/utils/frame/benchmarking-cli/src/machine/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="frame_benchmarking_cli" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="frame_benchmarking_cli" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../frame_benchmarking_cli/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -392,14 +394,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -429,7 +431,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Command to benchmark the hardware.
 ///
 /// Runs multiple benchmarks and prints their output to console.
-/// Can be used to gauge if the hardware is fast enough to keep up with a chain&#39;s requirements.
+/// Can be used to gauge if the hardware is fast enough to keep up with a chain's requirements.
 /// This command must be integrated by the client since the client can set compiler flags
 /// which influence the results.
 ///
@@ -450,23 +452,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// 10% means that the test would pass even when only 90% score was archived.
 	/// Can be used to mitigate outliers of the benchmarks.
-	</span><span class="attr">#[arg(long, default_value_t = <span class="number">10.0</span>, value_name = <span class="string">&quot;PERCENT&quot;</span>)]
+	</span><span class="attr">#[arg(long, default_value_t = <span class="number">10.0</span>, value_name = <span class="string">"PERCENT"</span>)]
 	</span><span class="kw">pub </span>tolerance: f64,
 
 	<span class="doccomment">/// Time limit for the verification benchmark.
-	</span><span class="attr">#[arg(long, default_value_t = <span class="number">5.0</span>, value_name = <span class="string">&quot;SECONDS&quot;</span>)]
+	</span><span class="attr">#[arg(long, default_value_t = <span class="number">5.0</span>, value_name = <span class="string">"SECONDS"</span>)]
 	</span><span class="kw">pub </span>verify_duration: f32,
 
 	<span class="doccomment">/// Time limit for the hash function benchmark.
-	</span><span class="attr">#[arg(long, default_value_t = <span class="number">5.0</span>, value_name = <span class="string">&quot;SECONDS&quot;</span>)]
+	</span><span class="attr">#[arg(long, default_value_t = <span class="number">5.0</span>, value_name = <span class="string">"SECONDS"</span>)]
 	</span><span class="kw">pub </span>hash_duration: f32,
 
 	<span class="doccomment">/// Time limit for the memory benchmark.
-	</span><span class="attr">#[arg(long, default_value_t = <span class="number">5.0</span>, value_name = <span class="string">&quot;SECONDS&quot;</span>)]
+	</span><span class="attr">#[arg(long, default_value_t = <span class="number">5.0</span>, value_name = <span class="string">"SECONDS"</span>)]
 	</span><span class="kw">pub </span>memory_duration: f32,
 
 	<span class="doccomment">/// Time limit for each disk benchmark.
-	</span><span class="attr">#[arg(long, default_value_t = <span class="number">5.0</span>, value_name = <span class="string">&quot;SECONDS&quot;</span>)]
+	</span><span class="attr">#[arg(long, default_value_t = <span class="number">5.0</span>, value_name = <span class="string">"SECONDS"</span>)]
 	</span><span class="kw">pub </span>disk_duration: f32,
 }
 
@@ -488,13 +490,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[derive(Debug, thiserror::Error)]
 #[allow(missing_docs)]
 </span><span class="kw">pub enum </span>Error {
-	<span class="attr">#[error(<span class="string">&quot;One of the benchmarks had a score that was lower than its requirement&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"One of the benchmarks had a score that was lower than its requirement"</span>)]
 	</span>UnmetRequirement,
 
-	<span class="attr">#[error(<span class="string">&quot;The build profile is unfit for benchmarking: {0}&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"The build profile is unfit for benchmarking: {0}"</span>)]
 	</span>BadBuildProfile(String),
 
-	<span class="attr">#[error(<span class="string">&quot;Benchmark results are off by at least factor 100&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Benchmark results are off by at least factor 100"</span>)]
 	</span>BadResults,
 }
 
@@ -503,10 +505,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub fn </span>run(<span class="kw-2">&amp;</span><span class="self">self</span>, cfg: <span class="kw-2">&amp;</span>Configuration, requirements: Requirements) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
 		<span class="self">self</span>.validate_args()<span class="question-mark">?</span>;
 		<span class="comment">// Ensure that the dir exists since the node is not started to take care of it.
-		</span><span class="kw">let </span>dir = cfg.database.path().ok_or(<span class="string">&quot;No DB directory provided&quot;</span>)<span class="question-mark">?</span>;
+		</span><span class="kw">let </span>dir = cfg.database.path().ok_or(<span class="string">"No DB directory provided"</span>)<span class="question-mark">?</span>;
 		fs::create_dir_all(dir)<span class="question-mark">?</span>;
 
-		<span class="macro">info!</span>(<span class="string">&quot;Running machine benchmarks...&quot;</span>);
+		<span class="macro">info!</span>(<span class="string">"Running machine benchmarks..."</span>);
 		<span class="kw">let </span><span class="kw-2">mut </span>results = Vec::new();
 		<span class="kw">for </span>requirement <span class="kw">in </span><span class="kw-2">&amp;</span>requirements.<span class="number">0 </span>{
 			<span class="kw">let </span>result = <span class="self">self</span>.run_benchmark(requirement, <span class="kw-2">&amp;</span>dir)<span class="question-mark">?</span>;
@@ -551,7 +553,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>print_summary(<span class="kw-2">&amp;</span><span class="self">self</span>, requirements: Requirements, results: Vec&lt;BenchResult&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
 		<span class="comment">// Use a table for nicer console output.
 		</span><span class="kw">let </span><span class="kw-2">mut </span>table = Table::new();
-		table.set_header([<span class="string">&quot;Category&quot;</span>, <span class="string">&quot;Function&quot;</span>, <span class="string">&quot;Score&quot;</span>, <span class="string">&quot;Minimum&quot;</span>, <span class="string">&quot;Result&quot;</span>]);
+		table.set_header([<span class="string">"Category"</span>, <span class="string">"Function"</span>, <span class="string">"Score"</span>, <span class="string">"Minimum"</span>, <span class="string">"Result"</span>]);
 		<span class="comment">// Count how many passed and how many failed.
 		</span><span class="kw">let </span>(<span class="kw-2">mut </span>passed, <span class="kw-2">mut </span>failed) = (<span class="number">0</span>, <span class="number">0</span>);
 		<span class="kw">for </span>(requirement, result) <span class="kw">in </span>requirements.<span class="number">0</span>.iter().zip(results.iter()) {
@@ -565,7 +567,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 		<span class="comment">// Print the table and a summary.
 		</span><span class="macro">info!</span>(
-			<span class="string">&quot;\n{}\nFrom {} benchmarks in total, {} passed and {} failed ({:.0?}% fault tolerance).&quot;</span>,
+			<span class="string">"\n{}\nFrom {} benchmarks in total, {} passed and {} failed ({:.0?}% fault tolerance)."</span>,
 			table,
 			passed + failed,
 			passed,
@@ -574,10 +576,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		);
 		<span class="comment">// Print the final result.
 		</span><span class="kw">if </span>failed != <span class="number">0 </span>{
-			<span class="macro">info!</span>(<span class="string">&quot;The hardware fails to meet the requirements&quot;</span>);
+			<span class="macro">info!</span>(<span class="string">"The hardware fails to meet the requirements"</span>);
 			<span class="self">self</span>.check_failed(Error::UnmetRequirement)<span class="question-mark">?</span>;
 		} <span class="kw">else </span>{
-			<span class="macro">info!</span>(<span class="string">&quot;The hardware meets the requirements &quot;</span>);
+			<span class="macro">info!</span>(<span class="string">"The hardware meets the requirements "</span>);
 		}
 		<span class="comment">// Check that the results were not created by a bad build profile.
 		</span><span class="kw">if let </span><span class="prelude-val">Err</span>(err) = check_build_profile() {
@@ -589,10 +591,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Returns `Ok` if [`self.allow_fail`] is set and otherwise the error argument.
 	</span><span class="kw">fn </span>check_failed(<span class="kw-2">&amp;</span><span class="self">self</span>, e: Error) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
 		<span class="kw">if </span>!<span class="self">self</span>.allow_fail {
-			<span class="macro">error!</span>(<span class="string">&quot;Failing since --allow-fail is not set&quot;</span>);
+			<span class="macro">error!</span>(<span class="string">"Failing since --allow-fail is not set"</span>);
 			<span class="prelude-val">Err</span>(sc_cli::Error::Application(Box::new(e)))
 		} <span class="kw">else </span>{
-			<span class="macro">warn!</span>(<span class="string">&quot;Ignoring error since --allow-fail is set: {:?}&quot;</span>, e);
+			<span class="macro">warn!</span>(<span class="string">"Ignoring error since --allow-fail is set: {:?}"</span>, e);
 			<span class="prelude-val">Ok</span>(())
 		}
 	}
@@ -600,7 +602,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Validates the CLI arguments.
 	</span><span class="kw">fn </span>validate_args(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
 		<span class="kw">if </span><span class="self">self</span>.tolerance &gt; <span class="number">100.0 </span>|| <span class="self">self</span>.tolerance &lt; <span class="number">0.0 </span>{
-			<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;The --tolerance argument is out of range&quot;</span>.into())
+			<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"The --tolerance argument is out of range"</span>.into())
 		}
 		<span class="prelude-val">Ok</span>(())
 	}
@@ -609,13 +611,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl </span>BenchResult {
 	<span class="doccomment">/// Format [`Self`] as row that can be printed in a table.
 	</span><span class="kw">fn </span>to_row(<span class="kw-2">&amp;</span><span class="self">self</span>, req: <span class="kw-2">&amp;</span>Requirement) -&gt; Row {
-		<span class="kw">let </span>passed = <span class="kw">if </span><span class="self">self</span>.passed { <span class="string">&quot;✅ Pass&quot; </span>} <span class="kw">else </span>{ <span class="string">&quot;❌ Fail&quot; </span>};
+		<span class="kw">let </span>passed = <span class="kw">if </span><span class="self">self</span>.passed { <span class="string">"✅ Pass" </span>} <span class="kw">else </span>{ <span class="string">"❌ Fail" </span>};
 		<span class="macro">vec!</span>[
 			req.metric.category().into(),
 			req.metric.name().into(),
-			<span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, <span class="self">self</span>.score),
-			<span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, req.minimum),
-			<span class="macro">format!</span>(<span class="string">&quot;{} ({: &gt;5.1?} %)&quot;</span>, passed, <span class="self">self</span>.rel_score * <span class="number">100.0</span>),
+			<span class="macro">format!</span>(<span class="string">"{}"</span>, <span class="self">self</span>.score),
+			<span class="macro">format!</span>(<span class="string">"{}"</span>, req.minimum),
+			<span class="macro">format!</span>(<span class="string">"{} ({: &gt;5.1?} %)"</span>, passed, <span class="self">self</span>.rel_score * <span class="number">100.0</span>),
 		]
 		.into()
 	}

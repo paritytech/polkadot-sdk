@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/xcm/src/v4/location.rs`."><title>location.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/xcm/src/v4/location.rs`."><title>location.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="staging_xcm" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="staging_xcm" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../staging_xcm/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -944,9 +946,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// A `Location` is a *relative identifier*, meaning that it can only be used to define the
 /// relative path between two locations, and cannot generally be used to refer to a location
 /// universally. It is comprised of an integer number of parents specifying the number of times to
-/// &quot;escape&quot; upwards into the containing consensus system and then a number of *junctions*, each
+/// "escape" upwards into the containing consensus system and then a number of *junctions*, each
 /// diving down and specifying some interior portion of state (which may be considered a
-/// &quot;sub-consensus&quot; system).
+/// "sub-consensus" system).
 ///
 /// This specific `Location` implementation uses a `Junctions` datatype which is a Rust `enum`
 /// in order to make pattern matching easier. There are occasions where it is important to ensure
@@ -998,7 +1000,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Creates a new `Location` with 0 parents and a `Here` interior.
 	///
-	/// The resulting `Location` can be interpreted as the &quot;current consensus system&quot;.
+	/// The resulting `Location` can be interpreted as the "current consensus system".
 	</span><span class="kw">pub const fn </span>here() -&gt; Location {
 		Location { parents: <span class="number">0</span>, interior: Junctions::Here }
 	}
@@ -1146,7 +1148,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Returns a mutable reference to the junction at index `i`, or `None` if the location is a
-	/// parent or if it doesn&#39;t contain that many elements.
+	/// parent or if it doesn't contain that many elements.
 	</span><span class="kw">pub fn </span>at_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>, i: usize) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;mut </span>Junction&gt; {
 		<span class="kw">let </span>num_parents = <span class="self">self</span>.parents <span class="kw">as </span>usize;
 		<span class="kw">if </span>i &lt; num_parents {
@@ -1268,13 +1270,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">return </span><span class="prelude-val">Err</span>(prefix)
 		}
 
-		<span class="comment">// cancel out the final item on the prefix interior for one of the suffix&#39;s parents.
+		<span class="comment">// cancel out the final item on the prefix interior for one of the suffix's parents.
 		</span><span class="kw">while </span><span class="self">self</span>.parents &gt; <span class="number">0 </span>&amp;&amp; prefix.take_last().is_some() {
 			<span class="self">self</span>.dec_parent();
 		}
 
-		<span class="comment">// now we have either removed all suffix&#39;s parents or prefix interior.
-		// this means we can combine the prefix&#39;s and suffix&#39;s remaining parents/interior since
+		<span class="comment">// now we have either removed all suffix's parents or prefix interior.
+		// this means we can combine the prefix's and suffix's remaining parents/interior since
 		// we know that with at least one empty, the overall order will be respected:
 		//     prefix     self (suffix)
 		// P .. P   (I)   p .. p i .. i =&gt; P + p .. (no I) i
@@ -1284,7 +1286,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="self">self</span>.parents = <span class="self">self</span>.parents.saturating_add(prefix.parents);
 		<span class="kw">for </span>j <span class="kw">in </span>prefix.interior.into_iter().rev() {
 			<span class="self">self</span>.push_front_interior(j)
-				.expect(<span class="string">&quot;final_interior no greater than MAX_JUNCTIONS; qed&quot;</span>);
+				.expect(<span class="string">"final_interior no greater than MAX_JUNCTIONS; qed"</span>);
 		}
 		<span class="prelude-val">Ok</span>(())
 	}
@@ -1357,7 +1359,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		// 1. Use our `context` to figure out how the `target` would address us.
 		</span><span class="kw">let </span>inverted_target = context.invert_target(target)<span class="question-mark">?</span>;
 
-		<span class="comment">// 2. Prepend `inverted_target` to `self` to get self&#39;s location from the perspective of
+		<span class="comment">// 2. Prepend `inverted_target` to `self` to get self's location from the perspective of
 		// `target`.
 		</span><span class="self">self</span>.prepend_with(inverted_target).map_err(|<span class="kw">_</span>| ())<span class="question-mark">?</span>;
 
@@ -1614,7 +1616,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.unwrap();
 		<span class="macro">assert_eq!</span>(m, res);
 
-		<span class="comment">// make sure there&#39;s no funny business with the 0 indexing
+		<span class="comment">// make sure there's no funny business with the 0 indexing
 		</span><span class="kw">let </span>m = Here;
 		<span class="kw">let </span><span class="kw-2">mut </span>iter = m.iter();
 

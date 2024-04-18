@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/trie/src/recorder.rs`."><title>recorder.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/trie/src/recorder.rs`."><title>recorder.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_trie" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_trie" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sp_trie/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -895,14 +897,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -928,7 +930,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 };
 <span class="kw">use </span>trie_db::{RecordedForKey, TrieAccess};
 
-<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;trie-recorder&quot;</span>;
+<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"trie-recorder"</span>;
 
 <span class="doccomment">/// Stores all the information per transaction.
 </span><span class="attr">#[derive(Default)]
@@ -936,7 +938,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Stores transaction information about [`RecorderInner::recorded_keys`].
 	///
 	/// For each transaction we only store the `storage_root` and the old states per key. `None`
-	/// state means that the key wasn&#39;t recorded before.
+	/// state means that the key wasn't recorded before.
 	</span>recorded_keys: HashMap&lt;H, HashMap&lt;Arc&lt;[u8]&gt;, <span class="prelude-ty">Option</span>&lt;RecordedForKey&gt;&gt;&gt;,
 	<span class="doccomment">/// Stores transaction information about [`RecorderInner::accessed_nodes`].
 	///
@@ -1013,7 +1015,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// NOTE: This locks a mutex that stays locked until the return value is dropped.
 	</span><span class="attr">#[inline]
-	</span><span class="kw">pub fn </span>as_trie_recorder(<span class="kw-2">&amp;</span><span class="self">self</span>, storage_root: H::Out) -&gt; TrieRecorder&lt;<span class="lifetime">&#39;_</span>, H&gt; {
+	</span><span class="kw">pub fn </span>as_trie_recorder(<span class="kw-2">&amp;</span><span class="self">self</span>, storage_root: H::Out) -&gt; TrieRecorder&lt;<span class="lifetime">'_</span>, H&gt; {
 		TrieRecorder::&lt;H&gt; {
 			inner: <span class="self">self</span>.inner.lock(),
 			storage_root,
@@ -1027,7 +1029,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// While a recorder can be cloned, all share the same internal state. After calling this
 	/// function, all other instances will have their internal state reset as well.
 	///
-	/// If you don&#39;t want to drain the recorded state, use [`Self::to_storage_proof`].
+	/// If you don't want to drain the recorded state, use [`Self::to_storage_proof`].
 	///
 	/// Returns the [`StorageProof`].
 	</span><span class="kw">pub fn </span>drain_storage_proof(<span class="self">self</span>) -&gt; StorageProof {
@@ -1037,7 +1039,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Convert the recording to a [`StorageProof`].
 	///
-	/// In contrast to [`Self::drain_storage_proof`] this doesn&#39;t consumes and doesn&#39;t clears the
+	/// In contrast to [`Self::drain_storage_proof`] this doesn't consumes and doesn't clears the
 	/// recordings.
 	///
 	/// Returns the [`StorageProof`].
@@ -1070,7 +1072,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Rollback the latest transaction.
 	///
-	/// Returns an error if there wasn&#39;t any active transaction.
+	/// Returns an error if there wasn't any active transaction.
 	</span><span class="kw">pub fn </span>rollback_transaction(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), ()&gt; {
 		<span class="kw">let </span><span class="kw-2">mut </span>inner = <span class="self">self</span>.inner.lock();
 
@@ -1104,7 +1106,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Commit the latest transaction.
 	///
-	/// Returns an error if there wasn&#39;t any active transaction.
+	/// Returns an error if there wasn't any active transaction.
 	</span><span class="kw">pub fn </span>commit_transaction(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), ()&gt; {
 		<span class="kw">let </span><span class="kw-2">mut </span>inner = <span class="self">self</span>.inner.lock();
 
@@ -1136,26 +1138,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// The [`TrieRecorder`](trie_db::TrieRecorder) implementation.
-</span><span class="kw">pub struct </span>TrieRecorder&lt;<span class="lifetime">&#39;a</span>, H: Hasher&gt; {
-	inner: MutexGuard&lt;<span class="lifetime">&#39;a</span>, RecorderInner&lt;H::Out&gt;&gt;,
+</span><span class="kw">pub struct </span>TrieRecorder&lt;<span class="lifetime">'a</span>, H: Hasher&gt; {
+	inner: MutexGuard&lt;<span class="lifetime">'a</span>, RecorderInner&lt;H::Out&gt;&gt;,
 	storage_root: H::Out,
 	encoded_size_estimation: Arc&lt;AtomicUsize&gt;,
 	_phantom: PhantomData&lt;H&gt;,
 }
 
 <span class="kw">impl</span>&lt;H: Hasher&gt; <span class="kw">crate</span>::TrieRecorderProvider&lt;H&gt; <span class="kw">for </span>Recorder&lt;H&gt; {
-	<span class="kw">type </span>Recorder&lt;<span class="lifetime">&#39;a</span>&gt; = TrieRecorder&lt;<span class="lifetime">&#39;a</span>, H&gt; <span class="kw">where </span>H: <span class="lifetime">&#39;a</span>;
+	<span class="kw">type </span>Recorder&lt;<span class="lifetime">'a</span>&gt; = TrieRecorder&lt;<span class="lifetime">'a</span>, H&gt; <span class="kw">where </span>H: <span class="lifetime">'a</span>;
 
 	<span class="kw">fn </span>drain_storage_proof(<span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;StorageProof&gt; {
 		<span class="prelude-val">Some</span>(Recorder::drain_storage_proof(<span class="self">self</span>))
 	}
 
-	<span class="kw">fn </span>as_trie_recorder(<span class="kw-2">&amp;</span><span class="self">self</span>, storage_root: H::Out) -&gt; <span class="self">Self</span>::Recorder&lt;<span class="lifetime">&#39;_</span>&gt; {
+	<span class="kw">fn </span>as_trie_recorder(<span class="kw-2">&amp;</span><span class="self">self</span>, storage_root: H::Out) -&gt; <span class="self">Self</span>::Recorder&lt;<span class="lifetime">'_</span>&gt; {
 		Recorder::as_trie_recorder(<span class="kw-2">&amp;</span><span class="self">self</span>, storage_root)
 	}
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, H: Hasher&gt; TrieRecorder&lt;<span class="lifetime">&#39;a</span>, H&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, H: Hasher&gt; TrieRecorder&lt;<span class="lifetime">'a</span>, H&gt; {
 	<span class="doccomment">/// Update the recorded keys entry for the given `full_key`.
 	</span><span class="kw">fn </span>update_recorded_keys(<span class="kw-2">&amp;mut </span><span class="self">self</span>, full_key: <span class="kw-2">&amp;</span>[u8], access: RecordedForKey) {
 		<span class="kw">let </span>inner = <span class="self">self</span>.inner.deref_mut();
@@ -1165,7 +1167,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>key = entry.key().clone();
 
-		<span class="comment">// We don&#39;t need to update the record if we only accessed the `Hash` for the given
+		<span class="comment">// We don't need to update the record if we only accessed the `Hash` for the given
 		// `full_key`. Only `Value` access can be an upgrade from `Hash`.
 		</span><span class="kw">let </span>entry = <span class="kw">if </span><span class="macro">matches!</span>(access, RecordedForKey::Value) {
 			entry.and_modify(|e| {
@@ -1186,7 +1188,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		entry.or_insert_with(|| {
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(tx) = inner.transactions.last_mut() {
-				<span class="comment">// The key wasn&#39;t yet recorded, so there isn&#39;t any old state.
+				<span class="comment">// The key wasn't yet recorded, so there isn't any old state.
 				</span>tx.recorded_keys
 					.entry(<span class="self">self</span>.storage_root)
 					.or_default()
@@ -1199,7 +1201,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, H: Hasher&gt; trie_db::TrieRecorder&lt;H::Out&gt; <span class="kw">for </span>TrieRecorder&lt;<span class="lifetime">&#39;a</span>, H&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, H: Hasher&gt; trie_db::TrieRecorder&lt;H::Out&gt; <span class="kw">for </span>TrieRecorder&lt;<span class="lifetime">'a</span>, H&gt; {
 	<span class="kw">fn </span>record(<span class="kw-2">&amp;mut </span><span class="self">self</span>, access: TrieAccess&lt;H::Out&gt;) {
 		<span class="kw">let </span><span class="kw-2">mut </span>encoded_size_update = <span class="number">0</span>;
 
@@ -1208,7 +1210,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="macro">tracing::trace!</span>(
 					target: LOG_TARGET,
 					hash = <span class="question-mark">?</span>hash,
-					<span class="string">&quot;Recording node&quot;</span>,
+					<span class="string">"Recording node"</span>,
 				);
 
 				<span class="kw">let </span>inner = <span class="self">self</span>.inner.deref_mut();
@@ -1229,7 +1231,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="macro">tracing::trace!</span>(
 					target: LOG_TARGET,
 					hash = <span class="question-mark">?</span>hash,
-					<span class="string">&quot;Recording node&quot;</span>,
+					<span class="string">"Recording node"</span>,
 				);
 
 				<span class="kw">let </span>inner = <span class="self">self</span>.inner.deref_mut();
@@ -1251,7 +1253,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					target: LOG_TARGET,
 					hash = <span class="question-mark">?</span>hash,
 					key = <span class="question-mark">?</span>sp_core::hexdisplay::HexDisplay::from(<span class="kw-2">&amp;</span>full_key),
-					<span class="string">&quot;Recording value&quot;</span>,
+					<span class="string">"Recording value"</span>,
 				);
 
 				<span class="kw">let </span>inner = <span class="self">self</span>.inner.deref_mut();
@@ -1274,10 +1276,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="macro">tracing::trace!</span>(
 					target: LOG_TARGET,
 					key = <span class="question-mark">?</span>sp_core::hexdisplay::HexDisplay::from(<span class="kw-2">&amp;</span>full_key),
-					<span class="string">&quot;Recorded hash access for key&quot;</span>,
+					<span class="string">"Recorded hash access for key"</span>,
 				);
 
-				<span class="comment">// We don&#39;t need to update the `encoded_size_update` as the hash was already
+				<span class="comment">// We don't need to update the `encoded_size_update` as the hash was already
 				// accounted for by the recorded node that holds the hash.
 				</span><span class="self">self</span>.update_recorded_keys(full_key, RecordedForKey::Hash);
 			},
@@ -1285,19 +1287,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="macro">tracing::trace!</span>(
 					target: LOG_TARGET,
 					key = <span class="question-mark">?</span>sp_core::hexdisplay::HexDisplay::from(<span class="kw-2">&amp;</span>full_key),
-					<span class="string">&quot;Recorded non-existing value access for key&quot;</span>,
+					<span class="string">"Recorded non-existing value access for key"</span>,
 				);
 
 				<span class="comment">// Non-existing access means we recorded all trie nodes up to the value.
-				// Not the actual value, as it doesn&#39;t exist, but all trie nodes to know
-				// that the value doesn&#39;t exist in the trie.
+				// Not the actual value, as it doesn't exist, but all trie nodes to know
+				// that the value doesn't exist in the trie.
 				</span><span class="self">self</span>.update_recorded_keys(full_key, RecordedForKey::Value);
 			},
 			TrieAccess::InlineValue { full_key } =&gt; {
 				<span class="macro">tracing::trace!</span>(
 					target: LOG_TARGET,
 					key = <span class="question-mark">?</span>sp_core::hexdisplay::HexDisplay::from(<span class="kw-2">&amp;</span>full_key),
-					<span class="string">&quot;Recorded inline value access for key&quot;</span>,
+					<span class="string">"Recorded inline value access for key"</span>,
 				);
 
 				<span class="comment">// A value was accessed that is stored inline a node and we recorded all trie nodes
@@ -1328,7 +1330,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>Recorder = <span class="kw">super</span>::Recorder&lt;sp_core::Blake2Hasher&gt;;
 
 	<span class="kw">const </span>TEST_DATA: <span class="kw-2">&amp;</span>[(<span class="kw-2">&amp;</span>[u8], <span class="kw-2">&amp;</span>[u8])] =
-		<span class="kw-2">&amp;</span>[(<span class="string">b&quot;key1&quot;</span>, <span class="kw-2">&amp;</span>[<span class="number">1</span>; <span class="number">64</span>]), (<span class="string">b&quot;key2&quot;</span>, <span class="kw-2">&amp;</span>[<span class="number">2</span>; <span class="number">64</span>]), (<span class="string">b&quot;key3&quot;</span>, <span class="kw-2">&amp;</span>[<span class="number">3</span>; <span class="number">64</span>]), (<span class="string">b&quot;key4&quot;</span>, <span class="kw-2">&amp;</span>[<span class="number">4</span>; <span class="number">64</span>])];
+		<span class="kw-2">&amp;</span>[(<span class="string">b"key1"</span>, <span class="kw-2">&amp;</span>[<span class="number">1</span>; <span class="number">64</span>]), (<span class="string">b"key2"</span>, <span class="kw-2">&amp;</span>[<span class="number">2</span>; <span class="number">64</span>]), (<span class="string">b"key3"</span>, <span class="kw-2">&amp;</span>[<span class="number">3</span>; <span class="number">64</span>]), (<span class="string">b"key4"</span>, <span class="kw-2">&amp;</span>[<span class="number">4</span>; <span class="number">64</span>])];
 
 	<span class="kw">fn </span>create_trie() -&gt; (MemoryDB, TrieHash&lt;Layout&gt;) {
 		<span class="kw">let </span><span class="kw-2">mut </span>db = MemoryDB::default();
@@ -1337,7 +1339,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		{
 			<span class="kw">let </span><span class="kw-2">mut </span>trie = TrieDBMutBuilder::&lt;Layout&gt;::new(<span class="kw-2">&amp;mut </span>db, <span class="kw-2">&amp;mut </span>root).build();
 			<span class="kw">for </span>(k, v) <span class="kw">in </span>TEST_DATA {
-				trie.insert(k, v).expect(<span class="string">&quot;Inserts data&quot;</span>);
+				trie.insert(k, v).expect(<span class="string">"Inserts data"</span>);
 			}
 		}
 

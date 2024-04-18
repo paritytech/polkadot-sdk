@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/xcm/xcm-builder/src/fungibles_adapter.rs`."><title>fungibles_adapter.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/xcm/xcm-builder/src/fungibles_adapter.rs`."><title>fungibles_adapter.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="staging_xcm_builder" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="staging_xcm_builder" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../staging_xcm_builder/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -585,7 +587,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		Assets: fungibles::Mutate&lt;AccountId&gt;,
 		Matcher: MatchesFungibles&lt;Assets::AssetId, Assets::Balance&gt;,
 		AccountIdConverter: ConvertLocation&lt;AccountId&gt;,
-		AccountId: Eq + Clone, <span class="comment">/* can&#39;t get away without it since Currency is generic over it. */
+		AccountId: Eq + Clone, <span class="comment">/* can't get away without it since Currency is generic over it. */
 	</span>&gt; TransactAsset <span class="kw">for </span>FungiblesTransferAdapter&lt;Assets, Matcher, AccountIdConverter, AccountId&gt;
 {
 	<span class="kw">fn </span>internal_transfer_asset(
@@ -595,8 +597,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		_context: <span class="kw-2">&amp;</span>XcmContext,
 	) -&gt; result::Result&lt;xcm_executor::AssetsInHolding, XcmError&gt; {
 		<span class="macro">log::trace!</span>(
-			target: <span class="string">&quot;xcm::fungibles_adapter&quot;</span>,
-			<span class="string">&quot;internal_transfer_asset what: {:?}, from: {:?}, to: {:?}&quot;</span>,
+			target: <span class="string">"xcm::fungibles_adapter"</span>,
+			<span class="string">"internal_transfer_asset what: {:?}, from: {:?}, to: {:?}"</span>,
 			what, from, to
 		);
 		<span class="comment">// Check we handle this asset.
@@ -701,7 +703,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		Assets: fungibles::Mutate&lt;AccountId&gt;,
 		Matcher: MatchesFungibles&lt;Assets::AssetId, Assets::Balance&gt;,
 		AccountIdConverter: ConvertLocation&lt;AccountId&gt;,
-		AccountId: Eq + Clone, <span class="comment">/* can&#39;t get away without it since Currency is generic over it. */
+		AccountId: Eq + Clone, <span class="comment">/* can't get away without it since Currency is generic over it. */
 		</span>CheckAsset: AssetChecking&lt;Assets::AssetId&gt;,
 		CheckingAccount: Get&lt;AccountId&gt;,
 	&gt;
@@ -723,12 +725,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>accrue_checked(asset_id: Assets::AssetId, amount: Assets::Balance) {
 		<span class="kw">let </span>checking_account = CheckingAccount::get();
 		<span class="kw">let </span>ok = Assets::mint_into(asset_id, <span class="kw-2">&amp;</span>checking_account, amount).is_ok();
-		<span class="macro">debug_assert!</span>(ok, <span class="string">&quot;`can_accrue_checked` must have returned `true` immediately prior; qed&quot;</span>);
+		<span class="macro">debug_assert!</span>(ok, <span class="string">"`can_accrue_checked` must have returned `true` immediately prior; qed"</span>);
 	}
 	<span class="kw">fn </span>reduce_checked(asset_id: Assets::AssetId, amount: Assets::Balance) {
 		<span class="kw">let </span>checking_account = CheckingAccount::get();
 		<span class="kw">let </span>ok = Assets::burn_from(asset_id, <span class="kw-2">&amp;</span>checking_account, amount, Exact, Polite).is_ok();
-		<span class="macro">debug_assert!</span>(ok, <span class="string">&quot;`can_reduce_checked` must have returned `true` immediately prior; qed&quot;</span>);
+		<span class="macro">debug_assert!</span>(ok, <span class="string">"`can_reduce_checked` must have returned `true` immediately prior; qed"</span>);
 	}
 }
 
@@ -736,7 +738,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		Assets: fungibles::Mutate&lt;AccountId&gt;,
 		Matcher: MatchesFungibles&lt;Assets::AssetId, Assets::Balance&gt;,
 		AccountIdConverter: ConvertLocation&lt;AccountId&gt;,
-		AccountId: Eq + Clone, <span class="comment">/* can&#39;t get away without it since Currency is generic over it. */
+		AccountId: Eq + Clone, <span class="comment">/* can't get away without it since Currency is generic over it. */
 		</span>CheckAsset: AssetChecking&lt;Assets::AssetId&gt;,
 		CheckingAccount: Get&lt;AccountId&gt;,
 	&gt; TransactAsset
@@ -751,16 +753,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 {
 	<span class="kw">fn </span>can_check_in(_origin: <span class="kw-2">&amp;</span>Location, what: <span class="kw-2">&amp;</span>Asset, _context: <span class="kw-2">&amp;</span>XcmContext) -&gt; XcmResult {
 		<span class="macro">log::trace!</span>(
-			target: <span class="string">&quot;xcm::fungibles_adapter&quot;</span>,
-			<span class="string">&quot;can_check_in origin: {:?}, what: {:?}&quot;</span>,
+			target: <span class="string">"xcm::fungibles_adapter"</span>,
+			<span class="string">"can_check_in origin: {:?}, what: {:?}"</span>,
 			_origin, what
 		);
 		<span class="comment">// Check we handle this asset.
 		</span><span class="kw">let </span>(asset_id, amount) = Matcher::matches_fungibles(what)<span class="question-mark">?</span>;
 		<span class="kw">match </span>CheckAsset::asset_checking(<span class="kw-2">&amp;</span>asset_id) {
-			<span class="comment">// We track this asset&#39;s teleports to ensure no more come in than have gone out.
+			<span class="comment">// We track this asset's teleports to ensure no more come in than have gone out.
 			</span><span class="prelude-val">Some</span>(MintLocation::Local) =&gt; <span class="self">Self</span>::can_reduce_checked(asset_id, amount),
-			<span class="comment">// We track this asset&#39;s teleports to ensure no more go out than have come in.
+			<span class="comment">// We track this asset's teleports to ensure no more go out than have come in.
 			</span><span class="prelude-val">Some</span>(MintLocation::NonLocal) =&gt; <span class="self">Self</span>::can_accrue_checked(asset_id, amount),
 			<span class="kw">_ </span>=&gt; <span class="prelude-val">Ok</span>(()),
 		}
@@ -768,15 +770,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">fn </span>check_in(_origin: <span class="kw-2">&amp;</span>Location, what: <span class="kw-2">&amp;</span>Asset, _context: <span class="kw-2">&amp;</span>XcmContext) {
 		<span class="macro">log::trace!</span>(
-			target: <span class="string">&quot;xcm::fungibles_adapter&quot;</span>,
-			<span class="string">&quot;check_in origin: {:?}, what: {:?}&quot;</span>,
+			target: <span class="string">"xcm::fungibles_adapter"</span>,
+			<span class="string">"check_in origin: {:?}, what: {:?}"</span>,
 			_origin, what
 		);
 		<span class="kw">if let </span><span class="prelude-val">Ok</span>((asset_id, amount)) = Matcher::matches_fungibles(what) {
 			<span class="kw">match </span>CheckAsset::asset_checking(<span class="kw-2">&amp;</span>asset_id) {
-				<span class="comment">// We track this asset&#39;s teleports to ensure no more come in than have gone out.
+				<span class="comment">// We track this asset's teleports to ensure no more come in than have gone out.
 				</span><span class="prelude-val">Some</span>(MintLocation::Local) =&gt; <span class="self">Self</span>::reduce_checked(asset_id, amount),
-				<span class="comment">// We track this asset&#39;s teleports to ensure no more go out than have come in.
+				<span class="comment">// We track this asset's teleports to ensure no more go out than have come in.
 				</span><span class="prelude-val">Some</span>(MintLocation::NonLocal) =&gt; <span class="self">Self</span>::accrue_checked(asset_id, amount),
 				<span class="kw">_ </span>=&gt; (),
 			}
@@ -785,16 +787,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">fn </span>can_check_out(_origin: <span class="kw-2">&amp;</span>Location, what: <span class="kw-2">&amp;</span>Asset, _context: <span class="kw-2">&amp;</span>XcmContext) -&gt; XcmResult {
 		<span class="macro">log::trace!</span>(
-			target: <span class="string">&quot;xcm::fungibles_adapter&quot;</span>,
-			<span class="string">&quot;can_check_out origin: {:?}, what: {:?}&quot;</span>,
+			target: <span class="string">"xcm::fungibles_adapter"</span>,
+			<span class="string">"can_check_out origin: {:?}, what: {:?}"</span>,
 			_origin, what
 		);
 		<span class="comment">// Check we handle this asset.
 		</span><span class="kw">let </span>(asset_id, amount) = Matcher::matches_fungibles(what)<span class="question-mark">?</span>;
 		<span class="kw">match </span>CheckAsset::asset_checking(<span class="kw-2">&amp;</span>asset_id) {
-			<span class="comment">// We track this asset&#39;s teleports to ensure no more come in than have gone out.
+			<span class="comment">// We track this asset's teleports to ensure no more come in than have gone out.
 			</span><span class="prelude-val">Some</span>(MintLocation::Local) =&gt; <span class="self">Self</span>::can_accrue_checked(asset_id, amount),
-			<span class="comment">// We track this asset&#39;s teleports to ensure no more go out than have come in.
+			<span class="comment">// We track this asset's teleports to ensure no more go out than have come in.
 			</span><span class="prelude-val">Some</span>(MintLocation::NonLocal) =&gt; <span class="self">Self</span>::can_reduce_checked(asset_id, amount),
 			<span class="kw">_ </span>=&gt; <span class="prelude-val">Ok</span>(()),
 		}
@@ -802,15 +804,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">fn </span>check_out(_dest: <span class="kw-2">&amp;</span>Location, what: <span class="kw-2">&amp;</span>Asset, _context: <span class="kw-2">&amp;</span>XcmContext) {
 		<span class="macro">log::trace!</span>(
-			target: <span class="string">&quot;xcm::fungibles_adapter&quot;</span>,
-			<span class="string">&quot;check_out dest: {:?}, what: {:?}&quot;</span>,
+			target: <span class="string">"xcm::fungibles_adapter"</span>,
+			<span class="string">"check_out dest: {:?}, what: {:?}"</span>,
 			_dest, what
 		);
 		<span class="kw">if let </span><span class="prelude-val">Ok</span>((asset_id, amount)) = Matcher::matches_fungibles(what) {
 			<span class="kw">match </span>CheckAsset::asset_checking(<span class="kw-2">&amp;</span>asset_id) {
-				<span class="comment">// We track this asset&#39;s teleports to ensure no more come in than have gone out.
+				<span class="comment">// We track this asset's teleports to ensure no more come in than have gone out.
 				</span><span class="prelude-val">Some</span>(MintLocation::Local) =&gt; <span class="self">Self</span>::accrue_checked(asset_id, amount),
-				<span class="comment">// We track this asset&#39;s teleports to ensure no more go out than have come in.
+				<span class="comment">// We track this asset's teleports to ensure no more go out than have come in.
 				</span><span class="prelude-val">Some</span>(MintLocation::NonLocal) =&gt; <span class="self">Self</span>::reduce_checked(asset_id, amount),
 				<span class="kw">_ </span>=&gt; (),
 			}
@@ -819,8 +821,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">fn </span>deposit_asset(what: <span class="kw-2">&amp;</span>Asset, who: <span class="kw-2">&amp;</span>Location, _context: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>XcmContext&gt;) -&gt; XcmResult {
 		<span class="macro">log::trace!</span>(
-			target: <span class="string">&quot;xcm::fungibles_adapter&quot;</span>,
-			<span class="string">&quot;deposit_asset what: {:?}, who: {:?}&quot;</span>,
+			target: <span class="string">"xcm::fungibles_adapter"</span>,
+			<span class="string">"deposit_asset what: {:?}, who: {:?}"</span>,
 			what, who,
 		);
 		<span class="comment">// Check we handle this asset.
@@ -838,8 +840,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		_maybe_context: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>XcmContext&gt;,
 	) -&gt; result::Result&lt;xcm_executor::AssetsInHolding, XcmError&gt; {
 		<span class="macro">log::trace!</span>(
-			target: <span class="string">&quot;xcm::fungibles_adapter&quot;</span>,
-			<span class="string">&quot;withdraw_asset what: {:?}, who: {:?}&quot;</span>,
+			target: <span class="string">"xcm::fungibles_adapter"</span>,
+			<span class="string">"withdraw_asset what: {:?}, who: {:?}"</span>,
 			what, who,
 		);
 		<span class="comment">// Check we handle this asset.
@@ -864,7 +866,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		Assets: fungibles::Mutate&lt;AccountId&gt;,
 		Matcher: MatchesFungibles&lt;Assets::AssetId, Assets::Balance&gt;,
 		AccountIdConverter: ConvertLocation&lt;AccountId&gt;,
-		AccountId: Eq + Clone, <span class="comment">/* can&#39;t get away without it since Currency is generic over it. */
+		AccountId: Eq + Clone, <span class="comment">/* can't get away without it since Currency is generic over it. */
 		</span>CheckAsset: AssetChecking&lt;Assets::AssetId&gt;,
 		CheckingAccount: Get&lt;AccountId&gt;,
 	&gt; TransactAsset

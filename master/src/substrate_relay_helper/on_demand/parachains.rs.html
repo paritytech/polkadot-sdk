@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `bridges/relays/lib-substrate-relay/src/on_demand/parachains.rs`."><title>parachains.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `bridges/relays/lib-substrate-relay/src/on_demand/parachains.rs`."><title>parachains.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="substrate_relay_helper" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="substrate_relay_helper" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../substrate_relay_helper/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1253,7 +1255,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Create new on-demand parachains relay.
 	///
 	/// Note that the argument is the source relay chain client, not the parachain client.
-	/// That&#39;s because parachain finality is determined by the relay chain and we don&#39;t
+	/// That's because parachain finality is determined by the relay chain and we don't
 	/// need to connect to the parachain itself here.
 	</span><span class="kw">pub fn </span>new(
 		source_relay_client: Client&lt;P::SourceRelayChain&gt;,
@@ -1306,15 +1308,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		// internal references
 		</span><span class="self">self</span>.source_relay_client.clone().reconnect().<span class="kw">await</span><span class="question-mark">?</span>;
 		<span class="self">self</span>.target_client.clone().reconnect().<span class="kw">await</span><span class="question-mark">?</span>;
-		<span class="comment">// we&#39;ll probably need to reconnect relay chain relayer clients also
+		<span class="comment">// we'll probably need to reconnect relay chain relayer clients also
 		</span><span class="self">self</span>.on_demand_source_relay_to_target_headers.reconnect().<span class="kw">await
 	</span>}
 
 	<span class="kw">async fn </span>require_more_headers(<span class="kw-2">&amp;</span><span class="self">self</span>, required_header: BlockNumberOf&lt;P::SourceParachain&gt;) {
 		<span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="self">self</span>.required_header_number_sender.send(required_header).<span class="kw">await </span>{
 			<span class="macro">log::trace!</span>(
-				target: <span class="string">&quot;bridge&quot;</span>,
-				<span class="string">&quot;[{}] Failed to request {} header {:?}: {:?}&quot;</span>,
+				target: <span class="string">"bridge"</span>,
+				<span class="string">"[{}] Failed to request {} header {:?}: {:?}"</span>,
 				<span class="self">self</span>.relay_task_name,
 				P::SourceParachain::NAME,
 				required_header,
@@ -1338,8 +1340,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			select_headers_to_prove(env, required_parachain_header).<span class="kw">await</span><span class="question-mark">?</span>;
 
 		<span class="macro">log::debug!</span>(
-			target: <span class="string">&quot;bridge&quot;</span>,
-			<span class="string">&quot;[{}] Requested to prove {} head {:?}. Selected to prove {} head {:?} and {} head {:?}&quot;</span>,
+			target: <span class="string">"bridge"</span>,
+			<span class="string">"[{}] Requested to prove {} head {:?}. Selected to prove {} head {:?} and {} head {:?}"</span>,
 			<span class="self">self</span>.relay_task_name,
 			P::SourceParachain::NAME,
 			required_parachain_header,
@@ -1353,7 +1355,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span>},
 		);
 
-		<span class="comment">// now let&#39;s prove relay chain block (if needed)
+		<span class="comment">// now let's prove relay chain block (if needed)
 		</span><span class="kw">let </span><span class="kw-2">mut </span>calls = Vec::new();
 		<span class="kw">let </span><span class="kw-2">mut </span>proved_relay_block = selected_relay_block;
 		<span class="kw">if </span>need_to_prove_relay_block {
@@ -1365,8 +1367,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			calls.extend(relay_prove_call);
 		}
 
-		<span class="comment">// despite what we&#39;ve selected before (in `select_headers_to_prove` call), if headers relay
-		// have chose the different header (e.g. because there&#39;s no GRANDPA jusstification for it),
+		<span class="comment">// despite what we've selected before (in `select_headers_to_prove` call), if headers relay
+		// have chose the different header (e.g. because there's no GRANDPA jusstification for it),
 		// we need to prove parachain head available at this header
 		</span><span class="kw">let </span>para_id = ParaId(P::SourceParachain::PARACHAIN_ID);
 		<span class="kw">let </span><span class="kw-2">mut </span>proved_parachain_block = selected_parachain_block;
@@ -1383,8 +1385,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				})<span class="question-mark">?</span>;
 
 			<span class="macro">log::debug!</span>(
-				target: <span class="string">&quot;bridge&quot;</span>,
-				<span class="string">&quot;[{}] Selected to prove {} head {:?} and {} head {:?}. Instead proved {} head {:?} and {} head {:?}&quot;</span>,
+				target: <span class="string">"bridge"</span>,
+				<span class="string">"[{}] Selected to prove {} head {:?} and {} head {:?}. Instead proved {} head {:?} and {} head {:?}"</span>,
 				<span class="self">self</span>.relay_task_name,
 				P::SourceParachain::NAME,
 				selected_parachain_block,
@@ -1448,8 +1450,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="prelude-val">Ok</span>(new_required_parachain_header_number) =&gt; new_required_parachain_header_number,
 					<span class="prelude-val">Err</span>(e) =&gt; {
 						<span class="macro">log::error!</span>(
-							target: <span class="string">&quot;bridge&quot;</span>,
-							<span class="string">&quot;[{}] Background task has exited with error: {:?}&quot;</span>,
+							target: <span class="string">"bridge"</span>,
+							<span class="string">"[{}] Background task has exited with error: {:?}"</span>,
 							relay_task_name,
 							e,
 						);
@@ -1459,12 +1461,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				};
 
 				<span class="comment">// keep in mind that we are not updating `required_para_header_ref` here, because
-				// then we&#39;ll be submitting all previous headers as well (while required relay headers are
+				// then we'll be submitting all previous headers as well (while required relay headers are
 				// delivered) and we want to avoid that (to reduce cost)
 				</span><span class="kw">if </span>new_required_parachain_header_number &gt; required_parachain_header_number {
 					<span class="macro">log::trace!</span>(
-						target: <span class="string">&quot;bridge&quot;</span>,
-						<span class="string">&quot;[{}] More {} headers required. Going to sync up to the {}&quot;</span>,
+						target: <span class="string">"bridge"</span>,
+						<span class="string">"[{}] More {} headers required. Going to sync up to the {}"</span>,
 						relay_task_name,
 						P::SourceParachain::NAME,
 						new_required_parachain_header_number,
@@ -1492,16 +1494,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		// Phase#1: relaying relay chain header
 		//
 		// 4) on-demand parachains relay waits for GRANDPA-finalized block of the source relay chain
-		//    `RH` that is storing `PH` or its descendant. Let it be `PH&#39;`;
+		//    `RH` that is storing `PH` or its descendant. Let it be `PH'`;
 		// 5) it asks on-demand headers relay to relay `RH` to the target chain;
 		// 6) it waits until `RH` (or its descendant) is relayed to the target chain;
 		//
 		// Phase#2: relaying parachain header
 		//
 		// 7) on-demand parachains relay sets `ParachainsSource::maximal_header_number` to the
-		//    `PH&#39;.number()`.
+		//    `PH'.number()`.
 		// 8) parachains finality relay sees that the parachain head has been updated and relays
-		//    `PH&#39;` to    the target chain.
+		//    `PH'` to    the target chain.
 
 		// select headers to relay
 		</span><span class="kw">let </span>relay_data = read_relay_data(
@@ -1515,8 +1517,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">let </span>prev_relay_state = relay_state;
 				relay_state = select_headers_to_relay(<span class="kw-2">&amp;</span>relay_data, relay_state);
 				<span class="macro">log::trace!</span>(
-					target: <span class="string">&quot;bridge&quot;</span>,
-					<span class="string">&quot;[{}] Selected new relay state: {:?} using old state {:?} and data {:?}&quot;</span>,
+					target: <span class="string">"bridge"</span>,
+					<span class="string">"[{}] Selected new relay state: {:?} using old state {:?} and data {:?}"</span>,
 					relay_task_name,
 					relay_state,
 					prev_relay_state,
@@ -1535,7 +1537,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span>},
 		}
 
-		<span class="comment">// we have selected our new &#39;state&#39; =&gt; let&#39;s notify our source clients about our new
+		<span class="comment">// we have selected our new 'state' =&gt; let's notify our source clients about our new
 		// requirements
 		</span><span class="kw">match </span>relay_state {
 			RelayState::Idle =&gt; (),
@@ -1559,10 +1561,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			);
 
 			<span class="macro">log::info!</span>(
-				target: <span class="string">&quot;bridge&quot;</span>,
-				<span class="string">&quot;[{}] Starting on-demand-parachains relay task\n\t\
+				target: <span class="string">"bridge"</span>,
+				<span class="string">"[{}] Starting on-demand-parachains relay task\n\t\
 					Tx mortality: {:?} (~{}m)\n\t\
-					Stall timeout: {:?}&quot;</span>,
+					Stall timeout: {:?}"</span>,
 				relay_task_name,
 				target_transactions_mortality,
 				stall_timeout.as_secs_f64() / <span class="number">60.0f64</span>,
@@ -1586,7 +1588,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// On-demand parachains relay task name.
 </span><span class="kw">fn </span>on_demand_parachains_relay_name&lt;SourceChain: Chain, TargetChain: Chain&gt;() -&gt; String {
-	<span class="macro">format!</span>(<span class="string">&quot;{}-to-{}-on-demand-parachain&quot;</span>, SourceChain::NAME, TargetChain::NAME)
+	<span class="macro">format!</span>(<span class="string">"{}-to-{}-on-demand-parachain"</span>, SourceChain::NAME, TargetChain::NAME)
 }
 
 <span class="doccomment">/// On-demand relay state.
@@ -1612,7 +1614,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Parachain header, that is available at the source relay chain at `relay_header_at_target`
 	/// block.
 	///
-	/// May be `None` if there&#39;s no `relay_header_at_target` yet, or if the
+	/// May be `None` if there's no `relay_header_at_target` yet, or if the
 	/// `relay_header_at_target` is too old and we think its state has been pruned.
 	</span><span class="kw">pub </span>para_header_at_relay_header_at_target: <span class="prelude-ty">Option</span>&lt;HeaderId&lt;ParaHash, ParaNumber&gt;&gt;,
 	<span class="doccomment">/// Relay header number at the source chain.
@@ -1640,8 +1642,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 {
 	<span class="kw">let </span>map_target_err = |e| {
 		<span class="macro">log::error!</span>(
-			target: <span class="string">&quot;bridge&quot;</span>,
-			<span class="string">&quot;[{}] Failed to read relay data from {} client: {:?}&quot;</span>,
+			target: <span class="string">"bridge"</span>,
+			<span class="string">"[{}] Failed to read relay data from {} client: {:?}"</span>,
 			on_demand_parachains_relay_name::&lt;P::SourceParachain, P::TargetChain&gt;(),
 			P::TargetChain::NAME,
 			e,
@@ -1650,8 +1652,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	};
 	<span class="kw">let </span>map_source_err = |e| {
 		<span class="macro">log::error!</span>(
-			target: <span class="string">&quot;bridge&quot;</span>,
-			<span class="string">&quot;[{}] Failed to read relay data from {} client: {:?}&quot;</span>,
+			target: <span class="string">"bridge"</span>,
+			<span class="string">"[{}] Failed to read relay data from {} client: {:?}"</span>,
 			on_demand_parachains_relay_name::&lt;P::SourceParachain, P::TargetChain&gt;(),
 			P::SourceRelayChain::NAME,
 			e,
@@ -1665,7 +1667,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		P::SourceParachain,
 	&gt;(target.client(), best_target_block_hash)
 	.<span class="kw">await</span>;
-	<span class="comment">// if there are no parachain heads at the target (`NoParachainHeadAtTarget`), we&#39;ll need to
+	<span class="comment">// if there are no parachain heads at the target (`NoParachainHeadAtTarget`), we'll need to
 	// submit at least one. Otherwise the pallet will be treated as uninitialized and messages
 	// sync will stall.
 	</span><span class="kw">let </span>para_header_at_target = <span class="kw">match </span>para_header_at_target {
@@ -1693,7 +1695,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="comment">// if relay header at target is too old then its state may already be discarded at the source
 	// =&gt; just use `None` in this case
 	//
-	// the same is for case when there&#39;s no relay header at target at all
+	// the same is for case when there's no relay header at target at all
 	</span><span class="kw">let </span>available_relay_header_at_target =
 		relay_header_at_target.filter(|relay_header_at_target| {
 			!is_ancient_block(relay_header_at_target.number(), relay_header_at_source)
@@ -1729,7 +1731,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	ParaNumber: Copy + PartialOrd + Zero,
 	RelayNumber: Copy + Debug + Ord,
 {
-	<span class="comment">// we can&#39;t do anything until **relay chain** bridge GRANDPA pallet is not initialized at the
+	<span class="comment">// we can't do anything until **relay chain** bridge GRANDPA pallet is not initialized at the
 	// target chain
 	</span><span class="kw">let </span>relay_header_at_target = <span class="kw">match </span>data.relay_header_at_target {
 		<span class="prelude-val">Some</span>(relay_header_at_target) =&gt; relay_header_at_target,
@@ -1739,7 +1741,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="comment">// Process the `RelayingRelayHeader` state.
 	</span><span class="kw">if let </span><span class="kw-2">&amp;</span>RelayState::RelayingRelayHeader(relay_header_number) = <span class="kw-2">&amp;</span>state {
 		<span class="kw">if </span>relay_header_at_target &lt; relay_header_number {
-			<span class="comment">// The required relay header hasn&#39;t yet been relayed. Ask / wait for it.
+			<span class="comment">// The required relay header hasn't yet been relayed. Ask / wait for it.
 			</span><span class="kw">return </span>state
 		}
 
@@ -1757,35 +1759,35 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">if let </span>RelayState::RelayingParaHeader(para_header_id) = <span class="kw-2">&amp;</span>state {
 		<span class="kw">let </span>para_header_at_target_or_zero = data.para_header_at_target.unwrap_or_else(Zero::zero);
 		<span class="kw">if </span>para_header_at_target_or_zero &lt; para_header_id.<span class="number">0 </span>{
-			<span class="comment">// The required parachain header hasn&#39;t yet been relayed. Ask / wait for it.
+			<span class="comment">// The required parachain header hasn't yet been relayed. Ask / wait for it.
 			</span><span class="kw">return </span>state
 		}
 	}
 
-	<span class="comment">// if we haven&#39;t read para head from the source, we can&#39;t yet do anything
+	<span class="comment">// if we haven't read para head from the source, we can't yet do anything
 	</span><span class="kw">let </span>para_header_at_source = <span class="kw">match </span>data.para_header_at_source {
 		<span class="prelude-val">Some</span>(<span class="kw-2">ref </span>para_header_at_source) =&gt; para_header_at_source.clone(),
 		<span class="prelude-val">None </span>=&gt; <span class="kw">return </span>RelayState::Idle,
 	};
 
-	<span class="comment">// if we have parachain head at the source, but no parachain heads at the target, we&#39;ll need
+	<span class="comment">// if we have parachain head at the source, but no parachain heads at the target, we'll need
 	// to deliver at least one parachain head
 	</span><span class="kw">let </span>(required_para_header, para_header_at_target) = <span class="kw">match </span>data.para_header_at_target {
 		<span class="prelude-val">Some</span>(para_header_at_target) =&gt; (data.required_para_header, para_header_at_target),
 		<span class="prelude-val">None </span>=&gt; (para_header_at_source.<span class="number">0</span>, Zero::zero()),
 	};
 
-	<span class="comment">// if we have already satisfied our &quot;customer&quot;, do nothing
+	<span class="comment">// if we have already satisfied our "customer", do nothing
 	</span><span class="kw">if </span>required_para_header &lt;= para_header_at_target {
 		<span class="kw">return </span>RelayState::Idle
 	}
 
-	<span class="comment">// if required header is not available even at the source chain, let&#39;s wait
+	<span class="comment">// if required header is not available even at the source chain, let's wait
 	</span><span class="kw">if </span>required_para_header &gt; para_header_at_source.<span class="number">0 </span>{
 		<span class="kw">return </span>RelayState::Idle
 	}
 
-	<span class="comment">// we will always try to sync latest parachain/relay header, even if we&#39;ve been asked for some
+	<span class="comment">// we will always try to sync latest parachain/relay header, even if we've been asked for some
 	// its ancestor
 
 	// we need relay chain header first
@@ -1818,13 +1820,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="attr">#[async_trait]
-</span><span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, P: SubstrateParachainsPipeline&gt;
+</span><span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, P: SubstrateParachainsPipeline&gt;
 	SelectHeadersToProveEnvironment&lt;
 		BlockNumberOf&lt;P::SourceRelayChain&gt;,
 		HashOf&lt;P::SourceRelayChain&gt;,
 		BlockNumberOf&lt;P::SourceParachain&gt;,
 		HashOf&lt;P::SourceParachain&gt;,
-	&gt; <span class="kw">for </span>(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>OnDemandParachainsRelay&lt;P&gt;, <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ParachainsSource&lt;P&gt;)
+	&gt; <span class="kw">for </span>(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>OnDemandParachainsRelay&lt;P&gt;, <span class="kw-2">&amp;</span><span class="lifetime">'a </span>ParachainsSource&lt;P&gt;)
 {
 	<span class="kw">fn </span>parachain_id(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; ParaId {
 		ParaId(P::SourceParachain::PARACHAIN_ID)
@@ -1868,13 +1870,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	PBH: Copy,
 	PBN: BlockNumberBase,
 {
-	<span class="comment">// parachains proof also requires relay header proof. Let&#39;s first select relay block
-	// number that we&#39;ll be dealing with
+	<span class="comment">// parachains proof also requires relay header proof. Let's first select relay block
+	// number that we'll be dealing with
 	</span><span class="kw">let </span>best_finalized_relay_block_at_source = env.best_finalized_relay_block_at_source().<span class="kw">await</span><span class="question-mark">?</span>;
 	<span class="kw">let </span>best_finalized_relay_block_at_target = env.best_finalized_relay_block_at_target().<span class="kw">await</span><span class="question-mark">?</span>;
 
-	<span class="comment">// if we can&#39;t prove `required_header` even using `best_finalized_relay_block_at_source`, we
-	// can&#39;t do anything here
+	<span class="comment">// if we can't prove `required_header` even using `best_finalized_relay_block_at_source`, we
+	// can't do anything here
 	// (this shall not actually happen, given current code, because we only require finalized
 	// headers)
 	</span><span class="kw">let </span>best_possible_parachain_block = env
@@ -1888,15 +1890,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			required_parachain_header.unique_saturated_into(),
 		))<span class="question-mark">?</span>;
 
-	<span class="comment">// we don&#39;t require source node to be archive, so we can&#39;t craft storage proofs using
+	<span class="comment">// we don't require source node to be archive, so we can't craft storage proofs using
 	// ancient headers. So if the `best_finalized_relay_block_at_target` is too ancient, we
-	// can&#39;t craft storage proofs using it
+	// can't craft storage proofs using it
 	</span><span class="kw">let </span>may_use_state_at_best_finalized_relay_block_at_target = !is_ancient_block(
 		best_finalized_relay_block_at_target.number(),
 		best_finalized_relay_block_at_source.number(),
 	);
 
-	<span class="comment">// now let&#39;s check if `required_header` may be proved using
+	<span class="comment">// now let's check if `required_header` may be proved using
 	// `best_finalized_relay_block_at_target`
 	</span><span class="kw">let </span>selection = <span class="kw">if </span>may_use_state_at_best_finalized_relay_block_at_target {
 		env.best_finalized_para_block_at_source(best_finalized_relay_block_at_target)

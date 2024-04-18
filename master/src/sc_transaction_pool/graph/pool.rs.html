@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/transaction-pool/src/graph/pool.rs`."><title>pool.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/transaction-pool/src/graph/pool.rs`."><title>pool.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sc_transaction_pool" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sc_transaction_pool" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../sc_transaction_pool/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1303,7 +1305,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">type </span>BodyFuture: Future&lt;Output = <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Vec&lt;&lt;<span class="self">Self</span>::Block <span class="kw">as </span>traits::Block&gt;::Extrinsic&gt;&gt;, <span class="self">Self</span>::Error&gt;&gt;
 		+ Unpin
 		+ Send
-		+ <span class="lifetime">&#39;static</span>;
+		+ <span class="lifetime">'static</span>;
 
 	<span class="doccomment">/// Verify extrinsic at given block.
 	</span><span class="kw">fn </span>validate_transaction(
@@ -1422,7 +1424,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		xt: ExtrinsicFor&lt;B&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;ExtrinsicHash&lt;B&gt;, B::Error&gt; {
 		<span class="kw">let </span>res = <span class="self">self</span>.submit_at(at, source, std::iter::once(xt)).<span class="kw">await</span><span class="question-mark">?</span>.pop();
-		res.expect(<span class="string">&quot;One extrinsic passed; one result returned; qed&quot;</span>)
+		res.expect(<span class="string">"One extrinsic passed; one result returned; qed"</span>)
 	}
 
 	<span class="doccomment">/// Import a single extrinsic and starts to watch its progress in the pool.
@@ -1448,7 +1450,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">self</span>.validated_pool.resubmit(revalidated_transactions);
 		<span class="macro">log::debug!</span>(
 			target: LOG_TARGET,
-			<span class="string">&quot;Resubmitted. Took {} ms. Status: {:?}&quot;</span>,
+			<span class="string">"Resubmitted. Took {} ms. Status: {:?}"</span>,
 			now.elapsed().as_millis(),
 			<span class="self">self</span>.validated_pool.status()
 		);
@@ -1489,7 +1491,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), B::Error&gt; {
 		<span class="macro">log::debug!</span>(
 			target: LOG_TARGET,
-			<span class="string">&quot;Starting pruning of block {:?} (extrinsics: {})&quot;</span>,
+			<span class="string">"Starting pruning of block {:?} (extrinsics: {})"</span>,
 			at,
 			extrinsics.len()
 		);
@@ -1507,7 +1509,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">match </span>in_pool_tags {
 				<span class="comment">// reuse the tags for extrinsics that were found in the pool
 				</span><span class="prelude-val">Some</span>(tags) =&gt; future_tags.extend(tags),
-				<span class="comment">// if it&#39;s not found in the pool query the runtime at parent block
+				<span class="comment">// if it's not found in the pool query the runtime at parent block
 				// to get validity info and tags that the extrinsic provides.
 				</span><span class="prelude-val">None </span>=&gt; {
 					<span class="comment">// Avoid validating block txs if the pool is empty
@@ -1528,7 +1530,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					} <span class="kw">else </span>{
 						<span class="macro">log::trace!</span>(
 							target: LOG_TARGET,
-							<span class="string">&quot;txpool is empty, skipping validation for block {at:?}&quot;</span>,
+							<span class="string">"txpool is empty, skipping validation for block {at:?}"</span>,
 						);
 					}
 				},
@@ -1565,11 +1567,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		tags: <span class="kw">impl </span>IntoIterator&lt;Item = Tag&gt;,
 		known_imported_hashes: <span class="kw">impl </span>IntoIterator&lt;Item = ExtrinsicHash&lt;B&gt;&gt; + Clone,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(), B::Error&gt; {
-		<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;Pruning at {:?}&quot;</span>, at);
+		<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"Pruning at {:?}"</span>, at);
 		<span class="comment">// Prune all transactions that provide given tags
 		</span><span class="kw">let </span>prune_status = <span class="self">self</span>.validated_pool.prune_tags(tags)<span class="question-mark">?</span>;
 
-		<span class="comment">// Make sure that we don&#39;t revalidate extrinsics that were part of the recently
+		<span class="comment">// Make sure that we don't revalidate extrinsics that were part of the recently
 		// imported block. This is especially important for UTXO-like chains cause the
 		// inputs are pruned so such transaction would go to future again.
 		</span><span class="self">self</span>.validated_pool
@@ -1584,7 +1586,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>reverified_transactions =
 			<span class="self">self</span>.verify(at, pruned_transactions, CheckBannedBeforeVerify::Yes).<span class="kw">await</span><span class="question-mark">?</span>;
 
-		<span class="macro">log::trace!</span>(target: LOG_TARGET, <span class="string">&quot;Pruning at {:?}. Resubmitting transactions.&quot;</span>, at);
+		<span class="macro">log::trace!</span>(target: LOG_TARGET, <span class="string">"Pruning at {:?}. Resubmitting transactions."</span>, at);
 		<span class="comment">// And finally - submit reverified transactions back to the pool
 
 		</span><span class="self">self</span>.validated_pool.resubmit_pruned(
@@ -1603,7 +1605,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Resolves block number by id.
 	</span><span class="kw">fn </span>resolve_block_number(<span class="kw-2">&amp;</span><span class="self">self</span>, at: <span class="kw-2">&amp;</span>BlockId&lt;B::Block&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;NumberFor&lt;B&gt;, B::Error&gt; {
 		<span class="self">self</span>.validated_pool.api().block_id_to_number(at).and_then(|number| {
-			number.ok_or_else(|| error::Error::InvalidBlockId(<span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, at)).into())
+			number.ok_or_else(|| error::Error::InvalidBlockId(<span class="macro">format!</span>(<span class="string">"{:?}"</span>, at)).into())
 		})
 	}
 
@@ -1801,7 +1803,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				}),
 			))
 			.unwrap();
-			<span class="comment">// future doesn&#39;t count
+			<span class="comment">// future doesn't count
 			</span><span class="kw">let </span>_hash = block_on(pool.submit_one(
 				hash_of_block0,
 				SOURCE,
@@ -2144,7 +2146,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="comment">// when
 			</span><span class="kw">let </span><span class="kw-2">mut </span>map = HashMap::new();
-			<span class="kw">let </span>peers = <span class="macro">vec!</span>[<span class="string">&quot;a&quot;</span>.into(), <span class="string">&quot;b&quot;</span>.into(), <span class="string">&quot;c&quot;</span>.into()];
+			<span class="kw">let </span>peers = <span class="macro">vec!</span>[<span class="string">"a"</span>.into(), <span class="string">"b"</span>.into(), <span class="string">"c"</span>.into()];
 			map.insert(<span class="kw-2">*</span>watcher.hash(), peers.clone());
 			pool.validated_pool().on_broadcasted(map);
 

@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `cumulus/test/service/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `cumulus/test/service/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="cumulus_test_service" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="cumulus_test_service" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../cumulus_test_service/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1209,7 +1211,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">pub use </span>cumulus_test_runtime <span class="kw">as </span>runtime;
 <span class="kw">pub use </span>sp_keyring::Sr25519Keyring <span class="kw">as </span>Keyring;
 
-<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;cumulus-test-service&quot;</span>;
+<span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"cumulus-test-service"</span>;
 
 <span class="doccomment">/// A consensus that will never produce any block.
 </span><span class="attr">#[derive(Clone)]
@@ -1263,7 +1265,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">async fn </span>send_recovery_msg(
 		<span class="kw-2">&amp;mut </span><span class="self">self</span>,
 		message: AvailabilityRecoveryMessage,
-		origin: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
+		origin: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
 	) {
 		<span class="kw">let </span>AvailabilityRecoveryMessage::RecoverAvailableData(<span class="kw-2">ref </span>receipt, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>) = message;
 		<span class="kw">let </span>candidate_hash = receipt.hash();
@@ -1271,12 +1273,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// For every 3rd block we immediately signal unavailability to trigger
 		// a retry. The same candidate is never failed multiple times to ensure progress.
 		</span><span class="kw">if </span><span class="self">self</span>.counter % <span class="number">3 </span>== <span class="number">0 </span>&amp;&amp; <span class="self">self</span>.failed_hashes.insert(candidate_hash) {
-			<span class="macro">tracing::info!</span>(target: LOG_TARGET, <span class="question-mark">?</span>candidate_hash, <span class="string">&quot;Failing pov recovery.&quot;</span>);
+			<span class="macro">tracing::info!</span>(target: LOG_TARGET, <span class="question-mark">?</span>candidate_hash, <span class="string">"Failing pov recovery."</span>);
 
 			<span class="kw">let </span>AvailabilityRecoveryMessage::RecoverAvailableData(<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, back_sender) = message;
 			back_sender
 				.send(<span class="prelude-val">Err</span>(RecoveryError::Unavailable))
-				.expect(<span class="string">&quot;Return channel should work here.&quot;</span>);
+				.expect(<span class="string">"Return channel should work here."</span>);
 		} <span class="kw">else </span>{
 			<span class="self">self</span>.overseer_handle.send_msg(message, origin).<span class="kw">await</span>;
 		}
@@ -1296,7 +1298,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Starts a `ServiceBuilder` for a full service.
 ///
-/// Use this macro if you don&#39;t actually need the full service, but just the builder in order to
+/// Use this macro if you don't actually need the full service, but just the builder in order to
 /// be able to perform chain operations.
 </span><span class="kw">pub fn </span>new_partial(
 	config: <span class="kw-2">&amp;mut </span>Configuration,
@@ -1374,7 +1376,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	collator_key: <span class="prelude-ty">Option</span>&lt;CollatorPair&gt;,
 	collator_options: CollatorOptions,
 	task_manager: <span class="kw-2">&amp;mut </span>TaskManager,
-) -&gt; RelayChainResult&lt;Arc&lt;<span class="kw">dyn </span>RelayChainInterface + <span class="lifetime">&#39;static</span>&gt;&gt; {
+) -&gt; RelayChainResult&lt;Arc&lt;<span class="kw">dyn </span>RelayChainInterface + <span class="lifetime">'static</span>&gt;&gt; {
 	<span class="kw">let </span>relay_chain_full_node = <span class="kw">match </span>collator_options.relay_chain_mode {
 		cumulus_client_cli::RelayChainMode::Embedded =&gt; polkadot_test_service::new_full(
 			relay_chain_config,
@@ -1402,13 +1404,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	};
 
 	task_manager.add_child(relay_chain_full_node.task_manager);
-	<span class="macro">tracing::info!</span>(<span class="string">&quot;Using inprocess node.&quot;</span>);
+	<span class="macro">tracing::info!</span>(<span class="string">"Using inprocess node."</span>);
 	<span class="prelude-val">Ok</span>(Arc::new(RelayChainInProcessInterface::new(
 		relay_chain_full_node.client.clone(),
 		relay_chain_full_node.backend.clone(),
 		relay_chain_full_node.sync_service.clone(),
 		relay_chain_full_node.overseer_handle.ok_or(RelayChainError::GenericError(
-			<span class="string">&quot;Overseer should be running in full node.&quot;</span>.to_string(),
+			<span class="string">"Overseer should be running in full node."</span>.to_string(),
 		))<span class="question-mark">?</span>,
 	)))
 }
@@ -1437,7 +1439,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	Arc&lt;Backend&gt;,
 )&gt;
 <span class="kw">where
-	</span>RB: Fn(Arc&lt;Client&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;jsonrpsee::RpcModule&lt;()&gt;, sc_service::Error&gt; + Send + <span class="lifetime">&#39;static</span>,
+	</span>RB: Fn(Arc&lt;Client&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;jsonrpsee::RpcModule&lt;()&gt;, sc_service::Error&gt; + Send + <span class="lifetime">'static</span>,
 {
 	<span class="kw">let </span><span class="kw-2">mut </span>parachain_config = prepare_node_config(parachain_config);
 
@@ -1595,7 +1597,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			};
 
 			<span class="kw">let </span>fut = aura::run::&lt;Block, AuthorityPair, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;(params);
-			task_manager.spawn_essential_handle().spawn(<span class="string">&quot;aura&quot;</span>, <span class="prelude-val">None</span>, fut);
+			task_manager.spawn_essential_handle().spawn(<span class="string">"aura"</span>, <span class="prelude-val">None</span>, fut);
 		}
 	}
 
@@ -1606,20 +1608,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// A Cumulus test node instance used for testing.
 </span><span class="kw">pub struct </span>TestNode {
-	<span class="doccomment">/// TaskManager&#39;s instance.
+	<span class="doccomment">/// TaskManager's instance.
 	</span><span class="kw">pub </span>task_manager: TaskManager,
-	<span class="doccomment">/// Client&#39;s instance.
+	<span class="doccomment">/// Client's instance.
 	</span><span class="kw">pub </span>client: Arc&lt;Client&gt;,
-	<span class="doccomment">/// Node&#39;s network.
+	<span class="doccomment">/// Node's network.
 	</span><span class="kw">pub </span>network: Arc&lt;<span class="kw">dyn </span>NetworkService&gt;,
-	<span class="doccomment">/// The `MultiaddrWithPeerId` to this node. This is useful if you want to pass it as &quot;boot
-	/// node&quot; to other nodes.
+	<span class="doccomment">/// The `MultiaddrWithPeerId` to this node. This is useful if you want to pass it as "boot
+	/// node" to other nodes.
 	</span><span class="kw">pub </span>addr: MultiaddrWithPeerId,
 	<span class="doccomment">/// RPCHandlers to make RPC queries.
 	</span><span class="kw">pub </span>rpc_handlers: RpcHandlers,
-	<span class="doccomment">/// Node&#39;s transaction pool
+	<span class="doccomment">/// Node's transaction pool
 	</span><span class="kw">pub </span>transaction_pool: TransactionPool,
-	<span class="doccomment">/// Node&#39;s backend
+	<span class="doccomment">/// Node's backend
 	</span><span class="kw">pub </span>backend: Arc&lt;Backend&gt;,
 }
 
@@ -1704,9 +1706,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// By default the node will not be connected to any node or will be able to discover any other
 	/// node.
-	</span><span class="kw">pub fn </span>connect_to_parachain_nodes&lt;<span class="lifetime">&#39;a</span>&gt;(
+	</span><span class="kw">pub fn </span>connect_to_parachain_nodes&lt;<span class="lifetime">'a</span>&gt;(
 		<span class="kw-2">mut </span><span class="self">self</span>,
-		nodes: <span class="kw">impl </span>IntoIterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>TestNode&gt;,
+		nodes: <span class="kw">impl </span>IntoIterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">'a </span>TestNode&gt;,
 	) -&gt; <span class="self">Self </span>{
 		<span class="self">self</span>.parachain_nodes.extend(nodes.into_iter().map(|n| n.addr.clone()));
 		<span class="self">self
@@ -1728,9 +1730,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// By default the node will not be connected to any node or will be able to discover any other
 	/// node.
-	</span><span class="kw">pub fn </span>connect_to_relay_chain_nodes&lt;<span class="lifetime">&#39;a</span>&gt;(
+	</span><span class="kw">pub fn </span>connect_to_relay_chain_nodes&lt;<span class="lifetime">'a</span>&gt;(
 		<span class="kw-2">mut </span><span class="self">self</span>,
-		nodes: <span class="kw">impl </span>IntoIterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>polkadot_test_service::PolkadotTestNode&gt;,
+		nodes: <span class="kw">impl </span>IntoIterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">'a </span>polkadot_test_service::PolkadotTestNode&gt;,
 	) -&gt; <span class="self">Self </span>{
 		<span class="self">self</span>.relay_chain_nodes.extend(nodes.into_iter().map(|n| n.addr.clone()));
 		<span class="self">self
@@ -1739,20 +1741,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Wrap the announce block function of this node.
 	</span><span class="kw">pub fn </span>wrap_announce_block(
 		<span class="kw-2">mut </span><span class="self">self</span>,
-		wrap: <span class="kw">impl </span>FnOnce(AnnounceBlockFn) -&gt; AnnounceBlockFn + <span class="lifetime">&#39;static</span>,
+		wrap: <span class="kw">impl </span>FnOnce(AnnounceBlockFn) -&gt; AnnounceBlockFn + <span class="lifetime">'static</span>,
 	) -&gt; <span class="self">Self </span>{
 		<span class="self">self</span>.wrap_announce_block = <span class="prelude-val">Some</span>(Box::new(wrap));
 		<span class="self">self
 	</span>}
 
 	<span class="doccomment">/// Allows accessing the parachain storage before the test node is built.
-	</span><span class="kw">pub fn </span>update_storage_parachain(<span class="kw-2">mut </span><span class="self">self</span>, updater: <span class="kw">impl </span>Fn() + <span class="lifetime">&#39;static</span>) -&gt; <span class="self">Self </span>{
+	</span><span class="kw">pub fn </span>update_storage_parachain(<span class="kw-2">mut </span><span class="self">self</span>, updater: <span class="kw">impl </span>Fn() + <span class="lifetime">'static</span>) -&gt; <span class="self">Self </span>{
 		<span class="self">self</span>.storage_update_func_parachain = <span class="prelude-val">Some</span>(Box::new(updater));
 		<span class="self">self
 	</span>}
 
 	<span class="doccomment">/// Allows accessing the relay chain storage before the test node is built.
-	</span><span class="kw">pub fn </span>update_storage_relay_chain(<span class="kw-2">mut </span><span class="self">self</span>, updater: <span class="kw">impl </span>Fn() + <span class="lifetime">&#39;static</span>) -&gt; <span class="self">Self </span>{
+	</span><span class="kw">pub fn </span>update_storage_relay_chain(<span class="kw-2">mut </span><span class="self">self</span>, updater: <span class="kw">impl </span>Fn() + <span class="lifetime">'static</span>) -&gt; <span class="self">Self </span>{
 		<span class="self">self</span>.storage_update_func_relay_chain = <span class="prelude-val">Some</span>(Box::new(updater));
 		<span class="self">self
 	</span>}
@@ -1772,8 +1774,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Connect to full node via RPC.
 	</span><span class="kw">pub fn </span>use_external_relay_chain_node_at_port(<span class="kw-2">mut </span><span class="self">self</span>, port: u16) -&gt; <span class="self">Self </span>{
 		<span class="kw">let </span><span class="kw-2">mut </span>localhost_url =
-			Url::parse(<span class="string">&quot;ws://localhost&quot;</span>).expect(<span class="string">&quot;Should be able to parse localhost Url&quot;</span>);
-		localhost_url.set_port(<span class="prelude-val">Some</span>(port)).expect(<span class="string">&quot;Should be able to set port&quot;</span>);
+			Url::parse(<span class="string">"ws://localhost"</span>).expect(<span class="string">"Should be able to parse localhost Url"</span>);
+		localhost_url.set_port(<span class="prelude-val">Some</span>(port)).expect(<span class="string">"Should be able to set port"</span>);
 		<span class="self">self</span>.relay_chain_mode = RelayChainMode::ExternalRpc(<span class="macro">vec!</span>[localhost_url]);
 		<span class="self">self
 	</span>}
@@ -1802,7 +1804,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="self">self</span>.collator_key.is_some(),
 			<span class="self">self</span>.endowed_accounts,
 		)
-		.expect(<span class="string">&quot;could not generate Configuration&quot;</span>);
+		.expect(<span class="string">"could not generate Configuration"</span>);
 
 		<span class="kw">let </span><span class="kw-2">mut </span>relay_chain_config = polkadot_test_service::node_config(
 			<span class="self">self</span>.storage_update_func_relay_chain.unwrap_or_else(|| Box::new(|| ())),
@@ -1815,7 +1817,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>collator_options = CollatorOptions { relay_chain_mode: <span class="self">self</span>.relay_chain_mode };
 
 		relay_chain_config.network.node_name =
-			<span class="macro">format!</span>(<span class="string">&quot;{} (relay chain)&quot;</span>, relay_chain_config.network.node_name);
+			<span class="macro">format!</span>(<span class="string">"{} (relay chain)"</span>, relay_chain_config.network.node_name);
 
 		<span class="kw">let </span>multiaddr = parachain_config.network.listen_addresses[<span class="number">0</span>].clone();
 		<span class="kw">let </span>(task_manager, client, network, rpc_handlers, transaction_pool, backend) =
@@ -1834,7 +1836,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="self">self</span>.record_proof_during_import,
 					)
 					.<span class="kw">await
-					</span>.expect(<span class="string">&quot;could not create Cumulus test service&quot;</span>),
+					</span>.expect(<span class="string">"could not create Cumulus test service"</span>),
 				sc_network::config::NetworkBackendType::Litep2p =&gt;
 					start_node_impl::&lt;<span class="kw">_</span>, sc_network::Litep2pNetworkBackend&gt;(
 						parachain_config,
@@ -1849,7 +1851,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="self">self</span>.record_proof_during_import,
 					)
 					.<span class="kw">await
-					</span>.expect(<span class="string">&quot;could not create Cumulus test service&quot;</span>),
+					</span>.expect(<span class="string">"could not create Cumulus test service"</span>),
 			};
 		<span class="kw">let </span>peer_id = network.local_peer_id();
 		<span class="kw">let </span>addr = MultiaddrWithPeerId { multiaddr, peer_id };
@@ -1875,20 +1877,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	endowed_accounts: Vec&lt;AccountId&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Configuration, ServiceError&gt; {
 	<span class="kw">let </span>base_path = BasePath::new_temp_dir()<span class="question-mark">?</span>;
-	<span class="kw">let </span>root = base_path.path().join(<span class="macro">format!</span>(<span class="string">&quot;cumulus_test_service_{}&quot;</span>, key));
+	<span class="kw">let </span>root = base_path.path().join(<span class="macro">format!</span>(<span class="string">"cumulus_test_service_{}"</span>, key));
 	<span class="kw">let </span>role = <span class="kw">if </span>is_collator { Role::Authority } <span class="kw">else </span>{ Role::Full };
 	<span class="kw">let </span>key_seed = key.to_seed();
 	<span class="kw">let </span><span class="kw-2">mut </span>spec =
 		Box::new(chain_spec::get_chain_spec_with_extra_endowed(<span class="prelude-val">Some</span>(para_id), endowed_accounts));
 
-	<span class="kw">let </span><span class="kw-2">mut </span>storage = spec.as_storage_builder().build_storage().expect(<span class="string">&quot;could not build storage&quot;</span>);
+	<span class="kw">let </span><span class="kw-2">mut </span>storage = spec.as_storage_builder().build_storage().expect(<span class="string">"could not build storage"</span>);
 
 	BasicExternalities::execute_with_storage(<span class="kw-2">&amp;mut </span>storage, storage_update_func);
 	spec.set_storage(storage);
 
 	<span class="kw">let </span><span class="kw-2">mut </span>network_config = NetworkConfiguration::new(
-		<span class="macro">format!</span>(<span class="string">&quot;{} (parachain)&quot;</span>, key_seed),
-		<span class="string">&quot;network/test/0.1&quot;</span>,
+		<span class="macro">format!</span>(<span class="string">"{} (parachain)"</span>, key_seed),
+		<span class="string">"network/test/0.1"</span>,
 		Default::default(),
 		<span class="prelude-val">None</span>,
 	);
@@ -1910,14 +1912,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	network_config.transport = TransportConfig::MemoryOnly;
 
 	<span class="prelude-val">Ok</span>(Configuration {
-		impl_name: <span class="string">&quot;cumulus-test-node&quot;</span>.to_string(),
-		impl_version: <span class="string">&quot;0.1&quot;</span>.to_string(),
+		impl_name: <span class="string">"cumulus-test-node"</span>.to_string(),
+		impl_version: <span class="string">"0.1"</span>.to_string(),
 		role,
 		tokio_handle,
 		transaction_pool: Default::default(),
 		network: network_config,
 		keystore: KeystoreConfig::InMemory,
-		database: DatabaseSource::RocksDb { path: root.join(<span class="string">&quot;db&quot;</span>), cache_size: <span class="number">128 </span>},
+		database: DatabaseSource::RocksDb { path: root.join(<span class="string">"db"</span>), cache_size: <span class="number">128 </span>},
 		trie_cache_maximum_size: <span class="prelude-val">Some</span>(<span class="number">64 </span>* <span class="number">1024 </span>* <span class="number">1024</span>),
 		state_pruning: <span class="prelude-val">Some</span>(PruningMode::ArchiveAll),
 		blocks_pruning: BlocksPruning::KeepAll,
@@ -1997,7 +1999,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	client
 		.runtime_api()
 		.account_nonce(best_hash, account.into())
-		.expect(<span class="string">&quot;Fetching account nonce works; qed&quot;</span>)
+		.expect(<span class="string">"Fetching account nonce works; qed"</span>)
 }
 
 <span class="doccomment">/// Construct an extrinsic that can be applied to the test runtime.

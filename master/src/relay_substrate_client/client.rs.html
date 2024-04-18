@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `bridges/relays/client-substrate/src/client.rs`."><title>client.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `bridges/relays/client-substrate/src/client.rs`."><title>client.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="relay_substrate_client" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="relay_substrate_client" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../relay_substrate_client/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1191,22 +1193,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sp_version::RuntimeVersion;
 <span class="kw">use </span>std::{cmp::Ordering, future::Future};
 
-<span class="kw">const </span>SUB_API_GRANDPA_AUTHORITIES: <span class="kw-2">&amp;</span>str = <span class="string">&quot;GrandpaApi_grandpa_authorities&quot;</span>;
+<span class="kw">const </span>SUB_API_GRANDPA_AUTHORITIES: <span class="kw-2">&amp;</span>str = <span class="string">"GrandpaApi_grandpa_authorities"</span>;
 <span class="kw">const </span>SUB_API_GRANDPA_GENERATE_KEY_OWNERSHIP_PROOF: <span class="kw-2">&amp;</span>str =
-	<span class="string">&quot;GrandpaApi_generate_key_ownership_proof&quot;</span>;
-<span class="kw">const </span>SUB_API_TXPOOL_VALIDATE_TRANSACTION: <span class="kw-2">&amp;</span>str = <span class="string">&quot;TaggedTransactionQueue_validate_transaction&quot;</span>;
-<span class="kw">const </span>SUB_API_TX_PAYMENT_QUERY_INFO: <span class="kw-2">&amp;</span>str = <span class="string">&quot;TransactionPaymentApi_query_info&quot;</span>;
+	<span class="string">"GrandpaApi_generate_key_ownership_proof"</span>;
+<span class="kw">const </span>SUB_API_TXPOOL_VALIDATE_TRANSACTION: <span class="kw-2">&amp;</span>str = <span class="string">"TaggedTransactionQueue_validate_transaction"</span>;
+<span class="kw">const </span>SUB_API_TX_PAYMENT_QUERY_INFO: <span class="kw-2">&amp;</span>str = <span class="string">"TransactionPaymentApi_query_info"</span>;
 <span class="kw">const </span>MAX_SUBSCRIPTION_CAPACITY: usize = <span class="number">4096</span>;
 
 <span class="doccomment">/// The difference between best block number and number of its ancestor, that is enough
-/// for us to consider that ancestor an &quot;ancient&quot; block with dropped state.
+/// for us to consider that ancestor an "ancient" block with dropped state.
 ///
 /// The relay does not assume that it is connected to the archive node, so it always tries
 /// to use the best available chain state. But sometimes it still may use state of some
 /// old block. If the state of that block is already dropped, relay will see errors when
 /// e.g. it tries to prove something.
 ///
-/// By default Substrate-based nodes are storing state for last 256 blocks. We&#39;ll use
+/// By default Substrate-based nodes are storing state for last 256 blocks. We'll use
 /// half of this value.
 </span><span class="kw">pub const </span>ANCIENT_BLOCK_THRESHOLD: u32 = <span class="number">128</span>;
 
@@ -1226,7 +1228,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub struct </span>SimpleRuntimeVersion {
 	<span class="doccomment">/// Version of the runtime specification.
 	</span><span class="kw">pub </span>spec_version: u32,
-	<span class="doccomment">/// All existing dispatches are fully compatible when this number doesn&#39;t change.
+	<span class="doccomment">/// All existing dispatches are fully compatible when this number doesn't change.
 	</span><span class="kw">pub </span>transaction_version: u32,
 }
 
@@ -1314,7 +1316,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl</span>&lt;C: Chain&gt; std::fmt::Debug <span class="kw">for </span>Client&lt;C&gt; {
 	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, fmt: <span class="kw-2">&amp;mut </span>std::fmt::Formatter) -&gt; std::fmt::Result {
-		fmt.debug_struct(<span class="string">&quot;Client&quot;</span>).field(<span class="string">&quot;genesis_hash&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.genesis_hash).finish()
+		fmt.debug_struct(<span class="string">"Client"</span>).field(<span class="string">"genesis_hash"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.genesis_hash).finish()
 	}
 }
 
@@ -1329,8 +1331,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">match </span><span class="self">Self</span>::try_connect(params.clone()).<span class="kw">await </span>{
 				<span class="prelude-val">Ok</span>(client) =&gt; <span class="kw">return </span>client,
 				<span class="prelude-val">Err</span>(error) =&gt; <span class="macro">log::error!</span>(
-					target: <span class="string">&quot;bridge&quot;</span>,
-					<span class="string">&quot;Failed to connect to {} node: {:?}. Going to retry in {}s&quot;</span>,
+					target: <span class="string">"bridge"</span>,
+					<span class="string">"Failed to connect to {} node: {:?}. Going to retry in {}s"</span>,
 					C::NAME,
 					error,
 					RECONNECT_DELAY.as_secs(),
@@ -1387,13 +1389,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			Ordering::Equal =&gt; <span class="prelude-val">Ok</span>(()),
 			Ordering::Greater =&gt; {
 				<span class="macro">log::error!</span>(
-					target: <span class="string">&quot;bridge&quot;</span>,
-					<span class="string">&quot;The {} client is configured to use runtime version {expected:?} and actual \
-					version is {actual:?}. Aborting&quot;</span>,
+					target: <span class="string">"bridge"</span>,
+					<span class="string">"The {} client is configured to use runtime version {expected:?} and actual \
+					version is {actual:?}. Aborting"</span>,
 					C::NAME,
 				);
 				env.abort().<span class="kw">await</span>;
-				<span class="prelude-val">Err</span>(Error::Custom(<span class="string">&quot;Aborted&quot;</span>.into()))
+				<span class="prelude-val">Err</span>(Error::Custom(<span class="string">"Aborted"</span>.into()))
 			},
 		}
 	}
@@ -1408,18 +1410,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Some</span>(<span class="kw-2">ref </span>uri) =&gt; uri.clone(),
 			<span class="prelude-val">None </span>=&gt; {
 				<span class="macro">format!</span>(
-					<span class="string">&quot;{}://{}:{}{}&quot;</span>,
-					<span class="kw">if </span>params.secure { <span class="string">&quot;wss&quot; </span>} <span class="kw">else </span>{ <span class="string">&quot;ws&quot; </span>},
+					<span class="string">"{}://{}:{}{}"</span>,
+					<span class="kw">if </span>params.secure { <span class="string">"wss" </span>} <span class="kw">else </span>{ <span class="string">"ws" </span>},
 					params.host,
 					params.port,
 					<span class="kw">match </span>params.path {
-						<span class="prelude-val">Some</span>(<span class="kw-2">ref </span>path) =&gt; <span class="macro">format!</span>(<span class="string">&quot;/{}&quot;</span>, path),
+						<span class="prelude-val">Some</span>(<span class="kw-2">ref </span>path) =&gt; <span class="macro">format!</span>(<span class="string">"/{}"</span>, path),
 						<span class="prelude-val">None </span>=&gt; String::new(),
 					},
 				)
 			},
 		};
-		<span class="macro">log::info!</span>(target: <span class="string">&quot;bridge&quot;</span>, <span class="string">&quot;Connecting to {} node at {}&quot;</span>, C::NAME, uri);
+		<span class="macro">log::info!</span>(target: <span class="string">"bridge"</span>, <span class="string">"Connecting to {} node at {}"</span>, C::NAME, uri);
 
 		<span class="kw">let </span>client = tokio
 			.spawn(<span class="kw">async move </span>{
@@ -1518,7 +1520,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		.<span class="kw">await
 		</span>.map_err(|e| Error::FailedToReadHeaderByHash {
 			chain: C::NAME.into(),
-			hash: <span class="macro">format!</span>(<span class="string">&quot;{block_hash}&quot;</span>),
+			hash: <span class="macro">format!</span>(<span class="string">"{block_hash}"</span>),
 			error: e.boxed(),
 		})
 	}
@@ -1550,7 +1552,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>}
 
 	<span class="doccomment">/// Read value from runtime storage.
-	</span><span class="kw">pub async fn </span>storage_value&lt;T: Send + Decode + <span class="lifetime">&#39;static</span>&gt;(
+	</span><span class="kw">pub async fn </span>storage_value&lt;T: Send + Decode + <span class="lifetime">'static</span>&gt;(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		storage_key: StorageKey,
 		block_hash: <span class="prelude-ty">Option</span>&lt;C::Hash&gt;,
@@ -1619,7 +1621,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Get the nonce of the given Substrate account.
 	///
-	/// Note: It&#39;s the caller&#39;s responsibility to make sure `account` is a valid SS58 address.
+	/// Note: It's the caller's responsibility to make sure `account` is a valid SS58 address.
 	</span><span class="kw">pub async fn </span>next_account_index(<span class="kw-2">&amp;</span><span class="self">self</span>, account: C::AccountId) -&gt; <span class="prelude-ty">Result</span>&lt;C::Nonce&gt; {
 		<span class="self">self</span>.jsonrpsee_execute(<span class="kw">move </span>|client| <span class="kw">async move </span>{
 			<span class="prelude-val">Ok</span>(SubstrateFrameSystemClient::&lt;C&gt;::account_next_index(<span class="kw-2">&amp;*</span>client, account).<span class="kw">await</span><span class="question-mark">?</span>)
@@ -1632,12 +1634,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// Note: The given transaction needs to be SCALE encoded beforehand.
 	</span><span class="kw">pub async fn </span>submit_unsigned_extrinsic(<span class="kw-2">&amp;</span><span class="self">self</span>, transaction: Bytes) -&gt; <span class="prelude-ty">Result</span>&lt;C::Hash&gt; {
 		<span class="comment">// one last check that the transaction is valid. Most of checks happen in the relay loop and
-		// it is the &quot;final&quot; check before submission.
+		// it is the "final" check before submission.
 		</span><span class="kw">let </span>best_header_hash = <span class="self">self</span>.best_header().<span class="kw">await</span><span class="question-mark">?</span>.hash();
 		<span class="self">self</span>.validate_transaction(best_header_hash, PreEncoded(transaction.<span class="number">0</span>.clone()))
 			.<span class="kw">await
 			</span>.map_err(|e| {
-				<span class="macro">log::error!</span>(target: <span class="string">&quot;bridge&quot;</span>, <span class="string">&quot;Pre-submit {} transaction validation failed: {:?}&quot;</span>, C::NAME, e);
+				<span class="macro">log::error!</span>(target: <span class="string">"bridge"</span>, <span class="string">"Pre-submit {} transaction validation failed: {:?}"</span>, C::NAME, e);
 				e
 			})<span class="question-mark">??</span>;
 
@@ -1645,10 +1647,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>tx_hash = SubstrateAuthorClient::&lt;C&gt;::submit_extrinsic(<span class="kw-2">&amp;*</span>client, transaction)
 				.<span class="kw">await
 				</span>.map_err(|e| {
-					<span class="macro">log::error!</span>(target: <span class="string">&quot;bridge&quot;</span>, <span class="string">&quot;Failed to send transaction to {} node: {:?}&quot;</span>, C::NAME, e);
+					<span class="macro">log::error!</span>(target: <span class="string">"bridge"</span>, <span class="string">"Failed to send transaction to {} node: {:?}"</span>, C::NAME, e);
 					e
 				})<span class="question-mark">?</span>;
-			<span class="macro">log::trace!</span>(target: <span class="string">&quot;bridge&quot;</span>, <span class="string">&quot;Sent transaction to {} node: {:?}&quot;</span>, C::NAME, tx_hash);
+			<span class="macro">log::trace!</span>(target: <span class="string">"bridge"</span>, <span class="string">"Sent transaction to {} node: {:?}"</span>, C::NAME, tx_hash);
 			<span class="prelude-val">Ok</span>(tx_hash)
 		})
 		.<span class="kw">await
@@ -1669,7 +1671,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Submit an extrinsic signed by given account.
 	///
-	/// All calls of this method are synchronized, so there can&#39;t be more than one active
+	/// All calls of this method are synchronized, so there can't be more than one active
 	/// `submit_signed_extrinsic()` call. This guarantees that no nonces collision may happen
 	/// if all client instances are clones of the same initial `Client`.
 	///
@@ -1679,7 +1681,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		signer: <span class="kw-2">&amp;</span>AccountKeyPairOf&lt;C&gt;,
 		prepare_extrinsic: <span class="kw">impl </span>FnOnce(HeaderIdOf&lt;C&gt;, C::Nonce) -&gt; <span class="prelude-ty">Result</span>&lt;UnsignedTransaction&lt;C&gt;&gt;
 			+ Send
-			+ <span class="lifetime">&#39;static</span>,
+			+ <span class="lifetime">'static</span>,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;C::Hash&gt;
 	<span class="kw">where
 		</span>C: ChainWithTransactions,
@@ -1701,11 +1703,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>signed_extrinsic = C::sign_transaction(signing_data, extrinsic)<span class="question-mark">?</span>.encode();
 
 		<span class="comment">// one last check that the transaction is valid. Most of checks happen in the relay loop and
-		// it is the &quot;final&quot; check before submission.
+		// it is the "final" check before submission.
 		</span><span class="self">self</span>.validate_transaction(best_header_id.<span class="number">1</span>, PreEncoded(signed_extrinsic.clone()))
 			.<span class="kw">await
 			</span>.map_err(|e| {
-				<span class="macro">log::error!</span>(target: <span class="string">&quot;bridge&quot;</span>, <span class="string">&quot;Pre-submit {} transaction validation failed: {:?}&quot;</span>, C::NAME, e);
+				<span class="macro">log::error!</span>(target: <span class="string">"bridge"</span>, <span class="string">"Pre-submit {} transaction validation failed: {:?}"</span>, C::NAME, e);
 				e
 			})<span class="question-mark">??</span>;
 
@@ -1714,10 +1716,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				SubstrateAuthorClient::&lt;C&gt;::submit_extrinsic(<span class="kw-2">&amp;*</span>client, Bytes(signed_extrinsic))
 					.<span class="kw">await
 					</span>.map_err(|e| {
-						<span class="macro">log::error!</span>(target: <span class="string">&quot;bridge&quot;</span>, <span class="string">&quot;Failed to send transaction to {} node: {:?}&quot;</span>, C::NAME, e);
+						<span class="macro">log::error!</span>(target: <span class="string">"bridge"</span>, <span class="string">"Failed to send transaction to {} node: {:?}"</span>, C::NAME, e);
 						e
 					})<span class="question-mark">?</span>;
-			<span class="macro">log::trace!</span>(target: <span class="string">&quot;bridge&quot;</span>, <span class="string">&quot;Sent transaction to {} node: {:?}&quot;</span>, C::NAME, tx_hash);
+			<span class="macro">log::trace!</span>(target: <span class="string">"bridge"</span>, <span class="string">"Sent transaction to {} node: {:?}"</span>, C::NAME, tx_hash);
 			<span class="prelude-val">Ok</span>(tx_hash)
 		})
 		.<span class="kw">await
@@ -1730,7 +1732,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		signer: <span class="kw-2">&amp;</span>AccountKeyPairOf&lt;C&gt;,
 		prepare_extrinsic: <span class="kw">impl </span>FnOnce(HeaderIdOf&lt;C&gt;, C::Nonce) -&gt; <span class="prelude-ty">Result</span>&lt;UnsignedTransaction&lt;C&gt;&gt;
 			+ Send
-			+ <span class="lifetime">&#39;static</span>,
+			+ <span class="lifetime">'static</span>,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;TransactionTracker&lt;C, <span class="self">Self</span>&gt;&gt;
 	<span class="kw">where
 		</span>C: ChainWithTransactions,
@@ -1752,11 +1754,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>signed_extrinsic = C::sign_transaction(signing_data, extrinsic)<span class="question-mark">?</span>.encode();
 
 		<span class="comment">// one last check that the transaction is valid. Most of checks happen in the relay loop and
-		// it is the &quot;final&quot; check before submission.
+		// it is the "final" check before submission.
 		</span><span class="self">self</span>.validate_transaction(best_header_id.<span class="number">1</span>, PreEncoded(signed_extrinsic.clone()))
 			.<span class="kw">await
 			</span>.map_err(|e| {
-				<span class="macro">log::error!</span>(target: <span class="string">&quot;bridge&quot;</span>, <span class="string">&quot;Pre-submit {} transaction validation failed: {:?}&quot;</span>, C::NAME, e);
+				<span class="macro">log::error!</span>(target: <span class="string">"bridge"</span>, <span class="string">"Pre-submit {} transaction validation failed: {:?}"</span>, C::NAME, e);
 				e
 			})<span class="question-mark">??</span>;
 
@@ -1770,10 +1772,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				)
 				.<span class="kw">await
 				</span>.map_err(|e| {
-					<span class="macro">log::error!</span>(target: <span class="string">&quot;bridge&quot;</span>, <span class="string">&quot;Failed to send transaction to {} node: {:?}&quot;</span>, C::NAME, e);
+					<span class="macro">log::error!</span>(target: <span class="string">"bridge"</span>, <span class="string">"Failed to send transaction to {} node: {:?}"</span>, C::NAME, e);
 					e
 				})<span class="question-mark">?</span>;
-				<span class="macro">log::trace!</span>(target: <span class="string">&quot;bridge&quot;</span>, <span class="string">&quot;Sent transaction to {} node: {:?}&quot;</span>, C::NAME, tx_hash);
+				<span class="macro">log::trace!</span>(target: <span class="string">"bridge"</span>, <span class="string">"Sent transaction to {} node: {:?}"</span>, C::NAME, tx_hash);
 				<span class="kw">let </span>tracker = TransactionTracker::new(
 					self_clone,
 					stall_timeout,
@@ -1785,7 +1787,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.<span class="kw">await</span><span class="question-mark">?</span>;
 		<span class="self">self</span>.data.read().<span class="kw">await</span>.tokio.spawn(Subscription::background_worker(
 			C::NAME.into(),
-			<span class="string">&quot;extrinsic&quot;</span>.into(),
+			<span class="string">"extrinsic"</span>.into(),
 			subscription,
 			sender,
 		));
@@ -1801,7 +1803,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>}
 
 	<span class="doccomment">/// Validate transaction at given block state.
-	</span><span class="kw">pub async fn </span>validate_transaction&lt;SignedTransaction: Encode + Send + <span class="lifetime">&#39;static</span>&gt;(
+	</span><span class="kw">pub async fn </span>validate_transaction&lt;SignedTransaction: Encode + Send + <span class="lifetime">'static</span>&gt;(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		at_block: C::Hash,
 		transaction: SignedTransaction,
@@ -1821,7 +1823,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>}
 
 	<span class="doccomment">/// Returns weight of the given transaction.
-	</span><span class="kw">pub async fn </span>extimate_extrinsic_weight&lt;SignedTransaction: Encode + Send + <span class="lifetime">&#39;static</span>&gt;(
+	</span><span class="kw">pub async fn </span>extimate_extrinsic_weight&lt;SignedTransaction: Encode + Send + <span class="lifetime">'static</span>&gt;(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		transaction: SignedTransaction,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;Weight&gt; {
@@ -1915,7 +1917,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub async fn </span>token_decimals(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;u64&gt;&gt; {
 		<span class="self">self</span>.jsonrpsee_execute(<span class="kw">move </span>|client| <span class="kw">async move </span>{
 			<span class="kw">let </span>system_properties = SubstrateSystemClient::&lt;C&gt;::properties(<span class="kw-2">&amp;*</span>client).<span class="kw">await</span><span class="question-mark">?</span>;
-			<span class="prelude-val">Ok</span>(system_properties.get(<span class="string">&quot;tokenDecimals&quot;</span>).and_then(|v| v.as_u64()))
+			<span class="prelude-val">Ok</span>(system_properties.get(<span class="string">"tokenDecimals"</span>).and_then(|v| v.as_u64()))
 		})
 		.<span class="kw">await
 	</span>}
@@ -1932,7 +1934,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>(sender, receiver) = futures::channel::mpsc::channel(MAX_SUBSCRIPTION_CAPACITY);
 		<span class="self">self</span>.data.read().<span class="kw">await</span>.tokio.spawn(Subscription::background_worker(
 			C::NAME.into(),
-			<span class="string">&quot;justification&quot;</span>.into(),
+			<span class="string">"justification"</span>.into(),
 			subscription,
 			sender,
 		));
@@ -1960,9 +1962,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Execute jsonrpsee future in tokio context.
 	</span><span class="kw">async fn </span>jsonrpsee_execute&lt;MF, F, T&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, make_jsonrpsee_future: MF) -&gt; <span class="prelude-ty">Result</span>&lt;T&gt;
 	<span class="kw">where
-		</span>MF: FnOnce(Arc&lt;RpcClient&gt;) -&gt; F + Send + <span class="lifetime">&#39;static</span>,
-		F: Future&lt;Output = <span class="prelude-ty">Result</span>&lt;T&gt;&gt; + Send + <span class="lifetime">&#39;static</span>,
-		T: Send + <span class="lifetime">&#39;static</span>,
+		</span>MF: FnOnce(Arc&lt;RpcClient&gt;) -&gt; F + Send + <span class="lifetime">'static</span>,
+		F: Future&lt;Output = <span class="prelude-ty">Result</span>&lt;T&gt;&gt; + Send + <span class="lifetime">'static</span>,
+		T: Send + <span class="lifetime">'static</span>,
 	{
 		<span class="kw">let </span>data = <span class="self">self</span>.data.read().<span class="kw">await</span>;
 		<span class="kw">let </span>client = data.client.clone();
@@ -1971,9 +1973,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Returns `true` if version guard can be started.
 	///
-	/// There&#39;s no reason to run version guard when version mode is set to `Auto`. It can
+	/// There's no reason to run version guard when version mode is set to `Auto`. It can
 	/// lead to relay shutdown when chain is upgraded, even though we have explicitly
-	/// said that we don&#39;t want to shutdown.
+	/// said that we don't want to shutdown.
 	</span><span class="kw">pub fn </span>can_start_version_guard(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
 		!<span class="macro">matches!</span>(<span class="self">self</span>.chain_runtime_version, ChainRuntimeVersion::Auto)
 	}
@@ -2010,8 +2012,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					</span>},
 				<span class="prelude-val">Some</span>(<span class="prelude-val">Err</span>(e)) =&gt; {
 					<span class="macro">log::trace!</span>(
-						target: <span class="string">&quot;bridge&quot;</span>,
-						<span class="string">&quot;{} {} subscription stream has returned &#39;{:?}&#39;. Stream needs to be restarted.&quot;</span>,
+						target: <span class="string">"bridge"</span>,
+						<span class="string">"{} {} subscription stream has returned '{:?}'. Stream needs to be restarted."</span>,
 						chain_name,
 						item_type,
 						e,
@@ -2021,8 +2023,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				</span>},
 				<span class="prelude-val">None </span>=&gt; {
 					<span class="macro">log::trace!</span>(
-						target: <span class="string">&quot;bridge&quot;</span>,
-						<span class="string">&quot;{} {} subscription stream has returned None. Stream needs to be restarted.&quot;</span>,
+						target: <span class="string">"bridge"</span>,
+						<span class="string">"{} {} subscription stream has returned None. Stream needs to be restarted."</span>,
 						chain_name,
 						item_type,
 					);
@@ -2054,7 +2056,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>ensure_correct_runtime_version =
 			Client::&lt;TestChain&gt;::ensure_correct_runtime_version(<span class="kw-2">&amp;mut </span>env, expected).boxed();
-		<span class="kw">let </span>aborted = aborted_rx.next().map(|<span class="kw">_</span>| <span class="prelude-val">Err</span>(Error::Custom(<span class="string">&quot;&quot;</span>.into()))).boxed();
+		<span class="kw">let </span>aborted = aborted_rx.next().map(|<span class="kw">_</span>| <span class="prelude-val">Err</span>(Error::Custom(<span class="string">""</span>.into()))).boxed();
 		<span class="macro">futures::pin_mut!</span>(ensure_correct_runtime_version, aborted);
 		futures::future::select(ensure_correct_runtime_version, aborted)
 			.<span class="kw">await

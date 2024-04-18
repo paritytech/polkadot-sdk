@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/contracts/src/migration.rs`."><title>migration.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/contracts/src/migration.rs`."><title>migration.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_contracts" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_contracts" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../pallet_contracts/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -811,14 +813,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -873,7 +875,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">pub mod </span>v14;
 <span class="kw">pub mod </span>v15;
 <span class="kw">pub mod </span>v16;
-<span class="macro">include!</span>(<span class="macro">concat!</span>(<span class="macro">env!</span>(<span class="string">&quot;OUT_DIR&quot;</span>), <span class="string">&quot;/migration_codegen.rs&quot;</span>));
+<span class="macro">include!</span>(<span class="macro">concat!</span>(<span class="macro">env!</span>(<span class="string">"OUT_DIR"</span>), <span class="string">"/migration_codegen.rs"</span>));
 
 <span class="kw">use crate</span>::{weights::WeightInfo, Config, Error, MigrationInProgress, Pallet, Weight, LOG_TARGET};
 <span class="kw">use </span>codec::{Codec, Decode};
@@ -885,18 +887,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sp_runtime::Saturating;
 <span class="kw">use </span>sp_std::marker::PhantomData;
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 </span><span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 </span><span class="kw">use </span>sp_runtime::TryRuntimeError;
 
-<span class="kw">const </span>PROOF_ENCODE: <span class="kw-2">&amp;</span>str = <span class="string">&quot;Tuple::max_encoded_len() &lt; Cursor::max_encoded_len()` is verified in `Self::integrity_test()`; qed&quot;</span>;
+<span class="kw">const </span>PROOF_ENCODE: <span class="kw-2">&amp;</span>str = <span class="string">"Tuple::max_encoded_len() &lt; Cursor::max_encoded_len()` is verified in `Self::integrity_test()`; qed"</span>;
 <span class="kw">const </span>PROOF_DECODE: <span class="kw-2">&amp;</span>str =
-	<span class="string">&quot;We encode to the same type in this trait only. No other code touches this item; qed&quot;</span>;
+	<span class="string">"We encode to the same type in this trait only. No other code touches this item; qed"</span>;
 
 <span class="kw">fn </span>invalid_version(version: StorageVersion) -&gt; ! {
-	<span class="macro">panic!</span>(<span class="string">&quot;Required migration {version:?} not supported by this runtime. This is a bug.&quot;</span>);
+	<span class="macro">panic!</span>(<span class="string">"Required migration {version:?} not supported by this runtime. This is a bug."</span>);
 }
 
 <span class="doccomment">/// The cursor used to encode the position (usually the last iterated key) of the current migration
@@ -930,7 +932,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>integrity_test(max_block_weight: Weight) {
 		<span class="kw">if </span><span class="self">Self</span>::max_step_weight().any_gt(max_block_weight) {
 			<span class="macro">panic!</span>(
-				<span class="string">&quot;Invalid max_step_weight for Migration {}. Value should be lower than {}&quot;</span>,
+				<span class="string">"Invalid max_step_weight for Migration {}. Value should be lower than {}"</span>,
 				<span class="self">Self</span>::VERSION,
 				max_block_weight
 			);
@@ -940,7 +942,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>max = Cursor::bound();
 		<span class="kw">if </span>len &gt; max {
 			<span class="macro">panic!</span>(
-				<span class="string">&quot;Migration {} has size {} which is bigger than the maximum of {}&quot;</span>,
+				<span class="string">"Migration {} has size {} which is bigger than the maximum of {}"</span>,
 				<span class="self">Self</span>::VERSION,
 				len,
 				max,
@@ -949,13 +951,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Execute some pre-checks prior to running the first step of this migration.
-	</span><span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+	</span><span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 	</span><span class="kw">fn </span>pre_upgrade_step() -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, TryRuntimeError&gt; {
 		<span class="prelude-val">Ok</span>(Vec::new())
 	}
 
 	<span class="doccomment">/// Execute some post-checks after running the last step of this migration.
-	</span><span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+	</span><span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 	</span><span class="kw">fn </span>post_upgrade_step(_state: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
 		<span class="prelude-val">Ok</span>(())
 	}
@@ -972,7 +974,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		Weight::zero()
 	}
 	<span class="kw">fn </span>step(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _meter: <span class="kw-2">&amp;mut </span>WeightMeter) -&gt; IsFinished {
-		<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;Noop migration for version {}&quot;</span>, N);
+		<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"Noop migration for version {}"</span>, N);
 		IsFinished::Yes
 	}
 }
@@ -1009,12 +1011,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Returns the default cursor for the given version.
 	</span><span class="kw">fn </span>new(version: StorageVersion) -&gt; Cursor;
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 	</span><span class="kw">fn </span>pre_upgrade_step(_version: StorageVersion) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, TryRuntimeError&gt; {
 		<span class="prelude-val">Ok</span>(Vec::new())
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 	</span><span class="kw">fn </span>post_upgrade_step(_version: StorageVersion, _state: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
 		<span class="prelude-val">Ok</span>(())
 	}
@@ -1042,7 +1044,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// by step migration works.
 </span><span class="kw">pub struct </span>Migration&lt;T: Config, <span class="kw">const </span>TEST_ALL_STEPS: bool = <span class="bool-val">true</span>&gt;(PhantomData&lt;T&gt;);
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 </span><span class="kw">impl</span>&lt;T: Config, <span class="kw">const </span>TEST_ALL_STEPS: bool&gt; Migration&lt;T, TEST_ALL_STEPS&gt; {
 	<span class="kw">fn </span>run_all_steps() -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
 		<span class="kw">let </span><span class="kw-2">mut </span>meter = <span class="kw-2">&amp;mut </span>WeightMeter::new();
@@ -1054,7 +1056,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>status = <span class="self">Self</span>::migrate(<span class="kw-2">&amp;mut </span>meter);
 			<span class="macro">log::info!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;{name}: Migration step {:?} weight = {}&quot;</span>,
+				<span class="string">"{name}: Migration step {:?} weight = {}"</span>,
 				in_progress_version,
 				meter.consumed() - before
 			);
@@ -1065,7 +1067,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 
 		<span class="kw">let </span>name = &lt;Pallet&lt;T&gt;&gt;::name();
-		<span class="macro">log::info!</span>(target: LOG_TARGET, <span class="string">&quot;{name}: Migration steps weight = {}&quot;</span>, meter.consumed());
+		<span class="macro">log::info!</span>(target: LOG_TARGET, <span class="string">"{name}: Migration steps weight = {}"</span>, meter.consumed());
 		<span class="prelude-val">Ok</span>(())
 	}
 }
@@ -1079,7 +1081,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if </span>on_chain_version == in_code_version {
 			<span class="macro">log::warn!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;{name}: No Migration performed storage_version = latest_version = {:?}&quot;</span>,
+				<span class="string">"{name}: No Migration performed storage_version = latest_version = {:?}"</span>,
 				<span class="kw-2">&amp;</span>on_chain_version
 			);
 			<span class="kw">return </span>T::WeightInfo::on_runtime_upgrade_noop()
@@ -1090,7 +1092,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">if </span><span class="self">Self</span>::in_progress() {
 			<span class="macro">log::warn!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;{name}: Migration already in progress {:?}&quot;</span>,
+				<span class="string">"{name}: Migration already in progress {:?}"</span>,
 				<span class="kw-2">&amp;</span>on_chain_version
 			);
 
@@ -1099,13 +1101,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="macro">log::info!</span>(
 			target: LOG_TARGET,
-			<span class="string">&quot;{name}: Upgrading storage from {on_chain_version:?} to {in_code_version:?}.&quot;</span>,
+			<span class="string">"{name}: Upgrading storage from {on_chain_version:?} to {in_code_version:?}."</span>,
 		);
 
 		<span class="kw">let </span>cursor = T::Migrations::new(on_chain_version + <span class="number">1</span>);
 		MigrationInProgress::&lt;T&gt;::set(<span class="prelude-val">Some</span>(cursor));
 
-		<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+		<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 		</span><span class="kw">if </span>TEST_ALL_STEPS {
 			<span class="self">Self</span>::run_all_steps().unwrap();
 		}
@@ -1113,9 +1115,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		T::WeightInfo::on_runtime_upgrade()
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 	</span><span class="kw">fn </span>pre_upgrade() -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, TryRuntimeError&gt; {
-		<span class="comment">// We can&#39;t really do much here as our migrations do not happen during the runtime upgrade.
+		<span class="comment">// We can't really do much here as our migrations do not happen during the runtime upgrade.
 		// Instead, we call the migrations `pre_upgrade` and `post_upgrade` hooks when we iterate
 		// over our migrations.
 		</span><span class="kw">let </span>on_chain_version = &lt;Pallet&lt;T&gt;&gt;::on_chain_storage_version();
@@ -1127,39 +1129,39 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="macro">log::debug!</span>(
 			target: LOG_TARGET,
-			<span class="string">&quot;Requested migration of {} from {:?}(on-chain storage version) to {:?}(in-code storage version)&quot;</span>,
+			<span class="string">"Requested migration of {} from {:?}(on-chain storage version) to {:?}(in-code storage version)"</span>,
 			&lt;Pallet&lt;T&gt;&gt;::name(), on_chain_version, in_code_version
 		);
 
 		<span class="macro">ensure!</span>(
 			T::Migrations::is_upgrade_supported(on_chain_version, in_code_version),
-			<span class="string">&quot;Unsupported upgrade: VERSION_RANGE should be (on-chain storage version + 1, in-code storage version)&quot;
+			<span class="string">"Unsupported upgrade: VERSION_RANGE should be (on-chain storage version + 1, in-code storage version)"
 		</span>);
 
 		<span class="prelude-val">Ok</span>(Default::default())
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 	</span><span class="kw">fn </span>post_upgrade(_state: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
 		<span class="kw">if </span>!TEST_ALL_STEPS {
 			<span class="kw">return </span><span class="prelude-val">Ok</span>(())
 		}
 
-		<span class="macro">log::info!</span>(target: LOG_TARGET, <span class="string">&quot;=== POST UPGRADE CHECKS ===&quot;</span>);
+		<span class="macro">log::info!</span>(target: LOG_TARGET, <span class="string">"=== POST UPGRADE CHECKS ==="</span>);
 
 		<span class="comment">// Ensure that the hashing algorithm is correct for each storage map.
 		</span><span class="kw">if let </span><span class="prelude-val">Some</span>(hash) = <span class="kw">crate</span>::CodeInfoOf::&lt;T&gt;::iter_keys().next() {
-			<span class="kw">crate</span>::CodeInfoOf::&lt;T&gt;::get(hash).expect(<span class="string">&quot;CodeInfo exists for hash; qed&quot;</span>);
+			<span class="kw">crate</span>::CodeInfoOf::&lt;T&gt;::get(hash).expect(<span class="string">"CodeInfo exists for hash; qed"</span>);
 		}
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(hash) = <span class="kw">crate</span>::PristineCode::&lt;T&gt;::iter_keys().next() {
-			<span class="kw">crate</span>::PristineCode::&lt;T&gt;::get(hash).expect(<span class="string">&quot;PristineCode exists for hash; qed&quot;</span>);
+			<span class="kw">crate</span>::PristineCode::&lt;T&gt;::get(hash).expect(<span class="string">"PristineCode exists for hash; qed"</span>);
 		}
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(account_id) = <span class="kw">crate</span>::ContractInfoOf::&lt;T&gt;::iter_keys().next() {
 			<span class="kw">crate</span>::ContractInfoOf::&lt;T&gt;::get(account_id)
-				.expect(<span class="string">&quot;ContractInfo exists for account_id; qed&quot;</span>);
+				.expect(<span class="string">"ContractInfo exists for account_id; qed"</span>);
 		}
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(nonce) = <span class="kw">crate</span>::DeletionQueue::&lt;T&gt;::iter_keys().next() {
-			<span class="kw">crate</span>::DeletionQueue::&lt;T&gt;::get(nonce).expect(<span class="string">&quot;DeletionQueue exists for nonce; qed&quot;</span>);
+			<span class="kw">crate</span>::DeletionQueue::&lt;T&gt;::get(nonce).expect(<span class="string">"DeletionQueue exists for nonce; qed"</span>);
 		}
 
 		<span class="prelude-val">Ok</span>(())
@@ -1187,7 +1189,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl</span>&lt;T: Config, <span class="kw">const </span>TEST_ALL_STEPS: bool&gt; Migration&lt;T, TEST_ALL_STEPS&gt; {
-	<span class="doccomment">/// Verify that each migration&#39;s step of the [`Config::Migrations`] sequence fits into
+	<span class="doccomment">/// Verify that each migration's step of the [`Config::Migrations`] sequence fits into
 	/// `Cursor`.
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>integrity_test() {
 		<span class="kw">let </span>max_weight = &lt;T <span class="kw">as </span>frame_system::Config&gt;::BlockWeights::get().max_block;
@@ -1215,7 +1217,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="macro">log::info!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;{name}: Migrating from {:?} to {:?},&quot;</span>,
+				<span class="string">"{name}: Migrating from {:?} to {:?},"</span>,
 				storage_version,
 				in_progress_version,
 			);
@@ -1232,7 +1234,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="kw">if </span>&lt;Pallet&lt;T&gt;&gt;::in_code_storage_version() != in_progress_version {
 							<span class="macro">log::info!</span>(
 								target: LOG_TARGET,
-								<span class="string">&quot;{name}: Next migration is {:?},&quot;</span>,
+								<span class="string">"{name}: Next migration is {:?},"</span>,
 								in_progress_version + <span class="number">1
 							</span>);
 							<span class="kw-2">*</span>progress = <span class="prelude-val">Some</span>(T::Migrations::new(in_progress_version + <span class="number">1</span>));
@@ -1240,7 +1242,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						} <span class="kw">else </span>{
 							<span class="macro">log::info!</span>(
 								target: LOG_TARGET,
-								<span class="string">&quot;{name}: All migrations done. At version {:?},&quot;</span>,
+								<span class="string">"{name}: All migrations done. At version {:?},"</span>,
 								in_progress_version
 							);
 							<span class="kw-2">*</span>progress = <span class="prelude-val">None</span>;
@@ -1280,7 +1282,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					(min_version, last_version) <span class="kw">if </span>Tuple::VERSION == last_version + <span class="number">1 </span>=&gt; {
 						versions = (min_version, Tuple::VERSION);
 					},
-					<span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;Migrations must be ordered by their versions with no gaps.&quot;</span>)
+					<span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"Migrations must be ordered by their versions with no gaps."</span>)
 				}
 			)*
 		);
@@ -1298,7 +1300,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		invalid_version(version)
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 	</span><span class="doccomment">/// Execute the pre-checks of the step associated with this version.
 	</span><span class="kw">fn </span>pre_upgrade_step(version: StorageVersion) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, TryRuntimeError&gt; {
 		<span class="macro">for_tuples!</span>(
@@ -1311,7 +1313,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		invalid_version(version)
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;try-runtime&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"try-runtime"</span>)]
 	</span><span class="doccomment">/// Execute the post-checks of the step associated with this version.
 	</span><span class="kw">fn </span>post_upgrade_step(version: StorageVersion, state: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), TryRuntimeError&gt; {
 		<span class="macro">for_tuples!</span>(

@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/service/src/parachains_db/upgrade.rs`."><title>upgrade.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/service/src/parachains_db/upgrade.rs`."><title>upgrade.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_service" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_service" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../polkadot_service/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -917,9 +919,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
-</span><span class="doccomment">//! Migration code for the parachain&#39;s DB.
+</span><span class="doccomment">//! Migration code for the parachain's DB.
 
-</span><span class="attr">#![cfg(feature = <span class="string">&quot;full-node&quot;</span>)]
+</span><span class="attr">#![cfg(feature = <span class="string">"full-node"</span>)]
 
 </span><span class="kw">use super</span>::{columns, other_io_error, DatabaseKind, LOG_TARGET};
 <span class="kw">use </span>std::{
@@ -940,7 +942,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">type </span>Version = u32;
 
 <span class="doccomment">/// Version file name.
-</span><span class="kw">const </span>VERSION_FILE_NAME: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;parachain_db_version&quot;</span>;
+</span><span class="kw">const </span>VERSION_FILE_NAME: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"parachain_db_version"</span>;
 
 <span class="doccomment">/// Current db version.
 /// Version 4 changes approval db format for `OurAssignment`.
@@ -950,15 +952,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="attr">#[derive(thiserror::Error, Debug)]
 </span><span class="kw">pub enum </span>Error {
-	<span class="attr">#[error(<span class="string">&quot;I/O error when reading/writing the version&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"I/O error when reading/writing the version"</span>)]
 	</span>Io(<span class="attr">#[from] </span>io::Error),
-	<span class="attr">#[error(<span class="string">&quot;The version file format is incorrect&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"The version file format is incorrect"</span>)]
 	</span>CorruptedVersionFile,
-	<span class="attr">#[error(<span class="string">&quot;Parachains DB has a future version (expected {current:?}, found {got:?})&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Parachains DB has a future version (expected {current:?}, found {got:?})"</span>)]
 	</span>FutureVersion { current: Version, got: Version },
-	<span class="attr">#[error(<span class="string">&quot;Parachain DB migration failed&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Parachain DB migration failed"</span>)]
 	</span>MigrationFailed,
-	<span class="attr">#[error(<span class="string">&quot;Parachain DB migration would take forever&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Parachain DB migration would take forever"</span>)]
 	</span>MigrationLoop,
 }
 
@@ -971,13 +973,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="doccomment">/// Try upgrading parachain&#39;s database to a target version.
+<span class="doccomment">/// Try upgrading parachain's database to a target version.
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>try_upgrade_db(
 	db_path: <span class="kw-2">&amp;</span>Path,
 	db_kind: DatabaseKind,
 	target_version: Version,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
-	<span class="comment">// Ensure we don&#39;t loop forever below because of a bug.
+	<span class="comment">// Ensure we don't loop forever below because of a bug.
 	</span><span class="kw">const </span>MAX_MIGRATIONS: u32 = <span class="number">30</span>;
 
 	<span class="attr">#[cfg(test)]
@@ -998,7 +1000,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="prelude-val">Err</span>(Error::MigrationLoop)
 }
 
-<span class="doccomment">/// Try upgrading parachain&#39;s database to the next version.
+<span class="doccomment">/// Try upgrading parachain's database to the next version.
 /// If successful, it returns the current version.
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>try_upgrade_db_to_next_version(
 	db_path: <span class="kw-2">&amp;</span>Path,
@@ -1019,9 +1021,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Some</span>(<span class="number">4</span>) =&gt; migrate_from_version_3_or_4_to_5(db_path, db_kind, v2_to_latest)<span class="question-mark">?</span>,
 			<span class="comment">// Already at current version, do nothing.
 			</span><span class="prelude-val">Some</span>(CURRENT_VERSION) =&gt; CURRENT_VERSION,
-			<span class="comment">// This is an arbitrary future version, we don&#39;t handle it.
+			<span class="comment">// This is an arbitrary future version, we don't handle it.
 			</span><span class="prelude-val">Some</span>(v) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Error::FutureVersion { current: CURRENT_VERSION, got: v }),
-			<span class="comment">// No version file. For `RocksDB` we don&#39;t need to do anything.
+			<span class="comment">// No version file. For `RocksDB` we don't need to do anything.
 			</span><span class="prelude-val">None </span><span class="kw">if </span>db_kind == DatabaseKind::RocksDB =&gt; CURRENT_VERSION,
 			<span class="comment">// No version file. `ParityDB` did not previously have a version defined.
 			// We handle this as a `0 -&gt; 1` migration.
@@ -1064,27 +1066,27 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">fn </span>migrate_from_version_0_to_1(path: <span class="kw-2">&amp;</span>Path, db_kind: DatabaseKind) -&gt; <span class="prelude-ty">Result</span>&lt;Version, Error&gt; {
-	<span class="macro">gum::info!</span>(target: LOG_TARGET, <span class="string">&quot;Migrating parachains db from version 0 to version 1 ...&quot;</span>);
+	<span class="macro">gum::info!</span>(target: LOG_TARGET, <span class="string">"Migrating parachains db from version 0 to version 1 ..."</span>);
 
 	<span class="kw">match </span>db_kind {
 		DatabaseKind::ParityDB =&gt; paritydb_migrate_from_version_0_to_1(path),
 		DatabaseKind::RocksDB =&gt; rocksdb_migrate_from_version_0_to_1(path),
 	}
 	.and_then(|result| {
-		<span class="macro">gum::info!</span>(target: LOG_TARGET, <span class="string">&quot;Migration complete! &quot;</span>);
+		<span class="macro">gum::info!</span>(target: LOG_TARGET, <span class="string">"Migration complete! "</span>);
 		<span class="prelude-val">Ok</span>(result)
 	})
 }
 
 <span class="kw">fn </span>migrate_from_version_1_to_2(path: <span class="kw-2">&amp;</span>Path, db_kind: DatabaseKind) -&gt; <span class="prelude-ty">Result</span>&lt;Version, Error&gt; {
-	<span class="macro">gum::info!</span>(target: LOG_TARGET, <span class="string">&quot;Migrating parachains db from version 1 to version 2 ...&quot;</span>);
+	<span class="macro">gum::info!</span>(target: LOG_TARGET, <span class="string">"Migrating parachains db from version 1 to version 2 ..."</span>);
 
 	<span class="kw">match </span>db_kind {
 		DatabaseKind::ParityDB =&gt; paritydb_migrate_from_version_1_to_2(path),
 		DatabaseKind::RocksDB =&gt; rocksdb_migrate_from_version_1_to_2(path),
 	}
 	.and_then(|result| {
-		<span class="macro">gum::info!</span>(target: LOG_TARGET, <span class="string">&quot;Migration complete! &quot;</span>);
+		<span class="macro">gum::info!</span>(target: LOG_TARGET, <span class="string">"Migration complete! "</span>);
 		<span class="prelude-val">Ok</span>(result)
 	})
 }
@@ -1092,7 +1094,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="comment">// Migrate approval voting database.
 // In 4  `OurAssignment` has been changed to support the v2 assignments.
 // In 5, `BlockEntry` has been changed to store the number of delayed approvals.
-// As these are backwards compatible, we&#39;ll convert the old entries in the new format.
+// As these are backwards compatible, we'll convert the old entries in the new format.
 </span><span class="kw">fn </span>migrate_from_version_3_or_4_to_5&lt;F&gt;(
 	path: <span class="kw-2">&amp;</span>Path,
 	db_kind: DatabaseKind,
@@ -1101,7 +1103,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">where
 	</span>F: Fn(Arc&lt;<span class="kw">dyn </span>Database&gt;, ApprovalDbConfig) -&gt; ApprovalDbResult&lt;()&gt;,
 {
-	<span class="macro">gum::info!</span>(target: LOG_TARGET, <span class="string">&quot;Migrating parachains db from version 3 to version 4 ...&quot;</span>);
+	<span class="macro">gum::info!</span>(target: LOG_TARGET, <span class="string">"Migrating parachains db from version 3 to version 4 ..."</span>);
 
 	<span class="kw">let </span>approval_db_config =
 		ApprovalDbConfig { col_approval_data: <span class="kw">super</span>::REAL_COLUMNS.col_approval_data };
@@ -1110,7 +1112,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		DatabaseKind::ParityDB =&gt; {
 			<span class="kw">let </span>db = ParityDbAdapter::new(
 				parity_db::Db::open(<span class="kw-2">&amp;</span>paritydb_version_3_config(path))
-					.map_err(|e| other_io_error(<span class="macro">format!</span>(<span class="string">&quot;Error opening db {:?}&quot;</span>, e)))<span class="question-mark">?</span>,
+					.map_err(|e| other_io_error(<span class="macro">format!</span>(<span class="string">"Error opening db {:?}"</span>, e)))<span class="question-mark">?</span>,
 				<span class="kw">super</span>::columns::v3::ORDERED_COL,
 			);
 
@@ -1120,7 +1122,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		DatabaseKind::RocksDB =&gt; {
 			<span class="kw">let </span>db_path = path
 				.to_str()
-				.ok_or_else(|| <span class="kw">super</span>::other_io_error(<span class="string">&quot;Invalid database path&quot;</span>.into()))<span class="question-mark">?</span>;
+				.ok_or_else(|| <span class="kw">super</span>::other_io_error(<span class="string">"Invalid database path"</span>.into()))<span class="question-mark">?</span>;
 			<span class="kw">let </span>db_cfg =
 				kvdb_rocksdb::DatabaseConfig::with_columns(<span class="kw">super</span>::columns::v3::NUM_COLUMNS);
 			<span class="kw">let </span>db = RocksDbAdapter::new(
@@ -1133,18 +1135,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		},
 	};
 
-	<span class="macro">gum::info!</span>(target: LOG_TARGET, <span class="string">&quot;Migration complete! &quot;</span>);
+	<span class="macro">gum::info!</span>(target: LOG_TARGET, <span class="string">"Migration complete! "</span>);
 	<span class="prelude-val">Ok</span>(CURRENT_VERSION)
 }
 
 <span class="kw">fn </span>migrate_from_version_2_to_3(path: <span class="kw-2">&amp;</span>Path, db_kind: DatabaseKind) -&gt; <span class="prelude-ty">Result</span>&lt;Version, Error&gt; {
-	<span class="macro">gum::info!</span>(target: LOG_TARGET, <span class="string">&quot;Migrating parachains db from version 2 to version 3 ...&quot;</span>);
+	<span class="macro">gum::info!</span>(target: LOG_TARGET, <span class="string">"Migrating parachains db from version 2 to version 3 ..."</span>);
 	<span class="kw">match </span>db_kind {
 		DatabaseKind::ParityDB =&gt; paritydb_migrate_from_version_2_to_3(path),
 		DatabaseKind::RocksDB =&gt; rocksdb_migrate_from_version_2_to_3(path),
 	}
 	.and_then(|result| {
-		<span class="macro">gum::info!</span>(target: LOG_TARGET, <span class="string">&quot;Migration complete! &quot;</span>);
+		<span class="macro">gum::info!</span>(target: LOG_TARGET, <span class="string">"Migration complete! "</span>);
 		<span class="prelude-val">Ok</span>(result)
 	})
 }
@@ -1156,7 +1158,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">let </span>db_path = path
 		.to_str()
-		.ok_or_else(|| <span class="kw">super</span>::other_io_error(<span class="string">&quot;Invalid database path&quot;</span>.into()))<span class="question-mark">?</span>;
+		.ok_or_else(|| <span class="kw">super</span>::other_io_error(<span class="string">"Invalid database path"</span>.into()))<span class="question-mark">?</span>;
 	<span class="kw">let </span>db_cfg = DatabaseConfig::with_columns(<span class="kw">super</span>::columns::v0::NUM_COLUMNS);
 	<span class="kw">let </span><span class="kw-2">mut </span>db = Database::open(<span class="kw-2">&amp;</span>db_cfg, db_path)<span class="question-mark">?</span>;
 
@@ -1173,7 +1175,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">let </span>db_path = path
 		.to_str()
-		.ok_or_else(|| <span class="kw">super</span>::other_io_error(<span class="string">&quot;Invalid database path&quot;</span>.into()))<span class="question-mark">?</span>;
+		.ok_or_else(|| <span class="kw">super</span>::other_io_error(<span class="string">"Invalid database path"</span>.into()))<span class="question-mark">?</span>;
 	<span class="kw">let </span>db_cfg = DatabaseConfig::with_columns(<span class="kw">super</span>::columns::v1::NUM_COLUMNS);
 	<span class="kw">let </span><span class="kw-2">mut </span>db = Database::open(<span class="kw-2">&amp;</span>db_cfg, db_path)<span class="question-mark">?</span>;
 
@@ -1187,7 +1189,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">let </span>db_path = path
 		.to_str()
-		.ok_or_else(|| <span class="kw">super</span>::other_io_error(<span class="string">&quot;Invalid database path&quot;</span>.into()))<span class="question-mark">?</span>;
+		.ok_or_else(|| <span class="kw">super</span>::other_io_error(<span class="string">"Invalid database path"</span>.into()))<span class="question-mark">?</span>;
 	<span class="kw">let </span>db_cfg = DatabaseConfig::with_columns(<span class="kw">super</span>::columns::v2::NUM_COLUMNS);
 	<span class="kw">let </span><span class="kw-2">mut </span>db = Database::open(<span class="kw-2">&amp;</span>db_cfg, db_path)<span class="question-mark">?</span>;
 
@@ -1206,7 +1208,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="comment">// Figure out which columns to delete. This will be determined by inspecting
 	// the metadata file.
 	</span><span class="kw">if let </span><span class="prelude-val">Some</span>(metadata) = parity_db::Options::load_metadata(<span class="kw-2">&amp;</span>path)
-		.map_err(|e| other_io_error(<span class="macro">format!</span>(<span class="string">&quot;Error reading metadata {:?}&quot;</span>, e)))<span class="question-mark">?
+		.map_err(|e| other_io_error(<span class="macro">format!</span>(<span class="string">"Error reading metadata {:?}"</span>, e)))<span class="question-mark">?
 	</span>{
 		<span class="kw">let </span>columns_to_clear = metadata
 			.columns
@@ -1218,7 +1220,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">if </span>changed {
 					<span class="macro">gum::debug!</span>(
 						target: LOG_TARGET,
-						<span class="string">&quot;Column {} will be cleared. Old options: {:?}, New options: {:?}&quot;</span>,
+						<span class="string">"Column {} will be cleared. Old options: {:?}, New options: {:?}"</span>,
 						idx,
 						opts,
 						options.columns[idx]
@@ -1233,21 +1235,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if </span>columns_to_clear.len() &gt; <span class="number">0 </span>{
 			<span class="macro">gum::debug!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;Database column changes detected, need to cleanup {} columns.&quot;</span>,
+				<span class="string">"Database column changes detected, need to cleanup {} columns."</span>,
 				columns_to_clear.len()
 			);
 		}
 
 		<span class="kw">for </span>column <span class="kw">in </span>columns_to_clear {
-			<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="string">&quot;Clearing column {}&quot;</span>, column,);
-			parity_db::clear_column(path, column.try_into().expect(<span class="string">&quot;Invalid column ID&quot;</span>))
-				.map_err(|e| other_io_error(<span class="macro">format!</span>(<span class="string">&quot;Error clearing column {:?}&quot;</span>, e)))<span class="question-mark">?</span>;
+			<span class="macro">gum::debug!</span>(target: LOG_TARGET, <span class="string">"Clearing column {}"</span>, column,);
+			parity_db::clear_column(path, column.try_into().expect(<span class="string">"Invalid column ID"</span>))
+				.map_err(|e| other_io_error(<span class="macro">format!</span>(<span class="string">"Error clearing column {:?}"</span>, e)))<span class="question-mark">?</span>;
 		}
 
 		<span class="comment">// Write the updated column options.
 		</span>options
 			.write_metadata(path, <span class="kw-2">&amp;</span>metadata.salt)
-			.map_err(|e| other_io_error(<span class="macro">format!</span>(<span class="string">&quot;Error writing metadata {:?}&quot;</span>, e)))<span class="question-mark">?</span>;
+			.map_err(|e| other_io_error(<span class="macro">format!</span>(<span class="string">"Error writing metadata {:?}"</span>, e)))<span class="question-mark">?</span>;
 	}
 
 	<span class="prelude-val">Ok</span>(())
@@ -1319,7 +1321,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="comment">// Adds the session info column.
 	</span>parity_db::Db::add_column(<span class="kw-2">&amp;mut </span>options, Default::default())
-		.map_err(|e| other_io_error(<span class="macro">format!</span>(<span class="string">&quot;Error adding column {:?}&quot;</span>, e)))<span class="question-mark">?</span>;
+		.map_err(|e| other_io_error(<span class="macro">format!</span>(<span class="string">"Error adding column {:?}"</span>, e)))<span class="question-mark">?</span>;
 
 	<span class="prelude-val">Ok</span>(<span class="number">2</span>)
 }
@@ -1328,7 +1330,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// - drop the column used by `RollingSessionWindow`
 </span><span class="kw">fn </span>paritydb_migrate_from_version_2_to_3(path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;Version, Error&gt; {
 	parity_db::Db::drop_last_column(<span class="kw-2">&amp;mut </span>paritydb_version_2_config(path))
-		.map_err(|e| other_io_error(<span class="macro">format!</span>(<span class="string">&quot;Error removing COL_SESSION_WINDOW_DATA {:?}&quot;</span>, e)))<span class="question-mark">?</span>;
+		.map_err(|e| other_io_error(<span class="macro">format!</span>(<span class="string">"Error removing COL_SESSION_WINDOW_DATA {:?}"</span>, e)))<span class="question-mark">?</span>;
 	<span class="prelude-val">Ok</span>(<span class="number">3</span>)
 }
 
@@ -1338,7 +1340,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use </span>std::{io::ErrorKind, thread::sleep, time::Duration};
 
 	<span class="kw">let </span><span class="kw-2">mut </span>lock_path = std::path::PathBuf::from(path);
-	lock_path.push(<span class="string">&quot;lock&quot;</span>);
+	lock_path.push(<span class="string">"lock"</span>);
 
 	<span class="kw">for _ in </span><span class="number">0</span>..<span class="number">10 </span>{
 		<span class="kw">let </span>result = std::fs::remove_file(lock_path.as_path());
@@ -1354,7 +1356,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="macro">unreachable!</span>(<span class="string">&quot;Database is locked, waited 1s for lock file: {:?}&quot;</span>, lock_path);
+	<span class="macro">unreachable!</span>(<span class="string">"Database is locked, waited 1s for lock file: {:?}"</span>, lock_path);
 }
 
 <span class="attr">#[cfg(test)]
@@ -1382,8 +1384,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			db.commit(<span class="macro">vec!</span>[(
 				COL_AVAILABILITY_META <span class="kw">as </span>u8,
-				<span class="string">b&quot;5678&quot;</span>.to_vec(),
-				<span class="prelude-val">Some</span>(<span class="string">b&quot;somevalue&quot;</span>.to_vec()),
+				<span class="string">b"5678"</span>.to_vec(),
+				<span class="prelude-val">Some</span>(<span class="string">b"somevalue"</span>.to_vec()),
 			)])
 			.unwrap();
 		}
@@ -1392,8 +1394,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>db = Db::open(<span class="kw-2">&amp;</span>paritydb_version_1_config(<span class="kw-2">&amp;</span>path)).unwrap();
 		<span class="macro">assert_eq!</span>(
-			db.get(COL_AVAILABILITY_META <span class="kw">as </span>u8, <span class="string">b&quot;5678&quot;</span>).unwrap(),
-			<span class="prelude-val">Some</span>(<span class="string">&quot;somevalue&quot;</span>.as_bytes().to_vec())
+			db.get(COL_AVAILABILITY_META <span class="kw">as </span>u8, <span class="string">b"5678"</span>).unwrap(),
+			<span class="prelude-val">Some</span>(<span class="string">"somevalue"</span>.as_bytes().to_vec())
 		);
 	}
 
@@ -1405,7 +1407,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>path = db_dir.path();
 
 		<span class="comment">// We need to properly set db version for upgrade to work.
-		</span>fs::write(version_file_path(path), <span class="string">&quot;1&quot;</span>).expect(<span class="string">&quot;Failed to write DB version&quot;</span>);
+		</span>fs::write(version_file_path(path), <span class="string">"1"</span>).expect(<span class="string">"Failed to write DB version"</span>);
 
 		{
 			<span class="kw">let </span>db = Db::open_or_create(<span class="kw-2">&amp;</span>paritydb_version_1_config(<span class="kw-2">&amp;</span>path)).unwrap();
@@ -1413,8 +1415,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// Write some dummy data
 			</span>db.commit(<span class="macro">vec!</span>[(
 				COL_DISPUTE_COORDINATOR_DATA <span class="kw">as </span>u8,
-				<span class="string">b&quot;1234&quot;</span>.to_vec(),
-				<span class="prelude-val">Some</span>(<span class="string">b&quot;somevalue&quot;</span>.to_vec()),
+				<span class="string">b"1234"</span>.to_vec(),
+				<span class="prelude-val">Some</span>(<span class="string">b"somevalue"</span>.to_vec()),
 			)])
 			.unwrap();
 
@@ -1428,22 +1430,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">assert_eq!</span>(db.num_columns(), columns::v2::NUM_COLUMNS <span class="kw">as </span>u8);
 
 		<span class="macro">assert_eq!</span>(
-			db.get(COL_DISPUTE_COORDINATOR_DATA <span class="kw">as </span>u8, <span class="string">b&quot;1234&quot;</span>).unwrap(),
-			<span class="prelude-val">Some</span>(<span class="string">&quot;somevalue&quot;</span>.as_bytes().to_vec())
+			db.get(COL_DISPUTE_COORDINATOR_DATA <span class="kw">as </span>u8, <span class="string">b"1234"</span>).unwrap(),
+			<span class="prelude-val">Some</span>(<span class="string">"somevalue"</span>.as_bytes().to_vec())
 		);
 
 		<span class="comment">// Test we can write the new column.
 		</span>db.commit(<span class="macro">vec!</span>[(
 			COL_SESSION_WINDOW_DATA <span class="kw">as </span>u8,
-			<span class="string">b&quot;1337&quot;</span>.to_vec(),
-			<span class="prelude-val">Some</span>(<span class="string">b&quot;0xdeadb00b&quot;</span>.to_vec()),
+			<span class="string">b"1337"</span>.to_vec(),
+			<span class="prelude-val">Some</span>(<span class="string">b"0xdeadb00b"</span>.to_vec()),
 		)])
 		.unwrap();
 
 		<span class="comment">// Read back data from new column.
 		</span><span class="macro">assert_eq!</span>(
-			db.get(COL_SESSION_WINDOW_DATA <span class="kw">as </span>u8, <span class="string">b&quot;1337&quot;</span>).unwrap(),
-			<span class="prelude-val">Some</span>(<span class="string">&quot;0xdeadb00b&quot;</span>.as_bytes().to_vec())
+			db.get(COL_SESSION_WINDOW_DATA <span class="kw">as </span>u8, <span class="string">b"1337"</span>).unwrap(),
+			<span class="prelude-val">Some</span>(<span class="string">"0xdeadb00b"</span>.as_bytes().to_vec())
 		);
 	}
 
@@ -1462,14 +1464,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">assert_eq!</span>(db.num_columns(), <span class="kw">super</span>::columns::v1::NUM_COLUMNS <span class="kw">as </span>u32);
 
 		<span class="comment">// We need to properly set db version for upgrade to work.
-		</span>fs::write(version_file_path(db_dir.path()), <span class="string">&quot;1&quot;</span>).expect(<span class="string">&quot;Failed to write DB version&quot;</span>);
+		</span>fs::write(version_file_path(db_dir.path()), <span class="string">"1"</span>).expect(<span class="string">"Failed to write DB version"</span>);
 		{
 			<span class="kw">let </span>db = DbAdapter::new(db, columns::v4::ORDERED_COL);
 			db.write(DBTransaction {
 				ops: <span class="macro">vec!</span>[DBOp::Insert {
 					col: COL_DISPUTE_COORDINATOR_DATA,
-					key: DBKey::from_slice(<span class="string">b&quot;1234&quot;</span>),
-					value: <span class="string">b&quot;0xdeadb00b&quot;</span>.to_vec(),
+					key: DBKey::from_slice(<span class="string">b"1234"</span>),
+					value: <span class="string">b"0xdeadb00b"</span>.to_vec(),
 				}],
 			})
 			.unwrap();
@@ -1485,24 +1487,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>db = DbAdapter::new(db, columns::v4::ORDERED_COL);
 
 		<span class="macro">assert_eq!</span>(
-			db.get(COL_DISPUTE_COORDINATOR_DATA, <span class="string">b&quot;1234&quot;</span>).unwrap(),
-			<span class="prelude-val">Some</span>(<span class="string">&quot;0xdeadb00b&quot;</span>.as_bytes().to_vec())
+			db.get(COL_DISPUTE_COORDINATOR_DATA, <span class="string">b"1234"</span>).unwrap(),
+			<span class="prelude-val">Some</span>(<span class="string">"0xdeadb00b"</span>.as_bytes().to_vec())
 		);
 
 		<span class="comment">// Test we can write the new column.
 		</span>db.write(DBTransaction {
 			ops: <span class="macro">vec!</span>[DBOp::Insert {
 				col: COL_SESSION_WINDOW_DATA,
-				key: DBKey::from_slice(<span class="string">b&quot;1337&quot;</span>),
-				value: <span class="string">b&quot;0xdeadb00b&quot;</span>.to_vec(),
+				key: DBKey::from_slice(<span class="string">b"1337"</span>),
+				value: <span class="string">b"0xdeadb00b"</span>.to_vec(),
 			}],
 		})
 		.unwrap();
 
 		<span class="comment">// Read back data from new column.
 		</span><span class="macro">assert_eq!</span>(
-			db.get(COL_SESSION_WINDOW_DATA, <span class="string">b&quot;1337&quot;</span>).unwrap(),
-			<span class="prelude-val">Some</span>(<span class="string">&quot;0xdeadb00b&quot;</span>.as_bytes().to_vec())
+			db.get(COL_SESSION_WINDOW_DATA, <span class="string">b"1337"</span>).unwrap(),
+			<span class="prelude-val">Some</span>(<span class="string">"0xdeadb00b"</span>.as_bytes().to_vec())
 		);
 	}
 
@@ -1517,7 +1519,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		};
 
 		<span class="comment">// We need to properly set db version for upgrade to work.
-		</span>fs::write(version_file_path(db_dir.path()), <span class="string">&quot;3&quot;</span>).expect(<span class="string">&quot;Failed to write DB version&quot;</span>);
+		</span>fs::write(version_file_path(db_dir.path()), <span class="string">"3"</span>).expect(<span class="string">"Failed to write DB version"</span>);
 		<span class="kw">let </span>expected_candidates = {
 			<span class="kw">let </span>db = Database::open(<span class="kw-2">&amp;</span>db_cfg, db_path).unwrap();
 			<span class="macro">assert_eq!</span>(db.num_columns(), <span class="kw">super</span>::columns::v3::NUM_COLUMNS <span class="kw">as </span>u32);
@@ -1548,7 +1550,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		};
 
 		<span class="comment">// We need to properly set db version for upgrade to work.
-		</span>fs::write(version_file_path(db_dir.path()), <span class="string">&quot;4&quot;</span>).expect(<span class="string">&quot;Failed to write DB version&quot;</span>);
+		</span>fs::write(version_file_path(db_dir.path()), <span class="string">"4"</span>).expect(<span class="string">"Failed to write DB version"</span>);
 		<span class="kw">let </span>expected_candidates = {
 			<span class="kw">let </span>db = Database::open(<span class="kw-2">&amp;</span>db_cfg, db_path).unwrap();
 			<span class="macro">assert_eq!</span>(db.num_columns(), <span class="kw">super</span>::columns::v3::NUM_COLUMNS <span class="kw">as </span>u32);
@@ -1575,7 +1577,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>db_dir = tempfile::tempdir().unwrap();
 		<span class="kw">let </span>db_path = db_dir.path().to_str().unwrap();
 
-		fs::write(version_file_path(db_dir.path()), <span class="string">&quot;0&quot;</span>).expect(<span class="string">&quot;Failed to write DB version&quot;</span>);
+		fs::write(version_file_path(db_dir.path()), <span class="string">"0"</span>).expect(<span class="string">"Failed to write DB version"</span>);
 		try_upgrade_db(<span class="kw-2">&amp;</span>db_dir.path(), DatabaseKind::RocksDB, <span class="number">5</span>).unwrap();
 
 		<span class="kw">let </span>db_cfg = DatabaseConfig::with_columns(<span class="kw">super</span>::columns::v4::NUM_COLUMNS);
@@ -1592,7 +1594,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>path = db_dir.path();
 
 		<span class="comment">// We need to properly set db version for upgrade to work.
-		</span>fs::write(version_file_path(path), <span class="string">&quot;0&quot;</span>).expect(<span class="string">&quot;Failed to write DB version&quot;</span>);
+		</span>fs::write(version_file_path(path), <span class="string">"0"</span>).expect(<span class="string">"Failed to write DB version"</span>);
 
 		{
 			<span class="kw">let </span>db = Db::open_or_create(<span class="kw-2">&amp;</span>paritydb_version_0_config(<span class="kw-2">&amp;</span>path)).unwrap();
@@ -1611,10 +1613,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>db_dir = tempfile::tempdir().unwrap();
 		<span class="kw">let </span>path = db_dir.path();
-		<span class="kw">let </span>test_key = <span class="string">b&quot;1337&quot;</span>;
+		<span class="kw">let </span>test_key = <span class="string">b"1337"</span>;
 
 		<span class="comment">// We need to properly set db version for upgrade to work.
-		</span>fs::write(version_file_path(path), <span class="string">&quot;2&quot;</span>).expect(<span class="string">&quot;Failed to write DB version&quot;</span>);
+		</span>fs::write(version_file_path(path), <span class="string">"2"</span>).expect(<span class="string">"Failed to write DB version"</span>);
 
 		{
 			<span class="kw">let </span>db = Db::open_or_create(<span class="kw-2">&amp;</span>paritydb_version_2_config(<span class="kw-2">&amp;</span>path)).unwrap();
@@ -1623,7 +1625,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span>db.commit(<span class="macro">vec!</span>[(
 				COL_SESSION_WINDOW_DATA <span class="kw">as </span>u8,
 				test_key.to_vec(),
-				<span class="prelude-val">Some</span>(<span class="string">b&quot;0xdeadb00b&quot;</span>.to_vec()),
+				<span class="prelude-val">Some</span>(<span class="string">b"0xdeadb00b"</span>.to_vec()),
 			)])
 			.unwrap();
 
@@ -1651,7 +1653,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 
 		<span class="comment">// We need to properly set db version for upgrade to work.
-		</span>fs::write(version_file_path(db_dir.path()), <span class="string">&quot;2&quot;</span>).expect(<span class="string">&quot;Failed to write DB version&quot;</span>);
+		</span>fs::write(version_file_path(db_dir.path()), <span class="string">"2"</span>).expect(<span class="string">"Failed to write DB version"</span>);
 
 		try_upgrade_db(<span class="kw-2">&amp;</span>db_dir.path(), DatabaseKind::RocksDB, <span class="number">3</span>).unwrap();
 

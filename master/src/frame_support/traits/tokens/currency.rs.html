@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/support/src/traits/tokens/currency.rs`."><title>currency.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/support/src/traits/tokens/currency.rs`."><title>currency.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="frame_support" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="frame_support" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../../frame_support/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -471,14 +473,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -538,13 +540,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>reactivate(<span class="kw">_</span>: <span class="self">Self</span>::Balance) {}
 
 	<span class="doccomment">/// The minimum balance any single account may have. This is equivalent to the `Balances`
-	/// module&#39;s `ExistentialDeposit`.
+	/// module's `ExistentialDeposit`.
 	</span><span class="kw">fn </span>minimum_balance() -&gt; <span class="self">Self</span>::Balance;
 
 	<span class="doccomment">/// Reduce the total issuance by `amount` and return the according imbalance. The imbalance will
 	/// typically be used to reduce an account by the same amount with e.g. `settle`.
 	///
-	/// This is infallible, but doesn&#39;t guarantee that the entire `amount` is burnt, for example
+	/// This is infallible, but doesn't guarantee that the entire `amount` is burnt, for example
 	/// in the case of underflow.
 	</span><span class="kw">fn </span>burn(amount: <span class="self">Self</span>::Balance) -&gt; <span class="self">Self</span>::PositiveImbalance;
 
@@ -552,7 +554,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// will typically be used to increase an account by the same amount with e.g.
 	/// `resolve_into_existing` or `resolve_creating`.
 	///
-	/// This is infallible, but doesn&#39;t guarantee that the entire `amount` is issued, for example
+	/// This is infallible, but doesn't guarantee that the entire `amount` is issued, for example
 	/// in the case of overflow.
 	</span><span class="kw">fn </span>issue(amount: <span class="self">Self</span>::Balance) -&gt; <span class="self">Self</span>::NegativeImbalance;
 
@@ -564,11 +566,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		(<span class="self">Self</span>::burn(amount), <span class="self">Self</span>::issue(amount))
 	}
 
-	<span class="doccomment">/// The &#39;free&#39; balance of a given account.
+	<span class="doccomment">/// The 'free' balance of a given account.
 	///
 	/// This is the only balance that matters in terms of most operations on tokens. It alone
 	/// is used to determine the balance when in the contract execution environment. When this
-	/// balance falls below the value of `ExistentialDeposit`, then the &#39;current account&#39; is
+	/// balance falls below the value of `ExistentialDeposit`, then the 'current account' is
 	/// deleted: specifically `FreeBalance`.
 	///
 	/// `system::AccountNonce` is also deleted if `ReservedBalance` is also zero (it also gets
@@ -576,7 +578,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>free_balance(who: <span class="kw-2">&amp;</span>AccountId) -&gt; <span class="self">Self</span>::Balance;
 
 	<span class="doccomment">/// Returns `Ok` iff the account is able to make a withdrawal of the given amount
-	/// for the given reason. Basically, it&#39;s just a dry-run of `withdraw`.
+	/// for the given reason. Basically, it's just a dry-run of `withdraw`.
 	///
 	/// `Err(...)` with the reason why not otherwise.
 	</span><span class="kw">fn </span>ensure_can_withdraw(
@@ -609,7 +611,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Mints `value` to the free balance of `who`.
 	///
-	/// If `who` doesn&#39;t exist, nothing is done and an Err returned.
+	/// If `who` doesn't exist, nothing is done and an Err returned.
 	</span><span class="kw">fn </span>deposit_into_existing(
 		who: <span class="kw-2">&amp;</span>AccountId,
 		value: <span class="self">Self</span>::Balance,
@@ -628,7 +630,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="doccomment">/// Adds up to `value` to the free balance of `who`. If `who` doesn&#39;t exist, it is created.
+	<span class="doccomment">/// Adds up to `value` to the free balance of `who`. If `who` doesn't exist, it is created.
 	///
 	/// Infallible.
 	</span><span class="kw">fn </span>deposit_creating(who: <span class="kw-2">&amp;</span>AccountId, value: <span class="self">Self</span>::Balance) -&gt; <span class="self">Self</span>::PositiveImbalance;
@@ -669,7 +671,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="doccomment">/// Ensure an account&#39;s free balance equals some value; this will create the account
+	<span class="doccomment">/// Ensure an account's free balance equals some value; this will create the account
 	/// if needed.
 	///
 	/// Returns a signed imbalance and status to indicate if the account was successfully updated or
@@ -698,7 +700,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">impl</span>&lt;AccountId&gt; Currency&lt;AccountId&gt; <span class="kw">for </span>() {
 	<span class="kw">type </span>Balance = u32;
 	<span class="kw">type </span>PositiveImbalance = ();

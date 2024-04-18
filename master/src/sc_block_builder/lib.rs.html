@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/block-builder/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/block-builder/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_block_builder" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_block_builder" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sc_block_builder/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -656,24 +658,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>sp_trie::proof_size_extension::ProofSizeExt;
 
 <span class="doccomment">/// A builder for creating an instance of [`BlockBuilder`].
-</span><span class="kw">pub struct </span>BlockBuilderBuilder&lt;<span class="lifetime">&#39;a</span>, B, C&gt; {
-	call_api_at: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>C,
+</span><span class="kw">pub struct </span>BlockBuilderBuilder&lt;<span class="lifetime">'a</span>, B, C&gt; {
+	call_api_at: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>C,
 	_phantom: PhantomData&lt;B&gt;,
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, B, C&gt; BlockBuilderBuilder&lt;<span class="lifetime">&#39;a</span>, B, C&gt;
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, B, C&gt; BlockBuilderBuilder&lt;<span class="lifetime">'a</span>, B, C&gt;
 <span class="kw">where
 	</span>B: BlockT,
 {
 	<span class="doccomment">/// Create a new instance of the builder.
 	///
 	/// `call_api_at`: Something that implements [`CallApiAt`].
-	</span><span class="kw">pub fn </span>new(call_api_at: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>C) -&gt; <span class="self">Self </span>{
+	</span><span class="kw">pub fn </span>new(call_api_at: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>C) -&gt; <span class="self">Self </span>{
 		<span class="self">Self </span>{ call_api_at, _phantom: PhantomData }
 	}
 
 	<span class="doccomment">/// Specify the parent block to build on top of.
-	</span><span class="kw">pub fn </span>on_parent_block(<span class="self">self</span>, parent_block: B::Hash) -&gt; BlockBuilderBuilderStage1&lt;<span class="lifetime">&#39;a</span>, B, C&gt; {
+	</span><span class="kw">pub fn </span>on_parent_block(<span class="self">self</span>, parent_block: B::Hash) -&gt; BlockBuilderBuilderStage1&lt;<span class="lifetime">'a</span>, B, C&gt; {
 		BlockBuilderBuilderStage1 { call_api_at: <span class="self">self</span>.call_api_at, parent_block }
 	}
 }
@@ -682,12 +684,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// This type can not be instantiated directly. To get an instance of it
 /// [`BlockBuilderBuilder::new`] needs to be used.
-</span><span class="kw">pub struct </span>BlockBuilderBuilderStage1&lt;<span class="lifetime">&#39;a</span>, B: BlockT, C&gt; {
-	call_api_at: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>C,
+</span><span class="kw">pub struct </span>BlockBuilderBuilderStage1&lt;<span class="lifetime">'a</span>, B: BlockT, C&gt; {
+	call_api_at: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>C,
 	parent_block: B::Hash,
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, B, C&gt; BlockBuilderBuilderStage1&lt;<span class="lifetime">&#39;a</span>, B, C&gt;
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, B, C&gt; BlockBuilderBuilderStage1&lt;<span class="lifetime">'a</span>, B, C&gt;
 <span class="kw">where
 	</span>B: BlockT,
 {
@@ -700,10 +702,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub fn </span>fetch_parent_block_number&lt;H: HeaderBackend&lt;B&gt;&gt;(
 		<span class="self">self</span>,
 		header_backend: <span class="kw-2">&amp;</span>H,
-	) -&gt; <span class="prelude-ty">Result</span>&lt;BlockBuilderBuilderStage2&lt;<span class="lifetime">&#39;a</span>, B, C&gt;, Error&gt; {
+	) -&gt; <span class="prelude-ty">Result</span>&lt;BlockBuilderBuilderStage2&lt;<span class="lifetime">'a</span>, B, C&gt;, Error&gt; {
 		<span class="kw">let </span>parent_number = header_backend.number(<span class="self">self</span>.parent_block)<span class="question-mark">?</span>.ok_or_else(|| {
 			Error::Backend(<span class="macro">format!</span>(
-				<span class="string">&quot;Could not fetch block number for block: {:?}&quot;</span>,
+				<span class="string">"Could not fetch block number for block: {:?}"</span>,
 				<span class="self">self</span>.parent_block
 			))
 		})<span class="question-mark">?</span>;
@@ -724,7 +726,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub fn </span>with_parent_block_number(
 		<span class="self">self</span>,
 		parent_number: NumberFor&lt;B&gt;,
-	) -&gt; BlockBuilderBuilderStage2&lt;<span class="lifetime">&#39;a</span>, B, C&gt; {
+	) -&gt; BlockBuilderBuilderStage2&lt;<span class="lifetime">'a</span>, B, C&gt; {
 		BlockBuilderBuilderStage2 {
 			call_api_at: <span class="self">self</span>.call_api_at,
 			enable_proof_recording: <span class="bool-val">false</span>,
@@ -739,15 +741,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// This type can not be instantiated directly. To get an instance of it
 /// [`BlockBuilderBuilder::new`] needs to be used.
-</span><span class="kw">pub struct </span>BlockBuilderBuilderStage2&lt;<span class="lifetime">&#39;a</span>, B: BlockT, C&gt; {
-	call_api_at: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>C,
+</span><span class="kw">pub struct </span>BlockBuilderBuilderStage2&lt;<span class="lifetime">'a</span>, B: BlockT, C&gt; {
+	call_api_at: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>C,
 	enable_proof_recording: bool,
 	inherent_digests: Digest,
 	parent_block: B::Hash,
 	parent_number: NumberFor&lt;B&gt;,
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, B: BlockT, C&gt; BlockBuilderBuilderStage2&lt;<span class="lifetime">&#39;a</span>, B, C&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, B: BlockT, C&gt; BlockBuilderBuilderStage2&lt;<span class="lifetime">'a</span>, B, C&gt; {
 	<span class="doccomment">/// Enable proof recording for the block builder.
 	</span><span class="kw">pub fn </span>enable_proof_recording(<span class="kw-2">mut </span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
 		<span class="self">self</span>.enable_proof_recording = <span class="bool-val">true</span>;
@@ -767,7 +769,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>}
 
 	<span class="doccomment">/// Create the instance of the [`BlockBuilder`].
-	</span><span class="kw">pub fn </span>build(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;BlockBuilder&lt;<span class="lifetime">&#39;a</span>, B, C&gt;, Error&gt;
+	</span><span class="kw">pub fn </span>build(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;BlockBuilder&lt;<span class="lifetime">'a</span>, B, C&gt;, Error&gt;
 	<span class="kw">where
 		</span>C: CallApiAt&lt;B&gt; + ProvideRuntimeApi&lt;B&gt;,
 		C::Api: BlockBuilderApi&lt;B&gt;,
@@ -805,10 +807,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Utility for building new (valid) blocks from a stream of extrinsics.
-</span><span class="kw">pub struct </span>BlockBuilder&lt;<span class="lifetime">&#39;a</span>, Block: BlockT, C: ProvideRuntimeApi&lt;Block&gt; + <span class="lifetime">&#39;a</span>&gt; {
+</span><span class="kw">pub struct </span>BlockBuilder&lt;<span class="lifetime">'a</span>, Block: BlockT, C: ProvideRuntimeApi&lt;Block&gt; + <span class="lifetime">'a</span>&gt; {
 	extrinsics: Vec&lt;Block::Extrinsic&gt;,
-	api: ApiRef&lt;<span class="lifetime">&#39;a</span>, C::Api&gt;,
-	call_api_at: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>C,
+	api: ApiRef&lt;<span class="lifetime">'a</span>, C::Api&gt;,
+	call_api_at: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>C,
 	<span class="doccomment">/// Version of the [`BlockBuilderApi`] runtime API.
 	</span>version: u32,
 	parent_hash: Block::Hash,
@@ -817,10 +819,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	extrinsic_inclusion_mode: ExtrinsicInclusionMode,
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, Block, C&gt; BlockBuilder&lt;<span class="lifetime">&#39;a</span>, Block, C&gt;
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, Block, C&gt; BlockBuilder&lt;<span class="lifetime">'a</span>, Block, C&gt;
 <span class="kw">where
 	</span>Block: BlockT,
-	C: CallApiAt&lt;Block&gt; + ProvideRuntimeApi&lt;Block&gt; + <span class="lifetime">&#39;a</span>,
+	C: CallApiAt&lt;Block&gt; + ProvideRuntimeApi&lt;Block&gt; + <span class="lifetime">'a</span>,
 	C::Api: BlockBuilderApi&lt;Block&gt;,
 {
 	<span class="doccomment">/// Create a new instance of builder based on the given `parent_hash` and `parent_number`.
@@ -829,7 +831,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// These recorded trie nodes can be used by a third party to prove the
 	/// output of this block builder without having access to the full storage.
 	</span><span class="kw">fn </span>new(
-		call_api_at: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>C,
+		call_api_at: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>C,
 		parent_hash: Block::Hash,
 		parent_number: NumberFor&lt;Block&gt;,
 		record_proof: bool,
@@ -851,7 +853,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			api.record_proof();
 			<span class="kw">let </span>recorder = api
 				.proof_recorder()
-				.expect(<span class="string">&quot;Proof recording is enabled in the line above; qed.&quot;</span>);
+				.expect(<span class="string">"Proof recording is enabled in the line above; qed."</span>);
 			api.register_extension(ProofSizeExt::new(recorder));
 		}
 
@@ -859,7 +861,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>core_version = api
 			.api_version::&lt;<span class="kw">dyn </span>Core&lt;Block&gt;&gt;(parent_hash)<span class="question-mark">?
-			</span>.ok_or_else(|| Error::VersionInvalid(<span class="string">&quot;Core&quot;</span>.to_string()))<span class="question-mark">?</span>;
+			</span>.ok_or_else(|| Error::VersionInvalid(<span class="string">"Core"</span>.to_string()))<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>extrinsic_inclusion_mode = <span class="kw">if </span>core_version &gt;= <span class="number">5 </span>{
 			api.initialize_block(parent_hash, <span class="kw-2">&amp;</span>header)<span class="question-mark">?
@@ -871,7 +873,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>bb_version = api
 			.api_version::&lt;<span class="kw">dyn </span>BlockBuilderApi&lt;Block&gt;&gt;(parent_hash)<span class="question-mark">?
-			</span>.ok_or_else(|| Error::VersionInvalid(<span class="string">&quot;BlockBuilderApi&quot;</span>.to_string()))<span class="question-mark">?</span>;
+			</span>.ok_or_else(|| Error::VersionInvalid(<span class="string">"BlockBuilderApi"</span>.to_string()))<span class="question-mark">?</span>;
 
 		<span class="prelude-val">Ok</span>(<span class="self">Self </span>{
 			parent_hash,
@@ -889,7 +891,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">self</span>.extrinsic_inclusion_mode
 	}
 
-	<span class="doccomment">/// Push onto the block&#39;s list of extrinsics.
+	<span class="doccomment">/// Push onto the block's list of extrinsics.
 	///
 	/// This will ensure the extrinsic can be validly executed (by executing it).
 	</span><span class="kw">pub fn </span>push(<span class="kw-2">&amp;mut </span><span class="self">self</span>, xt: &lt;Block <span class="kw">as </span>BlockT&gt;::Extrinsic) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
@@ -1009,7 +1011,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.build()
 			.unwrap();
 
-		<span class="kw">let </span>proof = block.proof.expect(<span class="string">&quot;Proof is build on request&quot;</span>);
+		<span class="kw">let </span>proof = block.proof.expect(<span class="string">"Proof is build on request"</span>);
 		<span class="kw">let </span>genesis_state_root = client.header(genesis_hash).unwrap().unwrap().state_root;
 
 		<span class="kw">let </span>backend =
@@ -1019,7 +1021,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">assert!</span>(backend
 			.storage(<span class="kw-2">&amp;</span>sp_core::storage::well_known_keys::CODE)
 			.unwrap_err()
-			.contains(<span class="string">&quot;Database missing expected key&quot;</span>),);
+			.contains(<span class="string">"Database missing expected key"</span>),);
 	}
 
 	<span class="attr">#[test]
@@ -1039,7 +1041,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>block = block_builder.build().unwrap();
 
-		<span class="kw">let </span>proof_with_panic = block.proof.expect(<span class="string">&quot;Proof is build on request&quot;</span>).encoded_size();
+		<span class="kw">let </span>proof_with_panic = block.proof.expect(<span class="string">"Proof is build on request"</span>).encoded_size();
 
 		<span class="kw">let </span><span class="kw-2">mut </span>block_builder = BlockBuilderBuilder::new(<span class="kw-2">&amp;</span>client)
 			.on_parent_block(genesis_hash)
@@ -1052,7 +1054,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>block = block_builder.build().unwrap();
 
-		<span class="kw">let </span>proof_without_panic = block.proof.expect(<span class="string">&quot;Proof is build on request&quot;</span>).encoded_size();
+		<span class="kw">let </span>proof_without_panic = block.proof.expect(<span class="string">"Proof is build on request"</span>).encoded_size();
 
 		<span class="kw">let </span>block = BlockBuilderBuilder::new(<span class="kw-2">&amp;</span>client)
 			.on_parent_block(genesis_hash)
@@ -1063,7 +1065,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.build()
 			.unwrap();
 
-		<span class="kw">let </span>proof_empty_block = block.proof.expect(<span class="string">&quot;Proof is build on request&quot;</span>).encoded_size();
+		<span class="kw">let </span>proof_empty_block = block.proof.expect(<span class="string">"Proof is build on request"</span>).encoded_size();
 
 		<span class="comment">// Ensure that we rolled back the changes of the panicked transaction.
 		</span><span class="macro">assert!</span>(proof_without_panic &gt; proof_with_panic);

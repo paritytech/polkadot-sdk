@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/subsystem-util/src/backing_implicit_view.rs`."><title>backing_implicit_view.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/subsystem-util/src/backing_implicit_view.rs`."><title>backing_implicit_view.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_node_subsystem_util" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_node_subsystem_util" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../polkadot_node_subsystem_util/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -928,7 +930,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[derive(Debug, Clone)]
 </span><span class="kw">struct </span>AllowedRelayParents {
 	<span class="comment">// minimum relay parents can only be fetched for active leaves,
-	// so this will be empty for all blocks that haven&#39;t ever been
+	// so this will be empty for all blocks that haven't ever been
 	// witnessed as active leaves.
 	</span>minimum_relay_parents: HashMap&lt;ParaId, BlockNumber&gt;,
 	<span class="comment">// Ancestry, in descending order, starting from the block hash itself down
@@ -978,9 +980,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	// and is useful for understanding the views of peers in the network
 	// which may not be in perfect synchrony with our own view.
 	//
-	// If they are ahead of us in getting a new leaf, there&#39;s nothing we
-	// can do as it&#39;s an unrecognized block hash. But if they&#39;re behind us,
-	// it&#39;s useful for us to retain some information about previous leaves&#39;
+	// If they are ahead of us in getting a new leaf, there's nothing we
+	// can do as it's an unrecognized block hash. But if they're behind us,
+	// it's useful for us to retain some information about previous leaves'
 	// implicit views so we can continue to send relevant messages to them
 	// until they catch up.
 	</span>maybe_allowed_relay_parents: <span class="prelude-ty">Option</span>&lt;AllowedRelayParents&gt;,
@@ -996,9 +998,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Activate a leaf in the view.
 	/// This will request the minimum relay parents from the
 	/// Prospective Parachains subsystem for each leaf and will load headers in the ancestry of each
-	/// leaf in the view as needed. These are the &#39;implicit ancestors&#39; of the leaf.
+	/// leaf in the view as needed. These are the 'implicit ancestors' of the leaf.
 	///
-	/// To maximize reuse of outdated leaves, it&#39;s best to activate new leaves before
+	/// To maximize reuse of outdated leaves, it's best to activate new leaves before
 	/// deactivating old ones.
 	///
 	/// This returns a list of para-ids which are relevant to the leaf,
@@ -1094,7 +1096,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// If `para_id` is `None`, this returns all valid relay-parents across all paras
 	/// for the leaf.
 	///
-	/// `None` indicates that the block hash isn&#39;t part of the implicit view or that
+	/// `None` indicates that the block hash isn't part of the implicit view or that
 	/// there are no known allowed relay parents.
 	///
 	/// This always returns `Some` for active leaves or for blocks that previously
@@ -1119,23 +1121,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[fatality::fatality]
 </span><span class="kw">pub enum </span>FetchError {
 	<span class="doccomment">/// Activated leaf is already present in view.
-	</span><span class="attr">#[error(<span class="string">&quot;Leaf was already known&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"Leaf was already known"</span>)]
 	</span>AlreadyKnown,
 
 	<span class="doccomment">/// Request to the prospective parachains subsystem failed.
-	</span><span class="attr">#[error(<span class="string">&quot;The prospective parachains subsystem was unavailable&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"The prospective parachains subsystem was unavailable"</span>)]
 	</span>ProspectiveParachainsUnavailable,
 
 	<span class="doccomment">/// Failed to fetch the block header.
-	</span><span class="attr">#[error(<span class="string">&quot;A block header was unavailable&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"A block header was unavailable"</span>)]
 	</span>BlockHeaderUnavailable(Hash, BlockHeaderUnavailableReason),
 
 	<span class="doccomment">/// A block header was unavailable due to a chain API error.
-	</span><span class="attr">#[error(<span class="string">&quot;A block header was unavailable due to a chain API error&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"A block header was unavailable due to a chain API error"</span>)]
 	</span>ChainApiError(Hash, ChainApiError),
 
 	<span class="doccomment">/// Request to the Chain API subsystem failed.
-	</span><span class="attr">#[error(<span class="string">&quot;The chain API subsystem was unavailable&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"The chain API subsystem was unavailable"</span>)]
 	</span>ChainApiUnavailable,
 }
 
@@ -1335,7 +1337,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.recv()
 			.timeout(TIMEOUT)
 			.<span class="kw">await
-			</span>.expect(<span class="string">&quot;overseer `recv` timed out&quot;</span>)
+			</span>.expect(<span class="string">"overseer `recv` timed out"</span>)
 	}
 
 	<span class="kw">fn </span>default_header() -&gt; Header {
@@ -1367,14 +1369,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				AllMessages::ChainApi(
 					ChainApiMessage::BlockHeader(hash, tx)
 				) =&gt; {
-					<span class="macro">assert_eq!</span>(<span class="kw-2">*</span>block, hash, <span class="string">&quot;unexpected block header request&quot;</span>);
+					<span class="macro">assert_eq!</span>(<span class="kw-2">*</span>block, hash, <span class="string">"unexpected block header request"</span>);
 					<span class="kw">let </span>header = <span class="kw">if </span>block == <span class="kw-2">&amp;</span>GENESIS_HASH {
 						Header {
 							number: GENESIS_NUMBER,
 							..default_header()
 						}
 					} <span class="kw">else </span>{
-						get_block_header(chain, block).expect(<span class="string">&quot;unknown block&quot;</span>)
+						get_block_header(chain, block).expect(<span class="string">"unknown block"</span>)
 					};
 
 					tx.send(<span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(header))).unwrap();
@@ -1396,7 +1398,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					tx
 				)
 			) =&gt; {
-				<span class="macro">assert_eq!</span>(<span class="kw-2">*</span>leaf, leaf_hash, <span class="string">&quot;received unexpected leaf hash&quot;</span>);
+				<span class="macro">assert_eq!</span>(<span class="kw-2">*</span>leaf, leaf_hash, <span class="string">"received unexpected leaf hash"</span>);
 				tx.send(response).unwrap();
 			}
 		);
@@ -1419,7 +1421,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>min_min_idx = (PARA_B_MIN_PARENT - GENESIS_NUMBER - <span class="number">1</span>) <span class="kw">as </span>usize;
 
 		<span class="kw">let </span>fut = view.activate_leaf(ctx.sender(), <span class="kw-2">*</span>leaf).timeout(TIMEOUT).map(|res| {
-			<span class="kw">let </span>paras = res.expect(<span class="string">&quot;`activate_leaf` timed out&quot;</span>).unwrap();
+			<span class="kw">let </span>paras = res.expect(<span class="string">"`activate_leaf` timed out"</span>).unwrap();
 			<span class="macro">assert_eq!</span>(paras, <span class="macro">vec!</span>[PARA_A, PARA_B]);
 		});
 		<span class="kw">let </span>overseer_fut = <span class="kw">async </span>{
@@ -1434,7 +1436,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 
 		<span class="kw">let </span>leaf_info =
-			view.block_info_storage.get(leaf).expect(<span class="string">&quot;block must be present in storage&quot;</span>);
+			view.block_info_storage.get(leaf).expect(<span class="string">"block must be present in storage"</span>);
 		<span class="macro">assert_matches!</span>(
 			leaf_info.maybe_allowed_relay_parents,
 			<span class="prelude-val">Some</span>(<span class="kw-2">ref </span>allowed_relay_parents) =&gt; {
@@ -1456,7 +1458,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>blocks = [<span class="kw-2">&amp;</span>[GENESIS_HASH], CHAIN_A].concat();
 
 		<span class="kw">let </span>fut = view.activate_leaf(ctx.sender(), <span class="kw-2">*</span>leaf).timeout(TIMEOUT).map(|res| {
-			<span class="kw">let </span>paras = res.expect(<span class="string">&quot;`activate_leaf` timed out&quot;</span>).unwrap();
+			<span class="kw">let </span>paras = res.expect(<span class="string">"`activate_leaf` timed out"</span>).unwrap();
 			<span class="macro">assert_eq!</span>(paras, <span class="macro">vec!</span>[PARA_C]);
 		});
 		<span class="kw">let </span>overseer_fut = <span class="kw">async </span>{
@@ -1483,7 +1485,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>prospective_response = <span class="macro">vec!</span>[(PARA_A, PARA_A_MIN_PARENT)];
 
 		<span class="kw">let </span>fut = view.activate_leaf(ctx.sender(), leaf_a).timeout(TIMEOUT).map(|res| {
-			<span class="kw">let </span>paras = res.expect(<span class="string">&quot;`activate_leaf` timed out&quot;</span>).unwrap();
+			<span class="kw">let </span>paras = res.expect(<span class="string">"`activate_leaf` timed out"</span>).unwrap();
 			<span class="macro">assert_eq!</span>(paras, <span class="macro">vec!</span>[PARA_A]);
 		});
 		<span class="kw">let </span>overseer_fut = <span class="kw">async </span>{
@@ -1505,7 +1507,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>prospective_response = <span class="macro">vec!</span>[(PARA_B, PARA_B_MIN_PARENT)];
 
 		<span class="kw">let </span>fut = view.activate_leaf(ctx.sender(), leaf_b).timeout(TIMEOUT).map(|res| {
-			<span class="kw">let </span>paras = res.expect(<span class="string">&quot;`activate_leaf` timed out&quot;</span>).unwrap();
+			<span class="kw">let </span>paras = res.expect(<span class="string">"`activate_leaf` timed out"</span>).unwrap();
 			<span class="macro">assert_eq!</span>(paras, <span class="macro">vec!</span>[PARA_B]);
 		});
 		<span class="kw">let </span>overseer_fut = <span class="kw">async </span>{
@@ -1521,7 +1523,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// Allowed relay parents for leaf A are preserved.
 		</span><span class="kw">let </span>leaf_a_info =
-			view.block_info_storage.get(<span class="kw-2">&amp;</span>leaf_a).expect(<span class="string">&quot;block must be present in storage&quot;</span>);
+			view.block_info_storage.get(<span class="kw-2">&amp;</span>leaf_a).expect(<span class="string">"block must be present in storage"</span>);
 		<span class="macro">assert_matches!</span>(
 			leaf_a_info.maybe_allowed_relay_parents,
 			<span class="prelude-val">Some</span>(<span class="kw-2">ref </span>allowed_relay_parents) =&gt; {
@@ -1575,7 +1577,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>fut = view
 			.activate_leaf(ctx.sender(), <span class="kw-2">*</span>leaf_b)
 			.timeout(TIMEOUT)
-			.map(|res| res.expect(<span class="string">&quot;`activate_leaf` timed out&quot;</span>).unwrap());
+			.map(|res| res.expect(<span class="string">"`activate_leaf` timed out"</span>).unwrap());
 		<span class="kw">let </span>overseer_fut = <span class="kw">async </span>{
 			assert_min_relay_parents_request(<span class="kw-2">&amp;mut </span>ctx_handle, <span class="kw-2">&amp;</span>leaf_b, prospective_response).<span class="kw">await</span>;
 			assert_block_header_requests(<span class="kw-2">&amp;mut </span>ctx_handle, CHAIN_B, blocks).<span class="kw">await</span>;
@@ -1609,7 +1611,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>prospective_response = <span class="macro">vec!</span>[(PARA_A, PARA_A_MIN_PARENT)];
 		<span class="kw">let </span>fut = view.activate_leaf(ctx.sender(), GENESIS_HASH).timeout(TIMEOUT).map(|res| {
-			<span class="kw">let </span>paras = res.expect(<span class="string">&quot;`activate_leaf` timed out&quot;</span>).unwrap();
+			<span class="kw">let </span>paras = res.expect(<span class="string">"`activate_leaf` timed out"</span>).unwrap();
 			<span class="macro">assert_eq!</span>(paras, <span class="macro">vec!</span>[PARA_A]);
 		});
 		<span class="kw">let </span>overseer_fut = <span class="kw">async </span>{

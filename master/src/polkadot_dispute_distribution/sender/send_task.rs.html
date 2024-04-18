@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/network/dispute-distribution/src/sender/send_task.rs`."><title>send_task.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/network/dispute-distribution/src/sender/send_task.rs`."><title>send_task.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_dispute_distribution" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_dispute_distribution" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../polkadot_dispute_distribution/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -477,7 +479,6 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <a href="#328" id="328">328</a>
 <a href="#329" id="329">329</a>
 <a href="#330" id="330">330</a>
-<a href="#331" id="331">331</a>
 </pre></div><pre class="rust"><code><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
@@ -496,7 +497,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 </span><span class="kw">use </span>std::collections::{HashMap, HashSet};
 
-<span class="kw">use </span>futures::{future::RemoteHandle, Future, FutureExt};
+<span class="kw">use </span>futures::{Future, FutureExt};
 
 <span class="kw">use </span>polkadot_node_network_protocol::{
 	request_response::{
@@ -525,7 +526,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// The unit of work for a `SendTask` is an authority/validator.
 </span><span class="kw">pub struct </span>SendTask&lt;M&gt; {
-	<span class="doccomment">/// The request we are supposed to get out to all `parachain` validators of the dispute&#39;s
+	<span class="doccomment">/// The request we are supposed to get out to all `parachain` validators of the dispute's
 	/// session and to all current authorities.
 	</span>request: DisputeRequest,
 
@@ -544,7 +545,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Status of a particular vote/statement delivery to a particular validator.
 </span><span class="kw">enum </span>DeliveryStatus {
 	<span class="doccomment">/// Request is still in flight.
-	</span>Pending(RemoteHandle&lt;()&gt;),
+	</span>Pending,
 	<span class="doccomment">/// Succeeded - no need to send request to this peer anymore.
 	</span>Succeeded,
 }
@@ -571,7 +572,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl </span>TaskResult {
-	<span class="kw">pub fn </span>as_metrics_label(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str {
+	<span class="kw">pub fn </span>as_metrics_label(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
 		<span class="kw">match </span><span class="self">self </span>{
 			<span class="self">Self</span>::Succeeded =&gt; SUCCEEDED,
 			<span class="self">Self</span>::Failed(<span class="kw">_</span>) =&gt; FAILED,
@@ -580,7 +581,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="attr">#[overseer::contextbounds(DisputeDistribution, prefix = <span class="self">self</span>::overseer)]
-</span><span class="kw">impl</span>&lt;M: <span class="lifetime">&#39;static </span>+ Send + Sync&gt; SendTask&lt;M&gt; {
+</span><span class="kw">impl</span>&lt;M: <span class="lifetime">'static </span>+ Send + Sync&gt; SendTask&lt;M&gt; {
 	<span class="doccomment">/// Initiates sending a dispute message to peers.
 	///
 	/// Creation of new `SendTask`s is subject to rate limiting. As each `SendTask` will trigger
@@ -630,7 +631,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="macro">gum::trace!</span>(
 			target: LOG_TARGET,
 			already_running_deliveries = <span class="question-mark">?</span><span class="self">self</span>.deliveries.len(),
-			<span class="string">&quot;Cleaning up deliveries&quot;
+			<span class="string">"Cleaning up deliveries"
 		</span>);
 		<span class="self">self</span>.deliveries.retain(|k, <span class="kw">_</span>| new_authorities.contains(k));
 
@@ -640,7 +641,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			new_and_failed_authorities = <span class="question-mark">?</span>add_authorities.len(),
 			overall_authority_set_size = <span class="question-mark">?</span>new_authorities.len(),
 			already_running_deliveries = <span class="question-mark">?</span><span class="self">self</span>.deliveries.len(),
-			<span class="string">&quot;Starting new send requests for authorities.&quot;
+			<span class="string">"Starting new send requests for authorities."
 		</span>);
 		<span class="kw">let </span>new_statuses =
 			send_requests(ctx, <span class="self">self</span>.tx.clone(), add_authorities, <span class="self">self</span>.request.clone(), metrics)
@@ -650,7 +651,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">gum::trace!</span>(
 			target: LOG_TARGET,
 			sent_requests = <span class="question-mark">?</span>new_statuses.len(),
-			<span class="string">&quot;Requests dispatched.&quot;
+			<span class="string">"Requests dispatched."
 		</span>);
 
 		<span class="self">self</span>.has_failed_sends = <span class="bool-val">false</span>;
@@ -675,7 +676,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="question-mark">?</span>authority,
 					candidate_hash = %<span class="self">self</span>.request.<span class="number">0</span>.candidate_receipt.hash(),
 					%err,
-					<span class="string">&quot;Error sending dispute statements to node.&quot;
+					<span class="string">"Error sending dispute statements to node."
 				</span>);
 
 				<span class="self">self</span>.has_failed_sends = <span class="bool-val">true</span>;
@@ -692,7 +693,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							candidate = <span class="question-mark">?</span><span class="self">self</span>.request.<span class="number">0</span>.candidate_receipt.hash(),
 							<span class="question-mark">?</span>authority,
 							<span class="question-mark">?</span>result,
-							<span class="string">&quot;Received `FromSendingTask::Finished` for non existing task.&quot;
+							<span class="string">"Received `FromSendingTask::Finished` for non existing task."
 						</span>);
 						<span class="kw">return
 					</span>},
@@ -753,7 +754,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// And spawn tasks for handling the response.
 </span><span class="attr">#[overseer::contextbounds(DisputeDistribution, prefix = <span class="self">self</span>::overseer)]
-</span><span class="kw">async fn </span>send_requests&lt;Context, M: <span class="lifetime">&#39;static </span>+ Send + Sync&gt;(
+</span><span class="kw">async fn </span>send_requests&lt;Context, M: <span class="lifetime">'static </span>+ Send + Sync&gt;(
 	ctx: <span class="kw-2">&amp;mut </span>Context,
 	tx: NestingSender&lt;M, TaskFinish&gt;,
 	receivers: Vec&lt;AuthorityDiscoveryId&gt;,
@@ -777,9 +778,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			metrics.time_dispute_request(),
 		);
 
-		<span class="kw">let </span>(remote, remote_handle) = fut.remote_handle();
-		ctx.spawn(<span class="string">&quot;dispute-sender&quot;</span>, remote.boxed()).map_err(FatalError::SpawnTask)<span class="question-mark">?</span>;
-		statuses.insert(receiver, DeliveryStatus::Pending(remote_handle));
+		ctx.spawn(<span class="string">"dispute-sender"</span>, fut.boxed()).map_err(FatalError::SpawnTask)<span class="question-mark">?</span>;
+		statuses.insert(receiver, DeliveryStatus::Pending);
 	}
 
 	<span class="kw">let </span>msg = NetworkBridgeTxMessage::SendRequests(reqs, IfDisconnected::ImmediateError);
@@ -788,7 +788,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Future to be spawned in a task for awaiting a response.
-</span><span class="kw">async fn </span>wait_response_task&lt;M: <span class="lifetime">&#39;static </span>+ Send + Sync&gt;(
+</span><span class="kw">async fn </span>wait_response_task&lt;M: <span class="lifetime">'static </span>+ Send + Sync&gt;(
 	pending_response: <span class="kw">impl </span>Future&lt;Output = OutgoingResult&lt;DisputeResponse&gt;&gt;,
 	candidate_hash: CandidateHash,
 	receiver: AuthorityDiscoveryId,
@@ -805,7 +805,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">gum::debug!</span>(
 			target: LOG_TARGET,
 			%err,
-			<span class="string">&quot;Failed to notify subsystem about dispute sending result.&quot;
+			<span class="string">"Failed to notify subsystem about dispute sending result."
 		</span>);
 	}
 }

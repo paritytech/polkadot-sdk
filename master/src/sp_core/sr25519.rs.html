@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/core/src/sr25519.rs`."><title>sr25519.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/core/src/sr25519.rs`."><title>sr25519.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_core" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_core" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sp_core/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1072,14 +1074,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -1089,12 +1091,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! Note: `CHAIN_CODE_LENGTH` must be equal to `crate::crypto::JUNCTION_ID_LEN`
 //! for this to work.
 
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;serde&quot;</span>)]
+</span><span class="attr">#[cfg(feature = <span class="string">"serde"</span>)]
 </span><span class="kw">use </span><span class="kw">crate</span>::crypto::Ss58Codec;
 <span class="kw">use </span><span class="kw">crate</span>::crypto::{
 	CryptoBytes, DeriveError, DeriveJunction, Pair <span class="kw">as </span>TraitPair, SecretStringError,
 };
-<span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"full_crypto"</span>)]
 </span><span class="kw">use </span>schnorrkel::signing_context;
 <span class="kw">use </span>schnorrkel::{
 	derive::{ChainCode, Derivation, CHAIN_CODE_LENGTH},
@@ -1107,18 +1109,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>scale_info::TypeInfo;
 
 <span class="kw">use </span>schnorrkel::keys::{MINI_SECRET_KEY_LENGTH, SECRET_KEY_LENGTH};
-<span class="attr">#[cfg(feature = <span class="string">&quot;serde&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"serde"</span>)]
 </span><span class="kw">use </span>serde::{de, Deserialize, Deserializer, Serialize, Serializer};
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">use </span>sp_runtime_interface::pass_by::PassByInner;
-<span class="attr">#[cfg(all(not(feature = <span class="string">&quot;std&quot;</span>), feature = <span class="string">&quot;serde&quot;</span>))]
+<span class="attr">#[cfg(all(not(feature = <span class="string">"std"</span>), feature = <span class="string">"serde"</span>))]
 </span><span class="kw">use </span>sp_std::alloc::{format, string::String};
 
 <span class="comment">// signing context
-</span><span class="kw">const </span>SIGNING_CTX: <span class="kw-2">&amp;</span>[u8] = <span class="string">b&quot;substrate&quot;</span>;
+</span><span class="kw">const </span>SIGNING_CTX: <span class="kw-2">&amp;</span>[u8] = <span class="string">b"substrate"</span>;
 
 <span class="doccomment">/// An identifier used to match public keys against sr25519 keys
-</span><span class="kw">pub const </span>CRYPTO_ID: CryptoTypeId = CryptoTypeId(<span class="kw-2">*</span><span class="string">b&quot;sr25&quot;</span>);
+</span><span class="kw">pub const </span>CRYPTO_ID: CryptoTypeId = CryptoTypeId(<span class="kw-2">*</span><span class="string">b"sr25"</span>);
 
 <span class="doccomment">/// The byte length of public key
 </span><span class="kw">pub const </span>PUBLIC_KEY_SERIALIZED_SIZE: usize = <span class="number">32</span>;
@@ -1131,7 +1133,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[doc(hidden)]
 </span><span class="kw">pub struct </span>Sr25519PublicTag;
 
-<span class="doccomment">/// An Schnorrkel/Ristretto x25519 (&quot;sr25519&quot;) public key.
+<span class="doccomment">/// An Schnorrkel/Ristretto x25519 ("sr25519") public key.
 </span><span class="kw">pub type </span>Public = CryptoBytes&lt;PUBLIC_KEY_SERIALIZED_SIZE, Sr25519PublicTag&gt;;
 
 <span class="kw">impl </span>TraitPublic <span class="kw">for </span>Public {}
@@ -1140,7 +1142,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Derive a child key from a series of given junctions.
 	///
 	/// `None` if there are any hard junctions in there.
-	</span><span class="attr">#[cfg(feature = <span class="string">&quot;serde&quot;</span>)]
+	</span><span class="attr">#[cfg(feature = <span class="string">"serde"</span>)]
 	</span><span class="kw">fn </span>derive&lt;Iter: Iterator&lt;Item = DeriveJunction&gt;&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, path: Iter) -&gt; <span class="prelude-ty">Option</span>&lt;Public&gt; {
 		<span class="kw">let </span><span class="kw-2">mut </span>acc = PublicKey::from_bytes(<span class="self">self</span>.as_ref()).ok()<span class="question-mark">?</span>;
 		<span class="kw">for </span>j <span class="kw">in </span>path {
@@ -1153,7 +1155,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">impl </span>std::str::FromStr <span class="kw">for </span>Public {
 	<span class="kw">type </span><span class="prelude-val">Err </span>= <span class="kw">crate</span>::crypto::PublicError;
 
@@ -1162,27 +1164,27 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">impl </span>std::fmt::Display <span class="kw">for </span>Public {
 	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter) -&gt; std::fmt::Result {
-		<span class="macro">write!</span>(f, <span class="string">&quot;{}&quot;</span>, <span class="self">self</span>.to_ss58check())
+		<span class="macro">write!</span>(f, <span class="string">"{}"</span>, <span class="self">self</span>.to_ss58check())
 	}
 }
 
 <span class="kw">impl </span>sp_std::fmt::Debug <span class="kw">for </span>Public {
-	<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 	</span><span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter) -&gt; sp_std::fmt::Result {
 		<span class="kw">let </span>s = <span class="self">self</span>.to_ss58check();
-		<span class="macro">write!</span>(f, <span class="string">&quot;{} ({}...)&quot;</span>, <span class="kw">crate</span>::hexdisplay::HexDisplay::from(<span class="self">self</span>.inner()), <span class="kw-2">&amp;</span>s[<span class="number">0</span>..<span class="number">8</span>])
+		<span class="macro">write!</span>(f, <span class="string">"{} ({}...)"</span>, <span class="kw">crate</span>::hexdisplay::HexDisplay::from(<span class="self">self</span>.inner()), <span class="kw-2">&amp;</span>s[<span class="number">0</span>..<span class="number">8</span>])
 	}
 
-	<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+	<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
 	</span><span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw">_</span>: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter) -&gt; sp_std::fmt::Result {
 		<span class="prelude-val">Ok</span>(())
 	}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;serde&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"serde"</span>)]
 </span><span class="kw">impl </span>Serialize <span class="kw">for </span>Public {
 	<span class="kw">fn </span>serialize&lt;S&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, serializer: S) -&gt; <span class="prelude-ty">Result</span>&lt;S::Ok, S::Error&gt;
 	<span class="kw">where
@@ -1192,28 +1194,28 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;serde&quot;</span>)]
-</span><span class="kw">impl</span>&lt;<span class="lifetime">&#39;de</span>&gt; Deserialize&lt;<span class="lifetime">&#39;de</span>&gt; <span class="kw">for </span>Public {
+<span class="attr">#[cfg(feature = <span class="string">"serde"</span>)]
+</span><span class="kw">impl</span>&lt;<span class="lifetime">'de</span>&gt; Deserialize&lt;<span class="lifetime">'de</span>&gt; <span class="kw">for </span>Public {
 	<span class="kw">fn </span>deserialize&lt;D&gt;(deserializer: D) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, D::Error&gt;
 	<span class="kw">where
-		</span>D: Deserializer&lt;<span class="lifetime">&#39;de</span>&gt;,
+		</span>D: Deserializer&lt;<span class="lifetime">'de</span>&gt;,
 	{
 		Public::from_ss58check(<span class="kw-2">&amp;</span>String::deserialize(deserializer)<span class="question-mark">?</span>)
-			.map_err(|e| de::Error::custom(<span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, e)))
+			.map_err(|e| de::Error::custom(<span class="macro">format!</span>(<span class="string">"{:?}"</span>, e)))
 	}
 }
 
-<span class="doccomment">/// An Schnorrkel/Ristretto x25519 (&quot;sr25519&quot;) signature.
+<span class="doccomment">/// An Schnorrkel/Ristretto x25519 ("sr25519") signature.
 </span><span class="kw">pub type </span>Signature = SignatureBytes&lt;SIGNATURE_SERIALIZED_SIZE, Sr25519Tag&gt;;
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"full_crypto"</span>)]
 </span><span class="kw">impl </span>From&lt;schnorrkel::Signature&gt; <span class="kw">for </span>Signature {
 	<span class="kw">fn </span>from(s: schnorrkel::Signature) -&gt; Signature {
 		Signature::from(s.to_bytes())
 	}
 }
 
-<span class="doccomment">/// An Schnorrkel/Ristretto x25519 (&quot;sr25519&quot;) key pair.
+<span class="doccomment">/// An Schnorrkel/Ristretto x25519 ("sr25519") key pair.
 </span><span class="kw">pub struct </span>Pair(Keypair);
 
 <span class="kw">impl </span>Clone <span class="kw">for </span>Pair {
@@ -1221,40 +1223,40 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		Pair(schnorrkel::Keypair {
 			public: <span class="self">self</span>.<span class="number">0</span>.public,
 			secret: schnorrkel::SecretKey::from_bytes(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>.secret.to_bytes()[..])
-				.expect(<span class="string">&quot;key is always the correct size; qed&quot;</span>),
+				.expect(<span class="string">"key is always the correct size; qed"</span>),
 		})
 	}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">impl </span>From&lt;MiniSecretKey&gt; <span class="kw">for </span>Pair {
 	<span class="kw">fn </span>from(sec: MiniSecretKey) -&gt; Pair {
 		Pair(sec.expand_to_keypair(ExpansionMode::Ed25519))
 	}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">impl </span>From&lt;SecretKey&gt; <span class="kw">for </span>Pair {
 	<span class="kw">fn </span>from(sec: SecretKey) -&gt; Pair {
 		Pair(Keypair::from(sec))
 	}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"full_crypto"</span>)]
 </span><span class="kw">impl </span>From&lt;schnorrkel::Keypair&gt; <span class="kw">for </span>Pair {
 	<span class="kw">fn </span>from(p: schnorrkel::Keypair) -&gt; Pair {
 		Pair(p)
 	}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"full_crypto"</span>)]
 </span><span class="kw">impl </span>From&lt;Pair&gt; <span class="kw">for </span>schnorrkel::Keypair {
 	<span class="kw">fn </span>from(p: Pair) -&gt; schnorrkel::Keypair {
 		p.<span class="number">0
 	</span>}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"full_crypto"</span>)]
 </span><span class="kw">impl </span>AsRef&lt;schnorrkel::Keypair&gt; <span class="kw">for </span>Pair {
 	<span class="kw">fn </span>as_ref(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>schnorrkel::Keypair {
 		<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0
@@ -1263,7 +1265,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Derive a single hard junction.
 </span><span class="kw">fn </span>derive_hard_junction(secret: <span class="kw-2">&amp;</span>SecretKey, cc: <span class="kw-2">&amp;</span>[u8; CHAIN_CODE_LENGTH]) -&gt; MiniSecretKey {
-	secret.hard_derive_mini_secret_key(<span class="prelude-val">Some</span>(ChainCode(<span class="kw-2">*</span>cc)), <span class="string">b&quot;&quot;</span>).<span class="number">0
+	secret.hard_derive_mini_secret_key(<span class="prelude-val">Some</span>(ChainCode(<span class="kw-2">*</span>cc)), <span class="string">b""</span>).<span class="number">0
 </span>}
 
 <span class="doccomment">/// The raw secret seed, which can be used to recreate the `Pair`.
@@ -1281,7 +1283,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Make a new key pair from raw secret seed material.
 	///
-	/// This is generated using schnorrkel&#39;s Mini-Secret-Keys.
+	/// This is generated using schnorrkel's Mini-Secret-Keys.
 	///
 	/// A `MiniSecretKey` is literally what Ed25519 calls a `SecretKey`, which is just 32 random
 	/// bytes.
@@ -1321,7 +1323,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Ok</span>((<span class="self">Self</span>(result.into()), seed.map(|s| MiniSecretKey::to_bytes(<span class="kw-2">&amp;</span>s))))
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"full_crypto"</span>)]
 	</span><span class="kw">fn </span>sign(<span class="kw-2">&amp;</span><span class="self">self</span>, message: <span class="kw-2">&amp;</span>[u8]) -&gt; Signature {
 		<span class="kw">let </span>context = signing_context(SIGNING_CTX);
 		<span class="self">self</span>.<span class="number">0</span>.sign(context.bytes(message)).into()
@@ -1338,7 +1340,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">impl </span>Pair {
 	<span class="doccomment">/// Verify a signature on a message. Returns `true` if the signature is good.
 	/// Supports old 0.1.1 deprecated signatures and should be used only for backward
@@ -1370,7 +1372,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Schnorrkel VRF related types and operations.
 </span><span class="kw">pub mod </span>vrf {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
-	<span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"full_crypto"</span>)]
 	</span><span class="kw">use </span><span class="kw">crate</span>::crypto::VrfSecret;
 	<span class="kw">use </span><span class="kw">crate</span>::crypto::{VrfCrypto, VrfPublic};
 	<span class="kw">use </span>schnorrkel::{
@@ -1379,7 +1381,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		SignatureError,
 	};
 
-	<span class="kw">const </span>DEFAULT_EXTRA_DATA_LABEL: <span class="kw-2">&amp;</span>[u8] = <span class="string">b&quot;VRF&quot;</span>;
+	<span class="kw">const </span>DEFAULT_EXTRA_DATA_LABEL: <span class="kw-2">&amp;</span>[u8] = <span class="string">b"VRF"</span>;
 
 	<span class="doccomment">/// Transcript ready to be used for VRF related operations.
 	</span><span class="attr">#[derive(Clone)]
@@ -1389,7 +1391,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="doccomment">/// Build a new transcript instance.
 		///
 		/// Each `data` element is a tuple `(domain, message)` used to build the transcript.
-		</span><span class="kw">pub fn </span>new(label: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8], data: <span class="kw-2">&amp;</span>[(<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8], <span class="kw-2">&amp;</span>[u8])]) -&gt; <span class="self">Self </span>{
+		</span><span class="kw">pub fn </span>new(label: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>[u8], data: <span class="kw-2">&amp;</span>[(<span class="kw-2">&amp;</span><span class="lifetime">'static </span>[u8], <span class="kw-2">&amp;</span>[u8])]) -&gt; <span class="self">Self </span>{
 			<span class="kw">let </span><span class="kw-2">mut </span>transcript = merlin::Transcript::new(label);
 			data.iter().for_each(|(l, b)| transcript.append_message(l, b));
 			VrfTranscript(transcript)
@@ -1516,7 +1518,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"full_crypto"</span>)]
 	</span><span class="kw">impl </span>VrfCrypto <span class="kw">for </span>Pair {
 		<span class="kw">type </span>VrfInput = VrfTranscript;
 		<span class="kw">type </span>VrfPreOutput = VrfPreOutput;
@@ -1524,7 +1526,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">type </span>VrfSignature = VrfSignature;
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"full_crypto"</span>)]
 	</span><span class="kw">impl </span>VrfSecret <span class="kw">for </span>Pair {
 		<span class="kw">fn </span>vrf_sign(<span class="kw-2">&amp;</span><span class="self">self</span>, data: <span class="kw-2">&amp;</span><span class="self">Self</span>::VrfSignData) -&gt; <span class="self">Self</span>::VrfSignature {
 			<span class="kw">let </span>inout = <span class="self">self</span>.<span class="number">0</span>.vrf_create_hash(data.transcript.<span class="number">0</span>.clone());
@@ -1577,35 +1579,35 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">use </span>MultiSignatureStage::<span class="kw-2">*</span>;
 		<span class="kw">use </span>SignatureError::<span class="kw-2">*</span>;
 		<span class="kw">match </span>e {
-			EquationFalse =&gt; <span class="string">&quot;Signature error: `EquationFalse`&quot;</span>.into(),
-			PointDecompressionError =&gt; <span class="string">&quot;Signature error: `PointDecompressionError`&quot;</span>.into(),
-			ScalarFormatError =&gt; <span class="string">&quot;Signature error: `ScalarFormatError`&quot;</span>.into(),
-			NotMarkedSchnorrkel =&gt; <span class="string">&quot;Signature error: `NotMarkedSchnorrkel`&quot;</span>.into(),
-			BytesLengthError { .. } =&gt; <span class="string">&quot;Signature error: `BytesLengthError`&quot;</span>.into(),
-			InvalidKey =&gt; <span class="string">&quot;Signature error: `InvalidKey`&quot;</span>.into(),
+			EquationFalse =&gt; <span class="string">"Signature error: `EquationFalse`"</span>.into(),
+			PointDecompressionError =&gt; <span class="string">"Signature error: `PointDecompressionError`"</span>.into(),
+			ScalarFormatError =&gt; <span class="string">"Signature error: `ScalarFormatError`"</span>.into(),
+			NotMarkedSchnorrkel =&gt; <span class="string">"Signature error: `NotMarkedSchnorrkel`"</span>.into(),
+			BytesLengthError { .. } =&gt; <span class="string">"Signature error: `BytesLengthError`"</span>.into(),
+			InvalidKey =&gt; <span class="string">"Signature error: `InvalidKey`"</span>.into(),
 			MuSigAbsent { musig_stage: Commitment } =&gt;
-				<span class="string">&quot;Signature error: `MuSigAbsent` at stage `Commitment`&quot;</span>.into(),
+				<span class="string">"Signature error: `MuSigAbsent` at stage `Commitment`"</span>.into(),
 			MuSigAbsent { musig_stage: Reveal } =&gt;
-				<span class="string">&quot;Signature error: `MuSigAbsent` at stage `Reveal`&quot;</span>.into(),
+				<span class="string">"Signature error: `MuSigAbsent` at stage `Reveal`"</span>.into(),
 			MuSigAbsent { musig_stage: Cosignature } =&gt;
-				<span class="string">&quot;Signature error: `MuSigAbsent` at stage `Commitment`&quot;</span>.into(),
+				<span class="string">"Signature error: `MuSigAbsent` at stage `Commitment`"</span>.into(),
 			MuSigInconsistent { musig_stage: Commitment, duplicate: <span class="bool-val">true </span>} =&gt;
-				<span class="string">&quot;Signature error: `MuSigInconsistent` at stage `Commitment` on duplicate&quot;</span>.into(),
+				<span class="string">"Signature error: `MuSigInconsistent` at stage `Commitment` on duplicate"</span>.into(),
 			MuSigInconsistent { musig_stage: Commitment, duplicate: <span class="bool-val">false </span>} =&gt;
-				<span class="string">&quot;Signature error: `MuSigInconsistent` at stage `Commitment` on not duplicate&quot;</span>.into(),
+				<span class="string">"Signature error: `MuSigInconsistent` at stage `Commitment` on not duplicate"</span>.into(),
 			MuSigInconsistent { musig_stage: Reveal, duplicate: <span class="bool-val">true </span>} =&gt;
-				<span class="string">&quot;Signature error: `MuSigInconsistent` at stage `Reveal` on duplicate&quot;</span>.into(),
+				<span class="string">"Signature error: `MuSigInconsistent` at stage `Reveal` on duplicate"</span>.into(),
 			MuSigInconsistent { musig_stage: Reveal, duplicate: <span class="bool-val">false </span>} =&gt;
-				<span class="string">&quot;Signature error: `MuSigInconsistent` at stage `Reveal` on not duplicate&quot;</span>.into(),
+				<span class="string">"Signature error: `MuSigInconsistent` at stage `Reveal` on not duplicate"</span>.into(),
 			MuSigInconsistent { musig_stage: Cosignature, duplicate: <span class="bool-val">true </span>} =&gt;
-				<span class="string">&quot;Signature error: `MuSigInconsistent` at stage `Cosignature` on duplicate&quot;</span>.into(),
+				<span class="string">"Signature error: `MuSigInconsistent` at stage `Cosignature` on duplicate"</span>.into(),
 			MuSigInconsistent { musig_stage: Cosignature, duplicate: <span class="bool-val">false </span>} =&gt;
-				<span class="string">&quot;Signature error: `MuSigInconsistent` at stage `Cosignature` on not duplicate&quot;
+				<span class="string">"Signature error: `MuSigInconsistent` at stage `Cosignature` on not duplicate"
 					</span>.into(),
 		}
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"full_crypto"</span>)]
 	</span><span class="kw">impl </span>Pair {
 		<span class="doccomment">/// Generate output bytes from the given VRF configuration.
 		</span><span class="kw">pub fn </span>make_bytes&lt;<span class="kw">const </span>N: usize&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, context: <span class="kw-2">&amp;</span>[u8], input: <span class="kw-2">&amp;</span>VrfInput) -&gt; [u8; N]
@@ -1664,20 +1666,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>derive_soft_known_pair_should_work() {
-		<span class="kw">let </span>pair = Pair::from_string(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}/Alice&quot;</span>, DEV_PHRASE), <span class="prelude-val">None</span>).unwrap();
+		<span class="kw">let </span>pair = Pair::from_string(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{}/Alice"</span>, DEV_PHRASE), <span class="prelude-val">None</span>).unwrap();
 		<span class="comment">// known address of DEV_PHRASE with 1.1
 		</span><span class="kw">let </span>known = array_bytes::hex2bytes_unchecked(
-			<span class="string">&quot;d6c71059dbbe9ad2b0ed3f289738b800836eb425544ce694825285b958ca755e&quot;</span>,
+			<span class="string">"d6c71059dbbe9ad2b0ed3f289738b800836eb425544ce694825285b958ca755e"</span>,
 		);
 		<span class="macro">assert_eq!</span>(pair.public().to_raw_vec(), known);
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>derive_hard_known_pair_should_work() {
-		<span class="kw">let </span>pair = Pair::from_string(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}//Alice&quot;</span>, DEV_PHRASE), <span class="prelude-val">None</span>).unwrap();
+		<span class="kw">let </span>pair = Pair::from_string(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{}//Alice"</span>, DEV_PHRASE), <span class="prelude-val">None</span>).unwrap();
 		<span class="comment">// known address of DEV_PHRASE with 1.1
 		</span><span class="kw">let </span>known = array_bytes::hex2bytes_unchecked(
-			<span class="string">&quot;d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d&quot;</span>,
+			<span class="string">"d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d"</span>,
 		);
 		<span class="macro">assert_eq!</span>(pair.public().to_raw_vec(), known);
 	}
@@ -1685,13 +1687,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>verify_known_old_message_should_work() {
 		<span class="kw">let </span>public = Public::from_raw(array_bytes::hex2array_unchecked(
-			<span class="string">&quot;b4bfa1f7a5166695eb75299fd1c4c03ea212871c342f2c5dfea0902b2c246918&quot;</span>,
+			<span class="string">"b4bfa1f7a5166695eb75299fd1c4c03ea212871c342f2c5dfea0902b2c246918"</span>,
 		));
 		<span class="comment">// signature generated by the 1.1 version with the same ^^ public key.
 		</span><span class="kw">let </span>signature = Signature::from_raw(array_bytes::hex2array_unchecked(
-			<span class="string">&quot;5a9755f069939f45d96aaf125cf5ce7ba1db998686f87f2fb3cbdea922078741a73891ba265f70c31436e18a9acd14d189d73c12317ab6c313285cd938453202&quot;
+			<span class="string">"5a9755f069939f45d96aaf125cf5ce7ba1db998686f87f2fb3cbdea922078741a73891ba265f70c31436e18a9acd14d189d73c12317ab6c313285cd938453202"
 		</span>));
-		<span class="kw">let </span>message = <span class="string">b&quot;Verifying that I am the owner of 5G9hQLdsKQswNPgB499DeA5PkFBbgkLPJWkkS6FAM6xGQ8xD. Hash: 221455a3\n&quot;</span>;
+		<span class="kw">let </span>message = <span class="string">b"Verifying that I am the owner of 5G9hQLdsKQswNPgB499DeA5PkFBbgkLPJWkkS6FAM6xGQ8xD. Hash: 221455a3\n"</span>;
 		<span class="macro">assert!</span>(Pair::verify_deprecated(<span class="kw-2">&amp;</span>signature, <span class="kw-2">&amp;</span>message[..], <span class="kw-2">&amp;</span>public));
 		<span class="macro">assert!</span>(!Pair::verify(<span class="kw-2">&amp;</span>signature, <span class="kw-2">&amp;</span>message[..], <span class="kw-2">&amp;</span>public));
 	}
@@ -1699,43 +1701,43 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>default_phrase_should_be_used() {
 		<span class="macro">assert_eq!</span>(
-			Pair::from_string(<span class="string">&quot;//Alice///password&quot;</span>, <span class="prelude-val">None</span>).unwrap().public(),
-			Pair::from_string(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}//Alice&quot;</span>, DEV_PHRASE), <span class="prelude-val">Some</span>(<span class="string">&quot;password&quot;</span>))
+			Pair::from_string(<span class="string">"//Alice///password"</span>, <span class="prelude-val">None</span>).unwrap().public(),
+			Pair::from_string(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{}//Alice"</span>, DEV_PHRASE), <span class="prelude-val">Some</span>(<span class="string">"password"</span>))
 				.unwrap()
 				.public(),
 		);
 		<span class="macro">assert_eq!</span>(
-			Pair::from_string(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}/Alice&quot;</span>, DEV_PHRASE), <span class="prelude-val">None</span>)
+			Pair::from_string(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{}/Alice"</span>, DEV_PHRASE), <span class="prelude-val">None</span>)
 				.as_ref()
 				.map(Pair::public),
-			Pair::from_string(<span class="string">&quot;/Alice&quot;</span>, <span class="prelude-val">None</span>).as_ref().map(Pair::public)
+			Pair::from_string(<span class="string">"/Alice"</span>, <span class="prelude-val">None</span>).as_ref().map(Pair::public)
 		);
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>default_address_should_be_used() {
 		<span class="macro">assert_eq!</span>(
-			Public::from_string(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}/Alice&quot;</span>, DEV_ADDRESS)),
-			Public::from_string(<span class="string">&quot;/Alice&quot;</span>)
+			Public::from_string(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{}/Alice"</span>, DEV_ADDRESS)),
+			Public::from_string(<span class="string">"/Alice"</span>)
 		);
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>default_phrase_should_correspond_to_default_address() {
 		<span class="macro">assert_eq!</span>(
-			Pair::from_string(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}/Alice&quot;</span>, DEV_PHRASE), <span class="prelude-val">None</span>).unwrap().public(),
-			Public::from_string(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}/Alice&quot;</span>, DEV_ADDRESS)).unwrap(),
+			Pair::from_string(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{}/Alice"</span>, DEV_PHRASE), <span class="prelude-val">None</span>).unwrap().public(),
+			Public::from_string(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{}/Alice"</span>, DEV_ADDRESS)).unwrap(),
 		);
 		<span class="macro">assert_eq!</span>(
-			Pair::from_string(<span class="string">&quot;/Alice&quot;</span>, <span class="prelude-val">None</span>).unwrap().public(),
-			Public::from_string(<span class="string">&quot;/Alice&quot;</span>).unwrap()
+			Pair::from_string(<span class="string">"/Alice"</span>, <span class="prelude-val">None</span>).unwrap().public(),
+			Public::from_string(<span class="string">"/Alice"</span>).unwrap()
 		);
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>derive_soft_should_work() {
 		<span class="kw">let </span>pair = Pair::from_seed(<span class="kw-2">&amp;</span>array_bytes::hex2array_unchecked(
-			<span class="string">&quot;9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60&quot;</span>,
+			<span class="string">"9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60"</span>,
 		));
 		<span class="kw">let </span>derive_1 = pair.derive(<span class="prelude-val">Some</span>(DeriveJunction::soft(<span class="number">1</span>)).into_iter(), <span class="prelude-val">None</span>).unwrap().<span class="number">0</span>;
 		<span class="kw">let </span>derive_1b = pair.derive(<span class="prelude-val">Some</span>(DeriveJunction::soft(<span class="number">1</span>)).into_iter(), <span class="prelude-val">None</span>).unwrap().<span class="number">0</span>;
@@ -1747,7 +1749,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>derive_hard_should_work() {
 		<span class="kw">let </span>pair = Pair::from_seed(<span class="kw-2">&amp;</span>array_bytes::hex2array_unchecked(
-			<span class="string">&quot;9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60&quot;</span>,
+			<span class="string">"9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60"</span>,
 		));
 		<span class="kw">let </span>derive_1 = pair.derive(<span class="prelude-val">Some</span>(DeriveJunction::hard(<span class="number">1</span>)).into_iter(), <span class="prelude-val">None</span>).unwrap().<span class="number">0</span>;
 		<span class="kw">let </span>derive_1b = pair.derive(<span class="prelude-val">Some</span>(DeriveJunction::hard(<span class="number">1</span>)).into_iter(), <span class="prelude-val">None</span>).unwrap().<span class="number">0</span>;
@@ -1759,7 +1761,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>derive_soft_public_should_work() {
 		<span class="kw">let </span>pair = Pair::from_seed(<span class="kw-2">&amp;</span>array_bytes::hex2array_unchecked(
-			<span class="string">&quot;9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60&quot;</span>,
+			<span class="string">"9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60"</span>,
 		));
 		<span class="kw">let </span>path = <span class="prelude-val">Some</span>(DeriveJunction::soft(<span class="number">1</span>));
 		<span class="kw">let </span>pair_1 = pair.derive(path.into_iter(), <span class="prelude-val">None</span>).unwrap().<span class="number">0</span>;
@@ -1770,7 +1772,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>derive_hard_public_should_fail() {
 		<span class="kw">let </span>pair = Pair::from_seed(<span class="kw-2">&amp;</span>array_bytes::hex2array_unchecked(
-			<span class="string">&quot;9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60&quot;</span>,
+			<span class="string">"9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60"</span>,
 		));
 		<span class="kw">let </span>path = <span class="prelude-val">Some</span>(DeriveJunction::hard(<span class="number">1</span>));
 		<span class="macro">assert!</span>(pair.public().derive(path.into_iter()).is_none());
@@ -1779,16 +1781,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>sr_test_vector_should_work() {
 		<span class="kw">let </span>pair = Pair::from_seed(<span class="kw-2">&amp;</span>array_bytes::hex2array_unchecked(
-			<span class="string">&quot;9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60&quot;</span>,
+			<span class="string">"9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60"</span>,
 		));
 		<span class="kw">let </span>public = pair.public();
 		<span class="macro">assert_eq!</span>(
 			public,
 			Public::from_raw(array_bytes::hex2array_unchecked(
-				<span class="string">&quot;44a996beb1eef7bdcab976ab6d2ca26104834164ecf28fb375600576fcc6eb0f&quot;
+				<span class="string">"44a996beb1eef7bdcab976ab6d2ca26104834164ecf28fb375600576fcc6eb0f"
 			</span>))
 		);
-		<span class="kw">let </span>message = <span class="string">b&quot;&quot;</span>;
+		<span class="kw">let </span>message = <span class="string">b""</span>;
 		<span class="kw">let </span>signature = pair.sign(message);
 		<span class="macro">assert!</span>(Pair::verify(<span class="kw-2">&amp;</span>signature, <span class="kw-2">&amp;</span>message[..], <span class="kw-2">&amp;</span>public));
 	}
@@ -1796,15 +1798,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>generate_with_phrase_should_be_recoverable_with_from_string() {
 		<span class="kw">let </span>(pair, phrase, seed) = Pair::generate_with_phrase(<span class="prelude-val">None</span>);
-		<span class="kw">let </span>repair_seed = Pair::from_seed_slice(seed.as_ref()).expect(<span class="string">&quot;seed slice is valid&quot;</span>);
+		<span class="kw">let </span>repair_seed = Pair::from_seed_slice(seed.as_ref()).expect(<span class="string">"seed slice is valid"</span>);
 		<span class="macro">assert_eq!</span>(pair.public(), repair_seed.public());
 		<span class="macro">assert_eq!</span>(pair.to_raw_vec(), repair_seed.to_raw_vec());
 		<span class="kw">let </span>(repair_phrase, reseed) =
-			Pair::from_phrase(phrase.as_ref(), <span class="prelude-val">None</span>).expect(<span class="string">&quot;seed slice is valid&quot;</span>);
+			Pair::from_phrase(phrase.as_ref(), <span class="prelude-val">None</span>).expect(<span class="string">"seed slice is valid"</span>);
 		<span class="macro">assert_eq!</span>(seed, reseed);
 		<span class="macro">assert_eq!</span>(pair.public(), repair_phrase.public());
 		<span class="macro">assert_eq!</span>(pair.to_raw_vec(), repair_seed.to_raw_vec());
-		<span class="kw">let </span>repair_string = Pair::from_string(phrase.as_str(), <span class="prelude-val">None</span>).expect(<span class="string">&quot;seed slice is valid&quot;</span>);
+		<span class="kw">let </span>repair_string = Pair::from_string(phrase.as_str(), <span class="prelude-val">None</span>).expect(<span class="string">"seed slice is valid"</span>);
 		<span class="macro">assert_eq!</span>(pair.public(), repair_string.public());
 		<span class="macro">assert_eq!</span>(pair.to_raw_vec(), repair_seed.to_raw_vec());
 	}
@@ -1813,7 +1815,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>generated_pair_should_work() {
 		<span class="kw">let </span>(pair, <span class="kw">_</span>) = Pair::generate();
 		<span class="kw">let </span>public = pair.public();
-		<span class="kw">let </span>message = <span class="string">b&quot;Something important&quot;</span>;
+		<span class="kw">let </span>message = <span class="string">b"Something important"</span>;
 		<span class="kw">let </span>signature = pair.sign(<span class="kw-2">&amp;</span>message[..]);
 		<span class="macro">assert!</span>(Pair::verify(<span class="kw-2">&amp;</span>signature, <span class="kw-2">&amp;</span>message[..], <span class="kw-2">&amp;</span>public));
 	}
@@ -1822,7 +1824,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>messed_signature_should_not_work() {
 		<span class="kw">let </span>(pair, <span class="kw">_</span>) = Pair::generate();
 		<span class="kw">let </span>public = pair.public();
-		<span class="kw">let </span>message = <span class="string">b&quot;Signed payload&quot;</span>;
+		<span class="kw">let </span>message = <span class="string">b"Signed payload"</span>;
 		<span class="kw">let </span><span class="kw-2">mut </span>signature = pair.sign(<span class="kw-2">&amp;</span>message[..]);
 		<span class="kw">let </span>bytes = <span class="kw-2">&amp;mut </span>signature.<span class="number">0</span>;
 		bytes[<span class="number">0</span>] = !bytes[<span class="number">0</span>];
@@ -1834,22 +1836,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>messed_message_should_not_work() {
 		<span class="kw">let </span>(pair, <span class="kw">_</span>) = Pair::generate();
 		<span class="kw">let </span>public = pair.public();
-		<span class="kw">let </span>message = <span class="string">b&quot;Something important&quot;</span>;
+		<span class="kw">let </span>message = <span class="string">b"Something important"</span>;
 		<span class="kw">let </span>signature = pair.sign(<span class="kw-2">&amp;</span>message[..]);
-		<span class="macro">assert!</span>(!Pair::verify(<span class="kw-2">&amp;</span>signature, <span class="kw-2">&amp;</span><span class="string">b&quot;Something unimportant&quot;</span>, <span class="kw-2">&amp;</span>public));
+		<span class="macro">assert!</span>(!Pair::verify(<span class="kw-2">&amp;</span>signature, <span class="kw-2">&amp;</span><span class="string">b"Something unimportant"</span>, <span class="kw-2">&amp;</span>public));
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>seeded_pair_should_work() {
-		<span class="kw">let </span>pair = Pair::from_seed(<span class="string">b&quot;12345678901234567890123456789012&quot;</span>);
+		<span class="kw">let </span>pair = Pair::from_seed(<span class="string">b"12345678901234567890123456789012"</span>);
 		<span class="kw">let </span>public = pair.public();
 		<span class="macro">assert_eq!</span>(
 			public,
 			Public::from_raw(array_bytes::hex2array_unchecked(
-				<span class="string">&quot;741c08a06f41c596608f6774259bd9043304adfa5d3eea62760bd9be97634d63&quot;
+				<span class="string">"741c08a06f41c596608f6774259bd9043304adfa5d3eea62760bd9be97634d63"
 			</span>))
 		);
-		<span class="kw">let </span>message = array_bytes::hex2bytes_unchecked(<span class="string">&quot;2f8c6129d816cf51c374bc7f08c3e63ed156cf78aefb4a6550d97b87997977ee00000000000000000200d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a4500000000000000&quot;</span>);
+		<span class="kw">let </span>message = array_bytes::hex2bytes_unchecked(<span class="string">"2f8c6129d816cf51c374bc7f08c3e63ed156cf78aefb4a6550d97b87997977ee00000000000000000200d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a4500000000000000"</span>);
 		<span class="kw">let </span>signature = pair.sign(<span class="kw-2">&amp;</span>message[..]);
 		<span class="macro">assert!</span>(Pair::verify(<span class="kw-2">&amp;</span>signature, <span class="kw-2">&amp;</span>message[..], <span class="kw-2">&amp;</span>public));
 	}
@@ -1859,7 +1861,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>(pair, <span class="kw">_</span>) = Pair::generate();
 		<span class="kw">let </span>public = pair.public();
 		<span class="kw">let </span>s = public.to_ss58check();
-		<span class="macro">println!</span>(<span class="string">&quot;Correct: {}&quot;</span>, s);
+		<span class="macro">println!</span>(<span class="string">"Correct: {}"</span>, s);
 		<span class="kw">let </span>cmp = Public::from_ss58check(<span class="kw-2">&amp;</span>s).unwrap();
 		<span class="macro">assert_eq!</span>(cmp, public);
 	}
@@ -1871,20 +1873,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		//
 		// This is to make sure that the wasm library is compatible.
 		</span><span class="kw">let </span>pk = Pair::from_seed(<span class="kw-2">&amp;</span>array_bytes::hex2array_unchecked(
-			<span class="string">&quot;0000000000000000000000000000000000000000000000000000000000000000&quot;</span>,
+			<span class="string">"0000000000000000000000000000000000000000000000000000000000000000"</span>,
 		));
 		<span class="kw">let </span>public = pk.public();
 		<span class="kw">let </span>js_signature = Signature::from_raw(array_bytes::hex2array_unchecked(
-			<span class="string">&quot;28a854d54903e056f89581c691c1f7d2ff39f8f896c9e9c22475e60902cc2b3547199e0e91fa32902028f2ca2355e8cdd16cfe19ba5e8b658c94aa80f3b81a00&quot;
+			<span class="string">"28a854d54903e056f89581c691c1f7d2ff39f8f896c9e9c22475e60902cc2b3547199e0e91fa32902028f2ca2355e8cdd16cfe19ba5e8b658c94aa80f3b81a00"
 		</span>));
-		<span class="macro">assert!</span>(Pair::verify_deprecated(<span class="kw-2">&amp;</span>js_signature, <span class="string">b&quot;SUBSTRATE&quot;</span>, <span class="kw-2">&amp;</span>public));
-		<span class="macro">assert!</span>(!Pair::verify(<span class="kw-2">&amp;</span>js_signature, <span class="string">b&quot;SUBSTRATE&quot;</span>, <span class="kw-2">&amp;</span>public));
+		<span class="macro">assert!</span>(Pair::verify_deprecated(<span class="kw-2">&amp;</span>js_signature, <span class="string">b"SUBSTRATE"</span>, <span class="kw-2">&amp;</span>public));
+		<span class="macro">assert!</span>(!Pair::verify(<span class="kw-2">&amp;</span>js_signature, <span class="string">b"SUBSTRATE"</span>, <span class="kw-2">&amp;</span>public));
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>signature_serialization_works() {
-		<span class="kw">let </span>pair = Pair::from_seed(<span class="string">b&quot;12345678901234567890123456789012&quot;</span>);
-		<span class="kw">let </span>message = <span class="string">b&quot;Something important&quot;</span>;
+		<span class="kw">let </span>pair = Pair::from_seed(<span class="string">b"12345678901234567890123456789012"</span>);
+		<span class="kw">let </span>message = <span class="string">b"Something important"</span>;
 		<span class="kw">let </span>signature = pair.sign(<span class="kw-2">&amp;</span>message[..]);
 		<span class="kw">let </span>serialized_signature = serde_json::to_string(<span class="kw-2">&amp;</span>signature).unwrap();
 		<span class="comment">// Signature is 64 bytes, so 128 chars + 2 quote chars
@@ -1898,18 +1900,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">fn </span>deserialize_signature(text: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;Signature, serde_json::error::Error&gt; {
 			serde_json::from_str(text)
 		}
-		<span class="macro">assert!</span>(deserialize_signature(<span class="string">&quot;Not valid json.&quot;</span>).is_err());
-		<span class="macro">assert!</span>(deserialize_signature(<span class="string">&quot;\&quot;Not an actual signature.\&quot;&quot;</span>).is_err());
+		<span class="macro">assert!</span>(deserialize_signature(<span class="string">"Not valid json."</span>).is_err());
+		<span class="macro">assert!</span>(deserialize_signature(<span class="string">"\"Not an actual signature.\""</span>).is_err());
 		<span class="comment">// Poorly-sized
-		</span><span class="macro">assert!</span>(deserialize_signature(<span class="string">&quot;\&quot;abc123\&quot;&quot;</span>).is_err());
+		</span><span class="macro">assert!</span>(deserialize_signature(<span class="string">"\"abc123\""</span>).is_err());
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>vrf_sign_verify() {
-		<span class="kw">let </span>pair = Pair::from_seed(<span class="string">b&quot;12345678901234567890123456789012&quot;</span>);
+		<span class="kw">let </span>pair = Pair::from_seed(<span class="string">b"12345678901234567890123456789012"</span>);
 		<span class="kw">let </span>public = pair.public();
 
-		<span class="kw">let </span>data = VrfTranscript::new(<span class="string">b&quot;label&quot;</span>, <span class="kw-2">&amp;</span>[(<span class="string">b&quot;domain1&quot;</span>, <span class="string">b&quot;data1&quot;</span>)]).into();
+		<span class="kw">let </span>data = VrfTranscript::new(<span class="string">b"label"</span>, <span class="kw-2">&amp;</span>[(<span class="string">b"domain1"</span>, <span class="string">b"data1"</span>)]).into();
 
 		<span class="kw">let </span>signature = pair.vrf_sign(<span class="kw-2">&amp;</span>data);
 
@@ -1918,11 +1920,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>vrf_sign_verify_with_extra() {
-		<span class="kw">let </span>pair = Pair::from_seed(<span class="string">b&quot;12345678901234567890123456789012&quot;</span>);
+		<span class="kw">let </span>pair = Pair::from_seed(<span class="string">b"12345678901234567890123456789012"</span>);
 		<span class="kw">let </span>public = pair.public();
 
-		<span class="kw">let </span>extra = VrfTranscript::new(<span class="string">b&quot;extra&quot;</span>, <span class="kw-2">&amp;</span>[(<span class="string">b&quot;domain2&quot;</span>, <span class="string">b&quot;data2&quot;</span>)]);
-		<span class="kw">let </span>data = VrfTranscript::new(<span class="string">b&quot;label&quot;</span>, <span class="kw-2">&amp;</span>[(<span class="string">b&quot;domain1&quot;</span>, <span class="string">b&quot;data1&quot;</span>)])
+		<span class="kw">let </span>extra = VrfTranscript::new(<span class="string">b"extra"</span>, <span class="kw-2">&amp;</span>[(<span class="string">b"domain2"</span>, <span class="string">b"data2"</span>)]);
+		<span class="kw">let </span>data = VrfTranscript::new(<span class="string">b"label"</span>, <span class="kw-2">&amp;</span>[(<span class="string">b"domain1"</span>, <span class="string">b"data1"</span>)])
 			.into_sign_data()
 			.with_extra(extra);
 
@@ -1933,11 +1935,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>vrf_make_bytes_matches() {
-		<span class="kw">let </span>pair = Pair::from_seed(<span class="string">b&quot;12345678901234567890123456789012&quot;</span>);
+		<span class="kw">let </span>pair = Pair::from_seed(<span class="string">b"12345678901234567890123456789012"</span>);
 		<span class="kw">let </span>public = pair.public();
-		<span class="kw">let </span>ctx = <span class="string">b&quot;vrfbytes&quot;</span>;
+		<span class="kw">let </span>ctx = <span class="string">b"vrfbytes"</span>;
 
-		<span class="kw">let </span>input = VrfTranscript::new(<span class="string">b&quot;label&quot;</span>, <span class="kw-2">&amp;</span>[(<span class="string">b&quot;domain1&quot;</span>, <span class="string">b&quot;data1&quot;</span>)]);
+		<span class="kw">let </span>input = VrfTranscript::new(<span class="string">b"label"</span>, <span class="kw-2">&amp;</span>[(<span class="string">b"domain1"</span>, <span class="string">b"data1"</span>)]);
 
 		<span class="kw">let </span>pre_output = pair.vrf_pre_output(<span class="kw-2">&amp;</span>input);
 
@@ -1945,7 +1947,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>out2 = pre_output.make_bytes::&lt;<span class="number">32</span>&gt;(ctx, <span class="kw-2">&amp;</span>input, <span class="kw-2">&amp;</span>public).unwrap();
 		<span class="macro">assert_eq!</span>(out1, out2);
 
-		<span class="kw">let </span>extra = VrfTranscript::new(<span class="string">b&quot;extra&quot;</span>, <span class="kw-2">&amp;</span>[(<span class="string">b&quot;domain2&quot;</span>, <span class="string">b&quot;data2&quot;</span>)]);
+		<span class="kw">let </span>extra = VrfTranscript::new(<span class="string">b"extra"</span>, <span class="kw-2">&amp;</span>[(<span class="string">b"domain2"</span>, <span class="string">b"data2"</span>)]);
 		<span class="kw">let </span>data = input.clone().into_sign_data().with_extra(extra);
 		<span class="kw">let </span>signature = pair.vrf_sign(<span class="kw-2">&amp;</span>data);
 		<span class="macro">assert!</span>(public.vrf_verify(<span class="kw-2">&amp;</span>data, <span class="kw-2">&amp;</span>signature));
@@ -1956,12 +1958,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>vrf_backend_compat() {
-		<span class="kw">let </span>pair = Pair::from_seed(<span class="string">b&quot;12345678901234567890123456789012&quot;</span>);
+		<span class="kw">let </span>pair = Pair::from_seed(<span class="string">b"12345678901234567890123456789012"</span>);
 		<span class="kw">let </span>public = pair.public();
-		<span class="kw">let </span>ctx = <span class="string">b&quot;vrfbytes&quot;</span>;
+		<span class="kw">let </span>ctx = <span class="string">b"vrfbytes"</span>;
 
-		<span class="kw">let </span>input = VrfInput::new(<span class="string">b&quot;label&quot;</span>, <span class="kw-2">&amp;</span>[(<span class="string">b&quot;domain1&quot;</span>, <span class="string">b&quot;data1&quot;</span>)]);
-		<span class="kw">let </span>extra = VrfTranscript::new(<span class="string">b&quot;extra&quot;</span>, <span class="kw-2">&amp;</span>[(<span class="string">b&quot;domain2&quot;</span>, <span class="string">b&quot;data2&quot;</span>)]);
+		<span class="kw">let </span>input = VrfInput::new(<span class="string">b"label"</span>, <span class="kw-2">&amp;</span>[(<span class="string">b"domain1"</span>, <span class="string">b"data1"</span>)]);
+		<span class="kw">let </span>extra = VrfTranscript::new(<span class="string">b"extra"</span>, <span class="kw-2">&amp;</span>[(<span class="string">b"domain2"</span>, <span class="string">b"data2"</span>)]);
 
 		<span class="kw">let </span>data = input.clone().into_sign_data().with_extra(extra.clone());
 		<span class="kw">let </span>signature = pair.vrf_sign(<span class="kw-2">&amp;</span>data);

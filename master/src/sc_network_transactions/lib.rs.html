@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/network/transactions/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/network/transactions/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_network_transactions" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_network_transactions" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sc_network_transactions/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -744,7 +746,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub type </span>Transactions&lt;E&gt; = Vec&lt;E&gt;;
 
 <span class="doccomment">/// Logging target for the file.
-</span><span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;sync&quot;</span>;
+</span><span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"sync"</span>;
 
 <span class="kw">mod </span>rep {
 	<span class="kw">use </span>sc_network::ReputationChange <span class="kw">as </span>Rep;
@@ -752,13 +754,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// This forces node to verify it, thus the negative value here. Once transaction is verified,
 	/// reputation change should be refunded with `ANY_TRANSACTION_REFUND`
-	</span><span class="kw">pub const </span>ANY_TRANSACTION: Rep = Rep::new(-(<span class="number">1 </span>&lt;&lt; <span class="number">4</span>), <span class="string">&quot;Any transaction&quot;</span>);
+	</span><span class="kw">pub const </span>ANY_TRANSACTION: Rep = Rep::new(-(<span class="number">1 </span>&lt;&lt; <span class="number">4</span>), <span class="string">"Any transaction"</span>);
 	<span class="doccomment">/// Reputation change when a peer sends us any transaction that is not invalid.
-	</span><span class="kw">pub const </span>ANY_TRANSACTION_REFUND: Rep = Rep::new(<span class="number">1 </span>&lt;&lt; <span class="number">4</span>, <span class="string">&quot;Any transaction (refund)&quot;</span>);
-	<span class="doccomment">/// Reputation change when a peer sends us an transaction that we didn&#39;t know about.
-	</span><span class="kw">pub const </span>GOOD_TRANSACTION: Rep = Rep::new(<span class="number">1 </span>&lt;&lt; <span class="number">7</span>, <span class="string">&quot;Good transaction&quot;</span>);
+	</span><span class="kw">pub const </span>ANY_TRANSACTION_REFUND: Rep = Rep::new(<span class="number">1 </span>&lt;&lt; <span class="number">4</span>, <span class="string">"Any transaction (refund)"</span>);
+	<span class="doccomment">/// Reputation change when a peer sends us an transaction that we didn't know about.
+	</span><span class="kw">pub const </span>GOOD_TRANSACTION: Rep = Rep::new(<span class="number">1 </span>&lt;&lt; <span class="number">7</span>, <span class="string">"Good transaction"</span>);
 	<span class="doccomment">/// Reputation change when a peer sends us a bad transaction.
-	</span><span class="kw">pub const </span>BAD_TRANSACTION: Rep = Rep::new(-(<span class="number">1 </span>&lt;&lt; <span class="number">12</span>), <span class="string">&quot;Bad transaction&quot;</span>);
+	</span><span class="kw">pub const </span>BAD_TRANSACTION: Rep = Rep::new(-(<span class="number">1 </span>&lt;&lt; <span class="number">12</span>), <span class="string">"Bad transaction"</span>);
 }
 
 <span class="kw">struct </span>Metrics {
@@ -770,8 +772,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Ok</span>(<span class="self">Self </span>{
 			propagated_transactions: register(
 				Counter::new(
-					<span class="string">&quot;substrate_sync_propagated_transactions&quot;</span>,
-					<span class="string">&quot;Number of transactions propagated to at least one peer&quot;</span>,
+					<span class="string">"substrate_sync_propagated_transactions"</span>,
+					<span class="string">"Number of transactions propagated to at least one peer"</span>,
 				)<span class="question-mark">?</span>,
 				r,
 			)<span class="question-mark">?</span>,
@@ -789,7 +791,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl</span>&lt;H: ExHashT&gt; Future <span class="kw">for </span>PendingTransaction&lt;H&gt; {
 	<span class="kw">type </span>Output = (H, TransactionImport);
 
-	<span class="kw">fn </span>poll(<span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;<span class="self">Self</span>::Output&gt; {
+	<span class="kw">fn </span>poll(<span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">'_</span>&gt;) -&gt; Poll&lt;<span class="self">Self</span>::Output&gt; {
 		<span class="kw">if let </span>Poll::Ready(import_result) = <span class="self">self</span>.validation.poll_unpin(cx) {
 			<span class="kw">return </span>Poll::Ready((<span class="self">self</span>.tx_hash.clone(), import_result))
 		}
@@ -822,14 +824,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; (<span class="self">Self</span>, Net::NotificationProtocolConfig) {
 		<span class="kw">let </span>genesis_hash = genesis_hash.as_ref();
 		<span class="kw">let </span>protocol_name: ProtocolName = <span class="kw">if let </span><span class="prelude-val">Some</span>(fork_id) = fork_id {
-			<span class="macro">format!</span>(<span class="string">&quot;/{}/{}/transactions/1&quot;</span>, array_bytes::bytes2hex(<span class="string">&quot;&quot;</span>, genesis_hash), fork_id)
+			<span class="macro">format!</span>(<span class="string">"/{}/{}/transactions/1"</span>, array_bytes::bytes2hex(<span class="string">""</span>, genesis_hash), fork_id)
 		} <span class="kw">else </span>{
-			<span class="macro">format!</span>(<span class="string">&quot;/{}/transactions/1&quot;</span>, array_bytes::bytes2hex(<span class="string">&quot;&quot;</span>, genesis_hash))
+			<span class="macro">format!</span>(<span class="string">"/{}/transactions/1"</span>, array_bytes::bytes2hex(<span class="string">""</span>, genesis_hash))
 		}
 		.into();
 		<span class="kw">let </span>(config, notification_service) = Net::notification_config(
 			protocol_name.clone(),
-			<span class="macro">vec!</span>[<span class="macro">format!</span>(<span class="string">&quot;/{}/transactions/1&quot;</span>, protocol_id.as_ref()).into()],
+			<span class="macro">vec!</span>[<span class="macro">format!</span>(<span class="string">"/{}/transactions/1"</span>, protocol_id.as_ref()).into()],
 			MAX_TRANSACTIONS_SIZE,
 			<span class="prelude-val">None</span>,
 			SetConfig {
@@ -846,12 +848,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Turns the prototype into the actual handler. Returns a controller that allows controlling
-	/// the behaviour of the handler while it&#39;s running.
+	/// the behaviour of the handler while it's running.
 	///
-	/// Important: the transactions handler is initially disabled and doesn&#39;t gossip transactions.
+	/// Important: the transactions handler is initially disabled and doesn't gossip transactions.
 	/// Gossiping is enabled when major syncing is done.
 	</span><span class="kw">pub fn </span>build&lt;
-		B: BlockT + <span class="lifetime">&#39;static</span>,
+		B: BlockT + <span class="lifetime">'static</span>,
 		H: ExHashT,
 		N: NetworkPeers + NetworkEventStream,
 		S: SyncEventStream + sp_consensus::SyncOracle,
@@ -862,8 +864,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		transaction_pool: Arc&lt;<span class="kw">dyn </span>TransactionPool&lt;H, B&gt;&gt;,
 		metrics_registry: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Registry&gt;,
 	) -&gt; error::Result&lt;(TransactionsHandler&lt;B, H, N, S&gt;, TransactionsHandlerController&lt;H&gt;)&gt; {
-		<span class="kw">let </span>sync_event_stream = sync.event_stream(<span class="string">&quot;transactions-handler-sync&quot;</span>);
-		<span class="kw">let </span>(to_handler, from_controller) = tracing_unbounded(<span class="string">&quot;mpsc_transactions_handler&quot;</span>, <span class="number">100_000</span>);
+		<span class="kw">let </span>sync_event_stream = sync.event_stream(<span class="string">"transactions-handler-sync"</span>);
+		<span class="kw">let </span>(to_handler, from_controller) = tracing_unbounded(<span class="string">"mpsc_transactions_handler"</span>, <span class="number">100_000</span>);
 
 		<span class="kw">let </span>handler = TransactionsHandler {
 			protocol_name: <span class="self">self</span>.protocol_name,
@@ -922,7 +924,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Handler for transactions. Call [`TransactionsHandler::run`] to start the processing.
 </span><span class="kw">pub struct </span>TransactionsHandler&lt;
-	B: BlockT + <span class="lifetime">&#39;static</span>,
+	B: BlockT + <span class="lifetime">'static</span>,
 	H: ExHashT,
 	N: NetworkPeers + NetworkEventStream,
 	S: SyncEventStream + sp_consensus::SyncOracle,
@@ -963,7 +965,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl</span>&lt;B, H, N, S&gt; TransactionsHandler&lt;B, H, N, S&gt;
 <span class="kw">where
-	</span>B: BlockT + <span class="lifetime">&#39;static</span>,
+	</span>B: BlockT + <span class="lifetime">'static</span>,
 	H: ExHashT,
 	N: NetworkPeers + NetworkEventStream,
 	S: SyncEventStream + sp_consensus::SyncOracle,
@@ -980,7 +982,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw">if let </span><span class="prelude-val">Some</span>(peers) = <span class="self">self</span>.pending_transactions_peers.remove(<span class="kw-2">&amp;</span>tx_hash) {
 						peers.into_iter().for_each(|p| <span class="self">self</span>.on_handle_transaction_import(p, result));
 					} <span class="kw">else </span>{
-						<span class="macro">warn!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;Inconsistent state, no peers for pending transaction!&quot;</span>);
+						<span class="macro">warn!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"Inconsistent state, no peers for pending transaction!"</span>);
 					}
 				},
 				sync_event = <span class="self">self</span>.sync_event_stream.next() =&gt; {
@@ -1021,7 +1023,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			},
 			NotificationEvent::NotificationStreamOpened { peer, handshake, .. } =&gt; {
 				<span class="kw">let </span><span class="prelude-val">Some</span>(role) = <span class="self">self</span>.network.peer_role(peer, handshake) <span class="kw">else </span>{
-					<span class="macro">log::debug!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;role for {peer} couldn&#39;t be determined&quot;</span>);
+					<span class="macro">log::debug!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"role for {peer} couldn't be determined"</span>);
 					<span class="kw">return
 				</span>};
 
@@ -1029,7 +1031,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					peer,
 					Peer {
 						known_transactions: LruHashSet::new(
-							NonZeroUsize::new(MAX_KNOWN_TRANSACTIONS).expect(<span class="string">&quot;Constant is nonzero&quot;</span>),
+							NonZeroUsize::new(MAX_KNOWN_TRANSACTIONS).expect(<span class="string">"Constant is nonzero"</span>),
 						),
 						role,
 					},
@@ -1046,7 +1048,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				{
 					<span class="self">self</span>.on_transactions(peer, m);
 				} <span class="kw">else </span>{
-					<span class="macro">warn!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;Failed to decode transactions list&quot;</span>);
+					<span class="macro">warn!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"Failed to decode transactions list"</span>);
 				}
 			},
 		}
@@ -1062,7 +1064,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					iter::once(addr).collect(),
 				);
 				<span class="kw">if let </span><span class="prelude-val">Err</span>(err) = result {
-					<span class="macro">log::error!</span>(target: LOG_TARGET, <span class="string">&quot;Add reserved peer failed: {}&quot;</span>, err);
+					<span class="macro">log::error!</span>(target: LOG_TARGET, <span class="string">"Add reserved peer failed: {}"</span>, err);
 				}
 			},
 			SyncEvent::PeerDisconnected(remote) =&gt; {
@@ -1071,7 +1073,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					iter::once(remote).collect(),
 				);
 				<span class="kw">if let </span><span class="prelude-val">Err</span>(err) = result {
-					<span class="macro">log::error!</span>(target: LOG_TARGET, <span class="string">&quot;Remove reserved peer failed: {}&quot;</span>, err);
+					<span class="macro">log::error!</span>(target: LOG_TARGET, <span class="string">"Remove reserved peer failed: {}"</span>, err);
 				}
 			},
 		}
@@ -1081,17 +1083,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>on_transactions(<span class="kw-2">&amp;mut </span><span class="self">self</span>, who: PeerId, transactions: Transactions&lt;B::Extrinsic&gt;) {
 		<span class="comment">// Accept transactions only when node is not major syncing
 		</span><span class="kw">if </span><span class="self">self</span>.sync.is_major_syncing() {
-			<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">&quot;{} Ignoring transactions while major syncing&quot;</span>, who);
+			<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">"{} Ignoring transactions while major syncing"</span>, who);
 			<span class="kw">return
 		</span>}
 
-		<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">&quot;Received {} transactions from {}&quot;</span>, transactions.len(), who);
+		<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">"Received {} transactions from {}"</span>, transactions.len(), who);
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref mut </span>peer) = <span class="self">self</span>.peers.get_mut(<span class="kw-2">&amp;</span>who) {
 			<span class="kw">for </span>t <span class="kw">in </span>transactions {
 				<span class="kw">if </span><span class="self">self</span>.pending_transactions.len() &gt; MAX_PENDING_TRANSACTIONS {
 					<span class="macro">debug!</span>(
 						target: LOG_TARGET,
-						<span class="string">&quot;Ignoring any further transactions that exceed `MAX_PENDING_TRANSACTIONS`({}) limit&quot;</span>,
+						<span class="string">"Ignoring any further transactions that exceed `MAX_PENDING_TRANSACTIONS`({}) limit"</span>,
 						MAX_PENDING_TRANSACTIONS,
 					);
 					<span class="kw">break
@@ -1135,7 +1137,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">return
 		</span>}
 
-		<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;Propagating transaction [{:?}]&quot;</span>, hash);
+		<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"Propagating transaction [{:?}]"</span>, hash);
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(transaction) = <span class="self">self</span>.transaction_pool.transaction(hash) {
 			<span class="kw">let </span>propagated_to = <span class="self">self</span>.do_propagate_transactions(<span class="kw-2">&amp;</span>[(hash.clone(), transaction)]);
 			<span class="self">self</span>.transaction_pool.on_broadcasted(propagated_to);
@@ -1167,7 +1169,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">for </span>hash <span class="kw">in </span>hashes {
 					propagated_to.entry(hash).or_default().push(who.to_base58());
 				}
-				<span class="macro">trace!</span>(target: <span class="string">&quot;sync&quot;</span>, <span class="string">&quot;Sending {} transactions to {}&quot;</span>, to_send.len(), who);
+				<span class="macro">trace!</span>(target: <span class="string">"sync"</span>, <span class="string">"Sending {} transactions to {}"</span>, to_send.len(), who);
 				<span class="comment">// Historically, the format of a notification of the transactions protocol
 				// consisted in a (SCALE-encoded) `Vec&lt;Transaction&gt;`.
 				// After RFC 56, the format was modified in a backwards-compatible way to be
@@ -1199,7 +1201,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">return
 		</span>}
 
-		<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;Propagating transactions&quot;</span>);
+		<span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"Propagating transactions"</span>);
 		<span class="kw">let </span>transactions = <span class="self">self</span>.transaction_pool.transactions();
 		<span class="kw">let </span>propagated_to = <span class="self">self</span>.do_propagate_transactions(<span class="kw-2">&amp;</span>transactions);
 		<span class="self">self</span>.transaction_pool.on_broadcasted(propagated_to);

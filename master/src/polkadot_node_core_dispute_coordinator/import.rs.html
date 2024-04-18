@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/core/dispute-coordinator/src/import.rs`."><title>import.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/core/dispute-coordinator/src/import.rs`."><title>import.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_node_core_dispute_coordinator" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_node_core_dispute_coordinator" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../polkadot_node_core_dispute_coordinator/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -825,7 +827,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //! set of votes. E.g. whether a dispute is ongoing, whether it is confirmed, concluded, ..
 //!
 //! Then there is `ImportResult` which reveals information about what changed once additional votes
-//! got imported on top of an existing `CandidateVoteState` and reveals &quot;dynamic&quot; information, like
+//! got imported on top of an existing `CandidateVoteState` and reveals "dynamic" information, like
 //! whether due to the import a dispute was raised/got confirmed, ...
 
 </span><span class="kw">use </span>std::collections::{BTreeMap, HashMap, HashSet};
@@ -845,13 +847,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span><span class="kw">crate</span>::LOG_TARGET;
 
 <span class="doccomment">/// (Session) environment of a candidate.
-</span><span class="kw">pub struct </span>CandidateEnvironment&lt;<span class="lifetime">&#39;a</span>&gt; {
+</span><span class="kw">pub struct </span>CandidateEnvironment&lt;<span class="lifetime">'a</span>&gt; {
 	<span class="doccomment">/// The session the candidate appeared in.
 	</span>session_index: SessionIndex,
 	<span class="doccomment">/// Session for above index.
-	</span>session: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>SessionInfo,
+	</span>session: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>SessionInfo,
 	<span class="doccomment">/// Executor parameters for the session.
-	</span>executor_params: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ExecutorParams,
+	</span>executor_params: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>ExecutorParams,
 	<span class="doccomment">/// Validator indices controlled by this node.
 	</span>controlled_indices: HashSet&lt;ValidatorIndex&gt;,
 	<span class="doccomment">/// Indices of on-chain disabled validators at the `relay_parent` combined
@@ -860,23 +862,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="attr">#[overseer::contextbounds(DisputeCoordinator, prefix = <span class="self">self</span>::overseer)]
-</span><span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; CandidateEnvironment&lt;<span class="lifetime">&#39;a</span>&gt; {
+</span><span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; CandidateEnvironment&lt;<span class="lifetime">'a</span>&gt; {
 	<span class="doccomment">/// Create `CandidateEnvironment`.
 	///
 	/// Return: `None` in case session is outside of session window.
 	</span><span class="kw">pub async fn </span>new&lt;Context&gt;(
 		keystore: <span class="kw-2">&amp;</span>LocalKeystore,
 		ctx: <span class="kw-2">&amp;mut </span>Context,
-		runtime_info: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>RuntimeInfo,
+		runtime_info: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>RuntimeInfo,
 		session_index: SessionIndex,
 		relay_parent: Hash,
 		disabled_offchain: <span class="kw">impl </span>IntoIterator&lt;Item = ValidatorIndex&gt;,
-	) -&gt; <span class="prelude-ty">Option</span>&lt;CandidateEnvironment&lt;<span class="lifetime">&#39;a</span>&gt;&gt; {
+	) -&gt; <span class="prelude-ty">Option</span>&lt;CandidateEnvironment&lt;<span class="lifetime">'a</span>&gt;&gt; {
 		<span class="kw">let </span>disabled_onchain = runtime_info
 			.get_disabled_validators(ctx.sender(), relay_parent)
 			.<span class="kw">await
 			</span>.unwrap_or_else(|err| {
-				<span class="macro">gum::info!</span>(target: LOG_TARGET, <span class="question-mark">?</span>err, <span class="string">&quot;Failed to get disabled validators&quot;</span>);
+				<span class="macro">gum::info!</span>(target: LOG_TARGET, <span class="question-mark">?</span>err, <span class="string">"Failed to get disabled validators"</span>);
 				Vec::new()
 			});
 
@@ -911,17 +913,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Some</span>(<span class="self">Self </span>{ session_index, session, executor_params, controlled_indices, disabled_indices })
 	}
 
-	<span class="doccomment">/// Validators in the candidate&#39;s session.
+	<span class="doccomment">/// Validators in the candidate's session.
 	</span><span class="kw">pub fn </span>validators(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>IndexedVec&lt;ValidatorIndex, ValidatorId&gt; {
 		<span class="kw-2">&amp;</span><span class="self">self</span>.session.validators
 	}
 
-	<span class="doccomment">/// `SessionInfo` for the candidate&#39;s session.
+	<span class="doccomment">/// `SessionInfo` for the candidate's session.
 	</span><span class="kw">pub fn </span>session_info(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>SessionInfo {
 		<span class="kw-2">&amp;</span><span class="self">self</span>.session
 	}
 
-	<span class="doccomment">/// Executor parameters for the candidate&#39;s session
+	<span class="doccomment">/// Executor parameters for the candidate's session
 	</span><span class="kw">pub fn </span>executor_params(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>ExecutorParams {
 		<span class="kw-2">&amp;</span><span class="self">self</span>.executor_params
 	}
@@ -932,12 +934,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Indices controlled by this node.
-	</span><span class="kw">pub fn </span>controlled_indices(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>HashSet&lt;ValidatorIndex&gt; {
+	</span><span class="kw">pub fn </span>controlled_indices(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'a </span>HashSet&lt;ValidatorIndex&gt; {
 		<span class="kw-2">&amp;</span><span class="self">self</span>.controlled_indices
 	}
 
 	<span class="doccomment">/// Indices of off-chain and on-chain disabled validators.
-	</span><span class="kw">pub fn </span>disabled_indices(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>HashSet&lt;ValidatorIndex&gt; {
+	</span><span class="kw">pub fn </span>disabled_indices(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'a </span>HashSet&lt;ValidatorIndex&gt; {
 		<span class="kw-2">&amp;</span><span class="self">self</span>.disabled_indices
 	}
 }
@@ -1118,7 +1120,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="question-mark">?</span>val_index,
 					session= <span class="question-mark">?</span>env.session_index,
 					claimed_key = <span class="question-mark">?</span>statement.validator_public(),
-					<span class="string">&quot;Validator index doesn&#39;t match claimed key&quot;</span>,
+					<span class="string">"Validator index doesn't match claimed key"</span>,
 				);
 
 				<span class="kw">continue
@@ -1130,7 +1132,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					session= <span class="question-mark">?</span>env.session_index,
 					given_candidate_hash = <span class="question-mark">?</span>statement.candidate_hash(),
 					<span class="question-mark">?</span>expected_candidate_hash,
-					<span class="string">&quot;Vote is for unexpected candidate!&quot;</span>,
+					<span class="string">"Vote is for unexpected candidate!"</span>,
 				);
 				<span class="kw">continue
 			</span>}
@@ -1141,7 +1143,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					session= <span class="question-mark">?</span>env.session_index,
 					given_candidate_hash = <span class="question-mark">?</span>statement.candidate_hash(),
 					<span class="question-mark">?</span>expected_candidate_hash,
-					<span class="string">&quot;Vote is for unexpected session!&quot;</span>,
+					<span class="string">"Vote is for unexpected session!"</span>,
 				);
 				<span class="kw">continue
 			</span>}
@@ -1305,7 +1307,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw-2">&amp;</span><span class="self">self</span>.new_state
 	}
 
-	<span class="doccomment">/// New &quot;invalid&quot; voters encountered during import.
+	<span class="doccomment">/// New "invalid" voters encountered during import.
 	</span><span class="kw">pub fn </span>new_invalid_voters(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Vec&lt;ValidatorIndex&gt; {
 		<span class="kw-2">&amp;</span><span class="self">self</span>.new_invalid_voters
 	}
@@ -1381,13 +1383,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">for </span>(index, (candidate_hashes, sig)) <span class="kw">in </span>approval_votes.into_iter() {
 			<span class="macro">debug_assert!</span>(
 				{
-					<span class="kw">let </span>pub_key = <span class="kw-2">&amp;</span>env.session_info().validators.get(index).expect(<span class="string">&quot;indices are validated by approval-voting subsystem; qed&quot;</span>);
+					<span class="kw">let </span>pub_key = <span class="kw-2">&amp;</span>env.session_info().validators.get(index).expect(<span class="string">"indices are validated by approval-voting subsystem; qed"</span>);
 					<span class="kw">let </span>session_index = env.session_index();
 					candidate_hashes.contains(<span class="kw-2">&amp;</span>votes.candidate_receipt.hash()) &amp;&amp; DisputeStatement::Valid(ValidDisputeStatementKind::ApprovalCheckingMultipleCandidates(candidate_hashes.clone()))
-						.check_signature(pub_key, <span class="kw-2">*</span>candidate_hashes.first().expect(<span class="string">&quot;Valid votes have at least one candidate; qed&quot;</span>), session_index, <span class="kw-2">&amp;</span>sig)
+						.check_signature(pub_key, <span class="kw-2">*</span>candidate_hashes.first().expect(<span class="string">"Valid votes have at least one candidate; qed"</span>), session_index, <span class="kw-2">&amp;</span>sig)
 						.is_ok()
 				},
-				<span class="string">&quot;Signature check for imported approval votes failed! This is a serious bug. Session: {:?}, candidate hash: {:?}, validator index: {:?}&quot;</span>, env.session_index(), votes.candidate_receipt.hash(), index
+				<span class="string">"Signature check for imported approval votes failed! This is a serious bug. Session: {:?}, candidate hash: {:?}, validator index: {:?}"</span>, env.session_index(), votes.candidate_receipt.hash(), index
 			);
 			<span class="kw">if </span>votes.valid.insert_vote(
 				index,

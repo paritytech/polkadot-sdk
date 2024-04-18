@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/sysinfo/src/sysinfo.rs`."><title>sysinfo.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/sysinfo/src/sysinfo.rs`."><title>sysinfo.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_sysinfo" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_sysinfo" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sc_sysinfo/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1009,11 +1011,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl </span>Display <span class="kw">for </span>CheckFailures {
 	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, formatter: <span class="kw-2">&amp;mut </span>Formatter) -&gt; fmt::Result {
-		<span class="macro">write!</span>(formatter, <span class="string">&quot;Failed checks: &quot;</span>)<span class="question-mark">?</span>;
+		<span class="macro">write!</span>(formatter, <span class="string">"Failed checks: "</span>)<span class="question-mark">?</span>;
 		<span class="kw">for </span>failure <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0 </span>{
 			<span class="macro">write!</span>(
 				formatter,
-				<span class="string">&quot;{}(expected: {}, found: {}), &quot;</span>,
+				<span class="string">"{}(expected: {}, found: {}), "</span>,
 				failure.metric.name(),
 				failure.expected,
 				failure.found
@@ -1025,22 +1027,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl </span>Metric {
 	<span class="doccomment">/// The category of the metric.
-	</span><span class="kw">pub fn </span>category(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str {
+	</span><span class="kw">pub fn </span>category(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
 		<span class="kw">match </span><span class="self">self </span>{
-			<span class="self">Self</span>::Sr25519Verify | <span class="self">Self</span>::Blake2256 =&gt; <span class="string">&quot;CPU&quot;</span>,
-			<span class="self">Self</span>::MemCopy =&gt; <span class="string">&quot;Memory&quot;</span>,
-			<span class="self">Self</span>::DiskSeqWrite | <span class="self">Self</span>::DiskRndWrite =&gt; <span class="string">&quot;Disk&quot;</span>,
+			<span class="self">Self</span>::Sr25519Verify | <span class="self">Self</span>::Blake2256 =&gt; <span class="string">"CPU"</span>,
+			<span class="self">Self</span>::MemCopy =&gt; <span class="string">"Memory"</span>,
+			<span class="self">Self</span>::DiskSeqWrite | <span class="self">Self</span>::DiskRndWrite =&gt; <span class="string">"Disk"</span>,
 		}
 	}
 
 	<span class="doccomment">/// The name of the metric. It is always prefixed by the [`self.category()`].
-	</span><span class="kw">pub fn </span>name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str {
+	</span><span class="kw">pub fn </span>name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
 		<span class="kw">match </span><span class="self">self </span>{
-			<span class="self">Self</span>::Sr25519Verify =&gt; <span class="string">&quot;SR25519-Verify&quot;</span>,
-			<span class="self">Self</span>::Blake2256 =&gt; <span class="string">&quot;BLAKE2-256&quot;</span>,
-			<span class="self">Self</span>::MemCopy =&gt; <span class="string">&quot;Copy&quot;</span>,
-			<span class="self">Self</span>::DiskSeqWrite =&gt; <span class="string">&quot;Seq Write&quot;</span>,
-			<span class="self">Self</span>::DiskRndWrite =&gt; <span class="string">&quot;Rnd Write&quot;</span>,
+			<span class="self">Self</span>::Sr25519Verify =&gt; <span class="string">"SR25519-Verify"</span>,
+			<span class="self">Self</span>::Blake2256 =&gt; <span class="string">"BLAKE2-256"</span>,
+			<span class="self">Self</span>::MemCopy =&gt; <span class="string">"Copy"</span>,
+			<span class="self">Self</span>::DiskSeqWrite =&gt; <span class="string">"Seq Write"</span>,
+			<span class="self">Self</span>::DiskRndWrite =&gt; <span class="string">"Rnd Write"</span>,
 		}
 	}
 }
@@ -1053,11 +1055,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl </span>fmt::Display <span class="kw">for </span>Unit {
-	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; fmt::Result {
+	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; fmt::Result {
 		f.write_str(<span class="kw">match </span><span class="self">self </span>{
-			Unit::GiBs =&gt; <span class="string">&quot;GiBs&quot;</span>,
-			Unit::MiBs =&gt; <span class="string">&quot;MiBs&quot;</span>,
-			Unit::KiBs =&gt; <span class="string">&quot;KiBs&quot;</span>,
+			Unit::GiBs =&gt; <span class="string">"GiBs"</span>,
+			Unit::MiBs =&gt; <span class="string">"MiBs"</span>,
+			Unit::KiBs =&gt; <span class="string">"KiBs"</span>,
 		})
 	}
 }
@@ -1121,9 +1123,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl </span>fmt::Display <span class="kw">for </span>Throughput {
-	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; fmt::Result {
+	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; fmt::Result {
 		<span class="kw">let </span>(value, unit) = <span class="self">self</span>.normalize();
-		<span class="macro">write!</span>(f, <span class="string">&quot;{:.2?} {}&quot;</span>, value, unit)
+		<span class="macro">write!</span>(f, <span class="string">"{:.2?} {}"</span>, value, unit)
 	}
 }
 
@@ -1158,11 +1160,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">struct </span>ThroughputVisitor;
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;de</span>&gt; Visitor&lt;<span class="lifetime">&#39;de</span>&gt; <span class="kw">for </span>ThroughputVisitor {
+<span class="kw">impl</span>&lt;<span class="lifetime">'de</span>&gt; Visitor&lt;<span class="lifetime">'de</span>&gt; <span class="kw">for </span>ThroughputVisitor {
 	<span class="kw">type </span>Value = Throughput;
 
 	<span class="kw">fn </span>expecting(<span class="kw-2">&amp;</span><span class="self">self</span>, formatter: <span class="kw-2">&amp;mut </span>Formatter) -&gt; fmt::Result {
-		formatter.write_str(<span class="string">&quot;A value that is a f64.&quot;</span>)
+		formatter.write_str(<span class="string">"A value that is a f64."</span>)
 	}
 
 	<span class="kw">fn </span>visit_f64&lt;E&gt;(<span class="self">self</span>, value: f64) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Value, E&gt;
@@ -1173,9 +1175,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">fn </span>deserialize_throughput&lt;<span class="lifetime">&#39;de</span>, D&gt;(deserializer: D) -&gt; <span class="prelude-ty">Result</span>&lt;Throughput, D::Error&gt;
+<span class="kw">fn </span>deserialize_throughput&lt;<span class="lifetime">'de</span>, D&gt;(deserializer: D) -&gt; <span class="prelude-ty">Result</span>&lt;Throughput, D::Error&gt;
 <span class="kw">where
-	</span>D: Deserializer&lt;<span class="lifetime">&#39;de</span>&gt;,
+	</span>D: Deserializer&lt;<span class="lifetime">'de</span>&gt;,
 {
 	<span class="prelude-val">Ok</span>(deserializer.deserialize_f64(ThroughputVisitor))<span class="question-mark">?
 </span>}
@@ -1191,8 +1193,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub </span>metric: Metric,
 	<span class="doccomment">/// The minimal throughput that needs to be archived for this requirement.
 	</span><span class="attr">#[serde(
-		serialize_with = <span class="string">&quot;serialize_throughput_as_f64&quot;</span>,
-		deserialize_with = <span class="string">&quot;deserialize_throughput&quot;
+		serialize_with = <span class="string">"serialize_throughput_as_f64"</span>,
+		deserialize_with = <span class="string">"deserialize_throughput"
 	</span>)]
 	</span><span class="kw">pub </span>minimum: Throughput,
 }
@@ -1225,7 +1227,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">let </span>score = Throughput::from_kibs((size * count) <span class="kw">as </span>f64 / (elapsed.as_secs_f64() * <span class="number">1024.0</span>));
 	<span class="macro">log::trace!</span>(
-		<span class="string">&quot;Calculated {} of {} in {} iterations in {}ms&quot;</span>,
+		<span class="string">"Calculated {} of {} in {} iterations in {}ms"</span>,
 		name,
 		score,
 		count,
@@ -1234,7 +1236,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="prelude-val">Ok</span>(score)
 }
 
-<span class="doccomment">/// Gathers information about node&#39;s hardware and software.
+<span class="doccomment">/// Gathers information about node's hardware and software.
 </span><span class="kw">pub fn </span>gather_sysinfo() -&gt; SysInfo {
 	<span class="attr">#[allow(unused_mut)]
 	</span><span class="kw">let </span><span class="kw-2">mut </span>sysinfo = SysInfo {
@@ -1246,7 +1248,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		is_virtual_machine: <span class="prelude-val">None</span>,
 	};
 
-	<span class="attr">#[cfg(target_os = <span class="string">&quot;linux&quot;</span>)]
+	<span class="attr">#[cfg(target_os = <span class="string">"linux"</span>)]
 	</span><span class="kw">crate</span>::sysinfo_linux::gather_linux_sysinfo(<span class="kw-2">&amp;mut </span>sysinfo);
 
 	sysinfo
@@ -1264,7 +1266,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	//
 	// This is not totally bulletproof in theory, but should work in practice.
 	//
-	// SAFETY: We&#39;ve checked that the slice is not empty, so reading and writing
+	// SAFETY: We've checked that the slice is not empty, so reading and writing
 	//         its first element is always safe.
 	</span><span class="kw">unsafe </span>{
 		<span class="kw">let </span>value = std::ptr::read_volatile(slice.as_ptr());
@@ -1290,9 +1292,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="comment">// In general the results of this benchmark are somewhat sensitive to how much
 	// data we hash at the time. The smaller this is the *less* B/s we can hash,
 	// the bigger this is the *more* B/s we can hash, up until a certain point
-	// where we can achieve roughly ~100% of what the hasher can do. If we&#39;d plot
+	// where we can achieve roughly ~100% of what the hasher can do. If we'd plot
 	// this on a graph with the number of bytes we want to hash on the X axis
-	// and the speed in B/s on the Y axis then we&#39;d essentially see it grow
+	// and the speed in B/s on the Y axis then we'd essentially see it grow
 	// logarithmically.
 	//
 	// In practice however we might not always have enough data to hit the maximum
@@ -1313,8 +1315,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Ok</span>(())
 	};
 
-	benchmark(<span class="string">&quot;CPU score&quot;</span>, SIZE, limit.max_iterations(), limit.max_duration(), run)
-		.expect(<span class="string">&quot;benchmark cannot fail; qed&quot;</span>)
+	benchmark(<span class="string">"CPU score"</span>, SIZE, limit.max_iterations(), limit.max_duration(), run)
+		.expect(<span class="string">"benchmark cannot fail; qed"</span>)
 }
 
 <span class="doccomment">/// A default [`ExecutionLimit`] that can be used to call [`benchmark_memory`].
@@ -1323,16 +1325,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="comment">// This benchmarks the effective `memcpy` memory bandwidth available in bytes per second.
 //
-// It doesn&#39;t technically measure the absolute maximum memory bandwidth available,
-// but that&#39;s fine, because real code most of the time isn&#39;t optimized to take
+// It doesn't technically measure the absolute maximum memory bandwidth available,
+// but that's fine, because real code most of the time isn't optimized to take
 // advantage of the full memory bandwidth either.
 </span><span class="kw">pub fn </span>benchmark_memory(limit: ExecutionLimit) -&gt; Throughput {
-	<span class="comment">// Ideally this should be at least as big as the CPU&#39;s L3 cache,
+	<span class="comment">// Ideally this should be at least as big as the CPU's L3 cache,
 	// and it should be big enough so that the `memcpy` takes enough
 	// time to be actually measurable.
 	//
-	// As long as it&#39;s big enough increasing it further won&#39;t change
-	// the benchmark&#39;s results.
+	// As long as it's big enough increasing it further won't change
+	// the benchmark's results.
 	</span><span class="kw">const </span>SIZE: usize = <span class="number">64 </span>* <span class="number">1024 </span>* <span class="number">1024</span>;
 
 	<span class="kw">let </span><span class="kw-2">mut </span>src = Vec::new();
@@ -1350,7 +1352,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// SAFETY: Both vectors are of the same type and of the same size,
 		//         so copying data between them is safe.
 		</span><span class="kw">unsafe </span>{
-			<span class="comment">// We use `memcpy` directly here since `copy_from_slice` isn&#39;t actually
+			<span class="comment">// We use `memcpy` directly here since `copy_from_slice` isn't actually
 			// guaranteed to be turned into a `memcpy`.
 			</span>libc::memcpy(dst.as_mut_ptr().cast(), src.as_ptr().cast(), SIZE);
 		}
@@ -1361,8 +1363,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Ok</span>(())
 	};
 
-	benchmark(<span class="string">&quot;memory score&quot;</span>, SIZE, limit.max_iterations(), limit.max_duration(), run)
-		.expect(<span class="string">&quot;benchmark cannot fail; qed&quot;</span>)
+	benchmark(<span class="string">"memory score"</span>, SIZE, limit.max_iterations(), limit.max_duration(), run)
+		.expect(<span class="string">"benchmark cannot fail; qed"</span>)
 }
 
 <span class="kw">struct </span>TemporaryFile {
@@ -1378,10 +1380,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		//
 		// This has to be done *after* the benchmark,
 		// otherwise it changes the results as the data
-		// doesn&#39;t actually get properly flushed to the disk,
-		// since the file&#39;s not there anymore.
+		// doesn't actually get properly flushed to the disk,
+		// since the file's not there anymore.
 		</span><span class="kw">if let </span><span class="prelude-val">Err</span>(error) = std::fs::remove_file(<span class="kw-2">&amp;</span><span class="self">self</span>.path) {
-			<span class="macro">log::warn!</span>(<span class="string">&quot;Failed to remove the file used for the disk benchmark: {}&quot;</span>, error);
+			<span class="macro">log::warn!</span>(<span class="string">"Failed to remove the file used for the disk benchmark: {}"</span>, error);
 		}
 	}
 }
@@ -1389,13 +1391,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl </span>Deref <span class="kw">for </span>TemporaryFile {
 	<span class="kw">type </span>Target = File;
 	<span class="kw">fn </span>deref(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="self">Self</span>::Target {
-		<span class="self">self</span>.fp.as_ref().expect(<span class="string">&quot;`fp` is None only during `drop`&quot;</span>)
+		<span class="self">self</span>.fp.as_ref().expect(<span class="string">"`fp` is None only during `drop`"</span>)
 	}
 }
 
 <span class="kw">impl </span>DerefMut <span class="kw">for </span>TemporaryFile {
 	<span class="kw">fn </span>deref_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self</span>::Target {
-		<span class="self">self</span>.fp.as_mut().expect(<span class="string">&quot;`fp` is None only during `drop`&quot;</span>)
+		<span class="self">self</span>.fp.as_mut().expect(<span class="string">"`fp` is None only during `drop`"</span>)
 	}
 }
 
@@ -1422,34 +1424,34 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">const </span>SIZE: usize = <span class="number">64 </span>* <span class="number">1024 </span>* <span class="number">1024</span>;
 
 	<span class="kw">let </span>buffer = random_data(SIZE);
-	<span class="kw">let </span>path = directory.join(<span class="string">&quot;.disk_bench_seq_wr.tmp&quot;</span>);
+	<span class="kw">let </span>path = directory.join(<span class="string">".disk_bench_seq_wr.tmp"</span>);
 
 	<span class="kw">let </span>fp =
-		File::create(<span class="kw-2">&amp;</span>path).map_err(|error| <span class="macro">format!</span>(<span class="string">&quot;failed to create a test file: {}&quot;</span>, error))<span class="question-mark">?</span>;
+		File::create(<span class="kw-2">&amp;</span>path).map_err(|error| <span class="macro">format!</span>(<span class="string">"failed to create a test file: {}"</span>, error))<span class="question-mark">?</span>;
 
 	<span class="kw">let </span><span class="kw-2">mut </span>fp = TemporaryFile { fp: <span class="prelude-val">Some</span>(fp), path };
 
 	fp.sync_all()
-		.map_err(|error| <span class="macro">format!</span>(<span class="string">&quot;failed to fsync the test file: {}&quot;</span>, error))<span class="question-mark">?</span>;
+		.map_err(|error| <span class="macro">format!</span>(<span class="string">"failed to fsync the test file: {}"</span>, error))<span class="question-mark">?</span>;
 
 	<span class="kw">let </span>run = || {
 		<span class="comment">// Just dump everything to the disk in one go.
 		</span>fp.write_all(<span class="kw-2">&amp;</span>buffer)
-			.map_err(|error| <span class="macro">format!</span>(<span class="string">&quot;failed to write to the test file: {}&quot;</span>, error))<span class="question-mark">?</span>;
+			.map_err(|error| <span class="macro">format!</span>(<span class="string">"failed to write to the test file: {}"</span>, error))<span class="question-mark">?</span>;
 
 		<span class="comment">// And then make sure it was actually written to disk.
 		</span>fp.sync_all()
-			.map_err(|error| <span class="macro">format!</span>(<span class="string">&quot;failed to fsync the test file: {}&quot;</span>, error))<span class="question-mark">?</span>;
+			.map_err(|error| <span class="macro">format!</span>(<span class="string">"failed to fsync the test file: {}"</span>, error))<span class="question-mark">?</span>;
 
 		<span class="comment">// Rewind to the beginning for the next iteration of the benchmark.
 		</span>fp.seek(SeekFrom::Start(<span class="number">0</span>))
-			.map_err(|error| <span class="macro">format!</span>(<span class="string">&quot;failed to seek to the start of the test file: {}&quot;</span>, error))<span class="question-mark">?</span>;
+			.map_err(|error| <span class="macro">format!</span>(<span class="string">"failed to seek to the start of the test file: {}"</span>, error))<span class="question-mark">?</span>;
 
 		<span class="prelude-val">Ok</span>(())
 	};
 
 	benchmark(
-		<span class="string">&quot;disk sequential write score&quot;</span>,
+		<span class="string">"disk sequential write score"</span>,
 		SIZE,
 		limit.max_iterations(),
 		limit.max_duration(),
@@ -1464,22 +1466,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">const </span>SIZE: usize = <span class="number">64 </span>* <span class="number">1024 </span>* <span class="number">1024</span>;
 
 	<span class="kw">let </span>buffer = random_data(SIZE);
-	<span class="kw">let </span>path = directory.join(<span class="string">&quot;.disk_bench_rand_wr.tmp&quot;</span>);
+	<span class="kw">let </span>path = directory.join(<span class="string">".disk_bench_rand_wr.tmp"</span>);
 
 	<span class="kw">let </span>fp =
-		File::create(<span class="kw-2">&amp;</span>path).map_err(|error| <span class="macro">format!</span>(<span class="string">&quot;failed to create a test file: {}&quot;</span>, error))<span class="question-mark">?</span>;
+		File::create(<span class="kw-2">&amp;</span>path).map_err(|error| <span class="macro">format!</span>(<span class="string">"failed to create a test file: {}"</span>, error))<span class="question-mark">?</span>;
 
 	<span class="kw">let </span><span class="kw-2">mut </span>fp = TemporaryFile { fp: <span class="prelude-val">Some</span>(fp), path };
 
 	<span class="comment">// Since we want to test random writes we need an existing file
 	// through which we can seek, so here we just populate it with some data.
 	</span>fp.write_all(<span class="kw-2">&amp;</span>buffer)
-		.map_err(|error| <span class="macro">format!</span>(<span class="string">&quot;failed to write to the test file: {}&quot;</span>, error))<span class="question-mark">?</span>;
+		.map_err(|error| <span class="macro">format!</span>(<span class="string">"failed to write to the test file: {}"</span>, error))<span class="question-mark">?</span>;
 
 	fp.sync_all()
-		.map_err(|error| <span class="macro">format!</span>(<span class="string">&quot;failed to fsync the test file: {}&quot;</span>, error))<span class="question-mark">?</span>;
+		.map_err(|error| <span class="macro">format!</span>(<span class="string">"failed to fsync the test file: {}"</span>, error))<span class="question-mark">?</span>;
 
-	<span class="comment">// Generate a list of random positions at which we&#39;ll issue writes.
+	<span class="comment">// Generate a list of random positions at which we'll issue writes.
 	</span><span class="kw">let </span><span class="kw-2">mut </span>positions = Vec::with_capacity(SIZE / <span class="number">4096</span>);
 	{
 		<span class="kw">let </span><span class="kw-2">mut </span>position = <span class="number">0</span>;
@@ -1494,28 +1496,28 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>run = || {
 		<span class="kw">for </span><span class="kw-2">&amp;</span>position <span class="kw">in </span><span class="kw-2">&amp;</span>positions {
 			fp.seek(SeekFrom::Start(position <span class="kw">as </span>u64))
-				.map_err(|error| <span class="macro">format!</span>(<span class="string">&quot;failed to seek in the test file: {}&quot;</span>, error))<span class="question-mark">?</span>;
+				.map_err(|error| <span class="macro">format!</span>(<span class="string">"failed to seek in the test file: {}"</span>, error))<span class="question-mark">?</span>;
 
-			<span class="comment">// Here we deliberately only write half of the chunk since we don&#39;t
-			// want the OS&#39; disk scheduler to coalesce our writes into one single
+			<span class="comment">// Here we deliberately only write half of the chunk since we don't
+			// want the OS' disk scheduler to coalesce our writes into one single
 			// sequential write.
 			//
-			// Also the chunk&#39;s size is deliberately exactly half of a modern disk&#39;s
+			// Also the chunk's size is deliberately exactly half of a modern disk's
 			// sector size to trigger an RMW cycle.
 			</span><span class="kw">let </span>chunk = <span class="kw-2">&amp;</span>buffer[position..position + <span class="number">2048</span>];
 			fp.write_all(<span class="kw-2">&amp;</span>chunk)
-				.map_err(|error| <span class="macro">format!</span>(<span class="string">&quot;failed to write to the test file: {}&quot;</span>, error))<span class="question-mark">?</span>;
+				.map_err(|error| <span class="macro">format!</span>(<span class="string">"failed to write to the test file: {}"</span>, error))<span class="question-mark">?</span>;
 		}
 
 		fp.sync_all()
-			.map_err(|error| <span class="macro">format!</span>(<span class="string">&quot;failed to fsync the test file: {}&quot;</span>, error))<span class="question-mark">?</span>;
+			.map_err(|error| <span class="macro">format!</span>(<span class="string">"failed to fsync the test file: {}"</span>, error))<span class="question-mark">?</span>;
 
 		<span class="prelude-val">Ok</span>(())
 	};
 
 	<span class="comment">// We only wrote half of the bytes hence `SIZE / 2`.
 	</span>benchmark(
-		<span class="string">&quot;disk random write score&quot;</span>,
+		<span class="string">"disk random write score"</span>,
 		SIZE / <span class="number">2</span>,
 		limit.max_iterations(),
 		limit.max_duration(),
@@ -1530,7 +1532,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub fn </span>benchmark_sr25519_verify(limit: ExecutionLimit) -&gt; Throughput {
 	<span class="kw">const </span>INPUT_SIZE: usize = <span class="number">32</span>;
 	<span class="kw">const </span>ITERATION_SIZE: usize = <span class="number">2048</span>;
-	<span class="kw">let </span>pair = sr25519::Pair::from_string(<span class="string">&quot;//Alice&quot;</span>, <span class="prelude-val">None</span>).unwrap();
+	<span class="kw">let </span>pair = sr25519::Pair::from_string(<span class="string">"//Alice"</span>, <span class="prelude-val">None</span>).unwrap();
 
 	<span class="kw">let </span><span class="kw-2">mut </span>rng = rng();
 	<span class="kw">let </span><span class="kw-2">mut </span>msgs = Vec::new();
@@ -1552,13 +1554,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Ok</span>(())
 	};
 	benchmark(
-		<span class="string">&quot;sr25519 verification score&quot;</span>,
+		<span class="string">"sr25519 verification score"</span>,
 		INPUT_SIZE * ITERATION_SIZE,
 		limit.max_iterations(),
 		limit.max_duration(),
 		run,
 	)
-	.expect(<span class="string">&quot;sr25519 verification cannot fail; qed&quot;</span>)
+	.expect(<span class="string">"sr25519 verification cannot fail; qed"</span>)
 }
 
 <span class="doccomment">/// Benchmarks the hardware and returns the results of those benchmarks.
@@ -1581,7 +1583,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			{
 				<span class="prelude-val">Ok</span>(score) =&gt; <span class="prelude-val">Some</span>(score),
 				<span class="prelude-val">Err</span>(error) =&gt; {
-					<span class="macro">log::warn!</span>(<span class="string">&quot;Failed to run the sequential write disk benchmark: {}&quot;</span>, error);
+					<span class="macro">log::warn!</span>(<span class="string">"Failed to run the sequential write disk benchmark: {}"</span>, error);
 					<span class="prelude-val">None
 				</span>},
 			};
@@ -1590,7 +1592,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">match </span>benchmark_disk_random_writes(DEFAULT_DISK_EXECUTION_LIMIT, scratch_directory) {
 				<span class="prelude-val">Ok</span>(score) =&gt; <span class="prelude-val">Some</span>(score),
 				<span class="prelude-val">Err</span>(error) =&gt; {
-					<span class="macro">log::warn!</span>(<span class="string">&quot;Failed to run the random write disk benchmark: {}&quot;</span>, error);
+					<span class="macro">log::warn!</span>(<span class="string">"Failed to run the random write disk benchmark: {}"</span>, error);
 					<span class="prelude-val">None
 				</span>},
 			};
@@ -1657,7 +1659,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use </span>sp_runtime::assert_eq_error_rate_float;
 
-	<span class="attr">#[cfg(target_os = <span class="string">&quot;linux&quot;</span>)]
+	<span class="attr">#[cfg(target_os = <span class="string">"linux"</span>)]
 	#[test]
 	</span><span class="kw">fn </span>test_gather_sysinfo_linux() {
 		<span class="kw">let </span>sysinfo = gather_sysinfo();
@@ -1682,7 +1684,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>test_benchmark_disk_sequential_writes() {
 		<span class="macro">assert!</span>(
-			benchmark_disk_sequential_writes(DEFAULT_DISK_EXECUTION_LIMIT, <span class="string">&quot;./&quot;</span>.as_ref()).unwrap() &gt;
+			benchmark_disk_sequential_writes(DEFAULT_DISK_EXECUTION_LIMIT, <span class="string">"./"</span>.as_ref()).unwrap() &gt;
 				Throughput::from_mibs(<span class="number">0.0</span>)
 		);
 	}
@@ -1690,7 +1692,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>test_benchmark_disk_random_writes() {
 		<span class="macro">assert!</span>(
-			benchmark_disk_random_writes(DEFAULT_DISK_EXECUTION_LIMIT, <span class="string">&quot;./&quot;</span>.as_ref()).unwrap() &gt;
+			benchmark_disk_random_writes(DEFAULT_DISK_EXECUTION_LIMIT, <span class="string">"./"</span>.as_ref()).unwrap() &gt;
 				Throughput::from_mibs(<span class="number">0.0</span>)
 		);
 	}
@@ -1712,10 +1714,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">assert_eq_error_rate_float!</span>(<span class="number">14.324</span>, gib.as_gibs(), EPS);
 		<span class="macro">assert_eq_error_rate_float!</span>(<span class="number">14667.776</span>, gib.as_mibs(), EPS);
 		<span class="macro">assert_eq_error_rate_float!</span>(<span class="number">14667.776 </span>* <span class="number">1024.0</span>, gib.as_kibs(), EPS);
-		<span class="macro">assert_eq!</span>(<span class="string">&quot;14.32 GiBs&quot;</span>, gib.to_string());
+		<span class="macro">assert_eq!</span>(<span class="string">"14.32 GiBs"</span>, gib.to_string());
 
 		<span class="kw">let </span>mib = Throughput::from_mibs(<span class="number">1029.0</span>);
-		<span class="macro">assert_eq!</span>(<span class="string">&quot;1.00 GiBs&quot;</span>, mib.to_string());
+		<span class="macro">assert_eq!</span>(<span class="string">"1.00 GiBs"</span>, mib.to_string());
 	}
 
 	<span class="doccomment">/// Test the [`HwBench`] serialization.
@@ -1730,7 +1732,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>serialized = serde_json::to_string(<span class="kw-2">&amp;</span>hwbench).unwrap();
 		<span class="comment">// Throughput from all of the benchmarks should be converted to MiBs.
-		</span><span class="macro">assert_eq!</span>(serialized, <span class="string">&quot;{\&quot;cpu_hashrate_score\&quot;:1351,\&quot;memory_memcpy_score\&quot;:9,\&quot;disk_sequential_write_score\&quot;:4}&quot;</span>);
+		</span><span class="macro">assert_eq!</span>(serialized, <span class="string">"{\"cpu_hashrate_score\":1351,\"memory_memcpy_score\":9,\"disk_sequential_write_score\":4}"</span>);
 	}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

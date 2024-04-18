@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/npos-elections/src/pjr.rs`."><title>pjr.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/npos-elections/src/pjr.rs`."><title>pjr.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_npos_elections" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_npos_elections" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sp_npos_elections/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -778,14 +780,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -849,8 +851,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// ### Semantics
 ///
-/// The t-PJR property is defined in the paper [&quot;Validator Election in Nominated
-/// Proof-of-Stake&quot;][NPoS], section 5, definition 1.
+/// The t-PJR property is defined in the paper ["Validator Election in Nominated
+/// Proof-of-Stake"][NPoS], section 5, definition 1.
 ///
 /// In plain language, the t-PJR condition is: if there is a group of `N` voters
 /// who have `r` common candidates and can afford to support each of them with backing stake `t`
@@ -877,7 +879,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // N      =&gt; all_voters
 // (A, w) =&gt; (candidates, voters)
 //
-// Note that while the names don&#39;t explicitly say so, `candidates` are the winning candidates, and
+// Note that while the names don't explicitly say so, `candidates` are the winning candidates, and
 // `voters` is the set of weighted edges from nominators to winning validators.
 </span><span class="kw">pub fn </span>t_pjr_check&lt;AccountId: IdentifierT&gt;(
 	supports: <span class="kw-2">&amp;</span>Supports&lt;AccountId&gt;,
@@ -980,7 +982,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	//
 	// - we could probably pre-sort the candidates list in `n` in `prepare_pjr_input` using some
 	//   unsafe code leveraging the existing `candidates_index`: allocate an uninitialized vector of
-	//   appropriate length, then copy in all the elements. We&#39;d really prefer to avoid unsafe code
+	//   appropriate length, then copy in all the elements. We'd really prefer to avoid unsafe code
 	//   in the runtime, though.
 	</span><span class="kw">let </span>candidate =
 		<span class="kw">match </span>candidates.iter().find(|candidate| candidate.borrow().who == counter_example) {
@@ -992,7 +994,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Convert the data types that the user runtime has into ones that can be used by this module.
 ///
-/// It is expected that this function&#39;s interface might change over time, or multiple variants of it
+/// It is expected that this function's interface might change over time, or multiple variants of it
 /// can be provided for different use cases.
 ///
 /// The ultimate goal, in any case, is to convert the election data into [`Candidate`] and [`Voter`]
@@ -1009,7 +1011,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// Note that the current function is rather unfortunately inefficient. The most significant
 /// slowdown is the fact that a typical solution that need to be checked for PJR only contains a
 /// subset of the entire NPoS edge graph, encoded as `supports`. This only encodes the
-/// edges that actually contribute to a winner&#39;s backing stake and ignores the rest to save space.
+/// edges that actually contribute to a winner's backing stake and ignores the rest to save space.
 /// To check PJR, we need the entire voter set, including those edges that point to non-winners.
 /// This could cause the caller runtime to have to read the entire list of voters, which is assumed
 /// to be expensive.
@@ -1038,9 +1040,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="comment">// Convert Supports into a SupportMap
 	//
-	// As a flat list, we&#39;re limited to linear search. That gives the production of `candidates`,
+	// As a flat list, we're limited to linear search. That gives the production of `candidates`,
 	// below, a complexity of `O(s*c)`, where `s == supports.len()` and `c == all_candidates.len()`.
-	// For large lists, that&#39;s pretty bad.
+	// For large lists, that's pretty bad.
 	//
 	// A `SupportMap`, as a `BTreeMap`, has access timing of `O(lg n)`. This means that constructing
 	// the map and then indexing from it gives us timing of `O((s + c) * lg(s))`. If in the future
@@ -1139,7 +1141,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 ///
 /// More accurately:
 ///
-/// 1. If `c` exactly has `t` backing or less, then we don&#39;t generate any slack.
+/// 1. If `c` exactly has `t` backing or less, then we don't generate any slack.
 /// 2. If `c` has more than `t`, then we reduce it to `t`.
 </span><span class="kw">fn </span>slack&lt;AccountId: IdentifierT&gt;(voter: <span class="kw-2">&amp;</span>Voter&lt;AccountId&gt;, t: Threshold) -&gt; ExtendedBalance {
 	<span class="kw">let </span>budget = voter.budget;
@@ -1285,12 +1287,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		assert_core_failure(<span class="kw-2">&amp;</span>candidates, <span class="kw-2">&amp;</span>voters, <span class="number">20</span>);
 	}
 
-	<span class="comment">// These next tests ensure that the threshold phase change property holds for us, but that&#39;s not
+	<span class="comment">// These next tests ensure that the threshold phase change property holds for us, but that's not
 	// their real purpose. They were written to help develop an intuition about what the threshold
-	// value actually means in layman&#39;s terms.
+	// value actually means in layman's terms.
 	//
 	// The results tend to support the intuition that the threshold is the voting power at and below
-	// which a voter&#39;s preferences can simply be ignored.
+	// which a voter's preferences can simply be ignored.
 	</span><span class="attr">#[test]
 	</span><span class="kw">fn </span>find_upper_bound_for_threshold_scenario_1() {
 		<span class="kw">let </span>all_candidates = <span class="macro">vec!</span>[<span class="number">10</span>, <span class="number">20</span>, <span class="number">30</span>, <span class="number">40</span>];
@@ -1360,7 +1362,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			prev_threshold = threshold;
 			threshold = threshold
 				.checked_mul(<span class="number">2</span>)
-				.expect(<span class="string">&quot;pjr check must fail before we run out of capacity in u128&quot;</span>);
+				.expect(<span class="string">"pjr check must fail before we run out of capacity in u128"</span>);
 		}
 
 		<span class="comment">// now binary search within that range to find the phase threshold
@@ -1377,8 +1379,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			}
 		}
 
-		<span class="macro">println!</span>(<span class="string">&quot;highest failing check:   {}&quot;</span>, low_bound);
-		<span class="macro">println!</span>(<span class="string">&quot;lowest succeeding check: {}&quot;</span>, high_bound);
+		<span class="macro">println!</span>(<span class="string">"highest failing check:   {}"</span>, low_bound);
+		<span class="macro">println!</span>(<span class="string">"lowest succeeding check: {}"</span>, high_bound);
 
 		<span class="comment">// for a value to be a threshold, it must be the boundary between two conditions
 		</span><span class="kw">let </span><span class="kw-2">mut </span>unexpected_failures = Vec::new();

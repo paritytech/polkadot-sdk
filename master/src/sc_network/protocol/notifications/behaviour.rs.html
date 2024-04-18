@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/network/src/protocol/notifications/behaviour.rs`."><title>behaviour.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/network/src/protocol/notifications/behaviour.rs`."><title>behaviour.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="sc_network" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="sc_network" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../../sc_network/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -5313,10 +5315,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Type representing a pending substream validation.
 </span><span class="kw">type </span>PendingInboundValidation =
-	BoxFuture&lt;<span class="lifetime">&#39;static</span>, (<span class="prelude-ty">Result</span>&lt;ValidationResult, RecvError&gt;, IncomingIndex)&gt;;
+	BoxFuture&lt;<span class="lifetime">'static</span>, (<span class="prelude-ty">Result</span>&lt;ValidationResult, RecvError&gt;, IncomingIndex)&gt;;
 
 <span class="doccomment">/// Logging target for the file.
-</span><span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;sub-libp2p&quot;</span>;
+</span><span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"sub-libp2p"</span>;
 
 <span class="doccomment">/// Network behaviour that handles opening substreams for custom protocols with other peers.
 ///
@@ -5337,14 +5339,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// - [`PeerState::Enabled`]: Has open TCP connection(s), acknowledged by the peerset.
 ///   - Notifications substreams are open on at least one connection, and external API has been
 ///     notified.
-///   - Notifications substreams aren&#39;t open.
+///   - Notifications substreams aren't open.
 /// - [`PeerState::Incoming`]: Has open TCP connection(s) and remote would like to open substreams.
 ///   Peerset has been asked to attribute an inbound slot.
 ///
-/// In addition to these states, there also exists a &quot;banning&quot; system. If we fail to dial a peer,
+/// In addition to these states, there also exists a "banning" system. If we fail to dial a peer,
 /// we back-off for a few seconds. If the PSM requests connecting to a peer that is currently
 /// backed-off, the next dialing attempt is delayed until after the ban expires. However, the PSM
-/// will still consider the peer to be connected. This &quot;ban&quot; is thus not a ban in a strict sense:
+/// will still consider the peer to be connected. This "ban" is thus not a ban in a strict sense:
 /// if a backed-off peer tries to connect, the connection is accepted. A ban only delays dialing
 /// attempts.
 ///
@@ -5414,7 +5416,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Pending inbound substream validations.
 	</span><span class="comment">//
-	// NOTE: it&#39;s possible to read a stale response from `pending_inbound_validations`
+	// NOTE: it's possible to read a stale response from `pending_inbound_validations`
 	// as the substream may get closed by the remote peer before the protocol has had
 	// a chance to validate it. [`Notifications`] must compare the `crate::peerset::IncomingIndex`
 	// returned by the completed future against the `crate::peerset::IncomingIndex` stored in
@@ -5430,7 +5432,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub struct </span>ProtocolConfig {
 	<span class="doccomment">/// Name of the protocol.
 	</span><span class="kw">pub </span>name: ProtocolName,
-	<span class="doccomment">/// Names of the protocol to use if the main one isn&#39;t available.
+	<span class="doccomment">/// Names of the protocol to use if the main one isn't available.
 	</span><span class="kw">pub </span>fallback_names: Vec&lt;ProtocolName&gt;,
 	<span class="doccomment">/// Handshake of the protocol.
 	</span><span class="kw">pub </span>handshake: Vec&lt;u8&gt;,
@@ -5442,7 +5444,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 </span><span class="kw">struct </span>DelayId(u64);
 
-<span class="doccomment">/// State of a peer we&#39;re connected to.
+<span class="doccomment">/// State of a peer we're connected to.
 ///
 /// The variants correspond to the state of the peer w.r.t. the peerset.
 </span><span class="attr">#[derive(Debug)]
@@ -5472,10 +5474,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// The peerset requested that we connect to this peer. We are currently dialing this peer.
 	</span>Requested,
 
-	<span class="doccomment">/// We are connected to this peer but the peerset hasn&#39;t requested it or has denied it.
+	<span class="doccomment">/// We are connected to this peer but the peerset hasn't requested it or has denied it.
 	///
 	/// The handler is either in the closed state, or a `Close` message has been sent to it and
-	/// hasn&#39;t been answered yet.
+	/// hasn't been answered yet.
 	</span>Disabled {
 		<span class="doccomment">/// If `Some`, any connection request from the peerset to this peer is delayed until the
 		/// given `Instant`.
@@ -5486,11 +5488,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	},
 
 	<span class="doccomment">/// We are connected to this peer. The peerset has requested a connection to this peer, but
-	/// it is currently in a &quot;backed-off&quot; phase. The state will switch to `Enabled` once the timer
+	/// it is currently in a "backed-off" phase. The state will switch to `Enabled` once the timer
 	/// expires.
 	///
 	/// The handler is either in the closed state, or a `Close` message has been sent to it and
-	/// hasn&#39;t been answered yet.
+	/// hasn't been answered yet.
 	///
 	/// The handler will be opened when `timer` fires.
 	</span>DisabledPendingEnable {
@@ -5551,7 +5553,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// State of the handler of a single connection visible from this state machine.
 </span><span class="attr">#[derive(Debug)]
 </span><span class="kw">enum </span>ConnectionState {
-	<span class="doccomment">/// Connection is in the `Closed` state, meaning that the remote hasn&#39;t requested anything.
+	<span class="doccomment">/// Connection is in the `Closed` state, meaning that the remote hasn't requested anything.
 	</span>Closed,
 
 	<span class="doccomment">/// Connection is either in the `Open` or the `Closed` state, but a
@@ -5579,14 +5581,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>Open(NotificationsSink),
 }
 
-<span class="doccomment">/// State of an &quot;incoming&quot; message sent to the peer set manager.
+<span class="doccomment">/// State of an "incoming" message sent to the peer set manager.
 </span><span class="attr">#[derive(Debug)]
 </span><span class="kw">struct </span>IncomingPeer {
 	<span class="doccomment">/// Id of the remote peer of the incoming substream.
 	</span>peer_id: PeerId,
 	<span class="doccomment">/// Id of the set the incoming substream would belong to.
 	</span>set_id: SetId,
-	<span class="doccomment">/// If true, this &quot;incoming&quot; still corresponds to an actual connection. If false, then the
+	<span class="doccomment">/// If true, this "incoming" still corresponds to an actual connection. If false, then the
 	/// connection corresponding to it has been closed or replaced already.
 	</span>alive: bool,
 	<span class="doccomment">/// Id that the we sent to the peerset.
@@ -5610,7 +5612,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		/// Always matches one of the fallback names passed at initialization.
 		</span>negotiated_fallback: <span class="prelude-ty">Option</span>&lt;ProtocolName&gt;,
 		<span class="doccomment">/// Handshake that was sent to us.
-		/// This is normally a &quot;Status&quot; message, but this is out of the concern of this code.
+		/// This is normally a "Status" message, but this is out of the concern of this code.
 		</span>received_handshake: Vec&lt;u8&gt;,
 		<span class="doccomment">/// Object that permits sending notifications to the peer.
 		</span>notifications_sink: NotificationsSink,
@@ -5723,7 +5725,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(p) = <span class="self">self</span>.notif_protocols.get_mut(usize::from(set_id)) {
 			<span class="kw-2">*</span>p.handshake.write() = handshake_message.into();
 		} <span class="kw">else </span>{
-			<span class="macro">log::error!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;Unknown handshake change set: {:?}&quot;</span>, set_id);
+			<span class="macro">log::error!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"Unknown handshake change set: {:?}"</span>, set_id);
 			<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
 		}
 	}
@@ -5740,7 +5742,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Disconnects the given peer if we are connected to it.
 	</span><span class="kw">pub fn </span>disconnect_peer(<span class="kw-2">&amp;mut </span><span class="self">self</span>, peer_id: <span class="kw-2">&amp;</span>PeerId, set_id: SetId) {
-		<span class="macro">trace!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;External API =&gt; Disconnect({}, {:?})&quot;</span>, peer_id, set_id);
+		<span class="macro">trace!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"External API =&gt; Disconnect({}, {:?})"</span>, peer_id, set_id);
 		<span class="self">self</span>.disconnect_peer_inner(peer_id, set_id);
 	}
 
@@ -5753,7 +5755,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>};
 
 		<span class="kw">match </span>mem::replace(entry.get_mut(), PeerState::Poisoned) {
-			<span class="comment">// We&#39;re not connected anyway.
+			<span class="comment">// We're not connected anyway.
 			</span>st @ PeerState::Disabled { .. } =&gt; <span class="kw-2">*</span>entry.into_mut() = st,
 			st @ PeerState::Requested =&gt; <span class="kw-2">*</span>entry.into_mut() = st,
 			st @ PeerState::PendingRequest { .. } =&gt; <span class="kw-2">*</span>entry.into_mut() = st,
@@ -5761,7 +5763,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="comment">// DisabledPendingEnable =&gt; Disabled.
 			</span>PeerState::DisabledPendingEnable { connections, timer_deadline, timer: <span class="kw">_ </span>} =&gt; {
-				<span class="macro">trace!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;PSM &lt;= Dropped({}, {:?})&quot;</span>, peer_id, set_id);
+				<span class="macro">trace!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"PSM &lt;= Dropped({}, {:?})"</span>, peer_id, set_id);
 				<span class="self">self</span>.protocol_controller_handles[usize::from(set_id)].dropped(<span class="kw-2">*</span>peer_id);
 				<span class="kw-2">*</span>entry.into_mut() =
 					PeerState::Disabled { connections, backoff_until: <span class="prelude-val">Some</span>(timer_deadline) }
@@ -5771,11 +5773,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			// All open or opening connections are sent a `Close` message.
 			// If relevant, the external API is instantly notified.
 			</span>PeerState::Enabled { <span class="kw-2">mut </span>connections } =&gt; {
-				<span class="macro">trace!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;PSM &lt;= Dropped({}, {:?})&quot;</span>, peer_id, set_id);
+				<span class="macro">trace!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"PSM &lt;= Dropped({}, {:?})"</span>, peer_id, set_id);
 				<span class="self">self</span>.protocol_controller_handles[usize::from(set_id)].dropped(<span class="kw-2">*</span>peer_id);
 
 				<span class="kw">if </span>connections.iter().any(|(<span class="kw">_</span>, s)| <span class="macro">matches!</span>(s, ConnectionState::Open(<span class="kw">_</span>))) {
-					<span class="macro">trace!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;External API &lt;= Closed({}, {:?})&quot;</span>, peer_id, set_id);
+					<span class="macro">trace!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"External API &lt;= Closed({}, {:?})"</span>, peer_id, set_id);
 					<span class="kw">let </span>event =
 						NotificationsOut::CustomProtocolClosed { peer_id: <span class="kw-2">*</span>peer_id, set_id };
 					<span class="self">self</span>.events.push_back(ToSwarm::GenerateEvent(event));
@@ -5784,7 +5786,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">for </span>(connec_id, connec_state) <span class="kw">in
 					</span>connections.iter_mut().filter(|(<span class="kw">_</span>, s)| <span class="macro">matches!</span>(s, ConnectionState::Open(<span class="kw">_</span>)))
 				{
-					<span class="macro">trace!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;Handler({:?}, {:?}) &lt;= Close({:?})&quot;</span>, peer_id, <span class="kw-2">*</span>connec_id, set_id);
+					<span class="macro">trace!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"Handler({:?}, {:?}) &lt;= Close({:?})"</span>, peer_id, <span class="kw-2">*</span>connec_id, set_id);
 					<span class="self">self</span>.events.push_back(ToSwarm::NotifyHandler {
 						peer_id: <span class="kw-2">*</span>peer_id,
 						handler: NotifyHandler::One(<span class="kw-2">*</span>connec_id),
@@ -5796,7 +5798,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">for </span>(connec_id, connec_state) <span class="kw">in
 					</span>connections.iter_mut().filter(|(<span class="kw">_</span>, s)| <span class="macro">matches!</span>(s, ConnectionState::Opening))
 				{
-					<span class="macro">trace!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;Handler({:?}, {:?}) &lt;= Close({:?})&quot;</span>, peer_id, <span class="kw-2">*</span>connec_id, set_id);
+					<span class="macro">trace!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"Handler({:?}, {:?}) &lt;= Close({:?})"</span>, peer_id, <span class="kw-2">*</span>connec_id, set_id);
 					<span class="self">self</span>.events.push_back(ToSwarm::NotifyHandler {
 						peer_id: <span class="kw-2">*</span>peer_id,
 						handler: NotifyHandler::One(<span class="kw-2">*</span>connec_id),
@@ -5826,8 +5828,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					inc
 				} <span class="kw">else </span>{
 					<span class="macro">error!</span>(
-						target: <span class="string">&quot;sub-libp2p&quot;</span>,
-						<span class="string">&quot;State mismatch in libp2p: no entry in incoming for incoming peer&quot;
+						target: <span class="string">"sub-libp2p"</span>,
+						<span class="string">"State mismatch in libp2p: no entry in incoming for incoming peer"
 					</span>);
 					<span class="kw">return
 				</span>};
@@ -5838,7 +5840,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					.iter_mut()
 					.filter(|(<span class="kw">_</span>, s)| <span class="macro">matches!</span>(s, ConnectionState::OpenDesiredByRemote))
 				{
-					<span class="macro">trace!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;Handler({:?}, {:?}) &lt;= Close({:?})&quot;</span>, peer_id, <span class="kw-2">*</span>connec_id, set_id);
+					<span class="macro">trace!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"Handler({:?}, {:?}) &lt;= Close({:?})"</span>, peer_id, <span class="kw-2">*</span>connec_id, set_id);
 					<span class="self">self</span>.events.push_back(ToSwarm::NotifyHandler {
 						peer_id: <span class="kw-2">*</span>peer_id,
 						handler: NotifyHandler::One(<span class="kw-2">*</span>connec_id),
@@ -5854,7 +5856,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			},
 
 			PeerState::Poisoned =&gt; {
-				<span class="macro">error!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;State of {:?} is poisoned&quot;</span>, peer_id)
+				<span class="macro">error!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"State of {:?} is poisoned"</span>, peer_id)
 			},
 		}
 	}
@@ -5865,14 +5867,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">let </span><span class="kw-2">mut </span>occ_entry = <span class="kw">match </span><span class="self">self</span>.peers.entry((peer_id, set_id)) {
 			Entry::Occupied(entry) =&gt; entry,
 			Entry::Vacant(entry) =&gt; {
-				<span class="comment">// If there&#39;s no entry in `self.peers`, start dialing.
+				<span class="comment">// If there's no entry in `self.peers`, start dialing.
 				</span><span class="macro">trace!</span>(
-					target: <span class="string">&quot;sub-libp2p&quot;</span>,
-					<span class="string">&quot;PSM =&gt; Connect({}, {:?}): Starting to connect&quot;</span>,
+					target: <span class="string">"sub-libp2p"</span>,
+					<span class="string">"PSM =&gt; Connect({}, {:?}): Starting to connect"</span>,
 					entry.key().<span class="number">0</span>,
 					set_id,
 				);
-				<span class="macro">trace!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;Libp2p &lt;= Dial {}&quot;</span>, entry.key().<span class="number">0</span>);
+				<span class="macro">trace!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"Libp2p &lt;= Dial {}"</span>, entry.key().<span class="number">0</span>);
 				<span class="self">self</span>.events.push_back(ToSwarm::Dial { opts: entry.key().<span class="number">0</span>.into() });
 				entry.insert(PeerState::Requested);
 				<span class="kw">return
@@ -5886,8 +5888,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span>PeerState::Backoff { <span class="kw-2">ref </span>timer, <span class="kw-2">ref </span>timer_deadline } <span class="kw">if </span><span class="kw-2">*</span>timer_deadline &gt; now =&gt; {
 				<span class="kw">let </span>peer_id = occ_entry.key().<span class="number">0</span>;
 				<span class="macro">trace!</span>(
-					target: <span class="string">&quot;sub-libp2p&quot;</span>,
-					<span class="string">&quot;PSM =&gt; Connect({}, {:?}): Will start to connect at until {:?}&quot;</span>,
+					target: <span class="string">"sub-libp2p"</span>,
+					<span class="string">"PSM =&gt; Connect({}, {:?}): Will start to connect at until {:?}"</span>,
 					peer_id,
 					set_id,
 					timer_deadline,
@@ -5899,12 +5901,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// Backoff (expired) =&gt; Requested
 			</span>PeerState::Backoff { .. } =&gt; {
 				<span class="macro">trace!</span>(
-					target: <span class="string">&quot;sub-libp2p&quot;</span>,
-					<span class="string">&quot;PSM =&gt; Connect({}, {:?}): Starting to connect&quot;</span>,
+					target: <span class="string">"sub-libp2p"</span>,
+					<span class="string">"PSM =&gt; Connect({}, {:?}): Starting to connect"</span>,
 					occ_entry.key().<span class="number">0</span>,
 					set_id,
 				);
-				<span class="macro">trace!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;Libp2p &lt;= Dial {:?}&quot;</span>, occ_entry.key());
+				<span class="macro">trace!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"Libp2p &lt;= Dial {:?}"</span>, occ_entry.key());
 				<span class="self">self</span>.events.push_back(ToSwarm::Dial { opts: occ_entry.key().<span class="number">0</span>.into() });
 				<span class="kw-2">*</span>occ_entry.into_mut() = PeerState::Requested;
 			},
@@ -5915,8 +5917,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			{
 				<span class="kw">let </span>peer_id = occ_entry.key().<span class="number">0</span>;
 				<span class="macro">trace!</span>(
-					target: <span class="string">&quot;sub-libp2p&quot;</span>,
-					<span class="string">&quot;PSM =&gt; Connect({}, {:?}): But peer is backed-off until {:?}&quot;</span>,
+					target: <span class="string">"sub-libp2p"</span>,
+					<span class="string">"PSM =&gt; Connect({}, {:?}): But peer is backed-off until {:?}"</span>,
 					peer_id,
 					set_id,
 					backoff,
@@ -5950,9 +5952,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				</span><span class="kw">if let </span><span class="prelude-val">Some</span>((connec_id, connec_state)) =
 					connections.iter_mut().find(|(<span class="kw">_</span>, s)| <span class="macro">matches!</span>(s, ConnectionState::Closed))
 				{
-					<span class="macro">trace!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;PSM =&gt; Connect({}, {:?}): Enabling connections.&quot;</span>,
+					<span class="macro">trace!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"PSM =&gt; Connect({}, {:?}): Enabling connections."</span>,
 						occ_entry.key().<span class="number">0</span>, set_id);
-					<span class="macro">trace!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;Handler({:?}, {:?}) &lt;= Open({:?})&quot;</span>, peer_id, <span class="kw-2">*</span>connec_id, set_id);
+					<span class="macro">trace!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"Handler({:?}, {:?}) &lt;= Open({:?})"</span>, peer_id, <span class="kw-2">*</span>connec_id, set_id);
 					<span class="self">self</span>.events.push_back(ToSwarm::NotifyHandler {
 						peer_id,
 						handler: NotifyHandler::One(<span class="kw-2">*</span>connec_id),
@@ -5967,8 +5969,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="macro">matches!</span>(s, ConnectionState::OpeningThenClosing | ConnectionState::Closing)
 					}));
 					<span class="macro">trace!</span>(
-						target: <span class="string">&quot;sub-libp2p&quot;</span>,
-						<span class="string">&quot;PSM =&gt; Connect({}, {:?}): No connection in proper state. Delaying.&quot;</span>,
+						target: <span class="string">"sub-libp2p"</span>,
+						<span class="string">"PSM =&gt; Connect({}, {:?}): No connection in proper state. Delaying."</span>,
 						occ_entry.key().<span class="number">0</span>, set_id
 					);
 
@@ -6003,8 +6005,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// Incoming =&gt; Incoming
 			</span>st @ PeerState::Incoming { .. } =&gt; {
 				<span class="macro">debug!</span>(
-					target: <span class="string">&quot;sub-libp2p&quot;</span>,
-					<span class="string">&quot;PSM =&gt; Connect({}, {:?}): Ignoring obsolete connect, we are awaiting accept/reject.&quot;</span>,
+					target: <span class="string">"sub-libp2p"</span>,
+					<span class="string">"PSM =&gt; Connect({}, {:?}): Ignoring obsolete connect, we are awaiting accept/reject."</span>,
 					occ_entry.key().<span class="number">0</span>, set_id
 				);
 				<span class="kw-2">*</span>occ_entry.into_mut() = st;
@@ -6012,26 +6014,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="comment">// Other states are kept as-is.
 			</span>st @ PeerState::Enabled { .. } =&gt; {
-				<span class="macro">debug!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>,
-					<span class="string">&quot;PSM =&gt; Connect({}, {:?}): Already connected.&quot;</span>,
+				<span class="macro">debug!</span>(target: <span class="string">"sub-libp2p"</span>,
+					<span class="string">"PSM =&gt; Connect({}, {:?}): Already connected."</span>,
 					occ_entry.key().<span class="number">0</span>, set_id);
 				<span class="kw-2">*</span>occ_entry.into_mut() = st;
 			},
 			st @ PeerState::DisabledPendingEnable { .. } =&gt; {
-				<span class="macro">debug!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>,
-					<span class="string">&quot;PSM =&gt; Connect({}, {:?}): Already pending enabling.&quot;</span>,
+				<span class="macro">debug!</span>(target: <span class="string">"sub-libp2p"</span>,
+					<span class="string">"PSM =&gt; Connect({}, {:?}): Already pending enabling."</span>,
 					occ_entry.key().<span class="number">0</span>, set_id);
 				<span class="kw-2">*</span>occ_entry.into_mut() = st;
 			},
 			st @ PeerState::Requested { .. } | st @ PeerState::PendingRequest { .. } =&gt; {
-				<span class="macro">debug!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>,
-					<span class="string">&quot;PSM =&gt; Connect({}, {:?}): Duplicate request.&quot;</span>,
+				<span class="macro">debug!</span>(target: <span class="string">"sub-libp2p"</span>,
+					<span class="string">"PSM =&gt; Connect({}, {:?}): Duplicate request."</span>,
 					occ_entry.key().<span class="number">0</span>, set_id);
 				<span class="kw-2">*</span>occ_entry.into_mut() = st;
 			},
 
 			PeerState::Poisoned =&gt; {
-				<span class="macro">error!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;State of {:?} is poisoned&quot;</span>, occ_entry.key());
+				<span class="macro">error!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"State of {:?} is poisoned"</span>, occ_entry.key());
 				<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
 			},
 		}
@@ -6042,7 +6044,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span><span class="kw-2">mut </span>entry = <span class="kw">match </span><span class="self">self</span>.peers.entry((peer_id, set_id)) {
 			Entry::Occupied(entry) =&gt; entry,
 			Entry::Vacant(entry) =&gt; {
-				<span class="macro">trace!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;PSM =&gt; Drop({}, {:?}): Already disabled.&quot;</span>,
+				<span class="macro">trace!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"PSM =&gt; Drop({}, {:?}): Already disabled."</span>,
 					entry.key().<span class="number">0</span>, set_id);
 				<span class="kw">return
 			</span>},
@@ -6050,7 +6052,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">match </span>mem::replace(entry.get_mut(), PeerState::Poisoned) {
 			st @ PeerState::Disabled { .. } | st @ PeerState::Backoff { .. } =&gt; {
-				<span class="macro">trace!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;PSM =&gt; Drop({}, {:?}): Already disabled.&quot;</span>,
+				<span class="macro">trace!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"PSM =&gt; Drop({}, {:?}): Already disabled."</span>,
 					entry.key().<span class="number">0</span>, set_id);
 				<span class="kw-2">*</span>entry.into_mut() = st;
 			},
@@ -6058,8 +6060,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// DisabledPendingEnable =&gt; Disabled
 			</span>PeerState::DisabledPendingEnable { connections, timer_deadline, timer: <span class="kw">_ </span>} =&gt; {
 				<span class="macro">debug_assert!</span>(!connections.is_empty());
-				<span class="macro">trace!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>,
-					<span class="string">&quot;PSM =&gt; Drop({}, {:?}): Interrupting pending enabling.&quot;</span>,
+				<span class="macro">trace!</span>(target: <span class="string">"sub-libp2p"</span>,
+					<span class="string">"PSM =&gt; Drop({}, {:?}): Interrupting pending enabling."</span>,
 					entry.key().<span class="number">0</span>, set_id);
 				<span class="kw-2">*</span>entry.into_mut() =
 					PeerState::Disabled { connections, backoff_until: <span class="prelude-val">Some</span>(timer_deadline) };
@@ -6067,7 +6069,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="comment">// Enabled =&gt; Disabled
 			</span>PeerState::Enabled { <span class="kw-2">mut </span>connections } =&gt; {
-				<span class="macro">trace!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;PSM =&gt; Drop({}, {:?}): Disabling connections.&quot;</span>,
+				<span class="macro">trace!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"PSM =&gt; Drop({}, {:?}): Disabling connections."</span>,
 					entry.key().<span class="number">0</span>, set_id);
 
 				<span class="macro">debug_assert!</span>(connections.iter().any(|(<span class="kw">_</span>, s)| <span class="macro">matches!</span>(
@@ -6076,7 +6078,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				)));
 
 				<span class="kw">if </span>connections.iter().any(|(<span class="kw">_</span>, s)| <span class="macro">matches!</span>(s, ConnectionState::Open(<span class="kw">_</span>))) {
-					<span class="macro">trace!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;External API &lt;= Closed({}, {:?})&quot;</span>, entry.key().<span class="number">0</span>, set_id);
+					<span class="macro">trace!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"External API &lt;= Closed({}, {:?})"</span>, entry.key().<span class="number">0</span>, set_id);
 					<span class="kw">let </span>event =
 						NotificationsOut::CustomProtocolClosed { peer_id: entry.key().<span class="number">0</span>, set_id };
 					<span class="self">self</span>.events.push_back(ToSwarm::GenerateEvent(event));
@@ -6085,7 +6087,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">for </span>(connec_id, connec_state) <span class="kw">in
 					</span>connections.iter_mut().filter(|(<span class="kw">_</span>, s)| <span class="macro">matches!</span>(s, ConnectionState::Opening))
 				{
-					<span class="macro">trace!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;Handler({:?}, {:?}) &lt;= Close({:?})&quot;</span>,
+					<span class="macro">trace!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"Handler({:?}, {:?}) &lt;= Close({:?})"</span>,
 						entry.key(), <span class="kw-2">*</span>connec_id, set_id);
 					<span class="self">self</span>.events.push_back(ToSwarm::NotifyHandler {
 						peer_id: entry.key().<span class="number">0</span>,
@@ -6098,7 +6100,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">for </span>(connec_id, connec_state) <span class="kw">in
 					</span>connections.iter_mut().filter(|(<span class="kw">_</span>, s)| <span class="macro">matches!</span>(s, ConnectionState::Open(<span class="kw">_</span>)))
 				{
-					<span class="macro">trace!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;Handler({:?}, {:?}) &lt;= Close({:?})&quot;</span>,
+					<span class="macro">trace!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"Handler({:?}, {:?}) &lt;= Close({:?})"</span>,
 						entry.key(), <span class="kw-2">*</span>connec_id, set_id);
 					<span class="self">self</span>.events.push_back(ToSwarm::NotifyHandler {
 						peer_id: entry.key().<span class="number">0</span>,
@@ -6113,17 +6115,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="comment">// Requested =&gt; Ø
 			</span>PeerState::Requested =&gt; {
-				<span class="comment">// We don&#39;t cancel dialing. Libp2p doesn&#39;t expose that on purpose, as other
+				<span class="comment">// We don't cancel dialing. Libp2p doesn't expose that on purpose, as other
 				// sub-systems (such as the discovery mechanism) may require dialing this peer as
 				// well at the same time.
-				</span><span class="macro">trace!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;PSM =&gt; Drop({}, {:?}): Not yet connected.&quot;</span>,
+				</span><span class="macro">trace!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"PSM =&gt; Drop({}, {:?}): Not yet connected."</span>,
 					entry.key().<span class="number">0</span>, set_id);
 				entry.remove();
 			},
 
 			<span class="comment">// PendingRequest =&gt; Backoff
 			</span>PeerState::PendingRequest { timer, timer_deadline } =&gt; {
-				<span class="macro">trace!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;PSM =&gt; Drop({}, {:?}): Not yet connected&quot;</span>,
+				<span class="macro">trace!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"PSM =&gt; Drop({}, {:?}): Not yet connected"</span>,
 					entry.key().<span class="number">0</span>, set_id);
 				<span class="kw-2">*</span>entry.into_mut() = PeerState::Backoff { timer, timer_deadline }
 			},
@@ -6133,8 +6135,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			// the protocol, reject the substream
 			</span>PeerState::Incoming { backoff_until, connections, incoming_index, .. } =&gt; {
 				<span class="macro">debug!</span>(
-					target: <span class="string">&quot;sub-libp2p&quot;</span>,
-					<span class="string">&quot;PSM =&gt; Drop({}, {:?}): Ignoring obsolete disconnect, we are awaiting accept/reject.&quot;</span>,
+					target: <span class="string">"sub-libp2p"</span>,
+					<span class="string">"PSM =&gt; Drop({}, {:?}): Ignoring obsolete disconnect, we are awaiting accept/reject."</span>,
 					entry.key().<span class="number">0</span>, set_id,
 				);
 				<span class="kw-2">*</span>entry.into_mut() = PeerState::Incoming {
@@ -6145,7 +6147,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				};
 			},
 			PeerState::Poisoned =&gt; {
-				<span class="macro">error!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;State of {:?} is poisoned&quot;</span>, entry.key());
+				<span class="macro">error!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"State of {:?} is poisoned"</span>, entry.key());
 				<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
 			},
 		}
@@ -6155,13 +6157,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// to the protocol for validation.
 	</span><span class="kw">fn </span>peerset_report_preaccept(<span class="kw-2">&amp;mut </span><span class="self">self</span>, index: IncomingIndex) {
 		<span class="kw">let </span><span class="prelude-val">Some</span>(pos) = <span class="self">self</span>.incoming.iter().position(|i| i.incoming_id == index) <span class="kw">else </span>{
-			<span class="macro">error!</span>(target: LOG_TARGET, <span class="string">&quot;PSM =&gt; Preaccept({:?}): Invalid index&quot;</span>, index);
+			<span class="macro">error!</span>(target: LOG_TARGET, <span class="string">"PSM =&gt; Preaccept({:?}): Invalid index"</span>, index);
 			<span class="kw">return
 		</span>};
 
 		<span class="macro">trace!</span>(
 			target: LOG_TARGET,
-			<span class="string">&quot;PSM =&gt; Preaccept({:?}): Sent to protocol for validation&quot;</span>,
+			<span class="string">"PSM =&gt; Preaccept({:?}): Sent to protocol for validation"</span>,
 			index
 		);
 		<span class="kw">let </span>incoming = <span class="kw-2">&amp;</span><span class="self">self</span>.incoming[pos];
@@ -6183,7 +6185,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				// cases the `NotificationService` not existing is a fatal error and indicates that
 				// the protocol has exited. Until the parachain collator issue is fixed, just report
 				// and error and reject the peer.
-				</span><span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">&quot;protocol has exited: {err:?} {:?}&quot;</span>, incoming.set_id);
+				</span><span class="macro">debug!</span>(target: LOG_TARGET, <span class="string">"protocol has exited: {err:?} {:?}"</span>, incoming.set_id);
 
 				<span class="self">self</span>.protocol_report_reject(index);
 			},
@@ -6197,20 +6199,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(pos) = <span class="self">self</span>.incoming.iter().position(|i| i.incoming_id == index) {
 				(pos, <span class="self">self</span>.incoming.get(pos))
 			} <span class="kw">else </span>{
-				<span class="macro">error!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;PSM =&gt; Accept({:?}): Invalid index&quot;</span>, index);
+				<span class="macro">error!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"PSM =&gt; Accept({:?}): Invalid index"</span>, index);
 				<span class="kw">return
 			</span>};
 
 		<span class="kw">let </span><span class="prelude-val">Some</span>(incoming) = incoming <span class="kw">else </span>{
-			<span class="macro">error!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;Incoming connection ({:?}) doesn&#39;t exist&quot;</span>, index);
+			<span class="macro">error!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"Incoming connection ({:?}) doesn't exist"</span>, index);
 			<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
 			<span class="kw">return</span>;
 		};
 
 		<span class="kw">if </span>!incoming.alive {
 			<span class="macro">trace!</span>(
-				target: <span class="string">&quot;sub-libp2p&quot;</span>,
-				<span class="string">&quot;PSM =&gt; Accept({:?}, {}, {:?}): Obsolete incoming&quot;</span>,
+				target: <span class="string">"sub-libp2p"</span>,
+				<span class="string">"PSM =&gt; Accept({:?}, {}, {:?}): Obsolete incoming"</span>,
 				index,
 				incoming.peer_id,
 				incoming.set_id,
@@ -6220,7 +6222,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="prelude-val">Some</span>(PeerState::DisabledPendingEnable { .. }) | <span class="prelude-val">Some</span>(PeerState::Enabled { .. }) =&gt; {
 				},
 				<span class="kw">_ </span>=&gt; {
-					<span class="macro">trace!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;PSM &lt;= Dropped({}, {:?})&quot;</span>,
+					<span class="macro">trace!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"PSM &lt;= Dropped({}, {:?})"</span>,
 						incoming.peer_id, incoming.set_id);
 					<span class="self">self</span>.protocol_controller_handles[usize::from(incoming.set_id)]
 						.dropped(incoming.peer_id);
@@ -6235,8 +6237,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Some</span>(s) =&gt; s,
 			<span class="prelude-val">None </span>=&gt; {
 				<span class="macro">log::debug!</span>(
-					target: <span class="string">&quot;sub-libp2p&quot;</span>,
-					<span class="string">&quot;Connection to {:?} closed, ({:?} {:?}), ignoring accept&quot;</span>,
+					target: <span class="string">"sub-libp2p"</span>,
+					<span class="string">"Connection to {:?} closed, ({:?} {:?}), ignoring accept"</span>,
 					incoming.peer_id,
 					incoming.set_id,
 					index,
@@ -6256,8 +6258,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			} =&gt; {
 				<span class="kw">if </span>index &lt; incoming_index {
 					<span class="macro">warn!</span>(
-						target: <span class="string">&quot;sub-libp2p&quot;</span>,
-						<span class="string">&quot;PSM =&gt; Accept({:?}, {}, {:?}): Ignoring obsolete incoming index, we are already awaiting {:?}.&quot;</span>,
+						target: <span class="string">"sub-libp2p"</span>,
+						<span class="string">"PSM =&gt; Accept({:?}, {}, {:?}): Ignoring obsolete incoming index, we are already awaiting {:?}."</span>,
 						index, incoming.peer_id, incoming.set_id, incoming_index
 					);
 
@@ -6265,8 +6267,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw">return
 				</span>} <span class="kw">else if </span>index &gt; incoming_index {
 					<span class="macro">error!</span>(
-						target: <span class="string">&quot;sub-libp2p&quot;</span>,
-						<span class="string">&quot;PSM =&gt; Accept({:?}, {}, {:?}): Ignoring incoming index from the future, we are awaiting {:?}.&quot;</span>,
+						target: <span class="string">"sub-libp2p"</span>,
+						<span class="string">"PSM =&gt; Accept({:?}, {}, {:?}): Ignoring incoming index from the future, we are awaiting {:?}."</span>,
 						index, incoming.peer_id, incoming.set_id, incoming_index
 					);
 
@@ -6279,8 +6281,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				// for the it to be closed so reject the substream now
 				</span><span class="kw">if </span>peerset_rejected {
 					<span class="macro">trace!</span>(
-						target: <span class="string">&quot;sub-libp2p&quot;</span>,
-						<span class="string">&quot;Protocol accepted ({:?} {:?} {:?}) but Peerset had request disconnection, rejecting&quot;</span>,
+						target: <span class="string">"sub-libp2p"</span>,
+						<span class="string">"Protocol accepted ({:?} {:?} {:?}) but Peerset had request disconnection, rejecting"</span>,
 						index,
 						incoming.peer_id,
 						incoming.set_id
@@ -6296,8 +6298,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				}
 
 				<span class="macro">trace!</span>(
-					target: <span class="string">&quot;sub-libp2p&quot;</span>,
-					<span class="string">&quot;PSM =&gt; Accept({:?}, {}, {:?}): Enabling connections.&quot;</span>,
+					target: <span class="string">"sub-libp2p"</span>,
+					<span class="string">"PSM =&gt; Accept({:?}, {}, {:?}): Enabling connections."</span>,
 					index,
 					incoming.peer_id,
 					incoming.set_id
@@ -6310,7 +6312,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					.iter_mut()
 					.filter(|(<span class="kw">_</span>, s)| <span class="macro">matches!</span>(s, ConnectionState::OpenDesiredByRemote))
 				{
-					<span class="macro">trace!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;Handler({:?}, {:?}) &lt;= Open({:?})&quot;</span>,
+					<span class="macro">trace!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"Handler({:?}, {:?}) &lt;= Open({:?})"</span>,
 						incoming.peer_id, <span class="kw-2">*</span>connec_id, incoming.set_id);
 					<span class="self">self</span>.events.push_back(ToSwarm::NotifyHandler {
 						peer_id: incoming.peer_id,
@@ -6330,8 +6332,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// Any state other than `Incoming` is invalid.
 			</span>peer =&gt; {
 				<span class="macro">error!</span>(
-					target: <span class="string">&quot;sub-libp2p&quot;</span>,
-					<span class="string">&quot;State mismatch in libp2p: Expected alive incoming. Got {:?}.&quot;</span>,
+					target: <span class="string">"sub-libp2p"</span>,
+					<span class="string">"State mismatch in libp2p: Expected alive incoming. Got {:?}."</span>,
 					peer
 				);
 
@@ -6359,14 +6361,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		{
 			<span class="self">self</span>.incoming.remove(pos)
 		} <span class="kw">else </span>{
-			<span class="macro">error!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;PSM =&gt; Reject({:?}): Invalid index&quot;</span>, index);
+			<span class="macro">error!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"PSM =&gt; Reject({:?}): Invalid index"</span>, index);
 			<span class="kw">return </span><span class="prelude-val">None
 		</span>};
 
 		<span class="kw">if </span>!incoming.alive {
 			<span class="macro">trace!</span>(
-				target: <span class="string">&quot;sub-libp2p&quot;</span>,
-				<span class="string">&quot;PSM =&gt; Reject({:?}, {}, {:?}): Obsolete incoming, ignoring&quot;</span>,
+				target: <span class="string">"sub-libp2p"</span>,
+				<span class="string">"PSM =&gt; Reject({:?}, {}, {:?}): Obsolete incoming, ignoring"</span>,
 				index,
 				incoming.peer_id,
 				incoming.set_id,
@@ -6379,8 +6381,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Some</span>(s) =&gt; s,
 			<span class="prelude-val">None </span>=&gt; {
 				<span class="macro">log::debug!</span>(
-					target: <span class="string">&quot;sub-libp2p&quot;</span>,
-					<span class="string">&quot;Connection to {:?} closed, ({:?} {:?}), ignoring accept&quot;</span>,
+					target: <span class="string">"sub-libp2p"</span>,
+					<span class="string">"Connection to {:?} closed, ({:?} {:?}), ignoring accept"</span>,
 					incoming.peer_id,
 					incoming.set_id,
 					index,
@@ -6394,22 +6396,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span>PeerState::Incoming { <span class="kw-2">mut </span>connections, backoff_until, incoming_index, .. } =&gt; {
 				<span class="kw">if </span>index &lt; incoming_index {
 					<span class="macro">warn!</span>(
-						target: <span class="string">&quot;sub-libp2p&quot;</span>,
-						<span class="string">&quot;PSM =&gt; Reject({:?}, {}, {:?}): Ignoring obsolete incoming index, we are already awaiting {:?}.&quot;</span>,
+						target: <span class="string">"sub-libp2p"</span>,
+						<span class="string">"PSM =&gt; Reject({:?}, {}, {:?}): Ignoring obsolete incoming index, we are already awaiting {:?}."</span>,
 						index, incoming.peer_id, incoming.set_id, incoming_index
 					);
 					<span class="kw">return </span><span class="prelude-val">None
 				</span>} <span class="kw">else if </span>index &gt; incoming_index {
 					<span class="macro">error!</span>(
-						target: <span class="string">&quot;sub-libp2p&quot;</span>,
-						<span class="string">&quot;PSM =&gt; Reject({:?}, {}, {:?}): Ignoring incoming index from the future, we are awaiting {:?}.&quot;</span>,
+						target: <span class="string">"sub-libp2p"</span>,
+						<span class="string">"PSM =&gt; Reject({:?}, {}, {:?}): Ignoring incoming index from the future, we are awaiting {:?}."</span>,
 						index, incoming.peer_id, incoming.set_id, incoming_index
 					);
 					<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
 					<span class="kw">return </span><span class="prelude-val">None
 				</span>}
 
-				<span class="macro">trace!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;PSM =&gt; Reject({:?}, {}, {:?}): Rejecting connections.&quot;</span>,
+				<span class="macro">trace!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"PSM =&gt; Reject({:?}, {}, {:?}): Rejecting connections."</span>,
 					index, incoming.peer_id, incoming.set_id);
 
 				<span class="macro">debug_assert!</span>(connections
@@ -6419,7 +6421,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					.iter_mut()
 					.filter(|(<span class="kw">_</span>, s)| <span class="macro">matches!</span>(s, ConnectionState::OpenDesiredByRemote))
 				{
-					<span class="macro">trace!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;Handler({:?}, {:?}) &lt;= Close({:?})&quot;</span>,
+					<span class="macro">trace!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"Handler({:?}, {:?}) &lt;= Close({:?})"</span>,
 						incoming.peer_id, connec_id, incoming.set_id);
 					<span class="self">self</span>.events.push_back(ToSwarm::NotifyHandler {
 						peer_id: incoming.peer_id,
@@ -6440,7 +6442,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			peer =&gt; {
 				<span class="macro">error!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;State mismatch in libp2p: Expected alive incoming. Got {peer:?}.&quot;</span>,
+					<span class="string">"State mismatch in libp2p: Expected alive incoming. Got {peer:?}."</span>,
 				);
 				<span class="prelude-val">None
 			</span>},
@@ -6517,11 +6519,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="comment">// Requested | PendingRequest =&gt; Enabled
 						</span>st @ <span class="kw-2">&amp;mut </span>PeerState::Requested |
 						st @ <span class="kw-2">&amp;mut </span>PeerState::PendingRequest { .. } =&gt; {
-							<span class="macro">trace!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>,
-								<span class="string">&quot;Libp2p =&gt; Connected({}, {:?}, {:?}): Connection was requested by PSM.&quot;</span>,
+							<span class="macro">trace!</span>(target: <span class="string">"sub-libp2p"</span>,
+								<span class="string">"Libp2p =&gt; Connected({}, {:?}, {:?}): Connection was requested by PSM."</span>,
 								peer_id, set_id, endpoint
 							);
-							<span class="macro">trace!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;Handler({:?}, {:?}) &lt;= Open({:?})&quot;</span>, peer_id, connection_id, set_id);
+							<span class="macro">trace!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"Handler({:?}, {:?}) &lt;= Open({:?})"</span>, peer_id, connection_id, set_id);
 							<span class="self">self</span>.events.push_back(ToSwarm::NotifyHandler {
 								peer_id,
 								handler: NotifyHandler::One(connection_id),
@@ -6542,8 +6544,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 								} <span class="kw">else </span>{
 									<span class="prelude-val">None
 								</span>};
-							<span class="macro">trace!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>,
-								<span class="string">&quot;Libp2p =&gt; Connected({}, {:?}, {:?}, {:?}): Not requested by PSM, disabling.&quot;</span>,
+							<span class="macro">trace!</span>(target: <span class="string">"sub-libp2p"</span>,
+								<span class="string">"Libp2p =&gt; Connected({}, {:?}, {:?}, {:?}): Not requested by PSM, disabling."</span>,
 								peer_id, set_id, endpoint, connection_id);
 
 							<span class="kw">let </span><span class="kw-2">mut </span>connections = SmallVec::new();
@@ -6557,8 +6559,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						PeerState::Disabled { connections, .. } |
 						PeerState::DisabledPendingEnable { connections, .. } |
 						PeerState::Enabled { connections, .. } =&gt; {
-							<span class="macro">trace!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>,
-								<span class="string">&quot;Libp2p =&gt; Connected({}, {:?}, {:?}, {:?}): Secondary connection. Leaving closed.&quot;</span>,
+							<span class="macro">trace!</span>(target: <span class="string">"sub-libp2p"</span>,
+								<span class="string">"Libp2p =&gt; Connected({}, {:?}, {:?}, {:?}): Secondary connection. Leaving closed."</span>,
 								peer_id, set_id, endpoint, connection_id);
 							connections.push((connection_id, ConnectionState::Closed));
 						},
@@ -6572,7 +6574,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					{
 						entry
 					} <span class="kw">else </span>{
-						<span class="macro">error!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;inject_connection_closed: State mismatch in the custom protos handler&quot;</span>);
+						<span class="macro">error!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"inject_connection_closed: State mismatch in the custom protos handler"</span>);
 						<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
 						<span class="kw">return
 					</span>};
@@ -6580,7 +6582,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw">match </span>mem::replace(entry.get_mut(), PeerState::Poisoned) {
 						<span class="comment">// Disabled =&gt; Disabled | Backoff | Ø
 						</span>PeerState::Disabled { <span class="kw-2">mut </span>connections, backoff_until } =&gt; {
-							<span class="macro">trace!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;Libp2p =&gt; Disconnected({}, {:?}, {:?}): Disabled.&quot;</span>,
+							<span class="macro">trace!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"Libp2p =&gt; Disconnected({}, {:?}, {:?}): Disabled."</span>,
 								peer_id, set_id, connection_id);
 
 							<span class="kw">if let </span><span class="prelude-val">Some</span>(pos) =
@@ -6589,8 +6591,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 								connections.remove(pos);
 							} <span class="kw">else </span>{
 								<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
-								<span class="macro">error!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>,
-									<span class="string">&quot;inject_connection_closed: State mismatch in the custom protos handler&quot;</span>);
+								<span class="macro">error!</span>(target: <span class="string">"sub-libp2p"</span>,
+									<span class="string">"inject_connection_closed: State mismatch in the custom protos handler"</span>);
 							}
 
 							<span class="kw">if </span>connections.is_empty() {
@@ -6631,8 +6633,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							timer,
 						} =&gt; {
 							<span class="macro">trace!</span>(
-								target: <span class="string">&quot;sub-libp2p&quot;</span>,
-								<span class="string">&quot;Libp2p =&gt; Disconnected({}, {:?}, {:?}): Disabled but pending enable.&quot;</span>,
+								target: <span class="string">"sub-libp2p"</span>,
+								<span class="string">"Libp2p =&gt; Disconnected({}, {:?}, {:?}): Disabled but pending enable."</span>,
 								peer_id, set_id, connection_id
 							);
 
@@ -6641,13 +6643,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							{
 								connections.remove(pos);
 							} <span class="kw">else </span>{
-								<span class="macro">error!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>,
-									<span class="string">&quot;inject_connection_closed: State mismatch in the custom protos handler&quot;</span>);
+								<span class="macro">error!</span>(target: <span class="string">"sub-libp2p"</span>,
+									<span class="string">"inject_connection_closed: State mismatch in the custom protos handler"</span>);
 								<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
 							}
 
 							<span class="kw">if </span>connections.is_empty() {
-								<span class="macro">trace!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;PSM &lt;= Dropped({}, {:?})&quot;</span>, peer_id, set_id);
+								<span class="macro">trace!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"PSM &lt;= Dropped({}, {:?})"</span>, peer_id, set_id);
 								<span class="self">self</span>.protocol_controller_handles[usize::from(set_id)]
 									.dropped(peer_id);
 								<span class="kw-2">*</span>entry.get_mut() = PeerState::Backoff { timer, timer_deadline };
@@ -6668,8 +6670,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							peerset_rejected,
 						} =&gt; {
 							<span class="macro">trace!</span>(
-								target: <span class="string">&quot;sub-libp2p&quot;</span>,
-								<span class="string">&quot;Libp2p =&gt; Disconnected({}, {:?}, {:?}): OpenDesiredByRemote.&quot;</span>,
+								target: <span class="string">"sub-libp2p"</span>,
+								<span class="string">"Libp2p =&gt; Disconnected({}, {:?}, {:?}): OpenDesiredByRemote."</span>,
 								peer_id, set_id, connection_id
 							);
 
@@ -6682,8 +6684,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							{
 								connections.remove(pos);
 							} <span class="kw">else </span>{
-								<span class="macro">error!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>,
-									<span class="string">&quot;inject_connection_closed: State mismatch in the custom protos handler&quot;</span>);
+								<span class="macro">error!</span>(target: <span class="string">"sub-libp2p"</span>,
+									<span class="string">"inject_connection_closed: State mismatch in the custom protos handler"</span>);
 								<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
 							}
 
@@ -6694,9 +6696,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							<span class="comment">// If no connection is `OpenDesiredByRemote` anymore, clean up the
 							// peerset incoming request.
 							</span><span class="kw">if </span>no_desired_left {
-								<span class="comment">// In the incoming state, we don&#39;t report &quot;Dropped&quot; straight away.
-								// Instead we will report &quot;Dropped&quot; if receive the corresponding
-								// &quot;Accept&quot;.
+								<span class="comment">// In the incoming state, we don't report "Dropped" straight away.
+								// Instead we will report "Dropped" if receive the corresponding
+								// "Accept".
 								</span><span class="kw">if let </span><span class="prelude-val">Some</span>(state) = <span class="self">self
 									</span>.incoming
 									.iter_mut()
@@ -6704,8 +6706,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 								{
 									state.alive = <span class="bool-val">false</span>;
 								} <span class="kw">else </span>{
-									<span class="macro">error!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;State mismatch in libp2p: no entry in \
-										incoming corresponding to an incoming state in peers&quot;</span>);
+									<span class="macro">error!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"State mismatch in libp2p: no entry in \
+										incoming corresponding to an incoming state in peers"</span>);
 									<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
 								}
 							}
@@ -6754,8 +6756,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						// Peers are always backed-off when disconnecting while Enabled.
 						</span>PeerState::Enabled { <span class="kw-2">mut </span>connections } =&gt; {
 							<span class="macro">trace!</span>(
-								target: <span class="string">&quot;sub-libp2p&quot;</span>,
-								<span class="string">&quot;Libp2p =&gt; Disconnected({}, {:?}, {:?}): Enabled.&quot;</span>,
+								target: <span class="string">"sub-libp2p"</span>,
+								<span class="string">"Libp2p =&gt; Disconnected({}, {:?}, {:?}): Enabled."</span>,
 								peer_id, set_id, connection_id
 							);
 
@@ -6778,8 +6780,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 										}) {
 										<span class="kw">if </span>pos &lt;= replacement_pos {
 											<span class="macro">trace!</span>(
-												target: <span class="string">&quot;sub-libp2p&quot;</span>,
-												<span class="string">&quot;External API &lt;= Sink replaced({}, {:?})&quot;</span>,
+												target: <span class="string">"sub-libp2p"</span>,
+												<span class="string">"External API &lt;= Sink replaced({}, {:?})"</span>,
 												peer_id, set_id
 											);
 											<span class="kw">let </span>event = NotificationsOut::CustomProtocolReplaced {
@@ -6791,7 +6793,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 										}
 									} <span class="kw">else </span>{
 										<span class="macro">trace!</span>(
-											target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;External API &lt;= Closed({}, {:?})&quot;</span>,
+											target: <span class="string">"sub-libp2p"</span>, <span class="string">"External API &lt;= Closed({}, {:?})"</span>,
 											peer_id, set_id
 										);
 										<span class="kw">let </span>event = NotificationsOut::CustomProtocolClosed {
@@ -6802,13 +6804,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 									}
 								}
 							} <span class="kw">else </span>{
-								<span class="macro">error!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>,
-									<span class="string">&quot;inject_connection_closed: State mismatch in the custom protos handler&quot;</span>);
+								<span class="macro">error!</span>(target: <span class="string">"sub-libp2p"</span>,
+									<span class="string">"inject_connection_closed: State mismatch in the custom protos handler"</span>);
 								<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
 							}
 
 							<span class="kw">if </span>connections.is_empty() {
-								<span class="macro">trace!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;PSM &lt;= Dropped({}, {:?})&quot;</span>, peer_id, set_id);
+								<span class="macro">trace!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"PSM &lt;= Dropped({}, {:?})"</span>, peer_id, set_id);
 								<span class="self">self</span>.protocol_controller_handles[usize::from(set_id)]
 									.dropped(peer_id);
 								<span class="kw">let </span>ban_dur = Uniform::new(<span class="number">5</span>, <span class="number">10</span>).sample(<span class="kw-2">&amp;mut </span>rand::thread_rng());
@@ -6831,7 +6833,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							} <span class="kw">else if </span>!connections.iter().any(|(<span class="kw">_</span>, s)| {
 								<span class="macro">matches!</span>(s, ConnectionState::Opening | ConnectionState::Open(<span class="kw">_</span>))
 							}) {
-								<span class="macro">trace!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;PSM &lt;= Dropped({}, {:?})&quot;</span>, peer_id, set_id);
+								<span class="macro">trace!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"PSM &lt;= Dropped({}, {:?})"</span>, peer_id, set_id);
 								<span class="self">self</span>.protocol_controller_handles[usize::from(set_id)]
 									.dropped(peer_id);
 
@@ -6846,13 +6848,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						PeerState::PendingRequest { .. } |
 						PeerState::Backoff { .. } =&gt; {
 							<span class="comment">// This is a serious bug either in this state machine or in libp2p.
-							</span><span class="macro">error!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>,
-								<span class="string">&quot;`inject_connection_closed` called for unknown peer {}&quot;</span>,
+							</span><span class="macro">error!</span>(target: <span class="string">"sub-libp2p"</span>,
+								<span class="string">"`inject_connection_closed` called for unknown peer {}"</span>,
 								peer_id);
 							<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
 						},
 						PeerState::Poisoned =&gt; {
-							<span class="macro">error!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;State of peer {} is poisoned&quot;</span>, peer_id);
+							<span class="macro">error!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"State of peer {} is poisoned"</span>, peer_id);
 							<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
 						},
 					}
@@ -6861,12 +6863,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			FromSwarm::DialFailure(DialFailure { peer_id, error, .. }) =&gt; {
 				<span class="kw">if let </span>DialError::Transport(errors) = error {
 					<span class="kw">for </span>(addr, error) <span class="kw">in </span>errors.iter() {
-						<span class="macro">trace!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;Libp2p =&gt; Reach failure for {:?} through {:?}: {:?}&quot;</span>, peer_id, addr, error);
+						<span class="macro">trace!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"Libp2p =&gt; Reach failure for {:?} through {:?}: {:?}"</span>, peer_id, addr, error);
 					}
 				}
 
 				<span class="kw">if let </span><span class="prelude-val">Some</span>(peer_id) = peer_id {
-					<span class="macro">trace!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;Libp2p =&gt; Dial failure for {:?}&quot;</span>, peer_id);
+					<span class="macro">trace!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"Libp2p =&gt; Dial failure for {:?}"</span>, peer_id);
 
 					<span class="kw">for </span>set_id <span class="kw">in </span>(<span class="number">0</span>..<span class="self">self</span>.notif_protocols.len()).map(SetId::from) {
 						<span class="kw">if let </span>Entry::Occupied(<span class="kw-2">mut </span>entry) = <span class="self">self</span>.peers.entry((peer_id, set_id)) {
@@ -6876,11 +6878,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 									<span class="kw-2">*</span>entry.into_mut() = st;
 								},
 
-								<span class="comment">// &quot;Basic&quot; situation: we failed to reach a peer that the peerset
+								<span class="comment">// "Basic" situation: we failed to reach a peer that the peerset
 								// requested.
 								</span>st @ PeerState::Requested |
 								st @ PeerState::PendingRequest { .. } =&gt; {
-									<span class="macro">trace!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;PSM &lt;= Dropped({}, {:?})&quot;</span>, peer_id, set_id);
+									<span class="macro">trace!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"PSM &lt;= Dropped({}, {:?})"</span>, peer_id, set_id);
 									<span class="self">self</span>.protocol_controller_handles[usize::from(set_id)]
 										.dropped(peer_id);
 
@@ -6919,7 +6921,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 								},
 
 								PeerState::Poisoned =&gt; {
-									<span class="macro">error!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;State of {:?} is poisoned&quot;</span>, peer_id);
+									<span class="macro">error!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"State of {:?} is poisoned"</span>, peer_id);
 									<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
 								},
 							}
@@ -6949,8 +6951,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			NotifsHandlerOut::OpenDesiredByRemote { protocol_index, handshake } =&gt; {
 				<span class="kw">let </span>set_id = SetId::from(protocol_index);
 
-				<span class="macro">trace!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>,
-					<span class="string">&quot;Handler({:?}, {:?}]) =&gt; OpenDesiredByRemote({:?})&quot;</span>,
+				<span class="macro">trace!</span>(target: <span class="string">"sub-libp2p"</span>,
+					<span class="string">"Handler({:?}, {:?}]) =&gt; OpenDesiredByRemote({:?})"</span>,
 					peer_id, connection_id, set_id);
 
 				<span class="kw">let </span><span class="kw-2">mut </span>entry = <span class="kw">if let </span>Entry::Occupied(entry) = <span class="self">self</span>.peers.entry((peer_id, set_id))
@@ -6958,8 +6960,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					entry
 				} <span class="kw">else </span>{
 					<span class="macro">error!</span>(
-						target: <span class="string">&quot;sub-libp2p&quot;</span>,
-						<span class="string">&quot;OpenDesiredByRemote: State mismatch in the custom protos handler&quot;
+						target: <span class="string">"sub-libp2p"</span>,
+						<span class="string">"OpenDesiredByRemote: State mismatch in the custom protos handler"
 					</span>);
 					<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
 					<span class="kw">return
@@ -6994,8 +6996,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							}
 						} <span class="kw">else </span>{
 							<span class="macro">error!</span>(
-								target: <span class="string">&quot;sub-libp2p&quot;</span>,
-								<span class="string">&quot;OpenDesiredByRemote: State mismatch in the custom protos handler&quot;
+								target: <span class="string">"sub-libp2p"</span>,
+								<span class="string">"OpenDesiredByRemote: State mismatch in the custom protos handler"
 							</span>);
 							<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
 						}
@@ -7018,7 +7020,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							connections.iter_mut().find(|(c, <span class="kw">_</span>)| <span class="kw-2">*</span>c == connection_id)
 						{
 							<span class="kw">if let </span>ConnectionState::Closed = <span class="kw-2">*</span>connec_state {
-								<span class="macro">trace!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;Handler({:?}, {:?}) &lt;= Open({:?})&quot;</span>,
+								<span class="macro">trace!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"Handler({:?}, {:?}) &lt;= Open({:?})"</span>,
 									peer_id, connection_id, set_id);
 								<span class="self">self</span>.events.push_back(ToSwarm::NotifyHandler {
 									peer_id,
@@ -7040,8 +7042,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							}
 						} <span class="kw">else </span>{
 							<span class="macro">error!</span>(
-								target: <span class="string">&quot;sub-libp2p&quot;</span>,
-								<span class="string">&quot;OpenDesiredByRemote: State mismatch in the custom protos handler&quot;
+								target: <span class="string">"sub-libp2p"</span>,
+								<span class="string">"OpenDesiredByRemote: State mismatch in the custom protos handler"
 							</span>);
 							<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
 						}
@@ -7060,7 +7062,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 								<span class="kw">let </span>incoming_id = <span class="self">self</span>.next_incoming_index;
 								<span class="self">self</span>.next_incoming_index.<span class="number">0 </span>+= <span class="number">1</span>;
 
-								<span class="macro">trace!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;PSM &lt;= Incoming({}, {:?}, {:?}).&quot;</span>,
+								<span class="macro">trace!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"PSM &lt;= Incoming({}, {:?}, {:?})."</span>,
 									peer_id, set_id, incoming_id);
 								<span class="self">self</span>.protocol_controller_handles[usize::from(set_id)]
 									.incoming_connection(peer_id, incoming_id);
@@ -7092,8 +7094,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							}
 						} <span class="kw">else </span>{
 							<span class="macro">error!</span>(
-								target: <span class="string">&quot;sub-libp2p&quot;</span>,
-								<span class="string">&quot;OpenDesiredByRemote: State mismatch in the custom protos handler&quot;
+								target: <span class="string">"sub-libp2p"</span>,
+								<span class="string">"OpenDesiredByRemote: State mismatch in the custom protos handler"
 							</span>);
 							<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
 						}
@@ -7105,7 +7107,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							connections.iter_mut().find(|(c, <span class="kw">_</span>)| <span class="kw-2">*</span>c == connection_id)
 						{
 							<span class="kw">if let </span>ConnectionState::Closed = <span class="kw-2">*</span>connec_state {
-								<span class="macro">trace!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;Handler({:?}, {:?}) &lt;= Open({:?})&quot;</span>,
+								<span class="macro">trace!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"Handler({:?}, {:?}) &lt;= Open({:?})"</span>,
 									peer_id, connection_id, set_id);
 								<span class="self">self</span>.events.push_back(ToSwarm::NotifyHandler {
 									peer_id,
@@ -7132,16 +7134,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							}
 						} <span class="kw">else </span>{
 							<span class="macro">error!</span>(
-								target: <span class="string">&quot;sub-libp2p&quot;</span>,
-								<span class="string">&quot;OpenDesiredByRemote: State mismatch in the custom protos handler&quot;
+								target: <span class="string">"sub-libp2p"</span>,
+								<span class="string">"OpenDesiredByRemote: State mismatch in the custom protos handler"
 							</span>);
 							<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
 						}
 					},
 
 					state =&gt; {
-						<span class="macro">error!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>,
-							   <span class="string">&quot;OpenDesiredByRemote: Unexpected state in the custom protos handler: {:?}&quot;</span>,
+						<span class="macro">error!</span>(target: <span class="string">"sub-libp2p"</span>,
+							   <span class="string">"OpenDesiredByRemote: Unexpected state in the custom protos handler: {:?}"</span>,
 							   state);
 						<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
 					},
@@ -7151,15 +7153,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			NotifsHandlerOut::CloseDesired { protocol_index } =&gt; {
 				<span class="kw">let </span>set_id = SetId::from(protocol_index);
 
-				<span class="macro">trace!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>,
-					<span class="string">&quot;Handler({}, {:?}) =&gt; CloseDesired({:?})&quot;</span>,
+				<span class="macro">trace!</span>(target: <span class="string">"sub-libp2p"</span>,
+					<span class="string">"Handler({}, {:?}) =&gt; CloseDesired({:?})"</span>,
 					peer_id, connection_id, set_id);
 
 				<span class="kw">let </span><span class="kw-2">mut </span>entry = <span class="kw">if let </span>Entry::Occupied(entry) = <span class="self">self</span>.peers.entry((peer_id, set_id))
 				{
 					entry
 				} <span class="kw">else </span>{
-					<span class="macro">error!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;CloseDesired: State mismatch in the custom protos handler&quot;</span>);
+					<span class="macro">error!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"CloseDesired: State mismatch in the custom protos handler"</span>);
 					<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
 					<span class="kw">return
 				</span>};
@@ -7177,8 +7179,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						{
 							pos
 						} <span class="kw">else </span>{
-							<span class="macro">error!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>,
-								<span class="string">&quot;CloseDesired: State mismatch in the custom protos handler&quot;</span>);
+							<span class="macro">error!</span>(target: <span class="string">"sub-libp2p"</span>,
+								<span class="string">"CloseDesired: State mismatch in the custom protos handler"</span>);
 							<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
 							<span class="kw">return
 						</span>};
@@ -7191,7 +7193,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="macro">debug_assert!</span>(<span class="macro">matches!</span>(connections[pos].<span class="number">1</span>, ConnectionState::Open(<span class="kw">_</span>)));
 						connections[pos].<span class="number">1 </span>= ConnectionState::Closing;
 
-						<span class="macro">trace!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;Handler({}, {:?}) &lt;= Close({:?})&quot;</span>, peer_id, connection_id, set_id);
+						<span class="macro">trace!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"Handler({}, {:?}) &lt;= Close({:?})"</span>, peer_id, connection_id, set_id);
 						<span class="self">self</span>.events.push_back(ToSwarm::NotifyHandler {
 							peer_id,
 							handler: NotifyHandler::One(connection_id),
@@ -7204,7 +7206,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 								<span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
 							}) {
 							<span class="kw">if </span>pos &lt;= replacement_pos {
-								<span class="macro">trace!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;External API &lt;= Sink replaced({:?}, {:?})&quot;</span>, peer_id, set_id);
+								<span class="macro">trace!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"External API &lt;= Sink replaced({:?}, {:?})"</span>, peer_id, set_id);
 								<span class="kw">let </span>event = NotificationsOut::CustomProtocolReplaced {
 									peer_id,
 									set_id,
@@ -7215,12 +7217,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 							<span class="kw-2">*</span>entry.into_mut() = PeerState::Enabled { connections };
 						} <span class="kw">else </span>{
-							<span class="comment">// List of open connections wasn&#39;t empty before but now it is.
+							<span class="comment">// List of open connections wasn't empty before but now it is.
 							</span><span class="kw">if </span>!connections
 								.iter()
 								.any(|(<span class="kw">_</span>, s)| <span class="macro">matches!</span>(s, ConnectionState::Opening))
 							{
-								<span class="macro">trace!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;PSM &lt;= Dropped({}, {:?})&quot;</span>, peer_id, set_id);
+								<span class="macro">trace!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"PSM &lt;= Dropped({}, {:?})"</span>, peer_id, set_id);
 								<span class="self">self</span>.protocol_controller_handles[usize::from(set_id)]
 									.dropped(peer_id);
 								<span class="kw-2">*</span>entry.into_mut() =
@@ -7229,7 +7231,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 								<span class="kw-2">*</span>entry.into_mut() = PeerState::Enabled { connections };
 							}
 
-							<span class="macro">trace!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;External API &lt;= Closed({}, {:?})&quot;</span>, peer_id, set_id);
+							<span class="macro">trace!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"External API &lt;= Closed({}, {:?})"</span>, peer_id, set_id);
 							<span class="kw">let </span>event = NotificationsOut::CustomProtocolClosed { peer_id, set_id };
 							<span class="self">self</span>.events.push_back(ToSwarm::GenerateEvent(event));
 						}
@@ -7242,8 +7244,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="kw-2">*</span>entry.into_mut() = state;
 					},
 					state =&gt; {
-						<span class="macro">error!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>,
-							<span class="string">&quot;Unexpected state in the custom protos handler: {:?}&quot;</span>,
+						<span class="macro">error!</span>(target: <span class="string">"sub-libp2p"</span>,
+							<span class="string">"Unexpected state in the custom protos handler: {:?}"</span>,
 							state);
 					},
 				}
@@ -7252,8 +7254,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			NotifsHandlerOut::CloseResult { protocol_index } =&gt; {
 				<span class="kw">let </span>set_id = SetId::from(protocol_index);
 
-				<span class="macro">trace!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>,
-					<span class="string">&quot;Handler({}, {:?}) =&gt; CloseResult({:?})&quot;</span>,
+				<span class="macro">trace!</span>(target: <span class="string">"sub-libp2p"</span>,
+					<span class="string">"Handler({}, {:?}) =&gt; CloseResult({:?})"</span>,
 					peer_id, connection_id, set_id);
 
 				<span class="kw">match </span><span class="self">self</span>.peers.get_mut(<span class="kw-2">&amp;</span>(peer_id, set_id)) {
@@ -7267,15 +7269,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						}) {
 							<span class="kw-2">*</span>connec_state = ConnectionState::Closed;
 						} <span class="kw">else </span>{
-							<span class="macro">error!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>,
-								<span class="string">&quot;CloseResult: State mismatch in the custom protos handler&quot;</span>);
+							<span class="macro">error!</span>(target: <span class="string">"sub-libp2p"</span>,
+								<span class="string">"CloseResult: State mismatch in the custom protos handler"</span>);
 							<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
 						}
 					},
 
 					state =&gt; {
-						<span class="macro">error!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>,
-							   <span class="string">&quot;CloseResult: Unexpected state in the custom protos handler: {:?}&quot;</span>,
+						<span class="macro">error!</span>(target: <span class="string">"sub-libp2p"</span>,
+							   <span class="string">"CloseResult: Unexpected state in the custom protos handler: {:?}"</span>,
 							   state);
 						<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
 					},
@@ -7291,8 +7293,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				..
 			} =&gt; {
 				<span class="kw">let </span>set_id = SetId::from(protocol_index);
-				<span class="macro">trace!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>,
-					<span class="string">&quot;Handler({}, {:?}) =&gt; OpenResultOk({:?})&quot;</span>,
+				<span class="macro">trace!</span>(target: <span class="string">"sub-libp2p"</span>,
+					<span class="string">"Handler({}, {:?}) =&gt; OpenResultOk({:?})"</span>,
 					peer_id, connection_id, set_id);
 
 				<span class="kw">match </span><span class="self">self</span>.peers.get_mut(<span class="kw-2">&amp;</span>(peer_id, set_id)) {
@@ -7308,7 +7310,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							<span class="kw-2">*</span>c == connection_id &amp;&amp; <span class="macro">matches!</span>(s, ConnectionState::Opening)
 						}) {
 							<span class="kw">if </span>!any_open {
-								<span class="macro">trace!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;External API &lt;= Open({}, {:?})&quot;</span>, peer_id, set_id);
+								<span class="macro">trace!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"External API &lt;= Open({}, {:?})"</span>, peer_id, set_id);
 								<span class="kw">let </span>event = NotificationsOut::CustomProtocolOpen {
 									peer_id,
 									set_id,
@@ -7332,8 +7334,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							}) {
 							<span class="kw-2">*</span>connec_state = ConnectionState::Closing;
 						} <span class="kw">else </span>{
-							<span class="macro">error!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>,
-								<span class="string">&quot;OpenResultOk State mismatch in the custom protos handler&quot;</span>);
+							<span class="macro">error!</span>(target: <span class="string">"sub-libp2p"</span>,
+								<span class="string">"OpenResultOk State mismatch in the custom protos handler"</span>);
 							<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
 						}
 					},
@@ -7346,15 +7348,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						}) {
 							<span class="kw-2">*</span>connec_state = ConnectionState::Closing;
 						} <span class="kw">else </span>{
-							<span class="macro">error!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>,
-								<span class="string">&quot;OpenResultOk State mismatch in the custom protos handler&quot;</span>);
+							<span class="macro">error!</span>(target: <span class="string">"sub-libp2p"</span>,
+								<span class="string">"OpenResultOk State mismatch in the custom protos handler"</span>);
 							<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
 						}
 					},
 
 					state =&gt; {
-						<span class="macro">error!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>,
-							   <span class="string">&quot;OpenResultOk: Unexpected state in the custom protos handler: {:?}&quot;</span>,
+						<span class="macro">error!</span>(target: <span class="string">"sub-libp2p"</span>,
+							   <span class="string">"OpenResultOk: Unexpected state in the custom protos handler: {:?}"</span>,
 							   state);
 						<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
 					},
@@ -7363,15 +7365,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			NotifsHandlerOut::OpenResultErr { protocol_index } =&gt; {
 				<span class="kw">let </span>set_id = SetId::from(protocol_index);
-				<span class="macro">trace!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>,
-					<span class="string">&quot;Handler({:?}, {:?}) =&gt; OpenResultErr({:?})&quot;</span>,
+				<span class="macro">trace!</span>(target: <span class="string">"sub-libp2p"</span>,
+					<span class="string">"Handler({:?}, {:?}) =&gt; OpenResultErr({:?})"</span>,
 					peer_id, connection_id, set_id);
 
 				<span class="kw">let </span><span class="kw-2">mut </span>entry = <span class="kw">if let </span>Entry::Occupied(entry) = <span class="self">self</span>.peers.entry((peer_id, set_id))
 				{
 					entry
 				} <span class="kw">else </span>{
-					<span class="macro">error!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;OpenResultErr: State mismatch in the custom protos handler&quot;</span>);
+					<span class="macro">error!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"OpenResultErr: State mismatch in the custom protos handler"</span>);
 					<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
 					<span class="kw">return
 				</span>};
@@ -7394,15 +7396,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							}) {
 							<span class="kw-2">*</span>connec_state = ConnectionState::Closing;
 						} <span class="kw">else </span>{
-							<span class="macro">error!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>,
-								<span class="string">&quot;OpenResultErr: State mismatch in the custom protos handler&quot;</span>);
+							<span class="macro">error!</span>(target: <span class="string">"sub-libp2p"</span>,
+								<span class="string">"OpenResultErr: State mismatch in the custom protos handler"</span>);
 							<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
 						}
 
 						<span class="kw">if </span>!connections.iter().any(|(<span class="kw">_</span>, s)| {
 							<span class="macro">matches!</span>(s, ConnectionState::Opening | ConnectionState::Open(<span class="kw">_</span>))
 						}) {
-							<span class="macro">trace!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;PSM &lt;= Dropped({:?}, {:?})&quot;</span>, peer_id, set_id);
+							<span class="macro">trace!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"PSM &lt;= Dropped({:?}, {:?})"</span>, peer_id, set_id);
 							<span class="self">self</span>.protocol_controller_handles[usize::from(set_id)].dropped(peer_id);
 
 							<span class="kw">let </span>ban_dur = Uniform::new(<span class="number">5</span>, <span class="number">10</span>).sample(<span class="kw-2">&amp;mut </span>rand::thread_rng());
@@ -7428,22 +7430,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 									}) {
 									<span class="kw-2">*</span>connec_state = ConnectionState::Closing;
 								} <span class="kw">else </span>{
-									<span class="macro">error!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>,
-										<span class="string">&quot;OpenResultErr: State mismatch in the custom protos handler&quot;</span>);
+									<span class="macro">error!</span>(target: <span class="string">"sub-libp2p"</span>,
+										<span class="string">"OpenResultErr: State mismatch in the custom protos handler"</span>);
 									<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
 								}
 							},
 							<span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(
-								<span class="string">&quot;Match branches are the same as the one on which we
-							enter this block; qed&quot;
+								<span class="string">"Match branches are the same as the one on which we
+							enter this block; qed"
 							</span>),
 						};
 
 						<span class="kw-2">*</span>entry.into_mut() = state;
 					},
 					state =&gt; {
-						<span class="macro">error!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>,
-							<span class="string">&quot;Unexpected state in the custom protos handler: {:?}&quot;</span>,
+						<span class="macro">error!</span>(target: <span class="string">"sub-libp2p"</span>,
+							<span class="string">"Unexpected state in the custom protos handler: {:?}"</span>,
 							state);
 						<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
 					},
@@ -7454,16 +7456,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">let </span>set_id = SetId::from(protocol_index);
 				<span class="kw">if </span><span class="self">self</span>.is_open(<span class="kw-2">&amp;</span>peer_id, set_id) {
 					<span class="macro">trace!</span>(
-						target: <span class="string">&quot;sub-libp2p&quot;</span>,
-						<span class="string">&quot;Handler({:?}) =&gt; Notification({}, {:?}, {} bytes)&quot;</span>,
+						target: <span class="string">"sub-libp2p"</span>,
+						<span class="string">"Handler({:?}) =&gt; Notification({}, {:?}, {} bytes)"</span>,
 						connection_id,
 						peer_id,
 						set_id,
 						message.len()
 					);
 					<span class="macro">trace!</span>(
-						target: <span class="string">&quot;sub-libp2p&quot;</span>,
-						<span class="string">&quot;External API &lt;= Message({}, {:?})&quot;</span>,
+						target: <span class="string">"sub-libp2p"</span>,
+						<span class="string">"External API &lt;= Message({}, {:?})"</span>,
 						peer_id,
 						set_id,
 					);
@@ -7475,8 +7477,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="self">self</span>.events.push_back(ToSwarm::GenerateEvent(event));
 				} <span class="kw">else </span>{
 					<span class="macro">trace!</span>(
-						target: <span class="string">&quot;sub-libp2p&quot;</span>,
-						<span class="string">&quot;Handler({:?}) =&gt; Post-close notification({}, {:?}, {} bytes)&quot;</span>,
+						target: <span class="string">"sub-libp2p"</span>,
+						<span class="string">"Handler({:?}) =&gt; Post-close notification({}, {:?}, {} bytes)"</span>,
 						connection_id,
 						peer_id,
 						set_id,
@@ -7513,8 +7515,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				},
 				Poll::Ready(<span class="prelude-val">None</span>) =&gt; {
 					<span class="macro">error!</span>(
-						target: <span class="string">&quot;sub-libp2p&quot;</span>,
-						<span class="string">&quot;Protocol controllers receiver stream has returned `None`. Ignore this error if the node is shutting down.&quot;</span>,
+						target: <span class="string">"sub-libp2p"</span>,
+						<span class="string">"Protocol controllers receiver stream has returned `None`. Ignore this error if the node is shutting down."</span>,
 					);
 					<span class="kw">break
 				</span>},
@@ -7531,11 +7533,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					},
 					NotificationCommand::OpenSubstream(_peer) |
 					NotificationCommand::CloseSubstream(_peer) =&gt; {
-						<span class="macro">todo!</span>(<span class="string">&quot;substream control not implemented&quot;</span>);
+						<span class="macro">todo!</span>(<span class="string">"substream control not implemented"</span>);
 					},
 				},
 				Poll::Ready(<span class="prelude-val">None</span>) =&gt; {
-					<span class="macro">error!</span>(target: LOG_TARGET, <span class="string">&quot;Protocol command streams have been shut down&quot;</span>);
+					<span class="macro">error!</span>(target: LOG_TARGET, <span class="string">"Protocol command streams have been shut down"</span>);
 					<span class="kw">break
 				</span>},
 				Poll::Pending =&gt; <span class="kw">break</span>,
@@ -7553,7 +7555,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="self">self</span>.protocol_report_reject(index);
 				},
 				<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
-					<span class="macro">error!</span>(target: LOG_TARGET, <span class="string">&quot;Protocol has shut down&quot;</span>);
+					<span class="macro">error!</span>(target: LOG_TARGET, <span class="string">"Protocol has shut down"</span>);
 					<span class="kw">break
 				</span>},
 			}
@@ -7571,12 +7573,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="kw">match </span>peer_state {
 				PeerState::Backoff { timer, .. } <span class="kw">if </span><span class="kw-2">*</span>timer == delay_id =&gt; {
-					<span class="macro">trace!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;Libp2p &lt;= Clean up ban of {:?} from the state ({:?})&quot;</span>, peer_id, set_id);
+					<span class="macro">trace!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"Libp2p &lt;= Clean up ban of {:?} from the state ({:?})"</span>, peer_id, set_id);
 					<span class="self">self</span>.peers.remove(<span class="kw-2">&amp;</span>(peer_id, set_id));
 				},
 
 				PeerState::PendingRequest { timer, .. } <span class="kw">if </span><span class="kw-2">*</span>timer == delay_id =&gt; {
-					<span class="macro">trace!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;Libp2p &lt;= Dial {:?} now that ban has expired ({:?})&quot;</span>, peer_id, set_id);
+					<span class="macro">trace!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"Libp2p &lt;= Dial {:?} now that ban has expired ({:?})"</span>, peer_id, set_id);
 					<span class="self">self</span>.events.push_back(ToSwarm::Dial { opts: peer_id.into() });
 					<span class="kw-2">*</span>peer_state = PeerState::Requested;
 				},
@@ -7588,7 +7590,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					</span><span class="kw">if let </span><span class="prelude-val">Some</span>((connec_id, connec_state)) =
 						connections.iter_mut().find(|(<span class="kw">_</span>, s)| <span class="macro">matches!</span>(s, ConnectionState::Closed))
 					{
-						<span class="macro">trace!</span>(target: <span class="string">&quot;sub-libp2p&quot;</span>, <span class="string">&quot;Handler({}, {:?}) &lt;= Open({:?}) (ban expired)&quot;</span>,
+						<span class="macro">trace!</span>(target: <span class="string">"sub-libp2p"</span>, <span class="string">"Handler({}, {:?}) &lt;= Open({:?}) (ban expired)"</span>,
 							peer_id, <span class="kw-2">*</span>connec_id, set_id);
 						<span class="self">self</span>.events.push_back(ToSwarm::NotifyHandler {
 							peer_id,
@@ -7684,9 +7686,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>development_notifs(
 	) -&gt; (Notifications, ProtocolController, Box&lt;<span class="kw">dyn </span><span class="kw">crate</span>::service::traits::NotificationService&gt;) {
 		<span class="kw">let </span>(protocol_handle_pair, notif_service) =
-			<span class="kw">crate</span>::protocol::notifications::service::notification_service(<span class="string">&quot;/proto/1&quot;</span>.into());
+			<span class="kw">crate</span>::protocol::notifications::service::notification_service(<span class="string">"/proto/1"</span>.into());
 		<span class="kw">let </span>(to_notifications, from_controller) =
-			tracing_unbounded(<span class="string">&quot;test_controller_to_notifications&quot;</span>, <span class="number">10_000</span>);
+			tracing_unbounded(<span class="string">"test_controller_to_notifications"</span>, <span class="number">10_000</span>);
 
 		<span class="kw">let </span>(handle, controller) = ProtocolController::new(
 			SetId::from(<span class="number">0</span>),
@@ -7708,7 +7710,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				NotificationMetrics::new(<span class="prelude-val">None</span>),
 				iter::once((
 					ProtocolConfig {
-						name: <span class="string">&quot;/foo&quot;</span>.into(),
+						name: <span class="string">"/foo"</span>.into(),
 						fallback_names: Vec::new(),
 						handshake: <span class="macro">vec!</span>[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>],
 						max_notification_size: u64::MAX,
@@ -7830,7 +7832,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		{
 			<span class="macro">assert_eq!</span>(connections[<span class="number">0</span>], (conn, ConnectionState::Closed));
 		} <span class="kw">else </span>{
-			<span class="macro">panic!</span>(<span class="string">&quot;invalid state&quot;</span>);
+			<span class="macro">panic!</span>(<span class="string">"invalid state"</span>);
 		}
 
 		<span class="comment">// remote opens a substream, verify that peer state is updated to `Incoming`
@@ -7849,7 +7851,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">assert_eq!</span>(connections.len(), <span class="number">1</span>);
 			<span class="macro">assert_eq!</span>(connections[<span class="number">0</span>], (conn, ConnectionState::OpenDesiredByRemote));
 		} <span class="kw">else </span>{
-			<span class="macro">panic!</span>(<span class="string">&quot;invalid state&quot;</span>);
+			<span class="macro">panic!</span>(<span class="string">"invalid state"</span>);
 		}
 
 		<span class="macro">assert!</span>(<span class="macro">std::matches!</span>(
@@ -7893,7 +7895,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">assert_eq!</span>(connections.len(), <span class="number">1</span>);
 			<span class="macro">assert_eq!</span>(connections[<span class="number">0</span>], (conn, ConnectionState::Closing));
 		} <span class="kw">else </span>{
-			<span class="macro">panic!</span>(<span class="string">&quot;invalid state&quot;</span>);
+			<span class="macro">panic!</span>(<span class="string">"invalid state"</span>);
 		}
 	}
 
@@ -7947,7 +7949,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		{
 			timer_deadline
 		} <span class="kw">else </span>{
-			<span class="macro">panic!</span>(<span class="string">&quot;invalid state&quot;</span>);
+			<span class="macro">panic!</span>(<span class="string">"invalid state"</span>);
 		};
 
 		<span class="comment">// attempt to connect the backed-off peer and verify that the request is pending
@@ -7958,7 +7960,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		{
 			<span class="macro">assert_eq!</span>(timer, timer_deadline);
 		} <span class="kw">else </span>{
-			<span class="macro">panic!</span>(<span class="string">&quot;invalid state&quot;</span>);
+			<span class="macro">panic!</span>(<span class="string">"invalid state"</span>);
 		}
 	}
 
@@ -8044,7 +8046,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">assert!</span>(backoff_until.is_some());
 			<span class="macro">assert!</span>(backoff_until.unwrap() &gt; Instant::now());
 		} <span class="kw">else </span>{
-			<span class="macro">panic!</span>(<span class="string">&quot;invalid state&quot;</span>);
+			<span class="macro">panic!</span>(<span class="string">"invalid state"</span>);
 		}
 	}
 
@@ -8240,7 +8242,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">assert_eq!</span>(connections.len(), <span class="number">1</span>);
 			<span class="macro">assert_eq!</span>(connections[<span class="number">0</span>], (conn, ConnectionState::OpenDesiredByRemote));
 		} <span class="kw">else </span>{
-			<span class="macro">panic!</span>(<span class="string">&quot;invalid state&quot;</span>);
+			<span class="macro">panic!</span>(<span class="string">"invalid state"</span>);
 		}
 
 		<span class="comment">// add another connection
@@ -8259,7 +8261,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">assert_eq!</span>(connections[<span class="number">0</span>], (conn, ConnectionState::OpenDesiredByRemote));
 			<span class="macro">assert_eq!</span>(connections[<span class="number">1</span>], (conn2, ConnectionState::Closed));
 		} <span class="kw">else </span>{
-			<span class="macro">panic!</span>(<span class="string">&quot;invalid state&quot;</span>);
+			<span class="macro">panic!</span>(<span class="string">"invalid state"</span>);
 		}
 	}
 
@@ -8413,7 +8415,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">assert_eq!</span>(connections.len(), <span class="number">1</span>);
 			<span class="macro">assert_eq!</span>(connections[<span class="number">0</span>], (conn1, ConnectionState::Closed));
 		} <span class="kw">else </span>{
-			<span class="macro">panic!</span>(<span class="string">&quot;invalid state&quot;</span>);
+			<span class="macro">panic!</span>(<span class="string">"invalid state"</span>);
 		}
 	}
 
@@ -8504,7 +8506,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">assert_eq!</span>(connections[<span class="number">0</span>], (conn1, ConnectionState::Closed));
 			<span class="macro">assert_eq!</span>(connections[<span class="number">1</span>], (conn2, ConnectionState::Closed));
 		} <span class="kw">else </span>{
-			<span class="macro">panic!</span>(<span class="string">&quot;invalid state&quot;</span>);
+			<span class="macro">panic!</span>(<span class="string">"invalid state"</span>);
 		}
 
 		<span class="comment">// open substreams on both active connections
@@ -8522,7 +8524,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">assert_eq!</span>(connections[<span class="number">0</span>], (conn1, ConnectionState::Opening));
 			<span class="macro">assert_eq!</span>(connections[<span class="number">1</span>], (conn2, ConnectionState::Opening));
 		} <span class="kw">else </span>{
-			<span class="macro">panic!</span>(<span class="string">&quot;invalid state&quot;</span>);
+			<span class="macro">panic!</span>(<span class="string">"invalid state"</span>);
 		}
 
 		<span class="comment">// add two new substreams, one for each connection and verify that both are in open state
@@ -8540,7 +8542,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">assert_eq!</span>(connections[<span class="number">1</span>].<span class="number">0</span>, conn2);
 			<span class="macro">assert!</span>(<span class="macro">std::matches!</span>(connections[<span class="number">1</span>].<span class="number">1</span>, ConnectionState::Open(<span class="kw">_</span>)));
 		} <span class="kw">else </span>{
-			<span class="macro">panic!</span>(<span class="string">&quot;invalid state&quot;</span>);
+			<span class="macro">panic!</span>(<span class="string">"invalid state"</span>);
 		}
 
 		<span class="comment">// check peer information
@@ -8562,7 +8564,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">assert_eq!</span>(connections[<span class="number">0</span>].<span class="number">0</span>, conn2);
 			<span class="macro">assert!</span>(<span class="macro">std::matches!</span>(connections[<span class="number">0</span>].<span class="number">1</span>, ConnectionState::Open(<span class="kw">_</span>)));
 		} <span class="kw">else </span>{
-			<span class="macro">panic!</span>(<span class="string">&quot;invalid state&quot;</span>);
+			<span class="macro">panic!</span>(<span class="string">"invalid state"</span>);
 		}
 
 		<span class="macro">assert!</span>(<span class="macro">std::matches!</span>(
@@ -8590,7 +8592,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(PeerState::Backoff { timer_deadline, .. }) = notif.peers.get(<span class="kw-2">&amp;</span>(peer, set_id)) {
 			<span class="macro">assert!</span>(timer_deadline &gt; <span class="kw-2">&amp;</span>Instant::now());
 		} <span class="kw">else </span>{
-			<span class="macro">panic!</span>(<span class="string">&quot;invalid state&quot;</span>);
+			<span class="macro">panic!</span>(<span class="string">"invalid state"</span>);
 		}
 	}
 
@@ -8630,7 +8632,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">assert_eq!</span>(connections[<span class="number">0</span>].<span class="number">0</span>, conn);
 			<span class="macro">assert!</span>(<span class="macro">std::matches!</span>(connections[<span class="number">0</span>].<span class="number">1</span>, ConnectionState::Open(<span class="kw">_</span>)));
 		} <span class="kw">else </span>{
-			<span class="macro">panic!</span>(<span class="string">&quot;invalid state&quot;</span>);
+			<span class="macro">panic!</span>(<span class="string">"invalid state"</span>);
 		}
 
 		notif
@@ -8875,7 +8877,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw-2">*</span>backoff_until =
 				<span class="prelude-val">Some</span>(Instant::now().checked_add(std::time::Duration::from_secs(<span class="number">5</span>)).unwrap());
 		} <span class="kw">else </span>{
-			<span class="macro">panic!</span>(<span class="string">&quot;invalid state&quot;</span>);
+			<span class="macro">panic!</span>(<span class="string">"invalid state"</span>);
 		}
 
 		notif.on_swarm_event(FromSwarm::ConnectionClosed(
@@ -8919,7 +8921,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">assert_eq!</span>(connections[<span class="number">0</span>], (conn1, ConnectionState::Closed));
 			<span class="macro">assert_eq!</span>(connections[<span class="number">1</span>], (conn2, ConnectionState::Closed));
 		} <span class="kw">else </span>{
-			<span class="macro">panic!</span>(<span class="string">&quot;invalid state&quot;</span>);
+			<span class="macro">panic!</span>(<span class="string">"invalid state"</span>);
 		}
 
 		<span class="comment">// remote opens a substream, verify that peer state is updated to `Incoming`
@@ -8980,7 +8982,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">assert_eq!</span>(connections[<span class="number">0</span>], (conn1, ConnectionState::Closed));
 			<span class="macro">assert_eq!</span>(connections[<span class="number">1</span>], (conn2, ConnectionState::Closed));
 		} <span class="kw">else </span>{
-			<span class="macro">panic!</span>(<span class="string">&quot;invalid state&quot;</span>);
+			<span class="macro">panic!</span>(<span class="string">"invalid state"</span>);
 		}
 
 		<span class="comment">// remote opens a substream, verify that peer state is updated to `Incoming`
@@ -9039,7 +9041,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">assert_eq!</span>(connections[<span class="number">0</span>], (conn1, ConnectionState::Closed));
 			<span class="macro">assert_eq!</span>(connections[<span class="number">1</span>], (conn2, ConnectionState::Closed));
 		} <span class="kw">else </span>{
-			<span class="macro">panic!</span>(<span class="string">&quot;invalid state&quot;</span>);
+			<span class="macro">panic!</span>(<span class="string">"invalid state"</span>);
 		}
 
 		<span class="comment">// open substreams on both active connections
@@ -9049,7 +9051,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">assert_eq!</span>(connections[<span class="number">0</span>], (conn1, ConnectionState::Opening));
 			<span class="macro">assert_eq!</span>(connections[<span class="number">1</span>], (conn2, ConnectionState::Closed));
 		} <span class="kw">else </span>{
-			<span class="macro">panic!</span>(<span class="string">&quot;invalid state&quot;</span>);
+			<span class="macro">panic!</span>(<span class="string">"invalid state"</span>);
 		}
 
 		notif.on_connection_handler_event(
@@ -9063,7 +9065,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">assert_eq!</span>(connections[<span class="number">0</span>].<span class="number">0</span>, conn1);
 			<span class="macro">assert_eq!</span>(connections[<span class="number">1</span>], (conn2, ConnectionState::Closed));
 		} <span class="kw">else </span>{
-			<span class="macro">panic!</span>(<span class="string">&quot;invalid state&quot;</span>);
+			<span class="macro">panic!</span>(<span class="string">"invalid state"</span>);
 		}
 
 		notif.on_swarm_event(FromSwarm::ConnectionClosed(
@@ -9227,7 +9229,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw-2">*</span>backoff_until =
 				<span class="prelude-val">Some</span>(Instant::now().checked_add(std::time::Duration::from_millis(<span class="number">100</span>)).unwrap());
 		} <span class="kw">else </span>{
-			<span class="macro">panic!</span>(<span class="string">&quot;invalid state&quot;</span>);
+			<span class="macro">panic!</span>(<span class="string">"invalid state"</span>);
 		}
 
 		notif.on_swarm_event(FromSwarm::ConnectionClosed(
@@ -9245,7 +9247,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		{
 			timer_deadline
 		} <span class="kw">else </span>{
-			<span class="macro">panic!</span>(<span class="string">&quot;invalid state&quot;</span>);
+			<span class="macro">panic!</span>(<span class="string">"invalid state"</span>);
 		};
 
 		<span class="kw">if </span>until &gt; Instant::now() {
@@ -9272,7 +9274,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		.<span class="kw">await
 		</span>.is_err()
 		{
-			<span class="macro">panic!</span>(<span class="string">&quot;backoff peer was not removed in time&quot;</span>);
+			<span class="macro">panic!</span>(<span class="string">"backoff peer was not removed in time"</span>);
 		}
 
 		<span class="macro">assert!</span>(notif.peers.get(<span class="kw-2">&amp;</span>(peer, set_id)).is_none());
@@ -9330,7 +9332,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">assert!</span>(<span class="macro">std::matches!</span>(connections[<span class="number">0</span>], (<span class="kw">_</span>, ConnectionState::Open(<span class="kw">_</span>))));
 			<span class="macro">assert_eq!</span>(connections[<span class="number">0</span>].<span class="number">0</span>, conn);
 		} <span class="kw">else </span>{
-			<span class="macro">panic!</span>(<span class="string">&quot;invalid state&quot;</span>);
+			<span class="macro">panic!</span>(<span class="string">"invalid state"</span>);
 		}
 
 		notif.peerset_report_disconnect(peer, set_id);
@@ -9344,7 +9346,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw-2">*</span>backoff_until =
 				<span class="prelude-val">Some</span>(Instant::now().checked_add(std::time::Duration::from_secs(<span class="number">2</span>)).unwrap());
 		} <span class="kw">else </span>{
-			<span class="macro">panic!</span>(<span class="string">&quot;invalid state&quot;</span>);
+			<span class="macro">panic!</span>(<span class="string">"invalid state"</span>);
 		}
 
 		notif.peerset_report_connect(peer, set_id);
@@ -9359,7 +9361,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 				<span class="kw-2">*</span>timer_deadline
 			} <span class="kw">else </span>{
-				<span class="macro">panic!</span>(<span class="string">&quot;invalid state&quot;</span>);
+				<span class="macro">panic!</span>(<span class="string">"invalid state"</span>);
 			};
 
 		<span class="comment">// one of the peers has an active backoff timer so poll the notifications code until
@@ -9386,14 +9388,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						<span class="kw">break
 					</span>}
 				} <span class="kw">else </span>{
-					<span class="macro">panic!</span>(<span class="string">&quot;invalid state&quot;</span>);
+					<span class="macro">panic!</span>(<span class="string">"invalid state"</span>);
 				}
 			}
 		})
 		.<span class="kw">await
 		</span>.is_err()
 		{
-			<span class="macro">panic!</span>(<span class="string">&quot;backoff peer was not removed in time&quot;</span>);
+			<span class="macro">panic!</span>(<span class="string">"backoff peer was not removed in time"</span>);
 		}
 	}
 
@@ -9445,7 +9447,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">assert!</span>(<span class="macro">std::matches!</span>(connections[<span class="number">0</span>], (<span class="kw">_</span>, ConnectionState::Open(<span class="kw">_</span>))));
 			<span class="macro">assert_eq!</span>(connections[<span class="number">0</span>].<span class="number">0</span>, conn);
 		} <span class="kw">else </span>{
-			<span class="macro">panic!</span>(<span class="string">&quot;invalid state&quot;</span>);
+			<span class="macro">panic!</span>(<span class="string">"invalid state"</span>);
 		}
 
 		notif.peerset_report_connect(peer, set_id);
@@ -9489,7 +9491,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>PeerState::DisabledPendingEnable { .. })
 		));
 
-		<span class="comment">// duplicate &quot;connect&quot; must not change the state
+		<span class="comment">// duplicate "connect" must not change the state
 		</span>notif.peerset_report_connect(peer, set_id);
 		<span class="macro">assert!</span>(<span class="macro">std::matches!</span>(
 			notif.peers.get(<span class="kw-2">&amp;</span>(peer, set_id)),
@@ -9508,7 +9510,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>notif.peerset_report_connect(peer, set_id);
 		<span class="macro">assert!</span>(<span class="macro">std::matches!</span>(notif.peers.get(<span class="kw-2">&amp;</span>(peer, set_id)), <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>PeerState::Requested)));
 
-		<span class="comment">// Duplicate &quot;connect&quot; must not change the state.
+		<span class="comment">// Duplicate "connect" must not change the state.
 		</span>notif.peerset_report_connect(peer, set_id);
 		<span class="macro">assert!</span>(<span class="macro">std::matches!</span>(notif.peers.get(<span class="kw-2">&amp;</span>(peer, set_id)), <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>PeerState::Requested)));
 	}
@@ -9562,7 +9564,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>PeerState::PendingRequest { .. })
 		));
 
-		<span class="comment">// duplicate &quot;connect&quot; must not change the state
+		<span class="comment">// duplicate "connect" must not change the state
 		</span>notif.peerset_report_connect(peer, set_id);
 		<span class="macro">assert!</span>(<span class="macro">std::matches!</span>(
 			notif.peers.get(<span class="kw-2">&amp;</span>(peer, set_id)),
@@ -9680,8 +9682,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		);
 		<span class="macro">assert!</span>(<span class="macro">std::matches!</span>(notif.peers.get(<span class="kw-2">&amp;</span>(peer, set_id)), <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>PeerState::Incoming { .. })));
 
-		<span class="comment">// `Peerset` wants to disconnect the peer but since it&#39;s still under validation,
-		// it won&#39;t be disabled automatically
+		<span class="comment">// `Peerset` wants to disconnect the peer but since it's still under validation,
+		// it won't be disabled automatically
 		</span>notif.peerset_report_disconnect(peer, set_id);
 
 		<span class="kw">let </span>incoming_index = <span class="kw">match </span>notif.peers.get(<span class="kw-2">&amp;</span>(peer, set_id)) {
@@ -9689,7 +9691,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="macro">assert!</span>(peerset_rejected);
 				incoming_index
 			},
-			state =&gt; <span class="macro">panic!</span>(<span class="string">&quot;invalid state: {state:?}&quot;</span>),
+			state =&gt; <span class="macro">panic!</span>(<span class="string">"invalid state: {state:?}"</span>),
 		};
 
 		<span class="comment">// protocol accepted peer but since `Peerset` wanted to disconnect it, the peer will be
@@ -9698,7 +9700,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">match </span>notif.peers.get(<span class="kw-2">&amp;</span>(peer, set_id)) {
 			<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>PeerState::Disabled { .. }) =&gt; {},
-			state =&gt; <span class="macro">panic!</span>(<span class="string">&quot;invalid state: {state:?}&quot;</span>),
+			state =&gt; <span class="macro">panic!</span>(<span class="string">"invalid state: {state:?}"</span>),
 		};
 	}
 
@@ -9745,7 +9747,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">match </span>notif.peers.get(<span class="kw-2">&amp;</span>(peer, set_id)) {
 			<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>PeerState::Disabled { .. }) =&gt; {},
-			state =&gt; <span class="macro">panic!</span>(<span class="string">&quot;invalid state: {state:?}&quot;</span>),
+			state =&gt; <span class="macro">panic!</span>(<span class="string">"invalid state: {state:?}"</span>),
 		};
 
 		<span class="macro">assert!</span>(!notif.incoming.iter().any(|entry| entry.incoming_id == IncomingIndex(<span class="number">0</span>)));
@@ -9800,7 +9802,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">match </span>notif.peers.get(<span class="kw-2">&amp;</span>(peer, set_id)) {
 			<span class="prelude-val">None </span>=&gt; {},
-			state =&gt; <span class="macro">panic!</span>(<span class="string">&quot;invalid state: {state:?}&quot;</span>),
+			state =&gt; <span class="macro">panic!</span>(<span class="string">"invalid state: {state:?}"</span>),
 		};
 	}
 
@@ -9847,7 +9849,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">match </span>notif.peers.get(<span class="kw-2">&amp;</span>(peer, set_id)) {
 			<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>PeerState::Disabled { .. }) =&gt; {},
-			state =&gt; <span class="macro">panic!</span>(<span class="string">&quot;invalid state: {state:?}&quot;</span>),
+			state =&gt; <span class="macro">panic!</span>(<span class="string">"invalid state: {state:?}"</span>),
 		};
 
 		<span class="macro">assert!</span>(!notif.incoming.iter().any(|entry| entry.incoming_id == IncomingIndex(<span class="number">0</span>)));
@@ -9902,7 +9904,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">match </span>notif.peers.get(<span class="kw-2">&amp;</span>(peer, set_id)) {
 			<span class="prelude-val">None </span>=&gt; {},
-			state =&gt; <span class="macro">panic!</span>(<span class="string">&quot;invalid state: {state:?}&quot;</span>),
+			state =&gt; <span class="macro">panic!</span>(<span class="string">"invalid state: {state:?}"</span>),
 		};
 	}
 

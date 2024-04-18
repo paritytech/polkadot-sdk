@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/alliance/src/migration.rs`."><title>migration.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/frame/alliance/src/migration.rs`."><title>migration.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_alliance" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pallet_alliance" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../pallet_alliance/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -331,14 +333,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -351,7 +353,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub const </span>STORAGE_VERSION: StorageVersion = StorageVersion::new(<span class="number">2</span>);
 
 <span class="doccomment">/// Wrapper for all migrations of this pallet.
-</span><span class="kw">pub fn </span>migrate&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt;() -&gt; Weight {
+</span><span class="kw">pub fn </span>migrate&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt;() -&gt; Weight {
 	<span class="kw">let </span>on_chain_version = Pallet::&lt;T, I&gt;::on_chain_storage_version();
 	<span class="kw">let </span><span class="kw-2">mut </span>weight: Weight = Weight::zero();
 
@@ -372,7 +374,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Implements `OnRuntimeUpgrade` trait.
 </span><span class="kw">pub struct </span>Migration&lt;T, I = ()&gt;(PhantomData&lt;(T, I)&gt;);
 
-<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt; OnRuntimeUpgrade <span class="kw">for </span>Migration&lt;T, I&gt; {
+<span class="kw">impl</span>&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt; OnRuntimeUpgrade <span class="kw">for </span>Migration&lt;T, I&gt; {
 	<span class="kw">fn </span>on_runtime_upgrade() -&gt; Weight {
 		migrate::&lt;T, I&gt;()
 	}
@@ -382,27 +384,27 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">mod </span>v0_to_v1 {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 
-	<span class="kw">pub fn </span>migrate&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt;() -&gt; Weight {
-		<span class="macro">log::info!</span>(target: LOG_TARGET, <span class="string">&quot;Running migration v0_to_v1.&quot;</span>);
+	<span class="kw">pub fn </span>migrate&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt;() -&gt; Weight {
+		<span class="macro">log::info!</span>(target: LOG_TARGET, <span class="string">"Running migration v0_to_v1."</span>);
 
 		<span class="kw">let </span>res = migration::clear_storage_prefix(
 			&lt;Pallet&lt;T, I&gt;&gt;::name().as_bytes(),
-			<span class="string">b&quot;UpForKicking&quot;</span>,
-			<span class="string">b&quot;&quot;</span>,
+			<span class="string">b"UpForKicking"</span>,
+			<span class="string">b""</span>,
 			<span class="prelude-val">None</span>,
 			<span class="prelude-val">None</span>,
 		);
 
 		<span class="macro">log::info!</span>(
 			target: LOG_TARGET,
-			<span class="string">&quot;Cleared &#39;{}&#39; entries from &#39;UpForKicking&#39; storage prefix&quot;</span>,
+			<span class="string">"Cleared '{}' entries from 'UpForKicking' storage prefix"</span>,
 			res.unique
 		);
 
 		<span class="kw">if </span>res.maybe_cursor.is_some() {
 			<span class="macro">log::error!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;Storage prefix &#39;UpForKicking&#39; is not completely cleared.&quot;
+				<span class="string">"Storage prefix 'UpForKicking' is not completely cleared."
 			</span>);
 		}
 
@@ -425,8 +427,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		Retiring,
 	}
 
-	<span class="kw">pub fn </span>migrate&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt;() -&gt; Weight {
-		<span class="macro">log::info!</span>(target: LOG_TARGET, <span class="string">&quot;Running migration v1_to_v2: `Members` storage map collapses `Founder` and `Fellow` keys into one `Fellow`.&quot;</span>);
+	<span class="kw">pub fn </span>migrate&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt;() -&gt; Weight {
+		<span class="macro">log::info!</span>(target: LOG_TARGET, <span class="string">"Running migration v1_to_v2: `Members` storage map collapses `Founder` and `Fellow` keys into one `Fellow`."</span>);
 		<span class="comment">// fetch into the scope all members.
 		</span><span class="kw">let </span>founders_vec = take_members::&lt;T, I&gt;(MemberRoleV1::Founder).into_inner();
 		<span class="kw">let </span><span class="kw-2">mut </span>fellows_vec = take_members::&lt;T, I&gt;(MemberRoleV1::Fellow).into_inner();
@@ -443,7 +445,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 		<span class="macro">log::info!</span>(
 			target: LOG_TARGET,
-			<span class="string">&quot;Members storage v1 contains, &#39;{}&#39; founders, &#39;{}&#39; fellows, &#39;{}&#39; allies, &#39;{}&#39; retiring members.&quot;</span>,
+			<span class="string">"Members storage v1 contains, '{}' founders, '{}' fellows, '{}' allies, '{}' retiring members."</span>,
 			founders_vec.len(),
 			fellows_vec.len(),
 			allies.len(),
@@ -455,7 +457,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if </span>fellows_vec.len() <span class="kw">as </span>u32 &gt; T::MaxMembersCount::get() {
 			<span class="macro">log::error!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;Merged list of founders and fellows do not fit into `T::MaxMembersCount` bound. Truncating the merged set into max members count.&quot;
+				<span class="string">"Merged list of founders and fellows do not fit into `T::MaxMembersCount` bound. Truncating the merged set into max members count."
 			</span>);
 			fellows_vec.truncate(T::MaxMembersCount::get() <span class="kw">as </span>usize);
 		}
@@ -467,7 +469,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		Members::&lt;T, I&gt;::insert(<span class="kw-2">&amp;</span>MemberRole::Retiring, retiring.clone());
 		<span class="macro">log::info!</span>(
 			target: LOG_TARGET,
-			<span class="string">&quot;Members storage updated with, &#39;{}&#39; fellows, &#39;{}&#39; allies, &#39;{}&#39; retiring members.&quot;</span>,
+			<span class="string">"Members storage updated with, '{}' fellows, '{}' allies, '{}' retiring members."</span>,
 			fellows.len(),
 			allies.len(),
 			retiring.len(),
@@ -475,14 +477,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		T::DbWeight::get().reads_writes(<span class="number">4</span>, <span class="number">4</span>)
 	}
 
-	<span class="kw">fn </span>take_members&lt;T: Config&lt;I&gt;, I: <span class="lifetime">&#39;static</span>&gt;(
+	<span class="kw">fn </span>take_members&lt;T: Config&lt;I&gt;, I: <span class="lifetime">'static</span>&gt;(
 		role: MemberRoleV1,
 	) -&gt; BoundedVec&lt;T::AccountId, T::MaxMembersCount&gt; {
 		migration::take_storage_item::&lt;
 			MemberRoleV1,
 			BoundedVec&lt;T::AccountId, T::MaxMembersCount&gt;,
 			Twox64Concat,
-		&gt;(&lt;Pallet&lt;T, I&gt;&gt;::name().as_bytes(), <span class="string">b&quot;Members&quot;</span>, role)
+		&gt;(&lt;Pallet&lt;T, I&gt;&gt;::name().as_bytes(), <span class="string">b"Members"</span>, role)
 		.unwrap_or_default()
 	}
 }

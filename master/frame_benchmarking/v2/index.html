@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Contains macros, structs, and traits associated with v2 of the pallet benchmarking syntax."><title>frame_benchmarking::v2 - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Contains macros, structs, and traits associated with v2 of the pallet benchmarking syntax."><title>frame_benchmarking::v2 - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="frame_benchmarking" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="frame_benchmarking" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../frame_benchmarking/index.html">frame_benchmarking</a><span class="version">28.0.0</span></h2></div><h2 class="location"><a href="#">Module v2</a></h2><div class="sidebar-elems"><section><ul class="block"><li><a href="#structs">Structs</a></li><li><a href="#traits">Traits</a></li><li><a href="#attributes">Attribute Macros</a></li></ul></section><h2><a href="../index.html">In crate frame_benchmarking</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../index.html">frame_benchmarking</a>::<wbr><a class="mod" href="#">v2</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../../src/frame_benchmarking/lib.rs.html#312">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Contains macros, structs, and traits associated with v2 of the pallet benchmarking syntax.</p>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../frame_benchmarking/index.html">frame_benchmarking</a><span class="version">28.0.0</span></h2></div><h2 class="location"><a href="#">Module v2</a></h2><div class="sidebar-elems"><section><ul class="block"><li><a href="#structs">Structs</a></li><li><a href="#traits">Traits</a></li><li><a href="#attributes">Attribute Macros</a></li></ul></section><h2><a href="../index.html">In crate frame_benchmarking</a></h2></div></nav><div class="sidebar-resizer"></div>
+    <main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../frame_benchmarking/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../index.html">frame_benchmarking</a>::<wbr><a class="mod" href="#">v2</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../../src/frame_benchmarking/lib.rs.html#312">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Contains macros, structs, and traits associated with v2 of the pallet benchmarking syntax.</p>
 <p>The <a href="attr.benchmarks.html" title="attr frame_benchmarking::v2::benchmarks"><code>v2::benchmarks</code></a> and <a href="attr.instance_benchmarks.html" title="attr frame_benchmarking::v2::instance_benchmarks"><code>v2::instance_benchmarks</code></a> macros can be used to designate a
 module as a benchmarking module that can contain benchmarks and benchmark tests. The
 <code>#[benchmarks]</code> variant will set up a regular, non-instance benchmarking module, and the
@@ -156,8 +157,8 @@ module as a benchmarking module that can contain benchmarks and benchmark tests.
 feature gate to ensure benchmarking code that is only compiled when the
 <code>runtime-benchmarks</code> feature is enabled is not referenced.</p>
 <p>The following is the general syntax for a benchmarks (or instance benchmarks) module:</p>
-<h3 id="general-syntax"><a href="#general-syntax">General Syntax</a></h3>
-<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#![cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+<h3 id="general-syntax"><a class="doc-anchor" href="#general-syntax">§</a>General Syntax</h3>
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#![cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 
 </span><span class="kw">use super</span>::{mock_helpers::<span class="kw-2">*</span>, Pallet <span class="kw">as </span>MyPallet};
 <span class="kw">use </span>frame_benchmarking::v2::<span class="kw-2">*</span>;
@@ -195,7 +196,7 @@ feature gate to ensure benchmarking code that is only compiled when the
 		</span><span class="macro">assert_eq!</span>(MyPallet::&lt;T&gt;::something(), <span class="number">37</span>);
 	}
 }</code></pre></div>
-<h3 id="benchmark-definitions"><a href="#benchmark-definitions">Benchmark Definitions</a></h3>
+<h3 id="benchmark-definitions"><a class="doc-anchor" href="#benchmark-definitions">§</a>Benchmark Definitions</h3>
 <p>Within a <code>#[benchmarks]</code> or <code>#[instance_benchmarks]</code> module, you can define individual
 benchmarks using the <code>#[benchmark]</code> attribute, as shown in the example above.</p>
 <p>The <code>#[benchmark]</code> attribute expects a function definition with a blank return type (or a
@@ -214,7 +215,7 @@ you have defined for the module. You should not manually add any generics to the
 signature of your benchmark function.</p>
 <p>Also note that the <code>// setup code</code> and <code>// verification code</code> comments shown above are not
 required and are included simply for demonstration purposes.</p>
-<h4 id="extrinsic_call-and-block"><a href="#extrinsic_call-and-block"><code>#[extrinsic_call]</code> and <code>#[block]</code></a></h4>
+<h4 id="extrinsic_call-and-block"><a class="doc-anchor" href="#extrinsic_call-and-block">§</a><code>#[extrinsic_call]</code> and <code>#[block]</code></h4>
 <p>Within the benchmark function body, either an <code>#[extrinsic_call]</code> or a <code>#[block]</code>
 annotation is required. These attributes should be attached to a block (shown in
 <code>bench_name_2</code> above) or a one-line function call (shown in <code>bench_name_1</code> above, in <code>syn</code>
@@ -251,20 +252,20 @@ definition. This is why we are able to use <code>#[extrinsic_call]</code> and <c
 function definition even though this behavior has not been stabilized
 yet—<code>#[extrinsic_call]</code> and <code>#[block]</code> are parsed and consumed as part of the benchmark
 definition parsing code, so they never expand as their own attribute macros.</p>
-<h4 id="optional-attributes"><a href="#optional-attributes">Optional Attributes</a></h4>
+<h4 id="optional-attributes"><a class="doc-anchor" href="#optional-attributes">§</a>Optional Attributes</h4>
 <p>The keywords <code>extra</code> and <code>skip_meta</code> can be provided as optional arguments to the
 <code>#[benchmark]</code> attribute, i.e. <code>#[benchmark(extra, skip_meta)]</code>. Including either of these
 will enable the <code>extra</code> or <code>skip_meta</code> option, respectively. These options enable the same
 behavior they did in the old benchmarking syntax in <code>frame_benchmarking</code>, namely:</p>
-<h5 id="extra"><a href="#extra"><code>extra</code></a></h5>
+<h5 id="extra"><a class="doc-anchor" href="#extra">§</a><code>extra</code></h5>
 <p>Specifies that this benchmark should not normally run. To run benchmarks marked with
 <code>extra</code>, you will need to invoke the <code>frame-benchmarking-cli</code> with <code>--extra</code>.</p>
-<h5 id="skip_meta"><a href="#skip_meta"><code>skip_meta</code></a></h5>
+<h5 id="skip_meta"><a class="doc-anchor" href="#skip_meta">§</a><code>skip_meta</code></h5>
 <p>Specifies that the benchmarking framework should not analyze the storage keys that the
 benchmarked code read or wrote. This useful to suppress the prints in the form of unknown
 0x… in case a storage key that does not have metadata. Note that this skips the analysis of
 all accesses, not just ones without metadata.</p>
-<h3 id="where-clause"><a href="#where-clause">Where Clause</a></h3>
+<h3 id="where-clause"><a class="doc-anchor" href="#where-clause">§</a>Where Clause</h3>
 <p>Some pallets require a where clause specifying constraints on their generics to make
 writing benchmarks feasible. To accommodate this situation, you can provide such a where
 clause as the (only) argument to the <code>#[benchmarks]</code> or <code>#[instance_benchmarks]</code> attribute
@@ -279,7 +280,7 @@ macros. Below is an example of this taken from the <code>message-queue</code> pa
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="comment">// ...
 </span>}</code></pre></div>
-<h3 id="benchmark-tests"><a href="#benchmark-tests">Benchmark Tests</a></h3>
+<h3 id="benchmark-tests"><a class="doc-anchor" href="#benchmark-tests">§</a>Benchmark Tests</h3>
 <p>Benchmark tests can be generated using the old syntax in <code>frame_benchmarking</code>,
 including the <code>frame_benchmarking::impl_benchmark_test_suite</code> macro.</p>
 <p>An example is shown below (taken from the <code>message-queue</code> pallet’s <code>benchmarking</code> module):</p>
@@ -294,7 +295,7 @@ including the <code>frame_benchmarking::impl_benchmark_test_suite</code> macro.<
 		<span class="kw">crate</span>::integration_test::Test
 	);
 }</code></pre></div>
-<h3 id="benchmark-function-generation"><a href="#benchmark-function-generation">Benchmark Function Generation</a></h3>
+<h3 id="benchmark-function-generation"><a class="doc-anchor" href="#benchmark-function-generation">§</a>Benchmark Function Generation</h3>
 <p>The benchmark function definition that you provide is used to automatically create a number
 of impls and structs required by the benchmarking engine. Additionally, a benchmark
 function is also generated that resembles the function definition you provide, with a few
@@ -323,13 +324,13 @@ developer confusion (especially regarding the use of the <code>?</code> operator
 definition are also carried over onto the resulting benchmark function and the struct for
 that benchmark. As a result you should be careful about what attributes you attach here as
 they will be replicated in multiple places.</p>
-<h4 id="support-for-result-benchmarkerror-and-the--operator"><a href="#support-for-result-benchmarkerror-and-the--operator">Support for <code>Result&lt;(), BenchmarkError&gt;</code> and the <code>?</code> operator</a></h4>
+<h4 id="support-for-result-benchmarkerror-and-the--operator"><a class="doc-anchor" href="#support-for-result-benchmarkerror-and-the--operator">§</a>Support for <code>Result&lt;(), BenchmarkError&gt;</code> and the <code>?</code> operator</h4>
 <p>You may optionally specify <code>Result&lt;(), BenchmarkError&gt;</code> as the return type of your
 benchmark function definition. If you do so, you must return a compatible <code>Result&lt;(), BenchmarkError&gt;</code> as the <em>last statement</em> of your benchmark function definition. You may
 also use the <code>?</code> operator throughout your benchmark function definition if you choose to
 follow this route. See the example below:</p>
 
-<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#![cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="attr">#![cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 
 </span><span class="kw">use super</span>::{mock_helpers::<span class="kw-2">*</span>, Pallet <span class="kw">as </span>MyPallet};
 <span class="kw">use </span>frame_benchmarking::v2::<span class="kw-2">*</span>;
@@ -359,12 +360,12 @@ follow this route. See the example below:</p>
 		</span><span class="prelude-val">Ok</span>(())
 	}
 }</code></pre></div>
-</div></details><h2 id="reexports" class="small-section-header"><a href="#reexports">Re-exports</a></h2><ul class="item-table"><li><div class="item-name"><code>pub use <a class="mod" href="../index.html" title="mod frame_benchmarking">super</a>::*;</code></div></li></ul><h2 id="structs" class="small-section-header"><a href="#structs">Structs</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.Linear.html" title="struct frame_benchmarking::v2::Linear">Linear</a></div><div class="desc docblock-short">Used by the new benchmarking code to specify that a benchmarking variable is linear
+</div></details><h2 id="reexports" class="section-header">Re-exports<a href="#reexports" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><code>pub use <a class="mod" href="../index.html" title="mod frame_benchmarking">super</a>::*;</code></div></li></ul><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.Linear.html" title="struct frame_benchmarking::v2::Linear">Linear</a></div><div class="desc docblock-short">Used by the new benchmarking code to specify that a benchmarking variable is linear
 over some specified range, i.e. <code>Linear&lt;0, 1_000&gt;</code> means that the corresponding variable
-is allowed to range from <code>0</code> to <code>1000</code>, inclusive.</div></li></ul><h2 id="traits" class="small-section-header"><a href="#traits">Traits</a></h2><ul class="item-table"><li><div class="item-name"><a class="trait" href="trait.ParamRange.html" title="trait frame_benchmarking::v2::ParamRange">ParamRange</a></div><div class="desc docblock-short">Trait that must be implemented by all structs that can be used as parameter range types
+is allowed to range from <code>0</code> to <code>1000</code>, inclusive.</div></li></ul><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="trait" href="trait.ParamRange.html" title="trait frame_benchmarking::v2::ParamRange">ParamRange</a></div><div class="desc docblock-short">Trait that must be implemented by all structs that can be used as parameter range types
 in the new benchmarking code (i.e. <code>Linear&lt;0, 1_000&gt;</code>). Right now there is just
 <a href="struct.Linear.html" title="struct frame_benchmarking::v2::Linear"><code>Linear</code></a> but this could later be extended to support additional non-linear parameter
-ranges.</div></li></ul><h2 id="attributes" class="small-section-header"><a href="#attributes">Attribute Macros</a></h2><ul class="item-table"><li><div class="item-name"><a class="attr" href="attr.benchmark.html" title="attr frame_benchmarking::v2::benchmark">benchmark</a></div><div class="desc docblock-short">An attribute macro used to declare a benchmark within a benchmarking module. Must be
+ranges.</div></li></ul><h2 id="attributes" class="section-header">Attribute Macros<a href="#attributes" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="attr" href="attr.benchmark.html" title="attr frame_benchmarking::v2::benchmark">benchmark</a></div><div class="desc docblock-short">An attribute macro used to declare a benchmark within a benchmarking module. Must be
 attached to a function definition containing an <code>#[extrinsic_call]</code> or <code>#[block]</code>
 attribute.</div></li><li><div class="item-name"><a class="attr" href="attr.benchmarks.html" title="attr frame_benchmarking::v2::benchmarks">benchmarks</a></div><div class="desc docblock-short">An attribute macro that can be attached to a (non-empty) module declaration. Doing so will
 designate that module as a benchmarking module.</div></li><li><div class="item-name"><a class="attr" href="attr.block.html" title="attr frame_benchmarking::v2::block">block</a></div><div class="desc docblock-short">An attribute macro used to specify that a block should be the measured portion of the

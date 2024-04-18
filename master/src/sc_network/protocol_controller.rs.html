@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/network/src/protocol_controller.rs`."><title>protocol_controller.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/network/src/protocol_controller.rs`."><title>protocol_controller.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_network" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_network" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sc_network/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -2224,19 +2226,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!
 //! 1. Network peer events from `Notifications` are prioritized over actions from external API and
 //!    internal actions by `ProtocolController` (like slot allocation).
-//! 2. `Notifications` ignores all commands from `ProtocolController` after sending &quot;incoming&quot;
-//!    request until receiving the answer to this &quot;incoming&quot; request.
-//! 3. After sending a &quot;connect&quot; message, `ProtocolController` switches the state of the peer from
-//!    `Outbound` to `Inbound` if it receives an &quot;incoming&quot; request from `Notifications` for this
+//! 2. `Notifications` ignores all commands from `ProtocolController` after sending "incoming"
+//!    request until receiving the answer to this "incoming" request.
+//! 3. After sending a "connect" message, `ProtocolController` switches the state of the peer from
+//!    `Outbound` to `Inbound` if it receives an "incoming" request from `Notifications` for this
 //!    peer.
 //!
 //! These measures do not eliminate confusing commands from `ProtocolController` completely,
-//! so `Notifications` must correctly handle seemingly inconsistent commands, like a &quot;connect&quot;
-//! command for the peer it thinks is already connected, and a &quot;drop&quot; command for a peer that
+//! so `Notifications` must correctly handle seemingly inconsistent commands, like a "connect"
+//! command for the peer it thinks is already connected, and a "drop" command for a peer that
 //! was previously dropped.
 //!
 //! Even though this does not guarantee that `ProtocolController` and `Notifications` have the same
-//! view of the peers&#39; states at any given moment, the eventual consistency is maintained.
+//! view of the peers' states at any given moment, the eventual consistency is maintained.
 
 </span><span class="kw">use crate</span>::{
 	peer_store::{PeerStoreProvider, ProtocolHandle <span class="kw">as </span>ProtocolHandleT},
@@ -2255,9 +2257,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">use </span>wasm_timer::Delay;
 
 <span class="doccomment">/// Log target for this file.
-</span><span class="kw">pub const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">&quot;peerset&quot;</span>;
+</span><span class="kw">pub const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"peerset"</span>;
 
-<span class="doccomment">/// `Notifications` protocol index. For historical reasons it&#39;s called `SetId`, because it
+<span class="doccomment">/// `Notifications` protocol index. For historical reasons it's called `SetId`, because it
 /// used to refer to a set of peers in a peerset for this protocol.
 ///
 /// Can be constructed using the `From&lt;usize&gt;` trait implementation based on the index of the
@@ -2506,8 +2508,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		to_notifications: TracingUnboundedSender&lt;Message&gt;,
 		peer_store: Arc&lt;<span class="kw">dyn </span>PeerStoreProvider&gt;,
 	) -&gt; (ProtocolHandle, ProtocolController) {
-		<span class="kw">let </span>(actions_tx, actions_rx) = tracing_unbounded(<span class="string">&quot;mpsc_api_protocol&quot;</span>, <span class="number">10_000</span>);
-		<span class="kw">let </span>(events_tx, events_rx) = tracing_unbounded(<span class="string">&quot;mpsc_notifications_protocol&quot;</span>, <span class="number">10_000</span>);
+		<span class="kw">let </span>(actions_tx, actions_rx) = tracing_unbounded(<span class="string">"mpsc_api_protocol"</span>, <span class="number">10_000</span>);
+		<span class="kw">let </span>(events_tx, events_rx) = tracing_unbounded(<span class="string">"mpsc_notifications_protocol"</span>, <span class="number">10_000</span>);
 		<span class="kw">let </span>handle = ProtocolHandle { actions_tx, events_tx };
 		peer_store.register_protocol(Arc::new(handle.clone()));
 		<span class="kw">let </span>reserved_nodes =
@@ -2590,11 +2592,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="doccomment">/// Send &quot;accept&quot; message to `Notifications`.
+	<span class="doccomment">/// Send "accept" message to `Notifications`.
 	</span><span class="kw">fn </span>accept_connection(<span class="kw-2">&amp;mut </span><span class="self">self</span>, peer_id: PeerId, incoming_index: IncomingIndex) {
 		<span class="macro">trace!</span>(
 			target: LOG_TARGET,
-			<span class="string">&quot;Accepting {peer_id} ({incoming_index:?}) on {:?} ({}/{} num_in/max_in).&quot;</span>,
+			<span class="string">"Accepting {peer_id} ({incoming_index:?}) on {:?} ({}/{} num_in/max_in)."</span>,
 			<span class="self">self</span>.set_id,
 			<span class="self">self</span>.num_in,
 			<span class="self">self</span>.max_in,
@@ -2603,11 +2605,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let _ </span>= <span class="self">self</span>.to_notifications.unbounded_send(Message::Accept(incoming_index));
 	}
 
-	<span class="doccomment">/// Send &quot;reject&quot; message to `Notifications`.
+	<span class="doccomment">/// Send "reject" message to `Notifications`.
 	</span><span class="kw">fn </span>reject_connection(<span class="kw-2">&amp;mut </span><span class="self">self</span>, peer_id: PeerId, incoming_index: IncomingIndex) {
 		<span class="macro">trace!</span>(
 			target: LOG_TARGET,
-			<span class="string">&quot;Rejecting {peer_id} ({incoming_index:?}) on {:?} ({}/{} num_in/max_in).&quot;</span>,
+			<span class="string">"Rejecting {peer_id} ({incoming_index:?}) on {:?} ({}/{} num_in/max_in)."</span>,
 			<span class="self">self</span>.set_id,
 			<span class="self">self</span>.num_in,
 			<span class="self">self</span>.max_in,
@@ -2616,11 +2618,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let _ </span>= <span class="self">self</span>.to_notifications.unbounded_send(Message::Reject(incoming_index));
 	}
 
-	<span class="doccomment">/// Send &quot;connect&quot; message to `Notifications`.
+	<span class="doccomment">/// Send "connect" message to `Notifications`.
 	</span><span class="kw">fn </span>start_connection(<span class="kw-2">&amp;mut </span><span class="self">self</span>, peer_id: PeerId) {
 		<span class="macro">trace!</span>(
 			target: LOG_TARGET,
-			<span class="string">&quot;Connecting to {peer_id} on {:?} ({}/{} num_out/max_out).&quot;</span>,
+			<span class="string">"Connecting to {peer_id} on {:?} ({}/{} num_out/max_out)."</span>,
 			<span class="self">self</span>.set_id,
 			<span class="self">self</span>.num_out,
 			<span class="self">self</span>.max_out,
@@ -2631,11 +2633,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.unbounded_send(Message::Connect { set_id: <span class="self">self</span>.set_id, peer_id });
 	}
 
-	<span class="doccomment">/// Send &quot;drop&quot; message to `Notifications`.
+	<span class="doccomment">/// Send "drop" message to `Notifications`.
 	</span><span class="kw">fn </span>drop_connection(<span class="kw-2">&amp;mut </span><span class="self">self</span>, peer_id: PeerId) {
 		<span class="macro">trace!</span>(
 			target: LOG_TARGET,
-			<span class="string">&quot;Dropping {peer_id} on {:?} ({}/{} num_in/max_in, {}/{} num_out/max_out).&quot;</span>,
+			<span class="string">"Dropping {peer_id} on {:?} ({}/{} num_in/max_in, {}/{} num_out/max_out)."</span>,
 			<span class="self">self</span>.set_id,
 			<span class="self">self</span>.num_in,
 			<span class="self">self</span>.max_in,
@@ -2648,7 +2650,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.unbounded_send(Message::Drop { set_id: <span class="self">self</span>.set_id, peer_id });
 	}
 
-	<span class="doccomment">/// Report peer disconnect event to `PeerStore` for it to update peer&#39;s reputation accordingly.
+	<span class="doccomment">/// Report peer disconnect event to `PeerStore` for it to update peer's reputation accordingly.
 	/// Should only be called if the remote node disconnected us, not the other way around.
 	</span><span class="kw">fn </span>report_disconnect(<span class="kw-2">&amp;mut </span><span class="self">self</span>, peer_id: PeerId) {
 		<span class="self">self</span>.peer_store.report_disconnect(peer_id.into());
@@ -2665,18 +2667,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if </span><span class="self">self</span>.reserved_nodes.contains_key(<span class="kw-2">&amp;</span>peer_id) {
 			<span class="macro">warn!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;Trying to add an already reserved node {peer_id} as reserved on {:?}.&quot;</span>,
+				<span class="string">"Trying to add an already reserved node {peer_id} as reserved on {:?}."</span>,
 				<span class="self">self</span>.set_id,
 			);
 			<span class="kw">return
 		</span>}
 
-		<span class="comment">// Get the peer out of non-reserved peers if it&#39;s there.
+		<span class="comment">// Get the peer out of non-reserved peers if it's there.
 		</span><span class="kw">let </span>state = <span class="kw">match </span><span class="self">self</span>.nodes.remove(<span class="kw-2">&amp;</span>peer_id) {
 			<span class="prelude-val">Some</span>(direction) =&gt; {
 				<span class="macro">trace!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Marking previously connected node {} ({:?}) as reserved on {:?}.&quot;</span>,
+					<span class="string">"Marking previously connected node {} ({:?}) as reserved on {:?}."</span>,
 					peer_id,
 					direction,
 					<span class="self">self</span>.set_id
@@ -2684,7 +2686,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				PeerState::Connected(direction)
 			},
 			<span class="prelude-val">None </span>=&gt; {
-				<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">&quot;Adding reserved node {peer_id} on {:?}.&quot;</span>, <span class="self">self</span>.set_id,);
+				<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">"Adding reserved node {peer_id} on {:?}."</span>, <span class="self">self</span>.set_id,);
 				PeerState::NotConnected
 			},
 		};
@@ -2707,14 +2709,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">None </span>=&gt; {
 				<span class="macro">warn!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Trying to remove unknown reserved node {peer_id} from {:?}.&quot;</span>, <span class="self">self</span>.set_id,
+					<span class="string">"Trying to remove unknown reserved node {peer_id} from {:?}."</span>, <span class="self">self</span>.set_id,
 				);
 				<span class="kw">return
 			</span>},
 		};
 
 		<span class="kw">if let </span>PeerState::Connected(direction) = state {
-			<span class="comment">// Disconnect if we&#39;re at (or over) the regular node limit
+			<span class="comment">// Disconnect if we're at (or over) the regular node limit
 			</span><span class="kw">let </span>disconnect = <span class="self">self</span>.reserved_only ||
 				<span class="kw">match </span>direction {
 					Direction::Inbound =&gt; <span class="self">self</span>.num_in &gt;= <span class="self">self</span>.max_in,
@@ -2725,7 +2727,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="comment">// Disconnect the node.
 				</span><span class="macro">trace!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Disconnecting previously reserved node {peer_id} ({direction:?}) on {:?}.&quot;</span>,
+					<span class="string">"Disconnecting previously reserved node {peer_id} ({direction:?}) on {:?}."</span>,
 					<span class="self">self</span>.set_id,
 				);
 				<span class="self">self</span>.drop_connection(peer_id);
@@ -2733,7 +2735,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="comment">// Count connections as of regular node.
 				</span><span class="macro">trace!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Making a connected reserved node {peer_id} ({:?}) on {:?} a regular one.&quot;</span>,
+					<span class="string">"Making a connected reserved node {peer_id} ({:?}) on {:?} a regular one."</span>,
 					direction,
 					<span class="self">self</span>.set_id,
 				);
@@ -2745,12 +2747,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 				<span class="comment">// Put the node into the list of regular nodes.
 				</span><span class="kw">let </span>prev = <span class="self">self</span>.nodes.insert(peer_id, direction);
-				<span class="macro">assert!</span>(prev.is_none(), <span class="string">&quot;Corrupted state: reserved node was also non-reserved.&quot;</span>);
+				<span class="macro">assert!</span>(prev.is_none(), <span class="string">"Corrupted state: reserved node was also non-reserved."</span>);
 			}
 		} <span class="kw">else </span>{
 			<span class="macro">trace!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;Removed disconnected reserved node {peer_id} from {:?}.&quot;</span>,
+				<span class="string">"Removed disconnected reserved node {peer_id} from {:?}."</span>,
 				<span class="self">self</span>.set_id,
 			);
 		}
@@ -2772,10 +2774,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="doccomment">/// Change &quot;reserved only&quot; flag. In &quot;reserved only&quot; mode we connect and accept connections to
+	<span class="doccomment">/// Change "reserved only" flag. In "reserved only" mode we connect and accept connections to
 	/// reserved nodes only.
 	</span><span class="kw">fn </span>on_set_reserved_only(<span class="kw-2">&amp;mut </span><span class="self">self</span>, reserved_only: bool) {
-		<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">&quot;Set reserved only to `{reserved_only}` on {:?}&quot;</span>, <span class="self">self</span>.set_id);
+		<span class="macro">trace!</span>(target: LOG_TARGET, <span class="string">"Set reserved only to `{reserved_only}` on {:?}"</span>, <span class="self">self</span>.set_id);
 
 		<span class="self">self</span>.reserved_only = reserved_only;
 
@@ -2807,11 +2809,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Disconnect the peer.
 	</span><span class="kw">fn </span>on_disconnect_peer(<span class="kw-2">&amp;mut </span><span class="self">self</span>, peer_id: PeerId) {
-		<span class="comment">// Don&#39;t do anything if the node is reserved.
+		<span class="comment">// Don't do anything if the node is reserved.
 		</span><span class="kw">if </span><span class="self">self</span>.reserved_nodes.contains_key(<span class="kw-2">&amp;</span>peer_id) {
 			<span class="macro">debug!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;Ignoring request to disconnect reserved peer {peer_id} from {:?}.&quot;</span>, <span class="self">self</span>.set_id,
+				<span class="string">"Ignoring request to disconnect reserved peer {peer_id} from {:?}."</span>, <span class="self">self</span>.set_id,
 			);
 			<span class="kw">return
 		</span>}
@@ -2820,7 +2822,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Some</span>(direction) =&gt; {
 				<span class="macro">trace!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Disconnecting peer {peer_id} ({direction:?}) from {:?}.&quot;</span>,
+					<span class="string">"Disconnecting peer {peer_id} ({direction:?}) from {:?}."</span>,
 					<span class="self">self</span>.set_id
 				);
 				<span class="kw">match </span>direction {
@@ -2832,7 +2834,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">None </span>=&gt; {
 				<span class="macro">debug!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;Trying to disconnect unknown peer {peer_id} from {:?}.&quot;</span>, <span class="self">self</span>.set_id,
+					<span class="string">"Trying to disconnect unknown peer {peer_id} from {:?}."</span>, <span class="self">self</span>.set_id,
 				);
 			},
 		}
@@ -2842,17 +2844,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// a corresponding `Accept` or `Reject`, except if we were already connected to this peer.
 	///
 	/// Note that this mechanism is orthogonal to `Connect`/`Drop`. Accepting an incoming
-	/// connection implicitly means `Connect`, but incoming connections aren&#39;t cancelled by
+	/// connection implicitly means `Connect`, but incoming connections aren't cancelled by
 	/// `dropped`.
 	</span><span class="comment">// Implementation note: because of concurrency issues, `ProtocolController` has an imperfect
-	// view of the peers&#39; states, and may issue commands for a peer after `Notifications` received
+	// view of the peers' states, and may issue commands for a peer after `Notifications` received
 	// an incoming request for that peer. In this case, `Notifications` ignores all the commands
 	// until it receives a response for the incoming request to `ProtocolController`, so we must
 	// ensure we handle this incoming request correctly.
 	</span><span class="kw">fn </span>on_incoming_connection(<span class="kw-2">&amp;mut </span><span class="self">self</span>, peer_id: PeerId, incoming_index: IncomingIndex) {
 		<span class="macro">trace!</span>(
 			target: LOG_TARGET,
-			<span class="string">&quot;Incoming connection from peer {peer_id} ({incoming_index:?}) on {:?}.&quot;</span>,
+			<span class="string">"Incoming connection from peer {peer_id} ({incoming_index:?}) on {:?}."</span>,
 			<span class="self">self</span>.set_id,
 		);
 
@@ -2881,12 +2883,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">return
 		</span>}
 
-		<span class="comment">// If we&#39;re already connected, pretend we are not connected and decide on the node again.
+		<span class="comment">// If we're already connected, pretend we are not connected and decide on the node again.
 		// (See the note above.)
 		</span><span class="kw">if let </span><span class="prelude-val">Some</span>(direction) = <span class="self">self</span>.nodes.remove(<span class="kw-2">&amp;</span>peer_id) {
 			<span class="macro">trace!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;Handling incoming connection from peer {} we think we already connected as {:?} on {:?}.&quot;</span>,
+				<span class="string">"Handling incoming connection from peer {} we think we already connected as {:?} on {:?}."</span>,
 				peer_id,
 				direction,
 				<span class="self">self</span>.set_id
@@ -2920,14 +2922,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			// for a peer we already disconnected ourself.
 			</span><span class="macro">trace!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;Received `Action::Dropped` for not connected peer {peer_id} on {:?}.&quot;</span>,
+				<span class="string">"Received `Action::Dropped` for not connected peer {peer_id} on {:?}."</span>,
 				<span class="self">self</span>.set_id,
 			)
 		});
 	}
 
 	<span class="doccomment">/// Indicate that a connection with the peer was dropped.
-	/// Returns `Err(PeerId)` if the peer wasn&#39;t connected or is not known to us.
+	/// Returns `Err(PeerId)` if the peer wasn't connected or is not known to us.
 	</span><span class="kw">fn </span>on_peer_dropped_inner(<span class="kw-2">&amp;mut </span><span class="self">self</span>, peer_id: PeerId) -&gt; <span class="prelude-ty">Result</span>&lt;(), PeerId&gt; {
 		<span class="kw">if </span><span class="self">self</span>.drop_reserved_peer(<span class="kw-2">&amp;</span>peer_id)<span class="question-mark">? </span>|| <span class="self">self</span>.drop_regular_peer(<span class="kw-2">&amp;</span>peer_id) {
 			<span class="comment">// The peer found and disconnected.
@@ -2940,7 +2942,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Try dropping the peer as a reserved peer. Return `Ok(true)` if the peer was found and
-	/// disconnected, `Ok(false)` if it wasn&#39;t found, `Err(PeerId)`, if the peer found, but not in
+	/// disconnected, `Ok(false)` if it wasn't found, `Err(PeerId)`, if the peer found, but not in
 	/// connected state.
 	</span><span class="kw">fn </span>drop_reserved_peer(<span class="kw-2">&amp;mut </span><span class="self">self</span>, peer_id: <span class="kw-2">&amp;</span>PeerId) -&gt; <span class="prelude-ty">Result</span>&lt;bool, PeerId&gt; {
 		<span class="kw">let </span><span class="prelude-val">Some</span>(state) = <span class="self">self</span>.reserved_nodes.get_mut(peer_id) <span class="kw">else </span>{ <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="bool-val">false</span>) };
@@ -2948,7 +2950,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if let </span>PeerState::Connected(direction) = state {
 			<span class="macro">trace!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;Reserved peer {peer_id} ({direction:?}) dropped from {:?}.&quot;</span>,
+				<span class="string">"Reserved peer {peer_id} ({direction:?}) dropped from {:?}."</span>,
 				<span class="self">self</span>.set_id,
 			);
 			<span class="kw-2">*</span>state = PeerState::NotConnected;
@@ -2959,13 +2961,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Try dropping the peer as a regular peer. Return `true` if the peer was found and
-	/// disconnected, `false` if it wasn&#39;t found.
+	/// disconnected, `false` if it wasn't found.
 	</span><span class="kw">fn </span>drop_regular_peer(<span class="kw-2">&amp;mut </span><span class="self">self</span>, peer_id: <span class="kw-2">&amp;</span>PeerId) -&gt; bool {
 		<span class="kw">let </span><span class="prelude-val">Some</span>(direction) = <span class="self">self</span>.nodes.remove(peer_id) <span class="kw">else </span>{ <span class="kw">return </span><span class="bool-val">false </span>};
 
 		<span class="macro">trace!</span>(
 			target: LOG_TARGET,
-			<span class="string">&quot;Peer {peer_id} ({direction:?}) dropped from {:?}.&quot;</span>,
+			<span class="string">"Peer {peer_id} ({direction:?}) dropped from {:?}."</span>,
 			<span class="self">self</span>.set_id,
 		);
 
@@ -2996,7 +2998,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="self">self</span>.start_connection(peer_id);
 			});
 
-		<span class="comment">// Nothing more to do if we&#39;re in reserved-only mode or don&#39;t have slots available.
+		<span class="comment">// Nothing more to do if we're in reserved-only mode or don't have slots available.
 		</span><span class="kw">if </span><span class="self">self</span>.reserved_only || <span class="self">self</span>.num_out &gt;= <span class="self">self</span>.max_out {
 			<span class="kw">return
 		</span>}
@@ -3028,9 +3030,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.or_else(|| {
 					<span class="macro">error!</span>(
 						target: LOG_TARGET,
-						<span class="string">&quot;`PeerStore` returned a node we asked to ignore: {peer_id}.&quot;</span>,
+						<span class="string">"`PeerStore` returned a node we asked to ignore: {peer_id}."</span>,
 					);
-					<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>, <span class="string">&quot;`PeerStore` returned a node we asked to ignore.&quot;</span>);
+					<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>, <span class="string">"`PeerStore` returned a node we asked to ignore."</span>);
 					<span class="prelude-val">None
 				</span>})
 			})
@@ -3039,9 +3041,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if </span>candidates.len() &gt; available_slots {
 			<span class="macro">error!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;`PeerStore` returned more nodes than there are slots available.&quot;</span>,
+				<span class="string">"`PeerStore` returned more nodes than there are slots available."</span>,
 			);
-			<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>, <span class="string">&quot;`PeerStore` returned more nodes than there are slots available.&quot;</span>);
+			<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>, <span class="string">"`PeerStore` returned more nodes than there are slots available."</span>);
 		}
 
 		candidates.into_iter().take(available_slots).for_each(|peer_id| {
@@ -3093,7 +3095,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			reserved_nodes: std::iter::once(reserved1).collect(),
 			reserved_only: <span class="bool-val">true</span>,
 		};
-		<span class="kw">let </span>(tx, <span class="kw-2">mut </span>rx) = tracing_unbounded(<span class="string">&quot;mpsc_test_to_notifications&quot;</span>, <span class="number">100</span>);
+		<span class="kw">let </span>(tx, <span class="kw-2">mut </span>rx) = tracing_unbounded(<span class="string">"mpsc_test_to_notifications"</span>, <span class="number">100</span>);
 
 		<span class="kw">let </span><span class="kw-2">mut </span>peer_store = MockPeerStoreHandle::new();
 		peer_store.expect_register_protocol().once().return_const(());
@@ -3155,7 +3157,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			reserved_nodes: std::iter::once(reserved1).collect(),
 			reserved_only: <span class="bool-val">true</span>,
 		};
-		<span class="kw">let </span>(tx, <span class="kw-2">mut </span>rx) = tracing_unbounded(<span class="string">&quot;mpsc_test_to_notifications&quot;</span>, <span class="number">100</span>);
+		<span class="kw">let </span>(tx, <span class="kw-2">mut </span>rx) = tracing_unbounded(<span class="string">"mpsc_test_to_notifications"</span>, <span class="number">100</span>);
 
 		<span class="kw">let </span><span class="kw-2">mut </span>peer_store = MockPeerStoreHandle::new();
 		peer_store.expect_register_protocol().once().return_const(());
@@ -3206,7 +3208,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			reserved_nodes: std::iter::once(reserved1).collect(),
 			reserved_only: <span class="bool-val">true</span>,
 		};
-		<span class="kw">let </span>(tx, <span class="kw-2">mut </span>rx) = tracing_unbounded(<span class="string">&quot;mpsc_test_to_notifications&quot;</span>, <span class="number">100</span>);
+		<span class="kw">let </span>(tx, <span class="kw-2">mut </span>rx) = tracing_unbounded(<span class="string">"mpsc_test_to_notifications"</span>, <span class="number">100</span>);
 
 		<span class="kw">let </span><span class="kw-2">mut </span>peer_store = MockPeerStoreHandle::new();
 		peer_store.expect_register_protocol().once().return_const(());
@@ -3265,7 +3267,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			reserved_nodes: HashSet::new(),
 			reserved_only: <span class="bool-val">false</span>,
 		};
-		<span class="kw">let </span>(tx, <span class="kw-2">mut </span>rx) = tracing_unbounded(<span class="string">&quot;mpsc_test_to_notifications&quot;</span>, <span class="number">100</span>);
+		<span class="kw">let </span>(tx, <span class="kw-2">mut </span>rx) = tracing_unbounded(<span class="string">"mpsc_test_to_notifications"</span>, <span class="number">100</span>);
 
 		<span class="kw">let </span><span class="kw-2">mut </span>peer_store = MockPeerStoreHandle::new();
 		peer_store.expect_register_protocol().once().return_const(());
@@ -3311,7 +3313,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>config =
 			ProtoSetConfig { in_peers: <span class="number">10</span>, out_peers: <span class="number">10</span>, reserved_nodes, reserved_only: <span class="bool-val">false </span>};
-		<span class="kw">let </span>(tx, <span class="kw-2">mut </span>rx) = tracing_unbounded(<span class="string">&quot;mpsc_test_to_notifications&quot;</span>, <span class="number">100</span>);
+		<span class="kw">let </span>(tx, <span class="kw-2">mut </span>rx) = tracing_unbounded(<span class="string">"mpsc_test_to_notifications"</span>, <span class="number">100</span>);
 
 		<span class="kw">let </span><span class="kw-2">mut </span>peer_store = MockPeerStoreHandle::new();
 		peer_store.expect_register_protocol().once().return_const(());
@@ -3352,7 +3354,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			reserved_nodes: HashSet::new(),
 			reserved_only: <span class="bool-val">false</span>,
 		};
-		<span class="kw">let </span>(tx, <span class="kw-2">mut </span>rx) = tracing_unbounded(<span class="string">&quot;mpsc_test_to_notifications&quot;</span>, <span class="number">100</span>);
+		<span class="kw">let </span>(tx, <span class="kw-2">mut </span>rx) = tracing_unbounded(<span class="string">"mpsc_test_to_notifications"</span>, <span class="number">100</span>);
 
 		<span class="kw">let </span><span class="kw-2">mut </span>peer_store = MockPeerStoreHandle::new();
 		peer_store.expect_register_protocol().once().return_const(());
@@ -3422,7 +3424,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			reserved_nodes: HashSet::new(),
 			reserved_only: <span class="bool-val">true</span>,
 		};
-		<span class="kw">let </span>(tx, <span class="kw-2">mut </span>rx) = tracing_unbounded(<span class="string">&quot;mpsc_test_to_notifications&quot;</span>, <span class="number">100</span>);
+		<span class="kw">let </span>(tx, <span class="kw-2">mut </span>rx) = tracing_unbounded(<span class="string">"mpsc_test_to_notifications"</span>, <span class="number">100</span>);
 
 		<span class="kw">let </span><span class="kw-2">mut </span>peer_store = MockPeerStoreHandle::new();
 		peer_store.expect_register_protocol().once().return_const(());
@@ -3448,7 +3450,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			reserved_nodes: HashSet::new(),
 			reserved_only: <span class="bool-val">true</span>,
 		};
-		<span class="kw">let </span>(tx, <span class="kw-2">mut </span>rx) = tracing_unbounded(<span class="string">&quot;mpsc_test_to_notifications&quot;</span>, <span class="number">100</span>);
+		<span class="kw">let </span>(tx, <span class="kw-2">mut </span>rx) = tracing_unbounded(<span class="string">"mpsc_test_to_notifications"</span>, <span class="number">100</span>);
 
 		<span class="kw">let </span><span class="kw-2">mut </span>peer_store = MockPeerStoreHandle::new();
 		peer_store.expect_register_protocol().once().return_const(());
@@ -3485,7 +3487,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			reserved_nodes: HashSet::new(),
 			reserved_only: <span class="bool-val">true</span>,
 		};
-		<span class="kw">let </span>(tx, <span class="kw-2">mut </span>rx) = tracing_unbounded(<span class="string">&quot;mpsc_test_to_notifications&quot;</span>, <span class="number">100</span>);
+		<span class="kw">let </span>(tx, <span class="kw-2">mut </span>rx) = tracing_unbounded(<span class="string">"mpsc_test_to_notifications"</span>, <span class="number">100</span>);
 
 		<span class="kw">let </span><span class="kw-2">mut </span>peer_store = MockPeerStoreHandle::new();
 		peer_store.expect_register_protocol().once().return_const(());
@@ -3531,7 +3533,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			reserved_nodes: [reserved1, reserved2].iter().cloned().collect(),
 			reserved_only: <span class="bool-val">false</span>,
 		};
-		<span class="kw">let </span>(tx, <span class="kw-2">mut </span>rx) = tracing_unbounded(<span class="string">&quot;mpsc_test_to_notifications&quot;</span>, <span class="number">100</span>);
+		<span class="kw">let </span>(tx, <span class="kw-2">mut </span>rx) = tracing_unbounded(<span class="string">"mpsc_test_to_notifications"</span>, <span class="number">100</span>);
 
 		<span class="kw">let </span><span class="kw-2">mut </span>peer_store = MockPeerStoreHandle::new();
 		peer_store.expect_register_protocol().once().return_const(());
@@ -3591,7 +3593,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			reserved_nodes: [reserved1, reserved2].iter().cloned().collect(),
 			reserved_only: <span class="bool-val">false</span>,
 		};
-		<span class="kw">let </span>(tx, <span class="kw-2">mut </span>rx) = tracing_unbounded(<span class="string">&quot;mpsc_test_to_notifications&quot;</span>, <span class="number">100</span>);
+		<span class="kw">let </span>(tx, <span class="kw-2">mut </span>rx) = tracing_unbounded(<span class="string">"mpsc_test_to_notifications"</span>, <span class="number">100</span>);
 
 		<span class="kw">let </span><span class="kw-2">mut </span>peer_store = MockPeerStoreHandle::new();
 		peer_store.expect_register_protocol().once().return_const(());
@@ -3623,7 +3625,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			reserved_nodes: [reserved1, reserved2].iter().cloned().collect(),
 			reserved_only: <span class="bool-val">true</span>,
 		};
-		<span class="kw">let </span>(tx, <span class="kw-2">mut </span>rx) = tracing_unbounded(<span class="string">&quot;mpsc_test_to_notifications&quot;</span>, <span class="number">100</span>);
+		<span class="kw">let </span>(tx, <span class="kw-2">mut </span>rx) = tracing_unbounded(<span class="string">"mpsc_test_to_notifications"</span>, <span class="number">100</span>);
 
 		<span class="kw">let </span><span class="kw-2">mut </span>peer_store = MockPeerStoreHandle::new();
 		peer_store.expect_register_protocol().once().return_const(());
@@ -3669,7 +3671,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			reserved_nodes: [peer1, peer2].iter().cloned().collect(),
 			reserved_only: <span class="bool-val">false</span>,
 		};
-		<span class="kw">let </span>(tx, <span class="kw-2">mut </span>rx) = tracing_unbounded(<span class="string">&quot;mpsc_test_to_notifications&quot;</span>, <span class="number">100</span>);
+		<span class="kw">let </span>(tx, <span class="kw-2">mut </span>rx) = tracing_unbounded(<span class="string">"mpsc_test_to_notifications"</span>, <span class="number">100</span>);
 
 		<span class="kw">let </span><span class="kw-2">mut </span>peer_store = MockPeerStoreHandle::new();
 		peer_store.expect_register_protocol().once().return_const(());
@@ -3718,7 +3720,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			reserved_nodes: HashSet::new(),
 			reserved_only: <span class="bool-val">false</span>,
 		};
-		<span class="kw">let </span>(tx, <span class="kw-2">mut </span>rx) = tracing_unbounded(<span class="string">&quot;mpsc_test_to_notifications&quot;</span>, <span class="number">100</span>);
+		<span class="kw">let </span>(tx, <span class="kw-2">mut </span>rx) = tracing_unbounded(<span class="string">"mpsc_test_to_notifications"</span>, <span class="number">100</span>);
 
 		<span class="kw">let </span><span class="kw-2">mut </span>peer_store = MockPeerStoreHandle::new();
 		peer_store.expect_register_protocol().once().return_const(());
@@ -3760,7 +3762,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			reserved_nodes: HashSet::new(),
 			reserved_only: <span class="bool-val">false</span>,
 		};
-		<span class="kw">let </span>(tx, <span class="kw-2">mut </span>rx) = tracing_unbounded(<span class="string">&quot;mpsc_test_to_notifications&quot;</span>, <span class="number">100</span>);
+		<span class="kw">let </span>(tx, <span class="kw-2">mut </span>rx) = tracing_unbounded(<span class="string">"mpsc_test_to_notifications"</span>, <span class="number">100</span>);
 
 		<span class="kw">let </span><span class="kw-2">mut </span>peer_store = MockPeerStoreHandle::new();
 		peer_store.expect_register_protocol().once().return_const(());
@@ -3819,7 +3821,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			reserved_nodes: [reserved1, reserved2].iter().cloned().collect(),
 			reserved_only: <span class="bool-val">false</span>,
 		};
-		<span class="kw">let </span>(tx, <span class="kw-2">mut </span>rx) = tracing_unbounded(<span class="string">&quot;mpsc_test_to_notifications&quot;</span>, <span class="number">100</span>);
+		<span class="kw">let </span>(tx, <span class="kw-2">mut </span>rx) = tracing_unbounded(<span class="string">"mpsc_test_to_notifications"</span>, <span class="number">100</span>);
 
 		<span class="kw">let </span><span class="kw-2">mut </span>peer_store = MockPeerStoreHandle::new();
 		peer_store.expect_register_protocol().once().return_const(());
@@ -3875,7 +3877,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			reserved_nodes: HashSet::new(),
 			reserved_only: <span class="bool-val">false</span>,
 		};
-		<span class="kw">let </span>(tx, <span class="kw-2">mut </span>rx) = tracing_unbounded(<span class="string">&quot;mpsc_test_to_notifications&quot;</span>, <span class="number">100</span>);
+		<span class="kw">let </span>(tx, <span class="kw-2">mut </span>rx) = tracing_unbounded(<span class="string">"mpsc_test_to_notifications"</span>, <span class="number">100</span>);
 
 		<span class="kw">let </span><span class="kw-2">mut </span>peer_store = MockPeerStoreHandle::new();
 		peer_store.expect_register_protocol().once().return_const(());
@@ -3927,7 +3929,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			reserved_nodes: [reserved1, reserved2].iter().cloned().collect(),
 			reserved_only: <span class="bool-val">false</span>,
 		};
-		<span class="kw">let </span>(tx, <span class="kw-2">mut </span>rx) = tracing_unbounded(<span class="string">&quot;mpsc_test_to_notifications&quot;</span>, <span class="number">100</span>);
+		<span class="kw">let </span>(tx, <span class="kw-2">mut </span>rx) = tracing_unbounded(<span class="string">"mpsc_test_to_notifications"</span>, <span class="number">100</span>);
 
 		<span class="kw">let </span><span class="kw-2">mut </span>peer_store = MockPeerStoreHandle::new();
 		peer_store.expect_register_protocol().once().return_const(());
@@ -3987,7 +3989,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			reserved_nodes: HashSet::new(),
 			reserved_only: <span class="bool-val">false</span>,
 		};
-		<span class="kw">let </span>(tx, <span class="kw-2">mut </span>rx) = tracing_unbounded(<span class="string">&quot;mpsc_test_to_notifications&quot;</span>, <span class="number">100</span>);
+		<span class="kw">let </span>(tx, <span class="kw-2">mut </span>rx) = tracing_unbounded(<span class="string">"mpsc_test_to_notifications"</span>, <span class="number">100</span>);
 
 		<span class="kw">let </span><span class="kw-2">mut </span>peer_store = MockPeerStoreHandle::new();
 		peer_store.expect_register_protocol().once().return_const(());
@@ -4039,7 +4041,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			reserved_nodes: HashSet::new(),
 			reserved_only: <span class="bool-val">false</span>,
 		};
-		<span class="kw">let </span>(tx, <span class="kw-2">mut </span>rx) = tracing_unbounded(<span class="string">&quot;mpsc_test_to_notifications&quot;</span>, <span class="number">100</span>);
+		<span class="kw">let </span>(tx, <span class="kw-2">mut </span>rx) = tracing_unbounded(<span class="string">"mpsc_test_to_notifications"</span>, <span class="number">100</span>);
 
 		<span class="kw">let </span><span class="kw-2">mut </span>peer_store = MockPeerStoreHandle::new();
 		peer_store.expect_register_protocol().once().return_const(());
@@ -4092,7 +4094,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			reserved_nodes: HashSet::new(),
 			reserved_only: <span class="bool-val">false</span>,
 		};
-		<span class="kw">let </span>(tx, <span class="kw-2">mut </span>rx) = tracing_unbounded(<span class="string">&quot;mpsc_test_to_notifications&quot;</span>, <span class="number">100</span>);
+		<span class="kw">let </span>(tx, <span class="kw-2">mut </span>rx) = tracing_unbounded(<span class="string">"mpsc_test_to_notifications"</span>, <span class="number">100</span>);
 
 		<span class="kw">let </span><span class="kw-2">mut </span>peer_store = MockPeerStoreHandle::new();
 		peer_store.expect_register_protocol().once().return_const(());
@@ -4145,7 +4147,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			reserved_nodes: HashSet::new(),
 			reserved_only: <span class="bool-val">false</span>,
 		};
-		<span class="kw">let </span>(tx, <span class="kw-2">mut </span>rx) = tracing_unbounded(<span class="string">&quot;mpsc_test_to_notifications&quot;</span>, <span class="number">100</span>);
+		<span class="kw">let </span>(tx, <span class="kw-2">mut </span>rx) = tracing_unbounded(<span class="string">"mpsc_test_to_notifications"</span>, <span class="number">100</span>);
 
 		<span class="kw">let </span><span class="kw-2">mut </span>peer_store = MockPeerStoreHandle::new();
 		peer_store.expect_register_protocol().once().return_const(());
@@ -4175,7 +4177,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			reserved_nodes: HashSet::new(),
 			reserved_only: <span class="bool-val">false</span>,
 		};
-		<span class="kw">let </span>(tx, <span class="kw-2">mut </span>rx) = tracing_unbounded(<span class="string">&quot;mpsc_test_to_notifications&quot;</span>, <span class="number">100</span>);
+		<span class="kw">let </span>(tx, <span class="kw-2">mut </span>rx) = tracing_unbounded(<span class="string">"mpsc_test_to_notifications"</span>, <span class="number">100</span>);
 
 		<span class="kw">let </span><span class="kw-2">mut </span>peer_store = MockPeerStoreHandle::new();
 		peer_store.expect_register_protocol().once().return_const(());
@@ -4200,7 +4202,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			reserved_nodes: std::iter::once(reserved1).collect(),
 			reserved_only: <span class="bool-val">false</span>,
 		};
-		<span class="kw">let </span>(tx, <span class="kw-2">mut </span>rx) = tracing_unbounded(<span class="string">&quot;mpsc_test_to_notifications&quot;</span>, <span class="number">100</span>);
+		<span class="kw">let </span>(tx, <span class="kw-2">mut </span>rx) = tracing_unbounded(<span class="string">"mpsc_test_to_notifications"</span>, <span class="number">100</span>);
 
 		<span class="kw">let </span><span class="kw-2">mut </span>peer_store = MockPeerStoreHandle::new();
 		peer_store.expect_register_protocol().once().return_const(());
@@ -4226,7 +4228,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			reserved_nodes: std::iter::once(reserved1).collect(),
 			reserved_only: <span class="bool-val">false</span>,
 		};
-		<span class="kw">let </span>(tx, <span class="kw-2">mut </span>rx) = tracing_unbounded(<span class="string">&quot;mpsc_test_to_notifications&quot;</span>, <span class="number">100</span>);
+		<span class="kw">let </span>(tx, <span class="kw-2">mut </span>rx) = tracing_unbounded(<span class="string">"mpsc_test_to_notifications"</span>, <span class="number">100</span>);
 
 		<span class="kw">let </span><span class="kw-2">mut </span>peer_store = MockPeerStoreHandle::new();
 		peer_store.expect_register_protocol().once().return_const(());

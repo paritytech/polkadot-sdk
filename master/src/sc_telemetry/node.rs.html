@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/telemetry/src/node.rs`."><title>node.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/telemetry/src/node.rs`."><title>node.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_telemetry" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_telemetry" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sc_telemetry/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -519,12 +521,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// This is a wrapper `Sink` around a network `Sink` with 3 particularities:
 ///  - It is infallible: if the connection stops, it will reconnect automatically when the server
 ///    becomes available again.
-///  - It holds a list of &quot;connection messages&quot; which are sent automatically when the connection is
-///    (re-)established. This is used for the &quot;system.connected&quot; message that needs to be send for
+///  - It holds a list of "connection messages" which are sent automatically when the connection is
+///    (re-)established. This is used for the "system.connected" message that needs to be send for
 ///    every substrate node that connects.
-///  - It doesn&#39;t stay in pending while waiting for connection. Instead, it moves data into the void
+///  - It doesn't stay in pending while waiting for connection. Instead, it moves data into the void
 ///    if the connection could not be established. This is important for the `Dispatcher` `Sink`
-///    which we don&#39;t want to block if one connection is broken.
+///    which we don't want to block if one connection is broken.
 </span><span class="attr">#[derive(Debug)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>Node&lt;TTrans: Transport&gt; {
 	<span class="doccomment">/// Address of the node.
@@ -540,7 +542,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">enum </span>NodeSocket&lt;TTrans: Transport&gt; {
-	<span class="doccomment">/// We&#39;re connected to the node. This is the normal state.
+	<span class="doccomment">/// We're connected to the node. This is the normal state.
 	</span>Connected(NodeSocketConnected&lt;TTrans&gt;),
 	<span class="doccomment">/// We are currently dialing the node.
 	</span>Dialing(TTrans::Dial),
@@ -556,7 +558,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>wait_reconnect() -&gt; NodeSocket&lt;TTrans&gt; {
 		<span class="kw">let </span>random_delay = rand::thread_rng().gen_range(<span class="number">10</span>..<span class="number">20</span>);
 		<span class="kw">let </span>delay = Delay::new(Duration::from_secs(random_delay));
-		<span class="macro">log::trace!</span>(target: <span class="string">&quot;telemetry&quot;</span>, <span class="string">&quot;Pausing for {} secs before reconnecting&quot;</span>, random_delay);
+		<span class="macro">log::trace!</span>(target: <span class="string">"telemetry"</span>, <span class="string">"Pausing for {} secs before reconnecting"</span>, random_delay);
 		NodeSocket::WaitingReconnect(delay)
 	}
 }
@@ -597,7 +599,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	//       https://docs.rs/futures-util/0.3.8/src/futures_util/sink/buffer.rs.html#32
 	</span><span class="kw">fn </span>try_send_connection_messages(
 		<span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;,
-		cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;,
+		cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">'_</span>&gt;,
 		conn: <span class="kw-2">&amp;mut </span>NodeSocketConnected&lt;TTrans&gt;,
 	) -&gt; Poll&lt;<span class="prelude-ty">Result</span>&lt;(), TSinkErr&gt;&gt; {
 		<span class="kw">while let </span><span class="prelude-val">Some</span>(item) = conn.buf.pop() {
@@ -630,7 +632,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					Poll::Ready(<span class="prelude-val">Ok</span>(())) =&gt; {
 						<span class="kw">match </span><span class="self">self</span>.as_mut().try_send_connection_messages(cx, <span class="kw-2">&amp;mut </span>conn) {
 							Poll::Ready(<span class="prelude-val">Err</span>(err)) =&gt; {
-								<span class="macro">log::warn!</span>(target: <span class="string">&quot;telemetry&quot;</span>, <span class="string">&quot;⚠️  Disconnected from {}: {:?}&quot;</span>, <span class="self">self</span>.addr, err);
+								<span class="macro">log::warn!</span>(target: <span class="string">"telemetry"</span>, <span class="string">"⚠️  Disconnected from {}: {:?}"</span>, <span class="self">self</span>.addr, err);
 								socket = NodeSocket::wait_reconnect();
 							},
 							Poll::Ready(<span class="prelude-val">Ok</span>(())) =&gt; {
@@ -644,7 +646,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						}
 					},
 					Poll::Ready(<span class="prelude-val">Err</span>(err)) =&gt; {
-						<span class="macro">log::warn!</span>(target: <span class="string">&quot;telemetry&quot;</span>, <span class="string">&quot;⚠️  Disconnected from {}: {:?}&quot;</span>, <span class="self">self</span>.addr, err);
+						<span class="macro">log::warn!</span>(target: <span class="string">"telemetry"</span>, <span class="string">"⚠️  Disconnected from {}: {:?}"</span>, <span class="self">self</span>.addr, err);
 						socket = NodeSocket::wait_reconnect();
 					},
 					Poll::Pending =&gt; {
@@ -654,7 +656,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				},
 				NodeSocket::Dialing(<span class="kw-2">mut </span>s) =&gt; <span class="kw">match </span>Future::poll(Pin::new(<span class="kw-2">&amp;mut </span>s), cx) {
 					Poll::Ready(<span class="prelude-val">Ok</span>(sink)) =&gt; {
-						<span class="macro">log::debug!</span>(target: <span class="string">&quot;telemetry&quot;</span>, <span class="string">&quot;✅ Connected to {}&quot;</span>, <span class="self">self</span>.addr);
+						<span class="macro">log::debug!</span>(target: <span class="string">"telemetry"</span>, <span class="string">"✅ Connected to {}"</span>, <span class="self">self</span>.addr);
 
 						{
 							<span class="kw">let </span><span class="kw-2">mut </span>index = <span class="number">0</span>;
@@ -662,7 +664,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 								<span class="kw">let </span>sender = <span class="kw-2">&amp;mut </span><span class="self">self</span>.telemetry_connection_notifier[index];
 								<span class="kw">if let </span><span class="prelude-val">Err</span>(error) = sender.try_send(()) {
 									<span class="kw">if </span>!error.is_disconnected() {
-										<span class="macro">log::debug!</span>(target: <span class="string">&quot;telemetry&quot;</span>, <span class="string">&quot;Failed to send a telemetry connection notification: {}&quot;</span>, error);
+										<span class="macro">log::debug!</span>(target: <span class="string">"telemetry"</span>, <span class="string">"Failed to send a telemetry connection notification: {}"</span>, error);
 									} <span class="kw">else </span>{
 										<span class="self">self</span>.telemetry_connection_notifier.swap_remove(index);
 										<span class="kw">continue
@@ -678,7 +680,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 							.map(|json| {
 								<span class="kw">let </span><span class="kw-2">mut </span>json = json.clone();
 								json.insert(
-									<span class="string">&quot;ts&quot;</span>.to_string(),
+									<span class="string">"ts"</span>.to_string(),
 									chrono::Local::now().to_rfc3339().into(),
 								);
 								json
@@ -687,9 +689,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 								<span class="prelude-val">Ok</span>(message) =&gt; <span class="prelude-val">Some</span>(message),
 								<span class="prelude-val">Err</span>(err) =&gt; {
 									<span class="macro">log::error!</span>(
-										target: <span class="string">&quot;telemetry&quot;</span>,
-										<span class="string">&quot;An error occurred while generating new connection \
-										messages: {}&quot;</span>,
+										target: <span class="string">"telemetry"</span>,
+										<span class="string">"An error occurred while generating new connection \
+										messages: {}"</span>,
 										err,
 									);
 									<span class="prelude-val">None
@@ -701,7 +703,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					},
 					Poll::Pending =&gt; <span class="kw">break </span>NodeSocket::Dialing(s),
 					Poll::Ready(<span class="prelude-val">Err</span>(err)) =&gt; {
-						<span class="macro">log::warn!</span>(target: <span class="string">&quot;telemetry&quot;</span>, <span class="string">&quot;❌ Error while dialing {}: {:?}&quot;</span>, <span class="self">self</span>.addr, err);
+						<span class="macro">log::warn!</span>(target: <span class="string">"telemetry"</span>, <span class="string">"❌ Error while dialing {}: {:?}"</span>, <span class="self">self</span>.addr, err);
 						socket = NodeSocket::wait_reconnect();
 					},
 				},
@@ -709,11 +711,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw">let </span>addr = <span class="self">self</span>.addr.clone();
 					<span class="kw">match </span><span class="self">self</span>.transport.dial(addr) {
 						<span class="prelude-val">Ok</span>(d) =&gt; {
-							<span class="macro">log::trace!</span>(target: <span class="string">&quot;telemetry&quot;</span>, <span class="string">&quot;Re-dialing {}&quot;</span>, <span class="self">self</span>.addr);
+							<span class="macro">log::trace!</span>(target: <span class="string">"telemetry"</span>, <span class="string">"Re-dialing {}"</span>, <span class="self">self</span>.addr);
 							socket = NodeSocket::Dialing(d);
 						},
 						<span class="prelude-val">Err</span>(err) =&gt; {
-							<span class="macro">log::warn!</span>(target: <span class="string">&quot;telemetry&quot;</span>, <span class="string">&quot;❌ Error while re-dialing {}: {:?}&quot;</span>, <span class="self">self</span>.addr, err);
+							<span class="macro">log::warn!</span>(target: <span class="string">"telemetry"</span>, <span class="string">"❌ Error while re-dialing {}: {:?}"</span>, <span class="self">self</span>.addr, err);
 							socket = NodeSocket::wait_reconnect();
 						},
 					}
@@ -726,14 +728,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					}
 				},
 				NodeSocket::Poisoned =&gt; {
-					<span class="macro">log::error!</span>(target: <span class="string">&quot;telemetry&quot;</span>, <span class="string">&quot;‼️ Poisoned connection with {}&quot;</span>, <span class="self">self</span>.addr);
+					<span class="macro">log::error!</span>(target: <span class="string">"telemetry"</span>, <span class="string">"‼️ Poisoned connection with {}"</span>, <span class="self">self</span>.addr);
 					<span class="kw">break </span>NodeSocket::Poisoned
 				},
 			}
 		};
 
 		<span class="comment">// The Dispatcher blocks when the Node syncs blocks. This is why it is important that the
-		// Node sinks don&#39;t go into &quot;Pending&quot; state while waiting for reconnection but rather
+		// Node sinks don't go into "Pending" state while waiting for reconnection but rather
 		// discard the excess of telemetry messages.
 		</span>Poll::Ready(<span class="prelude-val">Ok</span>(()))
 	}
@@ -743,28 +745,28 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">match </span><span class="kw-2">&amp;mut </span><span class="self">self</span>.socket {
 			NodeSocket::Connected(conn) =&gt; <span class="kw">match </span>serde_json::to_vec(<span class="kw-2">&amp;</span>item) {
 				<span class="prelude-val">Ok</span>(data) =&gt; {
-					<span class="macro">log::trace!</span>(target: <span class="string">&quot;telemetry&quot;</span>, <span class="string">&quot;Sending {} bytes&quot;</span>, data.len());
+					<span class="macro">log::trace!</span>(target: <span class="string">"telemetry"</span>, <span class="string">"Sending {} bytes"</span>, data.len());
 					<span class="kw">let _ </span>= conn.sink.start_send_unpin(data);
 				},
 				<span class="prelude-val">Err</span>(err) =&gt; <span class="macro">log::debug!</span>(
-					target: <span class="string">&quot;telemetry&quot;</span>,
-					<span class="string">&quot;Could not serialize payload: {}&quot;</span>,
+					target: <span class="string">"telemetry"</span>,
+					<span class="string">"Could not serialize payload: {}"</span>,
 					err,
 				),
 			},
 			<span class="comment">// We are currently dialing the node.
-			</span>NodeSocket::Dialing(<span class="kw">_</span>) =&gt; <span class="macro">log::trace!</span>(target: <span class="string">&quot;telemetry&quot;</span>, <span class="string">&quot;Dialing&quot;</span>),
+			</span>NodeSocket::Dialing(<span class="kw">_</span>) =&gt; <span class="macro">log::trace!</span>(target: <span class="string">"telemetry"</span>, <span class="string">"Dialing"</span>),
 			<span class="comment">// A new connection should be started as soon as possible.
-			</span>NodeSocket::ReconnectNow =&gt; <span class="macro">log::trace!</span>(target: <span class="string">&quot;telemetry&quot;</span>, <span class="string">&quot;Reconnecting&quot;</span>),
+			</span>NodeSocket::ReconnectNow =&gt; <span class="macro">log::trace!</span>(target: <span class="string">"telemetry"</span>, <span class="string">"Reconnecting"</span>),
 			<span class="comment">// Waiting before attempting to dial again.
 			</span>NodeSocket::WaitingReconnect(<span class="kw">_</span>) =&gt; {},
 			<span class="comment">// Temporary transition state.
-			</span>NodeSocket::Poisoned =&gt; <span class="macro">log::trace!</span>(target: <span class="string">&quot;telemetry&quot;</span>, <span class="string">&quot;Poisoned&quot;</span>),
+			</span>NodeSocket::Poisoned =&gt; <span class="macro">log::trace!</span>(target: <span class="string">"telemetry"</span>, <span class="string">"Poisoned"</span>),
 		}
 		<span class="prelude-val">Ok</span>(())
 	}
 
-	<span class="kw">fn </span>poll_flush(<span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;<span class="prelude-ty">Result</span>&lt;(), <span class="self">Self</span>::Error&gt;&gt; {
+	<span class="kw">fn </span>poll_flush(<span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">'_</span>&gt;) -&gt; Poll&lt;<span class="prelude-ty">Result</span>&lt;(), <span class="self">Self</span>::Error&gt;&gt; {
 		<span class="kw">match </span><span class="kw-2">&amp;mut </span><span class="self">self</span>.socket {
 			NodeSocket::Connected(conn) =&gt; <span class="kw">match </span>conn.sink.poll_flush_unpin(cx) {
 				Poll::Ready(<span class="prelude-val">Err</span>(e)) =&gt; {
@@ -772,7 +774,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					// up here, which is sub-optimal. See
 					// https://github.com/libp2p/rust-libp2p/issues/2021 for
 					// what we could do to improve this.
-					</span><span class="macro">log::trace!</span>(target: <span class="string">&quot;telemetry&quot;</span>, <span class="string">&quot;[poll_flush] Error: {:?}&quot;</span>, e);
+					</span><span class="macro">log::trace!</span>(target: <span class="string">"telemetry"</span>, <span class="string">"[poll_flush] Error: {:?}"</span>, e);
 					<span class="self">self</span>.socket = NodeSocket::wait_reconnect();
 					Poll::Ready(<span class="prelude-val">Ok</span>(()))
 				},
@@ -783,7 +785,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="kw">fn </span>poll_close(<span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;<span class="prelude-ty">Result</span>&lt;(), <span class="self">Self</span>::Error&gt;&gt; {
+	<span class="kw">fn </span>poll_close(<span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">'_</span>&gt;) -&gt; Poll&lt;<span class="prelude-ty">Result</span>&lt;(), <span class="self">Self</span>::Error&gt;&gt; {
 		<span class="kw">match </span><span class="kw-2">&amp;mut </span><span class="self">self</span>.socket {
 			NodeSocket::Connected(conn) =&gt; conn.sink.poll_close_unpin(cx).map(|<span class="kw">_</span>| <span class="prelude-val">Ok</span>(())),
 			<span class="kw">_ </span>=&gt; Poll::Ready(<span class="prelude-val">Ok</span>(())),
@@ -795,11 +797,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter) -&gt; fmt::Result {
 		<span class="kw">use </span>NodeSocket::<span class="kw-2">*</span>;
 		f.write_str(<span class="kw">match </span><span class="self">self </span>{
-			Connected(<span class="kw">_</span>) =&gt; <span class="string">&quot;Connected&quot;</span>,
-			Dialing(<span class="kw">_</span>) =&gt; <span class="string">&quot;Dialing&quot;</span>,
-			ReconnectNow =&gt; <span class="string">&quot;ReconnectNow&quot;</span>,
-			WaitingReconnect(<span class="kw">_</span>) =&gt; <span class="string">&quot;WaitingReconnect&quot;</span>,
-			Poisoned =&gt; <span class="string">&quot;Poisoned&quot;</span>,
+			Connected(<span class="kw">_</span>) =&gt; <span class="string">"Connected"</span>,
+			Dialing(<span class="kw">_</span>) =&gt; <span class="string">"Dialing"</span>,
+			ReconnectNow =&gt; <span class="string">"ReconnectNow"</span>,
+			WaitingReconnect(<span class="kw">_</span>) =&gt; <span class="string">"WaitingReconnect"</span>,
+			Poisoned =&gt; <span class="string">"Poisoned"</span>,
 		})
 	}
 }

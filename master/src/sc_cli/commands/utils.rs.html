@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/cli/src/commands/utils.rs`."><title>utils.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/cli/src/commands/utils.rs`."><title>utils.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sc_cli" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sc_cli" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../sc_cli/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -498,7 +500,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			uri.into()
 		}
 	} <span class="kw">else </span>{
-		rpassword::prompt_password(<span class="string">&quot;URI: &quot;</span>)<span class="question-mark">?
+		rpassword::prompt_password(<span class="string">"URI: "</span>)<span class="question-mark">?
 	</span>};
 
 	<span class="prelude-val">Ok</span>(uri)
@@ -531,28 +533,28 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">match </span>output {
 			OutputType::Json =&gt; {
 				<span class="kw">let </span>json = <span class="macro">json!</span>({
-					<span class="string">&quot;secretPhrase&quot;</span>: uri,
-					<span class="string">&quot;networkId&quot;</span>: network_id,
-					<span class="string">&quot;secretSeed&quot;</span>: format_seed::&lt;Pair&gt;(seed),
-					<span class="string">&quot;publicKey&quot;</span>: format_public_key::&lt;Pair&gt;(public_key.clone()),
-					<span class="string">&quot;ss58PublicKey&quot;</span>: public_key.to_ss58check_with_version(network_override),
-					<span class="string">&quot;accountId&quot;</span>: format_account_id::&lt;Pair&gt;(public_key),
-					<span class="string">&quot;ss58Address&quot;</span>: pair.public().into().into_account().to_ss58check_with_version(network_override),
+					<span class="string">"secretPhrase"</span>: uri,
+					<span class="string">"networkId"</span>: network_id,
+					<span class="string">"secretSeed"</span>: format_seed::&lt;Pair&gt;(seed),
+					<span class="string">"publicKey"</span>: format_public_key::&lt;Pair&gt;(public_key.clone()),
+					<span class="string">"ss58PublicKey"</span>: public_key.to_ss58check_with_version(network_override),
+					<span class="string">"accountId"</span>: format_account_id::&lt;Pair&gt;(public_key),
+					<span class="string">"ss58Address"</span>: pair.public().into().into_account().to_ss58check_with_version(network_override),
 				});
 				<span class="macro">println!</span>(
-					<span class="string">&quot;{}&quot;</span>,
-					serde_json::to_string_pretty(<span class="kw-2">&amp;</span>json).expect(<span class="string">&quot;Json pretty print failed&quot;</span>)
+					<span class="string">"{}"</span>,
+					serde_json::to_string_pretty(<span class="kw-2">&amp;</span>json).expect(<span class="string">"Json pretty print failed"</span>)
 				);
 			},
 			OutputType::Text =&gt; {
 				<span class="macro">println!</span>(
-					<span class="string">&quot;Secret phrase:       {}\n  \
+					<span class="string">"Secret phrase:       {}\n  \
 					Network ID:        {}\n  \
 					Secret seed:       {}\n  \
 					Public key (hex):  {}\n  \
 					Account ID:        {}\n  \
 					Public key (SS58): {}\n  \
-					SS58 Address:      {}&quot;</span>,
+					SS58 Address:      {}"</span>,
 					uri,
 					network_id,
 					format_seed::&lt;Pair&gt;(seed),
@@ -570,31 +572,31 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">match </span>output {
 			OutputType::Json =&gt; {
 				<span class="kw">let </span>json = <span class="macro">json!</span>({
-					<span class="string">&quot;secretKeyUri&quot;</span>: uri,
-					<span class="string">&quot;networkId&quot;</span>: network_id,
-					<span class="string">&quot;secretSeed&quot;</span>: <span class="kw">if let </span><span class="prelude-val">Some</span>(seed) = seed { format_seed::&lt;Pair&gt;(seed) } <span class="kw">else </span>{ <span class="string">&quot;n/a&quot;</span>.into() },
-					<span class="string">&quot;publicKey&quot;</span>: format_public_key::&lt;Pair&gt;(public_key.clone()),
-					<span class="string">&quot;ss58PublicKey&quot;</span>: public_key.to_ss58check_with_version(network_override),
-					<span class="string">&quot;accountId&quot;</span>: format_account_id::&lt;Pair&gt;(public_key),
-					<span class="string">&quot;ss58Address&quot;</span>: pair.public().into().into_account().to_ss58check_with_version(network_override),
+					<span class="string">"secretKeyUri"</span>: uri,
+					<span class="string">"networkId"</span>: network_id,
+					<span class="string">"secretSeed"</span>: <span class="kw">if let </span><span class="prelude-val">Some</span>(seed) = seed { format_seed::&lt;Pair&gt;(seed) } <span class="kw">else </span>{ <span class="string">"n/a"</span>.into() },
+					<span class="string">"publicKey"</span>: format_public_key::&lt;Pair&gt;(public_key.clone()),
+					<span class="string">"ss58PublicKey"</span>: public_key.to_ss58check_with_version(network_override),
+					<span class="string">"accountId"</span>: format_account_id::&lt;Pair&gt;(public_key),
+					<span class="string">"ss58Address"</span>: pair.public().into().into_account().to_ss58check_with_version(network_override),
 				});
 				<span class="macro">println!</span>(
-					<span class="string">&quot;{}&quot;</span>,
-					serde_json::to_string_pretty(<span class="kw-2">&amp;</span>json).expect(<span class="string">&quot;Json pretty print failed&quot;</span>)
+					<span class="string">"{}"</span>,
+					serde_json::to_string_pretty(<span class="kw-2">&amp;</span>json).expect(<span class="string">"Json pretty print failed"</span>)
 				);
 			},
 			OutputType::Text =&gt; {
 				<span class="macro">println!</span>(
-					<span class="string">&quot;Secret Key URI `{}` is account:\n  \
+					<span class="string">"Secret Key URI `{}` is account:\n  \
 					Network ID:        {}\n  \
 					Secret seed:       {}\n  \
 					Public key (hex):  {}\n  \
 					Account ID:        {}\n  \
 					Public key (SS58): {}\n  \
-					SS58 Address:      {}&quot;</span>,
+					SS58 Address:      {}"</span>,
 					uri,
 					network_id,
-					<span class="kw">if let </span><span class="prelude-val">Some</span>(seed) = seed { format_seed::&lt;Pair&gt;(seed) } <span class="kw">else </span>{ <span class="string">&quot;n/a&quot;</span>.into() },
+					<span class="kw">if let </span><span class="prelude-val">Some</span>(seed) = seed { format_seed::&lt;Pair&gt;(seed) } <span class="kw">else </span>{ <span class="string">"n/a"</span>.into() },
 					format_public_key::&lt;Pair&gt;(public_key.clone()),
 					format_account_id::&lt;Pair&gt;(public_key.clone()),
 					public_key.to_ss58check_with_version(network_override),
@@ -608,27 +610,27 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">match </span>output {
 			OutputType::Json =&gt; {
 				<span class="kw">let </span>json = <span class="macro">json!</span>({
-					<span class="string">&quot;publicKeyUri&quot;</span>: uri,
-					<span class="string">&quot;networkId&quot;</span>: String::from(network_override),
-					<span class="string">&quot;publicKey&quot;</span>: format_public_key::&lt;Pair&gt;(public_key.clone()),
-					<span class="string">&quot;accountId&quot;</span>: format_account_id::&lt;Pair&gt;(public_key.clone()),
-					<span class="string">&quot;ss58PublicKey&quot;</span>: public_key.to_ss58check_with_version(network_override),
-					<span class="string">&quot;ss58Address&quot;</span>: public_key.to_ss58check_with_version(network_override),
+					<span class="string">"publicKeyUri"</span>: uri,
+					<span class="string">"networkId"</span>: String::from(network_override),
+					<span class="string">"publicKey"</span>: format_public_key::&lt;Pair&gt;(public_key.clone()),
+					<span class="string">"accountId"</span>: format_account_id::&lt;Pair&gt;(public_key.clone()),
+					<span class="string">"ss58PublicKey"</span>: public_key.to_ss58check_with_version(network_override),
+					<span class="string">"ss58Address"</span>: public_key.to_ss58check_with_version(network_override),
 				});
 
 				<span class="macro">println!</span>(
-					<span class="string">&quot;{}&quot;</span>,
-					serde_json::to_string_pretty(<span class="kw-2">&amp;</span>json).expect(<span class="string">&quot;Json pretty print failed&quot;</span>)
+					<span class="string">"{}"</span>,
+					serde_json::to_string_pretty(<span class="kw-2">&amp;</span>json).expect(<span class="string">"Json pretty print failed"</span>)
 				);
 			},
 			OutputType::Text =&gt; {
 				<span class="macro">println!</span>(
-					<span class="string">&quot;Public Key URI `{}` is account:\n  \
+					<span class="string">"Public Key URI `{}` is account:\n  \
 					 Network ID/Version: {}\n  \
 					 Public key (hex):   {}\n  \
 					 Account ID:         {}\n  \
 					 Public key (SS58):  {}\n  \
-					 SS58 Address:       {}&quot;</span>,
+					 SS58 Address:       {}"</span>,
 					uri,
 					String::from(network_override),
 					format_public_key::&lt;Pair&gt;(public_key.clone()),
@@ -639,7 +641,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			},
 		}
 	} <span class="kw">else </span>{
-		<span class="macro">println!</span>(<span class="string">&quot;Invalid phrase/URI given&quot;</span>);
+		<span class="macro">println!</span>(<span class="string">"Invalid phrase/URI given"</span>);
 	}
 }
 
@@ -656,29 +658,29 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>public = array_bytes::hex2bytes(public_str)<span class="question-mark">?</span>;
 
 	<span class="kw">let </span>public_key = Pair::Public::try_from(<span class="kw-2">&amp;</span>public)
-		.map_err(|<span class="kw">_</span>| <span class="string">&quot;Failed to construct public key from given hex&quot;</span>)<span class="question-mark">?</span>;
+		.map_err(|<span class="kw">_</span>| <span class="string">"Failed to construct public key from given hex"</span>)<span class="question-mark">?</span>;
 
 	<span class="kw">let </span>network_override = unwrap_or_default_ss58_version(network_override);
 
 	<span class="kw">match </span>output {
 		OutputType::Json =&gt; {
 			<span class="kw">let </span>json = <span class="macro">json!</span>({
-				<span class="string">&quot;networkId&quot;</span>: String::from(network_override),
-				<span class="string">&quot;publicKey&quot;</span>: format_public_key::&lt;Pair&gt;(public_key.clone()),
-				<span class="string">&quot;accountId&quot;</span>: format_account_id::&lt;Pair&gt;(public_key.clone()),
-				<span class="string">&quot;ss58PublicKey&quot;</span>: public_key.to_ss58check_with_version(network_override),
-				<span class="string">&quot;ss58Address&quot;</span>: public_key.to_ss58check_with_version(network_override),
+				<span class="string">"networkId"</span>: String::from(network_override),
+				<span class="string">"publicKey"</span>: format_public_key::&lt;Pair&gt;(public_key.clone()),
+				<span class="string">"accountId"</span>: format_account_id::&lt;Pair&gt;(public_key.clone()),
+				<span class="string">"ss58PublicKey"</span>: public_key.to_ss58check_with_version(network_override),
+				<span class="string">"ss58Address"</span>: public_key.to_ss58check_with_version(network_override),
 			});
 
-			<span class="macro">println!</span>(<span class="string">&quot;{}&quot;</span>, serde_json::to_string_pretty(<span class="kw-2">&amp;</span>json).expect(<span class="string">&quot;Json pretty print failed&quot;</span>));
+			<span class="macro">println!</span>(<span class="string">"{}"</span>, serde_json::to_string_pretty(<span class="kw-2">&amp;</span>json).expect(<span class="string">"Json pretty print failed"</span>));
 		},
 		OutputType::Text =&gt; {
 			<span class="macro">println!</span>(
-				<span class="string">&quot;Network ID/Version: {}\n  \
+				<span class="string">"Network ID/Version: {}\n  \
 				 Public key (hex):   {}\n  \
 				 Account ID:         {}\n  \
 				 Public key (SS58):  {}\n  \
-				 SS58 Address:       {}&quot;</span>,
+				 SS58 Address:       {}"</span>,
 				String::from(network_override),
 				format_public_key::&lt;Pair&gt;(public_key.clone()),
 				format_account_id::&lt;Pair&gt;(public_key.clone()),
@@ -702,17 +704,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		P::from_string(suri, <span class="prelude-val">None</span>)
 	};
 
-	<span class="prelude-val">Ok</span>(result.map_err(|err| <span class="macro">format!</span>(<span class="string">&quot;Invalid phrase {:?}&quot;</span>, err))<span class="question-mark">?</span>)
+	<span class="prelude-val">Ok</span>(result.map_err(|err| <span class="macro">format!</span>(<span class="string">"Invalid phrase {:?}"</span>, err))<span class="question-mark">?</span>)
 }
 
 <span class="doccomment">/// formats seed as hex
 </span><span class="kw">pub fn </span>format_seed&lt;P: sp_core::Pair&gt;(seed: SeedFor&lt;P&gt;) -&gt; String {
-	<span class="macro">format!</span>(<span class="string">&quot;0x{}&quot;</span>, HexDisplay::from(<span class="kw-2">&amp;</span>seed.as_ref()))
+	<span class="macro">format!</span>(<span class="string">"0x{}"</span>, HexDisplay::from(<span class="kw-2">&amp;</span>seed.as_ref()))
 }
 
 <span class="doccomment">/// formats public key as hex
 </span><span class="kw">fn </span>format_public_key&lt;P: sp_core::Pair&gt;(public_key: PublicFor&lt;P&gt;) -&gt; String {
-	<span class="macro">format!</span>(<span class="string">&quot;0x{}&quot;</span>, HexDisplay::from(<span class="kw-2">&amp;</span>public_key.as_ref()))
+	<span class="macro">format!</span>(<span class="string">"0x{}"</span>, HexDisplay::from(<span class="kw-2">&amp;</span>public_key.as_ref()))
 }
 
 <span class="doccomment">/// formats public key as accountId as hex
@@ -720,7 +722,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">where
 	</span>PublicFor&lt;P&gt;: Into&lt;MultiSigner&gt;,
 {
-	<span class="macro">format!</span>(<span class="string">&quot;0x{}&quot;</span>, HexDisplay::from(<span class="kw-2">&amp;</span>public_key.into().into_account().as_ref()))
+	<span class="macro">format!</span>(<span class="string">"0x{}"</span>, HexDisplay::from(<span class="kw-2">&amp;</span>public_key.into().into_account().as_ref()))
 }
 
 <span class="doccomment">/// Allows for calling $method with appropriate crypto impl.

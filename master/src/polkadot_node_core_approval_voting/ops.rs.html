@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/core/approval-voting/src/ops.rs`."><title>ops.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/core/approval-voting/src/ops.rs`."><title>ops.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_node_core_approval_voting" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_node_core_approval_voting" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../polkadot_node_core_approval_voting/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -628,7 +630,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">fn </span>visit_and_remove_block_entry(
 	block_hash: Hash,
-	overlayed_db: <span class="kw-2">&amp;mut </span>OverlayedBackend&lt;<span class="lifetime">&#39;_</span>, <span class="kw">impl </span>Backend&gt;,
+	overlayed_db: <span class="kw-2">&amp;mut </span>OverlayedBackend&lt;<span class="lifetime">'_</span>, <span class="kw">impl </span>Backend&gt;,
 	visited_candidates: <span class="kw-2">&amp;mut </span>HashMap&lt;CandidateHash, CandidateEntry&gt;,
 ) -&gt; SubsystemResult&lt;Vec&lt;Hash&gt;&gt; {
 	<span class="kw">let </span>block_entry = <span class="kw">match </span>overlayed_db.load_block_entry(<span class="kw-2">&amp;</span>block_hash)<span class="question-mark">? </span>{
@@ -657,7 +659,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Canonicalize some particular block, pruning everything before it and
 /// pruning any competing branches at the same height.
 </span><span class="kw">pub fn </span>canonicalize(
-	overlay_db: <span class="kw-2">&amp;mut </span>OverlayedBackend&lt;<span class="lifetime">&#39;_</span>, <span class="kw">impl </span>Backend&gt;,
+	overlay_db: <span class="kw-2">&amp;mut </span>OverlayedBackend&lt;<span class="lifetime">'_</span>, <span class="kw">impl </span>Backend&gt;,
 	canon_number: BlockNumber,
 	canon_hash: Hash,
 ) -&gt; SubsystemResult&lt;()&gt; {
@@ -668,11 +670,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	};
 
 	<span class="comment">// Storing all candidates in memory is potentially heavy, but should be fine
-	// as long as finality doesn&#39;t stall for a long while. We could optimize this
+	// as long as finality doesn't stall for a long while. We could optimize this
 	// by keeping only the metadata about which blocks reference each candidate.
 	</span><span class="kw">let </span><span class="kw-2">mut </span>visited_candidates = HashMap::new();
 
-	<span class="comment">// All the block heights we visited but didn&#39;t necessarily delete everything from.
+	<span class="comment">// All the block heights we visited but didn't necessarily delete everything from.
 	</span><span class="kw">let </span><span class="kw-2">mut </span>visited_heights = HashMap::new();
 
 	<span class="comment">// First visit everything before the height.
@@ -716,7 +718,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// extend the frontier of branches to include the given height.
 			</span>frontier.extend(children.into_iter().map(|h| (height + <span class="number">1</span>, h)));
 
-			<span class="comment">// visit the at-height key for this deleted block&#39;s height.
+			<span class="comment">// visit the at-height key for this deleted block's height.
 			</span><span class="kw">let </span>at_height = <span class="kw">match </span>visited_heights.entry(height) {
 				Entry::Occupied(e) =&gt; e.into_mut(),
 				Entry::Vacant(e) =&gt; e.insert(overlay_db.load_blocks_at_height(<span class="kw-2">&amp;</span>height)<span class="question-mark">?</span>),
@@ -767,7 +769,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 /// `None` for any of the candidates referenced by the block entry. In these cases,
 /// no information about new candidates will be referred to by this function.
 </span><span class="kw">pub fn </span>add_block_entry(
-	store: <span class="kw-2">&amp;mut </span>OverlayedBackend&lt;<span class="lifetime">&#39;_</span>, <span class="kw">impl </span>Backend&gt;,
+	store: <span class="kw-2">&amp;mut </span>OverlayedBackend&lt;<span class="lifetime">'_</span>, <span class="kw">impl </span>Backend&gt;,
 	entry: BlockEntry,
 	n_validators: usize,
 	candidate_info: <span class="kw">impl </span>Fn(<span class="kw-2">&amp;</span>CandidateHash) -&gt; <span class="prelude-ty">Option</span>&lt;NewCandidateInfo&gt;,
@@ -853,7 +855,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Forcibly approve all candidates included at up to the given relay-chain height in the indicated
 /// chain.
 </span><span class="kw">pub fn </span>force_approve(
-	store: <span class="kw-2">&amp;mut </span>OverlayedBackend&lt;<span class="lifetime">&#39;_</span>, <span class="kw">impl </span>Backend&gt;,
+	store: <span class="kw-2">&amp;mut </span>OverlayedBackend&lt;<span class="lifetime">'_</span>, <span class="kw">impl </span>Backend&gt;,
 	chain_head: Hash,
 	up_to: BlockNumber,
 ) -&gt; SubsystemResult&lt;Vec&lt;Hash&gt;&gt; {
@@ -879,7 +881,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					block_hash = <span class="question-mark">?</span>chain_head,
 					<span class="question-mark">?</span>cur_hash,
 					<span class="question-mark">?</span>cur_block_number,
-					<span class="string">&quot;Start forced approval from block&quot;</span>,
+					<span class="string">"Start forced approval from block"</span>,
 				);
 			}
 			state = State::Approving;
@@ -904,7 +906,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="question-mark">?</span>cur_hash,
 			<span class="question-mark">?</span>cur_block_number,
 			<span class="question-mark">?</span>up_to,
-			<span class="string">&quot;Missing block in the chain, cannot start force approval&quot;
+			<span class="string">"Missing block in the chain, cannot start force approval"
 		</span>);
 	}
 
@@ -914,11 +916,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Revert to the block corresponding to the specified `hash`.
 /// The operation is not allowed for blocks older than the last finalized one.
 </span><span class="kw">pub fn </span>revert_to(
-	overlay: <span class="kw-2">&amp;mut </span>OverlayedBackend&lt;<span class="lifetime">&#39;_</span>, <span class="kw">impl </span>Backend&gt;,
+	overlay: <span class="kw-2">&amp;mut </span>OverlayedBackend&lt;<span class="lifetime">'_</span>, <span class="kw">impl </span>Backend&gt;,
 	hash: Hash,
 ) -&gt; SubsystemResult&lt;()&gt; {
 	<span class="kw">let </span><span class="kw-2">mut </span>stored_range = overlay.load_stored_blocks()<span class="question-mark">?</span>.ok_or_else(|| {
-		SubsystemError::Context(<span class="string">&quot;no available blocks to infer revert point height&quot;</span>.to_string())
+		SubsystemError::Context(<span class="string">"no available blocks to infer revert point height"</span>.to_string())
 	})<span class="question-mark">?</span>;
 
 	<span class="kw">let </span>(children, children_height) = <span class="kw">match </span>overlay.load_block_entry(<span class="kw-2">&amp;</span>hash)<span class="question-mark">? </span>{
@@ -938,13 +940,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.and_then(|hash| overlay.load_block_entry(hash).ok())
 				.flatten()
 				.ok_or_else(|| {
-					SubsystemError::Context(<span class="string">&quot;lookup failure for first block&quot;</span>.to_string())
+					SubsystemError::Context(<span class="string">"lookup failure for first block"</span>.to_string())
 				})<span class="question-mark">?</span>;
 
 			<span class="comment">// The parent is expected to be the revert point
 			</span><span class="kw">if </span>child_entry.parent_hash() != hash {
 				<span class="kw">return </span><span class="prelude-val">Err</span>(SubsystemError::Context(
-					<span class="string">&quot;revert below last finalized block or corrupted storage&quot;</span>.to_string(),
+					<span class="string">"revert below last finalized block or corrupted storage"</span>.to_string(),
 				))
 			}
 

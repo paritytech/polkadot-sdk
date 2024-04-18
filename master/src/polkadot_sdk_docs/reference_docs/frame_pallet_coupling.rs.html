@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `docs/sdk/src/reference_docs/frame_pallet_coupling.rs`."><title>frame_pallet_coupling.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `docs/sdk/src/reference_docs/frame_pallet_coupling.rs`."><title>frame_pallet_coupling.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_sdk_docs" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="icon" href="https://polkadot.network/favicon-32x32.png"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_sdk_docs" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="icon" href="https://polkadot.network/favicon-32x32.png"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../../polkadot_sdk_docs/index.html"><img src="https://europe1.discourse-cdn.com/standard21/uploads/polkadot2/original/1X/eb57081e2bb7c39e5fcb1a98b443e423fa4448ae.svg" alt="polkadot_sdk_docs"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../polkadot_sdk_docs/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -468,7 +470,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!   things, such as handling currencies, identities and staking all at the same time.
 //! * *linked to other pallets*: But, adhering extensively to the above also hinders the ability to
 //!   write useful applications. Pallets often need to work with each other, communicate and use
-//!   each other&#39;s functionalities.
+//!   each other's functionalities.
 //!
 //! The broad principle that allows pallets to be linked together is the same way through which a
 //! pallet uses its `Config` trait to receive types and values from the runtime that contains it.
@@ -510,58 +512,58 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 //!
 //! Consider the following example, in which `pallet-foo` needs another pallet to provide the block
 //! author to it, and `pallet-author` which has access to this information.
-</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;./src/reference_docs/frame_pallet_coupling.rs&quot;</span>, pallet_foo)]
-#![doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;./src/reference_docs/frame_pallet_coupling.rs&quot;</span>, pallet_author)]
+</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">"./src/reference_docs/frame_pallet_coupling.rs"</span>, pallet_foo)]
+#![doc = <span class="macro">docify::embed!</span>(<span class="string">"./src/reference_docs/frame_pallet_coupling.rs"</span>, pallet_author)]
 </span><span class="doccomment">//!
 //! ### Tight Coupling Pallets
 //!
-//! To tightly couple `pallet-foo` and `pallet-author`, we use Rust&#39;s supertrait system. When a
-//! pallet makes its own `trait Config` be bounded by another pallet&#39;s `trait Config`, it is
+//! To tightly couple `pallet-foo` and `pallet-author`, we use Rust's supertrait system. When a
+//! pallet makes its own `trait Config` be bounded by another pallet's `trait Config`, it is
 //! expressing two things:
 //!
 //! 1. that it can only exist in a runtime if the other pallet is also present.
-//! 2. that it can use the other pallet&#39;s functionality.
+//! 2. that it can use the other pallet's functionality.
 //!
-//! `pallet-foo`&#39;s `Config` would then look like:
-</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;./src/reference_docs/frame_pallet_coupling.rs&quot;</span>, tight_config)]
+//! `pallet-foo`'s `Config` would then look like:
+</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">"./src/reference_docs/frame_pallet_coupling.rs"</span>, tight_config)]
 </span><span class="doccomment">//!
 //! And `pallet-foo` can use the method exposed by `pallet_author::Pallet` directly:
-</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;./src/reference_docs/frame_pallet_coupling.rs&quot;</span>, tight_usage)]
+</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">"./src/reference_docs/frame_pallet_coupling.rs"</span>, tight_usage)]
 </span><span class="doccomment">//!
 //!
 //! ### Loosely  Coupling Pallets
 //!
 //! If `pallet-foo` wants to *not* rely on `pallet-author` directly, it can leverage its
-//! `Config`&#39;s associated types. First, we need a trait to express the functionality that
+//! `Config`'s associated types. First, we need a trait to express the functionality that
 //! `pallet-foo` wants to obtain:
-</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;./src/reference_docs/frame_pallet_coupling.rs&quot;</span>, AuthorProvider)]
+</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">"./src/reference_docs/frame_pallet_coupling.rs"</span>, AuthorProvider)]
 </span><span class="doccomment">//!
-//! &gt; We sometimes refer to such traits that help two pallets interact as &quot;glue traits&quot;.
+//! &gt; We sometimes refer to such traits that help two pallets interact as "glue traits".
 //!
 //! Next, `pallet-foo` states that it needs this trait to be provided to it, at the runtime level,
 //! via an associated type:
-</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;./src/reference_docs/frame_pallet_coupling.rs&quot;</span>, loose_config)]
+</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">"./src/reference_docs/frame_pallet_coupling.rs"</span>, loose_config)]
 </span><span class="doccomment">//!
 //! Then, `pallet-foo` can use this trait to obtain the block author, without knowing where it comes
 //! from:
-</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;./src/reference_docs/frame_pallet_coupling.rs&quot;</span>, loose_usage)]
+</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">"./src/reference_docs/frame_pallet_coupling.rs"</span>, loose_usage)]
 </span><span class="doccomment">//!
 //! Then, if `pallet-author` implements this glue-trait:
-</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;./src/reference_docs/frame_pallet_coupling.rs&quot;</span>, pallet_author_provider)]
+</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">"./src/reference_docs/frame_pallet_coupling.rs"</span>, pallet_author_provider)]
 </span><span class="doccomment">//!
 //! And upon the creation of the runtime, the two pallets are linked together as such:
-</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;./src/reference_docs/frame_pallet_coupling.rs&quot;</span>, runtime_author_provider)]
+</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">"./src/reference_docs/frame_pallet_coupling.rs"</span>, runtime_author_provider)]
 </span><span class="doccomment">//!
 //! Crucially, when using loose coupling, we gain the flexibility of providing different
 //! implementations of `AuthorProvider`, such that different users of a `pallet-foo` can use
 //! different ones, without any code change being needed. For example, in the code snippets of this
 //! module, you can fund [`OtherAuthorProvider`] which is an alternative implementation of
 //! [`AuthorProvider`].
-</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;./src/reference_docs/frame_pallet_coupling.rs&quot;</span>, other_author_provider)]
+</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">"./src/reference_docs/frame_pallet_coupling.rs"</span>, other_author_provider)]
 </span><span class="doccomment">//!
 //! A common pattern in polkadot-sdk is to provide an implementation of such glu traits for the unit
-//! type as a &quot;default/test behavior&quot;.
-</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">&quot;./src/reference_docs/frame_pallet_coupling.rs&quot;</span>, unit_author_provider)]
+//! type as a "default/test behavior".
+</span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">"./src/reference_docs/frame_pallet_coupling.rs"</span>, unit_author_provider)]
 </span><span class="doccomment">//!
 //! ## Frame System
 //!
@@ -633,7 +635,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
 		<span class="kw">pub fn </span>author() -&gt; T::AccountId {
-			<span class="macro">todo!</span>(<span class="string">&quot;somehow has access to the block author and can return it here&quot;</span>)
+			<span class="macro">todo!</span>(<span class="string">"somehow has access to the block author and can return it here"</span>)
 		}
 	}
 }
@@ -661,7 +663,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="attr">#[docify::export]
-</span><span class="doccomment">/// Abstraction over &quot;something that can provide the block author&quot;.
+</span><span class="doccomment">/// Abstraction over "something that can provide the block author".
 </span><span class="kw">pub trait </span>AuthorProvider&lt;AccountId&gt; {
 	<span class="kw">fn </span>author() -&gt; AccountId;
 }
@@ -701,14 +703,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="attr">#[docify::export(other_author_provider)]
 </span><span class="kw">impl</span>&lt;AccountId&gt; AuthorProvider&lt;AccountId&gt; <span class="kw">for </span>OtherAuthorProvider {
 	<span class="kw">fn </span>author() -&gt; AccountId {
-		<span class="macro">todo!</span>(<span class="string">&quot;somehow get the block author here&quot;</span>)
+		<span class="macro">todo!</span>(<span class="string">"somehow get the block author here"</span>)
 	}
 }
 
 <span class="attr">#[docify::export(unit_author_provider)]
 </span><span class="kw">impl</span>&lt;AccountId&gt; AuthorProvider&lt;AccountId&gt; <span class="kw">for </span>() {
 	<span class="kw">fn </span>author() -&gt; AccountId {
-		<span class="macro">todo!</span>(<span class="string">&quot;somehow get the block author here&quot;</span>)
+		<span class="macro">todo!</span>(<span class="string">"somehow get the block author here"</span>)
 	}
 }
 

@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/runtime/parachains/src/runtime_api_impl/v10.rs`."><title>v10.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/runtime/parachains/src/runtime_api_impl/v10.rs`."><title>v10.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_runtime_parachains" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="polkadot_runtime_parachains" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../polkadot_runtime_parachains/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -769,9 +771,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Some</span>(g) =&gt; g,
 			<span class="prelude-val">None </span>=&gt; {
 				<span class="macro">log::warn!</span>(
-					target: <span class="string">&quot;runtime::polkadot-api::v2&quot;</span>,
-					<span class="string">&quot;Could not determine the group responsible for core extracted \
-					from list of cores for some prior block in same session&quot;</span>,
+					target: <span class="string">"runtime::polkadot-api::v2"</span>,
+					<span class="string">"Could not determine the group responsible for core extracted \
+					from list of cores for some prior block in same session"</span>,
 				);
 
 				GroupIndex(<span class="number">0</span>)
@@ -793,15 +795,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					StorageVersion::new(<span class="number">0</span>)
 				{
 					inclusion::migration::v0::PendingAvailability::&lt;T&gt;::get(entry.para_id())
-						.expect(<span class="string">&quot;Occupied core always has pending availability; qed&quot;</span>)
+						.expect(<span class="string">"Occupied core always has pending availability; qed"</span>)
 				} <span class="kw">else </span>{
 					<span class="kw">let </span>candidate = inclusion::Pallet::&lt;T&gt;::pending_availability_with_core(
 						entry.para_id(),
 						CoreIndex(i <span class="kw">as </span>u32),
 					)
-					.expect(<span class="string">&quot;Occupied core always has pending availability; qed&quot;</span>);
+					.expect(<span class="string">"Occupied core always has pending availability; qed"</span>);
 
-					<span class="comment">// Translate to the old candidate format, as we don&#39;t need the commitments now.
+					<span class="comment">// Translate to the old candidate format, as we don't need the commitments now.
 					</span>inclusion::migration::v0::CandidatePendingAvailability {
 						core: candidate.core_occupied(),
 						hash: candidate.candidate_hash(),
@@ -856,7 +858,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>state_version = frame_system::Pallet::&lt;T&gt;::runtime_version().state_version();
 	<span class="kw">let </span>relay_parent_number = frame_system::Pallet::&lt;T&gt;::block_number();
 	<span class="kw">let </span>relay_parent_storage_root = T::Hash::decode(<span class="kw-2">&amp;mut &amp;</span>sp_io::storage::root(state_version)[..])
-		.expect(<span class="string">&quot;storage root must decode to the Hash type; qed&quot;</span>);
+		.expect(<span class="string">"storage root must decode to the Hash type; qed"</span>);
 	(relay_parent_number, relay_parent_storage_root)
 }
 
@@ -950,7 +952,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	// in.
 	//
 	// Incidentally, this is also the rationale for why it is OK to query validators or
-	// occupied cores or etc. and expect the correct response &quot;for child&quot;.
+	// occupied cores or etc. and expect the correct response "for child".
 	</span>shared::CurrentSessionIndex::&lt;T&gt;::get()
 }
 
@@ -963,13 +965,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>earliest_stored_session = session_info::EarliestStoredSession::&lt;T&gt;::get();
 
 	<span class="comment">// Due to `max_validators`, the `SessionInfo` stores only the validators who are actively
-	// selected to participate in parachain consensus. We&#39;d like all authorities for the current
+	// selected to participate in parachain consensus. We'd like all authorities for the current
 	// and next sessions to be used in authority-discovery. The two sets likely have large overlap.
 	</span><span class="kw">let </span><span class="kw-2">mut </span>authority_ids = pallet_authority_discovery::Pallet::&lt;T&gt;::current_authorities().to_vec();
 	authority_ids.extend(pallet_authority_discovery::Pallet::&lt;T&gt;::next_authorities().to_vec());
 
-	<span class="comment">// Due to disputes, we&#39;d like to remain connected to authorities of the previous few sessions.
-	// For this, we don&#39;t need anyone other than the validators actively participating in consensus.
+	<span class="comment">// Due to disputes, we'd like to remain connected to authorities of the previous few sessions.
+	// For this, we don't need anyone other than the validators actively participating in consensus.
 	</span><span class="kw">for </span>session_index <span class="kw">in </span>earliest_stored_session..current_session_index {
 		<span class="kw">let </span>info = session_info::Sessions::&lt;T&gt;::get(session_index);
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">mut </span>info) = info {
@@ -993,8 +995,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Implementation for the `candidate_pending_availability` function of the runtime API.
 </span><span class="attr">#[deprecated(
-	note = <span class="string">&quot;`candidate_pending_availability` will be removed. Use `candidates_pending_availability` to query 
-	all candidates pending availability&quot;
+	note = <span class="string">"`candidate_pending_availability` will be removed. Use `candidates_pending_availability` to query 
+	all candidates pending availability"
 </span>)]
 </span><span class="kw">pub fn </span>candidate_pending_availability&lt;T: initializer::Config&gt;(
 	para_id: ParaId,
@@ -1025,7 +1027,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					CandidateEvent::CandidateTimedOut(c, h, core),
 				<span class="comment">// Not needed for candidate events.
 				</span>RawEvent::&lt;T&gt;::UpwardMessagesReceived { .. } =&gt; <span class="kw">return </span><span class="prelude-val">None</span>,
-				RawEvent::&lt;T&gt;::__Ignore(<span class="kw">_</span>, <span class="kw">_</span>) =&gt; <span class="macro">unreachable!</span>(<span class="string">&quot;__Ignore cannot be used&quot;</span>),
+				RawEvent::&lt;T&gt;::__Ignore(<span class="kw">_</span>, <span class="kw">_</span>) =&gt; <span class="macro">unreachable!</span>(<span class="string">"__Ignore cannot be used"</span>),
 			})
 		})
 		.collect()
@@ -1144,7 +1146,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>upgrade_restriction = paras::UpgradeRestrictionSignal::&lt;T&gt;::get(para_id);
 	<span class="kw">let </span>future_validation_code =
 		paras::FutureCodeUpgrades::&lt;T&gt;::get(para_id).and_then(|block_num| {
-			<span class="comment">// Only read the storage if there&#39;s a pending upgrade.
+			<span class="comment">// Only read the storage if there's a pending upgrade.
 			</span><span class="prelude-val">Some</span>(block_num).zip(paras::FutureCodeHash::&lt;T&gt;::get(para_id))
 		});
 

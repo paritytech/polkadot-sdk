@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/panic-handler/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/panic-handler/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_panic_handler" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_panic_handler" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sp_panic_handler/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -397,14 +399,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -459,11 +461,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="macro">macro_rules! </span>ABOUT_PANIC {
 	() =&gt; {
-		<span class="string">&quot;
+		<span class="string">"
 This is a bug. Please report it at:
 
 	{}
-&quot;
+"
 	</span>};
 }
 
@@ -489,7 +491,7 @@ This is a bug. Please report it at:
 </span><span class="kw">pub struct </span>AbortGuard {
 	<span class="doccomment">/// Value that was in `ABORT` before we created this guard.
 	</span>previous_val: OnPanic,
-	<span class="doccomment">/// Marker so that `AbortGuard` doesn&#39;t implement `Send`.
+	<span class="doccomment">/// Marker so that `AbortGuard` doesn't implement `Send`.
 	</span>_not_send: PhantomData&lt;std::rc::Rc&lt;()&gt;&gt;,
 }
 
@@ -523,7 +525,7 @@ This is a bug. Please report it at:
 <span class="comment">// NOTE: When making any changes here make sure to also change this function in `sc-tracing`.
 </span><span class="kw">fn </span>strip_control_codes(input: <span class="kw-2">&amp;</span>str) -&gt; std::borrow::Cow&lt;str&gt; {
 	<span class="macro">lazy_static::lazy_static! </span>{
-		<span class="kw">static </span><span class="kw-2">ref </span>RE: Regex = Regex::new(<span class="string">r#&quot;(?x)
+		<span class="kw">static </span><span class="kw-2">ref </span>RE: Regex = Regex::new(<span class="string">r#"(?x)
 			\x1b\[[^m]+m|        # VT100 escape codes
 			[
 			  \x00-\x09\x0B-\x1F # ASCII control codes / Unicode C0 control codes, except \n
@@ -532,43 +534,43 @@ This is a bug. Please report it at:
 			  \u{202A}-\u{202E}  # Unicode left-to-right / right-to-left control characters
 			  \u{2066}-\u{2069}  # Same as above
 			]
-		&quot;#</span>).expect(<span class="string">&quot;regex parsing doesn&#39;t fail; qed&quot;</span>);
+		"#</span>).expect(<span class="string">"regex parsing doesn't fail; qed"</span>);
 	}
 
-	RE.replace_all(input, <span class="string">&quot;&quot;</span>)
+	RE.replace_all(input, <span class="string">""</span>)
 }
 
 <span class="doccomment">/// Function being called when a panic happens.
 </span><span class="kw">fn </span>panic_hook(info: <span class="kw-2">&amp;</span>PanicInfo, report_url: <span class="kw-2">&amp;</span>str, version: <span class="kw-2">&amp;</span>str) {
 	<span class="kw">let </span>location = info.location();
-	<span class="kw">let </span>file = location.as_ref().map(|l| l.file()).unwrap_or(<span class="string">&quot;&lt;unknown&gt;&quot;</span>);
+	<span class="kw">let </span>file = location.as_ref().map(|l| l.file()).unwrap_or(<span class="string">"&lt;unknown&gt;"</span>);
 	<span class="kw">let </span>line = location.as_ref().map(|l| l.line()).unwrap_or(<span class="number">0</span>);
 
-	<span class="kw">let </span>msg = <span class="kw">match </span>info.payload().downcast_ref::&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt;() {
+	<span class="kw">let </span>msg = <span class="kw">match </span>info.payload().downcast_ref::&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt;() {
 		<span class="prelude-val">Some</span>(s) =&gt; <span class="kw-2">*</span>s,
 		<span class="prelude-val">None </span>=&gt; <span class="kw">match </span>info.payload().downcast_ref::&lt;String&gt;() {
 			<span class="prelude-val">Some</span>(s) =&gt; <span class="kw-2">&amp;</span>s[..],
-			<span class="prelude-val">None </span>=&gt; <span class="string">&quot;Box&lt;Any&gt;&quot;</span>,
+			<span class="prelude-val">None </span>=&gt; <span class="string">"Box&lt;Any&gt;"</span>,
 		},
 	};
 
 	<span class="kw">let </span>msg = strip_control_codes(msg);
 
 	<span class="kw">let </span>thread = thread::current();
-	<span class="kw">let </span>name = thread.name().unwrap_or(<span class="string">&quot;&lt;unnamed&gt;&quot;</span>);
+	<span class="kw">let </span>name = thread.name().unwrap_or(<span class="string">"&lt;unnamed&gt;"</span>);
 
 	<span class="kw">let </span>backtrace = Backtrace::new();
 
 	<span class="kw">let </span><span class="kw-2">mut </span>stderr = io::stderr();
 
 	<span class="kw">let _ </span>= <span class="macro">writeln!</span>(stderr);
-	<span class="kw">let _ </span>= <span class="macro">writeln!</span>(stderr, <span class="string">&quot;====================&quot;</span>);
+	<span class="kw">let _ </span>= <span class="macro">writeln!</span>(stderr, <span class="string">"===================="</span>);
 	<span class="kw">let _ </span>= <span class="macro">writeln!</span>(stderr);
-	<span class="kw">let _ </span>= <span class="macro">writeln!</span>(stderr, <span class="string">&quot;Version: {}&quot;</span>, version);
+	<span class="kw">let _ </span>= <span class="macro">writeln!</span>(stderr, <span class="string">"Version: {}"</span>, version);
 	<span class="kw">let _ </span>= <span class="macro">writeln!</span>(stderr);
-	<span class="kw">let _ </span>= <span class="macro">writeln!</span>(stderr, <span class="string">&quot;{:?}&quot;</span>, backtrace);
+	<span class="kw">let _ </span>= <span class="macro">writeln!</span>(stderr, <span class="string">"{:?}"</span>, backtrace);
 	<span class="kw">let _ </span>= <span class="macro">writeln!</span>(stderr);
-	<span class="kw">let _ </span>= <span class="macro">writeln!</span>(stderr, <span class="string">&quot;Thread &#39;{}&#39; panicked at &#39;{}&#39;, {}:{}&quot;</span>, name, msg, file, line);
+	<span class="kw">let _ </span>= <span class="macro">writeln!</span>(stderr, <span class="string">"Thread '{}' panicked at '{}', {}:{}"</span>, name, msg, file, line);
 
 	<span class="kw">let _ </span>= <span class="macro">writeln!</span>(stderr, <span class="macro">ABOUT_PANIC!</span>(), report_url);
 	ON_PANIC.with(|val| {
@@ -584,14 +586,14 @@ This is a bug. Please report it at:
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>does_not_abort() {
-		set(<span class="string">&quot;test&quot;</span>, <span class="string">&quot;1.2.3&quot;</span>);
+		set(<span class="string">"test"</span>, <span class="string">"1.2.3"</span>);
 		<span class="kw">let </span>_guard = AbortGuard::force_unwind();
 		::std::panic::catch_unwind(|| <span class="macro">panic!</span>()).ok();
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>does_not_abort_after_never_abort() {
-		set(<span class="string">&quot;test&quot;</span>, <span class="string">&quot;1.2.3&quot;</span>);
+		set(<span class="string">"test"</span>, <span class="string">"1.2.3"</span>);
 		<span class="kw">let </span>_guard = AbortGuard::never_abort();
 		<span class="kw">let </span>_guard = AbortGuard::force_abort();
 		std::panic::catch_unwind(|| <span class="macro">panic!</span>()).ok();
@@ -601,13 +603,13 @@ This is a bug. Please report it at:
 		test_name: <span class="kw-2">&amp;</span>str,
 		test_body: <span class="kw">impl </span>FnOnce(),
 	) -&gt; <span class="prelude-ty">Option</span>&lt;std::process::Output&gt; {
-		<span class="kw">if </span>std::env::var(<span class="string">&quot;RUN_FORKED_TEST&quot;</span>).is_ok() {
+		<span class="kw">if </span>std::env::var(<span class="string">"RUN_FORKED_TEST"</span>).is_ok() {
 			test_body();
 			<span class="prelude-val">None
 		</span>} <span class="kw">else </span>{
 			<span class="kw">let </span>output = std::process::Command::new(std::env::current_exe().unwrap())
 				.arg(test_name)
-				.env(<span class="string">&quot;RUN_FORKED_TEST&quot;</span>, <span class="string">&quot;1&quot;</span>)
+				.env(<span class="string">"RUN_FORKED_TEST"</span>, <span class="string">"1"</span>)
 				.output()
 				.unwrap();
 
@@ -618,15 +620,15 @@ This is a bug. Please report it at:
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>control_characters_are_always_stripped_out_from_the_panic_messages() {
-		<span class="kw">const </span>RAW_LINE: <span class="kw-2">&amp;</span>str = <span class="string">&quot;$$START$$\x1B[1;32mIn\u{202a}\u{202e}\u{2066}\u{2069}ner\n\r\x7ftext!\u{80}\u{9f}\x1B[0m$$END$$&quot;</span>;
-		<span class="kw">const </span>SANITIZED_LINE: <span class="kw-2">&amp;</span>str = <span class="string">&quot;$$START$$Inner\ntext!$$END$$&quot;</span>;
+		<span class="kw">const </span>RAW_LINE: <span class="kw-2">&amp;</span>str = <span class="string">"$$START$$\x1B[1;32mIn\u{202a}\u{202e}\u{2066}\u{2069}ner\n\r\x7ftext!\u{80}\u{9f}\x1B[0m$$END$$"</span>;
+		<span class="kw">const </span>SANITIZED_LINE: <span class="kw-2">&amp;</span>str = <span class="string">"$$START$$Inner\ntext!$$END$$"</span>;
 
 		<span class="kw">let </span>output = run_test_in_another_process(
-			<span class="string">&quot;control_characters_are_always_stripped_out_from_the_panic_messages&quot;</span>,
+			<span class="string">"control_characters_are_always_stripped_out_from_the_panic_messages"</span>,
 			|| {
-				set(<span class="string">&quot;test&quot;</span>, <span class="string">&quot;1.2.3&quot;</span>);
+				set(<span class="string">"test"</span>, <span class="string">"1.2.3"</span>);
 				<span class="kw">let </span>_guard = AbortGuard::force_unwind();
-				<span class="kw">let _ </span>= std::panic::catch_unwind(|| <span class="macro">panic!</span>(<span class="string">&quot;{}&quot;</span>, RAW_LINE));
+				<span class="kw">let _ </span>= std::panic::catch_unwind(|| <span class="macro">panic!</span>(<span class="string">"{}"</span>, RAW_LINE));
 			},
 		);
 

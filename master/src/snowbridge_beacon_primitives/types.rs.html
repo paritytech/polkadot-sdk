@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `bridges/snowbridge/primitives/beacon/src/types.rs`."><title>types.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `bridges/snowbridge/primitives/beacon/src/types.rs`."><title>types.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="snowbridge_beacon_primitives" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="snowbridge_beacon_primitives" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../snowbridge_beacon_primitives/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -777,10 +779,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">use </span><span class="kw">crate</span>::config::{PUBKEY_SIZE, SIGNATURE_SIZE};
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">use </span>serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">use </span><span class="kw">crate</span>::serde_utils::HexVisitor;
 
 <span class="kw">use </span><span class="kw">crate</span>::ssz::{
@@ -833,17 +835,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
-</span><span class="kw">impl</span>&lt;<span class="lifetime">&#39;de</span>&gt; Deserialize&lt;<span class="lifetime">&#39;de</span>&gt; <span class="kw">for </span>PublicKey {
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
+</span><span class="kw">impl</span>&lt;<span class="lifetime">'de</span>&gt; Deserialize&lt;<span class="lifetime">'de</span>&gt; <span class="kw">for </span>PublicKey {
 	<span class="kw">fn </span>deserialize&lt;D&gt;(deserializer: D) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, D::Error&gt;
 	<span class="kw">where
-		</span>D: Deserializer&lt;<span class="lifetime">&#39;de</span>&gt;,
+		</span>D: Deserializer&lt;<span class="lifetime">'de</span>&gt;,
 	{
 		deserializer.deserialize_str(HexVisitor::&lt;PUBKEY_SIZE&gt;()).map(|v| v.into())
 	}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">impl </span>Serialize <span class="kw">for </span>PublicKey {
 	<span class="kw">fn </span>serialize&lt;S&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, serializer: S) -&gt; <span class="prelude-ty">Result</span>&lt;S::Ok, S::Error&gt;
 	<span class="kw">where
@@ -868,11 +870,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
-</span><span class="kw">impl</span>&lt;<span class="lifetime">&#39;de</span>&gt; Deserialize&lt;<span class="lifetime">&#39;de</span>&gt; <span class="kw">for </span>Signature {
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
+</span><span class="kw">impl</span>&lt;<span class="lifetime">'de</span>&gt; Deserialize&lt;<span class="lifetime">'de</span>&gt; <span class="kw">for </span>Signature {
 	<span class="kw">fn </span>deserialize&lt;D&gt;(deserializer: D) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, D::Error&gt;
 	<span class="kw">where
-		</span>D: Deserializer&lt;<span class="lifetime">&#39;de</span>&gt;,
+		</span>D: Deserializer&lt;<span class="lifetime">'de</span>&gt;,
 	{
 		deserializer.deserialize_str(HexVisitor::&lt;SIGNATURE_SIZE&gt;()).map(|v| v.into())
 	}
@@ -914,13 +916,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	Encode, Decode, PartialEqNoBound, CloneNoBound, RuntimeDebugNoBound, TypeInfo, MaxEncodedLen,
 )]
 #[cfg_attr(
-	feature = <span class="string">&quot;std&quot;</span>,
+	feature = <span class="string">"std"</span>,
 	derive(Serialize, Deserialize),
-	serde(deny_unknown_fields, bound(serialize = <span class="string">&quot;&quot;</span>), bound(deserialize = <span class="string">&quot;&quot;</span>))
+	serde(deny_unknown_fields, bound(serialize = <span class="string">""</span>), bound(deserialize = <span class="string">""</span>))
 )]
 #[codec(mel_bound())]
 </span><span class="kw">pub struct </span>SyncCommittee&lt;<span class="kw">const </span>COMMITTEE_SIZE: usize&gt; {
-	<span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, serde(with = <span class="string">&quot;crate::serde_utils::arrays&quot;</span>))]
+	<span class="attr">#[cfg_attr(feature = <span class="string">"std"</span>, serde(with = <span class="string">"crate::serde_utils::arrays"</span>))]
 	</span><span class="kw">pub </span>pubkeys: [PublicKey; COMMITTEE_SIZE],
 	<span class="kw">pub </span>aggregate_pubkey: PublicKey,
 }
@@ -953,7 +955,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>pubkeys: Vec&lt;PublicKeyPrepared&gt; =
 			repeat(PublicKeyPrepared::default()).take(COMMITTEE_SIZE).collect();
 		<span class="kw">let </span>pubkeys: Box&lt;[PublicKeyPrepared; COMMITTEE_SIZE]&gt; =
-			Box::new(pubkeys.try_into().map_err(|<span class="kw">_</span>| ()).expect(<span class="string">&quot;checked statically; qed&quot;</span>));
+			Box::new(pubkeys.try_into().map_err(|<span class="kw">_</span>| ()).expect(<span class="string">"checked statically; qed"</span>));
 
 		SyncCommitteePrepared {
 			root: H256::default(),
@@ -970,10 +972,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">fn </span>try_from(sync_committee: <span class="kw-2">&amp;</span>SyncCommittee&lt;COMMITTEE_SIZE&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Error&gt; {
 		<span class="kw">let </span>g1_pubkeys = prepare_g1_pubkeys(<span class="kw-2">&amp;</span>sync_committee.pubkeys)<span class="question-mark">?</span>;
-		<span class="kw">let </span>sync_committee_root = sync_committee.hash_tree_root().expect(<span class="string">&quot;checked statically; qed&quot;</span>);
+		<span class="kw">let </span>sync_committee_root = sync_committee.hash_tree_root().expect(<span class="string">"checked statically; qed"</span>);
 
 		<span class="prelude-val">Ok</span>(SyncCommitteePrepared::&lt;COMMITTEE_SIZE&gt; {
-			pubkeys: g1_pubkeys.try_into().map_err(|<span class="kw">_</span>| ()).expect(<span class="string">&quot;checked statically; qed&quot;</span>),
+			pubkeys: g1_pubkeys.try_into().map_err(|<span class="kw">_</span>| ()).expect(<span class="string">"checked statically; qed"</span>),
 			aggregate_pubkey: prepare_milagro_pubkey(<span class="kw-2">&amp;</span>sync_committee.aggregate_pubkey)<span class="question-mark">?</span>,
 			root: sync_committee_root,
 		})
@@ -985,7 +987,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[derive(
 	Copy, Clone, Default, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen,
 )]
-#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(Serialize, Deserialize))]
+#[cfg_attr(feature = <span class="string">"std"</span>, derive(Serialize, Deserialize))]
 </span><span class="kw">pub struct </span>BeaconHeader {
 	<span class="comment">// The slot for which this block is created. Must be greater than the slot of the block defined
 	// by parent root.
@@ -1008,13 +1010,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="attr">#[derive(Encode, Decode, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound, TypeInfo)]
 #[cfg_attr(
-	feature = <span class="string">&quot;std&quot;</span>,
+	feature = <span class="string">"std"</span>,
 	derive(Deserialize),
 	serde(
-		try_from = <span class="string">&quot;IntermediateSyncAggregate&quot;</span>,
+		try_from = <span class="string">"IntermediateSyncAggregate"</span>,
 		deny_unknown_fields,
-		bound(serialize = <span class="string">&quot;&quot;</span>),
-		bound(deserialize = <span class="string">&quot;&quot;</span>)
+		bound(serialize = <span class="string">""</span>),
+		bound(deserialize = <span class="string">""</span>)
 	)
 )]
 #[codec(mel_bound())]
@@ -1043,15 +1045,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Serde deserialization helper for SyncAggregate
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+</span><span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 #[derive(Deserialize)]
 </span><span class="kw">struct </span>IntermediateSyncAggregate {
-	<span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, serde(deserialize_with = <span class="string">&quot;crate::serde_utils::from_hex_to_bytes&quot;</span>))]
+	<span class="attr">#[cfg_attr(feature = <span class="string">"std"</span>, serde(deserialize_with = <span class="string">"crate::serde_utils::from_hex_to_bytes"</span>))]
 	</span><span class="kw">pub </span>sync_committee_bits: Vec&lt;u8&gt;,
 	<span class="kw">pub </span>sync_committee_signature: Signature,
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">impl</span>&lt;<span class="kw">const </span>COMMITTEE_SIZE: usize, <span class="kw">const </span>COMMITTEE_BITS_SIZE: usize&gt;
 	TryFrom&lt;IntermediateSyncAggregate&gt; <span class="kw">for </span>SyncAggregate&lt;COMMITTEE_SIZE, COMMITTEE_BITS_SIZE&gt;
 {
@@ -1062,7 +1064,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			sync_committee_bits: other
 				.sync_committee_bits
 				.try_into()
-				.map_err(|<span class="kw">_</span>| <span class="string">&quot;unexpected length&quot;</span>.to_owned())<span class="question-mark">?</span>,
+				.map_err(|<span class="kw">_</span>| <span class="string">"unexpected length"</span>.to_owned())<span class="question-mark">?</span>,
 			sync_committee_signature: other.sync_committee_signature,
 		})
 	}
@@ -1074,9 +1076,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	Default, Encode, Decode, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound, TypeInfo,
 )]
 #[cfg_attr(
-	feature = <span class="string">&quot;std&quot;</span>,
+	feature = <span class="string">"std"</span>,
 	derive(Serialize, Deserialize),
-	serde(deny_unknown_fields, bound(serialize = <span class="string">&quot;&quot;</span>), bound(deserialize = <span class="string">&quot;&quot;</span>))
+	serde(deny_unknown_fields, bound(serialize = <span class="string">""</span>), bound(deserialize = <span class="string">""</span>))
 )]
 #[codec(mel_bound())]
 </span><span class="kw">pub struct </span>ExecutionPayloadHeader {
@@ -1084,16 +1086,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">pub </span>fee_recipient: H160,
 	<span class="kw">pub </span>state_root: H256,
 	<span class="kw">pub </span>receipts_root: H256,
-	<span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, serde(deserialize_with = <span class="string">&quot;crate::serde_utils::from_hex_to_bytes&quot;</span>))]
+	<span class="attr">#[cfg_attr(feature = <span class="string">"std"</span>, serde(deserialize_with = <span class="string">"crate::serde_utils::from_hex_to_bytes"</span>))]
 	</span><span class="kw">pub </span>logs_bloom: Vec&lt;u8&gt;,
 	<span class="kw">pub </span>prev_randao: H256,
 	<span class="kw">pub </span>block_number: u64,
 	<span class="kw">pub </span>gas_limit: u64,
 	<span class="kw">pub </span>gas_used: u64,
 	<span class="kw">pub </span>timestamp: u64,
-	<span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, serde(deserialize_with = <span class="string">&quot;crate::serde_utils::from_hex_to_bytes&quot;</span>))]
+	<span class="attr">#[cfg_attr(feature = <span class="string">"std"</span>, serde(deserialize_with = <span class="string">"crate::serde_utils::from_hex_to_bytes"</span>))]
 	</span><span class="kw">pub </span>extra_data: Vec&lt;u8&gt;,
-	<span class="attr">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, serde(deserialize_with = <span class="string">&quot;crate::serde_utils::from_int_to_u256&quot;</span>))]
+	<span class="attr">#[cfg_attr(feature = <span class="string">"std"</span>, serde(deserialize_with = <span class="string">"crate::serde_utils::from_int_to_u256"</span>))]
 	</span><span class="kw">pub </span>base_fee_per_gas: U256,
 	<span class="kw">pub </span>block_hash: H256,
 	<span class="kw">pub </span>transactions_root: H256,
@@ -1126,9 +1128,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// VersionedExecutionPayloadHeader
 </span><span class="attr">#[derive(Encode, Decode, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound, TypeInfo)]
 #[cfg_attr(
-	feature = <span class="string">&quot;std&quot;</span>,
+	feature = <span class="string">"std"</span>,
 	derive(Serialize, Deserialize),
-	serde(deny_unknown_fields, bound(serialize = <span class="string">&quot;&quot;</span>), bound(deserialize = <span class="string">&quot;&quot;</span>))
+	serde(deny_unknown_fields, bound(serialize = <span class="string">""</span>), bound(deserialize = <span class="string">""</span>))
 )]
 #[codec(mel_bound())]
 </span><span class="kw">pub enum </span>VersionedExecutionPayloadHeader {
@@ -1180,9 +1182,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="attr">#[derive(Encode, Decode, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound, TypeInfo)]
 #[cfg_attr(
-	feature = <span class="string">&quot;std&quot;</span>,
+	feature = <span class="string">"std"</span>,
 	derive(serde::Deserialize),
-	serde(deny_unknown_fields, bound(serialize = <span class="string">&quot;&quot;</span>), bound(deserialize = <span class="string">&quot;&quot;</span>))
+	serde(deny_unknown_fields, bound(serialize = <span class="string">""</span>), bound(deserialize = <span class="string">""</span>))
 )]
 </span><span class="kw">pub struct </span>ExecutionProof {
 	<span class="doccomment">/// Header for the beacon block containing the execution payload
@@ -1197,9 +1199,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="attr">#[derive(Encode, Decode, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound, TypeInfo)]
 #[cfg_attr(
-	feature = <span class="string">&quot;std&quot;</span>,
+	feature = <span class="string">"std"</span>,
 	derive(serde::Deserialize),
-	serde(deny_unknown_fields, bound(serialize = <span class="string">&quot;&quot;</span>), bound(deserialize = <span class="string">&quot;&quot;</span>))
+	serde(deny_unknown_fields, bound(serialize = <span class="string">""</span>), bound(deserialize = <span class="string">""</span>))
 )]
 </span><span class="kw">pub struct </span>AncestryProof {
 	<span class="doccomment">/// Merkle proof that `header` is an ancestor of `finalized_header`
@@ -1218,11 +1220,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>hash_root = BeaconHeader {
 			slot: <span class="number">3</span>,
 			proposer_index: <span class="number">2</span>,
-			parent_root: <span class="macro">hex!</span>(<span class="string">&quot;796ea53efb534eab7777809cc5ee2d84e7f25024b9d0c4d7e5bcaab657e4bdbd&quot;</span>)
+			parent_root: <span class="macro">hex!</span>(<span class="string">"796ea53efb534eab7777809cc5ee2d84e7f25024b9d0c4d7e5bcaab657e4bdbd"</span>)
 				.into(),
-			state_root: <span class="macro">hex!</span>(<span class="string">&quot;ba3ff080912be5c9c158b2e962c1b39a91bc0615762ba6fa2ecacafa94e9ae0a&quot;</span>)
+			state_root: <span class="macro">hex!</span>(<span class="string">"ba3ff080912be5c9c158b2e962c1b39a91bc0615762ba6fa2ecacafa94e9ae0a"</span>)
 				.into(),
-			body_root: <span class="macro">hex!</span>(<span class="string">&quot;a18d7fcefbb74a177c959160e0ee89c23546482154e6831237710414465dcae5&quot;</span>)
+			body_root: <span class="macro">hex!</span>(<span class="string">"a18d7fcefbb74a177c959160e0ee89c23546482154e6831237710414465dcae5"</span>)
 				.into(),
 		}
 		.hash_tree_root();
@@ -1230,7 +1232,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">assert!</span>(hash_root.is_ok());
 		<span class="macro">assert_eq!</span>(
 			hash_root.unwrap(),
-			<span class="macro">hex!</span>(<span class="string">&quot;7d42595818709e805dd2fa710a2d2c1f62576ef1ab7273941ac9130fb94b91f7&quot;</span>).into()
+			<span class="macro">hex!</span>(<span class="string">"7d42595818709e805dd2fa710a2d2c1f62576ef1ab7273941ac9130fb94b91f7"</span>).into()
 		);
 	}
 
@@ -1239,11 +1241,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>hash_root = BeaconHeader {
 			slot: <span class="number">3476424</span>,
 			proposer_index: <span class="number">314905</span>,
-			parent_root: <span class="macro">hex!</span>(<span class="string">&quot;c069d7b49cffd2b815b0fb8007eb9ca91202ea548df6f3db60000f29b2489f28&quot;</span>)
+			parent_root: <span class="macro">hex!</span>(<span class="string">"c069d7b49cffd2b815b0fb8007eb9ca91202ea548df6f3db60000f29b2489f28"</span>)
 				.into(),
-			state_root: <span class="macro">hex!</span>(<span class="string">&quot;444d293e4533501ee508ad608783a7d677c3c566f001313e8a02ce08adf590a3&quot;</span>)
+			state_root: <span class="macro">hex!</span>(<span class="string">"444d293e4533501ee508ad608783a7d677c3c566f001313e8a02ce08adf590a3"</span>)
 				.into(),
-			body_root: <span class="macro">hex!</span>(<span class="string">&quot;6508a0241047f21ba88f05d05b15534156ab6a6f8e029a9a5423da429834e04a&quot;</span>)
+			body_root: <span class="macro">hex!</span>(<span class="string">"6508a0241047f21ba88f05d05b15534156ab6a6f8e029a9a5423da429834e04a"</span>)
 				.into(),
 		}
 		.hash_tree_root();
@@ -1251,16 +1253,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">assert!</span>(hash_root.is_ok());
 		<span class="macro">assert_eq!</span>(
 			hash_root.unwrap(),
-			<span class="macro">hex!</span>(<span class="string">&quot;0aa41166ff01e58e111ac8c42309a738ab453cf8d7285ed8477b1c484acb123e&quot;</span>).into()
+			<span class="macro">hex!</span>(<span class="string">"0aa41166ff01e58e111ac8c42309a738ab453cf8d7285ed8477b1c484acb123e"</span>).into()
 		);
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">pub fn </span>test_hash_fork_data() {
 		<span class="kw">let </span>hash_root = ForkData {
-			current_version: <span class="macro">hex!</span>(<span class="string">&quot;83f38a34&quot;</span>),
+			current_version: <span class="macro">hex!</span>(<span class="string">"83f38a34"</span>),
 			genesis_validators_root: <span class="macro">hex!</span>(
-				<span class="string">&quot;22370bbbb358800f5711a10ea9845284272d8493bed0348cab87b8ab1e127930&quot;
+				<span class="string">"22370bbbb358800f5711a10ea9845284272d8493bed0348cab87b8ab1e127930"
 			</span>),
 		}
 		.hash_tree_root();
@@ -1268,37 +1270,37 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">assert!</span>(hash_root.is_ok());
 		<span class="macro">assert_eq!</span>(
 			hash_root.unwrap(),
-			<span class="macro">hex!</span>(<span class="string">&quot;57c12c4246bc7152b174b51920506bf943eff9c7ffa50b9533708e9cc1f680fc&quot;</span>).into()
+			<span class="macro">hex!</span>(<span class="string">"57c12c4246bc7152b174b51920506bf943eff9c7ffa50b9533708e9cc1f680fc"</span>).into()
 		);
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">pub fn </span>test_hash_signing_data() {
 		<span class="kw">let </span>hash_root = SigningData {
-			object_root: <span class="macro">hex!</span>(<span class="string">&quot;63654cbe64fc07853f1198c165dd3d49c54fc53bc417989bbcc66da15f850c54&quot;</span>)
+			object_root: <span class="macro">hex!</span>(<span class="string">"63654cbe64fc07853f1198c165dd3d49c54fc53bc417989bbcc66da15f850c54"</span>)
 				.into(),
-			domain: <span class="macro">hex!</span>(<span class="string">&quot;037da907d1c3a03c0091b2254e1480d9b1783476e228ab29adaaa8f133e08f7a&quot;</span>).into(),
+			domain: <span class="macro">hex!</span>(<span class="string">"037da907d1c3a03c0091b2254e1480d9b1783476e228ab29adaaa8f133e08f7a"</span>).into(),
 		}
 		.hash_tree_root();
 
 		<span class="macro">assert!</span>(hash_root.is_ok());
 		<span class="macro">assert_eq!</span>(
 			hash_root.unwrap(),
-			<span class="macro">hex!</span>(<span class="string">&quot;b9eb2caf2d691b183c2d57f322afe505c078cd08101324f61c3641714789a54e&quot;</span>).into()
+			<span class="macro">hex!</span>(<span class="string">"b9eb2caf2d691b183c2d57f322afe505c078cd08101324f61c3641714789a54e"</span>).into()
 		);
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">pub fn </span>test_hash_sync_aggregate() {
 		<span class="kw">let </span>hash_root = SyncAggregate::&lt;<span class="number">512</span>, <span class="number">64</span>&gt;{
-				sync_committee_bits: <span class="macro">hex!</span>(<span class="string">&quot;cefffffefffffff767fffbedffffeffffeeffdffffdebffffff7f7dbdf7fffdffffbffcfffdff79dfffbbfefff2ffffff7ddeff7ffffc98ff7fbfffffffffff7&quot;</span>),
-				sync_committee_signature: <span class="macro">hex!</span>(<span class="string">&quot;8af1a8577bba419fe054ee49b16ed28e081dda6d3ba41651634685e890992a0b675e20f8d9f2ec137fe9eb50e838aa6117f9f5410e2e1024c4b4f0e098e55144843ce90b7acde52fe7b94f2a1037342c951dc59f501c92acf7ed944cb6d2b5f7&quot;</span>).into(),
+				sync_committee_bits: <span class="macro">hex!</span>(<span class="string">"cefffffefffffff767fffbedffffeffffeeffdffffdebffffff7f7dbdf7fffdffffbffcfffdff79dfffbbfefff2ffffff7ddeff7ffffc98ff7fbfffffffffff7"</span>),
+				sync_committee_signature: <span class="macro">hex!</span>(<span class="string">"8af1a8577bba419fe054ee49b16ed28e081dda6d3ba41651634685e890992a0b675e20f8d9f2ec137fe9eb50e838aa6117f9f5410e2e1024c4b4f0e098e55144843ce90b7acde52fe7b94f2a1037342c951dc59f501c92acf7ed944cb6d2b5f7"</span>).into(),
 		}.hash_tree_root();
 
 		<span class="macro">assert!</span>(hash_root.is_ok());
 		<span class="macro">assert_eq!</span>(
 			hash_root.unwrap(),
-			<span class="macro">hex!</span>(<span class="string">&quot;e6dcad4f60ce9ff8a587b110facbaf94721f06cd810b6d8bf6cffa641272808d&quot;</span>).into()
+			<span class="macro">hex!</span>(<span class="string">"e6dcad4f60ce9ff8a587b110facbaf94721f06cd810b6d8bf6cffa641272808d"</span>).into()
 		);
 	}
 
@@ -1306,21 +1308,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub fn </span>test_hash_execution_payload() {
 		<span class="kw">let </span>hash_root =
             ExecutionPayloadHeader{
-                parent_hash: <span class="macro">hex!</span>(<span class="string">&quot;eadee5ab098dde64e9fd02ae5858064bad67064070679625b09f8d82dec183f7&quot;</span>).into(),
-                fee_recipient: <span class="macro">hex!</span>(<span class="string">&quot;f97e180c050e5ab072211ad2c213eb5aee4df134&quot;</span>).into(),
-                state_root: <span class="macro">hex!</span>(<span class="string">&quot;564fa064c2a324c2b5978d7fdfc5d4224d4f421a45388af1ed405a399c845dff&quot;</span>).into(),
-                receipts_root: <span class="macro">hex!</span>(<span class="string">&quot;56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421&quot;</span>).into(),
-                logs_bloom: <span class="macro">hex!</span>(<span class="string">&quot;00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000&quot;</span>).to_vec(),
-                prev_randao: <span class="macro">hex!</span>(<span class="string">&quot;6bf538bdfbdf1c96ff528726a40658a91d0bda0f1351448c4c4f3604db2a0ccf&quot;</span>).into(),
+                parent_hash: <span class="macro">hex!</span>(<span class="string">"eadee5ab098dde64e9fd02ae5858064bad67064070679625b09f8d82dec183f7"</span>).into(),
+                fee_recipient: <span class="macro">hex!</span>(<span class="string">"f97e180c050e5ab072211ad2c213eb5aee4df134"</span>).into(),
+                state_root: <span class="macro">hex!</span>(<span class="string">"564fa064c2a324c2b5978d7fdfc5d4224d4f421a45388af1ed405a399c845dff"</span>).into(),
+                receipts_root: <span class="macro">hex!</span>(<span class="string">"56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"</span>).into(),
+                logs_bloom: <span class="macro">hex!</span>(<span class="string">"00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"</span>).to_vec(),
+                prev_randao: <span class="macro">hex!</span>(<span class="string">"6bf538bdfbdf1c96ff528726a40658a91d0bda0f1351448c4c4f3604db2a0ccf"</span>).into(),
                 block_number: <span class="number">477434</span>,
                 gas_limit: <span class="number">8154925</span>,
                 gas_used: <span class="number">0</span>,
                 timestamp: <span class="number">1652816940</span>,
                 extra_data: <span class="macro">vec!</span>[],
                 base_fee_per_gas: U256::from(<span class="number">7_i16</span>),
-                block_hash: <span class="macro">hex!</span>(<span class="string">&quot;cd8df91b4503adb8f2f1c7a4f60e07a1f1a2cbdfa2a95bceba581f3ff65c1968&quot;</span>).into(),
-                transactions_root: <span class="macro">hex!</span>(<span class="string">&quot;7ffe241ea60187fdb0187bfa22de35d1f9bed7ab061d9401fd47e34a54fbede1&quot;</span>).into(),
-				withdrawals_root: <span class="macro">hex!</span>(<span class="string">&quot;28ba1834a3a7b657460ce79fa3a1d909ab8828fd557659d4d0554a9bdbc0ec30&quot;</span>).into(),
+                block_hash: <span class="macro">hex!</span>(<span class="string">"cd8df91b4503adb8f2f1c7a4f60e07a1f1a2cbdfa2a95bceba581f3ff65c1968"</span>).into(),
+                transactions_root: <span class="macro">hex!</span>(<span class="string">"7ffe241ea60187fdb0187bfa22de35d1f9bed7ab061d9401fd47e34a54fbede1"</span>).into(),
+				withdrawals_root: <span class="macro">hex!</span>(<span class="string">"28ba1834a3a7b657460ce79fa3a1d909ab8828fd557659d4d0554a9bdbc0ec30"</span>).into(),
 			}.hash_tree_root();
 		<span class="macro">assert!</span>(hash_root.is_ok());
 	}
@@ -1337,7 +1339,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use </span>codec::{Decode, Encode};
 	<span class="kw">use </span>frame_support::{CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound};
 	<span class="kw">use </span>scale_info::TypeInfo;
-	<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 	</span><span class="kw">use </span>serde::{Deserialize, Serialize};
 	<span class="kw">use </span>sp_core::{H160, H256, U256};
 	<span class="kw">use </span>sp_std::prelude::<span class="kw-2">*</span>;
@@ -1348,9 +1350,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		Default, Encode, Decode, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound, TypeInfo,
 	)]
 	#[cfg_attr(
-		feature = <span class="string">&quot;std&quot;</span>,
+		feature = <span class="string">"std"</span>,
 		derive(Serialize, Deserialize),
-		serde(deny_unknown_fields, bound(serialize = <span class="string">&quot;&quot;</span>), bound(deserialize = <span class="string">&quot;&quot;</span>))
+		serde(deny_unknown_fields, bound(serialize = <span class="string">""</span>), bound(deserialize = <span class="string">""</span>))
 	)]
 	#[codec(mel_bound())]
 	</span><span class="kw">pub struct </span>ExecutionPayloadHeader {
@@ -1359,8 +1361,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">pub </span>state_root: H256,
 		<span class="kw">pub </span>receipts_root: H256,
 		<span class="attr">#[cfg_attr(
-			feature = <span class="string">&quot;std&quot;</span>,
-			serde(deserialize_with = <span class="string">&quot;crate::serde_utils::from_hex_to_bytes&quot;</span>)
+			feature = <span class="string">"std"</span>,
+			serde(deserialize_with = <span class="string">"crate::serde_utils::from_hex_to_bytes"</span>)
 		)]
 		</span><span class="kw">pub </span>logs_bloom: Vec&lt;u8&gt;,
 		<span class="kw">pub </span>prev_randao: H256,
@@ -1369,13 +1371,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">pub </span>gas_used: u64,
 		<span class="kw">pub </span>timestamp: u64,
 		<span class="attr">#[cfg_attr(
-			feature = <span class="string">&quot;std&quot;</span>,
-			serde(deserialize_with = <span class="string">&quot;crate::serde_utils::from_hex_to_bytes&quot;</span>)
+			feature = <span class="string">"std"</span>,
+			serde(deserialize_with = <span class="string">"crate::serde_utils::from_hex_to_bytes"</span>)
 		)]
 		</span><span class="kw">pub </span>extra_data: Vec&lt;u8&gt;,
 		<span class="attr">#[cfg_attr(
-			feature = <span class="string">&quot;std&quot;</span>,
-			serde(deserialize_with = <span class="string">&quot;crate::serde_utils::from_int_to_u256&quot;</span>)
+			feature = <span class="string">"std"</span>,
+			serde(deserialize_with = <span class="string">"crate::serde_utils::from_int_to_u256"</span>)
 		)]
 		</span><span class="kw">pub </span>base_fee_per_gas: U256,
 		<span class="kw">pub </span>block_hash: H256,

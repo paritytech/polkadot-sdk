@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/network/availability-distribution/src/requester/fetch_task/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/network/availability-distribution/src/requester/fetch_task/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="polkadot_availability_distribution" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="polkadot_availability_distribution" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../../polkadot_availability_distribution/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -718,7 +720,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) live_in: HashSet&lt;Hash&gt;,
 
 	<span class="doccomment">/// We keep the task around in until `live_in` becomes empty, to make
-	/// sure we won&#39;t re-fetch an already fetched candidate.
+	/// sure we won't re-fetch an already fetched candidate.
 	</span>state: FetchedState,
 }
 
@@ -794,18 +796,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		span: jaeger::Span,
 	) -&gt; <span class="self">Self </span>{
 		<span class="kw">let </span>span = span
-			.child(<span class="string">&quot;fetch-task-config&quot;</span>)
+			.child(<span class="string">"fetch-task-config"</span>)
 			.with_trace_id(core.candidate_hash)
-			.with_string_tag(<span class="string">&quot;leaf&quot;</span>, <span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, leaf))
+			.with_string_tag(<span class="string">"leaf"</span>, <span class="macro">format!</span>(<span class="string">"{:?}"</span>, leaf))
 			.with_validator_index(session_info.our_index)
-			.with_uint_tag(<span class="string">&quot;group-index&quot;</span>, core.group_responsible.<span class="number">0 </span><span class="kw">as </span>u64)
+			.with_uint_tag(<span class="string">"group-index"</span>, core.group_responsible.<span class="number">0 </span><span class="kw">as </span>u64)
 			.with_relay_parent(core.candidate_descriptor.relay_parent)
-			.with_string_tag(<span class="string">&quot;pov-hash&quot;</span>, <span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, core.candidate_descriptor.pov_hash))
+			.with_string_tag(<span class="string">"pov-hash"</span>, <span class="macro">format!</span>(<span class="string">"{:?}"</span>, core.candidate_descriptor.pov_hash))
 			.with_stage(jaeger::Stage::AvailabilityDistribution);
 
 		<span class="kw">let </span>live_in = <span class="macro">vec!</span>[leaf].into_iter().collect();
 
-		<span class="comment">// Don&#39;t run tasks for our backing group:
+		<span class="comment">// Don't run tasks for our backing group:
 		</span><span class="kw">if </span>session_info.our_group == <span class="prelude-val">Some</span>(core.group_responsible) {
 			<span class="kw">return </span>FetchTaskConfig { live_in, prepared_running: <span class="prelude-val">None </span>}
 		}
@@ -814,7 +816,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			session_index: session_info.session_index,
 			group_index: core.group_responsible,
 			group: session_info.validator_groups.get(core.group_responsible.<span class="number">0 </span><span class="kw">as </span>usize)
-				.expect(<span class="string">&quot;The responsible group of a candidate should be available in the corresponding session. qed.&quot;</span>)
+				.expect(<span class="string">"The responsible group of a candidate should be available in the corresponding session. qed."</span>)
 				.clone(),
 			request: ChunkFetchingRequest {
 				candidate_hash: core.candidate_hash,
@@ -841,7 +843,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">if let </span><span class="prelude-val">Some</span>(running) = prepared_running {
 			<span class="kw">let </span>(handle, kill) = oneshot::channel();
 
-			ctx.spawn(<span class="string">&quot;chunk-fetcher&quot;</span>, running.run(kill).boxed())
+			ctx.spawn(<span class="string">"chunk-fetcher"</span>, running.run(kill).boxed())
 				.map_err(|e| FatalError::SpawnTask(e))<span class="question-mark">?</span>;
 
 			<span class="prelude-val">Ok</span>(FetchTask { live_in, state: FetchedState::Started(handle) })
@@ -910,7 +912,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span><span class="kw-2">mut </span>bad_validators = Vec::new();
 		<span class="kw">let </span><span class="kw-2">mut </span>succeeded = <span class="bool-val">false</span>;
 		<span class="kw">let </span><span class="kw-2">mut </span>count: u32 = <span class="number">0</span>;
-		<span class="kw">let </span><span class="kw-2">mut </span>span = <span class="self">self</span>.span.child(<span class="string">&quot;run-fetch-chunk-task&quot;</span>).with_relay_parent(<span class="self">self</span>.relay_parent);
+		<span class="kw">let </span><span class="kw-2">mut </span>span = <span class="self">self</span>.span.child(<span class="string">"run-fetch-chunk-task"</span>).with_relay_parent(<span class="self">self</span>.relay_parent);
 		<span class="kw">let </span><span class="kw-2">mut </span>network_error_freq = gum::Freq::new();
 		<span class="kw">let </span><span class="kw-2">mut </span>canceled_freq = gum::Freq::new();
 		<span class="comment">// Try validators in reverse order:
@@ -921,7 +923,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			}
 			count += <span class="number">1</span>;
 			<span class="kw">let </span>_chunk_fetch_span = span
-				.child(<span class="string">&quot;fetch-chunk-request&quot;</span>)
+				.child(<span class="string">"fetch-chunk-request"</span>)
 				.with_chunk_index(<span class="self">self</span>.request.index.<span class="number">0</span>)
 				.with_stage(jaeger::Stage::AvailabilityDistribution);
 			<span class="comment">// Send request:
@@ -933,7 +935,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="prelude-val">Err</span>(TaskError::ShuttingDown) =&gt; {
 					<span class="macro">gum::info!</span>(
 						target: LOG_TARGET,
-						<span class="string">&quot;Node seems to be shutting down, canceling fetch task&quot;
+						<span class="string">"Node seems to be shutting down, canceling fetch task"
 					</span>);
 					<span class="self">self</span>.metrics.on_fetch(FAILED);
 					<span class="kw">return
@@ -946,7 +948,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// We drop the span here, so that the span is not active while we recombine the chunk.
 			</span>drop(_chunk_fetch_span);
 			<span class="kw">let </span>_chunk_recombine_span = span
-				.child(<span class="string">&quot;recombine-chunk&quot;</span>)
+				.child(<span class="string">"recombine-chunk"</span>)
 				.with_chunk_index(<span class="self">self</span>.request.index.<span class="number">0</span>)
 				.with_stage(jaeger::Stage::AvailabilityDistribution);
 			<span class="kw">let </span>chunk = <span class="kw">match </span>resp {
@@ -960,7 +962,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						session_index = <span class="question-mark">?</span><span class="self">self</span>.session_index,
 						chunk_index = <span class="question-mark">?</span><span class="self">self</span>.request.index,
 						candidate_hash = <span class="question-mark">?</span><span class="self">self</span>.request.candidate_hash,
-						<span class="string">&quot;Validator did not have our chunk&quot;
+						<span class="string">"Validator did not have our chunk"
 					</span>);
 					bad_validators.push(validator);
 					<span class="kw">continue
@@ -970,7 +972,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			// chunk.
 			</span>drop(_chunk_recombine_span);
 			<span class="kw">let </span>_chunk_validate_and_store_span = span
-				.child(<span class="string">&quot;validate-and-store-chunk&quot;</span>)
+				.child(<span class="string">"validate-and-store-chunk"</span>)
 				.with_chunk_index(<span class="self">self</span>.request.index.<span class="number">0</span>)
 				.with_stage(jaeger::Stage::AvailabilityDistribution);
 
@@ -980,12 +982,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">continue
 			</span>}
 
-			<span class="comment">// Ok, let&#39;s store it and be happy:
+			<span class="comment">// Ok, let's store it and be happy:
 			</span><span class="self">self</span>.store_chunk(chunk).<span class="kw">await</span>;
 			succeeded = <span class="bool-val">true</span>;
 			<span class="kw">break
 		</span>}
-		span.add_int_tag(<span class="string">&quot;tries&quot;</span>, count <span class="kw">as _</span>);
+		span.add_int_tag(<span class="string">"tries"</span>, count <span class="kw">as _</span>);
 		<span class="kw">if </span>succeeded {
 			<span class="self">self</span>.metrics.on_fetch(SUCCEEDED);
 			<span class="self">self</span>.conclude(bad_validators).<span class="kw">await</span>;
@@ -1010,7 +1012,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			session_index = <span class="question-mark">?</span><span class="self">self</span>.session_index,
 			chunk_index = <span class="question-mark">?</span><span class="self">self</span>.request.index,
 			candidate_hash = <span class="question-mark">?</span><span class="self">self</span>.request.candidate_hash,
-			<span class="string">&quot;Starting chunk request&quot;</span>,
+			<span class="string">"Starting chunk request"</span>,
 		);
 
 		<span class="kw">let </span>(full_request, response_recv) =
@@ -1040,7 +1042,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					chunk_index = <span class="question-mark">?</span><span class="self">self</span>.request.index,
 					candidate_hash = <span class="question-mark">?</span><span class="self">self</span>.request.candidate_hash,
 					err = <span class="question-mark">?</span>err,
-					<span class="string">&quot;Peer sent us invalid erasure chunk data&quot;
+					<span class="string">"Peer sent us invalid erasure chunk data"
 				</span>);
 				<span class="prelude-val">Err</span>(TaskError::PeerError)
 			},
@@ -1056,7 +1058,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					chunk_index = <span class="question-mark">?</span><span class="self">self</span>.request.index,
 					candidate_hash = <span class="question-mark">?</span><span class="self">self</span>.request.candidate_hash,
 					err = <span class="question-mark">?</span>err,
-					<span class="string">&quot;Some network error occurred when fetching erasure chunk&quot;
+					<span class="string">"Some network error occurred when fetching erasure chunk"
 				</span>);
 				<span class="prelude-val">Err</span>(TaskError::PeerError)
 			},
@@ -1071,7 +1073,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					session_index = <span class="question-mark">?</span><span class="self">self</span>.session_index,
 					chunk_index = <span class="question-mark">?</span><span class="self">self</span>.request.index,
 					candidate_hash = <span class="question-mark">?</span><span class="self">self</span>.request.candidate_hash,
-					<span class="string">&quot;Erasure chunk request got canceled&quot;
+					<span class="string">"Erasure chunk request got canceled"
 				</span>);
 				<span class="prelude-val">Err</span>(TaskError::PeerError)
 			},
@@ -1088,14 +1090,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						candidate_hash = <span class="question-mark">?</span><span class="self">self</span>.request.candidate_hash,
 						origin = <span class="question-mark">?</span>validator,
 						error = <span class="question-mark">?</span>e,
-						<span class="string">&quot;Failed to calculate chunk merkle proof&quot;</span>,
+						<span class="string">"Failed to calculate chunk merkle proof"</span>,
 					);
 					<span class="kw">return </span><span class="bool-val">false
 				</span>},
 			};
 		<span class="kw">let </span>erasure_chunk_hash = BlakeTwo256::hash(<span class="kw-2">&amp;</span>chunk.chunk);
 		<span class="kw">if </span>anticipated_hash != erasure_chunk_hash {
-			<span class="macro">gum::warn!</span>(target: LOG_TARGET, origin = <span class="question-mark">?</span>validator,  <span class="string">&quot;Received chunk does not match merkle tree&quot;</span>);
+			<span class="macro">gum::warn!</span>(target: LOG_TARGET, origin = <span class="question-mark">?</span>validator,  <span class="string">"Received chunk does not match merkle tree"</span>);
 			<span class="kw">return </span><span class="bool-val">false
 		</span>}
 		<span class="bool-val">true
@@ -1116,11 +1118,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			))
 			.<span class="kw">await</span>;
 		<span class="kw">if let </span><span class="prelude-val">Err</span>(err) = r {
-			<span class="macro">gum::error!</span>(target: LOG_TARGET, err= <span class="question-mark">?</span>err, <span class="string">&quot;Storing erasure chunk failed, system shutting down?&quot;</span>);
+			<span class="macro">gum::error!</span>(target: LOG_TARGET, err= <span class="question-mark">?</span>err, <span class="string">"Storing erasure chunk failed, system shutting down?"</span>);
 		}
 
 		<span class="kw">if let </span><span class="prelude-val">Err</span>(oneshot::Canceled) = rx.<span class="kw">await </span>{
-			<span class="macro">gum::error!</span>(target: LOG_TARGET, <span class="string">&quot;Storing erasure chunk failed&quot;</span>);
+			<span class="macro">gum::error!</span>(target: LOG_TARGET, <span class="string">"Storing erasure chunk failed"</span>);
 		}
 	}
 
@@ -1139,7 +1141,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">gum::warn!</span>(
 				target: LOG_TARGET,
 				err= <span class="question-mark">?</span>err,
-				<span class="string">&quot;Sending concluded message for task failed&quot;
+				<span class="string">"Sending concluded message for task failed"
 			</span>);
 		}
 	}
@@ -1147,7 +1149,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">async fn </span>conclude_fail(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
 		<span class="kw">if let </span><span class="prelude-val">Err</span>(err) = <span class="self">self</span>.sender.send(FromFetchTask::Failed(<span class="self">self</span>.request.candidate_hash)).<span class="kw">await
 		</span>{
-			<span class="macro">gum::warn!</span>(target: LOG_TARGET, <span class="question-mark">?</span>err, <span class="string">&quot;Sending `Failed` message for task failed&quot;</span>);
+			<span class="macro">gum::warn!</span>(target: LOG_TARGET, <span class="question-mark">?</span>err, <span class="string">"Sending `Failed` message for task failed"</span>);
 		}
 	}
 }

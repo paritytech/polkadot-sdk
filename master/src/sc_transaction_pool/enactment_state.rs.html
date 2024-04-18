@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/transaction-pool/src/enactment_state.rs`."><title>enactment_state.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/transaction-pool/src/enactment_state.rs`."><title>enactment_state.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_transaction_pool" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_transaction_pool" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sc_transaction_pool/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -877,7 +879,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// The threshold since the last update where we will skip any maintenance for blocks.
 ///
-/// This includes tracking re-orgs and sending out certain notifications. In general this shouldn&#39;t
+/// This includes tracking re-orgs and sending out certain notifications. In general this shouldn't
 /// happen and may only happen when the node is doing a full sync.
 </span><span class="kw">const </span>SKIP_MAINTENANCE_THRESHOLD: u16 = <span class="number">20</span>;
 
@@ -964,14 +966,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			};
 
 		<span class="kw">if </span>skip_maintenance {
-			<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;skip maintain: tree_route would be too long&quot;</span>);
+			<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"skip maintain: tree_route would be too long"</span>);
 			<span class="self">self</span>.force_update(event);
 			<span class="kw">return </span><span class="prelude-val">Ok</span>(EnactmentAction::Skip)
 		}
 
 		<span class="comment">// block was already finalized
 		</span><span class="kw">if </span><span class="self">self</span>.recent_finalized_block == new_hash {
-			<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">&quot;handle_enactment: block already finalized&quot;</span>);
+			<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"handle_enactment: block already finalized"</span>);
 			<span class="kw">return </span><span class="prelude-val">Ok</span>(EnactmentAction::Skip)
 		}
 
@@ -981,8 +983,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="macro">log::debug!</span>(
 			target: LOG_TARGET,
-			<span class="string">&quot;resolve hash: {new_hash:?} finalized: {finalized:?} \
-			 tree_route: (common {:?}, last {:?}) best_block: {:?} finalized_block:{:?}&quot;</span>,
+			<span class="string">"resolve hash: {new_hash:?} finalized: {finalized:?} \
+			 tree_route: (common {:?}, last {:?}) best_block: {:?} finalized_block:{:?}"</span>,
 			tree_route.common_block(),
 			tree_route.last(),
 			<span class="self">self</span>.recent_best_block,
@@ -995,7 +997,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">if </span>tree_route.retracted().iter().any(|x| x.hash == <span class="self">self</span>.recent_finalized_block) {
 			<span class="macro">log::debug!</span>(
 				target: LOG_TARGET,
-				<span class="string">&quot;Recently finalized block {} would be retracted by ChainEvent {}, skipping&quot;</span>,
+				<span class="string">"Recently finalized block {} would be retracted by ChainEvent {}, skipping"</span>,
 				<span class="self">self</span>.recent_finalized_block,
 				new_hash
 			);
@@ -1012,7 +1014,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="kw">if </span>tree_route.enacted().is_empty() {
 				<span class="macro">log::trace!</span>(
 					target: LOG_TARGET,
-					<span class="string">&quot;handle_enactment: no newly enacted blocks since recent best block&quot;
+					<span class="string">"handle_enactment: no newly enacted blocks since recent best block"
 				</span>);
 				<span class="kw">return </span><span class="prelude-val">Ok</span>(EnactmentAction::HandleFinalization)
 			}
@@ -1034,7 +1036,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		};
 		<span class="macro">log::debug!</span>(
 			target: LOG_TARGET,
-			<span class="string">&quot;forced update: {:?}, {:?}&quot;</span>,
+			<span class="string">"forced update: {:?}, {:?}"</span>,
 			<span class="self">self</span>.recent_best_block,
 			<span class="self">self</span>.recent_finalized_block,
 		);
@@ -1050,7 +1052,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use </span>std::sync::Arc;
 	<span class="kw">use </span>substrate_test_runtime_client::runtime::{Block, Hash};
 
-	<span class="comment">// some helpers for convenient blocks&#39; hash naming
+	<span class="comment">// some helpers for convenient blocks' hash naming
 	</span><span class="kw">fn </span>a() -&gt; HashAndNumber&lt;Block&gt; {
 		HashAndNumber { number: <span class="number">1</span>, hash: Hash::from([<span class="number">0xAA</span>; <span class="number">32</span>]) }
 	}
@@ -1101,11 +1103,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>from = chain
 			.iter()
 			.position(|bn| bn.hash == from)
-			.ok_or(<span class="string">&quot;existing block should be given&quot;</span>)<span class="question-mark">?</span>;
+			.ok_or(<span class="string">"existing block should be given"</span>)<span class="question-mark">?</span>;
 		<span class="kw">let </span>to = chain
 			.iter()
 			.position(|bn| bn.hash == to)
-			.ok_or(<span class="string">&quot;existing block should be given&quot;</span>)<span class="question-mark">?</span>;
+			.ok_or(<span class="string">"existing block should be given"</span>)<span class="question-mark">?</span>;
 
 		<span class="comment">//    B1-C1-D1-E1-..-X1
 		//   /
@@ -1299,7 +1301,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; EnactmentAction&lt;Block&gt; {
 		<span class="kw">let </span>(from, acted_on) = (from.hash, acted_on.hash);
 
-		<span class="kw">let </span>event_tree_route = tree_route(from, acted_on).expect(<span class="string">&quot;Tree route exists&quot;</span>);
+		<span class="kw">let </span>event_tree_route = tree_route(from, acted_on).expect(<span class="string">"Tree route exists"</span>);
 
 		state
 			.update(
@@ -1321,7 +1323,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>(from, acted_on) = (from.hash, acted_on.hash);
 
 		<span class="kw">let </span>v = tree_route(from, acted_on)
-			.expect(<span class="string">&quot;Tree route exists&quot;</span>)
+			.expect(<span class="string">"Tree route exists"</span>)
 			.enacted()
 			.iter()
 			.map(|h| h.hash)

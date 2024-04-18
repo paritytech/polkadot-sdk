@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/runtime/common/src/claims.rs`."><title>claims.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/runtime/common/src/claims.rs`."><title>claims.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_runtime_common" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_runtime_common" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../polkadot_runtime_common/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1856,7 +1858,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	},
 	RuntimeDebug,
 };
-<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
 </span><span class="kw">use </span>sp_std::alloc::{format, string::String};
 <span class="kw">use </span>sp_std::{fmt::Debug, prelude::<span class="kw-2">*</span>};
 
@@ -1905,16 +1907,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">impl </span>StatementKind {
 	<span class="doccomment">/// Convert this to the (English) statement it represents.
-	</span><span class="kw">fn </span>to_text(<span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8] {
+	</span><span class="kw">fn </span>to_text(<span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>[u8] {
 		<span class="kw">match </span><span class="self">self </span>{
 			StatementKind::Regular =&gt;
-				<span class="kw-2">&amp;</span><span class="string">b&quot;I hereby agree to the terms of the statement whose SHA-256 multihash is \
+				<span class="kw-2">&amp;</span><span class="string">b"I hereby agree to the terms of the statement whose SHA-256 multihash is \
 				Qmc1XYqT6S39WNp2UeiRUrZichUWUPpGEThDE6dAb3f6Ny. (This may be found at the URL: \
-				https://statement.polkadot.network/regular.html)&quot;</span>[..],
+				https://statement.polkadot.network/regular.html)"</span>[..],
 			StatementKind::Saft =&gt;
-				<span class="kw-2">&amp;</span><span class="string">b&quot;I hereby agree to the terms of the statement whose SHA-256 multihash is \
+				<span class="kw-2">&amp;</span><span class="string">b"I hereby agree to the terms of the statement whose SHA-256 multihash is \
 				QmXEkMahfhHJPzT3RjkXiZVFi77ZeVeuxtAjhojGRNYckz. (This may be found at the URL: \
-				https://statement.polkadot.network/saft.html)&quot;</span>[..],
+				https://statement.polkadot.network/saft.html)"</span>[..],
 		}
 	}
 }
@@ -1937,25 +1939,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>S: Serializer,
 	{
 		<span class="kw">let </span>hex: String = rustc_hex::ToHex::to_hex(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>[..]);
-		serializer.serialize_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;0x{}&quot;</span>, hex))
+		serializer.serialize_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"0x{}"</span>, hex))
 	}
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;de</span>&gt; Deserialize&lt;<span class="lifetime">&#39;de</span>&gt; <span class="kw">for </span>EthereumAddress {
+<span class="kw">impl</span>&lt;<span class="lifetime">'de</span>&gt; Deserialize&lt;<span class="lifetime">'de</span>&gt; <span class="kw">for </span>EthereumAddress {
 	<span class="kw">fn </span>deserialize&lt;D&gt;(deserializer: D) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, D::Error&gt;
 	<span class="kw">where
-		</span>D: Deserializer&lt;<span class="lifetime">&#39;de</span>&gt;,
+		</span>D: Deserializer&lt;<span class="lifetime">'de</span>&gt;,
 	{
 		<span class="kw">let </span>base_string = String::deserialize(deserializer)<span class="question-mark">?</span>;
-		<span class="kw">let </span>offset = <span class="kw">if </span>base_string.starts_with(<span class="string">&quot;0x&quot;</span>) { <span class="number">2 </span>} <span class="kw">else </span>{ <span class="number">0 </span>};
+		<span class="kw">let </span>offset = <span class="kw">if </span>base_string.starts_with(<span class="string">"0x"</span>) { <span class="number">2 </span>} <span class="kw">else </span>{ <span class="number">0 </span>};
 		<span class="kw">let </span>s = <span class="kw-2">&amp;</span>base_string[offset..];
 		<span class="kw">if </span>s.len() != <span class="number">40 </span>{
 			<span class="prelude-val">Err</span>(serde::de::Error::custom(
-				<span class="string">&quot;Bad length of Ethereum address (should be 42 including &#39;0x&#39;)&quot;</span>,
+				<span class="string">"Bad length of Ethereum address (should be 42 including '0x')"</span>,
 			))<span class="question-mark">?</span>;
 		}
 		<span class="kw">let </span>raw: Vec&lt;u8&gt; = rustc_hex::FromHex::from_hex(s)
-			.map_err(|e| serde::de::Error::custom(<span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, e)))<span class="question-mark">?</span>;
+			.map_err(|e| serde::de::Error::custom(<span class="macro">format!</span>(<span class="string">"{:?}"</span>, e)))<span class="question-mark">?</span>;
 		<span class="kw">let </span><span class="kw-2">mut </span>r = <span class="self">Self</span>::default();
 		r.<span class="number">0</span>.copy_from_slice(<span class="kw-2">&amp;</span>raw);
 		<span class="prelude-val">Ok</span>(r)
@@ -1972,8 +1974,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl </span>sp_std::fmt::Debug <span class="kw">for </span>EcdsaSignature {
-	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; sp_std::fmt::Result {
-		<span class="macro">write!</span>(f, <span class="string">&quot;EcdsaSignature({:?})&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>[..])
+	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; sp_std::fmt::Result {
+		<span class="macro">write!</span>(f, <span class="string">"EcdsaSignature({:?})"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>[..])
 	}
 }
 
@@ -1994,7 +1996,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">type </span>RuntimeEvent: From&lt;Event&lt;<span class="self">Self</span>&gt;&gt; + IsType&lt;&lt;<span class="self">Self </span><span class="kw">as </span>frame_system::Config&gt;::RuntimeEvent&gt;;
 		<span class="kw">type </span>VestingSchedule: VestingSchedule&lt;<span class="self">Self</span>::AccountId, Moment = BlockNumberFor&lt;<span class="self">Self</span>&gt;&gt;;
 		<span class="attr">#[pallet::constant]
-		</span><span class="kw">type </span>Prefix: Get&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8]&gt;;
+		</span><span class="kw">type </span>Prefix: Get&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>[u8]&gt;;
 		<span class="kw">type </span>MoveClaimOrigin: EnsureOrigin&lt;<span class="self">Self</span>::RuntimeOrigin&gt;;
 		<span class="kw">type </span>WeightInfo: WeightInfo;
 	}
@@ -2014,7 +2016,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>SignerHasNoClaim,
 		<span class="doccomment">/// Account ID sending transaction has no claim.
 		</span>SenderHasNoClaim,
-		<span class="doccomment">/// There&#39;s not enough in the pot to pay out some unvested amount. Generally implies a
+		<span class="doccomment">/// There's not enough in the pot to pay out some unvested amount. Generally implies a
 		/// logic error.
 		</span>PotUnderflow,
 		<span class="doccomment">/// A needed statement was not included.
@@ -2321,7 +2323,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Ok</span>(ValidTransaction {
 				priority: PRIORITY,
 				requires: <span class="macro">vec!</span>[],
-				provides: <span class="macro">vec!</span>[(<span class="string">&quot;claims&quot;</span>, signer).encode()],
+				provides: <span class="macro">vec!</span>[(<span class="string">"claims"</span>, signer).encode()],
 				longevity: TransactionLongevity::max_value(),
 				propagate: <span class="bool-val">true</span>,
 			})
@@ -2332,7 +2334,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Converts the given binary data into ASCII-encoded hex. It will be twice the length.
 </span><span class="kw">fn </span>to_ascii_hex(data: <span class="kw-2">&amp;</span>[u8]) -&gt; Vec&lt;u8&gt; {
 	<span class="kw">let </span><span class="kw-2">mut </span>r = Vec::with_capacity(data.len() * <span class="number">2</span>);
-	<span class="kw">let </span><span class="kw-2">mut </span>push_nibble = |n| r.push(<span class="kw">if </span>n &lt; <span class="number">10 </span>{ <span class="string">b&#39;0&#39; </span>+ n } <span class="kw">else </span>{ <span class="string">b&#39;a&#39; </span>- <span class="number">10 </span>+ n });
+	<span class="kw">let </span><span class="kw-2">mut </span>push_nibble = |n| r.push(<span class="kw">if </span>n &lt; <span class="number">10 </span>{ <span class="string">b'0' </span>+ n } <span class="kw">else </span>{ <span class="string">b'a' </span>- <span class="number">10 </span>+ n });
 	<span class="kw">for </span><span class="kw-2">&amp;</span>b <span class="kw">in </span>data.iter() {
 		push_nibble(b / <span class="number">16</span>);
 		push_nibble(b % <span class="number">16</span>);
@@ -2341,16 +2343,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
-	<span class="comment">// Constructs the message that Ethereum RPC&#39;s `personal_sign` and `eth_sign` would sign.
+	<span class="comment">// Constructs the message that Ethereum RPC's `personal_sign` and `eth_sign` would sign.
 	</span><span class="kw">fn </span>ethereum_signable_message(what: <span class="kw-2">&amp;</span>[u8], extra: <span class="kw-2">&amp;</span>[u8]) -&gt; Vec&lt;u8&gt; {
 		<span class="kw">let </span>prefix = T::Prefix::get();
 		<span class="kw">let </span><span class="kw-2">mut </span>l = prefix.len() + what.len() + extra.len();
 		<span class="kw">let </span><span class="kw-2">mut </span>rev = Vec::new();
 		<span class="kw">while </span>l &gt; <span class="number">0 </span>{
-			rev.push(<span class="string">b&#39;0&#39; </span>+ (l % <span class="number">10</span>) <span class="kw">as </span>u8);
+			rev.push(<span class="string">b'0' </span>+ (l % <span class="number">10</span>) <span class="kw">as </span>u8);
 			l /= <span class="number">10</span>;
 		}
-		<span class="kw">let </span><span class="kw-2">mut </span>v = <span class="string">b&quot;\x19Ethereum Signed Message:\n&quot;</span>.to_vec();
+		<span class="kw">let </span><span class="kw-2">mut </span>v = <span class="string">b"\x19Ethereum Signed Message:\n"</span>.to_vec();
 		v.extend(rev.into_iter().rev());
 		v.extend_from_slice(prefix);
 		v.extend_from_slice(what);
@@ -2359,7 +2361,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="comment">// Attempts to recover the Ethereum address from a message signature signed by using
-	// the Ethereum RPC&#39;s `personal_sign` and `eth_sign`.
+	// the Ethereum RPC's `personal_sign` and `eth_sign`.
 	</span><span class="kw">fn </span>eth_recover(s: <span class="kw-2">&amp;</span>EcdsaSignature, what: <span class="kw-2">&amp;</span>[u8], extra: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Option</span>&lt;EthereumAddress&gt; {
 		<span class="kw">let </span>msg = keccak_256(<span class="kw-2">&amp;</span><span class="self">Self</span>::ethereum_signable_message(what, extra));
 		<span class="kw">let </span><span class="kw-2">mut </span>res = EthereumAddress::default();
@@ -2387,7 +2389,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// This can only fail if the account already has a vesting schedule,
 			// but this is checked above.
 			</span>T::VestingSchedule::add_vesting_schedule(<span class="kw-2">&amp;</span>dest, vs.<span class="number">0</span>, vs.<span class="number">1</span>, vs.<span class="number">2</span>)
-				.expect(<span class="string">&quot;No other vesting schedule exists, as checked above; qed&quot;</span>);
+				.expect(<span class="string">"No other vesting schedule exists, as checked above; qed"</span>);
 		}
 
 		Total::&lt;T&gt;::put(new_total);
@@ -2395,7 +2397,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		Vesting::&lt;T&gt;::remove(<span class="kw-2">&amp;</span>signer);
 		Signing::&lt;T&gt;::remove(<span class="kw-2">&amp;</span>signer);
 
-		<span class="comment">// Let&#39;s deposit an event to let the outside world know this happened.
+		<span class="comment">// Let's deposit an event to let the outside world know this happened.
 		</span><span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::Claimed {
 			who: dest,
 			ethereum_address: signer,
@@ -2416,12 +2418,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">where
 	</span>&lt;T <span class="kw">as </span>frame_system::Config&gt;::RuntimeCall: IsSubType&lt;Call&lt;T&gt;&gt;,
 {
-	<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 	</span><span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter) -&gt; sp_std::fmt::Result {
-		<span class="macro">write!</span>(f, <span class="string">&quot;PrevalidateAttests&quot;</span>)
+		<span class="macro">write!</span>(f, <span class="string">"PrevalidateAttests"</span>)
 	}
 
-	<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+	<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
 	</span><span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw">_</span>: <span class="kw-2">&amp;mut </span>sp_std::fmt::Formatter) -&gt; sp_std::fmt::Result {
 		<span class="prelude-val">Ok</span>(())
 	}
@@ -2445,7 +2447,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">type </span>Call = &lt;T <span class="kw">as </span>frame_system::Config&gt;::RuntimeCall;
 	<span class="kw">type </span>AdditionalSigned = ();
 	<span class="kw">type </span>Pre = ();
-	<span class="kw">const </span>IDENTIFIER: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;PrevalidateAttests&quot;</span>;
+	<span class="kw">const </span>IDENTIFIER: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"PrevalidateAttests"</span>;
 
 	<span class="kw">fn </span>additional_signed(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::AdditionalSigned, TransactionValidityError&gt; {
 		<span class="prelude-val">Ok</span>(())
@@ -2485,7 +2487,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="attr">#[cfg(any(test, feature = <span class="string">&quot;runtime-benchmarks&quot;</span>))]
+<span class="attr">#[cfg(any(test, feature = <span class="string">"runtime-benchmarks"</span>))]
 </span><span class="kw">mod </span>secp_utils {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 
@@ -2597,7 +2599,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="macro">parameter_types! </span>{
-		<span class="kw">pub </span>Prefix: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8] = <span class="string">b&quot;Pay RUSTs to the TEST account:&quot;</span>;
+		<span class="kw">pub </span>Prefix: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>[u8] = <span class="string">b"Pay RUSTs to the TEST account:"</span>;
 	}
 	<span class="macro">ord_parameter_types! </span>{
 		<span class="kw">pub const </span>Six: u64 = <span class="number">6</span>;
@@ -2612,19 +2614,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">fn </span>alice() -&gt; libsecp256k1::SecretKey {
-		libsecp256k1::SecretKey::parse(<span class="kw-2">&amp;</span>keccak_256(<span class="string">b&quot;Alice&quot;</span>)).unwrap()
+		libsecp256k1::SecretKey::parse(<span class="kw-2">&amp;</span>keccak_256(<span class="string">b"Alice"</span>)).unwrap()
 	}
 	<span class="kw">fn </span>bob() -&gt; libsecp256k1::SecretKey {
-		libsecp256k1::SecretKey::parse(<span class="kw-2">&amp;</span>keccak_256(<span class="string">b&quot;Bob&quot;</span>)).unwrap()
+		libsecp256k1::SecretKey::parse(<span class="kw-2">&amp;</span>keccak_256(<span class="string">b"Bob"</span>)).unwrap()
 	}
 	<span class="kw">fn </span>dave() -&gt; libsecp256k1::SecretKey {
-		libsecp256k1::SecretKey::parse(<span class="kw-2">&amp;</span>keccak_256(<span class="string">b&quot;Dave&quot;</span>)).unwrap()
+		libsecp256k1::SecretKey::parse(<span class="kw-2">&amp;</span>keccak_256(<span class="string">b"Dave"</span>)).unwrap()
 	}
 	<span class="kw">fn </span>eve() -&gt; libsecp256k1::SecretKey {
-		libsecp256k1::SecretKey::parse(<span class="kw-2">&amp;</span>keccak_256(<span class="string">b&quot;Eve&quot;</span>)).unwrap()
+		libsecp256k1::SecretKey::parse(<span class="kw-2">&amp;</span>keccak_256(<span class="string">b"Eve"</span>)).unwrap()
 	}
 	<span class="kw">fn </span>frank() -&gt; libsecp256k1::SecretKey {
-		libsecp256k1::SecretKey::parse(<span class="kw-2">&amp;</span>keccak_256(<span class="string">b&quot;Frank&quot;</span>)).unwrap()
+		libsecp256k1::SecretKey::parse(<span class="kw-2">&amp;</span>keccak_256(<span class="string">b"Frank"</span>)).unwrap()
 	}
 
 	<span class="comment">// This function basically just builds a genesis storage key/value store according to
@@ -2668,9 +2670,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>serde_works() {
-		<span class="kw">let </span>x = EthereumAddress(<span class="macro">hex!</span>[<span class="string">&quot;0123456789abcdef0123456789abcdef01234567&quot;</span>]);
+		<span class="kw">let </span>x = EthereumAddress(<span class="macro">hex!</span>[<span class="string">"0123456789abcdef0123456789abcdef01234567"</span>]);
 		<span class="kw">let </span>y = serde_json::to_string(<span class="kw-2">&amp;</span>x).unwrap();
-		<span class="macro">assert_eq!</span>(y, <span class="string">&quot;\&quot;0x0123456789abcdef0123456789abcdef01234567\&quot;&quot;</span>);
+		<span class="macro">assert_eq!</span>(y, <span class="string">"\"0x0123456789abcdef0123456789abcdef01234567\""</span>);
 		<span class="kw">let </span>z: EthereumAddress = serde_json::from_str(<span class="kw-2">&amp;</span>y).unwrap();
 		<span class="macro">assert_eq!</span>(x, z);
 	}
@@ -2864,14 +2866,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>claim_cannot_clobber_preclaim() {
 		new_test_ext().execute_with(|| {
 			<span class="macro">assert_eq!</span>(Balances::free_balance(<span class="number">42</span>), <span class="number">0</span>);
-			<span class="comment">// Alice&#39;s claim is 100
+			<span class="comment">// Alice's claim is 100
 			</span><span class="macro">assert_ok!</span>(Claims::claim(
 				RuntimeOrigin::none(),
 				<span class="number">42</span>,
 				sig::&lt;Test&gt;(<span class="kw-2">&amp;</span>alice(), <span class="kw-2">&amp;</span><span class="number">42u64</span>.encode(), <span class="kw-2">&amp;</span>[][..])
 			));
 			<span class="macro">assert_eq!</span>(Balances::free_balance(<span class="kw-2">&amp;</span><span class="number">42</span>), <span class="number">100</span>);
-			<span class="comment">// Eve&#39;s claim is 300 through Account 42
+			<span class="comment">// Eve's claim is 300 through Account 42
 			</span><span class="macro">assert_ok!</span>(Claims::attest(
 				RuntimeOrigin::signed(<span class="number">42</span>),
 				StatementKind::Saft.to_text().to_vec()
@@ -3150,12 +3152,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>real_eth_sig_works() {
 		new_test_ext().execute_with(|| {
-			<span class="comment">// &quot;Pay RUSTs to the TEST account:2a00000000000000&quot;
-			</span><span class="kw">let </span>sig = <span class="macro">hex!</span>[<span class="string">&quot;444023e89b67e67c0562ed0305d252a5dd12b2af5ac51d6d3cb69a0b486bc4b3191401802dc29d26d586221f7256cd3329fe82174bdf659baea149a40e1c495d1c&quot;</span>];
+			<span class="comment">// "Pay RUSTs to the TEST account:2a00000000000000"
+			</span><span class="kw">let </span>sig = <span class="macro">hex!</span>[<span class="string">"444023e89b67e67c0562ed0305d252a5dd12b2af5ac51d6d3cb69a0b486bc4b3191401802dc29d26d586221f7256cd3329fe82174bdf659baea149a40e1c495d1c"</span>];
 			<span class="kw">let </span>sig = EcdsaSignature(sig);
 			<span class="kw">let </span>who = <span class="number">42u64</span>.using_encoded(to_ascii_hex);
 			<span class="kw">let </span>signer = Claims::eth_recover(<span class="kw-2">&amp;</span>sig, <span class="kw-2">&amp;</span>who, <span class="kw-2">&amp;</span>[][..]).unwrap();
-			<span class="macro">assert_eq!</span>(signer.<span class="number">0</span>, <span class="macro">hex!</span>[<span class="string">&quot;6d31165d5d932d571f3b44695653b46dcc327e84&quot;</span>]);
+			<span class="macro">assert_eq!</span>(signer.<span class="number">0</span>, <span class="macro">hex!</span>[<span class="string">"6d31165d5d932d571f3b44695653b46dcc327e84"</span>]);
 		});
 	}
 
@@ -3176,7 +3178,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="prelude-val">Ok</span>(ValidTransaction {
 					priority: <span class="number">100</span>,
 					requires: <span class="macro">vec!</span>[],
-					provides: <span class="macro">vec!</span>[(<span class="string">&quot;claims&quot;</span>, eth(<span class="kw-2">&amp;</span>alice())).encode()],
+					provides: <span class="macro">vec!</span>[(<span class="string">"claims"</span>, eth(<span class="kw-2">&amp;</span>alice())).encode()],
 					longevity: TransactionLongevity::max_value(),
 					propagate: <span class="bool-val">true</span>,
 				})
@@ -3209,7 +3211,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="prelude-val">Ok</span>(ValidTransaction {
 					priority: <span class="number">100</span>,
 					requires: <span class="macro">vec!</span>[],
-					provides: <span class="macro">vec!</span>[(<span class="string">&quot;claims&quot;</span>, eth(<span class="kw-2">&amp;</span>dave())).encode()],
+					provides: <span class="macro">vec!</span>[(<span class="string">"claims"</span>, eth(<span class="kw-2">&amp;</span>dave())).encode()],
 					longevity: TransactionLongevity::max_value(),
 					propagate: <span class="bool-val">true</span>,
 				})
@@ -3262,7 +3264,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 </span><span class="kw">mod </span>benchmarking {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 	<span class="kw">use </span><span class="kw">crate</span>::claims::Call;
@@ -3317,7 +3319,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="kw">let </span>secret_key = libsecp256k1::SecretKey::parse(<span class="kw-2">&amp;</span>keccak_256(<span class="kw-2">&amp;</span>c.encode())).unwrap();
 			<span class="kw">let </span>eth_address = eth(<span class="kw-2">&amp;</span>secret_key);
-			<span class="kw">let </span>account: T::AccountId = account(<span class="string">&quot;user&quot;</span>, c, SEED);
+			<span class="kw">let </span>account: T::AccountId = account(<span class="string">"user"</span>, c, SEED);
 			<span class="kw">let </span>vesting = <span class="prelude-val">Some</span>((<span class="number">100_000u32</span>.into(), <span class="number">1_000u32</span>.into(), <span class="number">100u32</span>.into()));
 			<span class="kw">let </span>signature = sig::&lt;T&gt;(<span class="kw-2">&amp;</span>secret_key, <span class="kw-2">&amp;</span>account.encode(), <span class="kw-2">&amp;</span>[][..]);
 			<span class="kw">super</span>::Pallet::&lt;T&gt;::mint_claim(RawOrigin::Root.into(), eth_address, VALUE.into(), vesting, <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
@@ -3329,8 +3331,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			}.encode();
 		}: {
 			<span class="kw">let </span>call = &lt;Call&lt;T&gt; <span class="kw">as </span>Decode&gt;::decode(<span class="kw-2">&amp;mut &amp;*</span>call_enc)
-				.expect(<span class="string">&quot;call is encoded above, encoding must be correct&quot;</span>);
-			<span class="kw">super</span>::Pallet::&lt;T&gt;::validate_unsigned(source, <span class="kw-2">&amp;</span>call).map_err(|e| -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str { e.into() })<span class="question-mark">?</span>;
+				.expect(<span class="string">"call is encoded above, encoding must be correct"</span>);
+			<span class="kw">super</span>::Pallet::&lt;T&gt;::validate_unsigned(source, <span class="kw-2">&amp;</span>call).map_err(|e| -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str { e.into() })<span class="question-mark">?</span>;
 			call.dispatch_bypass_filter(RawOrigin::None.into())<span class="question-mark">?</span>;
 		}
 		verify {
@@ -3346,7 +3348,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				create_claim_attest::&lt;T&gt;(u32::MAX - c)<span class="question-mark">?</span>;
 			}
 
-			<span class="kw">let </span>eth_address = account(<span class="string">&quot;eth_address&quot;</span>, <span class="number">0</span>, SEED);
+			<span class="kw">let </span>eth_address = account(<span class="string">"eth_address"</span>, <span class="number">0</span>, SEED);
 			<span class="kw">let </span>vesting = <span class="prelude-val">Some</span>((<span class="number">100_000u32</span>.into(), <span class="number">1_000u32</span>.into(), <span class="number">100u32</span>.into()));
 			<span class="kw">let </span>statement = StatementKind::Regular;
 		}: <span class="kw">_</span>(RawOrigin::Root, eth_address, VALUE.into(), vesting, <span class="prelude-val">Some</span>(statement))
@@ -3367,7 +3369,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span><span class="kw">let </span>attest_c = u32::MAX - c;
 			<span class="kw">let </span>secret_key = libsecp256k1::SecretKey::parse(<span class="kw-2">&amp;</span>keccak_256(<span class="kw-2">&amp;</span>attest_c.encode())).unwrap();
 			<span class="kw">let </span>eth_address = eth(<span class="kw-2">&amp;</span>secret_key);
-			<span class="kw">let </span>account: T::AccountId = account(<span class="string">&quot;user&quot;</span>, c, SEED);
+			<span class="kw">let </span>account: T::AccountId = account(<span class="string">"user"</span>, c, SEED);
 			<span class="kw">let </span>vesting = <span class="prelude-val">Some</span>((<span class="number">100_000u32</span>.into(), <span class="number">1_000u32</span>.into(), <span class="number">100u32</span>.into()));
 			<span class="kw">let </span>statement = StatementKind::Regular;
 			<span class="kw">let </span>signature = sig::&lt;T&gt;(<span class="kw-2">&amp;</span>secret_key, <span class="kw-2">&amp;</span>account.encode(), statement.to_text());
@@ -3381,8 +3383,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>source = sp_runtime::transaction_validity::TransactionSource::External;
 		}: {
 			<span class="kw">let </span>call = &lt;Call&lt;T&gt; <span class="kw">as </span>Decode&gt;::decode(<span class="kw-2">&amp;mut &amp;*</span>call_enc)
-				.expect(<span class="string">&quot;call is encoded above, encoding must be correct&quot;</span>);
-			<span class="kw">super</span>::Pallet::&lt;T&gt;::validate_unsigned(source, <span class="kw-2">&amp;</span>call).map_err(|e| -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str { e.into() })<span class="question-mark">?</span>;
+				.expect(<span class="string">"call is encoded above, encoding must be correct"</span>);
+			<span class="kw">super</span>::Pallet::&lt;T&gt;::validate_unsigned(source, <span class="kw-2">&amp;</span>call).map_err(|e| -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str { e.into() })<span class="question-mark">?</span>;
 			call.dispatch_bypass_filter(RawOrigin::None.into())<span class="question-mark">?</span>;
 		}
 		verify {
@@ -3401,7 +3403,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>attest_c = u32::MAX - c;
 			<span class="kw">let </span>secret_key = libsecp256k1::SecretKey::parse(<span class="kw-2">&amp;</span>keccak_256(<span class="kw-2">&amp;</span>attest_c.encode())).unwrap();
 			<span class="kw">let </span>eth_address = eth(<span class="kw-2">&amp;</span>secret_key);
-			<span class="kw">let </span>account: T::AccountId = account(<span class="string">&quot;user&quot;</span>, c, SEED);
+			<span class="kw">let </span>account: T::AccountId = account(<span class="string">"user"</span>, c, SEED);
 			<span class="kw">let </span>vesting = <span class="prelude-val">Some</span>((<span class="number">100_000u32</span>.into(), <span class="number">1_000u32</span>.into(), <span class="number">100u32</span>.into()));
 			<span class="kw">let </span>statement = StatementKind::Regular;
 			<span class="kw">let </span>signature = sig::&lt;T&gt;(<span class="kw-2">&amp;</span>secret_key, <span class="kw-2">&amp;</span>account.encode(), statement.to_text());
@@ -3413,9 +3415,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// We have to copy the validate statement here because of trait issues... :(
 			</span><span class="kw">let </span>validate = |who: <span class="kw-2">&amp;</span>T::AccountId, call: <span class="kw-2">&amp;</span><span class="kw">super</span>::Call&lt;T&gt;| -&gt; DispatchResult {
 				<span class="kw">if let </span>Call::attest{ statement: attested_statement } = call {
-					<span class="kw">let </span>signer = Preclaims::&lt;T&gt;::get(who).ok_or(<span class="string">&quot;signer has no claim&quot;</span>)<span class="question-mark">?</span>;
+					<span class="kw">let </span>signer = Preclaims::&lt;T&gt;::get(who).ok_or(<span class="string">"signer has no claim"</span>)<span class="question-mark">?</span>;
 					<span class="kw">if let </span><span class="prelude-val">Some</span>(s) = Signing::&lt;T&gt;::get(signer) {
-						<span class="macro">ensure!</span>(<span class="kw-2">&amp;</span>attested_statement[..] == s.to_text(), <span class="string">&quot;invalid statement&quot;</span>);
+						<span class="macro">ensure!</span>(<span class="kw-2">&amp;</span>attested_statement[..] == s.to_text(), <span class="string">"invalid statement"</span>);
 					}
 				}
 				<span class="prelude-val">Ok</span>(())
@@ -3423,7 +3425,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>call_enc = call.encode();
 		}: {
 			<span class="kw">let </span>call = &lt;Call&lt;T&gt; <span class="kw">as </span>Decode&gt;::decode(<span class="kw-2">&amp;mut &amp;*</span>call_enc)
-				.expect(<span class="string">&quot;call is encoded above, encoding must be correct&quot;</span>);
+				.expect(<span class="string">"call is encoded above, encoding must be correct"</span>);
 			validate(<span class="kw-2">&amp;</span>account, <span class="kw-2">&amp;</span>call)<span class="question-mark">?</span>;
 			call.dispatch_bypass_filter(RawOrigin::Signed(account).into())<span class="question-mark">?</span>;
 		}
@@ -3446,7 +3448,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>new_secret_key = libsecp256k1::SecretKey::parse(<span class="kw-2">&amp;</span>keccak_256(<span class="kw-2">&amp;</span>(u32::MAX/<span class="number">2</span>).encode())).unwrap();
 			<span class="kw">let </span>new_eth_address = eth(<span class="kw-2">&amp;</span>new_secret_key);
 
-			<span class="kw">let </span>account: T::AccountId = account(<span class="string">&quot;user&quot;</span>, c, SEED);
+			<span class="kw">let </span>account: T::AccountId = account(<span class="string">"user"</span>, c, SEED);
 			Preclaims::&lt;T&gt;::insert(<span class="kw-2">&amp;</span>account, eth_address);
 
 			<span class="macro">assert!</span>(Claims::&lt;T&gt;::contains_key(eth_address));
@@ -3474,7 +3476,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">let </span>i <span class="kw">in </span><span class="number">0 </span>.. <span class="number">1_000</span>;
 			<span class="comment">// Crate signature
 			</span><span class="kw">let </span>secret_key = libsecp256k1::SecretKey::parse(<span class="kw-2">&amp;</span>keccak_256(<span class="kw-2">&amp;</span>i.encode())).unwrap();
-			<span class="kw">let </span>account: T::AccountId = account(<span class="string">&quot;user&quot;</span>, i, SEED);
+			<span class="kw">let </span>account: T::AccountId = account(<span class="string">"user"</span>, i, SEED);
 			<span class="kw">let </span>signature = sig::&lt;T&gt;(<span class="kw-2">&amp;</span>secret_key, <span class="kw-2">&amp;</span>account.encode(), <span class="kw-2">&amp;</span>[][..]);
 			<span class="kw">let </span>data = account.using_encoded(to_ascii_hex);
 			<span class="kw">let </span>extra = StatementKind::default().to_text();

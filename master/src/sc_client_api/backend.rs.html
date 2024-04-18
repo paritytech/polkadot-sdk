@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/api/src/backend.rs`."><title>backend.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/api/src/backend.rs`."><title>backend.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_client_api" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_client_api" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sc_client_api/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -889,7 +891,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Helper function to apply auxiliary data insertion into an operation.
-</span><span class="kw">pub fn </span>apply_aux&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>: <span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;c</span>: <span class="lifetime">&#39;a</span>, B, Block, D, I&gt;(
+</span><span class="kw">pub fn </span>apply_aux&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>: <span class="lifetime">'a</span>, <span class="lifetime">'c</span>: <span class="lifetime">'a</span>, B, Block, D, I&gt;(
 	operation: <span class="kw-2">&amp;mut </span>ClientImportOperation&lt;Block, B&gt;,
 	insert: I,
 	delete: D,
@@ -897,8 +899,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">where
 	</span>Block: BlockT,
 	B: Backend&lt;Block&gt;,
-	I: IntoIterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>(<span class="kw-2">&amp;</span><span class="lifetime">&#39;c </span>[u8], <span class="kw-2">&amp;</span><span class="lifetime">&#39;c </span>[u8])&gt;,
-	D: IntoIterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">&amp;</span><span class="lifetime">&#39;b </span>[u8]&gt;,
+	I: IntoIterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">'a </span>(<span class="kw-2">&amp;</span><span class="lifetime">'c </span>[u8], <span class="kw-2">&amp;</span><span class="lifetime">'c </span>[u8])&gt;,
+	D: IntoIterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">&amp;</span><span class="lifetime">'b </span>[u8]&gt;,
 {
 	operation.op.insert_aux(
 		insert
@@ -1011,7 +1013,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; sp_blockchain::Result&lt;()&gt;;
 
 	<span class="doccomment">/// Mark a block as new head. If both block import and set head are specified, set head
-	/// overrides block import&#39;s best block rule.
+	/// overrides block import's best block rule.
 	</span><span class="kw">fn </span>mark_head(<span class="kw-2">&amp;mut </span><span class="self">self</span>, hash: Block::Hash) -&gt; sp_blockchain::Result&lt;()&gt;;
 
 	<span class="doccomment">/// Add a transaction index operation.
@@ -1058,7 +1060,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// best block should use `SelectChain` instead of the client.
 	///
 	/// Pass a flag to indicate whether finality notifications should be propagated.
-	/// This is usually tied to some synchronization state, where we don&#39;t send notifications
+	/// This is usually tied to some synchronization state, where we don't send notifications
 	/// while performing major synchronization work.
 	</span><span class="kw">fn </span>finalize_block(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
@@ -1078,11 +1080,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// Deletions occur after insertions.
 	</span><span class="kw">fn </span>insert_aux&lt;
-		<span class="lifetime">&#39;a</span>,
-		<span class="lifetime">&#39;b</span>: <span class="lifetime">&#39;a</span>,
-		<span class="lifetime">&#39;c</span>: <span class="lifetime">&#39;a</span>,
-		I: IntoIterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>(<span class="kw-2">&amp;</span><span class="lifetime">&#39;c </span>[u8], <span class="kw-2">&amp;</span><span class="lifetime">&#39;c </span>[u8])&gt;,
-		D: IntoIterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">&amp;</span><span class="lifetime">&#39;b </span>[u8]&gt;,
+		<span class="lifetime">'a</span>,
+		<span class="lifetime">'b</span>: <span class="lifetime">'a</span>,
+		<span class="lifetime">'c</span>: <span class="lifetime">'a</span>,
+		I: IntoIterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">'a </span>(<span class="kw-2">&amp;</span><span class="lifetime">'c </span>[u8], <span class="kw-2">&amp;</span><span class="lifetime">'c </span>[u8])&gt;,
+		D: IntoIterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">&amp;</span><span class="lifetime">'b </span>[u8]&gt;,
 	&gt;(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		insert: I,
@@ -1122,7 +1124,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="prelude-val">Ok</span>(<span class="self">Self </span>{ inner: state.raw_iter(args)<span class="question-mark">?</span>, state })
 	}
 
-	<span class="doccomment">/// Create a new iterator over a child storage&#39;s keys.
+	<span class="doccomment">/// Create a new iterator over a child storage's keys.
 	</span><span class="kw">pub fn </span>new_child(
 		state: State,
 		child_info: ChildInfo,
@@ -1198,21 +1200,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Provides access to storage primitives
 </span><span class="kw">pub trait </span>StorageProvider&lt;Block: BlockT, B: Backend&lt;Block&gt;&gt; {
-	<span class="doccomment">/// Given a block&#39;s `Hash` and a key, return the value under the key in that block.
+	<span class="doccomment">/// Given a block's `Hash` and a key, return the value under the key in that block.
 	</span><span class="kw">fn </span>storage(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		hash: Block::Hash,
 		key: <span class="kw-2">&amp;</span>StorageKey,
 	) -&gt; sp_blockchain::Result&lt;<span class="prelude-ty">Option</span>&lt;StorageData&gt;&gt;;
 
-	<span class="doccomment">/// Given a block&#39;s `Hash` and a key, return the value under the hash in that block.
+	<span class="doccomment">/// Given a block's `Hash` and a key, return the value under the hash in that block.
 	</span><span class="kw">fn </span>storage_hash(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		hash: Block::Hash,
 		key: <span class="kw-2">&amp;</span>StorageKey,
 	) -&gt; sp_blockchain::Result&lt;<span class="prelude-ty">Option</span>&lt;Block::Hash&gt;&gt;;
 
-	<span class="doccomment">/// Given a block&#39;s `Hash` and a key prefix, returns a `KeysIter` iterates matching storage
+	<span class="doccomment">/// Given a block's `Hash` and a key prefix, returns a `KeysIter` iterates matching storage
 	/// keys in that block.
 	</span><span class="kw">fn </span>storage_keys(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
@@ -1221,7 +1223,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		start_key: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>StorageKey&gt;,
 	) -&gt; sp_blockchain::Result&lt;KeysIter&lt;B::State, Block&gt;&gt;;
 
-	<span class="doccomment">/// Given a block&#39;s `Hash` and a key prefix, returns an iterator over the storage keys and
+	<span class="doccomment">/// Given a block's `Hash` and a key prefix, returns an iterator over the storage keys and
 	/// values in that block.
 	</span><span class="kw">fn </span>storage_pairs(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
@@ -1230,7 +1232,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		start_key: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>StorageKey&gt;,
 	) -&gt; sp_blockchain::Result&lt;PairsIter&lt;B::State, Block&gt;&gt;;
 
-	<span class="doccomment">/// Given a block&#39;s `Hash`, a key and a child storage key, return the value under the key in
+	<span class="doccomment">/// Given a block's `Hash`, a key and a child storage key, return the value under the key in
 	/// that block.
 	</span><span class="kw">fn </span>child_storage(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
@@ -1239,7 +1241,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		key: <span class="kw-2">&amp;</span>StorageKey,
 	) -&gt; sp_blockchain::Result&lt;<span class="prelude-ty">Option</span>&lt;StorageData&gt;&gt;;
 
-	<span class="doccomment">/// Given a block&#39;s `Hash` and a key `prefix` and a child storage key,
+	<span class="doccomment">/// Given a block's `Hash` and a key `prefix` and a child storage key,
 	/// returns a `KeysIter` that iterates matching storage keys in that block.
 	</span><span class="kw">fn </span>child_storage_keys(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
@@ -1249,7 +1251,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		start_key: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>StorageKey&gt;,
 	) -&gt; sp_blockchain::Result&lt;KeysIter&lt;B::State, Block&gt;&gt;;
 
-	<span class="doccomment">/// Given a block&#39;s `Hash`, a key and a child storage key, return the hash under the key in that
+	<span class="doccomment">/// Given a block's `Hash`, a key and a child storage key, return the hash under the key in that
 	/// block.
 	</span><span class="kw">fn </span>child_storage_hash(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
@@ -1258,14 +1260,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		key: <span class="kw-2">&amp;</span>StorageKey,
 	) -&gt; sp_blockchain::Result&lt;<span class="prelude-ty">Option</span>&lt;Block::Hash&gt;&gt;;
 
-	<span class="doccomment">/// Given a block&#39;s `Hash` and a key, return the closest merkle value.
+	<span class="doccomment">/// Given a block's `Hash` and a key, return the closest merkle value.
 	</span><span class="kw">fn </span>closest_merkle_value(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		hash: Block::Hash,
 		key: <span class="kw-2">&amp;</span>StorageKey,
 	) -&gt; sp_blockchain::Result&lt;<span class="prelude-ty">Option</span>&lt;MerkleValue&lt;Block::Hash&gt;&gt;&gt;;
 
-	<span class="doccomment">/// Given a block&#39;s `Hash`, a key and a child storage key, return the closest merkle value.
+	<span class="doccomment">/// Given a block's `Hash`, a key and a child storage key, return the closest merkle value.
 	</span><span class="kw">fn </span>child_closest_merkle_value(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		hash: Block::Hash,
@@ -1390,11 +1392,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Insert auxiliary data into key-value store.
 	</span><span class="kw">fn </span>insert_aux&lt;
-		<span class="lifetime">&#39;a</span>,
-		<span class="lifetime">&#39;b</span>: <span class="lifetime">&#39;a</span>,
-		<span class="lifetime">&#39;c</span>: <span class="lifetime">&#39;a</span>,
-		I: IntoIterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>(<span class="kw-2">&amp;</span><span class="lifetime">&#39;c </span>[u8], <span class="kw-2">&amp;</span><span class="lifetime">&#39;c </span>[u8])&gt;,
-		D: IntoIterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">&amp;</span><span class="lifetime">&#39;b </span>[u8]&gt;,
+		<span class="lifetime">'a</span>,
+		<span class="lifetime">'b</span>: <span class="lifetime">'a</span>,
+		<span class="lifetime">'c</span>: <span class="lifetime">'a</span>,
+		I: IntoIterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">'a </span>(<span class="kw-2">&amp;</span><span class="lifetime">'c </span>[u8], <span class="kw-2">&amp;</span><span class="lifetime">'c </span>[u8])&gt;,
+		D: IntoIterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">&amp;</span><span class="lifetime">'b </span>[u8]&gt;,
 	&gt;(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
 		insert: I,
@@ -1409,7 +1411,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Gain access to the import lock around this backend.
 	///
-	/// _Note_ Backend isn&#39;t expected to acquire the lock by itself ever. Rather
+	/// _Note_ Backend isn't expected to acquire the lock by itself ever. Rather
 	/// the using components should acquire and hold the lock whenever they do
 	/// something that the import of a block would interfere with, e.g. importing
 	/// a new block or calculating the best head.

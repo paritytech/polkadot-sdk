@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/core/src/bls.rs`."><title>bls.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/core/src/bls.rs`."><title>bls.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_core" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_core" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sp_core/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -569,14 +571,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -608,7 +610,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use </span>w3f_bls::TinyBLS377;
 
 	<span class="doccomment">/// An identifier used to match public keys against BLS12-377 keys
-	</span><span class="kw">pub const </span>CRYPTO_ID: CryptoTypeId = CryptoTypeId(<span class="kw-2">*</span><span class="string">b&quot;bls7&quot;</span>);
+	</span><span class="kw">pub const </span>CRYPTO_ID: CryptoTypeId = CryptoTypeId(<span class="kw-2">*</span><span class="string">b"bls7"</span>);
 
 	<span class="attr">#[doc(hidden)]
 	</span><span class="kw">pub type </span>Bls377Tag = TinyBLS377;
@@ -621,7 +623,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub type </span>Signature = <span class="kw">super</span>::Signature&lt;TinyBLS377&gt;;
 
 	<span class="kw">impl </span><span class="kw">super</span>::HardJunctionId <span class="kw">for </span>TinyBLS377 {
-		<span class="kw">const </span>ID: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;BLS12377HDKD&quot;</span>;
+		<span class="kw">const </span>ID: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"BLS12377HDKD"</span>;
 	}
 }
 
@@ -632,7 +634,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">use </span>w3f_bls::TinyBLS381;
 
 	<span class="doccomment">/// An identifier used to match public keys against BLS12-381 keys
-	</span><span class="kw">pub const </span>CRYPTO_ID: CryptoTypeId = CryptoTypeId(<span class="kw-2">*</span><span class="string">b&quot;bls8&quot;</span>);
+	</span><span class="kw">pub const </span>CRYPTO_ID: CryptoTypeId = CryptoTypeId(<span class="kw-2">*</span><span class="string">b"bls8"</span>);
 
 	<span class="doccomment">/// BLS12-381 key pair.
 	</span><span class="kw">pub type </span>Pair = <span class="kw">super</span>::Pair&lt;TinyBLS381&gt;;
@@ -642,13 +644,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">pub type </span>Signature = <span class="kw">super</span>::Signature&lt;TinyBLS381&gt;;
 
 	<span class="kw">impl </span><span class="kw">super</span>::HardJunctionId <span class="kw">for </span>TinyBLS381 {
-		<span class="kw">const </span>ID: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;BLS12381HDKD&quot;</span>;
+		<span class="kw">const </span>ID: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"BLS12381HDKD"</span>;
 	}
 }
 
-<span class="kw">trait </span>BlsBound: EngineBLS + HardJunctionId + Send + Sync + <span class="lifetime">&#39;static </span>{}
+<span class="kw">trait </span>BlsBound: EngineBLS + HardJunctionId + Send + Sync + <span class="lifetime">'static </span>{}
 
-<span class="kw">impl</span>&lt;T: EngineBLS + HardJunctionId + Send + Sync + <span class="lifetime">&#39;static</span>&gt; BlsBound <span class="kw">for </span>T {}
+<span class="kw">impl</span>&lt;T: EngineBLS + HardJunctionId + Send + Sync + <span class="lifetime">'static</span>&gt; BlsBound <span class="kw">for </span>T {}
 
 <span class="doccomment">/// Secret key serialized size
 </span><span class="kw">const </span>SECRET_KEY_SERIALIZED_SIZE: usize =
@@ -664,8 +666,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// A secret seed.
 ///
-/// It&#39;s not called a &quot;secret key&quot; because ring doesn&#39;t expose the secret keys
-/// of the key pair (yeah, dumb); as such we&#39;re forced to remember the seed manually if we
+/// It's not called a "secret key" because ring doesn't expose the secret keys
+/// of the key pair (yeah, dumb); as such we're forced to remember the seed manually if we
 /// will need it later (such as for HDKD).
 </span><span class="kw">type </span>Seed = [u8; SECRET_KEY_SERIALIZED_SIZE];
 
@@ -696,7 +698,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="kw">trait </span>HardJunctionId {
-	<span class="kw">const </span>ID: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str;
+	<span class="kw">const </span>ID: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str;
 }
 
 <span class="doccomment">/// Derive a single hard junction.
@@ -728,7 +730,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(<span class="self">Self</span>, <span class="prelude-ty">Option</span>&lt;Seed&gt;), DeriveError&gt; {
 		<span class="kw">let </span><span class="kw-2">mut </span>acc: [u8; SECRET_KEY_SERIALIZED_SIZE] =
 			seed.unwrap_or(<span class="self">self</span>.<span class="number">0</span>.secret.to_bytes().try_into().expect(
-				<span class="string">&quot;Secret key serializer returns a vector of SECRET_KEY_SERIALIZED_SIZE size; qed&quot;</span>,
+				<span class="string">"Secret key serializer returns a vector of SECRET_KEY_SERIALIZED_SIZE size; qed"</span>,
 			));
 		<span class="kw">for </span>j <span class="kw">in </span>path {
 			<span class="kw">match </span>j {
@@ -746,14 +748,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">Self</span>::Public::unchecked_from(raw)
 	}
 
-	<span class="attr">#[cfg(feature = <span class="string">&quot;full_crypto&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"full_crypto"</span>)]
 	</span><span class="kw">fn </span>sign(<span class="kw-2">&amp;</span><span class="self">self</span>, message: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="self">Self</span>::Signature {
 		<span class="kw">let </span><span class="kw-2">mut </span>mutable_self = <span class="self">self</span>.clone();
 		<span class="kw">let </span>r: [u8; SIGNATURE_SERIALIZED_SIZE] =
-			DoublePublicKeyScheme::sign(<span class="kw-2">&amp;mut </span>mutable_self.<span class="number">0</span>, <span class="kw-2">&amp;</span>Message::new(<span class="string">b&quot;&quot;</span>, message))
+			DoublePublicKeyScheme::sign(<span class="kw-2">&amp;mut </span>mutable_self.<span class="number">0</span>, <span class="kw-2">&amp;</span>Message::new(<span class="string">b""</span>, message))
 				.to_bytes()
 				.try_into()
-				.expect(<span class="string">&quot;Signature serializer returns vectors of SIGNATURE_SERIALIZED_SIZE size&quot;</span>);
+				.expect(<span class="string">"Signature serializer returns vectors of SIGNATURE_SERIALIZED_SIZE size"</span>);
 		<span class="self">Self</span>::Signature::unchecked_from(r)
 	}
 
@@ -777,7 +779,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="kw">return </span><span class="bool-val">false</span>,
 		};
 
-		sig.verify(<span class="kw-2">&amp;</span>Message::new(<span class="string">b&quot;&quot;</span>, message.as_ref()), <span class="kw-2">&amp;</span>public_key)
+		sig.verify(<span class="kw-2">&amp;</span>Message::new(<span class="string">b""</span>, message.as_ref()), <span class="kw-2">&amp;</span>public_key)
 	}
 
 	<span class="doccomment">/// Get the seed for this key.
@@ -786,7 +788,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span>.secret
 			.to_bytes()
 			.try_into()
-			.expect(<span class="string">&quot;Secret key serializer returns a vector of SECRET_KEY_SERIALIZED_SIZE size&quot;</span>)
+			.expect(<span class="string">"Secret key serializer returns a vector of SECRET_KEY_SERIALIZED_SIZE size"</span>)
 	}
 }
 
@@ -798,7 +800,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
 	<span class="kw">use super</span>::<span class="kw-2">*</span>;
-	<span class="attr">#[cfg(feature = <span class="string">&quot;serde&quot;</span>)]
+	<span class="attr">#[cfg(feature = <span class="string">"serde"</span>)]
 	</span><span class="kw">use </span><span class="kw">crate</span>::crypto::Ss58Codec;
 	<span class="kw">use </span><span class="kw">crate</span>::crypto::DEV_PHRASE;
 	<span class="kw">use </span>bls377::{Pair, Signature};
@@ -806,8 +808,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>default_phrase_should_be_used() {
 		<span class="macro">assert_eq!</span>(
-			Pair::from_string(<span class="string">&quot;//Alice///password&quot;</span>, <span class="prelude-val">None</span>).unwrap().public(),
-			Pair::from_string(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}//Alice&quot;</span>, DEV_PHRASE), <span class="prelude-val">Some</span>(<span class="string">&quot;password&quot;</span>))
+			Pair::from_string(<span class="string">"//Alice///password"</span>, <span class="prelude-val">None</span>).unwrap().public(),
+			Pair::from_string(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{}//Alice"</span>, DEV_PHRASE), <span class="prelude-val">Some</span>(<span class="string">"password"</span>))
 				.unwrap()
 				.public(),
 		);
@@ -816,7 +818,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>seed_and_derive_should_work() {
 		<span class="kw">let </span>seed = array_bytes::hex2array_unchecked(
-			<span class="string">&quot;9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60&quot;</span>,
+			<span class="string">"9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60"</span>,
 		);
 		<span class="kw">let </span>pair = Pair::from_seed(<span class="kw-2">&amp;</span>seed);
 		<span class="comment">// we are using hash-to-field so this is not going to work
@@ -826,7 +828,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">assert_eq!</span>(
 			derived.to_raw_vec(),
 			array_bytes::hex2array_unchecked::&lt;<span class="kw">_</span>, <span class="number">32</span>&gt;(
-				<span class="string">&quot;3a0626d095148813cd1642d38254f1cfff7eb8cc1a2fc83b2a135377c3554c12&quot;
+				<span class="string">"3a0626d095148813cd1642d38254f1cfff7eb8cc1a2fc83b2a135377c3554c12"
 			</span>)
 		);
 	}
@@ -834,18 +836,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>test_vector_should_work() {
 		<span class="kw">let </span>pair = Pair::from_seed(<span class="kw-2">&amp;</span>array_bytes::hex2array_unchecked(
-			<span class="string">&quot;9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60&quot;</span>,
+			<span class="string">"9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60"</span>,
 		));
 		<span class="kw">let </span>public = pair.public();
 		<span class="macro">assert_eq!</span>(
 			public,
 			Public::unchecked_from(array_bytes::hex2array_unchecked(
-				<span class="string">&quot;7a84ca8ce4c37c93c95ecee6a3c0c9a7b9c225093cf2f12dc4f69cbfb847ef9424a18f5755d5a742247d386ff2aabb806bcf160eff31293ea9616976628f77266c8a8cc1d8753be04197bd6cdd8c5c87a148f782c4c1568d599b48833fd539001e580cff64bbc71850605433fcd051f3afc3b74819786f815ffb5272030a8d03e5df61e6183f8fd8ea85f26defa83400&quot;
+				<span class="string">"7a84ca8ce4c37c93c95ecee6a3c0c9a7b9c225093cf2f12dc4f69cbfb847ef9424a18f5755d5a742247d386ff2aabb806bcf160eff31293ea9616976628f77266c8a8cc1d8753be04197bd6cdd8c5c87a148f782c4c1568d599b48833fd539001e580cff64bbc71850605433fcd051f3afc3b74819786f815ffb5272030a8d03e5df61e6183f8fd8ea85f26defa83400"
 			</span>))
 		);
-		<span class="kw">let </span>message = <span class="string">b&quot;&quot;</span>;
+		<span class="kw">let </span>message = <span class="string">b""</span>;
 		<span class="kw">let </span>signature =
-	array_bytes::hex2array_unchecked(<span class="string">&quot;d1e3013161991e142d8751017d4996209c2ff8a9ee160f373733eda3b4b785ba6edce9f45f87104bbe07aa6aa6eb2780aa705efb2c13d3b317d6409d159d23bdc7cdd5c2a832d1551cf49d811d49c901495e527dbd532e3a462335ce2686009104aba7bc11c5b22be78f3198d2727a0b&quot;
+	array_bytes::hex2array_unchecked(<span class="string">"d1e3013161991e142d8751017d4996209c2ff8a9ee160f373733eda3b4b785ba6edce9f45f87104bbe07aa6aa6eb2780aa705efb2c13d3b317d6409d159d23bdc7cdd5c2a832d1551cf49d811d49c901495e527dbd532e3a462335ce2686009104aba7bc11c5b22be78f3198d2727a0b"
 	</span>);
 		<span class="kw">let </span>signature = Signature::unchecked_from(signature);
 		<span class="macro">assert!</span>(pair.sign(<span class="kw-2">&amp;</span>message[..]) == signature);
@@ -855,7 +857,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>test_vector_by_string_should_work() {
 		<span class="kw">let </span>pair = Pair::from_string(
-			<span class="string">&quot;0x9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60&quot;</span>,
+			<span class="string">"0x9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60"</span>,
 			<span class="prelude-val">None</span>,
 		)
 		.unwrap();
@@ -863,15 +865,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">assert_eq!</span>(
 			public,
 			Public::unchecked_from(array_bytes::hex2array_unchecked(
-				<span class="string">&quot;7a84ca8ce4c37c93c95ecee6a3c0c9a7b9c225093cf2f12dc4f69cbfb847ef9424a18f5755d5a742247d386ff2aabb806bcf160eff31293ea9616976628f77266c8a8cc1d8753be04197bd6cdd8c5c87a148f782c4c1568d599b48833fd539001e580cff64bbc71850605433fcd051f3afc3b74819786f815ffb5272030a8d03e5df61e6183f8fd8ea85f26defa83400&quot;
+				<span class="string">"7a84ca8ce4c37c93c95ecee6a3c0c9a7b9c225093cf2f12dc4f69cbfb847ef9424a18f5755d5a742247d386ff2aabb806bcf160eff31293ea9616976628f77266c8a8cc1d8753be04197bd6cdd8c5c87a148f782c4c1568d599b48833fd539001e580cff64bbc71850605433fcd051f3afc3b74819786f815ffb5272030a8d03e5df61e6183f8fd8ea85f26defa83400"
 			</span>))
 		);
-		<span class="kw">let </span>message = <span class="string">b&quot;&quot;</span>;
+		<span class="kw">let </span>message = <span class="string">b""</span>;
 		<span class="kw">let </span>signature =
-	array_bytes::hex2array_unchecked(<span class="string">&quot;d1e3013161991e142d8751017d4996209c2ff8a9ee160f373733eda3b4b785ba6edce9f45f87104bbe07aa6aa6eb2780aa705efb2c13d3b317d6409d159d23bdc7cdd5c2a832d1551cf49d811d49c901495e527dbd532e3a462335ce2686009104aba7bc11c5b22be78f3198d2727a0b&quot;
+	array_bytes::hex2array_unchecked(<span class="string">"d1e3013161991e142d8751017d4996209c2ff8a9ee160f373733eda3b4b785ba6edce9f45f87104bbe07aa6aa6eb2780aa705efb2c13d3b317d6409d159d23bdc7cdd5c2a832d1551cf49d811d49c901495e527dbd532e3a462335ce2686009104aba7bc11c5b22be78f3198d2727a0b"
 	</span>);
 		<span class="kw">let </span>expected_signature = Signature::unchecked_from(signature);
-		<span class="macro">println!</span>(<span class="string">&quot;signature is {:?}&quot;</span>, pair.sign(<span class="kw-2">&amp;</span>message[..]));
+		<span class="macro">println!</span>(<span class="string">"signature is {:?}"</span>, pair.sign(<span class="kw-2">&amp;</span>message[..]));
 		<span class="kw">let </span>signature = pair.sign(<span class="kw-2">&amp;</span>message[..]);
 		<span class="macro">assert!</span>(signature == expected_signature);
 		<span class="macro">assert!</span>(Pair::verify(<span class="kw-2">&amp;</span>signature, <span class="kw-2">&amp;</span>message[..], <span class="kw-2">&amp;</span>public));
@@ -880,30 +882,30 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span><span class="kw">fn </span>generated_pair_should_work() {
 		<span class="kw">let </span>(pair, <span class="kw">_</span>) = Pair::generate();
 		<span class="kw">let </span>public = pair.public();
-		<span class="kw">let </span>message = <span class="string">b&quot;Something important&quot;</span>;
+		<span class="kw">let </span>message = <span class="string">b"Something important"</span>;
 		<span class="kw">let </span>signature = pair.sign(<span class="kw-2">&amp;</span>message[..]);
 		<span class="macro">assert!</span>(Pair::verify(<span class="kw-2">&amp;</span>signature, <span class="kw-2">&amp;</span>message[..], <span class="kw-2">&amp;</span>public));
-		<span class="macro">assert!</span>(!Pair::verify(<span class="kw-2">&amp;</span>signature, <span class="string">b&quot;Something else&quot;</span>, <span class="kw-2">&amp;</span>public));
+		<span class="macro">assert!</span>(!Pair::verify(<span class="kw-2">&amp;</span>signature, <span class="string">b"Something else"</span>, <span class="kw-2">&amp;</span>public));
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>seeded_pair_should_work() {
-		<span class="kw">let </span>pair = Pair::from_seed(<span class="string">b&quot;12345678901234567890123456789012&quot;</span>);
+		<span class="kw">let </span>pair = Pair::from_seed(<span class="string">b"12345678901234567890123456789012"</span>);
 		<span class="kw">let </span>public = pair.public();
 		<span class="macro">assert_eq!</span>(
 			public,
 			Public::unchecked_from(
 				array_bytes::hex2array_unchecked(
-				<span class="string">&quot;754d2f2bbfa67df54d7e0e951979a18a1e0f45948857752cc2bac6bbb0b1d05e8e48bcc453920bf0c4bbd5993212480112a1fb433f04d74af0a8b700d93dc957ab3207f8d071e948f5aca1a7632c00bdf6d06be05b43e2e6216dccc8a5d55a0071cb2313cfd60b7e9114619cd17c06843b352f0b607a99122f6651df8f02e1ad3697bd208e62af047ddd7b942ba80080&quot;</span>)
+				<span class="string">"754d2f2bbfa67df54d7e0e951979a18a1e0f45948857752cc2bac6bbb0b1d05e8e48bcc453920bf0c4bbd5993212480112a1fb433f04d74af0a8b700d93dc957ab3207f8d071e948f5aca1a7632c00bdf6d06be05b43e2e6216dccc8a5d55a0071cb2313cfd60b7e9114619cd17c06843b352f0b607a99122f6651df8f02e1ad3697bd208e62af047ddd7b942ba80080"</span>)
 			)
 		);
 		<span class="kw">let </span>message =
-	array_bytes::hex2bytes_unchecked(<span class="string">&quot;2f8c6129d816cf51c374bc7f08c3e63ed156cf78aefb4a6550d97b87997977ee00000000000000000200d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a4500000000000000&quot;
+	array_bytes::hex2bytes_unchecked(<span class="string">"2f8c6129d816cf51c374bc7f08c3e63ed156cf78aefb4a6550d97b87997977ee00000000000000000200d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a4500000000000000"
 	</span>);
 		<span class="kw">let </span>signature = pair.sign(<span class="kw-2">&amp;</span>message[..]);
-		<span class="macro">println!</span>(<span class="string">&quot;Correct signature: {:?}&quot;</span>, signature);
+		<span class="macro">println!</span>(<span class="string">"Correct signature: {:?}"</span>, signature);
 		<span class="macro">assert!</span>(Pair::verify(<span class="kw-2">&amp;</span>signature, <span class="kw-2">&amp;</span>message[..], <span class="kw-2">&amp;</span>public));
-		<span class="macro">assert!</span>(!Pair::verify(<span class="kw-2">&amp;</span>signature, <span class="string">&quot;Other message&quot;</span>, <span class="kw-2">&amp;</span>public));
+		<span class="macro">assert!</span>(!Pair::verify(<span class="kw-2">&amp;</span>signature, <span class="string">"Other message"</span>, <span class="kw-2">&amp;</span>public));
 	}
 
 	<span class="attr">#[test]
@@ -916,8 +918,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>generate_with_password_phrase_recovery_possible() {
-		<span class="kw">let </span>(pair1, phrase, <span class="kw">_</span>) = Pair::generate_with_phrase(<span class="prelude-val">Some</span>(<span class="string">&quot;password&quot;</span>));
-		<span class="kw">let </span>(pair2, <span class="kw">_</span>) = Pair::from_phrase(<span class="kw-2">&amp;</span>phrase, <span class="prelude-val">Some</span>(<span class="string">&quot;password&quot;</span>)).unwrap();
+		<span class="kw">let </span>(pair1, phrase, <span class="kw">_</span>) = Pair::generate_with_phrase(<span class="prelude-val">Some</span>(<span class="string">"password"</span>));
+		<span class="kw">let </span>(pair2, <span class="kw">_</span>) = Pair::from_phrase(<span class="kw-2">&amp;</span>phrase, <span class="prelude-val">Some</span>(<span class="string">"password"</span>)).unwrap();
 
 		<span class="macro">assert_eq!</span>(pair1.public(), pair2.public());
 	}
@@ -925,23 +927,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>generate_with_phrase_should_be_recoverable_with_from_string() {
 		<span class="kw">let </span>(pair, phrase, seed) = Pair::generate_with_phrase(<span class="prelude-val">None</span>);
-		<span class="kw">let </span>repair_seed = Pair::from_seed_slice(seed.as_ref()).expect(<span class="string">&quot;seed slice is valid&quot;</span>);
+		<span class="kw">let </span>repair_seed = Pair::from_seed_slice(seed.as_ref()).expect(<span class="string">"seed slice is valid"</span>);
 		<span class="macro">assert_eq!</span>(pair.public(), repair_seed.public());
 		<span class="macro">assert_eq!</span>(pair.to_raw_vec(), repair_seed.to_raw_vec());
 		<span class="kw">let </span>(repair_phrase, reseed) =
-			Pair::from_phrase(phrase.as_ref(), <span class="prelude-val">None</span>).expect(<span class="string">&quot;seed slice is valid&quot;</span>);
+			Pair::from_phrase(phrase.as_ref(), <span class="prelude-val">None</span>).expect(<span class="string">"seed slice is valid"</span>);
 		<span class="macro">assert_eq!</span>(seed, reseed);
 		<span class="macro">assert_eq!</span>(pair.public(), repair_phrase.public());
 		<span class="macro">assert_eq!</span>(pair.to_raw_vec(), repair_seed.to_raw_vec());
 
-		<span class="kw">let </span>repair_string = Pair::from_string(phrase.as_str(), <span class="prelude-val">None</span>).expect(<span class="string">&quot;seed slice is valid&quot;</span>);
+		<span class="kw">let </span>repair_string = Pair::from_string(phrase.as_str(), <span class="prelude-val">None</span>).expect(<span class="string">"seed slice is valid"</span>);
 		<span class="macro">assert_eq!</span>(pair.public(), repair_string.public());
 		<span class="macro">assert_eq!</span>(pair.to_raw_vec(), repair_seed.to_raw_vec());
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>password_does_something() {
-		<span class="kw">let </span>(pair1, phrase, <span class="kw">_</span>) = Pair::generate_with_phrase(<span class="prelude-val">Some</span>(<span class="string">&quot;password&quot;</span>));
+		<span class="kw">let </span>(pair1, phrase, <span class="kw">_</span>) = Pair::generate_with_phrase(<span class="prelude-val">Some</span>(<span class="string">"password"</span>));
 		<span class="kw">let </span>(pair2, <span class="kw">_</span>) = Pair::from_phrase(<span class="kw-2">&amp;</span>phrase, <span class="prelude-val">None</span>).unwrap();
 
 		<span class="macro">assert_ne!</span>(pair1.public(), pair2.public());
@@ -950,18 +952,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>ss58check_roundtrip_works() {
-		<span class="kw">let </span>pair = Pair::from_seed(<span class="string">b&quot;12345678901234567890123456789012&quot;</span>);
+		<span class="kw">let </span>pair = Pair::from_seed(<span class="string">b"12345678901234567890123456789012"</span>);
 		<span class="kw">let </span>public = pair.public();
 		<span class="kw">let </span>s = public.to_ss58check();
-		<span class="macro">println!</span>(<span class="string">&quot;Correct: {}&quot;</span>, s);
+		<span class="macro">println!</span>(<span class="string">"Correct: {}"</span>, s);
 		<span class="kw">let </span>cmp = Public::from_ss58check(<span class="kw-2">&amp;</span>s).unwrap();
 		<span class="macro">assert_eq!</span>(cmp, public);
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>signature_serialization_works() {
-		<span class="kw">let </span>pair = Pair::from_seed(<span class="string">b&quot;12345678901234567890123456789012&quot;</span>);
-		<span class="kw">let </span>message = <span class="string">b&quot;Something important&quot;</span>;
+		<span class="kw">let </span>pair = Pair::from_seed(<span class="string">b"12345678901234567890123456789012"</span>);
+		<span class="kw">let </span>message = <span class="string">b"Something important"</span>;
 		<span class="kw">let </span>signature = pair.sign(<span class="kw-2">&amp;</span>message[..]);
 		<span class="kw">let </span>serialized_signature = serde_json::to_string(<span class="kw-2">&amp;</span>signature).unwrap();
 		<span class="comment">// Signature is 112 bytes, hexify * 2, so 224  chars + 2 quote chars
@@ -975,10 +977,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">fn </span>deserialize_signature(text: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;Signature, serde_json::error::Error&gt; {
 			serde_json::from_str(text)
 		}
-		<span class="macro">assert!</span>(deserialize_signature(<span class="string">&quot;Not valid json.&quot;</span>).is_err());
-		<span class="macro">assert!</span>(deserialize_signature(<span class="string">&quot;\&quot;Not an actual signature.\&quot;&quot;</span>).is_err());
+		<span class="macro">assert!</span>(deserialize_signature(<span class="string">"Not valid json."</span>).is_err());
+		<span class="macro">assert!</span>(deserialize_signature(<span class="string">"\"Not an actual signature.\""</span>).is_err());
 		<span class="comment">// Poorly-sized
-		</span><span class="macro">assert!</span>(deserialize_signature(<span class="string">&quot;\&quot;abc123\&quot;&quot;</span>).is_err());
+		</span><span class="macro">assert!</span>(deserialize_signature(<span class="string">"\"abc123\""</span>).is_err());
 	}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

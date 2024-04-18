@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `bridges/relays/finality/src/finality_loop.rs`."><title>finality_loop.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `bridges/relays/finality/src/finality_loop.rs`."><title>finality_loop.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="finality_relay" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="finality_relay" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../finality_relay/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -892,17 +894,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Interval at which we check updates on both clients. Normally should be larger than
 	/// `min(source_block_time, target_block_time)`.
 	///
-	/// This parameter may be used to limit transactions rate. Increase the value &amp;&amp; you&#39;ll get
+	/// This parameter may be used to limit transactions rate. Increase the value &amp;&amp; you'll get
 	/// infrequent updates =&gt; sparse headers =&gt; potential slow down of bridge applications, but
-	/// pallet storage won&#39;t be super large. Decrease the value to near `source_block_time` and
-	/// you&#39;ll get transaction for (almost) every block of the source chain =&gt; all source headers
+	/// pallet storage won't be super large. Decrease the value to near `source_block_time` and
+	/// you'll get transaction for (almost) every block of the source chain =&gt; all source headers
 	/// will be known to the target chain =&gt; bridge applications will run faster, but pallet
-	/// storage may explode (but if pruning is there, then it&#39;s fine).
+	/// storage may explode (but if pruning is there, then it's fine).
 	</span><span class="kw">pub </span>tick: Duration,
 	<span class="doccomment">/// Number of finality proofs to keep in internal buffer between loop iterations.
 	///
-	/// While in &quot;major syncing&quot; state, we still read finality proofs from the stream. They&#39;re
-	/// stored in the internal buffer between loop iterations. When we&#39;re close to the tip of the
+	/// While in "major syncing" state, we still read finality proofs from the stream. They're
+	/// stored in the internal buffer between loop iterations. When we're close to the tip of the
 	/// chain, we may meet finality delays if headers are not finalized frequently. So instead of
 	/// waiting for next finality proof to appear in the stream, we may use existing proof from
 	/// that buffer.
@@ -948,7 +950,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Return prefix that will be used by default to expose Prometheus metrics of the finality proofs
 /// sync loop.
 </span><span class="kw">pub fn </span>metrics_prefix&lt;P: FinalitySyncPipeline&gt;() -&gt; String {
-	<span class="macro">format!</span>(<span class="string">&quot;{}_to_{}_Sync&quot;</span>, P::SOURCE_NAME, P::TARGET_NAME)
+	<span class="macro">format!</span>(<span class="string">"{}_to_{}_Sync"</span>, P::SOURCE_NAME, P::TARGET_NAME)
 }
 
 <span class="kw">pub struct </span>SyncInfo&lt;P: FinalitySyncPipeline&gt; {
@@ -969,9 +971,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="bool-val">true
 		</span>} <span class="kw">else </span>{
 			<span class="macro">log::error!</span>(
-				target: <span class="string">&quot;bridge&quot;</span>,
-				<span class="string">&quot;Source node ({}) and pallet at target node ({}) have different headers at the same height {:?}: \
-				at-source {:?} vs at-target {:?}&quot;</span>,
+				target: <span class="string">"bridge"</span>,
+				<span class="string">"Source node ({}) and pallet at target node ({}) have different headers at the same height {:?}: \
+				at-source {:?} vs at-target {:?}"</span>,
 				P::SOURCE_NAME,
 				P::TARGET_NAME,
 				id_at_target.<span class="number">0</span>,
@@ -1033,8 +1035,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, TC::Error&gt; {
 		<span class="kw">let </span>header_number = header.number();
 		<span class="macro">log::debug!</span>(
-			target: <span class="string">&quot;bridge&quot;</span>,
-			<span class="string">&quot;Going to submit finality proof of {} header #{:?} to {}&quot;</span>,
+			target: <span class="string">"bridge"</span>,
+			<span class="string">"Going to submit finality proof of {} header #{:?} to {}"</span>,
 			P::SOURCE_NAME,
 			header_number,
 			P::TARGET_NAME,
@@ -1055,7 +1057,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">match </span><span class="self">self</span>.tracker.wait().<span class="kw">await </span>{
 			TrackedTransactionStatus::Finalized(<span class="kw">_</span>) =&gt; {
 				<span class="comment">// The transaction has been finalized, but it may have been finalized in the
-				// &quot;failed&quot; state. So let&#39;s check if the block number was actually updated.
+				// "failed" state. So let's check if the block number was actually updated.
 				</span>target_client
 					.best_finalized_source_block_id()
 					.<span class="kw">await
@@ -1127,8 +1129,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>}
 
 		<span class="macro">log::info!</span>(
-			target: <span class="string">&quot;bridge&quot;</span>,
-			<span class="string">&quot;Synced {:?} of {:?} headers&quot;</span>,
+			target: <span class="string">"bridge"</span>,
+			<span class="string">"Synced {:?} of {:?} headers"</span>,
 			info.best_number_at_target,
 			info.best_number_at_source,
 		);
@@ -1142,8 +1144,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;JustifiedHeader&lt;P&gt;&gt;, Error&lt;P, SC::Error, TC::Error&gt;&gt; {
 		<span class="comment">// to see that the loop is progressing
 		</span><span class="macro">log::trace!</span>(
-			target: <span class="string">&quot;bridge&quot;</span>,
-			<span class="string">&quot;Considering range of headers ({}; {}]&quot;</span>,
+			target: <span class="string">"bridge"</span>,
+			<span class="string">"Considering range of headers ({}; {}]"</span>,
 			info.best_number_at_target,
 			info.best_number_at_source
 		);
@@ -1161,7 +1163,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="self">self</span>.finality_proofs_buf.fill(<span class="kw-2">&amp;mut </span><span class="self">self</span>.finality_proofs_stream);
 		<span class="kw">let </span>maybe_justified_header = selector.select(<span class="kw-2">&amp;</span><span class="self">self</span>.finality_proofs_buf);
 
-		<span class="comment">// remove obsolete &#39;recent&#39; finality proofs + keep its size under certain limit
+		<span class="comment">// remove obsolete 'recent' finality proofs + keep its size under certain limit
 		</span><span class="kw">let </span>oldest_finality_proof_to_keep = maybe_justified_header
 			.as_ref()
 			.map(|justified_header| justified_header.number())
@@ -1186,7 +1188,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="self">self</span>.update_progress(<span class="kw-2">&amp;</span>info);
 
 		<span class="comment">// if we have already submitted header, then we just need to wait for it
-		// if we&#39;re waiting too much, then we believe our transaction has been lost and restart sync
+		// if we're waiting too much, then we believe our transaction has been lost and restart sync
 		</span><span class="kw">if </span><span class="prelude-val">Some</span>(info.best_number_at_target) &lt; <span class="self">self</span>.best_submitted_number {
 			<span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
 		}
@@ -1239,7 +1241,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="self">self</span>.sync_params.tick
 				},
 				<span class="prelude-val">Err</span>(error) =&gt; {
-					<span class="macro">log::error!</span>(target: <span class="string">&quot;bridge&quot;</span>, <span class="string">&quot;Finality sync loop iteration has failed with error: {:?}&quot;</span>, error);
+					<span class="macro">log::error!</span>(target: <span class="string">"bridge"</span>, <span class="string">"Finality sync loop iteration has failed with error: {:?}"</span>, error);
 					error.fail_if_connection_error()<span class="question-mark">?</span>;
 					<span class="self">self</span>.retry_backoff
 						.next_backoff()
@@ -1253,8 +1255,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				proof_submission_result = proof_submission_tx_tracker =&gt; {
 					<span class="kw">if let </span><span class="prelude-val">Err</span>(e) = proof_submission_result {
 						<span class="macro">log::error!</span>(
-							target: <span class="string">&quot;bridge&quot;</span>,
-							<span class="string">&quot;Finality sync proof submission tx to {} has failed with error: {:?}.&quot;</span>,
+							target: <span class="string">"bridge"</span>,
+							<span class="string">"Finality sync proof submission tx to {} has failed with error: {:?}."</span>,
 							P::TARGET_NAME,
 							e,
 						);
@@ -1286,15 +1288,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	target_client: <span class="kw">impl </span>TargetClient&lt;P&gt;,
 	sync_params: FinalitySyncParams,
 	metrics_params: MetricsParams,
-	exit_signal: <span class="kw">impl </span>Future&lt;Output = ()&gt; + <span class="lifetime">&#39;static </span>+ Send,
+	exit_signal: <span class="kw">impl </span>Future&lt;Output = ()&gt; + <span class="lifetime">'static </span>+ Send,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(), relay_utils::Error&gt; {
 	<span class="kw">let </span>exit_signal = exit_signal.shared();
 	relay_utils::relay_loop(source_client, target_client)
 		.with_metrics(metrics_params)
 		.loop_metric(SyncLoopMetrics::new(
 			<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>metrics_prefix::&lt;P&gt;()),
-			<span class="string">&quot;source&quot;</span>,
-			<span class="string">&quot;source_at_target&quot;</span>,
+			<span class="string">"source"</span>,
+			<span class="string">"source_at_target"</span>,
 		)<span class="question-mark">?</span>)<span class="question-mark">?
 		</span>.expose()
 		.<span class="kw">await</span><span class="question-mark">?
@@ -1322,7 +1324,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">fn </span>prepare_test_clients(
 		exit_sender: futures::channel::mpsc::UnboundedSender&lt;()&gt;,
-		state_function: <span class="kw">impl </span>Fn(<span class="kw-2">&amp;mut </span>ClientsData) -&gt; bool + Send + Sync + <span class="lifetime">&#39;static</span>,
+		state_function: <span class="kw">impl </span>Fn(<span class="kw-2">&amp;mut </span>ClientsData) -&gt; bool + Send + Sync + <span class="lifetime">'static</span>,
 		source_headers: HashMap&lt;TestNumber, (TestSourceHeader, <span class="prelude-ty">Option</span>&lt;TestFinalityProof&gt;)&gt;,
 	) -&gt; (TestSourceClient, TestTargetClient) {
 		<span class="kw">let </span>internal_state_function: Arc&lt;<span class="kw">dyn </span>Fn(<span class="kw-2">&amp;mut </span>ClientsData) + Send + Sync&gt; =
@@ -1361,7 +1363,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="kw">fn </span>run_sync_loop(
-		state_function: <span class="kw">impl </span>Fn(<span class="kw-2">&amp;mut </span>ClientsData) -&gt; bool + Send + Sync + <span class="lifetime">&#39;static</span>,
+		state_function: <span class="kw">impl </span>Fn(<span class="kw-2">&amp;mut </span>ClientsData) -&gt; bool + Send + Sync + <span class="lifetime">'static</span>,
 	) -&gt; (ClientsData, <span class="prelude-ty">Result</span>&lt;(), FailedClient&gt;) {
 		<span class="kw">let </span>(exit_sender, exit_receiver) = futures::channel::mpsc::unbounded();
 		<span class="kw">let </span>(source_client, target_client) = prepare_test_clients(
@@ -1396,9 +1398,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>finality_sync_loop_works() {
 		<span class="kw">let </span>(client_data, result) = run_sync_loop(|data| {
-			<span class="comment">// header#7 has persistent finality proof, but it isn&#39;t mandatory =&gt; it isn&#39;t submitted,
+			<span class="comment">// header#7 has persistent finality proof, but it isn't mandatory =&gt; it isn't submitted,
 			// because header#8 has persistent finality proof &amp;&amp; it is mandatory =&gt; it is submitted
-			// header#9 has persistent finality proof, but it isn&#39;t mandatory =&gt; it is submitted,
+			// header#9 has persistent finality proof, but it isn't mandatory =&gt; it is submitted,
 			// because   there are no more persistent finality proofs
 			//
 			// once this ^^^ is done, we generate more blocks &amp;&amp; read proof for blocks 12 and 14
@@ -1529,7 +1531,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.collect(),
 		);
 
-		<span class="kw">let </span>metrics_sync = SyncLoopMetrics::new(<span class="prelude-val">None</span>, <span class="string">&quot;source&quot;</span>, <span class="string">&quot;target&quot;</span>).unwrap();
+		<span class="kw">let </span>metrics_sync = SyncLoopMetrics::new(<span class="prelude-val">None</span>, <span class="string">"source"</span>, <span class="string">"target"</span>).unwrap();
 		async_std::task::block_on(<span class="kw">async </span>{
 			<span class="kw">let </span><span class="kw-2">mut </span>finality_loop = FinalityLoop::new(
 				source_client,

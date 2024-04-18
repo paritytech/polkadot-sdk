@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/service/src/task_manager/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/service/src/task_manager/mod.rs`."><title>mod.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sc_service" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="sc_service" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../sc_service/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -745,7 +747,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">mod </span>tests;
 
 <span class="doccomment">/// Default task group name.
-</span><span class="kw">pub const </span>DEFAULT_GROUP_NAME: <span class="kw-2">&amp;</span>str = <span class="string">&quot;default&quot;</span>;
+</span><span class="kw">pub const </span>DEFAULT_GROUP_NAME: <span class="kw-2">&amp;</span>str = <span class="string">"default"</span>;
 
 <span class="doccomment">/// The name of a group a task belongs to.
 ///
@@ -755,11 +757,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Sets the group name to `default`.
 	</span>Default,
 	<span class="doccomment">/// Use the specifically given name as group name.
-	</span>Specific(<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str),
+	</span>Specific(<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str),
 }
 
-<span class="kw">impl </span>From&lt;<span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt;&gt; <span class="kw">for </span>GroupName {
-	<span class="kw">fn </span>from(name: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt;) -&gt; <span class="self">Self </span>{
+<span class="kw">impl </span>From&lt;<span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt;&gt; <span class="kw">for </span>GroupName {
+	<span class="kw">fn </span>from(name: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt;) -&gt; <span class="self">Self </span>{
 		<span class="kw">match </span>name {
 			<span class="prelude-val">Some</span>(name) =&gt; <span class="self">Self</span>::Specific(name),
 			<span class="prelude-val">None </span>=&gt; <span class="self">Self</span>::Default,
@@ -767,8 +769,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 }
 
-<span class="kw">impl </span>From&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; <span class="kw">for </span>GroupName {
-	<span class="kw">fn </span>from(name: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str) -&gt; <span class="self">Self </span>{
+<span class="kw">impl </span>From&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; <span class="kw">for </span>GroupName {
+	<span class="kw">fn </span>from(name: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str) -&gt; <span class="self">Self </span>{
 		<span class="self">Self</span>::Specific(name)
 	}
 }
@@ -786,17 +788,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Spawns the given task with the given name and a group name.
 	/// If group is not specified `DEFAULT_GROUP_NAME` will be used.
 	///
-	/// Note that the `name` is a `&amp;&#39;static str`. The reason for this choice is that
+	/// Note that the `name` is a `&amp;'static str`. The reason for this choice is that
 	/// statistics about this task are getting reported to the Prometheus endpoint (if enabled), and
 	/// that therefore the set of possible task names must be bounded.
 	///
 	/// In other words, it would be a bad idea for someone to do for example
-	/// `spawn(format!(&quot;{:?}&quot;, some_public_key))`.
+	/// `spawn(format!("{:?}", some_public_key))`.
 	</span><span class="kw">pub fn </span>spawn(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		name: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
+		name: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
 		group: <span class="kw">impl </span>Into&lt;GroupName&gt;,
-		task: <span class="kw">impl </span>Future&lt;Output = ()&gt; + Send + <span class="lifetime">&#39;static</span>,
+		task: <span class="kw">impl </span>Future&lt;Output = ()&gt; + Send + <span class="lifetime">'static</span>,
 	) {
 		<span class="self">self</span>.spawn_inner(name, group, task, TaskType::Async)
 	}
@@ -804,9 +806,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Spawns the blocking task with the given name. See also `spawn`.
 	</span><span class="kw">pub fn </span>spawn_blocking(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		name: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
+		name: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
 		group: <span class="kw">impl </span>Into&lt;GroupName&gt;,
-		task: <span class="kw">impl </span>Future&lt;Output = ()&gt; + Send + <span class="lifetime">&#39;static</span>,
+		task: <span class="kw">impl </span>Future&lt;Output = ()&gt; + Send + <span class="lifetime">'static</span>,
 	) {
 		<span class="self">self</span>.spawn_inner(name, group, task, TaskType::Blocking)
 	}
@@ -814,9 +816,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Helper function that implements the spawning logic. See `spawn` and `spawn_blocking`.
 	</span><span class="kw">fn </span>spawn_inner(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		name: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
+		name: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
 		group: <span class="kw">impl </span>Into&lt;GroupName&gt;,
-		task: <span class="kw">impl </span>Future&lt;Output = ()&gt; + Send + <span class="lifetime">&#39;static</span>,
+		task: <span class="kw">impl </span>Future&lt;Output = ()&gt; + Send + <span class="lifetime">'static</span>,
 		task_type: TaskType,
 	) {
 		<span class="kw">let </span>on_exit = <span class="self">self</span>.on_exit.clone();
@@ -830,24 +832,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		};
 
 		<span class="kw">let </span>task_type_label = <span class="kw">match </span>task_type {
-			TaskType::Blocking =&gt; <span class="string">&quot;blocking&quot;</span>,
-			TaskType::Async =&gt; <span class="string">&quot;async&quot;</span>,
+			TaskType::Blocking =&gt; <span class="string">"blocking"</span>,
+			TaskType::Async =&gt; <span class="string">"async"</span>,
 		};
 
 		<span class="comment">// Note that we increase the started counter here and not within the future. This way,
-		// we could properly visualize on Prometheus situations where the spawning doesn&#39;t work.
+		// we could properly visualize on Prometheus situations where the spawning doesn't work.
 		</span><span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="kw-2">&amp;</span><span class="self">self</span>.metrics {
 			metrics.tasks_spawned.with_label_values(<span class="kw-2">&amp;</span>[name, group, task_type_label]).inc();
 			<span class="comment">// We do a dummy increase in order for the task to show up in metrics.
 			</span>metrics
 				.tasks_ended
-				.with_label_values(<span class="kw-2">&amp;</span>[name, <span class="string">&quot;finished&quot;</span>, group, task_type_label])
+				.with_label_values(<span class="kw-2">&amp;</span>[name, <span class="string">"finished"</span>, group, task_type_label])
 				.inc_by(<span class="number">0</span>);
 		}
 
 		<span class="kw">let </span>future = <span class="kw">async move </span>{
-			<span class="comment">// Register the task and keep the &quot;token&quot; alive until the task is ended. Then this
-			// &quot;token&quot; will unregister this task.
+			<span class="comment">// Register the task and keep the "token" alive until the task is ended. Then this
+			// "token" will unregister this task.
 			</span><span class="kw">let </span>_registry_token = registry.register_task(name, group);
 
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = metrics {
@@ -869,21 +871,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					Either::Right((<span class="prelude-val">Err</span>(payload), <span class="kw">_</span>)) =&gt; {
 						metrics
 							.tasks_ended
-							.with_label_values(<span class="kw-2">&amp;</span>[name, <span class="string">&quot;panic&quot;</span>, group, task_type_label])
+							.with_label_values(<span class="kw-2">&amp;</span>[name, <span class="string">"panic"</span>, group, task_type_label])
 							.inc();
 						panic::resume_unwind(payload)
 					},
 					Either::Right((<span class="prelude-val">Ok</span>(()), <span class="kw">_</span>)) =&gt; {
 						metrics
 							.tasks_ended
-							.with_label_values(<span class="kw-2">&amp;</span>[name, <span class="string">&quot;finished&quot;</span>, group, task_type_label])
+							.with_label_values(<span class="kw-2">&amp;</span>[name, <span class="string">"finished"</span>, group, task_type_label])
 							.inc();
 					},
 					Either::Left(((), <span class="kw">_</span>)) =&gt; {
 						<span class="comment">// The `on_exit` has triggered.
 						</span>metrics
 							.tasks_ended
-							.with_label_values(<span class="kw-2">&amp;</span>[name, <span class="string">&quot;interrupted&quot;</span>, group, task_type_label])
+							.with_label_values(<span class="kw-2">&amp;</span>[name, <span class="string">"interrupted"</span>, group, task_type_label])
 							.inc();
 					},
 				}
@@ -911,18 +913,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl </span>sp_core::traits::SpawnNamed <span class="kw">for </span>SpawnTaskHandle {
 	<span class="kw">fn </span>spawn_blocking(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		name: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
-		group: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt;,
-		future: BoxFuture&lt;<span class="lifetime">&#39;static</span>, ()&gt;,
+		name: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
+		group: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt;,
+		future: BoxFuture&lt;<span class="lifetime">'static</span>, ()&gt;,
 	) {
 		<span class="self">self</span>.spawn_inner(name, group, future, TaskType::Blocking)
 	}
 
 	<span class="kw">fn </span>spawn(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		name: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
-		group: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt;,
-		future: BoxFuture&lt;<span class="lifetime">&#39;static</span>, ()&gt;,
+		name: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
+		group: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt;,
+		future: BoxFuture&lt;<span class="lifetime">'static</span>, ()&gt;,
 	) {
 		<span class="self">self</span>.spawn_inner(name, group, future, TaskType::Async)
 	}
@@ -952,9 +954,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// See also [`SpawnTaskHandle::spawn`].
 	</span><span class="kw">pub fn </span>spawn(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		name: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
+		name: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
 		group: <span class="kw">impl </span>Into&lt;GroupName&gt;,
-		task: <span class="kw">impl </span>Future&lt;Output = ()&gt; + Send + <span class="lifetime">&#39;static</span>,
+		task: <span class="kw">impl </span>Future&lt;Output = ()&gt; + Send + <span class="lifetime">'static</span>,
 	) {
 		<span class="self">self</span>.spawn_inner(name, group, task, TaskType::Async)
 	}
@@ -964,23 +966,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// See also [`SpawnTaskHandle::spawn_blocking`].
 	</span><span class="kw">pub fn </span>spawn_blocking(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		name: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
+		name: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
 		group: <span class="kw">impl </span>Into&lt;GroupName&gt;,
-		task: <span class="kw">impl </span>Future&lt;Output = ()&gt; + Send + <span class="lifetime">&#39;static</span>,
+		task: <span class="kw">impl </span>Future&lt;Output = ()&gt; + Send + <span class="lifetime">'static</span>,
 	) {
 		<span class="self">self</span>.spawn_inner(name, group, task, TaskType::Blocking)
 	}
 
 	<span class="kw">fn </span>spawn_inner(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		name: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
+		name: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
 		group: <span class="kw">impl </span>Into&lt;GroupName&gt;,
-		task: <span class="kw">impl </span>Future&lt;Output = ()&gt; + Send + <span class="lifetime">&#39;static</span>,
+		task: <span class="kw">impl </span>Future&lt;Output = ()&gt; + Send + <span class="lifetime">'static</span>,
 		task_type: TaskType,
 	) {
 		<span class="kw">let </span>essential_failed = <span class="self">self</span>.essential_failed_tx.clone();
 		<span class="kw">let </span>essential_task = std::panic::AssertUnwindSafe(task).catch_unwind().map(<span class="kw">move </span>|<span class="kw">_</span>| {
-			<span class="macro">log::error!</span>(<span class="string">&quot;Essential task `{}` failed. Shutting down service.&quot;</span>, name);
+			<span class="macro">log::error!</span>(<span class="string">"Essential task `{}` failed. Shutting down service."</span>, name);
 			<span class="kw">let _ </span>= essential_failed.close();
 		});
 
@@ -991,18 +993,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="kw">impl </span>sp_core::traits::SpawnEssentialNamed <span class="kw">for </span>SpawnEssentialTaskHandle {
 	<span class="kw">fn </span>spawn_essential_blocking(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		name: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
-		group: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt;,
-		future: BoxFuture&lt;<span class="lifetime">&#39;static</span>, ()&gt;,
+		name: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
+		group: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt;,
+		future: BoxFuture&lt;<span class="lifetime">'static</span>, ()&gt;,
 	) {
 		<span class="self">self</span>.spawn_blocking(name, group, future);
 	}
 
 	<span class="kw">fn </span>spawn_essential(
 		<span class="kw-2">&amp;</span><span class="self">self</span>,
-		name: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
-		group: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt;,
-		future: BoxFuture&lt;<span class="lifetime">&#39;static</span>, ()&gt;,
+		name: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
+		group: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt;,
+		future: BoxFuture&lt;<span class="lifetime">'static</span>, ()&gt;,
 	) {
 		<span class="self">self</span>.spawn(name, group, future);
 	}
@@ -1026,8 +1028,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>essential_failed_rx: TracingUnboundedReceiver&lt;()&gt;,
 	<span class="doccomment">/// Things to keep alive until the task manager is dropped.
 	</span>keep_alive: Box&lt;<span class="kw">dyn </span>std::any::Any + Send&gt;,
-	<span class="doccomment">/// A list of other `TaskManager`&#39;s to terminate and gracefully shutdown when the parent
-	/// terminates and gracefully shutdown. Also ends the parent `future()` if a child&#39;s essential
+	<span class="doccomment">/// A list of other `TaskManager`'s to terminate and gracefully shutdown when the parent
+	/// terminates and gracefully shutdown. Also ends the parent `future()` if a child's essential
 	/// task fails.
 	</span>children: Vec&lt;TaskManager&gt;,
 	<span class="doccomment">/// The registry of all running tasks.
@@ -1045,7 +1047,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// A side-channel for essential tasks to communicate shutdown.
 		</span><span class="kw">let </span>(essential_failed_tx, essential_failed_rx) =
-			tracing_unbounded(<span class="string">&quot;mpsc_essential_tasks&quot;</span>, <span class="number">100</span>);
+			tracing_unbounded(<span class="string">"mpsc_essential_tasks"</span>, <span class="number">100</span>);
 
 		<span class="kw">let </span>metrics = prometheus_registry.map(Metrics::register).transpose()<span class="question-mark">?</span>;
 
@@ -1083,9 +1085,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// # Warning
 	///
 	/// This function will not wait until the end of the remaining task.
-	</span><span class="kw">pub fn </span>future&lt;<span class="lifetime">&#39;a</span>&gt;(
-		<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span><span class="self">self</span>,
-	) -&gt; Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = <span class="prelude-ty">Result</span>&lt;(), Error&gt;&gt; + Send + <span class="lifetime">&#39;a</span>&gt;&gt; {
+	</span><span class="kw">pub fn </span>future&lt;<span class="lifetime">'a</span>&gt;(
+		<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span><span class="self">self</span>,
+	) -&gt; Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = <span class="prelude-ty">Result</span>&lt;(), Error&gt;&gt; + Send + <span class="lifetime">'a</span>&gt;&gt; {
 		Box::pin(<span class="kw">async move </span>{
 			<span class="kw">let </span><span class="kw-2">mut </span>t1 = <span class="self">self</span>.essential_failed_rx.next().fuse();
 			<span class="kw">let </span><span class="kw-2">mut </span>t2 = <span class="self">self</span>.on_exit.clone().fuse();
@@ -1100,15 +1102,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.fuse();
 
 			<span class="macro">futures::select! </span>{
-				<span class="kw">_ </span>= t1 =&gt; <span class="prelude-val">Err</span>(Error::Other(<span class="string">&quot;Essential task failed.&quot;</span>.into())),
+				<span class="kw">_ </span>= t1 =&gt; <span class="prelude-val">Err</span>(Error::Other(<span class="string">"Essential task failed."</span>.into())),
 				<span class="kw">_ </span>= t2 =&gt; <span class="prelude-val">Ok</span>(()),
-				res = t3 =&gt; <span class="prelude-val">Err</span>(res.map(|<span class="kw">_</span>| ()).expect_err(<span class="string">&quot;this future never ends; qed&quot;</span>)),
+				res = t3 =&gt; <span class="prelude-val">Err</span>(res.map(|<span class="kw">_</span>| ()).expect_err(<span class="string">"this future never ends; qed"</span>)),
 			}
 		})
 	}
 
 	<span class="doccomment">/// Set what the task manager should keep alive, can be called multiple times.
-	</span><span class="kw">pub fn </span>keep_alive&lt;T: <span class="lifetime">&#39;static </span>+ Send&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, to_keep_alive: T) {
+	</span><span class="kw">pub fn </span>keep_alive&lt;T: <span class="lifetime">'static </span>+ Send&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, to_keep_alive: T) {
 		<span class="comment">// allows this fn to safely called multiple times.
 		</span><span class="kw">use </span>std::mem;
 		<span class="kw">let </span>old = mem::replace(<span class="kw-2">&amp;mut </span><span class="self">self</span>.keep_alive, Box::new(()));
@@ -1116,8 +1118,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Register another TaskManager to terminate and gracefully shutdown when the parent
-	/// terminates and gracefully shutdown. Also ends the parent `future()` if a child&#39;s essential
-	/// task fails. (But don&#39;t end the parent if a child&#39;s normal task fails.)
+	/// terminates and gracefully shutdown. Also ends the parent `future()` if a child's essential
+	/// task fails. (But don't end the parent if a child's normal task fails.)
 	</span><span class="kw">pub fn </span>add_child(<span class="kw-2">&amp;mut </span><span class="self">self</span>, child: TaskManager) {
 		<span class="self">self</span>.children.push(child);
 	}
@@ -1146,34 +1148,34 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			poll_duration: register(HistogramVec::new(
 				HistogramOpts {
 					common_opts: Opts::new(
-						<span class="string">&quot;substrate_tasks_polling_duration&quot;</span>,
-						<span class="string">&quot;Duration in seconds of each invocation of Future::poll&quot;
+						<span class="string">"substrate_tasks_polling_duration"</span>,
+						<span class="string">"Duration in seconds of each invocation of Future::poll"
 					</span>),
 					buckets: exponential_buckets(<span class="number">0.001</span>, <span class="number">4.0</span>, <span class="number">9</span>)
-						.expect(<span class="string">&quot;function parameters are constant and always valid; qed&quot;</span>),
+						.expect(<span class="string">"function parameters are constant and always valid; qed"</span>),
 				},
-				<span class="kw-2">&amp;</span>[<span class="string">&quot;task_name&quot;</span>, <span class="string">&quot;task_group&quot;</span>, <span class="string">&quot;kind&quot;</span>]
+				<span class="kw-2">&amp;</span>[<span class="string">"task_name"</span>, <span class="string">"task_group"</span>, <span class="string">"kind"</span>]
 			)<span class="question-mark">?</span>, registry)<span class="question-mark">?</span>,
 			poll_start: register(CounterVec::new(
 				Opts::new(
-					<span class="string">&quot;substrate_tasks_polling_started_total&quot;</span>,
-					<span class="string">&quot;Total number of times we started invoking Future::poll&quot;
+					<span class="string">"substrate_tasks_polling_started_total"</span>,
+					<span class="string">"Total number of times we started invoking Future::poll"
 				</span>),
-				<span class="kw-2">&amp;</span>[<span class="string">&quot;task_name&quot;</span>, <span class="string">&quot;task_group&quot;</span>, <span class="string">&quot;kind&quot;</span>]
+				<span class="kw-2">&amp;</span>[<span class="string">"task_name"</span>, <span class="string">"task_group"</span>, <span class="string">"kind"</span>]
 			)<span class="question-mark">?</span>, registry)<span class="question-mark">?</span>,
 			tasks_spawned: register(CounterVec::new(
 				Opts::new(
-					<span class="string">&quot;substrate_tasks_spawned_total&quot;</span>,
-					<span class="string">&quot;Total number of tasks that have been spawned on the Service&quot;
+					<span class="string">"substrate_tasks_spawned_total"</span>,
+					<span class="string">"Total number of tasks that have been spawned on the Service"
 				</span>),
-				<span class="kw-2">&amp;</span>[<span class="string">&quot;task_name&quot;</span>, <span class="string">&quot;task_group&quot;</span>, <span class="string">&quot;kind&quot;</span>]
+				<span class="kw-2">&amp;</span>[<span class="string">"task_name"</span>, <span class="string">"task_group"</span>, <span class="string">"kind"</span>]
 			)<span class="question-mark">?</span>, registry)<span class="question-mark">?</span>,
 			tasks_ended: register(CounterVec::new(
 				Opts::new(
-					<span class="string">&quot;substrate_tasks_ended_total&quot;</span>,
-					<span class="string">&quot;Total number of tasks for which Future::poll has returned Ready(()) or panicked&quot;
+					<span class="string">"substrate_tasks_ended_total"</span>,
+					<span class="string">"Total number of tasks for which Future::poll has returned Ready(()) or panicked"
 				</span>),
-				<span class="kw-2">&amp;</span>[<span class="string">&quot;task_name&quot;</span>, <span class="string">&quot;reason&quot;</span>, <span class="string">&quot;task_group&quot;</span>, <span class="string">&quot;kind&quot;</span>]
+				<span class="kw-2">&amp;</span>[<span class="string">"task_name"</span>, <span class="string">"reason"</span>, <span class="string">"task_group"</span>, <span class="string">"kind"</span>]
 			)<span class="question-mark">?</span>, registry)<span class="question-mark">?</span>,
 		})
 	}
@@ -1206,9 +1208,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="attr">#[derive(Clone, Hash, Eq, PartialEq)]
 </span><span class="kw">pub struct </span>Task {
 	<span class="doccomment">/// The name of the task.
-	</span><span class="kw">pub </span>name: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
+	</span><span class="kw">pub </span>name: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
 	<span class="doccomment">/// The group this task is associated to.
-	</span><span class="kw">pub </span>group: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str,
+	</span><span class="kw">pub </span>group: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
 }
 
 <span class="kw">impl </span>Task {
@@ -1229,7 +1231,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	///
 	/// Returns [`UnregisterOnDrop`] that ensures that the task is unregistered when this value is
 	/// dropped.
-	</span><span class="kw">fn </span>register_task(<span class="kw-2">&amp;</span><span class="self">self</span>, name: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str, group: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str) -&gt; UnregisterOnDrop {
+	</span><span class="kw">fn </span>register_task(<span class="kw-2">&amp;</span><span class="self">self</span>, name: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str, group: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str) -&gt; UnregisterOnDrop {
 		<span class="kw">let </span>task = Task { name, group };
 
 		{

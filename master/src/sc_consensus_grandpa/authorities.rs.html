@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/consensus/grandpa/src/authorities.rs`."><title>authorities.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/consensus/grandpa/src/authorities.rs`."><title>authorities.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_consensus_grandpa" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_consensus_grandpa" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sc_consensus_grandpa/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1935,20 +1937,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Error type returned on operations on the `AuthoritySet`.
 </span><span class="attr">#[derive(Debug, thiserror::Error)]
 </span><span class="kw">pub enum </span>Error&lt;N, E&gt; {
-	<span class="attr">#[error(<span class="string">&quot;Invalid authority set, either empty or with an authority weight set to 0.&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Invalid authority set, either empty or with an authority weight set to 0."</span>)]
 	</span>InvalidAuthoritySet,
-	<span class="attr">#[error(<span class="string">&quot;Client error during ancestry lookup: {0}&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Client error during ancestry lookup: {0}"</span>)]
 	</span>Client(E),
-	<span class="attr">#[error(<span class="string">&quot;Duplicate authority set change.&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Duplicate authority set change."</span>)]
 	</span>DuplicateAuthoritySetChange,
-	<span class="attr">#[error(<span class="string">&quot;Multiple pending forced authority set changes are not allowed.&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Multiple pending forced authority set changes are not allowed."</span>)]
 	</span>MultiplePendingForcedAuthoritySetChanges,
 	<span class="attr">#[error(
-		<span class="string">&quot;A pending forced authority set change could not be applied since it must be applied \
-		after the pending standard change at #{0}&quot;
+		<span class="string">"A pending forced authority set change could not be applied since it must be applied \
+		after the pending standard change at #{0}"
 	</span>)]
 	</span>ForcedAuthoritySetChangeDependencyUnsatisfied(N),
-	<span class="attr">#[error(<span class="string">&quot;Invalid operation in the pending changes tree: {0}&quot;</span>)]
+	<span class="attr">#[error(<span class="string">"Invalid operation in the pending changes tree: {0}"</span>)]
 	</span>ForkTree(fork_tree::Error&lt;E&gt;),
 }
 
@@ -1998,7 +2000,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	</span>N: Add&lt;Output = N&gt; + Ord + Clone + Debug,
 	H: Clone + Debug,
 {
-	<span class="doccomment">/// Get the earliest limit-block number that&#39;s higher or equal to the given
+	<span class="doccomment">/// Get the earliest limit-block number that's higher or equal to the given
 	/// min number, if any.
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>current_limit(<span class="kw-2">&amp;</span><span class="self">self</span>, min: N) -&gt; <span class="prelude-ty">Option</span>&lt;N&gt; {
 		<span class="self">self</span>.inner().current_limit(min)
@@ -2012,9 +2014,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Get the current authorities and their weights (for the current set ID).
 	</span><span class="kw">pub fn </span>current_authorities(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; VoterSet&lt;AuthorityId&gt; {
 		VoterSet::new(<span class="self">self</span>.inner().current_authorities.iter().cloned()).expect(
-			<span class="string">&quot;current_authorities is non-empty and weights are non-zero; \
+			<span class="string">"current_authorities is non-empty and weights are non-zero; \
 			 constructor and all mutating operations on `AuthoritySet` ensure this; \
-			 qed.&quot;</span>,
+			 qed."</span>,
 		)
 	}
 
@@ -2140,7 +2142,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="comment">// Found a node to be removed.
 				</span>FilterAction::Remove
 			} <span class="kw">else </span>{
-				<span class="comment">// Not a parent or child of the one we&#39;re looking for, stop processing this branch.
+				<span class="comment">// Not a parent or child of the one we're looking for, stop processing this branch.
 				</span>FilterAction::KeepTree
 			}
 		};
@@ -2216,7 +2218,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="macro">debug!</span>(
 			target: LOG_TARGET,
-			<span class="string">&quot;Inserting potential standard set change signaled at block {:?} (delayed by {:?} blocks).&quot;</span>,
+			<span class="string">"Inserting potential standard set change signaled at block {:?} (delayed by {:?} blocks)."</span>,
 			(<span class="kw-2">&amp;</span>number, <span class="kw-2">&amp;</span>hash),
 			pending.delay,
 		);
@@ -2225,8 +2227,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="macro">debug!</span>(
 			target: LOG_TARGET,
-			<span class="string">&quot;There are now {} alternatives for the next pending standard change (roots), and a \
-			 total of {} pending standard changes (across all forks).&quot;</span>,
+			<span class="string">"There are now {} alternatives for the next pending standard change (roots), and a \
+			 total of {} pending standard changes (across all forks)."</span>,
 			<span class="self">self</span>.pending_standard_changes.roots().count(),
 			<span class="self">self</span>.pending_standard_changes.iter().count(),
 		);
@@ -2264,7 +2266,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="macro">debug!</span>(
 			target: LOG_TARGET,
-			<span class="string">&quot;Inserting potential forced set change at block {:?} (delayed by {:?} blocks).&quot;</span>,
+			<span class="string">"Inserting potential forced set change at block {:?} (delayed by {:?} blocks)."</span>,
 			(<span class="kw-2">&amp;</span>pending.canon_height, <span class="kw-2">&amp;</span>pending.canon_hash),
 			pending.delay,
 		);
@@ -2273,7 +2275,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="macro">debug!</span>(
 			target: LOG_TARGET,
-			<span class="string">&quot;There are now {} pending forced changes.&quot;</span>,
+			<span class="string">"There are now {} pending forced changes."</span>,
 			<span class="self">self</span>.pending_forced_changes.len()
 		);
 
@@ -2281,7 +2283,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Note an upcoming pending transition. Multiple pending standard changes
-	/// on the same branch can be added as long as they don&#39;t overlap. Forced
+	/// on the same branch can be added as long as they don't overlap. Forced
 	/// changes are restricted to one per fork. This method assumes that changes
 	/// on the same branch will be added in-order. The given function
 	/// `is_descendent_of` should return `true` if the second hash (target) is a
@@ -2371,17 +2373,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">let </span>median_last_finalized = <span class="kw">match </span>change.delay_kind {
 					DelayKind::Best { <span class="kw-2">ref </span>median_last_finalized } =&gt; median_last_finalized.clone(),
 					<span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(
-						<span class="string">&quot;pending_forced_changes only contains forced changes; forced changes have delay kind Best; qed.&quot;
+						<span class="string">"pending_forced_changes only contains forced changes; forced changes have delay kind Best; qed."
 					</span>),
 				};
 
-				<span class="comment">// check if there&#39;s any pending standard change that we depend on
+				<span class="comment">// check if there's any pending standard change that we depend on
 				</span><span class="kw">for </span>(<span class="kw">_</span>, <span class="kw">_</span>, standard_change) <span class="kw">in </span><span class="self">self</span>.pending_standard_changes.roots() {
 					<span class="kw">if </span>standard_change.effective_number() &lt;= median_last_finalized &amp;&amp;
 						is_descendent_of(<span class="kw-2">&amp;</span>standard_change.canon_hash, <span class="kw-2">&amp;</span>change.canon_hash)<span class="question-mark">?
 					</span>{
 						<span class="macro">log::info!</span>(target: LOG_TARGET,
-							<span class="string">&quot;Not applying authority set change forced at block #{:?}, due to pending standard change at block #{:?}&quot;</span>,
+							<span class="string">"Not applying authority set change forced at block #{:?}, due to pending standard change at block #{:?}"</span>,
 							change.canon_height,
 							standard_change.effective_number(),
 						);
@@ -2395,15 +2397,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="comment">// apply this change: make the set canonical
 				</span><span class="macro">grandpa_log!</span>(
 					initial_sync,
-					<span class="string">&quot;👴 Applying authority set change forced at block #{:?}&quot;</span>,
+					<span class="string">"👴 Applying authority set change forced at block #{:?}"</span>,
 					change.canon_height,
 				);
 
 				<span class="macro">telemetry!</span>(
 					telemetry;
 					CONSENSUS_INFO;
-					<span class="string">&quot;afg.applying_forced_authority_set_change&quot;</span>;
-					<span class="string">&quot;block&quot; </span>=&gt; <span class="question-mark">?</span>change.canon_height
+					<span class="string">"afg.applying_forced_authority_set_change"</span>;
+					<span class="string">"block" </span>=&gt; <span class="question-mark">?</span>change.canon_height
 				);
 
 				<span class="kw">let </span><span class="kw-2">mut </span>authority_set_changes = <span class="self">self</span>.authority_set_changes.clone();
@@ -2424,14 +2426,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span>}
 		}
 
-		<span class="comment">// we don&#39;t wipe forced changes until another change is applied, hence
+		<span class="comment">// we don't wipe forced changes until another change is applied, hence
 		// why we return a new set instead of mutating.
 		</span><span class="prelude-val">Ok</span>(new_set)
 	}
 
 	<span class="doccomment">/// Apply or prune any pending transitions based on a finality trigger. This
 	/// method ensures that if there are multiple changes in the same branch,
-	/// finalizing this block won&#39;t finalize past multiple transitions (i.e.
+	/// finalizing this block won't finalize past multiple transitions (i.e.
 	/// transitions must be finalized in-order). The given function
 	/// `is_descendent_of` should return `true` if the second hash (target) is a
 	/// descendent of the first hash (base).
@@ -2477,14 +2479,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				<span class="kw">if let </span><span class="prelude-val">Some</span>(change) = change {
 					<span class="macro">grandpa_log!</span>(
 						initial_sync,
-						<span class="string">&quot;👴 Applying authority set change scheduled at block #{:?}&quot;</span>,
+						<span class="string">"👴 Applying authority set change scheduled at block #{:?}"</span>,
 						change.canon_height,
 					);
 					<span class="macro">telemetry!</span>(
 						telemetry;
 						CONSENSUS_INFO;
-						<span class="string">&quot;afg.applying_scheduled_authority_set_change&quot;</span>;
-						<span class="string">&quot;block&quot; </span>=&gt; <span class="question-mark">?</span>change.canon_height
+						<span class="string">"afg.applying_scheduled_authority_set_change"</span>;
+						<span class="string">"block" </span>=&gt; <span class="question-mark">?</span>change.canon_height
 					);
 
 					<span class="comment">// Store the set_id together with the last block_number for the set
@@ -2504,7 +2506,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Check whether the given finalized block number enacts any standard
 	/// authority set change (without triggering it), ensuring that if there are
-	/// multiple changes in the same branch, finalizing this block won&#39;t
+	/// multiple changes in the same branch, finalizing this block won't
 	/// finalize past multiple transitions (i.e. transitions must be finalized
 	/// in-order). Returns `Some(true)` if the block being finalized enacts a
 	/// change that can be immediately applied, `Some(false)` if the block being
@@ -2554,9 +2556,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// How deep in the chain the announcing block must be
 	/// before the change is applied.
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) delay: N,
-	<span class="doccomment">/// The announcing block&#39;s height.
+	<span class="doccomment">/// The announcing block's height.
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) canon_height: N,
-	<span class="doccomment">/// The announcing block&#39;s hash.
+	<span class="doccomment">/// The announcing block's hash.
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) canon_hash: H,
 	<span class="doccomment">/// The delay kind.
 	</span><span class="kw">pub</span>(<span class="kw">crate</span>) delay_kind: DelayKind&lt;N&gt;,
@@ -2592,14 +2594,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// The response when querying for a set id for a specific block. Either we get a set id
 /// together with a block number for the last block in the set, or that the requested block is in
-/// the latest set, or that we don&#39;t know what set id the given block belongs to.
+/// the latest set, or that we don't know what set id the given block belongs to.
 </span><span class="attr">#[derive(Debug, PartialEq)]
 </span><span class="kw">pub enum </span>AuthoritySetChangeId&lt;N&gt; {
 	<span class="doccomment">/// The requested block is in the latest set.
 	</span>Latest,
 	<span class="doccomment">/// Tuple containing the set id and the last block number of that set.
 	</span>Set(SetId, N),
-	<span class="doccomment">/// We don&#39;t know which set id the request block belongs to (this can only happen due to
+	<span class="doccomment">/// We don't know which set id the request block belongs to (this can only happen due to
 	/// missing data).
 	</span>Unknown,
 }
@@ -2750,7 +2752,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			next_authorities: current_authorities.clone(),
 			delay: <span class="number">10</span>,
 			canon_height: <span class="number">5</span>,
-			canon_hash: <span class="string">&quot;hash_a&quot;</span>,
+			canon_hash: <span class="string">"hash_a"</span>,
 			delay_kind: DelayKind::Finalized,
 		};
 
@@ -2758,7 +2760,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			next_authorities: current_authorities.clone(),
 			delay: <span class="number">0</span>,
 			canon_height: <span class="number">5</span>,
-			canon_hash: <span class="string">&quot;hash_b&quot;</span>,
+			canon_hash: <span class="string">"hash_b"</span>,
 			delay_kind: DelayKind::Finalized,
 		};
 
@@ -2766,7 +2768,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			next_authorities: current_authorities.clone(),
 			delay: <span class="number">5</span>,
 			canon_height: <span class="number">10</span>,
-			canon_hash: <span class="string">&quot;hash_c&quot;</span>,
+			canon_hash: <span class="string">"hash_c"</span>,
 			delay_kind: DelayKind::Finalized,
 		};
 
@@ -2780,8 +2782,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.add_pending_change(
 				change_c.clone(),
 				<span class="kw-2">&amp;</span>is_descendent_of(|base, hash| <span class="kw">match </span>(<span class="kw-2">*</span>base, <span class="kw-2">*</span>hash) {
-					(<span class="string">&quot;hash_a&quot;</span>, <span class="string">&quot;hash_c&quot;</span>) =&gt; <span class="bool-val">true</span>,
-					(<span class="string">&quot;hash_b&quot;</span>, <span class="string">&quot;hash_c&quot;</span>) =&gt; <span class="bool-val">false</span>,
+					(<span class="string">"hash_a"</span>, <span class="string">"hash_c"</span>) =&gt; <span class="bool-val">true</span>,
+					(<span class="string">"hash_b"</span>, <span class="string">"hash_c"</span>) =&gt; <span class="bool-val">false</span>,
 					<span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(),
 				}),
 			)
@@ -2792,7 +2794,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			next_authorities: current_authorities.clone(),
 			delay: <span class="number">2</span>,
 			canon_height: <span class="number">1</span>,
-			canon_hash: <span class="string">&quot;hash_d&quot;</span>,
+			canon_hash: <span class="string">"hash_d"</span>,
 			delay_kind: DelayKind::Best { median_last_finalized: <span class="number">0 </span>},
 		};
 
@@ -2800,7 +2802,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			next_authorities: current_authorities.clone(),
 			delay: <span class="number">2</span>,
 			canon_height: <span class="number">0</span>,
-			canon_hash: <span class="string">&quot;hash_e&quot;</span>,
+			canon_hash: <span class="string">"hash_e"</span>,
 			delay_kind: DelayKind::Best { median_last_finalized: <span class="number">0 </span>},
 		};
 
@@ -2836,7 +2838,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			next_authorities: set_a.clone(),
 			delay: <span class="number">10</span>,
 			canon_height: <span class="number">5</span>,
-			canon_hash: <span class="string">&quot;hash_a&quot;</span>,
+			canon_hash: <span class="string">"hash_a"</span>,
 			delay_kind: DelayKind::Finalized,
 		};
 
@@ -2844,7 +2846,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			next_authorities: set_b.clone(),
 			delay: <span class="number">10</span>,
 			canon_height: <span class="number">5</span>,
-			canon_hash: <span class="string">&quot;hash_b&quot;</span>,
+			canon_hash: <span class="string">"hash_b"</span>,
 			delay_kind: DelayKind::Finalized,
 		};
 
@@ -2857,15 +2859,15 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="macro">assert_eq!</span>(authorities.pending_changes().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(), <span class="macro">vec!</span>[<span class="kw-2">&amp;</span>change_a, <span class="kw-2">&amp;</span>change_b]);
 
-		<span class="comment">// finalizing &quot;hash_c&quot; won&#39;t enact the change signaled at &quot;hash_a&quot; but it will prune out
-		// &quot;hash_b&quot;
+		<span class="comment">// finalizing "hash_c" won't enact the change signaled at "hash_a" but it will prune out
+		// "hash_b"
 		</span><span class="kw">let </span>status = authorities
 			.apply_standard_changes(
-				<span class="string">&quot;hash_c&quot;</span>,
+				<span class="string">"hash_c"</span>,
 				<span class="number">11</span>,
 				<span class="kw-2">&amp;</span>is_descendent_of(|base, hash| <span class="kw">match </span>(<span class="kw-2">*</span>base, <span class="kw-2">*</span>hash) {
-					(<span class="string">&quot;hash_a&quot;</span>, <span class="string">&quot;hash_c&quot;</span>) =&gt; <span class="bool-val">true</span>,
-					(<span class="string">&quot;hash_b&quot;</span>, <span class="string">&quot;hash_c&quot;</span>) =&gt; <span class="bool-val">false</span>,
+					(<span class="string">"hash_a"</span>, <span class="string">"hash_c"</span>) =&gt; <span class="bool-val">true</span>,
+					(<span class="string">"hash_b"</span>, <span class="string">"hash_c"</span>) =&gt; <span class="bool-val">false</span>,
 					<span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(),
 				}),
 				<span class="bool-val">false</span>,
@@ -2878,13 +2880,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="macro">assert_eq!</span>(authorities.pending_changes().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(), <span class="macro">vec!</span>[<span class="kw-2">&amp;</span>change_a]);
 		<span class="macro">assert_eq!</span>(authorities.authority_set_changes, AuthoritySetChanges::empty());
 
-		<span class="comment">// finalizing &quot;hash_d&quot; will enact the change signaled at &quot;hash_a&quot;
+		<span class="comment">// finalizing "hash_d" will enact the change signaled at "hash_a"
 		</span><span class="kw">let </span>status = authorities
 			.apply_standard_changes(
-				<span class="string">&quot;hash_d&quot;</span>,
+				<span class="string">"hash_d"</span>,
 				<span class="number">15</span>,
 				<span class="kw-2">&amp;</span>is_descendent_of(|base, hash| <span class="kw">match </span>(<span class="kw-2">*</span>base, <span class="kw-2">*</span>hash) {
-					(<span class="string">&quot;hash_a&quot;</span>, <span class="string">&quot;hash_d&quot;</span>) =&gt; <span class="bool-val">true</span>,
+					(<span class="string">"hash_a"</span>, <span class="string">"hash_d"</span>) =&gt; <span class="bool-val">true</span>,
 					<span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(),
 				}),
 				<span class="bool-val">false</span>,
@@ -2893,7 +2895,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.unwrap();
 
 		<span class="macro">assert!</span>(status.changed);
-		<span class="macro">assert_eq!</span>(status.new_set_block, <span class="prelude-val">Some</span>((<span class="string">&quot;hash_d&quot;</span>, <span class="number">15</span>)));
+		<span class="macro">assert_eq!</span>(status.new_set_block, <span class="prelude-val">Some</span>((<span class="string">"hash_d"</span>, <span class="number">15</span>)));
 
 		<span class="macro">assert_eq!</span>(authorities.current_authorities, set_a);
 		<span class="macro">assert_eq!</span>(authorities.set_id, <span class="number">1</span>);
@@ -2919,7 +2921,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			next_authorities: set_a.clone(),
 			delay: <span class="number">10</span>,
 			canon_height: <span class="number">5</span>,
-			canon_hash: <span class="string">&quot;hash_a&quot;</span>,
+			canon_hash: <span class="string">"hash_a"</span>,
 			delay_kind: DelayKind::Finalized,
 		};
 
@@ -2927,7 +2929,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			next_authorities: set_c.clone(),
 			delay: <span class="number">10</span>,
 			canon_height: <span class="number">30</span>,
-			canon_hash: <span class="string">&quot;hash_c&quot;</span>,
+			canon_hash: <span class="string">"hash_c"</span>,
 			delay_kind: DelayKind::Finalized,
 		};
 
@@ -2939,30 +2941,30 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.unwrap();
 
 		<span class="kw">let </span>is_descendent_of = is_descendent_of(|base, hash| <span class="kw">match </span>(<span class="kw-2">*</span>base, <span class="kw-2">*</span>hash) {
-			(<span class="string">&quot;hash_a&quot;</span>, <span class="string">&quot;hash_b&quot;</span>) =&gt; <span class="bool-val">true</span>,
-			(<span class="string">&quot;hash_a&quot;</span>, <span class="string">&quot;hash_c&quot;</span>) =&gt; <span class="bool-val">true</span>,
-			(<span class="string">&quot;hash_a&quot;</span>, <span class="string">&quot;hash_d&quot;</span>) =&gt; <span class="bool-val">true</span>,
+			(<span class="string">"hash_a"</span>, <span class="string">"hash_b"</span>) =&gt; <span class="bool-val">true</span>,
+			(<span class="string">"hash_a"</span>, <span class="string">"hash_c"</span>) =&gt; <span class="bool-val">true</span>,
+			(<span class="string">"hash_a"</span>, <span class="string">"hash_d"</span>) =&gt; <span class="bool-val">true</span>,
 
-			(<span class="string">&quot;hash_c&quot;</span>, <span class="string">&quot;hash_b&quot;</span>) =&gt; <span class="bool-val">false</span>,
-			(<span class="string">&quot;hash_c&quot;</span>, <span class="string">&quot;hash_d&quot;</span>) =&gt; <span class="bool-val">true</span>,
+			(<span class="string">"hash_c"</span>, <span class="string">"hash_b"</span>) =&gt; <span class="bool-val">false</span>,
+			(<span class="string">"hash_c"</span>, <span class="string">"hash_d"</span>) =&gt; <span class="bool-val">true</span>,
 
-			(<span class="string">&quot;hash_b&quot;</span>, <span class="string">&quot;hash_c&quot;</span>) =&gt; <span class="bool-val">true</span>,
+			(<span class="string">"hash_b"</span>, <span class="string">"hash_c"</span>) =&gt; <span class="bool-val">true</span>,
 			<span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(),
 		});
 
 		<span class="comment">// trying to finalize past `change_c` without finalizing `change_a` first
 		</span><span class="macro">assert!</span>(<span class="macro">matches!</span>(
-			authorities.apply_standard_changes(<span class="string">&quot;hash_d&quot;</span>, <span class="number">40</span>, <span class="kw-2">&amp;</span>is_descendent_of, <span class="bool-val">false</span>, <span class="prelude-val">None</span>),
+			authorities.apply_standard_changes(<span class="string">"hash_d"</span>, <span class="number">40</span>, <span class="kw-2">&amp;</span>is_descendent_of, <span class="bool-val">false</span>, <span class="prelude-val">None</span>),
 			<span class="prelude-val">Err</span>(Error::ForkTree(fork_tree::Error::UnfinalizedAncestor))
 		));
 		<span class="macro">assert_eq!</span>(authorities.authority_set_changes, AuthoritySetChanges::empty());
 
 		<span class="kw">let </span>status = authorities
-			.apply_standard_changes(<span class="string">&quot;hash_b&quot;</span>, <span class="number">15</span>, <span class="kw-2">&amp;</span>is_descendent_of, <span class="bool-val">false</span>, <span class="prelude-val">None</span>)
+			.apply_standard_changes(<span class="string">"hash_b"</span>, <span class="number">15</span>, <span class="kw-2">&amp;</span>is_descendent_of, <span class="bool-val">false</span>, <span class="prelude-val">None</span>)
 			.unwrap();
 
 		<span class="macro">assert!</span>(status.changed);
-		<span class="macro">assert_eq!</span>(status.new_set_block, <span class="prelude-val">Some</span>((<span class="string">&quot;hash_b&quot;</span>, <span class="number">15</span>)));
+		<span class="macro">assert_eq!</span>(status.new_set_block, <span class="prelude-val">Some</span>((<span class="string">"hash_b"</span>, <span class="number">15</span>)));
 
 		<span class="macro">assert_eq!</span>(authorities.current_authorities, set_a);
 		<span class="macro">assert_eq!</span>(authorities.set_id, <span class="number">1</span>);
@@ -2970,11 +2972,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// after finalizing `change_a` it should be possible to finalize `change_c`
 		</span><span class="kw">let </span>status = authorities
-			.apply_standard_changes(<span class="string">&quot;hash_d&quot;</span>, <span class="number">40</span>, <span class="kw-2">&amp;</span>is_descendent_of, <span class="bool-val">false</span>, <span class="prelude-val">None</span>)
+			.apply_standard_changes(<span class="string">"hash_d"</span>, <span class="number">40</span>, <span class="kw-2">&amp;</span>is_descendent_of, <span class="bool-val">false</span>, <span class="prelude-val">None</span>)
 			.unwrap();
 
 		<span class="macro">assert!</span>(status.changed);
-		<span class="macro">assert_eq!</span>(status.new_set_block, <span class="prelude-val">Some</span>((<span class="string">&quot;hash_d&quot;</span>, <span class="number">40</span>)));
+		<span class="macro">assert_eq!</span>(status.new_set_block, <span class="prelude-val">Some</span>((<span class="string">"hash_d"</span>, <span class="number">40</span>)));
 
 		<span class="macro">assert_eq!</span>(authorities.current_authorities, set_c);
 		<span class="macro">assert_eq!</span>(authorities.set_id, <span class="number">2</span>);
@@ -2997,7 +2999,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			next_authorities: set_a.clone(),
 			delay: <span class="number">10</span>,
 			canon_height: <span class="number">5</span>,
-			canon_hash: <span class="string">&quot;hash_a&quot;</span>,
+			canon_hash: <span class="string">"hash_a"</span>,
 			delay_kind: DelayKind::Finalized,
 		};
 
@@ -3005,7 +3007,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			next_authorities: set_a.clone(),
 			delay: <span class="number">10</span>,
 			canon_height: <span class="number">20</span>,
-			canon_hash: <span class="string">&quot;hash_b&quot;</span>,
+			canon_hash: <span class="string">"hash_b"</span>,
 			delay_kind: DelayKind::Finalized,
 		};
 
@@ -3017,37 +3019,37 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.unwrap();
 
 		<span class="kw">let </span>is_descendent_of = is_descendent_of(|base, hash| <span class="kw">match </span>(<span class="kw-2">*</span>base, <span class="kw-2">*</span>hash) {
-			(<span class="string">&quot;hash_a&quot;</span>, <span class="string">&quot;hash_d&quot;</span>) =&gt; <span class="bool-val">true</span>,
-			(<span class="string">&quot;hash_a&quot;</span>, <span class="string">&quot;hash_e&quot;</span>) =&gt; <span class="bool-val">true</span>,
-			(<span class="string">&quot;hash_b&quot;</span>, <span class="string">&quot;hash_d&quot;</span>) =&gt; <span class="bool-val">true</span>,
-			(<span class="string">&quot;hash_b&quot;</span>, <span class="string">&quot;hash_e&quot;</span>) =&gt; <span class="bool-val">true</span>,
-			(<span class="string">&quot;hash_a&quot;</span>, <span class="string">&quot;hash_c&quot;</span>) =&gt; <span class="bool-val">false</span>,
-			(<span class="string">&quot;hash_b&quot;</span>, <span class="string">&quot;hash_c&quot;</span>) =&gt; <span class="bool-val">false</span>,
+			(<span class="string">"hash_a"</span>, <span class="string">"hash_d"</span>) =&gt; <span class="bool-val">true</span>,
+			(<span class="string">"hash_a"</span>, <span class="string">"hash_e"</span>) =&gt; <span class="bool-val">true</span>,
+			(<span class="string">"hash_b"</span>, <span class="string">"hash_d"</span>) =&gt; <span class="bool-val">true</span>,
+			(<span class="string">"hash_b"</span>, <span class="string">"hash_e"</span>) =&gt; <span class="bool-val">true</span>,
+			(<span class="string">"hash_a"</span>, <span class="string">"hash_c"</span>) =&gt; <span class="bool-val">false</span>,
+			(<span class="string">"hash_b"</span>, <span class="string">"hash_c"</span>) =&gt; <span class="bool-val">false</span>,
 			<span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(),
 		});
 
-		<span class="comment">// &quot;hash_c&quot; won&#39;t finalize the existing change since it isn&#39;t a descendent
+		<span class="comment">// "hash_c" won't finalize the existing change since it isn't a descendent
 		</span><span class="macro">assert_eq!</span>(
-			authorities.enacts_standard_change(<span class="string">&quot;hash_c&quot;</span>, <span class="number">15</span>, <span class="kw-2">&amp;</span>is_descendent_of).unwrap(),
+			authorities.enacts_standard_change(<span class="string">"hash_c"</span>, <span class="number">15</span>, <span class="kw-2">&amp;</span>is_descendent_of).unwrap(),
 			<span class="prelude-val">None</span>,
 		);
 
-		<span class="comment">// &quot;hash_d&quot; at depth 14 won&#39;t work either
+		<span class="comment">// "hash_d" at depth 14 won't work either
 		</span><span class="macro">assert_eq!</span>(
-			authorities.enacts_standard_change(<span class="string">&quot;hash_d&quot;</span>, <span class="number">14</span>, <span class="kw-2">&amp;</span>is_descendent_of).unwrap(),
+			authorities.enacts_standard_change(<span class="string">"hash_d"</span>, <span class="number">14</span>, <span class="kw-2">&amp;</span>is_descendent_of).unwrap(),
 			<span class="prelude-val">None</span>,
 		);
 
 		<span class="comment">// but it should work at depth 15 (change height + depth)
 		</span><span class="macro">assert_eq!</span>(
-			authorities.enacts_standard_change(<span class="string">&quot;hash_d&quot;</span>, <span class="number">15</span>, <span class="kw-2">&amp;</span>is_descendent_of).unwrap(),
+			authorities.enacts_standard_change(<span class="string">"hash_d"</span>, <span class="number">15</span>, <span class="kw-2">&amp;</span>is_descendent_of).unwrap(),
 			<span class="prelude-val">Some</span>(<span class="bool-val">true</span>),
 		);
 
-		<span class="comment">// finalizing &quot;hash_e&quot; at depth 20 will trigger change at &quot;hash_b&quot;, but
-		// it can&#39;t be applied yet since &quot;hash_a&quot; must be applied first
+		<span class="comment">// finalizing "hash_e" at depth 20 will trigger change at "hash_b", but
+		// it can't be applied yet since "hash_a" must be applied first
 		</span><span class="macro">assert_eq!</span>(
-			authorities.enacts_standard_change(<span class="string">&quot;hash_e&quot;</span>, <span class="number">30</span>, <span class="kw-2">&amp;</span>is_descendent_of).unwrap(),
+			authorities.enacts_standard_change(<span class="string">"hash_e"</span>, <span class="number">30</span>, <span class="kw-2">&amp;</span>is_descendent_of).unwrap(),
 			<span class="prelude-val">Some</span>(<span class="bool-val">false</span>),
 		);
 	}
@@ -3069,7 +3071,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			next_authorities: set_a.clone(),
 			delay: <span class="number">10</span>,
 			canon_height: <span class="number">5</span>,
-			canon_hash: <span class="string">&quot;hash_a&quot;</span>,
+			canon_hash: <span class="string">"hash_a"</span>,
 			delay_kind: DelayKind::Best { median_last_finalized: <span class="number">42 </span>},
 		};
 
@@ -3077,7 +3079,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			next_authorities: set_b.clone(),
 			delay: <span class="number">10</span>,
 			canon_height: <span class="number">5</span>,
-			canon_hash: <span class="string">&quot;hash_b&quot;</span>,
+			canon_hash: <span class="string">"hash_b"</span>,
 			delay_kind: DelayKind::Best { median_last_finalized: <span class="number">0 </span>},
 		};
 
@@ -3094,11 +3096,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="prelude-val">Err</span>(Error::DuplicateAuthoritySetChange)
 		));
 
-		<span class="comment">// there&#39;s an effective change triggered at block 15 but not a standard one.
+		<span class="comment">// there's an effective change triggered at block 15 but not a standard one.
 		// so this should do nothing.
 		</span><span class="macro">assert_eq!</span>(
 			authorities
-				.enacts_standard_change(<span class="string">&quot;hash_c&quot;</span>, <span class="number">15</span>, <span class="kw-2">&amp;</span>static_is_descendent_of(<span class="bool-val">true</span>))
+				.enacts_standard_change(<span class="string">"hash_c"</span>, <span class="number">15</span>, <span class="kw-2">&amp;</span>static_is_descendent_of(<span class="bool-val">true</span>))
 				.unwrap(),
 			<span class="prelude-val">None</span>,
 		);
@@ -3108,34 +3110,34 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			next_authorities: set_b.clone(),
 			delay: <span class="number">3</span>,
 			canon_height: <span class="number">8</span>,
-			canon_hash: <span class="string">&quot;hash_a8&quot;</span>,
+			canon_hash: <span class="string">"hash_a8"</span>,
 			delay_kind: DelayKind::Best { median_last_finalized: <span class="number">0 </span>},
 		};
 
-		<span class="kw">let </span>is_descendent_of_a = is_descendent_of(|base: &amp;&amp;str, <span class="kw">_</span>| base.starts_with(<span class="string">&quot;hash_a&quot;</span>));
+		<span class="kw">let </span>is_descendent_of_a = is_descendent_of(|base: &amp;&amp;str, <span class="kw">_</span>| base.starts_with(<span class="string">"hash_a"</span>));
 
 		<span class="macro">assert!</span>(<span class="macro">matches!</span>(
 			authorities.add_pending_change(change_c, <span class="kw-2">&amp;</span>is_descendent_of_a),
 			<span class="prelude-val">Err</span>(Error::MultiplePendingForcedAuthoritySetChanges)
 		));
 
-		<span class="comment">// let&#39;s try and apply the forced changes.
-		// too early and there&#39;s no forced changes to apply.
+		<span class="comment">// let's try and apply the forced changes.
+		// too early and there's no forced changes to apply.
 		</span><span class="macro">assert!</span>(authorities
-			.apply_forced_changes(<span class="string">&quot;hash_a10&quot;</span>, <span class="number">10</span>, <span class="kw-2">&amp;</span>static_is_descendent_of(<span class="bool-val">true</span>), <span class="bool-val">false</span>, <span class="prelude-val">None</span>)
+			.apply_forced_changes(<span class="string">"hash_a10"</span>, <span class="number">10</span>, <span class="kw-2">&amp;</span>static_is_descendent_of(<span class="bool-val">true</span>), <span class="bool-val">false</span>, <span class="prelude-val">None</span>)
 			.unwrap()
 			.is_none());
 
 		<span class="comment">// too late.
 		</span><span class="macro">assert!</span>(authorities
-			.apply_forced_changes(<span class="string">&quot;hash_a16&quot;</span>, <span class="number">16</span>, <span class="kw-2">&amp;</span>is_descendent_of_a, <span class="bool-val">false</span>, <span class="prelude-val">None</span>)
+			.apply_forced_changes(<span class="string">"hash_a16"</span>, <span class="number">16</span>, <span class="kw-2">&amp;</span>is_descendent_of_a, <span class="bool-val">false</span>, <span class="prelude-val">None</span>)
 			.unwrap()
 			.is_none());
 
 		<span class="comment">// on time -- chooses the right change for this fork.
 		</span><span class="macro">assert_eq!</span>(
 			authorities
-				.apply_forced_changes(<span class="string">&quot;hash_a15&quot;</span>, <span class="number">15</span>, <span class="kw-2">&amp;</span>is_descendent_of_a, <span class="bool-val">false</span>, <span class="prelude-val">None</span>)
+				.apply_forced_changes(<span class="string">"hash_a15"</span>, <span class="number">15</span>, <span class="kw-2">&amp;</span>is_descendent_of_a, <span class="bool-val">false</span>, <span class="prelude-val">None</span>)
 				.unwrap()
 				.unwrap(),
 			(
@@ -3169,7 +3171,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			next_authorities: set_a.clone(),
 			delay: <span class="number">0</span>,
 			canon_height: <span class="number">5</span>,
-			canon_hash: <span class="string">&quot;hash_a&quot;</span>,
+			canon_hash: <span class="string">"hash_a"</span>,
 			delay_kind: DelayKind::Best { median_last_finalized: <span class="number">0 </span>},
 		};
 
@@ -3180,7 +3182,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// it should be enacted at the same block that signaled it
 		</span><span class="macro">assert!</span>(authorities
-			.apply_forced_changes(<span class="string">&quot;hash_a&quot;</span>, <span class="number">5</span>, <span class="kw-2">&amp;</span>static_is_descendent_of(<span class="bool-val">false</span>), <span class="bool-val">false</span>, <span class="prelude-val">None</span>)
+			.apply_forced_changes(<span class="string">"hash_a"</span>, <span class="number">5</span>, <span class="kw-2">&amp;</span>static_is_descendent_of(<span class="bool-val">false</span>), <span class="bool-val">false</span>, <span class="prelude-val">None</span>)
 			.unwrap()
 			.is_some());
 	}
@@ -3202,7 +3204,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			next_authorities: set_a.clone(),
 			delay: <span class="number">5</span>,
 			canon_height: <span class="number">10</span>,
-			canon_hash: <span class="string">&quot;hash_a&quot;</span>,
+			canon_hash: <span class="string">"hash_a"</span>,
 			delay_kind: DelayKind::Finalized,
 		};
 
@@ -3211,7 +3213,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			next_authorities: set_a.clone(),
 			delay: <span class="number">0</span>,
 			canon_height: <span class="number">20</span>,
-			canon_hash: <span class="string">&quot;hash_b&quot;</span>,
+			canon_hash: <span class="string">"hash_b"</span>,
 			delay_kind: DelayKind::Finalized,
 		};
 
@@ -3220,7 +3222,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			next_authorities: set_a.clone(),
 			delay: <span class="number">5</span>,
 			canon_height: <span class="number">30</span>,
-			canon_hash: <span class="string">&quot;hash_c&quot;</span>,
+			canon_hash: <span class="string">"hash_c"</span>,
 			delay_kind: DelayKind::Finalized,
 		};
 
@@ -3240,7 +3242,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			next_authorities: set_a.clone(),
 			delay: <span class="number">5</span>,
 			canon_height: <span class="number">40</span>,
-			canon_hash: <span class="string">&quot;hash_d&quot;</span>,
+			canon_hash: <span class="string">"hash_d"</span>,
 			delay_kind: DelayKind::Best { median_last_finalized: <span class="number">31 </span>},
 		};
 
@@ -3253,7 +3255,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		// have not been applied yet.
 		</span><span class="macro">assert!</span>(<span class="macro">matches!</span>(
 			authorities.apply_forced_changes(
-				<span class="string">&quot;hash_d45&quot;</span>,
+				<span class="string">"hash_d45"</span>,
 				<span class="number">45</span>,
 				<span class="kw-2">&amp;</span>static_is_descendent_of(<span class="bool-val">true</span>),
 				<span class="bool-val">false</span>,
@@ -3265,14 +3267,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// we apply the first pending standard change at #15
 		</span>authorities
-			.apply_standard_changes(<span class="string">&quot;hash_a15&quot;</span>, <span class="number">15</span>, <span class="kw-2">&amp;</span>static_is_descendent_of(<span class="bool-val">true</span>), <span class="bool-val">false</span>, <span class="prelude-val">None</span>)
+			.apply_standard_changes(<span class="string">"hash_a15"</span>, <span class="number">15</span>, <span class="kw-2">&amp;</span>static_is_descendent_of(<span class="bool-val">true</span>), <span class="bool-val">false</span>, <span class="prelude-val">None</span>)
 			.unwrap();
 		<span class="macro">assert_eq!</span>(authorities.authority_set_changes, AuthoritySetChanges(<span class="macro">vec!</span>[(<span class="number">0</span>, <span class="number">15</span>)]));
 
 		<span class="comment">// but the forced change still depends on the next standard change
 		</span><span class="macro">assert!</span>(<span class="macro">matches!</span>(
 			authorities.apply_forced_changes(
-				<span class="string">&quot;hash_d&quot;</span>,
+				<span class="string">"hash_d"</span>,
 				<span class="number">45</span>,
 				<span class="kw-2">&amp;</span>static_is_descendent_of(<span class="bool-val">true</span>),
 				<span class="bool-val">false</span>,
@@ -3284,7 +3286,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// we apply the pending standard change at #20
 		</span>authorities
-			.apply_standard_changes(<span class="string">&quot;hash_b&quot;</span>, <span class="number">20</span>, <span class="kw-2">&amp;</span>static_is_descendent_of(<span class="bool-val">true</span>), <span class="bool-val">false</span>, <span class="prelude-val">None</span>)
+			.apply_standard_changes(<span class="string">"hash_b"</span>, <span class="number">20</span>, <span class="kw-2">&amp;</span>static_is_descendent_of(<span class="bool-val">true</span>), <span class="bool-val">false</span>, <span class="prelude-val">None</span>)
 			.unwrap();
 		<span class="macro">assert_eq!</span>(authorities.authority_set_changes, AuthoritySetChanges(<span class="macro">vec!</span>[(<span class="number">0</span>, <span class="number">15</span>), (<span class="number">1</span>, <span class="number">20</span>)]));
 
@@ -3293,7 +3295,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		// at #35. subsequent forced changes on the same branch must be kept
 		</span><span class="macro">assert_eq!</span>(
 			authorities
-				.apply_forced_changes(<span class="string">&quot;hash_d&quot;</span>, <span class="number">45</span>, <span class="kw-2">&amp;</span>static_is_descendent_of(<span class="bool-val">true</span>), <span class="bool-val">false</span>, <span class="prelude-val">None</span>)
+				.apply_forced_changes(<span class="string">"hash_d"</span>, <span class="number">45</span>, <span class="kw-2">&amp;</span>static_is_descendent_of(<span class="bool-val">true</span>), <span class="bool-val">false</span>, <span class="prelude-val">None</span>)
 				.unwrap()
 				.unwrap(),
 			(
@@ -3330,7 +3332,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			next_authorities: new_set.clone(),
 			delay: <span class="number">0</span>,
 			canon_height: <span class="number">5</span>,
-			canon_hash: <span class="string">&quot;hash_a0&quot;</span>,
+			canon_hash: <span class="string">"hash_a0"</span>,
 			delay_kind: DelayKind::Finalized,
 		};
 
@@ -3338,7 +3340,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			next_authorities: new_set.clone(),
 			delay: <span class="number">0</span>,
 			canon_height: <span class="number">10</span>,
-			canon_hash: <span class="string">&quot;hash_a1&quot;</span>,
+			canon_hash: <span class="string">"hash_a1"</span>,
 			delay_kind: DelayKind::Finalized,
 		};
 
@@ -3346,18 +3348,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			next_authorities: new_set.clone(),
 			delay: <span class="number">0</span>,
 			canon_height: <span class="number">4</span>,
-			canon_hash: <span class="string">&quot;hash_b&quot;</span>,
+			canon_hash: <span class="string">"hash_b"</span>,
 			delay_kind: DelayKind::Finalized,
 		};
 
 		<span class="comment">// A0 (#5) &lt;- A10 (#8) &lt;- A1 (#10) &lt;- best_a
 		// B (#4) &lt;- best_b
 		</span><span class="kw">let </span>is_descendent_of = is_descendent_of(|base, hash| <span class="kw">match </span>(<span class="kw-2">*</span>base, <span class="kw-2">*</span>hash) {
-			(<span class="string">&quot;hash_a0&quot;</span>, <span class="string">&quot;hash_a1&quot;</span>) =&gt; <span class="bool-val">true</span>,
-			(<span class="string">&quot;hash_a0&quot;</span>, <span class="string">&quot;best_a&quot;</span>) =&gt; <span class="bool-val">true</span>,
-			(<span class="string">&quot;hash_a1&quot;</span>, <span class="string">&quot;best_a&quot;</span>) =&gt; <span class="bool-val">true</span>,
-			(<span class="string">&quot;hash_a10&quot;</span>, <span class="string">&quot;best_a&quot;</span>) =&gt; <span class="bool-val">true</span>,
-			(<span class="string">&quot;hash_b&quot;</span>, <span class="string">&quot;best_b&quot;</span>) =&gt; <span class="bool-val">true</span>,
+			(<span class="string">"hash_a0"</span>, <span class="string">"hash_a1"</span>) =&gt; <span class="bool-val">true</span>,
+			(<span class="string">"hash_a0"</span>, <span class="string">"best_a"</span>) =&gt; <span class="bool-val">true</span>,
+			(<span class="string">"hash_a1"</span>, <span class="string">"best_a"</span>) =&gt; <span class="bool-val">true</span>,
+			(<span class="string">"hash_a10"</span>, <span class="string">"best_a"</span>) =&gt; <span class="bool-val">true</span>,
+			(<span class="string">"hash_b"</span>, <span class="string">"best_b"</span>) =&gt; <span class="bool-val">true</span>,
 			<span class="kw">_ </span>=&gt; <span class="bool-val">false</span>,
 		});
 
@@ -3368,36 +3370,36 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// the earliest change at block `best_a` should be the change at A0 (#5)
 		</span><span class="macro">assert_eq!</span>(
-			authorities.next_change(<span class="kw-2">&amp;</span><span class="string">&quot;best_a&quot;</span>, <span class="kw-2">&amp;</span>is_descendent_of).unwrap(),
-			<span class="prelude-val">Some</span>((<span class="string">&quot;hash_a0&quot;</span>, <span class="number">5</span>)),
+			authorities.next_change(<span class="kw-2">&amp;</span><span class="string">"best_a"</span>, <span class="kw-2">&amp;</span>is_descendent_of).unwrap(),
+			<span class="prelude-val">Some</span>((<span class="string">"hash_a0"</span>, <span class="number">5</span>)),
 		);
 
 		<span class="comment">// the earliest change at block `best_b` should be the change at B (#4)
 		</span><span class="macro">assert_eq!</span>(
-			authorities.next_change(<span class="kw-2">&amp;</span><span class="string">&quot;best_b&quot;</span>, <span class="kw-2">&amp;</span>is_descendent_of).unwrap(),
-			<span class="prelude-val">Some</span>((<span class="string">&quot;hash_b&quot;</span>, <span class="number">4</span>)),
+			authorities.next_change(<span class="kw-2">&amp;</span><span class="string">"best_b"</span>, <span class="kw-2">&amp;</span>is_descendent_of).unwrap(),
+			<span class="prelude-val">Some</span>((<span class="string">"hash_b"</span>, <span class="number">4</span>)),
 		);
 
 		<span class="comment">// we apply the change at A0 which should prune it and the fork at B
 		</span>authorities
-			.apply_standard_changes(<span class="string">&quot;hash_a0&quot;</span>, <span class="number">5</span>, <span class="kw-2">&amp;</span>is_descendent_of, <span class="bool-val">false</span>, <span class="prelude-val">None</span>)
+			.apply_standard_changes(<span class="string">"hash_a0"</span>, <span class="number">5</span>, <span class="kw-2">&amp;</span>is_descendent_of, <span class="bool-val">false</span>, <span class="prelude-val">None</span>)
 			.unwrap();
 
 		<span class="comment">// the next change is now at A1 (#10)
 		</span><span class="macro">assert_eq!</span>(
-			authorities.next_change(<span class="kw-2">&amp;</span><span class="string">&quot;best_a&quot;</span>, <span class="kw-2">&amp;</span>is_descendent_of).unwrap(),
-			<span class="prelude-val">Some</span>((<span class="string">&quot;hash_a1&quot;</span>, <span class="number">10</span>)),
+			authorities.next_change(<span class="kw-2">&amp;</span><span class="string">"best_a"</span>, <span class="kw-2">&amp;</span>is_descendent_of).unwrap(),
+			<span class="prelude-val">Some</span>((<span class="string">"hash_a1"</span>, <span class="number">10</span>)),
 		);
 
-		<span class="comment">// there&#39;s no longer any pending change at `best_b` fork
-		</span><span class="macro">assert_eq!</span>(authorities.next_change(<span class="kw-2">&amp;</span><span class="string">&quot;best_b&quot;</span>, <span class="kw-2">&amp;</span>is_descendent_of).unwrap(), <span class="prelude-val">None</span>);
+		<span class="comment">// there's no longer any pending change at `best_b` fork
+		</span><span class="macro">assert_eq!</span>(authorities.next_change(<span class="kw-2">&amp;</span><span class="string">"best_b"</span>, <span class="kw-2">&amp;</span>is_descendent_of).unwrap(), <span class="prelude-val">None</span>);
 
 		<span class="comment">// we a forced change at A10 (#8)
 		</span><span class="kw">let </span>change_a10 = PendingChange {
 			next_authorities: new_set.clone(),
 			delay: <span class="number">0</span>,
 			canon_height: <span class="number">8</span>,
-			canon_hash: <span class="string">&quot;hash_a10&quot;</span>,
+			canon_hash: <span class="string">"hash_a10"</span>,
 			delay_kind: DelayKind::Best { median_last_finalized: <span class="number">0 </span>},
 		};
 
@@ -3407,8 +3409,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// it should take precedence over the change at A1 (#10)
 		</span><span class="macro">assert_eq!</span>(
-			authorities.next_change(<span class="kw-2">&amp;</span><span class="string">&quot;best_a&quot;</span>, <span class="kw-2">&amp;</span>is_descendent_of).unwrap(),
-			<span class="prelude-val">Some</span>((<span class="string">&quot;hash_a10&quot;</span>, <span class="number">8</span>)),
+			authorities.next_change(<span class="kw-2">&amp;</span><span class="string">"best_a"</span>, <span class="kw-2">&amp;</span>is_descendent_of).unwrap(),
+			<span class="prelude-val">Some</span>((<span class="string">"hash_a10"</span>, <span class="number">8</span>)),
 		);
 	}
 
@@ -3513,11 +3515,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		// [] - Forced change
 
 		</span><span class="kw">let </span>is_descendent_of = {
-			<span class="kw">let </span>hashes = <span class="macro">vec!</span>[<span class="string">&quot;B&quot;</span>, <span class="string">&quot;C0&quot;</span>, <span class="string">&quot;C1&quot;</span>, <span class="string">&quot;C2&quot;</span>, <span class="string">&quot;C3&quot;</span>, <span class="string">&quot;D&quot;</span>];
+			<span class="kw">let </span>hashes = <span class="macro">vec!</span>[<span class="string">"B"</span>, <span class="string">"C0"</span>, <span class="string">"C1"</span>, <span class="string">"C2"</span>, <span class="string">"C3"</span>, <span class="string">"D"</span>];
 			is_descendent_of(<span class="kw">move </span>|base, hash| <span class="kw">match </span>(<span class="kw-2">*</span>base, <span class="kw-2">*</span>hash) {
-				(<span class="string">&quot;B&quot;</span>, <span class="string">&quot;B&quot;</span>) =&gt; <span class="bool-val">false</span>, <span class="comment">// required to have the simpler case below
-				</span>(<span class="string">&quot;A&quot;</span>, b) | (<span class="string">&quot;B&quot;</span>, b) =&gt; hashes.iter().any(|h| <span class="kw-2">*</span>h == b),
-				(<span class="string">&quot;C0&quot;</span>, <span class="string">&quot;D&quot;</span>) =&gt; <span class="bool-val">true</span>,
+				(<span class="string">"B"</span>, <span class="string">"B"</span>) =&gt; <span class="bool-val">false</span>, <span class="comment">// required to have the simpler case below
+				</span>(<span class="string">"A"</span>, b) | (<span class="string">"B"</span>, b) =&gt; hashes.iter().any(|h| <span class="kw-2">*</span>h == b),
+				(<span class="string">"C0"</span>, <span class="string">"D"</span>) =&gt; <span class="bool-val">true</span>,
 				<span class="kw">_ </span>=&gt; <span class="bool-val">false</span>,
 			})
 		};
@@ -3538,25 +3540,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			authorities.add_pending_change(change, <span class="kw-2">&amp;</span>is_descendent_of).unwrap();
 		};
 
-		add_pending_change(<span class="number">5</span>, <span class="string">&quot;A&quot;</span>, <span class="bool-val">false</span>);
-		add_pending_change(<span class="number">10</span>, <span class="string">&quot;B&quot;</span>, <span class="bool-val">false</span>);
-		add_pending_change(<span class="number">15</span>, <span class="string">&quot;C0&quot;</span>, <span class="bool-val">false</span>);
-		add_pending_change(<span class="number">15</span>, <span class="string">&quot;C1&quot;</span>, <span class="bool-val">true</span>);
-		add_pending_change(<span class="number">15</span>, <span class="string">&quot;C2&quot;</span>, <span class="bool-val">false</span>);
-		add_pending_change(<span class="number">15</span>, <span class="string">&quot;C3&quot;</span>, <span class="bool-val">true</span>);
-		add_pending_change(<span class="number">20</span>, <span class="string">&quot;D&quot;</span>, <span class="bool-val">true</span>);
+		add_pending_change(<span class="number">5</span>, <span class="string">"A"</span>, <span class="bool-val">false</span>);
+		add_pending_change(<span class="number">10</span>, <span class="string">"B"</span>, <span class="bool-val">false</span>);
+		add_pending_change(<span class="number">15</span>, <span class="string">"C0"</span>, <span class="bool-val">false</span>);
+		add_pending_change(<span class="number">15</span>, <span class="string">"C1"</span>, <span class="bool-val">true</span>);
+		add_pending_change(<span class="number">15</span>, <span class="string">"C2"</span>, <span class="bool-val">false</span>);
+		add_pending_change(<span class="number">15</span>, <span class="string">"C3"</span>, <span class="bool-val">true</span>);
+		add_pending_change(<span class="number">20</span>, <span class="string">"D"</span>, <span class="bool-val">true</span>);
 
 		<span class="comment">// applying the standard change at A should not prune anything
 		// other then the change that was applied
 		</span>authorities
-			.apply_standard_changes(<span class="string">&quot;A&quot;</span>, <span class="number">5</span>, <span class="kw-2">&amp;</span>is_descendent_of, <span class="bool-val">false</span>, <span class="prelude-val">None</span>)
+			.apply_standard_changes(<span class="string">"A"</span>, <span class="number">5</span>, <span class="kw-2">&amp;</span>is_descendent_of, <span class="bool-val">false</span>, <span class="prelude-val">None</span>)
 			.unwrap();
 
 		<span class="macro">assert_eq!</span>(authorities.pending_changes().count(), <span class="number">6</span>);
 
 		<span class="comment">// same for B
 		</span>authorities
-			.apply_standard_changes(<span class="string">&quot;B&quot;</span>, <span class="number">10</span>, <span class="kw-2">&amp;</span>is_descendent_of, <span class="bool-val">false</span>, <span class="prelude-val">None</span>)
+			.apply_standard_changes(<span class="string">"B"</span>, <span class="number">10</span>, <span class="kw-2">&amp;</span>is_descendent_of, <span class="bool-val">false</span>, <span class="prelude-val">None</span>)
 			.unwrap();
 
 		<span class="macro">assert_eq!</span>(authorities.pending_changes().count(), <span class="number">5</span>);
@@ -3565,7 +3567,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="comment">// finalizing C2 should clear all forced changes
 		</span>authorities
-			.apply_standard_changes(<span class="string">&quot;C2&quot;</span>, <span class="number">15</span>, <span class="kw-2">&amp;</span>is_descendent_of, <span class="bool-val">false</span>, <span class="prelude-val">None</span>)
+			.apply_standard_changes(<span class="string">"C2"</span>, <span class="number">15</span>, <span class="kw-2">&amp;</span>is_descendent_of, <span class="bool-val">false</span>, <span class="prelude-val">None</span>)
 			.unwrap();
 
 		<span class="macro">assert_eq!</span>(authorities.pending_forced_changes.len(), <span class="number">0</span>);
@@ -3573,11 +3575,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="comment">// finalizing C0 should clear all forced changes but D
 		</span><span class="kw">let </span><span class="kw-2">mut </span>authorities = authorities2;
 		authorities
-			.apply_standard_changes(<span class="string">&quot;C0&quot;</span>, <span class="number">15</span>, <span class="kw-2">&amp;</span>is_descendent_of, <span class="bool-val">false</span>, <span class="prelude-val">None</span>)
+			.apply_standard_changes(<span class="string">"C0"</span>, <span class="number">15</span>, <span class="kw-2">&amp;</span>is_descendent_of, <span class="bool-val">false</span>, <span class="prelude-val">None</span>)
 			.unwrap();
 
 		<span class="macro">assert_eq!</span>(authorities.pending_forced_changes.len(), <span class="number">1</span>);
-		<span class="macro">assert_eq!</span>(authorities.pending_forced_changes.first().unwrap().canon_hash, <span class="string">&quot;D&quot;</span>);
+		<span class="macro">assert_eq!</span>(authorities.pending_forced_changes.first().unwrap().canon_hash, <span class="string">"D"</span>);
 	}
 
 	<span class="attr">#[test]

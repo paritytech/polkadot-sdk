@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/core/pvf/src/error.rs`."><title>error.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `polkadot/node/core/pvf/src/error.rs`."><title>error.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_node_core_pvf" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="polkadot_node_core_pvf" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../polkadot_node_core_pvf/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -277,21 +279,21 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// prechecking, so this may be a sign of internal conditions.
 	///
 	/// In principle if preparation of the `WASM` fails, the current candidate cannot be the
-	/// reason for that. So we can&#39;t say whether it is invalid or not. In addition, with
+	/// reason for that. So we can't say whether it is invalid or not. In addition, with
 	/// pre-checking enabled only valid runtimes should ever get enacted, so we can be
 	/// reasonably sure that this is some local problem on the current node. However, as this
 	/// particular error *seems* to indicate a deterministic error, we raise a warning.
-	</span><span class="attr">#[error(<span class="string">&quot;candidate validation: {0}&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"candidate validation: {0}"</span>)]
 	</span>Preparation(PrepareError),
 	<span class="doccomment">/// The error was raised because the candidate is invalid. Should vote against.
-	</span><span class="attr">#[error(<span class="string">&quot;candidate validation: {0}&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"candidate validation: {0}"</span>)]
 	</span>Invalid(<span class="attr">#[from] </span>InvalidCandidate),
 	<span class="doccomment">/// Possibly transient issue that may resolve after retries. Should vote against when retries
 	/// fail.
-	</span><span class="attr">#[error(<span class="string">&quot;candidate validation: {0}&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"candidate validation: {0}"</span>)]
 	</span>PossiblyInvalid(<span class="attr">#[from] </span>PossiblyInvalidError),
 	<span class="doccomment">/// Preparation or execution issue caused by an internal condition. Should not vote against.
-	</span><span class="attr">#[error(<span class="string">&quot;candidate validation: internal: {0}&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"candidate validation: internal: {0}"</span>)]
 	</span>Internal(<span class="attr">#[from] </span>InternalValidationError),
 }
 
@@ -301,10 +303,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub enum </span>InvalidCandidate {
 	<span class="doccomment">/// The candidate is reported to be invalid by the execution worker. The string contains the
 	/// error message.
-	</span><span class="attr">#[error(<span class="string">&quot;invalid: worker reported: {0}&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"invalid: worker reported: {0}"</span>)]
 	</span>WorkerReportedInvalid(String),
 	<span class="doccomment">/// PVF execution (compilation is not included) took more time than was allotted.
-	</span><span class="attr">#[error(<span class="string">&quot;invalid: hard timeout&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"invalid: hard timeout"</span>)]
 	</span>HardTimeout,
 }
 
@@ -313,10 +315,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="kw">pub enum </span>PossiblyInvalidError {
 	<span class="doccomment">/// The worker process (not the job) has died during validation of a candidate.
 	///
-	/// It&#39;s unlikely that this is caused by malicious code since workers spawn separate job
+	/// It's unlikely that this is caused by malicious code since workers spawn separate job
 	/// processes, and those job processes are sandboxed. But, it is possible. We retry in this
-	/// case, and if the error persists, we assume it&#39;s caused by the candidate and vote against.
-	</span><span class="attr">#[error(<span class="string">&quot;possibly invalid: ambiguous worker death&quot;</span>)]
+	/// case, and if the error persists, we assume it's caused by the candidate and vote against.
+	</span><span class="attr">#[error(<span class="string">"possibly invalid: ambiguous worker death"</span>)]
 	</span>AmbiguousWorkerDeath,
 	<span class="doccomment">/// The job process (not the worker) has died for one of the following reasons:
 	///
@@ -325,24 +327,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	/// has seccomp auditing disabled.
 	///
 	/// (b) The host machine ran out of free memory and the OOM killer started killing the
-	/// processes, and in order to save the parent it will &quot;sacrifice child&quot; first.
+	/// processes, and in order to save the parent it will "sacrifice child" first.
 	///
 	/// (c) Some other reason, perhaps transient or perhaps caused by malicious code.
 	///
 	/// We cannot treat this as an internal error because malicious code may have caused this.
-	</span><span class="attr">#[error(<span class="string">&quot;possibly invalid: ambiguous job death: {0}&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"possibly invalid: ambiguous job death: {0}"</span>)]
 	</span>AmbiguousJobDeath(String),
-	<span class="doccomment">/// An unexpected error occurred in the job process and we can&#39;t be sure whether the candidate
+	<span class="doccomment">/// An unexpected error occurred in the job process and we can't be sure whether the candidate
 	/// is really invalid or some internal glitch occurred. Whenever we are unsure, we can never
 	/// treat an error as internal as we would abstain from voting. This is bad because if the
 	/// issue was due to the candidate, then all validators would abstain, stalling finality on the
 	/// chain. So we will first retry the candidate, and if the issue persists we are forced to
 	/// vote invalid.
-	</span><span class="attr">#[error(<span class="string">&quot;possibly invalid: job error: {0}&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"possibly invalid: job error: {0}"</span>)]
 	</span>JobError(String),
 	<span class="doccomment">/// Instantiation of the WASM module instance failed during an execution.
 	/// Possibly related to local issues or dirty node update. May be retried with re-preparation.
-	</span><span class="attr">#[error(<span class="string">&quot;possibly invalid: runtime construction: {0}&quot;</span>)]
+	</span><span class="attr">#[error(<span class="string">"possibly invalid: runtime construction: {0}"</span>)]
 	</span>RuntimeConstruction(String),
 }
 

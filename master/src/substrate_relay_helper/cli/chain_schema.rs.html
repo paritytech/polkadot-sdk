@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `bridges/relays/lib-substrate-relay/src/cli/chain_schema.rs`."><title>chain_schema.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `bridges/relays/lib-substrate-relay/src/cli/chain_schema.rs`."><title>chain_schema.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="substrate_relay_helper" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="substrate_relay_helper" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../../theme.css"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../substrate_relay_helper/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -434,7 +436,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="kw">use </span><span class="kw">crate</span>::TransactionParams;
 
-<span class="attr">#[doc = <span class="string">&quot;Runtime version params.&quot;</span>]
+<span class="attr">#[doc = <span class="string">"Runtime version params."</span>]
 #[derive(StructOpt, Debug, PartialEq, Eq, Clone, Copy, EnumString, VariantNames)]
 </span><span class="kw">pub enum </span>RuntimeVersionType {
 	<span class="doccomment">/// Auto query version from chain
@@ -450,16 +452,16 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="macro">macro_rules! </span>declare_chain_runtime_version_params_cli_schema {
 	(<span class="macro-nonterminal">$chain</span>:ident, <span class="macro-nonterminal">$chain_prefix</span>:ident) =&gt; {
 		<span class="macro">bp_runtime::paste::item! </span>{
-			<span class="attr">#[doc = <span class="macro-nonterminal">$chain </span><span class="string">&quot; runtime version params.&quot;</span>]
+			<span class="attr">#[doc = <span class="macro-nonterminal">$chain </span><span class="string">" runtime version params."</span>]
 			#[derive(StructOpt, Debug, PartialEq, Eq, Clone, Copy)]
 			</span><span class="kw">pub struct </span>[&lt;<span class="macro-nonterminal">$chain </span>RuntimeVersionParams&gt;] {
-				<span class="attr">#[doc = <span class="string">&quot;The type of runtime version for chain &quot; </span><span class="macro-nonterminal">$chain</span>]
-				#[structopt(long, default_value = <span class="string">&quot;Bundle&quot;</span>)]
+				<span class="attr">#[doc = <span class="string">"The type of runtime version for chain " </span><span class="macro-nonterminal">$chain</span>]
+				#[structopt(long, default_value = <span class="string">"Bundle"</span>)]
 				</span><span class="kw">pub </span>[&lt;<span class="macro-nonterminal">$chain_prefix </span>_version_mode&gt;]: RuntimeVersionType,
-				<span class="attr">#[doc = <span class="string">&quot;The custom sepc_version for chain &quot; </span><span class="macro-nonterminal">$chain</span>]
+				<span class="attr">#[doc = <span class="string">"The custom sepc_version for chain " </span><span class="macro-nonterminal">$chain</span>]
 				#[structopt(long)]
 				</span><span class="kw">pub </span>[&lt;<span class="macro-nonterminal">$chain_prefix </span>_spec_version&gt;]: <span class="prelude-ty">Option</span>&lt;u32&gt;,
-				<span class="attr">#[doc = <span class="string">&quot;The custom transaction_version for chain &quot; </span><span class="macro-nonterminal">$chain</span>]
+				<span class="attr">#[doc = <span class="string">"The custom transaction_version for chain " </span><span class="macro-nonterminal">$chain</span>]
 				#[structopt(long)]
 				</span><span class="kw">pub </span>[&lt;<span class="macro-nonterminal">$chain_prefix </span>_transaction_version&gt;]: <span class="prelude-ty">Option</span>&lt;u32&gt;,
 			}
@@ -474,9 +476,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						RuntimeVersionType::Auto =&gt; ChainRuntimeVersion::Auto,
 						RuntimeVersionType::Custom =&gt; {
 							<span class="kw">let </span>custom_spec_version = <span class="self">self</span>.[&lt;<span class="macro-nonterminal">$chain_prefix </span>_spec_version&gt;]
-								.ok_or_else(|| anyhow::Error::msg(<span class="macro">format!</span>(<span class="string">&quot;The {}-spec-version is required when choose custom mode&quot;</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$chain_prefix</span>))))<span class="question-mark">?</span>;
+								.ok_or_else(|| anyhow::Error::msg(<span class="macro">format!</span>(<span class="string">"The {}-spec-version is required when choose custom mode"</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$chain_prefix</span>))))<span class="question-mark">?</span>;
 							<span class="kw">let </span>custom_transaction_version = <span class="self">self</span>.[&lt;<span class="macro-nonterminal">$chain_prefix </span>_transaction_version&gt;]
-								.ok_or_else(|| anyhow::Error::msg(<span class="macro">format!</span>(<span class="string">&quot;The {}-transaction-version is required when choose custom mode&quot;</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$chain_prefix</span>))))<span class="question-mark">?</span>;
+								.ok_or_else(|| anyhow::Error::msg(<span class="macro">format!</span>(<span class="string">"The {}-transaction-version is required when choose custom mode"</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$chain_prefix</span>))))<span class="question-mark">?</span>;
 							ChainRuntimeVersion::Custom(
 								SimpleRuntimeVersion {
 									spec_version: custom_spec_version,
@@ -487,7 +489,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						RuntimeVersionType::Bundle =&gt; <span class="kw">match </span>bundle_runtime_version {
 							<span class="prelude-val">Some</span>(runtime_version) =&gt; ChainRuntimeVersion::Custom(runtime_version),
 							<span class="prelude-val">None </span>=&gt; {
-								<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::format_err!</span>(<span class="string">&quot;Cannot use bundled runtime version of {}: it is not known to the relay&quot;</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$chain_prefix</span>)));
+								<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::format_err!</span>(<span class="string">"Cannot use bundled runtime version of {}: it is not known to the relay"</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$chain_prefix</span>)));
 							}
 						},
 					})
@@ -505,25 +507,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// TODO: https://github.com/paritytech/parity-bridges-common/issues/2909
 			// remove all obsolete arguments (separate URI components)
 
-			</span><span class="attr">#[doc = <span class="macro-nonterminal">$chain </span><span class="string">&quot; connection params.&quot;</span>]
+			</span><span class="attr">#[doc = <span class="macro-nonterminal">$chain </span><span class="string">" connection params."</span>]
 			#[derive(StructOpt, Debug, PartialEq, Eq, Clone)]
 			</span><span class="kw">pub struct </span>[&lt;<span class="macro-nonterminal">$chain </span>ConnectionParams&gt;] {
-				<span class="attr">#[doc = <span class="string">&quot;WS endpoint of &quot; </span><span class="macro-nonterminal">$chain </span><span class="string">&quot;: full URI. Overrides all other connection string components (host, port, path, secure).&quot;</span>]
+				<span class="attr">#[doc = <span class="string">"WS endpoint of " </span><span class="macro-nonterminal">$chain </span><span class="string">": full URI. Overrides all other connection string components (host, port, path, secure)."</span>]
 				#[structopt(long)]
 				</span><span class="kw">pub </span>[&lt;<span class="macro-nonterminal">$chain_prefix </span>_uri&gt;]: <span class="prelude-ty">Option</span>&lt;String&gt;,
-				<span class="attr">#[doc = <span class="string">&quot;WS endpoint of &quot; </span><span class="macro-nonterminal">$chain </span><span class="string">&quot;: host component.&quot;</span>]
-				#[structopt(long, default_value = <span class="string">&quot;127.0.0.1&quot;</span>)]
+				<span class="attr">#[doc = <span class="string">"WS endpoint of " </span><span class="macro-nonterminal">$chain </span><span class="string">": host component."</span>]
+				#[structopt(long, default_value = <span class="string">"127.0.0.1"</span>)]
 				</span><span class="kw">pub </span>[&lt;<span class="macro-nonterminal">$chain_prefix </span>_host&gt;]: String,
-				<span class="attr">#[doc = <span class="string">&quot;WS endpoint of &quot; </span><span class="macro-nonterminal">$chain </span><span class="string">&quot;: port component.&quot;</span>]
-				#[structopt(long, default_value = <span class="string">&quot;9944&quot;</span>)]
+				<span class="attr">#[doc = <span class="string">"WS endpoint of " </span><span class="macro-nonterminal">$chain </span><span class="string">": port component."</span>]
+				#[structopt(long, default_value = <span class="string">"9944"</span>)]
 				</span><span class="kw">pub </span>[&lt;<span class="macro-nonterminal">$chain_prefix </span>_port&gt;]: u16,
-				<span class="attr">#[doc = <span class="string">&quot;WS endpoint of &quot; </span><span class="macro-nonterminal">$chain </span><span class="string">&quot;: path component.&quot;</span>]
+				<span class="attr">#[doc = <span class="string">"WS endpoint of " </span><span class="macro-nonterminal">$chain </span><span class="string">": path component."</span>]
 				#[structopt(long)]
 				</span><span class="kw">pub </span>[&lt;<span class="macro-nonterminal">$chain_prefix </span>_path&gt;]: <span class="prelude-ty">Option</span>&lt;String&gt;,
-				<span class="attr">#[doc = <span class="string">&quot;Use secure websocket connection.&quot;</span>]
+				<span class="attr">#[doc = <span class="string">"Use secure websocket connection."</span>]
 				#[structopt(long)]
 				</span><span class="kw">pub </span>[&lt;<span class="macro-nonterminal">$chain_prefix </span>_secure&gt;]: bool,
-				<span class="attr">#[doc = <span class="string">&quot;Custom runtime version&quot;</span>]
+				<span class="attr">#[doc = <span class="string">"Custom runtime version"</span>]
 				#[structopt(flatten)]
 				</span><span class="kw">pub </span>[&lt;<span class="macro-nonterminal">$chain_prefix </span>_runtime_version&gt;]: [&lt;<span class="macro-nonterminal">$chain </span>RuntimeVersionParams&gt;],
 			}
@@ -558,24 +560,24 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="macro">macro_rules! </span>declare_chain_signing_params_cli_schema {
 	(<span class="macro-nonterminal">$chain</span>:ident, <span class="macro-nonterminal">$chain_prefix</span>:ident) =&gt; {
 		<span class="macro">bp_runtime::paste::item! </span>{
-			<span class="attr">#[doc = <span class="macro-nonterminal">$chain </span><span class="string">&quot; signing params.&quot;</span>]
+			<span class="attr">#[doc = <span class="macro-nonterminal">$chain </span><span class="string">" signing params."</span>]
 			#[derive(StructOpt, Debug, PartialEq, Eq, Clone)]
 			</span><span class="kw">pub struct </span>[&lt;<span class="macro-nonterminal">$chain </span>SigningParams&gt;] {
-				<span class="attr">#[doc = <span class="string">&quot;The SURI of secret key to use when transactions are submitted to the &quot; </span><span class="macro-nonterminal">$chain </span><span class="string">&quot; node.&quot;</span>]
+				<span class="attr">#[doc = <span class="string">"The SURI of secret key to use when transactions are submitted to the " </span><span class="macro-nonterminal">$chain </span><span class="string">" node."</span>]
 				#[structopt(long)]
 				</span><span class="kw">pub </span>[&lt;<span class="macro-nonterminal">$chain_prefix </span>_signer&gt;]: <span class="prelude-ty">Option</span>&lt;String&gt;,
-				<span class="attr">#[doc = <span class="string">&quot;The password for the SURI of secret key to use when transactions are submitted to the &quot; </span><span class="macro-nonterminal">$chain </span><span class="string">&quot; node.&quot;</span>]
+				<span class="attr">#[doc = <span class="string">"The password for the SURI of secret key to use when transactions are submitted to the " </span><span class="macro-nonterminal">$chain </span><span class="string">" node."</span>]
 				#[structopt(long)]
 				</span><span class="kw">pub </span>[&lt;<span class="macro-nonterminal">$chain_prefix </span>_signer_password&gt;]: <span class="prelude-ty">Option</span>&lt;String&gt;,
 
-				<span class="attr">#[doc = <span class="string">&quot;Path to the file, that contains SURI of secret key to use when transactions are submitted to the &quot; </span><span class="macro-nonterminal">$chain </span><span class="string">&quot; node. Can be overridden with &quot; </span><span class="macro-nonterminal">$chain_prefix </span><span class="string">&quot;_signer option.&quot;</span>]
+				<span class="attr">#[doc = <span class="string">"Path to the file, that contains SURI of secret key to use when transactions are submitted to the " </span><span class="macro-nonterminal">$chain </span><span class="string">" node. Can be overridden with " </span><span class="macro-nonterminal">$chain_prefix </span><span class="string">"_signer option."</span>]
 				#[structopt(long)]
 				</span><span class="kw">pub </span>[&lt;<span class="macro-nonterminal">$chain_prefix </span>_signer_file&gt;]: <span class="prelude-ty">Option</span>&lt;std::path::PathBuf&gt;,
-				<span class="attr">#[doc = <span class="string">&quot;Path to the file, that password for the SURI of secret key to use when transactions are submitted to the &quot; </span><span class="macro-nonterminal">$chain </span><span class="string">&quot; node. Can be overridden with &quot; </span><span class="macro-nonterminal">$chain_prefix </span><span class="string">&quot;_signer_password option.&quot;</span>]
+				<span class="attr">#[doc = <span class="string">"Path to the file, that password for the SURI of secret key to use when transactions are submitted to the " </span><span class="macro-nonterminal">$chain </span><span class="string">" node. Can be overridden with " </span><span class="macro-nonterminal">$chain_prefix </span><span class="string">"_signer_password option."</span>]
 				#[structopt(long)]
 				</span><span class="kw">pub </span>[&lt;<span class="macro-nonterminal">$chain_prefix </span>_signer_password_file&gt;]: <span class="prelude-ty">Option</span>&lt;std::path::PathBuf&gt;,
 
-				<span class="attr">#[doc = <span class="string">&quot;Transactions mortality period, in blocks. MUST be a power of two in [4; 65536] range. MAY NOT be larger than `BlockHashCount` parameter of the chain system module.&quot;</span>]
+				<span class="attr">#[doc = <span class="string">"Transactions mortality period, in blocks. MUST be a power of two in [4; 65536] range. MAY NOT be larger than `BlockHashCount` parameter of the chain system module."</span>]
 				#[structopt(long)]
 				</span><span class="kw">pub </span>[&lt;<span class="macro-nonterminal">$chain_prefix </span>_transactions_mortality&gt;]: <span class="prelude-ty">Option</span>&lt;u32&gt;,
 			}
@@ -590,7 +592,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 								|| !transactions_mortality.is_power_of_two()
 							{
 								<span class="prelude-val">Err</span>(<span class="macro">anyhow::format_err!</span>(
-									<span class="string">&quot;Transactions mortality {} is not a power of two in a [4; 65536] range&quot;</span>,
+									<span class="string">"Transactions mortality {} is not a power of two in a [4; 65536] range"</span>,
 									transactions_mortality,
 								))
 							} <span class="kw">else </span>{
@@ -607,12 +609,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						(<span class="prelude-val">Some</span>(suri), <span class="kw">_</span>) =&gt; suri.to_owned(),
 						(<span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(suri_file)) =&gt; std::fs::read_to_string(suri_file)
 							.map_err(|err| <span class="macro">anyhow::format_err!</span>(
-								<span class="string">&quot;Failed to read SURI from file {:?}: {}&quot;</span>,
+								<span class="string">"Failed to read SURI from file {:?}: {}"</span>,
 								suri_file,
 								err,
 							))<span class="question-mark">?</span>,
 						(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::format_err!</span>(
-							<span class="string">&quot;One of options must be specified: &#39;{}&#39; or &#39;{}&#39;&quot;</span>,
+							<span class="string">"One of options must be specified: '{}' or '{}'"</span>,
 							<span class="macro">stringify!</span>([&lt;<span class="macro-nonterminal">$chain_prefix </span>_signer&gt;]),
 							<span class="macro">stringify!</span>([&lt;<span class="macro-nonterminal">$chain_prefix </span>_signer_file&gt;]),
 						)),
@@ -626,7 +628,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 						(<span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(suri_password_file)) =&gt; std::fs::read_to_string(suri_password_file)
 							.map(<span class="prelude-val">Some</span>)
 							.map_err(|err| <span class="macro">anyhow::format_err!</span>(
-								<span class="string">&quot;Failed to read SURI password from file {:?}: {}&quot;</span>,
+								<span class="string">"Failed to read SURI password from file {:?}: {}"</span>,
 								suri_password_file,
 								err,
 							))<span class="question-mark">?</span>,
@@ -638,7 +640,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					AccountKeyPairOf::&lt;Chain&gt;::from_string(
 						<span class="kw-2">&amp;</span>suri,
 						suri_password.as_deref()
-					).map_err(|e| <span class="macro">anyhow::format_err!</span>(<span class="string">&quot;{:?}&quot;</span>, e))
+					).map_err(|e| <span class="macro">anyhow::format_err!</span>(<span class="string">"{:?}"</span>, e))
 				}
 
 				<span class="doccomment">/// Return transaction parameters.

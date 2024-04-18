@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/service/src/builder.rs`."><title>builder.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/service/src/builder.rs`."><title>builder.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_service" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_service" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sc_service/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -1442,9 +1444,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			.map(|(n, c)| {
 				<span class="kw">let </span>number = NumberFor::&lt;TBl&gt;::from_str(<span class="kw-2">&amp;</span>n).map_err(|<span class="kw">_</span>| {
 					Error::Application(Box::from(<span class="macro">format!</span>(
-						<span class="string">&quot;Failed to parse `{}` as block number for code substitutes. \
+						<span class="string">"Failed to parse `{}` as block number for code substitutes. \
 						 In an old version the key for code substitute was a block hash. \
-						 Please update the chain spec to a version that is compatible with your node.&quot;</span>,
+						 Please update the chain spec to a version that is compatible with your node."</span>,
 						n
 					)))
 				})<span class="question-mark">?</span>;
@@ -1564,7 +1566,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Parameters to pass into `build`.
-</span><span class="kw">pub struct </span>SpawnTasksParams&lt;<span class="lifetime">&#39;a</span>, TBl: BlockT, TCl, TExPool, TRpc, Backend&gt; {
+</span><span class="kw">pub struct </span>SpawnTasksParams&lt;<span class="lifetime">'a</span>, TBl: BlockT, TCl, TExPool, TRpc, Backend&gt; {
 	<span class="doccomment">/// The service configuration.
 	</span><span class="kw">pub </span>config: Configuration,
 	<span class="doccomment">/// A shared client returned by `new_full_parts`.
@@ -1572,7 +1574,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// A shared backend returned by `new_full_parts`.
 	</span><span class="kw">pub </span>backend: Arc&lt;Backend&gt;,
 	<span class="doccomment">/// A task manager returned by `new_full_parts`.
-	</span><span class="kw">pub </span>task_manager: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>TaskManager,
+	</span><span class="kw">pub </span>task_manager: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>TaskManager,
 	<span class="doccomment">/// A shared keystore returned by `new_full_parts`.
 	</span><span class="kw">pub </span>keystore: KeystorePtr,
 	<span class="doccomment">/// A shared transaction pool.
@@ -1590,7 +1592,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="doccomment">/// Syncing service.
 	</span><span class="kw">pub </span>sync_service: Arc&lt;SyncingService&lt;TBl&gt;&gt;,
 	<span class="doccomment">/// Telemetry instance for this node.
-	</span><span class="kw">pub </span>telemetry: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>Telemetry&gt;,
+	</span><span class="kw">pub </span>telemetry: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>Telemetry&gt;,
 }
 
 <span class="doccomment">/// Spawn the tasks that are required to run a node.
@@ -1611,7 +1613,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		+ StorageProvider&lt;TBl, TBackend&gt;
 		+ CallApiAt&lt;TBl&gt;
 		+ Send
-		+ <span class="lifetime">&#39;static</span>,
+		+ <span class="lifetime">'static</span>,
 	&lt;TCl <span class="kw">as </span>ProvideRuntimeApi&lt;TBl&gt;&gt;::Api: sp_api::Metadata&lt;TBl&gt;
 		+ sp_transaction_pool::runtime_api::TaggedTransactionQueue&lt;TBl&gt;
 		+ sp_session::SessionKeys&lt;TBl&gt;
@@ -1619,8 +1621,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	TBl: BlockT,
 	TBl::Hash: Unpin,
 	TBl::Header: Unpin,
-	TBackend: <span class="lifetime">&#39;static </span>+ sc_client_api::backend::Backend&lt;TBl&gt; + Send,
-	TExPool: MaintainedTransactionPool&lt;Block = TBl, Hash = &lt;TBl <span class="kw">as </span>BlockT&gt;::Hash&gt; + <span class="lifetime">&#39;static</span>,
+	TBackend: <span class="lifetime">'static </span>+ sc_client_api::backend::Backend&lt;TBl&gt; + Send,
+	TExPool: MaintainedTransactionPool&lt;Block = TBl, Hash = &lt;TBl <span class="kw">as </span>BlockT&gt;::Hash&gt; + <span class="lifetime">'static</span>,
 {
 	<span class="kw">let </span>SpawnTasksParams {
 		<span class="kw-2">mut </span>config,
@@ -1656,20 +1658,20 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		})
 		.transpose()<span class="question-mark">?</span>;
 
-	<span class="macro">info!</span>(<span class="string">&quot;📦 Highest known block at #{}&quot;</span>, chain_info.best_number);
+	<span class="macro">info!</span>(<span class="string">"📦 Highest known block at #{}"</span>, chain_info.best_number);
 
 	<span class="kw">let </span>spawn_handle = task_manager.spawn_handle();
 
 	<span class="comment">// Inform the tx pool about imported and finalized blocks.
 	</span>spawn_handle.spawn(
-		<span class="string">&quot;txpool-notifications&quot;</span>,
-		<span class="prelude-val">Some</span>(<span class="string">&quot;transaction-pool&quot;</span>),
+		<span class="string">"txpool-notifications"</span>,
+		<span class="prelude-val">Some</span>(<span class="string">"transaction-pool"</span>),
 		sc_transaction_pool::notification_future(client.clone(), transaction_pool.clone()),
 	);
 
 	spawn_handle.spawn(
-		<span class="string">&quot;on-transaction-imported&quot;</span>,
-		<span class="prelude-val">Some</span>(<span class="string">&quot;transaction-pool&quot;</span>),
+		<span class="string">"on-transaction-imported"</span>,
+		<span class="prelude-val">Some</span>(<span class="string">"transaction-pool"</span>),
 		propagate_transaction_notifications(
 			transaction_pool.clone(),
 			tx_handler_controller,
@@ -1683,7 +1685,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// Set static metrics.
 			</span><span class="kw">let </span>metrics = MetricsService::with_prometheus(telemetry, <span class="kw-2">&amp;</span>registry, <span class="kw-2">&amp;</span>config)<span class="question-mark">?</span>;
 			spawn_handle.spawn(
-				<span class="string">&quot;prometheus-endpoint&quot;</span>,
+				<span class="string">"prometheus-endpoint"</span>,
 				<span class="prelude-val">None</span>,
 				prometheus_endpoint::init_prometheus(port, registry).map(drop),
 			);
@@ -1695,7 +1697,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="comment">// Periodically updated metrics and telemetry updates.
 	</span>spawn_handle.spawn(
-		<span class="string">&quot;telemetry-periodic-send&quot;</span>,
+		<span class="string">"telemetry-periodic-send"</span>,
 		<span class="prelude-val">None</span>,
 		metrics_service.run(
 			client.clone(),
@@ -1727,7 +1729,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="comment">// Spawn informant task
 	</span>spawn_handle.spawn(
-		<span class="string">&quot;informant&quot;</span>,
+		<span class="string">"informant"</span>,
 		<span class="prelude-val">None</span>,
 		sc_informant::build(
 			client.clone(),
@@ -1762,9 +1764,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="macro">telemetry!</span>(
 				telemetry;
 				SUBSTRATE_INFO;
-				<span class="string">&quot;txpool.import&quot;</span>;
-				<span class="string">&quot;ready&quot; </span>=&gt; status.ready,
-				<span class="string">&quot;future&quot; </span>=&gt; status.future,
+				<span class="string">"txpool.import"</span>;
+				<span class="string">"ready" </span>=&gt; status.ready,
+				<span class="string">"future" </span>=&gt; status.future,
 			);
 			ready(())
 		})
@@ -1794,7 +1796,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		target_env: sc_sysinfo::TARGET_ENV.into(),
 		config: String::new(),
 		chain: config.chain_spec.name().to_owned(),
-		genesis_hash: <span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, genesis_hash),
+		genesis_hash: <span class="macro">format!</span>(<span class="string">"{:?}"</span>, genesis_hash),
 		authority: config.role.is_authority(),
 		startup_time: SystemTime::UNIX_EPOCH
 			.elapsed()
@@ -1835,10 +1837,10 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		+ BlockBackend&lt;TBl&gt;
 		+ Send
 		+ Sync
-		+ <span class="lifetime">&#39;static</span>,
-	TBackend: sc_client_api::backend::Backend&lt;TBl&gt; + <span class="lifetime">&#39;static</span>,
+		+ <span class="lifetime">'static</span>,
+	TBackend: sc_client_api::backend::Backend&lt;TBl&gt; + <span class="lifetime">'static</span>,
 	&lt;TCl <span class="kw">as </span>ProvideRuntimeApi&lt;TBl&gt;&gt;::Api: sp_session::SessionKeys&lt;TBl&gt; + sp_api::Metadata&lt;TBl&gt;,
-	TExPool: MaintainedTransactionPool&lt;Block = TBl, Hash = &lt;TBl <span class="kw">as </span>BlockT&gt;::Hash&gt; + <span class="lifetime">&#39;static</span>,
+	TExPool: MaintainedTransactionPool&lt;Block = TBl, Hash = &lt;TBl <span class="kw">as </span>BlockT&gt;::Hash&gt; + <span class="lifetime">'static</span>,
 	TBl::Hash: Unpin,
 	TBl::Header: Unpin,
 {
@@ -1889,12 +1891,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="comment">// Part of the RPC v2 spec.
 	// An archive node that can respond to the `archive` RPC-v2 queries is a node with:
 	// - state pruning in archive mode: The storage of blocks is kept around
-	// - block pruning in archive mode: The block&#39;s body is kept around
+	// - block pruning in archive mode: The block's body is kept around
 	</span><span class="kw">let </span>is_archive_node = config.state_pruning.as_ref().map(|sp| sp.is_archive()).unwrap_or(<span class="bool-val">false</span>) &amp;&amp;
 		config.blocks_pruning.is_archive();
 	<span class="kw">if </span>is_archive_node {
 		<span class="kw">let </span>genesis_hash =
-			client.hash(Zero::zero()).ok().flatten().expect(<span class="string">&quot;Genesis block exists; qed&quot;</span>);
+			client.hash(Zero::zero()).ok().flatten().expect(<span class="string">"Genesis block exists; qed"</span>);
 		<span class="kw">let </span>archive_v2 = sc_rpc_spec_v2::archive::Archive::new(
 			client.clone(),
 			backend.clone(),
@@ -1945,7 +1947,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// Parameters to pass into `build_network`.
 </span><span class="kw">pub struct </span>BuildNetworkParams&lt;
-	<span class="lifetime">&#39;a</span>,
+	<span class="lifetime">'a</span>,
 	TBl: BlockT,
 	TNet: NetworkBackend&lt;TBl, &lt;TBl <span class="kw">as </span>BlockT&gt;::Hash&gt;,
 	TExPool,
@@ -1953,7 +1955,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	TCl,
 &gt; {
 	<span class="doccomment">/// The service configuration.
-	</span><span class="kw">pub </span>config: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Configuration,
+	</span><span class="kw">pub </span>config: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Configuration,
 	<span class="doccomment">/// Full network configuration.
 	</span><span class="kw">pub </span>net_config: FullNetworkConfiguration&lt;TBl, &lt;TBl <span class="kw">as </span>BlockT&gt;::Hash, TNet&gt;,
 	<span class="doccomment">/// A shared client returned by `new_full_parts`.
@@ -1999,9 +2001,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		+ ProofProvider&lt;TBl&gt;
 		+ HeaderBackend&lt;TBl&gt;
 		+ BlockchainEvents&lt;TBl&gt;
-		+ <span class="lifetime">&#39;static</span>,
-	TExPool: TransactionPool&lt;Block = TBl, Hash = &lt;TBl <span class="kw">as </span>BlockT&gt;::Hash&gt; + <span class="lifetime">&#39;static</span>,
-	TImpQu: ImportQueue&lt;TBl&gt; + <span class="lifetime">&#39;static</span>,
+		+ <span class="lifetime">'static</span>,
+	TExPool: TransactionPool&lt;Block = TBl, Hash = &lt;TBl <span class="kw">as </span>BlockT&gt;::Hash&gt; + <span class="lifetime">'static</span>,
+	TImpQu: ImportQueue&lt;TBl&gt; + <span class="lifetime">'static</span>,
 	TNet: NetworkBackend&lt;TBl, &lt;TBl <span class="kw">as </span>BlockT&gt;::Hash&gt;,
 {
 	<span class="kw">let </span>BuildNetworkParams {
@@ -2018,14 +2020,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	} = params;
 
 	<span class="kw">if </span>warp_sync_params.is_none() &amp;&amp; config.network.sync_mode.is_warp() {
-		<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;Warp sync enabled, but no warp sync provider configured.&quot;</span>.into())
+		<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Warp sync enabled, but no warp sync provider configured."</span>.into())
 	}
 
 	<span class="kw">if </span>client.requires_full_sync() {
 		<span class="kw">match </span>config.network.sync_mode {
 			SyncMode::LightState { .. } =&gt;
-				<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;Fast sync doesn&#39;t work for archive nodes&quot;</span>.into()),
-			SyncMode::Warp =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;Warp sync doesn&#39;t work for archive nodes&quot;</span>.into()),
+				<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Fast sync doesn't work for archive nodes"</span>.into()),
+			SyncMode::Warp =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Warp sync doesn't work for archive nodes"</span>.into()),
 			SyncMode::Full =&gt; {},
 		}
 	}
@@ -2035,7 +2037,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		.block_hash(<span class="number">0u32</span>.into())
 		.ok()
 		.flatten()
-		.expect(<span class="string">&quot;Genesis block exists; qed&quot;</span>);
+		.expect(<span class="string">"Genesis block exists; qed"</span>);
 
 	<span class="kw">let </span>block_announce_validator = <span class="kw">if let </span><span class="prelude-val">Some</span>(f) = block_announce_validator_builder {
 		f(client.clone())
@@ -2060,7 +2062,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			(params.server, params.downloader, params.request_response_config)
 		},
 	};
-	spawn_handle.spawn(<span class="string">&quot;block-request-handler&quot;</span>, <span class="prelude-val">Some</span>(<span class="string">&quot;networking&quot;</span>), <span class="kw">async move </span>{
+	spawn_handle.spawn(<span class="string">"block-request-handler"</span>, <span class="prelude-val">Some</span>(<span class="string">"networking"</span>), <span class="kw">async move </span>{
 		block_server.run().<span class="kw">await</span>;
 	});
 
@@ -2076,7 +2078,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		);
 		<span class="kw">let </span>config_name = protocol_config.protocol_name().clone();
 
-		spawn_handle.spawn(<span class="string">&quot;state-request-handler&quot;</span>, <span class="prelude-val">Some</span>(<span class="string">&quot;networking&quot;</span>), handler.run());
+		spawn_handle.spawn(<span class="string">"state-request-handler"</span>, <span class="prelude-val">Some</span>(<span class="string">"networking"</span>), handler.run());
 		(protocol_config, config_name)
 	};
 
@@ -2091,7 +2093,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			);
 			<span class="kw">let </span>config_name = protocol_config.protocol_name().clone();
 
-			spawn_handle.spawn(<span class="string">&quot;warp-sync-request-handler&quot;</span>, <span class="prelude-val">Some</span>(<span class="string">&quot;networking&quot;</span>), handler.run());
+			spawn_handle.spawn(<span class="string">"warp-sync-request-handler"</span>, <span class="prelude-val">Some</span>(<span class="string">"networking"</span>), handler.run());
 			(<span class="prelude-val">Some</span>(protocol_config), <span class="prelude-val">Some</span>(config_name))
 		},
 		<span class="kw">_ </span>=&gt; (<span class="prelude-val">None</span>, <span class="prelude-val">None</span>),
@@ -2104,7 +2106,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			config.chain_spec.fork_id(),
 			client.clone(),
 		);
-		spawn_handle.spawn(<span class="string">&quot;light-client-request-handler&quot;</span>, <span class="prelude-val">Some</span>(<span class="string">&quot;networking&quot;</span>), handler.run());
+		spawn_handle.spawn(<span class="string">"light-client-request-handler"</span>, <span class="prelude-val">Some</span>(<span class="string">"networking"</span>), handler.run());
 		protocol_config
 	};
 
@@ -2119,7 +2121,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="kw">let </span>bitswap_config = config.network.ipfs_server.then(|| {
 		<span class="kw">let </span>(handler, config) = TNet::bitswap_server(client.clone());
-		spawn_handle.spawn(<span class="string">&quot;bitswap-request-handler&quot;</span>, <span class="prelude-val">Some</span>(<span class="string">&quot;networking&quot;</span>), handler);
+		spawn_handle.spawn(<span class="string">"bitswap-request-handler"</span>, <span class="prelude-val">Some</span>(<span class="string">"networking"</span>), handler);
 
 		config
 	});
@@ -2139,7 +2141,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="comment">// Start task for `PeerStore`
 	</span><span class="kw">let </span>peer_store = net_config.take_peer_store();
 	<span class="kw">let </span>peer_store_handle = peer_store.handle();
-	spawn_handle.spawn(<span class="string">&quot;peer-store&quot;</span>, <span class="prelude-val">Some</span>(<span class="string">&quot;networking&quot;</span>), peer_store.run());
+	spawn_handle.spawn(<span class="string">"peer-store"</span>, <span class="prelude-val">Some</span>(<span class="string">"networking"</span>), peer_store.run());
 
 	<span class="kw">let </span>(engine, sync_service, block_announce_config) = SyncingEngine::new(
 		Roles::from(<span class="kw-2">&amp;</span>config.role),
@@ -2161,13 +2163,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">let </span>sync_service_import_queue = sync_service.clone();
 	<span class="kw">let </span>sync_service = Arc::new(sync_service);
 
-	<span class="kw">let </span>genesis_hash = client.hash(Zero::zero()).ok().flatten().expect(<span class="string">&quot;Genesis block exists; qed&quot;</span>);
+	<span class="kw">let </span>genesis_hash = client.hash(Zero::zero()).ok().flatten().expect(<span class="string">"Genesis block exists; qed"</span>);
 	<span class="kw">let </span>network_params = sc_network::config::Params::&lt;TBl, &lt;TBl <span class="kw">as </span>BlockT&gt;::Hash, TNet&gt; {
 		role: config.role.clone(),
 		executor: {
 			<span class="kw">let </span>spawn_handle = Clone::clone(<span class="kw-2">&amp;</span>spawn_handle);
 			Box::new(<span class="kw">move </span>|fut| {
-				spawn_handle.spawn(<span class="string">&quot;libp2p-node&quot;</span>, <span class="prelude-val">Some</span>(<span class="string">&quot;networking&quot;</span>), fut);
+				spawn_handle.spawn(<span class="string">"libp2p-node"</span>, <span class="prelude-val">Some</span>(<span class="string">"networking"</span>), fut);
 			})
 		},
 		network_config: net_config,
@@ -2191,23 +2193,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		config.prometheus_config.as_ref().map(|config| <span class="kw-2">&amp;</span>config.registry),
 	)<span class="question-mark">?</span>;
 	spawn_handle.spawn_blocking(
-		<span class="string">&quot;network-transactions-handler&quot;</span>,
-		<span class="prelude-val">Some</span>(<span class="string">&quot;networking&quot;</span>),
+		<span class="string">"network-transactions-handler"</span>,
+		<span class="prelude-val">Some</span>(<span class="string">"networking"</span>),
 		tx_handler.run(),
 	);
 
 	spawn_handle.spawn_blocking(
-		<span class="string">&quot;chain-sync-network-service-provider&quot;</span>,
-		<span class="prelude-val">Some</span>(<span class="string">&quot;networking&quot;</span>),
+		<span class="string">"chain-sync-network-service-provider"</span>,
+		<span class="prelude-val">Some</span>(<span class="string">"networking"</span>),
 		chain_sync_network_provider.run(Arc::new(network.clone())),
 	);
-	spawn_handle.spawn(<span class="string">&quot;import-queue&quot;</span>, <span class="prelude-val">None</span>, import_queue.run(Box::new(sync_service_import_queue)));
-	spawn_handle.spawn_blocking(<span class="string">&quot;syncing&quot;</span>, <span class="prelude-val">None</span>, engine.run());
+	spawn_handle.spawn(<span class="string">"import-queue"</span>, <span class="prelude-val">None</span>, import_queue.run(Box::new(sync_service_import_queue)));
+	spawn_handle.spawn_blocking(<span class="string">"syncing"</span>, <span class="prelude-val">None</span>, engine.run());
 
-	<span class="kw">let </span>(system_rpc_tx, system_rpc_rx) = tracing_unbounded(<span class="string">&quot;mpsc_system_rpc&quot;</span>, <span class="number">10_000</span>);
+	<span class="kw">let </span>(system_rpc_tx, system_rpc_rx) = tracing_unbounded(<span class="string">"mpsc_system_rpc"</span>, <span class="number">10_000</span>);
 	spawn_handle.spawn(
-		<span class="string">&quot;system-rpc-handler&quot;</span>,
-		<span class="prelude-val">Some</span>(<span class="string">&quot;networking&quot;</span>),
+		<span class="string">"system-rpc-handler"</span>,
+		<span class="prelude-val">Some</span>(<span class="string">"networking"</span>),
 		build_system_rpc_future::&lt;<span class="kw">_</span>, <span class="kw">_</span>, &lt;TBl <span class="kw">as </span>BlockT&gt;::Hash&gt;(
 			config.role.clone(),
 			network_mut.network_service(),
@@ -2226,7 +2228,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	);
 
 	<span class="comment">// TODO: Normally, one is supposed to pass a list of notifications protocols supported by the
-	// node through the `NetworkConfiguration` struct. But because this function doesn&#39;t know in
+	// node through the `NetworkConfiguration` struct. But because this function doesn't know in
 	// advance which components, such as GrandPa or Polkadot, will be plugged on top of the
 	// service, it is unfortunately not possible to do so without some deep refactoring. To
 	// bypass this problem, the `NetworkService` provides a `register_notifications_protocol`
@@ -2248,12 +2250,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	// issue, and ideally we would like to fix the network future to take as little time as
 	// possible, but we also take the extra harm-prevention measure to execute the networking
 	// future using `spawn_blocking`.
-	</span>spawn_handle.spawn_blocking(<span class="string">&quot;network-worker&quot;</span>, <span class="prelude-val">Some</span>(<span class="string">&quot;networking&quot;</span>), <span class="kw">async move </span>{
+	</span>spawn_handle.spawn_blocking(<span class="string">"network-worker"</span>, <span class="prelude-val">Some</span>(<span class="string">"networking"</span>), <span class="kw">async move </span>{
 		<span class="kw">if </span>network_start_rx.<span class="kw">await</span>.is_err() {
 			<span class="macro">log::warn!</span>(
-				<span class="string">&quot;The NetworkStart returned as part of `build_network` has been silently dropped&quot;
+				<span class="string">"The NetworkStart returned as part of `build_network` has been silently dropped"
 			</span>);
-			<span class="comment">// This `return` might seem unnecessary, but we don&#39;t want to make it look like
+			<span class="comment">// This `return` might seem unnecessary, but we don't want to make it look like
 			// everything is working as normal even though the user is clearly misusing the API.
 			</span><span class="kw">return
 		</span>}
@@ -2282,7 +2284,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="doccomment">/// Start the network. Call this after all sub-components have been initialized.
 	///
-	/// &gt; **Note**: If you don&#39;t call this function, the networking will not work.
+	/// &gt; **Note**: If you don't call this function, the networking will not work.
 	</span><span class="kw">pub fn </span>start_network(<span class="self">self</span>) {
 		<span class="kw">let _ </span>= <span class="self">self</span>.<span class="number">0</span>.send(());
 	}

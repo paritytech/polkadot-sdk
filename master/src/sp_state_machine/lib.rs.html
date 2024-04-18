@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/state-machine/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/primitives/state-machine/src/lib.rs`."><title>lib.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_state_machine" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sp_state_machine" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sp_state_machine/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -2116,14 +2118,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 // 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+// distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
@@ -2131,41 +2133,41 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 </span><span class="doccomment">//! Substrate state machine implementation.
 
 </span><span class="attr">#![warn(missing_docs)]
-#![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
+#![cfg_attr(not(feature = <span class="string">"std"</span>), no_std)]
 
 </span><span class="kw">extern crate </span>alloc;
 
 <span class="kw">pub mod </span>backend;
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">mod </span>basic;
 <span class="kw">mod </span>error;
 <span class="kw">mod </span>ext;
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">mod </span>in_memory_backend;
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>overlayed_changes;
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">mod </span>read_only;
 <span class="kw">mod </span>stats;
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">mod </span>testing;
 <span class="kw">mod </span>trie_backend;
 <span class="kw">mod </span>trie_backend_essence;
 
 <span class="kw">pub use </span>trie_backend::TrieCacheProvider;
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">pub use </span>std_reexport::<span class="kw-2">*</span>;
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">pub use </span>execution::<span class="kw-2">*</span>;
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">pub use </span>log::{debug, error <span class="kw">as </span>log_error, warn};
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">pub use </span>tracing::trace;
 
 <span class="doccomment">/// In no_std we skip logs for state_machine, this macro
 /// is a noops.
-</span><span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+</span><span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
 #[macro_export]
 </span><span class="macro">macro_rules! </span>warn {
 	(target: <span class="macro-nonterminal">$target</span>:expr, <span class="macro-nonterminal">$message</span>:expr $( , <span class="macro-nonterminal">$arg</span>:ident )* $( , )<span class="question-mark">?</span>) =&gt; {
@@ -2186,7 +2188,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// In no_std we skip logs for state_machine, this macro
 /// is a noops.
-</span><span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+</span><span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
 #[macro_export]
 </span><span class="macro">macro_rules! </span>debug {
 	(target: <span class="macro-nonterminal">$target</span>:expr, <span class="macro-nonterminal">$message</span>:expr $( , <span class="macro-nonterminal">$arg</span>:ident )* $( , )<span class="question-mark">?</span>) =&gt; {
@@ -2200,7 +2202,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// In no_std we skip logs for state_machine, this macro
 /// is a noops.
-</span><span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+</span><span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
 #[macro_export]
 </span><span class="macro">macro_rules! </span>trace {
 	(target: <span class="macro-nonterminal">$target</span>:expr, $(<span class="macro-nonterminal">$arg</span>:tt)+) =&gt; {
@@ -2213,7 +2215,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 <span class="doccomment">/// In no_std we skip logs for state_machine, this macro
 /// is a noops.
-</span><span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+</span><span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
 #[macro_export]
 </span><span class="macro">macro_rules! </span>log_error {
 	(target: <span class="macro-nonterminal">$target</span>:expr, $(<span class="macro-nonterminal">$arg</span>:tt)+) =&gt; {
@@ -2225,17 +2227,17 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 }
 
 <span class="doccomment">/// Default error type to use with state machine trie backend.
-</span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+</span><span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">pub type </span>DefaultError = String;
 <span class="doccomment">/// Error type to use with state machine trie backend.
-</span><span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+</span><span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
 #[derive(Debug, Default, Clone, Copy, Eq, PartialEq)]
 </span><span class="kw">pub struct </span>DefaultError;
 
-<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+<span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
 </span><span class="kw">impl </span>core::fmt::Display <span class="kw">for </span>DefaultError {
 	<span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter) -&gt; core::fmt::Result {
-		<span class="macro">write!</span>(f, <span class="string">&quot;DefaultError&quot;</span>)
+		<span class="macro">write!</span>(f, <span class="string">"DefaultError"</span>)
 	}
 }
 
@@ -2253,7 +2255,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	trie_backend_essence::{Storage, TrieBackendStorage},
 };
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">mod </span>std_reexport {
 	<span class="kw">pub use crate</span>::{
 		basic::BasicExternalities,
@@ -2268,7 +2270,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	};
 }
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">mod </span>execution {
 	<span class="kw">use </span><span class="kw">crate</span>::backend::AsTrieBackend;
 
@@ -2305,18 +2307,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// The substrate state machine.
-	</span><span class="kw">pub struct </span>StateMachine&lt;<span class="lifetime">&#39;a</span>, B, H, Exec&gt;
+	</span><span class="kw">pub struct </span>StateMachine&lt;<span class="lifetime">'a</span>, B, H, Exec&gt;
 	<span class="kw">where
 		</span>H: Hasher,
 		B: Backend&lt;H&gt;,
 	{
-		backend: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>B,
-		exec: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Exec,
-		method: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>str,
-		call_data: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8],
-		overlay: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>OverlayedChanges&lt;H&gt;,
-		extensions: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>Extensions,
-		runtime_code: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>RuntimeCode&lt;<span class="lifetime">&#39;a</span>&gt;,
+		backend: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>B,
+		exec: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Exec,
+		method: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>str,
+		call_data: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8],
+		overlay: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>OverlayedChanges&lt;H&gt;,
+		extensions: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>Extensions,
+		runtime_code: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>RuntimeCode&lt;<span class="lifetime">'a</span>&gt;,
 		stats: StateMachineStats,
 		<span class="doccomment">/// The hash of the block the state machine will be executed on.
 		///
@@ -2325,7 +2327,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		context: CallContext,
 	}
 
-	<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, B, H, Exec&gt; Drop <span class="kw">for </span>StateMachine&lt;<span class="lifetime">&#39;a</span>, B, H, Exec&gt;
+	<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, B, H, Exec&gt; Drop <span class="kw">for </span>StateMachine&lt;<span class="lifetime">'a</span>, B, H, Exec&gt;
 	<span class="kw">where
 		</span>H: Hasher,
 		B: Backend&lt;H&gt;,
@@ -2335,22 +2337,22 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		}
 	}
 
-	<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, B, H, Exec&gt; StateMachine&lt;<span class="lifetime">&#39;a</span>, B, H, Exec&gt;
+	<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, B, H, Exec&gt; StateMachine&lt;<span class="lifetime">'a</span>, B, H, Exec&gt;
 	<span class="kw">where
 		</span>H: Hasher,
-		H::Out: Ord + <span class="lifetime">&#39;static </span>+ codec::Codec,
-		Exec: CodeExecutor + Clone + <span class="lifetime">&#39;static</span>,
+		H::Out: Ord + <span class="lifetime">'static </span>+ codec::Codec,
+		Exec: CodeExecutor + Clone + <span class="lifetime">'static</span>,
 		B: Backend&lt;H&gt;,
 	{
 		<span class="doccomment">/// Creates new substrate state machine.
 		</span><span class="kw">pub fn </span>new(
-			backend: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>B,
-			overlay: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>OverlayedChanges&lt;H&gt;,
-			exec: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Exec,
-			method: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>str,
-			call_data: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8],
-			extensions: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>Extensions,
-			runtime_code: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>RuntimeCode,
+			backend: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>B,
+			overlay: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>OverlayedChanges&lt;H&gt;,
+			exec: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Exec,
+			method: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>str,
+			call_data: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8],
+			extensions: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>Extensions,
+			runtime_code: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>RuntimeCode,
 			context: CallContext,
 		) -&gt; <span class="self">Self </span>{
 			<span class="self">Self </span>{
@@ -2386,19 +2388,19 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">pub fn </span>execute(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, Box&lt;<span class="kw">dyn </span>Error&gt;&gt; {
 			<span class="self">self</span>.overlay
 				.enter_runtime()
-				.expect(<span class="string">&quot;StateMachine is never called from the runtime; qed&quot;</span>);
+				.expect(<span class="string">"StateMachine is never called from the runtime; qed"</span>);
 
 			<span class="kw">let </span><span class="kw-2">mut </span>ext = Ext::new(<span class="self">self</span>.overlay, <span class="self">self</span>.backend, <span class="prelude-val">Some</span>(<span class="self">self</span>.extensions));
 
 			<span class="kw">let </span>ext_id = ext.id;
 
 			<span class="macro">trace!</span>(
-				target: <span class="string">&quot;state&quot;</span>,
+				target: <span class="string">"state"</span>,
 				ext_id = %HexDisplay::from(<span class="kw-2">&amp;</span>ext_id.to_le_bytes()),
 				method = %<span class="self">self</span>.method,
-				parent_hash = %<span class="self">self</span>.parent_hash.map(|h| <span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, h)).unwrap_or_else(|| String::from(<span class="string">&quot;None&quot;</span>)),
+				parent_hash = %<span class="self">self</span>.parent_hash.map(|h| <span class="macro">format!</span>(<span class="string">"{:?}"</span>, h)).unwrap_or_else(|| String::from(<span class="string">"None"</span>)),
 				input = <span class="question-mark">?</span>HexDisplay::from(<span class="kw-2">&amp;</span><span class="self">self</span>.call_data),
-				<span class="string">&quot;Call&quot;</span>,
+				<span class="string">"Call"</span>,
 			);
 
 			<span class="kw">let </span>result = <span class="self">self
@@ -2408,13 +2410,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 			<span class="self">self</span>.overlay
 				.exit_runtime()
-				.expect(<span class="string">&quot;Runtime is not able to call this function in the overlay; qed&quot;</span>);
+				.expect(<span class="string">"Runtime is not able to call this function in the overlay; qed"</span>);
 
 			<span class="macro">trace!</span>(
-				target: <span class="string">&quot;state&quot;</span>,
+				target: <span class="string">"state"</span>,
 				ext_id = %HexDisplay::from(<span class="kw-2">&amp;</span>ext_id.to_le_bytes()),
 				<span class="question-mark">?</span>result,
-				<span class="string">&quot;Return&quot;</span>,
+				<span class="string">"Return"</span>,
 			);
 
 			result.map_err(|e| Box::new(e) <span class="kw">as </span>Box&lt;<span class="kw">_</span>&gt;)
@@ -2433,8 +2435,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">where
 		</span>B: AsTrieBackend&lt;H&gt;,
 		H: Hasher,
-		H::Out: Ord + <span class="lifetime">&#39;static </span>+ codec::Codec,
-		Exec: CodeExecutor + Clone + <span class="lifetime">&#39;static</span>,
+		H::Out: Ord + <span class="lifetime">'static </span>+ codec::Codec,
+		Exec: CodeExecutor + Clone + <span class="lifetime">'static</span>,
 	{
 		<span class="kw">let </span>trie_backend = backend.as_trie_backend();
 		prove_execution_on_trie_backend::&lt;<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;(
@@ -2449,9 +2451,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 
 	<span class="doccomment">/// Prove execution using the given trie backend, overlayed changes, and call executor.
-	/// Produces a state-backend-specific &quot;transaction&quot; which can be used to apply the changes
+	/// Produces a state-backend-specific "transaction" which can be used to apply the changes
 	/// to the backing store, such as the disk.
-	/// Execution proof is the set of all &#39;touched&#39; storage DBValues from the backend.
+	/// Execution proof is the set of all 'touched' storage DBValues from the backend.
 	///
 	/// On an error, no prospective changes are written to the overlay.
 	///
@@ -2469,8 +2471,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">where
 		</span>S: trie_backend_essence::TrieBackendStorage&lt;H&gt;,
 		H: Hasher,
-		H::Out: Ord + <span class="lifetime">&#39;static </span>+ codec::Codec,
-		Exec: CodeExecutor + <span class="lifetime">&#39;static </span>+ Clone,
+		H::Out: Ord + <span class="lifetime">'static </span>+ codec::Codec,
+		Exec: CodeExecutor + <span class="lifetime">'static </span>+ Clone,
 	{
 		<span class="kw">let </span>proving_backend =
 			TrieBackendBuilder::wrap(trie_backend).with_recorder(Default::default()).build();
@@ -2489,7 +2491,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>proof = proving_backend
 			.extract_proof()
-			.expect(<span class="string">&quot;A recorder was set and thus, a storage proof can be extracted; qed&quot;</span>);
+			.expect(<span class="string">"A recorder was set and thus, a storage proof can be extracted; qed"</span>);
 
 		<span class="prelude-val">Ok</span>((result, proof))
 	}
@@ -2505,9 +2507,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		runtime_code: <span class="kw-2">&amp;</span>RuntimeCode,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, Box&lt;<span class="kw">dyn </span>Error&gt;&gt;
 	<span class="kw">where
-		</span>H: Hasher + <span class="lifetime">&#39;static</span>,
-		Exec: CodeExecutor + Clone + <span class="lifetime">&#39;static</span>,
-		H::Out: Ord + <span class="lifetime">&#39;static </span>+ codec::Codec,
+		</span>H: Hasher + <span class="lifetime">'static</span>,
+		Exec: CodeExecutor + Clone + <span class="lifetime">'static</span>,
+		H::Out: Ord + <span class="lifetime">'static </span>+ codec::Codec,
 	{
 		<span class="kw">let </span>trie_backend = create_proof_check_backend::&lt;H&gt;(root, proof)<span class="question-mark">?</span>;
 		execution_proof_check_on_trie_backend::&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;(
@@ -2531,8 +2533,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, Box&lt;<span class="kw">dyn </span>Error&gt;&gt;
 	<span class="kw">where
 		</span>H: Hasher,
-		H::Out: Ord + <span class="lifetime">&#39;static </span>+ codec::Codec,
-		Exec: CodeExecutor + Clone + <span class="lifetime">&#39;static</span>,
+		H::Out: Ord + <span class="lifetime">'static </span>+ codec::Codec,
+		Exec: CodeExecutor + Clone + <span class="lifetime">'static</span>,
 	{
 		StateMachine::&lt;<span class="kw">_</span>, H, Exec&gt;::new(
 			trie_backend,
@@ -2706,7 +2708,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		H::Out: Ord + Codec,
 	{
 		<span class="kw">if </span>start_at.len() &gt; MAX_NESTED_TRIE_DEPTH {
-			<span class="kw">return </span><span class="prelude-val">Err</span>(Box::new(<span class="string">&quot;Invalid start of range.&quot;</span>))
+			<span class="kw">return </span><span class="prelude-val">Err</span>(Box::new(<span class="string">"Invalid start of range."</span>))
 		}
 
 		<span class="kw">let </span>recorder = sp_trie::recorder::Recorder::default();
@@ -2716,14 +2718,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span><span class="kw-2">mut </span>child_roots = HashSet::new();
 		<span class="kw">let </span>(<span class="kw-2">mut </span>child_key, <span class="kw-2">mut </span>start_at) = <span class="kw">if </span>start_at.len() == <span class="number">2 </span>{
-			<span class="kw">let </span>storage_key = start_at.get(<span class="number">0</span>).expect(<span class="string">&quot;Checked length.&quot;</span>).clone();
+			<span class="kw">let </span>storage_key = start_at.get(<span class="number">0</span>).expect(<span class="string">"Checked length."</span>).clone();
 			<span class="kw">if let </span><span class="prelude-val">Some</span>(state_root) = proving_backend
 				.storage(<span class="kw-2">&amp;</span>storage_key)
 				.map_err(|e| Box::new(e) <span class="kw">as </span>Box&lt;<span class="kw">dyn </span>Error&gt;)<span class="question-mark">?
 			</span>{
 				child_roots.insert(state_root);
 			} <span class="kw">else </span>{
-				<span class="kw">return </span><span class="prelude-val">Err</span>(Box::new(<span class="string">&quot;Invalid range start child trie key.&quot;</span>))
+				<span class="kw">return </span><span class="prelude-val">Err</span>(Box::new(<span class="string">"Invalid range start child trie key."</span>))
 			}
 
 			(<span class="prelude-val">Some</span>(storage_key), start_at.get(<span class="number">1</span>).cloned())
@@ -2738,7 +2740,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="prelude-val">Some</span>(<span class="kw">match </span>ChildType::from_prefixed_key(storage_key) {
 						<span class="prelude-val">Some</span>((ChildType::ParentKeyId, storage_key)) =&gt;
 							ChildInfo::new_default(storage_key),
-						<span class="prelude-val">None </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Box::new(<span class="string">&quot;Invalid range start child trie key.&quot;</span>)),
+						<span class="prelude-val">None </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Box::new(<span class="string">"Invalid range start child trie key."</span>)),
 					}),
 					<span class="number">2</span>,
 				)
@@ -2795,7 +2797,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>proof = proving_backend
 			.extract_proof()
-			.expect(<span class="string">&quot;A recorder was set and thus, a storage proof can be extracted; qed&quot;</span>);
+			.expect(<span class="string">"A recorder was set and thus, a storage proof can be extracted; qed"</span>);
 		<span class="prelude-val">Ok</span>((proof, count))
 	}
 
@@ -2840,7 +2842,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			TrieBackendBuilder::wrap(trie_backend).with_recorder(recorder.clone()).build();
 		<span class="kw">let </span><span class="kw-2">mut </span>count = <span class="number">0</span>;
 		<span class="kw">let </span>iter = proving_backend
-			<span class="comment">// NOTE: Even though the loop below doesn&#39;t use these values
+			<span class="comment">// NOTE: Even though the loop below doesn't use these values
 			//       this *must* fetch both the keys and the values so that
 			//       the proof is correct.
 			</span>.pairs(IterArgs {
@@ -2862,7 +2864,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="kw">let </span>proof = proving_backend
 			.extract_proof()
-			.expect(<span class="string">&quot;A recorder was set and thus, a storage proof can be extracted; qed&quot;</span>);
+			.expect(<span class="string">"A recorder was set and thus, a storage proof can be extracted; qed"</span>);
 		<span class="prelude-val">Ok</span>((proof, count))
 	}
 
@@ -2905,7 +2907,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="prelude-val">Ok</span>(proving_backend
 			.extract_proof()
-			.expect(<span class="string">&quot;A recorder was set and thus, a storage proof can be extracted; qed&quot;</span>))
+			.expect(<span class="string">"A recorder was set and thus, a storage proof can be extracted; qed"</span>))
 	}
 
 	<span class="doccomment">/// Generate storage read proof on pre-created trie backend.
@@ -2931,7 +2933,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 		<span class="prelude-val">Ok</span>(proving_backend
 			.extract_proof()
-			.expect(<span class="string">&quot;A recorder was set and thus, a storage proof can be extracted; qed&quot;</span>))
+			.expect(<span class="string">"A recorder was set and thus, a storage proof can be extracted; qed"</span>))
 	}
 
 	<span class="doccomment">/// Check storage read proof, generated by `prove_read` call.
@@ -2941,7 +2943,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		keys: I,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;HashMap&lt;Vec&lt;u8&gt;, <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt;&gt;, Box&lt;<span class="kw">dyn </span>Error&gt;&gt;
 	<span class="kw">where
-		</span>H: Hasher + <span class="lifetime">&#39;static</span>,
+		</span>H: Hasher + <span class="lifetime">'static</span>,
 		H::Out: Ord + Codec,
 		I: IntoIterator,
 		I::Item: AsRef&lt;[u8]&gt;,
@@ -2966,7 +2968,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		start_at: <span class="kw-2">&amp;</span>[Vec&lt;u8&gt;],
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(KeyValueStates, usize), Box&lt;<span class="kw">dyn </span>Error&gt;&gt;
 	<span class="kw">where
-		</span>H: Hasher + <span class="lifetime">&#39;static</span>,
+		</span>H: Hasher + <span class="lifetime">'static</span>,
 		H::Out: Ord + Codec,
 	{
 		<span class="kw">let </span>proving_backend = create_proof_check_backend::&lt;H&gt;(root, proof)<span class="question-mark">?</span>;
@@ -2983,7 +2985,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		start_at: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>[u8]&gt;,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;(Vec&lt;(Vec&lt;u8&gt;, Vec&lt;u8&gt;)&gt;, bool), Box&lt;<span class="kw">dyn </span>Error&gt;&gt;
 	<span class="kw">where
-		</span>H: Hasher + <span class="lifetime">&#39;static</span>,
+		</span>H: Hasher + <span class="lifetime">'static</span>,
 		H::Out: Ord + Codec,
 	{
 		<span class="kw">let </span>proving_backend = create_proof_check_backend::&lt;H&gt;(root, proof)<span class="question-mark">?</span>;
@@ -3004,7 +3006,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		keys: I,
 	) -&gt; <span class="prelude-ty">Result</span>&lt;HashMap&lt;Vec&lt;u8&gt;, <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt;&gt;, Box&lt;<span class="kw">dyn </span>Error&gt;&gt;
 	<span class="kw">where
-		</span>H: Hasher + <span class="lifetime">&#39;static</span>,
+		</span>H: Hasher + <span class="lifetime">'static</span>,
 		H::Out: Ord + Codec,
 		I: IntoIterator,
 		I::Item: AsRef&lt;[u8]&gt;,
@@ -3103,12 +3105,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			parent_storage_keys: Default::default(),
 		}];
 		<span class="kw">if </span>start_at.len() &gt; MAX_NESTED_TRIE_DEPTH {
-			<span class="kw">return </span><span class="prelude-val">Err</span>(Box::new(<span class="string">&quot;Invalid start of range.&quot;</span>))
+			<span class="kw">return </span><span class="prelude-val">Err</span>(Box::new(<span class="string">"Invalid start of range."</span>))
 		}
 
 		<span class="kw">let </span><span class="kw-2">mut </span>child_roots = HashSet::new();
 		<span class="kw">let </span>(<span class="kw-2">mut </span>child_key, <span class="kw-2">mut </span>start_at) = <span class="kw">if </span>start_at.len() == <span class="number">2 </span>{
-			<span class="kw">let </span>storage_key = start_at.get(<span class="number">0</span>).expect(<span class="string">&quot;Checked length.&quot;</span>).clone();
+			<span class="kw">let </span>storage_key = start_at.get(<span class="number">0</span>).expect(<span class="string">"Checked length."</span>).clone();
 			<span class="kw">let </span>child_key = <span class="kw">if let </span><span class="prelude-val">Some</span>(state_root) = proving_backend
 				.storage(<span class="kw-2">&amp;</span>storage_key)
 				.map_err(|e| Box::new(e) <span class="kw">as </span>Box&lt;<span class="kw">dyn </span>Error&gt;)<span class="question-mark">?
@@ -3116,7 +3118,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				child_roots.insert(state_root.clone());
 				<span class="prelude-val">Some</span>((storage_key, state_root))
 			} <span class="kw">else </span>{
-				<span class="kw">return </span><span class="prelude-val">Err</span>(Box::new(<span class="string">&quot;Invalid range start child trie key.&quot;</span>))
+				<span class="kw">return </span><span class="prelude-val">Err</span>(Box::new(<span class="string">"Invalid range start child trie key."</span>))
 			};
 
 			(child_key, start_at.get(<span class="number">1</span>).cloned())
@@ -3137,7 +3139,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="prelude-val">Some</span>(<span class="kw">match </span>ChildType::from_prefixed_key(storage_key) {
 						<span class="prelude-val">Some</span>((ChildType::ParentKeyId, storage_key)) =&gt;
 							ChildInfo::new_default(storage_key),
-						<span class="prelude-val">None </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Box::new(<span class="string">&quot;Invalid range start child trie key.&quot;</span>)),
+						<span class="prelude-val">None </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Box::new(<span class="string">"Invalid range start child trie key."</span>)),
 					}),
 					<span class="number">2</span>,
 				)
@@ -3146,7 +3148,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			};
 
 			<span class="kw">let </span>values = <span class="kw">if </span>child_info.is_some() {
-				<span class="kw-2">&amp;mut </span>result.last_mut().expect(<span class="string">&quot;Added above&quot;</span>).key_values
+				<span class="kw-2">&amp;mut </span>result.last_mut().expect(<span class="string">"Added above"</span>).key_values
 			} <span class="kw">else </span>{
 				<span class="kw-2">&amp;mut </span>result[<span class="number">0</span>].key_values
 			};
@@ -3240,7 +3242,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">match </span>(using_native, <span class="self">self</span>.native_succeeds, <span class="self">self</span>.fallback_succeeds) {
 				(<span class="bool-val">true</span>, <span class="bool-val">true</span>, <span class="kw">_</span>) | (<span class="bool-val">false</span>, <span class="kw">_</span>, <span class="bool-val">true</span>) =&gt; (
 					<span class="prelude-val">Ok</span>(<span class="macro">vec!</span>[
-						ext.storage(<span class="string">b&quot;value1&quot;</span>).unwrap()[<span class="number">0</span>] + ext.storage(<span class="string">b&quot;value2&quot;</span>).unwrap()[<span class="number">0</span>],
+						ext.storage(<span class="string">b"value1"</span>).unwrap()[<span class="number">0</span>] + ext.storage(<span class="string">b"value2"</span>).unwrap()[<span class="number">0</span>],
 					]),
 					using_native,
 				),
@@ -3255,7 +3257,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="kw">_</span>: <span class="kw-2">&amp;</span>[u8],
 			<span class="kw">_</span>: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>Externalities,
 		) -&gt; std::result::Result&lt;Vec&lt;u8&gt;, String&gt; {
-			<span class="macro">unimplemented!</span>(<span class="string">&quot;Not required in tests.&quot;</span>)
+			<span class="macro">unimplemented!</span>(<span class="string">"Not required in tests."</span>)
 		}
 	}
 
@@ -3278,7 +3280,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				native_succeeds: <span class="bool-val">true</span>,
 				fallback_succeeds: <span class="bool-val">true</span>,
 			},
-			<span class="string">&quot;test&quot;</span>,
+			<span class="string">"test"</span>,
 			<span class="kw-2">&amp;</span>[],
 			<span class="kw-2">&amp;mut </span>execution_extensions,
 			<span class="kw-2">&amp;</span>wasm_code,
@@ -3307,7 +3309,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				native_succeeds: <span class="bool-val">true</span>,
 				fallback_succeeds: <span class="bool-val">true</span>,
 			},
-			<span class="string">&quot;test&quot;</span>,
+			<span class="string">"test"</span>,
 			<span class="kw-2">&amp;</span>[],
 			<span class="kw-2">&amp;mut </span>execution_extensions,
 			<span class="kw-2">&amp;</span>wasm_code,
@@ -3329,14 +3331,14 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			fallback_succeeds: <span class="bool-val">true</span>,
 		};
 
-		<span class="comment">// fetch execution proof from &#39;remote&#39; full node
+		<span class="comment">// fetch execution proof from 'remote' full node
 		</span><span class="kw">let </span><span class="kw-2">mut </span>remote_backend = trie_backend::tests::test_trie(state_version, <span class="prelude-val">None</span>, <span class="prelude-val">None</span>);
 		<span class="kw">let </span>remote_root = remote_backend.storage_root(std::iter::empty(), state_version).<span class="number">0</span>;
 		<span class="kw">let </span>(remote_result, remote_proof) = prove_execution(
 			<span class="kw-2">&amp;mut </span>remote_backend,
 			<span class="kw-2">&amp;mut </span>Default::default(),
 			<span class="kw-2">&amp;</span>executor,
-			<span class="string">&quot;test&quot;</span>,
+			<span class="string">"test"</span>,
 			<span class="kw-2">&amp;</span>[],
 			<span class="kw-2">&amp;</span>RuntimeCode::empty(),
 		)
@@ -3348,7 +3350,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			remote_proof,
 			<span class="kw-2">&amp;mut </span>Default::default(),
 			<span class="kw-2">&amp;</span>executor,
-			<span class="string">&quot;test&quot;</span>,
+			<span class="string">"test"</span>,
 			<span class="kw-2">&amp;</span>[],
 			<span class="kw-2">&amp;</span>RuntimeCode::empty(),
 		)
@@ -3362,25 +3364,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>clear_prefix_in_ext_works() {
 		<span class="kw">let </span>initial: BTreeMap&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt; = <span class="macro">map!</span>[
-			<span class="string">b&quot;aaa&quot;</span>.to_vec() =&gt; <span class="string">b&quot;0&quot;</span>.to_vec(),
-			<span class="string">b&quot;abb&quot;</span>.to_vec() =&gt; <span class="string">b&quot;1&quot;</span>.to_vec(),
-			<span class="string">b&quot;abc&quot;</span>.to_vec() =&gt; <span class="string">b&quot;2&quot;</span>.to_vec(),
-			<span class="string">b&quot;bbb&quot;</span>.to_vec() =&gt; <span class="string">b&quot;3&quot;</span>.to_vec()
+			<span class="string">b"aaa"</span>.to_vec() =&gt; <span class="string">b"0"</span>.to_vec(),
+			<span class="string">b"abb"</span>.to_vec() =&gt; <span class="string">b"1"</span>.to_vec(),
+			<span class="string">b"abc"</span>.to_vec() =&gt; <span class="string">b"2"</span>.to_vec(),
+			<span class="string">b"bbb"</span>.to_vec() =&gt; <span class="string">b"3"</span>.to_vec()
 		];
 		<span class="kw">let </span>state = InMemoryBackend::&lt;BlakeTwo256&gt;::from((initial, StateVersion::default()));
 		<span class="kw">let </span>backend = state.as_trie_backend();
 
 		<span class="kw">let </span><span class="kw-2">mut </span>overlay = OverlayedChanges::default();
-		overlay.set_storage(<span class="string">b&quot;aba&quot;</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b&quot;1312&quot;</span>.to_vec()));
-		overlay.set_storage(<span class="string">b&quot;bab&quot;</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b&quot;228&quot;</span>.to_vec()));
+		overlay.set_storage(<span class="string">b"aba"</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b"1312"</span>.to_vec()));
+		overlay.set_storage(<span class="string">b"bab"</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b"228"</span>.to_vec()));
 		overlay.start_transaction();
-		overlay.set_storage(<span class="string">b&quot;abd&quot;</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b&quot;69&quot;</span>.to_vec()));
-		overlay.set_storage(<span class="string">b&quot;bbd&quot;</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b&quot;42&quot;</span>.to_vec()));
+		overlay.set_storage(<span class="string">b"abd"</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b"69"</span>.to_vec()));
+		overlay.set_storage(<span class="string">b"bbd"</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b"42"</span>.to_vec()));
 
 		<span class="kw">let </span>overlay_limit = overlay.clone();
 		{
 			<span class="kw">let </span><span class="kw-2">mut </span>ext = Ext::new(<span class="kw-2">&amp;mut </span>overlay, backend, <span class="prelude-val">None</span>);
-			<span class="kw">let _ </span>= ext.clear_prefix(<span class="string">b&quot;ab&quot;</span>, <span class="prelude-val">None</span>, <span class="prelude-val">None</span>);
+			<span class="kw">let _ </span>= ext.clear_prefix(<span class="string">b"ab"</span>, <span class="prelude-val">None</span>, <span class="prelude-val">None</span>);
 		}
 		overlay.commit_transaction().unwrap();
 
@@ -3390,13 +3392,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.map(|(k, v)| (k.clone(), v.value().cloned()))
 				.collect::&lt;HashMap&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;(),
 			<span class="macro">map!</span>[
-				<span class="string">b&quot;abc&quot;</span>.to_vec() =&gt; <span class="prelude-val">None</span>,
-				<span class="string">b&quot;abb&quot;</span>.to_vec() =&gt; <span class="prelude-val">None</span>,
-				<span class="string">b&quot;aba&quot;</span>.to_vec() =&gt; <span class="prelude-val">None</span>,
-				<span class="string">b&quot;abd&quot;</span>.to_vec() =&gt; <span class="prelude-val">None</span>,
+				<span class="string">b"abc"</span>.to_vec() =&gt; <span class="prelude-val">None</span>,
+				<span class="string">b"abb"</span>.to_vec() =&gt; <span class="prelude-val">None</span>,
+				<span class="string">b"aba"</span>.to_vec() =&gt; <span class="prelude-val">None</span>,
+				<span class="string">b"abd"</span>.to_vec() =&gt; <span class="prelude-val">None</span>,
 
-				<span class="string">b&quot;bab&quot;</span>.to_vec() =&gt; <span class="prelude-val">Some</span>(<span class="string">b&quot;228&quot;</span>.to_vec()),
-				<span class="string">b&quot;bbd&quot;</span>.to_vec() =&gt; <span class="prelude-val">Some</span>(<span class="string">b&quot;42&quot;</span>.to_vec())
+				<span class="string">b"bab"</span>.to_vec() =&gt; <span class="prelude-val">Some</span>(<span class="string">b"228"</span>.to_vec()),
+				<span class="string">b"bbd"</span>.to_vec() =&gt; <span class="prelude-val">Some</span>(<span class="string">b"42"</span>.to_vec())
 			],
 		);
 
@@ -3404,7 +3406,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		{
 			<span class="kw">let </span><span class="kw-2">mut </span>ext = Ext::new(<span class="kw-2">&amp;mut </span>overlay, backend, <span class="prelude-val">None</span>);
 			<span class="macro">assert_matches!</span>(
-				ext.clear_prefix(<span class="string">b&quot;ab&quot;</span>, <span class="prelude-val">Some</span>(<span class="number">1</span>), <span class="prelude-val">None</span>).deconstruct(),
+				ext.clear_prefix(<span class="string">b"ab"</span>, <span class="prelude-val">Some</span>(<span class="number">1</span>), <span class="prelude-val">None</span>).deconstruct(),
 				(<span class="prelude-val">Some</span>(<span class="kw">_</span>), <span class="number">1</span>, <span class="number">3</span>, <span class="number">1</span>)
 			);
 		}
@@ -3416,34 +3418,34 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.map(|(k, v)| (k.clone(), v.value().cloned()))
 				.collect::&lt;HashMap&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;(),
 			<span class="macro">map!</span>[
-				<span class="string">b&quot;abb&quot;</span>.to_vec() =&gt; <span class="prelude-val">None</span>,
-				<span class="string">b&quot;aba&quot;</span>.to_vec() =&gt; <span class="prelude-val">None</span>,
-				<span class="string">b&quot;abd&quot;</span>.to_vec() =&gt; <span class="prelude-val">None</span>,
+				<span class="string">b"abb"</span>.to_vec() =&gt; <span class="prelude-val">None</span>,
+				<span class="string">b"aba"</span>.to_vec() =&gt; <span class="prelude-val">None</span>,
+				<span class="string">b"abd"</span>.to_vec() =&gt; <span class="prelude-val">None</span>,
 
-				<span class="string">b&quot;bab&quot;</span>.to_vec() =&gt; <span class="prelude-val">Some</span>(<span class="string">b&quot;228&quot;</span>.to_vec()),
-				<span class="string">b&quot;bbd&quot;</span>.to_vec() =&gt; <span class="prelude-val">Some</span>(<span class="string">b&quot;42&quot;</span>.to_vec())
+				<span class="string">b"bab"</span>.to_vec() =&gt; <span class="prelude-val">Some</span>(<span class="string">b"228"</span>.to_vec()),
+				<span class="string">b"bbd"</span>.to_vec() =&gt; <span class="prelude-val">Some</span>(<span class="string">b"42"</span>.to_vec())
 			],
 		);
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>limited_child_kill_works() {
-		<span class="kw">let </span>child_info = ChildInfo::new_default(<span class="string">b&quot;sub1&quot;</span>);
+		<span class="kw">let </span>child_info = ChildInfo::new_default(<span class="string">b"sub1"</span>);
 		<span class="kw">let </span>initial: HashMap&lt;<span class="kw">_</span>, BTreeMap&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt; = <span class="macro">map!</span>[
 			<span class="prelude-val">Some</span>(child_info.clone()) =&gt; <span class="macro">map!</span>[
-				<span class="string">b&quot;a&quot;</span>.to_vec() =&gt; <span class="string">b&quot;0&quot;</span>.to_vec(),
-				<span class="string">b&quot;b&quot;</span>.to_vec() =&gt; <span class="string">b&quot;1&quot;</span>.to_vec(),
-				<span class="string">b&quot;c&quot;</span>.to_vec() =&gt; <span class="string">b&quot;2&quot;</span>.to_vec(),
-				<span class="string">b&quot;d&quot;</span>.to_vec() =&gt; <span class="string">b&quot;3&quot;</span>.to_vec()
+				<span class="string">b"a"</span>.to_vec() =&gt; <span class="string">b"0"</span>.to_vec(),
+				<span class="string">b"b"</span>.to_vec() =&gt; <span class="string">b"1"</span>.to_vec(),
+				<span class="string">b"c"</span>.to_vec() =&gt; <span class="string">b"2"</span>.to_vec(),
+				<span class="string">b"d"</span>.to_vec() =&gt; <span class="string">b"3"</span>.to_vec()
 			],
 		];
 		<span class="kw">let </span>backend = InMemoryBackend::&lt;BlakeTwo256&gt;::from((initial, StateVersion::default()));
 
 		<span class="kw">let </span><span class="kw-2">mut </span>overlay = OverlayedChanges::default();
-		overlay.set_child_storage(<span class="kw-2">&amp;</span>child_info, <span class="string">b&quot;1&quot;</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b&quot;1312&quot;</span>.to_vec()));
-		overlay.set_child_storage(<span class="kw-2">&amp;</span>child_info, <span class="string">b&quot;2&quot;</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b&quot;1312&quot;</span>.to_vec()));
-		overlay.set_child_storage(<span class="kw-2">&amp;</span>child_info, <span class="string">b&quot;3&quot;</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b&quot;1312&quot;</span>.to_vec()));
-		overlay.set_child_storage(<span class="kw-2">&amp;</span>child_info, <span class="string">b&quot;4&quot;</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b&quot;1312&quot;</span>.to_vec()));
+		overlay.set_child_storage(<span class="kw-2">&amp;</span>child_info, <span class="string">b"1"</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b"1312"</span>.to_vec()));
+		overlay.set_child_storage(<span class="kw-2">&amp;</span>child_info, <span class="string">b"2"</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b"1312"</span>.to_vec()));
+		overlay.set_child_storage(<span class="kw-2">&amp;</span>child_info, <span class="string">b"3"</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b"1312"</span>.to_vec()));
+		overlay.set_child_storage(<span class="kw-2">&amp;</span>child_info, <span class="string">b"4"</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b"1312"</span>.to_vec()));
 
 		{
 			<span class="kw">let </span><span class="kw-2">mut </span>ext = Ext::new(<span class="kw-2">&amp;mut </span>overlay, <span class="kw-2">&amp;</span>backend, <span class="prelude-val">None</span>);
@@ -3458,25 +3460,25 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.map(|(k, v)| (k.clone(), v.value()))
 				.collect::&lt;BTreeMap&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;(),
 			<span class="macro">map!</span>[
-				<span class="string">b&quot;1&quot;</span>.to_vec() =&gt; <span class="prelude-val">None</span>,
-				<span class="string">b&quot;2&quot;</span>.to_vec() =&gt; <span class="prelude-val">None</span>,
-				<span class="string">b&quot;3&quot;</span>.to_vec() =&gt; <span class="prelude-val">None</span>,
-				<span class="string">b&quot;4&quot;</span>.to_vec() =&gt; <span class="prelude-val">None</span>,
-				<span class="string">b&quot;a&quot;</span>.to_vec() =&gt; <span class="prelude-val">None</span>,
-				<span class="string">b&quot;b&quot;</span>.to_vec() =&gt; <span class="prelude-val">None</span>,
+				<span class="string">b"1"</span>.to_vec() =&gt; <span class="prelude-val">None</span>,
+				<span class="string">b"2"</span>.to_vec() =&gt; <span class="prelude-val">None</span>,
+				<span class="string">b"3"</span>.to_vec() =&gt; <span class="prelude-val">None</span>,
+				<span class="string">b"4"</span>.to_vec() =&gt; <span class="prelude-val">None</span>,
+				<span class="string">b"a"</span>.to_vec() =&gt; <span class="prelude-val">None</span>,
+				<span class="string">b"b"</span>.to_vec() =&gt; <span class="prelude-val">None</span>,
 			],
 		);
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>limited_child_kill_off_by_one_works() {
-		<span class="kw">let </span>child_info = ChildInfo::new_default(<span class="string">b&quot;sub1&quot;</span>);
+		<span class="kw">let </span>child_info = ChildInfo::new_default(<span class="string">b"sub1"</span>);
 		<span class="kw">let </span>initial: HashMap&lt;<span class="kw">_</span>, BTreeMap&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt; = <span class="macro">map!</span>[
 			<span class="prelude-val">Some</span>(child_info.clone()) =&gt; <span class="macro">map!</span>[
-				<span class="string">b&quot;a&quot;</span>.to_vec() =&gt; <span class="string">b&quot;0&quot;</span>.to_vec(),
-				<span class="string">b&quot;b&quot;</span>.to_vec() =&gt; <span class="string">b&quot;1&quot;</span>.to_vec(),
-				<span class="string">b&quot;c&quot;</span>.to_vec() =&gt; <span class="string">b&quot;2&quot;</span>.to_vec(),
-				<span class="string">b&quot;d&quot;</span>.to_vec() =&gt; <span class="string">b&quot;3&quot;</span>.to_vec()
+				<span class="string">b"a"</span>.to_vec() =&gt; <span class="string">b"0"</span>.to_vec(),
+				<span class="string">b"b"</span>.to_vec() =&gt; <span class="string">b"1"</span>.to_vec(),
+				<span class="string">b"c"</span>.to_vec() =&gt; <span class="string">b"2"</span>.to_vec(),
+				<span class="string">b"d"</span>.to_vec() =&gt; <span class="string">b"3"</span>.to_vec()
 			],
 		];
 		<span class="kw">let </span>backend = InMemoryBackend::&lt;BlakeTwo256&gt;::from((initial, StateVersion::default()));
@@ -3499,13 +3501,13 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>limited_child_kill_off_by_one_works_without_limit() {
-		<span class="kw">let </span>child_info = ChildInfo::new_default(<span class="string">b&quot;sub1&quot;</span>);
+		<span class="kw">let </span>child_info = ChildInfo::new_default(<span class="string">b"sub1"</span>);
 		<span class="kw">let </span>initial: HashMap&lt;<span class="kw">_</span>, BTreeMap&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt; = <span class="macro">map!</span>[
 			<span class="prelude-val">Some</span>(child_info.clone()) =&gt; <span class="macro">map!</span>[
-				<span class="string">b&quot;a&quot;</span>.to_vec() =&gt; <span class="string">b&quot;0&quot;</span>.to_vec(),
-				<span class="string">b&quot;b&quot;</span>.to_vec() =&gt; <span class="string">b&quot;1&quot;</span>.to_vec(),
-				<span class="string">b&quot;c&quot;</span>.to_vec() =&gt; <span class="string">b&quot;2&quot;</span>.to_vec(),
-				<span class="string">b&quot;d&quot;</span>.to_vec() =&gt; <span class="string">b&quot;3&quot;</span>.to_vec()
+				<span class="string">b"a"</span>.to_vec() =&gt; <span class="string">b"0"</span>.to_vec(),
+				<span class="string">b"b"</span>.to_vec() =&gt; <span class="string">b"1"</span>.to_vec(),
+				<span class="string">b"c"</span>.to_vec() =&gt; <span class="string">b"2"</span>.to_vec(),
+				<span class="string">b"d"</span>.to_vec() =&gt; <span class="string">b"3"</span>.to_vec()
 			],
 		];
 		<span class="kw">let </span>backend = InMemoryBackend::&lt;BlakeTwo256&gt;::from((initial, StateVersion::default()));
@@ -3516,23 +3518,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>set_child_storage_works() {
-		<span class="kw">let </span>child_info = ChildInfo::new_default(<span class="string">b&quot;sub1&quot;</span>);
+		<span class="kw">let </span>child_info = ChildInfo::new_default(<span class="string">b"sub1"</span>);
 		<span class="kw">let </span>child_info = <span class="kw-2">&amp;</span>child_info;
 		<span class="kw">let </span>state = new_in_mem::&lt;BlakeTwo256&gt;();
 		<span class="kw">let </span>backend = state.as_trie_backend();
 		<span class="kw">let </span><span class="kw-2">mut </span>overlay = OverlayedChanges::default();
 		<span class="kw">let </span><span class="kw-2">mut </span>ext = Ext::new(<span class="kw-2">&amp;mut </span>overlay, backend, <span class="prelude-val">None</span>);
 
-		ext.set_child_storage(child_info, <span class="string">b&quot;abc&quot;</span>.to_vec(), <span class="string">b&quot;def&quot;</span>.to_vec());
-		<span class="macro">assert_eq!</span>(ext.child_storage(child_info, <span class="string">b&quot;abc&quot;</span>), <span class="prelude-val">Some</span>(<span class="string">b&quot;def&quot;</span>.to_vec()));
+		ext.set_child_storage(child_info, <span class="string">b"abc"</span>.to_vec(), <span class="string">b"def"</span>.to_vec());
+		<span class="macro">assert_eq!</span>(ext.child_storage(child_info, <span class="string">b"abc"</span>), <span class="prelude-val">Some</span>(<span class="string">b"def"</span>.to_vec()));
 		<span class="kw">let _ </span>= ext.kill_child_storage(child_info, <span class="prelude-val">None</span>, <span class="prelude-val">None</span>);
-		<span class="macro">assert_eq!</span>(ext.child_storage(child_info, <span class="string">b&quot;abc&quot;</span>), <span class="prelude-val">None</span>);
+		<span class="macro">assert_eq!</span>(ext.child_storage(child_info, <span class="string">b"abc"</span>), <span class="prelude-val">None</span>);
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>append_storage_works() {
-		<span class="kw">let </span>reference_data = <span class="macro">vec!</span>[<span class="string">b&quot;data1&quot;</span>.to_vec(), <span class="string">b&quot;2&quot;</span>.to_vec(), <span class="string">b&quot;D3&quot;</span>.to_vec(), <span class="string">b&quot;d4&quot;</span>.to_vec()];
-		<span class="kw">let </span>key = <span class="string">b&quot;key&quot;</span>.to_vec();
+		<span class="kw">let </span>reference_data = <span class="macro">vec!</span>[<span class="string">b"data1"</span>.to_vec(), <span class="string">b"2"</span>.to_vec(), <span class="string">b"D3"</span>.to_vec(), <span class="string">b"d4"</span>.to_vec()];
+		<span class="kw">let </span>key = <span class="string">b"key"</span>.to_vec();
 		<span class="kw">let </span>state = new_in_mem::&lt;BlakeTwo256&gt;();
 		<span class="kw">let </span>backend = state.as_trie_backend();
 		<span class="kw">let </span><span class="kw-2">mut </span>overlay = OverlayedChanges::default();
@@ -3567,7 +3569,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			CommittedItem,
 		}
 
-		<span class="kw">let </span>key = <span class="string">b&quot;events&quot;</span>.to_vec();
+		<span class="kw">let </span>key = <span class="string">b"events"</span>.to_vec();
 		<span class="kw">let </span>state = new_in_mem::&lt;BlakeTwo256&gt;();
 		<span class="kw">let </span>backend = state.as_trie_backend();
 		<span class="kw">let </span><span class="kw-2">mut </span>overlay = OverlayedChanges::default();
@@ -3635,60 +3637,60 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		prove_read_and_proof_check_works_inner(StateVersion::V1);
 	}
 	<span class="kw">fn </span>prove_read_and_proof_check_works_inner(state_version: StateVersion) {
-		<span class="kw">let </span>child_info = ChildInfo::new_default(<span class="string">b&quot;sub1&quot;</span>);
-		<span class="kw">let </span>missing_child_info = ChildInfo::new_default(<span class="string">b&quot;sub1sub2&quot;</span>); <span class="comment">// key will include other child root to proof.
+		<span class="kw">let </span>child_info = ChildInfo::new_default(<span class="string">b"sub1"</span>);
+		<span class="kw">let </span>missing_child_info = ChildInfo::new_default(<span class="string">b"sub1sub2"</span>); <span class="comment">// key will include other child root to proof.
 		</span><span class="kw">let </span>child_info = <span class="kw-2">&amp;</span>child_info;
 		<span class="kw">let </span>missing_child_info = <span class="kw-2">&amp;</span>missing_child_info;
-		<span class="comment">// fetch read proof from &#39;remote&#39; full node
+		<span class="comment">// fetch read proof from 'remote' full node
 		</span><span class="kw">let </span>remote_backend = trie_backend::tests::test_trie(state_version, <span class="prelude-val">None</span>, <span class="prelude-val">None</span>);
 		<span class="kw">let </span>remote_root = remote_backend.storage_root(std::iter::empty(), state_version).<span class="number">0</span>;
-		<span class="kw">let </span>remote_proof = prove_read(remote_backend, <span class="kw-2">&amp;</span>[<span class="string">b&quot;value2&quot;</span>]).unwrap();
+		<span class="kw">let </span>remote_proof = prove_read(remote_backend, <span class="kw-2">&amp;</span>[<span class="string">b"value2"</span>]).unwrap();
 		<span class="kw">let </span>remote_proof = test_compact(remote_proof, <span class="kw-2">&amp;</span>remote_root);
 		<span class="comment">// check proof locally
 		</span><span class="kw">let </span>local_result1 =
-			read_proof_check::&lt;BlakeTwo256, <span class="kw">_</span>&gt;(remote_root, remote_proof.clone(), <span class="kw-2">&amp;</span>[<span class="string">b&quot;value2&quot;</span>])
+			read_proof_check::&lt;BlakeTwo256, <span class="kw">_</span>&gt;(remote_root, remote_proof.clone(), <span class="kw-2">&amp;</span>[<span class="string">b"value2"</span>])
 				.unwrap();
 		<span class="kw">let </span>local_result2 =
 			read_proof_check::&lt;BlakeTwo256, <span class="kw">_</span>&gt;(remote_root, remote_proof, <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>[<span class="number">0xff</span>]]).is_ok();
 		<span class="comment">// check that results are correct
 		</span><span class="macro">assert_eq!</span>(
 			local_result1.into_iter().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
-			<span class="macro">vec!</span>[(<span class="string">b&quot;value2&quot;</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="macro">vec!</span>[<span class="number">24</span>]))],
+			<span class="macro">vec!</span>[(<span class="string">b"value2"</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="macro">vec!</span>[<span class="number">24</span>]))],
 		);
 		<span class="macro">assert_eq!</span>(local_result2, <span class="bool-val">false</span>);
 		<span class="comment">// on child trie
 		</span><span class="kw">let </span>remote_backend = trie_backend::tests::test_trie(state_version, <span class="prelude-val">None</span>, <span class="prelude-val">None</span>);
 		<span class="kw">let </span>remote_root = remote_backend.storage_root(std::iter::empty(), state_version).<span class="number">0</span>;
-		<span class="kw">let </span>remote_proof = prove_child_read(remote_backend, child_info, <span class="kw-2">&amp;</span>[<span class="string">b&quot;value3&quot;</span>]).unwrap();
+		<span class="kw">let </span>remote_proof = prove_child_read(remote_backend, child_info, <span class="kw-2">&amp;</span>[<span class="string">b"value3"</span>]).unwrap();
 		<span class="kw">let </span>remote_proof = test_compact(remote_proof, <span class="kw-2">&amp;</span>remote_root);
 		<span class="kw">let </span>local_result1 = read_child_proof_check::&lt;BlakeTwo256, <span class="kw">_</span>&gt;(
 			remote_root,
 			remote_proof.clone(),
 			child_info,
-			<span class="kw-2">&amp;</span>[<span class="string">b&quot;value3&quot;</span>],
+			<span class="kw-2">&amp;</span>[<span class="string">b"value3"</span>],
 		)
 		.unwrap();
 		<span class="kw">let </span>local_result2 = read_child_proof_check::&lt;BlakeTwo256, <span class="kw">_</span>&gt;(
 			remote_root,
 			remote_proof.clone(),
 			child_info,
-			<span class="kw-2">&amp;</span>[<span class="string">b&quot;value2&quot;</span>],
+			<span class="kw-2">&amp;</span>[<span class="string">b"value2"</span>],
 		)
 		.unwrap();
 		<span class="kw">let </span>local_result3 = read_child_proof_check::&lt;BlakeTwo256, <span class="kw">_</span>&gt;(
 			remote_root,
 			remote_proof,
 			missing_child_info,
-			<span class="kw-2">&amp;</span>[<span class="string">b&quot;dummy&quot;</span>],
+			<span class="kw-2">&amp;</span>[<span class="string">b"dummy"</span>],
 		)
 		.unwrap();
 
 		<span class="macro">assert_eq!</span>(
 			local_result1.into_iter().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
-			<span class="macro">vec!</span>[(<span class="string">b&quot;value3&quot;</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="macro">vec!</span>[<span class="number">142</span>; <span class="number">33</span>]))],
+			<span class="macro">vec!</span>[(<span class="string">b"value3"</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="macro">vec!</span>[<span class="number">142</span>; <span class="number">33</span>]))],
 		);
-		<span class="macro">assert_eq!</span>(local_result2.into_iter().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(), <span class="macro">vec!</span>[(<span class="string">b&quot;value2&quot;</span>.to_vec(), <span class="prelude-val">None</span>)]);
-		<span class="macro">assert_eq!</span>(local_result3.into_iter().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(), <span class="macro">vec!</span>[(<span class="string">b&quot;dummy&quot;</span>.to_vec(), <span class="prelude-val">None</span>)]);
+		<span class="macro">assert_eq!</span>(local_result2.into_iter().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(), <span class="macro">vec!</span>[(<span class="string">b"value2"</span>.to_vec(), <span class="prelude-val">None</span>)]);
+		<span class="macro">assert_eq!</span>(local_result3.into_iter().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(), <span class="macro">vec!</span>[(<span class="string">b"dummy"</span>.to_vec(), <span class="prelude-val">None</span>)]);
 	}
 
 	<span class="attr">#[test]
@@ -3770,7 +3772,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				}
 			}
 
-			<span class="kw">let </span>storage_proof = backend.extract_proof().expect(<span class="string">&quot;Failed to extract proof&quot;</span>);
+			<span class="kw">let </span>storage_proof = backend.extract_proof().expect(<span class="string">"Failed to extract proof"</span>);
 			<span class="kw">let </span>remote_proof = test_compact(storage_proof, <span class="kw-2">&amp;</span>trie_root);
 			<span class="kw">let </span>proof_check =
 				create_proof_check_backend::&lt;BlakeTwo256&gt;(trie_root, remote_proof).unwrap();
@@ -3839,12 +3841,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span><span class="kw-2">mut </span>root = H256::default();
 		<span class="kw">let </span><span class="kw-2">mut </span>mdb = PrefixedMemoryDB::&lt;BlakeTwo256&gt;::default();
 		{
-			<span class="kw">let </span><span class="kw-2">mut </span>mdb = KeySpacedDBMut::new(<span class="kw-2">&amp;mut </span>mdb, <span class="string">b&quot;&quot;</span>);
+			<span class="kw">let </span><span class="kw-2">mut </span>mdb = KeySpacedDBMut::new(<span class="kw-2">&amp;mut </span>mdb, <span class="string">b""</span>);
 			<span class="kw">let </span><span class="kw-2">mut </span>trie = TrieDBMutBuilderV1::new(<span class="kw-2">&amp;mut </span>mdb, <span class="kw-2">&amp;mut </span>root).build();
-			trie.insert(<span class="string">b&quot;value1&quot;</span>, <span class="kw-2">&amp;</span>[<span class="number">123</span>; <span class="number">1</span>]).unwrap();
-			trie.insert(<span class="string">b&quot;value2&quot;</span>, <span class="kw-2">&amp;</span>[<span class="number">123</span>; <span class="number">10</span>]).unwrap();
-			trie.insert(<span class="string">b&quot;value3&quot;</span>, <span class="kw-2">&amp;</span>[<span class="number">123</span>; <span class="number">100</span>]).unwrap();
-			trie.insert(<span class="string">b&quot;value4&quot;</span>, <span class="kw-2">&amp;</span>[<span class="number">123</span>; <span class="number">1000</span>]).unwrap();
+			trie.insert(<span class="string">b"value1"</span>, <span class="kw-2">&amp;</span>[<span class="number">123</span>; <span class="number">1</span>]).unwrap();
+			trie.insert(<span class="string">b"value2"</span>, <span class="kw-2">&amp;</span>[<span class="number">123</span>; <span class="number">10</span>]).unwrap();
+			trie.insert(<span class="string">b"value3"</span>, <span class="kw-2">&amp;</span>[<span class="number">123</span>; <span class="number">100</span>]).unwrap();
+			trie.insert(<span class="string">b"value4"</span>, <span class="kw-2">&amp;</span>[<span class="number">123</span>; <span class="number">1000</span>]).unwrap();
 		}
 
 		<span class="kw">let </span>remote_backend: TrieBackend&lt;PrefixedMemoryDB&lt;BlakeTwo256&gt;, BlakeTwo256&gt; =
@@ -3866,26 +3868,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span>(<span class="kw-2">mut </span>mdb, <span class="kw-2">mut </span>root) = trie_backend::tests::test_db(state_version);
 		{
 			<span class="kw">let </span><span class="kw-2">mut </span>trie = TrieDBMutBuilderV0::from_existing(<span class="kw-2">&amp;mut </span>mdb, <span class="kw-2">&amp;mut </span>root).build();
-			trie.insert(<span class="string">b&quot;foo&quot;</span>, <span class="macro">vec!</span>[<span class="number">1u8</span>; <span class="number">1_000</span>].as_slice()) <span class="comment">// big inner hash
-				</span>.expect(<span class="string">&quot;insert failed&quot;</span>);
-			trie.insert(<span class="string">b&quot;foo2&quot;</span>, <span class="macro">vec!</span>[<span class="number">3u8</span>; <span class="number">16</span>].as_slice()) <span class="comment">// no inner hash
-				</span>.expect(<span class="string">&quot;insert failed&quot;</span>);
-			trie.insert(<span class="string">b&quot;foo222&quot;</span>, <span class="macro">vec!</span>[<span class="number">5u8</span>; <span class="number">100</span>].as_slice()) <span class="comment">// inner hash
-				</span>.expect(<span class="string">&quot;insert failed&quot;</span>);
+			trie.insert(<span class="string">b"foo"</span>, <span class="macro">vec!</span>[<span class="number">1u8</span>; <span class="number">1_000</span>].as_slice()) <span class="comment">// big inner hash
+				</span>.expect(<span class="string">"insert failed"</span>);
+			trie.insert(<span class="string">b"foo2"</span>, <span class="macro">vec!</span>[<span class="number">3u8</span>; <span class="number">16</span>].as_slice()) <span class="comment">// no inner hash
+				</span>.expect(<span class="string">"insert failed"</span>);
+			trie.insert(<span class="string">b"foo222"</span>, <span class="macro">vec!</span>[<span class="number">5u8</span>; <span class="number">100</span>].as_slice()) <span class="comment">// inner hash
+				</span>.expect(<span class="string">"insert failed"</span>);
 		}
 
 		<span class="kw">let </span>check_proof = |mdb, root, state_version| -&gt; StorageProof {
 			<span class="kw">let </span>remote_backend = TrieBackendBuilder::new(mdb, root).build();
 			<span class="kw">let </span>remote_root = remote_backend.storage_root(std::iter::empty(), state_version).<span class="number">0</span>;
-			<span class="kw">let </span>remote_proof = prove_read(remote_backend, <span class="kw-2">&amp;</span>[<span class="string">b&quot;foo222&quot;</span>]).unwrap();
+			<span class="kw">let </span>remote_proof = prove_read(remote_backend, <span class="kw-2">&amp;</span>[<span class="string">b"foo222"</span>]).unwrap();
 			<span class="comment">// check proof locally
 			</span><span class="kw">let </span>local_result1 =
-				read_proof_check::&lt;BlakeTwo256, <span class="kw">_</span>&gt;(remote_root, remote_proof.clone(), <span class="kw-2">&amp;</span>[<span class="string">b&quot;foo222&quot;</span>])
+				read_proof_check::&lt;BlakeTwo256, <span class="kw">_</span>&gt;(remote_root, remote_proof.clone(), <span class="kw-2">&amp;</span>[<span class="string">b"foo222"</span>])
 					.unwrap();
 			<span class="comment">// check that results are correct
 			</span><span class="macro">assert_eq!</span>(
 				local_result1.into_iter().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
-				<span class="macro">vec!</span>[(<span class="string">b&quot;foo222&quot;</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="macro">vec!</span>[<span class="number">5u8</span>; <span class="number">100</span>]))],
+				<span class="macro">vec!</span>[(<span class="string">b"foo222"</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="macro">vec!</span>[<span class="number">5u8</span>; <span class="number">100</span>]))],
 			);
 			remote_proof
 		};
@@ -3900,11 +3902,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span>state_version = StateVersion::V1;
 		{
 			<span class="kw">let </span><span class="kw-2">mut </span>trie = TrieDBMutBuilderV1::from_existing(<span class="kw-2">&amp;mut </span>mdb, <span class="kw-2">&amp;mut </span>root).build();
-			trie.insert(<span class="string">b&quot;foo222&quot;</span>, <span class="macro">vec!</span>[<span class="number">5u8</span>; <span class="number">100</span>].as_slice()) <span class="comment">// inner hash
-				</span>.expect(<span class="string">&quot;insert failed&quot;</span>);
+			trie.insert(<span class="string">b"foo222"</span>, <span class="macro">vec!</span>[<span class="number">5u8</span>; <span class="number">100</span>].as_slice()) <span class="comment">// inner hash
+				</span>.expect(<span class="string">"insert failed"</span>);
 			<span class="comment">// update with same value do change
-			</span>trie.insert(<span class="string">b&quot;foo&quot;</span>, <span class="macro">vec!</span>[<span class="number">1u8</span>; <span class="number">1000</span>].as_slice()) <span class="comment">// inner hash
-				</span>.expect(<span class="string">&quot;insert failed&quot;</span>);
+			</span>trie.insert(<span class="string">b"foo"</span>, <span class="macro">vec!</span>[<span class="number">1u8</span>; <span class="number">1000</span>].as_slice()) <span class="comment">// inner hash
+				</span>.expect(<span class="string">"insert failed"</span>);
 		}
 		<span class="kw">let </span>root3 = root;
 		<span class="macro">assert!</span>(root1 != root3);
@@ -3927,7 +3929,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">loop </span>{
 			nb_loop += <span class="number">1</span>;
 			<span class="kw">if </span>max_iter == nb_loop {
-				<span class="macro">panic!</span>(<span class="string">&quot;Too many loop in prove range&quot;</span>);
+				<span class="macro">panic!</span>(<span class="string">"Too many loop in prove range"</span>);
 			}
 			<span class="kw">let </span>(proof, count) = prove_range_read_with_child_with_size_on_trie_backend(
 				trie_backend,
@@ -3963,11 +3965,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 	<span class="kw">fn </span>compact_multiple_child_trie_inner(state_version: StateVersion) -&gt; usize {
 		<span class="comment">// this root will be queried
-		</span><span class="kw">let </span>child_info1 = ChildInfo::new_default(<span class="string">b&quot;sub1&quot;</span>);
+		</span><span class="kw">let </span>child_info1 = ChildInfo::new_default(<span class="string">b"sub1"</span>);
 		<span class="comment">// this root will not be include in proof
-		</span><span class="kw">let </span>child_info2 = ChildInfo::new_default(<span class="string">b&quot;sub2&quot;</span>);
+		</span><span class="kw">let </span>child_info2 = ChildInfo::new_default(<span class="string">b"sub2"</span>);
 		<span class="comment">// this root will be include in proof
-		</span><span class="kw">let </span>child_info3 = ChildInfo::new_default(<span class="string">b&quot;sub&quot;</span>);
+		</span><span class="kw">let </span>child_info3 = ChildInfo::new_default(<span class="string">b"sub"</span>);
 		<span class="kw">let </span>remote_backend = trie_backend::tests::test_trie(state_version, <span class="prelude-val">None</span>, <span class="prelude-val">None</span>);
 		<span class="kw">let </span>long_vec: Vec&lt;u8&gt; = (<span class="number">0</span>..<span class="number">1024usize</span>).map(|<span class="kw">_</span>| <span class="number">8u8</span>).collect();
 		<span class="kw">let </span>(remote_root, transaction) = remote_backend.full_storage_root(
@@ -3977,23 +3979,23 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 					<span class="kw-2">&amp;</span>child_info1,
 					<span class="macro">vec!</span>[
 						<span class="comment">// a inner hashable node
-						</span>(<span class="kw-2">&amp;</span><span class="string">b&quot;k&quot;</span>[..], <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>long_vec[..])),
+						</span>(<span class="kw-2">&amp;</span><span class="string">b"k"</span>[..], <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>long_vec[..])),
 						<span class="comment">// need to ensure this is not an inline node
 						// otherwise we do not know what is accessed when
 						// storing proof.
-						</span>(<span class="kw-2">&amp;</span><span class="string">b&quot;key1&quot;</span>[..], <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="macro">vec!</span>[<span class="number">5u8</span>; <span class="number">32</span>][..])),
-						(<span class="kw-2">&amp;</span><span class="string">b&quot;key2&quot;</span>[..], <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="string">b&quot;val3&quot;</span>[..])),
+						</span>(<span class="kw-2">&amp;</span><span class="string">b"key1"</span>[..], <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="macro">vec!</span>[<span class="number">5u8</span>; <span class="number">32</span>][..])),
+						(<span class="kw-2">&amp;</span><span class="string">b"key2"</span>[..], <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="string">b"val3"</span>[..])),
 					]
 					.into_iter(),
 				),
 				(
 					<span class="kw-2">&amp;</span>child_info2,
-					<span class="macro">vec!</span>[(<span class="kw-2">&amp;</span><span class="string">b&quot;key3&quot;</span>[..], <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="string">b&quot;val4&quot;</span>[..])), (<span class="kw-2">&amp;</span><span class="string">b&quot;key4&quot;</span>[..], <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="string">b&quot;val5&quot;</span>[..]))]
+					<span class="macro">vec!</span>[(<span class="kw-2">&amp;</span><span class="string">b"key3"</span>[..], <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="string">b"val4"</span>[..])), (<span class="kw-2">&amp;</span><span class="string">b"key4"</span>[..], <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="string">b"val5"</span>[..]))]
 						.into_iter(),
 				),
 				(
 					<span class="kw-2">&amp;</span>child_info3,
-					<span class="macro">vec!</span>[(<span class="kw-2">&amp;</span><span class="string">b&quot;key5&quot;</span>[..], <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="string">b&quot;val6&quot;</span>[..])), (<span class="kw-2">&amp;</span><span class="string">b&quot;key6&quot;</span>[..], <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="string">b&quot;val7&quot;</span>[..]))]
+					<span class="macro">vec!</span>[(<span class="kw-2">&amp;</span><span class="string">b"key5"</span>[..], <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="string">b"val6"</span>[..])), (<span class="kw-2">&amp;</span><span class="string">b"key6"</span>[..], <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="string">b"val7"</span>[..]))]
 						.into_iter(),
 				),
 			]
@@ -4003,26 +4005,26 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span><span class="kw-2">mut </span>remote_storage = remote_backend.backend_storage().clone();
 		remote_storage.consolidate(transaction);
 		<span class="kw">let </span>remote_backend = TrieBackendBuilder::new(remote_storage, remote_root).build();
-		<span class="kw">let </span>remote_proof = prove_child_read(remote_backend, <span class="kw-2">&amp;</span>child_info1, <span class="kw-2">&amp;</span>[<span class="string">b&quot;key1&quot;</span>]).unwrap();
+		<span class="kw">let </span>remote_proof = prove_child_read(remote_backend, <span class="kw-2">&amp;</span>child_info1, <span class="kw-2">&amp;</span>[<span class="string">b"key1"</span>]).unwrap();
 		<span class="kw">let </span>size = remote_proof.encoded_size();
 		<span class="kw">let </span>remote_proof = test_compact(remote_proof, <span class="kw-2">&amp;</span>remote_root);
 		<span class="kw">let </span>local_result1 = read_child_proof_check::&lt;BlakeTwo256, <span class="kw">_</span>&gt;(
 			remote_root,
 			remote_proof,
 			<span class="kw-2">&amp;</span>child_info1,
-			<span class="kw-2">&amp;</span>[<span class="string">b&quot;key1&quot;</span>],
+			<span class="kw-2">&amp;</span>[<span class="string">b"key1"</span>],
 		)
 		.unwrap();
 		<span class="macro">assert_eq!</span>(local_result1.len(), <span class="number">1</span>);
-		<span class="macro">assert_eq!</span>(local_result1.get(<span class="kw-2">&amp;</span><span class="string">b&quot;key1&quot;</span>[..]), <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="prelude-val">Some</span>(<span class="macro">vec!</span>[<span class="number">5u8</span>; <span class="number">32</span>])));
+		<span class="macro">assert_eq!</span>(local_result1.get(<span class="kw-2">&amp;</span><span class="string">b"key1"</span>[..]), <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="prelude-val">Some</span>(<span class="macro">vec!</span>[<span class="number">5u8</span>; <span class="number">32</span>])));
 		size
 	}
 
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>child_storage_uuid() {
 		<span class="kw">let </span>state_version = StateVersion::V0;
-		<span class="kw">let </span>child_info_1 = ChildInfo::new_default(<span class="string">b&quot;sub_test1&quot;</span>);
-		<span class="kw">let </span>child_info_2 = ChildInfo::new_default(<span class="string">b&quot;sub_test2&quot;</span>);
+		<span class="kw">let </span>child_info_1 = ChildInfo::new_default(<span class="string">b"sub_test1"</span>);
+		<span class="kw">let </span>child_info_2 = ChildInfo::new_default(<span class="string">b"sub_test2"</span>);
 
 		<span class="kw">use </span><span class="kw">crate</span>::trie_backend::tests::test_trie;
 		<span class="kw">let </span><span class="kw-2">mut </span>overlay = OverlayedChanges::default();
@@ -4030,8 +4032,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span><span class="kw-2">mut </span>transaction = {
 			<span class="kw">let </span>backend = test_trie(state_version, <span class="prelude-val">None</span>, <span class="prelude-val">None</span>);
 			<span class="kw">let </span><span class="kw-2">mut </span>ext = Ext::new(<span class="kw-2">&amp;mut </span>overlay, <span class="kw-2">&amp;</span>backend, <span class="prelude-val">None</span>);
-			ext.set_child_storage(<span class="kw-2">&amp;</span>child_info_1, <span class="string">b&quot;abc&quot;</span>.to_vec(), <span class="string">b&quot;def&quot;</span>.to_vec());
-			ext.set_child_storage(<span class="kw-2">&amp;</span>child_info_2, <span class="string">b&quot;abc&quot;</span>.to_vec(), <span class="string">b&quot;def&quot;</span>.to_vec());
+			ext.set_child_storage(<span class="kw-2">&amp;</span>child_info_1, <span class="string">b"abc"</span>.to_vec(), <span class="string">b"def"</span>.to_vec());
+			ext.set_child_storage(<span class="kw-2">&amp;</span>child_info_2, <span class="string">b"abc"</span>.to_vec(), <span class="string">b"def"</span>.to_vec());
 			ext.storage_root(state_version);
 			overlay.drain_storage_changes(<span class="kw-2">&amp;</span>backend, state_version).unwrap().transaction
 		};
@@ -4040,7 +4042,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			<span class="comment">// look for a key inserted twice: transaction rc is 2
 			</span><span class="kw">if </span><span class="kw-2">*</span>rc == <span class="number">2 </span>{
 				duplicate = <span class="bool-val">true</span>;
-				<span class="macro">println!</span>(<span class="string">&quot;test duplicate for {:?} {:?}&quot;</span>, k, value);
+				<span class="macro">println!</span>(<span class="string">"test duplicate for {:?} {:?}"</span>, k, value);
 			}
 		}
 		<span class="macro">assert!</span>(!duplicate);
@@ -4049,30 +4051,30 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="attr">#[test]
 	</span><span class="kw">fn </span>set_storage_empty_allowed() {
 		<span class="kw">let </span>initial: BTreeMap&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt; = <span class="macro">map!</span>[
-			<span class="string">b&quot;aaa&quot;</span>.to_vec() =&gt; <span class="string">b&quot;0&quot;</span>.to_vec(),
-			<span class="string">b&quot;bbb&quot;</span>.to_vec() =&gt; <span class="string">b&quot;&quot;</span>.to_vec()
+			<span class="string">b"aaa"</span>.to_vec() =&gt; <span class="string">b"0"</span>.to_vec(),
+			<span class="string">b"bbb"</span>.to_vec() =&gt; <span class="string">b""</span>.to_vec()
 		];
 		<span class="kw">let </span>state = InMemoryBackend::&lt;BlakeTwo256&gt;::from((initial, StateVersion::default()));
 		<span class="kw">let </span>backend = state.as_trie_backend();
 
 		<span class="kw">let </span><span class="kw-2">mut </span>overlay = OverlayedChanges::default();
 		overlay.start_transaction();
-		overlay.set_storage(<span class="string">b&quot;ccc&quot;</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b&quot;&quot;</span>.to_vec()));
-		<span class="macro">assert_eq!</span>(overlay.storage(<span class="string">b&quot;ccc&quot;</span>), <span class="prelude-val">Some</span>(<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>[][..])));
+		overlay.set_storage(<span class="string">b"ccc"</span>.to_vec(), <span class="prelude-val">Some</span>(<span class="string">b""</span>.to_vec()));
+		<span class="macro">assert_eq!</span>(overlay.storage(<span class="string">b"ccc"</span>), <span class="prelude-val">Some</span>(<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>[][..])));
 		overlay.commit_transaction().unwrap();
 		overlay.start_transaction();
-		<span class="macro">assert_eq!</span>(overlay.storage(<span class="string">b&quot;ccc&quot;</span>), <span class="prelude-val">Some</span>(<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>[][..])));
-		<span class="macro">assert_eq!</span>(overlay.storage(<span class="string">b&quot;bbb&quot;</span>), <span class="prelude-val">None</span>);
+		<span class="macro">assert_eq!</span>(overlay.storage(<span class="string">b"ccc"</span>), <span class="prelude-val">Some</span>(<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>[][..])));
+		<span class="macro">assert_eq!</span>(overlay.storage(<span class="string">b"bbb"</span>), <span class="prelude-val">None</span>);
 
 		{
 			<span class="kw">let </span><span class="kw-2">mut </span>ext = Ext::new(<span class="kw-2">&amp;mut </span>overlay, backend, <span class="prelude-val">None</span>);
-			<span class="macro">assert_eq!</span>(ext.storage(<span class="string">b&quot;bbb&quot;</span>), <span class="prelude-val">Some</span>(<span class="macro">vec!</span>[]));
-			<span class="macro">assert_eq!</span>(ext.storage(<span class="string">b&quot;ccc&quot;</span>), <span class="prelude-val">Some</span>(<span class="macro">vec!</span>[]));
-			ext.clear_storage(<span class="string">b&quot;ccc&quot;</span>);
-			<span class="macro">assert_eq!</span>(ext.storage(<span class="string">b&quot;ccc&quot;</span>), <span class="prelude-val">None</span>);
+			<span class="macro">assert_eq!</span>(ext.storage(<span class="string">b"bbb"</span>), <span class="prelude-val">Some</span>(<span class="macro">vec!</span>[]));
+			<span class="macro">assert_eq!</span>(ext.storage(<span class="string">b"ccc"</span>), <span class="prelude-val">Some</span>(<span class="macro">vec!</span>[]));
+			ext.clear_storage(<span class="string">b"ccc"</span>);
+			<span class="macro">assert_eq!</span>(ext.storage(<span class="string">b"ccc"</span>), <span class="prelude-val">None</span>);
 		}
 		overlay.commit_transaction().unwrap();
-		<span class="macro">assert_eq!</span>(overlay.storage(<span class="string">b&quot;ccc&quot;</span>), <span class="prelude-val">Some</span>(<span class="prelude-val">None</span>));
+		<span class="macro">assert_eq!</span>(overlay.storage(<span class="string">b"ccc"</span>), <span class="prelude-val">Some</span>(<span class="prelude-val">None</span>));
 	}
 }
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/executor/wasmtime/src/instance_wrapper.rs`."><title>instance_wrapper.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-9ee3a5e31a2afa3e.css"><script id="default-settings" 
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `substrate/client/executor/wasmtime/src/instance_wrapper.rs`."><title>instance_wrapper.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-5bc39a1768837dd0.css"><script id="default-settings" 
 data-theme="ayu"
-data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_executor_wasmtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.75.0 (82e1608df 2023-12-21)" data-channel="1.75.0" data-search-js="search-8fbf244ebcf71464.js" data-settings-js="settings-74424d7eec62a23e.js" ><script src="../../static.files/storage-fec3eaa3851e447d.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-9dd44ab47b99a0fb.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-5d8b3c7633ad77ba.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
+data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="sc_executor_wasmtime" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.0 (aedd173a2 2024-03-17)" data-channel="1.77.0" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="stylesheet" href="../../theme.css"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"><script>
 	function createToC() {
 		let sidebar = document.querySelector(".sidebar");
 		let headers = document.querySelectorAll("#main-content h2, #main-content h3, #main-content h4");
@@ -147,7 +147,9 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	}
 </style>
 
-<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<script async defer src="https://apisa.parity.io/latest.js"></script><noscript><img src="https://apisa.parity.io/latest.js" alt="" referrerpolicy="no-referrer-when-downgrade" /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+            <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
+    <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../sc_executor_wasmtime/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -402,11 +404,11 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 				.data_mut()
 				.host_state
 				.as_mut()
-				.expect(<span class="string">&quot;host state cannot be empty while a function is being called; qed&quot;</span>);
+				.expect(<span class="string">"host state cannot be empty while a function is being called; qed"</span>);
 
 			<span class="kw">let </span>backtrace = trap.downcast_ref::&lt;wasmtime::WasmBacktrace&gt;().map(|backtrace| {
 				<span class="comment">// The logic to print out a backtrace is somewhat complicated,
-				// so let&#39;s get wasmtime to print it out for us.
+				// so let's get wasmtime to print it out for us.
 				</span>Backtrace { backtrace_string: backtrace.to_string() }
 			});
 
@@ -422,18 +424,18 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 	<span class="kw">pub fn </span>direct(
 		func: wasmtime::Func,
 		ctx: <span class="kw">impl </span>AsContext,
-	) -&gt; std::result::Result&lt;<span class="self">Self</span>, <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; {
+	) -&gt; std::result::Result&lt;<span class="self">Self</span>, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
 		<span class="kw">let </span>entrypoint = func
 			.typed::&lt;(u32, u32), u64&gt;(ctx)
-			.map_err(|<span class="kw">_</span>| <span class="string">&quot;Invalid signature for direct entry point&quot;</span>)<span class="question-mark">?</span>;
+			.map_err(|<span class="kw">_</span>| <span class="string">"Invalid signature for direct entry point"</span>)<span class="question-mark">?</span>;
 		<span class="prelude-val">Ok</span>(<span class="self">Self</span>(entrypoint))
 	}
 }
 
 <span class="doccomment">/// Wrapper around [`Memory`] that implements [`sc_allocator::Memory`].
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>MemoryWrapper&lt;<span class="lifetime">&#39;a</span>, C&gt;(<span class="kw">pub </span><span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>wasmtime::Memory, <span class="kw">pub </span><span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>C);
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>MemoryWrapper&lt;<span class="lifetime">'a</span>, C&gt;(<span class="kw">pub </span><span class="kw-2">&amp;</span><span class="lifetime">'a </span>wasmtime::Memory, <span class="kw">pub </span><span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>C);
 
-<span class="kw">impl</span>&lt;C: AsContextMut&gt; sc_allocator::Memory <span class="kw">for </span>MemoryWrapper&lt;<span class="lifetime">&#39;_</span>, C&gt; {
+<span class="kw">impl</span>&lt;C: AsContextMut&gt; sc_allocator::Memory <span class="kw">for </span>MemoryWrapper&lt;<span class="lifetime">'_</span>, C&gt; {
 	<span class="kw">fn </span>with_access_mut&lt;R&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, run: <span class="kw">impl </span>FnOnce(<span class="kw-2">&amp;mut </span>[u8]) -&gt; R) -&gt; R {
 		run(<span class="self">self</span>.<span class="number">0</span>.data_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>.<span class="number">1</span>))
 	}
@@ -447,8 +449,8 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 			</span>.grow(<span class="kw-2">&amp;mut </span><span class="self">self</span>.<span class="number">1</span>, additional <span class="kw">as </span>u64)
 			.map_err(|e| {
 				<span class="macro">log::error!</span>(
-					target: <span class="string">&quot;wasm-executor&quot;</span>,
-					<span class="string">&quot;Failed to grow memory by {} pages: {}&quot;</span>,
+					target: <span class="string">"wasm-executor"</span>,
+					<span class="string">"Failed to grow memory by {} pages: {}"</span>,
 					additional,
 					e,
 				)
@@ -488,7 +490,7 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		<span class="kw">let </span><span class="kw-2">mut </span>store = Store::new(engine, Default::default());
 		<span class="kw">let </span>instance = instance_pre.instantiate(<span class="kw-2">&amp;mut </span>store).map_err(|error| {
 			WasmError::Other(<span class="macro">format!</span>(
-				<span class="string">&quot;failed to instantiate a new WASM module instance: {:#}&quot;</span>,
+				<span class="string">"failed to instantiate a new WASM module instance: {:#}"</span>,
 				error,
 			))
 		})<span class="question-mark">?</span>;
@@ -509,32 +511,32 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 		</span><span class="kw">let </span>export = <span class="self">self
 			</span>.instance
 			.get_export(<span class="kw-2">&amp;mut </span><span class="self">self</span>.store, method)
-			.ok_or_else(|| Error::from(<span class="macro">format!</span>(<span class="string">&quot;Exported method {} is not found&quot;</span>, method)))<span class="question-mark">?</span>;
+			.ok_or_else(|| Error::from(<span class="macro">format!</span>(<span class="string">"Exported method {} is not found"</span>, method)))<span class="question-mark">?</span>;
 		<span class="kw">let </span>func = export
 			.into_func()
-			.ok_or_else(|| Error::from(<span class="macro">format!</span>(<span class="string">&quot;Export {} is not a function&quot;</span>, method)))<span class="question-mark">?</span>;
+			.ok_or_else(|| Error::from(<span class="macro">format!</span>(<span class="string">"Export {} is not a function"</span>, method)))<span class="question-mark">?</span>;
 		EntryPoint::direct(func, <span class="kw-2">&amp;</span><span class="self">self</span>.store).map_err(|<span class="kw">_</span>| {
-			Error::from(<span class="macro">format!</span>(<span class="string">&quot;Exported function &#39;{}&#39; has invalid signature.&quot;</span>, method))
+			Error::from(<span class="macro">format!</span>(<span class="string">"Exported function '{}' has invalid signature."</span>, method))
 		})
 	}
 
 	<span class="doccomment">/// Reads `__heap_base: i32` global variable and returns it.
 	///
-	/// If it doesn&#39;t exist, not a global or of not i32 type returns an error.
+	/// If it doesn't exist, not a global or of not i32 type returns an error.
 	</span><span class="kw">pub fn </span>extract_heap_base(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;u32&gt; {
 		<span class="kw">let </span>heap_base_export = <span class="self">self
 			</span>.instance
-			.get_export(<span class="kw-2">&amp;mut </span><span class="self">self</span>.store, <span class="string">&quot;__heap_base&quot;</span>)
-			.ok_or_else(|| Error::from(<span class="string">&quot;__heap_base is not found&quot;</span>))<span class="question-mark">?</span>;
+			.get_export(<span class="kw-2">&amp;mut </span><span class="self">self</span>.store, <span class="string">"__heap_base"</span>)
+			.ok_or_else(|| Error::from(<span class="string">"__heap_base is not found"</span>))<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>heap_base_global = heap_base_export
 			.into_global()
-			.ok_or_else(|| Error::from(<span class="string">&quot;__heap_base is not a global&quot;</span>))<span class="question-mark">?</span>;
+			.ok_or_else(|| Error::from(<span class="string">"__heap_base is not a global"</span>))<span class="question-mark">?</span>;
 
 		<span class="kw">let </span>heap_base = heap_base_global
 			.get(<span class="kw-2">&amp;mut </span><span class="self">self</span>.store)
 			.i32()
-			.ok_or_else(|| Error::from(<span class="string">&quot;__heap_base is not a i32&quot;</span>))<span class="question-mark">?</span>;
+			.ok_or_else(|| Error::from(<span class="string">"__heap_base is not a i32"</span>))<span class="question-mark">?</span>;
 
 		<span class="prelude-val">Ok</span>(heap_base <span class="kw">as </span>u32)
 	}
@@ -543,12 +545,12 @@ data-use_system_theme="false"></script><meta name="rustdoc-vars" data-root-path=
 <span class="doccomment">/// Extract linear memory instance from the given instance.
 </span><span class="kw">fn </span>get_linear_memory(instance: <span class="kw-2">&amp;</span>Instance, ctx: <span class="kw">impl </span>AsContextMut) -&gt; <span class="prelude-ty">Result</span>&lt;Memory&gt; {
 	<span class="kw">let </span>memory_export = instance
-		.get_export(ctx, <span class="string">&quot;memory&quot;</span>)
-		.ok_or_else(|| Error::from(<span class="string">&quot;memory is not exported under `memory` name&quot;</span>))<span class="question-mark">?</span>;
+		.get_export(ctx, <span class="string">"memory"</span>)
+		.ok_or_else(|| Error::from(<span class="string">"memory is not exported under `memory` name"</span>))<span class="question-mark">?</span>;
 
 	<span class="kw">let </span>memory = memory_export
 		.into_memory()
-		.ok_or_else(|| Error::from(<span class="string">&quot;the `memory` export should have memory type&quot;</span>))<span class="question-mark">?</span>;
+		.ok_or_else(|| Error::from(<span class="string">"the `memory` export should have memory type"</span>))<span class="question-mark">?</span>;
 
 	<span class="prelude-val">Ok</span>(memory)
 }
